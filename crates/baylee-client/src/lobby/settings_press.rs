@@ -85,6 +85,13 @@ pub(crate) enum SettingsPress {
     TableLean(baylee_client_core::tableview::RingLean),
     /// Graphics: where a visit stands (D21).
     VisitCamera(baylee_client_core::tableview::VisitCamera),
+    /// Graphics: the default arrangement (DESIGN-v8 §2.4).
+    Arrangement(baylee_client_core::tableview::Arrangement),
+    /// Graphics: *Tisch folgt dem Zug* (DESIGN-v8 §1.1).
+    FollowTurn,
+    /// Graphics: the arrangement remembered for a seat count, stepped by
+    /// one through *Default* and the eight (DESIGN-v8 §2.6).
+    ArrangementForSeats(u8, i8),
     /// Display: the text step.
     TextSize(crate::shellkit::TextSize),
     /// Display: the preview a tenth larger or smaller.
@@ -198,6 +205,22 @@ impl SettingsPress {
                 let differs = s.table.visit != visit;
                 s.table.visit = visit;
                 differs
+            }),
+            SettingsPress::Arrangement(arrangement) => device(settings, |s| {
+                let differs = s.table.arrangement != arrangement;
+                s.table.arrangement = arrangement;
+                differs
+            }),
+            SettingsPress::FollowTurn => device(settings, |s| {
+                s.table.follow = !s.table.follow;
+                true
+            }),
+            SettingsPress::ArrangementForSeats(seats, step) => device(settings, |s| {
+                let seats = usize::from(seats);
+                let now = s.table.arrangement_by_seats.get(seats);
+                let next = crate::arrangement::step_remembered(now, step);
+                s.table.arrangement_by_seats.set(seats, next);
+                next != now
             }),
             SettingsPress::TextSize(size) => device(settings, |s| {
                 let differs = s.text_size != size;
@@ -422,6 +445,9 @@ impl SettingsPress {
             | SettingsPress::PriorityCue
             | SettingsPress::TableLean(_)
             | SettingsPress::VisitCamera(_)
+            | SettingsPress::Arrangement(_)
+            | SettingsPress::FollowTurn
+            | SettingsPress::ArrangementForSeats(..)
             | SettingsPress::TextSize(_)
             | SettingsPress::PreviewSize(_)
             | SettingsPress::TextFace

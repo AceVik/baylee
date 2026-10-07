@@ -758,6 +758,61 @@ accident, and arithmetic borrows nothing.
   Which tick is which commander is the tooltip's answer — the same half this
   panel already gives for a counter chip's colour.
 
+## The arrangements (DESIGN-v8)
+
+The owner (07.10.2026): every arrangement explored in the table designs is
+built and switchable live, "then everyone can set it up for themselves and
+also try out what works best when". An arrangement is an arm of
+`TableLayout::arranged(seats, aspect, Arrangement, interest)` plus a camera
+pose (`CameraRig::home_shot` / `visit` match on `Shot::arrangement`); nothing
+else in the client knows what one is. It reads the roster (`&[Seat]`) and
+nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
+
+- **Two kinds.** A *camera* arrangement (`Arrangement::moves_cards` false:
+  the ring and its kin) answers the seat of interest — `Duel::visiting`, set
+  by a strip chip, `F`/`⇧F`, `H` — by moving the camera. A *layout* one
+  re-solves the slots round it: cards glide, the camera stays home.
+  `arrangement::lay_the_interest` seats the table again whenever `visiting`
+  differs from `Duel::interest_laid` (what `rebuild_board` last solved
+  round), so every writer of the interest is covered; `Duel::camera_visit` is
+  what the camera and its orbit read.
+- **A duel is a duel**: at two seats every arrangement is `seated`'s duel
+  (`every_arrangement_at_two_seats_is_the_duel`), and the switcher is hidden.
+- **Which one is in effect** (`arrangement::in_effect`): this game's switch
+  (`Duel::arrangement_game`), else the device's memory for the seat count
+  (`TableView::arrangement_by_seats`, 3–8), else its default
+  (`TableView::arrangement`); refused to the ring where it is not offered at
+  this seat count and window (`Arrangement::offered(seats, TableFrame)`, every
+  refusal a sentence), the Turntable with rows resolved once per table and
+  latched (`Duel::arrangement_latch`). An arrangement name a newer build
+  wrote reads as the ring, never refusing the settings file.
+- **The switcher**: a pill at `(EDGE, EDGE)`, `CORNER_BUTTON` tall, in the
+  top-left corner (`arrangement::sync_switcher`, `G_SWITCHER` 800, under the
+  report button): a letter in a ring as the placeholder pictogram, the name
+  on a wide window, a caret. Its width is set to `pill_width`, and
+  `camera_tests::the_arrangement_pill_lies_on_no_seat_s_place` holds every
+  built arrangement's home seats clear of it at 2–8 seats in seven windows.
+  Below a wide window the pill shows the letter alone: at 800 × 600 the
+  ring's left flank reaches where a named pill would stand. A phone draws no
+  pill; the game menu's row *Anordnung › …* (on every frame) opens the same
+  menu as a sheet over the window. The menu: one row per arrangement (disc,
+  name, what it does, a greyed row's reason or the *experimentell* tag, its
+  digit), then *remember for N seats* (ticked: the per-count memory;
+  unticked: this game only). A veil behind it shuts it on a press elsewhere.
+- **Keys** (`docs/keyboard-map.md`): `P` opens the menu, which then holds the
+  keyboard (`↑↓`/`W S`, `Enter`/`Space`, `1`–`8`, `Esc`); `⇧P` takes the next
+  offered arrangement and flashes the pill's name for 1.2 s. Both are out of
+  `Keymap::legacy()`.
+- **Settings › Graphics** (device): *Tischanordnung* (the default, one button
+  per arrangement, those not built yet dead with the package that brings
+  them), *Tisch folgt dem Zug* (off, D25) and *Je Sitzzahl* (a stepper per
+  seat count through *Default* and the built arrangements).
+- **`/state.arrangement`**: `current`, `chosen`, `game`, `default`,
+  `by_seats`, `offered`, `reason`, `follow`, `interest`, `moves_cards`,
+  `seats`, `frame`, `moving` (cards gliding or the camera orbiting),
+  `cards_moving`, `settled_frames` (`table::GlideReport`), `menu`,
+  `remember`, `flash`, the `pill` and `panel` rectangles, `parked`.
+
 ## Grouping and the token summary
 
 Identical permanents draw as one card with a **count badge** at its

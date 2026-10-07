@@ -565,6 +565,9 @@ pub enum MenuAction {
     DeclinePayment,
     /// Open the report form (#309), from the game menu.
     Report,
+    /// Open the arrangement menu (DESIGN-v8 §2.4): the game menu's row, and
+    /// on a phone the switcher's only door.
+    ArrangementMenu,
     /// Leave the game (sends the engine's own concession).
     Concede,
     /// Offer a draw: every other player still in the game has to accept

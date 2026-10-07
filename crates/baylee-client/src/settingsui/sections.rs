@@ -215,6 +215,7 @@ pub(crate) fn graphics(out: &mut Out, view: &View) {
         |i| Press::Settings(SettingsPress::VisitCamera(VisitCamera::ALL[i])),
     );
     out.row(Row::VisitCamera, control);
+    arrangement_rows(out, &table);
     out.caption_rule(Phrase::SettingsAccountRule.text(lang));
     let names = labels(
         lang,
@@ -242,6 +243,97 @@ pub(crate) fn graphics(out: &mut Out, view: &View) {
         Press::Settings(SettingsPress::PickSky(SkyMode::ALL[i]))
     });
     out.row(Row::Sky, control);
+}
+
+/// The arrangement rows (DESIGN-v8 §2.4): the default as one button per
+/// arrangement (an arrangement not built yet is drawn dead), *Tisch folgt
+/// dem Zug*, and the per-count memory, a stepper per seat count.
+fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableView) {
+    use baylee_client_core::tableview::{Arrangement, BySeats};
+    let lang = out.lang;
+    let mut buttons = Vec::new();
+    let coming: Vec<String> = Arrangement::ALL
+        .iter()
+        .map(|a| Phrase::ArrComing.fill(lang, &[a.package()]))
+        .collect();
+    for (i, arrangement) in Arrangement::ALL.into_iter().enumerate() {
+        let live = if arrangement.built() {
+            crate::shellkit::controls::Live::Yes
+        } else {
+            crate::shellkit::controls::Live::No(&coming[i])
+        };
+        let text = format!("{} {}", arrangement.letter(), arrangement.name().text(lang));
+        buttons.push(crate::shellkit::controls::button(
+            out.commands,
+            out.kit,
+            &text,
+            crate::shellkit::controls::Weight::Secondary,
+            live,
+            None,
+            (
+                Press::Settings(SettingsPress::Arrangement(arrangement)),
+                super::rows::item("arrangement", i),
+                crate::shellkit::focus::Current(arrangement == table.arrangement),
+            ),
+        ));
+    }
+    let wrap = out
+        .commands
+        .spawn((
+            Node {
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: out.kit.m.px(6.0),
+                row_gap: out.kit.m.px(6.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .add_children(&buttons)
+        .id();
+    out.block(Row::Arrangement, &[wrap]);
+    let control = out.toggle(
+        "follow-turn",
+        table.follow,
+        Press::Settings(SettingsPress::FollowTurn),
+    );
+    out.row(Row::FollowTurn, control);
+    let mut lines = Vec::new();
+    for seats in BySeats::FIRST..=BySeats::LAST {
+        let shown = table
+            .arrangement_by_seats
+            .get(seats)
+            .map_or(Phrase::ArrAsDefault.text(lang), |a| a.name().text(lang));
+        let n = u8::try_from(seats).unwrap_or(u8::MAX);
+        let i = (seats - BySeats::FIRST) * 2;
+        let stepper = crate::shellkit::controls::stepper(
+            out.commands,
+            out.kit,
+            shown,
+            (
+                Press::Settings(SettingsPress::ArrangementForSeats(n, -1)),
+                super::rows::item("arrangement-seats", i),
+            ),
+            (
+                Press::Settings(SettingsPress::ArrangementForSeats(n, 1)),
+                super::rows::item("arrangement-seats", i + 1),
+            ),
+        );
+        let label = out.words(&Phrase::ArrSeats.fill(lang, &[&seats.to_string()]), false);
+        let line = out
+            .commands
+            .spawn((
+                Node {
+                    align_items: AlignItems::Center,
+                    column_gap: out.kit.m.px(12.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .add_children(&[label, stepper])
+            .id();
+        lines.push(line);
+    }
+    out.block(Row::ArrangementBySeats, &lines);
 }
 
 /// A volume, 0 to 1, as a slider's 0 to 100.

@@ -18,7 +18,10 @@ pub fn keyboard(
     mut prefs: ResMut<crate::prefs::Prefs>,
     mut settings: ResMut<crate::settings::ClientSettings>,
     mut had_keyboard: Local<bool>,
-    desk: Option<Res<crate::report::ReportDesk>>,
+    (desk, mut arrangements): (
+        Option<Res<crate::report::ReportDesk>>,
+        Option<ResMut<crate::arrangement::ArrangementFrame>>,
+    ),
 ) {
     // The report form, when it is up, has every key (#309).
     if desk.is_some_and(|desk| desk.holds_keyboard()) {
@@ -26,6 +29,22 @@ pub fn keyboard(
         return;
     }
     let fired = Fired::of_layout(&keys, logical.as_deref(), prefs.keymap());
+    // The arrangement menu, while it stands, has every key too (DESIGN-v8
+    // §2.3): the table hears nothing until it is shut.
+    if duel.arrangement_menu.is_some()
+        && let Some(frame) = arrangements.as_deref_mut()
+    {
+        let digits: Vec<u32> = typed
+            .read()
+            .filter(|event| event.state.is_pressed())
+            .filter_map(|event| match &event.logical_key {
+                Key::Character(s) => s.chars().find_map(|c| c.to_digit(10)),
+                _ => None,
+            })
+            .collect();
+        crate::arrangement::keys(fired, &digits, &mut duel, &mut settings, frame);
+        return;
+    }
     // The keystroke that opened the panel is not a keystroke for the box.
     // `G` opens the sheet on a frame where nothing here reads the message
     // queue, so the character is still standing in it when the box takes the
@@ -82,6 +101,14 @@ pub fn keyboard(
     // swallowing every keystroke would be the end of playing with the
     // graveyard visible.
     if browser_keys(fired, &keys, &mut typed, &mut duel) {
+        return;
+    }
+    // `P` opens the arrangement menu, `Shift+P` takes the next arrangement:
+    // after every text field has had its keys, so a `p` typed into the
+    // browser's filter is a letter.
+    if let Some(frame) = arrangements.as_deref_mut()
+        && crate::arrangement::keys(fired, &[], &mut duel, &mut settings, frame)
+    {
         return;
     }
     if fired.quiet() {

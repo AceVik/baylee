@@ -1,3 +1,4 @@
+mod arrangements;
 mod extent;
 mod facing;
 mod fan;

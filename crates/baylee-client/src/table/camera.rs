@@ -128,7 +128,15 @@ impl CameraRig {
     #[must_use]
     pub fn home_shot(layout: &TableLayout, canvas: Canvas, shot: Shot) -> (Self, Binds) {
         match shot.arrangement {
-            Arrangement::Ring => Self::ring_home(layout, canvas, shot),
+            // An arrangement not built yet seats the ring, and is shot as one.
+            Arrangement::Ring
+            | Arrangement::UprightRing
+            | Arrangement::Turntable
+            | Arrangement::ArcRail
+            | Arrangement::Pods
+            | Arrangement::Spotlight
+            | Arrangement::TurntableRows
+            | Arrangement::FocusRing => Self::ring_home(layout, canvas, shot),
         }
     }
 
@@ -204,7 +212,14 @@ impl CameraRig {
         shot: Shot,
     ) -> Option<(Self, VisitFrame, Binds)> {
         match shot.arrangement {
-            Arrangement::Ring => Self::ring_visit(layout, canvas, seat, shot),
+            Arrangement::Ring
+            | Arrangement::UprightRing
+            | Arrangement::Turntable
+            | Arrangement::ArcRail
+            | Arrangement::Pods
+            | Arrangement::Spotlight
+            | Arrangement::TurntableRows
+            | Arrangement::FocusRing => Self::ring_visit(layout, canvas, seat, shot),
         }
     }
 
@@ -678,18 +693,9 @@ impl Canvas {
 /// places, none of which has a window — it answers a view arriving, a
 /// preference changing, a focus moving. The window changes on its own
 /// schedule, and this is the one place that notices.
-pub fn track_canvas(
-    windows: Query<&Window>,
-    settings: Option<Res<crate::settings::ClientSettings>>,
-    mut duel: ResMut<Duel>,
-) {
-    // The arrangement is this device's setting and the layout's input: a
-    // change of it is a different table, so the board is seated again.
-    let arrangement = settings.map_or_else(Default::default, |s| s.table.arrangement);
-    if duel.arrangement != arrangement {
-        duel.arrangement = arrangement;
-        crate::rebuild_board(&mut duel);
-    }
+pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
+    // The arrangement in effect is decided by `arrangement::choose`, which
+    // runs just before this and seats the table again when it changes.
     let Ok(window) = windows.single() else {
         return;
     };
@@ -748,9 +754,15 @@ pub fn frame_table(
         return;
     };
     let canvas = Canvas::hud(Vec2::new(window.width(), window.height()));
-    let shot = settings.map_or_else(Shot::default, |s| Shot::from(s.table));
+    // The device's lean and visit camera, and the arrangement in effect at
+    // this table — not the device's default, which this game's switch, the
+    // per-count memory and the offer may all have overruled.
+    let shot = Shot {
+        arrangement: duel.arrangement,
+        ..settings.map_or_else(Shot::default, |s| Shot::from(s.table))
+    };
     let visit = duel
-        .visiting
+        .camera_visit()
         .and_then(|seat| CameraRig::visit(layout, canvas, seat, shot));
     let (next, frame, binds) = if let Some((rig, frame, binds)) = visit {
         (rig, Some(frame), binds)
@@ -758,7 +770,13 @@ pub fn frame_table(
         let (rig, binds) = CameraRig::home_shot(layout, canvas, shot);
         (rig, None, binds)
     };
-    if visit.is_none() && duel.visiting.is_some() {
+    // A seat no longer at the table is home again — for a layout
+    // arrangement too, whose interest is a seat it brings across.
+    if duel
+        .visiting
+        .is_some_and(|seat| layout.slot(seat).is_none())
+        || (visit.is_none() && duel.camera_visit().is_some())
+    {
         duel.visiting = None;
     }
     if *rig != next {
@@ -935,7 +953,10 @@ pub fn apply_camera_rig(
 ) {
     let target = *rig;
     let still = prefs.all().reduce_motion;
-    let pose = duel.and_then(|duel| duel.visiting);
+    // Only a camera arrangement's visit is a pose: a layout arrangement's
+    // interest moves cards, and an orbit started for it would run 0.55 s
+    // from the rig to itself.
+    let pose = duel.and_then(|duel| duel.camera_visit());
     let mut orbit = shown.orbit;
     if let Some(current) = shown.rig
         && shown.posed

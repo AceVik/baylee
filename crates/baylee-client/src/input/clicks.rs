@@ -39,6 +39,12 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         MenuAction::ToggleLog => duel.log_open = !duel.log_open,
         MenuAction::ToggleAiLog => duel.ai_log_open = !duel.ai_log_open,
         MenuAction::Report => duel.report_asked = true,
+        // The game menu shuts and the arrangement menu opens in its place;
+        // `arrangement::choose` opens it, because it holds the settings.
+        MenuAction::ArrangementMenu => {
+            duel.game_menu = false;
+            duel.arrangement_menu_asked = true;
+        }
         // Two presses, because there is no undo behind this one. The panel
         // stays open between them — nothing here closes it — which is the
         // whole reason it is not a child of the shelf: the arming press

@@ -39,6 +39,7 @@ pub mod abilities;
 pub mod ambience;
 #[cfg(target_os = "macos")]
 mod app_icon;
+pub mod arrangement;
 mod arrival;
 pub mod arrowmat;
 #[cfg(not(target_arch = "wasm32"))]
@@ -460,11 +461,40 @@ pub struct Duel {
     /// the visited button again, my turn beginning and my own combat
     /// question ([`input::navigate_home`]); read by [`table::frame_table`].
     pub visiting: Option<PlayerId>,
-    /// How the seats are placed, as this device's settings say
-    /// (`ClientSettings::table`, copied here by [`table::track_canvas`] so
-    /// [`rebuild_board`], which has no settings, can place them). The one
-    /// seam for later arrangements: see `baylee_client_core::tableview::Arrangement`.
+    /// How the seats are placed at this table — the arrangement in
+    /// **effect**: this game's switch, else the device's choice for this
+    /// seat count, else its default, refused to the ring where it is not
+    /// offered and resolved where it is a rule (DESIGN-v8 §2.5–§2.6).
+    /// Written by [`arrangement::choose`], read by [`rebuild_board`] (which
+    /// has no settings) and by the camera.
     pub arrangement: baylee_client_core::tableview::Arrangement,
+    /// The arrangement chosen for this game only: a switch made in the menu
+    /// with *remember for this seat count* unticked (DESIGN-v8 §2.6). Wins
+    /// over the device's settings until the game ends.
+    pub arrangement_game: Option<baylee_client_core::tableview::Arrangement>,
+    /// The arrangement menu, while it is open: the row the keyboard stands
+    /// on (DESIGN-v8 §2.1, §2.3). The player's, like [`Self::game_menu`].
+    pub arrangement_menu: Option<usize>,
+    /// The menu's last row, *remember for this seat count*: ticked, a
+    /// choice is written to the device's per-count memory; unticked, it is
+    /// this game's alone.
+    pub arrangement_remember: bool,
+    /// The game menu's arrangement row was pressed: the menu opens on the
+    /// next frame ([`arrangement::choose`], which holds the settings).
+    pub arrangement_menu_asked: bool,
+    /// What [`Self::arrangement`] was resolved from, and at how many seats:
+    /// the Turntable with rows is decided once per table and held, so a
+    /// resize never flips it while the game goes on.
+    pub arrangement_latch: Option<(
+        baylee_client_core::tableview::Arrangement,
+        usize,
+        baylee_client_core::tableview::Arrangement,
+    )>,
+    /// The seat of interest the layout was last solved round
+    /// ([`rebuild_board`]): a layout arrangement whose [`Self::visiting`]
+    /// differs from it is seated again ([`arrangement::lay_the_interest`]),
+    /// whoever moved the interest.
+    pub interest_laid: Option<PlayerId>,
     /// The card the pointer or keyboard cursor is on.
     pub hovered: Option<ObjectId>,
     /// The *place* the pointer is on, for a pile that is drawn through no
@@ -1267,6 +1297,14 @@ impl Duel {
         self.statics.as_ref().map(|s| s.your_seat)
     }
 
+    /// The seat the **camera** visits: [`Self::visiting`] under a camera
+    /// arrangement, nothing under a layout one, whose seat of interest is
+    /// answered by moving cards while the camera stays home (DESIGN-v8 §0).
+    #[must_use]
+    pub fn camera_visit(&self) -> Option<PlayerId> {
+        self.visiting.filter(|_| !self.arrangement.moves_cards())
+    }
+
     /// Which tap the ability sheet is asking the colour of, if it is asking.
     ///
     /// [`Self::ability_tap`] and nothing else, gated on the sheet being open:
@@ -1774,6 +1812,7 @@ impl Plugin for DuelPlugin {
     #[allow(clippy::too_many_lines)] // the client plugins are registered together
     fn build(&self, app: &mut App) {
         add_present_systems(app);
+        arrangement::plugin(app);
         add_input_systems(app);
         // Shared with the lobby, which is a separate plugin and may already
         // have installed it.
@@ -2749,6 +2788,7 @@ pub fn rebuild_board(duel: &mut Duel) {
         duel.arrangement,
         duel.visiting,
     );
+    duel.interest_laid = duel.visiting;
     for slot in &mut layout.slots {
         if view
             .seats

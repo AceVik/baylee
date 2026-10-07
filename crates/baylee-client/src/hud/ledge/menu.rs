@@ -186,6 +186,9 @@ pub struct MenuRevision {
     lang: Option<Lang>,
     /// The updater's notice (#326), which is a line of its own.
     update: Option<crate::update::Shown>,
+    /// The arrangement in effect, from three seats: its row (DESIGN-v8
+    /// §2.4).
+    arrangement: Option<baylee_client_core::tableview::Arrangement>,
 }
 
 /// Where the panel stands.
@@ -291,6 +294,7 @@ pub(super) fn burger(commands: &mut Commands, fonts: &UiFonts, open: bool) -> En
 /// Nothing here shows or hides the panel — [`grow_the_menu`] does both, at
 /// the ends of the movement, for [`super::pool::sync_pool`]'s reason: a panel
 /// taken off the screen on the frame it was dismissed never folds.
+#[allow(clippy::too_many_lines)] // one panel, row by row
 pub fn sync_menu(
     mut commands: Commands,
     duel: Res<Duel>,
@@ -320,6 +324,7 @@ pub fn sync_menu(
         can_offer_draw: duel.can_offer_draw(),
         lang: Some(lang),
         update: update.as_ref().and_then(|u| u.shown.clone()),
+        arrangement: (crate::arrangement::seat_count(&duel) >= 3).then_some(duel.arrangement),
     };
     // Whether the panel is *showing*, which is not whether it is visible: one
     // in the middle of folding away is still on the screen and is already
@@ -389,6 +394,21 @@ pub fn sync_menu(
     });
     commands.entity(panel).add_child(concede);
 
+    // The arrangement, on every frame (DESIGN-v8 §2.4); on a phone this is
+    // the switcher's only door, the pill standing nowhere there.
+    if let Some(arrangement) = next.arrangement {
+        let row = answer(
+            &mut commands,
+            &fonts,
+            &Phrase::ArrGameMenuRow.fill(lang, &[arrangement.name().text(lang)]),
+            Weight::Secondary,
+            None,
+        );
+        commands.entity(row).insert(MenuButton {
+            action: MenuAction::ArrangementMenu,
+        });
+        commands.entity(panel).add_child(row);
+    }
     let report = answer(
         &mut commands,
         &fonts,

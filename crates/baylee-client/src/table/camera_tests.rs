@@ -1,5 +1,6 @@
 use super::*;
 use baylee_client_core::firewheel;
+use baylee_client_core::layout::Seat;
 use baylee_core::ids::PlayerId;
 
 /// A laptop's window, in logical pixels.
@@ -1070,9 +1071,53 @@ fn the_corner_beside_the_report_button_lies_on_no_seat_s_place() {
     }
 }
 
+/// The arrangement switcher's pill (DESIGN-v8 §2.2, invariant 11) stands on
+/// no seat's place, in every arrangement's home shot, at every seat count
+/// and in the seven windows the report corner is held clear in, the pill as
+/// wide as it is drawn when it names that arrangement. An arrangement not
+/// built yet is never in effect, so it has no home shot to ask.
+#[test]
+fn the_arrangement_pill_lies_on_no_seat_s_place() {
+    for arrangement in baylee_client_core::tableview::Arrangement::ALL
+        .into_iter()
+        .filter(|a| a.built())
+    {
+        // A phone draws no pill (its switcher is the game menu's row).
+        for window in [
+            WINDOW,
+            Vec2::new(1280.0, 800.0),
+            Vec2::new(1024.0, 640.0),
+            Vec2::new(800.0, 600.0),
+            Vec2::new(430.0, 932.0),
+            Vec2::new(360.0, 800.0),
+            Vec2::new(2560.0, 1440.0),
+        ] {
+            on_no_seat_s_place_in(
+                window,
+                crate::arrangement::pill_corner(window, arrangement),
+                arrangement,
+            );
+        }
+    }
+}
+
 /// Asserts that `corner` overlaps no seat's place, at any seat count, in a
 /// `window` big.
 fn on_no_seat_s_place(window: Vec2, corner: Rect) {
+    on_no_seat_s_place_in(
+        window,
+        corner,
+        baylee_client_core::tableview::Arrangement::Ring,
+    );
+}
+
+/// The same, for one arrangement's home shot: its layout at home (no seat of
+/// interest) and the rig its home pose takes.
+fn on_no_seat_s_place_in(
+    window: Vec2,
+    corner: Rect,
+    arrangement: baylee_client_core::tableview::Arrangement,
+) {
     {
         let canvas = Canvas::hud(window);
         let square = [
@@ -1081,10 +1126,19 @@ fn on_no_seat_s_place(window: Vec2, corner: Rect) {
             corner.max,
             Vec2::new(corner.min.x, corner.max.y),
         ];
+        let frame = baylee_client_core::tableview::TableFrame::of(window.x, window.y);
         for n in 2..=8u8 {
-            let layout = TableLayout::new(&seats(n), canvas.aspect(), None);
-            let rig = CameraRig::home(&layout, canvas);
-            for (seat, quad) in places(&layout).chunks(4).enumerate() {
+            let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+            let arrangement = arrangement.effective(usize::from(n), frame);
+            let layout = TableLayout::arranged(&roster, canvas.aspect(), arrangement, None);
+            let shot = Shot {
+                arrangement,
+                ..Shot::default()
+            };
+            let rig = CameraRig::home_shot(&layout, canvas, shot).0;
+            let mut shown = layout.clone();
+            shown.slots.retain(|slot| !slot.parked);
+            for (seat, quad) in places(&shown).chunks(4).enumerate() {
                 // `box_corners` walks (-,-), (-,+), (+,-), (+,+): round the
                 // loop, that is 0, 1, 3, 2.
                 let drawn: Vec<Vec2> = [0usize, 1, 3, 2]
@@ -1116,8 +1170,8 @@ fn on_no_seat_s_place(window: Vec2, corner: Rect) {
                 });
                 assert!(
                     apart,
-                    "{n} seats in a {window} window: seat {seat}'s place {drawn:?} \
-                     reaches the corner button at {corner:?}"
+                    "{arrangement:?}, {n} seats in a {window} window: seat {seat}'s place \
+                     {drawn:?} reaches the corner button at {corner:?}"
                 );
             }
         }

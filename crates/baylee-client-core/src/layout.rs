@@ -37,6 +37,9 @@
 //! The renderer maps this onto whatever plane it draws.
 
 use crate::cardplate::PlateRoom;
+
+mod arrangement;
+pub use arrangement::Arrangement;
 use baylee_core::ids::PlayerId;
 use glam::Vec2;
 
@@ -359,6 +362,18 @@ pub struct SeatSlot {
     pub reclaimed: f32,
     /// Whether this is the viewing player's own seat.
     pub is_local: bool,
+    /// How large the pod is drawn against a duel's (DESIGN-v8 §0): 1.0
+    /// except a Turntable's side mats. `half_extent` stays the **drawn**
+    /// footprint, so [`TableLayout::corners`] and [`TableLayout::extent`]
+    /// read it unchanged; what scales is every card-sized constant measured
+    /// from it, and the cards themselves.
+    pub scale: f32,
+    /// A seat the arrangement keeps off the felt (Spotlight's and the Focus
+    /// ring's): its cards are hidden where they stand, its mat and bar are
+    /// not drawn, and every reader of the slot list that measures the table
+    /// passes over it. Its `center` stands far out along its ring bearing,
+    /// so the dial's jewel for it still points the way the ring would seat it.
+    pub parked: bool,
 }
 
 impl SeatSlot {
@@ -635,29 +650,6 @@ impl SeatSlot {
             self.half_extent.y,
         )
     }
-}
-
-/// How the seats are placed at the table, and with that which home and visit
-/// shots the camera takes.
-///
-/// **The seam for the arrangements to come** (the owner, 07.10.2026: every
-/// arrangement explored in the table designs is to be built and switchable
-/// live; `.claude/ux-table/DESIGN-v8-arrangements.md` §0). One decision
-/// point: [`TableLayout::arranged`] places the seats for an arrangement, and
-/// the client's camera poses (`CameraRig::home_shot` and `CameraRig::visit`
-/// in `baylee-client`) match on it. The device's choice lives in
-/// `ClientSettings::table` beside the ring's lean and the visit camera. A new
-/// arrangement is a variant here, an arm in [`TableLayout::arranged`] and an
-/// arm in each of the two poses; the dial, the sound and picking read only
-/// the layout and the rig, never this.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Arrangement {
-    /// Every seat a duel's width on one ring, clockwise in turn order, mine
-    /// at the near edge ([`TableLayout::seated`]). A *camera* arrangement:
-    /// the seat of interest is visited by the camera, no card moves.
-    #[default]
-    Ring,
 }
 
 /// Where every seat sits, and how much room each one gets.
@@ -1040,6 +1032,11 @@ impl TableLayout {
     /// *layout* arrangement re-solves the slots around it, a *camera* one —
     /// the ring, today's only — ignores it, because there the camera visits
     /// and no card moves.
+    ///
+    /// A duel is a duel whatever is chosen: at two seats every arrangement
+    /// is [`TableLayout::seated`]'s (the owner's measured reference; the
+    /// arrangements exist for the table of more than two). An arrangement
+    /// this build has not built yet seats the ring.
     #[must_use]
     pub fn arranged(
         seats: &[Seat],
@@ -1048,8 +1045,18 @@ impl TableLayout {
         interest: Option<PlayerId>,
     ) -> Self {
         let _ = interest;
+        if seats.len() <= 2 || !arrangement.built() {
+            return Self::seated(seats, aspect, None);
+        }
         match arrangement {
-            Arrangement::Ring => Self::seated(seats, aspect, None),
+            Arrangement::Ring
+            | Arrangement::UprightRing
+            | Arrangement::Turntable
+            | Arrangement::ArcRail
+            | Arrangement::Pods
+            | Arrangement::Spotlight
+            | Arrangement::TurntableRows
+            | Arrangement::FocusRing => Self::seated(seats, aspect, None),
         }
     }
 
@@ -1224,6 +1231,8 @@ impl TableLayout {
                     half_extent: Vec2::new(pod_half_width(mine, across), half_depth),
                     reclaimed: 0.0,
                     is_local: i == 0,
+                    scale: 1.0,
+                    parked: false,
                 });
             }
         }
@@ -1252,7 +1261,7 @@ impl TableLayout {
     #[must_use]
     pub fn corners(&self, air: f32) -> Vec<Vec2> {
         let mut out = Vec::with_capacity(self.slots.len() * 4);
-        for slot in &self.slots {
+        for slot in self.slots.iter().filter(|slot| !slot.parked) {
             let (sin, cos) = slot.facing.sin_cos();
             let half = slot.footprint() + Vec2::splat(air);
             for sx in [-1.0_f32, 1.0] {
@@ -1280,7 +1289,7 @@ impl TableLayout {
     #[must_use]
     pub fn extent(&self) -> Option<(Vec2, Vec2)> {
         let mut bounds: Option<(Vec2, Vec2)> = None;
-        for slot in &self.slots {
+        for slot in self.slots.iter().filter(|slot| !slot.parked) {
             let (sin, cos) = slot.facing.sin_cos();
             let (sin, cos) = (sin.abs(), cos.abs());
             let footprint = slot.footprint();

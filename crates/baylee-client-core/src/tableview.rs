@@ -79,15 +79,169 @@ impl VisitCamera {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TableView {
-    /// How the seats are placed (one arrangement for now: the ring).
+    /// How the seats are placed, unless [`Self::arrangement_by_seats`] names
+    /// one for the table's seat count (DESIGN-v8 §2.6).
     #[serde(deserialize_with = "crate::graphics::lenient")]
     pub arrangement: Arrangement,
+    /// The arrangement remembered for a seat count, three to eight: the
+    /// menu's *remember for this seat count*. Sparse; a count with none takes
+    /// [`Self::arrangement`].
+    pub arrangement_by_seats: BySeats,
+    /// *Tisch folgt dem Zug* (DESIGN-v8 §1.1, D25): the active player's side
+    /// becomes the seat of interest at the start of its turn. Off.
+    #[serde(deserialize_with = "crate::graphics::lenient")]
+    pub follow: bool,
     /// The ring's lean.
     #[serde(deserialize_with = "crate::graphics::lenient")]
     pub lean: RingLean,
     /// Where a visit stands.
     #[serde(deserialize_with = "crate::graphics::lenient")]
     pub visit: VisitCamera,
+}
+
+impl TableView {
+    /// The arrangement chosen for a table of `seats`: the one remembered for
+    /// that count, else the default (DESIGN-v8 §2.6's reading order).
+    #[must_use]
+    pub fn chosen(&self, seats: usize) -> Arrangement {
+        self.arrangement_by_seats
+            .get(seats)
+            .unwrap_or(self.arrangement)
+    }
+}
+
+/// The arrangement remembered per seat count, three to eight (DESIGN-v8
+/// §2.6, D24): a fixed array so the table settings stay `Copy`, written as a
+/// sparse map (`{"4":"turntable"}`) so a file reads as the design says.
+///
+/// A count outside three to eight, or a value that is not an arrangement
+/// name at all, is dropped on reading rather than refusing the file; an
+/// arrangement name this build does not know reads as the ring.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BySeats([Option<Arrangement>; 6]);
+
+impl BySeats {
+    /// The fewest seats a count is remembered for.
+    pub const FIRST: usize = 3;
+    /// The most.
+    pub const LAST: usize = 8;
+
+    /// The arrangement remembered for `seats`, if any.
+    #[must_use]
+    pub fn get(&self, seats: usize) -> Option<Arrangement> {
+        seats
+            .checked_sub(Self::FIRST)
+            .and_then(|i| self.0.get(i).copied().flatten())
+    }
+
+    /// Remembers `arrangement` for `seats` (`None` forgets it). A count
+    /// outside three to eight is not remembered.
+    pub fn set(&mut self, seats: usize, arrangement: Option<Arrangement>) {
+        if let Some(cell) = seats
+            .checked_sub(Self::FIRST)
+            .and_then(|i| self.0.get_mut(i))
+        {
+            *cell = arrangement;
+        }
+    }
+
+    /// Every remembered count and its arrangement, fewest seats first.
+    pub fn iter(&self) -> impl Iterator<Item = (usize, Arrangement)> + '_ {
+        self.0
+            .iter()
+            .enumerate()
+            .filter_map(|(i, a)| a.map(|a| (i + Self::FIRST, a)))
+    }
+}
+
+impl Serialize for BySeats {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(Some(self.iter().count()))?;
+        for (seats, arrangement) in self.iter() {
+            map.serialize_entry(&seats.to_string(), &arrangement)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for BySeats {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        // Read whole first, so a malformed value is dropped without leaving
+        // the reader halfway through it.
+        let raw = serde_json::Value::deserialize(deserializer)?;
+        let mut out = Self::default();
+        let serde_json::Value::Object(raw) = raw else {
+            return Ok(out);
+        };
+        for (key, value) in raw {
+            let (Ok(seats), Ok(arrangement)) = (
+                key.parse::<usize>(),
+                serde_json::from_value::<Arrangement>(value),
+            ) else {
+                continue;
+            };
+            out.set(seats, Some(arrangement));
+        }
+        Ok(out)
+    }
+}
+
+/// The window as the arrangements read it: the shell's five size classes
+/// (ux-b6 DESIGN-v5 §2.7) by the **raw** window, as [`WindowClass`] reads
+/// them for the camera. Which arrangements are offered depends on it
+/// ([`Arrangement::offered`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TableFrame {
+    /// Raw logical height under 500: a phone held sideways.
+    Phone,
+    /// Under 760 wide.
+    Compact,
+    /// 760 to 1180 wide.
+    Narrow,
+    /// 1180 to 2560 wide.
+    Wide,
+    /// 2560 and wider.
+    Vast,
+}
+
+impl TableFrame {
+    /// Every class, smallest first.
+    pub const ALL: [Self; 5] = [
+        Self::Phone,
+        Self::Compact,
+        Self::Narrow,
+        Self::Wide,
+        Self::Vast,
+    ];
+
+    /// The class of a window `width` × `height` logical pixels.
+    #[must_use]
+    pub fn of(width: f32, height: f32) -> Self {
+        if height < 500.0 {
+            Self::Phone
+        } else if width < 760.0 {
+            Self::Compact
+        } else if width < 1180.0 {
+            Self::Narrow
+        } else if width < 2560.0 {
+            Self::Wide
+        } else {
+            Self::Vast
+        }
+    }
+
+    /// The name `/state` prints.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Phone => "phone",
+            Self::Compact => "compact",
+            Self::Narrow => "narrow",
+            Self::Wide => "wide",
+            Self::Vast => "vast",
+        }
+    }
 }
 
 /// How much further off than the dial shot a lane shot may stand: a board
@@ -338,5 +492,51 @@ mod tests {
         assert_eq!(read.visit, VisitCamera::Across);
         let read: TableView = serde_json::from_str("{}").expect("reads");
         assert_eq!(read, TableView::default());
+    }
+
+    /// The arrangement settings: a default, a sparse per-count memory read
+    /// first, the follow switch off; an unknown name reads as the ring and
+    /// a bad entry is dropped, never the file.
+    #[test]
+    fn the_arrangement_settings_read_leniently_and_by_seat_count() {
+        let view = TableView::default();
+        assert_eq!(view.arrangement, Arrangement::Ring);
+        assert!(!view.follow, "follow is off by default (D25)");
+        let read: TableView = serde_json::from_str(
+            r#"{"arrangement":"zukunft","arrangement_by_seats":{"4":"zukunft","5":"ring","9":"ring","x":"ring","6":7},"follow":true,"lean":"gentle"}"#,
+        )
+        .expect("reads");
+        assert_eq!(read.arrangement, Arrangement::Ring);
+        assert_eq!(read.arrangement_by_seats.get(4), Some(Arrangement::Ring));
+        assert_eq!(read.arrangement_by_seats.get(5), Some(Arrangement::Ring));
+        assert_eq!(read.arrangement_by_seats.get(6), None);
+        assert_eq!(read.arrangement_by_seats.iter().count(), 2);
+        assert!(read.follow);
+        assert_eq!(read.lean, RingLean::Gentle, "the rest of the file kept");
+        let mut view = TableView::default();
+        view.arrangement_by_seats
+            .set(4, Some(Arrangement::Spotlight));
+        view.arrangement_by_seats
+            .set(9, Some(Arrangement::Spotlight));
+        assert_eq!(view.chosen(4), Arrangement::Spotlight);
+        assert_eq!(view.chosen(5), Arrangement::Ring);
+        let json = serde_json::to_string(&view).expect("writes");
+        assert!(
+            json.contains(r#""arrangement_by_seats":{"4":"spotlight"}"#),
+            "{json}"
+        );
+        let back: TableView = serde_json::from_str(&json).expect("reads");
+        assert_eq!(back, view);
+    }
+
+    /// The classes change where the shell's do.
+    #[test]
+    fn the_table_frame_changes_where_the_shell_s_classes_do() {
+        assert_eq!(TableFrame::of(1708.0, 499.0), TableFrame::Phone);
+        assert_eq!(TableFrame::of(759.0, 600.0), TableFrame::Compact);
+        assert_eq!(TableFrame::of(760.0, 600.0), TableFrame::Narrow);
+        assert_eq!(TableFrame::of(1179.0, 800.0), TableFrame::Narrow);
+        assert_eq!(TableFrame::of(1180.0, 800.0), TableFrame::Wide);
+        assert_eq!(TableFrame::of(2560.0, 1440.0), TableFrame::Vast);
     }
 }

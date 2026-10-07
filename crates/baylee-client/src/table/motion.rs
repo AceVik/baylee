@@ -130,9 +130,11 @@ pub fn glide(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
     mut cards: Query<(&Motion, &mut Transform, Option<&crate::combatfx::Recoil>)>,
+    report: Option<ResMut<GlideReport>>,
 ) {
     let still = prefs.all().reduce_motion;
     let t = 1.0 - (-SETTLE * time.delta_secs()).exp();
+    let mut moving = 0_usize;
     for (motion, mut transform, recoil) in &mut cards {
         let mut target = motion.target;
         if !still && let Some(recoil) = recoil {
@@ -147,9 +149,35 @@ pub fn glide(
             }
             continue;
         }
+        moving += 1;
         transform.translation = transform.translation.lerp(target.translation, t);
         transform.rotation = transform.rotation.slerp(target.rotation, t);
         transform.scale = transform.scale.lerp(target.scale, t);
+    }
+    if let Some(mut report) = report {
+        report.note(moving);
+    }
+}
+
+/// What [`glide`] did on its last frame, for `/state.arrangement` and the
+/// motion contract's tests (DESIGN-v8 §3.8): how many cards were still on
+/// their way, and for how many frames in a row none has been.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct GlideReport {
+    /// Cards that moved this frame.
+    pub moving: usize,
+    /// Frames since the last one that moved a card.
+    pub settled_frames: u64,
+}
+
+impl GlideReport {
+    fn note(&mut self, moving: usize) {
+        self.moving = moving;
+        self.settled_frames = if moving == 0 {
+            self.settled_frames.saturating_add(1)
+        } else {
+            0
+        };
     }
 }
 

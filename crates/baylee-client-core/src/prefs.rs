@@ -107,13 +107,17 @@ pub enum Action {
     FocusPrevSeat,
     /// Bring the camera home.
     FocusHome,
+    /// Open the arrangement menu (DESIGN-v8 §2.3).
+    ArrangementMenu,
+    /// Switch to the next offered arrangement.
+    NextArrangement,
     /// Open the report form (#309), from the lobby or the table.
     Report,
 }
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 33] = [
+    pub const ALL: [Self; 35] = [
         Self::Primary,
         Self::Confirm,
         Self::ConfirmTargetBatch,
@@ -128,6 +132,8 @@ impl Action {
         Self::FocusNextSeat,
         Self::FocusPrevSeat,
         Self::FocusHome,
+        Self::ArrangementMenu,
+        Self::NextArrangement,
         Self::CombatFocusNext,
         Self::CombatFocusPrev,
         Self::CombatNone,
@@ -189,6 +195,8 @@ impl Action {
             Self::FocusNextSeat => Phrase::ActFocusNextSeat,
             Self::FocusPrevSeat => Phrase::ActFocusPrevSeat,
             Self::FocusHome => Phrase::ActFocusHome,
+            Self::ArrangementMenu => Phrase::ActArrangementMenu,
+            Self::NextArrangement => Phrase::ActNextArrangement,
             Self::Report => Phrase::ReportButton,
         }
     }
@@ -214,7 +222,9 @@ impl Action {
             | Self::CursorDown
             | Self::FocusNextSeat
             | Self::FocusPrevSeat
-            | Self::FocusHome => Phrase::GroupMovingAround,
+            | Self::FocusHome
+            | Self::ArrangementMenu
+            | Self::NextArrangement => Phrase::GroupMovingAround,
             Self::CombatFocusNext | Self::CombatFocusPrev | Self::CombatNone => Phrase::GroupCombat,
             Self::NextPhase
             | Self::NextTurn
@@ -480,6 +490,8 @@ impl Keymap {
         bind(Action::FocusNextSeat, vec![Chord::key("KeyF")]);
         bind(Action::FocusPrevSeat, vec![Chord::shift("KeyF")]);
         bind(Action::FocusHome, vec![Chord::key("KeyH")]);
+        bind(Action::ArrangementMenu, vec![Chord::key("KeyP")]);
+        bind(Action::NextArrangement, vec![Chord::shift("KeyP")]);
         bind(Action::Report, vec![Chord::key("F8")]);
         Self { bindings }
     }
@@ -511,6 +523,8 @@ impl Keymap {
         map.bindings.remove(&Action::ConfirmTargetBatch);
         map.bindings.remove(&Action::GrantedActions);
         map.bindings.remove(&Action::FocusPrevSeat);
+        map.bindings.remove(&Action::ArrangementMenu);
+        map.bindings.remove(&Action::NextArrangement);
         map
     }
 

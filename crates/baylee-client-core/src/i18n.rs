@@ -1250,6 +1250,131 @@ messages! {
     ActFocusPrevSeat { en: "Visit the previous seat", de: "Vorigen Sitz ansehen" },
     /// Back to my own seat
     ActFocusHome { en: "Back to my seat", de: "Zurück zu meinem Platz" },
+    /// Open the arrangement menu (DESIGN-v8 §2.3)
+    ActArrangementMenu { en: "Choose the arrangement", de: "Anordnung wählen" },
+    /// Cycle to the next offered arrangement
+    ActNextArrangement { en: "Next arrangement", de: "Nächste Anordnung" },
+    /// The ring (DESIGN-v8 arrangement 1)
+    ArrRing { en: "Ring", de: "Ring" },
+    /// What the ring does
+    ArrRingBlurb {
+        en: "Every seat on the ring; the camera visits.",
+        de: "Alle Sitze am Ring; die Kamera besucht.",
+    },
+    /// The upright ring (arrangement 2)
+    ArrUprightRing { en: "Upright ring", de: "Aufrechter Ring" },
+    /// What it does
+    ArrUprightRingBlurb {
+        en: "The ring with every board upright to you; a visit zooms in.",
+        de: "Der Ring, jedes Brett aufrecht zu dir; ein Besuch zoomt heran.",
+    },
+    /// The turntable (arrangement 3)
+    ArrTurntable { en: "Turntable", de: "Drehteller" },
+    /// What it does
+    ArrTurntableBlurb {
+        en: "You and one opponent as in a duel, the others small at the sides; choosing a seat turns the table.",
+        de: "Du und ein Gegner wie im Duell, die anderen klein an den Seiten; einen Sitz wählen dreht den Tisch.",
+    },
+    /// The arc rail (arrangement 4)
+    ArrArcRail { en: "Arc rail", de: "Bogenschiene" },
+    /// What it does
+    ArrArcRailBlurb {
+        en: "The opponents on an arc above you; the camera slides along the rail.",
+        de: "Die Gegner auf einem Bogen über dir; die Kamera fährt die Schiene entlang.",
+    },
+    /// The pods (arrangement 5)
+    ArrPods { en: "Pods", de: "Raster" },
+    /// What they do
+    ArrPodsBlurb {
+        en: "Every opponent upright in a grid, seen from above; a visit zooms in.",
+        de: "Jeder Gegner aufrecht in einem Raster, von oben gesehen; ein Besuch zoomt heran.",
+    },
+    /// The spotlight (arrangement 6)
+    ArrSpotlight { en: "Spotlight", de: "Rampenlicht" },
+    /// What it does
+    ArrSpotlightBlurb {
+        en: "A duel against one seat, the others as chips in the strip; turn on “Table follows the turn” to follow play.",
+        de: "Ein Duell gegen einen Sitz, die anderen als Chips in der Leiste; mit „Tisch folgt dem Zug“ folgt es dem Spiel.",
+    },
+    /// The turntable with rows (arrangement 7)
+    ArrTurntableRows { en: "Turntable with rows", de: "Drehteller mit Reihen" },
+    /// What it does, and what it is here
+    ArrTurntableRowsBlurb {
+        en: "Turntable up to four seats, Spotlight from five or on a phone.",
+        de: "Drehteller bis vier Sitze, Rampenlicht ab fünf oder auf dem Handy.",
+    },
+    /// What the turntable with rows resolved to at this table
+    ArrResolvedTo { en: "Here: {0}", de: "Hier: {0}" },
+    /// The focus ring (arrangement 8)
+    ArrFocusRing { en: "Focus ring", de: "Fokusring" },
+    /// What it does
+    ArrFocusRingBlurb {
+        en: "A duel in the middle, the other seats as peeks at the edges.",
+        de: "Ein Duell in der Mitte, die anderen Sitze als Spalten an den Rändern.",
+    },
+    /// A greyed row: a duel has one arrangement
+    ArrNotInADuel {
+        en: "A duel has only one arrangement",
+        de: "Im Duell gibt es nur eine Anordnung",
+    },
+    /// A greyed row: not built yet
+    ArrComing { en: "Coming ({0})", de: "Kommt ({0})" },
+    /// A greyed row: not at this many seats on this window
+    ArrNotHereSeats {
+        en: "Not at this many seats on a window this size",
+        de: "Nicht bei so vielen Sitzen in einem Fenster dieser Größe",
+    },
+    /// A greyed row: not on a window this small
+    ArrNotHereWindow {
+        en: "Not on a window this small",
+        de: "Nicht in einem so kleinen Fenster",
+    },
+    /// A greyed row: not on a phone
+    ArrNotOnAPhone { en: "Not on a phone", de: "Nicht auf dem Handy" },
+    /// The tag on a row whose measurement is outstanding
+    ArrExperimental { en: "experimental", de: "experimentell" },
+    /// The menu's last row: keep this choice for the seat count
+    ArrRememberForSeats {
+        en: "Remember for {0} seats",
+        de: "Für {0} Sitze merken",
+    },
+    /// The placeholder note under the menu
+    ArrLettersNote {
+        en: "The letters stand in for pictograms still to be drawn.",
+        de: "Die Buchstaben stehen für Bildzeichen, die noch gezeichnet werden.",
+    },
+    /// The game menu's row
+    ArrGameMenuRow { en: "Arrangement › {0}", de: "Anordnung › {0}" },
+    /// The arrangement settings row
+    RowArrangement { en: "Table arrangement", de: "Tischanordnung" },
+    /// What it does
+    HelpArrangement {
+        en: "How the seats of a table of three or more are placed. P chooses one at the table, Shift+P the next; this is the default.",
+        de: "Wie die Sitze an einem Tisch mit drei oder mehr Plätzen stehen. P wählt am Tisch eine, Umschalt+P die nächste; dies ist der Standard.",
+    },
+    /// The follow switch's row
+    RowFollowTurn { en: "Table follows the turn", de: "Tisch folgt dem Zug" },
+    /// What it does
+    HelpFollowTurn {
+        en: "At the start of another player's turn the table shows that player's seat: a camera arrangement visits it, the others bring it across. Never while a question is open for you.",
+        de: "Zu Beginn des Zuges eines anderen Spielers zeigt der Tisch dessen Sitz: eine Kamera-Anordnung besucht ihn, die anderen holen ihn herüber. Nie, während eine Frage an dich offen ist.",
+    },
+    /// The per-seat-count row
+    RowArrangementBySeats { en: "Per seat count", de: "Je Sitzzahl" },
+    /// What it does
+    HelpArrangementBySeats {
+        en: "An arrangement remembered for one seat count wins over the default at a table of that size.",
+        de: "Eine für eine Sitzzahl gemerkte Anordnung gilt an einem Tisch dieser Größe statt des Standards.",
+    },
+    /// A seat count's label in the per-count rows
+    ArrSeats { en: "{0} seats", de: "{0} Sitze" },
+    /// The per-count choice that takes the default
+    ArrAsDefault { en: "Default", de: "Standard" },
+    /// The `?` overlay's line for the two keys
+    ArrKeysHint {
+        en: "P chooses the arrangement · Shift+P the next",
+        de: "P wählt die Anordnung · Umschalt+P die nächste",
+    },
     /// Answering
     GroupAnswering { en: "Answering", de: "Antworten" },
     /// Moving around

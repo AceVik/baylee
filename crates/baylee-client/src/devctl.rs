@@ -1399,6 +1399,25 @@ struct Believed<'w, 's> {
     /// What the dial shows (DESIGN-v7 §2.7): the two hands, the arcs, the
     /// hub's pulse and the turn number's drawn size.
     dial: Option<Res<'w, crate::dial::DialReport>>,
+    /// The arrangement switcher's measure of the table (DESIGN-v8 §2.4),
+    /// the cards' glide, and the pill and the menu as drawn.
+    #[allow(clippy::type_complexity)] // four readings of one switcher
+    arrangement: (
+        Option<Res<'w, crate::arrangement::ArrangementFrame>>,
+        Option<Res<'w, crate::table::GlideReport>>,
+        Query<
+            'w,
+            's,
+            (&'static ComputedNode, &'static UiGlobalTransform),
+            With<crate::arrangement::ArrangementPill>,
+        >,
+        Query<
+            'w,
+            's,
+            (&'static ComputedNode, &'static UiGlobalTransform),
+            With<crate::arrangement::ArrangementPanel>,
+        >,
+    ),
     /// The ☀ / ⌛ tags on the strip's seat buttons, and whether each shows.
     chips: Query<'w, 's, (&'static crate::hud::ChipTag, &'static Visibility)>,
     /// Every card on the table, with the transform `glide` has it at right
@@ -1987,7 +2006,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
         camera = camera_json(believed, duel),
         dial = dial_json(believed),
         chips = chips_json(believed),
-        arrangement = quoted(&format!("{:?}", duel.arrangement)),
+        arrangement = arrangement_json(believed, duel),
         ui_rebuilds = rebuilds_json(believed),
         desk_controls = desk_controls_json(believed),
         shell_nodes = shell_nodes_json(believed),
@@ -2076,6 +2095,89 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
         // a harness can prove the policy without ears.
         cues_suppressed = duel.cues.suppressed(),
     )
+}
+
+/// The arrangement (DESIGN-v8 §2.4): the one in effect, what this game's
+/// switch, the device's per-count memory and its default say, which
+/// arrangements are offered here and why the others are not, the follow
+/// switch, the seat of interest, whether anything is still moving and for
+/// how many frames nothing has, and the pill's and the menu's rectangles.
+fn arrangement_json(believed: &Believed, duel: &Duel) -> String {
+    use baylee_client_core::tableview::Arrangement;
+    let (frame, glide, pill, panel) = &believed.arrangement;
+    let measured = frame.as_deref().copied().unwrap_or_default();
+    let lang = believed
+        .settings
+        .as_deref()
+        .map_or(Lang::En, |s| Lang::of(&s.lang));
+    let table = believed
+        .settings
+        .as_deref()
+        .map(|s| s.table)
+        .unwrap_or_default();
+    let class = measured.class();
+    let offered: Vec<&str> = Arrangement::offered_at(measured.seats, class)
+        .into_iter()
+        .map(Arrangement::tag)
+        .collect();
+    let reason: serde_json::Map<String, serde_json::Value> = Arrangement::ALL
+        .into_iter()
+        .filter_map(|a| {
+            a.offered(measured.seats, class).err().map(|why| {
+                let text = if why == Phrase::ArrComing {
+                    why.fill(lang, &[a.package()])
+                } else {
+                    why.text(lang).to_string()
+                };
+                (a.tag().to_string(), serde_json::Value::String(text))
+            })
+        })
+        .collect();
+    let by_seats: serde_json::Map<String, serde_json::Value> = table
+        .arrangement_by_seats
+        .iter()
+        .map(|(n, a)| {
+            (
+                n.to_string(),
+                serde_json::Value::String(a.tag().to_string()),
+            )
+        })
+        .collect();
+    let rect = |(node, place): (&ComputedNode, &UiGlobalTransform)| {
+        let size = node.size() * node.inverse_scale_factor;
+        let mid = place.translation * node.inverse_scale_factor;
+        serde_json::json!({"x":mid.x-size.x/2.0,"y":mid.y-size.y/2.0,"w":size.x,"h":size.y})
+    };
+    let glide = glide.as_deref().copied().unwrap_or_default();
+    let orbiting = believed
+        .rig
+        .as_deref()
+        .copied()
+        .is_some_and(crate::table::ShownRig::moving);
+    serde_json::json!({
+        "current": duel.arrangement.tag(),
+        "chosen": crate::arrangement::chosen(duel, &table, measured.seats).tag(),
+        "game": duel.arrangement_game.map(Arrangement::tag),
+        "default": table.arrangement.tag(),
+        "by_seats": by_seats,
+        "offered": offered,
+        "reason": reason,
+        "follow": table.follow,
+        "interest": duel.visiting.map(baylee_core::ids::PlayerId::get),
+        "moves_cards": duel.arrangement.moves_cards(),
+        "seats": measured.seats,
+        "frame": class.name(),
+        "moving": glide.moving > 0 || orbiting,
+        "cards_moving": glide.moving,
+        "settled_frames": glide.settled_frames,
+        "menu": duel.arrangement_menu,
+        "remember": duel.arrangement_remember,
+        "flash": measured.flash,
+        "pill": pill.iter().next().map(rect),
+        "panel": panel.iter().next().map(rect),
+        "parked": duel.layout.as_ref().map(|l| l.slots.iter().filter(|s| s.parked).map(|s| s.player.get()).collect::<Vec<_>>()),
+    })
+    .to_string()
 }
 
 /// The camera (DESIGN-v7 §2.7): the rig it is going to, the rig it is at,

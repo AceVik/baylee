@@ -212,6 +212,12 @@ pub enum Row {
     TableLean,
     /// Where the camera stands on a visit (DESIGN-v7 D21).
     VisitCamera,
+    /// How the seats are placed by default (DESIGN-v8 §2.4).
+    Arrangement,
+    /// Whether the table follows the turn (DESIGN-v8 §1.1, D25).
+    FollowTurn,
+    /// The arrangement remembered per seat count (DESIGN-v8 §2.6, D24).
+    ArrangementBySeats,
     // Graphics (account)
     /// The account's atmosphere: the ceiling of Ambient.
     Atmosphere,
@@ -384,6 +390,27 @@ pub const ROWS: &[RowDef] = &[
         D,
         P::RowVisitCamera,
         P::HelpVisitCamera,
+    ),
+    def(
+        Row::Arrangement,
+        S::Graphics,
+        D,
+        P::RowArrangement,
+        P::HelpArrangement,
+    ),
+    def(
+        Row::FollowTurn,
+        S::Graphics,
+        D,
+        P::RowFollowTurn,
+        P::HelpFollowTurn,
+    ),
+    def(
+        Row::ArrangementBySeats,
+        S::Graphics,
+        D,
+        P::RowArrangementBySeats,
+        P::HelpArrangementBySeats,
     ),
     def(
         Row::Atmosphere,
@@ -666,6 +693,9 @@ mod tests {
             Row::Effects,
             Row::TableLean,
             Row::VisitCamera,
+            Row::Arrangement,
+            Row::FollowTurn,
+            Row::ArrangementBySeats,
             Row::PriorityCue,
         ] {
             assert_eq!(of(row).scope, Scope::Device, "{row:?}");
