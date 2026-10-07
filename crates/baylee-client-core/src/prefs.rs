@@ -800,6 +800,14 @@ pub struct Preferences {
     /// what is stored", and a player who rebinds and then resets would get
     /// the rebind back from the account on the next load.
     pub shell_keys: crate::shellkeys::ShellKeymap,
+    /// The decks marked as favourites (S-11), by deck id: with the account,
+    /// so the star follows the player to their other device. A deck that is
+    /// gone is dropped from it (`lobby::shelf::kept_favourites`).
+    ///
+    /// Always written, empty included: the gateway merges a `PUT /settings`
+    /// per top-level key, so leaving it out when the last star goes would
+    /// keep the stored list.
+    pub favourites: Vec<String>,
     /// Every top-level key this client does not know, kept as it came.
     ///
     /// A newer client on the player's other device may have stored a
@@ -871,6 +879,21 @@ impl Preferences {
     #[must_use]
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Whether a deck is a favourite.
+    #[must_use]
+    pub fn favourite(&self, deck_id: &str) -> bool {
+        self.favourites.iter().any(|id| id == deck_id)
+    }
+
+    /// Stars or unstars a deck.
+    pub fn toggle_favourite(&mut self, deck_id: &str) {
+        if self.favourite(deck_id) {
+            self.favourites.retain(|id| id != deck_id);
+        } else {
+            self.favourites.push(deck_id.to_string());
+        }
     }
 
     /// Whether these are still exactly the defaults, so a client can avoid
@@ -1290,7 +1313,7 @@ mod tests {
         let fixtures = [
             Preferences::default().to_json(),
             changed.to_json(),
-            with_unknown(&Preferences::default(), r#""favourites":["a","b"]"#),
+            with_unknown(&Preferences::default(), r#""watchlist":["a","b"]"#),
             with_unknown(
                 &changed,
                 r#""a_newer_key":1.25,"graphics":{"msaa":4,"preset":"high"},"pinned":{}"#,
@@ -1413,5 +1436,26 @@ mod tests {
         // Opponents on top, you at the bottom — the order the rail is drawn in.
         assert_eq!(rows[0], (RailSide::Theirs, RailRow::Untap));
         assert_eq!(rows[RAIL_ROWS.len()], (RailSide::Mine, RailRow::Untap));
+    }
+
+    /// The favourites ride with the account (S-11), empty included, and a
+    /// malformed list costs that list and nothing else.
+    #[test]
+    fn favourites_round_trip_and_a_bad_list_costs_only_itself() {
+        let mut prefs = Preferences::default();
+        assert!(
+            prefs.to_json().contains(r#""favourites":[]"#),
+            "always written"
+        );
+        prefs.toggle_favourite("d1");
+        prefs.toggle_favourite("d2");
+        prefs.toggle_favourite("d1");
+        assert_eq!(prefs.favourites, vec!["d2".to_string()]);
+        let read = Preferences::from_json(&prefs.to_json());
+        assert!(read.favourite("d2") && !read.favourite("d1"));
+        let bad = r#"{"favourites":"d2","reduce_motion":true}"#;
+        let read = Preferences::from_json(bad);
+        assert!(read.favourites.is_empty());
+        assert!(read.reduce_motion, "the other field survives");
     }
 }

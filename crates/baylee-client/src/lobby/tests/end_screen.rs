@@ -22,7 +22,7 @@ fn a_keyboard_can_leave_the_end_screen() {
             *p == Press::Front(FrontPress::PlayOffline)
         });
         tap_control(&mut app, "play the house", |p| {
-            *p == Press::Hub(HubPress::Host(GameMode::Ai))
+            *p == Press::Play(PlayPress::PlayHouse)
         });
         for phase in [DuelPhase::Playing, DuelPhase::Finished] {
             app.world_mut()
@@ -140,7 +140,7 @@ fn coming_back_from_an_offline_duel_leaves_no_table_and_no_refusal() {
         *p == Press::Front(FrontPress::PlayOffline)
     });
     tap_control(&mut app, "play the house", |p| {
-        *p == Press::Hub(HubPress::Host(GameMode::Ai))
+        *p == Press::Play(PlayPress::PlayHouse)
     });
     // One tap seats you without re-reading the list, so the room is not in
     // `games()` yet — it is the refresh on the way *back* that lists it, and
@@ -255,7 +255,7 @@ fn came_back_from_a_duel(duel: Option<crate::Duel>) -> App {
         *p == Press::Front(FrontPress::PlayOffline)
     });
     tap_control(&mut app, "play the house", |p| {
-        *p == Press::Hub(HubPress::Host(GameMode::Ai))
+        *p == Press::Play(PlayPress::PlayHouse)
     });
     if let Some(duel) = duel {
         app.world_mut().insert_resource(duel);

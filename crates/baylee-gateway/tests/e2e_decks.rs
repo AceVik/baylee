@@ -633,6 +633,29 @@ fn the_house_decks_belong_to_nobody_and_anybody_may_take_a_copy() {
         shared.contains("\"commanders\":[\"Kenrith, the Returned King\"]"),
         "{shared}"
     );
+    // And what the player's own list says about a deck (WG-3b): copies,
+    // identity, the commander's picture, what will not play.
+    let list: serde_json::Value = serde_json::from_str(&shared).expect("json");
+    let kenrith = list
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|d| d["commanders"][0] == "Kenrith, the Returned King")
+        .expect("Kenrith's deck");
+    assert!(
+        kenrith["copies"].as_u64().is_some_and(|n| n >= 99),
+        "a hundred-card deck: {kenrith}"
+    );
+    assert_eq!(kenrith["identity"], "WUBRG", "{kenrith}");
+    assert_eq!(
+        kenrith["leaders"][0]["name"], "Kenrith, the Returned King",
+        "{kenrith}"
+    );
+    assert!(kenrith["unplayable"].is_u64(), "{kenrith}");
+    assert!(
+        kenrith["leaders"][0].get("artist").is_none(),
+        "no catalog, no artist: {kenrith}"
+    );
 
     // A player's own list is still their own: the house decks are not in it.
     let (status, mine) = http(gateway.port, "GET", "/decks", Some(&token), "");

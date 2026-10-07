@@ -240,7 +240,13 @@ pub(crate) fn text_field(
             commands.entity(boxed).add_child(button);
         }
     }
-    commands.entity(column).add_children(&[caption, boxed]);
+    // A search box says what it is by its glass and hint: no caption.
+    if label.is_empty() {
+        commands.entity(caption).despawn();
+        commands.entity(column).add_child(boxed);
+    } else {
+        commands.entity(column).add_children(&[caption, boxed]);
+    }
     column
 }
 

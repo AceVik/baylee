@@ -22,28 +22,19 @@ fn login_flies_over_the_lobby_and_blocks_its_controls_until_arrival() {
     app.update();
     assert!(app.world().resource::<crate::vista::FrontScene>().entering);
     // The lobby is already available underneath; its network work need not
-    // wait for the flight. But a click must not open a deck behind the veil.
+    // wait for the flight. But a click must not move the screen behind the veil.
     assert_eq!(
         app.world().resource::<LobbyState>().lobby.screen(),
         &Screen::Table
     );
-    tap_control(&mut app, "new deck", |press| {
-        *press == Press::Hub(HubPress::NewDeck)
-    });
-    assert_eq!(
-        app.world().resource::<LobbyState>().lobby.screen(),
-        &Screen::Table
-    );
+    let decks = Press::Header(crate::lobby::header::HeaderPress::Nav(1));
+    tap_control(&mut app, "decks", |press| *press == decks);
+    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Play);
     for _ in 0..20 {
         app.update();
     }
     let scene = app.world().resource::<crate::vista::FrontScene>();
     assert!(!scene.entering && !scene.shown);
-    tap_control(&mut app, "new deck", |press| {
-        *press == Press::Hub(HubPress::NewDeck)
-    });
-    assert_eq!(
-        app.world().resource::<LobbyState>().lobby.screen(),
-        &Screen::Build
-    );
+    tap_control(&mut app, "decks", |press| *press == decks);
+    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Decks);
 }

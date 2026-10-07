@@ -356,6 +356,7 @@ fn issue_186_house_copy_gets_its_own_identity_and_history_membership() {
         cards: 1,
         sideboard: 1,
         commanders: vec![],
+        ..Default::default()
     }])));
     assert_eq!(
         lobby.copy_house(0),
@@ -419,4 +420,148 @@ fn issue_186_diff_counts_quantities_and_preserves_print_and_sideboard_changes() 
         row_changes(&[], &["2 Negate".into()]),
         vec![("Negate".into(), 2)]
     );
+}
+
+fn two_decks(lobby: &mut Lobby, first: &str, second: &str) {
+    lobby.apply(LobbyEvent::Decks(
+        [first, second]
+            .into_iter()
+            .map(|id| DeckSummary {
+                id: id.into(),
+                name: id.into(),
+                ..Default::default()
+            })
+            .collect(),
+    ));
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+}
+
+/// The next game's deck follows its deck when a save reorders the list:
+/// the list is newest save first, so an index would point at another deck.
+#[test]
+fn the_next_game_deck_follows_its_deck_through_a_reordered_list() {
+    let mut lobby = seated_lobby();
+    two_decks(&mut lobby, "a", "b");
+    lobby.select_deck(1);
+    assert_eq!(lobby.next_deck().map(|d| d.id.as_str()), Some("b"));
+    two_decks(&mut lobby, "b", "a");
+    assert_eq!(lobby.next_deck().map(|d| d.id.as_str()), Some("b"));
+}
+
+/// Delete is an Undo toast, not a confirm (S-10): the deck leaves the shelf
+/// at once, nothing is sent until the Undo runs out, and Undo sends
+/// nothing at all.
+#[test]
+fn a_staged_delete_sends_nothing_until_it_is_flushed_and_undo_sends_nothing() {
+    let mut lobby = seated_lobby();
+    two_decks(&mut lobby, "a", "b");
+    assert_eq!(lobby.stage_delete(0), None);
+    assert_eq!(lobby.staged_delete(), Some("a"));
+    assert_eq!(lobby.next_deck().map(|d| d.id.as_str()), Some("b"));
+    lobby.undo_delete();
+    assert_eq!(lobby.flush_delete(), None, "undone: nothing to send");
+    lobby.stage_delete(0);
+    // A second delete flushes the first.
+    assert_eq!(
+        lobby.stage_delete(1),
+        Some(LobbyRequest::DeleteDeck {
+            deck_id: "a".into()
+        })
+    );
+    assert_eq!(
+        lobby.flush_delete(),
+        Some(LobbyRequest::DeleteDeck {
+            deck_id: "b".into()
+        })
+    );
+    assert_eq!(lobby.flush_delete(), None, "sent once");
+}
+
+/// **Add and use** copies a house deck and makes the copy the next game's
+/// deck, without opening the builder (S-3).
+#[test]
+fn add_and_use_selects_the_copy_and_stays_off_the_builder() {
+    use crate::lobby::library::{AfterCopy, HouseDeck, Reply, Request};
+    let mut lobby = seated_lobby();
+    lobby.browse_house();
+    lobby.apply(LobbyEvent::Library(Reply::House(vec![HouseDeck {
+        id: "shared".into(),
+        name: "House".into(),
+        version: 1,
+        ..Default::default()
+    }])));
+    assert_eq!(
+        lobby.copy_house_then(0, AfterCopy::Use),
+        Some(LobbyRequest::Library(Request::Copy("shared".into())))
+    );
+    assert_eq!(
+        lobby.apply(LobbyEvent::Library(Reply::Copied("copy".into()))),
+        Some(LobbyRequest::ListDecks)
+    );
+    assert_eq!(lobby.screen(), &Screen::Table, "no builder");
+    two_decks(&mut lobby, "d1", "copy");
+    assert_eq!(lobby.next_deck().map(|d| d.id.as_str()), Some("copy"));
+}
+
+/// Duplicate copies one of the player's own decks and stays on the shelf.
+#[test]
+fn a_duplicate_is_a_copy_that_stays_on_the_shelf() {
+    use crate::lobby::library::{Reply, Request};
+    let mut lobby = seated_lobby();
+    assert_eq!(
+        lobby.duplicate_deck(0),
+        Some(LobbyRequest::Library(Request::Copy("d1".into())))
+    );
+    assert_eq!(
+        lobby.apply(LobbyEvent::Library(Reply::Copied("d2".into()))),
+        Some(LobbyRequest::ListDecks)
+    );
+    assert_eq!(lobby.screen(), &Screen::Table);
+    assert!(lobby.library().page.is_none());
+}
+
+/// Restoring from the Decks screen's history stays on the shelf and offers
+/// the head it replaced for Undo.
+#[test]
+fn a_restore_from_the_shelf_stays_there_and_can_be_undone() {
+    use crate::lobby::library::{History, Reply, Request, Snapshot};
+    let mut lobby = seated_lobby();
+    assert!(lobby.browse_deck_history("d1").is_some());
+    let snapshot = |version| Snapshot {
+        version,
+        cards: vec![],
+        sideboard: vec![],
+        commanders: vec![],
+    };
+    lobby.apply(LobbyEvent::Library(Reply::History(
+        "d1".into(),
+        History {
+            version: 3,
+            updated_at: 0,
+            past: vec![],
+        },
+    )));
+    lobby.apply(LobbyEvent::Library(Reply::Version(
+        "d1".into(),
+        snapshot(3),
+    )));
+    lobby.library.preview = Some(("d1".into(), snapshot(2)));
+    if let Some(history) = lobby.library.history.as_mut() {
+        history.version = 3;
+    }
+    assert_eq!(
+        lobby.restore_version(),
+        Some(LobbyRequest::Library(Request::Restore("d1".into(), 2)))
+    );
+    assert_eq!(
+        lobby.apply(LobbyEvent::Library(Reply::Restored("d1".into()))),
+        Some(LobbyRequest::ListDecks)
+    );
+    assert_eq!(lobby.screen(), &Screen::Table);
+    assert_eq!(lobby.library().restored, Some(("d1".into(), 3)));
+    assert_eq!(
+        lobby.undo_restore(),
+        Some(LobbyRequest::Library(Request::Restore("d1".into(), 3)))
+    );
+    assert_eq!(lobby.library().restored, None, "an Undo is not undone");
 }

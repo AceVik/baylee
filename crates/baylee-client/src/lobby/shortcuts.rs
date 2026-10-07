@@ -35,16 +35,32 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
             Hub::Decks => Context::Decks,
         },
     };
+    // The house list is the Decks screen's data, not a sheet (WP3); a
+    // deck's history, a house deck's cards, the Create-table sheet and the
+    // deck picker are.
     let modal = state.confirmation.is_some()
         || state.lobby.deleting_account().is_some()
-        || state.lobby.library().page.is_some();
-    let menu = state.front_menu || state.completion.is_some() || state.header_menu.is_some();
+        || matches!(
+            state.lobby.library().page,
+            Some(client_core::lobby::library::Page::History(_))
+        )
+        || state.decks.preview.is_some()
+        || state.play.sheet.is_some()
+        || state.play.picker
+        || state.chair_sheet.is_some();
+    let menu = state.front_menu
+        || state.completion.is_some()
+        || state.header_menu.is_some()
+        || state.menu.is_some();
     // Settings types only into its own boxes (the key capture, the seat
     // panel); behind it the lobby's caret is idle (`keyboard` returns early).
     let field = if screen == Context::Settings {
         state.settings.capturing().is_some() || state.seat.typing()
     } else {
-        state.lobby.typing_here() || screen == Context::Builder
+        (state.lobby.typing_here()
+            && (!matches!(state.lobby.screen(), Screen::Table)
+                || super::keyboard::field_drawn(state)))
+            || screen == Context::Builder
     };
     ShellStack {
         stack: Stack {
@@ -83,10 +99,43 @@ pub(super) fn write_stack(
 /// The press a shell action means on the lobby's current screen, if it has
 /// a door there yet.
 pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press> {
-    let hub = matches!(state.lobby.screen(), Screen::Table)
-        && state.lobby.awaiting().is_none()
-        && state.lobby.library().page.is_none();
+    let table = matches!(state.lobby.screen(), Screen::Table) && !state.settings.is_open();
+    let in_room = table
+        && !state.room_away
+        && state.lobby.awaiting().is_some_and(|h| {
+            state
+                .lobby
+                .games()
+                .iter()
+                .any(|g| g.id == h.game_id && g.state == "waiting")
+        });
+    let hub = table && !in_room && state.lobby.awaiting().is_none_or(|_| state.room_away);
+    let sheet = state.play.sheet.is_some()
+        || state.play.picker
+        || state.decks.preview.is_some()
+        || matches!(
+            state.lobby.library().page,
+            Some(client_core::lobby::library::Page::History(_))
+        );
+    let play = hub && state.hub == Hub::Play && !sheet;
+    let decks = hub && state.hub == Hub::Decks && !sheet;
     match action {
+        // The screens a key goes to: through the header's nav, which steps
+        // away from a room and keeps the seat (M-7).
+        ShellAction::GoPlay if table && (in_room || state.hub != Hub::Play) => {
+            Some(Press::Header(super::header::HeaderPress::Nav(0)))
+        }
+        ShellAction::GoDecks if table && (in_room || state.hub != Hub::Decks) => {
+            Some(Press::Header(super::header::HeaderPress::Nav(1)))
+        }
+        ShellAction::Undo if state.undo.is_some() => {
+            Some(Press::Decks(super::decks::DecksPress::Undo))
+        }
+        ShellAction::CreateTable if play => Some(Press::Play(super::play::PlayPress::CreateTable)),
+        ShellAction::NewDeck if decks => Some(Press::Decks(super::decks::DecksPress::NewDeck)),
+        ShellAction::ImportDeck if decks => Some(Press::Decks(super::decks::DecksPress::Import)),
+        ShellAction::Search if decks => Some(Press::Shared(SharedPress::Focus(Field::DeckSearch))),
+        ShellAction::StartGame if in_room => super::room::start_press(state),
         ShellAction::GoSettings | ShellAction::OpenSettings
             if !state.settings.is_open()
                 && !matches!(state.lobby.screen(), Screen::Build | Screen::Seated(_)) =>
@@ -96,13 +145,8 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
         ShellAction::GoPlay | ShellAction::GoDecks if state.settings.is_open() => {
             Some(Press::Settings(SettingsPress::CloseSettings))
         }
-        ShellAction::GoPlay if hub => Some(Press::Hub(HubPress::Tab(Hub::Play))),
-        ShellAction::GoDecks if hub => Some(Press::Hub(HubPress::Tab(Hub::Decks))),
         ShellAction::Refresh if hub => Some(Press::Hub(HubPress::Refresh)),
-        ShellAction::NewDeck if hub && state.hub == Hub::Decks => {
-            Some(Press::Hub(HubPress::NewDeck))
-        }
-        ShellAction::Search if hub => Some(Press::Shared(SharedPress::Focus(Field::Search))),
+        ShellAction::Search if play => Some(Press::Shared(SharedPress::Focus(Field::Search))),
         // `r`: the seated strip's Return, wherever the strip stands.
         ShellAction::ReturnToGame if super::header::seated(state).is_some() => {
             Some(Press::Header(super::header::HeaderPress::Return))
@@ -141,6 +185,9 @@ pub(super) fn run_fired(
                 Press::Settings(press) => press.handle(cx),
                 Press::Shared(press) => press.handle(cx),
                 Press::Header(press) => press.handle(cx),
+                Press::Decks(press) => press.handle(cx),
+                Press::Play(press) => press.handle(cx),
+                Press::Room(press) => press.handle(cx),
                 _ => {}
             }
             if !closing {

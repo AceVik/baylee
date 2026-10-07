@@ -39,7 +39,8 @@ fn a_pasted_list_is_imported_from_the_deck_list_and_reported() {
     stocked(&mut app);
     sized(&mut app, 1400.0);
     app.update();
-    press(&mut app, Press::Hub(HubPress::ImportDeck));
+    to_decks(&mut app);
+    press(&mut app, Press::Decks(DecksPress::Import));
     assert!(
         matches!(transfer(&app), Some(Transfer::Import(_))),
         "the deck list's Import opens the builder on the import dialog"

@@ -18,11 +18,11 @@ fn an_empty_search_has_a_working_way_back_to_all_tables() {
     }
     app.update();
     assert!(
-        presses(&mut app).contains(&Press::Hub(HubPress::OpenRoom(2))),
+        presses(&mut app).contains(&Press::Play(PlayPress::CreateTable)),
         "room creation works before choosing a deck"
     );
     tap_control(&mut app, "clear the table search", |p| {
-        *p == Press::Hub(HubPress::ClearSearch)
+        *p == Press::Play(PlayPress::ClearSearch)
     });
     assert_eq!(
         app.world()
@@ -38,10 +38,15 @@ fn an_empty_search_has_a_working_way_back_to_all_tables() {
         .lobby
         .apply(LobbyEvent::Games(GameListing::default()));
     app.update();
-    assert!(labels(&mut app).contains(&Phrase::EmptyTablesTitle.text(Lang::En).to_owned()));
-    assert!(presses(&mut app).contains(&Press::Library(LibraryPress::BrowseHouse)));
-    assert!(presses(&mut app).contains(&Press::Hub(HubPress::NewDeck)));
-    assert!(!presses(&mut app).contains(&Press::Hub(HubPress::ClearSearch)));
+    assert!(labels(&mut app).contains(&Phrase::ShellNoOneWaiting.text(Lang::En).to_owned()));
+    // First run (S-3): the hero asks for a deck, and Play the house waits.
+    assert!(
+        labels(&mut app)
+            .iter()
+            .any(|l| l.eq_ignore_ascii_case(Phrase::PlayPickToStart.text(Lang::En)))
+    );
+    assert!(presses(&mut app).contains(&Press::Play(PlayPress::CreateTable)));
+    assert!(!presses(&mut app).contains(&Press::Play(PlayPress::ClearSearch)));
 }
 
 #[test]
@@ -84,17 +89,16 @@ fn the_table_screen_builds_once_there_is_a_deck() {
             }])));
     }
     app.update();
-    assert!(labels(&mut app).contains(&Phrase::LibraryCounts.fill(Lang::En, &["100", "4"])));
+    assert!(labels(&mut app).contains(&Phrase::DeckMeta.fill(Lang::En, &["100", "4"])));
     let found = presses(&mut app);
     for wanted in [
         // Signing out is in the account pill's menu (the shell design, §2.1).
         Press::Header(super::super::header::HeaderPress::Account),
-        Press::Hub(HubPress::Refresh),
-        Press::Library(LibraryPress::BrowseHouse),
-        Press::Hub(HubPress::SelectDeck(0)),
-        Press::Hub(HubPress::Host(GameMode::Ai)),
-        Press::Hub(HubPress::OpenRoom(2)),
-        Press::Hub(HubPress::Join(0)),
+        Press::Play(PlayPress::ChangeDeck),
+        Press::Play(PlayPress::PlayHouse),
+        Press::Shared(SharedPress::OpenMenu(ShellMenu::Difficulty)),
+        Press::Play(PlayPress::CreateTable),
+        Press::Play(PlayPress::Join(0)),
         // The chairs of a waiting table are drawn for everyone, so a
         // player can take the one they want rather than whichever the
         // gateway would have handed them.
@@ -127,24 +131,8 @@ fn offline_play_can_be_pressed_all_the_way_to_a_table() {
         "offline play opens the table screen, not a duel"
     );
 
-    tap_control(&mut app, "open room", |p| {
-        *p == Press::Hub(HubPress::OpenRoom(2))
-    });
-    press(
-        &mut app,
-        Press::Room(RoomPress::RoomAdjust(
-            client_core::lobby::room::Adjustment::Chairs(true),
-        )),
-    );
-    press(
-        &mut app,
-        Press::Room(RoomPress::RoomAdjust(
-            client_core::lobby::room::Adjustment::Chairs(true),
-        )),
-    );
-    tap_control(&mut app, "apply settings", |p| {
-        *p == Press::Room(RoomPress::SaveRoom(false))
-    });
+    // The sheet opens a table of four (the Commander template's).
+    open_a_table(&mut app);
     {
         let state = app.world().resource::<LobbyState>();
         let room = state.lobby.games().first().expect("the room is listed");
@@ -154,6 +142,7 @@ fn offline_play_can_be_pressed_all_the_way_to_a_table() {
 
     // A chair moved onto a side, to prove the room's own controls reach the
     // performer and not only the two buttons that open and close it.
+    press(&mut app, Press::Room(RoomPress::SetTeams));
     tap_control(&mut app, "chair one onto a side", |p| {
         matches!(p, Press::Room(RoomPress::SeatTeam(0, 0, _)))
     });
@@ -190,9 +179,7 @@ fn room_tab_visits_only_expanded_inputs_in_both_directions() {
     tap_control(&mut app, "play offline", |p| {
         *p == Press::Front(FrontPress::PlayOffline)
     });
-    tap_control(&mut app, "open room", |p| {
-        *p == Press::Hub(HubPress::OpenRoom(2))
-    });
+    open_a_table(&mut app);
     let tab = |app: &mut App, backwards: bool| {
         if backwards {
             app.world_mut()
@@ -208,30 +195,54 @@ fn room_tab_visits_only_expanded_inputs_in_both_directions() {
             .release(KeyCode::ShiftLeft);
         app.world().resource::<LobbyState>().lobby.focus()
     };
-    assert_eq!(tab(&mut app, false), Field::RoomName);
-    assert_eq!(tab(&mut app, true), Field::RoomName);
-    tap_control(&mut app, "expand seat two", |p| {
-        *p == Press::Room(RoomPress::RoomSetup(1))
-    });
+    // The room draws no box until a drawer is open: Tab finds none, and the
+    // caret is never put into a field nothing shows (the room's name is the
+    // Create-table sheet's, WP2).
+    let resting = tab(&mut app, false);
+    assert!(!matches!(resting, Field::RoomName | Field::RoomPassword));
+    assert_eq!(tab(&mut app, true), resting);
+    open_drawer(&mut app, 1);
     assert_eq!(tab(&mut app, false), Field::RoomBoard(1));
-    assert_eq!(tab(&mut app, true), Field::RoomName);
-    press(
-        &mut app,
-        Press::Room(RoomPress::RoomAdjust(
-            client_core::lobby::room::Adjustment::Template(2),
-        )),
-    );
+    assert_eq!(tab(&mut app, true), Field::RoomBoard(1));
+    // The drawer stays open through Edit rules.
+    five_lands(&mut app);
     tap_control(&mut app, "edit a starting card", |p| {
         *p == Press::Room(RoomPress::RoomCardEdit(1, 0))
     });
     assert_eq!(tab(&mut app, false), Field::RoomBoard(1));
     assert_eq!(tab(&mut app, false), Field::RoomCounter);
-    assert_eq!(tab(&mut app, false), Field::RoomName);
+    assert_eq!(tab(&mut app, false), Field::RoomBoard(1));
     assert_eq!(tab(&mut app, true), Field::RoomCounter);
-    tap_control(&mut app, "collapse the editor", |p| {
-        *p == Press::Room(RoomPress::RoomSetup(1))
+    open_drawer(&mut app, 1);
+    let shut = tab(&mut app, true);
+    assert!(!matches!(shut, Field::RoomBoard(_) | Field::RoomCounter));
+}
+
+/// Opens (or shuts) a seat's drawer the way the host does: its `⋯`, then
+/// Starting position.
+fn open_drawer(app: &mut App, seat: u8) {
+    press(
+        app,
+        Press::Shared(SharedPress::OpenMenu(ShellMenu::Seat(seat))),
+    );
+    app.update();
+    tap_control(app, "starting position", |p| {
+        *p == Press::Room(RoomPress::RoomSetup(seat))
     });
-    assert_eq!(tab(&mut app, true), Field::RoomName);
+}
+
+/// The room's rules to the five-land start, through Edit rules (WP2).
+fn five_lands(app: &mut App) {
+    press(app, Press::Room(RoomPress::EditRules));
+    app.update();
+    press(
+        app,
+        Press::Play(PlayPress::Template(
+            client_core::lobby::play::Template::FiveLand,
+        )),
+    );
+    app.update();
+    tap_control(app, "apply", |p| *p == Press::Play(PlayPress::Open));
 }
 
 #[test]
@@ -243,25 +254,16 @@ fn starting_cards_expand_per_seat_without_losing_the_draft_or_hidden_focus() {
     tap_control(&mut app, "play offline", |p| {
         *p == Press::Front(FrontPress::PlayOffline)
     });
-    tap_control(&mut app, "open room", |p| {
-        *p == Press::Hub(HubPress::OpenRoom(2))
-    });
+    open_a_table(&mut app);
     assert!(!presses(&mut app).contains(&Press::Shared(SharedPress::Focus(Field::RoomBoard(0)))));
     // A nonempty preset stays visible as a count even while its editor is shut.
-    press(
-        &mut app,
-        Press::Room(RoomPress::RoomAdjust(
-            client_core::lobby::room::Adjustment::Template(2),
-        )),
-    );
+    five_lands(&mut app);
     assert!(
         labels(&mut app)
             .iter()
             .any(|s| s.contains("Starting cards · 5"))
     );
-    tap_control(&mut app, "expand starting cards", |p| {
-        *p == Press::Room(RoomPress::RoomSetup(0))
-    });
+    open_drawer(&mut app, 0);
     tap_control(&mut app, "focus card search", |p| {
         *p == Press::Shared(SharedPress::Focus(Field::RoomBoard(0)))
     });
@@ -269,14 +271,15 @@ fn starting_cards_expand_per_seat_without_losing_the_draft_or_hidden_focus() {
         .resource_mut::<LobbyState>()
         .lobby
         .set_field(Field::RoomBoard(0), "island");
-    tap_control(&mut app, "expand the other seat", |p| {
-        *p == Press::Room(RoomPress::RoomSetup(1))
-    });
+    open_drawer(&mut app, 1);
     let controls = presses(&mut app);
     assert!(!controls.contains(&Press::Shared(SharedPress::Focus(Field::RoomBoard(0)))));
     assert!(controls.contains(&Press::Shared(SharedPress::Focus(Field::RoomBoard(1)))));
     let state = app.world().resource::<LobbyState>();
-    assert_eq!(state.lobby.focus(), Field::RoomName);
+    assert!(!matches!(
+        state.lobby.focus(),
+        Field::RoomBoard(_) | Field::RoomCounter | Field::RoomName
+    ));
     assert_eq!(state.lobby.field(Field::RoomBoard(0)), "island");
     assert_eq!(
         state.lobby.room_draft().unwrap().setup.seats[0]
@@ -284,9 +287,7 @@ fn starting_cards_expand_per_seat_without_losing_the_draft_or_hidden_focus() {
             .len(),
         5
     );
-    tap_control(&mut app, "collapse starting cards", |p| {
-        *p == Press::Room(RoomPress::RoomSetup(1))
-    });
+    open_drawer(&mut app, 1);
     assert!(!presses(&mut app).contains(&Press::Shared(SharedPress::Focus(Field::RoomBoard(1)))));
 }
 
@@ -313,14 +314,14 @@ fn playing_the_house_offline_is_still_one_press() {
     assert_eq!(
         controls
             .iter(app.world())
-            .filter(|p| **p == Press::Hub(HubPress::Host(GameMode::Ai)))
+            .filter(|p| **p == Press::Play(PlayPress::PlayHouse))
             .count(),
         1
     );
     let mut lists = app.world_mut().query::<&Scrollable>();
     assert!(!lists.iter(app.world()).any(|list| list.0 == List::Games));
     tap_control(&mut app, "play the house", |p| {
-        *p == Press::Hub(HubPress::Host(GameMode::Ai))
+        *p == Press::Play(PlayPress::PlayHouse)
     });
 
     let state = app.world().resource::<LobbyState>();
@@ -355,16 +356,18 @@ fn the_offline_lobby_draws_none_of_the_gateways_controls() {
         query.iter(app.world()).copied().collect()
     };
     assert!(
-        presses.contains(&Press::Hub(HubPress::OpenRoom(2))),
+        presses.contains(&Press::Play(PlayPress::CreateTable)),
         "the table's own controls stay: {presses:?}"
     );
     assert!(
-        !presses.contains(&Press::Hub(HubPress::Search)),
+        !presses.contains(&Press::Shared(SharedPress::Focus(Field::Search))),
         "nothing to search: {presses:?}"
     );
     assert!(
-        !presses.contains(&Press::Hub(HubPress::Refresh)),
-        "nothing to refresh: {presses:?}"
+        !presses
+            .iter()
+            .any(|p| matches!(p, Press::Play(PlayPress::Chip(_)))),
+        "nothing to filter: {presses:?}"
     );
     let words = labels(&mut app);
     assert!(
@@ -486,7 +489,7 @@ fn a_rematch_room_in_the_list_asks_to_be_played_rather_than_readied() {
     app.update();
     let found = presses(&mut app);
     assert!(
-        found.contains(&Press::Hub(HubPress::Rematch(0))),
+        found.contains(&Press::Play(PlayPress::PlayAgain(0))),
         "{found:?}"
     );
     assert!(
@@ -525,5 +528,5 @@ fn a_table_that_is_full_offers_no_join() {
             }])));
     }
     app.update();
-    assert!(!presses(&mut app).contains(&Press::Hub(HubPress::Join(0))));
+    assert!(!presses(&mut app).contains(&Press::Play(PlayPress::Join(0))));
 }

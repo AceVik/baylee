@@ -2136,7 +2136,7 @@ from a curl recipe into a contract:
 | save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commanders, format?, description?, summary?, sleeve?, playmat?}` | `{deck_id}`; `403` for a sleeve or mat the caller did not upload |
 | edit one | `PUT /decks/{id}` — same body | `204` |
 | throw one away | `DELETE /decks/{id}` | `204` |
-| what anybody may play | `GET /decks/shared` | `[{id, kind, name, format, description, cards, sideboard, commanders, version}]` |
+| what anybody may play | `GET /decks/shared` | `[{id, kind, name, format, description, cards, sideboard, commanders, version, copies, identity, leaders, signature, unplayable}]` |
 | take a copy | `POST /decks/{id}/copy` | `{deck_id}` |
 | what it used to be | `GET /decks/{id}/history` | `{version, updated_at, past:[{version, cards, sideboard, commanders, summary, superseded_at}]}` |
 | one earlier state | `GET /decks/{id}/versions/{v}` | that state's rows in full, plus `current` |
@@ -2149,7 +2149,7 @@ from a curl recipe into a contract:
 | tables | `GET /lobby/games?q=&offset=&limit=` | `{games:[{id, name, host, yours, state, seats:[…]}], total, offset, limit}` |
 | a socket ticket | `POST /ws-ticket` `{"socket":"lobby"}` or `{"socket":"seat","game"}` (§"Opening a socket: tickets") | `{ticket, expires_in}` |
 | the same, pushed | `GET /lobby/ws?ticket=…&q=&offset=&limit=` (websocket) | that page again, on every lobby change |
-| open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open", seats, name}` | `{game_id, seat, seat_token}` |
+| open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open", seats, name, password?, clock?, ai?}` (`ai`: the house's difficulty for `mode:"ai"`, by `AIProfile::NAMED`; `steady` when absent, `400` when unknown) | `{game_id, seat, seat_token}` |
 | sit down | `POST /lobby/games/{id}/join` `{deck_id, seat?}` | `{game_id, seat, seat_token}` |
 | take the chair you are in | `POST /lobby/games/{id}/seat` | `{game_id, seat, seat_token}` |
 | arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?, team?}` | the seat |
@@ -2256,6 +2256,12 @@ catalog, a catalog that lacks the printing or is down, the offline lobby —
 and a client shows a printing's `art_crop` only with its artist credited,
 so no `artist` means no art. All four are added fields, read as empty when
 absent.
+
+**`GET /decks/shared` says the same (WG-3b).** Each house deck carries
+`copies`, `identity`, `leaders`, `signature` and `unplayable`, read by the
+same `baylee_cards::digest` and credited by the same one catalog query, so
+a house tile pictures its deck by the rule a player's own tile does. Added
+fields; an older client ignores them.
 
 **`POST /lobby/games/{id}/seat` is the way back to a chair you are already
 in**, and it is not a join. It names no deck, moves nobody, and changes

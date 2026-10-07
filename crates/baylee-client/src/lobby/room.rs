@@ -1,425 +1,744 @@
 //! A dedicated waiting room: host rules beside each player's own deck choice.
+use super::menus::ShellMenu;
 use super::press::Cx;
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use super::{FieldLook, Masked, button, chip, heading, note, panel, row, text_field};
+use super::{FieldLook, Masked, button, heading, note, row, text_field};
+use crate::shellkit::controls::{self, Kit, Live, Weight};
+use crate::shellkit::surfaces::MenuItem;
+use crate::shellkit::{Frame as ShellFrame, Role, px_fixed, tokens};
 use baylee_client_core::lobby::room::Adjustment;
 mod cards;
 mod llm;
 
-/// Draw a room in the same bounded sanctuary frame as the lobby.
-#[allow(clippy::too_many_lines)] // the page is read in visual order
+/// The room (the shell design, §5; WP2): the title row with Copy invite,
+/// Leave and Start; the rules rail with Edit rules and Set teams; one card
+/// per seat. `Esc` never leaves it (§9.6); the header's nav steps away and
+/// keeps the seat (M-7).
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)] // the page is read in visual order
 pub(super) fn draw(
     commands: &mut Commands,
     root: Entity,
     state: &LobbyState,
     fonts: &UiFonts,
     m: Metrics,
+    kit: Kit,
     scroll: &Scrolled,
     index: usize,
 ) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
     let game = &lobby.games()[index];
+    let phone = kit.m.frame == ShellFrame::Phone;
+    let side = phone || matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast);
     let draft = lobby.room_draft();
     let setup = if game.yours {
         draft.map_or(&game.setup, |d| &d.setup)
     } else {
         &game.setup
     };
-    let chairs = draft.map_or(game.seats.len(), |d| d.chairs);
-    let page = commands
-        .spawn(Node {
-            width: percent(100),
-            min_height: px(0),
-            flex_grow: 1.0,
-            flex_direction: FlexDirection::Column,
-            row_gap: px(m.gap),
-            padding: UiRect::all(px(m.pad)),
-            overflow: if m.frame == Frame::Compact {
-                Overflow::visible()
-            } else {
-                Overflow::scroll_y()
+
+    // ---- the title row, on a plate of its own
+    let title = commands
+        .spawn((
+            Role::Panel,
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px_fixed(kit.m.gap),
+                row_gap: kit.m.px(6.0),
+                flex_wrap: if phone {
+                    FlexWrap::NoWrap
+                } else {
+                    FlexWrap::Wrap
+                },
+                flex_shrink: 0.0,
+                padding: UiRect::axes(px_fixed(kit.m.pad), kit.m.px(8.0)),
+                margin: UiRect::axes(px_fixed(kit.m.body), kit.m.px(8.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                ..default()
             },
-            ..default()
-        })
+            BackgroundColor(tokens::PANEL),
+            BorderColor::all(tokens::BORDER),
+        ))
         .id();
-    if m.frame != Frame::Compact {
-        commands.entity(page).insert((
-            Scrollable(List::Table),
-            ScrollPosition(Vec2::new(0.0, scroll.get(List::Table))),
-        ));
-    }
-    let title = row(commands, m, true);
-    commands
-        .entity(title)
-        .entry::<Node>()
-        .and_modify(move |mut n| {
-            n.padding = UiRect::all(px(m.pad));
-            n.flex_shrink = 0.0;
-        });
+    commands.entity(root).add_child(title);
+    let back = controls::button(
+        commands,
+        kit,
+        &format!("\u{2039} {}", Phrase::ShellPlay.text(lang)),
+        Weight::Ghost,
+        Live::Yes,
+        None,
+        Press::Room(RoomPress::StepAway),
+    );
     let name = if game.name.is_empty() {
         Phrase::RoomTitle.text(lang)
     } else {
         &game.name
     };
-    let h = heading(commands, fonts, m, name);
-    commands.entity(title).add_child(h);
-    let leave = button(
-        commands,
-        fonts,
-        m,
-        Phrase::Leave.text(lang),
-        Press::Room(RoomPress::LeaveTable(index)),
-        palette::PANEL_LIT,
-        !lobby.busy(),
-    );
-    commands.entity(title).add_child(leave);
-    // Keep the room's primary action reachable while scrolling many seats
-    // or an expanded starting-position editor.
-    commands.entity(root).add_child(title);
-    if m.frame == Frame::Compact {
-        commands.entity(root).add_child(page);
-    } else {
-        super::scrollbars::attach(commands, root, page, m);
-    }
-    let help = note(
-        commands,
-        fonts,
-        m,
-        if lobby.room_dirty() {
-            Phrase::RoomDraft
-        } else if lobby.offline() {
-            Phrase::RoomOfflineHelp
-        } else if game.yours {
-            Phrase::RoomHostHelp
-        } else {
-            Phrase::RoomGuestHelp
-        }
-        .text(lang),
-    );
-    commands.entity(page).add_child(help);
-    let columns = commands
+    let heading = commands
         .spawn((
-            Node {
-                width: percent(100),
-                flex_shrink: 0.0,
-                flex_direction: if m.stacked() {
-                    FlexDirection::Column
+            Text::new(name),
+            crate::hud::tf(
+                kit.fonts,
+                if phone {
+                    20.0_f32.max(kit.m.text)
                 } else {
-                    FlexDirection::Row
+                    kit.m.h1
                 },
-                column_gap: px(m.pad),
-                row_gap: px(m.pad),
-                align_items: AlignItems::Start,
+            ),
+            TextColor(tokens::INK),
+            TextLayout::no_wrap(),
+            Node {
+                flex_shrink: 1.0,
+                min_width: px(0),
+                overflow: Overflow::clip_x(),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let labels = row(commands, m, false);
-    commands
-        .entity(labels)
-        .entry::<Node>()
-        .and_modify(move |mut n| {
-            n.column_gap = px(m.pad);
-            n.height = px(m.head * 1.5);
-            n.flex_shrink = 0.0;
-            n.align_items = AlignItems::Start;
-        });
-    let label = heading(commands, fonts, m, Phrase::RoomRules.text(lang));
-    commands.entity(label).entry::<Node>().and_modify(|mut n| {
-        n.width = px(365);
-        n.flex_shrink = 0.0;
-    });
-    commands.entity(labels).add_child(label);
-    add_heading(commands, labels, fonts, m, Phrase::RoomPlayers.text(lang));
-    if !m.stacked() {
-        commands.entity(page).add_child(labels);
-    }
-    commands.entity(page).add_child(columns);
-    let rules = panel(
-        commands,
-        m,
-        if m.stacked() { percent(100) } else { px(365) },
-        0.0,
-    );
-    commands.entity(rules).entry::<Node>().and_modify(|mut n| {
-        n.min_height = px(0);
-        n.flex_shrink = 0.0;
-    });
-    commands.entity(rules).insert(super::dock::Dock(3));
-    commands.entity(columns).add_child(rules);
-
-    if game.yours {
-        field(
-            commands,
-            rules,
-            state,
-            fonts,
-            m,
-            Phrase::RoomName.text(lang),
-            Field::RoomName,
-            false,
-        );
-        if !lobby.offline() {
-            field(
+    commands.entity(title).add_children(&[back, heading]);
+    if !phone {
+        if let Some(format) = client_core::lobby::play::host_format(game) {
+            let b = super::parts::badge(
                 commands,
-                rules,
-                state,
-                fonts,
-                m,
-                Phrase::RoomPassword.text(lang),
-                Field::RoomPassword,
-                true,
+                kit,
+                &client_core::lobby::shelf::format_label(lang, format),
+                tokens::ACCENT,
             );
-            add_note(commands, rules, fonts, m, Phrase::RoomLockHelp.text(lang));
+            commands.entity(title).add_child(b);
         }
-        add_note(commands, rules, fonts, m, Phrase::RoomTemplate.text(lang));
-        let presets = row(commands, m, true);
-        for (label, value) in [
-            ("Commander", 0),
-            ("Duel · 20", 1),
-            (Phrase::RoomFast.text(lang), 2),
-        ] {
-            let b = chip(
-                commands,
-                fonts,
-                m,
-                label,
-                Press::Room(RoomPress::RoomAdjust(Adjustment::Template(value))),
-                false,
-            );
-            commands.entity(presets).add_child(b);
-        }
-        commands.entity(rules).add_child(presets);
-        stepper(
-            commands,
-            rules,
-            fonts,
-            m,
-            &Phrase::PlayerCount.fill(lang, &[&chairs.to_string()]),
-            Adjustment::Chairs(false),
-            Adjustment::Chairs(true),
-            chairs > 2,
-            chairs < 8,
-        );
-        stepper(
-            commands,
-            rules,
-            fonts,
-            m,
-            &format!("{} · {}", Phrase::RoomLife.text(lang), setup.starting_life),
-            Adjustment::Life(-1),
-            Adjustment::Life(1),
-            setup.starting_life > 1,
-            setup.starting_life < 999,
-        );
-        stepper(
-            commands,
-            rules,
-            fonts,
-            m,
-            &format!(
-                "{} · {}",
-                Phrase::RoomMulligans.text(lang),
-                setup.free_mulligans
-            ),
-            Adjustment::Mulligans(false),
-            Adjustment::Mulligans(true),
-            setup.free_mulligans > 0,
-            setup.free_mulligans < 7,
-        );
-        let apply = button(
-            commands,
-            fonts,
-            m,
-            Phrase::RoomApply.text(lang),
-            Press::Room(RoomPress::SaveRoom(false)),
-            palette::ACCENT,
-            !lobby.busy(),
-        );
-        commands.entity(rules).add_child(apply);
         if game.locked {
-            let unlock = button(
+            let b = super::parts::badge_with(
                 commands,
-                fonts,
-                m,
-                Phrase::RoomUnlock.text(lang),
-                Press::Room(RoomPress::SaveRoom(true)),
-                palette::PANEL_LIT,
-                !lobby.busy(),
+                kit,
+                super::parts::LOCK,
+                Phrase::RoomPasswordSet.text(lang),
+                tokens::GOLD,
             );
-            commands.entity(rules).add_child(unlock);
+            commands.entity(title).add_child(b);
         }
-    } else {
-        add_note(
+    }
+    let gap = super::parts::grow(commands);
+    commands.entity(title).add_child(gap);
+    let reason = start_reason(state, game, lang);
+    if !phone && let Some(reason) = &reason {
+        let why = commands
+            .spawn((
+                Text::new(reason.clone()),
+                crate::hud::tf_italic(kit.fonts, kit.m.small),
+                TextColor(tokens::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(title).add_child(why);
+    }
+    let leave = controls::button(
+        commands,
+        kit,
+        Phrase::Leave.text(lang),
+        if game.yours {
+            Weight::Danger
+        } else {
+            Weight::Secondary
+        },
+        if lobby.busy() {
+            Live::No(Phrase::VeilTalking.text(lang))
+        } else {
+            Live::Yes
+        },
+        None,
+        Press::Room(RoomPress::LeaveTable(index)),
+    );
+    commands.entity(title).add_child(leave);
+    if !lobby.offline() && !phone {
+        let invite = controls::button(
             commands,
-            rules,
-            fonts,
-            m,
-            &format!(
-                "{} · {}\n{} · {}",
-                Phrase::RoomLife.text(lang),
-                setup.starting_life,
-                Phrase::RoomMulligans.text(lang),
-                setup.free_mulligans
-            ),
+            kit,
+            if state.invite_copied {
+                Phrase::RoomInviteCopied
+            } else {
+                Phrase::RoomCopyInvite
+            }
+            .text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            Press::Room(RoomPress::CopyInvite(index)),
         );
+        commands.entity(title).add_child(invite);
     }
-    add_note(commands, rules, fonts, m, Phrase::RoomPlanechase.text(lang));
-    if !lobby.offline() {
-        add_note(commands, rules, fonts, m, Phrase::RoomSuccession.text(lang));
+    if game.yours {
+        let start = controls::button(
+            commands,
+            kit,
+            Phrase::Start.text(lang),
+            Weight::Primary,
+            match &reason {
+                Some(why) => Live::No(why),
+                None => Live::Yes,
+            },
+            Some(if crate::shellkit::keys::mac() {
+                "Cmd+Enter"
+            } else {
+                "Ctrl+Enter"
+            }),
+            Press::Room(RoomPress::StartRoom(index)),
+        );
+        commands.entity(title).add_child(start);
     }
+
+    // ---- the rail and the seats
+    let columns = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_grow: 1.0,
+                min_height: px(0),
+                flex_direction: if side {
+                    FlexDirection::Row
+                } else {
+                    FlexDirection::Column
+                },
+                column_gap: px_fixed(kit.m.body),
+                row_gap: px_fixed(kit.m.gap),
+                align_items: AlignItems::Start,
+                padding: UiRect::axes(px_fixed(kit.m.body), px(0)),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            Scrollable(List::Table),
+            ScrollPosition(Vec2::new(0.0, scroll.get(List::Table))),
+        ))
+        .id();
+    commands.entity(root).add_child(columns);
+    let rail = commands
+        .spawn((
+            Role::Panel,
+            Node {
+                width: if phone {
+                    px(220)
+                } else if side {
+                    percent(26)
+                } else {
+                    percent(100)
+                },
+                max_width: if side && !phone {
+                    kit.m.px(380.0)
+                } else {
+                    Val::Auto
+                },
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(8.0),
+                padding: UiRect::all(px_fixed(kit.m.pad)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                ..default()
+            },
+            BackgroundColor(tokens::PANEL),
+            BorderColor::all(tokens::BORDER),
+            super::dock::Dock(3),
+        ))
+        .id();
+    commands.entity(columns).add_child(rail);
+    let caption = super::parts::caption(commands, kit, Phrase::RoomRules.text(lang));
+    commands.entity(rail).add_child(caption);
+    let chairs = draft.map_or(game.seats.len(), |d| d.chairs);
+    let format = client_core::lobby::play::host_format(game).map_or_else(
+        || Phrase::FormatFreeform.text(lang).to_string(),
+        |f| client_core::lobby::shelf::format_label(lang, f),
+    );
+    let lines = [
+        Phrase::RoomRulesPlayers.fill(lang, &[&format, &chairs.to_string()]),
+        format!(
+            "{} · {}",
+            Phrase::RulesLife.fill(lang, &[&setup.starting_life.to_string()]),
+            Phrase::counted(
+                usize::from(setup.free_mulligans),
+                Phrase::RulesMulliganOne,
+                Phrase::RulesMulliganMany,
+            )
+            .fill(lang, &[&setup.free_mulligans.to_string()]),
+        ),
+        {
+            let clock = game.clock.map_or_else(
+                || Phrase::ClockCasual.text(lang).to_string(),
+                |c| client_core::lobby::play::table_clock_label(lang, &lobby.clocks(), c),
+            );
+            if game.locked {
+                format!("{clock} · {}", Phrase::RoomPasswordSet.text(lang))
+            } else {
+                clock
+            }
+        },
+    ];
+    for line in lines {
+        let l = super::parts::line(commands, kit, &line, kit.m.text, tokens::INK);
+        commands.entity(rail).add_child(l);
+    }
+    if game.yours {
+        let edit = controls::button(
+            commands,
+            kit,
+            Phrase::SheetEditRules.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            Press::Room(RoomPress::EditRules),
+        );
+        commands.entity(rail).add_child(edit);
+    }
+    let rule = commands
+        .spawn((
+            Node {
+                height: px(1),
+                width: percent(100),
+                ..default()
+            },
+            BackgroundColor(tokens::BORDER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(rail).add_child(rule);
+    let teams_on = game.seats.iter().any(|s| s.team.is_some());
+    let teams = super::parts::row(commands, kit, true);
+    let said = super::parts::line(
+        commands,
+        kit,
+        if teams_on {
+            Phrase::RoomTeamsOn.text(lang)
+        } else {
+            Phrase::RoomTeamsOff.text(lang)
+        },
+        kit.m.small,
+        tokens::MUTED,
+    );
+    commands.entity(teams).add_child(said);
+    if game.yours {
+        let set = controls::button(
+            commands,
+            kit,
+            Phrase::RoomSetTeams.text(lang),
+            Weight::Ghost,
+            Live::Yes,
+            None,
+            Press::Room(RoomPress::SetTeams),
+        );
+        commands.entity(teams).add_child(set);
+    }
+    commands.entity(rail).add_child(teams);
+    if !phone {
+        for note in [
+            Some(Phrase::RoomPlanechase),
+            (!lobby.offline()).then_some(Phrase::RoomSuccession),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            let l = super::parts::line(commands, kit, note.text(lang), kit.m.small, tokens::MUTED);
+            commands.entity(rail).add_child(l);
+        }
+    }
+    if phone && let Some(reason) = &reason {
+        let why = super::parts::line(commands, kit, reason, kit.m.small, tokens::GOLD);
+        commands.entity(rail).add_child(why);
+    }
+
     let seats = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
-                width: if m.stacked() { percent(100) } else { px(0) },
-                min_width: px(0),
                 flex_grow: 1.0,
-                row_gap: px(m.gap),
+                flex_basis: px(0),
+                min_width: px(0),
+                width: if side { Val::Auto } else { percent(100) },
+                row_gap: kit.m.px(8.0),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
     commands.entity(columns).add_child(seats);
-
-    let actions = row(commands, m, true);
-    commands
-        .entity(actions)
-        .entry::<Node>()
-        .and_modify(|mut n| {
-            n.width = Val::Auto;
-            n.margin.left = Val::Auto;
-        });
-    if !game.yours {
-        let ready = game.i_am_ready();
-        let own_deck = game.seats.iter().any(|s| s.you && !s.deck.is_empty());
-        let b = button(
-            commands,
-            fonts,
-            m,
-            if ready {
-                Phrase::NotReady
-            } else {
-                Phrase::Ready
-            }
-            .text(lang),
-            Press::Room(RoomPress::Ready(index, !ready)),
-            palette::ACCENT,
-            !lobby.busy() && own_deck,
-        );
-        commands.entity(actions).add_child(b);
-    }
-    if game.yours {
-        let b = button(
-            commands,
-            fonts,
-            m,
-            Phrase::Start.text(lang),
-            Press::Room(RoomPress::StartRoom(index)),
-            palette::ACCENT,
-            game.startable && !lobby.busy() && !lobby.room_dirty() && lobby.games_can_start(),
-        );
-        commands.entity(actions).add_child(b);
-    }
-    commands.entity(title).add_child(actions);
-
+    let mut anchors = Vec::new();
     for seat in &game.seats {
-        seat_card(commands, seats, state, fonts, m, index, seat);
+        if let Some(anchor) = seat_card(commands, seats, state, fonts, m, kit, index, seat) {
+            anchors.push(anchor);
+        }
     }
+    // The open seat menu, hung from its `⋯` or caret.
+    for (seat, anchor, ai) in anchors {
+        if ai && state.menu == Some(ShellMenu::SeatAi(seat)) {
+            let items: Vec<_> = baylee_core::preset::AIProfile::NAMED
+                .iter()
+                .map(|(name, _)| {
+                    super::menus::item(
+                        super::ai_name(lang, name),
+                        Press::Room(RoomPress::SeatAiOpen(index, u32::from(seat), name)),
+                    )
+                })
+                .collect();
+            super::menus::draw(commands, root, kit, anchor, items);
+        }
+        if !ai && state.menu == Some(ShellMenu::Seat(seat)) {
+            let items = seat_menu(state, index, seat);
+            super::menus::draw(commands, root, kit, anchor, items);
+        }
+    }
+    if let Some(chair) = state.chair_sheet {
+        chair_sheet(commands, root, state, fonts, m, kit, index, chair);
+    }
+    super::play::sheet_over(commands, root, state, m, kit);
 }
 
-#[allow(clippy::too_many_lines)] // one seat's controls, grouped by authority
+/// Why Start does nothing yet, said where the host looks: the chairs not
+/// ready by name, the rules not applied, the gateway without a game host.
+fn start_reason(state: &LobbyState, game: &GameSummary, lang: Lang) -> Option<String> {
+    let lobby = &state.lobby;
+    if !game.yours {
+        return None;
+    }
+    if !lobby.games_can_start() {
+        return Some(Phrase::PlayNoHost.text(lang).to_string());
+    }
+    if lobby.room_dirty() {
+        return Some(Phrase::RoomDraft.text(lang).to_string());
+    }
+    let open = game.seats.iter().filter(|s| s.open()).count();
+    if open > 0 {
+        return Some(
+            Phrase::counted(open, Phrase::RoomOpenSeatOne, Phrase::RoomOpenSeatMany)
+                .fill(lang, &[&open.to_string()]),
+        );
+    }
+    let waiting: Vec<String> = game
+        .seats
+        .iter()
+        .filter(|s| !s.host && s.kind == SeatKind::Human && s.taken && !s.ready)
+        .filter_map(|s| s.player.clone())
+        .collect();
+    if !waiting.is_empty() {
+        return Some(Phrase::RoomWaitingFor.fill(lang, &[&waiting.join(", ")]));
+    }
+    if !game.startable {
+        return Some(Phrase::RoomNotStartable.text(lang).to_string());
+    }
+    if lobby.busy() {
+        return Some(Phrase::VeilTalking.text(lang).to_string());
+    }
+    None
+}
+
+/// The press `Ctrl/Cmd+Enter` makes in a room: Start, for its host.
+pub(super) fn start_press(state: &LobbyState) -> Option<Press> {
+    let handover = state.lobby.awaiting()?;
+    let index = state
+        .lobby
+        .games()
+        .iter()
+        .position(|g| g.id == handover.game_id && g.state == "waiting")?;
+    let game = &state.lobby.games()[index];
+    (game.yours && start_reason(state, game, state.lobby.lang()).is_none())
+        .then_some(Press::Room(RoomPress::StartRoom(index)))
+}
+
+/// A seat `⋯`'s items, per chair kind (§5): a person — Make host, Team,
+/// Life and starting position; the house or a language model — the same
+/// two, and Make it an open seat.
+fn seat_menu(state: &LobbyState, index: usize, seat: u8) -> Vec<MenuItem<'static, Press>> {
+    let lobby = &state.lobby;
+    let lang = lobby.lang();
+    let Some(game) = lobby.games().get(index) else {
+        return Vec::new();
+    };
+    let Some(chair) = game.seats.iter().find(|s| s.seat == u32::from(seat)) else {
+        return Vec::new();
+    };
+    let mut items = Vec::new();
+    let person = chair.kind == SeatKind::Human && chair.taken && chair.delegated_by.is_none();
+    if person && !chair.you {
+        items.push(super::menus::item(
+            Phrase::RoomMakeHost.text(lang),
+            Press::Room(RoomPress::HandOver(index, chair.seat)),
+        ));
+    }
+    if game.seats.iter().any(|s| s.team.is_some()) {
+        let next = chair.team.map_or(1, |t| {
+            if usize::from(t) >= game.seats.len() {
+                0
+            } else {
+                t + 1
+            }
+        });
+        items.push(super::menus::item(
+            Phrase::RoomNextTeam.text(lang),
+            Press::Room(RoomPress::SeatTeam(index, chair.seat, next)),
+        ));
+    }
+    items.push(super::menus::item(
+        Phrase::RoomLifeOverride.text(lang),
+        Press::Room(RoomPress::LifeOverride(seat)),
+    ));
+    items.push(super::menus::item(
+        Phrase::RoomStartingPosition.text(lang),
+        Press::Room(RoomPress::RoomSetup(seat)),
+    ));
+    if !person && !lobby.offline() {
+        items.push(super::menus::danger(
+            Phrase::RoomMakeOpen.text(lang),
+            Press::Room(RoomPress::SeatKind(index, chair.seat, SeatKind::Human)),
+        ));
+    }
+    items
+}
+
+/// One seat's card: number, who, deck, the fit or the warning, Ready on the
+/// player's own, `⋯` for the host. Answers the anchor its open menu hangs
+/// from: `(seat, entity, is the AI ▾)`.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)] // one seat's card, in visual order
 fn seat_card(
     commands: &mut Commands,
     parent: Entity,
     state: &LobbyState,
     fonts: &UiFonts,
     m: Metrics,
+    kit: Kit,
     index: usize,
     seat: &client_core::lobby::GameSeat,
-) {
+) -> Option<(u8, Entity, bool)> {
     let lobby = &state.lobby;
     let game = &lobby.games()[index];
     let lang = lobby.lang();
-    let card = panel(commands, m, percent(100), 0.0);
-    commands
-        .entity(card)
-        .entry::<Node>()
-        .and_modify(move |mut n| {
-            n.min_height = px(0);
-            n.padding = UiRect::all(px(m.pad));
-        });
-    commands.entity(card).insert(super::dock::Dock(4));
+    let phone = kit.m.frame == ShellFrame::Phone;
+    let at = u8::try_from(seat.seat).unwrap_or(0);
+    let mut anchor = None;
+    let card = commands
+        .spawn((
+            Role::Row,
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(6.0),
+                padding: UiRect::axes(px_fixed(kit.m.pad), kit.m.px(8.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                ..default()
+            },
+            BackgroundColor(tokens::PANEL),
+            BorderColor::all(if seat.you {
+                tokens::ACCENT
+            } else {
+                tokens::BORDER
+            }),
+            Pickable::IGNORE,
+        ))
+        .id();
     commands.entity(parent).add_child(card);
-    let who = if seat.kind == SeatKind::Ai {
-        super::ai_name(lang, seat.ai.as_deref().unwrap_or("steady")).to_string()
+    let line = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px_fixed(kit.m.gap),
+                row_gap: kit.m.px(6.0),
+                flex_wrap: if phone {
+                    FlexWrap::Wrap
+                } else {
+                    FlexWrap::NoWrap
+                },
+                min_height: px_fixed(kit.m.hit),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(card).add_child(line);
+    // The chair's number in a ring.
+    let number = commands
+        .spawn((
+            Node {
+                width: kit.m.px(30.0),
+                height: kit.m.px(30.0),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BorderColor::all(tokens::BORDER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let digit = super::parts::line(
+        commands,
+        kit,
+        &(seat.seat + 1).to_string(),
+        kit.m.small,
+        tokens::INK,
+    );
+    commands.entity(number).add_child(digit);
+    commands.entity(line).add_child(number);
+    // Who sits here.
+    let planned = state.llm.planned(seat.seat);
+    let empty = seat.kind == SeatKind::Human && !seat.taken && planned.is_none();
+    let who = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                width: kit.m.px(if phone { 120.0 } else { 170.0 }),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let (name, under): (String, Option<(String, Color)>) = if seat.kind == SeatKind::Ai {
+        (
+            super::ai_name(lang, seat.ai.as_deref().unwrap_or("steady")).to_string(),
+            Some((Phrase::RoomHouseAi.text(lang).to_string(), tokens::MUTED)),
+        )
+    } else if let Some(model) = planned.filter(|_| !seat.taken || seat.delegated_by.is_some()) {
+        (
+            model.model.clone(),
+            Some((
+                Phrase::RoomLanguageModel.text(lang).to_string(),
+                tokens::MUTED,
+            )),
+        )
+    } else if empty {
+        (Phrase::RoomEmptySeat.text(lang).to_string(), None)
     } else {
-        let player = seat
-            .player
-            .as_deref()
-            .unwrap_or(Phrase::StateWaiting.text(lang));
-        // A host's language model says whose it is: it sits on that
-        // account's word, with no account of its own.
-        match &seat.delegated_by {
-            Some(host) => format!("{player} ({host})"),
-            None => player.to_string(),
+        let player = seat.player.clone().unwrap_or_default();
+        let under = if seat.host {
+            Some((Phrase::RoomHost.text(lang).to_string(), tokens::GOLD))
+        } else {
+            seat.delegated_by
+                .as_ref()
+                .map(|by| (Phrase::RoomFor.fill(lang, &[by]), tokens::MUTED))
+        };
+        (player, under)
+    };
+    let title = commands
+        .spawn((
+            Text::new(name),
+            crate::hud::tf_bold(kit.fonts, kit.m.text),
+            TextColor(if empty { tokens::MUTED } else { tokens::INK }),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(who).add_child(title);
+    if let Some((said, ink)) = under {
+        let l = super::parts::line(commands, kit, &said, kit.m.small, ink);
+        commands.entity(who).add_child(l);
+    }
+    commands.entity(line).add_child(who);
+
+    if empty {
+        // An open chair: the host may give it to the house or a model.
+        if game.yours && !lobby.offline() {
+            let ai = super::parts::menu_button(
+                commands,
+                kit,
+                Phrase::RoomAi.text(lang),
+                Weight::Secondary,
+                Press::Shared(SharedPress::OpenMenu(ShellMenu::SeatAi(at))),
+            );
+            anchor = Some((at, ai, true));
+            commands.entity(line).add_child(ai);
+            // Desktop builds only (M-3): nothing to spawn elsewhere.
+            if crate::tableseats::available() {
+                let llm = super::parts::menu_button(
+                    commands,
+                    kit,
+                    Phrase::RoomLanguageModel.text(lang),
+                    Weight::Secondary,
+                    Press::Room(RoomPress::OpenChair(index, seat.seat)),
+                );
+                commands.entity(line).add_child(llm);
+            }
         }
-    };
-    let identity = row(commands, m, true);
-    commands.entity(card).add_child(identity);
-    add_heading(
-        commands,
-        identity,
-        fonts,
-        m,
-        &format!(
-            "{:02}  ·  {}{}",
-            seat.seat + 1,
-            who,
-            if seat.host { " · Host" } else { "" }
-        ),
-    );
-    let status = if seat.ready {
-        Phrase::Ready
+        return anchor;
+    }
+
+    // The deck: my own a menu button, everyone else's words.
+    let deck_line = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(8.0),
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                min_width: px(0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mine = seat.you || (game.yours && seat.kind == SeatKind::Ai);
+    if mine {
+        let label = if seat.deck.is_empty() {
+            Phrase::RoomPickDeck.text(lang).to_string()
+        } else {
+            seat.deck.clone()
+        };
+        let pick = super::parts::menu_button(
+            commands,
+            kit,
+            &label,
+            Weight::Secondary,
+            Press::Room(RoomPress::RoomDeckPicker(seat.seat)),
+        );
+        commands.entity(deck_line).add_child(pick);
     } else {
-        Phrase::NotReady
-    };
-    let readiness = note(commands, fonts, m, status.text(lang));
-    commands.entity(readiness).insert((
-        TextColor(palette::DOCK_INK),
-        BackgroundColor(if seat.ready {
-            palette::ACTIVE.with_alpha(0.22)
+        let label = super::parts::line(
+            commands,
+            kit,
+            Phrase::RoomDeckWord.text(lang),
+            kit.m.small,
+            tokens::MUTED,
+        );
+        let deck = super::parts::line(
+            commands,
+            kit,
+            if seat.deck.is_empty() {
+                Phrase::RoomNoDeck.text(lang)
+            } else {
+                &seat.deck
+            },
+            kit.m.text,
+            tokens::INK,
+        );
+        commands.entity(deck_line).add_children(&[label, deck]);
+    }
+    // Fits or not: the seat's deck against the host's (S-4, heuristic 5).
+    let host_format = client_core::lobby::play::host_format(game);
+    if !seat.format.is_empty()
+        && let Some(theirs) = host_format
+    {
+        let chip = if seat.format == theirs {
+            super::parts::badge(commands, kit, Phrase::RoomFits.text(lang), tokens::ACCENT)
         } else {
-            palette::PANEL_LIT
-        }),
-    ));
-    commands.entity(identity).add_child(readiness);
-    commands
-        .entity(readiness)
-        .entry::<Node>()
-        .and_modify(|mut n| {
-            n.padding = UiRect::axes(px(10), px(4));
-            n.border_radius = BorderRadius::all(px(6));
-        });
-    let deck_line = row(commands, m, true);
-    commands.entity(card).add_child(deck_line);
-    add_note(
-        commands,
-        deck_line,
-        fonts,
-        m,
-        &if seat.deck.is_empty() {
-            Phrase::RoomNoDeck.text(lang).to_string()
-        } else {
-            format!("{} · {}", seat.deck, seat.format)
-        },
+            super::parts::badge_with(
+                commands,
+                kit,
+                super::parts::WARNING,
+                &Phrase::RoomOtherFormat.fill(
+                    lang,
+                    &[&client_core::lobby::shelf::format_label(lang, theirs)],
+                ),
+                tokens::GOLD,
+            )
+        };
+        commands.entity(deck_line).add_child(chip);
+    }
+    let side = seat.team.map_or_else(
+        || Phrase::SeatSideNone.text(lang).to_string(),
+        |t| Phrase::SeatSide.fill(lang, &[&t.to_string()]),
     );
-    let tools = row(commands, m, true);
-    if game.yours {
+    if game.yours && state.teams_edit {
         let next = seat.team.map_or(1, |t| {
             if usize::from(t) >= game.seats.len() {
                 0
@@ -427,181 +746,247 @@ fn seat_card(
                 t + 1
             }
         });
-        let label = seat.team.map_or_else(
-            || Phrase::SeatSideNone.text(lang).to_string(),
-            |t| Phrase::SeatSide.fill(lang, &[&t.to_string()]),
-        );
-        let team = chip(
+        let chip = controls::chip(
             commands,
-            fonts,
-            m,
-            &label,
-            Press::Room(RoomPress::SeatTeam(index, seat.seat, next)),
+            kit,
+            &side,
             seat.team.is_some(),
+            None,
+            false,
+            Press::Room(RoomPress::SeatTeam(index, seat.seat, next)),
         );
-        commands.entity(tools).add_child(team);
-        if !seat.taken {
-            let (kind, label) = if seat.kind == SeatKind::Ai {
-                (SeatKind::Human, Phrase::SeatToOpen)
-            } else {
-                (SeatKind::Ai, Phrase::SeatToAi)
-            };
-            if !lobby.offline() {
-                let b = chip(
-                    commands,
-                    fonts,
-                    m,
-                    label.text(lang),
-                    Press::Room(RoomPress::SeatKind(index, seat.seat, kind)),
-                    false,
-                );
-                commands.entity(tools).add_child(b);
-            }
-        }
-        if !seat.you && seat.taken {
-            let b = chip(
-                commands,
-                fonts,
-                m,
-                Phrase::MakeHost.text(lang),
-                Press::Room(RoomPress::HandOver(index, seat.seat)),
-                false,
-            );
-            commands.entity(tools).add_child(b);
-        }
-    } else if let Some(team) = seat.team {
-        add_note(
+        commands.entity(deck_line).add_child(chip);
+    } else if seat.team.is_some() {
+        let chip = super::parts::badge(commands, kit, &side, tokens::INK);
+        commands.entity(deck_line).add_child(chip);
+    }
+    commands.entity(line).add_child(deck_line);
+    // Ready: a large toggle on my own card (the host starts instead).
+    if seat.you && !game.yours {
+        let ready = game.i_am_ready();
+        let own_deck = !seat.deck.is_empty();
+        let words = super::parts::line(
             commands,
-            tools,
-            fonts,
-            m,
-            &Phrase::SeatSide.fill(lang, &[&team.to_string()]),
+            kit,
+            Phrase::Ready.text(lang),
+            kit.m.text,
+            tokens::INK,
         );
-    }
-    commands.entity(card).add_child(tools);
-    if game.yours && seat.kind == SeatKind::Ai {
-        for (name, _) in baylee_core::preset::AIProfile::NAMED {
-            let b = chip(
-                commands,
-                fonts,
-                m,
-                super::ai_name(lang, name),
-                Press::Room(RoomPress::SeatAi(index, seat.seat, name)),
-                seat.ai.as_deref() == Some(name),
-            );
-            commands.entity(tools).add_child(b);
-        }
-    }
-    // A language model of this client's in this chair, or the chip that
-    // seats one (`crate::tableseats`): the host's, on a desktop, at a
-    // gateway.
-    if game.yours && !lobby.offline() && crate::tableseats::available() {
-        if state.llm.planned(seat.seat).is_some() {
-            llm::editor(commands, card, state, fonts, m, index, seat.seat);
-        } else if !seat.taken {
-            llm::offer(commands, (tools, card), state, fonts, m, index, seat.seat);
-        }
-    }
-    if seat.you || (game.yours && seat.kind == SeatKind::Ai) {
-        let b = button(
+        let toggle = controls::toggle(
             commands,
-            fonts,
-            m,
-            Phrase::RoomPickDeck.text(lang),
-            Press::Room(RoomPress::RoomDeckPicker(seat.seat)),
-            palette::PANEL_LIT,
-            !lobby.busy(),
+            kit,
+            ready,
+            Press::Room(RoomPress::Ready(index, !ready)),
         );
-        commands.entity(deck_line).add_child(b);
-        if state.room_deck_seat == Some(seat.seat) {
-            let picks = row(commands, m, true);
-            for (at, deck) in lobby.decks().iter().enumerate() {
-                let b = button(
-                    commands,
-                    fonts,
-                    m,
-                    &format!("{} · {}", deck.name, deck.format),
-                    Press::Room(RoomPress::RoomDeck(index, seat.seat, at)),
-                    palette::PANEL_LIT,
-                    !lobby.busy(),
-                );
-                commands.entity(picks).add_child(b);
-            }
-            if lobby.decks().is_empty() {
-                let b = button(
-                    commands,
-                    fonts,
-                    m,
-                    Phrase::HouseDecks.text(lang),
-                    Press::Library(LibraryPress::BrowseHouse),
-                    palette::ACCENT,
-                    !lobby.busy(),
-                );
-                commands.entity(picks).add_child(b);
-            }
-            commands.entity(card).add_child(picks);
+        if !own_deck || lobby.busy() {
+            commands
+                .entity(toggle)
+                .insert(crate::shellkit::controls::Disabled);
         }
+        commands.entity(line).add_children(&[words, toggle]);
     }
+    if game.yours {
+        let more = super::parts::icon_button(
+            commands,
+            kit,
+            super::parts::ELLIPSIS,
+            Press::Shared(SharedPress::OpenMenu(ShellMenu::Seat(at))),
+        );
+        anchor = Some((at, more, false));
+        commands.entity(line).add_child(more);
+    }
+    // The deck choices, unfolded under the card.
+    if mine && state.room_deck_seat == Some(seat.seat) {
+        let picks = super::parts::row(commands, kit, true);
+        for (at, deck) in lobby.decks().iter().enumerate() {
+            let b = controls::button(
+                commands,
+                kit,
+                &deck.name,
+                Weight::Secondary,
+                Live::Yes,
+                None,
+                Press::Room(RoomPress::RoomDeck(index, seat.seat, at)),
+            );
+            commands.entity(picks).add_child(b);
+        }
+        commands.entity(card).add_child(picks);
+    }
+    // A language model of this client's in this chair: what it plays.
+    if game.yours && state.llm.planned(seat.seat).is_some() {
+        let said = state
+            .llm
+            .said(seat.seat)
+            .unwrap_or_else(|| Phrase::RoomLlmStarting.text(lang).to_string());
+        let status = super::parts::line(commands, kit, &said, kit.m.small, tokens::MUTED);
+        let edit = controls::button(
+            commands,
+            kit,
+            Phrase::ShellEdit.text(lang),
+            Weight::Ghost,
+            Live::Yes,
+            None,
+            Press::Room(RoomPress::OpenChair(index, seat.seat)),
+        );
+        let row_ = super::parts::row(commands, kit, true);
+        commands.entity(row_).add_children(&[status, edit]);
+        commands.entity(card).add_child(row_);
+    }
+    // Life override and starting position: a drawer under the card, "for
+    // testing and puzzles".
     let setup = if game.yours {
         lobby.room_draft().map_or(&game.setup, |d| &d.setup)
     } else {
         &game.setup
     };
     let personal = setup.seats.get(seat.seat as usize);
-    let life = personal.and_then(|s| s.life).unwrap_or(setup.starting_life);
-    if game.yours {
-        stepper(
+    if state.room_setup_seat == Some(at) {
+        let drawer = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: kit.m.px(6.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let caption = super::parts::caption(commands, kit, Phrase::RoomForTesting.text(lang));
+        commands.entity(drawer).add_child(caption);
+        let life = personal.and_then(|s| s.life).unwrap_or(setup.starting_life);
+        if game.yours {
+            stepper(
+                commands,
+                drawer,
+                fonts,
+                m,
+                &format!("{} · {life}", Phrase::RoomLife.text(lang)),
+                Adjustment::SeatLife(at, -1),
+                Adjustment::SeatLife(at, 1),
+                life > 1,
+                life < 999,
+            );
+        }
+        cards::draw(commands, drawer, state, fonts, m, at, personal, game.yours);
+        if game.yours && lobby.room_dirty() {
+            let apply = controls::button(
+                commands,
+                kit,
+                Phrase::SheetApply.text(lang),
+                Weight::Primary,
+                Live::Yes,
+                None,
+                Press::Room(RoomPress::SaveRoom(false)),
+            );
+            commands.entity(drawer).add_child(apply);
+        }
+        commands.entity(card).add_child(drawer);
+    } else if personal.is_some_and(|p| !p.permanents.is_empty() || p.life.is_some()) {
+        let count = personal.map_or(0, |s| s.permanents.len());
+        let note = super::parts::line(
             commands,
-            card,
-            fonts,
-            m,
-            &format!("{} · {life}", Phrase::RoomLife.text(lang)),
-            Adjustment::SeatLife(seat.seat as u8, -1),
-            Adjustment::SeatLife(seat.seat as u8, 1),
-            life > 1,
-            life < 999,
+            kit,
+            &Phrase::RoomStartingCards.fill(lang, &[&count.to_string()]),
+            kit.m.small,
+            tokens::MUTED,
         );
+        commands.entity(card).add_child(note);
+    }
+    anchor
+}
+
+/// The chair sheet (desktop builds): a language model for an open chair —
+/// profile, model, effort, deck — and Seat. With no profile set up, the
+/// way to Settings' language models (S-6).
+#[allow(clippy::too_many_arguments)] // the room's inputs
+fn chair_sheet(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    m: Metrics,
+    kit: Kit,
+    index: usize,
+    chair: u32,
+) {
+    let lang = state.lobby.lang();
+    let column = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px_fixed(kit.m.gap),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mut footer = Vec::new();
+    if state.llm.planned(chair).is_some() {
+        llm::editor(commands, column, state, fonts, m, index, chair);
+        footer.push(controls::button(
+            commands,
+            kit,
+            Phrase::RoomLlmRemove.text(lang),
+            Weight::Danger,
+            Live::Yes,
+            None,
+            Press::Room(RoomPress::RoomLlm(
+                index,
+                chair,
+                crate::tableseats::LlmPress::Remove,
+            )),
+        ));
+        footer.push(controls::button(
+            commands,
+            kit,
+            Phrase::RoomSeat.text(lang),
+            Weight::Primary,
+            Live::Yes,
+            None,
+            Press::Room(RoomPress::CloseChair),
+        ));
     } else {
-        add_note(
+        let said = state
+            .llm
+            .said(chair)
+            .unwrap_or_else(|| Phrase::RoomNoModel.text(lang).to_string());
+        let line = super::parts::line(commands, kit, &said, kit.m.text, tokens::INK);
+        commands.entity(column).add_child(line);
+        footer.push(controls::button(
             commands,
-            card,
-            fonts,
-            m,
-            &format!("{} · {life}", Phrase::RoomLife.text(lang)),
-        );
-    }
-    let count = personal.map_or(0, |s| s.permanents.len());
-    let expanded = state.room_setup_seat == Some(seat.seat as u8);
-    if game.yours || count > 0 {
-        let toggle = chip(
+            kit,
+            Phrase::SheetCancel.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            Press::Room(RoomPress::CloseChair),
+        ));
+        footer.push(controls::button(
             commands,
-            fonts,
-            m,
-            &format!(
-                "{} {}",
-                if expanded { "−" } else { "+" },
-                Phrase::RoomStartingCards.fill(lang, &[&count.to_string()])
-            ),
-            Press::Room(RoomPress::RoomSetup(seat.seat as u8)),
-            expanded,
-        );
-        commands.entity(toggle).entry::<Node>().and_modify(|mut n| {
-            n.align_self = AlignSelf::Start;
-        });
-        commands.entity(card).add_child(toggle);
+            kit,
+            Phrase::RoomSetUpModel.text(lang),
+            Weight::Primary,
+            Live::Yes,
+            None,
+            Press::Settings(SettingsPress::OpenSettings),
+        ));
     }
-    if expanded {
-        cards::draw(
-            commands,
-            card,
-            state,
-            fonts,
-            m,
-            seat.seat as u8,
-            personal,
-            game.yours,
-        );
-    }
+    let surface = crate::shellkit::surfaces::sheet_box(
+        commands,
+        kit,
+        crate::shellkit::surfaces::SheetWidth::Medium,
+        &Phrase::RoomChairTitle.fill(lang, &[&(chair + 1).to_string()]),
+        &[column],
+        &footer,
+    );
+    let scrim = crate::shellkit::surfaces::sheet(commands, surface);
+    commands
+        .entity(scrim)
+        .insert(Press::Room(RoomPress::CloseChair));
+    commands
+        .entity(surface)
+        .insert(Press::Shared(SharedPress::PickerNothing));
+    commands.entity(root).add_child(scrim);
 }
 
 fn add_heading(commands: &mut Commands, parent: Entity, fonts: &UiFonts, m: Metrics, text: &str) {
@@ -716,10 +1101,24 @@ pub(crate) enum RoomPress {
     HandOver(usize, u32),
     /// Make a chair a person's or the AI's.
     SeatKind(usize, u32, SeatKind),
-    /// Set an AI chair's difficulty.
-    SeatAi(usize, u32, &'static str),
     /// Move a chair onto a side. `0` puts it back on its own.
     SeatTeam(usize, u32, u8),
+    /// `‹ Play`: step away from the room, keeping the seat (M-7).
+    StepAway,
+    /// Copy "table · gateway · password set" for a friend (§4).
+    CopyInvite(usize),
+    /// The Create-table sheet over the room, with Apply.
+    EditRules,
+    /// Teams on (sides 1 and 2 by turns) or off again.
+    SetTeams,
+    /// An open chair to the house, at a difficulty, in one request.
+    SeatAiOpen(usize, u32, &'static str),
+    /// The chair sheet: a language model for this chair (desktop builds).
+    OpenChair(usize, u32),
+    /// Close the chair sheet.
+    CloseChair,
+    /// A seat's own starting life: the same drawer as its starting position.
+    LifeOverride(u8),
 }
 
 impl RoomPress {
@@ -771,7 +1170,9 @@ impl RoomPress {
                     state.lobby.focus(),
                     Field::RoomBoard(_) | Field::RoomCounter
                 ) {
-                    state.lobby.focus_on(Field::RoomName);
+                    // No name box stands in the room (WP2): the caret goes
+                    // where nothing is typed into.
+                    state.lobby.focus_on(Field::Search);
                 }
             }
             RoomPress::RoomAdjust(change) => state.lobby.adjust_room(change),
@@ -850,21 +1251,74 @@ impl RoomPress {
                     dispatch(state, mailbox, request);
                 }
             }
-            RoomPress::SeatAi(index, seat, profile) => {
-                let game = state.lobby.games().get(index).map(|g| g.id.clone());
-                if let Some(game) = game {
-                    let request =
-                        state
-                            .lobby
-                            .set_seat(&game, seat, None, Some(profile.to_string()));
-                    dispatch(state, mailbox, request);
-                }
-            }
             RoomPress::SeatTeam(index, seat, team) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.seat_team(&game, seat, team);
                     dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::StepAway => {
+                state.room_away = true;
+                state.hub = Hub::Play;
+            }
+            RoomPress::CopyInvite(index) => {
+                if let Some(game) = state.lobby.games().get(index) {
+                    let lang = state.lobby.lang();
+                    let gateway = state
+                        .gateway_name()
+                        .unwrap_or_else(|| state.gateway.clone());
+                    let mut text = format!(
+                        "{} · {gateway}",
+                        client_core::lobby::strips::table_name(game)
+                    );
+                    if game.locked {
+                        text.push_str(" · ");
+                        text.push_str(Phrase::RoomPasswordSet.text(lang));
+                    }
+                    state.clipboard_out = Some(text);
+                    state.invite_copied = true;
+                }
+            }
+            RoomPress::EditRules => {
+                if let Some(draft) = state.lobby.room_as_draft() {
+                    super::play::open_sheet(state, draft, true);
+                }
+            }
+            // Each seat shows its side as a chip that steps through the
+            // sides (the gateway takes one chair at a time).
+            RoomPress::SetTeams => state.teams_edit = !state.teams_edit,
+            RoomPress::SeatAiOpen(index, seat, profile) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    state.llm.unplan(seat);
+                    let request = state.lobby.set_seat(
+                        &game,
+                        seat,
+                        Some(SeatKind::Ai),
+                        Some(profile.to_string()),
+                    );
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::OpenChair(_, seat) => {
+                state.chair_sheet = Some(seat);
+                // An open chair: the file's default profile, planned now so
+                // the sheet shows its models (as the chip used to).
+                if state.llm.planned(seat).is_none() {
+                    let _ = state.llm.press(
+                        seat,
+                        crate::tableseats::LlmPress::Plan,
+                        crate::tableseats::Phase::Waiting,
+                        "steady",
+                    );
+                }
+            }
+            RoomPress::CloseChair => state.chair_sheet = None,
+            RoomPress::LifeOverride(seat) => {
+                if state.room_setup_seat != Some(seat) {
+                    state.room_setup_seat = Some(seat);
+                    state.room_card_edit = None;
                 }
             }
         }

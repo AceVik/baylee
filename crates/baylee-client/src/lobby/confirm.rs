@@ -4,7 +4,6 @@ use super::*;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Destructive {
-    Delete(String),
     Clear(Option<String>),
     /// A saved gateway leaving this device's list, by address.
     ForgetGateway(String),
@@ -15,10 +14,6 @@ pub(crate) enum Destructive {
 
 pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
     match state.confirmation.take()? {
-        Destructive::Delete(id) => {
-            let at = state.lobby.decks().iter().position(|d| d.id == id)?;
-            state.lobby.delete_deck(at)
-        }
         Destructive::Clear(id) => {
             if state.lobby.builder().editing() == id.as_deref() {
                 state.lobby.builder_mut().clear_deck();
@@ -46,16 +41,6 @@ pub(super) fn draw(
     let lang = state.lobby.lang();
     let chosen;
     let (phrase, name, said) = match action {
-        Destructive::Delete(id) => (
-            Phrase::DeleteDeckQuestion,
-            state
-                .lobby
-                .decks()
-                .iter()
-                .find(|d| &d.id == id)
-                .map_or("", |d| d.name.as_str()),
-            Phrase::DestructiveHint,
-        ),
         Destructive::Clear(_) => (
             Phrase::ClearDeckQuestion,
             state.lobby.builder().name(),
