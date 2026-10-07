@@ -543,3 +543,26 @@ fn a_table_that_is_full_offers_no_join() {
     app.update();
     assert!(!presses(&mut app).contains(&Press::Play(PlayPress::Join(0))));
 }
+
+/// `KEYBOARD.md` §1.7: the room opens with the ring's place on the first
+/// seat (hidden until a key is pressed).
+#[test]
+fn the_room_opens_on_its_first_seat() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().offline =
+        Some(super::offline::Offline::without_a_file());
+    to_gateway_face(&mut app);
+    tap_control(&mut app, "play offline", |p| {
+        *p == Press::Front(FrontPress::PlayOffline)
+    });
+    open_a_table(&mut app);
+    for _ in 0..4 {
+        app.update();
+    }
+    let focused = app
+        .world()
+        .resource::<bevy::input_focus::InputFocus>()
+        .get();
+    let stop = focused.and_then(|e| app.world().get::<crate::shellkit::focus::Stop>(e).copied());
+    assert_eq!(stop.map(|s| (s.table, s.id)), Some(("room", "seats")));
+}

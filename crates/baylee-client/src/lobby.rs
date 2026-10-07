@@ -217,6 +217,7 @@ impl Plugin for LobbyPlugin {
                     focusing::keys_press,
                     focusing::tile_keys,
                     focusing::initial_focus,
+                    focusing::down_from_search,
                 )
                     .after(crate::shellkit::focus::FocusSystems)
                     .run_if(in_state(DuelPhase::Closed)),

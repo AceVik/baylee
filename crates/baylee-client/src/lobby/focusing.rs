@@ -238,6 +238,7 @@ pub(super) fn initial_focus(
     current: Query<&Current>,
     state: Res<LobbyState>,
     mut was: Local<Option<&'static str>>,
+    mut kept: ResMut<Kept>,
 ) {
     // A frame between two trees reports no table; that is no new screen.
     if report.table.is_none() || *was == report.table {
@@ -279,6 +280,8 @@ pub(super) fn initial_focus(
     };
     if let Some(entity) = pick {
         focus.set(entity, FocusCause::Navigated);
+        // Remembered now: the tree may be rebuilt before the frame ends.
+        kept.0 = stops.get(entity).ok().map(|(_, s)| *s);
     }
 }
 
@@ -341,4 +344,37 @@ pub(super) fn tile_keys(
 /// The tile the ring is on, for `e` / `F2` (Edit, the shell keymap's).
 pub(super) fn focused_tile(focus: &InputFocus, tiles: &Query<&TileOf>) -> Option<usize> {
     focus.get().and_then(|f| tiles.get(f).ok()).map(|t| t.0)
+}
+
+/// `↓` in Play's or Decks' search goes to the first table row or deck tile
+/// (`KEYBOARD.md` W3 step 2): the search filters as it is typed, and the
+/// list under it is where the arrow points.
+pub(super) fn down_from_search(
+    mut keys: MessageReader<bevy::input::keyboard::KeyboardInput>,
+    mut focus: ResMut<InputFocus>,
+    stops: Query<(Entity, &Stop)>,
+    mut kept: ResMut<Kept>,
+) {
+    let down = keys
+        .read()
+        .any(|k| k.state == ButtonState::Pressed && k.key_code == KeyCode::ArrowDown);
+    if !down {
+        return;
+    }
+    let Some(here) = focus.get().and_then(|f| stops.get(f).ok()).map(|(_, s)| *s) else {
+        return;
+    };
+    let list = match (here.table, here.id) {
+        ("play", "search") => "tables",
+        ("decks", "search") => "tiles",
+        _ => return,
+    };
+    let first = stops
+        .iter()
+        .filter(|(_, s)| s.table == here.table && s.id == list)
+        .min_by_key(|(_, s)| s.item);
+    if let Some((entity, stop)) = first {
+        focus.set(entity, FocusCause::Navigated);
+        kept.0 = Some(*stop);
+    }
 }

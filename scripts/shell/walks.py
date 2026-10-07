@@ -25,7 +25,12 @@ def say(cond, what):
 
 
 def key(name, wait=0.35, **mods):
-    answer = devctl.call("/key", dict(name=name, **mods))
+    body = dict(name=name, **mods)
+    # A key that types a character says which (dev-control sends no logical
+    # character for a bare physical name).
+    if name == "Slash":
+        body["char"] = "/"
+    answer = devctl.call("/key", body)
     if "error" in answer:
         raise SystemExit(f"/key {name}: {answer}")
     time.sleep(wait)
@@ -99,6 +104,7 @@ def w7():
 
 def w3():
     print("W3 · Join a table from the list")
+    key("Digit2", wait=0.8)
     key("Digit1", wait=0.8)
     where("Play")
     say(focus() and focus()[:2] == ("play", "tables"), "Play opens on the tables")
