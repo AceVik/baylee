@@ -31,9 +31,20 @@ use glam::Vec2;
 pub const OPENING: f32 = 3.0;
 /// How far past its place a piece docks before it settles.
 pub const OVERSHOOT: f32 = 0.18;
-/// How high a turning piece is lifted over the table, so it passes over the
-/// pieces it crosses instead of through them.
+/// How high the arriving piece is lifted over the table as it turns in, so
+/// it passes over my piece instead of through it.
 pub const LIFT: f32 = 0.35;
+/// How far the leaving piece sinks under the table as it turns out: below
+/// the arriving one by more than a slab and its cards, so the two pieces
+/// trading places never meet (the owner's of 07.10.2026: *paths that never
+/// overlap or intersect*). It passes under mine, out of sight.
+pub const SINK: f32 = 1.6;
+/// How thick the table is (`baylee-client`'s `TABLE_THICKNESS`): what a
+/// piece's volume spans below its top.
+pub const THICKNESS: f32 = 0.9;
+/// The most a board's cards stand over its piece's top (a flier, a lifted
+/// card): what a piece's volume spans above it.
+pub const CARDS_OVER: f32 = 0.45;
 /// The steps the swing's arc is drawn in.
 pub const SWING_STEPS: usize = 6;
 /// When the split has opened (seconds into the tear).
@@ -100,6 +111,59 @@ pub enum Piece {
     Leaving,
     /// The far side as it will be: turning in with the seat arriving.
     Arriving,
+}
+
+/// The tear's jagged line at `x` (`felt.wgsl`'s `tear_line`, the same
+/// arithmetic on the same value noise, `feltveins::vnoise`): teeth of
+/// uneven pitch with a little noise on them, about a third of a unit either
+/// side of the middle. The cut faces of the pieces are meshed along it.
+#[must_use]
+pub fn tear_line(x: f32, seed: f32) -> f32 {
+    let pitch = 0.35f32.mul_add((x * 0.21 + seed).sin(), 0.9);
+    let at = x * pitch + seed * 0.37;
+    let teeth = (at.fract().rem_euclid(1.0) * 2.0 - 1.0).abs() - 0.5;
+    let grain = crate::feltveins::vnoise(x * 1.7, seed * 3.1) - 0.5;
+    teeth * 0.5 + grain * 0.3
+}
+
+/// The shake (the owner's of 07.10.2026: *the table wobbles a little while
+/// it moves and noticeably when it tears*): how far the pieces stand off
+/// their stage across the tear's line at `t`, table units. A sharp, damped
+/// jolt as the table tears, a smaller one as the pieces dock; nothing from
+/// the settle on, so the end is the instant layout exactly.
+#[must_use]
+pub fn shake(t: f32) -> f32 {
+    let jolt = |since: f32, size: f32, hz: f32, damp: f32| {
+        if since < 0.0 {
+            0.0
+        } else {
+            size * (-damp * since).exp() * (core::f32::consts::TAU * hz * since).sin()
+        }
+    };
+    match Phase::at(t) {
+        Phase::Split | Phase::Swing => {
+            jolt(t, 0.16, 9.0, 8.0) + jolt(t - SPLIT_ENDS, 0.04, 6.0, 6.0)
+        }
+        Phase::Dock => jolt(t - SWING_ENDS, 0.09, 11.0, 14.0),
+        Phase::Settle | Phase::Done => 0.0,
+    }
+}
+
+/// How far the veins spill out of the torn edges at `t`, 0 to 1: running
+/// out as the table opens, the most while the pieces turn, drawn back in as
+/// they dock and sealed by the weld.
+#[must_use]
+pub fn spill(t: f32) -> f32 {
+    let ease = |u: f32| {
+        let u = u.clamp(0.0, 1.0);
+        u * u * (3.0 - 2.0 * u)
+    };
+    match Phase::at(t) {
+        Phase::Split => ease(t / SPLIT_ENDS) * 0.6,
+        Phase::Swing => 0.6 + 0.4 * ease((t - SPLIT_ENDS) / (SWING_ENDS - SPLIT_ENDS)),
+        Phase::Dock => 1.0 - ease((t - SWING_ENDS) / (DOCK_ENDS - SWING_ENDS)),
+        Phase::Settle | Phase::Done => 0.0,
+    }
 }
 
 /// Where a piece stands: turned `turn` radians (counter-clockwise in table
@@ -220,18 +284,21 @@ impl Tear {
         match piece {
             Piece::Near => Pose {
                 shift: match phase {
-                    Phase::Split | Phase::Swing => -open,
-                    Phase::Dock => OVERSHOOT,
+                    Phase::Split | Phase::Swing => -open - shake(t),
+                    Phase::Dock => OVERSHOOT - shake(t),
                     Phase::Settle | Phase::Done => 0.0,
                 },
                 ..Pose::REST
             },
+            // Out under the table: it sinks as the table tears, then turns
+            // away below mine, where it can meet neither piece.
             Piece::Leaving => Pose {
                 turn: self.leaving.1 * u,
-                shift: open,
-                lift: if phase == Phase::Swing { LIFT } else { 0.0 },
+                shift: open + shake(t),
+                lift: if phase < Phase::Dock { -SINK } else { 0.0 },
                 shown: phase < Phase::Dock,
             },
+            // In over the table, lifted over mine.
             Piece::Arriving => match phase {
                 Phase::Split => Pose {
                     turn: self.arriving.1,
@@ -241,12 +308,12 @@ impl Tear {
                 },
                 Phase::Swing => Pose {
                     turn: self.arriving.1 * (1.0 - u),
-                    shift: open,
+                    shift: open + shake(t),
                     lift: if u < 1.0 { LIFT } else { 0.0 },
                     shown: true,
                 },
                 Phase::Dock => Pose {
-                    shift: -OVERSHOOT,
+                    shift: -OVERSHOOT + shake(t),
                     ..Pose::REST
                 },
                 Phase::Settle | Phase::Done => Pose::REST,

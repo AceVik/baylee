@@ -472,3 +472,35 @@ fn a_change_of_seat_tears_the_table_and_docks_on_the_instant_layout() {
         }
     }
 }
+
+/// The follow switch is on unless a player turned it off (the owner,
+/// 07.10.2026): a device with default settings, an opponent's turn
+/// beginning, and that seat is the seat of interest — red while it was off
+/// by default; turned off, nothing moves.
+#[test]
+fn by_default_the_table_follows_the_turn() {
+    use baylee_client_core::test_support::ViewBuilder;
+    use baylee_core::ids::PlayerId;
+    for on in [true, false] {
+        let mut app = App::new();
+        let mut settings = crate::settings::ClientSettings::default();
+        if !on {
+            settings.table.follow = false;
+        }
+        app.init_resource::<Time>()
+            .init_resource::<ArrangementFrame>()
+            .insert_resource(settings)
+            .insert_resource(seated_duel(Arrangement::Spotlight))
+            .add_systems(Update, choose);
+        app.update();
+        let mut view = ViewBuilder::new(4).with_awaiting(Some(1)).build();
+        view.active = PlayerId::new(1);
+        app.world_mut().resource_mut::<Duel>().receive_view(view);
+        let visiting = app.world().resource::<Duel>().visiting;
+        if on {
+            assert_eq!(visiting, Some(PlayerId::new(1)), "the opponent's turn is shown");
+        } else {
+            assert_eq!(visiting, None, "off: nothing moves");
+        }
+    }
+}

@@ -541,3 +541,95 @@ fn the_table_tears_into_pieces_and_is_one_slab_again_when_docked() {
         "idle after docking"
     );
 }
+
+/// Every seat's mat rides its piece through the tear and lies exactly on
+/// its place on the docked table: the arriving seat's too, whose mat is
+/// built while its piece is still turning in and carried from there, and
+/// no mat of a seat that left is left behind.
+#[test]
+fn every_mat_lands_on_its_place_when_the_table_docks() {
+    use baylee_client_core::test_support::{ViewBuilder, statics};
+    let mut duel = Duel::default();
+    let mut table = statics(0);
+    table.seats = (0..6)
+        .map(|i| baylee_view::SeatIdentity {
+            player: PlayerId::new(i),
+            display_name: format!("Seat {i}"),
+            is_ai: i != 0,
+            away: false,
+            team: None,
+        })
+        .collect();
+    duel.statics = Some(table);
+    duel.receive_view(ViewBuilder::new(6).build());
+    duel.arrangement = Arrangement::Spotlight;
+    crate::rebuild_board(&mut duel);
+    let index = SceneIndex {
+        glow_image: Some(Handle::default()),
+        quad: Some(Handle::default()),
+        ..SceneIndex::default()
+    };
+    let mut app = App::new();
+    app.init_resource::<Time>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<GlideReport>()
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<crate::matmat::MatMaterial>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .insert_resource(index)
+        .insert_resource(duel)
+        .add_systems(
+            Update,
+            (
+                crate::arrangement::lay_the_interest,
+                crate::arrangement::run_the_tear,
+                sync_zones,
+                glide,
+            )
+                .chain(),
+        );
+    let step = std::time::Duration::from_secs_f32(1.0 / 60.0);
+    for _ in 0..3 {
+        app.world_mut().resource_mut::<Time>().advance_by(step);
+        app.update();
+    }
+    crate::input::navigate_to_player(
+        &mut app.world_mut().resource_mut::<Duel>(),
+        PlayerId::new(1),
+    );
+    for frame in 0..120 {
+        app.world_mut().resource_mut::<Time>().advance_by(step);
+        app.update();
+        // The table goes on while it tears: views arrive.
+        if frame % 7 == 3 {
+            let mut view = ViewBuilder::new(6).build();
+            view.seq = 10 + frame;
+            app.world_mut().resource_mut::<Duel>().receive_view(view);
+            crate::rebuild_board(&mut app.world_mut().resource_mut::<Duel>());
+        }
+    }
+    let duel = app.world().resource::<Duel>();
+    assert!(duel.tear.is_none());
+    let layout = duel.layout.clone().expect("seated");
+    let zones: Vec<(PlayerId, Entity)> = app
+        .world()
+        .resource::<SceneIndex>()
+        .zones
+        .iter()
+        .map(|(p, z)| (*p, z.mat))
+        .collect();
+    let mut drawn: Vec<u8> = zones.iter().map(|(p, _)| p.get()).collect();
+    drawn.sort_unstable();
+    assert_eq!(drawn, vec![0, 1], "the pair's mats, and no other");
+    for (player, mat) in zones {
+        let slot = layout.slot(player).expect("seated");
+        let want = lying_flat(slot, ZONE_LIFT);
+        let at = *app.world().get::<Transform>(mat).expect("a mat");
+        assert!(
+            at.translation.distance(want.translation) < 1e-3
+                && at.rotation.angle_between(want.rotation) < 1e-3,
+            "seat {}'s mat at {at:?}, its place {want:?}",
+            player.get()
+        );
+    }
+}

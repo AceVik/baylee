@@ -475,13 +475,13 @@ fn the_tear_runs_its_four_phases_in_order_and_ends_on_the_instant_layout() {
         match phase {
             Phase::Split => {
                 assert!(
-                    (mine - (home - OPENING * 0.5)).abs() < 1e-3,
-                    "my piece toward me"
+                    (mine - (home - OPENING * 0.5)).abs() < 0.2,
+                    "my piece toward me (and shaking)"
                 );
                 let old = laid.slot(PlayerId::new(2)).expect("seat 2").center;
                 let was = from.slot(PlayerId::new(2)).expect("seat 2").center;
                 assert!(
-                    (old - was - Vec2::new(0.0, OPENING * 0.5)).length() < 1e-3,
+                    (old - was - Vec2::new(0.0, OPENING * 0.5)).length() < 0.2,
                     "the old far piece away"
                 );
                 assert!(
@@ -552,4 +552,108 @@ fn the_weld_runs_to_one_and_the_seam_cools_to_nothing() {
     );
     assert!(seam(weld(ENDS)).abs() < 1e-6, "and the seam is gone");
     assert!(seam(weld(ENDS + 1.0)).abs() < 1e-6);
+}
+
+/// The swap (the owner's of 07.10.2026): the piece leaving and the piece
+/// arriving trade places along paths that never meet. Each piece's volume —
+/// its slab turned and slid, from its bottom to its cards' top — is followed
+/// as `glide` would follow its poses (the same exponential at 60 Hz) and the
+/// two are checked against each other at every frame both are drawn. Red on
+/// a straight swap (both pieces at one height).
+#[test]
+fn the_leaving_and_the_arriving_piece_never_meet() {
+    use super::super::transition::{CARDS_OVER, ENDS, Piece, Pose, THICKNESS, Tear};
+    let roster: Vec<Seat> = seats(6).into_iter().map(Seat::alone).collect();
+    let half = Vec2::new(20.0, 8.0);
+    let volume = |pose: Pose| -> (glam::Vec3, glam::Vec3) {
+        let corners = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+            .map(|(x, y)| pose.carry(Vec2::new(x * half.x, y * half.y)));
+        let lo = corners.iter().fold(Vec2::splat(f32::MAX), |a, c| a.min(*c));
+        let hi = corners.iter().fold(Vec2::splat(f32::MIN), |a, c| a.max(*c));
+        (
+            glam::Vec3::new(lo.x, lo.y, pose.lift - THICKNESS),
+            glam::Vec3::new(hi.x, hi.y, pose.lift + CARDS_OVER),
+        )
+    };
+    let meet = |a: (glam::Vec3, glam::Vec3), b: (glam::Vec3, glam::Vec3)| {
+        a.0.cmplt(b.1).all() && b.0.cmplt(a.1).all()
+    };
+    for interest in 1..6_u8 {
+        let from = TableLayout::arranged(&roster, HUD_ASPECT, Arrangement::Spotlight, None);
+        let to = TableLayout::arranged(
+            &roster,
+            HUD_ASPECT,
+            Arrangement::Spotlight,
+            Some(PlayerId::new(interest)),
+        );
+        if from == to {
+            continue;
+        }
+        let tear = Tear::new(from, to);
+        // Followed as `glide` follows a target: 1 - e^(-16 dt) a frame.
+        let step = 1.0 / 60.0_f32;
+        let k = 1.0 - (-16.0 * step).exp();
+        let follow = |shown: Pose, target: Pose| Pose {
+            turn: shown.turn + (target.turn - shown.turn) * k,
+            shift: shown.shift + (target.shift - shown.shift) * k,
+            lift: shown.lift + (target.lift - shown.lift) * k,
+            shown: target.shown,
+        };
+        let mut leaving = Pose::REST;
+        // The arriving piece waits, hidden, where it comes from (snapped).
+        let mut arriving = tear.pose(Piece::Arriving, 0.0);
+        let mut t = 0.0;
+        while t < ENDS {
+            t += step;
+            leaving = follow(leaving, tear.pose(Piece::Leaving, t));
+            let target = tear.pose(Piece::Arriving, t);
+            arriving = if arriving.shown {
+                follow(arriving, target)
+            } else {
+                target
+            };
+            if leaving.shown && arriving.shown {
+                assert!(
+                    !meet(volume(leaving), volume(arriving)),
+                    "seat {interest} at t={t:.3}: the pieces meet ({leaving:?} / {arriving:?})"
+                );
+            }
+        }
+    }
+}
+
+/// The shake: a jolt as the table tears, a smaller one as it docks, and
+/// nothing from the settle on — the stages end on the instant layout.
+#[test]
+fn the_table_shakes_as_it_tears_and_is_still_when_it_settles() {
+    use super::super::transition::{DOCK_ENDS, ENDS, SWING_ENDS, shake, spill};
+    let most = |from: f32, to: f32| {
+        (0..200)
+            .map(|i| shake(from + (to - from) * i as f32 / 200.0).abs())
+            .fold(0.0, f32::max)
+    };
+    assert!(most(0.0, 0.1) > 0.08, "noticeably as it tears");
+    assert!(most(SWING_ENDS, DOCK_ENDS) > 0.03, "a little as it docks");
+    assert!(most(DOCK_ENDS, ENDS + 0.5) < 1e-6, "still once it settles");
+    assert!(
+        spill(SWING_ENDS - 0.01) > 0.9,
+        "the veins run out while it is open"
+    );
+    assert!(spill(DOCK_ENDS).abs() < 1e-6, "drawn back in by the dock");
+}
+
+/// The tear's line on the CPU (the cut faces are meshed along it) is the
+/// shader's: the same shape, centred within half a unit of the middle.
+#[test]
+fn the_tear_line_stays_near_the_middle_and_is_jagged() {
+    use super::super::transition::tear_line;
+    let ys: Vec<f32> = (0..400)
+        .map(|i| tear_line(-20.0 + i as f32 * 0.1, 7.3))
+        .collect();
+    assert!(ys.iter().all(|y| y.abs() < 0.5), "within half a unit");
+    let turns = ys
+        .windows(3)
+        .filter(|w| (w[1] - w[0]) * (w[2] - w[1]) < 0.0)
+        .count();
+    assert!(turns > 40, "jagged: {turns} teeth over forty units");
 }

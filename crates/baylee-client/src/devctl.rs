@@ -1417,6 +1417,7 @@ struct Believed<'w, 's> {
             (&'static ComputedNode, &'static UiGlobalTransform),
             With<crate::arrangement::ArrangementPanel>,
         >,
+        Query<'w, 's, (&'static crate::table::SeatMat, &'static Transform)>,
     ),
     /// The ☀ / ⌛ tags on the strip's seat buttons, and whether each shows.
     chips: Query<'w, 's, (&'static crate::hud::ChipTag, &'static Visibility)>,
@@ -2104,7 +2105,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
 /// how many frames nothing has, and the pill's and the menu's rectangles.
 fn arrangement_json(believed: &Believed, duel: &Duel) -> String {
     use baylee_client_core::tableview::Arrangement;
-    let (frame, glide, pill, panel) = &believed.arrangement;
+    let (frame, glide, pill, panel, seat_mats) = &believed.arrangement;
     let measured = frame.as_deref().copied().unwrap_or_default();
     let lang = believed
         .settings
@@ -2176,6 +2177,17 @@ fn arrangement_json(believed: &Believed, duel: &Duel) -> String {
         "pill": pill.iter().next().map(rect),
         "panel": panel.iter().next().map(rect),
         "parked": duel.layout.as_ref().map(|l| l.slots.iter().filter(|s| s.parked).map(|s| s.player.get()).collect::<Vec<_>>()),
+        // Every mat drawn, where it is (table space) and how it is turned,
+        // beside where its seat's slot says it belongs.
+        "mats": seat_mats.iter().map(|(mat, at)| {
+            let slot = duel.layout.as_ref().and_then(|l| l.slot(mat.0));
+            serde_json::json!({
+                "seat": mat.0.get(),
+                "at": [at.translation.x, -at.translation.z, at.translation.y],
+                "slot": slot.map(|s| [s.center.x, s.center.y, s.facing]),
+            })
+        }).collect::<Vec<_>>(),
+        "tear": duel.tear.as_ref().map(|t| t.t),
     })
     .to_string()
 }

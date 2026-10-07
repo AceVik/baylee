@@ -1358,8 +1358,8 @@ messages! {
     RowFollowTurn { en: "Table follows the turn", de: "Tisch folgt dem Zug" },
     /// What it does
     HelpFollowTurn {
-        en: "At the start of another player's turn the table shows that player's seat: a camera arrangement visits it, the others bring it across. Never while a question is open for you.",
-        de: "Zu Beginn des Zuges eines anderen Spielers zeigt der Tisch dessen Sitz: eine Kamera-Anordnung besucht ihn, die anderen holen ihn herüber. Nie, während eine Frage an dich offen ist.",
+        en: "As another player's turn begins the table shows that player's seat — a camera arrangement visits it, the others bring it across — and on your turn it comes back to yours. It waits while you are answering a question; a seat you look at by hand stays until the next turn begins.",
+        de: "Beginnt der Zug eines anderen Spielers, zeigt der Tisch dessen Sitz — eine Kamera-Anordnung besucht ihn, die anderen holen ihn herüber — und in deinem Zug kehrt er zu deinem zurück. Er wartet, während du eine Frage beantwortest; ein Sitz, den du selbst ansiehst, bleibt bis zum nächsten Zugbeginn.",
     },
     /// The per-seat-count row
     RowArrangementBySeats { en: "Per seat count", de: "Je Sitzzahl" },

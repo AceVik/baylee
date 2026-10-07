@@ -883,8 +883,33 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   the seat bars stand down for the second, and a press on a moving board or
   a card key waits until it docks. Reduced motion: the cut. Not built: the
   optional low "clunk" cue.
+
+  The owner's refinements the same day: **thickness** — each piece carries
+  its cut face (`table::pieces::cut_face`, a strip down the jagged line,
+  `transition::tear_line` being the shader's line on the CPU), drawn by
+  `felt.wgsl`'s `cut_face`: the glass layer on top, the body under it, the
+  veins cut where the line crosses them (`veins_at`, the same field the
+  cloth is drawn from) running down the face; **the spill** — while the
+  table is open (`rift.x`, `transition::spill`) lava (emitted) and water
+  hang out of the cut in thin flowing streams, drawn back in as the pieces
+  dock; **the shake** — a damped jolt on the pieces as the table tears and a
+  smaller one as they dock (`transition::shake`, on the poses, so the cards
+  shake with them), a third of it on the camera, none under reduced motion,
+  nothing from the settle on; **the swap** — the leaving piece sinks under
+  the table (`SINK`) while the arriving one comes in lifted over it (`LIFT`),
+  so the two never meet
+  (`the_leaving_and_the_arriving_piece_never_meet`, red on a straight swap).
+  The cut face's cross-section is wound toward the gap
+  (`the_cut_face_faces_the_gap`; the first winding was culled from the only
+  side anybody sees it from). A zone part's place is kept in its seat's own
+  frame (`table::Seated`) and every move targets that place in the seat's
+  frame as it then stands: carrying the last target compounded, and a mat
+  ended a slow tear turned 20° off its place (measured live). Measured at
+  six seats, 1708 × 1028, focused: frame p95 18.2 ms at rest, 19.5 ms over
+  five tears in six seconds (60 fps held).
 - **Tisch folgt dem Zug** (`tableview::follow`, `Duel::follow_the_turn`):
-  off by default; on, another player's turn shows that seat (a camera
+  **on** by default (the owner's of 07.10.2026 overruled D25's off; a
+  settings file without the field reads as on), another player's turn shows that seat (a camera
   arrangement visits, a layout one brings it across), deferred while a
   question is open for me or the pointer rests on a card of the seat shown
   now, never on my turn; while the moved table settles a `Space` is dropped

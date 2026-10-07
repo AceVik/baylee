@@ -115,6 +115,59 @@ struct FeltParams {
 
 // The molten seam's colour, display-referred: emitted, never lit.
 const RIFT_EMBER: vec3<f32> = vec3<f32>(1.0, 0.52, 0.16);
+// The cut's cross-section: the glass layer on top, the body under it, and
+// the two rivers as they run out of the cut — lava emitted, water lit.
+const CUT_GLASS: vec3<f32> = vec3<f32>(0.10, 0.14, 0.16);
+const CUT_BODY: vec3<f32> = vec3<f32>(0.030, 0.032, 0.034);
+const CUT_LAVA: vec3<f32> = vec3<f32>(1.0, 0.42, 0.08);
+const CUT_WATER: vec3<f32> = vec3<f32>(0.20, 0.55, 0.66);
+// How far below the slab the drips may hang, in slab thicknesses
+// (`table::pieces::DRIP_DEPTH`).
+const DRIP_DEPTH: f32 = 1.6;
+
+/// A piece's cut face (`table::pieces::cut_face`): `u` (2 to 3) across the
+/// table, `v` 0 at the top, 1 at the slab's bottom, past 1 the drips. The
+/// cross-section shows the glass on top and the body under it, the veins cut
+/// where the line crosses them running down it; below, while they spill
+/// (`rift.x`), lava and water hang out of the cut in thin streams, flowing.
+fn cut_face(uv: vec2<f32>) -> vec4<f32> {
+    let t = globals.time * params.motion;
+    let x = (uv.x - 2.5) * params.span.x;
+    let at = vec2<f32>(x, tear_line(x, params.rift.y));
+    let field = veins_at(at);
+    let v = uv.y;
+    // Streams: thin, one every half a unit or so, wandering a little.
+    let lane = fract(x * 2.1 + vnoise(vec2<f32>(x * 0.7, params.rift.y)) * 0.8) - 0.5;
+    let stream = 1.0 - smoothstep(0.10, 0.22, abs(lane));
+    if (v <= 1.0) {
+        let glass = 1.0 - smoothstep(0.10, 0.16, v);
+        var colour = mix(CUT_BODY, CUT_GLASS, glass);
+        colour += vec3<f32>(0.25, 0.30, 0.31) * (1.0 - smoothstep(0.0, 0.025, v));
+        // The cut veins run down the face, fading with depth and flowing.
+        let flow = vnoise(vec2<f32>(x * 5.0, v * 4.0 - t * 1.1));
+        let reach = exp(-v * 1.8) * (0.55 + 0.45 * flow);
+        var lit = under_sky(to_linear(colour));
+        lit = mix(lit, to_linear(CUT_WATER) * 0.7, field.water * reach * 0.85);
+        lit = mix(lit, to_linear(CUT_LAVA), field.lava * reach);
+        // The weld runs along the top edge as the pieces meet.
+        let hot = (1.0 - smoothstep(0.0, 0.35, v)) * params.rift.z;
+        lit = mix(lit, to_linear(RIFT_EMBER), clamp(hot, 0.0, 1.0));
+        return vec4<f32>(lit, 1.0);
+    }
+    // The drips: only where a river is cut and a stream runs, as far down as
+    // the spill has reached, each a little longer or shorter than the next.
+    let down = (v - 1.0) / DRIP_DEPTH;
+    let river = max(field.lava, field.water);
+    let length = params.rift.x * river * (0.35 + 0.65 * vnoise(vec2<f32>(x * 3.3, params.rift.y + 7.0)));
+    if (stream < 0.5 || down > length) {
+        discard;
+    }
+    let pulse = 0.6 + 0.4 * vnoise(vec2<f32>(x * 9.0, down * 6.0 - t * 2.4));
+    let tip = 1.0 - smoothstep(length * 0.75, length, down);
+    let lava = field.lava / max(field.lava + field.water, 1e-3);
+    let colour = mix(to_linear(CUT_WATER) * under_sky(vec3<f32>(1.0)), to_linear(CUT_LAVA) * 1.2, lava);
+    return vec4<f32>(colour * pulse * (0.6 + 0.4 * tip), 1.0);
+}
 /// Every vein cell's point, as `vein_distance` used to compute it with two
 /// value noises per cell (`baylee_client_core::feltveins`, which computes it
 /// once per cut with this file's own `vnoise`). Read with `textureLoad`: one
@@ -312,8 +365,17 @@ fn vein_distance(p: vec2<f32>, texel_offset: vec2<f32>) -> f32 {
     return (sqrt(second) - sqrt(nearest)) * 0.5;
 }
 
-fn glass_at(p: vec2<f32>) -> vec3<f32> {
-    let t = globals.time * params.motion;
+/// Where the water and the molten veins run at a point of the glass: the
+/// warped domain, each river's distance and how much of it is there.
+struct Veins {
+    warp: vec2<f32>,
+    water_d: f32,
+    lava_d: f32,
+    water: f32,
+    lava: f32,
+}
+
+fn veins_at(p: vec2<f32>) -> Veins {
     let angle = params.pattern.z * (6.2831853 / 256.0);
     let axis = vec2<f32>(cos(angle), sin(angle));
     let domain = vec2<f32>(dot(p, axis), dot(p, vec2<f32>(-axis.y, axis.x)))
@@ -329,6 +391,17 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
     let lava_d = branch * 24.0 + (1.0 - smoothstep(0.36, 0.56, heat)) * 0.95;
     let water = 1.0 - smoothstep(0.42, 1.25, water_d);
     let lava = 1.0 - smoothstep(0.30, 0.98, lava_d);
+    return Veins(warp, water_d, lava_d, water, lava);
+}
+
+fn glass_at(p: vec2<f32>) -> vec3<f32> {
+    let t = globals.time * params.motion;
+    let field = veins_at(p);
+    let warp = field.warp;
+    let water_d = field.water_d;
+    let lava_d = field.lava_d;
+    let water = field.water;
+    let lava = field.lava;
     let silt = fbm(p * 0.34);
     var colour = mix(vec3<f32>(0.012, 0.023, 0.029), vec3<f32>(0.035, 0.046, 0.050), silt);
 
@@ -550,6 +623,12 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // wrong guess about it mirrors the whole field — invisible at two seats,
     // because a duel is symmetric about both axes, and wrong at three.
     // `to_world` is `(x, height, -y)`, so this is exactly its inverse.
+    // A piece's cut face is drawn by its own branch (`cut_face`); a slab's
+    // uv never leaves 0 to 1, so the test is free on every other fragment
+    // that reaches it, and only a tearing table's pieces take it at all.
+    if (params.rift.w != 0.0 && in.uv.x > 1.5) {
+        return cut_face(in.uv);
+    }
     var table = vec2<f32>(in.world_position.x, -in.world_position.z);
     // A piece of a tearing table (`rift.w` its side: -1 mine, 1 the far
     // one) is drawn in its own frame, out of the mesh's uv — the same table

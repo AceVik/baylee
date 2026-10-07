@@ -828,10 +828,11 @@ pub fn frame_table(
     windows: Query<&Window>,
     settings: Option<Res<crate::settings::ClientSettings>>,
     mut rig: ResMut<CameraRig>,
-    mut pose: ResMut<CameraPose>,
+    (mut pose, prefs): (ResMut<CameraPose>, Option<Res<crate::prefs::Prefs>>),
 ) {
     // The table a tear ends on, not the stage it is in: the camera stands
-    // still while the table tears and docks under it.
+    // still while the table tears and docks under it — but for a subtle
+    // shake with it (the owner's of 07.10.2026), none under reduced motion.
     let Some(layout) = duel.settled_layout() else {
         return;
     };
@@ -858,12 +859,17 @@ pub fn frame_table(
     let visit = duel
         .camera_visit()
         .and_then(|seat| CameraRig::visit(layout, canvas, seat, shot));
-    let (next, frame, binds) = if let Some((rig, frame, binds)) = visit {
+    let (mut next, frame, binds) = if let Some((rig, frame, binds)) = visit {
         (rig, Some(frame), binds)
     } else {
         let (rig, binds) = CameraRig::home_shot(layout, canvas, shot);
         (rig, None, binds)
     };
+    if let Some(tear) = duel.tear.as_ref()
+        && !prefs.is_some_and(|p| p.all().reduce_motion)
+    {
+        next.target.y -= baylee_client_core::layout::transition::shake(tear.t) * CAMERA_SHAKE;
+    }
     // A seat no longer at the table is home again — for a layout
     // arrangement too, whose interest is a seat it brings across.
     if duel
@@ -886,6 +892,10 @@ pub fn frame_table(
         };
     }
 }
+
+/// How much of the tear's shake the camera takes: a third, so the table is
+/// what shakes and the eye only feels it.
+const CAMERA_SHAKE: f32 = 0.35;
 
 /// What the camera is doing, for `/state.camera` and the dial: the pose it
 /// was asked for and what that shot took in.

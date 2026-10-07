@@ -132,7 +132,7 @@ impl<'de> Deserialize<'de> for VisitCamera {
 }
 
 /// This device's table framing (`ClientSettings::table`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TableView {
     /// How the seats are placed, unless [`Self::arrangement_by_seats`] names
@@ -143,9 +143,12 @@ pub struct TableView {
     /// menu's *remember for this seat count*. Sparse; a count with none takes
     /// [`Self::arrangement`].
     pub arrangement_by_seats: BySeats,
-    /// *Tisch folgt dem Zug* (DESIGN-v8 §1.1, D25): the active player's side
-    /// becomes the seat of interest at the start of its turn. Off.
-    #[serde(deserialize_with = "crate::graphics::lenient")]
+    /// *Tisch folgt dem Zug* (DESIGN-v8 §1.1): the active player's side
+    /// becomes the seat of interest at the start of its turn. **On** — the
+    /// owner's of 07.10.2026 (*"It should switch automatically to the player
+    /// whose turn it is"*) overruled D25's off; a file without the field
+    /// (it never shipped) reads as on.
+    #[serde(deserialize_with = "lenient_on")]
     pub follow: bool,
     /// The ring's lean.
     #[serde(deserialize_with = "crate::graphics::lenient")]
@@ -153,6 +156,25 @@ pub struct TableView {
     /// Where a visit stands.
     #[serde(deserialize_with = "crate::graphics::lenient")]
     pub visit: VisitCamera,
+}
+
+impl Default for TableView {
+    fn default() -> Self {
+        Self {
+            arrangement: Arrangement::default(),
+            arrangement_by_seats: BySeats::default(),
+            follow: true,
+            lean: RingLean::default(),
+            visit: VisitCamera::default(),
+        }
+    }
+}
+
+/// A switch that is on unless a file says otherwise in a form this build
+/// reads: what `graphics::lenient` is for a field whose default is `true`.
+fn lenient_on<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(bool::deserialize(value).unwrap_or(true))
 }
 
 impl TableView {
@@ -648,7 +670,11 @@ mod tests {
     fn the_arrangement_settings_read_leniently_and_by_seat_count() {
         let view = TableView::default();
         assert_eq!(view.arrangement, Arrangement::Ring);
-        assert!(!view.follow, "follow is off by default (D25)");
+        assert!(view.follow, "follow is on by default (the owner, 07.10.)");
+        let absent: TableView = serde_json::from_str("{}").expect("reads");
+        assert!(absent.follow, "a file without it reads as on");
+        let off: TableView = serde_json::from_str(r#"{"follow":false}"#).expect("reads");
+        assert!(!off.follow, "a player's off is kept");
         let read: TableView = serde_json::from_str(
             r#"{"arrangement":"zukunft","arrangement_by_seats":{"4":"zukunft","5":"ring","9":"ring","x":"ring","6":7},"follow":true,"lean":"gentle"}"#,
         )

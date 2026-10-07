@@ -345,7 +345,7 @@ pub fn sync_zones(
         ResMut<Assets<crate::matmat::MatMaterial>>,
         ResMut<Assets<StandardMaterial>>,
     ),
-    mut placed: Query<(&Transform, Option<&mut Motion>)>,
+    mut placed: Query<(&Transform, Option<&mut Motion>, Option<&Seated>)>,
 ) {
     let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
         return;
@@ -407,22 +407,35 @@ pub fn sync_zones(
             && let Some(zone) = index.zones.get_mut(&pod.player)
             && same_ground(&zone.slot, slot)
         {
-            let carry =
-                Mat4::from_translation(Vec3::Y * (lift - zone.raised)) * rigid(&zone.slot, slot);
+            // Each part's place in its seat's own frame, read once off where
+            // it was built and kept: every later target is that place in the
+            // seat's frame as it stands now, so no move compounds on the one
+            // before it — a carry composed on the last target drifted, and a
+            // part that missed one frame's carry stayed off by it for good.
+            let lifted = Mat4::from_translation(Vec3::Y * lift);
             for entity in [zone.mat, zone.glow]
                 .into_iter()
                 .chain(zone.piles.iter().copied())
             {
-                let Ok((at, motion)) = placed.get_mut(entity) else {
+                let Ok((at, motion, seated)) = placed.get_mut(entity) else {
                     continue;
                 };
+                let local = seated.map_or_else(
+                    || {
+                        let rest = Mat4::from_translation(Vec3::Y * -zone.raised) * at.to_matrix();
+                        seat_frame(&zone.slot).inverse() * rest
+                    },
+                    |seated| seated.0,
+                );
+                let target = Transform::from_matrix(lifted * seat_frame(slot) * local);
                 match motion {
-                    Some(mut motion) => motion.target = carried(carry, motion.target),
+                    Some(mut motion) => motion.target = target,
                     None => {
-                        commands.entity(entity).insert(Motion {
-                            target: carried(carry, *at),
-                        });
+                        commands.entity(entity).insert(Motion { target });
                     }
+                }
+                if seated.is_none() {
+                    commands.entity(entity).insert(Seated(local));
                 }
             }
             zone.slot = *slot;
@@ -471,6 +484,7 @@ pub fn sync_zones(
                 MeshMaterial3d(mat_material.clone()),
                 Pickable::IGNORE,
                 lying_flat(slot, ZONE_LIFT),
+                SeatMat(pod.player),
             ))
             .id();
         let (glow, glow_material) = spawn_table_quad(
@@ -517,6 +531,11 @@ pub fn sync_zones(
     });
 }
 
+/// A seat's mat, by seat: what `/state.arrangement.mats` reads to say
+/// where every mat is drawn against where its seat's slot is.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SeatMat(pub PlayerId);
+
 /// Whether two slots are the same ground: a zone built for one can be
 /// carried to the other whole.
 fn same_ground(a: &SeatSlot, b: &SeatSlot) -> bool {
@@ -525,23 +544,20 @@ fn same_ground(a: &SeatSlot, b: &SeatSlot) -> bool {
         && (a.scale - b.scale).abs() <= 1e-5
 }
 
-/// The rigid move that carries what lies on `from`'s ground onto `to`'s: the
-/// seat's own frame (its centre on the felt, turned by its facing) undone
-/// and done again.
-pub(super) fn rigid(from: &SeatSlot, to: &SeatSlot) -> Mat4 {
-    let frame = |slot: &SeatSlot| {
-        Mat4::from_rotation_translation(
-            Quat::from_rotation_y(-slot.facing),
-            to_world(slot.center, 0.0),
-        )
-    };
-    frame(to) * frame(from).inverse()
+/// A seat's own frame in the world: its centre on the felt, turned by its
+/// facing.
+pub(super) fn seat_frame(slot: &SeatSlot) -> Mat4 {
+    Mat4::from_rotation_translation(
+        Quat::from_rotation_y(-slot.facing),
+        to_world(slot.center, 0.0),
+    )
 }
 
-/// `at`, carried by `by`.
-fn carried(by: Mat4, at: Transform) -> Transform {
-    Transform::from_matrix(by * at.to_matrix())
-}
+/// A zone part's place in its seat's own frame (`seat_frame`), at the
+/// table's height: kept from the first time the zone moves, so every move
+/// after is that place in the seat's frame as it then stands.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct Seated(pub Mat4);
 
 #[cfg(test)]
 mod rigid_tests {
@@ -566,13 +582,19 @@ mod rigid_tests {
         };
         let (a, b) = (slot(3.0, 9.0, 1.2), slot(-4.0, 12.0, std::f32::consts::PI));
         for (from, to) in [(a, b), (b, a)] {
+            // A part's place in its seat's own frame, read off where it was
+            // built on `from`, and set into `to`'s frame.
+            let carry = |at: Transform| {
+                let local = seat_frame(&from).inverse() * at.to_matrix();
+                Transform::from_matrix(seat_frame(&to) * local)
+            };
             let built = lying_flat(&to, 0.01);
-            let moved = carried(rigid(&from, &to), lying_flat(&from, 0.01));
+            let moved = carry(lying_flat(&from, 0.01));
             assert!(moved.translation.distance(built.translation) < 1e-4);
             assert!(moved.rotation.angle_between(built.rotation) < 1e-3);
             let pile =
                 |s: &SeatSlot| card_transform(s, s.pile_center(PileKind::Graveyard), false, 0.0);
-            let moved = carried(rigid(&from, &to), pile(&from));
+            let moved = carry(pile(&from));
             assert!(moved.translation.distance(pile(&to).translation) < 1e-4);
         }
     }
