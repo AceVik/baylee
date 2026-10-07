@@ -198,8 +198,11 @@ impl Tx<'_> {
     /// is `TargetedController`), which is Mana Leak's "unless its controller
     /// pays" — so an absent payer is read only on a line that targets a
     /// spell or a permanent, and refused on one that targets nothing, where
-    /// that default names nobody. Every other payer is refused by name:
-    /// `Player` is every player at once, a price no one question can put.
+    /// that default names nobody. On a cast trigger `TriggeredActivator` is
+    /// the caster and `TriggeredCardController` the spell's controller, read
+    /// as `Defined$` reads them (Rhystic Study, Mystic Remora). Every other
+    /// payer is refused by name: `Player` is every player at once, a price
+    /// no one question can put.
     ///
     /// **The subs.** Without `UnlessResolveSubs$` the rest of the chain runs
     /// either way, which is what wrapping this line alone gives. With it the
@@ -230,6 +233,15 @@ impl Tx<'_> {
             Some("EnchantedController") => "PlayerRel::ControllerOfAttached",
             None | Some("TargetedController") if targets_a_controlled_object => {
                 "PlayerRel::ControllerOfTarget"
+            }
+            // Rhystic Study's "unless that player pays {1}": the player the
+            // cast trigger's event is about, as `Defined$` reads the same
+            // words (`Tx::player_rel`). Anywhere but a cast trigger they
+            // name nobody this reader can see, and stay refused below.
+            Some(who @ ("TriggeredActivator" | "TriggeredCardController"))
+                if self.trigger_mode.as_deref() == Some("SpellCast") =>
+            {
+                self.player_rel(Some(who))?
             }
             other => {
                 return self.deny(format!(

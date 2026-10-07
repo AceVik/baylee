@@ -3,6 +3,55 @@
 
 use super::*;
 
+/// "Whenever an opponent casts a spell, you may draw a card unless that
+/// player pays {1}" (Rhystic Study): on a cast trigger `TriggeredActivator`
+/// is the caster (`EventPlayer`), as the payer and as `Defined$`, and
+/// `TriggeredCardController` the spell's controller (`ControllerOfEvent`).
+/// On any other trigger the same words name nobody this reader can see.
+#[test]
+fn a_cast_triggers_that_player_is_the_one_who_cast() {
+    let study = read(
+        "Name:X\nTypes:Enchantment\n\
+         T:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Opponent | \
+         TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | Defined$ You | UnlessCost$ 1 | UnlessPayer$ TriggeredActivator | \
+         NumCards$ 1",
+    );
+    let a = study.abilities.join("");
+    assert!(a.contains("player: PlayerRel::EventPlayer"), "{a}");
+    let ping = read(
+        "Name:X\nTypes:Enchantment\n\
+         T:Mode$ SpellCast | ValidCard$ Instant | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ DealDamage | Defined$ TriggeredActivator | NumDmg$ 1",
+    );
+    assert!(
+        ping.abilities
+            .join("")
+            .contains("TargetSpec::Player(PlayerRel::EventPlayer)"),
+        "{:?}",
+        ping.abilities
+    );
+    let its_controller = read(
+        "Name:X\nTypes:Enchantment\n\
+         T:Mode$ SpellCast | ValidCard$ Card | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ DealDamage | Defined$ TriggeredCardController | NumDmg$ 1",
+    );
+    assert!(
+        its_controller
+            .abilities
+            .join("")
+            .contains("TargetSpec::Player(PlayerRel::ControllerOfEvent)"),
+        "{:?}",
+        its_controller.abilities
+    );
+    // The same payer on a trigger that is not a cast is refused.
+    assert!(refused(
+        "Name:X\nTypes:Enchantment\n\
+         T:Mode$ Attacks | ValidCard$ Creature | Execute$ D\n\
+         SVar:D:DB$ Draw | Defined$ You | UnlessCost$ 1 | UnlessPayer$ TriggeredActivator"
+    ));
+}
+
 /// Cockatrice: "whenever this creature blocks or becomes blocked by a
 /// non-Wall creature, destroy that creature at end of combat", written
 /// by the reference as two lines, each executing a delayed trigger that
