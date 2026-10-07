@@ -16,6 +16,7 @@
 
 use crate::i18n::Phrase;
 
+mod arc;
 mod pair;
 mod pods;
 pub mod transition;
@@ -38,6 +39,8 @@ pub(crate) fn facing_for(seats: &[super::Seat], index: usize) -> f32 {
     let ally = index == 0 || (mine.is_some() && seats.get(index).and_then(|s| s.team) == mine);
     if ally { 0.0 } else { core::f32::consts::PI }
 }
+pub(super) use arc::arc;
+pub use arc::{IN_VIEW, window as rail_window};
 pub(super) use pair::spotlight;
 pub(super) use pods::pods;
 #[cfg(test)]
@@ -189,6 +192,7 @@ impl Arrangement {
                 | Self::Turntable
                 | Self::TurntableRows
                 | Self::Pods
+                | Self::ArcRail
         )
     }
 

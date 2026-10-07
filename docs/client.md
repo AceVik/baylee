@@ -907,6 +907,23 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   (`the_pods_stand_in_a_grid_above_me`). Measured at 1708 × 1028 (creature
   card, projected, home/visited): 3 seats 45/89, 4 seats 31/89, 6 seats
   30/89, 8 seats 23/89 (MULTIPLAYER §C's hypothesis was 32 at eight).
+- **Arc rail** (WA7, `layout/arrangement/arc.rs`, a camera arrangement): my
+  side as the duel's, every other seat on one arc above it in turn order
+  left to right, each board facing the arc's middle (the one straight
+  across turned as the duel's across board); the circle is sized so
+  neighbours stand a board and a gutter apart, a long arc flattened until
+  its ends stay above my board. The boards are cut at the widest aspect
+  whose window of `IN_VIEW` (three) boards is no wider than the canvas.
+  Home (`CameraRig::rail_shot`) is the window round the arc's middle and
+  my board, yaw 0, at a wide duel's lean; a visit slides the rail to the
+  board it centres and frames that board alone (`rail_window(.., 1.0)`):
+  three abreast hold a card 27 px at 1708, the one visited 77 — the design's
+  "≤ 3 pods at scale 1 with cards ≥ 45 px" does not hold, a duel's board
+  being the canvas's width. `F`/`Shift+F` walk the stops in ring order, `H`
+  is stop 0. Not built: the overflow chip — every seat already has its chip
+  in the strip, and the strip is how a seat off the rail is reached
+  (`the_arc_rail_stands_the_others_on_one_arc`). Measured at 1180: 19 px at
+  home, 54 visited.
 - **The tear** (the owner's of 07.10.2026, on Spotlight and the Focus ring;
   `Arrangement::tears`): a change of seat of interest tears the table along
   a jagged, seeded line; the far piece sinks into a void under the table

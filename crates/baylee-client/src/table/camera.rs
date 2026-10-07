@@ -134,10 +134,16 @@ impl CameraRig {
             // (DESIGN-v8 §2.2's fallback — the arm pays, never the others).
             Arrangement::UprightRing => Self::ring_home(layout, canvas.below_the_pill(), shot),
             Arrangement::Pods => Self::pods_home(layout, canvas.below_the_pill()),
+            // The rail's stop 0: the arc's middle (DESIGN-v8 §1 row 4).
+            Arrangement::ArcRail => Self::rail_shot(
+                layout,
+                canvas.below_the_pill(),
+                0.0,
+                baylee_client_core::layout::IN_VIEW,
+            ),
             // An arrangement not built yet seats the ring, and is shot as one.
             Arrangement::Ring
             | Arrangement::Turntable
-            | Arrangement::ArcRail
             | Arrangement::Spotlight
             | Arrangement::TurntableRows
             | Arrangement::FocusRing => Self::ring_home(layout, canvas, shot),
@@ -156,6 +162,21 @@ impl CameraRig {
         let corners = layout.corners(air);
         let fit = fit(min, max, &corners, PODS_LEAN, canvas);
         (fit.rig(0.0, PODS_LEAN, |p| p), fit.binds)
+    }
+
+    /// The arc rail's shot at the stop `x` (DESIGN-v8 §1 row 4): the band
+    /// of the table `boards` boards wide round `x` and my board, at a wide
+    /// duel's lean, yaw 0 — a visit slides the stop along the rail to the
+    /// one board it centres, and the eye's easing ([`ShownRig`]) makes the
+    /// slide.
+    fn rail_shot(layout: &TableLayout, canvas: Canvas, x: f32, boards: f32) -> (Self, Binds) {
+        let Some((lo, hi)) = baylee_client_core::layout::rail_window(layout, x, boards) else {
+            return (Self::default(), Binds::Deep);
+        };
+        let air = ring_air(canvas.class());
+        let (lo, hi) = (lo - Vec2::splat(air), hi + Vec2::splat(air));
+        let fit = fit(lo, hi, &box_corners(lo, hi), DUEL_LEAN, canvas);
+        (fit.rig(0.0, DUEL_LEAN, |p| p), fit.binds)
     }
 
     /// The ring's home shot ([`Self::home_shot`]).
@@ -235,9 +256,18 @@ impl CameraRig {
             Arrangement::UprightRing | Arrangement::Pods => {
                 Self::zoom_visit(layout, canvas.below_the_pill(), seat, shot)
             }
+            Arrangement::ArcRail => {
+                let slot = layout.slot(seat)?;
+                let (x, boards) = if slot.is_local {
+                    (0.0, baylee_client_core::layout::IN_VIEW)
+                } else {
+                    (slot.center.x, 1.0)
+                };
+                let (rig, binds) = Self::rail_shot(layout, canvas.below_the_pill(), x, boards);
+                Some((rig, VisitFrame::Pod, binds))
+            }
             Arrangement::Ring
             | Arrangement::Turntable
-            | Arrangement::ArcRail
             | Arrangement::Spotlight
             | Arrangement::TurntableRows
             | Arrangement::FocusRing => Self::ring_visit(layout, canvas, seat, shot),

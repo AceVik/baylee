@@ -41,7 +41,7 @@ use crate::cardplate::PlateRoom;
 mod arrangement;
 #[cfg(test)]
 use arrangement::upright_apart as arrangement_upright_apart;
-pub use arrangement::{Arrangement, transition};
+pub use arrangement::{Arrangement, IN_VIEW, rail_window, transition};
 use baylee_core::ids::PlayerId;
 use glam::Vec2;
 
@@ -1086,9 +1086,8 @@ impl TableLayout {
                 }
             }
             Arrangement::Pods => arrangement::pods(seats, aspect),
-            Arrangement::Ring | Arrangement::ArcRail | Arrangement::FocusRing => {
-                Self::seated(seats, aspect, None)
-            }
+            Arrangement::ArcRail => arrangement::arc(seats, aspect),
+            Arrangement::Ring | Arrangement::FocusRing => Self::seated(seats, aspect, None),
         }
     }
 

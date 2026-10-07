@@ -1007,3 +1007,80 @@ fn the_pods_stand_in_a_grid_above_me() {
         }
     }
 }
+
+/// The arc rail (DESIGN-v8 §1 row 4): every other seat on one arc above my
+/// board, in turn order from left to right, the middle of the arc straight
+/// across from me, each board turned to face the arc's middle (the board
+/// straight across turned as a duel's across board is); a visit moves no
+/// card, and the rail's window round its middle holds three boards abreast
+/// whole (two round an even arc's middle gap).
+#[test]
+fn the_arc_rail_stands_the_others_on_one_arc() {
+    for n in 3..=8_u8 {
+        for aspect in ASPECTS {
+            let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+            let table = TableLayout::arranged(&roster, aspect, Arrangement::ArcRail, None);
+            let what = format!("n={n} aspect={aspect}");
+            let mine = table.slots[0];
+            let others = &table.slots[1..];
+            for pair in others.windows(2) {
+                assert!(
+                    pair[0].center.x < pair[1].center.x,
+                    "{what}: left to right in turn order"
+                );
+            }
+            let middle = others.len() / 2;
+            if others.len() % 2 == 1 {
+                assert!(others[middle].center.x.abs() < 1e-3, "{what}: across");
+                assert!(
+                    (others[middle].facing - core::f32::consts::PI).abs() < 1e-4,
+                    "{what}: a duel's across board"
+                );
+            }
+            // Every board's forward points at one point below the arc: the
+            // circle's middle.
+            let centres: Vec<Vec2> = others
+                .iter()
+                .map(|s| {
+                    let forward = s.forward();
+                    // Where the forward line crosses x = 0.
+                    if forward.x.abs() < 1e-6 {
+                        Vec2::new(0.0, f32::NAN)
+                    } else {
+                        s.center - forward * (s.center.x / forward.x)
+                    }
+                })
+                .filter(|c| c.y.is_finite())
+                .collect();
+            for pair in centres.windows(2) {
+                assert!(
+                    (pair[0].y - pair[1].y).abs() < 1e-3 * pair[0].y.abs().max(1.0),
+                    "{what}: one circle"
+                );
+            }
+            for slot in others {
+                assert!(slot.center.y > mine.center.y, "{what}: above me");
+            }
+            for interest in roster.iter().map(|s| Some(s.player)) {
+                assert_eq!(
+                    TableLayout::arranged(&roster, aspect, Arrangement::ArcRail, interest),
+                    table,
+                    "{what}: a visit moves no card"
+                );
+            }
+            let (lo, hi) =
+                super::super::rail_window(&table, 0.0, super::super::IN_VIEW).expect("mine");
+            let whole = others
+                .iter()
+                .filter(|s| {
+                    s.center.x - s.footprint().x >= lo.x - 1e-3
+                        && s.center.x + s.footprint().x <= hi.x + 1e-3
+                })
+                .count();
+            // Three whole round an arc's middle board, two round the gap in
+            // an even arc's middle.
+            let want = if others.len() % 2 == 1 { 3 } else { 2 };
+            assert_eq!(whole, others.len().min(want), "{what}: in view");
+        }
+    }
+}
