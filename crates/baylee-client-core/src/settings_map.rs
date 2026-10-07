@@ -90,10 +90,15 @@ impl Section {
     #[must_use]
     pub const fn scope(self) -> Scope {
         match self {
-            Self::Graphics | Self::Audio | Self::Display | Self::Updates | Self::Privacy => {
-                Scope::Device
-            }
-            Self::Controls | Self::Gameplay | Self::Account | Self::Network => Scope::Account,
+            // The gateways are this device's list (`ClientSettings`), not
+            // the account's: a phone and a desktop keep their own.
+            Self::Graphics
+            | Self::Audio
+            | Self::Display
+            | Self::Network
+            | Self::Updates
+            | Self::Privacy => Scope::Device,
+            Self::Controls | Self::Gameplay | Self::Account => Scope::Account,
             Self::LanguageModels => Scope::Machine,
         }
     }

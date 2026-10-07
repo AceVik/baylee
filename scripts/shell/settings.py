@@ -20,6 +20,19 @@ import check  # noqa: E402
 import devctl  # noqa: E402
 
 TOUCH = ((1180, 820), (844, 390), (920, 443), (640, 360))
+# Each section's title, as its panel heads it (`Section::name`).
+TITLES = {
+    "Graphics": ("Graphics", "Grafik"),
+    "Audio": ("Audio", "Audio"),
+    "Display": ("Display & Interface", "Anzeige & Oberfl\u00e4che"),
+    "Controls": ("Controls", "Steuerung"),
+    "Gameplay": ("Gameplay", "Spielablauf"),
+    "Account": ("Account", "Konto"),
+    "Network": ("Network & Gateway", "Netzwerk & Gateway"),
+    "LanguageModels": ("Language models", "Sprachmodelle"),
+    "Updates": ("Updates", "Updates"),
+    "Privacy": ("Privacy & Data", "Datenschutz & Daten"),
+}
 SECTIONS = (
     "Graphics", "Audio", "Display", "Controls", "Gameplay", "Account",
     "Network", "LanguageModels", "Updates", "Privacy",
@@ -62,6 +75,31 @@ def rows_in_view(nodes, height):
     return shown
 
 
+def shown(section, lang):
+    """The panel heads `section`: its title outside the nav (the first
+    panel drawn), so a click that missed is not measured as its section."""
+    title = TITLES[section][0 if lang == "en" else 1]
+    nodes = check.tree(devctl.state()["shell_nodes"])
+    panels = [n for n in nodes if n.get("k") == "panel"]
+    if not panels:
+        return False
+    in_nav = {d["index"] for d in check.descendants(nodes, panels[0]["index"])}
+    return any(n.get("t") == title and n["index"] not in in_nav for n in nodes)
+
+
+def into_view(name):
+    """Scrolls the list a control is in (the sidebar, the rows) until it
+    stands inside the window: on a phone both are taller than it."""
+    for _ in range(12):
+        st = devctl.state()
+        hit = [c for c in st["lobby_controls"] if c["press"] == name]
+        h = devctl.health()["height"]
+        if not hit or 20 < hit[0]["at_y"] < h - 20:
+            return
+        devctl.call("/pointer", {"x": hit[0]["at_x"], "y": h / 2})
+        devctl.call("/scroll", {"y": -3 if hit[0]["at_y"] > h / 2 else 3})
+
+
 def section_faults(nodes, width, height, touch, german):
     return (
         check.check_overflow(nodes)
@@ -89,7 +127,12 @@ def main(out):
                     # Not offered on this build (Updates off a desktop).
                     summary.append(f"{section}-{width}x{height}-{lang}: not offered")
                     continue
-                press_until(name, lambda: True, tries=1)
+                into_view(name)
+                if not press_until(name, lambda: shown(section, lang)):
+                    failures += 1
+                    summary.append(f"{section}-{width}x{height}-{lang}: never shown")
+                    print(summary[-1], flush=True)
+                    continue
                 devctl.settle(4)
                 st = devctl.state()
                 nodes = check.tree(st["shell_nodes"])
@@ -106,6 +149,7 @@ def main(out):
                         faults.append(f"phone: the section list shows {len(navs)} items")
                     if section in ("Graphics", "Audio", "Display") and len(rows) < 3:
                         faults.append(f"phone: {len(rows)} rows in view, 3 wanted")
+                    summary.append(f"    phone: {len(navs)} sections, {len(rows)} rows in view")
                 contrast = []
                 if lang == "en" or (width, height) in ((960, 700), (844, 390)):
                     png = os.path.join(out, f"settings-{tag}.png")
@@ -131,6 +175,7 @@ def main(out):
                 press_until("Settings(Section(LanguageModels))", lambda: True, tries=1)
                 devctl.settle(4)
                 if "Settings(Seat(Add))" in presses():
+                    into_view("Settings(Seat(Add))")
                     press_until(
                         "Settings(Seat(Add))",
                         lambda: "Settings(CloseProfile)" in presses(),

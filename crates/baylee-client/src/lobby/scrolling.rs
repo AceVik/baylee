@@ -40,6 +40,8 @@ pub(crate) enum List {
     About,
     /// A language-model profile's sheet (WP5).
     ProfileSheet,
+    /// The settings screen's section list (WP5).
+    SettingsNav,
 }
 
 /// Where each list was left, across rebuilds of the node tree.
@@ -63,6 +65,7 @@ pub(crate) struct Scrolled {
     terms: f32,
     about: f32,
     profile_sheet: f32,
+    settings_nav: f32,
 }
 
 impl Scrolled {
@@ -81,6 +84,7 @@ impl Scrolled {
             List::Terms => self.terms,
             List::About => self.about,
             List::ProfileSheet => self.profile_sheet,
+            List::SettingsNav => self.settings_nav,
         }
     }
 
@@ -99,6 +103,7 @@ impl Scrolled {
             List::Terms => self.terms = at,
             List::About => self.about = at,
             List::ProfileSheet => self.profile_sheet = at,
+            List::SettingsNav => self.settings_nav = at,
         }
     }
 }

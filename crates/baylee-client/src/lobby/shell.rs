@@ -395,6 +395,7 @@ pub(super) fn ui(
             metrics,
             scroll: scrolled_to.get(List::Settings),
             sheet_scroll: scrolled_to.get(List::ProfileSheet),
+            nav_scroll: scrolled_to.get(List::SettingsNav),
         };
         crate::settingsui::screen(&mut commands, root, &view, kit);
         super::confirm::draw_deletion(&mut commands, root, &state, &fonts, metrics);

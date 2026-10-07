@@ -69,6 +69,8 @@ pub(crate) struct View<'a> {
     pub(crate) scroll: f32,
     /// Where a language-model profile's sheet was scrolled to.
     pub(crate) sheet_scroll: f32,
+    /// Where the section list was scrolled to.
+    pub(crate) nav_scroll: f32,
 }
 
 /// The sidebar's width on a desktop and on a phone.
@@ -139,7 +141,7 @@ pub(crate) fn screen(commands: &mut Commands, root: Entity, view: &View, kit: Ki
 fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
     let state = view.state;
     let lang = state.lobby.lang();
-    let holder = nav_holder(commands, kit, side);
+    let holder = nav_holder(commands, kit, side, view.nav_scroll);
     // The way back to where the screen was opened over (the builder, the
     // front door, Play): before sign-in no header stands over it at all.
     {
@@ -226,7 +228,7 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
 }
 
 /// The nav's own panel: a column beside the rows, or a wrapping row.
-fn nav_holder(commands: &mut Commands, kit: Kit, side: bool) -> Entity {
+fn nav_holder(commands: &mut Commands, kit: Kit, side: bool, scroll: f32) -> Entity {
     commands
         .spawn((
             Role::Panel,
@@ -262,6 +264,11 @@ fn nav_holder(commands: &mut Commands, kit: Kit, side: bool) -> Entity {
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            // A phone's list is taller than its window: it scrolls under
+            // a finger or a wheel, and keeps its place across rebuilds.
+            ScrollPosition(Vec2::new(0.0, scroll)),
+            Scrollable(List::SettingsNav),
+            Pickable::default(),
         ))
         .id()
 }
