@@ -45,6 +45,7 @@ fn outpost() -> CardFace {
         types: TypeSet::LAND,
         subtypes: SubtypeSet::EMPTY,
         text_pending: false,
+        credit: None,
     }
 }
 

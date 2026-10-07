@@ -44,7 +44,8 @@ pub fn sync_overlay(
         mode: &mode,
         settings: &settings,
         view: duel.view.as_ref(),
-        widths: crate::face::Widths::of(font_assets.as_deref().and_then(|a| a.get(&fonts.text))),
+        widths: crate::face::Widths::of(font_assets.as_deref().and_then(|a| a.get(&fonts.text)))
+            .at(mode.step),
     };
     let lang = Lang::of(&settings.lang);
     let seq = duel.board.as_ref().map(|b| b.seq);
@@ -145,6 +146,7 @@ pub fn sync_overlay(
         && revision.autopilot == autopilot
         && revision.focus == focus
         && (revision.preview_scale - preview_scale).abs() < f32::EPSILON
+        && revision.face_step == mode.step
         && revision.faces == faces.always()
         && revision.texts == texts.generation()
         && revision.arrivals == textures.epoch()
@@ -176,6 +178,7 @@ pub fn sync_overlay(
     revision.autopilot = autopilot;
     revision.focus = focus;
     revision.preview_scale = preview_scale;
+    revision.face_step = mode.step;
     revision.faces = faces.always();
     revision.texts = texts.generation();
     revision.arrivals = textures.epoch();

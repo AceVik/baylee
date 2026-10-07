@@ -1824,7 +1824,8 @@ impl Plugin for DuelPlugin {
             .init_resource::<textures::Preload>()
             .init_resource::<cardtext::CardTexts>()
             .init_resource::<cardtext::TextGateway>()
-            .init_resource::<face::FaceMode>()
+            .insert_resource(face::FaceMode::initial())
+            .init_resource::<face::FaceBuilds>()
             .init_resource::<combatlines::LineAssets>()
             .init_resource::<combatlines::FocusAssets>()
             // Shared with the lobby, which may already have installed it: the

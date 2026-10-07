@@ -32,6 +32,27 @@
 //! size over its card's width in pixels, and lands on a print's proportions by
 //! the same arithmetic.
 //!
+//! # Four layouts (WP6)
+//!
+//! The table's face is the one above: the art box under the name, the type
+//! bar on the strip's seam, because the keyword strip lies on the art box
+//! there and must never lie on the type line. The interface lays no strip
+//! over a text face, so its faces put the type line under the name, where a
+//! player reads it first, and give the art box's empty half of the card to
+//! the rules ([`Layout`]):
+//!
+//! - **a preview** — name, type, the **band** (the colour identity as a
+//!   gradient, the subtype words and the keyword chips), the rules, and a
+//!   foot that credits the printing. The band is [`BAND_PREVIEW`] deep;
+//! - **a long preview** — the same, its band [`BAND_LONG`] deep, for rules
+//!   that would otherwise go under [`LONG_PX`];
+//! - **a small card** (hand, stack, tray) — name, type, the band as the
+//!   keyword strip, and one line of rules at the foot, as deep as the type
+//!   line, so the word carries its depth already.
+//!
+//! The layout rides the face word ([`FACE_LAYOUT_SHIFT`]), so the shader
+//! draws the same parts the text was placed in.
+//!
 //! # Widths
 //!
 //! The fitting rules need to know how wide a string is before anything has
@@ -138,32 +159,126 @@ pub const fn seam() -> f32 {
     crate::cardrail::strip_bottom()
 }
 
+/// How a face is laid out down the card ([module docs](self#four-layouts-wp6)).
+///
+/// The number is the code [`face_word`] carries at [`FACE_LAYOUT_SHIFT`],
+/// and `card_common.wgsl`'s `text_face` switches on the same codes.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+#[repr(u32)]
+pub enum Layout {
+    /// The table's: the art box under the name, the type bar on the seam.
+    #[default]
+    Table = 0,
+    /// A preview's: the type under the name, the band, the rules, the foot.
+    Preview = 1,
+    /// A preview whose rules run long: the band at [`BAND_LONG`].
+    Long = 2,
+    /// A small card in the interface: the band is the keyword strip, and one
+    /// line of rules stands at the foot.
+    Small = 3,
+}
+
+impl Layout {
+    /// The layout a three-bit field of the word names, the table's for a
+    /// code no layout has, as the shader reads it.
+    #[must_use]
+    pub const fn from_code(code: u32) -> Self {
+        match code & 0x7 {
+            1 => Self::Preview,
+            2 => Self::Long,
+            3 => Self::Small,
+            _ => Self::Table,
+        }
+    }
+
+    /// The band's depth in card widths, for a layout that fixes it: a
+    /// preview's. The table's art box and a small card's band take what
+    /// their neighbours leave.
+    #[must_use]
+    pub const fn band(self) -> Option<f32> {
+        match self {
+            Self::Preview => Some(BAND_PREVIEW),
+            Self::Long => Some(BAND_LONG),
+            Self::Table | Self::Small => None,
+        }
+    }
+
+    /// Whether the type line stands under the name (every layout but the
+    /// table's).
+    #[must_use]
+    pub const fn type_under_name(self) -> bool {
+        !matches!(self, Self::Table)
+    }
+}
+
+/// A preview's band: 18 % of the face (WP6), in card widths.
+pub const BAND_PREVIEW: f32 = 0.18 * CARD_TALL;
+
+/// A long preview's band, the keyword strip alone: 12 % of the face.
+pub const BAND_LONG: f32 = 0.12 * CARD_TALL;
+
+/// The size, in pixels at the default step, under which a preview's rules
+/// take the long layout: a text that would be set smaller than this at the
+/// full band is given the band's room instead.
+pub const LONG_PX: f32 = 16.0;
+
 /// The face's parts, each `[x0, y0, x1, y1]`.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Regions {
     /// The name, left.
     pub name_bar: [f32; 4],
-    /// Where a print has its picture; the cost's first line on the table.
-    pub art_box: [f32; 4],
-    /// The type line, its top on the seam.
+    /// Where a print has its picture: on the table the art box, which holds
+    /// the cost's first line and lies under the strip; in the interface the
+    /// band of colour, subtypes and keyword chips.
+    pub band: [f32; 4],
+    /// The type line: on the seam on the table, under the name elsewhere.
     pub type_bar: [f32; 4],
     /// The rules text.
     pub text_box: [f32; 4],
+    /// Under the text box, inside the border: where a preview credits its
+    /// printing.
+    pub foot: [f32; 4],
 }
 
 impl Regions {
-    /// The parts for bars of these depths.
+    /// The table's parts for bars of these depths.
     #[must_use]
     pub fn new(depths: Depths) -> Self {
+        Self::laid(Layout::Table, depths)
+    }
+
+    /// The parts of a face laid out as `layout`, for bars of these depths.
+    #[must_use]
+    pub fn laid(layout: Layout, depths: Depths) -> Self {
         let [x0, x1] = content_x();
         let top = WINDOW[1] + BORDER;
         let name_end = top + depths.name_bar();
-        let type_end = seam() + depths.type_bar();
+        let foot = [x0, TEXT_FOOT, x1, WINDOW[3] - BORDER];
+        if !layout.type_under_name() {
+            let type_end = seam() + depths.type_bar();
+            return Self {
+                name_bar: [x0, top, x1, name_end],
+                band: [x0, name_end + PINLINE, x1, seam()],
+                type_bar: [x0, seam(), x1, type_end],
+                text_box: [x0, type_end + BOX_GAP, x1, TEXT_FOOT],
+                foot,
+            };
+        }
+        let type_top = name_end + PINLINE;
+        let type_end = type_top + depths.type_bar();
+        let band_top = type_end + PINLINE;
+        // A small card's text box is one line at the type line's size: the
+        // type bar's depth.
+        let text_top = layout.band().map_or(TEXT_FOOT - depths.type_bar(), |band| {
+            band_top + band + BOX_GAP
+        });
+        let band_end = text_top - BOX_GAP;
         Self {
             name_bar: [x0, top, x1, name_end],
-            art_box: [x0, name_end + PINLINE, x1, seam()],
-            type_bar: [x0, seam(), x1, type_end],
-            text_box: [x0, type_end + BOX_GAP, x1, TEXT_FOOT],
+            band: [x0, band_top, x1, band_end],
+            type_bar: [x0, type_top, x1, type_end],
+            text_box: [x0, text_top, x1, TEXT_FOOT],
+            foot,
         }
     }
 
@@ -231,17 +346,102 @@ pub fn name_bar(lines: usize) -> f32 {
 
 /// The overlay's name, as a share of the card's width in pixels, held
 /// between two sizes in pixels.
-pub const UI_NAME: (f32, [f32; 2]) = (0.082, [7.0, 26.0]);
+///
+/// Nine pixels at the least: a 92-pixel hand card's name is what a row of
+/// them is read by (WP6). Every top clamp is over its size on a 308-pixel
+/// preview even times the smallest step's 0.702, so the preview at the
+/// default scale is the same at every step and the steps bite on the small
+/// faces only.
+pub const UI_NAME: (f32, [f32; 2]) = (0.082, [9.0, 36.0]);
 
 /// The overlay's type line and its name stepped down, likewise.
-pub const UI_TYPE: (f32, [f32; 2]) = (0.062, [6.0, 19.0]);
+///
+/// Smaller than the rules on a preview, as on a print — 16 px at 308 — and
+/// eight pixels at the least, which a small card's one line of rules is set
+/// at too.
+pub const UI_TYPE: (f32, [f32; 2]) = (0.052, [8.0, 24.0]);
 
-/// The overlay's rules text at its own size, likewise.
-pub const UI_BODY: (f32, [f32; 2]) = (0.058, [6.0, 18.0]);
+/// The overlay's rules text at its own size, likewise: 19 px on a 308-pixel
+/// preview at every step (WP6), since the top clamp, 28 px times the
+/// smallest step's 0.702, is still over it.
+pub const UI_BODY: (f32, [f32; 2]) = (0.062, [6.0, 28.0]);
 
-/// The smallest the rules text is stepped down to, in pixels. Past it the
-/// text box scrolls rather than shrinking long rules below a readable size.
+/// The band's subtype words and keyword chips, likewise: 12 px on a preview,
+/// 8 on a hand card.
+pub const UI_CHIP: (f32, [f32; 2]) = (0.040, [8.0, 18.0]);
+
+/// The foot's credit line, likewise: 11 px on a preview.
+pub const UI_FOOT: (f32, [f32; 2]) = (0.036, [7.0, 16.0]);
+
+/// The smallest the rules text is stepped down to at the default step, in
+/// pixels ([`Step::body_floor`]). Past it the text box scrolls rather than
+/// shrinking long rules below a readable size.
 pub const BODY_FLOOR_PX: f32 = 14.0;
+
+/// The interface's five text steps' factors (`DESIGN-v5.md` §8): geometric,
+/// 1.125 apart, the fourth the size the client had before them.
+pub const STEP_FACTORS: [f32; 5] = [0.702, 0.790, 0.889, 1.000, 1.125];
+
+/// The rules' floor at each step, in pixels: the factor's, held up where a
+/// sentence stops being read (WP6).
+pub const BODY_FLOORS: [f32; 5] = [12.0, 13.0, 14.0, 14.0, 16.0];
+
+/// One of the interface's five text steps.
+///
+/// A face in the interface multiplies only its clamps by the step's factor
+/// and takes the step's floor for its rules: the shares of the card's width
+/// stay, so a 308-pixel preview keeps its 19-pixel rules at every step, and
+/// the step bites on the small faces the clamps hold. The table's faces do
+/// not follow it. The setting that chooses it is the shell's
+/// (`ClientSettings::text_size`, WP0b-1); until then a face is set at
+/// [`Step::DEFAULT`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct Step(u8);
+
+impl Step {
+    /// The smallest step.
+    pub const XS: Self = Self(1);
+    /// The fourth step, the size before there were steps.
+    pub const DEFAULT: Self = Self(4);
+    /// The largest step.
+    pub const XL: Self = Self(5);
+
+    /// Step `n` of five, held to the five there are.
+    #[must_use]
+    pub const fn new(n: u8) -> Self {
+        Self(if n < 1 {
+            1
+        } else if n > 5 {
+            5
+        } else {
+            n
+        })
+    }
+
+    /// Which step it is, one to five.
+    #[must_use]
+    pub const fn number(self) -> u8 {
+        self.0
+    }
+
+    /// What the step multiplies an interface clamp by.
+    #[must_use]
+    pub const fn factor(self) -> f32 {
+        STEP_FACTORS[self.0 as usize - 1]
+    }
+
+    /// The rules' floor at this step, in pixels.
+    #[must_use]
+    pub const fn body_floor(self) -> f32 {
+        BODY_FLOORS[self.0 as usize - 1]
+    }
+}
+
+impl Default for Step {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 
 /// The gap between two blocks of rules text, in lines of it.
 pub const BLOCK_GAP: f32 = 0.3;
@@ -270,6 +470,9 @@ pub struct Sizes {
     /// How long a line of the name may run: the line, less whatever shares
     /// its bar.
     pub name_room: f32,
+    /// How long the type line may run: the line, less whatever shares its
+    /// bar (a preview's set and rarity).
+    pub type_room: f32,
 }
 
 impl Sizes {
@@ -280,18 +483,37 @@ impl Sizes {
         small: SMALL_EM,
         type_floor: TYPE_FLOOR_EM,
         name_room: line_width(),
+        type_room: line_width(),
     };
 
     /// The overlay's, on a card `card_px` pixels wide whose cost takes
-    /// `cost` card widths at the name bar's right end, as on a print.
+    /// `cost` card widths at the name bar's right end, as on a print, at
+    /// the default step.
     #[must_use]
     pub fn overlay(card_px: f32, cost: f32) -> Self {
-        let small = ui_em(UI_TYPE, card_px);
+        Self::overlay_at(card_px, cost, Step::DEFAULT)
+    }
+
+    /// [`Self::overlay`] at text step `step`.
+    #[must_use]
+    pub fn overlay_at(card_px: f32, cost: f32, step: Step) -> Self {
+        let small = ui_em_at(UI_TYPE, card_px, step);
         Self {
-            name: ui_em(UI_NAME, card_px),
+            name: ui_em_at(UI_NAME, card_px, step),
             small,
             type_floor: small * TYPE_FLOOR_EM / SMALL_EM,
             name_room: line_width() - if cost > 0.0 { cost + TEXT_INSET } else { 0.0 },
+            type_room: line_width(),
+        }
+    }
+
+    /// These sizes with `aside` card widths of the type bar's right end
+    /// given to something else.
+    #[must_use]
+    pub fn beside_type(self, aside: f32) -> Self {
+        Self {
+            type_room: line_width() - if aside > 0.0 { aside + TEXT_INSET } else { 0.0 },
+            ..self
         }
     }
 
@@ -316,8 +538,16 @@ impl Sizes {
 /// One of the overlay's sizes on a card `card_px` pixels wide, as an em in
 /// card widths.
 #[must_use]
-pub fn ui_em((share, [lo, hi]): (f32, [f32; 2]), card_px: f32) -> f32 {
-    (card_px * share).clamp(lo, hi) / card_px
+pub fn ui_em(size: (f32, [f32; 2]), card_px: f32) -> f32 {
+    ui_em_at(size, card_px, Step::DEFAULT)
+}
+
+/// [`ui_em`] at text step `step`: the clamps times its factor, the share as
+/// it is.
+#[must_use]
+pub fn ui_em_at((share, [lo, hi]): (f32, [f32; 2]), card_px: f32, step: Step) -> f32 {
+    let f = step.factor();
+    (card_px * share).clamp(lo * f, hi * f) / card_px
 }
 
 /// How wide the rules text's column is, in card widths: the face's inside
@@ -338,10 +568,20 @@ pub const fn column() -> f32 {
 /// sets a line (`manaui::rich_depth` in the client).
 #[must_use]
 pub fn fit_body(card_px: f32, height: f32, depth: impl Fn(f32) -> f32) -> f32 {
-    let own = ui_em(UI_BODY, card_px) * card_px;
+    fit_body_at(card_px, height, Step::DEFAULT, depth)
+}
+
+/// [`fit_body`] at text step `step`: its clamps and its floor
+/// ([`Step::body_floor`]).
+#[must_use]
+pub fn fit_body_at(card_px: f32, height: f32, step: Step, depth: impl Fn(f32) -> f32) -> f32 {
+    let own = ui_em_at(UI_BODY, card_px, step) * card_px;
+    let floor = step.body_floor();
     let mut px = own;
-    while px - 1.0 >= BODY_FLOOR_PX && depth(px / card_px) > height {
-        px -= 1.0;
+    // The last step lands on the floor itself, which a card's own size is
+    // seldom a whole number of pixels over.
+    while px > floor && depth(px / card_px) > height {
+        px = (px - 1.0).max(floor);
     }
     px / card_px
 }
@@ -431,7 +671,7 @@ pub fn fit_type(type_line: &str, width: impl Fn(&str) -> f32) -> Fitted {
 /// A type line set to fit its bar by [`fit_type`]'s rule, at `sizes`.
 #[must_use]
 pub fn fit_type_in(sizes: &Sizes, type_line: &str, width: impl Fn(&str) -> f32) -> Fitted {
-    let room = line_width();
+    let room = sizes.type_room;
     let floor = sizes.type_floor;
     let natural = width(type_line);
     if natural * sizes.small <= room {
@@ -470,6 +710,114 @@ pub fn fit_type_in(sizes: &Sizes, type_line: &str, width: impl Fn(&str) -> f32) 
         fits(&line).then_some(line)
     });
     Fitted::one(floor, &kept.unwrap_or_else(|| cut(subtypes, &fits)))
+}
+
+/// A preview's type line, set to fit its bar on one line: at `sizes.small`
+/// if it fits, else at the floor, else cut from the **end**, whole words
+/// first, with an ellipsis.
+///
+/// The other way round from [`fit_type_in`], because a preview's band says
+/// the subtypes again in words of their own ([`subtype_words`]): the half of
+/// the line only the line says is the front, "Legendary Creature".
+#[must_use]
+pub fn fit_type_front_in(sizes: &Sizes, type_line: &str, width: impl Fn(&str) -> f32) -> Fitted {
+    let room = sizes.type_room;
+    let floor = sizes.type_floor;
+    let natural = width(type_line);
+    if natural * sizes.small <= room {
+        return Fitted::one(sizes.small, type_line);
+    }
+    if natural * floor <= room {
+        return Fitted::one(floor, type_line);
+    }
+    let fits = |s: &str| width(s) * floor <= room;
+    let words: Vec<&str> = type_line.split(' ').collect();
+    let kept = (1..words.len()).rev().find_map(|keep| {
+        let line = format!(
+            "{}{ELLIPSIS}",
+            words[..keep].join(" ").trim_end_matches(" —")
+        );
+        fits(&line).then_some(line)
+    });
+    Fitted::one(floor, &kept.unwrap_or_else(|| cut(type_line, &fits)))
+}
+
+/// The subtypes a type line names, in its own words: what follows
+/// [`TYPE_DASH`], or nothing.
+///
+/// Split into words where the line's words are as many as the face's
+/// subtypes (`count`), so "Ally Wizard" reads as two; joined whole where
+/// they are not, so a subtype of two words ("Time Lord") is not taken apart.
+#[must_use]
+pub fn subtype_words(type_line: &str, count: usize) -> Vec<String> {
+    let Some((_, subtypes)) = type_line.split_once(TYPE_DASH) else {
+        return Vec::new();
+    };
+    let words: Vec<&str> = subtypes.split_whitespace().collect();
+    if words.is_empty() {
+        return Vec::new();
+    }
+    if words.len() == count {
+        words.into_iter().map(str::to_owned).collect()
+    } else {
+        vec![words.join(" ")]
+    }
+}
+
+/// The keyword chips a face's rules text gives its band: each keyword of
+/// every line that is nothing but keywords, in the card's own words and in
+/// the order it prints them.
+///
+/// Read off the printed text rather than named from the card's keyword set,
+/// because the words are then the card's own in the player's language — a
+/// German face says "Fliegend" because its printing does, and nothing here
+/// has to translate a keyword (or could get it wrong). A keyword line is a
+/// rules block with no sentence in it: no full stop, colon, dash or bullet,
+/// no mana symbol and short ([`CHIP_LINE_MAX`] characters); its keywords
+/// are its parts between commas. Reminder text never is one, since the face
+/// keeps it in blocks of its own.
+#[must_use]
+pub fn keyword_chips<'a>(rules: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    rules
+        .into_iter()
+        .filter(|line| is_keyword_line(line))
+        .flat_map(|line| line.split([',', ';']))
+        .map(str::trim)
+        .filter(|chip| !chip.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+/// How long a keyword line may be, in characters: longer, and it is a
+/// sentence that has lost its full stop.
+pub const CHIP_LINE_MAX: usize = 48;
+
+/// Whether a rules block is a line of keywords ([`keyword_chips`]).
+fn is_keyword_line(line: &str) -> bool {
+    let line = line.trim();
+    !line.is_empty()
+        && line.chars().count() <= CHIP_LINE_MAX
+        && !line.contains(['.', ':', '—', '•', '{', '!', '?', '"', '“', '„'])
+}
+
+/// The first sentence of a face's rules, for a face with room for one line:
+/// the first rules block up to and including its first full stop.
+#[must_use]
+pub fn first_sentence(rules: &str) -> &str {
+    let rules = rules.trim();
+    // A full stop inside a word ("1.5") is not a sentence's end; one followed
+    // by a space or the end is.
+    let mut at = None;
+    for (i, ch) in rules.char_indices() {
+        if ch == '.' {
+            let next = rules[i + 1..].chars().next();
+            if next.is_none_or(char::is_whitespace) {
+                at = Some(i + 1);
+                break;
+            }
+        }
+    }
+    at.map_or(rules, |end| &rules[..end])
 }
 
 // ------------------------------------------------------------- the colours
@@ -664,10 +1012,98 @@ pub fn cost_ink(word: u32) -> CostInk {
     }
 }
 
+/// How deep the cost's line on a table face's art box is, in card widths:
+/// one line at [`SMALL_EM`] in its bar.
+pub const COST_LINE: f32 = LINE_BOX * SMALL_EM + 2.0 * BAR_PAD;
+
+/// A table face's colour discs, each its centre `[x, y]` in card widths and
+/// its hue: one for a card whose art box is one colour, two side by side
+/// for two ([`DISC_RADIUS`]). `card_common.wgsl`'s `text_face` draws them by
+/// the same arithmetic.
+#[must_use]
+pub fn discs(word: u32, regions: &Regions) -> Vec<([f32; 2], Hue)> {
+    let a = Hue::from_code(word >> (FACE_BARS_SHIFT + 4));
+    let b = Hue::from_code(word >> (FACE_BARS_SHIFT + 8));
+    let y = regions.band[1] + COST_LINE + DISC_DROP + DISC_RADIUS;
+    if a == b {
+        vec![([0.5, y], a)]
+    } else {
+        let half = DISC_PAIR * 0.5;
+        vec![([0.5 - half, y], a), ([0.5 + half, y], b)]
+    }
+}
+
 /// Bit 0 of [`face_word`]: the window draws the face. A card with no art
 /// and no face — a back, a slab under a pile — leaves it clear and is drawn
 /// as its flat colour.
 pub const FACE_ON: u32 = 1;
+
+/// Where the face's [`Layout`] starts in [`face_word`]: three bits after
+/// [`FACE_ON`], the table's layout being zero.
+pub const FACE_LAYOUT_SHIFT: u32 = 1;
+
+/// `word` with its layout set to `layout`.
+#[must_use]
+pub const fn laid(word: u32, layout: Layout) -> u32 {
+    word & !(0x7 << FACE_LAYOUT_SHIFT) | (layout as u32) << FACE_LAYOUT_SHIFT
+}
+
+/// The layout a face word carries.
+#[must_use]
+pub const fn layout_of(word: u32) -> Layout {
+    Layout::from_code(word >> FACE_LAYOUT_SHIFT)
+}
+
+/// How far the band lightens towards [`PAPER_WHITE`] across it, left to
+/// right: the colour deep where its words begin and light under the chips'
+/// far end, the identity as a gradient (WP6).
+///
+/// Only ever towards white, so the band is nowhere darker than its bars'
+/// colour, and [`INK`] stands off every point of it at least as far as it
+/// stands off the bars: 4.7:1 on black's, the least.
+pub const BAND_LIFT: f32 = 0.35;
+
+/// How deep the band's colour goes where its words begin: this share of
+/// itself, so a white or a gold band stands off the paper under it...
+pub const BAND_DEEP: f32 = 0.6;
+
+/// ...but never under this luminance, at which [`INK`] still stands off it
+/// at 4.5:1 — so black's band, already that dark, is not darkened at all.
+pub const BAND_LUMA: f32 = 0.23;
+
+/// What the band's colour is multiplied by where its words begin, for a
+/// colour of luminance `luma` ([`BAND_DEEP`], [`BAND_LUMA`]). The shader's
+/// `band_depth` is the same arithmetic.
+#[must_use]
+pub fn band_depth(luma: f32) -> f32 {
+    (BAND_LUMA / luma.max(1e-4)).clamp(BAND_DEEP, 1.0)
+}
+
+/// A colour's relative luminance, as WCAG weighs linear light.
+#[must_use]
+pub fn luminance([r, g, b]: [f32; 3]) -> f32 {
+    0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/// A keyword chip's paper, in sRGB: a slate dark enough that
+/// [`LIGHT_INK`] reads on it whatever the band under it is.
+pub const CHIP_PAPER: [f32; 3] = [0.12, 0.14, 0.19];
+
+/// The foot's credit line's ink, in sRGB, on [`BORDER_INK`]: quiet, and
+/// over 7:1 still.
+pub const FOOT_INK: [f32; 3] = [0.66, 0.66, 0.70];
+
+/// A table face's colour disc: its radius, and where its centre stands under
+/// the cost's line, in card widths. One disc in the art box for a card of
+/// one colour, two side by side for two, gold for more and grey for none —
+/// the symbol band of the battlefield face (WP6).
+pub const DISC_RADIUS: f32 = 0.075;
+
+/// See [`DISC_RADIUS`]: how far below the cost's line the disc's top stands.
+pub const DISC_DROP: f32 = 0.012;
+
+/// See [`DISC_RADIUS`]: how far apart two discs' centres stand.
+pub const DISC_PAIR: f32 = 0.17;
 
 /// Where the bars' hue starts in [`face_word`]; the art box's two follow it
 /// four bits apart.
@@ -725,6 +1161,51 @@ pub fn face_word(colors: ColorSet, types: TypeSet, subtypes: SubtypeSet, depths:
         | (art[1] as u32) << (FACE_BARS_SHIFT + 8)
         | u32::from(depths.name) << FACE_NAME_SHIFT
         | u32::from(depths.kind) << FACE_TYPE_SHIFT
+}
+
+/// The table's first sentence ([`first_sentence`]), as an em in card widths:
+/// 8.5 of `Text2d`'s pixels at the table's hundred to a card width, eight
+/// screen pixels on a card 94 wide (WP6).
+pub const SENTENCE_EM: f32 = 0.085;
+
+/// How many lines the table's first sentence may take: two stand clear of
+/// the plate at the text box's bottom right.
+pub const SENTENCE_LINES: usize = 2;
+
+/// `text` set on at most `lines` lines `room` card widths long at `em`,
+/// broken after the last word that fits, the last line cut with an
+/// ellipsis where the rest still runs over.
+#[must_use]
+pub fn fit_lines(
+    text: &str,
+    em: f32,
+    room: f32,
+    lines: usize,
+    width: impl Fn(&str) -> f32,
+) -> Vec<String> {
+    let fits = |s: &str| width(s) * em <= room;
+    let mut out = Vec::new();
+    let mut rest = text.trim();
+    while !rest.is_empty() && out.len() < lines {
+        if fits(rest) {
+            out.push(rest.to_owned());
+            return out;
+        }
+        if out.len() + 1 == lines {
+            // Whole words first, so a symbol (`{T}`) is never cut in two.
+            let words: Vec<&str> = rest.split(' ').collect();
+            let kept = (1..words.len()).rev().find_map(|keep| {
+                let line = format!("{}{ELLIPSIS}", words[..keep].join(" "));
+                fits(&line).then_some(line)
+            });
+            out.push(kept.unwrap_or_else(|| cut(rest, &fits)));
+            return out;
+        }
+        let (line, after) = break_line(rest, &fits);
+        out.push(line.to_owned());
+        rest = after.trim_start();
+    }
+    out
 }
 
 /// `text` broken into a first line that fits and the rest: after the last
@@ -792,30 +1273,302 @@ mod tests {
     }
 
     /// Every part lies in the window inside the border, the parts stand in a
-    /// card's order down it without overlapping, and each has room.
+    /// card's order down it without overlapping, and each has room: the
+    /// table's (name, art box, type, rules, foot) and the interface's three
+    /// layouts (name, type, band, rules, foot), at the depths a 56- (an
+    /// attachment), a 72- (the stack), a 92- (the hand), a 308-
+    /// and a 480-pixel card's bars take.
     #[test]
     fn the_face_is_laid_out_inside_the_window_in_a_card_s_order() {
         let [wx0, wy0, wx1, wy1] = WINDOW;
         let inner = [wx0 + BORDER, wy0 + BORDER, wx1 - BORDER, wy1 - BORDER];
+        let mut faces = Vec::new();
         for lines in [1, 2] {
             let r = Regions::table(lines);
-            let order = [r.name_bar, r.art_box, r.type_bar, r.text_box];
+            faces.push((
+                format!("table, {lines} lines"),
+                [r.name_bar, r.band, r.type_bar, r.text_box, r.foot],
+            ));
+            for px in [56.0, 72.0, 92.0, 308.0, 480.0] {
+                for step in [Step::XS, Step::DEFAULT, Step::XL] {
+                    let depths = Sizes::overlay_at(px, 0.2, step).depths(lines);
+                    for layout in [Layout::Preview, Layout::Long, Layout::Small] {
+                        let r = Regions::laid(layout, depths);
+                        faces.push((
+                            format!("{layout:?} at {px} px, {step:?}, {lines} lines"),
+                            [r.name_bar, r.type_bar, r.band, r.text_box, r.foot],
+                        ));
+                    }
+                }
+            }
+        }
+        for (what, order) in faces {
             for part in order {
-                assert!(
-                    inside(part, inner),
-                    "{lines} lines: {part:?} leaves {inner:?}"
-                );
-                assert!(part[3] > part[1], "{lines} lines: {part:?} has no height");
+                assert!(inside(part, inner), "{what}: {part:?} leaves {inner:?}");
+                assert!(part[3] > part[1], "{what}: {part:?} has no height");
             }
             for pair in order.windows(2) {
                 assert!(
                     pair[0][3] <= pair[1][1] + 1e-6,
-                    "{lines} lines: {:?} runs into {:?}",
+                    "{what}: {:?} runs into {:?}",
                     pair[0],
                     pair[1]
                 );
             }
         }
+    }
+
+    /// The interface's faces give the rules the card's middle (WP6): a
+    /// preview's text box is more than half the face — where the art box's
+    /// gradient took 45 % of it before — a long preview's deeper by the band
+    /// it gave up, and a small card's band is the keyword strip over one
+    /// line of rules as deep as the type line.
+    #[test]
+    fn the_interface_gives_the_rules_the_middle_of_the_card() {
+        let share = |r: [f32; 4]| (r[3] - r[1]) / CARD_TALL;
+        let depths = Sizes::overlay(308.0, 0.2).depths(1);
+        let preview = Regions::laid(Layout::Preview, depths);
+        let long = Regions::laid(Layout::Long, depths);
+        assert!(share(preview.text_box) > 0.5, "{preview:?}");
+        assert!((share(preview.band) - 0.18).abs() < 1e-4);
+        assert!((share(long.band) - 0.12).abs() < 1e-4);
+        assert!(
+            (long.text_box[1] + BAND_PREVIEW - BAND_LONG - preview.text_box[1]).abs() < 1e-6,
+            "the long face's rules take the band's room"
+        );
+        assert!(
+            preview.type_bar[1] < preview.band[1],
+            "the type under the name"
+        );
+
+        let small = Regions::laid(Layout::Small, Sizes::overlay(92.0, 0.2).depths(1));
+        let line = small.text_box[3] - small.text_box[1];
+        assert!((line - (small.type_bar[3] - small.type_bar[1])).abs() < 1e-6);
+        assert!(share(small.band) > 0.3, "{small:?}");
+
+        // The word carries the layout, and a word without one is the table's.
+        let word = face_word(
+            ColorSet::EMPTY,
+            TypeSet::CREATURE,
+            SubtypeSet::EMPTY,
+            depths,
+        );
+        assert_eq!(layout_of(word), Layout::Table);
+        for layout in [Layout::Table, Layout::Preview, Layout::Long, Layout::Small] {
+            let set = laid(word, layout);
+            assert_eq!(layout_of(set), layout);
+            assert_eq!(
+                set & !(0x7 << FACE_LAYOUT_SHIFT),
+                word,
+                "only the layout moved"
+            );
+            assert_eq!(laid(set, Layout::Table), word);
+        }
+        assert_eq!(Layout::from_code(7), Layout::Table);
+    }
+
+    /// A step multiplies the clamps and nothing else: the 308-pixel
+    /// preview's rules are 19 px at every step, and the hand card's
+    /// clamped sizes follow it; the floor is the step's.
+    #[test]
+    fn a_step_moves_the_clamps_and_the_floor_and_nothing_else() {
+        for n in 1..=5 {
+            let step = Step::new(n);
+            let px = ui_em_at(UI_BODY, 308.0, step) * 308.0;
+            assert!((px - 19.096).abs() < 1e-3, "{step:?}: {px}");
+            // The share (7.5 px) or the clamp, whichever is larger.
+            let name = ui_em_at(UI_NAME, 92.0, step) * 92.0;
+            let want = (UI_NAME.0 * 92.0).max(UI_NAME.1[0] * step.factor());
+            assert!((name - want).abs() < 1e-3, "{step:?}: {name}");
+        }
+        // Nothing on a 308-pixel preview moves with the step.
+        for size in [UI_NAME, UI_TYPE, UI_BODY, UI_CHIP, UI_FOOT] {
+            let at = |step| ui_em_at(size, 308.0, step);
+            for n in 1..=5 {
+                assert!(
+                    (at(Step::new(n)) - at(Step::DEFAULT)).abs() < 1e-6,
+                    "{size:?}"
+                );
+            }
+        }
+        assert_eq!(Step::new(0), Step::XS);
+        assert_eq!(Step::new(9), Step::XL);
+        assert_eq!(Step::default(), Step::DEFAULT);
+        assert!((Step::DEFAULT.factor() - 1.0).abs() < f32::EPSILON);
+        assert!((Step::DEFAULT.body_floor() - BODY_FLOOR_PX).abs() < f32::EPSILON);
+        assert_eq!(
+            BODY_FLOORS,
+            [12.0, 13.0, 14.0, 14.0, 16.0],
+            "the floors the design names"
+        );
+        // A long text stops at its step's floor.
+        let deep = |em: f32| 100.0 * em;
+        for step in [Step::XS, Step::XL] {
+            let got = fit_body_at(308.0, 0.3, step, deep) * 308.0;
+            assert!(
+                (got - step.body_floor()).abs() < 1.0 && got >= step.body_floor(),
+                "{step:?}: {got}"
+            );
+        }
+    }
+
+    /// A keyword line gives a chip a keyword, in the card's own words, and a
+    /// sentence gives none.
+    #[test]
+    fn a_line_of_keywords_gives_the_band_its_chips() {
+        assert_eq!(
+            keyword_chips([
+                "Flying, vigilance",
+                "Whenever another Ally enters the battlefield under your control, draw a card.",
+                "Protection from black",
+            ]),
+            ["Flying", "vigilance", "Protection from black"]
+        );
+        assert_eq!(keyword_chips(["Fliegend"]), ["Fliegend"]);
+        for sentence in [
+            "This spell can't be countered.",
+            "Equip {2}",
+            "{T}: Add {G}",
+            "Choose one —",
+            "I — Create a 1/1 token",
+            "Whenever a creature you control attacks, it gets +1/+0 until end of turn",
+        ] {
+            assert!(keyword_chips([sentence]).is_empty(), "{sentence}");
+        }
+    }
+
+    /// The band's subtype words are the type line's, one a word where the
+    /// card has as many subtypes, and whole where it does not.
+    #[test]
+    fn the_band_names_the_subtypes_the_type_line_does() {
+        assert_eq!(
+            subtype_words("Creature — Merfolk Wizard Ally", 3),
+            ["Merfolk", "Wizard", "Ally"]
+        );
+        assert_eq!(
+            subtype_words("Artifact Creature — Time Lord", 1),
+            ["Time Lord"]
+        );
+        assert!(subtype_words("Instant", 0).is_empty());
+        assert_eq!(
+            subtype_words("Kreatur — Meervolk Zauberer", 2),
+            ["Meervolk", "Zauberer"]
+        );
+    }
+
+    /// One line of rules is the first sentence, and a full stop inside a
+    /// number does not end it.
+    #[test]
+    fn a_small_card_reads_the_first_sentence() {
+        assert_eq!(
+            first_sentence("{T}: Draw a card for each Ally you control. Then discard."),
+            "{T}: Draw a card for each Ally you control."
+        );
+        assert_eq!(first_sentence("Flying"), "Flying");
+        assert_eq!(first_sentence("Pay 1.5 life. Draw."), "Pay 1.5 life.");
+    }
+
+    /// The table's sentence takes its lines whole and cuts the last at a
+    /// word, so a symbol is never cut in two.
+    #[test]
+    fn a_sentence_is_set_on_its_lines_and_cut_at_a_word() {
+        let em = 1.0;
+        let room = mono("abcdefghij");
+        assert_eq!(fit_lines("abc def", em, room, 2, mono), ["abc def"]);
+        assert_eq!(
+            fit_lines("abc def ghi jkl", em, room, 2, mono),
+            ["abc def", "ghi jkl"]
+        );
+        let cut = fit_lines("{T}: abc def ghi jkl mno pqr", em, room, 2, mono);
+        assert_eq!(cut.len(), 2);
+        assert_eq!(cut[0], "{T}: abc");
+        assert!(cut[1].ends_with(ELLIPSIS), "{cut:?}");
+        for line in &cut {
+            assert!(mono(line) <= room + 1e-6, "{line}");
+        }
+        assert!(fit_lines("", em, room, 2, mono).is_empty());
+    }
+
+    /// A preview's type line keeps its front and gives up its end, since the
+    /// band says the subtypes again.
+    #[test]
+    fn a_preview_s_type_line_keeps_its_front() {
+        let sizes = Sizes::overlay(308.0, 0.2).beside_type(0.15);
+        let room = sizes.type_room;
+        let width = mono;
+        let line = "Legendary Enchantment Artifact Creature — Human Soldier Warrior";
+        assert!(
+            width(line) * sizes.type_floor > room,
+            "{line} fits as it is"
+        );
+        let got = fit_type_front_in(&sizes, line, width);
+        assert!(got.lines[0].starts_with("Legendary"), "{got:?}");
+        assert!(got.lines[0].ends_with(ELLIPSIS), "{got:?}");
+        assert!(width(&got.lines[0]) * got.em <= room + 1e-6, "{got:?}");
+        assert!(
+            !got.lines[0].contains(" —…"),
+            "a dash left hanging: {got:?}"
+        );
+    }
+
+    /// The table's colour discs: one for a card of one colour (or none, or
+    /// many: gold), two for two, each under the cost's line and inside the
+    /// art box above the tallest one-row strip.
+    #[test]
+    fn a_table_face_wears_a_disc_per_colour() {
+        let r = Regions::table(2);
+        let word = |colors: &[Color]| {
+            face_word(
+                ColorSet::from_slice(colors),
+                TypeSet::CREATURE,
+                SubtypeSet::EMPTY,
+                Depths::table(2),
+            )
+        };
+        assert_eq!(discs(word(&[Color::Blue]), &r).len(), 1);
+        assert_eq!(discs(word(&[]), &r)[0].1, Hue::Grey);
+        let pair = discs(word(&[Color::White, Color::Black]), &r);
+        assert_eq!(
+            pair.iter().map(|d| d.1).collect::<Vec<_>>(),
+            [Hue::White, Hue::Black]
+        );
+        let one_row = cardrail::Strip::new(0b111, None, [None, None]).rect();
+        for ([x, y], _) in pair {
+            assert!(y - DISC_RADIUS >= r.band[1] + COST_LINE, "under the cost");
+            assert!(y + DISC_RADIUS <= one_row[1], "over a one-row strip");
+            assert!(x - DISC_RADIUS > r.band[0] && x + DISC_RADIUS < r.band[2]);
+        }
+    }
+
+    /// Every ink on the band reads: [`INK`] on the band at its darkest,
+    /// which is a bar's colour, and [`LIGHT_INK`] on a chip's paper; and the
+    /// foot's credit on the border.
+    #[test]
+    fn the_band_s_words_and_chips_and_the_foot_read() {
+        let ink = linear(INK);
+        // Every hue, and every mix of two the gradient passes through, at
+        // its depth where the words begin and lifted where the chips end.
+        for a in HUES {
+            for b in HUES {
+                for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
+                    let hue: [f32; 3] =
+                        std::array::from_fn(|i| a.tone()[i] + (b.tone()[i] - a.tone()[i]) * t);
+                    let deep = hue.map(|c| c * band_depth(luminance(hue)));
+                    for lift in [0.0, BAND_LIFT] {
+                        let band: [f32; 3] =
+                            std::array::from_fn(|i| deep[i] + (PAPER_WHITE[i] - deep[i]) * lift);
+                        assert!(contrast(ink, band) >= 4.5, "{a:?}–{b:?} {t} at {lift}");
+                    }
+                }
+            }
+        }
+        // And a light band stands off its card's paper, which is what the
+        // depth is for.
+        let white = Hue::White.tone();
+        let band = white.map(|c| c * band_depth(luminance(white)));
+        assert!(contrast(band, paper(Hue::White)) > 1.5);
+        assert!(contrast(linear(LIGHT_INK), linear(CHIP_PAPER)) >= 7.0);
+        assert!(contrast(linear(FOOT_INK), BORDER_INK) >= 7.0);
     }
 
     /// The type bar's top is the strip's bottom edge, so however many marks
@@ -841,7 +1594,7 @@ mod tests {
     #[test]
     fn the_tallest_strip_stays_under_the_cost_line() {
         let r = Regions::table(2);
-        let cost_bottom = r.art_box[1] + bar(SMALL_EM);
+        let cost_bottom = r.band[1] + COST_LINE;
         let tallest = cardrail::Strip::largest().rect();
         assert!(
             cost_bottom <= tallest[1],
@@ -1079,11 +1832,14 @@ mod tests {
         assert_eq!(Sizes::TABLE.depths(2), Depths::table(2));
 
         let hand = Sizes::overlay(92.0, 0.0);
-        assert!((hand.name - 0.082).abs() < 1e-3, "{hand:?}");
-        assert!((hand.small - 6.0 / 92.0).abs() < 1e-4, "held at 6 px");
+        assert!(
+            (hand.name - 9.0 / 92.0).abs() < 1e-4,
+            "held at 9 px: {hand:?}"
+        );
+        assert!((hand.small - 8.0 / 92.0).abs() < 1e-4, "held at 8 px");
         assert!(hand.type_floor < hand.small);
-        let preview = Sizes::overlay(384.0, 0.2);
-        assert!((preview.name - 26.0 / 384.0).abs() < 1e-5, "held at 26 px");
+        let preview = Sizes::overlay(480.0, 0.2);
+        assert!((preview.name - 36.0 / 480.0).abs() < 1e-5, "held at 36 px");
         assert!((preview.name_room - (line_width() - 0.2 - TEXT_INSET)).abs() < 1e-6);
         assert!((Sizes::overlay(384.0, 0.0).name_room - line_width()).abs() < 1e-6);
 
@@ -1113,21 +1869,25 @@ mod tests {
     fn rules_text_steps_down_to_the_floor_and_no_further() {
         let px = |em: f32| em * 384.0;
         let height = 0.3;
+        let own = px(ui_em(UI_BODY, 384.0));
         // `n` lines of text, and nothing else, at an em.
         let lines = |n: f32| move |em: f32| n * LINE_BOX * em;
         assert!(
-            lines(1.0)(18.0 / 384.0) <= height,
+            lines(1.0)(own / 384.0) <= height,
             "one line fits at its own size"
         );
-        assert!((px(fit_body(384.0, height, lines(1.0))) - 18.0).abs() < 1e-3);
+        assert!((px(fit_body(384.0, height, lines(1.0))) - own).abs() < 1e-3);
 
-        // A box just deep enough for six lines at 16 px, and so too shallow
-        // at 18 and at 17: set at 16.
-        let snug = lines(6.0)(16.0 / 384.0) + 1e-6;
+        // A box just deep enough for six lines six pixels under its own
+        // size, and so too shallow at every size between: set there.
+        let snug = lines(6.0)((own - 6.0) / 384.0) + 1e-6;
         let got = px(fit_body(384.0, snug, lines(6.0)));
-        assert!((got - 16.0).abs() < 1e-3, "set at {got} px");
+        assert!((got - (own - 6.0)).abs() < 1e-3, "set at {got} px");
 
-        // Too deep for the floor: set at the floor, and the box scrolls.
+        // Too deep for the floor: set at the floor exactly, though the
+        // floor is not a whole number of pixels under its own size, and the
+        // box scrolls.
+        assert!((own - BODY_FLOOR_PX).fract() > 0.1);
         let got = px(fit_body(384.0, height, lines(59.0)));
         assert!((got - BODY_FLOOR_PX).abs() < 1e-3, "set at {got} px");
 

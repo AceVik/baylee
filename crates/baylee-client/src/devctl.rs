@@ -1166,6 +1166,9 @@ struct Believed<'w, 's> {
     phase: Option<Res<'w, State<crate::DuelPhase>>>,
     journey: Option<Res<'w, crate::arrival::Journey>>,
     real_time: Option<Res<'w, Time<Real>>>,
+    /// How many interface text faces have been built (WP6): a number that
+    /// moves on every frame is a face rebuilt per frame.
+    face_builds: Option<Res<'w, crate::face::FaceBuilds>>,
     /// Every way out of a finished game, and which of them the keyboard can
     /// see.
     ///
@@ -1578,6 +1581,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
             )
         },
     );
+    let face_builds = believed.face_builds.as_deref().map_or(0, |b| b.0);
     let lang = settings.map_or_else(|| "null".to_string(), |s| quoted(&s.lang));
     let error = refusal_json(
         duel.last_error.as_ref(),
@@ -1592,7 +1596,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
-         \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits}}}",
+         \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits},\"face_builds\":{face_builds}}}",
         // Which screen this is, and — on the end screen only — the ways off
         // it with `duel_exit` saying which the keyboard can see. See
         // [`exits_json`] for why that flag is the row rather than a detail
