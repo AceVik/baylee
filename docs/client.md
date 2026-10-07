@@ -2427,7 +2427,11 @@ is zero), and `text_face` draws each part where `Regions::laid` places it.
   (`textface::keyword_chips`). Read off the printed text rather than named
   from the keyword set, so a German face says "Fliegend" because its
   printing does and nothing here translates a keyword. Light ink on a slate
-  chip, over 7:1 on any band.
+  chip, over 7:1 on any band. Known edge: a keyword naming a card with a
+  comma in its name ("Partner with Pir, Imaginative Rascal") splits into two
+  chips. §9 asked for chips from the `AbilityList`'s kinds; those would
+  need words of ours for every keyword in German, which card text never
+  gets (the fallback is the English Oracle, never our own phrasing).
 - **The foot credits the printing** — `Zendikar · Ryan Pancoast`, the set
   code where its name is unknown — from `CardFace::credit`, which a caller
   that has the catalog's printing (`GET /printings`) fills. A `PrintEntry`

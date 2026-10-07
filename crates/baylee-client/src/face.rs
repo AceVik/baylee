@@ -1919,10 +1919,117 @@ pub(crate) mod tests {
         assert_eq!(measured.lines.len(), 2, "{measured:?}");
     }
 
+    /// The table's face writes the first sentence of its rules in its text
+    /// box (WP6): at most two lines, the second cut at a word, its symbols
+    /// in the Mana font, standing where the text box begins and ending
+    /// inside it.
+    #[test]
+    fn the_table_face_writes_its_first_sentence_in_its_text_box() {
+        use bevy::ecs::world::CommandQueue;
+        use bevy::sprite::Anchor;
+
+        let font = regular();
+        let widths = Widths::of(Some(&font));
+        let mut face = creature("Llanowar Elves", "Creature — Elf Druid");
+        face.body = vec![
+            TextBlock::Rules(
+                "{T}: Draw a card for each Elf you control, then discard two cards at random \
+                 from your hand. Then untap it."
+                    .to_owned(),
+            ),
+            TextBlock::Reminder("Not this.".to_owned()),
+        ];
+        let fit = WorldFit::of(&face, &widths);
+        assert_eq!(
+            fit.sentence.len(),
+            textface::SENTENCE_LINES,
+            "{:?}",
+            fit.sentence
+        );
+        assert!(
+            fit.sentence[0].starts_with("{T}: Draw"),
+            "{:?}",
+            fit.sentence
+        );
+        let last = fit.sentence.last().expect("a line");
+        assert!(last.ends_with(textface::ELLIPSIS), "cut at a word: {last}");
+        assert!(
+            !fit.sentence.concat().contains("untap"),
+            "past the first sentence"
+        );
+        for line in &fit.sentence {
+            assert!(
+                widths.marked(line) * textface::SENTENCE_EM <= textface::line_width() + 1e-6,
+                "{line} runs past the box"
+            );
+        }
+
+        let mut world = World::new();
+        let card = world.spawn_empty().id();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        let word = textface::face_word(
+            ColorSet::from_slice(&[MagicColor::Green]),
+            TypeSet::CREATURE,
+            SubtypeSet::EMPTY,
+            textface::Depths::table(fit.lines()),
+        );
+        let plate = Plate::Fight {
+            power: 2,
+            toughness: 2,
+            damage: 0,
+        };
+        let texts = spawn_world(&mut commands, card, &face, &fit, word, plate, &test_fonts());
+        queue.apply(&mut world);
+        let root = texts
+            .iter()
+            .copied()
+            .find(|&e| {
+                world
+                    .entity(e)
+                    .get::<Text2d>()
+                    .is_some_and(|t| t.0.is_empty())
+            })
+            .expect("the sentence's root");
+        let spans: Vec<String> = world
+            .entity(root)
+            .get::<Children>()
+            .expect("its spans")
+            .iter()
+            .map(|e| world.entity(e).get::<TextSpan>().expect("a span").0.clone())
+            .collect();
+        assert!(spans.concat().contains("Draw a card"), "{spans:?}");
+        let tap = baylee_client_core::manapip::symbol("T").expect("the tap symbol");
+        let baylee_client_core::manapip::Pip::Solid { glyph, .. } = tap else {
+            panic!("{tap:?}")
+        };
+        assert_eq!(spans[0], glyph.to_string(), "the symbol in the Mana font");
+        let at = world
+            .entity(root)
+            .get::<Transform>()
+            .expect("a place")
+            .translation;
+        let y =
+            (baylee_client_core::layout::CARD_HEIGHT * 0.5 - at.y) / crate::table::DOWN_THE_CARD;
+        let regions = Regions::table(fit.lines());
+        assert_eq!(
+            *world.entity(root).get::<Anchor>().expect("an anchor"),
+            Anchor::TOP_LEFT
+        );
+        assert!(
+            (y - regions.text_box[1] - BAR_PAD).abs() < 1e-4,
+            "the sentence stands at {y}, the text box at {:?}",
+            regions.text_box
+        );
+        #[allow(clippy::cast_precision_loss)]
+        let deep = fit.sentence.len() as f32 * LINE_BOX * textface::SENTENCE_EM;
+        assert!(y + deep <= regions.text_box[3], "it runs out of its box");
+    }
+
     /// Each line of the table's face stands inside its part of the card:
     /// the name in the name bar, the cost on the art box's first line, the
-    /// type line in the type bar. A long name takes two lines and the name
-    /// bar its two-line height.
+    /// type line in the type bar, the colour's symbol on its disc. A long
+    /// name takes two lines and the name bar its two-line height.
     #[test]
     fn the_table_face_stands_in_its_bars() {
         use bevy::ecs::world::CommandQueue;
