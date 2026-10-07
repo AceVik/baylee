@@ -1075,10 +1075,19 @@ impl TableLayout {
             Arrangement::UprightRing => arrangement::upright(seats, aspect),
             Arrangement::Spotlight => arrangement::spotlight(seats, aspect, interest),
             Arrangement::Turntable => arrangement::turntable(seats, aspect, interest),
+            // A rule, not a geometry: the client hands over what it resolved
+            // to (`Arrangement::resolve`); asked directly, it is resolved
+            // for a window that is not a phone's.
+            Arrangement::TurntableRows => {
+                if seats.len() <= 4 {
+                    arrangement::turntable(seats, aspect, interest)
+                } else {
+                    arrangement::spotlight(seats, aspect, interest)
+                }
+            }
             Arrangement::Ring
             | Arrangement::ArcRail
             | Arrangement::Pods
-            | Arrangement::TurntableRows
             | Arrangement::FocusRing => Self::seated(seats, aspect, None),
         }
     }

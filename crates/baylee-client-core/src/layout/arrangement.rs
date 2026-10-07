@@ -179,7 +179,11 @@ impl Arrangement {
     pub const fn built(self) -> bool {
         matches!(
             self,
-            Self::Ring | Self::UprightRing | Self::Spotlight | Self::Turntable
+            Self::Ring
+                | Self::UprightRing
+                | Self::Spotlight
+                | Self::Turntable
+                | Self::TurntableRows
         )
     }
 
@@ -404,6 +408,24 @@ mod tests {
             Arrangement::Pods.resolve(4, TableFrame::Wide),
             Arrangement::Pods
         );
+        assert_eq!(
+            Arrangement::Turntable.resolve(4, TableFrame::Phone),
+            Arrangement::Spotlight,
+            "a phone folds the side mats into the strip"
+        );
+        // Placed, it is what it resolves to on a window that is not a
+        // phone's.
+        for n in 3..=8_u8 {
+            let seats: Vec<super::super::Seat> = (0..n)
+                .map(|i| super::super::Seat::alone(baylee_core::ids::PlayerId::new(i)))
+                .collect();
+            let to = rows.resolve(usize::from(n), TableFrame::Wide);
+            assert_eq!(
+                super::super::TableLayout::arranged(&seats, 2.0, rows, None),
+                super::super::TableLayout::arranged(&seats, 2.0, to, None),
+                "n={n}"
+            );
+        }
     }
 
     /// The letters run A to H in the menu's order.
