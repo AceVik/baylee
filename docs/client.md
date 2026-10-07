@@ -394,17 +394,20 @@ only `frame_table` and `navigate_to_player`/`navigate_home` ever write —
 gesture of all three generations into one frame and
 `looking_at_one_seat_holds_the_camera` is its counter-test.
 
-**The lean is not one number any more.** `CAMERA_LEAN` is still what a ring
-of three or more seats is shot at, and what any table on a narrow window is
-shot at; a **duel on a wide window** blends towards `DUEL_LEAN` — about 27°
-off vertical — as the window grows past 800 logical pixels. The reason is
-that the two shots answer different questions: a ring has to keep every seat
-readable at once, so it stays near the plan view, while a duel has only two
-sides and can spend the freed angle on the table's depth. It is written as a
-blend and not a switch because the alternative is a camera that jumps as a
-window is dragged across one pixel. `only_a_wide_duel_takes_the_more_oblique_shot`
-is what holds the three cases apart, and **`CameraRig::lean` is the value
-everything downstream reads** — the projection test writes it out forwards
+**The lean is not one number any more.** A **duel on a wide window** blends
+from `CAMERA_LEAN` (0.36) towards `DUEL_LEAN` (0.62) as the window grows past
+800 logical pixels, and a duel on a narrow window keeps the upright shot. It is
+written as a blend and not a switch because the alternative is a camera that
+jumps as a window is dragged across one pixel. A **ring of three or more
+seats** takes this device's `RingLean` (DESIGN-v7 D20, `ClientSettings::table`):
+the steep 0.62 by default, which draws my own board about a third larger at
+three and four seats and gives up equal home widths (the visit equalises
+them), or the flat 0.36 the rings had before, where every board is drawn
+within the old bound (`at_the_gentle_lean_every_seat_is_drawn_a_board_of_the_same_width`).
+A phone's ring takes 0.50 and frames its own pod and the dial.
+`a_ring_takes_the_chosen_lean_and_a_narrow_duel_the_upright_one` holds the
+cases apart, and **`CameraRig::lean` is the value everything downstream
+reads** — the projection test writes it out forwards
 rather than reusing the constant, which is what caught the fit when the
 constant stopped being the whole answer.
 
