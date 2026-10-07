@@ -1400,7 +1400,7 @@ struct Believed<'w, 's> {
     /// hub's pulse and the turn number's drawn size.
     dial: Option<Res<'w, crate::dial::DialReport>>,
     /// The ☀ / ⌛ tags on the strip's seat buttons, and whether each shows.
-    chips: Query<'w, 's, (&'static crate::hud::ChipTag, &'static Node)>,
+    chips: Query<'w, 's, (&'static crate::hud::ChipTag, &'static Visibility)>,
     /// Every card on the table, with the transform `glide` has it at right
     /// now rather than the one it is heading for, and whether it is drawn:
     /// a scrolled row does not draw the cards outside the run it shows.
@@ -2120,9 +2120,9 @@ fn camera_json(believed: &Believed, duel: &Duel) -> String {
 /// of ☀ (`turn`) and ⌛ (`wait`) stand on its button.
 fn chips_json(believed: &Believed) -> String {
     let mut seats: std::collections::BTreeMap<u8, Vec<&str>> = std::collections::BTreeMap::new();
-    for (tag, node) in &believed.chips {
+    for (tag, seen) in &believed.chips {
         let shown = seats.entry(tag.player.get()).or_default();
-        if node.display != Display::None {
+        if *seen != Visibility::Hidden {
             shown.push(tag.kind.name());
         }
     }

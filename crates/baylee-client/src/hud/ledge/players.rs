@@ -41,10 +41,12 @@
 //! The candle line and the breathing border are a hue and a movement; the
 //! seat whose turn it is also wears a **☀** on an ivory tag and the seat the
 //! table waits for an **⌛** on a teal-outlined one, at the button's right end
-//! (DESIGN-v7 §3.6, v6 §3: colour and glyph, never a hue alone). Both can
-//! stand on one button. They are spawned with the button and shown or hidden
-//! by [`glow_the_players`], never rebuilt: priority moves several times a
-//! step, and a row rewritten on each move would be a row that flickers.
+//! (DESIGN-v7 §3.6, v6 §3: colour and glyph, never a hue alone), at the
+//! button's left end before the spine. Both can stand on one button. They are
+//! spawned with the button and shown or hidden by [`show_the_tags`], never
+//! rebuilt, and their room is always kept: priority moves several times a
+//! step, and a row that rewrote or re-laid itself on each move would be a row
+//! that flickers and shifts.
 //!
 //! # Narrow windows
 //!
@@ -187,10 +189,10 @@ impl Tier {
     /// what is in it.
     const fn width(self) -> f32 {
         match self {
-            Self::Full => 190.0,
-            Self::Mid => 120.0,
-            Self::Compact => 84.0,
-            Self::Pip => 44.0,
+            Self::Full => 190.0 + TAGS_W,
+            Self::Mid => 120.0 + TAGS_W,
+            Self::Compact => 84.0 + TAGS_W,
+            Self::Pip => 44.0 + TAGS_W,
         }
     }
 
@@ -324,24 +326,27 @@ impl TagKind {
 
 /// Shows each button's ☀ and ⌛ while they are true and hides them after;
 /// a write only where one changed.
-pub fn show_the_tags(duel: Res<Duel>, mut tags: Query<(&ChipTag, &mut Node)>) {
+pub fn show_the_tags(duel: Res<Duel>, mut tags: Query<(&ChipTag, &mut Visibility)>) {
     let Some(view) = duel.view.as_ref() else {
         return;
     };
-    for (tag, mut node) in &mut tags {
+    for (tag, mut seen) in &mut tags {
         let want = if tag.kind.shows(view, tag.player) {
-            Display::Flex
+            Visibility::Inherited
         } else {
-            Display::None
+            Visibility::Hidden
         };
-        if node.display != want {
-            node.display = want;
+        if *seen != want {
+            *seen = want;
         }
     }
 }
 
 /// A tag's square, logical pixels.
-const TAG: f32 = 14.0;
+const TAG: f32 = 11.0;
+
+/// The room the two tags keep at a button's left end, shown or not.
+const TAGS_W: f32 = 2.0 * (TAG + 1.0);
 
 /// The turn tag's ivory (v6 §3's *am Zug*), and the dark glyph on it.
 const TAG_IVORY: Color = Color::srgb(0.95, 0.91, 0.80);
@@ -663,37 +668,35 @@ fn spawn_button(commands: &mut Commands, fonts: &UiFonts, facts: &SeatFacts, gap
 /// One tag, hidden until [`glow_the_players`] shows it: ☀ on ivory at the
 /// button's right end, ⌛ in a teal outline beside it.
 fn tag(fonts: &UiFonts, player: PlayerId, kind: TagKind) -> impl Bundle {
-    let (glyph, ground, rim, ink, right) = match kind {
-        TagKind::Turn => (glyph::SUN, TAG_IVORY, TAG_IVORY, TAG_INK, 2.0),
+    let (glyph, ground, rim, ink) = match kind {
+        TagKind::Turn => (glyph::SUN, TAG_IVORY, TAG_IVORY, TAG_INK),
         TagKind::Wait => (
             glyph::HOURGLASS,
             Color::NONE,
             palette::ACCENT,
             palette::ACCENT,
-            2.0 + TAG + 2.0,
         ),
     };
     (
         ChipTag { player, kind },
         Node {
-            position_type: PositionType::Absolute,
-            top: px(2),
-            right: px(right),
             width: px(TAG),
             height: px(TAG),
+            flex_shrink: 0.0,
+            margin: UiRect::left(px(1)),
             border: UiRect::all(px(1)),
             border_radius: BorderRadius::all(px(3)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            display: Display::None,
             ..default()
         },
+        Visibility::Hidden,
         BackgroundColor(ground),
         BorderColor::all(rim),
         Pickable::IGNORE,
         children![(
             Text::new(glyph.to_string()),
-            icon_tf(fonts, 8.0),
+            icon_tf(fonts, 7.0),
             TextColor(ink),
             Pickable::IGNORE,
         )],
