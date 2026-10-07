@@ -1,5 +1,5 @@
 //! Native Bevy scrollbar gestures, with offsets retained across pane updates.
-use super::{List, Metrics, Scrolled, systems::Scrollable};
+use super::{List, Metrics, Scrolled, scrolling::Scrollable};
 use bevy::prelude::*;
 use bevy::ui::{percent, px};
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};

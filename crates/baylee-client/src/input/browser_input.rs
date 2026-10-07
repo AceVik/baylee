@@ -139,7 +139,7 @@ pub fn browser_softkeys(
 /// the search and the next one lets go — a player who typed `mou` and found
 /// nothing should not have to rub out three letters to get back to the pile.
 ///
-/// What it reads is what `lobby::systems::text_field_keys` reads, chord for
+/// What it reads is what `lobby::keyboard::text_field_keys` reads, chord for
 /// chord, because the owner named the lobby's boxes as the thing this one
 /// should be: a caret that moves by character, word and line, a selection
 /// shift extends, Delete beside Backspace, and select-all. It was a string

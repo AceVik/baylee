@@ -498,6 +498,7 @@ enum Expect {
     Left,
 }
 
+mod clicks;
 mod confirm;
 pub(crate) mod dock;
 mod editing;
@@ -513,11 +514,14 @@ mod gateway;
 mod hint;
 mod http;
 mod hub;
+mod keyboard;
 mod library_ui;
 pub(crate) mod offline;
+mod press;
 mod preview;
 mod print_catalog;
 mod room;
+mod scrolling;
 mod shell;
 mod source;
 mod systems;
@@ -566,11 +570,14 @@ pub(crate) use shell::{LobbyRoot, UiRebuilds};
 #[cfg(test)]
 mod tests;
 
+use clicks::clicks;
 use http::{ask_about_registration, ask_about_saved_gateways, dispatch};
+use keyboard::keyboard;
 use preview::{Hovered, despawn_preview, hovers, preview, scroll_the_preview};
+use scrolling::scrolls;
 use systems::{
-    art_follows_the_session, came_back, clicks, keyboard, leave_clicks, leave_keys, poll, scrolls,
-    softkeys, text_follows_the_session, waiting, watch,
+    art_follows_the_session, came_back, leave_clicks, leave_keys, poll, softkeys,
+    text_follows_the_session, waiting, watch,
 };
 
 // The vocabulary the lobby's own halves share, and that `buildui` and
@@ -579,10 +586,11 @@ use systems::{
 // `crate::lobby::button`.
 
 pub(crate) use field::{FieldLook, FieldTail, Masked, text_field};
+pub(crate) use press::Press;
 pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry};
+pub(crate) use scrolling::Scrollable;
+pub(crate) use scrolling::{List, Scrolled};
 pub(crate) use shell::{Frame, Metrics};
-pub(crate) use systems::Scrollable;
-pub(crate) use systems::{List, Press, Scrolled};
 pub(crate) use widgets::{button, chip, heading, note, panel, print_mark, row, scroller, spacer};
 
 pub(crate) mod scrollbars;

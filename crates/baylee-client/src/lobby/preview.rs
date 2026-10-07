@@ -223,7 +223,7 @@ pub(super) fn scroll_the_preview(
             continue;
         };
         let travel = match wheel.unit {
-            bevy::input::mouse::MouseScrollUnit::Line => wheel.y * super::systems::WHEEL_LINE,
+            bevy::input::mouse::MouseScrollUnit::Line => wheel.y * super::scrolling::WHEEL_LINE,
             bevy::input::mouse::MouseScrollUnit::Pixel => wheel.y,
         };
         for (text_box, mut position, computed) in &mut boxes {
