@@ -308,7 +308,7 @@ impl DeckBuilder {
         self.hold_rows(stored.sideboard, Zone::Side);
         self.resolve_pending();
         // Unlike a stored deck, nothing of this is saved yet.
-        self.dirty = true;
+        self.touch();
         self.focus_on(super::BuildField::Search);
         report
     }

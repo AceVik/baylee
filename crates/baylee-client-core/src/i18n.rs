@@ -4184,6 +4184,166 @@ messages! {
     // ---- play + room (WP2) -----------------------------------------------
     // ---- decks, house decks, history (WP3) -------------------------------
     // ---- the deck builder (WP4) ------------------------------------------
+    /// The builder's title while the deck has no name yet.
+    BuildUntitled { en: "New deck", de: "Neues Deck" },
+    /// The header's save button.
+    BuildSave { en: "Save", de: "Speichern" },
+    /// Why Save is off: nothing has changed since the last save.
+    BuildNothingToSave { en: "Nothing to save", de: "Nichts zu speichern" },
+    /// The save state: one edit not saved yet.
+    BuildUnsavedOne { en: "Unsaved · 1 change", de: "Ungespeichert · 1 Änderung" },
+    /// The save state: `{0}` edits not saved yet.
+    BuildUnsavedMany { en: "Unsaved · {0} changes", de: "Ungespeichert · {0} Änderungen" },
+    /// The save state while the request is out.
+    BuildSaving { en: "Saving\u{2026}", de: "Speichere\u{2009}\u{2026}" },
+    /// The save state a moment after a save.
+    BuildSavedNow { en: "Saved · just now", de: "Gespeichert · gerade eben" },
+    /// The save state `{0}` minutes after a save.
+    BuildSavedAgo { en: "Saved · {0} min ago", de: "Gespeichert · vor {0} Min." },
+    /// The save state of a deck opened and not changed.
+    BuildSaved { en: "Saved", de: "Gespeichert" },
+    /// The save state of a new deck nothing was done to yet.
+    BuildNotSaved { en: "Not saved yet", de: "Noch nicht gespeichert" },
+    /// The save state after the gateway refused or did not answer.
+    BuildSaveFailed { en: "Couldn't save", de: "Nicht gespeichert" },
+    /// The header menu: rename the deck.
+    BuildRename { en: "Rename", de: "Umbenennen" },
+    /// The header menu: empty the deck (it asks first).
+    BuildEmptyDeck { en: "Empty the deck\u{2026}", de: "Deck leeren\u{2009}\u{2026}" },
+    /// The header menu: the settings screen.
+    BuildSettings { en: "Builder settings", de: "Einstellungen" },
+    /// Back with unsaved changes: the question.
+    BuildDiscardQuestion { en: "Discard changes?", de: "Änderungen verwerfen?" },
+    /// Back with unsaved changes: what is at stake.
+    BuildDiscardBody { en: "This deck has unsaved changes. A draft stays on this device until you save or discard it.", de: "Dieses Deck hat ungespeicherte Änderungen. Ein Entwurf bleibt auf diesem Gerät, bis du speicherst oder verwirfst." },
+    /// Back with unsaved changes: stay.
+    BuildKeepEditing { en: "Keep editing", de: "Weiter bearbeiten" },
+    /// Back with unsaved changes: leave without saving.
+    BuildDiscard { en: "Discard", de: "Verwerfen" },
+    /// A kept draft came back when its deck was opened again.
+    BuildDraftRestored { en: "Your unsaved draft is back", de: "Dein ungespeicherter Entwurf ist zurück" },
+    /// The search box's syntax help, beside the box.
+    BuildSyntax { en: "syntax", de: "Syntax" },
+    /// The syntax help's title.
+    BuildSyntaxTitle { en: "What the search understands", de: "Was die Suche versteht" },
+    /// Syntax help: `t:`.
+    BuildSyntaxType { en: "type line contains", de: "Typzeile enthält" },
+    /// Syntax help: `o:`.
+    BuildSyntaxText { en: "rules text contains", de: "Regeltext enthält" },
+    /// Syntax help: `c:`.
+    BuildSyntaxColour { en: "at least these colours", de: "mindestens diese Farben" },
+    /// Syntax help: `id<=`.
+    BuildSyntaxIdentity { en: "colour identity within", de: "Farbidentität innerhalb" },
+    /// Syntax help: `mv`.
+    BuildSyntaxMana { en: "mana value", de: "Manawert" },
+    /// Syntax help: `pow`.
+    BuildSyntaxPower { en: "power (also tou, loy)", de: "Stärke (auch tou, loy)" },
+    /// Syntax help: `m:`.
+    BuildSyntaxCost { en: "mana cost holds these symbols", de: "Manakosten enthalten diese Symbole" },
+    /// Syntax help: `is:commander`.
+    BuildSyntaxCommander { en: "can lead a deck", de: "kann ein Deck anführen" },
+    /// Syntax help: `is:partial`.
+    BuildSyntaxPartial { en: "plays with a known gap", de: "spielbar mit bekannter Lücke" },
+    /// Syntax help: a minus.
+    BuildSyntaxNot { en: "not", de: "nicht" },
+    /// Syntax help: `!"…"`.
+    BuildSyntaxExact { en: "exactly this name", de: "genau dieser Name" },
+    /// Syntax help: `or`.
+    BuildSyntaxOr { en: "either", de: "eines von beiden" },
+    /// The pool's filter disclosure. Chip budget 14.
+    BuildFilters { en: "Filters", de: "Filter" },
+    /// The filter rail's type section.
+    BuildRailType { en: "Card type", de: "Kartentyp" },
+    /// The filter rail's mana value section.
+    BuildRailMana { en: "Mana value", de: "Manawert" },
+    /// The filter rail's switches.
+    BuildRailShow { en: "Show", de: "Zeigen" },
+    /// The pool's count line, then what narrows it: `{0}`.
+    BuildAlsoNarrowing { en: "also narrowing: {0}", de: "außerdem: {0}" },
+    /// A pool row's menu: choose a printing.
+    BuildChoosePrinting { en: "Choose printing\u{2026}", de: "Druck wählen\u{2009}\u{2026}" },
+    /// A pool row's menu: open the card sheet.
+    BuildOpenCard { en: "Open card", de: "Karte öffnen" },
+    /// A pool row's menu, or the card sheet: add to the main deck.
+    BuildAddToMain { en: "Add to main", de: "Ins Hauptdeck" },
+    /// A pool row's menu, or the card sheet: add to the sideboard.
+    BuildAddToSide { en: "Add to sideboard", de: "Ins Sideboard" },
+    /// A deck row's menu: move one copy to the sideboard.
+    BuildMoveToSide { en: "Move to sideboard", de: "Ins Sideboard schieben" },
+    /// A deck row's menu: move one copy to the main deck.
+    BuildMoveToMain { en: "Move to main", de: "Ins Hauptdeck schieben" },
+    /// A deck row's menu: take the whole row out.
+    BuildRemoveAll { en: "Remove all", de: "Alle entfernen" },
+    /// The key-hint footer: arrows.
+    BuildHintMove { en: "move", de: "bewegen" },
+    /// The key-hint footer: Enter.
+    BuildHintAdd { en: "add", de: "hinzufügen" },
+    /// The key-hint footer: Shift+Enter.
+    BuildHintOther { en: "other list", de: "andere Liste" },
+    /// The key-hint footer: `/`.
+    BuildHintSearch { en: "search", de: "suchen" },
+    /// The key-hint footer: Space.
+    BuildHintPreview { en: "card", de: "Karte" },
+    /// The commander slot's label.
+    BuildCommander { en: "Commander", de: "Commander" },
+    /// The commander slot with nobody in it.
+    BuildNoCommander { en: "none", de: "keiner" },
+    /// The commander slot's way to choose one.
+    BuildChoose { en: "Choose", de: "Wählen" },
+    /// The commander slot's way to add a partner.
+    BuildPartner { en: "Partner", de: "Partner" },
+    /// Deck tab: the main deck. Tab budget 16.
+    BuildTabMain { en: "Main", de: "Haupt" },
+    /// Deck tab: the sideboard.
+    BuildTabSide { en: "Sideboard", de: "Sideboard" },
+    /// Deck tab: the statistics.
+    BuildTabStats { en: "Stats", de: "Statistik" },
+    /// The deck's grouping: by card type.
+    BuildByType { en: "By type", de: "Nach Typ" },
+    /// The deck's grouping: by mana value.
+    BuildByManaValue { en: "By mana value", de: "Nach Manawert" },
+    /// The deck's grouping: by colour.
+    BuildByColour { en: "By colour", de: "Nach Farbe" },
+    /// Fold every section of the deck list.
+    BuildCollapseAll { en: "Collapse all", de: "Alle zuklappen" },
+    /// Open every section of the deck list.
+    BuildExpandAll { en: "Expand all", de: "Alle aufklappen" },
+    /// A mana-value section. `{0}` the value.
+    BuildManaValue { en: "Mana value {0}", de: "Manawert {0}" },
+    /// The last mana-value section. `{0}` the value.
+    BuildManaValueUp { en: "Mana value {0}+", de: "Manawert {0}+" },
+    /// A colour section: two colours or more.
+    BuildMulticolour { en: "Multicoloured", de: "Mehrfarbig" },
+    /// The deck's footer: one card the engine does not fully play.
+    BuildShakyOne { en: "1 card is not fully implemented", de: "1 Karte ist nicht vollständig umgesetzt" },
+    /// The deck's footer: `{0}` cards the engine does not fully play.
+    BuildShakyMany { en: "{0} cards are not fully implemented", de: "{0} Karten sind nicht vollständig umgesetzt" },
+    /// Stats: the curve's heading.
+    BuildManaCurve { en: "Mana curve", de: "Manakurve" },
+    /// Stats: what the curve counts.
+    BuildCurveNote { en: "nonland cards by mana value", de: "Nichtland-Karten nach Manawert" },
+    /// Stats: which type the curve lights. `{0}` the type.
+    BuildCurveLit { en: "{0} highlighted", de: "{0} hervorgehoben" },
+    /// Stats: the colour pips' heading.
+    BuildColourPips { en: "Colour pips", de: "Farbsymbole" },
+    /// Stats: what the pips count.
+    BuildPipsNote { en: "share of coloured symbols in the deck", de: "Anteil der farbigen Symbole im Deck" },
+    /// Stats: the land share. `{0}` lands, `{1}` cards.
+    BuildLandShare { en: "{0} of {1}", de: "{0} von {1}" },
+    /// Stats: draw a sample hand.
+    BuildDrawSeven { en: "Draw seven", de: "Sieben ziehen" },
+    /// Stats: what Draw seven does.
+    BuildDrawNote { en: "a fresh shuffle each press · no card leaves the deck", de: "jedes Mal neu gemischt · keine Karte verlässt das Deck" },
+    /// Stats: nothing to count yet.
+    BuildStatsEmpty { en: "Add cards to see the deck's numbers", de: "Füge Karten hinzu, um die Zahlen des Decks zu sehen" },
+    /// The phone's deck rail: the newest additions.
+    BuildLastAdded { en: "Last added", de: "Zuletzt hinzugefügt" },
+    /// The narrow builder's tab bar: the pool.
+    BuildPanePool { en: "Pool", de: "Pool" },
+    /// The narrow builder's tab bar: the deck.
+    BuildPaneDeck { en: "Deck", de: "Deck" },
+    /// The builder with no card search on its gateway.
+    BuildNoCatalog { en: "This gateway has no card search \u{2014} the pool shows the compiled cards only", de: "Dieses Gateway hat keine Kartensuche \u{2014} der Pool zeigt nur die eingebauten Karten" },
     // ---- settings, report, language models, updates (WP5) ---------------
 }
 

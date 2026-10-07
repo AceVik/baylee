@@ -65,6 +65,9 @@ pub enum Chip<'a> {
     PlayableOnly,
 }
 
+/// How many of the newest additions [`DeckBuilder::last_added`] keeps.
+pub const LAST_ADDED: usize = 3;
+
 /// Mana values the curve distinguishes; the last bucket is "that or more".
 pub const CURVE_BUCKETS: usize = 8;
 
@@ -350,7 +353,7 @@ fn pretty_effect(effect: &str) -> String {
 }
 
 /// The sections a deck list is drawn in, in the order they are drawn.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Group {
     /// Creatures.
     Creature,
@@ -845,6 +848,13 @@ pub struct DeckBuilder {
     /// player is told, rather than losing them silently on the next save.
     missing: Vec<String>,
     dirty: bool,
+    /// Edits since the last save or load ([`DeckBuilder::changes`]).
+    changes: u32,
+    /// Whether the last edit was to the name, so a run of letters is one
+    /// change.
+    naming: bool,
+    /// The newest additions, newest first ([`DeckBuilder::last_added`]).
+    last_added: Vec<usize>,
     has_text: bool,
     /// The card whose full text is on screen, as a slot in the pool.
     inspecting: Option<usize>,
@@ -885,6 +895,8 @@ pub struct DeckBuilder {
 mod builder;
 pub mod statistics;
 pub mod transfer;
+pub mod view;
+pub use view::{Draft, Grouping, STAT_GROUPS, Section, SectionKey};
 
 #[cfg(test)]
 mod tests;
