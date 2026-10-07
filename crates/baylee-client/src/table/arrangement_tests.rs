@@ -504,7 +504,7 @@ fn the_table_tears_into_pieces_and_is_one_slab_again_when_docked() {
             .query::<(&TablePiece, &MeshMaterial3d<FeltMaterial>)>();
         let handles: Vec<_> = q
             .iter(app.world())
-            .filter(|(p, _)| p.0 == baylee_client_core::layout::transition::Piece::Arriving)
+            .filter(|(p, _)| p.0 == baylee_client_core::layout::transition::Piece::Near)
             .map(|(_, m)| m.0.clone())
             .collect();
         for handle in handles {

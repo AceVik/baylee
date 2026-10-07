@@ -103,71 +103,190 @@ struct FeltParams {
     tints: array<vec4<f32>, 8>,
     /// A team's colour round the jewel, `a` 1 where the seat has a team.
     teams: array<vec4<f32>, 8>,
-    /// The tear (DESIGN-v8, the owner's of 07.10.2026), on a piece of the
-    /// tearing table: `y` the jagged line's seed, `z` the molten seam's
-    /// brightness (0 to 1), `w` the piece's side of the line (-1 mine, 1 the
-    /// far one). The whole slab holds zero: `w` is the gate every bit of
-    /// this work stands behind. `x` is spare.
+    /// The tear (DESIGN-v8, the owner's of 07.10.2026; `table::pieces`):
+    /// `w` what this is — 0 the whole slab, 1 a piece of the tearing table,
+    /// 2 the void under it, 3 the dial lifted off it; `x` how far the veins
+    /// spill out of the cut (0 to 1), `y` the jagged line's seed, `z` the
+    /// weld seam's heat (0 to 1). The whole slab holds zero: `w` is the gate
+    /// every bit of this work stands behind.
     rift: vec4<f32>,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: FeltParams;
 
-// The molten seam's colour, display-referred: emitted, never lit.
-const RIFT_EMBER: vec3<f32> = vec3<f32>(1.0, 0.52, 0.16);
+// The molten seam's colours, display-referred: emitted, never lit — white
+// hot at contact, through orange, to a dark red that goes out.
+const SEAM_HOT: vec3<f32> = vec3<f32>(1.0, 0.78, 0.42);
+const SEAM_ORANGE: vec3<f32> = vec3<f32>(1.0, 0.42, 0.08);
+const SEAM_DARK: vec3<f32> = vec3<f32>(0.28, 0.035, 0.01);
 // The cut's cross-section: the glass layer on top, the body under it, and
-// the two rivers as they run out of the cut — lava emitted, water lit.
-const CUT_GLASS: vec3<f32> = vec3<f32>(0.10, 0.14, 0.16);
-const CUT_BODY: vec3<f32> = vec3<f32>(0.030, 0.032, 0.034);
-const CUT_LAVA: vec3<f32> = vec3<f32>(1.0, 0.42, 0.08);
-const CUT_WATER: vec3<f32> = vec3<f32>(0.20, 0.55, 0.66);
+// the veins cut through it as coloured streaks.
+const CUT_GLASS: vec3<f32> = vec3<f32>(0.16, 0.22, 0.25);
+const CUT_BODY: vec3<f32> = vec3<f32>(0.026, 0.028, 0.032);
+const CUT_RIM: vec3<f32> = vec3<f32>(0.62, 0.70, 0.72);
+const STREAK_LAVA: vec3<f32> = vec3<f32>(0.55, 0.15, 0.03);
+const STREAK_WATER: vec3<f32> = vec3<f32>(0.08, 0.27, 0.34);
+// The two rivers as they run out of the cut: lava from white-hot to a dark
+// glow, water translucent with a bright rim.
+const LAVA_HOT: vec3<f32> = vec3<f32>(1.0, 0.66, 0.20);
+const LAVA_COOL: vec3<f32> = vec3<f32>(0.42, 0.05, 0.02);
+const WATER: vec3<f32> = vec3<f32>(0.16, 0.48, 0.60);
+const WATER_RIM: vec3<f32> = vec3<f32>(0.70, 0.90, 0.95);
+// The void under a tearing table.
+const VOID_DEEP: vec3<f32> = vec3<f32>(0.006, 0.008, 0.012);
+const VOID_MIST: vec3<f32> = vec3<f32>(0.030, 0.040, 0.052);
+// The falling ribbons: one to a cell this wide along the cut, this wide at
+// the top edge (each side of its middle), table units.
+const RIBBON_CELL: f32 = 0.7;
+const RIBBON_WIDTH: f32 = 0.15;
 // How far below the slab the drips may hang, in slab thicknesses
 // (`table::pieces::DRIP_DEPTH`).
 const DRIP_DEPTH: f32 = 1.6;
+// The floating dial's radius (`table::pieces::DIAL_R`): a piece of the
+// tearing table draws the dial's empty bed inside it.
+const DIAL_R: f32 = 1.6;
 
-/// A piece's cut face (`table::pieces::cut_face`): `u` (2 to 3) across the
-/// table, `v` 0 at the top, 1 at the slab's bottom, past 1 the drips. The
-/// cross-section shows the glass on top and the body under it, the veins cut
-/// where the line crosses them running down it; below, while they spill
-/// (`rift.x`), lava and water hang out of the cut in thin streams, flowing.
+/// A ribbon of a cut river falling from the cut's top edge at `x`, `down`
+/// slab thicknesses below it: `x` its strength (0 outside it, 1 at its
+/// core), `y` how near its edge it is (1 at the rim, for water's bright
+/// edge), `z` the share of lava in it, `w` how far along its fall.
+///
+/// The ribbons stand along the cut one to a cell of `RIBBON_CELL`, each at
+/// its own place in its cell, and a ribbon runs only where the river it
+/// would carry is cut at its place: so it is one colour from top to tip,
+/// and the streams are as many as the veins the tear crosses, no more. A
+/// ribbon falls as long as the spill has run (`rift.x`), thins as a falling
+/// stream does — fast under the edge, slowly after, as it speeds up — and
+/// breaks into drops at its tip.
+fn ribbon(x: f32, down: f32, t: f32) -> vec4<f32> {
+    let total = 1.0 + DRIP_DEPTH;
+    if (params.rift.x <= 0.0) {
+        return vec4<f32>(0.0);
+    }
+    let cell = floor(x / RIBBON_CELL);
+    let key = vec2<i32>(i32(cell), i32(params.rift.y * 7.0));
+    let place = hash_cell(key);
+    let centre = (cell + 0.25 + 0.5 * place) * RIBBON_CELL;
+    let width = RIBBON_WIDTH / sqrt(1.0 + 1.5 * max(down, 0.0));
+    let off = abs(x - centre);
+    if (off > width) {
+        return vec4<f32>(0.0);
+    }
+    // Each ribbon reaches its own length, all of it only at full spill.
+    let reach = params.rift.x * total * (0.5 + 0.5 * hash_cell(key + vec2<i32>(0, 1)));
+    if (down > reach) {
+        return vec4<f32>(0.0);
+    }
+    let edge = veins_at(vec2<f32>(centre, tear_line(centre, params.rift.y)));
+    if (max(edge.water, edge.lava) < 0.55) {
+        return vec4<f32>(0.0);
+    }
+    let lava_share = clamp(edge.lava / max(edge.lava + edge.water, 1e-3), 0.0, 1.0);
+    let core = 1.0 - smoothstep(width * 0.55, width, off);
+    let flow = sqrt(max(down, 0.0)) * 3.2 - t * 1.7;
+    // Drops: near the tip the ribbon breaks into beads that fall with it.
+    let tip = smoothstep(reach * 0.6, reach, down);
+    let beads = smoothstep(0.35, 0.5, fract(flow * 1.4 + place * 3.0));
+    let strength = core * mix(1.0, beads, tip);
+    let rim = smoothstep(width * 0.35, width * 0.8, off);
+    return vec4<f32>(strength, rim, lava_share, down / max(reach, 1e-3));
+}
+
+/// The colour of a falling ribbon, in linear light.
+fn liquid(r: vec4<f32>, x: f32, down: f32, t: f32) -> vec3<f32> {
+    let flow = sqrt(max(down, 0.0)) * 3.2 - t * 1.7;
+    let pulse = 0.65 + 0.35 * vnoise(vec2<f32>(x * 7.0, flow * 4.0));
+    // Lava cools as it falls: white-hot at the cut, a dark glow at the tip.
+    let lava = to_linear(mix(LAVA_HOT, LAVA_COOL, smoothstep(0.0, 1.0, r.w))) * (0.75 + 0.5 * pulse);
+    // Water is seen through: dim in its body, bright at its rim.
+    let water = to_linear(WATER) * (0.45 + 0.3 * pulse) + to_linear(WATER_RIM) * r.y * 0.55;
+    return mix(water, lava, step(0.5, r.z));
+}
+
+/// A piece's cut face (`table::pieces::geometry`): `u` (2 to 3) across the
+/// table, `v` 0 at the top, 1 at the slab's bottom, past 1 the drips. A
+/// solid wall: the glass layer on top with a bright edge, the dark body
+/// under it with the veins cut through it as coloured streaks, and over it
+/// and on below it, while the table is open, the cut rivers falling.
 fn cut_face(uv: vec2<f32>) -> vec4<f32> {
     let t = globals.time * params.motion;
     let x = (uv.x - 2.5) * params.span.x;
-    let at = vec2<f32>(x, tear_line(x, params.rift.y));
-    let field = veins_at(at);
+    let line = tear_line(x, params.rift.y);
     let v = uv.y;
-    // Streams: thin, one every half a unit or so, wandering a little.
-    let lane = fract(x * 2.1 + vnoise(vec2<f32>(x * 0.7, params.rift.y)) * 0.8) - 0.5;
-    let stream = 1.0 - smoothstep(0.10, 0.22, abs(lane));
+    let fall = ribbon(x, v, t);
     if (v <= 1.0) {
-        let glass = 1.0 - smoothstep(0.10, 0.16, v);
-        var colour = mix(CUT_BODY, CUT_GLASS, glass);
-        colour += vec3<f32>(0.25, 0.30, 0.31) * (1.0 - smoothstep(0.0, 0.025, v));
-        // The cut veins run down the face, fading with depth and flowing.
-        let flow = vnoise(vec2<f32>(x * 5.0, v * 4.0 - t * 1.1));
-        let reach = exp(-v * 1.8) * (0.55 + 0.45 * flow);
-        var lit = under_sky(to_linear(colour));
-        lit = mix(lit, to_linear(CUT_WATER) * 0.7, field.water * reach * 0.85);
-        lit = mix(lit, to_linear(CUT_LAVA), field.lava * reach);
-        // The weld runs along the top edge as the pieces meet.
-        let hot = (1.0 - smoothstep(0.0, 0.35, v)) * params.rift.z;
-        lit = mix(lit, to_linear(RIFT_EMBER), clamp(hot, 0.0, 1.0));
+        // The veins run on into the body below the cut: the field read on
+        // into the table across the line, as deep as the face goes.
+        let deep = veins_at(vec2<f32>(x, line + v * 1.6));
+        let glass = 1.0 - smoothstep(0.13, 0.17, v);
+        var lit = under_sky(to_linear(mix(CUT_BODY, CUT_GLASS, glass)));
+        // The glass is a little translucent: the veins under it show
+        // through, dimmed.
+        lit += to_linear(STREAK_LAVA) * deep.lava * glass * 0.35;
+        lit += to_linear(STREAK_WATER) * deep.water * glass * 0.35;
+        // Its polished top edge catches the light.
+        lit += to_linear(CUT_RIM) * (1.0 - smoothstep(0.0, 0.035, v)) * 0.55;
+        let body = 1.0 - glass;
+        lit = mix(lit, to_linear(STREAK_LAVA), deep.lava * body * 0.85);
+        lit = mix(lit, to_linear(STREAK_WATER), deep.water * body * 0.75);
+        if (fall.x > 0.0) {
+            let liquid_at = liquid(fall, x, v, t);
+            // Water lets the wall show through; lava does not.
+            let cover = mix(0.6, 0.95, step(0.5, fall.z));
+            lit = mix(lit, liquid_at, clamp(fall.x, 0.0, 1.0) * cover);
+        }
         return vec4<f32>(lit, 1.0);
     }
-    // The drips: only where a river is cut and a stream runs, as far down as
-    // the spill has reached, each a little longer or shorter than the next.
-    let down = (v - 1.0) / DRIP_DEPTH;
-    let river = max(field.lava, field.water);
-    let length = params.rift.x * river * (0.35 + 0.65 * vnoise(vec2<f32>(x * 3.3, params.rift.y + 7.0)));
-    if (stream < 0.5 || down > length) {
+    if (fall.x < 0.5) {
         discard;
     }
-    let pulse = 0.6 + 0.4 * vnoise(vec2<f32>(x * 9.0, down * 6.0 - t * 2.4));
-    let tip = 1.0 - smoothstep(length * 0.75, length, down);
-    let lava = field.lava / max(field.lava + field.water, 1e-3);
-    let colour = mix(to_linear(CUT_WATER) * under_sky(vec3<f32>(1.0)), to_linear(CUT_LAVA) * 1.2, lava);
-    return vec4<f32>(colour * pulse * (0.6 + 0.4 * tip), 1.0);
+    return vec4<f32>(liquid(fall, x, v, t), 1.0);
 }
+
+/// A piece's share of the rim's wall (`table::pieces::geometry`): `u` (4 to
+/// 5) across the table, `v` how far down. Shaded as the slab's apron is,
+/// from the mesh rather than from the world: a piece lifted or sunk is the
+/// same wall.
+fn piece_wall(uv: vec2<f32>, normal: vec3<f32>) -> vec4<f32> {
+    let x = (uv.x - 4.5) * params.span.x;
+    // Table space's `y` of the wall: its side of the table, from its normal
+    // (`to_world` is `(x, height, -y)`).
+    let table = vec2<f32>(x, clamp(-normal.z, -1.0, 1.0) * params.span.y * 0.5);
+    let faces = clamp(normal.z * 0.5 + 0.5, 0.0, 1.0);
+    return vec4<f32>(apron_lit(table, clamp(uv.y, 0.0, 1.0), faces), 1.0);
+}
+
+/// The weld seam on my piece (`table::pieces::geometry`): `u` (6 to 7)
+/// along the line, `v` across it. A thin line on the jag, emitted: white-hot
+/// as the pieces meet, cooling through orange and dark red to nothing
+/// (`rift.z`), and nothing at all while it is cold.
+fn seam_strip(uv: vec2<f32>) -> vec4<f32> {
+    let heat = clamp(params.rift.z, 0.0, 1.0);
+    let across = abs(uv.y * 2.0 - 1.0);
+    let core = 1.0 - smoothstep(0.15, 1.0, across);
+    if (heat * core < 0.03) {
+        discard;
+    }
+    var colour = mix(SEAM_DARK, SEAM_ORANGE, smoothstep(0.0, 0.55, heat));
+    colour = mix(colour, SEAM_HOT, smoothstep(0.7, 1.0, heat) * core);
+    return vec4<f32>(to_linear(colour) * (0.5 + heat), 1.0);
+}
+
+/// The void under a tearing table (`table::pieces::geometry::void_mesh`):
+/// dark, a slow mist drifting in it, and under the open cut the glow of the
+/// lava spilling into it (`rift.x`). Not lit by the room: it is where no
+/// light reaches.
+fn void_floor(uv: vec2<f32>) -> vec4<f32> {
+    let t = globals.time * params.motion;
+    let table = vec2<f32>((uv.x - 0.5) * params.span.x, (0.5 - uv.y) * params.span.y);
+    let mist = fbm(table * 0.3 + vec2<f32>(t * 0.04, -t * 0.03));
+    var lit = to_linear(mix(VOID_DEEP, VOID_MIST, smoothstep(0.35, 0.75, mist)));
+    let off = abs(table.y - tear_line(table.x, params.rift.y));
+    let embers = 0.6 + 0.4 * vnoise(table * 1.4 + vec2<f32>(0.0, t * 0.5));
+    lit += to_linear(SEAM_ORANGE) * exp(-off * 0.8) * params.rift.x * embers * 0.06;
+    return vec4<f32>(lit, 1.0);
+}
+
 /// Every vein cell's point, as `vein_distance` used to compute it with two
 /// value noises per cell (`baylee_client_core::feltveins`, which computes it
 /// once per cut with this file's own `vnoise`). Read with `textureLoad`: one
@@ -606,14 +725,28 @@ fn clock_face(start: vec3<f32>, table: vec2<f32>, radius: f32, pixel: f32) -> ve
     return lit;
 }
 
-/// The tear's line at `x`: teeth (a triangle wave of uneven pitch) with a
-/// little noise on them, about a third of a unit either side of the middle,
-/// drawn from `seed` so each tear tears differently.
+/// The tear's line at `x` (`transition::tear_line`, the same arithmetic on
+/// the same value noise): slow chunks, a middle swing, sharp creases at
+/// uneven spacing, a grain. The pieces are cut along it on the CPU; here it only
+/// says where the cut meets the veins.
 fn tear_line(x: f32, seed: f32) -> f32 {
-    let pitch = 0.9 + 0.35 * sin(x * 0.21 + seed);
-    let teeth = abs(fract(x * pitch + seed * 0.37) * 2.0 - 1.0) - 0.5;
-    let grain = vnoise(vec2<f32>(x * 1.7, seed * 3.1)) - 0.5;
-    return teeth * 0.5 + grain * 0.3;
+    let chunk = (vnoise(vec2<f32>(x * 0.11, seed * 1.3)) - 0.5) * 1.0;
+    let swing = (vnoise(vec2<f32>(x * 0.47, seed + 3.3)) - 0.5) * 0.5;
+    let crease = (abs(vnoise(vec2<f32>(x * 1.6, seed + 4.1)) * 2.0 - 1.0) - 0.5) * 0.36;
+    let grain = (vnoise(vec2<f32>(x * 5.3, seed + 2.3)) - 0.5) * 0.08;
+    return chunk + swing + crease + grain;
+}
+
+/// The apron, lit: the wall of the slab at `table`, `drop` of the way down
+/// it, `faces` how much it turns toward the near edge.
+fn apron_lit(table: vec2<f32>, drop: f32, faces: f32) -> vec3<f32> {
+    // Down the height, darker as it goes: the underside of a table is in
+    // its own shadow, and nothing here lights it.
+    let grain = fbm(vec2<f32>(table.x + table.y, -drop * params.thickness * 6.0) * 2.0);
+    let shade = mix(1.15, 0.42, drop) * mix(0.78, 1.0, faces);
+    let trim = 1.0 - smoothstep(0.025, 0.09, abs(drop - 0.28));
+    let apron = to_linear(APRON * shade + vec3<f32>((grain - 0.5) * 0.012) + ENGRAVING * trim * 0.22);
+    return under_sky(under_lamp(apron, table));
 }
 
 @fragment
@@ -623,25 +756,30 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // wrong guess about it mirrors the whole field — invisible at two seats,
     // because a duel is symmetric about both axes, and wrong at three.
     // `to_world` is `(x, height, -y)`, so this is exactly its inverse.
-    // A piece's cut face is drawn by its own branch (`cut_face`); a slab's
-    // uv never leaves 0 to 1, so the test is free on every other fragment
-    // that reaches it, and only a tearing table's pieces take it at all.
-    if (params.rift.w != 0.0 && in.uv.x > 1.5) {
+    // The tear's parts (`rift.w`, `table::pieces`): a piece's cut face, its
+    // rim's wall and its seam each by their own branch, told apart by the
+    // uv (a slab's never leaves 0 to 1), and the void by its own. The whole
+    // slab (`w = 0`) takes none of them.
+    let piece = params.rift.w > 0.5 && params.rift.w < 1.5;
+    if (piece && in.uv.x > 1.5) {
+        if (in.uv.x > 5.5) {
+            return seam_strip(in.uv);
+        }
+        if (in.uv.x > 3.5) {
+            return piece_wall(in.uv, in.world_normal);
+        }
         return cut_face(in.uv);
     }
+    if (params.rift.w > 1.5 && params.rift.w < 2.5) {
+        return void_floor(in.uv);
+    }
     var table = vec2<f32>(in.world_position.x, -in.world_position.z);
-    // A piece of a tearing table (`rift.w` its side: -1 mine, 1 the far
-    // one) is drawn in its own frame, out of the mesh's uv — the same table
-    // coordinates as the world's while it stands where the slab does, and
-    // carried with it as it slides and turns — and only on its own side of
-    // the tear's jagged line: the gap between two pieces is no felt at all,
-    // so whatever lies under the table shows through. The whole slab
-    // (`w = 0`) takes neither branch.
-    if (params.rift.w != 0.0) {
+    // A piece of a tearing table, or the dial lifted off it, is drawn in its
+    // own frame, out of the mesh's uv: the same table coordinates as the
+    // world's while it stands where the slab does, and carried with it as it
+    // slides, turns and lifts.
+    if (params.rift.w > 0.5) {
         table = vec2<f32>((in.uv.x - 0.5) * params.span.x, (0.5 - in.uv.y) * params.span.y);
-        if ((table.y - tear_line(table.x, params.rift.y)) * params.rift.w < 0.0) {
-            discard;
-        }
     }
     // Derivatives precede the surface branches, including the apron return.
     let footprint = fwidth(table);
@@ -651,17 +789,11 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // The apron: the wall of the slab. Told apart by its normal, which is the
     // only face that does not point up.
     if (in.world_normal.y < 0.5) {
-        // Down the height, darker as it goes: the underside of a table is in
-        // its own shadow, and nothing here lights it.
         let drop = clamp(-in.world_position.y / max(params.thickness, 1e-3), 0.0, 1.0);
-        // And a little brighter on the near side, which is the one edge of a
+        // A little brighter on the near side, which is the one edge of a
         // table anybody ever sees at this camera.
         let faces = clamp(in.world_normal.z * 0.5 + 0.5, 0.0, 1.0);
-        let grain = fbm(vec2<f32>(table.x + table.y, in.world_position.y * 6.0) * 2.0);
-        let shade = mix(1.15, 0.42, drop) * mix(0.78, 1.0, faces);
-        let trim = 1.0 - smoothstep(0.025, 0.09, abs(drop - 0.28));
-        let apron = to_linear(APRON * shade + vec3<f32>((grain - 0.5) * 0.012) + ENGRAVING * trim * 0.22);
-        return vec4<f32>(under_sky(under_lamp(apron, table)), 1.0);
+        return vec4<f32>(apron_lit(table, drop, faces), 1.0);
     }
 
     // One field decides the whole top. `outer` is the mesh's own boundary
@@ -781,17 +913,18 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // It is applied to *lit* cloth rather than to `colour`, which is not a
     // detail — a flame is something the table emits, so a white one would go
     // blue at night if it were graded by the sky like the cloth under it.
-    if radius < FLAME_REACH {
+    if radius < FLAME_REACH && !piece {
         let t = mix(STILL_AT, globals.time, params.motion);
         lit = firewheel(lit, table, pixel, t);
         lit = clock_face(lit, table, radius, pixel);
     }
-    // The weld: as two pieces close on the jagged line a molten seam runs
-    // along it, emitted and never lit, and cools to nothing (`rift.z`).
-    if (params.rift.w != 0.0 && params.rift.z > 0.0) {
-        let off = abs(table.y - tear_line(table.x, params.rift.y));
-        let hot = (1.0 - smoothstep(0.0, 0.16, off)) * params.rift.z;
-        lit = mix(lit, to_linear(RIFT_EMBER), clamp(hot, 0.0, 1.0));
+    // A piece of a tearing table: the dial has been lifted off it whole, and
+    // what is left is its bed — the cloth sunk in shadow inside a gilt
+    // hairline.
+    if (piece && radius < DIAL_R + pixel) {
+        let bed = 1.0 - smoothstep(DIAL_R - pixel, DIAL_R + pixel, radius);
+        lit = mix(lit, lit * 0.18, bed);
+        lit = mix(lit, to_linear(GILT) * 0.5, hairline(radius - DIAL_R, 0.012, pixel));
     }
     return vec4<f32>(lit + glow, 1.0);
 }

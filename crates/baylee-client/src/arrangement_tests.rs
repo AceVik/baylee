@@ -390,7 +390,7 @@ fn the_follow_switch_shows_the_active_seat_and_waits_out_my_question() {
 
 /// The owner's tear, run in the client: a chip press on a Spotlight table
 /// starts it, its stages come in order (split, swing, dock, settle) as the
-/// layout the cards glide to, it is over in about a second, and it ends on
+/// layout the cards glide to, the new seat drawn only once its piece is, it is over in about a second, and it ends on
 /// exactly the instant layout. Under reduced motion it is the cut.
 #[test]
 fn a_change_of_seat_tears_the_table_and_docks_on_the_instant_layout() {
@@ -445,8 +445,13 @@ fn a_change_of_seat_tears_the_table_and_docks_on_the_instant_layout() {
                 .is_some_and(|s| !s.parked);
             assert_eq!(
                 across,
-                tear.phase() >= Phase::Swing,
-                "the new seat comes across in the swing, not before"
+                tear.plan
+                    .pose(
+                        baylee_client_core::layout::transition::Piece::Arriving,
+                        tear.t
+                    )
+                    .shown,
+                "the new seat comes up once the old one has gone, not before"
             );
             assert!(frames < 120, "the tear never ended");
         }
@@ -498,7 +503,11 @@ fn by_default_the_table_follows_the_turn() {
         app.world_mut().resource_mut::<Duel>().receive_view(view);
         let visiting = app.world().resource::<Duel>().visiting;
         if on {
-            assert_eq!(visiting, Some(PlayerId::new(1)), "the opponent's turn is shown");
+            assert_eq!(
+                visiting,
+                Some(PlayerId::new(1)),
+                "the opponent's turn is shown"
+            );
         } else {
             assert_eq!(visiting, None, "off: nothing moves");
         }

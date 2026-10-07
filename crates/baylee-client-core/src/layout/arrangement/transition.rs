@@ -13,11 +13,11 @@
 //! 1. **Split** — the table tears along a jagged line across the middle and
 //!    jolts; my piece slides toward me, the far piece away. The dial lifts
 //!    clear of the tear. Under the table is a dark void.
-//! 2. **Swing** — the far piece sinks straight down through its own place
-//!    into the void, board and all, until nothing of it is left; only then
-//!    the new seat's piece rises out of the void in the same empty place,
-//!    turned a little and turning straight as it comes, up past the table's
-//!    height and over it.
+//! 2. **Swing** — the far piece sinks back into its own place and down into
+//!    the void, board and all, until nothing of it is left; only then the
+//!    new seat's piece rises out of the void in the same empty place, turned
+//!    a little and turning straight as it comes, a little past the table's
+//!    height.
 //! 3. **Dock** — it comes down level with my piece, and the two close; the
 //!    torn edges weld: a thin molten seam along the jag ([`seam`]). The
 //!    dial sets back down.
@@ -50,13 +50,17 @@ pub const VOID: f32 = 3.5;
 pub const CLEAR: f32 = THICKNESS + CARDS_OVER + 0.15;
 /// How deep a piece goes: wholly under the void, cards and all.
 pub const DEEP: f32 = VOID + CARDS_OVER + 0.6;
-/// How high the arriving piece rises over the table before it comes down:
-/// clear of my piece and its cards.
-pub const LIFT: f32 = THICKNESS + CARDS_OVER + 0.25;
-/// How far the arriving piece is turned as it rises from the void, radians.
-pub const TURN: f32 = 0.12;
-/// How high the dial floats over the tear while the table is open.
+/// How far the arriving piece rises past the table's height before it
+/// settles down onto it: a little, under the floating dial.
+pub const LIFT: f32 = 0.4;
+/// How far the arriving piece is turned as it rises from the void, radians:
+/// a little, so its corners stay over the void.
+pub const TURN: f32 = 0.08;
+/// How high the dial floats over the tear while the table is open: over
+/// the rising piece.
 pub const DIAL_LIFT: f32 = 0.9;
+/// How thick the floating dial is (`table::pieces::geometry`).
+pub const DIAL_THICKNESS: f32 = 0.12;
 /// When the split has opened (seconds into the tear); the far piece sinks.
 pub const SPLIT_ENDS: f32 = 0.18;
 /// When the far piece is under the void: it is gone, and the new piece
@@ -109,23 +113,22 @@ impl Phase {
 /// The tear's jagged line at `x` (`felt.wgsl`'s `tear_line`, the same
 /// arithmetic on the same value noise, `feltveins::vnoise`; the pieces are
 /// meshed along it on the CPU, the shader only reads the veins it cuts):
-/// long slow chunks, teeth of varying size at varying spacing on them, now
-/// and then a large one, and a grain on the teeth — never a comb. Within
+/// four octaves of a fracture: long slow chunks, a middle swing, sharp
+/// creases at uneven spacing (ridged noise: a fold of value noise, so its
+/// corners are corners) and a fine grain — never a comb. Within
 /// [`LINE_REACH`] of the middle.
 #[must_use]
 pub fn tear_line(x: f32, seed: f32) -> f32 {
     use crate::feltveins::vnoise;
-    let chunk = (vnoise(x * 0.11, seed * 1.3) - 0.5) * 1.1;
-    let phase = x * 1.05 + vnoise(x * 0.23, seed + 4.1) * 2.6;
-    let tooth = ((phase - phase.floor()) * 2.0 - 1.0).abs() * 2.0 - 1.0;
-    let big = vnoise(x * 0.41, seed + 9.7);
-    let size = 0.05 + 0.24 * big * big;
-    let grain = (vnoise(x * 2.9, seed + 2.3) - 0.5) * 0.10;
-    chunk + tooth * size + grain
+    let chunk = (vnoise(x * 0.11, seed * 1.3) - 0.5) * 1.0;
+    let swing = (vnoise(x * 0.47, seed + 3.3) - 0.5) * 0.5;
+    let crease = ((vnoise(x * 1.6, seed + 4.1) * 2.0 - 1.0).abs() - 0.5) * 0.36;
+    let grain = (vnoise(x * 5.3, seed + 2.3) - 0.5) * 0.08;
+    chunk + swing + crease + grain
 }
 
-/// The most [`tear_line`] strays from the middle: its three terms' bounds.
-pub const LINE_REACH: f32 = 0.55 + 0.29 + 0.05;
+/// The most [`tear_line`] strays from the middle: its four terms' bounds.
+pub const LINE_REACH: f32 = 0.5 + 0.25 + 0.18 + 0.04;
 
 /// The shake (the owner's of 07.10.2026: *the table wobbles a little while
 /// it moves and noticeably when it tears*): how far the pieces stand off
@@ -327,43 +330,38 @@ impl Tear {
                 },
                 ..rest
             },
-            // Away as the table tears, then straight down through its own
-            // place into the void: gone before anything comes.
+            // Away as the table tears, then back into its own place and down
+            // into the void: gone before anything comes.
             Piece::Leaving => Pose {
-                shift: open + if phase == Phase::Split { shake(t) } else { 0.0 },
+                shift: if phase == Phase::Split {
+                    open + shake(t)
+                } else {
+                    0.0
+                },
                 lift: if phase == Phase::Split { 0.0 } else { -DEEP },
                 shown: t < EXIT_ENDS,
                 ..rest
             },
             // Out of the void in the empty place, turned; straight once it
-            // is clear of my piece's underside; up over the table; down
-            // level; then closing on mine.
+            // is clear of my piece's underside; up a little past the table;
+            // down level; then mine closes on it.
             Piece::Arriving => {
                 if t < EXIT_ENDS {
                     Pose {
                         turn: self.side * TURN,
-                        shift: open,
                         lift: -DEEP,
                         shown: false,
                         ..rest
                     }
                 } else if t < CLEARED {
                     Pose {
-                        shift: open,
                         lift: -CLEAR,
                         ..rest
                     }
                 } else if t < SWING_ENDS {
-                    Pose {
-                        shift: open,
-                        lift: LIFT,
-                        ..rest
-                    }
+                    Pose { lift: LIFT, ..rest }
                 } else if !closing {
-                    Pose {
-                        shift: open,
-                        ..rest
-                    }
+                    rest
                 } else if phase == Phase::Dock {
                     Pose {
                         shift: shake(t),
@@ -402,7 +400,7 @@ impl Tear {
     /// the swing, the rest from `to` — and from [`Phase::Settle`] on `to`
     /// itself, the instant layout unchanged. A leaving seat keeps `to`'s
     /// `parked` (it is drawn by the tear, not by the table), and an arriving
-    /// seat stays where it waited, parked, until its piece is drawn.
+    /// seat rides its piece parked (not drawn) until the piece is drawn.
     #[must_use]
     pub fn staged(&self, t: f32) -> TableLayout {
         let phase = Phase::at(t);
@@ -425,15 +423,13 @@ impl Tear {
                         ..self.pose(Piece::Leaving, t).slot(&was)
                     }
                 }
+                // Waiting on its piece under the void, not drawn: its cards
+                // are already there when the piece is.
                 Some(Piece::Arriving) => {
                     let pose = self.pose(Piece::Arriving, t);
-                    if pose.shown {
-                        pose.slot(slot)
-                    } else {
-                        self.from.slot(slot.player).copied().unwrap_or(SeatSlot {
-                            parked: true,
-                            ..*slot
-                        })
+                    SeatSlot {
+                        parked: !pose.shown,
+                        ..pose.slot(slot)
                     }
                 }
                 Some(piece) => self.pose(piece, t).slot(slot),

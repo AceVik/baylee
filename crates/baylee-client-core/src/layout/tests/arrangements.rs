@@ -657,13 +657,15 @@ fn heights_meet(a: transition::Pose, b: transition::Pose) -> bool {
 /// - no two drawn pieces' volumes meet, my piece included (the static
 ///   table is a piece too);
 /// - every drawn piece stays within the table's own footprint and a margin
-///   (a piece sweeping the screen is what the owner saw first).
+///   (a piece sweeping the screen is what the owner saw first);
+/// - the floating dial stays over every piece while it floats (it was cut
+///   by a piece passing over it, measured live).
 ///
 /// Red on a straight swap (the new piece drawn at the table's height from
 /// the split on).
 #[test]
 fn the_pieces_never_meet() {
-    use super::super::transition::{ENDS, Piece, Pose};
+    use super::super::transition::{DIAL_THICKNESS, ENDS, Phase, Piece, Pose, dial_lift};
     let follow = |shown: Pose, target: Pose, k: f32| Pose {
         turn: shown.turn + (target.turn - shown.turn) * k,
         shift: shown.shift + (target.shift - shown.shift) * k,
@@ -693,6 +695,7 @@ fn the_pieces_never_meet() {
                 ..Pose::REST
             };
             poses[1] = poses[0];
+            let mut dial = 0.0_f32;
             let mut t = 0.0;
             while t < ENDS + 0.2 {
                 t += step;
@@ -704,7 +707,18 @@ fn the_pieces_never_meet() {
                         target
                     };
                 }
+                dial += (dial_lift(t) - dial) * k;
                 let what = format!("n={n} seat {interest} t={t:.3}");
+                if Phase::at(t) < Phase::Dock {
+                    for (i, pose) in poses.iter().enumerate() {
+                        assert!(
+                            !pose.shown || dial - DIAL_THICKNESS > pose.lift,
+                            "{what}: {:?} at {} passes through the dial at {dial}",
+                            pieces[i],
+                            pose.lift
+                        );
+                    }
+                }
                 let [near, leaving, arriving] = poses;
                 assert!(
                     !(leaving.shown
@@ -769,9 +783,9 @@ fn the_table_shakes_as_it_tears_and_is_still_when_it_settles() {
 
 /// The tear's line (the coordinator's of 07.10.2026: *"a periodic comb"*):
 /// within its reach of the middle, jagged, and natural — slow chunks under
-/// the teeth (its five-unit running mean wanders by 0.5 to 0.8 units) and
-/// teeth of very different sizes (their heights' spread over their mean,
-/// 0.42 to 0.54). The first line, a triangle wave of near-even pitch and
+/// the teeth (its five-unit running mean wanders by more than 0.4 units)
+/// and teeth of very different sizes (their heights' spread over their
+/// mean above 0.38). The first line, a triangle wave of near-even pitch and
 /// size, measured 0.09 to 0.30 and 0.17 to 0.27: red on both.
 #[test]
 fn the_tear_line_is_jagged_and_never_a_comb() {

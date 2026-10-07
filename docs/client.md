@@ -859,54 +859,77 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   rather than home, so what attacks me is on the felt.
 - **The tear** (the owner's of 07.10.2026, on Spotlight; every layout
   arrangement takes it): a change of seat of interest tears the table along
-  a jagged, seeded line, turns the seat's own piece of the table over and
-  docks it with a weld. `layout::transition::Tear` plans it — the near
-  piece (my side), the leaving far piece and the arriving one, each with a
-  pose per stage (split 0–0.26 s, swing to 0.62 in six steps along the arc,
-  dock to 0.82 a hair past, settle to 1.0) — and `Tear::staged` is the
-  layout the cards glide to, each seat's slot carried rigidly by its piece;
-  from the settle on it is the instant layout exactly
+  a jagged, seeded line; the far piece sinks into a void under the table
+  and only then the new seat's piece rises out of it in the same place and
+  docks with a weld. `layout::transition::Tear` plans it as keyframes — my
+  piece, the leaving far piece and the arriving one, each with a pose per
+  stage: split to 0.18 s (the pieces part and jolt), the leaving piece back
+  into its place and down `DEEP` under the void (gone at 0.40), the
+  arriving one shown only then, rising from under the void turned by
+  `TURN` (0.08 rad) and straight once `CLEAR` of my piece's underside
+  (0.50), a little past the table's height (`LIFT` 0.4, to 0.64), down
+  level (0.74), then my piece closes on it (0.88), settle to 1.06 — and
+  `Tear::staged` is the layout the cards glide to, each seat's slot carried
+  rigidly by its piece (an arriving seat rides its piece parked, not drawn,
+  until the piece is, so its cards are already there); from the settle on
+  it is the instant layout exactly
   (`the_tear_runs_its_four_phases_in_order_and_ends_on_the_instant_layout`).
+  `the_pieces_never_meet` follows all three pieces as `glide` follows them,
+  at three to eight seats: the leaving and the arriving piece are never both
+  drawn over a common point of the table (the owner's *"the incoming one
+  docks only into an empty slot"*), no two drawn pieces' volumes meet, mine
+  included, every drawn piece stays on the table's footprint and a margin,
+  and the floating dial stays over every piece (red on a straight swap, on
+  a piece turned into mine at the table's height, and on the first
+  `LIFT`, which passed through the dial — each injected).
+
   In the client (`arrangement::lay_the_interest` / `run_the_tear`,
-  `table::pieces`), the slab stands down for the tear's second and three
-  pieces stand in: copies of its mesh and material, drawn in their own frame
-  (the mesh's uv) and only on their own side of the line (`felt.wgsl`
-  `rift.w`, discarded elsewhere, so the gap shows what lies under the table),
-  posed through `glide`. Turning pieces ride `LIFT` over the rest, cards and
-  mats with them (`Tear::lift`, `Zone::raised`); the molten seam (`rift.z`,
-  `transition::seam(weld(t))`, emitted, never lit) rises as the pieces meet
-  and cools to nothing. Over, the pieces stand exactly where the slab does
-  and are despawned; the slab's own `rift` is never written, so a table not
-  tearing pays one uniform compare. A mat whose seat only moved is carried
-  as one rigid body (`table::rigid`) instead of being built again. The
+  `table::pieces`), the slab stands down for the tear's second and the
+  tear's parts stand in, each drawn by `felt.wgsl` with a copy of the
+  slab's material, `rift.w` saying what it is (1 a piece, 2 the void, 3 the
+  dial): the pieces are **real geometry** cut on the CPU along the line
+  (`pieces::geometry::piece_mesh`: the top in strips from the rim to the
+  line, the rim's wall, the cut face, my piece's seam), so their edges are
+  triangle edges multisampling smooths — the first pieces discarded the
+  far side of the line in the shader and were drawn in stair steps. Both
+  are cut from one list of samples (`the_two_pieces_meet_on_one_line`,
+  `the_two_tops_are_the_whole_table`, every face wound toward where it is
+  seen from: `every_face_of_a_piece_faces_where_it_is_seen_from`). The
+  line (`transition::tear_line`, its WGSL twin only reads where the cut
+  meets the veins) is four octaves of a fracture — slow chunks, a middle
+  swing, ridged creases at uneven spacing, a grain
+  (`the_tear_line_is_jagged_and_never_a_comb`, red on the first, a triangle
+  wave). **The cut face** is a solid wall: the glass layer on top with a
+  bright edge, the dark body with the veins carried on into it as streaks;
+  **the spill** (`rift.x`, `transition::spill`): one ribbon to a cell of
+  0.7 along the cut where a vein is cut there, one colour from top to tip,
+  thinning as a falling stream does (width over the root of the fall), the
+  flow's phase going as the root of the fall (gravity), beads at the tip;
+  lava white-hot to a dark glow, water dim with a bright rim; drawn back as
+  the pieces dock. **The void** (`void_mesh`) floors the gap and the far
+  half: dark, a slow mist, the spill's ember glow under the cut — the hole
+  reads as a hole. **The dial** is lifted whole off the tear
+  (`dial_mesh`, `transition::dial_lift`, 0.9 over the table, wobbling with
+  the shake, set down as the new piece comes down); the pieces draw its
+  empty bed. **The seam** is a strip on my piece over exactly the line
+  (`SEAM_HALF` 0.05 each side), emitted, white-hot at contact through orange
+  and dark red to nothing (`rift.z`, `transition::seam(weld(t))`), and
+  discarded once cold. **The shake**: a damped jolt as the table tears and a
+  smaller one as the pieces meet (`transition::shake`, on the poses, so the
+  cards shake with them), a third of it on the camera, none under reduced
+  motion, nothing from the settle on. Over, the parts stand exactly where
+  the slab does and are despawned; the slab's own `rift` is never written,
+  so a table not tearing pays one uniform compare. A zone part's place is
+  kept in its seat's own frame (`table::Seated`) and every move targets
+  that place in the seat's frame as it then stands (carrying the last
+  target compounded: a mat ended a slow tear turned 20° off its place). The
   camera and the slab's cut follow `Duel::settled_layout` (the tear's end),
   the seat bars stand down for the second, and a press on a moving board or
   a card key waits until it docks. Reduced motion: the cut. Not built: the
-  optional low "clunk" cue.
-
-  The owner's refinements the same day: **thickness** — each piece carries
-  its cut face (`table::pieces::cut_face`, a strip down the jagged line,
-  `transition::tear_line` being the shader's line on the CPU), drawn by
-  `felt.wgsl`'s `cut_face`: the glass layer on top, the body under it, the
-  veins cut where the line crosses them (`veins_at`, the same field the
-  cloth is drawn from) running down the face; **the spill** — while the
-  table is open (`rift.x`, `transition::spill`) lava (emitted) and water
-  hang out of the cut in thin flowing streams, drawn back in as the pieces
-  dock; **the shake** — a damped jolt on the pieces as the table tears and a
-  smaller one as they dock (`transition::shake`, on the poses, so the cards
-  shake with them), a third of it on the camera, none under reduced motion,
-  nothing from the settle on; **the swap** — the leaving piece sinks under
-  the table (`SINK`) while the arriving one comes in lifted over it (`LIFT`),
-  so the two never meet
-  (`the_leaving_and_the_arriving_piece_never_meet`, red on a straight swap).
-  The cut face's cross-section is wound toward the gap
-  (`the_cut_face_faces_the_gap`; the first winding was culled from the only
-  side anybody sees it from). A zone part's place is kept in its seat's own
-  frame (`table::Seated`) and every move targets that place in the seat's
-  frame as it then stands: carrying the last target compounded, and a mat
-  ended a slow tear turned 20° off its place (measured live). Measured at
-  six seats, 1708 × 1028, focused: frame p95 18.2 ms at rest, 19.5 ms over
-  five tears in six seconds (60 fps held).
+  optional low "clunk" cue. Measured at six seats, 1708 × 1028, focused:
+  frame p95 17.9 ms at rest, 18.5 ms over five tears in six seconds (60 fps
+  held; the worst frame, 48 ms, is a tear's first, which cuts its meshes).
+  Frames at 1/20 speed and the GIF: `.claude/ux-table/after/v8/spotlight-transition/`.
 - **Tisch folgt dem Zug** (`tableview::follow`, `Duel::follow_the_turn`):
   **on** by default (the owner's of 07.10.2026 overruled D25's off; a
   settings file without the field reads as on), another player's turn shows that seat (a camera
