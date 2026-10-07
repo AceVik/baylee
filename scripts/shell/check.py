@@ -77,10 +77,23 @@ def overlap(a, b):
     return max(w, 0) * max(h, 0)
 
 
+def scrolled(nodes, n):
+    """Whether `n` lies in a scroll container (`k` "scroll"): its content
+    may run past the container's edges, scrolled out of view."""
+    here = n["parent"]
+    while here is not None:
+        if nodes[here].get("k") == "scroll":
+            return nodes[here]
+        here = nodes[here]["parent"]
+    return None
+
+
 def check_overflow(nodes):
     faults = []
     for n in nodes:
         if "t" not in n or not n["t"].strip() or n["parent"] is None:
+            continue
+        if scrolled(nodes, n):
             continue
         if n["w"] == 0 and n["h"] == 0:
             continue
@@ -187,6 +200,11 @@ def check_contrast(nodes, png, width, height):
     for n in nodes:
         kind = n.get("k")
         if kind not in ("panel", "header", "mist", "opaque"):
+            continue
+        # A ground scrolled (even partly) out of its container's view is
+        # not what stands on screen there.
+        view = scrolled(nodes, n)
+        if view is not None and not inside(n, view):
             continue
         # Everything drawn on the panel is cover, not ground: text, a node
         # with a role, and every leaf (a knob, a disc, a glyph, a rule),

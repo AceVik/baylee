@@ -17,6 +17,12 @@ fn a_key_can_be_rebound_from_the_settings_screen() {
 
     press(&mut app, Press::Front(FrontPress::FrontMenu));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Controls,
+        )),
+    );
     assert!(app.world().resource::<LobbyState>().settings.is_open());
 
     press(
@@ -75,6 +81,12 @@ fn arming_a_row_can_be_backed_out_of_or_used_to_unbind() {
     app.update();
     press(&mut app, Press::Front(FrontPress::FrontMenu));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Controls,
+        )),
+    );
 
     press(
         &mut app,
@@ -129,6 +141,12 @@ fn the_settings_screen_offers_every_switch_and_both_rails() {
     app.update();
     press(&mut app, Press::Front(FrontPress::FrontMenu));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Controls,
+        )),
+    );
 
     let found = presses(&mut app);
     for action in Action::ALL {
@@ -137,6 +155,14 @@ fn the_settings_screen_offers_every_switch_and_both_rails() {
             "{action:?} cannot be rebound from the screen"
         );
     }
+    // Automation, where to stop and the presets are Gameplay's (WP5).
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Gameplay,
+        )),
+    );
+    let found = presses(&mut app);
     for rule in AutoRule::ALL {
         assert!(
             found.contains(&Press::Settings(SettingsPress::ToggleAuto(rule))),
@@ -258,6 +284,12 @@ fn music_controls_live_in_quick_settings_and_full_settings() {
     assert!(labels(&mut app).iter().any(|l| l == "50 %"));
     assert!(labels(&mut app).iter().any(|l| l == "Music"));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Audio,
+        )),
+    );
     assert!(labels(&mut app).iter().any(|l| l == "50 %"));
 }
 
@@ -270,6 +302,12 @@ fn settings_scroll_by_wheel_and_swipe_and_keep_the_offset_after_an_edit() {
         app.update();
         press(&mut app, Press::Front(FrontPress::FrontMenu));
         press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+        press(
+            &mut app,
+            Press::Settings(SettingsPress::Section(
+                baylee_client_core::settings_map::Section::Controls,
+            )),
+        );
         let list = app
             .world_mut()
             .query::<(Entity, &Scrollable)>()
@@ -384,6 +422,12 @@ fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
     app.update();
     press(&mut app, Press::Front(FrontPress::FrontMenu));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::LanguageModels,
+        )),
+    );
     app.world_mut()
         .resource_mut::<LobbyState>()
         .seat
@@ -430,8 +474,8 @@ fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
     // Anything else pressed takes the caret out of the panel.
     press(
         &mut app,
-        Press::Settings(SettingsPress::Rebind(
-            baylee_client_core::prefs::Action::Confirm,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Privacy,
         )),
     );
     assert_eq!(focus(&app), None);
@@ -473,6 +517,12 @@ fn a_key_typed_into_its_box_is_only_ever_drawn_as_dots() {
     app.update();
     press(&mut app, Press::Front(FrontPress::FrontMenu));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::LanguageModels,
+        )),
+    );
     app.world_mut()
         .resource_mut::<LobbyState>()
         .seat

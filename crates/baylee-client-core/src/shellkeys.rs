@@ -330,6 +330,44 @@ impl ShellChord {
         self
     }
 
+    /// The chord a key press binds (Settings › Controls' capture,
+    /// `KEYBOARD.md` §5): a printable character by the character it
+    /// produced (`/` is `Shift+7` on a German keyboard), a digit by its key
+    /// (AZERTY digits need Shift), anything else by its key with the
+    /// modifiers held. `None` for a modifier pressed alone.
+    #[must_use]
+    pub fn captured(press: &KeyPress, mac: bool) -> Option<Self> {
+        let code = press.code.as_str();
+        let modifier = ["Shift", "Control", "Alt", "Super", "Meta"]
+            .iter()
+            .any(|m| code.starts_with(m));
+        if modifier {
+            return None;
+        }
+        let command = if mac { press.meta } else { press.ctrl };
+        let alt_gr = press.ctrl && press.alt && !mac;
+        let printable = press
+            .ch
+            .as_deref()
+            .filter(|c| c.chars().count() == 1 && !c.trim().is_empty());
+        if let Some(ch) = printable
+            && !code.starts_with("Digit")
+            && (!press.alt || alt_gr)
+        {
+            let chord = Self::ch(ch);
+            return Some(if command && !alt_gr {
+                chord.cmd()
+            } else {
+                chord
+            });
+        }
+        let mut chord = Self::code(code);
+        chord.cmd = command;
+        chord.alt = press.alt && !alt_gr;
+        chord.shift = press.shift;
+        Some(chord)
+    }
+
     /// Whether `press` is this chord on this platform (`KEYBOARD.md` §3.2).
     ///
     /// A code chord's modifiers must match exactly (`W` and `⇧W` are two
@@ -773,6 +811,60 @@ fn digit_or_question(press: &KeyPress) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn pressed(code: &str, ch: Option<&str>) -> KeyPress {
+        KeyPress {
+            code: code.into(),
+            ch: ch.map(Into::into),
+            ..KeyPress::default()
+        }
+    }
+
+    /// The capture binds what the key produced, a digit by its key, the rest
+    /// by key and modifiers; a modifier alone binds nothing.
+    #[test]
+    fn a_captured_press_becomes_the_chord_it_would_match() {
+        assert_eq!(
+            ShellChord::captured(&pressed("KeyT", Some("t")), false),
+            Some(ShellChord::ch("t"))
+        );
+        let slash = KeyPress {
+            shift: true,
+            ..pressed("Digit7", Some("/"))
+        };
+        // Shift+7 on a German keyboard types `/`: a digit key, so its code.
+        assert_eq!(
+            ShellChord::captured(&slash, false),
+            Some(ShellChord::code("Digit7").shift())
+        );
+        let comma = KeyPress {
+            meta: true,
+            ..pressed("Comma", Some(","))
+        };
+        assert_eq!(
+            ShellChord::captured(&comma, true),
+            Some(ShellChord::ch(",").cmd())
+        );
+        assert_eq!(
+            ShellChord::captured(&pressed("F8", None), false),
+            Some(ShellChord::code("F8"))
+        );
+        assert_eq!(
+            ShellChord::captured(&pressed("Digit2", Some("2")), false),
+            Some(ShellChord::code("Digit2"))
+        );
+        assert_eq!(
+            ShellChord::captured(&pressed("ShiftLeft", None), false),
+            None
+        );
+        for press in [pressed("KeyT", Some("t")), comma, pressed("F8", None)] {
+            let chord = ShellChord::captured(&press, true).unwrap();
+            assert!(
+                chord.matches(&press, true),
+                "{chord:?} does not match its own press"
+            );
+        }
+    }
 
     fn key(code: &str, ch: Option<&str>) -> KeyPress {
         KeyPress {

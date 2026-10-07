@@ -11,7 +11,7 @@
 //!    and do not follow the shell's text step.
 
 /// The modules (relative to `src/`) whose lengths follow the text step.
-pub const SHELL_MODULES: &[&str] = &["shellkit", "lobby/front"];
+pub const SHELL_MODULES: &[&str] = &["shellkit", "lobby/front", "settingsui"];
 
 /// The lines (1-based) of `source` that write a bare numeric `px(`.
 ///

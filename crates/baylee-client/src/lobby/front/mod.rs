@@ -95,7 +95,7 @@ const HEADER_HEIGHT: f32 = 36.0;
 ///
 /// Not a `Phrase`: it is quoted, not written, and a translation of it would
 /// be a notice nobody approved. It stands under the panel in every language.
-pub(crate) const FAN_CONTENT_NOTICE: &str = "baylee is unofficial Fan Content permitted under the Fan Content Policy.\nNot approved/endorsed by Wizards.\nPortions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.";
+pub(crate) const FAN_CONTENT_NOTICE: &str = "baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.";
 
 /// The card's width (§3, §2.7): 600 × the text step on a desktop, the
 /// body's width on a tablet (up to 960 × the step) and on the smallest
@@ -991,6 +991,7 @@ pub(super) fn front_door(
     scrolled_to: &Scrolled,
     assets: Option<&AssetServer>,
     music_on: bool,
+    height: f32,
 ) {
     let phone = kit.m.frame == Frame::Phone;
     let page = commands
@@ -1009,6 +1010,7 @@ pub(super) fn front_door(
             },
             Scrollable(List::Table),
             ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
+            Role::Scroll,
             // Empty space between fields must receive wheel/swipe gestures too.
             Pickable::default(),
         ))
@@ -1033,6 +1035,9 @@ pub(super) fn front_door(
             Node {
                 width: px_fixed(logo_width),
                 max_width: Val::Percent(100.0),
+                // Never more than a sixth of a short window's height: the
+                // card and the notices come first.
+                max_height: Val::Vh(if phone { 30.0 } else { 15.0 }),
                 aspect_ratio: Some(1942.0 / 809.0),
                 flex_shrink: 0.0,
                 ..default()
@@ -1069,7 +1074,7 @@ pub(super) fn front_door(
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(left).add_child(brand);
+        commands.entity(left).add_children(&[brand, text_row]);
         commands
             .entity(stage)
             .entry::<Node>()
@@ -1079,7 +1084,7 @@ pub(super) fn front_door(
                 node.min_width = px_fixed(0.0);
             });
         commands.entity(panes).add_children(&[left, stage]);
-        commands.entity(page).add_children(&[panes, text_row]);
+        commands.entity(page).add_child(panes);
     } else {
         let tagline = door::tagline(commands, state, kit);
         // Auto margins consume spare height, but collapse to zero when the
@@ -1108,7 +1113,7 @@ pub(super) fn front_door(
             .add_children(&[brand, tagline, stage, text_row]);
         commands.entity(page).add_child(composition);
     }
-    let colophon = if door::full_colophon(kit) {
+    let colophon = if door::full_colophon(kit, height) {
         door::full(commands, state, kit)
     } else {
         let line = door::one_line(commands, state, kit);

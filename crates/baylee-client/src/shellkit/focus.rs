@@ -55,6 +55,7 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::lobby::front::keys::GUEST,
     &crate::lobby::front::keys::TERMS,
     &crate::lobby::front::keys::ABOUT,
+    &crate::settingsui::keys::SETTINGS,
     #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
     &super::gallery::GALLERY_ORDER,
 ];
@@ -123,6 +124,12 @@ impl ShellField {
 #[derive(Component)]
 pub struct FieldWords;
 
+/// A screen's own editor has the keys (the settings screen's seat panel,
+/// whose boxes walk with Tab themselves): the walker leaves Tab alone.
+/// Written every frame by the screen, before the walker runs.
+#[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct WalkerYields(pub bool);
+
 /// The stop focus last stood on. A screen that rebuilds its tree draws the
 /// same stop on a new entity, and focus follows it there. Whoever moves
 /// focus outside the walker (a screen's initial focus) may write it too.
@@ -161,6 +168,7 @@ pub(super) fn install(app: &mut App) {
         .init_resource::<InputFocusVisible>()
         .init_resource::<FocusReport>()
         .init_resource::<Remembered>()
+        .init_resource::<WalkerYields>()
         .add_message::<Activated>()
         .add_message::<Pointer<Press>>()
         .add_message::<Pointer<Click>>()
@@ -279,7 +287,12 @@ fn walk(
     mut visible: ResMut<InputFocusVisible>,
     mut remembered: ResMut<Remembered>,
     mut last: Local<Option<Entity>>,
+    yields: Res<WalkerYields>,
 ) {
+    if yields.0 {
+        keys.clear();
+        return;
+    }
     let drawn: Vec<(Entity, Stop)> = stops.iter().map(|(e, s)| (e, *s)).collect();
     // A screen rebuilt from its state (the lobby redraws its tree on every
     // change) despawns the focused stop and draws the same one anew: focus

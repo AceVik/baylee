@@ -455,10 +455,13 @@ fn ambience(
     quality: Option<&crate::quality::InUse>,
     resting: Option<&crate::quality::Resting>,
     dt: f32,
-) -> (bool, f32, f32) {
+) -> (bool, f32, f32, f32) {
     (
         crate::quality::ambient_still(still, quality),
         crate::quality::ambient_detail(quality),
+        // The backdrop (WP5): how much of the painting is drawn; none at
+        // all on Plain, whose surfaces are not drawn.
+        quality.map_or(1.0, |q| q.0.backdrop.share()),
         if resting.is_some_and(|r| r.0) {
             0.0
         } else {
@@ -470,6 +473,7 @@ fn ambience(
 /// Writes each surface's uniforms for this frame.
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)] // Bevy system: the stage, the screen and the settings it reads
+#[allow(clippy::too_many_lines)] // one pass over the surfaces; its steps share the frame's numbers
 pub(crate) fn paint(
     time: Res<Time>,
     prefs: Option<Res<crate::prefs::Prefs>>,
@@ -494,7 +498,8 @@ pub(crate) fn paint(
     };
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
     let dt = time.delta_secs();
-    let (frozen, detail, world_dt) = ambience(still, quality.as_deref(), resting.as_deref(), dt);
+    let (frozen, detail, backdrop, world_dt) =
+        ambience(still, quality.as_deref(), resting.as_deref(), dt);
     clock.0 += world_dt;
     for (kind, mut settled, computed, handle, mut visibility, z) in &mut surfaces {
         let size = computed.size();
@@ -548,7 +553,7 @@ pub(crate) fn paint(
         };
         settled.panel = Some(panel);
 
-        let shown = settled.presence > 0.0;
+        let shown = settled.presence > 0.0 && backdrop > 0.0;
         let wanted = if shown {
             Visibility::Inherited
         } else {
@@ -587,7 +592,7 @@ pub(crate) fn paint(
             air: Vec4::new(
                 stage.river,
                 stage.sparks,
-                settled.presence,
+                settled.presence * backdrop,
                 1.0 / (1.0 - 0.35 * stage.dolly),
             ),
         };

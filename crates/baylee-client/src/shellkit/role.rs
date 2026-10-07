@@ -61,6 +61,9 @@ pub enum Role {
     /// A count beside a chip's or a tab's label: not part of the label's
     /// budget (§2.3 budgets the words).
     Count,
+    /// A scroll container: what it holds may lie past its edges, scrolled
+    /// out of view rather than overflowing (the checks read it so).
+    Scroll,
 }
 
 impl Role {
@@ -92,6 +95,7 @@ impl Role {
             Self::Tag => "tag",
             Self::KeyCap => "keycap",
             Self::Count => "count",
+            Self::Scroll => "scroll",
         }
     }
 

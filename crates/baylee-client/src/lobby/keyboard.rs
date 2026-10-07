@@ -88,6 +88,55 @@ pub(super) fn keyboard(
     // The account's deletion stands over the settings screen, and its
     // password box is the one thing there that is typed into: Enter sends,
     // Escape cancels.
+    // A shortcut listening (Settings › Controls, `KEYBOARD.md` §5): the
+    // next key is its chord — refused with the holder's name when another
+    // live action has it, taken by the same key pressed again; Esc cancels.
+    if let Some(action) = state.settings.capturing_shell() {
+        for key in keys.read() {
+            if !key.state.is_pressed() || key.repeat {
+                continue;
+            }
+            if key.logical_key == Key::Escape {
+                state.settings = SettingsPane::Open;
+                state.settings_view.refused = None;
+                break;
+            }
+            let press = crate::shellkit::keys::press_of(key, Some(&codes));
+            let mac = crate::shellkit::keys::mac();
+            let Some(chord) = baylee_client_core::shellkeys::ShellChord::captured(&press, mac)
+            else {
+                continue;
+            };
+            let again = state
+                .settings_view
+                .refused
+                .as_ref()
+                .is_some_and(|(a, c, _)| *a == action && *c == chord);
+            let result = if again {
+                prefs.edit().shell_keys.take(action, chord.clone())
+            } else {
+                // Asked of a copy, so a refusal writes nothing back.
+                let mut map = prefs.all().shell_keys.clone();
+                match map.bind(action, chord.clone()) {
+                    Ok(()) => {
+                        prefs.edit().shell_keys = map;
+                        Ok(())
+                    }
+                    Err(why) => Err(why),
+                }
+            };
+            match result {
+                Ok(()) => {
+                    state.settings_view.refused = None;
+                    state.settings = SettingsPane::Open;
+                }
+                Err(why) => state.settings_view.refused = Some((action, chord, why)),
+            }
+            break;
+        }
+        keys.clear();
+        return;
+    }
     if state.lobby.deleting_account().is_some() {
         if !keys.is_empty() {
             text_field_keys(
@@ -104,6 +153,17 @@ pub(super) fn keyboard(
         return;
     }
     if state.settings.is_open() {
+        // Opened from the front door, no header stands over it: Esc is its
+        // way back (signed in, the nav is).
+        if codes.just_pressed(KeyCode::Escape)
+            && state.lobby.token().is_none()
+            && !state.lobby.offline()
+            && !state.seat.typing()
+        {
+            keys.clear();
+            state.settings = SettingsPane::Closed;
+            return;
+        }
         // The seat panel's boxes are the only ones on the settings screen.
         crate::seatpanel::keys(&mut keys, &codes, &mut state, clipboard.as_deref_mut());
         return;

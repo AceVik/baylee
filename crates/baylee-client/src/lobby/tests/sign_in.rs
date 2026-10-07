@@ -8,6 +8,9 @@ use super::super::front::{FrontCard, FrontShade, Panel};
 #[test]
 fn the_sign_in_screen_builds_with_its_controls() {
     let mut app = headless();
+    // A desktop window tall enough for the full colophon (WP1).
+    sized(&mut app, 1920.0);
+    app.update();
     assert_eq!(roots(&mut app).len(), 1, "exactly one tree");
     let found = presses(&mut app);
     for wanted in [
@@ -136,10 +139,19 @@ fn the_primary_action_submits_and_the_secondary_opens_the_other_form() {
 fn the_front_door_says_where_the_source_is() {
     let line = |address: &str| Phrase::SourceCode.fill(Lang::En, &[address]);
     let fork = "https://git.example/fork/baylee";
+    // On a desktop it stands under the notice; on the smaller classes the
+    // one-line colophon's Source opens About, which says it (WP1, §3).
+    let open_about = |app: &mut App, width: f32| {
+        if width < 1180.0 {
+            app.world_mut().resource_mut::<LobbyState>().about_open = true;
+            app.update();
+        }
+    };
     for width in [1400.0, 390.0] {
         let mut app = headless();
         sized(&mut app, width);
         to_gateway_face(&mut app);
+        open_about(&mut app, width);
         let drawn = labels(&mut app);
         assert!(
             drawn.contains(&line(baylee_build::REPOSITORY)),
@@ -232,6 +244,9 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
 #[test]
 fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
     let mut app = headless();
+    // A desktop window tall enough for the full colophon (WP1).
+    sized(&mut app, 1920.0);
+    app.update();
     to_gateway_face(&mut app);
     assert_eq!(roots(&mut app).len(), 1, "exactly one tree");
     let found = presses(&mut app);

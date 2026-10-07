@@ -3729,6 +3729,52 @@ cloud geometry are evaluated analytically inside the material. The GLB is an edi
 source export; the client consumes its transparent render. Mobile GPU performance
 has not been measured for this replacement; older geode timings do not apply.
 
+### The front door's faces, on the kit (WP1)
+
+The account card shows **one face at a time** (`lobby/front/faces.rs`;
+`client-core::lobby::Face`): **sign in** (username, password, Sign in, then
+Create account and Play as guest under a rule), **create an account**
+(username and display name, the password twice, the beta key on a closed
+beta, Create account) and **play as a guest** (a display name, the key,
+Play as guest). The beta key opens under the button chosen and never on the
+sign-in face; a guest this device keeps plays at once from the sign-in face
+("Continue as Guest#0013"). `‹ Back` and Esc go back a face, and from the
+sign-in face back to the gateway picker. The faces ride the existing
+carousel (the guest's is the create face's other side) and the passage.
+
+**Keys.** Each face is built from its `TabOrder` (`lobby/front/keys.rs`)
+and walked by the kit's walker. The fields stay the lobby's own editor (a
+`TextBuffer` with its caret, masking, paste and the browser's `<input>`);
+their boxes carry a `Stop` and a `LobbyField`, and the bridge keeps the two
+notions of focus one: focus walked onto a field takes the caret there,
+focus on a control **parks** the caret (`Lobby::park_caret`; a letter typed
+goes nowhere), and the lobby placing its caret moves the kit's focus. Enter
+on a focused control is its press through the same door a click takes
+(`clicks::run`); the lobby's keyboard reads its keys before the walker, so
+an Enter that opens a face is not also that face's submit. A stop the
+rebuilt tree draws anew keeps the focus (`shellkit::focus::Remembered`),
+including after `bevy_input_focus` clears the focus of a despawned entity.
+
+**Around the card**, on mist plates (no text on the painting without one):
+the tagline, the **text row** (the languages as one radio group, the music,
+Settings, Play offline, About; a phone stands it as a column beside the
+card) and the **colophon**: on Wide and Vast the build, the Fan Content
+notice word for word, Scryfall's credit and the source with its QR; on the
+smaller classes the one-line colophon, whose notice and Source open the
+**About** sheet (every colophon sentence in full, the licence, the source
+as text, link and code, the third-party licences). `docs/legal.md` §"The
+front door's notices". Caps Lock is inferred from a letter's case against
+Shift and said under the password being typed.
+
+**The terms sheet** (WG-1; `client-core::terms`, `lobby/front/terms.rs`):
+modal over whatever the sign-in led to, its own `TabOrder` (text, Not now,
+Accept). Accept waits until the end of the text has been in view (scroll,
+`End`, `Space`/`PageDown`, or a text that fits); Enter in the text accepts
+once it may; **Esc never signs out** — it moves focus to Not now (or
+answers a guest's question with Stay); Not now signs out with nothing
+stored, and a guest is asked first. `docs/protocol.md` §"Terms of use
+(WG-1)" has the wire.
+
 ### A language model in a chair
 
 A host's room offers a language model in every chair not taken (`→ language

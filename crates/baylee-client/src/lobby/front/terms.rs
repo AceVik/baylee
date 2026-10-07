@@ -649,7 +649,7 @@ pub(crate) fn sheet(
         Sheet::Reading(reading) => {
             let text = commands
                 .spawn((
-                    Role::Panel,
+                    Role::Scroll,
                     Node {
                         flex_direction: FlexDirection::Column,
                         flex_shrink: 1.0,

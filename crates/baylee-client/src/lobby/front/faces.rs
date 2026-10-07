@@ -170,6 +170,12 @@ fn field(
     cell
 }
 
+/// Help under a field; a phone, short of height, keeps the form above
+/// the keyboard and says it nowhere (the hints stay on the wider classes).
+fn help<'t>(kit: Kit, text: &'t str) -> Option<&'t str> {
+    (kit.m.frame != Frame::Phone).then_some(text)
+}
+
 /// The status line (a refusal, verbatim; a note), only while it says
 /// something: no reserved hole under the button (A12).
 fn status(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Option<Entity> {
@@ -638,7 +644,7 @@ pub(super) fn create(commands: &mut Commands, card: Entity, state: &LobbyState, 
         Field::Username,
         Phrase::Username,
         None,
-        Some(Phrase::FrontUsernameHint.text(lang)),
+        help(kit, Phrase::FrontUsernameHint.text(lang)),
         None,
     );
     let display = field(
@@ -648,7 +654,7 @@ pub(super) fn create(commands: &mut Commands, card: Entity, state: &LobbyState, 
         Field::DisplayName,
         Phrase::DisplayName,
         None,
-        Some(Phrase::AccountNameHint.text(lang)),
+        help(kit, Phrase::AccountNameHint.text(lang)),
         None,
     );
     let names = pair(commands, kit, username, Some(display));
@@ -682,13 +688,24 @@ pub(super) fn create(commands: &mut Commands, card: Entity, state: &LobbyState, 
             Field::InviteKey,
             Phrase::InviteKey,
             Some(Phrase::InviteKeyShape.text(lang)),
-            Some(Phrase::InviteKeyHint.text(lang)),
+            help(kit, Phrase::InviteKeyHint.text(lang)),
             None,
         );
-        commands.entity(card).add_child(key);
+        if kit.m.frame == Frame::Phone {
+            // A phone's form ends above the keyboard: the key and the
+            // primary share the last row (§2.7).
+            let go = submit(commands, state, kit, Phrase::CreateAccount.text(lang));
+            let last = pair(commands, kit, key, Some(go));
+            commands.entity(card).add_child(last);
+        } else {
+            commands.entity(card).add_child(key);
+            let go = submit(commands, state, kit, Phrase::CreateAccount.text(lang));
+            commands.entity(card).add_child(go);
+        }
+    } else {
+        let go = submit(commands, state, kit, Phrase::CreateAccount.text(lang));
+        commands.entity(card).add_child(go);
     }
-    let go = submit(commands, state, kit, Phrase::CreateAccount.text(lang));
-    commands.entity(card).add_child(go);
     if let Some(said) = status(commands, state, kit) {
         commands.entity(card).add_child(said);
     }
@@ -709,7 +726,7 @@ pub(super) fn guest(commands: &mut Commands, card: Entity, state: &LobbyState, k
         Field::GuestName,
         Phrase::DisplayName,
         Some(Phrase::GuestDefaultName.text(lang)),
-        Some(Phrase::AccountNameHint.text(lang)),
+        help(kit, Phrase::AccountNameHint.text(lang)),
         None,
     );
     let key = lobby.invite_key_offered().then(|| {
@@ -720,7 +737,7 @@ pub(super) fn guest(commands: &mut Commands, card: Entity, state: &LobbyState, k
             Field::InviteKey,
             Phrase::InviteKey,
             Some(Phrase::InviteKeyShape.text(lang)),
-            Some(Phrase::InviteKeyHint.text(lang)),
+            help(kit, Phrase::InviteKeyHint.text(lang)),
             None,
         )
     });

@@ -84,6 +84,7 @@ pub mod quiet;
 pub mod reconnect;
 pub mod rowscroll;
 pub mod seatbar;
+pub mod settings_map;
 pub mod shellkeys;
 pub mod sky;
 pub mod source_choice;

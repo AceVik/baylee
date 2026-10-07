@@ -191,9 +191,14 @@ fn tap_control(app: &mut App, what: &str, pick: impl Fn(&Press) -> bool) {
     }
 }
 
+/// Every text drawn: each `Text`, and each run of a text set in spans (the
+/// colophon's paragraph), on its own.
 fn labels(app: &mut App) -> Vec<String> {
     let mut query = app.world_mut().query::<&Text>();
-    query.iter(app.world()).map(|t| t.0.clone()).collect()
+    let mut said: Vec<String> = query.iter(app.world()).map(|t| t.0.clone()).collect();
+    let mut spans = app.world_mut().query::<&TextSpan>();
+    said.extend(spans.iter(app.world()).map(|t| t.0.clone()));
+    said
 }
 
 /// Moves the app into a phase and lets that transition's systems run.

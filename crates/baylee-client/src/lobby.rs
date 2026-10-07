@@ -182,6 +182,22 @@ impl Plugin for LobbyPlugin {
                     .before(ui)
                     .run_if(in_state(DuelPhase::Closed)),
             )
+            // The settings screen's controls read back (WP5).
+            .add_systems(
+                Update,
+                (
+                    crate::settingsui::keys::mirror_in_use,
+                    crate::settingsui::keys::sync_search,
+                    crate::settingsui::keys::slider_keys,
+                    crate::settingsui::keys::apply_sliders,
+                    crate::settingsui::keys::follow_nav,
+                    crate::settingsui::keys::watch_trial,
+                    crate::settingsui::keys::copy_out,
+                )
+                    .chain()
+                    .after(crate::shellkit::focus::FocusSystems)
+                    .run_if(in_state(DuelPhase::Closed)),
+            )
             // The shell keymap: the lobby says what is open, and answers
             // the screen moves a shell key asks for (`shortcuts`).
             .add_systems(
@@ -331,8 +347,33 @@ pub struct LobbyState {
     /// Caps Lock looks on: a letter arrived upper case with Shift up (the
     /// platform tells the key, not the lock). Shown under a password.
     pub(crate) caps_lock: bool,
+    /// The settings screen's section, query and asks (WP5).
+    pub(crate) settings_view: SettingsView,
 }
 
+/// The settings screen's own state (WP5): which section is shown, what the
+/// search holds, a shortcut's refused rebind, and asks for systems a press
+/// cannot reach (the display trial, the clipboard).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct SettingsView {
+    /// The section shown.
+    pub(crate) section: baylee_client_core::settings_map::Section,
+    /// What the search field holds.
+    pub(crate) query: String,
+    /// A shortcut's rebind refused: the action, the chord and why.
+    pub(crate) refused: Option<(
+        baylee_client_core::shellkeys::ShellAction,
+        baylee_client_core::shellkeys::ShellChord,
+        baylee_client_core::shellkeys::Refused,
+    )>,
+    /// Keep (`true`) or revert the display mode on trial.
+    pub(crate) display_answer: Option<bool>,
+    /// Text to put on the clipboard.
+    pub(crate) copy: Option<String>,
+    /// The graphics in force, as last seen (a device that never chose
+    /// starts from its GPU's preset when it first moves a knob).
+    pub(crate) in_use: baylee_client_core::graphics::Graphics,
+}
 /// The settings overlay's state.
 ///
 /// Not a `Screen`: the lobby's state machine is about what the *gateway* has
@@ -351,6 +392,8 @@ enum SettingsPane {
     Open,
     /// Showing, with one action's row listening for the next keystroke.
     Rebinding(baylee_client_core::prefs::Action),
+    /// Showing, with one shortcut's row listening (Settings › Controls).
+    RebindingShell(baylee_client_core::shellkeys::ShellAction),
 }
 
 impl SettingsPane {
@@ -363,6 +406,14 @@ impl SettingsPane {
     const fn capturing(self) -> Option<baylee_client_core::prefs::Action> {
         match self {
             Self::Rebinding(action) => Some(action),
+            _ => None,
+        }
+    }
+
+    /// The shortcut waiting for a key, if any.
+    const fn capturing_shell(self) -> Option<baylee_client_core::shellkeys::ShellAction> {
+        match self {
+            Self::RebindingShell(action) => Some(action),
             _ => None,
         }
     }
@@ -390,6 +441,66 @@ impl LobbyState {
     #[must_use]
     pub(crate) fn settings_open(&self) -> bool {
         self.settings.is_open()
+    }
+
+    /// The table action waiting for a key on the settings screen.
+    #[must_use]
+    pub(crate) fn settings_capturing(&self) -> Option<baylee_client_core::prefs::Action> {
+        self.settings.capturing()
+    }
+
+    /// The shortcut waiting for a key on the settings screen.
+    #[must_use]
+    pub(crate) fn shell_capturing(&self) -> Option<baylee_client_core::shellkeys::ShellAction> {
+        self.settings.capturing_shell()
+    }
+
+    /// A shortcut's refused rebind: the action and why.
+    #[must_use]
+    pub(crate) fn shell_refusal(
+        &self,
+    ) -> Option<(
+        baylee_client_core::shellkeys::ShellAction,
+        baylee_client_core::shellkeys::Refused,
+    )> {
+        self.settings_view
+            .refused
+            .as_ref()
+            .map(|(a, _, why)| (*a, *why))
+    }
+
+    /// The settings section shown.
+    #[must_use]
+    pub(crate) fn settings_section(&self) -> baylee_client_core::settings_map::Section {
+        self.settings_view.section
+    }
+
+    /// Shows a settings section.
+    pub(crate) fn set_settings_section(
+        &mut self,
+        section: baylee_client_core::settings_map::Section,
+    ) {
+        self.settings_view.section = section;
+    }
+
+    /// What the settings search holds.
+    #[must_use]
+    pub(crate) fn settings_query(&self) -> &str {
+        &self.settings_view.query
+    }
+
+    /// Sets the settings search.
+    pub(crate) fn set_settings_query(&mut self, query: String) {
+        self.settings_view.query = query;
+    }
+
+    /// The display trial's answer, taken once.
+    pub(crate) fn take_display_answer(&mut self) -> Option<bool> {
+        if self.settings_view.display_answer.is_some() {
+            self.settings_view.display_answer.take()
+        } else {
+            None
+        }
     }
 
     /// A signed-out lobby pointed at the configured gateway.
@@ -493,6 +604,7 @@ impl LobbyState {
             terms_stale: None,
             about_open: false,
             caps_lock: false,
+            settings_view: SettingsView::default(),
         }
     }
 }
@@ -594,6 +706,14 @@ mod header;
 #[cfg(test)]
 pub(crate) use feed::feed_url;
 pub(crate) mod front;
+/// The gateway in words (Settings › Network & Gateway).
+pub(crate) fn gateway_facts(state: &LobbyState, lang: Lang) -> String {
+    state.gateway_facts(lang)
+}
+/// The connection's state as text.
+pub(crate) fn diagnostics(state: &LobbyState) -> String {
+    state.diagnostics()
+}
 mod gateway;
 mod hint;
 mod http;
@@ -606,7 +726,7 @@ mod preview;
 mod print_catalog;
 mod room;
 mod scrolling;
-mod settings_press;
+pub(crate) mod settings_press;
 mod shell;
 mod shortcuts;
 mod source;
@@ -675,6 +795,7 @@ pub(crate) use build_press::BuildPress;
 pub(crate) use end_screen::EndPress;
 pub(crate) use field::{FieldLook, FieldTail, Masked, text_field};
 pub(crate) use front::FrontPress;
+pub(crate) use header::HeaderPress;
 pub(crate) use hub::HubPress;
 pub(crate) use library_ui::LibraryPress;
 pub(crate) use press::{Press, SharedPress};

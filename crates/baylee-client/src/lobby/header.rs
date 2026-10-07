@@ -15,6 +15,7 @@ use crate::shellkit::header::{self as kit_header, HeaderActions, HeaderLook, Rea
 use crate::shellkit::surfaces::{self, MenuItem};
 use crate::shellkit::{Frame as ShellFrame, ShellMetrics, px_fixed, tokens};
 use client_core::lobby::strips::{self, Strip};
+use std::fmt::Write as _;
 
 /// A header popover that is open.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -467,6 +468,60 @@ impl LobbyState {
             Some(Probe::Known(info)) => info.name.clone().filter(|n| !n.trim().is_empty()),
             _ => None,
         }
+    }
+
+    /// The gateway in words, for Settings › Network & Gateway: its name
+    /// (or address), the address, its version with the verdict.
+    pub(crate) fn gateway_facts(&self, lang: Lang) -> String {
+        let words = super::gateway::row_words(&self.gateway, self.probes.get(&self.gateway), lang);
+        let verdict = words.warning.map_or_else(
+            || Phrase::FrontCompatible.text(lang).to_string(),
+            |w| w.explain(lang),
+        );
+        let mut said = words.title.clone();
+        if let Some(address) = &words.address {
+            said.push_str(" \u{b7} ");
+            said.push_str(address);
+        }
+        let _ = write!(
+            said,
+            " \u{b7} {} \u{b7} {verdict} \u{b7} {} {}",
+            words.version_in_full,
+            Phrase::ShellThisClient.text(lang),
+            baylee_build::short()
+        );
+        said
+    }
+
+    /// The connection's state as text, to copy into a report (Settings ›
+    /// Network & Gateway's diagnostics): the gateway, its reach, the feed,
+    /// the session's kind. No token, no account id.
+    pub(crate) fn diagnostics(&self) -> String {
+        let reach = match self.probes.get(&self.gateway) {
+            Some(Probe::Known(info)) => format!("answering, {}", info.version),
+            Some(Probe::Older) => "answering, older than /info".to_string(),
+            Some(Probe::Silent) => "not answering".to_string(),
+            Some(Probe::Asking) | None => "not asked".to_string(),
+        };
+        format!(
+            "gateway {} ({reach}); feed {}; session {}; client {}",
+            if self.gateway.is_empty() {
+                "none"
+            } else {
+                &self.gateway
+            },
+            if self.feed_down { "down" } else { "up" },
+            if self.lobby.offline() {
+                "offline"
+            } else if self.lobby.guest() {
+                "guest"
+            } else if self.lobby.token().is_some() {
+                "account"
+            } else {
+                "none"
+            },
+            baylee_build::short()
+        )
     }
 
     /// Whether the house decks' page stands over the hub.

@@ -2046,6 +2046,20 @@ with its own copy of what it accepted. The repository's
 `docs/terms-placeholder.md` is a placeholder for testing the sheet and is
 not legal text; no deploy reads it.
 
+The client (WP1, `baylee-client-core::terms`, `lobby::front::terms`): a
+sign-in's `terms_stale` is read off the answer before its event; `true`
+raises the sheet and `GET /terms`; `false` with `/info.terms` named keeps
+that version as the device's copy (`ClientSettings.terms`, by gateway
+address). A kept guest, which signs in to nothing, is asked when
+`/info.terms` differs from that copy. The sheet renders the Markdown subset
+(`#`/`##`, paragraphs, `**bold**`, `*italic*`, `-`/`1.` lists, `---`, a
+link as its text and address; anything else is text, no HTML is
+interpreted), enables Accept only once the end of the text has been in
+view, posts the version it showed, and on `409` fetches and shows the new
+text. Not now signs out with nothing stored (a guest is asked first); Esc
+never signs out. A failed `GET /terms` says "Couldn't load the terms ·
+Retry", accepts nothing and keeps the session.
+
 ## Deleting an account (#292)
 
 `DELETE /account` deletes the caller's own account and answers `204`.

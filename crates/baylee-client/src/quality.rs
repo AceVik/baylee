@@ -22,9 +22,8 @@
 //! input at once (`baylee_client_core::graphics::Graphics::pace`).
 
 use baylee_client_core::graphics::{
-    AntiAliasing, BackgroundLimit, Effects, FrameLimit, Graphics, Pace, Preset, Showing, VSync,
+    AntiAliasing, DISPLAY_REVERT_SECS, DisplayMode, Graphics, Pace, Showing, VSync,
 };
-use baylee_client_core::i18n::{Lang, Phrase};
 use bevy::anti_alias::fxaa::Fxaa;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::{MouseButtonInput, MouseWheel};
@@ -78,17 +77,20 @@ impl Plugin for QualityPlugin {
         app.init_resource::<InUse>()
             .init_resource::<Watch>()
             .init_resource::<Resting>()
+            .init_resource::<DisplayTrial>()
+            .add_systems(
+                Update,
+                (try_display_mode, apply_display_mode, show_frame_rate)
+                    .chain()
+                    .after(resolve),
+            )
             .add_systems(
                 PreUpdate,
                 (note_input, note_hidden, note_motion).after(bevy::input::InputSystems),
             )
             .add_systems(
                 Update,
-                (
-                    resolve,
-                    (apply_present_mode, apply_anti_aliasing, show_knobs),
-                )
-                    .chain(),
+                (resolve, (apply_present_mode, apply_anti_aliasing)).chain(),
             )
             .add_systems(Last, pace);
     }
@@ -110,6 +112,164 @@ impl Plugin for QualityPlugin {
             schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
         }
     }
+}
+
+/// A display mode on trial (S4-7): the mode it replaced and the seconds
+/// left before it is put back, unless Keep is pressed. The settings screen
+/// starts it by changing the mode; nothing else does.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct DisplayTrial {
+    /// The mode to go back to, while a trial runs.
+    pub previous: Option<DisplayMode>,
+    /// Seconds left.
+    pub left: f32,
+    /// The mode being tried, as last seen (a change starts a trial).
+    seen: Option<DisplayMode>,
+}
+
+impl DisplayTrial {
+    /// Keep the mode on trial.
+    pub fn keep(&mut self) {
+        self.previous = None;
+    }
+
+    /// The whole seconds left, for the question's countdown.
+    #[must_use]
+    pub fn seconds(&self) -> u32 {
+        // In 0..=15 by construction.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let whole = self.left.max(0.0).ceil() as u32;
+        whole
+    }
+}
+
+/// Starts a trial when the chosen mode changes, and puts the old one back
+/// when the trial runs out unkept.
+fn try_display_mode(
+    time: Res<Time<Real>>,
+    mut trial: ResMut<DisplayTrial>,
+    settings: Option<ResMut<ClientSettings>>,
+) {
+    let Some(mut settings) = settings else {
+        return;
+    };
+    let now = settings
+        .graphics
+        .map_or(DisplayMode::Windowed, |g| g.display_mode);
+    match trial.seen {
+        None => trial.seen = Some(now),
+        Some(was) if was != now => {
+            trial.seen = Some(now);
+            if trial.previous.is_none() {
+                trial.previous = Some(was);
+            }
+            trial.left = DISPLAY_REVERT_SECS;
+        }
+        Some(_) => {}
+    }
+    let Some(previous) = trial.previous else {
+        return;
+    };
+    trial.left -= time.delta_secs();
+    if trial.left <= 0.0 {
+        trial.previous = None;
+        trial.seen = Some(previous);
+        if let Some(graphics) = settings.graphics.as_mut() {
+            graphics.display_mode = previous;
+        }
+        settings.save();
+    }
+}
+
+/// The window mode the setting asks for (desktop builds; a browser and a
+/// phone own their window).
+#[must_use]
+pub fn window_mode(mode: DisplayMode) -> bevy::window::WindowMode {
+    use bevy::window::{MonitorSelection, VideoModeSelection, WindowMode};
+    match mode {
+        DisplayMode::Windowed => WindowMode::Windowed,
+        DisplayMode::Borderless => WindowMode::BorderlessFullscreen(MonitorSelection::Current),
+        DisplayMode::Fullscreen => {
+            WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current)
+        }
+    }
+}
+
+fn apply_display_mode(in_use: Res<InUse>, mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+    if !DESKTOP_WINDOW || !in_use.is_changed() {
+        return;
+    }
+    let want = window_mode(in_use.0.display_mode);
+    for mut window in &mut windows {
+        if window.mode != want {
+            window.mode = want;
+        }
+    }
+}
+
+/// Whether this build owns its window's mode (a desktop's).
+pub const DESKTOP_WINDOW: bool = !cfg!(any(
+    target_arch = "wasm32",
+    target_os = "android",
+    target_os = "ios"
+));
+
+/// The frame-rate counter in the top-left corner (Show frame rate).
+#[derive(Component)]
+pub struct FrameRateCounter;
+
+/// Shows the counter while the setting asks for it: the frame time and the
+/// rate, averaged over about half a second.
+fn show_frame_rate(
+    mut commands: Commands,
+    time: Res<Time<Real>>,
+    in_use: Res<InUse>,
+    fonts: Option<Res<crate::hud::UiFonts>>,
+    mut counters: Query<(Entity, &mut Text), With<FrameRateCounter>>,
+    mut average: Local<(f32, f32)>,
+) {
+    let want = in_use.0.show_frame_rate;
+    if !want {
+        for (entity, _) in &counters {
+            commands.entity(entity).despawn();
+        }
+        return;
+    }
+    let dt = time.delta_secs().max(1e-4);
+    let (mean, since) = &mut *average;
+    *mean = if *mean == 0.0 {
+        dt
+    } else {
+        *mean * 0.9 + dt * 0.1
+    };
+    *since += dt;
+    let said = format!("{:.1} ms \u{b7} {:.0} fps", *mean * 1000.0, 1.0 / *mean);
+    if let Ok((_, mut text)) = counters.single_mut() {
+        if *since >= 0.5 && text.0 != said {
+            *since = 0.0;
+            text.0 = said;
+        }
+        return;
+    }
+    let Some(fonts) = fonts else {
+        return;
+    };
+    commands.spawn((
+        FrameRateCounter,
+        Text::new(said),
+        crate::hud::tf(&fonts, 11.0),
+        TextColor(crate::hud::palette::INK),
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(4.0),
+            top: Val::Px(4.0),
+            padding: UiRect::axes(Val::Px(6.0), Val::Px(2.0)),
+            ..default()
+        },
+        GlobalZIndex(crate::shellkit::tokens::z::VEIL + 5),
+        Pickable::IGNORE,
+    ));
 }
 
 /// Whether ambient surfaces stand still: the player asked for no motion, or
@@ -306,369 +466,9 @@ fn pace(
     }
 }
 
-// ---- the knobs on the settings screen
-
-/// One knob a row cycles through.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Knob {
-    Preset,
-    AntiAliasing,
-    VSync,
-    FrameLimit,
-    Background,
-    Effects,
-    Master(i8),
-    GameSounds(i8),
-    MuteInBackground,
-}
-
-/// The text that shows a knob's value.
-#[derive(Component, Clone, Copy)]
-struct Readout(Knob);
-
-fn next<T: Copy + PartialEq>(all: &[T], now: T) -> T {
-    let at = all.iter().position(|v| *v == now).unwrap_or(0);
-    all[(at + 1) % all.len()]
-}
-
-/// What pressing `knob` does to `settings`.
-pub(crate) fn turn(knob: Knob, settings: &mut ClientSettings, in_use: Graphics) {
-    let mut graphics = settings.graphics.unwrap_or(in_use);
-    match knob {
-        Knob::Preset => {
-            let preset = match graphics.preset {
-                Preset::Custom => Preset::Low,
-                now => next(&Preset::NAMED, now),
-            };
-            graphics = Graphics::of(preset);
-        }
-        Knob::AntiAliasing => {
-            graphics.adjust(|g| g.anti_aliasing = next(&AntiAliasing::ALL, g.anti_aliasing));
-        }
-        Knob::VSync => graphics.adjust(|g| g.vsync = next(&VSync::ALL, g.vsync)),
-        Knob::FrameLimit => {
-            graphics.adjust(|g| g.frame_limit = next(&FrameLimit::ALL, g.frame_limit));
-        }
-        Knob::Background => {
-            graphics.adjust(|g| {
-                g.background_limit = next(&BackgroundLimit::ALL, g.background_limit);
-            });
-        }
-        Knob::Effects => graphics.adjust(|g| g.effects = next(&Effects::ALL, g.effects)),
-        Knob::Master(step) => {
-            let volume = settings.audio.master() + f32::from(step) * 0.1;
-            settings.audio.set_master(volume);
-            return;
-        }
-        Knob::GameSounds(step) => {
-            let volume = settings.audio.effects() + f32::from(step) * 0.1;
-            settings.audio.set_effects(volume);
-            return;
-        }
-        Knob::MuteInBackground => {
-            settings.audio.mute_in_background = !settings.audio.mute_in_background;
-            return;
-        }
-    }
-    settings.graphics = Some(graphics);
-}
-
-fn quality_name(preset: Preset) -> Phrase {
-    match preset {
-        Preset::Low => Phrase::QualityLow,
-        Preset::Medium => Phrase::QualityMedium,
-        Preset::High => Phrase::QualityHigh,
-        Preset::Ultra => Phrase::QualityUltra,
-        Preset::Custom => Phrase::QualityCustom,
-    }
-}
-
-/// What a knob's readout says.
-pub(crate) fn reading(
-    knob: Knob,
-    settings: &ClientSettings,
-    in_use: Graphics,
-    lang: Lang,
-) -> String {
-    let g = settings.graphics.unwrap_or(in_use);
-    let percent = |v: f32| format!("{:.0} %", v * 100.0);
-    match knob {
-        Knob::Preset => quality_name(g.preset).text(lang).to_string(),
-        Knob::AntiAliasing => match g.anti_aliasing {
-            AntiAliasing::Off => Phrase::SwitchOff.text(lang).to_string(),
-            AntiAliasing::Fxaa => "FXAA".to_string(),
-            AntiAliasing::Msaa2 => "MSAA 2×".to_string(),
-            AntiAliasing::Msaa4 => "MSAA 4×".to_string(),
-        },
-        Knob::VSync => match g.vsync {
-            VSync::On => Phrase::SwitchOn,
-            VSync::Adaptive => Phrase::VSyncAdaptive,
-            VSync::Off => Phrase::SwitchOff,
-        }
-        .text(lang)
-        .to_string(),
-        Knob::FrameLimit => g.frame_limit.fps().map_or_else(
-            || Phrase::Unlimited.text(lang).to_string(),
-            |fps| format!("{fps} fps"),
-        ),
-        Knob::Background => format!("{} fps", g.background_limit.fps()),
-        Knob::Effects => match g.effects {
-            Effects::Low => Phrase::QualityLow,
-            Effects::Medium => Phrase::QualityMedium,
-            Effects::High => Phrase::QualityHigh,
-        }
-        .text(lang)
-        .to_string(),
-        Knob::Master(_) => percent(settings.audio.master()),
-        Knob::GameSounds(_) => percent(settings.audio.effects()),
-        Knob::MuteInBackground => if settings.audio.mute_in_background {
-            Phrase::SwitchOn
-        } else {
-            Phrase::SwitchOff
-        }
-        .text(lang)
-        .to_string(),
-    }
-}
-
-/// A heading and its rows, each row a label and the knobs it turns: one
-/// knob is a button showing its value, two are a − and a + around it.
-type Section = (Phrase, &'static [(Phrase, &'static [Knob])]);
-
-/// The graphics and sound knobs, for the settings screen: a label and a
-/// button per knob, the button cycling the value it shows. Kept to rows of
-/// the existing widgets on purpose — the screen's own redesign binds to
-/// [`Knob`], [`turn`] and [`reading`], not to this layout.
-pub(crate) fn controls(
-    commands: &mut Commands,
-    fonts: &crate::hud::UiFonts,
-    metrics: crate::lobby::Metrics,
-    lang: Lang,
-) -> Entity {
-    use crate::hud::{palette, tf};
-    use bevy::ui::{percent, px};
-    let root = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                max_width: px(420),
-                flex_shrink: 0.0,
-                flex_direction: FlexDirection::Column,
-                row_gap: px(6),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let sections: [Section; 2] = [
-        (
-            Phrase::Graphics,
-            &[
-                (Phrase::GraphicsPreset, &[Knob::Preset]),
-                (Phrase::FrameLimit, &[Knob::FrameLimit]),
-                (Phrase::BackgroundFrames, &[Knob::Background]),
-                (Phrase::AmbientEffects, &[Knob::Effects]),
-                (Phrase::AntiAliasing, &[Knob::AntiAliasing]),
-                (Phrase::VSync, &[Knob::VSync]),
-            ],
-        ),
-        (
-            Phrase::Audio,
-            &[
-                (Phrase::MasterVolume, &[Knob::Master(-1), Knob::Master(1)]),
-                (
-                    Phrase::EffectsVolume,
-                    &[Knob::GameSounds(-1), Knob::GameSounds(1)],
-                ),
-                (Phrase::MuteInBackground, &[Knob::MuteInBackground]),
-            ],
-        ),
-    ];
-    for (title, rows) in sections {
-        let head = commands
-            .spawn((
-                Text::new(title.text(lang)),
-                tf(fonts, metrics.text),
-                TextColor(palette::MUTED),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(root).add_child(head);
-        for (label, knobs) in rows {
-            let line = knob_row(commands, fonts, metrics, label.text(lang), knobs);
-            commands.entity(root).add_child(line);
-        }
-    }
-    root
-}
-
-/// One row: its label, and the button (or − value +) that turns its knob.
-fn knob_row(
-    commands: &mut Commands,
-    fonts: &crate::hud::UiFonts,
-    metrics: crate::lobby::Metrics,
-    label: &str,
-    knobs: &[Knob],
-) -> Entity {
-    use crate::hud::{palette, tf};
-    use bevy::ui::px;
-    let line = commands
-        .spawn((
-            Node {
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceBetween,
-                column_gap: px(6),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let name = commands
-        .spawn((
-            Text::new(label.to_string()),
-            tf(fonts, metrics.text),
-            TextColor(palette::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(line).add_child(name);
-    let readout = |commands: &mut Commands, knob: Knob| {
-        commands
-            .spawn((
-                Text::new(""),
-                tf(fonts, metrics.text),
-                TextColor(palette::INK),
-                Readout(knob),
-                Pickable::IGNORE,
-            ))
-            .id()
-    };
-    match *knobs {
-        [down, up] => {
-            let minus = knob_button(commands, fonts, metrics, "−", down);
-            let value = readout(commands, down);
-            let plus = knob_button(commands, fonts, metrics, "+", up);
-            let group = commands
-                .spawn((
-                    Node {
-                        align_items: AlignItems::Center,
-                        column_gap: px(6),
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(group).add_children(&[minus, value, plus]);
-            commands.entity(line).add_child(group);
-        }
-        [knob] => {
-            let button = knob_button(commands, fonts, metrics, "", knob);
-            let value = readout(commands, knob);
-            commands.entity(button).add_child(value);
-            commands.entity(line).add_child(button);
-        }
-        _ => {}
-    }
-    line
-}
-
-fn knob_button(
-    commands: &mut Commands,
-    fonts: &crate::hud::UiFonts,
-    metrics: crate::lobby::Metrics,
-    label: &str,
-    knob: Knob,
-) -> Entity {
-    let id = crate::lobby::button(
-        commands,
-        fonts,
-        metrics,
-        label,
-        crate::lobby::Press::Shared(crate::lobby::SharedPress::PickerNothing),
-        crate::hud::palette::PANEL,
-        true,
-    );
-    commands
-        .entity(id)
-        .entry::<Node>()
-        .and_modify(move |mut node| node.min_width = bevy::ui::px(metrics.tap));
-    commands
-        .entity(id)
-        .remove::<crate::lobby::Press>()
-        .insert((Button, knob))
-        .observe(
-            |mut click: On<Pointer<Click>>,
-             knobs: Query<&Knob>,
-             in_use: Res<InUse>,
-             mut settings: ResMut<ClientSettings>| {
-                let Ok(knob) = knobs.get(click.entity) else {
-                    return;
-                };
-                click.propagate(false);
-                turn(*knob, &mut settings, in_use.0);
-                settings.save();
-            },
-        );
-    id
-}
-
-fn show_knobs(
-    settings: Option<Res<ClientSettings>>,
-    in_use: Res<InUse>,
-    mut readouts: Query<(&mut Text, &Readout)>,
-    added: Query<(), Added<Readout>>,
-) {
-    let Some(settings) = settings else {
-        return;
-    };
-    if !settings.is_changed() && !in_use.is_changed() && added.is_empty() {
-        return;
-    }
-    let lang = Lang::of(&settings.lang);
-    for (mut text, readout) in &mut readouts {
-        let value = reading(readout.0, &settings, in_use.0, lang);
-        if **text != value {
-            **text = value;
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Turning the preset knob walks the named presets and wraps; turning
-    /// any other knob makes the device's choice `Custom` and is shown.
-    #[test]
-    fn the_knobs_turn_the_settings_and_read_back() {
-        let mut settings = ClientSettings::default();
-        let medium = Graphics::of(Preset::Medium);
-        turn(Knob::Preset, &mut settings, medium);
-        assert_eq!(settings.graphics.map(|g| g.preset), Some(Preset::High));
-        for _ in 0..3 {
-            turn(Knob::Preset, &mut settings, medium);
-        }
-        assert_eq!(settings.graphics.map(|g| g.preset), Some(Preset::Medium));
-        turn(Knob::FrameLimit, &mut settings, medium);
-        let now = settings.graphics.expect("chosen");
-        assert_eq!(now.frame_limit, FrameLimit::Fps120);
-        assert_eq!(now.preset, Preset::Custom);
-        assert_eq!(reading(Knob::Preset, &settings, medium, Lang::En), "Custom");
-        assert_eq!(
-            reading(Knob::FrameLimit, &settings, medium, Lang::De),
-            "120 fps"
-        );
-        // From Custom the preset knob starts over at Low.
-        turn(Knob::Preset, &mut settings, medium);
-        assert_eq!(settings.graphics.map(|g| g.preset), Some(Preset::Low));
-        turn(Knob::Master(-1), &mut settings, medium);
-        assert_eq!(
-            reading(Knob::Master(-1), &settings, medium, Lang::En),
-            "90 %"
-        );
-        turn(Knob::MuteInBackground, &mut settings, medium);
-        assert!(settings.audio.mute_in_background);
-    }
 
     /// A focused cap holds against the pointer; a background or idle pace
     /// wakes on it; no limit is continuous on a desktop.
