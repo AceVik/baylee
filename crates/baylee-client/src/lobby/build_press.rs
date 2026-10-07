@@ -139,7 +139,6 @@ pub(crate) enum BuildPress {
     CancelCommanderPick,
     AddPartner(usize),
     RemoveCommander(usize),
-    CompleteSearch(usize),
     /// Take the commander mark off, leaving the card in the deck.
     ClearCommander,
     /// Put it away again.
@@ -238,12 +237,6 @@ impl BuildPress {
                 dispatch(state, mailbox, request);
             }
             BuildPress::FocusBuild(field) => {
-                if state.completion_hidden {
-                    state.completion_hidden = false;
-                }
-                if state.completion.is_some() {
-                    state.completion = None;
-                }
                 let deck = state.lobby.builder_mut();
                 // A tap in the search box shuts the builder and takes the
                 // caret, which is the way back out of it — the same rule the
@@ -255,7 +248,13 @@ impl BuildPress {
                 crate::buildui::move_nav(state, crate::buildui::Nav::Field);
             }
             BuildPress::Rename => {
+                // The name selected whole, as an OS rename has it: typing
+                // replaces it, an arrow keeps it.
                 state.lobby.builder_mut().focus_on(BuildField::Name);
+                state
+                    .lobby
+                    .builder_mut()
+                    .edit_buffer(BuildField::Name, crate::buildui::select_all);
                 crate::buildui::move_nav(state, crate::buildui::Nav::Field);
             }
             BuildPress::PickRowPrint(at) => {
@@ -389,10 +388,6 @@ impl BuildPress {
                 }
             }
             BuildPress::RemoveCommander(slot) => state.lobby.builder_mut().remove_commander(slot),
-            BuildPress::CompleteSearch(slot) => {
-                crate::buildui::autocomplete::choose(state, slot);
-                scrolled.set(List::Pool, 0.0);
-            }
             BuildPress::ClearCommander => state.lobby.builder_mut().clear_commander(),
             BuildPress::ToggleColor(color) => state.lobby.builder_mut().toggle_color(color),
             BuildPress::SetKind(kind) => {

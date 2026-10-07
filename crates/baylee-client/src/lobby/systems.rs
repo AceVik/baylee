@@ -331,8 +331,6 @@ pub(super) fn softkeys(
                         .builder_mut()
                         .edit_buffer(field, |buf| buf.set(&value, cursor, anchor));
                     if changed && field == BuildField::Search {
-                        state.completion = None;
-                        state.completion_hidden = false;
                         scrolled.set(List::Pool, 0.0);
                     }
                 }

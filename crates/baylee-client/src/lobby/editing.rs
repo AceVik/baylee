@@ -95,44 +95,6 @@ pub(super) fn builder_keys(
         }
     }
     let typing = state.build.nav == Nav::Field;
-    let suggestions = crate::buildui::autocomplete::suggestions(state);
-    if typing && !picking && !suggestions.is_empty() {
-        if codes.just_pressed(KeyCode::ArrowDown) || codes.just_pressed(KeyCode::ArrowUp) {
-            let n = suggestions.len();
-            state.completion = Some(match state.completion {
-                None => {
-                    if codes.just_pressed(KeyCode::ArrowUp) {
-                        n - 1
-                    } else {
-                        0
-                    }
-                }
-                Some(at) => {
-                    if codes.just_pressed(KeyCode::ArrowUp) {
-                        (at + n - 1) % n
-                    } else {
-                        (at + 1) % n
-                    }
-                }
-            });
-            keys.clear();
-            return;
-        }
-        if codes.just_pressed(KeyCode::Enter)
-            && let Some(slot) = state.completion.and_then(|at| suggestions.get(at)).copied()
-        {
-            crate::buildui::autocomplete::choose(state, slot);
-            scrolled.set(List::Pool, 0.0);
-            keys.clear();
-            return;
-        }
-        if codes.just_pressed(KeyCode::Escape) {
-            state.completion_hidden = true;
-            state.completion = None;
-            keys.clear();
-            return;
-        }
-    }
     let field = state.lobby.builder().focus();
     let epoch = state.lobby.builder().focus_epoch();
     let pasted = paste
@@ -175,8 +137,12 @@ pub(super) fn builder_keys(
             }
             continue;
         }
-        if key.logical_key == Key::F2 {
+        if key.key_code == KeyCode::F2 {
             state.lobby.builder_mut().focus_on(BuildField::Name);
+            state
+                .lobby
+                .builder_mut()
+                .edit_buffer(BuildField::Name, crate::buildui::select_all);
             crate::buildui::move_nav(state, Nav::Field);
             continue;
         }
@@ -251,18 +217,25 @@ fn shifted(codes: &ButtonInput<KeyCode>) -> bool {
 
 /// The next cursor of a list of `n` for a walking key, or `None` when the
 /// key is not one.
-fn walk(key: &Key, at: usize, n: usize) -> Option<usize> {
+/// Read by the physical key: Home, End and the page keys carry no
+/// character, and a harness (or a layout) may send them unnamed.
+fn walk(key: &KeyboardInput, at: usize, n: usize) -> Option<usize> {
     const PAGE: usize = 8;
     let last = n.saturating_sub(1);
-    Some(match key {
-        Key::ArrowDown => (at + 1).min(last),
-        Key::ArrowUp => at.saturating_sub(1),
-        Key::Home => 0,
-        Key::End => last,
-        Key::PageDown => (at + PAGE).min(last),
-        Key::PageUp => at.saturating_sub(PAGE),
+    Some(match key.key_code {
+        KeyCode::ArrowDown => (at + 1).min(last),
+        KeyCode::ArrowUp => at.saturating_sub(1),
+        KeyCode::Home => 0,
+        KeyCode::End => last,
+        KeyCode::PageDown => (at + PAGE).min(last),
+        KeyCode::PageUp => at.saturating_sub(PAGE),
         _ => return None,
     })
+}
+
+/// The row's menu: the context-menu key, or Shift+F10.
+fn menu_key(key: &KeyboardInput, codes: &ButtonInput<KeyCode>) -> bool {
+    key.key_code == KeyCode::ContextMenu || (key.key_code == KeyCode::F10 && shifted(codes))
 }
 
 /// A key on a pool row.
@@ -290,12 +263,12 @@ fn pool_key(
     let at = at.min(shown.len() - 1);
     let slot = shown[at];
     // ↑ on the first row goes back up to the search (KEYBOARD §7.7).
-    if key.logical_key == Key::ArrowUp && at == 0 {
+    if key.key_code == KeyCode::ArrowUp && at == 0 {
         state.lobby.builder_mut().focus_on(BuildField::Search);
         crate::buildui::move_nav(state, Nav::Field);
         return;
     }
-    if let Some(to) = walk(&key.logical_key, at, shown.len()) {
+    if let Some(to) = walk(key, at, shown.len()) {
         crate::buildui::move_nav(state, Nav::Pool(to));
         return;
     }
@@ -310,8 +283,7 @@ fn pool_key(
             added(state, zone);
         }
         Key::Space => state.lobby.builder_mut().inspect(slot),
-        Key::ContextMenu => state.build.menu = Some(crate::buildui::BuildMenu::Pool(slot)),
-        Key::F10 if shifted(codes) => {
+        _ if menu_key(key, codes) => {
             state.build.menu = Some(crate::buildui::BuildMenu::Pool(slot));
         }
         Key::Character(ch) if ch == "+" => {
@@ -338,7 +310,7 @@ fn deck_key(
         return;
     }
     let cursor = at.min(order.len() - 1);
-    if let Some(to) = walk(&key.logical_key, cursor, order.len()) {
+    if let Some(to) = walk(key, cursor, order.len()) {
         crate::buildui::move_nav(state, Nav::Deck(to));
         return;
     }
@@ -363,8 +335,7 @@ fn deck_key(
                 state.lobby.builder_mut().inspect(slot);
             }
         }
-        Key::ContextMenu => state.build.menu = Some(crate::buildui::BuildMenu::Deck(row)),
-        Key::F10 if shifted(codes) => {
+        _ if menu_key(key, codes) => {
             state.build.menu = Some(crate::buildui::BuildMenu::Deck(row));
         }
         _ => {}
@@ -435,7 +406,7 @@ fn type_key(
     let field = state.lobby.builder().focus();
     let epoch = state.lobby.builder().focus_epoch();
     // ↓ in the search, with no suggestion open, steps down into the list.
-    if field == BuildField::Search && key.logical_key == Key::ArrowDown {
+    if field == BuildField::Search && key.key_code == KeyCode::ArrowDown {
         if !state.lobby.builder().results().is_empty() {
             crate::buildui::move_nav(state, Nav::Pool(0));
         }
@@ -543,12 +514,6 @@ fn type_key(
         });
     if before != state.lobby.builder().focused_text() && field == BuildField::Search {
         scrolled.set(List::Pool, 0.0);
-        if state.completion.is_some() {
-            state.completion = None;
-        }
-        if state.completion_hidden {
-            state.completion_hidden = false;
-        }
     }
 }
 

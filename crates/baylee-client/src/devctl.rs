@@ -953,6 +953,13 @@ fn logical_key(name: &str) -> Key {
         "ArrowDown" => Key::ArrowDown,
         "ArrowLeft" => Key::ArrowLeft,
         "ArrowRight" => Key::ArrowRight,
+        "Home" => Key::Home,
+        "End" => Key::End,
+        "PageUp" => Key::PageUp,
+        "PageDown" => Key::PageDown,
+        "F2" => Key::F2,
+        "F10" => Key::F10,
+        "ContextMenu" => Key::ContextMenu,
         // The canonical spellings, which `harness_alias` lets a caller write
         // either way round. `Digit2` pressed the physical key and reported no
         // logical one at all, so the ability sheet — which reads its digits
@@ -1259,6 +1266,11 @@ struct Believed<'w, 's> {
     rebuilds: Option<Res<'w, crate::lobby::UiRebuilds>>,
     /// The report form, for its own redraw count beside the lobby's.
     report: Option<Res<'w, crate::report::ReportDesk>>,
+    /// The builder's virtual lists: rows found visible before they were
+    /// mounted, and rows mounted (§17 WP4: "0 placeholders").
+    lists: Option<Res<'w, crate::buildui::virtual_rows::ListProbe>>,
+    /// The lobby, for the builder's keyboard place.
+    lobby: Option<Res<'w, crate::lobby::LobbyState>>,
     /// The report form's buttons, where a pointer would press them.
     desk_controls: Query<
         'w,
@@ -1622,10 +1634,25 @@ fn rebuilds_json(believed: &Believed) -> String {
     believed.rebuilds.as_deref().map_or_else(
         || "null".to_string(),
         |r| {
+            let lists = believed.lists.as_deref().copied().unwrap_or_default();
+            let nav = believed
+                .lobby
+                .as_deref()
+                .map_or_else(String::new, |s| format!("{:?}", s.build.nav));
             format!(
-                "{{\"total\":{},\"patches\":{},\"state\":{},\"prefs\":{},\"cast\":{},\"frame\":{},\
-                 \"report\":{report}}}",
-                r.total, r.patches, r.state, r.prefs, r.cast, r.frame
+                "{{\"total\":{},\"patches\":{},\"sections\":{},\"state\":{},\"prefs\":{},\
+                 \"cast\":{},\"frame\":{},\"report\":{report},\"placeholders\":{},\
+                 \"mounted\":{},\"nav\":{}}}",
+                r.total,
+                r.patches,
+                r.sections,
+                r.state,
+                r.prefs,
+                r.cast,
+                r.frame,
+                lists.placeholders,
+                lists.mounted,
+                quoted(&nav)
             )
         },
     )

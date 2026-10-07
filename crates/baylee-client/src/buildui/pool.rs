@@ -172,7 +172,6 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
         },
         stop("search"),
     ));
-    super::autocomplete::draw(commands, env.state, kit.fonts, env.lobby_metrics(), search);
     let mut first = vec![search];
     if compact(env) {
         first.push(filters_button(commands, env));

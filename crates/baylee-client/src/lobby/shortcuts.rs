@@ -40,7 +40,6 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
         || state.lobby.library().page.is_some()
         || (screen == Context::Builder && builder_modal(state));
     let menu = state.front_menu
-        || state.completion.is_some()
         || state.header_menu.is_some()
         || (screen == Context::Builder
             && (state.build.menu.is_some() || state.build.syntax || state.build.rail));

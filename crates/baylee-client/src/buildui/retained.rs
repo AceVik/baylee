@@ -111,9 +111,6 @@ struct HeaderKey {
 struct ToolbarKey {
     text: TextBuffer,
     typing: bool,
-    completion: Option<usize>,
-    completion_hidden: bool,
-    suggestions: Vec<usize>,
     panel: Option<FilterPanel>,
     colors: Vec<char>,
     kind: Option<String>,
@@ -488,9 +485,6 @@ fn toolbar_key(env: &Env) -> ToolbarKey {
     ToolbarKey {
         text: deck.buffer(BuildField::Search).clone(),
         typing: super::pool::search_has_caret(env),
-        completion: state.completion,
-        completion_hidden: state.completion_hidden,
-        suggestions: super::autocomplete::suggestions(state),
         panel: deck.panel().cloned(),
         colors: deck.colors().to_vec(),
         kind: deck.kind().map(str::to_owned),

@@ -898,30 +898,6 @@ fn virtual_rows_unmount_offscreen_controls_and_restore_them_on_return() {
 }
 
 #[test]
-fn autocomplete_selects_a_name_without_adding_a_card() {
-    let mut app = headless();
-    stocked(&mut app);
-    sized(&mut app, 1400.0);
-    {
-        let mut state = app.world_mut().resource_mut::<LobbyState>();
-        state.lobby.build_deck();
-        state.lobby.builder_mut().focus_on(BuildField::Search);
-        let name = state.lobby.builder().card(0).unwrap().name.clone();
-        state.lobby.builder_mut().set_text(&name[..1]);
-    }
-    app.update();
-    let slot = crate::buildui::autocomplete::suggestions(app.world().resource::<LobbyState>())[0];
-    press(&mut app, Press::Build(BuildPress::CompleteSearch(slot)));
-    let state = app.world().resource::<LobbyState>();
-    assert_eq!(
-        state.lobby.builder().text(),
-        state.lobby.builder().card(slot).unwrap().name
-    );
-    assert!(state.lobby.builder().entries(Zone::Main).is_empty());
-    assert!(crate::buildui::autocomplete::suggestions(state).is_empty());
-}
-
-#[test]
 fn thumbnails_open_printing_and_empty_deck_is_inside_the_menu() {
     let mut app = headless();
     stocked(&mut app);
@@ -1089,48 +1065,6 @@ fn offline_play_builds_from_its_own_pool_after_a_sign_out() {
             "{round}: signed out, no pool is held"
         );
     }
-}
-
-#[test]
-fn artwork_modal_hides_and_then_restores_existing_search_suggestions() {
-    let mut app = headless();
-    stocked(&mut app);
-    sized(&mut app, 1400.0);
-    {
-        let mut state = app.world_mut().resource_mut::<LobbyState>();
-        state.lobby.build_deck();
-        state.lobby.builder_mut().focus_on(BuildField::Search);
-        let name = state.lobby.builder().card(0).unwrap().name.clone();
-        state.lobby.builder_mut().set_text(&name[..1]);
-    }
-    app.update();
-    assert!(
-        presses(&mut app)
-            .iter()
-            .any(|p| matches!(p, Press::Build(BuildPress::CompleteSearch(_))))
-    );
-    app.world_mut()
-        .resource_mut::<LobbyState>()
-        .lobby
-        .builder_mut()
-        .open_picker(0, Zone::Main);
-    app.update();
-    assert!(
-        !presses(&mut app)
-            .iter()
-            .any(|p| matches!(p, Press::Build(BuildPress::CompleteSearch(_))))
-    );
-    app.world_mut()
-        .resource_mut::<LobbyState>()
-        .lobby
-        .builder_mut()
-        .close_picker();
-    app.update();
-    assert!(
-        presses(&mut app)
-            .iter()
-            .any(|p| matches!(p, Press::Build(BuildPress::CompleteSearch(_))))
-    );
 }
 
 /// The builder runs the text face's scrollbar (#259). The duel's copy of the

@@ -41,7 +41,6 @@ use baylee_client_core::images::FinishTreatment;
 use baylee_core::preset::Finish;
 use bevy::prelude::*;
 
-pub(crate) mod autocomplete;
 pub(crate) mod print_picker;
 pub(crate) mod transfer;
 pub(crate) mod virtual_rows;
@@ -49,7 +48,7 @@ pub(crate) mod virtual_rows;
 mod deck;
 pub(crate) mod draft;
 pub(crate) mod focus;
-mod header;
+pub(crate) mod header;
 pub(crate) mod pool;
 mod retained;
 mod rows;
@@ -280,6 +279,11 @@ pub(crate) fn move_nav(state: &mut ResMut<LobbyState>, nav: Nav) {
     }
 }
 
+/// Selects a box's whole text (a rename starts with the old name selected).
+pub(crate) fn select_all(buffer: &mut baylee_client_core::textbuf::TextBuffer) {
+    buffer.select_all();
+}
+
 /// The builder's shape for the window it is drawn in (§2.7).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Layout {
@@ -475,8 +479,9 @@ pub(crate) fn holder(commands: &mut Commands, parent: Entity, node: Node) -> Ent
     id
 }
 
-/// A holder for an overlay: it takes no room and catches nothing; what is
-/// drawn into it positions itself.
+/// A holder for an overlay: over the whole window, taking no room in the
+/// column and catching nothing itself; what is drawn into it positions
+/// itself (a sheet's scrim fills it, a menu stands where it is placed).
 fn overlay_holder(commands: &mut Commands, parent: Entity) -> Entity {
     holder(
         commands,
@@ -485,6 +490,8 @@ fn overlay_holder(commands: &mut Commands, parent: Entity) -> Entity {
             position_type: PositionType::Absolute,
             left: px_fixed(0.0),
             top: px_fixed(0.0),
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
             ..default()
         },
     )
@@ -608,9 +615,26 @@ pub(crate) fn icon_button(
     controls::hit(commands, kit, face, action)
 }
 
-/// The least of buttons: words only.
+/// The least of buttons: words only, at the caption's size in the accent,
+/// in a hit area a finger can take ("— none · choose", "Collapse all",
+/// "Clear", "Retry").
 pub(crate) fn link(commands: &mut Commands, kit: Kit, text: &str, action: impl Bundle) -> Entity {
-    controls::button(commands, kit, text, Weight::Ghost, Live::Yes, None, action)
+    let face = commands
+        .spawn((
+            Node {
+                min_height: px_fixed(kit.m.scaled(28.0)),
+                padding: UiRect::axes(kit.m.px(4.0), px_fixed(0.0)),
+                align_items: AlignItems::Center,
+                border: UiRect::bottom(px_fixed(1.0)),
+                ..default()
+            },
+            BorderColor::all(tokens::ACCENT.with_alpha(0.5)),
+            BackgroundColor(Color::NONE),
+        ))
+        .id();
+    let words = controls::label(commands, kit, text, kit.m.small, tokens::ACCENT);
+    commands.entity(face).add_child(words);
+    controls::hit(commands, kit, face, action)
 }
 
 /// A flexible gap that pushes what follows to the far end.

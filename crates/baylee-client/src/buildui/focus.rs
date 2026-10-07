@@ -98,9 +98,11 @@ pub(crate) fn follow(
     if now != seen.focus {
         let stop = now.and_then(|e| stops.get(e).ok().map(|(_, s)| *s));
         match stop {
-            // Tab or a press moved it onto a builder stop: the keyboard model
-            // follows.
-            Some(stop) if stop.table == BUILDER => {
+            // Tab moved it onto a builder stop: the keyboard model follows. A
+            // pointer's press (the ring hidden) leaves that to the press's own
+            // handler: a redraw between press and release would take the
+            // control away from under the click.
+            Some(stop) if stop.table == BUILDER && visible.0 => {
                 let renaming = state.build.nav == Nav::Field && field == BuildField::Name;
                 let nav = nav_of(stop.id, state.build.nav, renaming);
                 if stop.id == "search" && field != BuildField::Search {

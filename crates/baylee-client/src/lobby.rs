@@ -277,8 +277,6 @@ pub struct LobbyState {
     /// The deck builder's own view state: its tabs, panes, menus, the
     /// keyboard's place and the save state (`crate::buildui::BuildUi`).
     pub(crate) build: crate::buildui::BuildUi,
-    pub(crate) completion: Option<usize>,
-    pub(crate) completion_hidden: bool,
     /// What the import and export dialogs asked of the clipboard and the
     /// file system this frame, for `buildui::transfer::act` to carry out.
     pub(crate) transfer_asks: Vec<crate::buildui::transfer::Ask>,
@@ -443,8 +441,6 @@ impl LobbyState {
             confirm_leave: false,
             confirmation: None,
             build: crate::buildui::BuildUi::default(),
-            completion: None,
-            completion_hidden: false,
             transfer_asks: Vec::new(),
             commander_pick: None,
             hub: Hub::Play,

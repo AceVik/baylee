@@ -95,22 +95,8 @@ pub(super) fn clicks(
             continue;
         }
         let Some(&press) = in_lineage(click.entity, &presses, &parents) else {
-            if !crate::buildui::autocomplete::suggestions(&state).is_empty() {
-                state.completion_hidden = true;
-                state.completion = None;
-            }
             continue;
         };
-        if !matches!(
-            press,
-            Press::Build(
-                BuildPress::CompleteSearch(_) | BuildPress::FocusBuild(BuildField::Search)
-            )
-        ) && !crate::buildui::autocomplete::suggestions(&state).is_empty()
-        {
-            state.completion_hidden = true;
-            state.completion = None;
-        }
         if state.confirmation.is_some()
             && !matches!(
                 press,

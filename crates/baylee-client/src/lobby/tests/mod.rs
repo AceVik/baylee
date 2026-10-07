@@ -11,6 +11,7 @@
 //! nothing at all.
 
 mod builder;
+mod builder_wp4;
 mod end_screen;
 mod entrance;
 mod feed;
