@@ -1256,6 +1256,8 @@ messages! {
     ActArrangementMenu { en: "Choose the arrangement", de: "Anordnung wählen" },
     /// Cycle to the next offered arrangement
     ActNextArrangement { en: "Next arrangement", de: "Nächste Anordnung" },
+    /// Open or shut the hand's drawer on a phone (DESIGN-v8 WA11)
+    ActHandDrawer { en: "Open or shut the hand (phone)", de: "Hand auf- oder zuklappen (Telefon)" },
     /// The ring (DESIGN-v8 arrangement 1)
     ArrRing { en: "Ring", de: "Ring" },
     /// What the ring does

@@ -1041,6 +1041,40 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   draws its across card on that window where even that is smaller (32 px at
   1180 × 816, 24 at 960 × 696). My own board and the ring's v7 numbers are
   recorded, not held (`print_the_arrangements`).
+- **The hand as a drawer on a phone** (WA11, the owner's of 07.10.2026;
+  `client-core::handdrawer`, `hud/hand_drawer.rs`): on a phone held
+  sideways the hand zone took 202 of 386 px. Shut (the default once the
+  table is open; open while it is prepared under its cover, or the
+  entrance waits on cards it never draws — measured: the table stood in
+  `Opening` for good), the hand zone, the actions bar and every panel of
+  the HUD's standing on the zone's top (`hand_drawer::rides`, read off the
+  node: the players' and the pool's strips, the tray's row, the burger's
+  menu, the answers' drawer, the log) stand the cards' height lower — the
+  bar at the bottom edge, reachable — and the table's canvas reaches down
+  to the bar (`Canvas::with_drawer` against `Duel::hand_drawn_open`,
+  through `track_canvas` and `frame_table`, so the table re-frames by
+  itself). A tab at the bar's top right says the hand's count and, in the
+  playable gold, how many of its cards are castable; a
+  tap on it, a swipe up or down on it (a third of its height), or `I`
+  (`Action::HandDrawer`, out of `Keymap::legacy()`) opens and shuts it. It
+  opens by itself for a question **answered from the hand** — the opening
+  hand (keep, mulligan, the cards to bottom), a discard, a choice of cards
+  any of which is in the hand — and goes back to what the player had once
+  the question is answered; a tap while one holds it open asks it shut for
+  afterwards. **Not** for a priority with something castable (decided): that
+  is nearly every priority of one's own main phase, and a drawer that opened
+  on each would never be shut — the tab's count says it instead
+  (`the_drawer_opens_for_the_hand_s_questions_and_remembers_the_player_s_choice`).
+  The slide is the client's own path: a fraction eased over `SLIDE_SECS`
+  (0.28 s) written to the nodes' `UiTransform` only while it moves; reduced
+  motion is the cut; off a phone nothing is written
+  (`the_hand_slides_down_on_a_phone_and_up_on_its_key`). Hidden information
+  is untouched: the drawer moves the hand's nodes, never what they show.
+  Measured at 844 × 390 (creature card, projected, home/visited, drawer
+  shut against open): a duel 16/21 against 9/19, the ring at four seats
+  21/21 against 18/19, the Spotlight's across 15 against 9, the arc rail's
+  visit 39 against 22 — the visited board's 40 px is not reached by the
+  ring's visit (21), only by the rail's (39) nearly; recorded, not held.
 - **`/state.arrangement`**: `current`, `chosen`, `game`, `default`,
   `by_seats`, `offered`, `reason`, `follow`, `interest`, `moves_cards`,
   `seats`, `frame`, `moving` (cards gliding or the camera orbiting),

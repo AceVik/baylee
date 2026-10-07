@@ -618,3 +618,117 @@ fn a_peek_shows_its_parked_board_as_chips() {
         chip.object
     );
 }
+
+/// The hand's drawer on a phone (DESIGN-v8 WA11): shut by default, the
+/// actions bar and the hand zone stand the cards' height lower and the
+/// table's canvas reaches down to the bar; `I` opens it in 0.25–0.3 s, back
+/// to where they stood; reduced motion is the cut; a desktop window has no
+/// drawer and nothing is written; and while the table is still being
+/// prepared under its cover the drawer stands open (the entrance shows the
+/// screen as it is first played). Red before the drawer: the zone stood
+/// where it stands open, always.
+#[test]
+fn the_hand_slides_down_on_a_phone_and_up_on_its_key() {
+    use crate::hud::hand_drawer::{drop_at, slide_the_hand};
+    use crate::hud::{HAND_ZONE_H, LEDGE_H, LedgeShelf};
+    let run_in = |phase: DuelPhase, width: f32, height: f32, still: bool| {
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<crate::prefs::Prefs>()
+            .insert_resource(State::new(phase))
+            .insert_resource(seated_duel(Arrangement::Ring))
+            .add_systems(Update, slide_the_hand);
+        app.world_mut()
+            .resource_mut::<crate::prefs::Prefs>()
+            .edit()
+            .reduce_motion = still;
+        app.world_mut().spawn(Window {
+            resolution: bevy::window::WindowResolution::new(width as u32, height as u32),
+            ..default()
+        });
+        // The actions bar as the HUD stands it, and a dialog pinned top and
+        // bottom beside it, which does not ride.
+        let hud = app.world_mut().spawn(crate::hud::HudRoot).id();
+        let shelf = app
+            .world_mut()
+            .spawn((
+                LedgeShelf,
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: px(HAND_ZONE_H - LEDGE_H),
+                    ..default()
+                },
+                UiTransform::default(),
+                ChildOf(hud),
+            ))
+            .id();
+        let dialog = app
+            .world_mut()
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: px(60.0),
+                    bottom: px(HAND_ZONE_H),
+                    ..default()
+                },
+                UiTransform::default(),
+                ChildOf(hud),
+            ))
+            .id();
+        let step = std::time::Duration::from_secs_f32(1.0 / 60.0);
+        let dropped = |app: &App| match app
+            .world()
+            .get::<UiTransform>(shelf)
+            .map(|t| t.translation.y)
+        {
+            Some(Val::Px(y)) => y,
+            _ => 0.0,
+        };
+        for _ in 0..30 {
+            app.world_mut().resource_mut::<Time>().advance_by(step);
+            app.update();
+        }
+        let shut = dropped(&app);
+        assert_eq!(
+            app.world()
+                .get::<UiTransform>(dialog)
+                .map(|t| t.translation.y),
+            Some(Val::Px(0.0)),
+            "a dialog pinned top and bottom stays"
+        );
+        app.world_mut().resource_mut::<Duel>().toggle_hand_drawer();
+        let mut frames = 0;
+        loop {
+            app.world_mut().resource_mut::<Time>().advance_by(step);
+            app.update();
+            frames += 1;
+            if dropped(&app).abs() < 1e-3 || frames > 60 {
+                break;
+            }
+        }
+        (shut, frames)
+    };
+    let run = |width, height, still| run_in(DuelPhase::Playing, width, height, still);
+    let (shut, frames) = run(844.0, 390.0, false);
+    assert!(
+        (shut - (HAND_ZONE_H - LEDGE_H)).abs() < 1e-3,
+        "shut: the cards' height lower"
+    );
+    assert!((15..=19).contains(&frames), "opened in {frames} frames");
+    assert!((drop_at(1.0)).abs() < 1e-6);
+    let (_, frames) = run(844.0, 390.0, true);
+    assert_eq!(frames, 1, "reduced motion: the cut");
+    let (desk, _) = run(1708.0, 1028.0, false);
+    assert!(desk.abs() < 1e-6, "no drawer off a phone");
+    let (opening, _) = run_in(DuelPhase::Opening, 844.0, 390.0, false);
+    assert!(
+        opening.abs() < 1e-6,
+        "open while the table is being prepared"
+    );
+
+    let phone = crate::table::Canvas::hud(Vec2::new(844.0, 390.0));
+    assert!((phone.with_drawer(false).bottom - LEDGE_H).abs() < 1e-6);
+    assert!((phone.with_drawer(true).bottom - HAND_ZONE_H).abs() < 1e-6);
+    let desk = crate::table::Canvas::hud(Vec2::new(1708.0, 1028.0));
+    assert!((desk.with_drawer(false).bottom - HAND_ZONE_H).abs() < 1e-6);
+}

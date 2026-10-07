@@ -805,6 +805,19 @@ impl Canvas {
         }
     }
 
+    /// With the hand's drawer shut on a phone (DESIGN-v8 WA11): only the
+    /// actions bar covers the bottom, and the table takes the cards' height.
+    #[must_use]
+    pub fn with_drawer(self, open: bool) -> Self {
+        if open || self.class() != Frame::Phone {
+            return self;
+        }
+        Self {
+            bottom: crate::hud::LEDGE_H,
+            ..self
+        }
+    }
+
     /// With a column of `width` on each side.
     #[must_use]
     pub fn with_peeks(self, width: f32) -> Self {
@@ -860,8 +873,9 @@ pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
     let Ok(window) = windows.single() else {
         return;
     };
-    let aspect =
-        Canvas::for_table(Vec2::new(window.width(), window.height()), duel.arrangement).aspect();
+    let aspect = Canvas::for_table(Vec2::new(window.width(), window.height()), duel.arrangement)
+        .with_drawer(duel.hand_drawn_open)
+        .aspect();
     // A resize is a rebuild of the whole layout, so the comparison has to be
     // loose enough that a window nudged by a pixel does not do one per frame.
     if duel
@@ -918,7 +932,8 @@ pub fn frame_table(
     let Ok(window) = windows.single() else {
         return;
     };
-    let canvas = Canvas::for_table(Vec2::new(window.width(), window.height()), duel.arrangement);
+    let canvas = Canvas::for_table(Vec2::new(window.width(), window.height()), duel.arrangement)
+        .with_drawer(duel.hand_drawn_open);
     // The device's lean and visit camera, and the arrangement in effect at
     // this table — not the device's default, which this game's switch, the
     // per-count memory and the offer may all have overruled.

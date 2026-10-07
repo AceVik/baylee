@@ -513,6 +513,16 @@ pub struct Duel {
     /// differs from it is seated again ([`arrangement::lay_the_interest`]),
     /// whoever moved the interest.
     pub interest_laid: Option<PlayerId>,
+    /// The hand's drawer on a phone (DESIGN-v8 WA11,
+    /// `client-core::handdrawer`): what the player last did with it.
+    pub hand_drawer: baylee_client_core::handdrawer::HandDrawer,
+    /// How far open the drawer is drawn, 0 to 1 (`hud::hand_drawer`).
+    pub hand_shown: f32,
+    /// Whether the drawer stands open as drawn — the player's choice and
+    /// the question's, and open while the table is still being prepared —
+    /// which is what the table's canvas is framed against
+    /// (`Canvas::with_drawer`). Written by `hud::hand_drawer::slide_the_hand`.
+    pub hand_drawn_open: bool,
     /// The card the pointer or keyboard cursor is on.
     pub hovered: Option<ObjectId>,
     /// The *place* the pointer is on, for a pile that is drawn through no
@@ -2809,6 +2819,45 @@ pub fn proposals(
             .chain(i.selected().map(|id| (id, Proposal::Picked)))
     });
     spent.chain(answer).collect()
+}
+
+impl Duel {
+    /// Whether the hand's drawer stands open: the player's choice, or a
+    /// question answered from the hand (`client-core::handdrawer`). Off a
+    /// phone the drawer is not drawn, and this is read only there.
+    #[must_use]
+    pub fn hand_drawer_open(&self) -> bool {
+        self.hand_drawer.open(
+            self.view.as_ref(),
+            self.interaction.as_ref().map(Interaction::pending),
+        )
+    }
+
+    /// The tab tapped, or `I`: open becomes shut and shut open.
+    pub fn toggle_hand_drawer(&mut self) {
+        let view = self.view.as_ref();
+        let pending = self.interaction.as_ref().map(Interaction::pending);
+        self.hand_drawer.toggle(view, pending);
+    }
+
+    /// How many cards in my hand are castable now (the tab says so: a
+    /// priority with something castable does not open the drawer by
+    /// itself).
+    #[must_use]
+    pub fn castable_in_hand(&self) -> usize {
+        let (Some(view), Some(legal)) = (
+            self.view.as_ref(),
+            self.interaction
+                .as_ref()
+                .and_then(Interaction::legal_actions),
+        ) else {
+            return 0;
+        };
+        view.hand
+            .iter()
+            .filter(|card| legal.castable.contains(&card.id) || legal.lands.contains(&card.id))
+            .count()
+    }
 }
 
 /// A tear under way ([`Duel::tear`]).

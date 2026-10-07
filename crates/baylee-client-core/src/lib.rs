@@ -67,6 +67,7 @@ pub mod firewheel;
 pub mod gamelog;
 pub mod granted;
 pub mod graphics;
+pub mod handdrawer;
 pub mod i18n;
 pub mod images;
 pub mod interaction;

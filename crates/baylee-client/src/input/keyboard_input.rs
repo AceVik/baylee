@@ -197,6 +197,9 @@ pub(super) fn look_around(
     if fired.has(Action::FocusHome) {
         navigate_home(duel);
     }
+    if fired.has(Action::HandDrawer) {
+        duel.toggle_hand_drawer();
+    }
     // The rail: move the highlight here, toggle it with the primary key.
     if fired.has(Action::RailUp) {
         prefs.rail_cursor().move_selection(-1);

@@ -1069,7 +1069,9 @@ pub fn plugin(app: &mut App) {
     app.init_resource::<ArrangementFrame>()
         .init_resource::<crate::table::GlideReport>()
         .init_resource::<SwitcherRevision>()
-        .init_resource::<crate::hud::peeks::PeeksRevision>();
+        .init_resource::<crate::hud::peeks::PeeksRevision>()
+        .init_resource::<crate::hud::hand_drawer::HandTabRevision>()
+        .init_resource::<crate::hud::hand_drawer::TabPress>();
     app.add_systems(
         Update,
         (
@@ -1094,6 +1096,8 @@ pub fn plugin(app: &mut App) {
             sync_switcher,
             flash_the_pill.after(sync_switcher),
             crate::hud::peeks::sync_peeks,
+            crate::hud::hand_drawer::sync_hand_tab,
+            crate::hud::hand_drawer::slide_the_hand.after(crate::hud::hand_drawer::sync_hand_tab),
         )
             .in_set(crate::DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),

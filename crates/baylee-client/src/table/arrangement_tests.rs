@@ -72,7 +72,8 @@ pub(super) struct Seen {
 pub(super) fn seen(arrangement: Arrangement, n: u8, window: Vec2) -> Vec<(PlayerId, Seen)> {
     let frame = TableFrame::of(window.x, window.y);
     let arrangement = arrangement.effective(usize::from(n), frame);
-    let canvas = Canvas::for_table(window, arrangement);
+    // A phone's hand drawer shut, as it stands by default (WA11).
+    let canvas = Canvas::for_table(window, arrangement).with_drawer(false);
     let seats = roster(n);
     let shot = Shot {
         arrangement,

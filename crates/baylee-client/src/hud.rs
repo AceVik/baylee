@@ -2172,6 +2172,7 @@ mod finish;
 mod hand;
 mod ledge;
 pub(crate) use ledge::ai_log::update_ai_log;
+pub(crate) mod hand_drawer;
 mod motion;
 mod overlay;
 pub(crate) mod peeks;

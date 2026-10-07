@@ -111,13 +111,15 @@ pub enum Action {
     ArrangementMenu,
     /// Switch to the next offered arrangement.
     NextArrangement,
+    /// Open or shut the hand's drawer on a phone (DESIGN-v8 WA11).
+    HandDrawer,
     /// Open the report form (#309), from the lobby or the table.
     Report,
 }
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 35] = [
+    pub const ALL: [Self; 36] = [
         Self::Primary,
         Self::Confirm,
         Self::ConfirmTargetBatch,
@@ -134,6 +136,7 @@ impl Action {
         Self::FocusHome,
         Self::ArrangementMenu,
         Self::NextArrangement,
+        Self::HandDrawer,
         Self::CombatFocusNext,
         Self::CombatFocusPrev,
         Self::CombatNone,
@@ -197,6 +200,7 @@ impl Action {
             Self::FocusHome => Phrase::ActFocusHome,
             Self::ArrangementMenu => Phrase::ActArrangementMenu,
             Self::NextArrangement => Phrase::ActNextArrangement,
+            Self::HandDrawer => Phrase::ActHandDrawer,
             Self::Report => Phrase::ReportButton,
         }
     }
@@ -224,7 +228,8 @@ impl Action {
             | Self::FocusPrevSeat
             | Self::FocusHome
             | Self::ArrangementMenu
-            | Self::NextArrangement => Phrase::GroupMovingAround,
+            | Self::NextArrangement
+            | Self::HandDrawer => Phrase::GroupMovingAround,
             Self::CombatFocusNext | Self::CombatFocusPrev | Self::CombatNone => Phrase::GroupCombat,
             Self::NextPhase
             | Self::NextTurn
@@ -492,6 +497,7 @@ impl Keymap {
         bind(Action::FocusHome, vec![Chord::key("KeyH")]);
         bind(Action::ArrangementMenu, vec![Chord::key("KeyP")]);
         bind(Action::NextArrangement, vec![Chord::shift("KeyP")]);
+        bind(Action::HandDrawer, vec![Chord::key("KeyI")]);
         bind(Action::Report, vec![Chord::key("F8")]);
         Self { bindings }
     }
@@ -525,6 +531,7 @@ impl Keymap {
         map.bindings.remove(&Action::FocusPrevSeat);
         map.bindings.remove(&Action::ArrangementMenu);
         map.bindings.remove(&Action::NextArrangement);
+        map.bindings.remove(&Action::HandDrawer);
         map
     }
 
