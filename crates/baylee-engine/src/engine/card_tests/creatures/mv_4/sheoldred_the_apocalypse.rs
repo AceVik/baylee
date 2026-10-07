@@ -309,3 +309,75 @@ fn delighted_halflings_mana_pays_only_for_the_legend_and_makes_it_uncounterable(
         "the Counterspell itself resolved, and did nothing"
     );
 }
+
+/// Sheoldred at a table of four, each seat's draw step watched on its own.
+///
+/// "Whenever an opponent draws a card, they lose 2 life": *they*, the one
+/// who drew. Heads-up that and "each opponent" are one seat, so the drain
+/// was written against every two-player test green. Here seat 2's draw must
+/// cost seat 2 and leave seats 1 and 3 alone; and "whenever you draw a card,
+/// you gain 2 life" fires for the controller's own draw and for nobody
+/// else's.
+#[test]
+fn sheoldred_drains_only_the_opponent_who_drew_and_gains_for_its_own_draw() {
+    let seat = PlayerId::new;
+    let lives = |e: &Engine<RegistryLookup>| -> Vec<i32> {
+        e.state().players.iter().map(|p| p.life).collect()
+    };
+    let mut engine = Duel::table(SEED, island(), 4)
+        .battlefield(0, &[sheoldred_the_apocalypse()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // The first turn is the controller's, and it draws: +2 for it alone.
+    let initial = lives(&engine);
+    reach_main_phase(&mut engine, seat(0));
+    let start = lives(&engine);
+    assert_eq!(
+        start,
+        [initial[0] + 2, initial[1], initial[2], initial[3]],
+        "the controller drew on turn one: it gains 2 and nobody else moves"
+    );
+
+    reach_their_main_phase(&mut engine, seat(1));
+    pass_until(&mut engine, stack_is_empty);
+    let after_one = lives(&engine);
+    assert_eq!(
+        after_one,
+        [start[0], start[1] - 2, start[2], start[3]],
+        "seat 1 drew: seat 1 loses 2, the controller gains nothing, nobody else moves"
+    );
+
+    // The draw that is not the first opponent's in seat order.
+    reach_their_main_phase(&mut engine, seat(2));
+    pass_until(&mut engine, stack_is_empty);
+    let after_two = lives(&engine);
+    assert_eq!(
+        after_two,
+        [after_one[0], after_one[1], after_one[2] - 2, after_one[3]],
+        "seat 2 drew: seat 2 loses 2, seat 1 nothing more, seat 3 nothing"
+    );
+
+    reach_their_main_phase(&mut engine, seat(3));
+    pass_until(&mut engine, stack_is_empty);
+    let after_three = lives(&engine);
+    assert_eq!(
+        after_three,
+        [after_two[0], after_two[1], after_two[2], after_two[3] - 2],
+        "seat 3 drew: seat 3 loses 2 and seat 2 nothing more"
+    );
+
+    // The controller's own draw: it gains 2 and nobody loses anything.
+    reach_their_main_phase(&mut engine, seat(0));
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        lives(&engine),
+        [
+            after_three[0] + 2,
+            after_three[1],
+            after_three[2],
+            after_three[3]
+        ],
+        "the controller drew: it gains 2 and no opponent loses life"
+    );
+}
