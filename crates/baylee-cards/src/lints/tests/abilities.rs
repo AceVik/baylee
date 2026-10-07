@@ -51,6 +51,7 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::ControllerOfTarget
                     | PlayerRel::ControllerOfEvent
                     | PlayerRel::DamagedPlayer
+                    | PlayerRel::EventPlayer
                     | PlayerRel::OwnerOfSource
                     | PlayerRel::ControllerOfAttached => false,
                 };

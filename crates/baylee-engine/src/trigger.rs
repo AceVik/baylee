@@ -65,6 +65,11 @@ pub struct PendingTrigger {
     /// The player a damage event dealt damage to, and how much: "that
     /// player" and "that much" of a combat-damage trigger (Questing Beast).
     pub event_damage: Option<(PlayerId, u32)>,
+    /// The player the triggering event was about ([`event_player_of`]):
+    /// "that player" and "they" of a trigger on a player's event
+    /// (`PlayerRel::EventPlayer`). For a damage event it is the player in
+    /// `event_damage`.
+    pub event_player: Option<PlayerId>,
     /// What an untargeted synthetic trigger puts first among its targets,
     /// which is what its `Filter::This` and its "target" words then name
     /// (`resolve::this_object`).
@@ -305,6 +310,7 @@ fn collect_emblems(
                                     .as_ref()
                                     .map(|d| (d.controller, d.toughness)),
                                 event_damage,
+                                event_player: event_player_of(&entry.event),
                                 source: emblem,
                                 ability_index: index as u32,
                                 abilities: Some(obj.ability_list(lookup)),
@@ -414,6 +420,7 @@ fn graveyard_triggers(
                                 .map(|d| (d.controller, d.toughness)),
                             event_mana: produced_mana(&entry.event, events),
                             event_damage: event_damage_of(firing.trigger, &entry.event, events),
+                            event_player: event_player_of(&entry.event),
                             implicit_target: None,
                             synthetic_effects: None,
                             synthetic_target: None,
@@ -489,6 +496,7 @@ pub fn state_triggers(
                 event_mana_value: None,
                 event_departure: None,
                 event_damage: None,
+                event_player: None,
                 source: permanent,
                 ability_index: index,
                 abilities: Some(list.clone()),
@@ -540,6 +548,7 @@ fn replicate_triggers(
             event_object_identity: None,
             counter_source_version: None,
             event_damage: None,
+            event_player: None,
             event_mana: None,
             event_mana_value: None,
             event_departure: None,
@@ -668,6 +677,7 @@ fn watch_triggers(
             event_object_identity,
             counter_source_version: None,
             event_damage: None,
+            event_player: None,
             event_mana: None,
             event_mana_value: None,
             event_departure: None,
@@ -836,6 +846,7 @@ fn monarch_triggers(
         event_mana_value: None,
         event_departure: None,
         event_damage: None,
+        event_player: None,
         source: ObjectId::NO_SOURCE,
         ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
         abilities: None,
@@ -982,6 +993,33 @@ fn event_damage_of(
     }
 }
 
+/// The player a triggering event is about: "that player" or "they" of the
+/// ability it triggers (`PlayerRel::EventPlayer`, CR 603.2).
+///
+/// The one who drew, cast the spell (CR 112.2: the player who put it on the
+/// stack), played the land, cycled or discarded the card, whose life
+/// changed, whose pool the mana went to, or who was dealt the damage. An
+/// event that is no player's, or one about an object (whose controller is
+/// `PlayerRel::ControllerOfEvent`), has none. Read here, as the trigger is
+/// collected, because by the time the ability resolves the event is gone:
+/// a draw leaves no object behind to ask.
+fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
+    match event {
+        GameEvent::CardsDrawn { player, .. }
+        | GameEvent::SpellCast { player, .. }
+        | GameEvent::LandPlayed { player, .. }
+        | GameEvent::Cycled { player, .. }
+        | GameEvent::Discarded { player, .. }
+        | GameEvent::LifeChanged { player, .. }
+        | GameEvent::ManaProduced { player, .. }
+        | GameEvent::DamageDealt {
+            target: crate::event::DamageTarget::Player(player),
+            ..
+        } => Some(*player),
+        _ => None,
+    }
+}
+
 /// The object a trigger's event is about, as the triggered ability reads it
 /// ([`TargetSpec::EventObject`](baylee_cards_dsl::TargetSpec)).
 ///
@@ -1112,6 +1150,7 @@ fn cast_this_spell_triggers(
                 synthetic_target: None,
                 chosen_mode: None,
                 event_damage: None,
+                event_player: None,
             });
         }
     }
@@ -1168,7 +1207,7 @@ fn hits_with_context(
                 ..
             } if match rel {
                 PlayerRel::You => *player == you,
-                PlayerRel::Opponent => state.is_opponent(*player, you),
+                PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*player, you),
                 _ => true,
             } =>
             {
@@ -1440,6 +1479,7 @@ fn collect_for_objects(
                             event_mana_value: None,
                             event_departure: None,
                             event_damage: None,
+                            event_player: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: source.controller,
@@ -1547,6 +1587,7 @@ fn collect_for_objects(
                                 event_mana_value: None,
                                 event_departure: None,
                                 event_damage: None,
+                                event_player: None,
                                 source: permanent,
                                 ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                                 controller: source.controller,
@@ -1618,6 +1659,7 @@ fn collect_for_objects(
                                 .as_ref()
                                 .map(|d| (d.controller, d.toughness)),
                             event_damage: None,
+                            event_player: event_player_of(&entry.event),
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: source.controller,
@@ -1669,6 +1711,7 @@ fn collect_for_objects(
                             event_mana_value: None,
                             event_departure: None,
                             event_damage: None,
+                            event_player: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: source.controller,
@@ -1774,6 +1817,7 @@ fn collect_for_objects(
                                 .as_ref()
                                 .map(|d| (d.controller, d.toughness)),
                             event_damage,
+                            event_player: event_player_of(&entry.event),
                             source: permanent,
                             ability_index: index as u32,
                             abilities: Some(list.clone()),
@@ -2124,7 +2168,7 @@ fn matches(
         (Trigger::Draws(rel), GameEvent::CardsDrawn { player, .. })
         | (Trigger::PlaysLand(rel), GameEvent::LandPlayed { player, .. }) => match rel {
             PlayerRel::You => *player == you,
-            PlayerRel::Opponent => state.is_opponent(*player, you),
+            PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*player, you),
             _ => true,
         },
         (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
@@ -2166,7 +2210,7 @@ fn matches(
         (Trigger::FirstNoncreatureSpellCast(rel), GameEvent::SpellCast { object, player }) => {
             let player_matches = match rel {
                 PlayerRel::You => *player == you,
-                PlayerRel::Opponent => state.is_opponent(*player, you),
+                PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*player, you),
                 _ => true,
             };
             if !player_matches {
@@ -2234,12 +2278,11 @@ impl PendingTrigger {
                     self.event_mana_value.unwrap_or(0),
                 )
             }
-            // "That player": the one the event dealt damage to. With no such
-            // event it stays unbound and offers nothing.
-            baylee_cards_dsl::TargetSpec::ObjectOfEventPlayer(filter) => match self.event_damage {
-                Some((player, _)) => {
-                    baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player)
-                }
+            // "That player": the one the event was about, for Questing Beast
+            // the one it dealt damage to. With no such event it stays
+            // unbound and offers nothing.
+            baylee_cards_dsl::TargetSpec::ObjectOfEventPlayer(filter) => match self.event_player {
+                Some(player) => baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player),
                 None => spec,
             },
             other => other,

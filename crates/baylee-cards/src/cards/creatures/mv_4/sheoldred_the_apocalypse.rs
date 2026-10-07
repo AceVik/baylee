@@ -27,11 +27,12 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         triggered!(Trigger::Draws(PlayerRel::You), &[Effect::gain_life(2)]),
+        // "They": the opponent who drew, not each opponent.
         triggered!(
             Trigger::Draws(PlayerRel::Opponent),
             &[Effect::LoseLife {
                 amount: Amount::Fixed(2),
-                target: PlayerRel::Opponent,
+                target: PlayerRel::EventPlayer,
             }]
         ),
     ],

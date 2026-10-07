@@ -665,8 +665,10 @@ pub(super) fn players_of(
             .into_iter()
             .collect(),
         // Off the triggered ability, where stacking it wrote the player the
-        // event dealt damage to, as `Amount::EventAmount` reads the amount.
-        PlayerRel::DamagedPlayer => state
+        // event was about — who drew, who cast, the one it dealt damage to
+        // — as `Amount::EventAmount` reads the amount. One seat, never each
+        // opponent: an ability with no such event names nobody.
+        PlayerRel::EventPlayer | PlayerRel::DamagedPlayer => state
             .object(res.on_stack)
             .and_then(|o| {
                 o.riders.iter().find_map(|r| match r {

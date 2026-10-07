@@ -304,6 +304,7 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
         | PlayerRel::ControllerOfEvent
         | PlayerRel::Chosen
         | PlayerRel::DamagedPlayer
+        | PlayerRel::EventPlayer
         | PlayerRel::OwnerOfSource
         | PlayerRel::ControllerOfAttached => {
             return None;

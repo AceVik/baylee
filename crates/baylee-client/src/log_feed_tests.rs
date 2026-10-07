@@ -227,6 +227,42 @@ fn ai_said() -> HostMessage {
     })
 }
 
+/// Another seat's reveal reaches the table through the same loop the log
+/// does, as it happens and only then: the frame that tells it on a live
+/// socket stands it up, and the whole log told again from line 0, a
+/// reconnect's, stands none up again, not even the one the socket missed.
+#[test]
+fn another_seat_s_reveal_reaches_the_table_as_it_happens_and_never_again() {
+    use baylee_client_core::test_support::revealed_line;
+
+    let mut table = Table::new();
+    table.hear(vec![frame(1, Some(tail(0, 2)))]);
+    assert!(table.duel().reveals.current().is_none());
+    table.hear(vec![frame(
+        2,
+        Some(LogTail {
+            from: 2,
+            entries: vec![revealed_line(1, 40, 7)],
+        }),
+    )]);
+    assert_eq!(
+        table.duel().reveals.current().map(|r| r.player),
+        Some(PlayerId::new(1)),
+        "seat 1's reveal did not reach the table"
+    );
+    table.duel().reveals.dismiss();
+
+    let mut again = tail(0, 2);
+    again.entries.push(revealed_line(1, 40, 7));
+    again.entries.push(revealed_line(1, 41, 8));
+    table.hear(vec![frame(5, Some(again))]);
+    assert!(
+        table.duel().reveals.current().is_none(),
+        "a reconnect's telling stood a reveal up again"
+    );
+    assert_eq!(table.duel().log.len(), 4, "the missed line is in the log");
+}
+
 /// The AI log rides the same loop (`docs/protocol.md` §"An AI seat's
 /// reasoning"): in a debug build what an AI seat's mind said is queued for
 /// its panel, and its door stands from then on.

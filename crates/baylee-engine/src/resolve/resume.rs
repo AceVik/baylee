@@ -428,6 +428,16 @@ pub(super) fn resume_inner(
             }
         }
         AwaitingOp::BottomFromHand { player } => {
+            // "That player reveals the chosen card" (Vendilion Clique): the
+            // chooser has seen the hand, the rest of the table has not, and
+            // a reveal shows it to every player (CR 701.20a) while it is
+            // still in the hand (701.20b), before it goes under the library.
+            if !chosen.is_empty() {
+                state.journal.record(GameEvent::Revealed {
+                    player,
+                    cards: chosen.to_vec(),
+                });
+            }
             for &card in chosen {
                 let _ = state.move_object(
                     card,
@@ -439,6 +449,19 @@ pub(super) fn resume_inner(
         }
         AwaitingOp::WishToHand => {
             if let Some(&card) = chosen.first() {
+                // "You may reveal a card you own from outside the game": shown
+                // to every player (CR 701.20a) on its way into the hand. A
+                // face-up card chosen from exile is public already and is
+                // chosen, not revealed.
+                if state
+                    .object(card)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::OutsideGame)
+                {
+                    state.journal.record(GameEvent::Revealed {
+                        player: res.controller,
+                        cards: vec![card],
+                    });
+                }
                 let _ = state.move_object(
                     card,
                     ZoneLocation::Hand(res.controller),

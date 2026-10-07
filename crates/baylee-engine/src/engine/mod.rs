@@ -1763,6 +1763,10 @@ mod timing_window_tests;
 #[cfg(test)]
 mod end_step_tests;
 #[cfg(test)]
+mod enter_zone_tests;
+#[cfg(test)]
+mod event_player_tests;
+#[cfg(test)]
 mod granted_this_tests;
 #[cfg(test)]
 mod house_rules_tests;
@@ -1820,6 +1824,8 @@ mod refusal_tests;
 mod regenerate_tests;
 #[cfg(test)]
 mod resolution_tests;
+#[cfg(test)]
+mod reveal_tests;
 #[cfg(test)]
 mod reversal_tests;
 #[cfg(test)]

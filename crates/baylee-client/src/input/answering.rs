@@ -164,8 +164,9 @@ pub(super) fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut cra
         step_number(duel, step);
     }
 
-    // Cancel: an open preview first, then the game menu, then the zone
-    // browser, then a selected phase button, then a half-built answer.
+    // Cancel: an open preview first, then cards another seat revealed, then
+    // the game menu, then the zone browser, then a selected phase button,
+    // then a half-built answer.
     //
     // The browser sits where it does because Esc walks the screen from the
     // top down and the sheet is a *standing* panel: the preview is over it
@@ -183,6 +184,12 @@ pub(super) fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut cra
         if duel.hovered.is_some() {
             duel.hovered = None;
             duel.hovered_at = None;
+        } else if duel.reveals.current().is_some() {
+            // Under the preview, which goes with the pointer anyway, and over
+            // every standing panel: it is the newest thing on the screen and
+            // the only one that arrived without the player asking for it.
+            // One press puts one reveal away; the next waiting one stands up.
+            duel.reveals.dismiss();
         } else if duel.game_menu {
             // Above the browser and below the preview, because `Esc` walks
             // the screen from the top down and this panel stands over the

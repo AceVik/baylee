@@ -134,6 +134,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - `hud::tray` is the zone dialog, `ledge::tray` its button; the `hud::zones` rename (409 occurrences) is unrequested; name map in `ledge::tray`'s module doc. `Browser::close` minimises; G, Escape, head button, tray ask `may_be_put_away`.
 - `sync_tray` sets `TrayReveal::closing`; `reveal_tray` (`.after(sync_tray)`) flies the sheet home and despawns. Gate `drawn && !closing`; tear down `TrayVeil`, not every `TableVeil`.
 - Head: `TrayMinimise`, `TrayMaximise`; the corner only drags. Maximise lerps `Placement` (`glide_the_sheet`), never `UiTransform`; new head controls join `tray_drag`'s exclusions.
+- Another seat's reveal: `client-core::reveals` hears it off the log (`Reveals::take` in `poll_host`; live tails only, never a telling from line 0; `Known` cards only; never the seat's own) and `hud::revealed` holds it up on parchment at `Z_LOG`, drawn like a log link (`LogLink::art`); `Esc` (first standing rung), a press, or its time puts it away; never on this seat's answer (§"Another seat's reveal is held up").
 - Padded parchment: `hud::sheet_surface()`, not `sheet()`. `Text` in controls: `Pickable::IGNORE`. Answer buttons: `flex_grow: 1`, `flex_basis: 0`.
 
 ## Text, input, language

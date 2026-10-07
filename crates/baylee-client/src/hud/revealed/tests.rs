@@ -1,0 +1,202 @@
+//! The sheet that holds up another seat's reveal: it stands for the reveal
+//! and with every card in it, says whose it is, stands under a dialog that
+//! answers a question, and goes when the reveal does — put away or timed out.
+
+use super::*;
+use baylee_client_core::reveals::SHOW_SECS;
+use baylee_client_core::test_support::{hear_live, revealed_line, statics};
+use std::time::Duration;
+
+fn fonts() -> UiFonts {
+    UiFonts {
+        text: default(),
+        medium: default(),
+        bold: default(),
+        italic: default(),
+        medium_italic: default(),
+        serif: default(),
+        serif_italic: default(),
+        icons: default(),
+        mana: default(),
+    }
+}
+
+/// The overlay's root, the clock and the sheet's two systems, over a duel
+/// with a print table.
+fn table() -> App {
+    bevy::tasks::IoTaskPool::get_or_init(Default::default);
+    let mut app = App::new();
+    app.add_plugins(bevy::asset::AssetPlugin::default())
+        .init_asset::<Image>();
+    let textures = {
+        let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+        CardTextures::new(&mut images, 1 << 20)
+    };
+    let duel = Duel {
+        statics: Some(statics(16)),
+        ..Default::default()
+    };
+    app.insert_resource(textures)
+        .insert_resource(duel)
+        .insert_resource(fonts())
+        .init_resource::<crate::settings::ClientSettings>()
+        .init_resource::<RevealRevision>()
+        .init_resource::<Time>()
+        .add_systems(Update, (tick, sync).chain());
+    app.world_mut().spawn((HudRoot, Node::default()));
+    app
+}
+
+fn reveal(app: &mut App, lines: Vec<baylee_view::LogEntry>) {
+    let mut duel = app.world_mut().resource_mut::<Duel>();
+    let duel = &mut *duel;
+    hear_live(&mut duel.log, &mut duel.reveals, lines);
+}
+
+fn sheets(app: &mut App) -> Vec<Entity> {
+    let mut q = app
+        .world_mut()
+        .query_filtered::<Entity, With<RevealSheet>>();
+    q.iter(app.world()).collect()
+}
+
+fn cards(app: &mut App) -> usize {
+    let mut q = app.world_mut().query_filtered::<(), With<RevealCard>>();
+    q.iter(app.world()).count()
+}
+
+fn words(app: &mut App) -> Vec<String> {
+    let mut q = app.world_mut().query::<&Text>();
+    q.iter(app.world()).map(|t| t.0.clone()).collect()
+}
+
+#[test]
+fn the_sheet_stands_for_another_seat_s_reveal_with_every_card_and_its_name() {
+    let mut app = table();
+    app.update();
+    assert!(sheets(&mut app).is_empty(), "no reveal, no sheet");
+
+    let mut line = revealed_line(1, 40, 7);
+    if let baylee_view::LogEvent::Revealed { cards, .. } = &mut line.event {
+        cards.extend(revealed_line(1, 41, 8).event.objects().cloned());
+    }
+    reveal(&mut app, vec![line]);
+    app.update();
+    let standing = sheets(&mut app);
+    assert_eq!(standing.len(), 1, "the reveal stood a sheet up");
+    assert_eq!(cards(&mut app), 2, "every card the line named is on it");
+    assert!(
+        words(&mut app).iter().any(|w| w.ends_with("reveals")),
+        "the head says whose reveal it is: {:?}",
+        words(&mut app)
+    );
+    let root = app
+        .world_mut()
+        .query_filtered::<Entity, With<HudRoot>>()
+        .single(app.world())
+        .unwrap();
+    assert_eq!(
+        app.world().get::<ChildOf>(standing[0]).map(ChildOf::parent),
+        Some(root),
+        "it hangs off the overlay's root, so it leaves with the table"
+    );
+
+    // Frames that change nothing leave the sheet that is standing alone.
+    app.update();
+    assert_eq!(
+        sheets(&mut app),
+        standing,
+        "a quiet frame rebuilt the sheet"
+    );
+}
+
+#[test]
+fn the_sheet_stands_under_a_dialog_answering_a_question_and_under_the_preview() {
+    let mut app = table();
+    reveal(&mut app, vec![revealed_line(1, 40, 7)]);
+    app.update();
+    let sheet = sheets(&mut app)[0];
+    let rung = app.world().get::<ZIndex>(sheet).map(|z| z.0);
+    assert_eq!(rung, Some(Z_LOG), "a sheet only showing the game");
+    assert!(
+        app.world().get::<Pickable>(sheet) == Some(&Pickable::IGNORE),
+        "the band across the window lets the pointer through to the table"
+    );
+}
+
+#[test]
+fn the_sheet_goes_when_the_reveal_is_put_away_and_the_next_one_takes_its_place() {
+    let mut app = table();
+    reveal(
+        &mut app,
+        vec![revealed_line(1, 40, 7), revealed_line(1, 41, 8)],
+    );
+    app.update();
+    let first = sheets(&mut app);
+    assert_eq!(first.len(), 1);
+    assert!(
+        words(&mut app).iter().any(|w| w.contains("1 more")),
+        "the head says one more waits: {:?}",
+        words(&mut app)
+    );
+    app.world_mut().resource_mut::<Duel>().reveals.dismiss();
+    app.update();
+    let second = sheets(&mut app);
+    assert_eq!(second.len(), 1, "the waiting reveal stood up");
+    assert_ne!(second, first, "and it is a sheet of its own");
+    app.world_mut().resource_mut::<Duel>().reveals.dismiss();
+    app.update();
+    assert!(sheets(&mut app).is_empty(), "the sheet outlived its reveal");
+}
+
+#[test]
+fn the_sheet_goes_by_itself_when_its_time_is_up() {
+    let mut app = table();
+    reveal(&mut app, vec![revealed_line(1, 40, 7)]);
+    app.update();
+    assert_eq!(sheets(&mut app).len(), 1);
+    let half = Duration::from_secs_f64(SHOW_SECS / 2.0);
+    app.world_mut().resource_mut::<Time>().advance_by(half);
+    app.update();
+    assert_eq!(sheets(&mut app).len(), 1, "gone before its time");
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(half + Duration::from_millis(10));
+    app.update();
+    assert!(sheets(&mut app).is_empty(), "the reveal outstayed its time");
+}
+
+#[test]
+fn nothing_is_held_up_over_the_end_screen() {
+    let mut app = table();
+    reveal(&mut app, vec![revealed_line(1, 40, 7)]);
+    app.update();
+    assert_eq!(sheets(&mut app).len(), 1);
+    app.world_mut().resource_mut::<Duel>().interaction =
+        Some(baylee_client_core::Interaction::new(
+            baylee_engine::choice::Pending::GameOver(baylee_engine::win::GameResult {
+                winner: None,
+                reason: baylee_engine::win::EndReason::LastPlayerStanding,
+            }),
+            baylee_core::ids::PlayerId::new(0),
+        ));
+    app.update();
+    assert!(
+        sheets(&mut app).is_empty(),
+        "the end screen shows the whole log, this reveal's line too"
+    );
+}
+
+#[test]
+fn the_cards_fit_any_window_the_client_supports() {
+    for window in [
+        Vec2::new(1920.0, 1080.0),
+        Vec2::new(1280.0, 720.0),
+        Vec2::new(844.0, 390.0),
+    ] {
+        let (across, down) = room(window);
+        assert!(across > 0.0 && down > 0.0, "{window}: no room at all");
+        let (width, _) = fit(3, (across, down), GAP, WIDEST);
+        assert!(width > 0.0 && width <= WIDEST, "{window}: {width}");
+    }
+}

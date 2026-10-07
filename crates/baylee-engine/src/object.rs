@@ -842,9 +842,11 @@ pub enum Rider {
     /// cast, set or cleared, and given up by every zone change but the one
     /// from the stack to the battlefield (`GameState::move_object`).
     Dashed,
-    /// "That player": the player the triggering event dealt damage to, on
-    /// a triggered ability put on the stack for one (Ragavan, Nimble
-    /// Pilferer), read by `PlayerRel::DamagedPlayer`. A rider and not a
+    /// "That player": the player the triggering event was about, on a
+    /// triggered ability put on the stack for one — who drew (Sheoldred,
+    /// the Apocalypse), who cast (Rhystic Study), who was dealt the damage
+    /// (Ragavan, Nimble Pilferer) — read by `PlayerRel::EventPlayer` and
+    /// its damage spelling `PlayerRel::DamagedPlayer`. A rider and not a
     /// field because `GameObject` had no byte to spare for it
     /// (`tests/footprint.rs`), and a triggered ability carries no other.
     EventPlayer(PlayerId),

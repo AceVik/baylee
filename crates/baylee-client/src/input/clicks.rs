@@ -37,6 +37,9 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // and the renderer reads it rather than owning it.
         MenuAction::ToggleGameMenu => duel.game_menu = !duel.game_menu,
         MenuAction::ToggleLog => duel.log_open = !duel.log_open,
+        MenuAction::DismissReveal => {
+            duel.reveals.dismiss();
+        }
         MenuAction::ToggleAiLog => duel.ai_log_open = !duel.ai_log_open,
         MenuAction::Report => duel.report_asked = true,
         // The game menu shuts and the arrangement menu opens in its place;
