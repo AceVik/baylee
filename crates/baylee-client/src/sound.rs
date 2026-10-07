@@ -65,8 +65,8 @@
 //! It fires on every priority grant — two hundred times in a long game — and
 //! a fixed tone at that rate is a metronome. Four things answer it here: it
 //! is the **lowest** sound in the set at 147 Hz, so it sits under the game
-//! rather than over it; it is the **quietest**, peaking at 0.22 against a
-//! life cue's 1.00; it is **one touch** rather than a two-note gesture,
+//! rather than over it; it is **quiet**, peaking at 0.37 against a life
+//! cue's 1.00 (0.26 after `MASTER`, DESIGN-v7 §4.4); it is **one touch** rather than a two-note gesture,
 //! because a melody is a thing that repeats and a tap is not; and it is one
 //! of **six variants** cycled in a fixed order, each detuned within ±16 cents
 //! *and struck in a different place on the bar*. The spot is the stronger
@@ -79,16 +79,17 @@
 //! short one is a *click*, and a click two hundred times is the metronome
 //! this is trying not to be.
 //!
-//! What is **not** built is the policy half, and it is the larger half: a
-//! grant that follows the player's own action tells them nothing, so a
-//! debounce of about 600 ms, a suppression window after the seat sends
-//! anything, a refractory period, and a louder cue when the window is in the
-//! background would together turn two hundred grants into a few dozen
-//! touches. That belongs in `baylee-client-core` beside `reconnect.rs`, where
-//! it can be tested without a device — and it wants a clock passed in, which
-//! [`baylee_client_core::cue::Cues`] has no field for yet. Until it exists
-//! the setting is the answer, and `Loudness::Off` is one chip on the settings
-//! screen.
+//! The policy half is built (DESIGN-v7 §4.3, `baylee_client_core::cue`):
+//! a grant [`DEBOUNCE`](baylee_client_core::cue::DEBOUNCE) after the last is
+//! the same moment, a grant that only hands back the seat's own action is
+//! quiet, and a finished game asks nothing — against a clock the client
+//! tells the queue once a frame. With two hundred grants down to the ones
+//! that say something, the touch could afford to be **firmer** (the owner's
+//! D22): a soft mallet instead of yarn, so the fourfold partial comes back
+//! and the strike has an edge, peaking at 0.26 after [`MASTER`] where the
+//! yarn touch peaked at 0.154. It is heard only by the seat that receives
+//! priority, and this device can switch it off on its own
+//! (`AudioMix::priority_cue`), never by the music's switch.
 //!
 //! # Three of them count
 //!
@@ -170,7 +171,8 @@ mod mallet {
     pub(super) const HARD: f32 = 0.0012;
     /// Wound, medium. The endings, where the table is being set down.
     pub(super) const SOFT: f32 = 0.0025;
-    /// Yarn. [`super::Cue::YourMove`], the two hundred times a game one.
+    /// Yarn: the waiting chord of the clock's last call. [`super::Cue::YourMove`]
+    /// was struck with it until DESIGN-v7 made it firmer.
     pub(super) const YARN: f32 = 0.0040;
     /// A knuckle, which is not a mallet at all. [`super::Cue::Refused`].
     pub(super) const KNUCKLE: f32 = 0.0060;
@@ -1148,20 +1150,31 @@ fn detuned(cents: f32) -> f32 {
 
 /// One of [`Cue::YourMove`]'s six.
 ///
-/// A single yarn touch on the lowest bar, stopped at 0.60 — 290 ms of
-/// fundamental with the tube's 54 ms bloom under it. It is *not* the shortest
-/// cue and that is deliberate: a soft low note with a tail is felt and then
-/// forgotten, where a short one is a click, and a click two hundred times is
-/// the metronome this is trying not to be.
+/// A single soft-mallet strike on the lowest bar, stopped at 0.60 — 290 ms of
+/// fundamental with the tube's 54 ms bloom under it (DESIGN-v7 §4.4, D22).
+/// Firmer than the yarn touch it replaces (2.5 ms of contact against 4, so
+/// the fourfold partial is back) and louder ([`YOUR_MOVE_PEAK`] after
+/// [`MASTER`] against 0.154), because the policy now keeps it to the grants
+/// that say something. It is *not* the shortest cue and that is deliberate:
+/// a low note with a tail is felt and then forgotten, where a short one is a
+/// click.
 fn tap(hz: f32, spot: f32) -> Recipe {
     Recipe {
-        strikes: Box::leak(Box::new([blow(0.0, hz, 0.60, mallet::YARN, spot, 1.0)])),
+        strikes: Box::leak(Box::new([blow(0.0, hz, 0.60, mallet::SOFT, spot, 1.0)])),
         thuds: &[],
         len: 2.4,
-        peak: 0.22,
+        peak: YOUR_MOVE_PEAK / MASTER,
         room: Where::Here,
     }
 }
+
+/// What [`Cue::YourMove`] peaks at on the way to the speaker, after
+/// [`MASTER`]: 0.26 (DESIGN-v7 §4.4), still well under a life cue's 0.70.
+const YOUR_MOVE_PEAK: f32 = 0.26;
+
+/// What the turn's click ([`Cue::TurnPassed`], the compass voice) peaks at,
+/// measured off its own buffer by `the_turn_click_peaks_where_it_says`.
+const TURN_CLICK_PEAK: f32 = 0.103;
 
 // ---------------------------------------------------------------- rendering
 
@@ -1321,9 +1334,15 @@ fn source(bytes: Vec<u8>) -> AudioSource {
     }
 }
 
-/// A quiet gear train with a low resonant catch, synthesised once per client.
-/// Stereo PCM shares the ordinary sound preference and owns no shipped asset.
+/// A quiet gear train with a low resonant catch, synthesised once per client:
+/// [`Cue::TurnPassed`]'s voice, the dial's turn hand setting off. Stereo PCM,
+/// owning no shipped asset.
 pub(crate) fn compass_voice() -> AudioSource {
+    source(wav(&compass_samples()))
+}
+
+/// The samples of [`compass_voice`], interleaved stereo.
+fn compass_samples() -> Vec<f32> {
     let frames = (RATE * 1.25) as usize;
     let mut samples = Vec::with_capacity(frames * 2);
     for i in 0..frames {
@@ -1341,7 +1360,7 @@ pub(crate) fn compass_voice() -> AudioSource {
         sample += (catch * 610.0).sin() * (-catch * 28.0).exp() * 0.11;
         samples.extend_from_slice(&[sample, sample]);
     }
-    source(wav(&samples))
+    samples
 }
 
 /// The synthesised table, one entry per cue.
@@ -1405,8 +1424,11 @@ pub fn voice_the_cues(mut commands: Commands, sources: Option<ResMut<Assets<Audi
     let Some(mut sources) = sources else {
         return;
     };
-    commands.insert_resource(crate::compass::CompassVoice(sources.add(compass_voice())));
     let mut voices = Vec::with_capacity(Cue::ALL.len());
+    voices.push((
+        Beat::once(Cue::TurnPassed),
+        vec![sources.add(compass_voice())],
+    ));
     for (cue, recipe) in &RECIPES {
         let bytes = wav(&render(recipe));
         voices.push((Beat::once(*cue), vec![sources.add(source(bytes))]));
@@ -1430,6 +1452,18 @@ pub fn voice_the_cues(mut commands: Commands, sources: Option<ResMut<Assets<Audi
         }
     }
     commands.insert_resource(Voices { voices, played: 0 });
+}
+
+/// Tells the cue queue what time it is, once a frame, for the priority
+/// cue's debounce and quiet (DESIGN-v7 §4.3).
+///
+/// Through `bypass_change_detection`: a clock ticking is not the duel
+/// changing, and a write through `DerefMut` would report the whole duel as
+/// moved on every frame (the reason [`play_the_cues`] returns early).
+pub fn tell_the_cues_the_time(time: Res<Time>, mut duel: ResMut<Duel>) {
+    duel.bypass_change_detection()
+        .cues
+        .tell_time(time.elapsed_secs());
 }
 
 /// Hands this frame's cues to the sink and remembers the last of them.
@@ -1461,12 +1495,20 @@ pub fn play_the_cues(
     }
     let level = prefs.map_or_else(Loudness::default, |prefs| prefs.all().sound);
     // This device's own volumes under the account's coarse level.
-    let mix = settings.map_or(1.0, |s| {
+    let mix = settings.as_ref().map_or(1.0, |s| {
         s.audio.effects_gain(crate::quality::focused(&windows))
     });
+    // The priority cue has a switch of its own on this device (D22): off,
+    // it is decided and reported and never played — never by the music's.
+    let priority = settings.as_ref().is_none_or(|s| s.audio.priority_cue);
     let mut voices = voices;
     for beat in audible(&duel.cues.take()) {
         if let Some(voices) = voices.as_mut() {
+            let mix = if beat.cue == Cue::YourMove && !priority {
+                0.0
+            } else {
+                mix
+            };
             sound(&mut commands, voices, beat, level, mix);
         }
     }
@@ -1483,6 +1525,7 @@ fn peak_of(beat: Beat) -> f32 {
     }
     match beat.cue {
         Cue::YourMove => tap(note::D3, VARIANTS[0].1).peak * MASTER,
+        Cue::TurnPassed => TURN_CLICK_PEAK,
         cue => {
             burst(cue, beat.count)
                 .first()
@@ -2240,6 +2283,120 @@ mod tests {
             }
         }
         out
+    }
+
+    /// WT4: the priority cue is the firmer strike, peaking at 0.26 after
+    /// [`MASTER`] (DESIGN-v7 §4.4), struck with the soft mallet.
+    #[test]
+    fn your_move_is_the_firmer_strike() {
+        let peak = peak_of(Beat::once(Cue::YourMove));
+        assert!((peak - 0.26).abs() < 0.01, "YourMove peaks at {peak}");
+        for (cents, spot) in VARIANTS {
+            let recipe = tap(detuned(cents), spot);
+            let drawn = render(&recipe).iter().fold(0.0f32, |a, s| a.max(s.abs()));
+            assert!((drawn - 0.26).abs() < 0.01, "a variant peaks at {drawn}");
+            assert!(
+                recipe
+                    .strikes
+                    .iter()
+                    .all(|s| (s.contact - mallet::SOFT).abs() < 1e-6)
+            );
+        }
+    }
+
+    /// The turn's click peaks where [`peak_of`] says it does, so the frame's
+    /// budget ([`audible`]) counts it honestly.
+    #[test]
+    fn the_turn_click_peaks_where_it_says() {
+        let drawn = compass_samples().iter().fold(0.0f32, |a, s| a.max(s.abs()));
+        assert!(
+            (drawn - TURN_CLICK_PEAK).abs() < 0.01,
+            "the click peaks at {drawn}, the budget says {TURN_CLICK_PEAK}"
+        );
+    }
+
+    /// An app that voices and plays the cues under these device settings.
+    fn sink(settings: crate::settings::ClientSettings) -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::asset::AssetPlugin::default())
+            .init_asset::<AudioSource>()
+            .init_resource::<Duel>()
+            .init_resource::<Prefs>()
+            .insert_resource(settings)
+            .add_systems(Startup, voice_the_cues)
+            .add_systems(Update, play_the_cues);
+        app.update();
+        app
+    }
+
+    fn players(app: &mut App) -> usize {
+        app.world_mut()
+            .query::<&AudioPlayer>()
+            .iter(app.world())
+            .count()
+    }
+
+    /// WT4: the priority cue's own switch (D22). Off, the cue is decided and
+    /// reported and nothing plays; the cycle still moves.
+    #[test]
+    fn the_priority_cue_switched_off_is_decided_and_not_played() {
+        let mut settings = crate::settings::ClientSettings::default();
+        settings.audio.priority_cue = false;
+        let mut app = sink(settings);
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .cues
+            .note_question(true);
+        app.update();
+        let last = app.world().resource::<Duel>().cues.last().map(|b| b.cue);
+        assert_eq!(last, Some(Cue::YourMove), "decided and reported");
+        assert_eq!(players(&mut app), 0, "and nothing played");
+        assert_eq!(app.world().resource::<Voices>().played, 1);
+        // Every other cue still plays under the switch.
+        app.world_mut().resource_mut::<Duel>().cues.note_refusal();
+        app.update();
+        assert_eq!(players(&mut app), 1, "the switch is one cue wide");
+    }
+
+    /// WT4: the music's switch never gates the priority cue.
+    #[test]
+    fn the_priority_cue_plays_with_the_music_muted() {
+        let mut settings = crate::settings::ClientSettings::default();
+        settings.music.set_muted(true);
+        let mut app = sink(settings);
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .cues
+            .note_question(true);
+        app.update();
+        assert_eq!(
+            players(&mut app),
+            1,
+            "muted music silenced the priority cue"
+        );
+    }
+
+    /// The turn's click goes through the sink now, under this device's game
+    /// volume: at a game volume of zero it is silent, which the compass's
+    /// own player never was (DESIGN-v7 §4.1's bug).
+    #[test]
+    fn the_turn_click_obeys_the_devices_volume() {
+        let mut settings = crate::settings::ClientSettings::default();
+        settings.audio.set_effects(0.0);
+        let mut app = sink(settings);
+        let mut duel = app.world_mut().resource_mut::<Duel>();
+        duel.cues.note_turn(baylee_core::ids::PlayerId::new(0), 1);
+        duel.cues.note_turn(baylee_core::ids::PlayerId::new(1), 2);
+        app.update();
+        let last = app.world().resource::<Duel>().cues.last().map(|b| b.cue);
+        assert_eq!(last, Some(Cue::TurnPassed));
+        assert_eq!(players(&mut app), 0, "the click ignored the game volume");
+        let mut app = sink(crate::settings::ClientSettings::default());
+        let mut duel = app.world_mut().resource_mut::<Duel>();
+        duel.cues.note_turn(baylee_core::ids::PlayerId::new(0), 1);
+        duel.cues.note_turn(baylee_core::ids::PlayerId::new(1), 2);
+        app.update();
+        assert_eq!(players(&mut app), 1, "and at full volume it plays");
     }
 
     /// A [`Prefs`] with the sound turned off.

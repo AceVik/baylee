@@ -1,5 +1,4 @@
 //! A spring-driven compass: one detent per turn, independent of priority.
-use bevy::audio::Volume;
 use bevy::prelude::*;
 
 /// Lives on the slab so a new game starts settled, without an arrival sound.
@@ -11,10 +10,6 @@ pub struct Compass {
     target: f32,
     elapsed: f32,
 }
-
-/// Cached with the other synthesised cues at startup.
-#[derive(Resource)]
-pub(crate) struct CompassVoice(pub Handle<AudioSource>);
 
 const DURATION: f32 = 1.15;
 
@@ -55,15 +50,12 @@ impl Compass {
 }
 
 /// The shader clock animates the stones; only the ring's movement uploads a uniform.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn rotate(
-    mut commands: Commands,
     duel: Res<crate::Duel>,
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
     mut slabs: Query<(&mut Compass, &MeshMaterial3d<crate::feltmat::FeltMaterial>)>,
     mut materials: ResMut<Assets<crate::feltmat::FeltMaterial>>,
-    voice: Option<Res<CompassVoice>>,
 ) {
     let Some(view) = &duel.view else {
         return;
@@ -84,16 +76,10 @@ pub(crate) fn rotate(
     {
         material.params.rotation = compass.angle;
     }
-    let gain = prefs.all().sound.gain();
-    if changed
-        && gain > 0.0
-        && let Some(voice) = voice
-    {
-        commands.spawn((
-            AudioPlayer::new(voice.0.clone()),
-            PlaybackSettings::DESPAWN.with_volume(Volume::Linear(gain)),
-        ));
-    }
+    // The turn's click is a cue now (`Cue::TurnPassed`), played by the sink
+    // under this device's volumes and the background mute, which this
+    // system never applied (DESIGN-v7 §4.5).
+    let _ = changed;
 }
 
 #[cfg(test)]

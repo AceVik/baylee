@@ -166,3 +166,42 @@ fn a_question_the_standing_orders_answer_is_never_heard() {
         .submit(PlayerAction::PassPriority);
     assert!(cues(&app).is_empty(), "and taken back before the drain");
 }
+
+/// WT4 through the duel's own doors: a grant half a second after this
+/// seat's own action, with nothing foreign between, is held back and
+/// counted; the same grant after an opponent's spell arrived in a view is
+/// heard.
+#[test]
+fn a_grant_after_my_own_action_waits_for_the_table_to_move() {
+    let mut duel = Duel::default();
+    duel.receive_view(ViewBuilder::new(2).build());
+    duel.cues.tell_time(10.0);
+    duel.receive_choice(priority());
+    assert_eq!(duel.cues.take().len(), 1, "the first grant is heard");
+    duel.cues.tell_time(11.0);
+    duel.submit(PlayerAction::PassPriority);
+    duel.receive_choice(Pending::Priority {
+        player: PlayerId::new(1),
+        legal: Box::default(),
+    });
+    duel.cues.tell_time(11.5);
+    duel.receive_choice(priority());
+    assert!(duel.cues.take().is_empty(), "only my own pass came back");
+    assert_eq!(duel.cues.suppressed(), 1);
+
+    duel.cues.tell_time(12.0);
+    duel.submit(PlayerAction::PassPriority);
+    duel.receive_choice(Pending::Priority {
+        player: PlayerId::new(1),
+        legal: Box::default(),
+    });
+    let spell = baylee_client_core::test_support::token(90, 1, "Bolt", 0, 0);
+    duel.receive_view(ViewBuilder::new(2).with_stack(vec![spell]).build());
+    duel.cues.tell_time(12.5);
+    duel.receive_choice(priority());
+    assert_eq!(
+        duel.cues.take().iter().map(|b| b.cue).collect::<Vec<_>>(),
+        [Cue::YourMove],
+        "an opponent's spell is news"
+    );
+}

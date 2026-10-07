@@ -929,6 +929,9 @@ impl Duel {
         // line frames later, when the queue no longer holds it, and the call
         // is then the no-op it should be.
         self.cues.retract(baylee_client_core::cue::Cue::YourMove);
+        // And a grant that only hands this action back says nothing
+        // (DESIGN-v7 §4.3, rule 3).
+        self.cues.note_own_action();
         self.outbox.push(action);
     }
 
@@ -970,6 +973,13 @@ impl Duel {
         // nowhere else.
         let flow = self.tally.read(&view);
         self.cues.note_flow(&flow);
+        // Two more readings on the same edge for the priority cue's policy
+        // and the turn's click: whether the table moved by somebody else
+        // since this seat last acted, and whether the turn passed.
+        if baylee_client_core::cue::moved_by_another(self.view.as_ref(), &view) {
+            self.cues.note_foreign();
+        }
+        self.cues.note_turn(view.active, view.turn);
         // The third reading on the same edge, and the one that is a *reset*
         // rather than a difference: the clock is restarted from what this
         // view says, and whether the sounds are re-armed is its own question
@@ -1876,6 +1886,8 @@ impl Plugin for DuelPlugin {
             .add_systems(
                 Update,
                 (
+                    // The cue queue's clock, before anything can decide a cue.
+                    sound::tell_the_cues_the_time.before(poll_host),
                     handle_commands,
                     poll_host,
                     keep_the_table_connected.run_if(duel_is_live),

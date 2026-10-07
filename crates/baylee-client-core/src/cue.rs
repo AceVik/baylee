@@ -93,6 +93,14 @@ pub enum Cue {
     /// four life cues and not two: they are two different sounds, and a
     /// `bool` in the middle of a match arm is a thing to get backwards.
     CreatureShrank,
+    /// The turn passed to another seat: the dial's turn hand set off.
+    ///
+    /// Heard by every seat — the turn is the table's, not a question to one
+    /// chair — and ranked with the nudge, under everything that says
+    /// something happened to somebody. It used to be played beside the
+    /// sink by the compass, at the account's level only: without this
+    /// device's volumes and without the background mute (DESIGN-v7 §4.5).
+    TurnPassed,
     /// This seat is running out of time to answer.
     ///
     /// Made twice on one question, at
@@ -112,7 +120,7 @@ impl Cue {
     /// test. `every_cue_is_in_all` holds the two together by counting the
     /// arms of [`Cue::name`], which the compiler already forces to be
     /// exhaustive.
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 16] = [
         Self::FirstStrike,
         Self::CombatStrike,
         Self::MyLifeLost,
@@ -128,6 +136,7 @@ impl Cue {
         Self::CreatureGrew,
         Self::CreatureShrank,
         Self::ClockLow,
+        Self::TurnPassed,
     ];
 
     /// Its own name, for `/state` and for whatever ends up playing it.
@@ -152,6 +161,7 @@ impl Cue {
             Self::CreatureGrew => "CreatureGrew",
             Self::CreatureShrank => "CreatureShrank",
             Self::ClockLow => "ClockLow",
+            Self::TurnPassed => "TurnPassed",
         }
     }
 
@@ -361,7 +371,29 @@ pub struct Cues {
     /// print table arriving), and a client that chimed on each of those would
     /// be a metronome.
     waiting: bool,
+    /// The client's clock, as last told ([`Self::tell_time`]), in seconds.
+    now: f32,
+    /// When [`Cue::YourMove`] was last decided on.
+    last_sounded: Option<f32>,
+    /// When this seat last sent something ([`Self::note_own_action`]).
+    last_own_action: Option<f32>,
+    /// Whether the table moved by something not this seat's since then.
+    foreign_since_own: bool,
+    /// How many [`Cue::YourMove`]s the policy held back, for `/state`.
+    suppressed: u32,
+    /// Whether the game is over: nothing more is a question.
+    over: bool,
+    /// The turn last seen, as `(active, turn)`, for [`Cue::TurnPassed`].
+    turn: Option<(PlayerId, u32)>,
 }
+
+/// The shortest gap between two [`Cue::YourMove`]s, in seconds: two grants
+/// closer than this are one (DESIGN-v7 §4.3, rule 2).
+pub const DEBOUNCE: f32 = 0.6;
+
+/// How long after this seat's own action a grant says nothing, unless the
+/// table moved by something else in between (§4.3, rule 3).
+pub const OWN_ACTION_QUIET: f32 = 1.5;
 
 impl Cues {
     /// An empty queue that has heard nothing.
@@ -434,16 +466,70 @@ impl Cues {
     /// Called once per question arriving and never per frame, with whether it
     /// is addressed to this seat. Only the rising flank makes a sound; see
     /// [`Self::waiting`].
+    ///
+    /// The rising flank is the first rule and the oldest. Three more decide
+    /// whether a flank is *heard* (DESIGN-v7 §4.3), each against the clock
+    /// [`Self::tell_time`] keeps: a grant [`DEBOUNCE`] after the last one is
+    /// the same moment; a grant within [`OWN_ACTION_QUIET`] of this seat's
+    /// own action, with nothing foreign in between, only hands back what the
+    /// player just did; and a finished game asks nothing. A flank held back
+    /// is counted ([`Self::suppressed`]) so a harness can prove the policy
+    /// without ears.
     pub fn note_question(&mut self, mine: bool) {
         if mine && !self.waiting {
-            self.push(Cue::YourMove);
+            let since = |at: Option<f32>, gap: f32| at.is_none_or(|at| self.now - at >= gap);
+            let debounced = since(self.last_sounded, DEBOUNCE);
+            let news = self.foreign_since_own || since(self.last_own_action, OWN_ACTION_QUIET);
+            if debounced && news && !self.over {
+                self.push(Cue::YourMove);
+                self.last_sounded = Some(self.now);
+            } else {
+                self.suppressed = self.suppressed.saturating_add(1);
+            }
         }
         self.waiting = mine;
+    }
+
+    /// Tells the queue what time it is, in seconds on any steady clock.
+    ///
+    /// The pattern `gamehost::Session::tell_time` uses: the model reads no
+    /// clock, the client hands it one once a frame.
+    pub fn tell_time(&mut self, now: f32) {
+        self.now = now;
+    }
+
+    /// Takes this seat's own action: a grant that follows it closely says
+    /// nothing new.
+    pub fn note_own_action(&mut self) {
+        self.last_own_action = Some(self.now);
+        self.foreign_since_own = false;
+    }
+
+    /// Takes a view that moved by something not this seat's own doing
+    /// ([`moved_by_another`]): a grant after it says everything.
+    pub fn note_foreign(&mut self) {
+        self.foreign_since_own = true;
+    }
+
+    /// Takes whose turn it is: a turn passing is [`Cue::TurnPassed`], once,
+    /// and the first turn seen is not a turn passing.
+    pub fn note_turn(&mut self, active: PlayerId, turn: u32) {
+        if self.turn.is_some_and(|seen| seen != (active, turn)) && !self.over {
+            self.push(Cue::TurnPassed);
+        }
+        self.turn = Some((active, turn));
+    }
+
+    /// How many [`Cue::YourMove`] flanks the policy has held back.
+    #[must_use]
+    pub fn suppressed(&self) -> u32 {
+        self.suppressed
     }
 
     /// Takes a finished game.
     pub fn note_ending(&mut self, outcome: Outcome) {
         self.push(Cue::of_outcome(outcome));
+        self.over = true;
     }
 
     /// Takes the engine's refusal of an action.
@@ -493,6 +579,32 @@ impl Cues {
     pub fn pending(&self) -> &[Beat] {
         &self.queue
     }
+}
+
+/// Whether the table moved between two views by something that is not this
+/// seat's own doing: the step or the turn moved, a life total moved, or a
+/// spell or ability another seat controls arrived on the stack.
+///
+/// The half of [`Cues::note_question`]'s third rule that reads the game: a
+/// grant that follows an opponent's spell says everything, one that only
+/// hands back what this seat just did says nothing. The first view of a
+/// table moved nothing.
+#[must_use]
+pub fn moved_by_another(before: Option<&PlayerView>, after: &PlayerView) -> bool {
+    let Some(before) = before else {
+        return false;
+    };
+    before.step != after.step
+        || before.active != after.active
+        || before.turn != after.turn
+        || before
+            .seats
+            .iter()
+            .zip(&after.seats)
+            .any(|(a, b)| a.life != b.life)
+        || after.stack.iter().any(|item| {
+            item.controller != after.seat && !before.stack.iter().any(|old| old.id == item.id)
+        })
 }
 
 /// What one view moved that the ear is owed.
@@ -813,8 +925,104 @@ mod tests {
         assert!(heard(&mut cues).is_empty(), "the same question, re-sent");
         cues.note_question(false);
         assert!(heard(&mut cues).is_empty(), "somebody else's question");
+        cues.tell_time(DEBOUNCE + 0.1);
         cues.note_question(true);
         assert_eq!(heard(&mut cues), vec![Cue::YourMove], "asked again");
+    }
+
+    /// WT4, rule 2: two grants 0.3 s apart are one sound, and the second is
+    /// counted as held back.
+    #[test]
+    fn two_grants_close_together_are_one_sound() {
+        let mut cues = Cues::new();
+        cues.tell_time(10.0);
+        cues.note_question(true);
+        cues.note_question(false);
+        cues.tell_time(10.3);
+        cues.note_question(true);
+        assert_eq!(heard(&mut cues), vec![Cue::YourMove]);
+        assert_eq!(cues.suppressed(), 1);
+    }
+
+    /// WT4, rule 3: a grant half a second after my own action, with nothing
+    /// foreign in between, is held back; the same grant after an opponent's
+    /// spell is heard.
+    #[test]
+    fn a_grant_after_my_own_action_is_quiet_unless_the_table_moved() {
+        let mut cues = Cues::new();
+        cues.tell_time(5.0);
+        cues.note_question(true);
+        assert_eq!(heard(&mut cues), vec![Cue::YourMove]);
+        cues.tell_time(6.0);
+        cues.note_own_action();
+        cues.note_question(false);
+        cues.tell_time(6.5);
+        cues.note_question(true);
+        assert!(heard(&mut cues).is_empty(), "only my own action came back");
+        assert_eq!(cues.suppressed(), 1);
+        cues.tell_time(7.0);
+        cues.note_own_action();
+        cues.note_question(false);
+        cues.note_foreign();
+        cues.tell_time(7.5);
+        cues.note_question(true);
+        assert_eq!(heard(&mut cues), vec![Cue::YourMove], "an opponent's spell");
+        cues.tell_time(9.0);
+        cues.note_own_action();
+        cues.note_question(false);
+        cues.tell_time(10.6);
+        cues.note_question(true);
+        assert_eq!(heard(&mut cues), vec![Cue::YourMove], "past the quiet");
+    }
+
+    /// WT4, rule 4: a finished game asks nothing.
+    #[test]
+    fn a_finished_game_grants_no_more_moves() {
+        let mut cues = Cues::new();
+        cues.note_ending(Outcome::YouWon);
+        heard(&mut cues);
+        cues.note_question(true);
+        assert!(heard(&mut cues).is_empty());
+    }
+
+    /// What counts as the table moving by somebody else: another seat's
+    /// spell arriving, a life total, the step; my own spell arriving, or the
+    /// same view again, does not.
+    #[test]
+    fn the_table_moving_by_another_is_read_off_two_views() {
+        use crate::test_support::{ViewBuilder, token};
+        let quiet = ViewBuilder::new(2).build();
+        assert!(!moved_by_another(None, &quiet), "the first view");
+        assert!(
+            !moved_by_another(Some(&quiet), &quiet.clone()),
+            "the same view"
+        );
+        let theirs = ViewBuilder::new(2)
+            .with_stack(vec![token(90, 1, "Bolt", 0, 0)])
+            .build();
+        assert!(
+            moved_by_another(Some(&quiet), &theirs),
+            "an opponent's spell"
+        );
+        let mine = ViewBuilder::new(2)
+            .with_stack(vec![token(91, 0, "Bolt", 0, 0)])
+            .build();
+        assert!(!moved_by_another(Some(&quiet), &mine), "my own spell");
+        let mut hit = quiet.clone();
+        hit.seats[0].life -= 3;
+        assert!(moved_by_another(Some(&quiet), &hit), "a life total");
+    }
+
+    /// The turn passing is one click, and the first turn seen is none.
+    #[test]
+    fn a_turn_passing_is_heard_once() {
+        let mut cues = Cues::new();
+        cues.note_turn(who(0), 1);
+        assert!(heard(&mut cues).is_empty(), "the first turn seen");
+        cues.note_turn(who(0), 1);
+        assert!(heard(&mut cues).is_empty(), "the same turn");
+        cues.note_turn(who(1), 2);
+        assert_eq!(heard(&mut cues), vec![Cue::TurnPassed]);
     }
 
     /// A question the standing orders answer inside the frame it arrived in

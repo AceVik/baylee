@@ -1959,7 +1959,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"activatable\":{activatable},\"armed\":{armed},\
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
-         \"last_cue\":{last_cue},\"last_count\":{last_count},\
+         \"last_cue\":{last_cue},\"last_count\":{last_count},\"cues_suppressed\":{cues_suppressed},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\
@@ -2050,6 +2050,10 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
         // burst from a tap. `0` when nothing has been heard yet, and `1` for
         // every cue that has no amount in it.
         last_count = duel.cues.last().map_or(0, |beat| beat.count),
+        // What the priority cue's policy held back (DESIGN-v7 §4.3): the
+        // debounce and the quiet after this seat's own action, counted, so
+        // a harness can prove the policy without ears.
+        cues_suppressed = duel.cues.suppressed(),
     )
 }
 
