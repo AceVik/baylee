@@ -149,9 +149,73 @@ pub fn choose(
 /// `Esc`, my turn beginning, a combat question (DESIGN-v8 §0's "one state,
 /// two meanings"). A camera arrangement never comes here — its visit moves
 /// the camera and no card.
-pub fn lay_the_interest(mut duel: ResMut<Duel>) {
-    if duel.arrangement.moves_cards() && duel.visiting != duel.interest_laid {
-        crate::rebuild_board(&mut duel);
+///
+/// The change tears the table (the owner, 07.10.2026; `layout::transition`):
+/// the stages are layouts the cards glide to, the instant layout the last of
+/// them. Reduced motion, or a table not laid out yet, takes the cut.
+pub fn lay_the_interest(mut duel: ResMut<Duel>, prefs: Option<Res<crate::prefs::Prefs>>) {
+    if !duel.arrangement.moves_cards() || duel.visiting == duel.interest_laid {
+        return;
+    }
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let from = duel
+        .tear
+        .as_ref()
+        .map(|t| t.to().clone())
+        .or_else(|| duel.layout.clone());
+    duel.tear = None;
+    crate::rebuild_board(&mut duel);
+    if still {
+        return;
+    }
+    let (Some(from), Some(to)) = (from, duel.layout.clone()) else {
+        return;
+    };
+    // A seed from the table's own pattern and the interest: deterministic
+    // per change, different from one change to the next.
+    #[allow(clippy::cast_precision_loss)] // a sequence number, folded small
+    let seed = duel.table_pattern.0.x * 13.7
+        + f32::from(duel.visiting.map_or(0, baylee_core::ids::PlayerId::get)) * 5.3
+        + duel
+            .view
+            .as_ref()
+            .map_or(0.0, |v| (v.seq % 997) as f32 * 0.61);
+    let plan = baylee_client_core::layout::transition::Tear::new(from, to);
+    duel.layout = Some(plan.staged(0.0));
+    duel.tear = Some(crate::Tear {
+        plan,
+        t: 0.0,
+        seed: seed.rem_euclid(97.0),
+    });
+}
+
+/// Runs the tear: its clock, and the stage the cards glide to, written when
+/// it changes (`glide` carries them between). Over, the layout is the
+/// instant one and the tear is gone. Reduced motion mid-tear ends it at once.
+pub fn run_the_tear(
+    mut duel: ResMut<Duel>,
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+) {
+    use baylee_client_core::layout::transition::{ENDS, Phase};
+    let Some(tear) = duel.tear.as_mut() else {
+        return;
+    };
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    tear.t = if still {
+        ENDS
+    } else {
+        tear.t + time.delta_secs()
+    };
+    if tear.phase() == Phase::Done {
+        let to = tear.to().clone();
+        duel.tear = None;
+        duel.layout = Some(to);
+        return;
+    }
+    let stage = tear.plan.staged(tear.t);
+    if duel.layout.as_ref() != Some(&stage) {
+        duel.layout = Some(stage);
     }
 }
 
@@ -1009,6 +1073,12 @@ pub fn plugin(app: &mut App) {
             lay_the_interest
                 .after(choose)
                 .before(crate::table::sync_scene),
+            run_the_tear
+                .after(lay_the_interest)
+                .before(crate::table::sync_scene),
+            crate::table::tear_the_slab
+                .after(run_the_tear)
+                .before(crate::table::glide),
             settle_the_follow.after(crate::table::glide),
         )
             .in_set(crate::DuelSet::Present)

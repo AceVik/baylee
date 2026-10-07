@@ -393,3 +393,151 @@ fn the_camera_settles_on_a_new_arrangement_within_36_frames() {
         }
     }
 }
+
+/// The tearing table, run: the slab stands down for three pieces while the
+/// tear runs (mine, the leaving and the arriving far piece, each drawing its
+/// own side of the jagged line), the pieces are posed through `glide`, the
+/// arriving piece welds, and when it is over the pieces are gone, the slab
+/// is back exactly where it stood, and nothing is moving any more — the
+/// idle invariant after docking.
+#[test]
+#[allow(clippy::too_many_lines)] // one tear, run from start to dock
+fn the_table_tears_into_pieces_and_is_one_slab_again_when_docked() {
+    use crate::feltmat::{FeltMaterial, FeltParams};
+    use baylee_client_core::test_support::{ViewBuilder, statics};
+    let mut duel = Duel::default();
+    let mut table = statics(0);
+    table.seats = (0..4)
+        .map(|i| baylee_view::SeatIdentity {
+            player: PlayerId::new(i),
+            display_name: format!("Seat {i}"),
+            is_ai: i != 0,
+            away: false,
+            team: None,
+        })
+        .collect();
+    duel.statics = Some(table);
+    duel.receive_view(ViewBuilder::new(4).build());
+    duel.arrangement = Arrangement::Spotlight;
+    crate::rebuild_board(&mut duel);
+
+    let mut app = App::new();
+    app.init_resource::<Time>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<GlideReport>()
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<FeltMaterial>>()
+        .insert_resource(duel)
+        .add_systems(
+            Update,
+            (
+                crate::arrangement::lay_the_interest,
+                crate::arrangement::run_the_tear,
+                tear_the_slab,
+                glide,
+            )
+                .chain(),
+        );
+    let mesh = app
+        .world_mut()
+        .resource_mut::<Assets<Mesh>>()
+        .add(slab_mesh(Vec2::new(40.0, 20.0)));
+    let material = app
+        .world_mut()
+        .resource_mut::<Assets<FeltMaterial>>()
+        .add(FeltMaterial {
+            params: FeltParams {
+                span: Vec2::new(40.0, 20.0),
+                ..FeltParams::default()
+            },
+            veins: Handle::default(),
+        });
+    let rest = Transform::from_xyz(0.0, TABLE_Y, 0.0)
+        .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2));
+    let slab = app
+        .world_mut()
+        .spawn((
+            Slab {
+                cut: Vec2::new(40.0, 20.0),
+                shown: Vec4::ZERO,
+                source: Vec4::ZERO,
+                flames: Vec4::ZERO,
+                tail: Vec4::ZERO,
+                motion: 0.0,
+            },
+            Mesh3d(mesh),
+            MeshMaterial3d(material.clone()),
+            rest,
+            Visibility::Inherited,
+        ))
+        .id();
+    app.update();
+    crate::input::navigate_to_player(
+        &mut app.world_mut().resource_mut::<Duel>(),
+        PlayerId::new(1),
+    );
+    let step = std::time::Duration::from_secs_f32(1.0 / 60.0);
+    let pieces = |app: &mut App| {
+        let mut q = app.world_mut().query::<&TablePiece>();
+        q.iter(app.world()).count()
+    };
+    let mut hottest = 0.0_f32;
+    let mut frames = 0;
+    loop {
+        app.world_mut().resource_mut::<Time>().advance_by(step);
+        app.update();
+        frames += 1;
+        if app.world().resource::<Duel>().tear.is_none() {
+            break;
+        }
+        assert!(frames < 120, "the tear never ended");
+        if frames > 1 {
+            assert_eq!(pieces(&mut app), 3, "three pieces while it runs");
+            assert_eq!(
+                app.world().get::<Visibility>(slab),
+                Some(&Visibility::Hidden),
+                "the slab stands down"
+            );
+        }
+        let mut q = app
+            .world_mut()
+            .query::<(&TablePiece, &MeshMaterial3d<FeltMaterial>)>();
+        let handles: Vec<_> = q
+            .iter(app.world())
+            .filter(|(p, _)| p.0 == baylee_client_core::layout::transition::Piece::Arriving)
+            .map(|(_, m)| m.0.clone())
+            .collect();
+        for handle in handles {
+            let materials = app.world().resource::<Assets<FeltMaterial>>();
+            hottest = hottest.max(materials.get(&handle).map_or(0.0, |m| m.params.rift.z));
+        }
+    }
+    app.world_mut().resource_mut::<Time>().advance_by(step);
+    app.update();
+    assert_eq!(pieces(&mut app), 0, "the pieces are gone");
+    assert_eq!(
+        app.world().get::<Visibility>(slab),
+        Some(&Visibility::Inherited)
+    );
+    assert_eq!(
+        app.world().get::<Transform>(slab),
+        Some(&rest),
+        "the slab never moved"
+    );
+    assert!(hottest > 0.9, "the seam welded: {hottest}");
+    let rift = app
+        .world()
+        .resource::<Assets<FeltMaterial>>()
+        .get(&material)
+        .map(|m| m.params.rift);
+    assert_eq!(rift, Some(Vec4::ZERO), "the slab's tear uniform is off");
+    for _ in 0..30 {
+        app.world_mut().resource_mut::<Time>().advance_by(step);
+        app.update();
+    }
+    assert_eq!(
+        app.world().resource::<GlideReport>().moving,
+        0,
+        "idle after docking"
+    );
+}

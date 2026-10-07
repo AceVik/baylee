@@ -39,9 +39,9 @@
 use crate::cardplate::PlateRoom;
 
 mod arrangement;
-pub use arrangement::Arrangement;
 #[cfg(test)]
 use arrangement::upright_apart as arrangement_upright_apart;
+pub use arrangement::{Arrangement, transition};
 use baylee_core::ids::PlayerId;
 use glam::Vec2;
 

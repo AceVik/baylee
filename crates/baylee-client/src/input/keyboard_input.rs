@@ -121,6 +121,16 @@ pub fn keyboard(
     if duel.follow_settling && fired.has(Action::Confirm) {
         return;
     }
+    // And the same for a table tearing (the owner's of 07.10.2026): the
+    // keys that act on a card under the cursor wait until it has docked.
+    if duel.tear.is_some()
+        && (fired.has(Action::Confirm)
+            || fired.has(Action::Primary)
+            || fired.has(Action::ActivateCard)
+            || fired.has(Action::ActivateGroup))
+    {
+        return;
+    }
     // The keyboard's half of the same rule as the pointer's: any bound key
     // forgets a half-pressed concession.
     duel.concede_armed = false;

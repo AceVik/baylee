@@ -430,3 +430,126 @@ fn an_opponent_s_square_board_is_the_duel_opponent_s_and_a_teammate_s_is_mine() 
         }
     }
 }
+
+/// The tear: split, swing, dock, settle, in that order and none skipped.
+/// The split parts the pieces (mine toward me, the far one away); the swing
+/// turns the leaving seat's piece out to its ring bearing and the arriving
+/// seat's in from its own, in steps along the arc, each seat's board carried
+/// rigidly with its piece; the dock presses them a hair past their places;
+/// from the settle on the layout is the instant one exactly.
+#[test]
+fn the_tear_runs_its_four_phases_in_order_and_ends_on_the_instant_layout() {
+    use super::super::transition::{
+        DOCK_ENDS, ENDS, OPENING, Phase, Piece, SPLIT_ENDS, SWING_ENDS, Tear, departing, swing,
+    };
+    let roster: Vec<Seat> = seats(4).into_iter().map(Seat::alone).collect();
+    let from = TableLayout::arranged(&roster, HUD_ASPECT, Arrangement::Spotlight, None);
+    let to = TableLayout::arranged(
+        &roster,
+        HUD_ASPECT,
+        Arrangement::Spotlight,
+        Some(PlayerId::new(1)),
+    );
+    assert_eq!(departing(&from, &to), vec![PlayerId::new(2)]);
+    let tear = Tear::new(from.clone(), to.clone());
+    assert_eq!(tear.near, vec![PlayerId::new(0)]);
+    assert_eq!(tear.leaving.0, vec![PlayerId::new(2)]);
+    assert_eq!(tear.arriving.0, vec![PlayerId::new(1)]);
+    // Seat 1 waits at the ring's left (a quarter turn), seat 2 straight up.
+    assert!(tear.leaving.1.abs() < 0.2, "seat 2 is at home up the table");
+    assert!(tear.arriving.1 > 1.0, "seat 1 comes in from the left");
+    let mut seen = Vec::new();
+    let mut last_swing = 0.0;
+    let mut t = 0.0_f32;
+    while t <= ENDS + 0.05 {
+        let phase = Phase::at(t);
+        if seen.last() != Some(&phase) {
+            seen.push(phase);
+        }
+        let u = swing(t);
+        assert!(u >= last_swing, "the arc only goes forward");
+        last_swing = u;
+        let laid = tear.staged(t);
+        let mine = laid.slot(PlayerId::new(0)).expect("me").center.y;
+        let home = to.slot(PlayerId::new(0)).expect("me").center.y;
+        match phase {
+            Phase::Split => {
+                assert!(
+                    (mine - (home - OPENING * 0.5)).abs() < 1e-3,
+                    "my piece toward me"
+                );
+                let old = laid.slot(PlayerId::new(2)).expect("seat 2").center;
+                let was = from.slot(PlayerId::new(2)).expect("seat 2").center;
+                assert!(
+                    (old - was - Vec2::new(0.0, OPENING * 0.5)).length() < 1e-3,
+                    "the old far piece away"
+                );
+                assert!(
+                    laid.slot(PlayerId::new(1)).is_some_and(|s| s.parked),
+                    "the new seat still waits"
+                );
+                assert!(
+                    !tear.pose(Piece::Arriving, t).shown,
+                    "the new piece not yet"
+                );
+            }
+            Phase::Swing => {
+                let arriving = laid.slot(PlayerId::new(1)).expect("seat 1");
+                let pose = tear.pose(Piece::Arriving, t);
+                let want = pose.carry(to.slot(PlayerId::new(1)).expect("seat 1").center);
+                assert!(
+                    arriving.center.distance(want) < 1e-3,
+                    "the board rides its piece"
+                );
+                assert!(!arriving.parked);
+                let leaving = laid.slot(PlayerId::new(2)).expect("seat 2");
+                assert!(leaving.parked, "drawn by the tear, not by the table");
+            }
+            Phase::Dock => assert!(mine > home, "pressed a hair past"),
+            Phase::Settle | Phase::Done => assert_eq!(laid, to, "the instant layout"),
+        }
+        t += 1.0 / 240.0;
+    }
+    assert_eq!(
+        seen,
+        vec![
+            Phase::Split,
+            Phase::Swing,
+            Phase::Dock,
+            Phase::Settle,
+            Phase::Done
+        ],
+        "every phase, in order"
+    );
+    assert!(
+        (swing(SWING_ENDS) - 1.0).abs() < 1e-6,
+        "the arc is whole by the dock"
+    );
+    const { assert!(SPLIT_ENDS < SWING_ENDS && SWING_ENDS < DOCK_ENDS && DOCK_ENDS < ENDS) };
+    assert!((0.8..=1.1).contains(&ENDS), "about a second, as asked");
+    for piece in [Piece::Near, Piece::Leaving, Piece::Arriving] {
+        let rest = tear.pose(piece, ENDS);
+        assert!(rest.turn.abs() < 1e-6 || piece == Piece::Leaving);
+        assert!(rest.lift.abs() < 1e-6 && rest.shift.abs() < 1e-6 || piece == Piece::Leaving);
+    }
+}
+
+/// The weld: no seam before the halves close, the weld's progress reaching
+/// one exactly as the tear ends, the seam bright at the dock and gone at the
+/// end, and nothing after.
+#[test]
+fn the_weld_runs_to_one_and_the_seam_cools_to_nothing() {
+    use super::super::transition::{DOCK_ENDS, ENDS, SWING_ENDS, seam, weld};
+    assert!(weld(SWING_ENDS - 0.01).abs() < 1e-6);
+    assert!(
+        seam(weld(SWING_ENDS)).abs() < 1e-6,
+        "no seam before the halves close"
+    );
+    assert!(seam(weld(DOCK_ENDS)) > 0.95, "hottest as they meet");
+    assert!(
+        (weld(ENDS) - 1.0).abs() < 1e-6,
+        "the weld is done at the end"
+    );
+    assert!(seam(weld(ENDS)).abs() < 1e-6, "and the seam is gone");
+    assert!(seam(weld(ENDS + 1.0)).abs() < 1e-6);
+}

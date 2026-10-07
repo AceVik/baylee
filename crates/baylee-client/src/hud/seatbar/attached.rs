@@ -47,6 +47,12 @@ pub(super) fn place(
     turn: &mut UiTransform,
 ) {
     let pose = (|| {
+        // Ink pinned to a band of felt that is tearing would jump stage by
+        // stage ahead of its mat: the bars stand down for the second it
+        // takes, and come back on the docked table.
+        if duel.tear.is_some() {
+            return None;
+        }
         let lens = lens?;
         let slot = duel.layout.as_ref()?.shown(player)?;
         // The seat's own band, projected: the strip along the rim nearest the

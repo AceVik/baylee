@@ -311,6 +311,9 @@ pub(super) struct Zone {
     /// built and `12.841` when its commander was placed, which is a card
     /// standing two and a half card widths outside the mat it belongs to.
     pub(super) slot: SeatSlot,
+    /// How high over the table the zone was carried last (a tearing
+    /// table's turning piece, DESIGN-v8): the next carry adds the change.
+    pub(super) raised: f32,
     /// The mat itself.
     pub(super) mat: Entity,
     /// The pool of colour under it.

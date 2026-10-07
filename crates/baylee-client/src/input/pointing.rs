@@ -35,6 +35,12 @@ pub fn pointer(
         // rule is one line and cannot be forgotten by a widget added later:
         // a half-pressed concession survives exactly nothing.
         let was_armed = std::mem::take(&mut duel.concede_armed);
+        // A board the tear is moving takes no press until it docks
+        // (DESIGN-v8 §2.4, the owner's tear): the card under the finger is
+        // on its way somewhere else.
+        if duel.tear.is_some() && find_in_lineage(e, &cards, &parents).is_some() {
+            continue;
+        }
         if let Some(object) = find_in_lineage(e, &cards, &parents)
             .map(|v| v.object)
             .or_else(|| find_in_lineage(e, &hand_cards, &parents).map(|h| h.object))

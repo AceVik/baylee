@@ -857,6 +857,32 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   a chip, `F`, `H` bring a seat across through `lay_the_interest`. My
   blockers question in a layout arrangement brings the attacker across
   rather than home, so what attacks me is on the felt.
+- **The tear** (the owner's of 07.10.2026, on Spotlight; every layout
+  arrangement takes it): a change of seat of interest tears the table along
+  a jagged, seeded line, turns the seat's own piece of the table over and
+  docks it with a weld. `layout::transition::Tear` plans it — the near
+  piece (my side), the leaving far piece and the arriving one, each with a
+  pose per stage (split 0–0.26 s, swing to 0.62 in six steps along the arc,
+  dock to 0.82 a hair past, settle to 1.0) — and `Tear::staged` is the
+  layout the cards glide to, each seat's slot carried rigidly by its piece;
+  from the settle on it is the instant layout exactly
+  (`the_tear_runs_its_four_phases_in_order_and_ends_on_the_instant_layout`).
+  In the client (`arrangement::lay_the_interest` / `run_the_tear`,
+  `table::pieces`), the slab stands down for the tear's second and three
+  pieces stand in: copies of its mesh and material, drawn in their own frame
+  (the mesh's uv) and only on their own side of the line (`felt.wgsl`
+  `rift.w`, discarded elsewhere, so the gap shows what lies under the table),
+  posed through `glide`. Turning pieces ride `LIFT` over the rest, cards and
+  mats with them (`Tear::lift`, `Zone::raised`); the molten seam (`rift.z`,
+  `transition::seam(weld(t))`, emitted, never lit) rises as the pieces meet
+  and cools to nothing. Over, the pieces stand exactly where the slab does
+  and are despawned; the slab's own `rift` is never written, so a table not
+  tearing pays one uniform compare. A mat whose seat only moved is carried
+  as one rigid body (`table::rigid`) instead of being built again. The
+  camera and the slab's cut follow `Duel::settled_layout` (the tear's end),
+  the seat bars stand down for the second, and a press on a moving board or
+  a card key waits until it docks. Reduced motion: the cut. Not built: the
+  optional low "clunk" cue.
 - **Tisch folgt dem Zug** (`tableview::follow`, `Duel::follow_the_turn`):
   off by default; on, another player's turn shows that seat (a camera
   arrangement visits, a layout one brings it across), deferred while a

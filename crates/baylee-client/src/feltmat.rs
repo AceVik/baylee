@@ -9,7 +9,7 @@ use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
 
 /// Everything the felt shader needs.
-#[derive(Clone, Copy, ShaderType, Debug)]
+#[derive(Clone, Copy, ShaderType, Debug, Default)]
 pub struct FeltParams {
     /// The phase lamp: `rgb` its colour, `w` how much of it there is.
     ///
@@ -97,6 +97,11 @@ pub struct FeltParams {
     pub tints: [Vec4; 8],
     /// A team's colour round the jewel; `a` 1 where the seat has a team.
     pub teams: [Vec4; 8],
+    /// The tear (DESIGN-v8, the owner's of 07.10.2026), on a piece of the
+    /// tearing table (`table::pieces`): `y` the jagged line's seed, `z` the
+    /// molten seam's brightness, `w` the piece's side (-1 mine, 1 far). The
+    /// whole slab holds zero.
+    pub rift: Vec4,
 }
 
 /// Random presentation seed, sampled once when a duel is created.

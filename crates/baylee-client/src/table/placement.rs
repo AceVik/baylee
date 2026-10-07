@@ -549,8 +549,17 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
     // not drawn: hidden where they wait, as a scrolled row's are, so a seat
     // brought back onto the felt glides in rather than being spawned.
     for placement in &mut out {
-        if placement.slot.parked {
+        if placement.slot.parked
+            && !duel
+                .tear
+                .as_ref()
+                .is_some_and(|t| t.draws(placement.slot.player))
+        {
             placement.shown = false;
+        }
+        // A board riding a turning piece of the table rides over it.
+        if let Some(tear) = duel.tear.as_ref() {
+            placement.lift += tear.lift(placement.slot.player);
         }
     }
     out

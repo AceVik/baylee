@@ -502,6 +502,12 @@ pub struct Duel {
         usize,
         baylee_client_core::tableview::Arrangement,
     )>,
+    /// The tear under way, if one is (the owner's of 07.10.2026: a layout
+    /// arrangement's change of seat tears the table open, swings the new
+    /// seat across and docks it — `layout::transition`). While it runs,
+    /// [`Self::layout`] is the stage the cards glide to and the tear holds
+    /// the instant layout the stages end on.
+    pub tear: Option<Tear>,
     /// The seat of interest the layout was last solved round
     /// ([`rebuild_board`]): a layout arrangement whose [`Self::visiting`]
     /// differs from it is seated again ([`arrangement::lay_the_interest`]),
@@ -1358,6 +1364,27 @@ impl Duel {
                 self.follow_settling = true;
             }
         }
+    }
+
+    /// The table as it stands once whatever is moving has arrived: a tear's
+    /// end, else the layout. What the camera frames and the slab is cut to,
+    /// so neither breathes with the tear's stages.
+    #[must_use]
+    pub fn settled_layout(&self) -> Option<&TableLayout> {
+        self.tear.as_ref().map(Tear::to).or(self.layout.as_ref())
+    }
+
+    /// A seat's slot if its board is drawn: on the felt, or swinging out of
+    /// a tear (DESIGN-v8 §0, the owner's tear).
+    #[must_use]
+    pub fn drawn_slot(&self, player: PlayerId) -> Option<&baylee_client_core::SeatSlot> {
+        let layout = self.layout.as_ref()?;
+        layout.shown(player).or_else(|| {
+            self.tear
+                .as_ref()
+                .filter(|t| t.draws(player))
+                .and_then(|_| layout.slot(player))
+        })
     }
 
     /// The seat the **camera** visits: [`Self::visiting`] under a camera
@@ -2784,6 +2811,46 @@ pub fn proposals(
     spent.chain(answer).collect()
 }
 
+/// A tear under way ([`Duel::tear`]).
+#[derive(Clone, Debug)]
+pub struct Tear {
+    /// The pieces and the two tables (`layout::transition::Tear`).
+    pub plan: baylee_client_core::layout::transition::Tear,
+    /// Seconds into it.
+    pub t: f32,
+    /// The seed of this tear's jagged line (`felt.wgsl`'s `tear_line`): each
+    /// tear tears differently, and both pieces share it.
+    pub seed: f32,
+}
+
+impl Tear {
+    /// The stage it is in.
+    #[must_use]
+    pub fn phase(&self) -> baylee_client_core::layout::transition::Phase {
+        baylee_client_core::layout::transition::Phase::at(self.t)
+    }
+
+    /// The table it ends on.
+    #[must_use]
+    pub fn to(&self) -> &TableLayout {
+        &self.plan.to
+    }
+
+    /// Whether `player`'s board is drawn although the table parks it: it is
+    /// turning out on the leaving piece, which goes until the pieces dock.
+    #[must_use]
+    pub fn draws(&self, player: PlayerId) -> bool {
+        self.phase() < baylee_client_core::layout::transition::Phase::Dock
+            && self.plan.leaving.0.contains(&player)
+    }
+
+    /// How high `player`'s board rides over the table now: its piece's lift.
+    #[must_use]
+    pub fn lift(&self, player: PlayerId) -> f32 {
+        self.plan.lift(player, self.t)
+    }
+}
+
 /// Rebuilds the render model from the current view.
 ///
 /// `pub` because the two indigo sets it computes — [`Duel::reachable`] and
@@ -2860,6 +2927,16 @@ pub fn rebuild_board(duel: &mut Duel) {
         {
             slot.reclaim_command_strip();
         }
+    }
+
+    // A tear under way keeps its stages: the table rebuilt is the one it
+    // ends on, and what the cards glide to now is the stage it is in.
+    if let Some(tear) = duel.tear.as_mut() {
+        tear.plan = baylee_client_core::layout::transition::Tear::new(
+            tear.plan.from.clone(),
+            layout.clone(),
+        );
+        layout = tear.plan.staged(tear.t);
     }
 
     duel.board = Some(BoardModel::from_view(

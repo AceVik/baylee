@@ -151,7 +151,9 @@ pub fn sync_table(
     mut slabs: Query<(&mut Slab, &mut Mesh3d, &MeshMaterial3d<FeltMaterial>)>,
     quality: Option<Res<crate::quality::InUse>>,
 ) {
-    let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
+    // Cut to the table the tear ends on: a slab that followed its stages
+    // would be re-cut three times in a second.
+    let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.settled_layout()) else {
         return;
     };
     let Some((min, max)) = layout.extent() else {
@@ -250,6 +252,7 @@ pub fn sync_table(
                     jewels: [Vec4::ZERO; 4],
                     tints: [Vec4::ZERO; 8],
                     teams: [Vec4::ZERO; 8],
+                    rift: Vec4::ZERO,
                 },
                 veins: images.add(veins),
             })),
@@ -338,8 +341,11 @@ pub fn sync_zones(
     prefs: Res<crate::prefs::Prefs>,
     mut index: ResMut<SceneIndex>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut mats: ResMut<Assets<crate::matmat::MatMaterial>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    (mut mats, mut materials): (
+        ResMut<Assets<crate::matmat::MatMaterial>>,
+        ResMut<Assets<StandardMaterial>>,
+    ),
+    mut placed: Query<(&Transform, Option<&mut Motion>)>,
 ) {
     let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
         return;
@@ -352,8 +358,10 @@ pub fn sync_zones(
     let mut seen: HashSet<PlayerId> = HashSet::new();
     for pod in &board.pods {
         // A parked seat has no mat: left out of `seen`, its zone is taken
-        // down below like a seat that left.
-        let Some(slot) = layout.shown(pod.player) else {
+        // down below like a seat that left — unless it is swinging out of
+        // a tear, when its mat goes with its cards.
+        let _ = layout;
+        let Some(slot) = duel.drawn_slot(pod.player) else {
             continue;
         };
         seen.insert(pod.player);
@@ -384,11 +392,42 @@ pub fn sync_zones(
         // updated: its mat is a mesh cut to a width, its glow is a quad and
         // its piles stand at fixed points, and not one of those is something
         // a uniform can carry. See [`Zone::slot`] for what this cost.
+        // How high the seat's board rides: a piece of a tearing table turns
+        // lifted over the rest, and the ground on it with its cards.
+        let lift = duel.tear.as_ref().map_or(0.0, |t| t.lift(pod.player));
         let moved = index
             .zones
             .get(&pod.player)
-            .is_some_and(|zone| zone.slot != *slot);
-        if moved && let Some(zone) = index.zones.remove(&pod.player) {
+            .is_some_and(|zone| zone.slot != *slot || (zone.raised - lift).abs() > 1e-5);
+        // A zone whose seat only moved — the same ground, somewhere else or
+        // turned (a tear's stages, a seat brought across) — glides there with
+        // its cards: its mat, its glow and its piles are retargeted as one
+        // rigid body. Only a change of size builds it again.
+        if moved
+            && let Some(zone) = index.zones.get_mut(&pod.player)
+            && same_ground(&zone.slot, slot)
+        {
+            let carry =
+                Mat4::from_translation(Vec3::Y * (lift - zone.raised)) * rigid(&zone.slot, slot);
+            for entity in [zone.mat, zone.glow]
+                .into_iter()
+                .chain(zone.piles.iter().copied())
+            {
+                let Ok((at, motion)) = placed.get_mut(entity) else {
+                    continue;
+                };
+                match motion {
+                    Some(mut motion) => motion.target = carried(carry, motion.target),
+                    None => {
+                        commands.entity(entity).insert(Motion {
+                            target: carried(carry, *at),
+                        });
+                    }
+                }
+            }
+            zone.slot = *slot;
+            zone.raised = lift;
+        } else if moved && let Some(zone) = index.zones.remove(&pod.player) {
             for entity in [zone.mat, zone.glow].into_iter().chain(zone.piles) {
                 commands.entity(entity).despawn();
             }
@@ -456,6 +495,9 @@ pub fn sync_zones(
                 mat_material,
                 glow_material,
                 piles,
+                // Built on its place at the table's height; a lift is the
+                // next frame's carry.
+                raised: 0.0,
                 library_shown,
                 mood,
                 accent,
@@ -473,4 +515,65 @@ pub fn sync_zones(
         }
         false
     });
+}
+
+/// Whether two slots are the same ground: a zone built for one can be
+/// carried to the other whole.
+fn same_ground(a: &SeatSlot, b: &SeatSlot) -> bool {
+    a.half_extent.abs_diff_eq(b.half_extent, 1e-5)
+        && (a.reclaimed - b.reclaimed).abs() <= 1e-5
+        && (a.scale - b.scale).abs() <= 1e-5
+}
+
+/// The rigid move that carries what lies on `from`'s ground onto `to`'s: the
+/// seat's own frame (its centre on the felt, turned by its facing) undone
+/// and done again.
+pub(super) fn rigid(from: &SeatSlot, to: &SeatSlot) -> Mat4 {
+    let frame = |slot: &SeatSlot| {
+        Mat4::from_rotation_translation(
+            Quat::from_rotation_y(-slot.facing),
+            to_world(slot.center, 0.0),
+        )
+    };
+    frame(to) * frame(from).inverse()
+}
+
+/// `at`, carried by `by`.
+fn carried(by: Mat4, at: Transform) -> Transform {
+    Transform::from_matrix(by * at.to_matrix())
+}
+
+#[cfg(test)]
+mod rigid_tests {
+    use super::*;
+
+    /// A thing lying on a seat's ground, carried to another seat's, lies on
+    /// that ground exactly where it lay on the first: the mat's centre goes
+    /// to the new centre, turned by the new facing.
+    #[test]
+    fn a_zone_carried_rigidly_lands_where_it_would_be_built() {
+        let slot = |x: f32, y: f32, facing: f32| SeatSlot {
+            player: baylee_core::ids::PlayerId::new(1),
+            ring_index: 1,
+            angle: facing,
+            center: Vec2::new(x, y),
+            facing,
+            half_extent: Vec2::new(6.0, 3.0),
+            reclaimed: 0.0,
+            is_local: false,
+            scale: 1.0,
+            parked: false,
+        };
+        let (a, b) = (slot(3.0, 9.0, 1.2), slot(-4.0, 12.0, std::f32::consts::PI));
+        for (from, to) in [(a, b), (b, a)] {
+            let built = lying_flat(&to, 0.01);
+            let moved = carried(rigid(&from, &to), lying_flat(&from, 0.01));
+            assert!(moved.translation.distance(built.translation) < 1e-4);
+            assert!(moved.rotation.angle_between(built.rotation) < 1e-3);
+            let pile =
+                |s: &SeatSlot| card_transform(s, s.pile_center(PileKind::Graveyard), false, 0.0);
+            let moved = carried(rigid(&from, &to), pile(&from));
+            assert!(moved.translation.distance(pile(&to).translation) < 1e-4);
+        }
+    }
 }

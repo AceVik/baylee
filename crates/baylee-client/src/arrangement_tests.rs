@@ -294,8 +294,7 @@ fn seated_duel(arrangement: Arrangement) -> Duel {
 }
 
 fn parked(duel: &Duel) -> Vec<u8> {
-    duel.layout
-        .as_ref()
+    duel.settled_layout()
         .expect("seated")
         .slots
         .iter()
@@ -387,4 +386,89 @@ fn the_follow_switch_shows_the_active_seat_and_waits_out_my_question() {
     assert_eq!(duel.visiting, Some(PlayerId::new(2)), "shown once answered");
     duel.receive_view(turn(0, Some(0)));
     assert_eq!(duel.visiting, None, "my turn is home");
+}
+
+/// The owner's tear, run in the client: a chip press on a Spotlight table
+/// starts it, its stages come in order (split, swing, dock, settle) as the
+/// layout the cards glide to, it is over in about a second, and it ends on
+/// exactly the instant layout. Under reduced motion it is the cut.
+#[test]
+fn a_change_of_seat_tears_the_table_and_docks_on_the_instant_layout() {
+    use baylee_client_core::layout::transition::Phase;
+    use baylee_core::ids::PlayerId;
+    for still in [false, true] {
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<crate::prefs::Prefs>()
+            .insert_resource(seated_duel(Arrangement::Spotlight))
+            .add_systems(Update, (lay_the_interest, run_the_tear).chain());
+        app.world_mut()
+            .resource_mut::<crate::prefs::Prefs>()
+            .edit()
+            .reduce_motion = still;
+        let instant = {
+            let mut duel = seated_duel(Arrangement::Spotlight);
+            duel.visiting = Some(PlayerId::new(1));
+            crate::rebuild_board(&mut duel);
+            duel.layout.expect("seated")
+        };
+        crate::input::navigate_to_player(
+            &mut app.world_mut().resource_mut::<Duel>(),
+            PlayerId::new(1),
+        );
+        let step = std::time::Duration::from_secs_f32(1.0 / 60.0);
+        let mut phases = Vec::new();
+        let mut frames = 0;
+        loop {
+            app.world_mut().resource_mut::<Time>().advance_by(step);
+            app.update();
+            frames += 1;
+            let duel = app.world().resource::<Duel>();
+            let Some(tear) = duel.tear.as_ref() else {
+                break;
+            };
+            if phases.last() != Some(&tear.phase()) {
+                phases.push(tear.phase());
+            }
+            assert_eq!(tear.to(), &instant, "the tear ends where the cut would");
+            if matches!(tear.phase(), Phase::Split | Phase::Swing | Phase::Dock) {
+                assert_ne!(
+                    duel.layout.as_ref(),
+                    Some(&instant),
+                    "a stage the cards glide to"
+                );
+            }
+            let across = duel
+                .layout
+                .as_ref()
+                .and_then(|l| l.slot(PlayerId::new(1)))
+                .is_some_and(|s| !s.parked);
+            assert_eq!(
+                across,
+                tear.phase() >= Phase::Swing,
+                "the new seat comes across in the swing, not before"
+            );
+            assert!(frames < 120, "the tear never ended");
+        }
+        let duel = app.world().resource::<Duel>();
+        assert_eq!(
+            duel.layout.as_ref(),
+            Some(&instant),
+            "docked on the instant layout"
+        );
+        if still {
+            assert!(phases.is_empty(), "reduced motion is the cut");
+            assert_eq!(frames, 1);
+        } else {
+            assert_eq!(
+                phases,
+                vec![Phase::Split, Phase::Swing, Phase::Dock, Phase::Settle],
+                "every stage, in order"
+            );
+            assert!(
+                (50..=66).contains(&frames),
+                "about a second: {frames} frames"
+            );
+        }
+    }
 }

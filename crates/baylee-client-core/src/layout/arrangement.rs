@@ -17,6 +17,7 @@
 use crate::i18n::Phrase;
 
 mod pair;
+pub mod transition;
 mod upright;
 
 /// How a board square to my chair is turned (the owner, 07.10.2026: *a

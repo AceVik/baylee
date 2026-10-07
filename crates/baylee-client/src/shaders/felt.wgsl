@@ -103,9 +103,18 @@ struct FeltParams {
     tints: array<vec4<f32>, 8>,
     /// A team's colour round the jewel, `a` 1 where the seat has a team.
     teams: array<vec4<f32>, 8>,
+    /// The tear (DESIGN-v8, the owner's of 07.10.2026), on a piece of the
+    /// tearing table: `y` the jagged line's seed, `z` the molten seam's
+    /// brightness (0 to 1), `w` the piece's side of the line (-1 mine, 1 the
+    /// far one). The whole slab holds zero: `w` is the gate every bit of
+    /// this work stands behind. `x` is spare.
+    rift: vec4<f32>,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: FeltParams;
+
+// The molten seam's colour, display-referred: emitted, never lit.
+const RIFT_EMBER: vec3<f32> = vec3<f32>(1.0, 0.52, 0.16);
 /// Every vein cell's point, as `vein_distance` used to compute it with two
 /// value noises per cell (`baylee_client_core::feltveins`, which computes it
 /// once per cut with this file's own `vnoise`). Read with `textureLoad`: one
@@ -524,6 +533,16 @@ fn clock_face(start: vec3<f32>, table: vec2<f32>, radius: f32, pixel: f32) -> ve
     return lit;
 }
 
+/// The tear's line at `x`: teeth (a triangle wave of uneven pitch) with a
+/// little noise on them, about a third of a unit either side of the middle,
+/// drawn from `seed` so each tear tears differently.
+fn tear_line(x: f32, seed: f32) -> f32 {
+    let pitch = 0.9 + 0.35 * sin(x * 0.21 + seed);
+    let teeth = abs(fract(x * pitch + seed * 0.37) * 2.0 - 1.0) - 0.5;
+    let grain = vnoise(vec2<f32>(x * 1.7, seed * 3.1)) - 0.5;
+    return teeth * 0.5 + grain * 0.3;
+}
+
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // Table space out of the world position, rather than the mesh's own uv.
@@ -531,7 +550,20 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // wrong guess about it mirrors the whole field — invisible at two seats,
     // because a duel is symmetric about both axes, and wrong at three.
     // `to_world` is `(x, height, -y)`, so this is exactly its inverse.
-    let table = vec2<f32>(in.world_position.x, -in.world_position.z);
+    var table = vec2<f32>(in.world_position.x, -in.world_position.z);
+    // A piece of a tearing table (`rift.w` its side: -1 mine, 1 the far
+    // one) is drawn in its own frame, out of the mesh's uv — the same table
+    // coordinates as the world's while it stands where the slab does, and
+    // carried with it as it slides and turns — and only on its own side of
+    // the tear's jagged line: the gap between two pieces is no felt at all,
+    // so whatever lies under the table shows through. The whole slab
+    // (`w = 0`) takes neither branch.
+    if (params.rift.w != 0.0) {
+        table = vec2<f32>((in.uv.x - 0.5) * params.span.x, (0.5 - in.uv.y) * params.span.y);
+        if ((table.y - tear_line(table.x, params.rift.y)) * params.rift.w < 0.0) {
+            discard;
+        }
+    }
     // Derivatives precede the surface branches, including the apron return.
     let footprint = fwidth(table);
     let pixel = max(length(footprint), 0.001);
@@ -674,6 +706,13 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let t = mix(STILL_AT, globals.time, params.motion);
         lit = firewheel(lit, table, pixel, t);
         lit = clock_face(lit, table, radius, pixel);
+    }
+    // The weld: as two pieces close on the jagged line a molten seam runs
+    // along it, emitted and never lit, and cools to nothing (`rift.z`).
+    if (params.rift.w != 0.0 && params.rift.z > 0.0) {
+        let off = abs(table.y - tear_line(table.x, params.rift.y));
+        let hot = (1.0 - smoothstep(0.0, 0.16, off)) * params.rift.z;
+        lit = mix(lit, to_linear(RIFT_EMBER), clamp(hot, 0.0, 1.0));
     }
     return vec4<f32>(lit + glow, 1.0);
 }

@@ -830,7 +830,9 @@ pub fn frame_table(
     mut rig: ResMut<CameraRig>,
     mut pose: ResMut<CameraPose>,
 ) {
-    let Some(layout) = duel.layout.as_ref() else {
+    // The table a tear ends on, not the stage it is in: the camera stands
+    // still while the table tears and docks under it.
+    let Some(layout) = duel.settled_layout() else {
         return;
     };
     let Ok(window) = windows.single() else {
