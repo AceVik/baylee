@@ -66,6 +66,7 @@ pub(super) fn draw<'a>(
         ))
         .id();
     let menu = surfaces::menu(commands, kit, items);
+    super::orders::items_of(commands, menu, &super::orders::MENU, "items");
     commands.entity(menu).insert((
         Node {
             position_type: PositionType::Absolute,

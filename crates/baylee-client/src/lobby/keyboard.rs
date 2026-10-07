@@ -475,6 +475,9 @@ fn text_field_keys(
                     .lobby
                     .move_caret(reach, dir, shift);
             }
+            // On the table screen the kit's walker moves over the stops
+            // (Play, Decks, the room, their sheets; `focusing`).
+            Key::Tab if table => {}
             Key::Tab => cycle_form_focus(state, if shift { Tab::Back } else { Tab::Next }),
             Key::Escape if state.lobby.deleting_account().is_some() => {
                 state.lobby.cancel_account_deletion();

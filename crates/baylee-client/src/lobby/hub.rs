@@ -110,7 +110,12 @@ pub(super) fn table(
         return;
     }
 
-    if let Some(handover) = lobby.awaiting() {
+    // A table being opened, not listed yet. Once listed, the seated strip
+    // says where the player sits (M-7), and a second line would repeat it.
+    if let Some(handover) = lobby
+        .awaiting()
+        .filter(|_| super::header::seated(state).is_none())
+    {
         let banner = commands
             .spawn((
                 Node {

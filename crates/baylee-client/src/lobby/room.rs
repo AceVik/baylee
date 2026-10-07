@@ -99,6 +99,7 @@ pub(super) fn draw(
             Pickable::IGNORE,
         ))
         .id();
+    super::orders::stop(commands, back, &super::orders::ROOM, "back");
     commands.entity(title).add_children(&[back, heading]);
     if !phone {
         if let Some(format) = client_core::lobby::play::host_format(game) {
@@ -152,6 +153,7 @@ pub(super) fn draw(
         None,
         Press::Room(RoomPress::LeaveTable(index)),
     );
+    super::orders::stop(commands, leave, &super::orders::ROOM, "leave");
     commands.entity(title).add_child(leave);
     if !lobby.offline() && !phone {
         let invite = controls::button(
@@ -168,6 +170,7 @@ pub(super) fn draw(
             None,
             Press::Room(RoomPress::CopyInvite(index)),
         );
+        super::orders::stop(commands, invite, &super::orders::ROOM, "copy-invite");
         commands.entity(title).add_child(invite);
     }
     if game.yours {
@@ -187,6 +190,7 @@ pub(super) fn draw(
             }),
             Press::Room(RoomPress::StartRoom(index)),
         );
+        super::orders::stop(commands, start, &super::orders::ROOM, "start");
         commands.entity(title).add_child(start);
     }
 
@@ -289,6 +293,7 @@ pub(super) fn draw(
             None,
             Press::Room(RoomPress::EditRules),
         );
+        super::orders::stop(commands, edit, &super::orders::ROOM, "edit-rules");
         commands.entity(rail).add_child(edit);
     }
     let rule = commands
@@ -327,6 +332,7 @@ pub(super) fn draw(
             None,
             Press::Room(RoomPress::SetTeams),
         );
+        super::orders::stop(commands, set, &super::orders::ROOM, "set-teams");
         commands.entity(teams).add_child(set);
     }
     commands.entity(rail).add_child(teams);
@@ -363,8 +369,19 @@ pub(super) fn draw(
         .id();
     commands.entity(columns).add_child(seats);
     let mut anchors = Vec::new();
+    let mut walked = 0;
     for seat in &game.seats {
-        if let Some(anchor) = seat_card(commands, seats, state, fonts, m, kit, index, seat) {
+        if let Some(anchor) = seat_card(
+            commands,
+            seats,
+            state,
+            fonts,
+            m,
+            kit,
+            index,
+            seat,
+            &mut walked,
+        ) {
             anchors.push(anchor);
         }
     }
@@ -507,7 +524,14 @@ fn seat_card(
     kit: Kit,
     index: usize,
     seat: &client_core::lobby::GameSeat,
+    walked: &mut usize,
 ) -> Option<(u8, Entity, bool)> {
+    // Every control of every seat is one item of the seats' grid, in
+    // reading order (`KEYBOARD.md` §1.4 "Grid of rows").
+    let mut walk = |commands: &mut Commands, control: Entity| {
+        super::orders::item(commands, control, &super::orders::ROOM, "seats", *walked);
+        *walked += 1;
+    };
     let lobby = &state.lobby;
     let game = &lobby.games()[index];
     let lang = lobby.lang();
@@ -646,6 +670,7 @@ fn seat_card(
                 Weight::Secondary,
                 Press::Shared(SharedPress::OpenMenu(ShellMenu::SeatAi(at))),
             );
+            walk(commands, ai);
             anchor = Some((at, ai, true));
             commands.entity(line).add_child(ai);
             // Desktop builds only (M-3): nothing to spawn elsewhere.
@@ -657,6 +682,7 @@ fn seat_card(
                     Weight::Secondary,
                     Press::Room(RoomPress::OpenChair(index, seat.seat)),
                 );
+                walk(commands, llm);
                 commands.entity(line).add_child(llm);
             }
         }
@@ -691,6 +717,7 @@ fn seat_card(
             Weight::Secondary,
             Press::Room(RoomPress::RoomDeckPicker(seat.seat)),
         );
+        walk(commands, pick);
         commands.entity(deck_line).add_child(pick);
     } else {
         let label = super::parts::line(
@@ -755,6 +782,7 @@ fn seat_card(
             false,
             Press::Room(RoomPress::SeatTeam(index, seat.seat, next)),
         );
+        walk(commands, chip);
         commands.entity(deck_line).add_child(chip);
     } else if seat.team.is_some() {
         let chip = super::parts::badge(commands, kit, &side, tokens::INK);
@@ -783,6 +811,7 @@ fn seat_card(
                 .entity(toggle)
                 .insert(crate::shellkit::controls::Disabled);
         }
+        walk(commands, toggle);
         commands.entity(line).add_children(&[words, toggle]);
     }
     if game.yours {
@@ -792,6 +821,7 @@ fn seat_card(
             super::parts::ELLIPSIS,
             Press::Shared(SharedPress::OpenMenu(ShellMenu::Seat(at))),
         );
+        walk(commands, more);
         anchor = Some((at, more, false));
         commands.entity(line).add_child(more);
     }
@@ -971,6 +1001,14 @@ fn chair_sheet(
             Press::Settings(SettingsPress::OpenSettings),
         ));
     }
+    let ids: [&'static str; 2] = if state.llm.planned(chair).is_some() {
+        ["remove", "seat"]
+    } else {
+        ["cancel", "seat"]
+    };
+    for (control, id) in footer.iter().zip(ids) {
+        super::orders::stop(commands, *control, &super::orders::CHAIR, id);
+    }
     let surface = crate::shellkit::surfaces::sheet_box(
         commands,
         kit,
@@ -1066,6 +1104,12 @@ fn field(
             tail: None,
         },
     );
+    // The drawer's two boxes are the room's last stops.
+    let id = match field {
+        Field::RoomCounter => "counter",
+        _ => "board",
+    };
+    super::orders::field(commands, e, &super::orders::ROOM, id);
     commands.entity(parent).add_child(e);
 }
 

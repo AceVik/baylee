@@ -15,6 +15,7 @@
 //!   toolbar is one 44-px row (M4-6).
 
 use super::menus::{self, ShellMenu};
+use super::orders;
 use super::parts;
 use super::press::Cx;
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
@@ -353,6 +354,7 @@ fn toolbar(
                 }))
             },
         );
+        orders::items_of(commands, tabs, &orders::DECKS, "tabs");
         commands.entity(bar).add_child(tabs);
     }
     let gap = parts::grow(commands);
@@ -364,6 +366,7 @@ fn toolbar(
             crate::hud::glyph::MAGNIFIER,
             Press::Decks(DecksPress::OpenSearch),
         );
+        orders::stop(commands, glass, &orders::DECKS, "search");
         commands.entity(bar).add_child(glass);
     } else {
         let hunt = commands
@@ -392,6 +395,7 @@ fn toolbar(
                 tail: None,
             },
         );
+        orders::field(commands, field, &orders::DECKS, "search");
         commands.entity(hunt).add_child(field);
         commands.entity(bar).add_child(hunt);
     }
@@ -414,6 +418,7 @@ fn toolbar(
                 Press::Shared(SharedPress::OpenMenu(ShellMenu::DeckSort)),
             )
         };
+        orders::stop(commands, sort, &orders::DECKS, "sort");
         sort_anchor = Some(sort);
         commands.entity(bar).add_child(sort);
         let new = controls::button(
@@ -434,6 +439,8 @@ fn toolbar(
             None,
             Press::Decks(DecksPress::Import),
         );
+        orders::stop(commands, new, &orders::DECKS, "new");
+        orders::stop(commands, import, &orders::DECKS, "import");
         commands.entity(bar).add_children(&[new, import]);
     } else {
         // The house tab filters by format; it has no sort (its order is the
@@ -449,6 +456,7 @@ fn toolbar(
                 false,
                 Press::Decks(DecksPress::Format(at)),
             );
+            orders::item(commands, chip, &orders::DECKS, "formats", i);
             commands.entity(bar).add_child(chip);
         }
     }
@@ -495,6 +503,7 @@ fn mine(
     }
     let now = parts::now_secs();
     let tiny = kit.m.frame == ShellFrame::Phone && metrics.frame == Frame::Compact;
+    let mut walked = 0;
     for index in order {
         let deck = &lobby.decks()[index];
         let next = lobby.selected() == Some(index);
@@ -551,6 +560,17 @@ fn mine(
             next,
         };
         let tile = tile(commands, kit, lang, &look, &actions, more, None);
+        orders::item(commands, tile, &orders::DECKS, "tiles", walked);
+        walked += 1;
+        commands.entity(tile).insert((
+            super::focusing::Primary(Press::Decks(if next {
+                DecksPress::Edit(index)
+            } else {
+                DecksPress::Use(index)
+            })),
+            super::focusing::TileOf(index),
+            crate::shellkit::focus::Current(next),
+        ));
         commands.entity(grid).add_child(tile);
         if state.menu == Some(ShellMenu::Deck(index)) {
             let mut items = Vec::new();
@@ -588,6 +608,7 @@ fn mine(
     }
     // The dashed New deck tile closes the shelf.
     let new = new_tile(commands, kit, lang);
+    orders::item(commands, new, &orders::DECKS, "tiles", walked);
     commands.entity(grid).add_child(new);
 }
 
@@ -621,7 +642,7 @@ fn empty_shelf(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity 
         Phrase::DecksEmptyTitle.text(lang),
         None,
     );
-    let minis = super::play::mini_tiles(commands, state, kit);
+    let minis = super::play::mini_tiles(commands, state, kit, &orders::DECKS, "tiles");
     commands.entity(column).add_children(&[minis, actions]);
     column
 }
@@ -708,6 +729,7 @@ fn house(
         .format
         .and_then(|i| HOUSE_FORMATS.get(usize::from(i)))
         .map(|(f, _)| *f);
+    let mut walked = 0;
     for (index, deck) in lib.house.iter().enumerate() {
         if !query.is_empty()
             && !shelf::fold(&deck.name).contains(&query)
@@ -791,6 +813,13 @@ fn house(
             more,
             Some(Press::Decks(DecksPress::Preview(index))),
         );
+        orders::item(commands, tile, &orders::DECKS, "tiles", walked);
+        walked += 1;
+        commands
+            .entity(tile)
+            .insert(super::focusing::Primary(Press::Decks(DecksPress::Preview(
+                index,
+            ))));
         commands.entity(grid).add_child(tile);
         if state.menu == Some(ShellMenu::House(index)) {
             let items = vec![
@@ -862,7 +891,7 @@ pub(super) fn tile(
         .spawn((
             Node {
                 column_gap: kit.m.px(12.0),
-                padding: UiRect::all(kit.m.px(if phone { 8.0 } else { 12.0 })),
+                padding: UiRect::all(kit.m.px(if phone { 6.0 } else { 12.0 })),
                 border_radius: BorderRadius::top(px_fixed(tokens::RADIUS_PANEL - 1.0)),
                 ..default()
             },
@@ -928,8 +957,8 @@ pub(super) fn tile(
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
-                row_gap: kit.m.px(6.0),
-                padding: UiRect::all(kit.m.px(if phone { 8.0 } else { 12.0 })),
+                row_gap: kit.m.px(if phone { 4.0 } else { 6.0 }),
+                padding: UiRect::all(kit.m.px(if phone { 6.0 } else { 12.0 })),
                 ..default()
             },
             Pickable::IGNORE,
@@ -1060,7 +1089,7 @@ fn history_sheet(commands: &mut Commands, root: Entity, state: &LobbyState, kit:
     if let Some(history) = &lib.history {
         let rows = std::iter::once((history.version, history.updated_at))
             .chain(history.past.iter().map(|v| (v.version, v.superseded_at)));
-        for (version, at) in rows {
+        for (walked, (version, at)) in rows.enumerate() {
             let when = when(at);
             let label = if version == history.version {
                 Phrase::HistoryCurrentRow.fill(lang, &[&version.to_string()])
@@ -1068,7 +1097,7 @@ fn history_sheet(commands: &mut Commands, root: Entity, state: &LobbyState, kit:
                 Phrase::HistoryRow.fill(lang, &[&version.to_string()])
             };
             let on = shown == Some(version);
-            let item = surfaces::list_row(
+            let row = surfaces::list_row(
                 commands,
                 kit,
                 &label,
@@ -1076,12 +1105,13 @@ fn history_sheet(commands: &mut Commands, root: Entity, state: &LobbyState, kit:
                 &[],
                 Press::Decks(DecksPress::Version(version)),
             );
-            commands.entity(item).insert(BackgroundColor(if on {
+            commands.entity(row).insert(BackgroundColor(if on {
                 tokens::SELECTED
             } else {
                 Color::NONE
             }));
-            commands.entity(versions).add_child(item);
+            orders::item(commands, row, &orders::HISTORY, "versions", walked);
+            commands.entity(versions).add_child(row);
         }
         if history.past.is_empty() {
             let none = parts::line(
@@ -1131,6 +1161,7 @@ fn history_sheet(commands: &mut Commands, root: Entity, state: &LobbyState, kit:
             false,
             Press::Decks(DecksPress::ShowAll),
         );
+        orders::stop(commands, all, &orders::HISTORY, "show-all");
         commands.entity(compare).add_children(&[label, gap, all]);
         commands.entity(detail).add_child(compare);
         let base: &Snapshot = lib.current.as_ref().unwrap_or(snapshot);
@@ -1179,6 +1210,8 @@ fn history_sheet(commands: &mut Commands, root: Entity, state: &LobbyState, kit:
         None,
         Press::Decks(DecksPress::Restore),
     );
+    orders::stop(commands, close, &orders::HISTORY, "close");
+    orders::stop(commands, restore, &orders::HISTORY, "restore");
     let title = Phrase::HistoryTitle.fill(lang, &[&name]);
     let surface = surfaces::sheet_box(
         commands,
@@ -1337,6 +1370,9 @@ fn preview_sheet(commands: &mut Commands, root: Entity, state: &LobbyState, kit:
         None,
         Press::Decks(DecksPress::Add(index)),
     );
+    orders::stop(commands, close, &orders::PREVIEW, "close");
+    orders::stop(commands, add_use, &orders::PREVIEW, "add-and-use");
+    orders::stop(commands, add, &orders::PREVIEW, "add");
     let surface = surfaces::sheet_box(
         commands,
         kit,
@@ -1529,6 +1565,7 @@ pub(super) fn open_import(
 
 /// Whether the Decks screen is up with nothing over it and no field typing:
 /// where a paste or a dropped file means "import this" (N-2).
+#[cfg(not(target_arch = "wasm32"))]
 fn decks_bare(state: &LobbyState) -> bool {
     !state.settings_open()
         && matches!(state.lobby.screen(), Screen::Table)
@@ -1580,17 +1617,18 @@ pub(super) fn paste_or_drop(
         *pending = None;
         text = answer.ok();
     }
-    let Some(keys) = keys else {
-        return;
-    };
-    let command = if crate::shellkit::keys::mac() {
-        keys.pressed(KeyCode::SuperLeft) || keys.pressed(KeyCode::SuperRight)
-    } else {
-        keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight)
-    };
+    let command = keys.as_deref().is_some_and(|keys| {
+        if crate::shellkit::keys::mac() {
+            keys.pressed(KeyCode::SuperLeft) || keys.pressed(KeyCode::SuperRight)
+        } else {
+            keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight)
+        }
+    });
     if bare
         && command
-        && keys.just_pressed(KeyCode::KeyV)
+        && keys
+            .as_deref()
+            .is_some_and(|keys| keys.just_pressed(KeyCode::KeyV))
         && let Some(mut clipboard) = clipboard
     {
         let mut read = clipboard.fetch_text();

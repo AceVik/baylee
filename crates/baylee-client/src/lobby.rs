@@ -196,8 +196,22 @@ impl Plugin for LobbyPlugin {
             )
             .add_systems(
                 PostUpdate,
-                menus::place
-                    .after(bevy::ui::UiSystems::Layout)
+                (
+                    menus::place.after(bevy::ui::UiSystems::Layout),
+                    focusing::follow_focus,
+                )
+                    .run_if(in_state(DuelPhase::Closed)),
+            )
+            // The keyboard on the stops the screens draw (WP2, WP3): Enter
+            // and Space, a tile's own keys, a screen's first focus.
+            .add_systems(
+                Update,
+                (
+                    focusing::keys_press,
+                    focusing::tile_keys,
+                    focusing::initial_focus,
+                )
+                    .after(crate::shellkit::focus::FocusSystems)
                     .run_if(in_state(DuelPhase::Closed)),
             )
             // In every phase: a table is where most pictures and text are
@@ -607,6 +621,7 @@ mod end_screen;
 mod entrance;
 mod feed;
 mod field;
+mod focusing;
 mod header;
 #[cfg(test)]
 pub(crate) use feed::feed_url;
@@ -709,5 +724,6 @@ pub(crate) mod button_style;
 
 mod localization;
 mod menus;
+pub(crate) mod orders;
 mod parts;
 mod play;

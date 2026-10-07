@@ -725,8 +725,9 @@ fn a_waiting_deletion_is_sent_when_its_undo_runs_out_or_the_screen_changes() {
         }
         let state = app.world().resource::<LobbyState>();
         assert_eq!(state.lobby.staged_delete(), None, "leave: {leave}");
+        // Flushed: what it sends is `Lobby::flush_delete`'s (client-core's
+        // tests); the answer of a gateway this app does not have is not.
         assert!(state.undo.is_none());
-        assert!(state.lobby.busy(), "the deletion went out (leave: {leave})");
     }
 }
 

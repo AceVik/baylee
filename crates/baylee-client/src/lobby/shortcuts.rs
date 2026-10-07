@@ -158,6 +158,7 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
 /// Answers the shell actions the lobby has doors for, through the same
 /// handlers a click reaches. A move to Play or Decks from Settings closes
 /// Settings and then switches the hub.
+#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 pub(super) fn run_fired(
     mut fired: MessageReader<ShellFired>,
     mut state: ResMut<LobbyState>,
@@ -165,31 +166,34 @@ pub(super) fn run_fired(
     mut scrolled: ResMut<Scrolled>,
     mailbox: Res<Mailbox>,
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
+    focus: Option<Res<bevy::input_focus::InputFocus>>,
+    tiles: Query<&super::focusing::TileOf>,
 ) {
+    let tile = focus
+        .as_deref()
+        .and_then(|f| super::focusing::focused_tile(f, &tiles));
     for ShellFired(action) in fired.read() {
         // Settings closes first; the hub tab follows on the same key.
         for _ in 0..2 {
-            let Some(press) = press_for(&state, *action) else {
+            // `e` / `F2` on the focused deck tile (`KEYBOARD.md` §7.6).
+            let edit = (*action == ShellAction::EditTile)
+                .then_some(tile)
+                .flatten()
+                .map(|i| Press::Decks(super::decks::DecksPress::Edit(i)));
+            let Some(press) = edit.or_else(|| press_for(&state, *action)) else {
                 break;
             };
             let closing = press == Press::Settings(SettingsPress::CloseSettings);
-            let cx = Cx {
-                state: &mut state,
-                prefs: &mut prefs,
-                scrolled: &mut scrolled,
-                mailbox: &mailbox,
-                settings: &mut settings,
-            };
-            match press {
-                Press::Hub(press) => press.handle(cx),
-                Press::Settings(press) => press.handle(cx),
-                Press::Shared(press) => press.handle(cx),
-                Press::Header(press) => press.handle(cx),
-                Press::Decks(press) => press.handle(cx),
-                Press::Play(press) => press.handle(cx),
-                Press::Room(press) => press.handle(cx),
-                _ => {}
-            }
+            super::press::run(
+                press,
+                Cx {
+                    state: &mut state,
+                    prefs: &mut prefs,
+                    scrolled: &mut scrolled,
+                    mailbox: &mailbox,
+                    settings: &mut settings,
+                },
+            );
             if !closing {
                 break;
             }

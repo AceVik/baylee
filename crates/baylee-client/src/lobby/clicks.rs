@@ -198,20 +198,7 @@ pub(super) fn clicks(
             mailbox: &mailbox,
             settings: &mut settings,
         };
-        match *press {
-            Press::Front(press) => press.handle(cx),
-            Press::Hub(press) => press.handle(cx),
-            Press::Library(press) => press.handle(cx),
-            Press::Room(press) => press.handle(cx),
-            Press::Build(press) => press.handle(cx),
-            Press::Settings(press) => press.handle(cx),
-            // Game-over actions are handled by `leave_clicks`.
-            Press::End(_) => {}
-            Press::Shared(press) => press.handle(cx),
-            Press::Header(press) => press.handle(cx),
-            Press::Decks(press) => press.handle(cx),
-            Press::Play(press) => press.handle(cx),
-        }
+        super::press::run(*press, cx);
     }
 }
 

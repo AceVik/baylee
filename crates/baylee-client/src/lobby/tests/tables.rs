@@ -180,42 +180,54 @@ fn room_tab_visits_only_expanded_inputs_in_both_directions() {
         *p == Press::Front(FrontPress::PlayOffline)
     });
     open_a_table(&mut app);
-    let tab = |app: &mut App, backwards: bool| {
-        if backwards {
+    // Every field the caret visits on a whole round of Tab, either way: the
+    // kit's walker over the room's stops (`lobby::orders::ROOM`).
+    let round = |app: &mut App, backwards: bool| {
+        let mut seen = Vec::new();
+        for _ in 0..40 {
+            if backwards {
+                app.world_mut()
+                    .resource_mut::<ButtonInput<KeyCode>>()
+                    .press(KeyCode::ShiftLeft);
+            }
+            app.world_mut()
+                .resource_mut::<Messages<KeyboardInput>>()
+                .write(pressed(KeyCode::Tab, Key::Tab));
+            app.update();
             app.world_mut()
                 .resource_mut::<ButtonInput<KeyCode>>()
-                .press(KeyCode::ShiftLeft);
+                .release(KeyCode::ShiftLeft);
+            let state = app.world().resource::<LobbyState>();
+            if state.lobby.typing_here() {
+                let field = state.lobby.focus();
+                if !seen.contains(&field) {
+                    seen.push(field);
+                }
+            }
         }
-        app.world_mut()
-            .resource_mut::<Messages<KeyboardInput>>()
-            .write(pressed(KeyCode::Tab, Key::Tab));
-        app.update();
-        app.world_mut()
-            .resource_mut::<ButtonInput<KeyCode>>()
-            .release(KeyCode::ShiftLeft);
-        app.world().resource::<LobbyState>().lobby.focus()
+        seen
     };
-    // The room draws no box until a drawer is open: Tab finds none, and the
-    // caret is never put into a field nothing shows (the room's name is the
-    // Create-table sheet's, WP2).
-    let resting = tab(&mut app, false);
-    assert!(!matches!(resting, Field::RoomName | Field::RoomPassword));
-    assert_eq!(tab(&mut app, true), resting);
+    // The room draws no box until a drawer is open: a round of Tab types
+    // into nothing (the room's name is the Create-table sheet's, WP2).
+    assert_eq!(round(&mut app, false), Vec::<Field>::new());
+    assert_eq!(round(&mut app, true), Vec::<Field>::new());
     open_drawer(&mut app, 1);
-    assert_eq!(tab(&mut app, false), Field::RoomBoard(1));
-    assert_eq!(tab(&mut app, true), Field::RoomBoard(1));
+    assert_eq!(round(&mut app, false), vec![Field::RoomBoard(1)]);
+    assert_eq!(round(&mut app, true), vec![Field::RoomBoard(1)]);
     // The drawer stays open through Edit rules.
     five_lands(&mut app);
     tap_control(&mut app, "edit a starting card", |p| {
         *p == Press::Room(RoomPress::RoomCardEdit(1, 0))
     });
-    assert_eq!(tab(&mut app, false), Field::RoomBoard(1));
-    assert_eq!(tab(&mut app, false), Field::RoomCounter);
-    assert_eq!(tab(&mut app, false), Field::RoomBoard(1));
-    assert_eq!(tab(&mut app, true), Field::RoomCounter);
+    let both = round(&mut app, false);
+    assert!(
+        both.contains(&Field::RoomBoard(1))
+            && both.contains(&Field::RoomCounter)
+            && both.len() == 2,
+        "{both:?}"
+    );
     open_drawer(&mut app, 1);
-    let shut = tab(&mut app, true);
-    assert!(!matches!(shut, Field::RoomBoard(_) | Field::RoomCounter));
+    assert_eq!(round(&mut app, true), Vec::<Field>::new());
 }
 
 /// Opens (or shuts) a seat's drawer the way the host does: its `⋯`, then
@@ -276,9 +288,10 @@ fn starting_cards_expand_per_seat_without_losing_the_draft_or_hidden_focus() {
     assert!(!controls.contains(&Press::Shared(SharedPress::Focus(Field::RoomBoard(0)))));
     assert!(controls.contains(&Press::Shared(SharedPress::Focus(Field::RoomBoard(1)))));
     let state = app.world().resource::<LobbyState>();
+    // Never the hidden box: seat one's board search is gone with its drawer.
     assert!(!matches!(
         state.lobby.focus(),
-        Field::RoomBoard(_) | Field::RoomCounter | Field::RoomName
+        Field::RoomBoard(0) | Field::RoomCounter | Field::RoomName
     ));
     assert_eq!(state.lobby.field(Field::RoomBoard(0)), "island");
     assert_eq!(

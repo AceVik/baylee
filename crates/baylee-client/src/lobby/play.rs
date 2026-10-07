@@ -14,6 +14,7 @@
 
 use super::decks::DecksPress;
 use super::menus::{self, ShellMenu};
+use super::orders;
 use super::parts;
 use super::press::Cx;
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
@@ -301,9 +302,9 @@ fn hero(
     if deck.is_none() && !lobby.offline() {
         // First run (S-3): three house decks, one press to copy and use.
         let caption = parts::caption(commands, kit, Phrase::PlayPickToStart.text(lang));
-        let minis = mini_tiles(commands, state, kit);
+        let minis = mini_tiles(commands, state, kit, &orders::PLAY, "minis");
         commands.entity(panel).add_children(&[caption, minis]);
-    } else if !strip_hero {
+    } else if !strip_hero && !phone {
         let caption = parts::caption(commands, kit, Phrase::PlayYourNextGame.text(lang));
         commands.entity(panel).add_child(caption);
     }
@@ -361,7 +362,16 @@ fn hero(
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(words).add_child(name);
+        // On a phone and a narrow strip, `⋯` (Change deck · Edit) stands
+        // beside the name (M4-6).
+        let name_row = parts::row(commands, kit, false);
+        commands.entity(name).insert(Node {
+            flex_shrink: 1.0,
+            min_width: px(0),
+            ..default()
+        });
+        commands.entity(name_row).add_child(name);
+        commands.entity(words).add_child(name_row);
         let pips = parts::row(commands, kit, true);
         let format = parts::badge(
             commands,
@@ -397,8 +407,9 @@ fn hero(
                 parts::ELLIPSIS,
                 Press::Shared(SharedPress::OpenMenu(ShellMenu::Hero)),
             );
+            orders::stop(commands, more, &orders::PLAY, "more");
             anchors.more = Some(more);
-            commands.entity(words).add_child(more);
+            commands.entity(name_row).add_child(more);
         } else {
             let links = parts::row(commands, kit, true);
             let change = controls::button(
@@ -419,6 +430,8 @@ fn hero(
                 None,
                 Press::Play(PlayPress::EditNext),
             );
+            orders::stop(commands, change, &orders::PLAY, "change-deck");
+            orders::stop(commands, edit, &orders::PLAY, "edit");
             commands.entity(links).add_children(&[change, edit]);
             commands.entity(words).add_child(links);
         }
@@ -439,6 +452,7 @@ fn hero(
             Some("r"),
             Press::Play(PlayPress::Return),
         );
+        orders::stop(commands, back, &orders::PLAY, "return");
         commands.entity(panel).add_child(back);
     }
     let buttons = commands
@@ -477,6 +491,8 @@ fn hero(
         Press::Shared(SharedPress::OpenMenu(ShellMenu::Difficulty)),
     );
     anchors.caret = Some(caret);
+    orders::stop(commands, house, &orders::PLAY, "play-house");
+    orders::stop(commands, caret, &orders::PLAY, "difficulty");
     let pair = commands
         .spawn((
             Node {
@@ -508,6 +524,7 @@ fn hero(
         Some("c"),
         Press::Play(PlayPress::CreateTable),
     );
+    orders::stop(commands, create, &orders::PLAY, "create");
     commands.entity(buttons).add_children(&[pair, create]);
     // The reason stands once, under the pair (S4-3).
     if let Some(reason) = &off {
@@ -520,7 +537,13 @@ fn hero(
 
 /// Three house decks as mini tiles: art 78 × 57 with its credit, name,
 /// format; one press copies and uses (S-3, through Decks' **Add and use**).
-pub(super) fn mini_tiles(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+pub(super) fn mini_tiles(
+    commands: &mut Commands,
+    state: &LobbyState,
+    kit: Kit,
+    order: &'static crate::shellkit::focus::TabOrder,
+    id: &'static str,
+) -> Entity {
     let lobby = &state.lobby;
     let lang = lobby.lang();
     let row = commands
@@ -603,6 +626,7 @@ pub(super) fn mini_tiles(commands: &mut Commands, state: &LobbyState, kit: Kit) 
             tokens::ACCENT,
         );
         commands.entity(tile).add_children(&[name, format, action]);
+        orders::item(commands, tile, order, id, index);
         commands.entity(row).add_child(tile);
     }
     row
@@ -675,6 +699,8 @@ fn recent(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit)
             None,
             Press::Play(PlayPress::EditAndRematch(at)),
         );
+        orders::item(commands, again, &orders::PLAY, "recent", 2 * at);
+        orders::item(commands, edit, &orders::PLAY, "recent", 2 * at + 1);
         commands.entity(line).add_children(&[words, again, edit]);
         commands.entity(panel).add_child(line);
     }
@@ -793,6 +819,7 @@ fn tables(
                 tail: None,
             },
         );
+        orders::field(commands, field, &orders::PLAY, "search");
         commands.entity(hunt).add_child(field);
         commands.entity(head).add_child(hunt);
     }
@@ -833,6 +860,7 @@ fn tables(
                 false,
                 Press::Play(PlayPress::Chip(chip)),
             );
+            orders::item(commands, c, &orders::PLAY, "chips", chip as usize);
             commands.entity(chips).add_child(c);
         }
         let gap = parts::grow(commands);
@@ -843,6 +871,7 @@ fn tables(
             Weight::Ghost,
             Press::Shared(SharedPress::OpenMenu(ShellMenu::TableSort)),
         );
+        orders::stop(commands, sort, &orders::PLAY, "sort");
         sort_anchor = Some(sort);
         commands.entity(chips).add_children(&[gap, sort]);
         commands.entity(panel).add_child(chips);
@@ -941,6 +970,7 @@ fn tables(
         .next_deck()
         .map(|d| d.format.clone())
         .unwrap_or_default();
+    let mut walked = 0;
     for index in order {
         let game = &lobby.games()[index];
         let row = table_row(
@@ -951,6 +981,7 @@ fn tables(
             game,
             &mine_format,
             held.is_some(),
+            &mut walked,
         );
         commands.entity(list).add_child(row);
     }
@@ -991,6 +1022,7 @@ fn tables(
                 None,
                 Press::Hub(HubPress::Page(forwards)),
             );
+            orders::item(commands, b, &orders::PLAY, "pager", usize::from(forwards));
             commands.entity(bar).add_child(b);
         }
         commands.entity(panel).add_child(bar);
@@ -1011,6 +1043,7 @@ fn table_row(
     game: &GameSummary,
     mine_format: &str,
     held: bool,
+    walked: &mut usize,
 ) -> Entity {
     let lobby = &state.lobby;
     let lang = lobby.lang();
@@ -1134,6 +1167,8 @@ fn table_row(
             None,
             Press::Play(PlayPress::PlayAgain(index)),
         );
+        orders::item(commands, again, &orders::PLAY, "tables", *walked);
+        *walked += 1;
         commands.entity(top).add_child(again);
     } else if mine {
         let back = controls::button(
@@ -1145,6 +1180,8 @@ fn table_row(
             None,
             Press::Play(PlayPress::Return),
         );
+        orders::item(commands, back, &orders::PLAY, "tables", *walked);
+        *walked += 1;
         commands.entity(top).add_child(back);
     } else if game.joinable() {
         if game.locked && !held {
@@ -1195,6 +1232,8 @@ fn table_row(
             None,
             Press::Play(PlayPress::Join(index)),
         );
+        orders::item(commands, join, &orders::PLAY, "tables", *walked);
+        *walked += 1;
         commands.entity(top).add_child(join);
     }
     commands.entity(row).add_child(top);
@@ -1261,6 +1300,7 @@ fn menu(
 }
 
 /// The deck picker (Change deck): the shelf's tiles, one press chooses.
+#[allow(clippy::too_many_lines)] // one sheet, drawn top to bottom
 fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
@@ -1280,12 +1320,15 @@ fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
             Pickable::IGNORE,
         ))
         .id();
-    for index in shelf::order(
+    for (walked, index) in shelf::order(
         lobby.decks(),
         "",
         shelf::Sort::LastSaved,
         lobby.staged_delete(),
-    ) {
+    )
+    .into_iter()
+    .enumerate()
+    {
         let deck = &lobby.decks()[index];
         let chosen = lobby.selected() == Some(index);
         let tile = commands
@@ -1333,6 +1376,10 @@ fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
         );
         commands.entity(words).add_children(&[name, format]);
         commands.entity(tile).add_child(words);
+        orders::item(commands, tile, &orders::PICKER, "tiles", walked);
+        commands
+            .entity(tile)
+            .insert(crate::shellkit::focus::Current(chosen));
         commands.entity(grid).add_child(tile);
     }
     let cancel = controls::button(
@@ -1352,6 +1399,7 @@ fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
         &[grid],
         &[cancel],
     );
+    orders::stop(commands, cancel, &orders::PICKER, "cancel");
     let scrim = surfaces::sheet(commands, surface);
     commands
         .entity(scrim)
@@ -1382,6 +1430,7 @@ fn create_sheet(
     let label = |commands: &mut Commands, text: &str| parts::caption(commands, kit, text);
 
     body.push(label(commands, Phrase::SheetName.text(lang)));
+    let at = body.len();
     body.push(text_field(
         commands,
         kit.fonts,
@@ -1397,8 +1446,10 @@ fn create_sheet(
             tail: None,
         },
     ));
+    orders::field(commands, body[at], &orders::CREATE, "name");
 
     body.push(label(commands, Phrase::SheetPlayers.text(lang)));
+    let at = body.len();
     if phone {
         body.push(controls::stepper(
             commands,
@@ -1418,6 +1469,7 @@ fn create_sheet(
             |i| Press::Play(PlayPress::Players(i + 2)),
         ));
     }
+    orders::items_of(commands, body[at], &orders::CREATE, "players");
 
     body.push(label(commands, Phrase::SheetTemplate.text(lang)));
     let cards = parts::row(commands, kit, true);
@@ -1474,6 +1526,13 @@ fn create_sheet(
             .entity(hit)
             .entry::<Node>()
             .and_modify(|mut n| n.flex_grow = 1.0);
+        orders::item(
+            commands,
+            hit,
+            &orders::CREATE,
+            "templates",
+            template as usize,
+        );
         commands.entity(cards).add_child(hit);
     }
     body.push(cards);
@@ -1493,6 +1552,7 @@ fn create_sheet(
         Weight::Ghost,
         Press::Play(PlayPress::Adjust),
     );
+    orders::stop(commands, adjust, &orders::CREATE, "adjust");
     commands
         .entity(derived)
         .add_children(&[summary, gap, adjust]);
@@ -1513,6 +1573,7 @@ fn create_sheet(
             Press::Play(PlayPress::Life(-1)),
             Press::Play(PlayPress::Life(1)),
         );
+        orders::items_of(commands, step, &orders::CREATE, "life");
         commands.entity(life).add_children(&[caption, step]);
         let mull = parts::row(commands, kit, true);
         let caption = parts::line(
@@ -1529,6 +1590,7 @@ fn create_sheet(
             Press::Play(PlayPress::Mulligans(false)),
             Press::Play(PlayPress::Mulligans(true)),
         );
+        orders::items_of(commands, step, &orders::CREATE, "mulligans");
         commands.entity(mull).add_children(&[caption, step]);
         body.push(life);
         body.push(mull);
@@ -1536,6 +1598,7 @@ fn create_sheet(
 
     if !lobby.offline() {
         body.push(label(commands, Phrase::SheetPassword.text(lang)));
+        let at = body.len();
         body.push(text_field(
             commands,
             kit.fonts,
@@ -1554,6 +1617,7 @@ fn create_sheet(
                 tail: None,
             },
         ));
+        orders::field(commands, body[at], &orders::CREATE, "password");
     }
 
     // The clock: the gateway's list, the first the default (M-4). A room's
@@ -1563,6 +1627,7 @@ fn create_sheet(
         let clocks = lobby.clocks();
         let labels: Vec<String> = clocks.iter().map(|c| model::clock_label(lang, c)).collect();
         let items: Vec<&str> = labels.iter().map(String::as_str).collect();
+        let at = body.len();
         body.push(controls::segmented(
             commands,
             kit,
@@ -1570,6 +1635,7 @@ fn create_sheet(
             draft.clock.min(clocks.len().saturating_sub(1)),
             |i| Press::Play(PlayPress::Clock(i)),
         ));
+        orders::items_of(commands, body[at], &orders::CREATE, "clock");
         if let Some(clock) = clocks.get(draft.clock) {
             body.push(parts::line(
                 commands,
@@ -1608,6 +1674,8 @@ fn create_sheet(
         Some("Enter"),
         Press::Play(PlayPress::Open),
     );
+    orders::stop(commands, cancel, &orders::CREATE, "cancel");
+    orders::stop(commands, open, &orders::CREATE, "open");
     let surface = surfaces::sheet_box(
         commands,
         kit,
