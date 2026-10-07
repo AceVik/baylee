@@ -23,8 +23,9 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::Draws(PlayerRel::Opponent),
+        // "That player": the opponent who drew, not each opponent.
         &[Effect::PlayerMayPayOr {
-            player: PlayerRel::Opponent,
+            player: PlayerRel::EventPlayer,
             mana: Amount::Fixed(2),
             effect: &MAKE_TREASURE,
         }]

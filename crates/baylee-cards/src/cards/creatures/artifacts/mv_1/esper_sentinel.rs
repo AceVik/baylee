@@ -28,8 +28,9 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::FirstNoncreatureSpellCast(PlayerRel::Opponent),
+        // "That player": the one who cast the spell, not each opponent.
         &[Effect::PlayerMayPayOr {
-            player: PlayerRel::Opponent,
+            player: PlayerRel::EventPlayer,
             mana: Amount::SourcePower,
             effect: &DRAW_ONE,
         }]

@@ -1,9 +1,8 @@
 //! Rhystic Study — {2}{U} — Enchantment
 //! Oracle: Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.
 //! Set: J22 #114 — Jumpstart 2022 | Scryfall ID: 9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b | Oracle ID: 53236dd7-845a-444c-96d5-f41ed7325d8f
-// IMPLEMENTED — opponent-choice {1} tax on opponents' spells.
-
-static DRAW_ONE: Effect = Effect::draw(1);
+// IMPLEMENTED — the {1} tax is asked of the opponent who cast the spell, and
+// only them; unpaid, this enchantment's controller may draw.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -20,10 +19,13 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::SpellCast(&Filter::ControlledByOpponent),
+        // "That player": the one who cast the spell, not each opponent.
         &[Effect::PlayerMayPayOr {
-            player: PlayerRel::Opponent,
+            player: PlayerRel::EventPlayer,
             mana: Amount::Fixed(1),
-            effect: &DRAW_ONE,
+            effect: &Effect::MayDo {
+                effects: &[Effect::draw(1)]
+            },
         }]
     )],
 );

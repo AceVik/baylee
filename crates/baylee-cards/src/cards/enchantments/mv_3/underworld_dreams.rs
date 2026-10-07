@@ -20,7 +20,8 @@ card!(
         Trigger::Draws(PlayerRel::Opponent),
         &[Effect::DealDamage {
             amount: Amount::Fixed(1),
-            target: TargetSpec::Player(PlayerRel::Opponent),
+            // "That player": the opponent who drew. Not targeted.
+            target: TargetSpec::Player(PlayerRel::EventPlayer),
         }]
     )],
 );
