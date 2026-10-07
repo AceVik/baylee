@@ -11,7 +11,7 @@
 //!    and do not follow the shell's text step.
 
 /// The modules (relative to `src/`) whose lengths follow the text step.
-pub const SHELL_MODULES: &[&str] = &["shellkit"];
+pub const SHELL_MODULES: &[&str] = &["shellkit", "lobby/front"];
 
 /// The lines (1-based) of `source` that write a bare numeric `px(`.
 ///
@@ -86,7 +86,9 @@ mod tests {
                 let source = std::fs::read_to_string(&path).expect("a source file");
                 // A file's own tests may spell the forbidden shape on purpose
                 // (this one does, to prove the lint bites).
-                let code = source.split("#[cfg(test)]").next().unwrap_or("");
+                // A test-only item inside the code (`#[cfg(test)] fn`) is
+                // still code; only the tests module is left out.
+                let code = source.split("#[cfg(test)]\nmod ").next().unwrap_or("");
                 let lines = bare_px_literals(code);
                 assert!(
                     lines.is_empty(),

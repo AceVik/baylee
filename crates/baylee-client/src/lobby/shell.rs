@@ -385,16 +385,18 @@ pub(super) fn ui(
                 Scrollable(List::Table),
                 ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
             ));
+            let music_on = kit_inputs.1.as_deref().is_none_or(|s| s.music.gain() > 0.0);
             super::front::front_door(
                 &mut commands,
                 root,
                 &state,
                 &cast,
-                &fonts,
-                metrics,
+                kit,
                 &scrolled_to,
                 assets.as_deref(),
+                music_on,
             );
+            super::front::door::about(&mut commands, root, &state, kit, &scrolled_to);
         }
         Screen::Table => table(
             &mut commands,
@@ -443,4 +445,6 @@ pub(super) fn ui(
     if state.confirmation.is_some() {
         *builder_drawn = None;
     }
+    // The terms stand over whatever the sign-in led to, until answered.
+    super::front::terms::sheet(&mut commands, root, &state, kit, &scrolled_to);
 }

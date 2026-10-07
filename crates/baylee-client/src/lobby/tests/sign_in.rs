@@ -25,15 +25,13 @@ fn the_sign_in_screen_builds_with_its_controls() {
             "{registering:?} is only asked for when registering"
         );
     }
-    for elsewhere in [
-        Press::Front(FrontPress::PlayOffline),
-        Press::Front(FrontPress::AddGateway),
-    ] {
-        assert!(
-            !found.contains(&elsewhere),
-            "{elsewhere:?} is on the other face of the card"
-        );
-    }
+    // Play offline is in the text row under every face (WP1); the address
+    // is the gateway picker's alone.
+    assert!(found.contains(&Press::Front(FrontPress::PlayOffline)));
+    assert!(
+        !found.contains(&Press::Front(FrontPress::AddGateway)),
+        "the address is on the other face of the card"
+    );
     let drawn = labels(&mut app);
     let said = |phrase: Phrase| {
         drawn
@@ -80,7 +78,8 @@ fn creating_an_account_asks_for_the_password_twice_and_names_itself_once() {
     }
     let drawn = labels(&mut app);
     let said = |text: &str| drawn.iter().filter(|l| l.as_str() == text).count();
-    assert_eq!(said(Phrase::CreateAccount.text(Lang::En)), 1);
+    // The face's title and its primary (WP1: `‹ Back · Create account`).
+    assert_eq!(said(Phrase::CreateAccount.text(Lang::En)), 2);
     assert_eq!(said(Phrase::Continue.text(Lang::En)), 0);
     assert_eq!(said(Phrase::PasswordAgain.text(Lang::En)), 1);
 }
@@ -93,11 +92,19 @@ fn the_primary_action_submits_and_the_secondary_opens_the_other_form() {
             .query_filtered::<(&Press, &Children), With<super::super::front::AccountSubmit>>();
         tabs.iter(app.world())
             .map(|(press, children)| {
-                let label = children
-                    .iter()
-                    .find_map(|kid| app.world().get::<Text>(kid))
-                    .map(|text| text.0.clone())
-                    .unwrap_or_default();
+                // The kit's button: the hit wrapper holds the press, its
+                // face the label.
+                let mut waiting: std::collections::VecDeque<Entity> = children.iter().collect();
+                let mut label = String::new();
+                while let Some(node) = waiting.pop_front() {
+                    if let Some(text) = app.world().get::<Text>(node) {
+                        label = text.0.clone();
+                        break;
+                    }
+                    if let Some(kids) = app.world().get::<Children>(node) {
+                        waiting.extend(kids.iter());
+                    }
+                }
                 (label, *press)
             })
             .collect()
@@ -150,6 +157,7 @@ fn the_front_door_says_where_the_source_is() {
                     protocol_version: baylee_protocol::PROTOCOL_VERSION,
                     view_version: baylee_view::VIEW_VERSION,
                     source: Some(fork.to_string()),
+                    terms: None,
                 }),
             );
         }
@@ -204,6 +212,7 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
                     protocol_version: baylee_protocol::PROTOCOL_VERSION,
                     view_version: baylee_view::VIEW_VERSION,
                     source: Some("javascript:alert(1)".to_string()),
+                    terms: None,
                 }),
             );
         }
@@ -230,7 +239,9 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
         Press::Shared(SharedPress::Focus(Field::Gateway)),
         Press::Front(FrontPress::AddGateway),
         Press::Front(FrontPress::PlayOffline),
-        Press::Front(FrontPress::FrontMenu),
+        // The text row: what the gear used to hide (A6, WP1).
+        Press::Settings(SettingsPress::OpenSettings),
+        Press::Front(FrontPress::About(true)),
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
@@ -238,8 +249,6 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
         Press::Front(FrontPress::Submit),
         Press::Shared(SharedPress::Focus(Field::Username)),
         Press::Front(FrontPress::LeaveGateway),
-        // Behind the gear, until it is pressed.
-        Press::Settings(SettingsPress::OpenSettings),
     ] {
         assert!(
             !found.contains(&elsewhere),
@@ -264,62 +273,72 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
     );
 }
 
+/// The text row (WP1, A6): the languages by their own names, the music,
+/// Settings, Play offline and About under every face, on a mist plate — no
+/// gear to open first.
 #[test]
-fn the_gear_opens_the_languages_and_the_way_to_every_setting() {
-    fn open(app: &mut App) -> bool {
-        presses(app).contains(&Press::Settings(SettingsPress::OpenSettings))
-    }
+fn the_text_row_offers_the_languages_and_the_way_to_every_setting() {
     let mut app = headless();
-    assert!(!open(&mut app));
-    press(&mut app, Press::Front(FrontPress::FrontMenu));
-    assert!(open(&mut app), "the gear opens its menu");
-    let found = presses(&mut app);
-    let drawn = labels(&mut app);
-    for offered in Lang::ALL {
-        assert!(found.contains(&Press::Shared(SharedPress::PickLang(offered))));
-        assert!(
-            drawn.iter().any(|l| l == offered.name()),
-            "each language by its own name: {offered:?}"
-        );
+    for face in ["sign in", "gateways"] {
+        let found = presses(&mut app);
+        let drawn = labels(&mut app);
+        for offered in Lang::ALL {
+            assert!(
+                found.contains(&Press::Shared(SharedPress::PickLang(offered))),
+                "{face}"
+            );
+            assert!(
+                drawn.iter().any(|l| l == offered.name()),
+                "each language by its own name: {offered:?}"
+            );
+        }
+        for wanted in [
+            Press::Settings(SettingsPress::OpenSettings),
+            Press::Front(FrontPress::PlayOffline),
+            Press::Front(FrontPress::About(true)),
+            Press::Shared(SharedPress::ToggleMusic),
+        ] {
+            assert!(found.contains(&wanted), "{face}: {wanted:?} missing");
+        }
+        to_gateway_face(&mut app);
     }
-
-    // Picking a language keeps the menu open, to see what was picked.
+    // A language picked applies at once.
     press(&mut app, Press::Shared(SharedPress::PickLang(Lang::De)));
     assert_eq!(app.world().resource::<LobbyState>().lobby.lang(), Lang::De);
-    assert!(open(&mut app));
+}
 
-    // A press anywhere outside it closes it: the veil takes that press.
-    let veil = {
-        let mut veils = app
-            .world_mut()
-            .query_filtered::<(Entity, &Press), With<GlobalZIndex>>();
-        veils
-            .iter(app.world())
-            .find(|(_, press)| **press == Press::Front(FrontPress::FrontMenu))
-            .map(|(entity, _)| entity)
-            .expect("a veil behind the menu")
-    };
-    tap(&mut app, veil);
-    app.update();
-    assert!(!open(&mut app));
-
-    // Escape closes the menu and only the menu.
-    press(&mut app, Press::Front(FrontPress::FrontMenu));
-    assert!(open(&mut app));
+/// About (N4-8) opens over the door with the full notice, the licence and
+/// the third-party licences; Esc closes it and nothing else.
+#[test]
+fn about_holds_every_colophon_sentence_and_esc_closes_it() {
+    let mut app = headless();
+    press(&mut app, Press::Front(FrontPress::About(true)));
+    let drawn = labels(&mut app);
+    for wanted in [
+        super::super::front::FAN_CONTENT_NOTICE,
+        Phrase::ScryfallCredit.text(Lang::En),
+        Phrase::AboutLicence.text(Lang::En),
+        Phrase::AboutFonts.text(Lang::En),
+        Phrase::AboutCrates.text(Lang::En),
+    ] {
+        assert!(drawn.iter().any(|l| l == wanted), "{wanted} missing");
+    }
     app.world_mut()
         .resource_mut::<Messages<KeyboardInput>>()
         .write(pressed(KeyCode::Escape, Key::Escape));
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::Escape);
     app.update();
-    assert!(!open(&mut app));
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .reset_all();
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert!(!state.about_open);
     assert!(
-        app.world().resource::<LobbyState>().lobby.gateway_chosen(),
+        state.lobby.gateway_chosen(),
         "still at the gateway it was at"
-    );
-
-    to_gateway_face(&mut app);
-    assert!(
-        presses(&mut app).contains(&Press::Front(FrontPress::FrontMenu)),
-        "on both faces"
     );
 }
 
@@ -408,9 +427,11 @@ fn shift_and_an_arrow_select_what_the_next_key_replaces() {
     );
 }
 
-/// ⇧Tab walks the form backwards.
+/// ⇧Tab walks the face backwards (WP1: the kit's walker over its
+/// `TabOrder`): back from the username is the face's `‹`, and the caret
+/// parks there, so a letter typed goes nowhere.
 #[test]
-fn shift_tab_moves_the_caret_back_a_field() {
+fn shift_tab_moves_the_focus_back_a_stop() {
     let mut app = headless();
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
@@ -419,11 +440,13 @@ fn shift_tab_moves_the_caret_back_a_field() {
         .resource_mut::<Messages<KeyboardInput>>()
         .write(pressed(KeyCode::Tab, Key::Tab));
     app.update();
-    assert_eq!(
-        app.world().resource::<LobbyState>().lobby.focus(),
-        Field::Password,
-        "back from the first field is the last one"
-    );
+    app.update();
+    let report = app
+        .world()
+        .resource::<crate::shellkit::focus::FocusReport>()
+        .stop;
+    assert_eq!(report.map(|s| s.id), Some("back"), "back from the username");
+    assert!(app.world().resource::<LobbyState>().lobby.caret_parked());
 }
 
 /// The caret is a node in the row of runs, so it is drawn between exactly the
@@ -856,6 +879,7 @@ fn gateway_info(name: Option<&str>, version: &str, view: u32) -> Probe {
         protocol_version: baylee_protocol::PROTOCOL_VERSION,
         view_version: view,
         source: None,
+        terms: None,
     })
 }
 
@@ -1206,8 +1230,8 @@ fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
     );
 
     // Pressed while it moves, neither panel answers.
-    press(&mut app, Press::Front(FrontPress::FrontMenu));
-    assert!(!app.world().resource::<LobbyState>().front_menu);
+    press(&mut app, Press::Front(FrontPress::About(true)));
+    assert!(!app.world().resource::<LobbyState>().about_open);
 
     let landed = frames_to_land(&mut app);
     assert!(landed <= 7, "landed in {landed} more frames");
@@ -1288,7 +1312,7 @@ fn the_tabs_turn_the_form_round_with_both_sides_in_sight() {
     );
     // Nothing fades on a carousel: the side turning away is darkened, not
     // thinned.
-    let continuing = Phrase::SignIn.text(Lang::En);
+    let continuing = Phrase::Username.text(Lang::En);
     assert_eq!(ink_on(&mut app, Panel::SignIn, continuing), Some(1.0));
     assert_eq!(ink_on(&mut app, Panel::Create, continuing), Some(1.0));
     let mut shades = app

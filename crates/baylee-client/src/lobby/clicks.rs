@@ -54,6 +54,7 @@ pub(super) fn clicks(
     acts: Query<&crate::filterui::FilterAct>,
     dones: Query<&crate::filterui::FilterDone>,
     parents: Query<&ChildOf>,
+    disabled: Query<&crate::shellkit::controls::Disabled>,
     mut state: ResMut<LobbyState>,
     mut prefs: ResMut<crate::prefs::Prefs>,
     mailbox: Res<Mailbox>,
@@ -79,6 +80,11 @@ pub(super) fn clicks(
         return;
     }
     for click in pointer.read() {
+        // A disabled kit control keeps its press so it stays focusable (its
+        // reason is read there); a click on it does nothing.
+        if crate::input::find_in_lineage(click.entity, &disabled, &parents).is_some() {
+            continue;
+        }
         // The builder's buttons first: its rows sit inside the deck builder's
         // own panel, so a `Press` above them would otherwise swallow a click
         // meant for a row.
@@ -99,12 +105,62 @@ pub(super) fn clicks(
             }
             continue;
         };
+        let cx = Cx {
+            state: &mut state,
+            prefs: &mut prefs,
+            scrolled: &mut scrolled,
+            mailbox: &mailbox,
+            settings: &mut settings,
+        };
+        run(*press, cx);
+    }
+}
+
+/// What a press does, whether a click or a key brought it (`Enter` on a
+/// focused control, `front::keys::activate_by_key`): the guards every press
+/// passes, then its screen's handler.
+#[allow(clippy::too_many_lines)] // the guards every press passes, read top to bottom
+pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
+    let Cx {
+        state,
+        prefs,
+        scrolled,
+        mailbox,
+        settings,
+    } = cx;
+    {
+        let press = &press;
+        // A sheet over the front door or the lobby holds the screen: only
+        // its own controls answer (the terms are answered before anything
+        // else; About is closed or followed to the source).
+        if state.terms.up()
+            && !matches!(
+                press,
+                Press::Front(
+                    FrontPress::TermsAccept
+                        | FrontPress::TermsNotNow
+                        | FrontPress::TermsStay
+                        | FrontPress::TermsRetry
+                ) | Press::Shared(SharedPress::PickerNothing)
+            )
+        {
+            return;
+        }
+        if state.about_open
+            && !matches!(
+                press,
+                Press::Front(FrontPress::About(_) | FrontPress::OpenSource)
+                    | Press::Shared(SharedPress::PickerNothing)
+            )
+        {
+            return;
+        }
         if !matches!(
             press,
             Press::Build(
                 BuildPress::CompleteSearch(_) | BuildPress::FocusBuild(BuildField::Search)
             )
-        ) && !crate::buildui::autocomplete::suggestions(&state).is_empty()
+        ) && !crate::buildui::autocomplete::suggestions(state).is_empty()
         {
             state.completion_hidden = true;
             state.completion = None;
@@ -115,7 +171,7 @@ pub(super) fn clicks(
                 Press::Shared(SharedPress::ConfirmDestructive | SharedPress::CancelDestructive)
             )
         {
-            continue;
+            return;
         }
         // Anything pressed but the menu's own controls closes the gear menu,
         // the veil around it included.
@@ -175,11 +231,11 @@ pub(super) fn clicks(
             state.seat.blur();
         }
         let cx = Cx {
-            state: &mut state,
-            prefs: &mut prefs,
-            scrolled: &mut scrolled,
-            mailbox: &mailbox,
-            settings: &mut settings,
+            state,
+            prefs,
+            scrolled,
+            mailbox,
+            settings,
         };
         match *press {
             Press::Front(press) => press.handle(cx),

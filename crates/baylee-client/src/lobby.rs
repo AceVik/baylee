@@ -65,6 +65,7 @@ const STARTER: &str = "Allytifact";
 pub struct LobbyPlugin;
 
 impl Plugin for LobbyPlugin {
+    #[allow(clippy::too_many_lines)] // one schedule, read top to bottom
     fn build(&self, app: &mut App) {
         // The keymap is the account's, and the account is signed into here —
         // shared with the duel, whichever of the two got there first.
@@ -95,6 +96,8 @@ impl Plugin for LobbyPlugin {
             .init_resource::<entrance::Entrance>()
             .init_resource::<front::FrontCast>()
             .init_resource::<front::RowPlaces>()
+            .init_resource::<front::terms::SheetFocus>()
+            .init_resource::<front::keys::MovedByTheLobby>()
             .add_systems(Startup, (ask_about_registration, ask_about_saved_gateways))
             .add_systems(
                 Update,
@@ -106,7 +109,10 @@ impl Plugin for LobbyPlugin {
                     softkeys,
                     (
                         crate::seatpanel::poll,
-                        keyboard,
+                        // Before the kit's walker reads the same keys: an
+                        // Enter that activates a focused control (which may
+                        // put the caret in a field) is not also the field's.
+                        keyboard.before(crate::shellkit::focus::FocusSystems),
                         crate::tableseats::reconcile,
                     )
                         .chain(),
@@ -154,6 +160,27 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 Update,
                 (leave_clicks, leave_keys).run_if(in_state(DuelPhase::Finished)),
+            )
+            // The front door's half of the kit's focus (`front::keys`), and
+            // the terms sheet's: after the walker moved focus, before the
+            // tree is drawn again.
+            .add_systems(
+                Update,
+                (
+                    front::keys::activate_by_key,
+                    front::keys::kit_to_lobby,
+                    front::keys::unpark_on_placement,
+                    front::keys::lobby_to_kit,
+                    front::terms::follow_the_session,
+                    front::terms::terms_keys,
+                    front::terms::read_the_terms,
+                    front::terms::place_sheet_focus,
+                )
+                    .chain()
+                    .after(crate::shellkit::focus::FocusSystems)
+                    .after(poll)
+                    .before(ui)
+                    .run_if(in_state(DuelPhase::Closed)),
             )
             // The shell keymap: the lobby says what is open, and answers
             // the screen moves a shell key asks for (`shortcuts`).
@@ -293,6 +320,17 @@ pub struct LobbyState {
     /// Asks a header press made of systems it cannot reach (the overlay,
     /// the report form), carried out by `header::carry_out`.
     pub(crate) shell_asks: Vec<header::ShellAsk>,
+    /// The terms sheet (WG-1, `DESIGN-v5` §11): up after a sign-in the
+    /// gateway marks stale, or a kept guest's return to newer terms.
+    pub(crate) terms: client_core::terms::Terms,
+    /// What the sign-in that is landing said: `terms_stale`, read off the
+    /// answer before its event (`front::terms::follow_the_session`).
+    pub(crate) terms_stale: Option<bool>,
+    /// The About sheet is up (the front door's text row, WP1).
+    pub(crate) about_open: bool,
+    /// Caps Lock looks on: a letter arrived upper case with Shift up (the
+    /// platform tells the key, not the lock). Shown under a password.
+    pub(crate) caps_lock: bool,
 }
 
 /// The settings overlay's state.
@@ -451,6 +489,10 @@ impl LobbyState {
             retry_feed: false,
             bell: client_core::lobby::strips::Bell::default(),
             shell_asks: Vec::new(),
+            terms: client_core::terms::Terms::default(),
+            terms_stale: None,
+            about_open: false,
+            caps_lock: false,
         }
     }
 }
@@ -495,6 +537,9 @@ enum Reply {
     Me(client_core::lobby::strips::Me),
     /// `GET /lobby/stats` (WP0b-3).
     Stats(client_core::lobby::strips::LobbyStats),
+    /// The terms of use (WG-1): what a sign-in said, and the sheet's
+    /// requests' answers (`front::terms`).
+    Terms(front::terms::TermsReply),
 }
 
 /// What the shell should make of a successful response body.
@@ -548,7 +593,7 @@ mod field;
 mod header;
 #[cfg(test)]
 pub(crate) use feed::feed_url;
-mod front;
+pub(crate) mod front;
 mod gateway;
 mod hint;
 mod http;

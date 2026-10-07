@@ -156,29 +156,29 @@ impl LobbyState {
 }
 
 /// Where a gateway row's words come from, and what colour each is.
-struct RowWords {
+pub(super) struct RowWords {
     /// The operator's name, or the address when there is none.
-    title: String,
+    pub(super) title: String,
     /// The address, under a name; nothing when the title already is it.
-    address: Option<String>,
+    pub(super) address: Option<String>,
     /// The version as a row has room for, `v0.1.0`, or what stands in for
     /// one.
-    version: String,
+    pub(super) version: String,
     /// What the version says in full, for the hint over it.
-    version_in_full: String,
+    pub(super) version_in_full: String,
     /// The version's ink: what it means for this client.
-    ink: Color,
+    pub(super) ink: Color,
     /// Whether the gateway answered, as the dot's colour.
-    reach: Color,
+    pub(super) reach: Color,
     /// What the dot says, pointed at.
-    reach_said: String,
+    pub(super) reach_said: String,
     /// What is wrong with it for this client, which is the warning mark.
     /// Only a version can be: a gateway that is not answering says so with
     /// its dot, and a mark as well would be one fact said twice.
-    warning: Option<Warning>,
+    pub(super) warning: Option<Warning>,
 }
 
-fn row_words(url: &str, probe: Option<&Probe>, lang: Lang) -> RowWords {
+pub(super) fn row_words(url: &str, probe: Option<&Probe>, lang: Lang) -> RowWords {
     let warning = probe
         .and_then(|p| p.warning(baylee_protocol::PROTOCOL_VERSION, baylee_view::VIEW_VERSION))
         .filter(|w| *w != Warning::Silent);
@@ -623,55 +623,6 @@ fn mark_cell(
 /// A saved gateway's name, or its address when it has none.
 pub(super) fn title_of(state: &LobbyState, url: &str) -> String {
     row_words(url, state.probes.get(url), state.lobby.lang()).title
-}
-
-/// The line under the account form's title: the address when the title is
-/// a name, and the short version, which explains itself when pointed at.
-pub(super) fn chosen_line(
-    commands: &mut Commands,
-    state: &LobbyState,
-    fonts: &UiFonts,
-    metrics: Metrics,
-) -> Entity {
-    let lang = state.lobby.lang();
-    let words = row_words(&state.gateway, state.probes.get(&state.gateway), lang);
-    let line = commands
-        .spawn((
-            Node {
-                flex_wrap: FlexWrap::Wrap,
-                column_gap: px(metrics.gap),
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let dot = reach_dot(commands, &words);
-    commands.entity(line).add_child(dot);
-    if let Some(address) = &words.address {
-        let address = commands
-            .spawn((
-                Text::new(address.clone()),
-                tf(fonts, metrics.small),
-                TextColor(palette::MUTED),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(line).add_child(address);
-    }
-    let version = commands
-        .spawn((
-            Text::new(words.version.clone()),
-            tf(fonts, metrics.small),
-            TextColor(words.ink),
-            super::hint::HoverHint(match words.warning {
-                Some(warning) => format!("{}\n{}", words.version_in_full, warning.explain(lang)),
-                None => words.version_in_full.clone(),
-            }),
-        ))
-        .id();
-    commands.entity(line).add_child(version);
-    line
 }
 
 /// Font Awesome's triangle-exclamation.

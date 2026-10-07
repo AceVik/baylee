@@ -50,6 +50,10 @@ pub struct GatewayInfo {
     /// sign-in screen to show. Only a plain `http://` or `https://` address
     /// is kept.
     pub source: Option<String>,
+    /// The version of the terms of use a player accepts here (WG-1), or
+    /// `None` on a gateway without terms or from before them. At most 64
+    /// characters, as the gateway allows; a longer one is dropped.
+    pub terms: Option<String>,
 }
 
 /// `GET /info` as it arrives.
@@ -67,6 +71,8 @@ struct Wire {
     view_version: u32,
     #[serde(default)]
     source: Option<String>,
+    #[serde(default)]
+    terms: Option<String>,
 }
 
 impl GatewayInfo {
@@ -83,6 +89,9 @@ impl GatewayInfo {
             protocol_version: wire.protocol_version,
             view_version: wire.view_version,
             source: wire.source.as_deref().and_then(web_address),
+            terms: wire.terms.filter(|t| {
+                !t.is_empty() && t.chars().count() <= 64 && !t.chars().any(char::is_control)
+            }),
         })
     }
 
@@ -270,6 +279,7 @@ mod tests {
             protocol_version: protocol,
             view_version: view,
             source: None,
+            terms: None,
         })
     }
 

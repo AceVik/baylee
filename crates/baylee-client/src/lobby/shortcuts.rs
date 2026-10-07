@@ -36,6 +36,8 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
         },
     };
     let modal = state.confirmation.is_some()
+        || state.terms.up()
+        || state.about_open
         || state.lobby.deleting_account().is_some()
         || state.lobby.library().page.is_some();
     let menu = state.front_menu || state.completion.is_some() || state.header_menu.is_some();

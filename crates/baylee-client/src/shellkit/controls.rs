@@ -166,6 +166,34 @@ pub fn button(
     keys: Option<&str>,
     action: impl Bundle,
 ) -> Entity {
+    shaped(commands, kit, text, weight, live, keys, action, false)
+}
+
+/// A [`button`] as wide as its row: a form's submit (the front door's Sign
+/// in), its face filling the hit wrapper.
+pub fn wide_button(
+    commands: &mut Commands,
+    kit: Kit,
+    text: &str,
+    weight: Weight,
+    live: Live,
+    keys: Option<&str>,
+    action: impl Bundle,
+) -> Entity {
+    shaped(commands, kit, text, weight, live, keys, action, true)
+}
+
+#[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)] // the two makers' one body
+fn shaped(
+    commands: &mut Commands,
+    kit: Kit,
+    text: &str,
+    weight: Weight,
+    live: Live,
+    keys: Option<&str>,
+    action: impl Bundle,
+    wide: bool,
+) -> Entity {
     let side = if kit.german { 10.0 } else { 12.0 };
     let dead = matches!(live, Live::No(_));
     let ink = if dead { tokens::DISABLED } else { weight.ink() };
@@ -184,6 +212,7 @@ pub fn button(
                 justify_content: JustifyContent::Center,
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
+                flex_grow: if wide { 1.0 } else { 0.0 },
                 ..default()
             },
             BackgroundColor(ground),
@@ -206,16 +235,27 @@ pub fn button(
     {
         commands.entity(face).add_child(cap);
     }
+    let widen = |commands: &mut Commands, wrapper: Entity| {
+        if wide {
+            commands
+                .entity(wrapper)
+                .entry::<Node>()
+                .and_modify(|mut node| node.width = Val::Percent(100.0));
+        }
+        wrapper
+    };
     if !dead {
         commands
             .entity(face)
             .insert(crate::ambience::Feel::new(ground));
-        return hit(commands, kit, face, action);
+        let wrapper = hit(commands, kit, face, action);
+        return widen(commands, wrapper);
     }
     // A dead button keeps its action bundle, so it stays a focus stop: a
     // disabled control is focusable so its reason can be read (APG). What
     // reads an action skips a wrapper marked [`Disabled`].
     let wrapper = hit(commands, kit, face, (action, Disabled));
+    let wrapper = widen(commands, wrapper);
     let Live::No(reason) = live else {
         return wrapper;
     };

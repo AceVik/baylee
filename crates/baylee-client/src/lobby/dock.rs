@@ -51,7 +51,10 @@ pub(super) fn materialize(
                 // A shoulder at 44 px cuts straight through larger type.
                 Vec4::new(0.0, 0.96, 0.92, 0.0)
             } else {
-                Vec4::new(36.0, GROUND_DENSITY, GROUND_DENSITY, 0.0)
+                // The front door's cards (WP1) open on a head of two lines
+                // (the gateway and its address) that scales with the text
+                // step: no shoulder there either, the leather dense.
+                Vec4::new(0.0, GROUND_DENSITY, GROUND_DENSITY, 0.0)
             };
             material.params.surface = Vec4::new(0.0, 0.0, INLAY_LIFT, 0.0);
             // A lobby panel stands on the page, so all four corners are cut,

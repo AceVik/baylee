@@ -316,7 +316,7 @@ pub(super) fn build(
 /// The headers are replaced, not added to: `ehttp`'s `insert` appends, and
 /// `Request::post` has already set a `text/plain` content type that axum's
 /// `Json` extractor refuses.
-fn json_post(url: &str, body: &serde_json::Value) -> ehttp::Request {
+pub(super) fn json_post(url: &str, body: &serde_json::Value) -> ehttp::Request {
     json_body(ehttp::Method::POST, url, body)
 }
 
@@ -333,7 +333,7 @@ fn json_body(method: ehttp::Method, url: &str, body: &serde_json::Value) -> ehtt
 }
 
 /// Signs a request with the account token, when there is one.
-fn bearer(mut request: ehttp::Request, token: Option<&str>) -> ehttp::Request {
+pub(super) fn bearer(mut request: ehttp::Request, token: Option<&str>) -> ehttp::Request {
     if let Some(token) = token {
         request
             .headers
@@ -364,7 +364,16 @@ fn fetch(
         crate::transport::fetch(request, |_| {});
         return;
     }
+    let signs_in = matches!(expect, Expect::LoggedIn | Expect::Guest);
     crate::transport::fetch(request, move |result| {
+        // A sign-in's `terms_stale` (WG-1) is read before its event, so the
+        // terms sheet knows whether to ask by the time the session lands.
+        let stale = match &result {
+            Ok(response) if response.ok && signs_in => {
+                super::front::terms::stale_of(&response.bytes)
+            }
+            _ => None,
+        };
         let reply = match result {
             Ok(response) if response.ok => Reply::Event(decode(lang, expect, &response)),
             // Only a *signed* 401 means the token is spent; on the sign-in
@@ -399,6 +408,12 @@ fn fetch(
             other => other,
         };
         if let Ok(mut box_) = box_.lock() {
+            if let Some(stale) = stale {
+                box_.push(Reply::Remote(
+                    epoch,
+                    Box::new(Reply::Terms(super::front::terms::TermsReply::Stale(stale))),
+                ));
+            }
             box_.push(Reply::Remote(epoch, Box::new(reply)));
         }
     });

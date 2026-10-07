@@ -953,6 +953,10 @@ fn logical_key(name: &str) -> Key {
         "ArrowDown" => Key::ArrowDown,
         "ArrowLeft" => Key::ArrowLeft,
         "ArrowRight" => Key::ArrowRight,
+        "Home" => Key::Home,
+        "End" => Key::End,
+        "PageUp" => Key::PageUp,
+        "PageDown" => Key::PageDown,
         // The canonical spellings, which `harness_alias` lets a caller write
         // either way round. `Digit2` pressed the physical key and reported no
         // logical one at all, so the ability sheet — which reads its digits

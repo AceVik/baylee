@@ -89,6 +89,7 @@ pub mod sky;
 pub mod source_choice;
 pub mod strike;
 pub mod tabletop;
+pub mod terms;
 pub mod textbuf;
 pub mod textface;
 pub mod timing;

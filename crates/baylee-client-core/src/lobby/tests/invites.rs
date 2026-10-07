@@ -73,7 +73,8 @@ fn the_key_is_asked_for_only_by_a_closed_beta_with_something_to_make() {
     assert_ne!(open.focus(), Field::InviteKey, "the caret stays out of it");
     assert!(!ring(&mut open).contains(&Field::InviteKey));
 
-    // A closed beta: the box, first in the ring, on the sign-up tab …
+    // A closed beta: the box, last in the ring, on the create-account
+    // face (WP1: the key opens under the button chosen) …
     let mut lobby = closed_beta();
     lobby.toggle_registering();
     assert!(lobby.invite_key_offered());
@@ -84,26 +85,28 @@ fn the_key_is_asked_for_only_by_a_closed_beta_with_something_to_make() {
             Field::DisplayName,
             Field::Password,
             Field::PasswordAgain,
-            Field::GuestName,
             Field::InviteKey,
         ],
-        "registration key first, account fields next, guest entry last"
+        "the account's fields, then the key under them"
     );
     lobby.focus_on(Field::InviteKey);
     assert!(lobby.typing_here());
 
-    // … and on the sign-in tab for a new guest …
+    // … never on the sign-in face …
     lobby.toggle_registering();
+    assert!(!lobby.invite_key_offered());
+    assert_ne!(lobby.focus(), Field::InviteKey, "the caret left the box");
+    assert_eq!(ring(&mut lobby), [Field::Username, Field::Password]);
+
+    // … and on the guest's face for a new guest …
+    lobby.open_guest_face();
     assert!(lobby.invite_key_offered());
-    assert_eq!(
-        ring(&mut lobby),
-        [
-            Field::Username,
-            Field::Password,
-            Field::InviteKey,
-            Field::GuestName
-        ]
-    );
+    assert_eq!(lobby.focus(), Field::GuestName);
+    lobby.cycle_focus(Tab::Next);
+    assert_eq!(lobby.focus(), Field::InviteKey);
+    lobby.cycle_focus(Tab::Next);
+    assert_eq!(lobby.focus(), Field::GuestName, "name, key, round");
+
     // … but not for a guest this device keeps, nor with no guests at all.
     lobby.keep_guest(Some(KeptGuest {
         token: "tok".into(),
@@ -111,7 +114,6 @@ fn the_key_is_asked_for_only_by_a_closed_beta_with_something_to_make() {
     }));
     assert!(!lobby.invite_key_offered());
     assert_ne!(lobby.focus(), Field::InviteKey, "the caret left the box");
-    assert!(!ring(&mut lobby).contains(&Field::InviteKey));
     let mut no_guests = Lobby::new();
     no_guests.set_registration(Registration::Invite);
     assert!(!no_guests.invite_key_offered());
@@ -191,9 +193,10 @@ fn a_new_guest_of_a_closed_beta_brings_the_key_and_a_kept_one_does_not() {
     assert_eq!(lobby.status(), "your closed beta key, please");
     assert!(!lobby.busy());
 
+    lobby.open_guest_face();
     lobby.focus_on(Field::InviteKey);
     lobby.insert(KEY);
-    // Enter in the key on the sign-in tab is the guest's button.
+    // Enter anywhere on the guest's face is its button.
     assert_eq!(
         lobby.submit(),
         Some(LobbyRequest::PlayAsGuest {
@@ -219,6 +222,7 @@ fn a_new_guest_of_a_closed_beta_brings_the_key_and_a_kept_one_does_not() {
 #[test]
 fn a_paste_is_one_line() {
     let mut lobby = closed_beta();
+    lobby.open_guest_face();
     lobby.focus_on(Field::InviteKey);
     lobby.insert("BAYLEE-\r\n7K3M-\tQ9TX-2HVD-4WNC\u{7}");
     assert_eq!(lobby.field(Field::InviteKey), "BAYLEE-7K3M-Q9TX-2HVD-4WNC");

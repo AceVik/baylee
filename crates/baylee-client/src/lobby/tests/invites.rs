@@ -89,7 +89,18 @@ fn the_box_is_drawn_only_at_a_closed_beta() {
 
     let mut app =
         at(r#"{"registration_enabled":true,"registration":"invite","guests_enabled":true}"#);
+    assert!(!key_box_drawn(&mut app), "never on the sign-in face (WP1)");
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .open_guest_face();
+    settle(&mut app);
     assert!(key_box_drawn(&mut app), "for a new guest");
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .back_to_sign_in();
+    settle(&mut app);
     registering(&mut app);
     assert!(key_box_drawn(&mut app), "for a new account");
     let labels = labels(&mut app);

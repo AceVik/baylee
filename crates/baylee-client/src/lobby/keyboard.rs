@@ -39,6 +39,20 @@ pub(super) fn keyboard(
         keys.clear();
         return;
     }
+    // The terms sheet answers its own keys (`front::terms::terms_keys`);
+    // nothing under it takes one.
+    if state.terms.up() {
+        keys.clear();
+        return;
+    }
+    // The About sheet: Esc closes it, and nothing under it takes a key.
+    if state.about_open {
+        keys.clear();
+        if codes.just_pressed(KeyCode::Escape) {
+            state.about_open = false;
+        }
+        return;
+    }
     if state.confirmation.is_some() {
         keys.clear();
         if codes.just_pressed(KeyCode::Escape) {
@@ -322,7 +336,7 @@ fn cycle_form_focus(state: &mut LobbyState, direction: Tab) {
     lobby.select_all();
 }
 
-#[allow(clippy::too_many_arguments)] // the clipboard and its pending answer ride along
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // the clipboard and its pending answer ride along
 fn text_field_keys(
     keys: &mut MessageReader<KeyboardInput>,
     codes: &ButtonInput<KeyCode>,
@@ -360,9 +374,30 @@ fn text_field_keys(
         if !key.state.is_pressed() {
             continue;
         }
-        // Tab always moves the caret; everything else needs it to be in a
-        // field this screen is drawing.
-        if !matches!(key.logical_key, Key::Tab) && !state.lobby.typing_here() {
+        // The front door's Esc goes back a face whatever has the focus
+        // (`KEYBOARD.md` §7.2): the create and guest faces to sign in, sign
+        // in to the gateways.
+        if !table && key.logical_key == Key::Escape && state.lobby.deleting_account().is_none() {
+            if state.front_menu {
+                state.front_menu = false;
+            } else if !state.lobby.back_to_sign_in() {
+                if state.lobby.gateway_chosen() {
+                    state.leave_gateway();
+                } else if state.gateway_cursor.is_some() {
+                    state.gateway_cursor = None;
+                }
+            }
+            continue;
+        }
+        // On the front door Tab is the kit's focus walker (`front::keys`);
+        // elsewhere it moves the caret between the screen's fields.
+        if key.logical_key == Key::Tab {
+            if table || state.lobby.deleting_account().is_some() {
+                cycle_form_focus(state, if shift { Tab::Back } else { Tab::Next });
+            }
+            continue;
+        }
+        if !state.lobby.typing_here() {
             continue;
         }
         match &key.logical_key {
@@ -384,7 +419,6 @@ fn text_field_keys(
                     .lobby
                     .move_caret(reach, dir, shift);
             }
-            Key::Tab => cycle_form_focus(state, if shift { Tab::Back } else { Tab::Next }),
             Key::Escape if state.lobby.deleting_account().is_some() => {
                 state.lobby.cancel_account_deletion();
             }
@@ -392,11 +426,6 @@ fn text_field_keys(
                 let request = state.lobby.submit();
                 dispatch(state, mailbox, request);
             }
-            // Escape shuts the gear menu, and otherwise goes back from the
-            // account form: the same as the Back button beside its title.
-            Key::Escape if !table && state.front_menu => state.front_menu = false,
-            Key::Escape if !table && state.lobby.gateway_chosen() => state.leave_gateway(),
-            Key::Escape if !table && state.gateway_cursor.is_some() => state.gateway_cursor = None,
             // Up and down walk the saved gateways, which the one-line address
             // field has no use for.
             Key::ArrowUp | Key::ArrowDown if !table && !state.lobby.gateway_chosen() => {
@@ -444,6 +473,16 @@ fn text_field_keys(
             // control characters Tab and Enter also produce.
             _ => {
                 if let Some(text) = key.text.as_ref() {
+                    // Caps Lock, inferred: a letter whose case disagrees
+                    // with Shift (the platform reports the key, not the lock).
+                    if let Some(letter) = text.chars().find(|c| c.is_alphabetic())
+                        && letter.is_uppercase() != letter.is_lowercase()
+                    {
+                        let locked = letter.is_uppercase() != shift;
+                        if state.caps_lock != locked {
+                            state.caps_lock = locked;
+                        }
+                    }
                     // Typing is about the address, not the rows.
                     if state.gateway_cursor.is_some() {
                         state.gateway_cursor = None;

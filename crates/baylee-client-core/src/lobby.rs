@@ -963,6 +963,26 @@ pub struct Lobby {
     me: Option<strips::Me>,
     /// `GET /lobby/stats`: the gateway pill's counts (WP0b-3).
     stats: Option<strips::LobbyStats>,
+    /// The front door shows the guest's face (WP1): a name to play under
+    /// and, on a closed beta, the key. Only read on the sign-in screen while
+    /// not registering; see [`Lobby::face`].
+    guest_face: bool,
+    /// No field has the caret: the keyboard's focus stands on a control
+    /// (a button, the eye) instead, so a typed letter goes nowhere (WP1, the
+    /// shell's focus walker). Any placement of the caret ends it.
+    caret_parked: bool,
+}
+
+/// Which face the front door's account card shows (the shell design, §3).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Face {
+    /// Username, password, Sign in; Create account and Play as guest under.
+    #[default]
+    SignIn,
+    /// Username, display name, the password twice, the key on a closed beta.
+    Create,
+    /// A display name, the key on a closed beta.
+    Guest,
 }
 
 /// The signed-in account's deletion, while it is being confirmed (#292).
@@ -1269,6 +1289,9 @@ impl Lobby {
     /// button that could only fail is worse than none.
     pub fn set_guests_enabled(&mut self, enabled: bool) {
         self.doors.guests = enabled;
+        if !enabled && self.guest_face {
+            self.guest_face = false;
+        }
         self.leave_hidden_fields();
     }
 
@@ -1282,7 +1305,81 @@ impl Lobby {
     /// whose name is already its own.
     #[must_use]
     pub fn guest_name_offered(&self) -> bool {
-        self.guest_offered() && self.kept_guest.is_none()
+        self.guest_offered() && self.kept_guest.is_none() && self.face() == Face::Guest
+    }
+
+    /// Which face the account card shows (WP1): signing in, creating an
+    /// account, or playing as a guest. [`Face::SignIn`] off the sign-in
+    /// screen.
+    #[must_use]
+    pub fn face(&self) -> Face {
+        match self.screen {
+            Screen::SignIn { registering: true } => Face::Create,
+            Screen::SignIn { registering: false } if self.guest_face => Face::Guest,
+            _ => Face::SignIn,
+        }
+    }
+
+    /// The sign-in face's Play as guest: a guest kept here plays at once
+    /// (its session is the whole of it); otherwise the guest's face opens,
+    /// the caret in its name.
+    pub fn open_guest_face(&mut self) -> Option<LobbyRequest> {
+        if !matches!(self.screen, Screen::SignIn { .. }) || self.busy {
+            return None;
+        }
+        if !self.guest_offered() {
+            self.refuse(Phrase::NoGuests);
+            return None;
+        }
+        if self.kept_guest.is_some() {
+            return self.play_as_guest();
+        }
+        self.screen = Screen::SignIn { registering: false };
+        self.guest_face = true;
+        self.clear_status();
+        self.focus_on(Field::GuestName);
+        None
+    }
+
+    /// Back from the create-account or guest face to the sign-in face
+    /// (`‹ Back`, Esc). `false` when the sign-in face is already up.
+    pub fn back_to_sign_in(&mut self) -> bool {
+        if !matches!(self.screen, Screen::SignIn { .. }) || self.face() == Face::SignIn {
+            return false;
+        }
+        self.guest_face = false;
+        self.screen = Screen::SignIn { registering: false };
+        self.clear_status();
+        let field = if self.username.text().trim().is_empty() {
+            Field::Username
+        } else {
+            Field::Password
+        };
+        self.focus_on(field);
+        true
+    }
+
+    /// Takes the caret out of every field: the keyboard's focus is on a
+    /// control instead (the shell's focus walker, WP1). Typing then goes
+    /// nowhere until a field is focused again.
+    pub fn park_caret(&mut self) {
+        if !self.caret_parked {
+            self.caret_parked = true;
+            self.revealed = None;
+        }
+    }
+
+    /// Whether no field has the caret (see [`Lobby::park_caret`]).
+    #[must_use]
+    pub fn caret_parked(&self) -> bool {
+        self.caret_parked
+    }
+
+    /// Whether `field` shows the caret: it has the focus and the caret is
+    /// not parked on a control.
+    #[must_use]
+    pub fn caret_in(&self, field: Field) -> bool {
+        !self.caret_parked && self.focus == field
     }
 
     /// Whether the session held is a guest's (#269).
@@ -1424,6 +1521,7 @@ impl Lobby {
             self.revealed = None;
         }
         self.focus = field;
+        self.caret_parked = false;
         self.focus_epoch += 1;
     }
 
@@ -1496,28 +1594,22 @@ impl Lobby {
             // Signing up: four, in the order they are drawn, and the direction
             // finally reads. The display name and the repeated password are
             // drawn only for signing up, so only that ring has them.
-            let form: &[Field] = if self.registering() {
-                &[
+            // One face at a time (WP1), each in the order it is drawn: the
+            // key last, under the fields it goes with.
+            let form: &[Field] = match self.face() {
+                Face::Create => &[
                     Field::Username,
                     Field::DisplayName,
                     Field::Password,
                     Field::PasswordAgain,
-                ]
-            } else {
-                &[Field::Username, Field::Password]
+                ],
+                Face::Guest => &[Field::GuestName],
+                Face::SignIn => &[Field::Username, Field::Password],
             };
-            // Match visual order: account fields first on sign-in; the key
-            // precedes account creation. Optional guest entry follows both.
             let key = self.invite_key_offered().then_some(Field::InviteKey);
             let mut ring = Vec::new();
-            if self.registering() {
-                ring.extend(key);
-            }
             ring.extend_from_slice(form);
-            if !self.registering() {
-                ring.extend(key);
-            }
-            ring.extend(self.guest_name_offered().then_some(Field::GuestName));
+            ring.extend(key);
             self.focus = match ring.iter().position(|field| *field == self.focus) {
                 Some(at) => {
                     let next = match dir {
@@ -1538,6 +1630,7 @@ impl Lobby {
         // Tab always leaves the field it was in, and a reveal belongs to the
         // field it was asked for.
         self.revealed = None;
+        self.caret_parked = false;
         let focus = self.focus;
         self.buffer_mut(focus).select_all();
         self.focus_epoch += 1;
@@ -1554,6 +1647,9 @@ impl Lobby {
         if self.deleting.is_some() {
             return self.focus == Field::AccountPassword;
         }
+        if self.caret_parked {
+            return false;
+        }
         match self.screen {
             // One form at a time: the address without a gateway, the
             // account's fields with one.
@@ -1561,7 +1657,9 @@ impl Lobby {
                 Field::Gateway => !self.gateway_chosen(),
                 Field::GuestName => self.guest_name_offered(),
                 Field::InviteKey => self.invite_key_offered(),
-                Field::Username | Field::Password => self.gateway_chosen(),
+                Field::Username | Field::Password => {
+                    self.gateway_chosen() && self.face() != Face::Guest
+                }
                 Field::DisplayName | Field::PasswordAgain => registering && self.gateway_chosen(),
                 Field::RoomPassword
                 | Field::RoomName
@@ -1646,6 +1744,7 @@ impl Lobby {
             return;
         };
         if registering || self.registration_enabled() {
+            self.guest_face = false;
             self.screen = Screen::SignIn {
                 registering: !registering,
             };
@@ -1680,6 +1779,7 @@ impl Lobby {
         } else {
             GatewaySelection::Missing
         };
+        self.guest_face = false;
         let field = if !ready {
             Field::Gateway
         } else if self.username.text().trim().is_empty() {
@@ -1716,7 +1816,7 @@ impl Lobby {
         // Enter in the guest's name is the guest's button, not the form's;
         // so is Enter in the key on the sign-in tab, where only a new guest
         // has a use for one.
-        if self.focus == Field::GuestName || (self.focus == Field::InviteKey && !registering) {
+        if self.face() == Face::Guest {
             return self.play_as_guest();
         }
         if self.username.text().trim().is_empty() || self.password.is_empty() {
@@ -2579,6 +2679,8 @@ impl Lobby {
         self.password_again.clear();
         self.revealed = None;
         self.focus = Field::Username;
+        self.caret_parked = false;
+        self.guest_face = false;
         self.screen = Screen::SignIn { registering: false };
         self.builder.forget_pool();
         self.pool_requested = false;

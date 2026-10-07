@@ -159,6 +159,13 @@ pub struct ClientSettings {
     /// first one (`bugreport::kept_device_id`). Never sent to a gateway.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report_device: Option<String>,
+    /// The terms version this device last accepted at each gateway, by
+    /// address (WG-1, `DESIGN-v5` §11). A copy, with one job: a guest coming
+    /// back with its kept session signs in to nothing, so no `terms_stale`
+    /// says whether to ask; this does, against `/info.terms`. The account's
+    /// own record is the gateway's. Named in `docs/privacy.md`.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub terms: std::collections::BTreeMap<String, String>,
 }
 
 impl Default for ClientSettings {
@@ -180,6 +187,7 @@ impl Default for ClientSettings {
             reports: baylee_client_core::bugreport::Consent::default(),
             feedback_url: None,
             report_device: None,
+            terms: std::collections::BTreeMap::new(),
         }
     }
 }
@@ -638,6 +646,8 @@ mod tests {
     #[test]
     fn settings_round_trip_through_json() {
         let written = ClientSettings {
+            terms: std::iter::once(("https://example.test".to_string(), "v1".to_string()))
+                .collect(),
             gateways: vec!["https://example.test".into()],
             preview_scale: 1.75,
             lang: "de".to_string(),

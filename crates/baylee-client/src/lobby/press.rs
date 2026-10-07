@@ -46,6 +46,8 @@ pub(crate) enum SharedPress {
     /// Nothing. Carried by the picker's own panel so a tap inside it is
     /// not also a tap on the shade behind it, which would close it.
     PickerNothing,
+    /// The front door's text row: the music on or off (this device's).
+    ToggleMusic,
 }
 
 /// What a press's handler may touch: the resources the `clicks` system
@@ -71,6 +73,14 @@ impl SharedPress {
             settings,
         } = cx;
         match self {
+            SharedPress::ToggleMusic => {
+                if let Some(settings) = settings.as_mut() {
+                    settings.music.toggle();
+                    settings.save();
+                }
+                // The text row says which; the lobby is drawn from its state.
+                state.set_changed();
+            }
             SharedPress::PickLang(lang) if lang == state.lobby.lang() => {}
             SharedPress::PickLang(lang) => {
                 state.lobby.set_lang(lang);

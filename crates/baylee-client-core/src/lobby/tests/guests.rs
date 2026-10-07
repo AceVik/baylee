@@ -35,7 +35,13 @@ fn a_gateway_that_has_not_said_it_takes_guests_offers_none() {
 #[test]
 fn a_new_guest_is_asked_for_under_the_name_typed_or_none() {
     let mut lobby = welcoming();
-    lobby.focus_on(Field::GuestName);
+    assert_eq!(
+        lobby.open_guest_face(),
+        None,
+        "the face opens; nothing is sent"
+    );
+    assert_eq!(lobby.face(), Face::Guest);
+    assert_eq!(lobby.focus(), Field::GuestName, "the caret is in the name");
     lobby.insert(" Casper ");
     assert_eq!(
         lobby.play_as_guest(),
@@ -61,7 +67,7 @@ fn a_new_guest_is_asked_for_under_the_name_typed_or_none() {
 #[test]
 fn enter_in_the_guest_name_is_the_guest_button() {
     let mut lobby = welcoming();
-    lobby.focus_on(Field::GuestName);
+    lobby.open_guest_face();
     lobby.insert("Casper");
     assert!(matches!(
         lobby.submit(),
@@ -147,7 +153,10 @@ fn a_guest_whose_session_ended_is_let_go_and_the_player_told() {
         "that guest has ended — play as a new one, or sign in"
     );
     assert_eq!(guest.tone(), Tone::Refusal);
-    assert!(guest.guest_name_offered(), "the next one is a new one");
+    assert!(
+        guest.guest_offered() && guest.kept_guest().is_none(),
+        "the next one is a new one"
+    );
 
     // An account is signed out and told why, in the shell design's words
     // (§2.5): a session that ended is not a sign-out the player chose.
@@ -160,21 +169,24 @@ fn a_guest_whose_session_ended_is_let_go_and_the_player_told() {
     assert_eq!(account.tone(), Tone::Note);
 }
 
-/// The guest's name is first in the ring, as it is drawn first, and only
-/// while it is drawn at all.
+/// The guest's face (WP1) is a ring of its own: the name alone on an open
+/// gateway; the sign-in face never draws it.
 #[test]
-fn the_guests_name_is_first_in_the_ring_while_it_is_asked_for() {
+fn the_guests_name_is_a_ring_of_its_own_on_the_guest_face() {
     let mut lobby = welcoming();
-    lobby.focus_on(Field::Username);
-    lobby.cycle_focus(Tab::Back);
+    lobby.focus_on(Field::GuestName);
+    assert_eq!(
+        lobby.focus(),
+        Field::Username,
+        "not drawn on the sign-in face"
+    );
+    lobby.open_guest_face();
     assert_eq!(lobby.focus(), Field::GuestName);
     assert!(lobby.typing_here());
     lobby.cycle_focus(Tab::Next);
-    lobby.cycle_focus(Tab::Next);
-    lobby.cycle_focus(Tab::Next);
-    assert_eq!(lobby.focus(), Field::GuestName, "three round");
-
-    lobby.keep_guest(Some(kept()));
+    assert_eq!(lobby.focus(), Field::GuestName, "a ring of one");
+    assert!(lobby.back_to_sign_in());
+    assert_eq!(lobby.face(), Face::SignIn);
     assert_eq!(
         lobby.focus(),
         Field::Username,
@@ -183,6 +195,29 @@ fn the_guests_name_is_first_in_the_ring_while_it_is_asked_for() {
     lobby.cycle_focus(Tab::Back);
     lobby.cycle_focus(Tab::Back);
     assert_eq!(lobby.focus(), Field::Username, "two round, without it");
+    assert!(!lobby.back_to_sign_in(), "already there");
+}
+
+/// A kept guest needs no face: the sign-in face's button plays at once.
+#[test]
+fn a_kept_guest_plays_from_the_sign_in_face_without_a_face_of_its_own() {
+    let mut lobby = welcoming();
+    lobby.keep_guest(Some(kept()));
+    assert_eq!(lobby.open_guest_face(), Some(LobbyRequest::ListDecks));
+    assert_eq!(*lobby.screen(), Screen::Table);
+}
+
+/// A parked caret types nowhere, and placing it again ends the parking.
+#[test]
+fn a_parked_caret_types_nowhere_until_a_field_is_focused() {
+    let mut lobby = welcoming();
+    lobby.focus_on(Field::Username);
+    lobby.park_caret();
+    assert!(lobby.caret_parked() && !lobby.typing_here());
+    assert!(!lobby.caret_in(Field::Username));
+    lobby.focus_on(Field::Password);
+    assert!(!lobby.caret_parked() && lobby.typing_here());
+    assert!(lobby.caret_in(Field::Password));
 }
 
 #[test]

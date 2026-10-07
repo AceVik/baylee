@@ -4181,6 +4181,80 @@ messages! {
     /// The gateway now refuses this client's protocol: an update is needed.
     ShellUpdateRequired { en: "Update required \u{2014} this gateway runs a newer version", de: "Update n\u{f6}tig \u{2014} dieses Gateway l\u{e4}uft mit einer neueren Version" },
     // ---- front door + terms (WP1) ----------------------------------------
+    /// The badge beside a closed-beta gateway's name on the front door.
+    FrontClosedBeta { en: "closed beta", de: "geschlossene Beta" },
+    /// The front door's version verdict when nothing is wrong.
+    FrontCompatible { en: "compatible", de: "kompatibel" },
+    /// The front door's line naming this client's own version. `{0}`.
+    FrontThisClient { en: "this client {0}", de: "dieser Client {0}" },
+    /// Under Create account and Play as guest on a closed beta.
+    FrontKeyHint { en: "This gateway needs a beta key \u{2014} the key box opens under the button you choose.", de: "Dieses Gateway braucht einen Beta-Schl\u{fc}ssel \u{2014} das Feld \u{f6}ffnet sich unter dem Knopf, den du w\u{e4}hlst." },
+    /// Under the username when an account is made.
+    FrontUsernameHint { en: "Signs you in; nobody else sees it", de: "Zum Anmelden; niemand sonst sieht ihn" },
+    /// Under a password while Caps Lock looks on.
+    FrontCapsLock { en: "Caps Lock is on", de: "Feststelltaste ist an" },
+    /// The gateway did not answer: the head of the sign-in face. `{0}` the
+    /// gateway.
+    FrontUnreachable { en: "Can\u{2019}t reach {0}", de: "{0} ist nicht erreichbar" },
+    /// Asks the gateway again.
+    FrontRetry { en: "Retry", de: "Erneut" },
+    /// The guest's face's title and its button.
+    FrontGuestTitle { en: "Play as guest", de: "Als Gast spielen" },
+    /// The text row's door to the About sheet.
+    FrontAbout { en: "About", de: "\u{dc}ber" },
+    /// The one-line colophon's notice: the policy's words, shortened; the
+    /// full notice is on the About sheet one press away (`docs/legal.md`).
+    ColophonNotice { en: "Unofficial Fan Content, not approved/endorsed by Wizards", de: "Inoffizieller Fan-Content, nicht von Wizards genehmigt/unterst\u{fc}tzt" },
+    /// The one-line colophon's Scryfall credit.
+    ColophonScryfall { en: "Card data and images by Scryfall", de: "Kartendaten und -bilder von Scryfall" },
+    /// The one-line colophon's source link.
+    ColophonSource { en: "Source (AGPL-3.0)", de: "Quellcode (AGPL-3.0)" },
+    /// The About sheet's title.
+    AboutTitle { en: "About Baylee", de: "\u{dc}ber Baylee" },
+    /// The About sheet: the licence of this program.
+    AboutLicence { en: "Baylee is free software: you may run, study, share and change it under the GNU Affero General Public License, version 3. Whoever runs a changed gateway offers its players that version\u{2019}s source.", de: "Baylee ist freie Software: Du darfst sie unter der GNU Affero General Public License, Version 3, ausf\u{fc}hren, untersuchen, weitergeben und ver\u{e4}ndern. Wer ein ver\u{e4}ndertes Gateway betreibt, bietet seinen Spielern den Quellcode dieser Fassung an." },
+    /// The About sheet: the heading over the third-party licences.
+    AboutThirdParty { en: "Third-party licences", de: "Lizenzen Dritter" },
+    /// The About sheet: the interface's and the card text's typefaces.
+    AboutFonts { en: "Alegreya Sans (Juan Pablo del Peral, Huerta Tipogr\u{e1}fica) and Faustina (Omnibus-Type): SIL Open Font License 1.1.", de: "Alegreya Sans (Juan Pablo del Peral, Huerta Tipogr\u{e1}fica) und Faustina (Omnibus-Type): SIL Open Font License 1.1." },
+    /// The About sheet: the icon font.
+    AboutIcons { en: "Font Awesome Free 6.7.2 (Fonticons, Inc.): the font files under the SIL Open Font License 1.1.", de: "Font Awesome Free 6.7.2 (Fonticons, Inc.): die Schriftdateien unter der SIL Open Font License 1.1." },
+    /// The About sheet: the mana font.
+    AboutMana { en: "Mana 1.18 (Andrew Gioia): SIL Open Font License 1.1. The symbols it draws are Wizards of the Coast\u{2019}s.", de: "Mana 1.18 (Andrew Gioia): SIL Open Font License 1.1. Die Symbole, die sie zeichnet, geh\u{f6}ren Wizards of the Coast." },
+    /// The About sheet: the engine and the libraries.
+    AboutCrates { en: "Bevy and the other Rust crates this build links: each under its own licence (MIT, Apache-2.0 and the like), held to an allow-list by cargo-deny; NOTICE in the source names the rest.", de: "Bevy und die anderen Rust-Crates dieses Builds: jede unter ihrer eigenen Lizenz (MIT, Apache-2.0 und \u{e4}hnliche), von cargo-deny gegen eine Liste gepr\u{fc}ft; NOTICE im Quellcode nennt den Rest." },
+    /// The About sheet: the preconstructed deck lists.
+    AboutPrecons { en: "Preconstructed deck lists from MTGJSON (Zach Halpern): MIT License.", de: "Vorgefertigte Decklisten von MTGJSON (Zach Halpern): MIT-Lizenz." },
+    /// Closes a sheet.
+    SheetClose { en: "Close", de: "Schlie\u{df}en" },
+    /// The terms sheet's title. `{0}` the gateway.
+    TermsTitle { en: "Before you play at {0}", de: "Bevor du bei {0} spielst" },
+    /// The terms sheet's caption. `{0}` the version.
+    TermsVersion { en: "Terms of this gateway \u{b7} version {0}", de: "Bedingungen dieses Gateways \u{b7} Version {0}" },
+    /// After the version: when the operator last changed them. `{0}`.
+    TermsUpdated { en: "updated {0}", de: "aktualisiert {0}" },
+    /// While the text is asked for.
+    TermsLoading { en: "Loading the terms\u{2026}", de: "Die Bedingungen werden geladen \u{2026}" },
+    /// The text could not be read; nothing is accepted.
+    TermsLoadFailed { en: "Couldn\u{2019}t load the terms", de: "Die Bedingungen konnten nicht geladen werden" },
+    /// Asks for the text again.
+    TermsRetry { en: "Retry", de: "Erneut" },
+    /// Signs out, nothing stored (a guest is asked first).
+    TermsNotNow { en: "Not now", de: "Nicht jetzt" },
+    /// Accepts the terms shown.
+    TermsAccept { en: "Accept & continue", de: "Annehmen & weiter" },
+    /// Why Accept waits.
+    TermsScrollToAccept { en: "Read to the end to accept", de: "Bis zum Ende lesen, um anzunehmen" },
+    /// While the acceptance is on its way.
+    TermsSending { en: "Sending\u{2026}", de: "Wird gesendet \u{2026}" },
+    /// What accepting stores, and where.
+    TermsStoredNote { en: "Read to the end to accept. Your acceptance (version and time) is stored with your account on this gateway; this device remembers it too.", de: "Lies bis zum Ende, um anzunehmen. Deine Zustimmung (Version und Zeit) wird mit deinem Konto auf diesem Gateway gespeichert; dieses Ger\u{e4}t merkt sie sich auch." },
+    /// A guest pressed Not now.
+    TermsGuestAsk { en: "A guest that signs out loses its decks. Sign out anyway?", de: "Ein Gast, der sich abmeldet, verliert seine Decks. Trotzdem abmelden?" },
+    /// The guest stays and reads on.
+    TermsStay { en: "Stay", de: "Bleiben" },
+    /// The guest signs out after all.
+    TermsSignOut { en: "Sign out", de: "Abmelden" },
     // ---- play + room (WP2) -----------------------------------------------
     // ---- decks, house decks, history (WP3) -------------------------------
     // ---- the deck builder (WP4) ------------------------------------------
