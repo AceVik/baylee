@@ -960,6 +960,20 @@ fn logical_key(name: &str) -> Key {
         "F2" => Key::F2,
         "F10" => Key::F10,
         "ContextMenu" => Key::ContextMenu,
+        // The punctuation a US layout prints on these keys: a real `/`
+        // carries its character, and a chord captured from it is the
+        // character's (`ShellChord::ch("/")`, Search), not the bare code.
+        "Slash" => Key::Character("/".into()),
+        "Comma" => Key::Character(",".into()),
+        "Period" => Key::Character(".".into()),
+        "Minus" => Key::Character("-".into()),
+        "Equal" => Key::Character("=".into()),
+        "Semicolon" => Key::Character(";".into()),
+        "Quote" => Key::Character("'".into()),
+        "Backslash" => Key::Character("\\".into()),
+        "Backquote" => Key::Character("`".into()),
+        "BracketLeft" => Key::Character("[".into()),
+        "BracketRight" => Key::Character("]".into()),
         // The canonical spellings, which `harness_alias` lets a caller write
         // either way round. `Digit2` pressed the physical key and reported no
         // logical one at all, so the ability sheet — which reads its digits

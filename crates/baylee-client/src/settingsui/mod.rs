@@ -186,7 +186,7 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
             controls::chip(
                 commands,
                 kit,
-                section.name().text(lang),
+                section.short().text(lang),
                 on,
                 None,
                 false,
@@ -201,7 +201,9 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
         ));
         commands.entity(holder).add_child(entry);
     }
-    if side {
+    // The build at the sidebar's foot, where it has the height (a phone's
+    // sidebar is the sections and no more).
+    if side && kit.m.frame != Frame::Phone {
         let foot = commands
             .spawn((
                 Text::new(baylee_build::short()),
@@ -210,6 +212,9 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
                 Node {
                     margin: UiRect::top(Val::Auto),
                     padding: UiRect::all(kit.m.px(8.0)),
+                    // Its two lines, never squeezed into one line's height
+                    // (the second then lay outside its own box).
+                    flex_shrink: 0.0,
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -276,7 +281,11 @@ fn nav_item(commands: &mut Commands, kit: Kit, text: &str, on: bool) -> Entity {
                 ..default()
             },
             BackgroundColor(if on { tokens::SELECTED } else { Color::NONE }),
-            BorderColor::all(if on { tokens::GOLD } else { Color::NONE }),
+            // The gold bar at its left edge alone.
+            BorderColor {
+                left: if on { tokens::GOLD } else { Color::NONE },
+                ..BorderColor::all(Color::NONE)
+            },
         ))
         .id();
     let words = controls::label(
@@ -298,9 +307,15 @@ fn nav_item(commands: &mut Commands, kit: Kit, text: &str, on: bool) -> Entity {
             node.width = Val::Percent(100.0);
             node.justify_content = JustifyContent::FlexStart;
         });
-    commands
-        .entity(face)
-        .insert((Pickable::default(), crate::ambience::Feel::new(Color::NONE)));
+    // A line of writing: the pointer lights it and never grows it (a
+    // grown row stands outside its own box), and it rests at its own
+    // ground — the lit one's included, which a `Feel` resting at nothing
+    // painted out.
+    let ground = if on { tokens::SELECTED } else { Color::NONE };
+    commands.entity(face).insert((
+        Pickable::default(),
+        crate::ambience::Feel::tinting_to(ground, tokens::SELECTED),
+    ));
     wrapper
 }
 

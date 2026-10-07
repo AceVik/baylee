@@ -55,6 +55,19 @@ impl Section {
         Self::Privacy,
     ];
 
+    /// The section's name on a chip (the narrow chip row), within a
+    /// chip's fourteen characters.
+    #[must_use]
+    pub const fn short(self) -> Phrase {
+        match self {
+            Self::Display => Phrase::SectionDisplayShort,
+            Self::Network => Phrase::SectionNetworkShort,
+            Self::LanguageModels => Phrase::SectionModelsShort,
+            Self::Privacy => Phrase::SectionPrivacyShort,
+            other => other.name(),
+        }
+    }
+
     /// Its name in the sidebar and over its panel.
     #[must_use]
     pub const fn name(self) -> Phrase {
@@ -676,6 +689,18 @@ mod tests {
         assert!(search("audio", Lang::En, Builds::DESKTOP, 1).contains(&Row::Master));
         // Rows a build does not draw are not found.
         assert!(search("vsync", Lang::En, Builds::WEB, 1).is_empty());
+    }
+
+    /// A chip holds fourteen characters (the kit's label budget): every
+    /// section's chip name fits, in both languages.
+    #[test]
+    fn every_chip_name_fits_a_chip() {
+        for section in Section::ALL {
+            for lang in [Lang::En, Lang::De] {
+                let words = section.short().text(lang);
+                assert!(words.chars().count() <= 14, "{words}");
+            }
+        }
     }
 
     #[test]

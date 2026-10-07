@@ -4450,7 +4450,15 @@ messages! {
     /// The settings search found nothing.
     SettingsNoMatch { en: "Nothing matches", de: "Nichts gefunden" },
     /// Puts the shown section's rows back.
-    SettingsResetSection { en: "Reset this section", de: "Abschnitt zur\u{fc}cksetzen" },
+    SettingsResetSection { en: "Reset this section", de: "Bereich zur\u{fc}cksetzen" },
+    /// Display & Interface, on a chip.
+    SectionDisplayShort { en: "Display", de: "Anzeige" },
+    /// Network & Gateway, on a chip.
+    SectionNetworkShort { en: "Network", de: "Netzwerk" },
+    /// Language models, on a chip.
+    SectionModelsShort { en: "Models", de: "Modelle" },
+    /// Privacy & Data, on a chip.
+    SectionPrivacyShort { en: "Privacy", de: "Datenschutz" },
     /// An account row before sign-in.
     SettingsSignInToChange { en: "Sign in to change", de: "Zum \u{c4}ndern anmelden" },
     /// The rule over Graphics' account rows.

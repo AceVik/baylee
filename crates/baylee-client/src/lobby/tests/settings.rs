@@ -731,3 +731,26 @@ fn a_rebind_conflict_is_refused_with_its_reason_and_then_taken() {
         "asked again, it is taken"
     );
 }
+
+/// `KEYBOARD.md` §1.5 (W10 step 1): on the nav, letters are type-ahead —
+/// `c` `o` shows Controls, and focus stands on its item.
+#[test]
+fn letters_on_the_nav_jump_to_the_section_they_begin() {
+    use super::front_keys::{focused, press_key};
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Graphics);
+    for _ in 0..8 {
+        if focused(&app).is_some_and(|s| s.id == "nav") {
+            break;
+        }
+        press_key(&mut app, KeyCode::Tab, Key::Tab, &[]);
+    }
+    assert_eq!(focused(&app).map(|s| s.id), Some("nav"));
+    press_key(&mut app, KeyCode::KeyC, Key::Character("c".into()), &[]);
+    press_key(&mut app, KeyCode::KeyO, Key::Character("o".into()), &[]);
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.settings_section(), Section::Controls);
+    let at = focused(&app).expect("focus");
+    assert_eq!((at.id, at.item), ("nav", 3), "focus on Controls");
+}

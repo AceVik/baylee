@@ -52,11 +52,14 @@ def open_settings():
 
 def rows_in_view(nodes, height):
     """Rows wholly inside the window (and the panel's scroll view)."""
-    return [
-        n for n in nodes
-        if n.get("k") == "row" and n["y"] >= 0 and n["y"] + n["h"] <= height + 0.5
-        and not check.scrolled(nodes, n)
-    ]
+    shown = []
+    for n in nodes:
+        if n.get("k") != "row" or n["y"] < 0 or n["y"] + n["h"] > height + 0.5:
+            continue
+        view = check.scrolled(nodes, n)
+        if view is None or check.inside(n, view):
+            shown.append(n)
+    return shown
 
 
 def section_faults(nodes, width, height, touch, german):
