@@ -1,0 +1,53 @@
+//! The tests of the cards under `cards/enchantments/mv_3/`, one module per card.
+
+#[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
+use super::*;
+
+mod arenson_s_aura;
+mod armistice;
+mod aura_fracture;
+mod aura_shards;
+mod back_to_basics;
+mod blanket_of_night;
+mod captive_flame;
+mod choke;
+mod contemplation;
+mod deadapult;
+mod dralnu_s_crusade;
+mod enchantress_s_presence;
+mod energy_flux;
+mod fervor;
+mod fires_of_yavimaya;
+mod garruk_s_uprising;
+mod ghitu_war_cry;
+mod gloom;
+mod glorious_anthem;
+mod goblin_trenches;
+mod goblin_war_drums;
+mod gravity_sphere;
+mod growing_rites_of_itlimoc;
+mod hadana_s_climb;
+mod hanna_s_custody;
+mod infernal_tribute;
+mod knighthood;
+mod lifegift;
+mod mana_flare;
+mod mental_discipline;
+mod mobilization;
+mod moonlit_wake;
+mod narcissism;
+mod noble_steeds;
+mod overgrown_estate;
+mod phyrexian_arena;
+mod retreat_to_kazandu;
+mod rhystic_study;
+mod sacred_mesa;
+mod seismic_assault;
+mod sidequest_catch_a_fish;
+mod spidersilk_armor;
+mod still_life;
+mod teferi_s_care;
+mod temur_ascendancy;
+mod think_tank;
+mod tribute_to_the_world_tree;
+mod unspeakable_symbol;

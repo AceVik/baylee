@@ -506,4 +506,18 @@ mod tests {
         let json = serde_json::to_string(&named[0]).expect("serializes");
         assert!(json.contains(r#""alt_names":["Wald"]"#), "{json}");
     }
+
+    /// `produces` (WG-4) reaches the wire for a source of mana and stays off
+    /// it for everything else.
+    #[test]
+    fn a_row_says_what_mana_its_card_makes_and_a_spell_says_nothing() {
+        let json = serde_json::to_string(&find("Forest")).expect("serializes");
+        assert!(json.contains(r#""produces":"G""#), "{json}");
+        let spell = registry_rows()
+            .iter()
+            .find(|c| c.kinds == ["Instant"])
+            .expect("an instant");
+        let json = serde_json::to_string(spell).expect("serializes");
+        assert!(!json.contains("produces"), "{json}");
+    }
 }

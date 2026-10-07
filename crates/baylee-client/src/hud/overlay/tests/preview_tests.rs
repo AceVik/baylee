@@ -71,9 +71,10 @@ fn a_token_and_an_empty_hover_have_no_back() {
     assert!(!has_back_image(&view, Some(id)), "a token has no card");
 }
 
-/// A card in hand draws its name, cost and type line and no box of rules
-/// text: at the hand's width that text would be six pixels, under the ten
-/// a sentence is read at, and hovering the card opens the preview (#259).
+/// A card in hand draws its name, cost, type line, keyword strip and one
+/// line of rules, and no box of rules text: at the hand's width the whole
+/// text would be six pixels, and hovering the card opens the preview, which
+/// is where it is read (#259, WP6).
 ///
 /// No art arrives in a headless test, so the card draws its face; the
 /// first half proves it did, which is what keeps the second from passing
@@ -110,6 +111,46 @@ fn a_card_in_hand_draws_no_rules_text() {
     assert!(
         !under.iter().any(|e| boxes.get(world, *e).is_ok()),
         "and no box of rules text under it"
+    );
+}
+
+/// A text face is built when something it shows changes and never on an
+/// idle frame (WP6): with a hovered permanent's preview up, sixty frames
+/// of nothing build no face, and moving the hover builds them again — the
+/// second half is what keeps the first from passing on an overlay that
+/// built nothing at all.
+#[test]
+fn an_idle_preview_builds_no_face() {
+    let (view, id) = hovering("Lightning Bolt");
+    let mut duel = duel_saying(false, false);
+    duel.view = Some(view);
+    duel.statics = Some(baylee_client_core::test_support::statics(8));
+    crate::rebuild_board(&mut duel);
+    duel.hovered = id;
+    let mut app = bar_of(duel);
+    app.init_resource::<crate::face::FaceBuilds>();
+    // A rebuild for the resource's own arrival, then the preview.
+    app.world_mut().resource_mut::<Duel>().hovered = None;
+    app.update();
+    app.world_mut().resource_mut::<Duel>().hovered = id;
+    app.update();
+    let built = app.world().resource::<crate::face::FaceBuilds>().0;
+    assert!(built > 0, "the hovered card's preview drew no face");
+    for _ in 0..60 {
+        app.update();
+    }
+    assert_eq!(
+        app.world().resource::<crate::face::FaceBuilds>().0,
+        built,
+        "an idle frame built a face"
+    );
+    app.world_mut().resource_mut::<Duel>().hovered = None;
+    app.update();
+    app.world_mut().resource_mut::<Duel>().hovered = id;
+    app.update();
+    assert!(
+        app.world().resource::<crate::face::FaceBuilds>().0 > built,
+        "a hover that came back built nothing"
     );
 }
 

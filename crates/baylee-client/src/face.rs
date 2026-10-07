@@ -30,7 +30,9 @@
 use baylee_client_core::card_face::{CardFace, Stats, TextBlock};
 use baylee_client_core::cardplate::{self, Plate};
 use baylee_client_core::i18n::{Lang, Phrase};
-use baylee_client_core::textface::{self, BAR_PAD, Fitted, LINE_BOX, Regions, Sizes, TEXT_INSET};
+use baylee_client_core::textface::{
+    self, BAR_PAD, Fitted, LINE_BOX, Layout, Regions, Sizes, TEXT_INSET,
+};
 use baylee_core::color::{Color as MagicColor, ColorSet};
 use baylee_core::mana::{ManaSymbol, Variable};
 use bevy::prelude::*;
@@ -48,11 +50,34 @@ pub enum Detail {
 
 // --------------------------------------------------------------- when to use
 
-/// Whether the player is holding the "show me the text" modifier.
+/// Whether the player is holding the "show me the text" modifier, and the
+/// text step the interface's faces are set at.
 #[derive(Resource, Default)]
 pub struct FaceMode {
     /// True while Cmd or Alt is down.
     pub held: bool,
+    /// The interface's text step (WP6): the overlay's faces multiply their
+    /// clamps by it, the table's ignore it. The setting that chooses it is
+    /// the shell's (`ClientSettings::text_size`, WP0b-1), which writes it
+    /// here; until then it is the default, or in a dev-control build
+    /// `BAYLEE_TEXT_STEP` (one to five), so the steps can be photographed.
+    pub step: textface::Step,
+}
+
+impl FaceMode {
+    /// The mode a client starts in: nothing held, and the default step — or
+    /// in a dev-control build the step `BAYLEE_TEXT_STEP` names.
+    #[must_use]
+    pub fn initial() -> Self {
+        #[cfg(feature = "dev-control")]
+        let step = std::env::var("BAYLEE_TEXT_STEP")
+            .ok()
+            .and_then(|s| s.trim().parse::<u8>().ok())
+            .map_or(textface::Step::DEFAULT, textface::Step::new);
+        #[cfg(not(feature = "dev-control"))]
+        let step = textface::Step::DEFAULT;
+        Self { held: false, step }
+    }
 }
 
 /// Tracks the modifier key.
@@ -479,12 +504,20 @@ const THUMB_ALPHA: f32 = 0.85;
 /// The gap between two pips of a cost, as a share of a pip.
 const PIP_GAP: f32 = 0.12;
 
+/// A chip's padding round its word, across and down, as a share of its em;
+/// the gap between two chips and between the band's two rows, likewise; and
+/// how round a chip's ends are, in card widths.
+const CHIP_PAD: (f32, f32) = (0.5, 0.18);
+const CHIP_GAP: f32 = 0.4;
+const CHIP_ROUND: f32 = 0.012;
+
 /// A text face laid out for the overlay, before anything is spawned.
 ///
 /// Laid out first because the card's material is keyed by the face's word,
-/// and the word carries the bars' depths, which are the fit's: a long name
-/// on two lines is a deeper name bar, drawn by the shader under the text
-/// this places (#259).
+/// and the word carries the bars' depths, which are the fit's, and the
+/// layout the rules chose: a long name on two lines is a deeper name bar,
+/// and long rules give up the band's room, both drawn by the shader under
+/// the text this places (#259, WP6).
 pub struct UiFace {
     /// The card's width in pixels.
     width: f32,
@@ -492,22 +525,48 @@ pub struct UiFace {
     name: Fitted,
     kind: Fitted,
     regions: Regions,
-    /// The rules text's em, for a face that writes it; `None` for a
+    /// How the face is laid out down the card.
+    pub layout: Layout,
+    /// The rules text's em, for a face that writes all of it; `None` for a
     /// compact one.
     body: Option<f32>,
+    /// How deep the rules are against their room, in pixels, where the
+    /// fit's model says they run over at the floor: the scrollbar and the
+    /// `▾` show from the first frame, before bevy has laid anything out.
+    overflow: Option<(f32, f32)>,
+    /// A compact face's one line of rules, cut to fit.
+    line: Option<String>,
     /// The numbers the card's plate does not already say.
     stats: Option<Stats>,
     /// A cost pip's diameter, in pixels.
     pip: f32,
-    /// The material's face word ([`textface::face_word`]).
+    /// The set and rarity at the type bar's right end, where the face
+    /// credits a printing.
+    mark: Option<String>,
+    /// The foot's credit line.
+    foot: Option<String>,
+    /// The band's words: the subtypes.
+    subtypes: Vec<String>,
+    /// The band's keyword chips.
+    chips: Vec<String>,
+    /// The text step the face is set at.
+    step: textface::Step,
+    /// The material's face word ([`textface::face_word`], with its layout).
     pub word: u32,
 }
 
 impl UiFace {
     /// `face` laid out on a card `width` pixels wide, its lines measured by
-    /// `widths`. `plate` is what the strip over the card says, packed
-    /// (`cardrail::Strip::plate`): numbers it already shows are not written
-    /// twice.
+    /// `widths` at the step `widths` carries. `plate` is what the strip over
+    /// the card says, packed (`cardrail::Strip::plate`): numbers it already
+    /// shows are not written twice.
+    ///
+    /// A full face is a preview: its rules at their own size if they fit
+    /// under the full band, else a pixel smaller at a time; under
+    /// [`textface::LONG_PX`] (times the step) or over the floor it takes the
+    /// long layout, whose band is narrower, and fits again there. A compact
+    /// face is a small card: the band is its keyword strip and the first
+    /// sentence of its rules its one line.
     #[must_use]
     pub fn lay(
         face: &CardFace,
@@ -517,7 +576,8 @@ impl UiFace {
         widths: &Widths<'_>,
         plate: u32,
     ) -> Self {
-        let pip = textface::ui_em(textface::UI_NAME, width) * width;
+        let step = widths.step();
+        let pip = textface::ui_em_at(textface::UI_NAME, width, step) * width;
         #[allow(clippy::cast_precision_loss)] // a cost has a handful of pips
         let pips = face.cost.len() as f32;
         let cost = if pips > 0.0 {
@@ -525,29 +585,123 @@ impl UiFace {
         } else {
             0.0
         };
-        let sizes = Sizes::overlay(width, cost);
+        let full = detail == Detail::Full;
+        let mark = face
+            .credit
+            .as_ref()
+            .filter(|_| full)
+            .and_then(baylee_client_core::card_face::Credit::mark);
+        let base = Sizes::overlay_at(width, cost, step);
+        let sizes = match &mark {
+            Some(mark) => base.beside_type(widths.width(mark) * base.small),
+            None => base,
+        };
         let name = textface::fit_name_in(&sizes, &face.name, |s| widths.width(s));
-        let kind = textface::fit_type_in(&sizes, &face.type_line, |s| widths.width(s));
+        let kind = if full {
+            textface::fit_type_front_in(&sizes, &face.type_line, |s| widths.width(s))
+        } else {
+            textface::fit_type_in(&sizes, &face.type_line, |s| widths.width(s))
+        };
         let depths = sizes.depths(name.lines.len());
-        let regions = Regions::new(depths);
         let stats = world_stats(face.stats, plate >> cardplate::KIND_SHIFT);
-        let body = (detail == Detail::Full).then(|| {
-            let room = body_room(&regions, stats, &sizes);
+        let chips = textface::keyword_chips(face.rules());
+        let (layout, regions, body, overflow, line) = if full {
             let blocks = body_blocks(face, lang);
-            textface::fit_body(width, room, |em| body_depth(&blocks, em, width, widths))
-        });
+            let fit = |layout: Layout| {
+                let regions = Regions::laid(layout, depths);
+                let room = body_room(&regions, stats, &sizes);
+                let depth = |em: f32| body_depth(&blocks, em, width, widths);
+                let em = textface::fit_body_at(width, room, step, depth);
+                (layout, regions, em, room, depth(em))
+            };
+            let mut chosen = fit(Layout::Preview);
+            // Under 16 px (times the step), or the card's own size where
+            // that is smaller already: a small preview whose rules fit at
+            // their own size keeps its band.
+            let own = textface::ui_em_at(textface::UI_BODY, width, step) * width;
+            let long = (textface::LONG_PX * step.factor())
+                .max(step.body_floor())
+                .min(own);
+            if chosen.2 * width < long - 1e-3 || chosen.4 > chosen.3 {
+                chosen = fit(Layout::Long);
+            }
+            let (layout, regions, em, room, depth) = chosen;
+            let overflow = (depth > room).then_some((room * width, depth * width));
+            (layout, regions, Some(em), overflow, None)
+        } else {
+            let regions = Regions::laid(Layout::Small, depths);
+            let line = small_line(face, stats, &regions, &sizes, width, widths);
+            (Layout::Small, regions, None, None, line)
+        };
+        let subtypes = if full {
+            textface::subtype_words(&face.type_line, face.subtypes.len() as usize)
+        } else {
+            Vec::new()
+        };
+        let foot = face
+            .credit
+            .as_ref()
+            .filter(|_| full)
+            .and_then(baylee_client_core::card_face::Credit::foot);
+        let word = textface::face_word(face.colors, face.types, face.subtypes, depths);
         Self {
             width,
             sizes,
             name,
             kind,
             regions,
+            layout,
             body,
+            overflow,
+            line,
             stats,
             pip,
-            word: textface::face_word(face.colors, face.types, face.subtypes, depths),
+            mark,
+            foot,
+            subtypes,
+            chips,
+            step,
+            word: textface::laid(word, layout),
         }
     }
+
+    /// Whether the fit's model says the rules run over their box at the
+    /// floor, so the box scrolls.
+    #[must_use]
+    pub fn overflows(&self) -> bool {
+        self.overflow.is_some()
+    }
+}
+
+/// A compact face's one line of rules: the first sentence of its first
+/// rules block, cut at a word with an ellipsis where it runs past the line,
+/// which leaves room for the numbers at its right end. Nothing for a face
+/// with no rules, or whose text has not arrived.
+fn small_line(
+    face: &CardFace,
+    stats: Option<Stats>,
+    regions: &Regions,
+    sizes: &Sizes,
+    width: f32,
+    widths: &Widths<'_>,
+) -> Option<String> {
+    let first = textface::first_sentence(face.rules().next()?);
+    let px = sizes.small * width;
+    let [x0, _, x1, _] = regions.text_box;
+    let numbers = stats.map_or(0.0, |s| {
+        widths.width(&stats_label(s)) * px + TEXT_INSET * width
+    });
+    let room = (x1 - x0 - 2.0 * TEXT_INSET) * width - numbers;
+    let one = (LINE_BOX * px).ceil() + 0.5;
+    let fits = |s: &str| crate::manaui::rich_depth(s, px, room, |w| widths.width(w) * px) <= one;
+    if fits(first) {
+        return Some(first.to_owned());
+    }
+    let words: Vec<&str> = first.split(' ').collect();
+    (1..words.len())
+        .rev()
+        .map(|keep| format!("{}{}", words[..keep].join(" "), textface::ELLIPSIS))
+        .find(|line| fits(line))
 }
 
 /// How deep the rules text may stand, in card widths: the text box inside
@@ -624,9 +778,11 @@ fn placed(width: f32, x: f32, y: f32) -> Node {
 /// Every node sits where [`textface`] placed it, in card widths scaled by
 /// the card's width in pixels, so the text stands on the bars the shader
 /// draws from the same word: the name in the name bar with the cost at its
-/// right end, as on a print, the type line in the type bar, and the rules
-/// text in the text box, set a pixel smaller at a time down to ten pixels
-/// to fit and scrolling past that.
+/// right end, as on a print; the type line in the type bar, with the set and
+/// rarity at its right end where the face credits a printing; the band's
+/// subtypes and keyword chips; the rules text in the text box, set a pixel
+/// smaller at a time down to the step's floor to fit and scrolling past
+/// that, or a small card's one line; and the foot's credit.
 ///
 /// **Every node here carries [`Pickable::IGNORE`]**, and it is one rule rather
 /// than eight decisions: a drawn face is never the pointer's target — the hand
@@ -638,6 +794,9 @@ fn placed(width: f32, x: f32, y: f32) -> Node {
 /// it keeps `PickingInteraction` off the row and the row never lights. The
 /// text box is no exception: the wheel reaches it through the hovered card
 /// rather than by being under the pointer.
+///
+/// Counted ([`FaceBuilds`]), so a test and the dev harness can hold the face
+/// to being built on a change and never per frame.
 pub fn spawn_ui(
     commands: &mut Commands,
     card: Entity,
@@ -648,14 +807,19 @@ pub fn spawn_ui(
 ) {
     use bevy::text::LineBreak;
 
+    commands.queue(|world: &mut World| {
+        if let Some(mut builds) = world.get_resource_mut::<FaceBuilds>() {
+            builds.0 += 1;
+        }
+    });
     let w = laid.width;
     let [x0, name_top, x1, _] = laid.regions.name_bar;
-    let line = |commands: &mut Commands, text: String, em: f32, color: Color, node: Node| {
+    let line = |commands: &mut Commands, text: String, font: TextFont, color: Color, node: Node| {
         let entity = commands
             .spawn((
                 Pickable::IGNORE,
                 Text::new(text),
-                text_font(fonts, em * w),
+                font,
                 TextColor(color),
                 // The lines are already broken, by the fit that sized the
                 // bars under them.
@@ -669,7 +833,7 @@ pub fn spawn_ui(
     line(
         commands,
         laid.name.lines.join("\n"),
-        laid.name.em,
+        text_font(fonts, laid.name.em * w),
         FACE_INKS.0,
         placed(w, x0 + TEXT_INSET, name_top + BAR_PAD),
     );
@@ -688,45 +852,245 @@ pub fn spawn_ui(
         commands.entity(card).add_child(pips);
     }
     let [_, type_top, _, type_foot] = laid.regions.type_bar;
+    let centred = |em: f32| type_top + (type_foot - type_top - LINE_BOX * em) * 0.5;
     line(
         commands,
         laid.kind.lines.concat(),
-        laid.kind.em,
+        text_font(fonts, laid.kind.em * w),
         FACE_INKS.0,
-        placed(
-            w,
-            x0 + TEXT_INSET,
-            type_top + (type_foot - type_top - LINE_BOX * laid.kind.em) * 0.5,
-        ),
+        placed(w, x0 + TEXT_INSET, centred(laid.kind.em)),
     );
+    if let Some(mark) = &laid.mark {
+        let em = laid.sizes.small;
+        line(
+            commands,
+            mark.clone(),
+            text_font(fonts, em * w),
+            FACE_INKS.0,
+            Node {
+                position_type: PositionType::Absolute,
+                right: Val::Px((1.0 - x1 + TEXT_INSET) * w),
+                top: Val::Px(centred(em) * w),
+                ..default()
+            },
+        );
+    }
+    spawn_band(commands, card, laid, fonts);
 
     if let Some(em) = laid.body {
         spawn_text_box(commands, card, lang, face, laid, fonts, em);
     }
-    let box_foot = laid.regions.text_box[3];
+    if let Some(words) = &laid.line {
+        spawn_small_line(commands, card, laid, fonts, words);
+    }
     if let Some(stats) = laid.stats {
-        let right = x1 - TEXT_INSET;
+        spawn_stats(commands, card, laid, fonts, stats);
+    }
+    if let Some(foot) = &laid.foot {
+        let [fx0, top, _, bottom] = laid.regions.foot;
+        let em = textface::ui_em_at(textface::UI_FOOT, w, laid.step);
+        line(
+            commands,
+            foot.clone(),
+            TextFont {
+                font: bevy::text::FontSource::Handle(fonts.italic.clone()),
+                font_size: bevy::text::FontSize::Px(em * w),
+                ..default()
+            },
+            Color::srgb_from_array(textface::FOOT_INK),
+            placed(
+                w,
+                fx0 + TEXT_INSET,
+                top + ((bottom - top) - LINE_BOX * em).max(0.0) * 0.5,
+            ),
+        );
+    }
+}
+
+/// A small card's one line of rules, centred down its one-line text box and
+/// clipped to it.
+fn spawn_small_line(
+    commands: &mut Commands,
+    card: Entity,
+    laid: &UiFace,
+    fonts: &UiFonts,
+    words: &str,
+) {
+    let w = laid.width;
+    let [x0, top, x1, foot] = laid.regions.text_box;
+    let px = laid.sizes.small * w;
+    let block = crate::manaui::spawn_rich_in(commands, fonts, words, px, FACE_INKS.0, text_font);
+    commands.entity(block).insert((
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px((x0 + TEXT_INSET) * w),
+            top: Val::Px((top + (foot - top - LINE_BOX * laid.sizes.small) * 0.5) * w),
+            max_width: Val::Px((x1 - x0 - 2.0 * TEXT_INSET) * w),
+            flex_direction: FlexDirection::Row,
+            flex_wrap: FlexWrap::Wrap,
+            align_items: AlignItems::Center,
+            overflow: Overflow::clip(),
+            max_height: Val::Px((foot - top) * w),
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    commands.entity(card).add_child(block);
+}
+
+/// The numbers the plate does not say: on a small card beside its one line,
+/// on a preview at the text box's foot, right.
+fn spawn_stats(
+    commands: &mut Commands,
+    card: Entity,
+    laid: &UiFace,
+    fonts: &UiFonts,
+    stats: Stats,
+) {
+    let w = laid.width;
+    let [_, top, x1, foot] = laid.regions.text_box;
+    let (em, top) = if laid.layout == Layout::Small {
+        let em = laid.sizes.small;
+        (em, top + (foot - top - LINE_BOX * em) * 0.5)
+    } else {
         let em = laid.sizes.name;
-        let entity = commands
+        (em, foot - BAR_PAD - LINE_BOX * em)
+    };
+    let entity = commands
+        .spawn((
+            Pickable::IGNORE,
+            Text::new(stats_label(stats)),
+            text_font(fonts, em * w),
+            TextColor(stats_color(stats)),
+            Node {
+                position_type: PositionType::Absolute,
+                right: Val::Px((1.0 - x1 + TEXT_INSET) * w),
+                top: Val::Px(top * w),
+                ..default()
+            },
+        ))
+        .id();
+    commands.entity(card).add_child(entity);
+}
+
+/// The band: the subtype words over the keyword chips on a preview, the
+/// chips alone where the band is narrow (a long preview), and the chips at
+/// its foot on a small card, where the band is its keyword strip. Clipped
+/// to the band, so a card with more keywords than room shows the first.
+fn spawn_band(commands: &mut Commands, card: Entity, laid: &UiFace, fonts: &UiFonts) {
+    let w = laid.width;
+    let [x0, top, x1, foot] = laid.regions.band;
+    let em = textface::ui_em_at(textface::UI_CHIP, w, laid.step) * w;
+    let words = match laid.layout {
+        Layout::Preview => laid.subtypes.as_slice(),
+        Layout::Long if laid.chips.is_empty() => laid.subtypes.as_slice(),
+        _ => &[],
+    };
+    if words.is_empty() && laid.chips.is_empty() {
+        return;
+    }
+    let pad = BAR_PAD * w;
+    let band = commands
+        .spawn((
+            Pickable::IGNORE,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px((x0 + TEXT_INSET) * w),
+                top: Val::Px(top * w),
+                width: Val::Px((x1 - x0 - 2.0 * TEXT_INSET) * w),
+                height: Val::Px((foot - top) * w),
+                flex_direction: FlexDirection::Column,
+                justify_content: if laid.layout == Layout::Small {
+                    JustifyContent::FlexEnd
+                } else {
+                    JustifyContent::FlexStart
+                },
+                row_gap: Val::Px(CHIP_GAP * em),
+                padding: UiRect::vertical(Val::Px(pad)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+        ))
+        .id();
+    if !words.is_empty() {
+        let upper = words
+            .iter()
+            .map(|word| word.to_uppercase())
+            .collect::<Vec<_>>()
+            .join(" · ");
+        let text = commands
             .spawn((
                 Pickable::IGNORE,
-                Text::new(stats_label(stats)),
-                text_font(fonts, em * w),
-                TextColor(stats_color(stats)),
+                Text::new(upper),
+                TextFont {
+                    font: bevy::text::FontSource::Handle(fonts.medium.clone()),
+                    font_size: bevy::text::FontSize::Px(em),
+                    ..default()
+                },
+                TextColor(FACE_INKS.0),
+                TextLayout::new(Justify::Left, bevy::text::LineBreak::NoWrap),
+            ))
+            .id();
+        commands.entity(band).add_child(text);
+    }
+    if !laid.chips.is_empty() {
+        let row = commands
+            .spawn((
+                Pickable::IGNORE,
                 Node {
-                    position_type: PositionType::Absolute,
-                    right: Val::Px((1.0 - right) * w),
-                    top: Val::Px((box_foot - BAR_PAD - LINE_BOX * em) * w),
+                    flex_direction: FlexDirection::Row,
+                    flex_wrap: if laid.layout == Layout::Small {
+                        FlexWrap::WrapReverse
+                    } else {
+                        FlexWrap::Wrap
+                    },
+                    column_gap: Val::Px(CHIP_GAP * em),
+                    row_gap: Val::Px(CHIP_GAP * em),
                     ..default()
                 },
             ))
             .id();
-        commands.entity(card).add_child(entity);
+        for chip in &laid.chips {
+            let plate = spawn_chip(commands, fonts, chip, em, CHIP_ROUND * w);
+            commands.entity(row).add_child(plate);
+        }
+        commands.entity(band).add_child(row);
     }
+    commands.entity(card).add_child(band);
+}
+
+/// One keyword chip: its word in light ink on a slate plate, `em` pixels,
+/// its ends `round` pixels round.
+fn spawn_chip(commands: &mut Commands, fonts: &UiFonts, chip: &str, em: f32, round: f32) -> Entity {
+    let text = commands
+        .spawn((
+            Pickable::IGNORE,
+            Text::new(chip.to_owned()),
+            TextFont {
+                font: bevy::text::FontSource::Handle(fonts.medium.clone()),
+                font_size: bevy::text::FontSize::Px(em),
+                ..default()
+            },
+            TextColor(Color::srgb_from_array(textface::LIGHT_INK)),
+            TextLayout::new(Justify::Left, bevy::text::LineBreak::NoWrap),
+        ))
+        .id();
+    commands
+        .spawn((
+            Pickable::IGNORE,
+            Node {
+                padding: UiRect::axes(Val::Px(CHIP_PAD.0 * em), Val::Px(CHIP_PAD.1 * em)),
+                border_radius: BorderRadius::all(Val::Px(round)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb_from_array(textface::CHIP_PAPER)),
+        ))
+        .add_child(text)
+        .id()
 }
 
 /// The rules text, set at `em`, in a box that scrolls past the floor, and
-/// the box's scrollbar.
+/// the box's scrollbar and its `▾`.
 fn spawn_text_box(
     commands: &mut Commands,
     card: Entity,
@@ -775,12 +1139,19 @@ fn spawn_text_box(
         commands.entity(text_box).add_child(block);
     }
     commands.entity(card).add_child(text_box);
-    spawn_scrollbar(commands, card, text_box, laid);
+    spawn_scrollbar(commands, card, text_box, laid, fonts);
 }
 
-/// The text box's scrollbar, hidden until [`show_scrollbars`] finds the text
-/// running over.
-fn spawn_scrollbar(commands: &mut Commands, card: Entity, text_box: Entity, laid: &UiFace) {
+/// The text box's scrollbar and the `▾` at its foot, shown from the first
+/// frame where the fit's model says the text runs over (WP6) and kept true
+/// to bevy's layout from then on by [`show_scrollbars`].
+fn spawn_scrollbar(
+    commands: &mut Commands,
+    card: Entity,
+    text_box: Entity,
+    laid: &UiFace,
+    fonts: &UiFonts,
+) {
     let w = laid.width;
     let [_, top, x1, foot] = laid.regions.text_box;
     let foot = foot - stats_line(laid.stats, &laid.sizes);
@@ -788,6 +1159,17 @@ fn spawn_scrollbar(commands: &mut Commands, card: Entity, text_box: Entity, laid
     let [r, g, b] = textface::paper(hue).map(|c| c * TRACK_SHADE);
     let [tr, tg, tb] = hue.tone();
     let round = BorderRadius::all(Val::Px(TRACK_ROUND * w));
+    // The model's share of the text the box shows, which bevy's layout will
+    // correct by a pixel or so a frame later.
+    let shown = laid
+        .overflow
+        .and_then(|(room, depth)| thumb(room, depth, 0.0));
+    let display = if shown.is_some() {
+        Display::Flex
+    } else {
+        Display::None
+    };
+    let (thumb_top, thumb_length) = shown.unwrap_or((0.0, 1.0));
     let thumb = commands
         .spawn((
             Pickable::IGNORE,
@@ -795,6 +1177,8 @@ fn spawn_scrollbar(commands: &mut Commands, card: Entity, text_box: Entity, laid
             Node {
                 position_type: PositionType::Absolute,
                 width: Val::Percent(100.0),
+                top: Val::Percent(thumb_top * 100.0),
+                height: Val::Percent(thumb_length * 100.0),
                 border_radius: round,
                 ..default()
             },
@@ -806,7 +1190,7 @@ fn spawn_scrollbar(commands: &mut Commands, card: Entity, text_box: Entity, laid
             Pickable::IGNORE,
             FaceScrollbar { text_box },
             Node {
-                display: Display::None,
+                display,
                 position_type: PositionType::Absolute,
                 left: Val::Px((x1 - TRACK_INSET - TRACK_WIDTH) * w),
                 top: Val::Px((top + TRACK_END) * w),
@@ -820,7 +1204,49 @@ fn spawn_scrollbar(commands: &mut Commands, card: Entity, text_box: Entity, laid
         .add_child(thumb)
         .id();
     commands.entity(card).add_child(track);
+
+    // The `▾`: centred on the box's foot, in the bars' colour, while more
+    // of the text is below.
+    let size = laid.sizes.small * w;
+    let more = commands
+        .spawn((
+            Pickable::IGNORE,
+            FaceMore { text_box },
+            Text::new(crate::hud::glyph::CARET_DOWN.to_string()),
+            TextFont {
+                font: bevy::text::FontSource::Handle(fonts.icons.clone()),
+                font_size: bevy::text::FontSize::Px(size),
+                ..default()
+            },
+            TextColor(Color::linear_rgb(tr, tg, tb)),
+            Node {
+                display,
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.5 * w - 0.5 * size),
+                top: Val::Px(foot * w - LINE_BOX * size),
+                ..default()
+            },
+        ))
+        .id();
+    commands.entity(card).add_child(more);
 }
+
+/// The `▾` at a text box's foot, naming its box: shown while more of the
+/// text is below what the box shows ([`show_scrollbars`]).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct FaceMore {
+    /// The box whose offset it follows.
+    pub text_box: Entity,
+}
+
+/// How many faces [`spawn_ui`] has built in this app: a counter the dev
+/// harness reads (`/state`'s `face_builds`) and a test holds still over idle
+/// frames, so a face rebuilt per frame shows up as a number that moves.
+///
+/// A resource and not a process-wide count, so two apps in one test binary
+/// do not count each other's faces. An app without it counts nothing.
+#[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FaceBuilds(pub u64);
 
 /// Where a scrollbar's thumb stands on its track, as shares of the track:
 /// its top and its length, or `None` when the text fits and there is no bar.
@@ -838,26 +1264,47 @@ pub fn thumb(view: f32, content: f32, offset: f32) -> Option<(f32, f32)> {
     Some(((offset / room).clamp(0.0, 1.0) * (1.0 - length), length))
 }
 
+/// What a `▾` is, for [`show_scrollbars`]: a node that is neither a track
+/// nor a thumb, which the borrow checker needs said.
+type NeitherBarNorThumb = (Without<FaceScrollThumb>, Without<FaceScrollbar>);
+
 /// Shows each face's scrollbar while its text runs over, and stands the
-/// thumb where the box has scrolled to.
+/// thumb where the box has scrolled to; and its `▾` while more of the text
+/// is below ([`FaceMore`]).
 ///
 /// Written only on a change, because a `Node` written every frame is a
-/// layout every frame.
+/// layout every frame. A box bevy has not laid out yet (a size of zero)
+/// leaves what the fit's model showed at spawn alone.
 pub fn show_scrollbars(
     boxes: Query<(&ScrollPosition, &ComputedNode), With<FaceTextBox>>,
     mut tracks: Query<(&FaceScrollbar, &mut Node, &Children)>,
     mut thumbs: Query<&mut Node, (With<FaceScrollThumb>, Without<FaceScrollbar>)>,
+    mut mores: Query<(&FaceMore, &mut Node), NeitherBarNorThumb>,
 ) {
-    for (bar, mut node, children) in &mut tracks {
-        let Ok((position, computed)) = boxes.get(bar.text_box) else {
+    let measured = |text_box: Entity| {
+        let (position, computed) = boxes.get(text_box).ok()?;
+        let scale = computed.inverse_scale_factor();
+        let view = computed.size().y * scale;
+        (view > 0.0).then(|| (view, computed.content_size().y * scale, position.y))
+    };
+    for (more, mut node) in &mut mores {
+        let Some((view, content, offset)) = measured(more.text_box) else {
             continue;
         };
-        let scale = computed.inverse_scale_factor();
-        let shown = thumb(
-            computed.size().y * scale,
-            computed.content_size().y * scale,
-            position.y,
-        );
+        let display = if content - offset - view > 0.5 {
+            Display::Flex
+        } else {
+            Display::None
+        };
+        if node.display != display {
+            node.display = display;
+        }
+    }
+    for (bar, mut node, children) in &mut tracks {
+        let Some((view, content, offset)) = measured(bar.text_box) else {
+            continue;
+        };
+        let shown = thumb(view, content, offset);
         let display = if shown.is_some() {
             Display::Flex
         } else {
@@ -979,17 +1426,50 @@ const FACE_INKS: (Color, Color) = (
 /// nothing to read, and the width is [`textface::average_width`]'s. Nothing
 /// is drawn in the font until it arrives either, and a face fitted by the
 /// average is fitted again then ([`Self::measured`]).
+///
+/// It carries the interface's text step too ([`textface::Step`]), because a
+/// face is fitted by the two together: the step moves the sizes the widths
+/// are multiplied by. The table's faces ignore it.
 pub struct Widths<'a> {
     font: Option<swash::FontRef<'a>>,
+    step: textface::Step,
 }
 
 impl<'a> Widths<'a> {
-    /// Widths read off `font`, or the average without one.
+    /// Widths read off `font`, or the average without one, at the default
+    /// step.
     #[must_use]
     pub fn of(font: Option<&'a Font>) -> Self {
         Self {
             font: font.and_then(|font| swash::FontRef::from_index(font.data.data(), 0)),
+            step: textface::Step::DEFAULT,
         }
+    }
+
+    /// The same widths, for faces set at text step `step`.
+    #[must_use]
+    pub fn at(self, step: textface::Step) -> Self {
+        Self { step, ..self }
+    }
+
+    /// The text step an interface face is set at.
+    #[must_use]
+    pub fn step(&self) -> textface::Step {
+        self.step
+    }
+
+    /// How wide a line of rules is at an em of one, its symbols (`{T}`)
+    /// each taken as a Mana-font glyph a full em wide.
+    #[must_use]
+    pub fn marked(&self, text: &str) -> f32 {
+        use baylee_client_core::manapip::{Segment, segments};
+        segments(text)
+            .iter()
+            .map(|segment| match segment {
+                Segment::Text(words) => self.width(words),
+                Segment::Symbol(_) => 1.0,
+            })
+            .sum()
     }
 
     /// Whether these are the font's widths and not the average's.
@@ -1027,18 +1507,31 @@ pub struct WorldFit {
     pub name: textface::Fitted,
     /// The type line: always one.
     pub kind: textface::Fitted,
+    /// The first sentence of the rules, on its lines
+    /// ([`textface::SENTENCE_LINES`] at most), or none.
+    pub sentence: Vec<String>,
     /// Whether the widths were the font's ([`Widths::measured`]).
     pub measured: bool,
 }
 
 impl WorldFit {
-    /// `face`'s name and type line, fitted by `widths`.
+    /// `face`'s name, type line and first sentence, fitted by `widths`.
     #[must_use]
     pub fn of(face: &CardFace, widths: &Widths<'_>) -> Self {
         use textface::{fit_name, fit_type};
+        let sentence = face.rules().next().map_or_else(Vec::new, |rules| {
+            textface::fit_lines(
+                textface::first_sentence(rules),
+                textface::SENTENCE_EM,
+                textface::line_width(),
+                textface::SENTENCE_LINES,
+                |s| widths.marked(s),
+            )
+        });
         Self {
             name: fit_name(&face.name, |s| widths.width(s)),
             kind: fit_type(&face.type_line, |s| widths.width(s)),
+            sentence,
             measured: widths.measured(),
         }
     }
@@ -1128,7 +1621,7 @@ pub fn spawn_world(
                 .map(|s| pip_label(*s))
                 .collect::<Vec<_>>()
                 .join(" ");
-            let [_, top, _, _] = regions.art_box;
+            let [_, top, _, _] = regions.band;
             line(
                 cost,
                 textface::SMALL_EM,
@@ -1163,7 +1656,155 @@ pub fn spawn_world(
             );
         }
     }
+    texts.extend(spawn_discs(commands, card, word, &regions, fonts));
+    texts.extend(spawn_sentence(
+        commands,
+        card,
+        &fit.sentence,
+        &regions,
+        fonts,
+    ));
     texts
+}
+
+/// The symbol band (WP6): each disc the shader draws wears its colour's
+/// symbol, in the Mana font, as a cost's pip does.
+fn spawn_discs(
+    commands: &mut Commands,
+    card: Entity,
+    word: u32,
+    regions: &Regions,
+    fonts: &UiFonts,
+) -> Vec<Entity> {
+    use baylee_client_core::manapip::{Pip, of_color};
+    use bevy::sprite::Anchor;
+    textface::discs(word, regions)
+        .into_iter()
+        .filter_map(|([x, y], hue)| {
+            let Pip::Solid { glyph, .. } = of_color(hue_color(hue)?) else {
+                return None;
+            };
+            let entity = commands
+                .spawn((
+                    WorldFace,
+                    Text2d::new(glyph.to_string()),
+                    TextFont {
+                        font: bevy::text::FontSource::Handle(fonts.mana.clone()),
+                        font_size: bevy::text::FontSize::Px(DISC_GLYPH_EM * PX_PER_UNIT),
+                        ..default()
+                    },
+                    TextColor(FACE_INKS.0),
+                    Anchor::CENTER,
+                    Transform::from_translation(on_the_card(x, y).extend(0.002))
+                        .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
+                    ChildOf(card),
+                ))
+                .id();
+            Some(entity)
+        })
+        .collect()
+}
+
+/// The first sentence of the rules, in the text box (WP6): what a card does,
+/// read off the table without opening its preview. One `Text2d` of spans, a
+/// symbol's in the Mana font, on the lines the fit broke it into.
+fn spawn_sentence(
+    commands: &mut Commands,
+    card: Entity,
+    lines: &[String],
+    regions: &Regions,
+    fonts: &UiFonts,
+) -> Option<Entity> {
+    use bevy::sprite::Anchor;
+    use bevy::text::LineBreak;
+    if lines.is_empty() {
+        return None;
+    }
+    let [x0, top, _, _] = regions.text_box;
+    let size = textface::SENTENCE_EM * PX_PER_UNIT;
+    let root = commands
+        .spawn((
+            WorldFace,
+            Text2d::default(),
+            TextFont {
+                font: bevy::text::FontSource::Handle(fonts.text.clone()),
+                font_size: bevy::text::FontSize::Px(size),
+                ..default()
+            },
+            TextColor(FACE_INKS.0),
+            TextLayout::new(Justify::Left, LineBreak::NoWrap),
+            Anchor::TOP_LEFT,
+            Transform::from_translation(on_the_card(x0 + TEXT_INSET, top + BAR_PAD).extend(0.002))
+                .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
+            ChildOf(card),
+        ))
+        .id();
+    for (n, words) in lines.iter().enumerate() {
+        let words = if n + 1 < lines.len() {
+            format!("{words}\n")
+        } else {
+            words.clone()
+        };
+        for (text, mana) in sentence_spans(&words) {
+            let font = if mana { &fonts.mana } else { &fonts.text };
+            commands.spawn((
+                TextSpan::new(text),
+                TextFont {
+                    font: bevy::text::FontSource::Handle(font.clone()),
+                    font_size: bevy::text::FontSize::Px(size),
+                    ..default()
+                },
+                TextColor(FACE_INKS.0),
+                ChildOf(root),
+            ));
+        }
+    }
+    Some(root)
+}
+
+/// The table's colour-disc glyph, as an em in card widths: the disc's
+/// diameter less a ring.
+const DISC_GLYPH_EM: f32 = 0.11;
+
+/// The colour a hue is the colour of, for the five that are one.
+const fn hue_color(hue: textface::Hue) -> Option<MagicColor> {
+    use textface::Hue;
+    match hue {
+        Hue::White => Some(MagicColor::White),
+        Hue::Blue => Some(MagicColor::Blue),
+        Hue::Black => Some(MagicColor::Black),
+        Hue::Red => Some(MagicColor::Red),
+        Hue::Green => Some(MagicColor::Green),
+        Hue::Gold | Hue::Grey => None,
+    }
+}
+
+/// A line of rules as spans: its prose, and each symbol as its glyph in the
+/// Mana font (`true`). A symbol with no single glyph (a number past the
+/// font's range, a loyalty cost) is written as it is printed.
+fn sentence_spans(line: &str) -> Vec<(String, bool)> {
+    use baylee_client_core::manapip::{Pip, Segment, Tick, segments};
+    segments(line)
+        .into_iter()
+        .map(|segment| match segment {
+            Segment::Text(text) => (text, false),
+            Segment::Symbol(
+                Pip::Solid { glyph, .. }
+                | Pip::Split {
+                    left: (glyph, _), ..
+                },
+            ) => (glyph.to_string(), true),
+            Segment::Symbol(Pip::Number { value }) => (value.to_string(), false),
+            Segment::Symbol(Pip::Loyalty(loyalty)) => {
+                let sign = match loyalty.tick {
+                    Tick::Up => "+",
+                    Tick::Down => "\u{2212}",
+                    Tick::Flat => "",
+                };
+                (format!("{sign}{}", loyalty.caption()), false)
+            }
+        })
+        .collect()
 }
 
 /// The body line a text face still has to write: none when its plate
@@ -1232,6 +1873,7 @@ pub(crate) mod tests {
             types: TypeSet::CREATURE,
             subtypes: SubtypeSet::EMPTY,
             text_pending: false,
+            credit: None,
         }
     }
 
@@ -1277,10 +1919,117 @@ pub(crate) mod tests {
         assert_eq!(measured.lines.len(), 2, "{measured:?}");
     }
 
+    /// The table's face writes the first sentence of its rules in its text
+    /// box (WP6): at most two lines, the second cut at a word, its symbols
+    /// in the Mana font, standing where the text box begins and ending
+    /// inside it.
+    #[test]
+    fn the_table_face_writes_its_first_sentence_in_its_text_box() {
+        use bevy::ecs::world::CommandQueue;
+        use bevy::sprite::Anchor;
+
+        let font = regular();
+        let widths = Widths::of(Some(&font));
+        let mut face = creature("Llanowar Elves", "Creature — Elf Druid");
+        face.body = vec![
+            TextBlock::Rules(
+                "{T}: Draw a card for each Elf you control, then discard two cards at random \
+                 from your hand. Then untap it."
+                    .to_owned(),
+            ),
+            TextBlock::Reminder("Not this.".to_owned()),
+        ];
+        let fit = WorldFit::of(&face, &widths);
+        assert_eq!(
+            fit.sentence.len(),
+            textface::SENTENCE_LINES,
+            "{:?}",
+            fit.sentence
+        );
+        assert!(
+            fit.sentence[0].starts_with("{T}: Draw"),
+            "{:?}",
+            fit.sentence
+        );
+        let last = fit.sentence.last().expect("a line");
+        assert!(last.ends_with(textface::ELLIPSIS), "cut at a word: {last}");
+        assert!(
+            !fit.sentence.concat().contains("untap"),
+            "past the first sentence"
+        );
+        for line in &fit.sentence {
+            assert!(
+                widths.marked(line) * textface::SENTENCE_EM <= textface::line_width() + 1e-6,
+                "{line} runs past the box"
+            );
+        }
+
+        let mut world = World::new();
+        let card = world.spawn_empty().id();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        let word = textface::face_word(
+            ColorSet::from_slice(&[MagicColor::Green]),
+            TypeSet::CREATURE,
+            SubtypeSet::EMPTY,
+            textface::Depths::table(fit.lines()),
+        );
+        let plate = Plate::Fight {
+            power: 2,
+            toughness: 2,
+            damage: 0,
+        };
+        let texts = spawn_world(&mut commands, card, &face, &fit, word, plate, &test_fonts());
+        queue.apply(&mut world);
+        let root = texts
+            .iter()
+            .copied()
+            .find(|&e| {
+                world
+                    .entity(e)
+                    .get::<Text2d>()
+                    .is_some_and(|t| t.0.is_empty())
+            })
+            .expect("the sentence's root");
+        let spans: Vec<String> = world
+            .entity(root)
+            .get::<Children>()
+            .expect("its spans")
+            .iter()
+            .map(|e| world.entity(e).get::<TextSpan>().expect("a span").0.clone())
+            .collect();
+        assert!(spans.concat().contains("Draw a card"), "{spans:?}");
+        let tap = baylee_client_core::manapip::symbol("T").expect("the tap symbol");
+        let baylee_client_core::manapip::Pip::Solid { glyph, .. } = tap else {
+            panic!("{tap:?}")
+        };
+        assert_eq!(spans[0], glyph.to_string(), "the symbol in the Mana font");
+        let at = world
+            .entity(root)
+            .get::<Transform>()
+            .expect("a place")
+            .translation;
+        let y =
+            (baylee_client_core::layout::CARD_HEIGHT * 0.5 - at.y) / crate::table::DOWN_THE_CARD;
+        let regions = Regions::table(fit.lines());
+        assert_eq!(
+            *world.entity(root).get::<Anchor>().expect("an anchor"),
+            Anchor::TOP_LEFT
+        );
+        assert!(
+            (y - regions.text_box[1] - BAR_PAD).abs() < 1e-4,
+            "the sentence stands at {y}, the text box at {:?}",
+            regions.text_box
+        );
+        #[allow(clippy::cast_precision_loss)]
+        let deep = fit.sentence.len() as f32 * LINE_BOX * textface::SENTENCE_EM;
+        assert!(y + deep <= regions.text_box[3], "it runs out of its box");
+    }
+
     /// Each line of the table's face stands inside its part of the card:
     /// the name in the name bar, the cost on the art box's first line, the
-    /// type line in the type bar. A long name takes two lines and the name
-    /// bar its two-line height.
+    /// type line in the type bar, the colour's symbol on its disc. A long
+    /// name takes two lines and the name bar its two-line height.
     #[test]
     fn the_table_face_stands_in_its_bars() {
         use bevy::ecs::world::CommandQueue;
@@ -1370,11 +2119,19 @@ pub(crate) mod tests {
                 );
             };
             within(name.split(' ').next().expect("a word"), regions.name_bar);
-            within("1 G", regions.art_box);
+            within("1 G", regions.band);
             // Whatever the type line was fitted to — here its subtypes alone.
             within(&fit.kind.lines[0], regions.type_bar);
-            // The plate says the body, so the face does not.
-            assert_eq!(boxes.len(), 3, "{name}: {boxes:?}");
+            // The colour's symbol on its disc, in the art box (WP6).
+            let Some(baylee_client_core::manapip::Pip::Solid { glyph, .. }) =
+                Some(baylee_client_core::manapip::of_color(color))
+            else {
+                unreachable!("a colour is one glyph")
+            };
+            within(&glyph.to_string(), regions.band);
+            // The plate says the body, so the face does not; and there are
+            // no rules to give a sentence.
+            assert_eq!(boxes.len(), 4, "{name}: {boxes:?}");
 
             // Dark on the light bars; the cost in the ink its art box lets it.
             for &text in &texts {
@@ -1505,6 +2262,107 @@ pub(crate) mod tests {
         }
     }
 
+    /// A preview wears its band (the subtype words over the keyword chips,
+    /// read off its own keyword line), the set and rarity beside its type
+    /// line and its credit at the foot (WP6); and long rules show their
+    /// scrollbar and their `▾` from the frame they are spawned on.
+    #[test]
+    fn a_preview_wears_its_band_its_credit_and_its_scrollbar() {
+        let mut face = creature("Tidecaller Adept", "Creature — Merfolk Wizard Ally");
+        face.subtypes = SubtypeSet::from_slice(&[
+            baylee_core::generated::subtypes::creature::MERFOLK,
+            baylee_core::generated::subtypes::creature::WIZARD,
+            baylee_core::generated::subtypes::creature::ALLY,
+        ]);
+        face.body = vec![
+            TextBlock::Rules("Flying, vigilance".to_owned()),
+            TextBlock::Rules("{T}: Draw a card for each Ally you control.".to_owned()),
+        ];
+        face.credit = Some(baylee_client_core::card_face::Credit {
+            set: "zen".to_owned(),
+            set_name: "Zendikar".to_owned(),
+            rarity: "common".to_owned(),
+            artist: "Ryan Pancoast".to_owned(),
+        });
+        let (world, laid, card) = overlay_face(&face, 308.0, Detail::Full);
+        let nodes = nodes_under(&world, card);
+        let texts: Vec<&str> = nodes
+            .iter()
+            .filter_map(|&e| world.entity(e).get::<Text>().map(|t| t.0.as_str()))
+            .collect();
+        for want in [
+            "MERFOLK · WIZARD · ALLY",
+            "Flying",
+            "vigilance",
+            "ZEN · C",
+            "Zendikar · Ryan Pancoast",
+        ] {
+            assert!(texts.contains(&want), "no {want:?} in {texts:?}");
+        }
+        assert_eq!(laid.layout, Layout::Preview);
+        let shown = |marker: fn(&World, Entity) -> bool| {
+            nodes
+                .iter()
+                .find(|&&e| marker(&world, e))
+                .map(|&e| world.get::<Node>(e).expect("a node").display)
+        };
+        let track = |w: &World, e: Entity| w.entity(e).contains::<FaceScrollbar>();
+        let more = |w: &World, e: Entity| w.entity(e).contains::<FaceMore>();
+        assert_eq!(shown(track), Some(Display::None), "short rules fit");
+        assert_eq!(shown(more), Some(Display::None));
+
+        face.body = vec![TextBlock::Rules("Draw a card. ".repeat(120))];
+        let (world, laid, card) = overlay_face(&face, 308.0, Detail::Full);
+        assert!(laid.overflows());
+        let nodes = nodes_under(&world, card);
+        for (what, found) in [
+            (
+                "scrollbar",
+                nodes
+                    .iter()
+                    .find(|&&e| world.entity(e).contains::<FaceScrollbar>()),
+            ),
+            (
+                "caret",
+                nodes
+                    .iter()
+                    .find(|&&e| world.entity(e).contains::<FaceMore>()),
+            ),
+        ] {
+            let node = world.get::<Node>(*found.expect(what)).expect("a node");
+            assert_eq!(node.display, Display::Flex, "the {what} waits for a layout");
+        }
+    }
+
+    /// A compact face is a small card: its keyword strip and one line of
+    /// rules, the first sentence, cut at a word where it runs past the
+    /// line; never the whole text.
+    #[test]
+    fn a_small_card_reads_one_line() {
+        let mut face = creature("Tidecaller Adept", "Creature — Merfolk Wizard Ally");
+        face.body = vec![
+            TextBlock::Rules("Flying".to_owned()),
+            TextBlock::Rules(
+                "{T}: Draw a card for each Ally you control, then discard a card for each \
+                 creature an opponent controls. Then do it again."
+                    .to_owned(),
+            ),
+        ];
+        let font = regular();
+        let widths = Widths::of(Some(&font));
+        let laid = UiFace::lay(&face, Lang::En, 92.0, Detail::Compact, &widths, 0);
+        assert_eq!(laid.layout, Layout::Small);
+        assert_eq!(laid.chips, ["Flying"]);
+        // The first rules block is the keyword line, and that is the line.
+        assert_eq!(laid.line.as_deref(), Some("Flying"));
+        face.body.remove(0);
+        let laid = UiFace::lay(&face, Lang::En, 92.0, Detail::Compact, &widths, 0);
+        let line = laid.line.expect("a line");
+        assert!(line.starts_with("{T}: Draw"), "{line}");
+        assert!(line.ends_with(textface::ELLIPSIS), "{line}");
+        assert!(!line.contains("again"), "{line}");
+    }
+
     /// A compact face writes no rules text and has no box to scroll, and a
     /// card whose corner shows no plate says its numbers itself.
     #[test]
@@ -1568,18 +2426,51 @@ pub(crate) mod tests {
             u32::from(Depths::of(long.sizes.name_bar(2), 0.0).name)
         );
 
-        let mut wordy = creature("Elves", "Creature — Elf");
-        wordy.body = vec![TextBlock::Rules("Flying. ".repeat(30))];
-        let fitted = lay(&wordy, 308.0).body.expect("a full face") * 308.0;
-        assert!(
-            (textface::BODY_FLOOR_PX..18.0).contains(&fitted),
-            "{fitted}"
-        );
-        let own = lay(&creature("Elves", "Creature — Elf"), 308.0)
+        // As the rules grow, they step down inside the preview's layout,
+        // then take the long one, then scroll there.
+        let wordy = |n: usize| {
+            let mut face = creature("Elves", "Creature — Elf");
+            face.body = vec![TextBlock::Rules("Flying. ".repeat(n))];
+            lay(&face, 308.0)
+        };
+        let stepped = (10..80).map(wordy).find(|laid| {
+            let px = laid.body.expect("a full face") * 308.0;
+            laid.layout == Layout::Preview && px < 19.0
+        });
+        let px = stepped
+            .expect("a text that steps down")
             .body
-            .expect("a full face")
+            .expect("a body")
             * 308.0;
-        assert!((own - 17.864).abs() < 1e-3, "{own}");
+        assert!((textface::LONG_PX..19.0).contains(&px), "{px}");
+        assert!(
+            (10..80)
+                .map(wordy)
+                .any(|laid| laid.layout == Layout::Long && !laid.overflows()),
+            "no text took the long layout and fitted there"
+        );
+        let plain = lay(&creature("Elves", "Creature — Elf"), 308.0);
+        let own = plain.body.expect("a full face") * 308.0;
+        assert!((own - 19.096).abs() < 1e-3, "{own}");
+        assert_eq!(plain.layout, Layout::Preview);
+        assert_eq!(textface::layout_of(plain.word), Layout::Preview);
+
+        // Rules that would go under 16 px at the full band take the long
+        // layout, and the word says so.
+        let mut long_rules = creature("Elves", "Creature — Elf");
+        long_rules.body = vec![TextBlock::Rules("Flying. ".repeat(120))];
+        let long = lay(&long_rules, 308.0);
+        assert_eq!(long.layout, Layout::Long);
+        assert_eq!(textface::layout_of(long.word), Layout::Long);
+        assert!(long.overflows(), "nine hundred and sixty characters scroll");
+        // And a compact face is a small card's.
+        let small = UiFace::lay(&plain_face(), Lang::En, 92.0, Detail::Compact, &widths, 0);
+        assert_eq!(textface::layout_of(small.word), Layout::Small);
+    }
+
+    /// A creature face with no rules, for the tests that need only a face.
+    fn plain_face() -> CardFace {
+        creature("Elves", "Creature — Elf")
     }
 
     /// The rules text is drawn in the font the fit measured it in, at the
@@ -1680,18 +2571,42 @@ pub(crate) mod tests {
         room: f32,
         /// Whether bevy's layout showed the scrollbar.
         bar: bool,
+        /// Whether the scrollbar stood there from the first frame, before
+        /// bevy had laid anything out (WP6).
+        first: bool,
+        /// The layout the rules chose.
+        layout: Layout,
+    }
+
+    impl Measured {
+        /// The acceptance (WP6): the text fits its box, or the box shows
+        /// that it scrolls.
+        fn fits_or_scrolls(&self) -> bool {
+            self.real <= self.room + 0.5 || self.bar
+        }
     }
 
     fn measure(
         app: &mut App,
         fonts: &UiFonts,
-        (face, lang): (&CardFace, Lang),
+        face: (&CardFace, Lang),
         width: f32,
         plate: u32,
     ) -> Measured {
+        measure_at(app, fonts, face, width, plate, textface::Step::DEFAULT)
+    }
+
+    fn measure_at(
+        app: &mut App,
+        fonts: &UiFonts,
+        (face, lang): (&CardFace, Lang),
+        width: f32,
+        plate: u32,
+        step: textface::Step,
+    ) -> Measured {
         let (laid, model) = {
             let assets = app.world().resource::<Assets<Font>>();
-            let widths = Widths::of(assets.get(&fonts.text));
+            let widths = Widths::of(assets.get(&fonts.text)).at(step);
             let laid = UiFace::lay(face, lang, width, Detail::Full, &widths, plate);
             let em = laid.body.expect("a full face");
             let model = body_depth(&body_blocks(face, lang), em, width, &widths);
@@ -1709,30 +2624,35 @@ pub(crate) mod tests {
         let mut commands = app.world_mut().commands();
         spawn_ui(&mut commands, card, lang, face, &laid, fonts);
         app.world_mut().flush();
+        let track_of = |world: &World| {
+            nodes_under(world, card)
+                .into_iter()
+                .find(|&e| world.entity(e).contains::<FaceScrollbar>())
+                .expect("a full face has a scrollbar")
+        };
+        let shown = |world: &World| {
+            world.get::<Node>(track_of(world)).expect("a node").display == Display::Flex
+        };
+        let first = shown(app.world());
         app.update();
         app.update();
         let world = app.world();
-        let under = nodes_under(world, card);
-        let text_box = under
-            .iter()
-            .copied()
+        let text_box = nodes_under(world, card)
+            .into_iter()
             .find(|&e| world.entity(e).contains::<FaceTextBox>())
             .expect("a full face has a text box");
-        let track = under
-            .iter()
-            .copied()
-            .find(|&e| world.entity(e).contains::<FaceScrollbar>())
-            .expect("and a scrollbar");
         let computed = world.get::<ComputedNode>(text_box).expect("laid out");
         let pad = 2.0 * BAR_PAD * width;
         let measured = Measured {
             fitted: laid.body.expect("a full face") * width,
-            own: textface::ui_em(textface::UI_BODY, width) * width,
+            own: textface::ui_em_at(textface::UI_BODY, width, step) * width,
             fits: model <= room,
             model: model * width,
             real: computed.content_size().y * computed.inverse_scale_factor() - pad,
             room: room * width,
-            bar: world.get::<Node>(track).expect("a node").display == Display::Flex,
+            bar: shown(world),
+            first,
+            layout: laid.layout,
         };
         app.world_mut().entity_mut(card).despawn();
         measured
@@ -1804,38 +2724,50 @@ pub(crate) mod tests {
     }
 
     /// A face whose rules text the fit says fits shows no scrollbar when
-    /// bevy lays it out: the fit's model errs deep and never shallow. Over
-    /// the forty pool cards whose text is hardest to model, at three preview
-    /// widths (#259).
+    /// bevy lays it out: the fit's model errs deep and never shallow. And
+    /// every face fits or scrolls, with the scrollbar standing from the
+    /// first frame wherever bevy's layout shows it (WP6). Over the forty pool
+    /// cards whose text is hardest to model, at four preview widths, and at
+    /// the default preview's 308 at the smallest and the largest step.
     #[test]
     fn a_face_fitted_to_its_box_fits_it_in_bevy_s_layout() {
         let (mut app, fonts) = layout_app();
-        let (mut fits, mut stepped) = (0, 0);
+        let (mut fits, mut stepped, mut scrolled) = (0, 0, 0);
+        let sizes = [231.0, 308.0, 384.0, 480.0]
+            .map(|w| (w, textface::Step::DEFAULT))
+            .into_iter()
+            .chain([(308.0, textface::Step::XS), (308.0, textface::Step::XL)]);
+        let sizes: Vec<_> = sizes.collect();
         for index in hardest_first().into_iter().take(40) {
             let (face, plate) = pool_face(index).expect("a pool card");
-            for width in [231.0, 384.0, 480.0] {
-                let m = measure(&mut app, &fonts, (&face, Lang::En), width, plate);
+            for &(width, step) in &sizes {
+                let m = measure_at(&mut app, &fonts, (&face, Lang::En), width, plate, step);
+                let what = format!(
+                    "{} at {width}, {step:?}: fitted at {} px to {:.1} px of room, and bevy \
+                     stands it {:.1} deep (the model said {:.1})",
+                    face.name, m.fitted, m.room, m.real, m.model
+                );
+                assert!(m.fits_or_scrolls(), "{what}: runs over with no scrollbar");
+                assert!(!m.bar || m.first, "{what}: the scrollbar came a frame late");
+                scrolled += usize::from(m.bar);
                 if m.fits {
                     fits += 1;
                     stepped += usize::from(m.fitted < m.own);
-                    assert!(
-                        !m.bar,
-                        "{} at {width}: fitted at {} px to {:.1} px of room, and bevy \
-                         stands it {:.1} deep (the model said {:.1})",
-                        face.name, m.fitted, m.room, m.real, m.model
-                    );
+                    assert!(!m.bar, "{what}");
                 }
             }
         }
         assert!(
-            fits >= 30 && stepped >= 10,
-            "{fits} fitted, {stepped} of them stepped down"
+            fits >= 30 && stepped >= 10 && scrolled > 0,
+            "{fits} fitted, {stepped} of them stepped down, {scrolled} scrolled"
         );
     }
 
     /// How much of the pool's rules text still runs over at the floor, by
-    /// bevy's layout, in English. A measurement and not a check: run it by
-    /// name with `--ignored --nocapture`.
+    /// bevy's layout, in English — and that every face fits or scrolls, with
+    /// its scrollbar from the first frame (WP6), which this asserts. Over the
+    /// whole pool, so not in the gate: run it by name with `--ignored
+    /// --nocapture`.
     ///
     /// In another language (#289): `BAYLEE_MEASURE_TEXTS` names a file of
     /// `English name<TAB>rules text` lines (a newline in the text written
@@ -1844,7 +2776,7 @@ pub(crate) mod tests {
     /// catalog has them (`card_faces.printed_text` of the newest printing in
     /// that language); nothing here reads the database.
     #[test]
-    #[ignore = "a measurement over the whole pool; prints, asserts nothing"]
+    #[ignore = "a measurement over the whole pool; run by name"]
     fn how_much_of_the_pool_runs_over_at_the_floor() {
         let (mut app, fonts) = layout_app();
         let printed: Option<std::collections::BTreeMap<String, String>> =
@@ -1873,17 +2805,28 @@ pub(crate) mod tests {
                 }
             })
             .collect();
-        for width in [231.0, 384.0, 480.0] {
-            let (mut over, mut own, mut worst) = (0, 0, 0.0_f32);
-            let mut wrong = Vec::new();
+        let sizes = [231.0, 308.0, 384.0, 480.0]
+            .map(|w| (w, textface::Step::DEFAULT))
+            .into_iter()
+            .chain([(308.0, textface::Step::XS), (308.0, textface::Step::XL)]);
+        let mut broken = Vec::new();
+        for (width, step) in sizes {
+            let (mut over, mut own, mut long, mut worst) = (0, 0, 0, 0.0_f32);
+            let (mut wrong, mut late, mut flicker) = (Vec::new(), 0, 0);
             for (face, plate) in &cards {
-                let m = measure(&mut app, &fonts, (face, lang), width, *plate);
+                let m = measure_at(&mut app, &fonts, (face, lang), width, *plate, step);
                 over += usize::from(m.bar);
+                long += usize::from(m.layout == Layout::Long);
                 if m.fits && m.bar {
                     wrong.push(format!(
                         "{} ({} px, room {:.1}, model {:.1}, bevy {:.1})",
                         face.name, m.fitted, m.room, m.model, m.real
                     ));
+                }
+                late += usize::from(m.bar && !m.first);
+                flicker += usize::from(m.first && !m.bar);
+                if !m.fits_or_scrolls() {
+                    broken.push(format!("{} at {width}, {step:?}", face.name));
                 }
                 own += usize::from((m.fitted - m.own).abs() < 1e-3 && !m.bar);
                 if m.real > 0.0 {
@@ -1893,14 +2836,61 @@ pub(crate) mod tests {
             #[allow(clippy::cast_precision_loss)]
             let share = |n: usize| 100.0 * n as f32 / cards.len() as f32;
             println!(
-                "{width} px: {} cards; {over} run over at the floor ({:.1}%); {own} fit at \
-                 their own size ({:.1}%); bevy's depth against the model's at most {worst:.3}",
+                "{width} px, step {}: {} cards; {over} run over at the floor ({:.1}%); {own} \
+                 fit at their own size ({:.1}%); {long} take the long layout ({:.1}%); bevy's \
+                 depth against the model's at most {worst:.3}",
+                step.number(),
                 cards.len(),
                 share(over),
-                share(own)
+                share(own),
+                share(long),
             );
-            println!("  fitted and still running over: {} {wrong:?}", wrong.len());
+            println!(
+                "  fitted and still running over: {} {wrong:?}; scrollbar a frame late: \
+                 {late}; shown at first and gone after: {flicker}",
+                wrong.len()
+            );
         }
+        assert!(broken.is_empty(), "runs over with no scrollbar: {broken:?}");
+    }
+
+    /// How much of a 308-pixel preview its rules text fills, over the twenty
+    /// longest rules texts of the pool (WP6): the text's depth as bevy lays
+    /// it out, up to its box, as a share of the card's height, beside the
+    /// box's own share and the size the text was set at. A measurement and
+    /// not a check: run it by name with `--ignored --nocapture`.
+    #[test]
+    #[ignore = "a measurement over the pool's longest texts; prints, asserts nothing"]
+    fn how_much_of_the_face_the_longest_texts_fill() {
+        let (mut app, fonts) = layout_app();
+        let oracle = baylee_cards::generated_oracle::ORACLE;
+        let mut longest: Vec<usize> = (0..oracle.len())
+            .filter(|&i| oracle[i].first().is_some_and(|t| !t.is_empty()))
+            .collect();
+        longest.sort_by_key(|&i| std::cmp::Reverse(oracle[i][0].len()));
+        let width = 308.0;
+        let height = width * 88.0 / 63.0;
+        let (mut fill, mut room) = (0.0_f32, 0.0_f32);
+        for index in longest.into_iter().take(20) {
+            let (face, plate) = pool_face(index).expect("a pool card");
+            let m = measure(&mut app, &fonts, (&face, Lang::En), width, plate);
+            let filled = m.real.min(m.room) / height;
+            fill += filled;
+            room += m.room / height;
+            println!(
+                "{:<36} {:>4.1} px  fills {:>5.1}% of the face  box {:>5.1}%  {}",
+                face.name,
+                m.fitted,
+                100.0 * filled,
+                100.0 * m.room / height,
+                if m.bar { "scrolls" } else { "fits" }
+            );
+        }
+        println!(
+            "mean: text fills {:.1}% of the face, its box is {:.1}%",
+            100.0 * fill / 20.0,
+            100.0 * room / 20.0
+        );
     }
 
     /// The thumb stands in proportion to what is shown, never shorter than
@@ -2108,8 +3098,11 @@ pub(crate) mod tests {
         let mut images = Assets::<Image>::default();
         let mut textures = crate::textures::CardTextures::new(&mut images, 1 << 20);
         let art = ImageKey::new(PrintRef::new(0), 0, ArtSize::Small);
-        let quiet = FaceMode { held: false };
-        let held = FaceMode { held: true };
+        let quiet = FaceMode::default();
+        let held = FaceMode {
+            held: true,
+            ..FaceMode::default()
+        };
         let plain = crate::settings::ClientSettings::default();
         let latched = crate::settings::ClientSettings {
             prefer_text_view: true,

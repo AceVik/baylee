@@ -8,6 +8,8 @@ use crate::{
     rate_limit_ip, store,
 };
 
+use super::terms::{accept_terms, mark_stale, terms};
+
 #[derive(Deserialize)]
 pub(crate) struct RegisterBody {
     /// The name to sign in with (#269). Defaulted so that a client from
@@ -205,7 +207,10 @@ pub(crate) async fn register(
     {
         store::Admitted::Made => {
             admitted(&state, &ip, key.as_deref());
-            Ok(Json(serde_json::json!({ "ok": true })))
+            let mut answer = serde_json::json!({ "ok": true });
+            // A new account has accepted nothing yet.
+            mark_stale(&state, None, &mut answer);
+            Ok(Json(answer))
         }
         store::Admitted::Taken => Err(err(StatusCode::CONFLICT, "that username is taken")),
         store::Admitted::KeyRefused => Err(err(StatusCode::FORBIDDEN, invite::KEY_INVALID)),
@@ -320,13 +325,15 @@ pub(crate) async fn login(
     )
     .await
     .map_err(|e| db_down(&e))?;
-    Ok(Json(serde_json::json!({
+    let mut answer = serde_json::json!({
         "token": issued.token,
         "expires_at": issued.expires_at,
         // Its own name, to the one player who may see it: a player who signed
         // in with an address is told the username they were given (#269).
         "username": account.username,
-    })))
+    });
+    mark_stale(&state, account.terms_version.as_deref(), &mut answer);
+    Ok(Json(answer))
 }
 
 /// What `POST /auth/guest` takes (#269). Every field is optional, and an
@@ -410,12 +417,15 @@ pub(crate) async fn guest(
         return Err(err(StatusCode::FORBIDDEN, invite::KEY_INVALID));
     };
     admitted(&state, &ip, key.as_deref());
-    Ok(Json(serde_json::json!({
+    let mut answer = serde_json::json!({
         "token": issued.token,
         "expires_at": issued.expires_at,
         "guest": true,
         "handle": handle::handle(&account.display_name, account.tag),
-    })))
+    });
+    // A new guest has accepted nothing yet.
+    mark_stale(&state, None, &mut answer);
+    Ok(Json(answer))
 }
 
 pub(crate) async fn logout(
@@ -463,6 +473,8 @@ pub(crate) fn account_routes() -> Router<Shared> {
         .route("/me", get(me))
         .route("/players/{handle}", get(player))
         .route("/settings", get(get_settings).put(put_settings))
+        .route("/terms", get(terms))
+        .route("/account/terms", post(accept_terms))
 }
 
 /// The authenticated account's profile.

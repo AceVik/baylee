@@ -28,13 +28,10 @@ const SORCERER: &str = "5e961d15-5972-4e4b-9385-1cd7cd7c6bbe";
 const WARDEN: &str = "f3fad295-1af2-4ecc-8546-b121ad6be27b";
 const SEASON: &str = "01546b7d-a233-4176-8843-d732074dc5b6";
 
-const BOLT_TEST: &str =
-    "engine::card_tests::instants::lightning_bolt_deals_three_to_a_creature_or_a_player";
-const ANTHEM_TEST: &str = "engine::card_tests::enchantments::glorious_anthem_pumps_every_creature_its_controller_has_and_no_other";
-const SORCERER_TEST: &str =
-    "engine::card_tests::creatures::prodigal_sorcerer_taps_to_deal_one_damage_to_any_target";
-const WARDEN_TEST: &str =
-    "engine::card_tests::creatures::soul_warden_gains_life_for_another_creature_and_not_for_itself";
+const BOLT_TEST: &str = "engine::card_tests::instants::mv_1::lightning_bolt::lightning_bolt_deals_three_to_a_creature_or_a_player";
+const ANTHEM_TEST: &str = "engine::card_tests::enchantments::mv_3::glorious_anthem::glorious_anthem_pumps_every_creature_its_controller_has_and_no_other";
+const SORCERER_TEST: &str = "engine::card_tests::creatures::mv_3::prodigal_sorcerer::prodigal_sorcerer_taps_to_deal_one_damage_to_any_target";
+const WARDEN_TEST: &str = "engine::card_tests::creatures::mv_1::soul_warden::soul_warden_gains_life_for_another_creature_and_not_for_itself";
 const SEASON_TEST: &str =
     "engine::card_rider_tests::doubling_season_doubles_a_walkers_starting_loyalty";
 
@@ -416,11 +413,9 @@ fn pool_inventory() {
 const TEMPORAL_MASTERY: &str = "5c58b8e6-c572-461e-893e-a8c05f20ba17";
 const WARHAMMER: &str = "dba35ac5-7ad3-488a-a006-6b9a1d54eea5";
 const BOTTOMLESS_VAULT: &str = "e43413e4-be17-49af-978a-26210d05f52a";
-const MASTERY_TEST: &str =
-    "engine::card_tests::sorceries::temporal_mastery_takes_an_extra_turn_and_exiles_itself";
-const WARHAMMER_TEST: &str = "engine::card_tests::artifacts::loxodon_warhammer_pumps_and_arms_the_creature_it_holds_and_no_other";
-const SILOS_TEST: &str =
-    "engine::card_tests::lands::a_storage_land_banks_a_counter_only_on_the_upkeeps_it_spent_tapped";
+const MASTERY_TEST: &str = "engine::card_tests::sorceries::mv_7::temporal_mastery::temporal_mastery_takes_an_extra_turn_and_exiles_itself";
+const WARHAMMER_TEST: &str = "engine::card_tests::artifacts::equipment::mv_3::loxodon_warhammer::loxodon_warhammer_pumps_and_arms_the_creature_it_holds_and_no_other";
+const SILOS_TEST: &str = "engine::card_tests::lands::storage::bottomless_vault::a_storage_land_banks_a_counter_only_on_the_upkeeps_it_spent_tapped";
 
 /// Three doors the recorder used to miss (TODO.md, "Verification-hook
 /// findings"): a spell that exiles itself as it resolves left the stack

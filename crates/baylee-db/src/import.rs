@@ -274,6 +274,8 @@ pub fn plan(legacy: &Legacy, now: OffsetDateTime) -> Plan {
                 guest: Set(false),
                 // Nor keys: an imported account was never admitted by one.
                 invite_id: Set(None),
+                terms_version: Set(None),
+                terms_accepted_at: Set(None),
             }
         })
         .collect();

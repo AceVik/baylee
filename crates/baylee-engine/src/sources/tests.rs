@@ -156,6 +156,7 @@ fn loop_signature_distinguishes_the_departed_spell_decisions_a_live_trigger_can_
         .damage_sources
         .iter_mut()
         .find(|o| identity(o) == reference)
+        .map(std::sync::Arc::make_mut)
         .unwrap()
         .x_value = 2;
     assert_ne!(baseline, changed_x.loop_signature());

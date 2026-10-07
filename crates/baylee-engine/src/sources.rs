@@ -127,31 +127,98 @@ impl GameState {
 
     /// Capture before removing a referenced object from its zone or arena.
     pub(crate) fn remember_damage_source(&mut self, id: ObjectId) {
-        self.capture_source_references();
+        self.capture_references_leaving(Some(id));
         if let Some(obj) = self.object(id)
             && !self
                 .damage_sources
                 .iter()
                 .any(|old| identity(old) == identity(obj))
         {
-            self.damage_sources.push(obj.clone());
+            self.damage_sources.push(std::sync::Arc::new(obj.clone()));
         }
+    }
+
+    /// Whether the exile zones' lists hold exactly the arena's objects in
+    /// exile, which is what lets [`Self::capture_source_references`] walk
+    /// the lists instead of the arena.
+    fn exiled_lists_hold_every_exiled_object(&self, leaving: Option<ObjectId>) -> bool {
+        let mut listed: Vec<ObjectId> = (0..self.players.len())
+            .flat_map(|seat| {
+                let owner = baylee_core::ids::PlayerId::new(seat as u8);
+                self.zones.list(ZoneLocation::Exile(owner)).iter().copied()
+            })
+            .chain(leaving.filter(|id| self.object(*id).is_some_and(|o| o.zone == Zone::Exile)))
+            .filter(|id| self.arena.get(*id).is_some())
+            .collect();
+        let mut exiled: Vec<ObjectId> = self
+            .arena
+            .iter()
+            .filter(|(_, o)| o.zone == Zone::Exile)
+            .map(|(id, _)| id)
+            .collect();
+        listed.sort_unstable();
+        listed.dedup();
+        exiled.sort_unstable();
+        listed == exiled
     }
 
     /// Bare target fields are recorded before their referenced object changes
     /// zones. Explicit source/event riders already carry their incarnation.
     pub(crate) fn capture_source_references(&mut self) {
-        for (_, card) in self.arena.iter().filter(|(_, o)| o.zone == Zone::Exile) {
-            let card_ref = identity(card);
-            if let Some(host) = card.riders.iter().find_map(|r| match r {
-                Rider::Linked { host, .. } => Some(*host),
-                _ => None,
-            }) && !self.source_memory.linked.contains_key(&card_ref)
-                && let Some(host_ref) = self.source_identity(host)
-            {
-                self.source_memory.linked.insert(card_ref, host_ref);
+        self.capture_references_leaving(None);
+    }
+
+    /// [`Self::capture_source_references`], as `leaving` is about to be
+    /// remembered and removed: it may already be off its zone's list.
+    fn capture_references_leaving(&mut self, leaving: Option<ObjectId>) {
+        self.capture_exile_links(leaving);
+        self.capture_stack_references();
+    }
+
+    /// The host each exiled card is linked to (CR 610.3), for the cards
+    /// whose link is not remembered yet.
+    fn capture_exile_links(&mut self, leaving: Option<ObjectId>) {
+        // The exile zones' lists, not a walk of the whole arena: this runs
+        // on every zone change, and on a board of thousands of permanents
+        // the walk was most of a zone change. The lists hold exactly the
+        // objects whose zone is exile, but for the one object a departure
+        // takes off its list before remembering it (`sba::eliminate_player`,
+        // a token ceasing in exile), which is why `leaving` is walked too.
+        // Debug builds check that here, on every zone change of every test.
+        debug_assert!(
+            self.exiled_lists_hold_every_exiled_object(leaving),
+            "an object in exile is missing from its exile zone's list, or one listed is not in exile"
+        );
+        for seat in 0..=self.players.len() {
+            // The extra pass is `leaving`; visiting it twice is harmless,
+            // the link is kept once.
+            let ids: &[ObjectId] = if seat < self.players.len() {
+                self.zones
+                    .list(ZoneLocation::Exile(baylee_core::ids::PlayerId::new(
+                        seat as u8,
+                    )))
+            } else {
+                leaving.as_slice()
+            };
+            for &id in ids {
+                let Some(card) = self.arena.get(id).filter(|o| o.zone == Zone::Exile) else {
+                    continue;
+                };
+                let card_ref = identity(card);
+                if let Some(host) = card.riders.iter().find_map(|r| match r {
+                    Rider::Linked { host, .. } => Some(*host),
+                    _ => None,
+                }) && !self.source_memory.linked.contains_key(&card_ref)
+                    && let Some(host_ref) = self.source_identity(host)
+                {
+                    self.source_memory.linked.insert(card_ref, host_ref);
+                }
             }
         }
+    }
+
+    /// What every object on the stack refers to, by slot.
+    fn capture_stack_references(&mut self) {
         for id in self.zones.list(ZoneLocation::Stack).clone() {
             let Some(obj) = self.object(id) else { continue };
             let holder = identity(obj);

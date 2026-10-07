@@ -2526,6 +2526,15 @@ struct Globals { time: f32 };
             ("ART_FOOT", face::ART_FOOT),
             ("CLOTH", face::CLOTH),
             ("BEVEL", face::BEVEL),
+            ("BAND_PREVIEW", face::BAND_PREVIEW),
+            ("BAND_LONG", face::BAND_LONG),
+            ("BAND_LIFT", face::BAND_LIFT),
+            ("BAND_DEEP", face::BAND_DEEP),
+            ("BAND_LUMA", face::BAND_LUMA),
+            ("COST_LINE", face::COST_LINE),
+            ("DISC_RADIUS", face::DISC_RADIUS),
+            ("DISC_DROP", face::DISC_DROP),
+            ("DISC_PAIR", face::DISC_PAIR),
         ] {
             let theirs = wgsl_const(src, name);
             assert!(
@@ -2536,9 +2545,14 @@ struct Globals { time: f32 };
         #[allow(clippy::cast_precision_loss)] // four small words
         for (name, ours) in [
             ("FACE_ON", face::FACE_ON),
+            ("FACE_LAYOUT_SHIFT", face::FACE_LAYOUT_SHIFT),
             ("FACE_BARS_SHIFT", face::FACE_BARS_SHIFT),
             ("FACE_NAME_SHIFT", face::FACE_NAME_SHIFT),
             ("FACE_TYPE_SHIFT", face::FACE_TYPE_SHIFT),
+            ("LAYOUT_TABLE", face::Layout::Table as u32),
+            ("LAYOUT_PREVIEW", face::Layout::Preview as u32),
+            ("LAYOUT_LONG", face::Layout::Long as u32),
+            ("LAYOUT_SMALL", face::Layout::Small as u32),
         ] {
             let theirs = wgsl_const(src, name);
             assert!(
@@ -2569,10 +2583,22 @@ struct Globals { time: f32 };
             }
         }
         // Each bar is drawn as deep as its own byte says, the byte the text
-        // was placed by.
+        // was placed by, and each part where `Regions::laid` puts it for the
+        // layout the word names.
         for line in [
             "let name_end = top + f32((word >> FACE_NAME_SHIFT) & 0xffu) * DEPTH_STEP;",
-            "let type_end = TEXT_SEAM + f32((word >> FACE_TYPE_SHIFT) & 0xffu) * DEPTH_STEP;",
+            "let type_depth = f32((word >> FACE_TYPE_SHIFT) & 0xffu) * DEPTH_STEP;",
+            "let face_layout = (word >> FACE_LAYOUT_SHIFT) & 0x7u;",
+            "var text_top = TEXT_SEAM + type_depth + TEXT_BOX_GAP;",
+            "type_top = name_end + TEXT_PINLINE;",
+            "let band_top = type_top + type_depth + TEXT_PINLINE;",
+            "text_top = TEXT_FOOT - type_depth;",
+            "band = vec4<f32>(x0, band_top, x1, text_top - TEXT_BOX_GAP);",
+            "let depth = select(BAND_PREVIEW, BAND_LONG, face_layout == LAYOUT_LONG);",
+            "text_top = band.w + TEXT_BOX_GAP;",
+            "let y = band.y + COST_LINE + DISC_DROP + DISC_RADIUS;",
+            "return clamp(BAND_LUMA / max(luma, 0.0001), BAND_DEEP, 1.0);",
+            "let luma = dot(hue, vec3<f32>(0.2126, 0.7152, 0.0722));",
         ] {
             assert!(src.contains(line), "`text_face` no longer says `{line}`");
         }

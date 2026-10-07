@@ -835,18 +835,18 @@ const UNAUDITED: &[(&str, usize)] = &[];
 
 /// Where the lint looks: the engine's own source, tests excluded. Any
 /// directory named `*_tests` is test code, not the two there were: a list of
-/// them read `mechanics_tests/` as engine source when it arrived.
+/// them read `mechanics_tests/` as engine source when it arrived. So is a
+/// `tests.rs` anywhere: the file a module's `#[cfg(test)] mod tests;` is.
 fn is_test_source(rel: &str) -> bool {
     rel.ends_with("_tests.rs")
+        || rel == "tests.rs"
+        || rel.ends_with("/tests.rs")
         || rel
             .split('/')
             .rev()
             .skip(1)
             .any(|dir| dir.ends_with("_tests"))
-        || matches!(
-            rel,
-            "engine/testkit.rs" | "engine/synthetic.rs" | "engine/tests.rs"
-        )
+        || matches!(rel, "engine/testkit.rs" | "engine/synthetic.rs")
 }
 
 fn sources(dir: &std::path::Path, root: &std::path::Path, out: &mut Vec<(String, String)>) {

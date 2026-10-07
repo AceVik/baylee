@@ -13,8 +13,10 @@ mod rooms;
 mod seat_socket;
 mod settings;
 mod signin;
+mod stats;
 mod table_view;
 mod tables;
+mod terms;
 mod tickets;
 
 pub(crate) use catalog::*;
@@ -28,6 +30,7 @@ pub(crate) use rooms::*;
 pub(crate) use seat_socket::*;
 pub(crate) use settings::*;
 pub(crate) use signin::*;
+pub(crate) use stats::*;
 pub(crate) use table_view::*;
 pub(crate) use tables::*;
 pub(crate) use tickets::*;

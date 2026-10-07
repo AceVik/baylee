@@ -19,8 +19,10 @@ the pointers, because line numbers move.
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
+| Which terms of use an account accepted, and when | Postgres `account` (`terms_version`, `terms_accepted_at`) | until the next acceptance replaces it | the account's deletion |
 | Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | while an account claims it or a deck shows it | the deletion of the last account that claims it, or the sweep at the gateway's next start |
 | Lobby tables | gateway memory | ≤ 2 h waiting, 1 h after a game ends | the lobby sweep, a restart |
+| Who has a lobby socket open (account ids, for a count) | gateway memory | while the socket is open | the socket closing, a restart |
 | Socket ticket (hash only) | gateway memory | ≤ 45 s (`BAYLEE_WS_TICKET_SECS`), or until used | use, the ticket sweep, a restart |
 | Chair ticket (hash only), with the room, chair and host account it is for | gateway memory | ≤ 120 s (`BAYLEE_CHAIR_TICKET_SECS`), or until used | use, its host leaving the room or being deleted, the ticket sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
@@ -55,6 +57,11 @@ the pointers, because line numbers move.
     `guest`.
   - `invite_id`: on a closed beta (#317), which key let the account in
     (below); empty otherwise.
+  - `terms_version` and `terms_accepted_at`: on a gateway with terms of use
+    (`BAYLEE_TERMS_PATH`, WG-1), which version the account last accepted
+    and when (`POST /account/terms`); empty until it does, and on a gateway
+    without terms. Only the last acceptance is kept. It goes with the
+    account.
   - No IP address, user agent or last-login time is stored anywhere.
 - **Why:** the username signs in. The display name and tag are how other
   players see and find the account (`GET /players/{handle}`). The e-mail
@@ -186,7 +193,9 @@ the pointers, because line numbers move.
   client stores its `Preferences` there: keymap, phase stops, automation,
   standing answers to abilities, and display and sound choices
   (`baylee_client_core::prefs`).
-- **Kept:** indefinitely, overwritten on each save.
+- **Kept:** indefinitely. Each save merges into it per top-level key (a
+  key the save names is replaced, `null` removes one, the rest stay), so a
+  key is gone only when a client removes it or with the account.
 - **Removed:** only with the account.
 
 ## Uploaded sleeves and mats
@@ -242,6 +251,11 @@ the pointers, because line numbers move.
   chairs its seat bridges sat in; its seat and lobby sockets close. A
   running game plays on with the house in that chair. A host who leaves a
   waiting room takes its bridges' chairs with it.
+- **Counted, not shown:** `GET /lobby/stats` (WG-0) answers a signed-in
+  session three numbers — players online, tables waiting, games running —
+  and no ids. "Online" is the accounts with a lobby socket open (held in
+  memory per account while the socket is, `presence.rs`) and those in a
+  chair of a running game; it is never stored or logged.
 
 ## Rate limits (memory)
 

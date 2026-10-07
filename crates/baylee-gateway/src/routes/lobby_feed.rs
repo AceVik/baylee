@@ -66,6 +66,9 @@ pub(crate) async fn run_lobby_socket(
         let _ = socket.send(Message::Close(None)).await;
         return;
     }
+    // Counted as present for as long as this socket is open, and no longer:
+    // every return below drops it (`GET /lobby/stats`).
+    let _present = state.presence.enter(&account_id);
     loop {
         let payload = listing_page(&state, &account_id, &query).await.to_string();
         if socket.send(Message::Text(payload.into())).await.is_err() {
@@ -90,6 +93,15 @@ pub(crate) async fn run_lobby_socket(
                         let _ = socket.send(Message::Close(None)).await;
                         return;
                     }
+                },
+                // The client says nothing on this socket, so the one thing
+                // reading it learns is that it has gone. Without this arm a
+                // closed socket was noticed only at the next lobby change,
+                // and its reader counted as present until then
+                // (`GET /lobby/stats`).
+                said = socket.recv() => match said {
+                    None | Some(Err(_) | Ok(Message::Close(_))) => return,
+                    Some(Ok(_)) => {}
                 },
             }
         }

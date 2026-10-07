@@ -110,8 +110,30 @@ const BORDER_INK: vec3<f32> = vec3<f32>(0.0049, 0.0049, 0.006);
 /// What a bar's top edge gains and its bottom edge loses.
 const BEVEL: f32 = 0.06;
 
+/// The band: a preview's depth and a long preview's (`textface::BAND_PREVIEW`,
+/// `BAND_LONG`), how far it lightens across (`BAND_LIFT`).
+const BAND_PREVIEW: f32 = 0.25142857;
+const BAND_LONG: f32 = 0.16761905;
+const BAND_LIFT: f32 = 0.35;
+/// How deep the band's colour goes where its words begin, and the least
+/// luminance it keeps there (`textface::BAND_DEEP`, `BAND_LUMA`).
+const BAND_DEEP: f32 = 0.6;
+const BAND_LUMA: f32 = 0.23;
+/// The table's colour discs (`textface::discs`): the cost's line above them,
+/// their radius, the drop under that line, and two discs' spacing.
+const COST_LINE: f32 = 0.14;
+const DISC_RADIUS: f32 = 0.075;
+const DISC_DROP: f32 = 0.012;
+const DISC_PAIR: f32 = 0.17;
+
 /// `textface::face_word`'s bits.
 const FACE_ON: u32 = 1u;
+const FACE_LAYOUT_SHIFT: u32 = 1u;
+/// `textface::Layout`'s codes.
+const LAYOUT_TABLE: u32 = 0u;
+const LAYOUT_PREVIEW: u32 = 1u;
+const LAYOUT_LONG: u32 = 2u;
+const LAYOUT_SMALL: u32 = 3u;
 const FACE_BARS_SHIFT: u32 = 4u;
 const FACE_NAME_SHIFT: u32 = 16u;
 const FACE_TYPE_SHIFT: u32 = 24u;
@@ -157,34 +179,86 @@ fn text_face(uv: vec2<f32>, word: u32) -> vec3<f32> {
     let x1 = 1.0 - TEXT_BORDER;
     let top = TEXT_BORDER;
     let name_end = top + f32((word >> FACE_NAME_SHIFT) & 0xffu) * DEPTH_STEP;
-    let type_end = TEXT_SEAM + f32((word >> FACE_TYPE_SHIFT) & 0xffu) * DEPTH_STEP;
+    let type_depth = f32((word >> FACE_TYPE_SHIFT) & 0xffu) * DEPTH_STEP;
+    let face_layout = (word >> FACE_LAYOUT_SHIFT) & 0x7u;
     let bars = face_hue((word >> FACE_BARS_SHIFT) & 0xfu);
+    let hue_a = face_hue((word >> (FACE_BARS_SHIFT + 4u)) & 0xfu);
+    let hue_b = face_hue((word >> (FACE_BARS_SHIFT + 8u)) & 0xfu);
+    let across = clamp((p.x - x0) / (x1 - x0), 0.0, 1.0);
+    let hue = mix(hue_a, hue_b, smoothstep(0.25, 0.75, across));
+
+    // `textface::Regions::laid`, part for part. The table's type bar stands
+    // on the seam, under the art box the strip lies on; everywhere else it
+    // stands under the name and the band follows it.
+    var type_top = TEXT_SEAM;
+    var band = vec4<f32>(x0, name_end + TEXT_PINLINE, x1, TEXT_SEAM);
+    var text_top = TEXT_SEAM + type_depth + TEXT_BOX_GAP;
+    if face_layout != LAYOUT_TABLE {
+        type_top = name_end + TEXT_PINLINE;
+        let band_top = type_top + type_depth + TEXT_PINLINE;
+        if face_layout == LAYOUT_SMALL {
+            text_top = TEXT_FOOT - type_depth;
+            band = vec4<f32>(x0, band_top, x1, text_top - TEXT_BOX_GAP);
+        } else {
+            let depth = select(BAND_PREVIEW, BAND_LONG, face_layout == LAYOUT_LONG);
+            band = vec4<f32>(x0, band_top, x1, band_top + depth);
+            text_top = band.w + TEXT_BOX_GAP;
+        }
+    }
 
     var out = BORDER_INK;
 
-    // The art box: the colour dark where a print has its picture, running
-    // from one colour to the other on a two-colour card, with a cloth over
-    // it — the same pattern on every card, so a lane of tokens is one weave.
-    let art_box = vec4<f32>(x0, name_end + TEXT_PINLINE, x1, TEXT_SEAM);
-    let across = clamp((p.x - x0) / (x1 - x0), 0.0, 1.0);
-    let down = clamp((p.y - art_box.y) / (art_box.w - art_box.y), 0.0, 1.0);
-    let hue = mix(
-        face_hue((word >> (FACE_BARS_SHIFT + 4u)) & 0xfu),
-        face_hue((word >> (FACE_BARS_SHIFT + 8u)) & 0xfu),
-        smoothstep(0.25, 0.75, across),
-    );
-    let weave = (noise(p * 3.0) - 0.5) * 1.333 + (noise(p * 9.0) - 0.5) * 0.667;
-    let art = max(hue * mix(ART_TOP, ART_FOOT, down) + vec3<f32>(weave * CLOTH), vec3<f32>(0.0));
-    out = mix(out, art, face_part(p, art_box, aa));
+    if face_layout == LAYOUT_TABLE {
+        // The art box: the colour dark where a print has its picture,
+        // running from one colour to the other on a two-colour card, with a
+        // cloth over it — the same pattern on every card, so a lane of
+        // tokens is one weave.
+        let down = clamp((p.y - band.y) / (band.w - band.y), 0.0, 1.0);
+        let weave = (noise(p * 3.0) - 0.5) * 1.333 + (noise(p * 9.0) - 0.5) * 0.667;
+        let art = max(hue * mix(ART_TOP, ART_FOOT, down) + vec3<f32>(weave * CLOTH), vec3<f32>(0.0));
+        out = mix(out, art, face_part(p, band, aa));
+        // The symbol band (WP6): a disc of each colour under the cost's
+        // line, one for one colour (or gold, or grey), two for two.
+        let y = band.y + COST_LINE + DISC_DROP + DISC_RADIUS;
+        let pair = any(hue_a != hue_b);
+        let half = select(0.0, DISC_PAIR * 0.5, pair);
+        out = face_disc(out, p, vec2<f32>(0.5 - half, y), hue_a, aa);
+        if pair {
+            out = face_disc(out, p, vec2<f32>(0.5 + half, y), hue_b, aa);
+        }
+    } else {
+        // The band: the identity as a gradient, from its colour where its
+        // words begin to lighter under the chips' far end. Only ever
+        // towards white, so the ink stands off it as far as off the bars.
+        let luma = dot(hue, vec3<f32>(0.2126, 0.7152, 0.0722));
+        let deep = hue * band_depth(luma);
+        let lit = mix(deep, PAPER_WHITE, BAND_LIFT * across);
+        out = mix(out, lit, face_part(p, band, aa));
+    }
 
     let name_bar = vec4<f32>(x0, top, x1, name_end);
     out = mix(out, face_bar(p, name_bar, bars, aa), face_part(p, name_bar, aa));
-    let type_bar = vec4<f32>(x0, TEXT_SEAM, x1, type_end);
+    let type_bar = vec4<f32>(x0, type_top, x1, type_top + type_depth);
     out = mix(out, face_bar(p, type_bar, bars, aa), face_part(p, type_bar, aa));
 
-    let text_box = vec4<f32>(x0, type_end + TEXT_BOX_GAP, x1, TEXT_FOOT);
+    let text_box = vec4<f32>(x0, text_top, x1, TEXT_FOOT);
     out = mix(out, mix(bars, PAPER_WHITE, PAPER_MIX), face_part(p, text_box, aa));
     return out;
+}
+
+/// How far the band's colour is darkened where its words begin
+/// (`textface::band_depth`): to `BAND_DEEP` of itself, but never under the
+/// luminance `BAND_LUMA` at which the ink still reads.
+fn band_depth(luma: f32) -> f32 {
+    return clamp(BAND_LUMA / max(luma, 0.0001), BAND_DEEP, 1.0);
+}
+
+/// A colour disc on the table's art box, ringed in the border's ink.
+fn face_disc(under: vec3<f32>, p: vec2<f32>, centre: vec2<f32>, color: vec3<f32>, aa: f32) -> vec3<f32> {
+    let d = length(p - centre) - DISC_RADIUS;
+    let ring = 1.0 - smoothstep(-aa, aa, d - 1.5 * aa);
+    let fill = 1.0 - smoothstep(-aa, aa, d);
+    return mix(mix(under, BORDER_INK, ring), color, fill);
 }
 
 // ---- the offer's light on the felt

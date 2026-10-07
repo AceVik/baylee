@@ -174,6 +174,8 @@ is no account yet:
   than cuts anything else (`gateway_info::GatewayInfo::source`). Its front
   door draws it under the Fan Content notice, and draws the client's own
   repository instead while the gateway has not said.
+- `terms` is the version of the terms of use a player accepts here, or
+  `null` on a gateway without terms (§"Terms of use (WG-1)").
 - `registration` is who may make an account: `open`, `invite` (a closed
   beta, §"A closed beta: keys (#317)") or `off`; `guests` is whether it takes
   guests. Both are absent from a gateway older than #317. They are here so a
@@ -1293,11 +1295,24 @@ rebinds confirm at home finds it rebound at a friend's table.
 - `GET /settings` → the stored object, or `{}` for an account that has never
   saved any. Never a 404: the client's own defaults are the right answer, and
   making it tell two failures apart buys nothing.
-- `PUT /settings` replaces it. The body *is* the preferences object — there is
-  no wrapper, because there is nothing else to say about it.
+- `PUT /settings` **merges** its body into the stored object, per top-level
+  key (WG-5, since beta.6). The body is an object of top-level keys, no
+  wrapper. Each key it names replaces that key's value **whole** (a keymap
+  is one value; nothing is merged below the top level); a key whose value is
+  `null` is removed (a `null` deeper down is a value and is kept); a key it
+  does not name is left as it was. The answer is `{"stored": <bytes>}`, the
+  merged object's size. Merging happens in one statement under the row's
+  lock, so two saves naming different keys both land.
 
-The gateway keeps the blob **opaque** and checks exactly two things: that it is
-a JSON object, and that it is under 16 KiB. It cannot check more, and should
+Why a merge and not a replace: a client from before a preference existed
+sends its whole struct without that key, and under a replace it erased what
+a newer client on the player's other device had written there. After the
+merge a client can no longer drop a key by leaving it out; it sends `null`.
+No client relies on omission.
+
+The gateway keeps the object **opaque** and checks exactly two things: that it is
+a JSON object, and that it — the patch and the merged object both — is under
+16 KiB. It cannot check more, and should
 not: knowing what a keymap is would mean linking `baylee-client-core`, which
 is the client's brain and pulls in the engine behind it — the one dependency
 the gateway does not have. The second reason is deployment order: a client
@@ -1305,12 +1320,21 @@ that learns to remember a new preference must not need a gateway release
 before it can store it.
 
 The shape is `baylee_client_core::prefs::Preferences` — a `Keymap`, the phase
-rail's `PhaseOrders`, and the `AutoRules` switches — and every field of it is
-`#[serde(default)]`, so a blob written by an older or newer client still loads
-with the rest defaulted rather than costing a player their bindings. A
-corrupt blob decodes to the defaults rather than to an error, for the same
-reason: preferences are a convenience, and a player mid-upgrade should get a
-working keymap rather than a screen that will not open.
+rail's `PhaseOrders`, the `AutoRules` switches, the standing answers and the
+display and sound choices — and every field of it is `#[serde(default)]`.
+The client reads it **one field at a time** (`Preferences::from_json`): a
+top-level value it cannot read costs that field, which falls back to its
+default, and nothing else; a key it does not know is kept in
+`Preferences::rest` and written back as it came, after the known fields. Only
+text that is not a JSON object falls back to the defaults whole, because
+preferences are a convenience, and a player mid-upgrade should get a working
+keymap rather than a screen that will not open.
+
+**What this does not make safe: changing the shape of a key that exists.**
+A new key is safe across versions. A key whose type changes is not: the
+older client reads the new shape as unreadable, falls back to its default,
+and its next save writes that default, which the merge then lays over the
+newer client's value. A preference that needs a new shape takes a new key.
 
 Not stored here: the preview's size, the interface language, and the gateway
 address. Those are properties of a *device*, they stay in the client's own
@@ -1987,6 +2011,41 @@ door, key or no key.
   every key's id, note, uses left, accounts admitted, expiry and state,
   never a key; `revoke <id>` closes one. A key is shown once, when made.
 
+## Terms of use (WG-1)
+
+A gateway may ask its players to accept terms of use. The operator points
+`BAYLEE_TERMS_PATH` at a UTF-8 Markdown file of at most 64 KiB; unset, the
+gateway has none and **nothing below appears**: no `terms_stale`, `"terms":
+null` in `/info`, `404` on `/terms`. Set but unreadable, oversize, not UTF-8
+or empty, the gateway refuses to start. The file is read once, at start.
+
+- `GET /terms` (public) → `{"version", "updated"?, "markdown"}`. `version`
+  is the first 16 hex digits of the file's SHA-256, so any edit asks every
+  player again — unless the file's **first line** is `<!-- version: 2026-10
+  -->`, which names it (at most 64 characters, no whitespace), so an
+  editorial fix need not be accepted twice. `updated` is the date an
+  `<!-- updated: 2026-10-06 -->` line among the leading comment lines names;
+  absent without one. The leading comment lines are not part of `markdown`.
+- `/info` carries `"terms": "<version>"`, so a client can compare it with
+  what it last accepted before anyone signs in.
+- `POST /auth/login`, `/auth/register` and `/auth/guest` answer
+  `"terms_stale": true` when the account has not accepted the current
+  version (a new account or guest never has), `false` when it has. The
+  client then shows the terms and sends:
+- `POST /account/terms {"version"}` (signed in) → `{"version"}`, recording
+  the version and the time on the account. A version that is not the current
+  one is `409` (the file changed while the sheet was up; show it again), a
+  gateway without terms `404`.
+
+Enforcement stops there, for the beta (Q5): **no route refuses a session
+that has not accepted.** Tickets, decks and seats work as before, so an edit
+to the terms never blinds a lobby or locks a seat out of its game; the
+client asks right after sign-in. A returning guest signs in with its kept
+session and so never sees `terms_stale`; the client compares `/info.terms`
+with its own copy of what it accepted. The repository's
+`docs/terms-placeholder.md` is a placeholder for testing the sheet and is
+not legal text; no deploy reads it.
+
 ## Deleting an account (#292)
 
 `DELETE /account` deletes the caller's own account and answers `204`.
@@ -2072,7 +2131,7 @@ from a curl recipe into a contract:
 | leave for good | `DELETE /account` `{password}` (a guest sends `{}`) | `204`; `403` for a wrong password, `429` past eight tries |
 | who am I | `GET /me` | `{id, email, username, guest, display_name, tag, handle}` |
 | who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
-| decks | `GET /decks` | `[{id, name, format, cards, sideboard, copies, side_copies, identity, commanders, leaders, sleeve, playmat}]` |
+| decks | `GET /decks` | `[{id, name, format, cards, sideboard, copies, side_copies, identity, commanders, leaders, signature, unplayable, updated_at, sleeve, playmat}]` |
 | one deck | `GET /decks/{id}` | `{id, kind, name, format, description, cards:[…], sideboard:[…], commanders:[…], version}` |
 | save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commanders, format?, description?, summary?, sleeve?, playmat?}` | `{deck_id}`; `403` for a sleeve or mat the caller did not upload |
 | edit one | `PUT /decks/{id}` — same body | `204` |
@@ -2182,6 +2241,22 @@ counts where it can and is skipped otherwise, rather than refusing the list.
 An older gateway sends none of these fields, and the client reads their
 absence as empty.
 
+**And when it was saved, what of it will not play, and its picture (WG-3).**
+`updated_at` is the last save, in unix seconds (the list is ordered by it,
+newest first). `unplayable` counts the main deck's copies this build cannot
+play: a card the registry holds only as a stub, or one it does not know; the
+sideboard is not counted. `signature` is the picture of a deck **without**
+commanders, shaped as a `leaders` entry: its most expensive non-land card by
+the front face's mana value, the first in the deck's order on a tie, in the
+printing its row names; `null` for a deck with commanders (its `leaders` are
+its picture) and for one of lands alone. `signature` and every `leaders`
+entry carry `artist`, who painted that printing, from the gateway's catalog
+(one query for the whole list); it is left out when nobody knows — no
+catalog, a catalog that lacks the printing or is down, the offline lobby —
+and a client shows a printing's `art_crop` only with its artist credited,
+so no `artist` means no art. All four are added fields, read as empty when
+absent.
+
 **`POST /lobby/games/{id}/seat` is the way back to a chair you are already
 in**, and it is not a join. It names no deck, moves nobody, and changes
 nothing another player can see; it asks one question — is this account
@@ -2218,6 +2293,14 @@ in the language `lang` asks for, falling back field by field to English;
 `has_text` says whether rules text was available at all. The whole pool is a
 few hundred rows, so it is sent whole and filtered in the client; `total` and
 `pool_hash` are there for the day it is not.
+
+A row whose card's printed mana abilities name some kind of mana carries
+`produces`, those kinds as `WUBRGC` letters in that order (WG-4,
+`baylee_cards::produces`): `"G"` for a Forest, `"WU"` for a land with the
+Plains and Island types, `"C"` for a Sol Ring. It is what the words say,
+whatever the ability costs or does beside the mana, and what only a game
+can answer (a Command Tower's commanders, a chosen colour) is left out
+rather than guessed. Absent for every other card.
 
 Each row also carries `oracle_id` and `alt_names` — every *other* name the
 card is printed under: the languages a configured catalog holds, and, for a
@@ -2659,7 +2742,8 @@ notification, and each socket then renders its own page. A subscriber that
 falls behind is not replayed: every frame is the whole page, so the newest one
 is the only one worth having.
 
-Nothing is sent up the socket. A change of search or page is a **different
+Nothing is sent up the socket (the gateway reads it only to notice it
+closing). A change of search or page is a **different
 subscription**, so the client closes it and dials again with the new query;
 that keeps the socket's answer and the HTTP route's answer the same question,
 asked over two transports.
@@ -2677,6 +2761,24 @@ also what a deploy looks like from the lobby: it stops this machine's agent
 before it replaces the gateway (`scripts/server/baylee-deploy`). A listing
 without the field comes from an older gateway and means `true`. It is an
 added field, not a new message, so `PROTOCOL_VERSION` does not move.
+
+### How busy it is: `GET /lobby/stats` (WG-0)
+
+`{"players_online": 12, "tables_waiting": 3, "games_running": 4}`, for the
+lobby header's gateway pill. Signed-in sessions only (`401` otherwise), as
+the listing is: the front door shows no counts. Three numbers and nothing
+else — no ids, no names, nothing per table — exact, not rounded, and read
+from memory at the moment of asking.
+
+- `players_online`: distinct accounts that have a lobby socket open
+  (`/lobby/ws`), together with those in a chair of a running game (their
+  own, or one their seat bridge plays). Not a count of sessions: a session
+  lives twelve hours after its last request, a guest's a month, and neither
+  is presence. The gateway reads the lobby socket only to notice it closing,
+  so a player who leaves stops counting at once.
+- `tables_waiting`: tables waiting for players; `games_running`: games being
+  played. A finished table is neither. Counted as `/health` counts its
+  `games.waiting` and `games.running`, by the same two functions.
 
 ## The opening payload, and a client that is not the server
 

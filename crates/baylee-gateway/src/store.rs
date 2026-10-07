@@ -31,13 +31,11 @@ use baylee_db::entity::deck::Entity as Decks;
 use baylee_db::entity::deck_version::Entity as DeckVersions;
 use baylee_db::entity::session_token::Entity as Sessions;
 use baylee_db::entity::upload::Entity as Uploads;
-use baylee_db::entity::{
-    account, client_settings, confirmation, deck, deck_version, session_token, upload,
-};
+use baylee_db::entity::{account, confirmation, deck, deck_version, session_token, upload};
 use sea_orm::{
     ActiveValue::{NotSet, Set},
-    ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
-    TransactionTrait,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder, Statement, TransactionTrait,
     sea_query::{Expr, ExprTrait, Func, OnConflict},
 };
 use std::collections::{BTreeSet, HashMap};
@@ -122,6 +120,9 @@ pub struct Account {
     pub lang: String,
     /// A guest (#269): no username, no password, and gone with its session.
     pub guest: bool,
+    /// The version of the gateway's terms it last accepted (WG-1), `None`
+    /// for never.
+    pub terms_version: Option<String>,
 }
 
 /// Whose a live session is.
@@ -277,6 +278,7 @@ impl From<account::Model> for Account {
             confirmed_at: row.confirmed_at.map(secs),
             lang: row.lang,
             guest: row.guest,
+            terms_version: row.terms_version,
         }
     }
 }
@@ -500,6 +502,8 @@ pub async fn create_account(
         lang: Set(new.lang),
         guest: Set(false),
         invite_id: Set(invite_id),
+        terms_version: Set(None),
+        terms_accepted_at: Set(None),
     };
     match Accounts::insert(row).exec_with_returning(&txn).await {
         Ok(_) => {
@@ -557,6 +561,8 @@ pub async fn create_guest(
         lang: Set(new.lang),
         guest: Set(true),
         invite_id: Set(invite_id),
+        terms_version: Set(None),
+        terms_accepted_at: Set(None),
     })
     .exec_with_returning(&txn)
     .await?;
@@ -1245,6 +1251,29 @@ pub async fn delete_deck(db: &DatabaseConnection, deck_id: &str, account_id: &st
         > 0)
 }
 
+// ---------------------------------------------------------------- terms
+
+/// Records that an account accepted this version of the terms of use, now.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn accept_terms(db: &DatabaseConnection, account_id: &str, version: &str) -> Result<()> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(());
+    };
+    Accounts::update_many()
+        .col_expr(account::Column::TermsVersion, Expr::value(version))
+        .col_expr(
+            account::Column::TermsAcceptedAt,
+            Expr::value(OffsetDateTime::now_utc()),
+        )
+        .filter(account::Column::Id.eq(id))
+        .exec(db)
+        .await?;
+    Ok(())
+}
+
 // ------------------------------------------------------------- settings
 
 /// One account's client preferences, if it has written any.
@@ -1262,35 +1291,75 @@ pub async fn settings_of(
     Ok(Settings::find_by_id(id).one(db).await?.map(|row| row.doc))
 }
 
-/// Write one account's client preferences.
+/// What a [`merge_settings`] did.
+#[derive(Debug, PartialEq, Eq)]
+pub enum SettingsMerge {
+    /// Written; the merged document is this many bytes of JSON.
+    Stored(usize),
+    /// The merged document would have been over the limit, and nothing was
+    /// written.
+    TooLarge,
+}
+
+/// Merges a patch into one account's client preferences, per top-level key.
+///
+/// Every key the patch names replaces that key's value whole (no deeper
+/// merge: a keymap is one value), a key whose value is `null` is removed, and
+/// a key the patch does not name is left alone. That last clause is the
+/// point (M4-7): a client from before a preference existed sends its whole
+/// struct without that key, and must not erase what a newer client on the
+/// player's other device wrote under it.
+///
+/// One statement, under the row's lock, so two saves with different keys
+/// both land whichever commits first. A `null` is removed only at the top
+/// level: a nested `null` is a value (`jsonb_strip_nulls` would recurse,
+/// which is why it is not used). The limit bounds the **merged** document,
+/// measured as the gateway serialises it, so many small patches cannot grow
+/// it past what one large one may; over it, the transaction is rolled back
+/// and the store is as it was.
 ///
 /// # Errors
 ///
 /// If the database refuses.
-pub async fn put_settings(
+pub async fn merge_settings(
     db: &DatabaseConnection,
     account_id: &str,
-    doc: serde_json::Value,
-) -> Result<()> {
+    patch: serde_json::Map<String, serde_json::Value>,
+    limit: usize,
+) -> Result<SettingsMerge> {
     let Some(id) = uuid(account_id) else {
-        return Ok(());
+        return Ok(SettingsMerge::Stored(2));
     };
-    Settings::insert(client_settings::ActiveModel {
-        account_id: Set(id),
-        doc: Set(doc),
-        updated_at: Set(OffsetDateTime::now_utc()),
-    })
-    .on_conflict(
-        OnConflict::column(client_settings::Column::AccountId)
-            .update_columns([
-                client_settings::Column::Doc,
-                client_settings::Column::UpdatedAt,
-            ])
-            .to_owned(),
-    )
-    .exec(db)
-    .await?;
-    Ok(())
+    let (removed, kept): (Vec<_>, Vec<_>) = patch.into_iter().partition(|(_, v)| v.is_null());
+    let removed: Vec<String> = removed.into_iter().map(|(key, _)| key).collect();
+    let kept = serde_json::Value::Object(kept.into_iter().collect());
+    let txn = db.begin().await?;
+    let row = txn
+        .query_one_raw(Statement::from_sql_and_values(
+            txn.get_database_backend(),
+            "INSERT INTO client_settings (account_id, doc, updated_at) \
+             VALUES ($1, $2, $3) \
+             ON CONFLICT (account_id) DO UPDATE \
+             SET doc = (client_settings.doc || EXCLUDED.doc) - $4::text[], \
+                 updated_at = EXCLUDED.updated_at \
+             RETURNING doc",
+            [
+                id.into(),
+                kept.into(),
+                OffsetDateTime::now_utc().into(),
+                removed.into(),
+            ],
+        ))
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("the settings upsert returned no row"))?;
+    let merged: serde_json::Value = row.try_get("", "doc")?;
+    let bytes = serde_json::to_string(&merged).map_or(usize::MAX, |s| s.len());
+    if bytes > limit {
+        txn.rollback().await?;
+        return Ok(SettingsMerge::TooLarge);
+    }
+    txn.commit().await?;
+    Ok(SettingsMerge::Stored(bytes))
 }
 
 #[cfg(test)]
