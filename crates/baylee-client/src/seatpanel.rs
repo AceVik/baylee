@@ -699,7 +699,7 @@ impl Drawn<'_, '_, '_> {
     /// A cell of a row of cells: wide enough for a model id, and the whole
     /// width on a phone.
     fn cell(&mut self, parent: Entity) -> Entity {
-        let phone = self.metrics.frame == crate::lobby::Frame::Phone;
+        let phone = self.metrics.frame == crate::lobby::Frame::Compact;
         let id = self
             .commands
             .spawn((

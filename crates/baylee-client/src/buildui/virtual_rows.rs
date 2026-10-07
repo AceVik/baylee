@@ -28,8 +28,8 @@ pub(super) fn spawn(
     initially_visible: bool,
 ) -> Entity {
     let height = match (row, metrics.frame) {
-        (Row::Deck(_), Frame::Phone) => 144.0,
-        (Row::Deck(_), _) => 90.0,
+        (Row::Deck(_), Frame::Compact) => 144.0,
+        (Row::Deck(_), Frame::Narrow | Frame::Wide) => 90.0,
     };
     let entity = commands
         .spawn((
@@ -132,7 +132,7 @@ pub(crate) struct VirtualPool {
 }
 
 fn pool_pitch(metrics: Metrics) -> f32 {
-    if metrics.frame == Frame::Phone {
+    if metrics.frame == Frame::Compact {
         184.0
     } else {
         112.0

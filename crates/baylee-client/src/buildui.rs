@@ -120,7 +120,7 @@ pub(crate) fn builder(
 ) -> Retained {
     let deck = state.lobby.builder();
     let lang = state.lobby.lang();
-    let phone = metrics.frame == Frame::Phone;
+    let phone = metrics.frame == Frame::Compact;
     let counts = deck.counts();
 
     let bar = build_bar(commands, state, fonts, metrics);
@@ -276,7 +276,7 @@ fn build_bar(
         true,
     );
     commands.entity(bar).add_child(back);
-    if metrics.frame != Frame::Phone {
+    if metrics.frame != Frame::Compact {
         let title = commands
             .spawn((
                 Text::new(if deck.editing().is_some() {
@@ -460,7 +460,7 @@ fn pool_panel(
     // A phone folds the chips away: three wrapped rows of them is most of a
     // phone screen, and what is under them is the point. Anything wider shows
     // them, because there the trade does not exist.
-    let phone = metrics.frame == Frame::Phone;
+    let phone = metrics.frame == Frame::Compact;
     if phone {
         let bar = row(commands, metrics, true);
         let open = chip(
@@ -510,7 +510,7 @@ fn pool_panel(
         let colors = row(commands, metrics, true);
         for (letter, name) in COLORS {
             let on = deck.colors().contains(&letter);
-            let label = if metrics.frame == Frame::Desktop {
+            let label = if metrics.frame == Frame::Wide {
                 name.text(lang).to_string()
             } else {
                 letter.to_string()
@@ -910,11 +910,11 @@ fn deck_panel(
     let counts = deck.counts();
     let stats = deck.statistics();
     let width = match metrics.frame {
-        Frame::Phone => percent(100),
-        Frame::Tablet => percent(54),
-        Frame::Desktop => percent(52),
+        Frame::Compact => percent(100),
+        Frame::Narrow => percent(54),
+        Frame::Wide => percent(52),
     };
-    let grow = f32::from(u8::from(metrics.frame == Frame::Phone));
+    let grow = f32::from(u8::from(metrics.frame == Frame::Compact));
     let panel = build_panel(commands, metrics, width, grow);
     commands.entity(panel).insert(crate::lobby::dock::Dock(5));
 
@@ -1674,7 +1674,7 @@ fn card_action(
         label,
         crate::hud::ButtonWeight::Secondary,
         None,
-        if metrics.frame == Frame::Phone {
+        if metrics.frame == Frame::Compact {
             34.0
         } else {
             26.0

@@ -238,7 +238,7 @@ fn row_words(url: &str, probe: Option<&Probe>, lang: Lang) -> RowWords {
 /// How tall a gateway row is: two lines and the room around them, and a
 /// finger's height on a phone.
 fn row_height(metrics: Metrics) -> f32 {
-    if metrics.frame == Frame::Phone {
+    if metrics.frame == Frame::Compact {
         metrics.tap + 28.0
     } else {
         76.0
@@ -253,7 +253,7 @@ pub(super) const ROWS_IN_SIGHT: usize = 4;
 
 /// The side of a row's bin.
 fn bin_side(metrics: Metrics) -> f32 {
-    if metrics.frame == Frame::Phone {
+    if metrics.frame == Frame::Compact {
         32.0
     } else {
         24.0

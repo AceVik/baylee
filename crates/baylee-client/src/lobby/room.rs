@@ -35,7 +35,7 @@ pub(super) fn draw(
             flex_direction: FlexDirection::Column,
             row_gap: px(m.gap),
             padding: UiRect::all(px(m.pad)),
-            overflow: if m.frame == Frame::Phone {
+            overflow: if m.frame == Frame::Compact {
                 Overflow::visible()
             } else {
                 Overflow::scroll_y()
@@ -43,7 +43,7 @@ pub(super) fn draw(
             ..default()
         })
         .id();
-    if m.frame != Frame::Phone {
+    if m.frame != Frame::Compact {
         commands.entity(page).insert((
             Scrollable(List::Table),
             ScrollPosition(Vec2::new(0.0, scroll.get(List::Table))),
@@ -77,7 +77,7 @@ pub(super) fn draw(
     // Keep the room's primary action reachable while scrolling many seats
     // or an expanded starting-position editor.
     commands.entity(root).add_child(title);
-    if m.frame == Frame::Phone {
+    if m.frame == Frame::Compact {
         commands.entity(root).add_child(page);
     } else {
         super::scrollbars::attach(commands, root, page, m);

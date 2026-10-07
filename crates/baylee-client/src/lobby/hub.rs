@@ -15,7 +15,7 @@ pub(super) fn table(
 ) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
-    let phone = metrics.frame == Frame::Phone;
+    let phone = metrics.frame == Frame::Compact;
 
     if phone {
         commands

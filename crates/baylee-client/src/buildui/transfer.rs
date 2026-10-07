@@ -65,7 +65,7 @@ pub(crate) fn transfer_dialog(
                 width: percent(100),
                 max_height: percent(100),
                 overflow: Overflow::scroll_y(),
-                max_width: px(if metrics.frame == Frame::Phone {
+                max_width: px(if metrics.frame == Frame::Compact {
                     520.0
                 } else {
                     760.0

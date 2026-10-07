@@ -26,7 +26,7 @@ pub(crate) fn attach(commands: &mut Commands, parent: Entity, list: Entity, metr
     let track = commands
         .spawn((
             Node {
-                width: px(if metrics.frame == super::Frame::Phone {
+                width: px(if metrics.frame == super::Frame::Compact {
                     16
                 } else {
                     12

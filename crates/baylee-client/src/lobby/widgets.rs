@@ -63,7 +63,7 @@ pub(crate) fn chip(
     press: Press,
     on: bool,
 ) -> Entity {
-    let height = if metrics.frame == Frame::Phone {
+    let height = if metrics.frame == Frame::Compact {
         metrics.tap
     } else {
         metrics.tap * 0.8

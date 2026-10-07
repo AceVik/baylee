@@ -48,7 +48,7 @@ pub(crate) fn printing_picker(
                 width: percent(100),
                 max_height: percent(100),
                 overflow: Overflow::scroll_y(),
-                max_width: px(if metrics.frame == Frame::Phone {
+                max_width: px(if metrics.frame == Frame::Compact {
                     520.0
                 } else {
                     860.0
@@ -453,7 +453,7 @@ fn picker_art(
     assets: Option<&AssetServer>,
     cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
-    let height = if metrics.frame == Frame::Phone {
+    let height = if metrics.frame == Frame::Compact {
         260.0
     } else {
         360.0

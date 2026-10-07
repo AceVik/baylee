@@ -27,16 +27,16 @@ fn a_quiet_frame_does_not_rebuild_the_tree() {
 
 #[test]
 fn the_frame_follows_the_width() {
-    assert_eq!(Frame::of(390.0), Frame::Phone, "a phone held upright");
-    assert_eq!(Frame::of(759.0), Frame::Phone);
-    assert_eq!(Frame::of(760.0), Frame::Tablet);
+    assert_eq!(Frame::of(390.0), Frame::Compact, "a phone held upright");
+    assert_eq!(Frame::of(759.0), Frame::Compact);
+    assert_eq!(Frame::of(760.0), Frame::Narrow);
     assert_eq!(
         Frame::of(1024.0),
-        Frame::Tablet,
+        Frame::Narrow,
         "a tablet, or a half window"
     );
-    assert_eq!(Frame::of(1180.0), Frame::Desktop);
-    assert_eq!(Frame::of(2560.0), Frame::Desktop);
+    assert_eq!(Frame::of(1180.0), Frame::Wide);
+    assert_eq!(Frame::of(2560.0), Frame::Wide);
 }
 
 #[test]

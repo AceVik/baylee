@@ -90,9 +90,9 @@ pub(crate) const FAN_CONTENT_NOTICE: &str = "baylee is unofficial Fan Content pe
 /// whole page.
 fn card_width(frame: Frame) -> Val {
     match frame {
-        Frame::Phone => percent(100),
-        Frame::Tablet => px(480),
-        Frame::Desktop => px(600),
+        Frame::Compact => percent(100),
+        Frame::Narrow => px(480),
+        Frame::Wide => px(600),
     }
 }
 
@@ -885,7 +885,7 @@ fn icon_button(
     meaning: &str,
     lit: bool,
 ) -> Entity {
-    let side = if metrics.frame == Frame::Phone {
+    let side = if metrics.frame == Frame::Compact {
         metrics.tap
     } else {
         HEADER_HEIGHT
@@ -1133,12 +1133,12 @@ pub(super) fn colophon(
                 align_items: AlignItems::Center,
                 row_gap: px(3),
                 padding: UiRect {
-                    left: px(if metrics.frame == Frame::Phone {
+                    left: px(if metrics.frame == Frame::Compact {
                         12.0
                     } else {
                         110.0
                     }),
-                    right: px(if metrics.frame == Frame::Phone {
+                    right: px(if metrics.frame == Frame::Compact {
                         12.0
                     } else {
                         110.0
@@ -1239,7 +1239,7 @@ pub(super) fn colophon(
     commands
         .entity(colophon)
         .add_children(&[build, notice, credit, source]);
-    if let Some(code) = code.filter(|_| metrics.frame != Frame::Phone) {
+    if let Some(code) = code.filter(|_| metrics.frame != Frame::Compact) {
         #[allow(clippy::cast_precision_loss)] // a code is at most 177 modules a side
         let side = px(code.side as f32 * super::source::MODULE_PX);
         let picture = commands
@@ -1371,7 +1371,7 @@ fn gateway_face(
         palette::PANEL_LIT,
         !state.lobby.busy() && state.adding.is_none(),
     );
-    if metrics.frame == Frame::Phone {
+    if metrics.frame == Frame::Compact {
         commands.entity(card).add_children(&[field, save]);
     } else {
         // The address and its button, one group on one line: the box grows,
@@ -1669,7 +1669,7 @@ fn guest_entry(
         enabled,
     );
     commands.entity(play).insert(hint);
-    if metrics.frame == Frame::Phone {
+    if metrics.frame == Frame::Compact {
         commands.entity(card).add_children(&[field, play]);
         return;
     }
@@ -1753,7 +1753,7 @@ pub(super) fn front_door(
             ImageNode::new(logo),
             Node {
                 width: Val::Vh(27.0),
-                max_width: px(if metrics.frame == Frame::Phone {
+                max_width: px(if metrics.frame == Frame::Compact {
                     190.0
                 } else {
                     280.0
@@ -1783,7 +1783,7 @@ pub(super) fn front_door(
                 align_items: AlignItems::Center,
                 flex_shrink: 0.0,
                 row_gap: px(metrics.pad),
-                margin: UiRect::vertical(if metrics.frame == Frame::Phone {
+                margin: UiRect::vertical(if metrics.frame == Frame::Compact {
                     px(0)
                 } else {
                     Val::Auto

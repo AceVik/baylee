@@ -48,23 +48,23 @@ pub(crate) struct UiRebuilds {
 /// fills the width or one that floats — and shape does not interpolate.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Frame {
-    /// A phone held upright, or a very narrow window.
-    Phone,
-    /// A tablet, or a half-screen window.
-    Tablet,
-    /// A desktop window.
-    Desktop,
+    /// A window narrower than 760 logical pixels (the shell design, §2.7).
+    Compact,
+    /// 760 to 1180: a tablet, or a half-screen window.
+    Narrow,
+    /// 1180 and wider: a desktop window, a large tablet.
+    Wide,
 }
 
 impl Frame {
     /// The frame a window of this width is in.
     pub(crate) fn of(width: f32) -> Self {
         if width < 760.0 {
-            Self::Phone
+            Self::Compact
         } else if width < 1180.0 {
-            Self::Tablet
+            Self::Narrow
         } else {
-            Self::Desktop
+            Self::Wide
         }
     }
 }
@@ -91,8 +91,8 @@ pub(crate) struct Metrics {
 impl Metrics {
     pub(crate) fn of(width: f32) -> Self {
         match Frame::of(width) {
-            Frame::Phone => Self {
-                frame: Frame::Phone,
+            Frame::Compact => Self {
+                frame: Frame::Compact,
                 text: 15.0,
                 head: 17.0,
                 small: 12.0,
@@ -100,8 +100,8 @@ impl Metrics {
                 pad: 14.0,
                 gap: 12.0,
             },
-            Frame::Tablet => Self {
-                frame: Frame::Tablet,
+            Frame::Narrow => Self {
+                frame: Frame::Narrow,
                 text: 15.0,
                 head: 18.0,
                 small: 11.5,
@@ -109,8 +109,8 @@ impl Metrics {
                 pad: 16.0,
                 gap: 10.0,
             },
-            Frame::Desktop => Self {
-                frame: Frame::Desktop,
+            Frame::Wide => Self {
+                frame: Frame::Wide,
                 text: 16.0,
                 head: 22.0,
                 small: 12.5,
@@ -123,15 +123,15 @@ impl Metrics {
 
     /// Whether the table screen stacks its two panels instead of pairing them.
     pub(crate) fn stacked(self) -> bool {
-        self.frame == Frame::Phone
+        self.frame == Frame::Compact
     }
 
     /// The width of the deck panel beside the table list.
     pub(super) fn decks_width(self) -> Val {
         match self.frame {
-            Frame::Phone => percent(100),
-            Frame::Tablet => px(280),
-            Frame::Desktop => px(360),
+            Frame::Compact => percent(100),
+            Frame::Narrow => px(280),
+            Frame::Wide => px(360),
         }
     }
 }
@@ -263,7 +263,7 @@ pub(super) fn ui(
         && state.confirmation.is_none()
         && !prefs.is_changed()
         && *drawn == Some(metrics.frame)
-        && metrics.frame != Frame::Phone
+        && metrics.frame != Frame::Compact
         && !root.is_empty()
         && let Some(cached) = builder_drawn.as_mut()
     {
@@ -294,7 +294,7 @@ pub(super) fn ui(
     // A phone puts the sign-in form near the top instead of centring it: the
     // soft keyboard takes the bottom half of the screen, and a centred form
     // ends up underneath it.
-    let top = full_bleed || metrics.frame == Frame::Phone;
+    let top = full_bleed || metrics.frame == Frame::Compact;
     let root = commands
         .spawn((
             LobbyScreen,

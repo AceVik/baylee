@@ -124,7 +124,7 @@ pub(crate) fn screen(
             Node {
                 width: percent(100),
                 flex_shrink: 0.0,
-                flex_direction: if metrics.frame == crate::lobby::Frame::Phone {
+                flex_direction: if metrics.frame == crate::lobby::Frame::Compact {
                     FlexDirection::Column
                 } else {
                     FlexDirection::Row

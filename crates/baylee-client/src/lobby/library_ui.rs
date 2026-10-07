@@ -114,7 +114,7 @@ pub(super) fn screen(
                 .entity(card)
                 .entry::<Node>()
                 .and_modify(move |mut node| {
-                    node.width = if metrics.frame == Frame::Desktop {
+                    node.width = if metrics.frame == Frame::Wide {
                         percent(49)
                     } else {
                         percent(100)
