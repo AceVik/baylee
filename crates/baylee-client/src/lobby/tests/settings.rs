@@ -819,3 +819,18 @@ fn letters_on_the_nav_jump_to_the_section_they_begin() {
     let at = focused(&app).expect("focus");
     assert_eq!((at.id, at.item), ("nav", 3), "focus on Controls");
 }
+
+/// Updates draws each of its switches once. Its first row was a settings
+/// row with an empty control — the label and help of "check automatically"
+/// over nothing — standing above the updater's own switch saying the same
+/// (beta.6 QA, "Automatisch prüfen" twice in German).
+#[test]
+fn updates_says_check_automatically_once() {
+    use baylee_client_core::i18n::{Lang, Phrase};
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Updates);
+    let shown = labels(&mut app);
+    let count = |p: Phrase| shown.iter().filter(|l| *l == p.text(Lang::En)).count();
+    assert_eq!(count(Phrase::UpdateAutoCheck), 1, "{shown:?}");
+    assert_eq!(count(Phrase::RowCheckUpdates), 0, "{shown:?}");
+}

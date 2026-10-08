@@ -579,8 +579,9 @@ pub(crate) fn models(out: &mut Out, view: &View) {
 /// Updates (desktop builds): the updater's own controls.
 pub(crate) fn updates(out: &mut Out, view: &View) {
     let lang = out.lang;
-    let empty = out.commands.spawn((Node::default(), Pickable::IGNORE)).id();
-    out.row(Row::CheckAutomatically, empty);
+    // The updater draws its own switches (`update::controls`), the
+    // `CheckAutomatically` row's among them; a settings row here as well
+    // said the same words over an empty control (beta.6 QA).
     if let Some(controls) = crate::update::controls(out.commands, out.kit.fonts, view.metrics, lang)
     {
         out.commands.entity(out.column).add_child(controls);
