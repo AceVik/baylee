@@ -20,6 +20,7 @@ mod opposition;
 mod pegasus_refuge;
 mod pestilence;
 mod reckless_assault;
+mod smothering_tithe;
 mod spiritual_asylum;
 mod storm_the_vault;
 mod treasure_trove;

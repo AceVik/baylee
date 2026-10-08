@@ -1676,11 +1676,18 @@ pub enum Effect {
     /// ability's controller chose, and puts it on the bottom of their
     /// library (Vendilion Clique). The reveal shows it to every player
     /// (CR 701.20a).
+    ///
+    /// The choice is optional ("you may choose"), and `then` is what the
+    /// card says happens "if you do": run after the card is bottomed, and
+    /// skipped when nothing was chosen or nothing could be (Vendilion
+    /// Clique's "then draws a card").
     BottomCardFromHand {
         /// Whose hand.
         player: PlayerRel,
         /// Which cards may be chosen.
         filter: &'static Filter,
+        /// "If you do, …": only once a card has gone to the bottom.
+        then: &'static [Effect],
     },
     /// Copy a spell on the stack (Double Major, Jin-Gitaxias). The copy
     /// goes on the stack under your control; you may choose new targets

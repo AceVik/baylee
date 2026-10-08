@@ -108,3 +108,66 @@ fn sun_titan_returns_a_small_permanent_when_it_attacks() {
     pass_until(&mut engine, stack_is_empty);
     assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
 }
+
+/// The permanent Sun Titan returns *enters* (CR 603.6a): Merchant of Secrets
+/// ("When this creature enters, draw a card") draws as it arrives from the
+/// graveyard. Sun Titan's own "may" is answered yes by the pass.
+///
+/// The Merchant is buried first, so the card in hand afterwards can only be
+/// the trigger of an arrival from the graveyard; Sun Titan itself leaves the
+/// hand on the way.
+#[test]
+fn sun_titan_returns_a_permanent_whose_enters_trigger_fires() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                merchant_of_secrets(),
+            ],
+        )
+        .hand(0, &[sun_titan()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let merchant =
+        on_battlefield(&engine, p0, merchant_of_secrets()).expect("the Merchant is seated");
+    bury(&mut engine, &[merchant]);
+    let dead = in_graveyard(&engine, p0, merchant_of_secrets()).expect("the Merchant is buried");
+    let hand = |e: &Engine<RegistryLookup>| e.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let before = hand(&engine);
+    assert_eq!(before, 1, "only Sun Titan is in hand");
+
+    cast_from_hand(&mut engine, p0, sun_titan());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    // "You may return target …": the minimum is 0, so `aim_at`, which wants
+    // exactly one, is not the helper.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![dead],
+                players: vec![],
+            },
+        )
+        .expect("the Merchant is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, merchant_of_secrets()).is_some(),
+        "the Merchant is back"
+    );
+    assert_eq!(
+        hand(&engine),
+        before - 1 + 1,
+        "Sun Titan left the hand and the returned Merchant drew one"
+    );
+}

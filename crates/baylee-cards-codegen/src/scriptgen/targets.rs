@@ -385,6 +385,17 @@ impl Tx<'_> {
             }
             // The permanent that became tapped is the event's object.
             "TriggeredCardController" if trigger == Some("Taps") => "PlayerRel::ControllerOfEvent",
+            // "Whenever an opponent casts a spell, … that player": the one
+            // who cast it, read off the cast (CR 112.2: the player who put
+            // it on the stack). Not "each opponent", which is what the
+            // hand-written cards had said (Rhystic Study).
+            "TriggeredActivator" if trigger == Some("SpellCast") => "PlayerRel::EventPlayer",
+            // "That spell's controller": the spell is the event's object,
+            // asked for its controller as the ability resolves, last known
+            // if it has left the stack (CR 608.2h).
+            "TriggeredCardController" if trigger == Some("SpellCast") => {
+                "PlayerRel::ControllerOfEvent"
+            }
             // The player a damage trigger's damage was dealt to: the
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.

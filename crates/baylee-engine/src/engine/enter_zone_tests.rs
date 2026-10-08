@@ -321,3 +321,108 @@ fn an_enters_trigger_fires_from_every_zone() {
         assert_eq!(hand_size(&engine), before + 1, "from {from:?}");
     }
 }
+
+fn ondu_cleric() -> CardIndex {
+    card_index("f4232466-dd6a-49bf-be6c-95905c3ded17")
+}
+
+fn life(engine: &Engine<RegistryLookup>) -> i32 {
+    engine.state().players[0].life
+}
+
+/// "Whenever this creature or another Ally you control enters, you may gain
+/// life equal to the number of Allies you control" (Ondu Cleric), cast:
+/// the comparison for the two reanimations below.
+#[test]
+fn ondu_cleric_cast_from_hand_triggers_for_itself() {
+    let mut engine = Duel::new(3, island())
+        .hand(0, &[ondu_cleric()])
+        .battlefield(0, &[plains(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, P0), "seat 0 reaches its main");
+    let before = life(&engine);
+    cast_from_hand(&mut engine, P0, ondu_cleric());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life(&engine), before + 1, "one Ally: gained 1");
+}
+
+/// Reanimate returns Ondu Cleric (losing 2 life, its mana value) and it
+/// triggers for itself (gaining 1).
+#[test]
+fn ondu_cleric_reanimated_triggers_for_itself() {
+    let (mut engine, dead) = a_table(&[reanimate()], &[swamp()], ondu_cleric());
+    let before = life(&engine);
+    cast_from_hand(&mut engine, P0, reanimate());
+    aim_and_settle(&mut engine, dead);
+    assert!(on_battlefield(&engine, dead), "the Cleric is back");
+    assert_eq!(
+        life(&engine),
+        before - 2 + 1,
+        "lost 2 to Reanimate, gained 1"
+    );
+}
+
+/// Reanimate takes the *opponent's* Ondu Cleric from their graveyard: it
+/// enters under the caster's control, so "an Ally you control" is the
+/// caster's and the caster gains.
+#[test]
+fn an_opponents_ondu_cleric_reanimated_triggers_for_its_new_controller() {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(3, island())
+        .hand(0, &[reanimate()])
+        .hand(1, &[ondu_cleric()])
+        .battlefield(0, &[swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, P0), "seat 0 reaches its main");
+    let dead = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Hand(p1))
+        .iter()
+        .find(|id| {
+            engine
+                .state()
+                .object(**id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == ondu_cleric())
+        })
+        .expect("seat 1 holds the Cleric");
+    engine
+        .dev_state_mut(P0)
+        .expect("dev commands")
+        .move_object(
+            dead,
+            ZoneLocation::Graveyard(p1),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .expect("binned");
+    let (mine, theirs) = (life(&engine), engine.state().players[1].life);
+    cast_from_hand(&mut engine, P0, reanimate());
+    aim_and_settle(&mut engine, dead);
+    assert!(on_battlefield(&engine, dead), "the Cleric is back");
+    assert_eq!(
+        engine.state().object(dead).unwrap().controller,
+        P0,
+        "under the caster's control"
+    );
+    assert_eq!(life(&engine), mine - 2 + 1, "lost 2 to Reanimate, gained 1");
+    assert_eq!(
+        engine.state().players[1].life,
+        theirs,
+        "the owner gains nothing"
+    );
+}
+
+/// Animate Dead returns Ondu Cleric, and it triggers for itself.
+#[test]
+fn ondu_cleric_animated_triggers_for_itself() {
+    let (mut engine, dead) = a_table(&[animate_dead()], &[swamp(), swamp()], ondu_cleric());
+    let before = life(&engine);
+    cast_from_hand(&mut engine, P0, animate_dead());
+    aim_and_settle(&mut engine, dead);
+    assert!(on_battlefield(&engine, dead), "the Cleric is back");
+    assert_eq!(life(&engine), before + 1, "gained 1");
+}
