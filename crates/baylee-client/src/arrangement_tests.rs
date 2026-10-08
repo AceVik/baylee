@@ -388,6 +388,57 @@ fn the_follow_switch_shows_the_active_seat_and_waits_out_my_question() {
     assert_eq!(duel.visiting, None, "my turn is home");
 }
 
+/// The stream a networked seat is really sent at a table of house AIs: the
+/// AIs answer inside the engine, so every view of another player's turn
+/// already awaits me, and the question it brings is a bare priority grant on
+/// an empty stack. Deferring on that deferred forever (beta.6 QA: eight turn
+/// changes at six seats, the table never moved). A bare grant on an empty
+/// stack is not a decision the table must hold still for; a real one is.
+#[test]
+fn the_follow_switch_shows_the_active_seat_while_i_only_hold_priority() {
+    use baylee_client_core::test_support::ViewBuilder;
+    use baylee_core::ids::PlayerId;
+    use baylee_engine::choice::Pending;
+    let turn = |active: u8| {
+        let mut view = ViewBuilder::new(4).with_awaiting(Some(0)).build();
+        view.active = PlayerId::new(active);
+        view
+    };
+    let grant = || Pending::Priority {
+        player: PlayerId::new(0),
+        legal: Box::default(),
+    };
+    let mut duel = seated_duel(Arrangement::Ring);
+    duel.follow = true;
+    duel.receive_view(turn(0));
+    duel.receive_choice(grant());
+    duel.receive_view(turn(1));
+    assert_eq!(duel.follow_pending, Some(PlayerId::new(1)), "deferred");
+    duel.receive_choice(grant());
+    assert_eq!(
+        duel.visiting,
+        Some(PlayerId::new(1)),
+        "a bare priority grant does not hold the table"
+    );
+    // A real decision still does: the seat waits until it is answered.
+    duel.receive_view(turn(2));
+    duel.receive_choice(Pending::ChooseTargets {
+        player: PlayerId::new(0),
+        options: vec![],
+        player_options: vec![],
+        min: 0,
+        max: 1,
+        reason: baylee_engine::choice::TargetPrompt::Targets,
+    });
+    assert_eq!(
+        duel.visiting,
+        Some(PlayerId::new(1)),
+        "held under a decision"
+    );
+    duel.receive_choice(grant());
+    assert_eq!(duel.visiting, Some(PlayerId::new(2)), "shown once answered");
+}
+
 /// The owner's tear, run in the client: a chip press on a Spotlight table
 /// starts it, its stages come in order (split, swing, dock, settle) as the
 /// layout the cards glide to, the new seat drawn only once its piece is, it is over in about a second, and it ends on

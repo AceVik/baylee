@@ -1256,6 +1256,7 @@ impl Duel {
                 None
             };
         }
+        self.follow_past_a_bare_grant();
         // The flank, not the state: `Cues` remembers whether the last
         // question was this seat's, so the acting seat being re-sent its own
         // question — which happens every time anybody at the table says
@@ -1375,6 +1376,40 @@ impl Duel {
                 .filter(|_| self.follow && !question_for_me && !pointer_on_interest),
         };
         if let Some(seat) = show {
+            self.follow_pending = None;
+            if self.visiting != Some(seat) {
+                self.visiting = Some(seat);
+                self.follow_settling = true;
+            }
+        }
+    }
+
+    /// The deferred half of the follow switch, on a question arriving: a
+    /// bare priority grant on an empty stack is not a decision the table
+    /// must hold still for, so the seat waiting to be shown is shown.
+    ///
+    /// Without it the switch did nothing at a networked table: the house
+    /// answers inside the engine, so every view of another seat's turn
+    /// already awaits this seat ([`Self::follow_the_turn`] defers on that),
+    /// and the view that would not await it never comes (beta.6 QA). A real
+    /// decision — a target, a choice, a block, something on the stack to
+    /// answer — still holds the table until it is answered.
+    fn follow_past_a_bare_grant(&mut self) {
+        let Some(seat) = self.follow_pending.filter(|_| self.follow) else {
+            return;
+        };
+        let bare = self
+            .interaction
+            .as_ref()
+            .is_some_and(|i| i.is_mine() && matches!(i.pending(), Pending::Priority { .. }))
+            && self.view.as_ref().is_some_and(|v| v.stack.is_empty());
+        let pointer_on_interest = self.hovered.is_some_and(|id| {
+            self.view
+                .as_ref()
+                .and_then(|v| v.object(id))
+                .is_some_and(|o| Some(o.controller) == self.visiting)
+        });
+        if bare && !pointer_on_interest {
             self.follow_pending = None;
             if self.visiting != Some(seat) {
                 self.visiting = Some(seat);
