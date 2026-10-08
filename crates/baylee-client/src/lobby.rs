@@ -230,6 +230,9 @@ impl Plugin for LobbyPlugin {
                         .after(crate::shellkit::keys::KeySystems)
                         .after(keyboard)
                         .before(ui),
+                    shortcuts::focus_the_settings_search
+                        .after(crate::shellkit::keys::KeySystems)
+                        .after(crate::shellkit::focus::FocusSystems),
                 )
                     .run_if(in_state(DuelPhase::Closed)),
             )

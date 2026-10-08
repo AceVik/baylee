@@ -876,3 +876,31 @@ fn updates_says_check_automatically_once() {
     assert_eq!(count(Phrase::UpdateAutoCheck), 1, "{shown:?}");
     assert_eq!(count(Phrase::RowCheckUpdates), 0, "{shown:?}");
 }
+
+/// `KEYBOARD.md` §7.8: `/` and Ctrl/Cmd+F focus the settings search, and
+/// the key that opened it is not typed into it (§1.7). Both fired the
+/// shell's Search and nothing answered it on this screen (beta.6 QA).
+#[test]
+fn slash_and_command_f_focus_the_settings_search() {
+    use super::front_keys::{focused, press_key};
+    use baylee_client_core::settings_map::Section;
+    let command = if crate::shellkit::keys::mac() {
+        KeyCode::SuperLeft
+    } else {
+        KeyCode::ControlLeft
+    };
+    for (code, ch, held) in [
+        (KeyCode::Slash, "/", vec![]),
+        (KeyCode::KeyF, "f", vec![command]),
+    ] {
+        let mut app = settings_at(Section::Graphics);
+        assert_ne!(focused(&app).map(|s| s.id), Some("search"));
+        press_key(&mut app, code, Key::Character(ch.into()), &held);
+        assert_eq!(focused(&app).map(|s| s.id), Some("search"), "{ch}");
+        assert_eq!(
+            app.world().resource::<LobbyState>().settings_query(),
+            "",
+            "{ch} is not typed into the search"
+        );
+    }
+}
