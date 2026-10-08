@@ -904,3 +904,23 @@ fn slash_and_command_f_focus_the_settings_search() {
         );
     }
 }
+
+/// A settings row never shrinks in its scrolling column. Shrunk, the row
+/// kept the height its controls asked for while a five-line help text ran
+/// on into the next row (German Grafik, *Sitz ansehen* over
+/// *Tischanordnung*; beta.6 QA, measured live: row 72 px, its words 128).
+/// Headless tests lay nothing out, so this holds the rule that fixed it.
+#[test]
+fn a_settings_row_keeps_its_height_in_the_scrolling_column() {
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Graphics);
+    let rows: Vec<f32> = app
+        .world_mut()
+        .query::<(&crate::shellkit::role::Role, &Node)>()
+        .iter(app.world())
+        .filter(|(role, _)| **role == crate::shellkit::role::Role::Row)
+        .map(|(_, node)| node.flex_shrink)
+        .collect();
+    assert!(rows.len() > 10, "{} rows", rows.len());
+    assert!(rows.iter().all(|s| *s == 0.0), "{rows:?}");
+}

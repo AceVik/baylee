@@ -433,6 +433,9 @@ pub fn row(
                 // rather than out of the row.
                 flex_wrap: FlexWrap::Wrap,
                 row_gap: px_fixed(kit.m.gap),
+                // A row in a scrolling column keeps its height: shrunk, a
+                // long help text ran into the next row (beta.6 QA, D6).
+                flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
