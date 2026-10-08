@@ -46,11 +46,17 @@ fn rgba() -> Option<(Vec<u8>, u32, u32)> {
     Some((image.into_raw(), width, height))
 }
 
-/// Sets the primary window's icon once winit has made the window; runs every
-/// frame until then, and is a single flag read afterwards.
+/// Set once the window wears its icon; [`install`] runs only until then.
+#[cfg(any(windows, target_os = "linux"))]
+#[derive(bevy::prelude::Resource)]
+pub(crate) struct IconSet;
+
+/// Sets the primary window's icon once winit has made the window. A
+/// main-thread system, so it stops being scheduled at all once done
+/// (`run_if(not(resource_exists::<IconSet>))` in `standalone.rs`).
 #[cfg(any(windows, target_os = "linux"))]
 pub(crate) fn install(
-    mut done: bevy::prelude::Local<bool>,
+    mut commands: bevy::prelude::Commands,
     primary: bevy::prelude::Query<
         bevy::prelude::Entity,
         bevy::prelude::With<bevy::window::PrimaryWindow>,
@@ -58,16 +64,13 @@ pub(crate) fn install(
     // winit's windows live on the main thread.
     _main_thread: bevy::ecs::system::NonSendMarker,
 ) {
-    if *done {
-        return;
-    }
     let Ok(entity) = primary.single() else {
         return;
     };
     bevy::winit::WINIT_WINDOWS.with_borrow(|windows| {
         if let Some(window) = windows.get_window(entity) {
-            *done = true;
             apply(window);
+            commands.insert_resource(IconSet);
         }
     });
 }
