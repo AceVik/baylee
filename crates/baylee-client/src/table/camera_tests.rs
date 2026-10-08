@@ -1097,6 +1097,41 @@ fn the_corner_beside_the_report_button_lies_on_no_seat_s_place() {
     }
 }
 
+/// A phone's home holds the dial's hub — the turn number and where the
+/// hands leave it — on screen, grown as the dial grows: from four seats the
+/// whole hub (measured: its far rim 2–12 px under the window's top edge),
+/// at three its centre (there the hub's far half would turn the circle's
+/// second seat under the report button, which wins). It used to hold the
+/// dial's near half, its centre on the canvas's top edge.
+#[test]
+fn a_phone_s_home_holds_the_dial_s_hub() {
+    use baylee_client_core::dial;
+    use baylee_client_core::tableview::{Arrangement, TableFrame};
+    for window in [Vec2::new(844.0, 390.0), Vec2::new(932.0, 430.0)] {
+        let canvas = Canvas::for_table(window, Arrangement::Ring).with_drawer(false);
+        for n in 3..=8u8 {
+            let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+            let frame = TableFrame::of(window.x, window.y);
+            let layout =
+                TableLayout::arranged_in(&roster, canvas.aspect(), Arrangement::Ring, None, frame);
+            let rig = CameraRig::home_shot(&layout, canvas, Shot::default()).0;
+            let lens = Lens::new(rig, window);
+            let rim = Vec2::new(0.0, dial::HUB_R * dial::scale_for(&layout));
+            let (centre, rim) = (
+                lens.project(Vec2::ZERO).expect("in front"),
+                lens.project(rim).expect("in front"),
+            );
+            let held = if n == 3 { centre.y } else { rim.y };
+            assert!(
+                held >= 0.0,
+                "{n} seats in {window}: the hub stands {:.1} px (centre {:.1}) off the top",
+                rim.y,
+                centre.y
+            );
+        }
+    }
+}
+
 /// From five seats the players' strip runs under the middle of the near
 /// edge, and no seat's place lies under it at the ring's home — my own
 /// land row least of all — alone and in teams, on the desktop windows.

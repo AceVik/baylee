@@ -210,15 +210,29 @@ impl CameraRig {
             && ring
             && let Some(local) = layout.local()
         {
-            // My own pod and the dial's near half, in my own (unturned)
-            // frame: the local seat's facing is zero.
+            // My own pod and the whole of the dial's hub — the turn number
+            // and where the hands leave it — in my own (unturned) frame: the
+            // local seat's facing is zero. The dial's near half alone put
+            // its centre on the canvas's top edge, and a grown dial's hub
+            // and number off the screen.
             let (lo, hi) = pod_box(local, air);
             let reach = dial_reach(layout);
             let lo = lo.min(Vec2::new(-reach, -reach));
-            let hi = hi.max(Vec2::new(reach, 0.0));
-            let corners = box_corners(lo, hi);
-            let fit = fit(lo, hi, &corners, tilt, canvas);
-            return (fit.rig(0.0, tilt, |p| p), fit.binds);
+            let hub = baylee_client_core::dial::HUB_R * baylee_client_core::dial::scale_for(layout)
+                + 0.25;
+            let shot_to = |top: f32| {
+                let hi = hi.max(Vec2::new(reach, top));
+                let fit = fit(lo, hi, &box_corners(lo, hi), tilt, canvas);
+                (fit.rig(0.0, tilt, |p| p), fit.binds)
+            };
+            // Unless that turns another seat's place under the report
+            // button: then the hub's far half stays above the window's
+            // edge, as before.
+            let (rig, binds) = shot_to(hub);
+            if reaches_the_top(layout, rig, canvas, shot.arrangement) {
+                return shot_to(0.0);
+            }
+            return (rig, binds);
         }
         let (min, max) = (min - Vec2::splat(air), max + Vec2::splat(air));
         let corners = layout.corners(air);

@@ -55,7 +55,7 @@ pub const HEARTH_BAND: f32 = 1.25;
 /// round it (the dial lane's `MIN_FREE_RADIUS`, 1.40 + 0.35): a layout
 /// packing the boards inwards stops here, and the dial may grow into
 /// whatever the middle has beyond it.
-pub const DIAL_CLEAR: f32 = 1.75;
+pub const DIAL_CLEAR: f32 = crate::dial::MIN_FREE_RADIUS;
 
 /// How far a column's far end may turn outwards, in radians: square, a
 /// twelfth of a turn, or an eighth, where a flank board lies across the
