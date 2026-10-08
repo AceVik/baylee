@@ -743,7 +743,7 @@ fn spawn_button(
     lang: Lang,
 ) -> Entity {
     let ground = ground_of(facts);
-    let button = commands
+    commands
         .spawn((
             PlayerButton {
                 player: facts.player,
@@ -811,8 +811,7 @@ fn spawn_button(
                 ),
             ],
         ))
-        .id();
-    button
+        .id()
 }
 
 /// One top-edge line, hidden until [`show_the_tags`] shows it: the turn's

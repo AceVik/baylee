@@ -369,6 +369,7 @@ fn no_ink_is_written_under_the_hand() {
 /// plate meets another plate or any steps panel. At a laptop's home shot
 /// every seat's plate is drawn.
 #[test]
+#[allow(clippy::too_many_lines)] // one sweep: every arrangement, seat count and window
 fn every_plate_is_flush_with_its_battlefield_and_meets_no_other() {
     use crate::table::{CameraRig, Canvas, Shot};
     use baylee_client_core::layout::{Seat, TableLayout};

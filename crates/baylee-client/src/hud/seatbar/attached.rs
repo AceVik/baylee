@@ -325,11 +325,10 @@ fn plate_at(
     for other in layout.on_felt() {
         if let Some(corners) = lens.corners(other.ledge_corners())
             && count < steps.len()
+            && let Some((at, tilt, scale, _)) = steps_on(other, lens, corners)
         {
-            if let Some((at, tilt, scale, _)) = steps_on(other, lens, corners) {
-                steps[count] = drawn_quad(at, Panel::Phases.size(), tilt, scale);
-                count += 1;
-            }
+            steps[count] = drawn_quad(at, Panel::Phases.size(), tilt, scale);
+            count += 1;
         }
     }
     let steps = &steps[..count];
@@ -830,24 +829,18 @@ fn spawn_identity(
             commands.entity(column).add_child(third);
         }
     }
-    // The turn's and the wait's lines along the top edge, as on the chip.
-    let turn = commands
-        .spawn(crate::hud::ledge::players::line(
-            seat.player,
-            crate::hud::TagKind::Turn,
-            true,
-        ))
-        .id();
-    let waited = commands
-        .spawn(crate::hud::ledge::players::line(
-            seat.player,
-            crate::hud::TagKind::Priority,
-            true,
-        ))
-        .id();
-    commands
-        .entity(identity)
-        .add_children(&[spine, column, turn, waited]);
+    commands.entity(identity).add_children(&[spine, column]);
+    top_lines(commands, identity, seat.player);
+}
+
+/// The turn's and the wait's lines along a plate's top edge, as on the chip.
+fn top_lines(commands: &mut Commands, plate: Entity, player: PlayerId) {
+    for kind in [crate::hud::TagKind::Turn, crate::hud::TagKind::Priority] {
+        let line = commands
+            .spawn(crate::hud::ledge::players::line(player, kind, true))
+            .id();
+        commands.entity(plate).add_child(line);
+    }
 }
 
 /// The plate's first line: crown, mark, name; then life.

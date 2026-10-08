@@ -288,9 +288,27 @@ fn the_players_strip_lists_every_seat_and_lights_the_three_edges() {
         was[1].2, was[0].2,
         "the awaited seat's border is not at rest"
     );
-    // The wait's teal line, set in under the turn's (the owner, 08.10.2026:
-    // lines, no ☀ or ⌛): on the awaited seat's chip and nowhere else, and
-    // no chip writes a glyph for either state.
+    the_wait_is_a_line_on_its_chip(&mut app);
+
+    // A life changes: written again, on the same buttons.
+    {
+        let mut duel = app.world_mut().resource_mut::<Duel>();
+        let view = duel.view.as_mut().expect("a view");
+        view.seats[1].life -= 3;
+    }
+    app.update();
+    let now = buttons(&mut app);
+    assert_eq!(
+        now.iter().map(|(e, _, _, _)| *e).collect::<Vec<_>>(),
+        was.iter().map(|(e, _, _, _)| *e).collect::<Vec<_>>(),
+        "a life total rebuilt the buttons, and the pointer's warmth went with them"
+    );
+}
+
+/// The wait's teal line, set in under the turn's (the owner, 08.10.2026:
+/// lines, no ☀ or ⌛): on the awaited seat's chip (seat 1) and nowhere
+/// else, and no chip writes a glyph for either state.
+fn the_wait_is_a_line_on_its_chip(app: &mut App) {
     let shown: Vec<(PlayerId, ledge::players::TagKind)> = app
         .world_mut()
         .query::<(&ledge::players::ChipTag, &Visibility, &BackgroundColor)>()
@@ -317,20 +335,6 @@ fn the_players_strip_lists_every_seat_and_lights_the_three_edges() {
         .filter(|t| t.0.contains('\u{f185}') || t.0.contains('\u{f254}'))
         .count();
     assert_eq!(glyphs, 0, "no sun or hourglass on the strip");
-
-    // A life changes: written again, on the same buttons.
-    {
-        let mut duel = app.world_mut().resource_mut::<Duel>();
-        let view = duel.view.as_mut().expect("a view");
-        view.seats[1].life -= 3;
-    }
-    app.update();
-    let now = buttons(&mut app);
-    assert_eq!(
-        now.iter().map(|(e, _, _, _)| *e).collect::<Vec<_>>(),
-        was.iter().map(|(e, _, _, _)| *e).collect::<Vec<_>>(),
-        "a life total rebuilt the buttons, and the pointer's warmth went with them"
-    );
 }
 
 /// The strip grows out of the shelf rather than appearing on it.
