@@ -1845,6 +1845,8 @@ fn spawn_stack_sentence(
     let text_box = commands
         .spawn((
             StackTextBox { object },
+            // What the shell's checks read as a scroll container.
+            crate::shellkit::role::Role::Scroll,
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
@@ -2675,6 +2677,15 @@ mod tests {
             queued_heading_spans("Æther Vial", 180.0, 13.0)[0].text,
             "Æther Vial"
         );
+    }
+
+    /// A sentence's box is four lines tall on a desktop and two on a phone's
+    /// short window, the shell's own line between them.
+    #[test]
+    fn a_phone_s_short_window_shows_two_lines_of_a_sentence() {
+        let phone = crate::shellkit::size::PHONE_HEIGHT;
+        assert!((text_lines(phone - 1.0) - STACK_SENTENCE_LINES_PHONE).abs() < f32::EPSILON);
+        assert!((text_lines(phone) - STACK_SENTENCE_LINES).abs() < f32::EPSILON);
     }
 
     /// A name that fits is left exactly as printed — the common case, and the
