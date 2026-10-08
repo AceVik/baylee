@@ -222,6 +222,16 @@ pub fn run_the_tear(
     }
 }
 
+/// The follow switch's clock and its one move: tells the duel the time
+/// (past change detection, a clock ticking is not the duel changing) and
+/// shows the seat whose turn has lasted [`crate::FOLLOW_DWELL`].
+pub fn follow_after_the_dwell(time: Res<Time>, mut duel: ResMut<Duel>) {
+    duel.bypass_change_detection().follow_now = time.elapsed_secs();
+    if let Some(seat) = duel.follow_due() {
+        duel.follow_show(seat);
+    }
+}
+
 /// Clears [`Duel::follow_settling`] once every card the follow switch moved
 /// is on its mark and the camera has arrived: from then on `Space` is a
 /// press again.
@@ -1086,6 +1096,7 @@ pub fn plugin(app: &mut App) {
                 .after(run_the_tear)
                 .before(crate::table::glide),
             settle_the_follow.after(crate::table::glide),
+            follow_after_the_dwell.before(lay_the_interest),
         )
             .in_set(crate::DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),

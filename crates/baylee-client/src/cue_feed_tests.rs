@@ -205,3 +205,56 @@ fn a_grant_after_my_own_action_waits_for_the_table_to_move() {
         "an opponent's spell is news"
     );
 }
+
+/// The stream a seat is really sent. A table hands each seat its **own**
+/// question only (`Session::rebuild` pushes `pending_for(seat)`, nothing
+/// else): this seat never receives the opponent's priority, so nothing but
+/// its own answer can tell the cues that the table stopped waiting for it.
+/// Measured live in the beta.6 QA: two seats passing through a whole turn
+/// rang `YourMove` once, at the game's first question, and
+/// `cues_suppressed` stayed 0 through grants 0.5 s apart.
+fn my_view_at(step: baylee_view::Step) -> PlayerView {
+    let mut view = ViewBuilder::new(2).build();
+    view.step = step;
+    view
+}
+
+/// Answered, the table moves on by somebody else (the step), and the seat
+/// is asked again two seconds later: that is news and it is heard.
+#[test]
+fn being_asked_again_after_answering_is_heard_without_a_foreign_question() {
+    let mut duel = Duel::default();
+    duel.receive_view(my_view_at(baylee_view::Step::Upkeep));
+    duel.cues.tell_time(10.0);
+    duel.receive_choice(priority());
+    assert_eq!(duel.cues.take().len(), 1, "the first grant is heard");
+    duel.cues.tell_time(10.5);
+    duel.submit(PlayerAction::PassPriority);
+    duel.receive_view(my_view_at(baylee_view::Step::Draw));
+    duel.cues.tell_time(12.5);
+    duel.receive_choice(priority());
+    assert_eq!(
+        duel.cues.take().iter().map(|b| b.cue).collect::<Vec<_>>(),
+        [Cue::YourMove],
+        "the next step's grant is a new question"
+    );
+    assert_eq!(duel.cues.suppressed(), 0);
+}
+
+/// …and a grant that only hands back this seat's own answer, half a second
+/// later with nothing moved, is held back and counted (rule 3) — which it
+/// can only be once the answer has ended the wait.
+#[test]
+fn a_grant_handing_back_my_own_answer_is_counted_without_a_foreign_question() {
+    let mut duel = Duel::default();
+    duel.receive_view(my_view_at(baylee_view::Step::Main));
+    duel.cues.tell_time(10.0);
+    duel.receive_choice(priority());
+    duel.cues.take();
+    duel.cues.tell_time(11.0);
+    duel.submit(PlayerAction::PassPriority);
+    duel.cues.tell_time(11.5);
+    duel.receive_choice(priority());
+    assert!(duel.cues.take().is_empty(), "only my own pass came back");
+    assert_eq!(duel.cues.suppressed(), 1, "and the policy says so");
+}

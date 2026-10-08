@@ -822,7 +822,7 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   `Keymap::legacy()`.
 - **Settings › Graphics** (device): *Tischanordnung* (the default, one button
   per arrangement, those not built yet dead with the package that brings
-  them), *Tisch folgt dem Zug* (off, D25) and *Je Sitzzahl* (a stepper per
+  them), *Tisch folgt dem Zug* (on, the owner's of 07.10.) and *Je Sitzzahl* (a stepper per
   seat count through *Default* and the built arrangements).
 - **A board squared to my chair** (the owner, 07.10.2026: *a non-teammate's
   board is rendered rotated 180° — exactly as the opponent's board is drawn
@@ -892,7 +892,7 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   eight hold it nowhere. Measured at 1708 × 1028 (creature card, projected,
   home/as interest): four seats, mine 47, across 43, side mats 25 (44 once
   across); three seats, across 44, the side mat 26.
-- **Turntable with rows** (WA5): a rule, not a geometry
+- **Turntable+** (`TurntableRows`, shown as "Turntable+" / "Drehteller+", WA5): a rule, not a geometry
   (`Arrangement::resolve`): Turntable up to four seats on a window that is
   not a phone's, Spotlight from five or on a phone, latched per table; the
   menu row says what it resolved to.
@@ -1034,9 +1034,13 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
 - **Tisch folgt dem Zug** (`tableview::follow`, `Duel::follow_the_turn`):
   **on** by default (the owner's of 07.10.2026 overruled D25's off; a
   settings file without the field reads as on), another player's turn shows that seat (a camera
-  arrangement visits, a layout one brings it across), deferred while a
-  question is open for me or the pointer rests on a card of the seat shown
-  now, never on my turn; while the moved table settles a `Space` is dropped
+  arrangement visits, a layout one brings it across) once it has lasted
+  `FOLLOW_DWELL` (1 s; a new turn restarts the wait for its seat, so the
+  house's blink-fast turns are skipped — the owner, 08.10.2026; ticked by
+  `arrangement::follow_after_the_dwell`), held while a decision of mine is
+  open (a bare priority grant on an empty stack is none: at a networked table
+  every other seat's turn awaits me with one) or the pointer rests on a card
+  of the seat shown now, never on my turn, which comes home at once; while the moved table settles a `Space` is dropped
   (`Duel::follow_settling`, cleared by `settle_the_follow` once `glide` and
   the camera are still). A seat chosen by hand holds until the next turn.
 - **Invariant 4** (`table::arrangement_tests`): every board whole on screen at

@@ -800,6 +800,18 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // rim's wall and its seam each by their own branch, told apart by the
     // uv (a slab's never leaves 0 to 1), and the void by its own. The whole
     // slab (`w = 0`) takes none of them.
+    var table = vec2<f32>(in.world_position.x, -in.world_position.z);
+    // A piece of a tearing table, or the dial lifted off it, is drawn in its
+    // own frame, out of the mesh's uv: the same table coordinates as the
+    // world's while it stands where the slab does, and carried with it as it
+    // slides, turns and lifts.
+    if (params.rift.w > 0.5) {
+        table = vec2<f32>((in.uv.x - 0.5) * params.span.x, (0.5 - in.uv.y) * params.span.y);
+    }
+    // Derivatives precede every return: a return under a per-pixel condition
+    // (the piece's uv below) leaves the rest in non-uniform control flow,
+    // where WebGPU refuses `fwidth` and the whole pipeline with it.
+    let footprint = fwidth(table);
     let piece = params.rift.w > 0.5 && params.rift.w < 1.5;
     if (piece && in.uv.x > 1.5) {
         if (in.uv.x > 5.5) {
@@ -813,16 +825,6 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     if (params.rift.w > 1.5 && params.rift.w < 2.5) {
         return void_floor(in.uv);
     }
-    var table = vec2<f32>(in.world_position.x, -in.world_position.z);
-    // A piece of a tearing table, or the dial lifted off it, is drawn in its
-    // own frame, out of the mesh's uv: the same table coordinates as the
-    // world's while it stands where the slab does, and carried with it as it
-    // slides, turns and lifts.
-    if (params.rift.w > 0.5) {
-        table = vec2<f32>((in.uv.x - 0.5) * params.span.x, (0.5 - in.uv.y) * params.span.y);
-    }
-    // Derivatives precede the surface branches, including the apron return.
-    let footprint = fwidth(table);
     let pixel = max(length(footprint), 0.001);
     let half = params.span * 0.5;
 

@@ -148,6 +148,8 @@ pub(super) fn typing(
         for key in typed.read() {
             if key.state.is_pressed() && key.logical_key == Key::Escape {
                 desk.form.confirming = false;
+            } else if key.state.is_pressed() && key.logical_key == Key::Enter {
+                desk.send_by_key = Some(DeskPress::ConfirmSend);
             }
         }
         return false;
@@ -165,6 +167,12 @@ pub(super) fn typing(
             Key::ArrowRight => text.move_caret(reach, Dir::Right, shift),
             Key::Home => text.move_caret(Step::Line, Dir::Left, shift),
             Key::End => text.move_caret(Step::Line, Dir::Right, shift),
+            // Ctrl/Cmd+Enter sends (`KEYBOARD.md` W9 step 3); Enter alone
+            // is a line break.
+            Key::Enter if command => {
+                desk.send_by_key = Some(DeskPress::Send);
+                continue;
+            }
             Key::Enter => text.replace_selection("\n"),
             Key::Character(c) if command => {
                 if c.eq_ignore_ascii_case("a") {
