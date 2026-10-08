@@ -41,6 +41,20 @@ fn crop_rotation() -> CardIndex {
     card_index("28b46183-c62f-47b1-9fee-3ba148202cab")
 }
 
+fn swamp() -> CardIndex {
+    card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
+}
+/// Sacrifice, `{B}` instant: "As an additional cost to cast this spell,
+/// sacrifice a creature."
+fn sacrifice() -> CardIndex {
+    card_index("068b3692-411b-44d4-a7e9-005262760cfc")
+}
+/// Kazuul's Fury, `{2}{R}` instant (a land on its back): "As an additional
+/// cost to cast this spell, sacrifice a creature."
+fn kazuuls_fury() -> CardIndex {
+    card_index("f8410804-632b-4f18-9a73-6dccc7e4582d")
+}
+
 const P0: PlayerId = PlayerId::new(0);
 
 fn table(seed: u64, board: &[CardIndex], hand: &[CardIndex]) -> Engine<RegistryLookup> {
@@ -290,6 +304,73 @@ fn a_cancel_leaves_the_land_chosen_for_an_extra_cost() {
         "the Plains was never sacrificed"
     );
     assert!(!tapped(&engine, forest_id));
+}
+
+/// The creature chosen for Sacrifice's extra cost, then the cast taken back
+/// in its window: the creature never left the battlefield.
+#[test]
+fn a_cancel_leaves_the_creature_chosen_for_an_extra_cost() {
+    let mut engine = table(7327, &[swamp(), quiet_creature()], &[sacrifice()]);
+    let card = in_hand(&engine, P0, sacrifice()).expect("in hand");
+    let creature = on_board(&engine, quiet_creature());
+    engine
+        .apply(P0, PlayerAction::CastSpell { card })
+        .expect("payable");
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("the creature to sacrifice is asked: {:?}", engine.pending())
+    };
+    assert_eq!(options, [creature]);
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature],
+            },
+        )
+        .expect("the creature is offered");
+    let swamp_id = on_board(&engine, swamp());
+    engine
+        .apply(P0, PlayerAction::ActivateManaAbility { source: swamp_id })
+        .expect("the Swamp in the window");
+    cancelled(&mut engine, card);
+    assert_eq!(
+        engine.state().object(creature).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "the creature was never sacrificed"
+    );
+    assert!(!tapped(&engine, swamp_id));
+}
+
+/// Every instant in the pool with an extra cost to choose (Sacrifice, Crop
+/// Rotation, Kazuul's Fury) may be cast at instant speed, on the
+/// opponent's turn, paying in the window. Sacrifice was reported refused
+/// for its timing (08.10.2026); the report was wrong: the probe that said
+/// so had been handed a Swamp's oracle id for the card's.
+#[test]
+fn every_instant_with_an_extra_cost_is_cast_on_the_opponents_turn() {
+    let cases = [
+        (sacrifice(), vec![swamp(), quiet_creature()]),
+        (crop_rotation(), vec![basic_forest(), plains()]),
+        (
+            kazuuls_fury(),
+            vec![mountain(), mountain(), mountain(), quiet_creature()],
+        ),
+    ];
+    for (spell, board) in cases {
+        let mut engine = table(7328, &board, &[spell]);
+        reach_their_main_phase(&mut engine, PlayerId::new(1));
+        let card = in_hand(&engine, P0, spell).expect("in hand");
+        assert_eq!(
+            crate::casting::can_cast_paying_later(engine.state(), &RegistryLookup, P0, card),
+            Ok(()),
+            "{spell:?} at instant speed"
+        );
+        assert_eq!(
+            crate::casting::can_cast(engine.state(), &RegistryLookup, P0, card),
+            Err(crate::casting::CastError::NotEnoughMana),
+            "{spell:?}: only the mana is missing"
+        );
+    }
 }
 
 /// Nothing is being cast: there is nothing to cancel, and no other question
