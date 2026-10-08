@@ -668,6 +668,22 @@ archive's, with its `README.txt`, `LICENSE` and `NOTICE`. The fonts' licence
 says: “This Font Software is licensed under the SIL Open Font License,
 Version 1.1.”; text set in them inside a picture is a document made with the
 font, not the font. dmgbuild, appimagetool and dpkg only build the files.
+
+## A rounder app icon (2026-10-08)
+
+The owner asked for a rounder, less square icon on 08.10.2026, and reported
+it missing on Windows. Every app icon
+(`baylee.icns`, the Windows `.ico`, the Linux hicolor PNGs and the window
+icon) is now the same Baylee brand painting, the owner's cat, cut by
+`scripts/installers/make-art.py` to a rounded square whose corners are a
+plain superellipse, with transparent corners and, on macOS, a soft shadow.
+The mask and the shadow are geometry computed by the script; Apple's 824 of
+1024 grid is a proportion, not an Apple asset. No third-party art, logo,
+template or symbol is used, so the Fan Content Policy line quoted in the
+2026-10-06 entry above (“Don't use Wizards' logos and trademarks.”) holds
+unchanged. The executables now carry the same icon as a Windows resource, and
+their version information names the program "Baylee"; nothing in it claims
+an affiliation.
 Two tools put a program part of their own into what we publish: Inno
 Setup's setup stub, under the Inno Setup licence (“Permission is granted to
 anyone to use this software for any purpose, including commercial

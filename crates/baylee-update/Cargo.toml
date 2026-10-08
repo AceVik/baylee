@@ -29,3 +29,9 @@ uuid.workspace = true
 # trashItemAtURL, through the binding the client already links.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSError", "NSFileManager", "NSString", "NSURL"] }
+
+# The launcher's icon resource (`build.rs`): the file a Start-menu entry,
+# Explorer and the taskbar show is `baylee-launch.exe`, packaged as
+# `baylee-client.exe`. Gated on the *target*, so no other build fetches it.
+[target.'cfg(windows)'.build-dependencies]
+winresource.workspace = true

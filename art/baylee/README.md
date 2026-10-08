@@ -13,7 +13,8 @@ as a mascot was given on 26 September 2026.
 | `brand/baylee-icon.png` | 1254 × 1254 icon master; generated using the logo as identity reference |
 | `brand/favicon-32.png` | Mechanical downsample for browser tabs |
 | `brand/apple-touch-icon.png` | 180 × 180 browser home-screen icon |
-| `brand/baylee.icns` | Native macOS sizes, produced with `sips` and `iconutil`; release packaging installs it |
+| `brand/baylee.icns` | Native macOS sizes, the master cut to a rounded square on Apple's grid by `scripts/installers/make-art.py` (through `iconutil`); release packaging installs it |
+| `brand/baylee-window.png` | 128 × 128 rounded window icon for Linux X11, from the same script |
 | `scenes/sanctuary-world.png` | Distant landscape with near architecture removed for independent parallax |
 | `scenes/sanctuary-frame.png` | Transparent near arch, lamps, ivy and steps |
 | `scenes/baylee-guardian.png` | Transparent 1086 × 1448 hand-painted petite Baylee, fitted crimson body and slender tapered tail |

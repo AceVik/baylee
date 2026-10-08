@@ -98,6 +98,15 @@ getrandom = "0.4"
 # feature, never in a release build). Pinned to the version bevy already
 # resolves, so it adds no second copy of the crate.
 image = { version = "0.25", default-features = false, features = ["png"] }
+# The Windows executables' icon resource (`build.rs` of baylee-client and
+# baylee-update): compiles a one-line `.rc` with the SDK's `rc.exe` and links
+# it. Only ever a build-dependency for a Windows *target*; without `toml` it
+# adds only `version_check`, which the lockfile already has.
+winresource = { version = "0.1.31", default-features = false }
+# `winit::window::Icon` for the window icon (`baylee-client` `window_icon.rs`):
+# bevy_winit re-exports no icon type. The same 0.30 bevy resolves, no
+# features of its own, so it is the one copy bevy already builds.
+winit = { version = "0.30", default-features = false }
 # Glyph rasterisation for the keyword rail's mark atlas (`markatlas.rs`):
 # the twelve marks are Mana font glyphs baked to a distance field at startup,
 # so nothing is shipped that the font does not already contain. Pinned to the

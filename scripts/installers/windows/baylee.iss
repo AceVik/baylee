@@ -83,8 +83,11 @@ Source: "{#Source}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs cre
 Source: "{#Icon}"; DestDir: "{app}"; DestName: "baylee.ico"; Flags: ignoreversion
 
 [Icons]
-Name: "{userprograms}\Baylee"; Filename: "{app}\baylee-client.exe"; WorkingDir: "{app}"; IconFilename: "{app}\baylee.ico"
-Name: "{userdesktop}\Baylee"; Filename: "{app}\baylee-client.exe"; WorkingDir: "{app}"; IconFilename: "{app}\baylee.ico"; Tasks: desktopicon
+; AppUserModelID: the one the running client claims (window_icon.rs), so its
+; window joins the button a pinned shortcut makes rather than opening a
+; second one; the launcher starts the client as another executable.
+Name: "{userprograms}\Baylee"; Filename: "{app}\baylee-client.exe"; WorkingDir: "{app}"; IconFilename: "{app}\baylee.ico"; AppUserModelID: "AceVik.Baylee"
+Name: "{userdesktop}\Baylee"; Filename: "{app}\baylee-client.exe"; WorkingDir: "{app}"; IconFilename: "{app}\baylee.ico"; AppUserModelID: "AceVik.Baylee"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\baylee-client.exe"; Description: "{cm:LaunchProgram,Baylee}"; Flags: nowait postinstall skipifsilent

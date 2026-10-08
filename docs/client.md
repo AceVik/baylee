@@ -9484,6 +9484,17 @@ so Cargo/direct launches use the same Dock icon as the packaged `.app`.
 The setter runs on the main thread and accepts only a decoded, non-null image;
 the installed image is read back to verify the assignment.
 
+On Windows and Linux X11 the client sets its window's icon itself
+(`window_icon.rs`), since Bevy 0.19 has none: once winit has made the primary
+window, a main-thread system reaches it through `bevy::winit::WINIT_WINDOWS`.
+Windows loads the executable's own icon resource (ordinal 1, `build.rs`) at
+the title bar's and the taskbar's size; X11 takes `brand/baylee-window.png`.
+The window is named `baylee` (`Window::name`): Wayland's `app_id` and X11's
+`WM_CLASS`, matching `baylee.desktop`, from which a Wayland shell takes the
+icon. On Windows the process claims the `AppUserModelID` of the setup's
+shortcuts before its first window. Where each package puts the icon:
+`docs/releasing.md` §"Installers".
+
 ### Token abilities after their source disappears
 
 A sacrificed Food keeps its image and exact English Oracle ability sentence
