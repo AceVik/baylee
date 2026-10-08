@@ -98,3 +98,64 @@ fn the_opening_envelope_states_the_view_version_in_the_open() {
         serde_json::from_slice(&msg.static_json).expect("the payload decodes");
     assert_eq!(decoded.your_seat, PlayerId::new(0));
 }
+
+/// The card a seat is casting and may take back (`PlayerView::casting`,
+/// `PlayerAction::CancelCast`) is in that seat's view only, for as long as
+/// the cast is open: a Lightning Bolt at its target question names the Bolt
+/// to its caster and nothing to the other seat, whose view would otherwise
+/// name a card in a hand it cannot see.
+#[test]
+fn the_card_being_cast_is_named_to_its_caster_alone() {
+    let bolt_card = baylee_cards::by_oracle_id("4457ed35-7c10-48c8-9776-456485fdf070")
+        .unwrap()
+        .index;
+    let mountain = baylee_cards::by_oracle_id("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+        .unwrap()
+        .index;
+    let entry = |card| DeckEntry {
+        card,
+        print: PrintRef::new(0),
+    };
+    let mut preset = two_humans();
+    preset.seats[0].starting_hand = Some(vec![entry(bolt_card)]);
+    preset.seats[0].starting_battlefield = vec![entry(mountain)];
+    let mut session = Session::new(&preset).expect("session");
+    session.pump();
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    for _ in 0..60 {
+        if let Pending::Priority { player, legal } = session.pending().clone()
+            && player == me
+            && !legal.mana_abilities.is_empty()
+        {
+            break;
+        }
+        let (player, action) = timeout(&session).expect("a question is out");
+        session.act(player, action).expect("a legal answer");
+    }
+    let Pending::Priority { legal, .. } = session.pending().clone() else {
+        panic!(
+            "seat 0 holds priority with its Mountain: {:?}",
+            session.pending()
+        )
+    };
+    let land = legal.mana_abilities[0];
+    session
+        .act(me, PlayerAction::ActivateManaAbility { source: land })
+        .expect("the Mountain");
+    let bolt = session.engine.state().zones.list(ZoneLocation::Hand(me))[0];
+    session
+        .act(me, PlayerAction::CastSpell { card: bolt })
+        .expect("the Bolt");
+    assert!(matches!(session.pending(), Pending::ChooseTargets { .. }));
+    assert_eq!(seat_view(&session, me).casting, Some(bolt));
+    assert_eq!(seat_view(&session, them).casting, None);
+
+    session
+        .act(me, PlayerAction::CancelCast)
+        .expect("taken back");
+    assert_eq!(seat_view(&session, me).casting, None);
+    assert_eq!(
+        session.engine.state().zones.list(ZoneLocation::Hand(me)),
+        &vec![bolt]
+    );
+}

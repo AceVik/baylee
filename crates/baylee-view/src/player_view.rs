@@ -51,6 +51,13 @@ pub struct PlayerView {
     /// Source and printed effect of this seat's current target decision.
     #[serde(default)]
     pub targeting: Option<TargetingContext>,
+    /// The card this seat is casting and may take back right now with
+    /// `PlayerAction::CancelCast`: set in every question of a cast it began
+    /// from priority (its mode, X, targets, extra costs) and in that cast's
+    /// payment window ([`Self::owed`]). Only in the casting seat's own view;
+    /// `None` in every other, and while a mana ability asks its colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub casting: Option<ObjectId>,
     /// Monotonic sequence number; a client drops out-of-order snapshots.
     pub seq: u64,
     /// The seat this view was built for.

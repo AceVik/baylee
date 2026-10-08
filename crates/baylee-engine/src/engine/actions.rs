@@ -101,6 +101,11 @@ impl<L: CardLookup> Engine<L> {
         if self.pending.asked() != Some(player) {
             return Err(EngineError::MismatchedAction);
         }
+        // Taking back a cast answers none of the cast's questions and is
+        // legal in every one of them (`Engine::cancellable_cast`).
+        if matches!(action, PlayerAction::CancelCast) {
+            return self.cancel_cast(player);
+        }
         // Then the question's own constraints, all of them, before anything
         // else reads the answer: an answer is refused for a reason its
         // question states (`Pending::answer_fault`) and taken otherwise. The

@@ -263,6 +263,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         library_tops: Vec::new(),
         owed: None,
         targeting: None,
+        casting: None,
         sorcery_lock: None,
         sorceries_have_flash: false,
     }

@@ -309,7 +309,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // older client skips it and stays conservative, so 53 still names it.
     // 54: a `PublicObject` field at its default is no longer written.
     // 55: `LogEvent::BecameMonarch`, a variant a reader of 54 cannot parse.
-    const RECORDED: (u32, u64) = (55, 14_943_073_748_969_681_184);
+    // `PlayerView::casting` is additive, defaulted and skipped when `None`:
+    // a reader of 55 without it ignores it, so 55 still names the shape.
+    const RECORDED: (u32, u64) = (55, 7_013_933_554_144_083_165);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

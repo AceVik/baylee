@@ -193,9 +193,8 @@ fn a_damage_trigger_set_off_by_a_painland_waits_until_the_spell_is_cast() {
 
 /// Passing a window the pool does not cover reverses the cast (CR 601.2h,
 /// 732.1): the card goes back to the hand and the player has priority
-/// again (CR 732.2). The Wastes' tap is not taken back: it dealt damage,
-/// and the engine reverses only taps (`give_back_window`), which CR 732.1
-/// allows ("may"). The blue stays floating.
+/// again (CR 732.2). The Wastes' mana ability is reversed with it, its
+/// damage included (`cancel_cast_tests`).
 #[test]
 fn a_cast_its_window_cannot_pay_goes_back_to_the_hand() {
     let mut engine = table(6014, &[adarkar_wastes()], &[sliver()]);
@@ -220,8 +219,8 @@ fn a_cast_its_window_cannot_pay_goes_back_to_the_hand() {
         "the player who cast keeps priority: {:?}",
         engine.pending()
     );
-    assert_eq!(engine.state().players[0].life, life - 1);
-    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+    assert_eq!(engine.state().players[0].life, life);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
 }
 
 /// What the pool already pays is `castable` and never `payable`, and a seat

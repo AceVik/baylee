@@ -340,6 +340,15 @@ pub enum GameEvent {
         /// The designation the game now has.
         now: crate::turn::DayNight,
     },
+    /// A cast was taken back before it was complete (`PlayerAction::CancelCast`,
+    /// or a payment window passed short), and reversed (CR 732.1). The card
+    /// never left its zone, so this says nothing an opponent did not see.
+    CastCancelled {
+        /// The player who was casting.
+        player: PlayerId,
+        /// The card, where it still is.
+        card: ObjectId,
+    },
     /// A player became the monarch (CR 724.3), and whoever was the monarch
     /// ceased to be.
     ///

@@ -123,6 +123,11 @@ pub(crate) struct CastWizard {
     /// An effect casting it as it resolves, paying its costs (CR 608.2g,
     /// Conduit of Worlds); `None` for every other cast.
     pub by_effect: Option<EffectCast>,
+    /// Where the game stood as this cast began from priority, to put back
+    /// if it is cancelled (`PlayerAction::CancelCast`) or its window is
+    /// passed short. `None` for a cast an effect makes (rebound, a miracle,
+    /// "you may cast it"), which only the effect can take back.
+    pub started: Option<super::cancel_cast::CastStart>,
     /// `DuringTheCast` for a card cast before its mana was made, from
     /// `LegalActions::payable`: its choices are made first and its mana in a
     /// payment window after them (CR 601.2g). `FromThePool` otherwise.
@@ -318,6 +323,7 @@ impl<L: CardLookup> Engine<L> {
             } else {
                 casting::Paying::FromThePool
             },
+            started: (!self.commanded_card(card)).then(|| self.cast_start()),
         };
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
@@ -381,6 +387,7 @@ impl<L: CardLookup> Engine<L> {
             by_effect: Some(EffectCast::Plain),
             window_start: None,
             paying: casting::Paying::FromThePool,
+            started: None,
         });
         self.advance_cast_wizard()
     }
@@ -491,6 +498,7 @@ impl<L: CardLookup> Engine<L> {
             by_effect: None,
             window_start: None,
             paying: casting::Paying::FromThePool,
+            started: None,
         })
     }
 
@@ -625,6 +633,7 @@ impl<L: CardLookup> Engine<L> {
             by_effect: None,
             window_start: None,
             paying: casting::Paying::FromThePool,
+            started: None,
         };
         let _ = &mut wizard;
         self.cast_wizard = Some(wizard);
@@ -699,6 +708,7 @@ impl<L: CardLookup> Engine<L> {
             by_effect: None,
             window_start: None,
             paying: casting::Paying::FromThePool,
+            started: None,
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -767,6 +777,7 @@ impl<L: CardLookup> Engine<L> {
             }),
             window_start: Some(opened),
             paying: casting::Paying::FromThePool,
+            started: None,
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -2125,7 +2136,16 @@ impl<L: CardLookup> Engine<L> {
             {
                 return Err(EngineError::IllegalAction("generated mana remains unspent"));
             }
-            self.give_back_window(wizard.player, opened);
+            // A cast begun from priority is put back whole, its mana
+            // abilities with it (CR 732.1); any other gives back the taps.
+            if self.rewind_cast(wizard) {
+                self.state.journal.record(GameEvent::CastCancelled {
+                    player: wizard.player,
+                    card: wizard.card,
+                });
+            } else {
+                self.give_back_window(wizard.player, opened);
+            }
             if let Some(card) = self.state.object_mut(wizard.card) {
                 card.x_value = 0;
             }
