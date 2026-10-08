@@ -411,31 +411,8 @@ fn fill_panel(
     }
 
     if !revision.quick.is_empty() {
-        let caption = sentence(
-            commands,
-            fonts,
-            Phrase::TypesInDeck.text(lang),
-            HINT_PT,
-            crate::shellkit::tokens::MUTED,
-        );
-        if !spare {
-            commands
-                .entity(caption)
-                .insert(Visibility::Hidden)
-                .entry::<Node>()
-                .and_modify(|mut node| {
-                    node.display = Display::None;
-                });
-        }
-        let quick = chooser(
-            commands,
-            fonts,
-            &revision.quick,
-            revision.picked,
-            &[],
-            (revision.decision_id, revision.phone),
-        );
-        commands.entity(panel).add_children(&[caption, quick]);
+        let quick = quick_list(commands, fonts, lang, revision, spare);
+        commands.entity(panel).add_children(&quick);
     }
 
     if let Some(typed) = revision.filter.clone() {
@@ -501,6 +478,42 @@ fn fill_panel(
             commands.entity(panel).add_child(rows);
         }
     }
+}
+
+/// The type chooser's quick list under its caption; on a phone the caption
+/// stands down for the room it takes.
+fn quick_list(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    revision: &DrawerRevision,
+    caption_shown: bool,
+) -> [Entity; 2] {
+    let caption = sentence(
+        commands,
+        fonts,
+        Phrase::TypesInDeck.text(lang),
+        HINT_PT,
+        crate::shellkit::tokens::MUTED,
+    );
+    if !caption_shown {
+        commands
+            .entity(caption)
+            .insert(Visibility::Hidden)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.display = Display::None;
+            });
+    }
+    let quick = chooser(
+        commands,
+        fonts,
+        &revision.quick,
+        revision.picked,
+        &[],
+        (revision.decision_id, revision.phone),
+    );
+    [caption, quick]
 }
 
 /// Hangs the folded sheet's pill from the drawer's root, arriving as the

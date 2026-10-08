@@ -2447,6 +2447,23 @@ impl ManaRun {
     pub const fn card(&self) -> ObjectId {
         self.card
     }
+
+    /// The spell a cast-first run has sent and is answering the questions
+    /// of before it pays (CR 601.2c–g): the decision sheet says the cast and
+    /// the question in one sentence, and that the mana comes after.
+    #[must_use]
+    pub fn casting_first(&self) -> Option<ObjectId> {
+        (self.cast_first == Some(CastFirst::Sent)).then_some(self.card)
+    }
+
+    /// The same run once its cast has been sent, for a test that stands in
+    /// that moment.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) const fn sent(mut self) -> Self {
+        self.cast_first = Some(CastFirst::Sent);
+        self
+    }
 }
 
 /// Spends a mana plan, one action per frame the engine asks us something.

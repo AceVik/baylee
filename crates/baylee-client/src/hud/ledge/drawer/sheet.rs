@@ -137,7 +137,21 @@ pub(super) fn head_of(duel: &Duel, lang: Lang, texts: &crate::cardtext::CardText
     }
     let view = duel.view.as_ref()?;
     let interaction = duel.interaction.as_ref()?;
-    let title = super::shelf_headline(duel, lang, texts)?;
+    let mut title = super::shelf_headline(duel, lang, texts)?;
+    // A cast sent before its mana is still being cast: one sentence says
+    // the spell, the question and that the payment follows, rather than a
+    // payment line beside a target line.
+    if let Some(card) = duel
+        .mana_run
+        .as_ref()
+        .and_then(crate::ManaRun::casting_first)
+        && let Some(spell) = view
+            .object(card)
+            .or_else(|| view.targeting.as_ref().map(|context| &context.source))
+    {
+        let name = crate::face::name_of(spell, view, texts);
+        title = Phrase::CastFirstQuestion.fill(lang, &[&name, &title]);
+    }
     let targets = matches!(interaction.pending(), Pending::ChooseTargets { .. });
     let detail = if targets {
         crate::choices::target_question(interaction, view, lang, texts, duel.statics.as_ref())

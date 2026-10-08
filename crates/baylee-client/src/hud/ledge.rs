@@ -175,6 +175,14 @@ pub struct LedgeRevision {
     pub(super) window_w: i32,
 }
 
+impl LedgeRevision {
+    /// The sentence the shelf was last drawn with, for the tests.
+    #[cfg(test)]
+    pub(in crate::hud) fn prompt_for_tests(&self) -> Option<&str> {
+        self.prompt.as_deref()
+    }
+}
+
 /// The size the shelf's own prose is set at.
 const SENTENCE_PT: f32 = 14.0;
 

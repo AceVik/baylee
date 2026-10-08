@@ -1264,6 +1264,9 @@ messages! {
     TypesInDeck { en: "Most in your deck", de: "Am häufigsten in deinem Deck" },
     /// The creature-type chooser's full list.
     TypesAll { en: "All types", de: "Alle Typen" },
+    /// A cast made before its mana, asking its own question first: the
+    /// spell, the question, and that the payment comes after (CR 601.2g).
+    CastFirstQuestion { en: "Cast {0}: {1} — paid after", de: "{0} wirken: {1} — bezahlt wird danach" },
     /// Fold the question's sheet to its pill, or open it again.
     ActFoldDecision { en: "Fold or open the question's sheet", de: "Entscheidung ein- oder ausklappen" },
     /// The ring (DESIGN-v8 arrangement 1)

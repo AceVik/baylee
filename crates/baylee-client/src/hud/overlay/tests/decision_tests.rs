@@ -153,6 +153,35 @@ fn a_fold_leaves_the_table_to_pick_on_and_the_question_standing() {
     );
 }
 
+/// A cast sent before its mana (CR 601.2g) asks its own target question
+/// first: the sheet says the cast, the question and that the payment
+/// follows in one title, and the shelf beside it says nothing of its own.
+#[test]
+fn a_cast_first_target_question_is_one_sentence() {
+    let (mut duel, source) = targeting();
+    duel.mana_run = Some(crate::ManaRun::cast_first(source).sent());
+    let mut app = bar_of(duel);
+    app.update();
+    let titles: Vec<String> = app
+        .world_mut()
+        .query_filtered::<&Text, With<ledge::drawer::SheetTitle>>()
+        .iter(app.world())
+        .map(|t| t.0.clone())
+        .collect();
+    assert_eq!(titles.len(), 1);
+    assert!(
+        titles[0].contains("Giant Growth") && titles[0].contains("paid after"),
+        "{titles:?}"
+    );
+    assert!(
+        app.world()
+            .resource::<ledge::LedgeRevision>()
+            .prompt_for_tests()
+            .is_none(),
+        "the shelf says no second sentence under the sheet"
+    );
+}
+
 /// The fold is the question's: a new snapshot (the game moved on) opens the
 /// next sheet unfolded by itself.
 #[test]
