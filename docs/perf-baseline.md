@@ -833,7 +833,9 @@ pairs):
   item: every shader and every system at half the rate.
 - **The cloth's slow fields are baked** once per cut (`client-core::feltwarp`):
   403 → 328 GPU ms/s at six seats, the same rate (ceiling 418 → 303); the
-  picture moves by RMSE 0.21 levels.
+  picture moves by RMSE 0.21 levels. Native builds only: the browser has one
+  thread to bake on and computes the fields per pixel, as before. Resizing a
+  six-seat table between the two frames five times holds RSS flat (518 MB).
 - **No light work**: bevy's light-visibility checks run only with a light, and
   the table camera clusters nothing on the CPU — the four GPU clustering passes
   and the bin unpacking (~10 ms/s) are gone, and a fifth of the main thread's
