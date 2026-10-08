@@ -2294,7 +2294,10 @@ pub use sheet::{
     place_ability_sheet, sync_ability_sheet, zoom_the_sheet,
 };
 pub use slip::{SlipWash, wash_the_slip_in};
-pub use stack::{StackFold, StackMotion, ease_the_stack_in, fold_the_stack};
+pub use stack::{
+    StackFold, StackMotion, StackTextBar, StackTextBox, StackTextRow, StackTextScroll, TextNudge,
+    ease_the_stack_in, fold_the_stack, stack_text, stack_text_keys,
+};
 pub(crate) use tray::band_of;
 pub(crate) use tray::dim_the_table;
 pub use tray::{TrayReveal, TrayRevision, reveal_tray, sync_tray};

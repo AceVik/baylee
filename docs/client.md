@@ -1836,9 +1836,38 @@ the depth cue, which is why there is no numeral beside the rows — position
 already carries the order and the badge already carries the count.
 
 The panel is capped at 62% of the window height. Its body scrolls through
-all entries using fixed-height rows (164 px for the next entry, 82 px for
-queued entries), a bounded rendering window and height-preserving spacers.
+all entries using a bounded rendering window and height-preserving spacers:
+queued rows are a fixed 82 px, and the next entry is as tall as what it
+draws, at least 164 px, measured from the body (`StackBody::full_height`).
 Scroll position survives hover, selection and language changes.
+
+**The next entry's sentence scrolls; its targets never do** (the owner,
+08.10.2026: *"Sometimes the effects on the stack are quite long and you
+can't see the target"*). The row reads name, subtitle, the arrow and the
+targets, and then the printed sentence in a box (`stack::StackTextBox`)
+four of its lines tall — two below a phone's height
+(`shellkit::size::PHONE_HEIGHT`) — with the whole sentence inside it. It was
+a 164-px row with the sentence *cut* at four lines by a character budget,
+and a two-line name over those four lines filled the row before the
+targets were reached. What runs over the box scrolls under Bevy's own
+scrollbar (`ledge::log::scrollbar_parts`, the panel's colours, the thumb
+sized to the text and draggable), which stands only while the sentence runs
+over; it is hidden, never taken out of the layout, so the text does not
+reflow when it comes. The box is not pickable — it would take the row's
+hover, which lights the row, previews it and answers a click on the
+sentence — so a wheel over the row scrolls the box while it runs over
+(`scroll::scrolls`, ahead of the hovered card's preview) and the list
+otherwise; at the box's end the wheel is swallowed, as a list's is. The bar
+is in the row, so a press or a drag on it is never a press on the spell
+(`pointer` skips a `Scrollbar`'s lineage), and moving onto it is not
+leaving the row (`pointer_hover` holds a hover while anything under the
+pointer still stands for its card). With the pointer or the card cursor on
+the entry, `↑`/`↓` (the stepper's keys, when no number is being chosen)
+scroll a line and `PgUp`/`PgDn` (`Action::TextPageUp`/`TextPageDown`) a box
+less a line. The offset and whether the sentence runs over live in
+`stack::StackTextScroll`, keyed on the object, because the overlay is
+rebuilt on every hover change; `stack::stack_text` stands a rebuilt box and
+bar back from it and writes nothing at rest.
 
 Selecting an entry marks a stopping point. “Resolve to selection” passes
 priority until that entry reaches the top, then stops **before** it resolves.

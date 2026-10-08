@@ -83,6 +83,222 @@ pub struct StackPanel;
 #[derive(Component)]
 pub struct StackToggle;
 
+/// The box a full row's sentence stands in (the owner, 08.10.2026: *"the
+/// effect text area should then be scrollable, including a (visible)
+/// scrollbar"*): [`STACK_SENTENCE_LINES`] tall at most, the sentence whole
+/// inside it, and what does not fit scrolled rather than cut. The row's name
+/// and its targets stand outside it, so neither scrolls away.
+///
+/// Not pickable, and that is deliberate: a node under the pointer inside the
+/// row would take the row's hover, and the row's hover is what lights it,
+/// previews it and answers a click on its sentence. A wheel finds the box
+/// through the row instead ([`StackTextRow`]).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StackTextBox {
+    /// The stack object whose sentence it holds.
+    pub object: ObjectId,
+}
+
+/// The box's scrollbar: Bevy's own, so the thumb drags, shown only while the
+/// sentence runs over ([`stack_text`]). Hidden, never taken out of the
+/// layout, so the text never reflows when it comes and goes.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StackTextBar {
+    /// The box it scrolls.
+    pub text_box: Entity,
+}
+
+/// On a full row: the box a wheel over the row scrolls while its sentence
+/// runs over ([`super::scroll::scrolls`]).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StackTextRow {
+    /// The row's text box.
+    pub text_box: Entity,
+}
+
+/// How far the top entry's sentence has been scrolled, and whether it runs
+/// over at all.
+///
+/// The overlay is a retained tree rebuilt whenever [`super::HudRevision`]
+/// changes — a hover, a log line — and a rebuilt box would start at its top
+/// with its bar hidden until the next layout. So the offset lives here,
+/// keyed on the object, as the preview's does in
+/// [`super::scroll::PreviewScroll`], and a rebuilt box and bar are stood
+/// back where they were.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq)]
+pub struct StackTextScroll {
+    /// The stack object whose box it is.
+    pub object: Option<ObjectId>,
+    /// How far its box has scrolled, in logical pixels.
+    pub offset: f32,
+    /// Whether its sentence runs over the box (its bar stands).
+    pub runs_over: bool,
+    /// A step the keyboard asked for and [`stack_text`] has not taken yet.
+    pub nudge: Option<TextNudge>,
+}
+
+/// One keyboard step through a stack entry's sentence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextNudge {
+    /// A line back towards the start (`↑`).
+    LineUp,
+    /// A line on (`↓`).
+    LineDown,
+    /// A box back, less a line (`PgUp`).
+    PageUp,
+    /// A box on, less a line (`PgDn`).
+    PageDown,
+}
+
+impl TextNudge {
+    /// How far it moves a box `view` pixels tall, in logical pixels: a line
+    /// is the sentence's line, and a page keeps one line of the last for the
+    /// eye to land on.
+    fn travel(self, view: f32) -> f32 {
+        let page = (view - STACK_SENTENCE_LINE).max(STACK_SENTENCE_LINE);
+        match self {
+            Self::LineUp => -STACK_SENTENCE_LINE,
+            Self::LineDown => STACK_SENTENCE_LINE,
+            Self::PageUp => -page,
+            Self::PageDown => page,
+        }
+    }
+}
+
+/// The keys of the top entry's sentence: `↑`/`↓` (the stepper's
+/// `NumberUp`/`NumberDown`, so `→`/`←` with them, as the arrangement menu
+/// reads them) a line, `PgUp`/`PgDn` a box. Only while the entry has the
+/// focus — the pointer or the card cursor on it, which are one `hovered` on
+/// this table (TABLE-KEYBOARD §2) — and its sentence runs over; never while
+/// a number is being chosen, whose keys the arrows are first.
+///
+/// Answers whether it took the keys. It only records the step: the box is
+/// an entity, and [`stack_text`] moves it.
+pub fn stack_text_keys(
+    fired: crate::keys::Fired,
+    duel: &Duel,
+    scroll: Option<&mut StackTextScroll>,
+) -> bool {
+    use baylee_client_core::prefs::Action;
+    let Some(scroll) = scroll else {
+        return false;
+    };
+    let top = duel
+        .board
+        .as_ref()
+        .and_then(|board| board.stack.first())
+        .map(|item| item.id);
+    if top.is_none()
+        || duel.hovered != top
+        || scroll.object != top
+        || !scroll.runs_over
+        || duel.ending().is_some()
+        || duel
+            .interaction
+            .as_ref()
+            .is_some_and(baylee_client_core::Interaction::edits_number)
+    {
+        return false;
+    }
+    let nudge = if fired.has(Action::NumberUp) {
+        TextNudge::LineUp
+    } else if fired.has(Action::NumberDown) {
+        TextNudge::LineDown
+    } else if fired.has(Action::TextPageUp) {
+        TextNudge::PageUp
+    } else if fired.has(Action::TextPageDown) {
+        TextNudge::PageDown
+    } else {
+        return false;
+    };
+    scroll.nudge = Some(nudge);
+    true
+}
+
+/// Keeps the top entry's sentence where it was scrolled to, takes the
+/// keyboard's steps, and stands its scrollbar only while the sentence runs
+/// over.
+///
+/// Every write is compared first: this runs every frame, and a box, a bar or
+/// a resource written at rest would relay out the HUD or wake what watches
+/// it (`docs/perf-client.md`).
+pub fn stack_text(
+    mut scroll: ResMut<StackTextScroll>,
+    added: Query<(Entity, &StackTextBox), Added<StackTextBox>>,
+    mut boxes: Query<(&StackTextBox, &mut ScrollPosition, &ComputedNode)>,
+    mut bars: Query<(&StackTextBar, &mut Visibility)>,
+) {
+    // A box spawned this frame: the same entry's stands where it was, and
+    // another entry's starts at its top.
+    for (entity, text_box) in &added {
+        if scroll.object != Some(text_box.object) {
+            *scroll = StackTextScroll {
+                object: Some(text_box.object),
+                ..StackTextScroll::default()
+            };
+        }
+        if let Ok((_, mut position, _)) = boxes.get_mut(entity)
+            && moved(position.y, scroll.offset)
+        {
+            position.y = scroll.offset;
+        }
+        for (bar, mut shown) in &mut bars {
+            if bar.text_box == entity {
+                shown.set_if_neq(if scroll.runs_over {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                });
+            }
+        }
+    }
+    let nudge = scroll.nudge;
+    for (bar, mut shown) in &mut bars {
+        let Ok((text_box, mut position, computed)) = boxes.get_mut(bar.text_box) else {
+            continue;
+        };
+        let scale = computed.inverse_scale_factor();
+        let view = computed.size().y * scale;
+        // Not laid out yet: what the spawn stood it at holds.
+        if view <= 0.0 || scroll.object != Some(text_box.object) {
+            continue;
+        }
+        let content = computed.content_size().y * scale;
+        if let Some(nudge) = nudge {
+            let to = super::scroll::scrolled(
+                position.y,
+                nudge.travel(view),
+                computed.size().y,
+                computed.content_size().y,
+                scale,
+            );
+            if moved(position.y, to) {
+                position.y = to;
+            }
+        }
+        let over = crate::face::thumb(view, content, 0.0).is_some();
+        shown.set_if_neq(if over {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+        if scroll.runs_over != over {
+            scroll.runs_over = over;
+        }
+        if moved(scroll.offset, position.y) {
+            scroll.offset = position.y;
+        }
+    }
+    if nudge.is_some() {
+        scroll.nudge = None;
+    }
+}
+
+/// Whether two offsets differ: the compare before a write.
+fn moved(from: f32, to: f32) -> bool {
+    (from - to).abs() > f32::EPSILON
+}
+
 type StackViewportQuery<'w, 's> = Query<
     'w,
     's,
@@ -234,15 +450,39 @@ const STACK_QUEUED_NAME_PT: f32 = 14.0;
 /// while the sentence and the subtitle are both things the row says about
 /// itself and read as one block at one size.
 const STACK_SENTENCE_PT: f32 = 12.0;
-/// How many lines of that sentence the row will give up its height for.
+/// How many lines of that sentence the row shows at once.
 ///
 /// Measured rather than chosen: the body is about 237 px wide, which is
 /// around 38 characters at this size, and the longest loyalty ability in the
 /// pool is 113 characters — three lines. Four is that plus the slack word
-/// wrapping leaves at the end of a line, and it is a *cut*, not a wrap limit:
-/// past it the sentence ends in an ellipsis so one pathological card cannot
-/// push the queue out of the panel.
-const STACK_SENTENCE_LINES: f32 = 4.0;
+/// wrapping leaves at the end of a line. It was a *cut* until 08.10.2026:
+/// past it the sentence ended in an ellipsis, and on a row of a fixed height
+/// the lines it did keep pushed the targets out of the bottom of the row —
+/// the owner's report, *"you can't see the target"*. It is the height of a
+/// box now ([`StackTextBox`]): the sentence is whole inside it, and what
+/// does not fit scrolls, under a scrollbar that stands only while it does.
+pub(super) const STACK_SENTENCE_LINES: f32 = 4.0;
+/// The same box on a phone's short window (below
+/// [`crate::shellkit::size::PHONE_HEIGHT`]), where the panel under the
+/// corner buttons is a few lines tall in all and four would hide the rest of
+/// the row behind the sentence.
+pub(super) const STACK_SENTENCE_LINES_PHONE: f32 = 2.0;
+/// One line of that sentence, in logical pixels: its size, the serif's
+/// scale and [`STACK_LINE`]. Set on the text as its line height, so the box
+/// is a whole number of lines tall and never shows half of one.
+pub(super) const STACK_SENTENCE_LINE: f32 = STACK_SENTENCE_PT * super::SERIF_SCALE * STACK_LINE;
+/// The air between the text box and its scrollbar.
+const STACK_TEXT_GAP: f32 = 4.0;
+
+/// How many lines of a full row's sentence its box shows in a window this
+/// tall.
+pub(super) fn text_lines(window_height: f32) -> f32 {
+    if window_height < crate::shellkit::size::PHONE_HEIGHT {
+        STACK_SENTENCE_LINES_PHONE
+    } else {
+        STACK_SENTENCE_LINES
+    }
+}
 /// A mana mark in that sentence, as a fraction of the prose's own size.
 ///
 /// The same 0.72 [`crate::manaui::spawn_pip`] sets a glyph at inside its
@@ -739,7 +979,7 @@ pub(super) fn spawn_stack_panel(
     selected: Option<ObjectId>,
     orders: &[baylee_client_core::automation::AbilityOrder],
     scroll: ScrollPosition,
-    full_height: f32,
+    (full_height, text_lines): (f32, f32),
     lang: Lang,
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
@@ -916,19 +1156,7 @@ pub(super) fn spawn_stack_panel(
             scroll,
         ))
         .id();
-    let track = super::ledge::log::scrollbar(
-        commands,
-        body,
-        (
-            palette::DOCK_EDGE.with_alpha(0.35),
-            palette::CANDLE.with_alpha(0.8),
-        ),
-        |node, paint| {
-            if let super::ledge::log::Paint::Fill(color) = paint {
-                node.insert(BackgroundColor(color));
-            }
-        },
-    );
+    let track = super::ledge::log::scrollbar(commands, body, bar_colours(), fill_bar);
     let viewport = commands
         .spawn((
             StackViewport,
@@ -964,6 +1192,7 @@ pub(super) fn spawn_stack_panel(
             fonts,
             faces,
             cards.as_deref_mut(),
+            text_lines,
         );
         commands.entity(body).add_child(entry);
     }
@@ -1197,15 +1426,18 @@ fn spawn_controls(
     }
 }
 
-fn stack_entry_height(full: bool, complete: bool) -> Val {
-    if full && complete {
+/// A row's height: a queued row's is fixed, which is what the virtual window
+/// counts in; the full row's is its content, at least
+/// [`STACK_FULL_HEIGHT`]. It was a fixed 164 px clip as well, and a two-line
+/// name over four lines of sentence filled it before the targets were
+/// reached (the owner, 08.10.2026). The sentence is a bounded box now, so
+/// the content has a ceiling, and [`StackBody::full_height`] measures the
+/// row for the window.
+fn stack_entry_height(full: bool) -> Val {
+    if full {
         Val::Auto
     } else {
-        px(if full {
-            STACK_FULL_HEIGHT
-        } else {
-            STACK_ROW_HEIGHT
-        })
+        px(STACK_ROW_HEIGHT)
     }
 }
 
@@ -1232,6 +1464,7 @@ fn spawn_stack_entry(
     fonts: &UiFonts,
     faces: &FaceCtx<'_>,
     mut cards: Option<&mut UiCards<'_>>,
+    text_lines: f32,
 ) -> Entity {
     let key = StackKey::Entry(item.id, full);
     // The next thing to resolve is lit and railed; the one behind it carries
@@ -1274,7 +1507,7 @@ fn spawn_stack_entry(
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
-                height: stack_entry_height(full, full_oracle_fallback(item)),
+                height: stack_entry_height(full),
                 min_height: px(if full {
                     STACK_FULL_HEIGHT
                 } else {
@@ -1492,28 +1725,12 @@ fn spawn_stack_entry(
             .id();
         commands.entity(subtitle).add_child(seat);
         commands.entity(body).add_child(subtitle);
-
-        // What the ability *does*, in the player's own printing and
-        // language. This is the whole reason the host says which sentence a
-        // stack entry is: "+1" tells a player nothing, and a stack of three
-        // triggers that all read `Ability · Ondu Cleric` tells them less.
-        //
-        // The full row only. A queued row answers "what else is coming", and
-        // six sentences stacked under one another would be a wall of text
-        // where the size ramp used to carry the order.
-        if let Some(blocks) = stack_sentence(item, faces) {
-            let line = spawn_stack_sentence(
-                commands,
-                fonts,
-                key,
-                blocks,
-                room,
-                full_oracle_fallback(item),
-            );
-            commands.entity(body).add_child(line);
-        }
     }
 
+    // What it points at, right under what it is: on the full row above the
+    // sentence, so a long sentence can never push its targets out of sight
+    // (the owner, 08.10.2026: *"you can't see the target"*). The sentence
+    // scrolls in its own box under them; the targets never scroll.
     if !item.targets.is_empty() {
         let targets = spawn_stack_targets(
             commands, lang, item, key, full, view, statics, textures, assets, fonts, faces, cards,
@@ -1521,10 +1738,43 @@ fn spawn_stack_entry(
         commands.entity(body).add_child(targets);
     }
 
+    // What the ability *does*, in the player's own printing and language.
+    // This is the whole reason the host says which sentence a stack entry
+    // is: "+1" tells a player nothing, and a stack of three triggers that
+    // all read `Ability · Ondu Cleric` tells them less.
+    //
+    // The full row only. A queued row answers "what else is coming", and six
+    // sentences stacked under one another would be a wall of text where the
+    // size ramp used to carry the order.
+    if full && let Some(blocks) = stack_sentence(item, faces) {
+        let (line, text_box) =
+            spawn_stack_sentence(commands, fonts, key, item.id, blocks, text_lines);
+        commands.entity(body).add_child(line);
+        commands.entity(row).insert(StackTextRow { text_box });
+    }
+
     row
 }
 
-/// The printed sentence on a full row, with a planeswalker's badge before it.
+/// A scrollbar's track and thumb on this panel: the list's and an entry's
+/// sentence's are one look.
+fn bar_colours() -> (Color, Color) {
+    (
+        palette::DOCK_EDGE.with_alpha(0.35),
+        palette::CANDLE.with_alpha(0.8),
+    )
+}
+
+/// How a scrollbar's colours go on here: as plain fills.
+fn fill_bar(node: &mut EntityCommands, paint: super::ledge::log::Paint) {
+    if let super::ledge::log::Paint::Fill(color) = paint {
+        node.insert(BackgroundColor(color));
+    }
+}
+
+/// The printed sentence on a full row, in its box, with a planeswalker's
+/// badge before it. Answers the block to put in the row's body and the box,
+/// which the row names for the wheel ([`StackTextRow`]).
 ///
 /// A walker prints its cost at the head of the line — `+2: Look at the top
 /// card…` — and that badge is the mark a player recognises a walker's ability
@@ -1532,19 +1782,25 @@ fn spawn_stack_entry(
 /// sentence; set as the shape the card draws, it is an **initial**, and what
 /// is left beside it is what the ability does. Both halves come from one cut
 /// ([`baylee_client_core::abilitysheet::loyalty_cut`]), so the cost cannot be
-/// both drawn and printed, nor dropped without being drawn.
+/// both drawn and printed, nor dropped without being drawn. The badge stands
+/// outside the box, so it does not scroll away with the first line.
 ///
 /// Everything else on the stack keeps its whole line. A cost paid in mana is
 /// already a row of marks inside the sentence and has no second shape to
 /// stand as, and a trigger has no cost at all.
+///
+/// The sentence is never cut. It was, at [`STACK_SENTENCE_LINES`] lines by a
+/// character budget, and a cut sentence is a sentence whose last clause — so
+/// often the one naming what it targets — a player cannot read anywhere on
+/// the panel. It stands whole in a box `lines` tall now, and scrolls.
 fn spawn_stack_sentence(
     commands: &mut Commands,
     fonts: &UiFonts,
     key: StackKey,
+    object: ObjectId,
     blocks: Vec<TextBlock>,
-    room: f32,
-    complete: bool,
-) -> Entity {
+    lines: f32,
+) -> (Entity, Entity) {
     use baylee_client_core::abilitysheet;
 
     let (initial, blocks) = abilitysheet::loyalty_cut(blocks);
@@ -1552,38 +1808,14 @@ fn spawn_stack_sentence(
         .spawn((
             Text::default(),
             super::tf_serif(fonts, STACK_SENTENCE_PT, 400),
+            // Stated, so the box is a whole number of these tall.
+            bevy::text::LineHeight::Px(STACK_SENTENCE_LINE),
             TextColor(palette::INK),
             Arriving::ink(key, palette::INK.alpha()),
             Pickable::IGNORE,
-            if initial.is_some() {
-                // Sharing the line with the badge, and able to shrink back
-                // off its own natural width — prose that cannot shrink pushes
-                // the row wide instead of wrapping inside it.
-                Node {
-                    flex_grow: 1.0,
-                    flex_basis: Val::Auto,
-                    min_width: px(0),
-                    ..default()
-                }
-            } else {
-                Node::default()
-            },
         ))
         .id();
-
-    // One budget across the spans, spent in printed order, so a long ability
-    // cannot grow the row past the queue it is ordering — and so the reminder
-    // is what gets cut first, which is the order a player would drop them in
-    // too. The initial takes its own width out of that room first, or the cut
-    // would be measured against pixels the prose no longer has.
-    let prose = room
-        - initial.map_or(0.0, |_| {
-            STACK_SENTENCE_PT * STACK_INITIAL * crate::manaui::BADGE_SPAN + STACK_INITIAL_GAP
-        });
-    let room = budget(prose * STACK_SENTENCE_LINES, STACK_SENTENCE_PT);
-    // The validated source-Oracle fallback must remain completely accessible
-    // in the existing scrolling stack body; its relevant clause may be last.
-    for piece in spans_of(&blocks, (!complete).then_some(room)) {
+    for piece in spans_of(&blocks, None) {
         let ink = if piece.reminder {
             palette::MUTED
         } else {
@@ -1607,10 +1839,74 @@ fn spawn_stack_sentence(
         commands.entity(sentence).add_child(span);
     }
 
+    // The box: as tall as the sentence up to `lines` of it, and scrolled
+    // past that. Its width is what the bar beside it leaves, so the prose
+    // wraps inside it whether the bar shows or not.
+    let text_box = commands
+        .spawn((
+            StackTextBox { object },
+            // What the shell's checks read as a scroll container.
+            crate::shellkit::role::Role::Scroll,
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                min_width: px(0),
+                max_height: px(lines * STACK_SENTENCE_LINE),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            ScrollPosition::default(),
+            Pickable::IGNORE,
+        ))
+        .add_child(sentence)
+        .id();
+    // The panel's own scrollbar, in the panel's own colours: one look for
+    // "there is more of this" in the panel, whichever list it is.
+    let (track, grip) = bar_colours();
+    let (bar, thumb) =
+        super::ledge::log::scrollbar_parts(commands, text_box, (track, grip), fill_bar);
+    commands.entity(bar).insert((
+        StackTextBar { text_box },
+        // Until a layout has measured the box; `stack_text` stands it then,
+        // or at once from what it knew of this entry before a rebuild.
+        Visibility::Hidden,
+        Arriving::fill(key, track.alpha()),
+    ));
+    commands
+        .entity(thumb)
+        .insert(Arriving::fill(key, grip.alpha()));
+    let scroller = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: px(STACK_TEXT_GAP),
+                min_width: px(0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .add_children(&[text_box, bar])
+        .id();
+
     let Some(loy) = initial else {
-        return sentence;
+        return (scroller, text_box);
     };
-    spawn_walker_line(commands, fonts, key, loy, sentence)
+    // Sharing the line with the badge, and able to shrink back off its own
+    // natural width — prose that cannot shrink pushes the row wide instead of
+    // wrapping inside it.
+    commands.entity(scroller).insert(Node {
+        flex_direction: FlexDirection::Row,
+        column_gap: px(STACK_TEXT_GAP),
+        flex_grow: 1.0,
+        flex_basis: Val::Auto,
+        min_width: px(0),
+        ..default()
+    });
+    (
+        spawn_walker_line(commands, fonts, key, loy, scroller),
+        text_box,
+    )
 }
 
 /// The badge and the sentence, as one line.
@@ -2040,29 +2336,6 @@ pub(super) fn stack_sentence(
         })
 }
 
-/// Only validated embedded abilities use a complete source Oracle fallback.
-fn full_oracle_fallback(item: &baylee_client_core::board::StackItem) -> bool {
-    let baylee_client_core::board::StackKind::Ability {
-        rules: Some(rules),
-        ability: Some(ability),
-        token: None,
-        ..
-    } = item.kind
-    else {
-        return false;
-    };
-    ability.card == rules.card
-        && baylee_cards::lines::ability_line(rules.card, usize::from(rules.face), ability.index)
-            .is_none()
-        && baylee_cards::by_index(rules.card).is_some_and(|card| {
-            usize::try_from(ability.index).is_ok_and(|index| {
-                card.abilities_for_face(usize::from(rules.face))
-                    .get(index)
-                    .is_some()
-            })
-        })
-}
-
 /// One-line heading: preserve plain-name truncation and render symbols before budgeting.
 fn queued_heading_spans(title: &str, room: f32, size: f32) -> Vec<Piece> {
     if manapip::inline(title)
@@ -2372,16 +2645,17 @@ mod tests {
             mana: assets.reserve_handle(),
         };
         let mut app = App::new();
-        let row = spawn_stack_sentence(
+        let (_, text_box) = spawn_stack_sentence(
             &mut app.world_mut().commands(),
             &fonts,
             StackKey::Panel,
+            ObjectId::new(1, 0),
             vec![TextBlock::Rules("{1}: Verhindere diesen Schaden.".into())],
-            300.0,
-            false,
+            STACK_SENTENCE_LINES,
         );
         app.world_mut().flush();
-        let first = app.world().get::<Children>(row).unwrap()[0];
+        let sentence = app.world().get::<Children>(text_box).unwrap()[0];
+        let first = app.world().get::<Children>(sentence).unwrap()[0];
         assert_eq!(app.world().get::<TextSpan>(first).unwrap().0, "\u{e606}");
         assert_eq!(
             app.world().get::<TextFont>(first).unwrap().font,
@@ -2403,6 +2677,15 @@ mod tests {
             queued_heading_spans("Æther Vial", 180.0, 13.0)[0].text,
             "Æther Vial"
         );
+    }
+
+    /// A sentence's box is four lines tall on a desktop and two on a phone's
+    /// short window, the shell's own line between them.
+    #[test]
+    fn a_phone_s_short_window_shows_two_lines_of_a_sentence() {
+        let phone = crate::shellkit::size::PHONE_HEIGHT;
+        assert!((text_lines(phone - 1.0) - STACK_SENTENCE_LINES_PHONE).abs() < f32::EPSILON);
+        assert!((text_lines(phone) - STACK_SENTENCE_LINES).abs() < f32::EPSILON);
     }
 
     /// A name that fits is left exactly as printed — the common case, and the
@@ -2688,7 +2971,6 @@ mod tests {
             stack_sentence(&board.stack[0], &faces),
             Some(expected.clone())
         );
-        assert!(full_oracle_fallback(&board.stack[0]));
         let fonts = UiFonts {
             text: Handle::default(),
             medium: Handle::default(),
@@ -2701,18 +2983,19 @@ mod tests {
             mana: Handle::default(),
         };
         let mut app = App::new();
-        let row = spawn_stack_sentence(
+        let (_, text_box) = spawn_stack_sentence(
             &mut app.world_mut().commands(),
             &fonts,
             StackKey::Panel,
+            board.stack[0].id,
             expected,
-            200.0,
-            full_oracle_fallback(&board.stack[0]),
+            STACK_SENTENCE_LINES,
         );
         app.world_mut().flush();
+        let sentence = app.world().get::<Children>(text_box).unwrap()[0];
         let visible: String = app
             .world()
-            .get::<Children>(row)
+            .get::<Children>(sentence)
             .unwrap()
             .iter()
             .filter_map(|child| app.world().get::<TextSpan>(child))

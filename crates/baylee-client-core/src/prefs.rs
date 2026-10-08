@@ -118,11 +118,17 @@ pub enum Action {
     FoldDecision,
     /// Open the report form (#309), from the lobby or the table.
     Report,
+    /// Scroll a long text a box back: the sentence of the stack entry the
+    /// cursor is on (the owner, 08.10.2026). Last in the enum, so a stored
+    /// keymap's order does not move.
+    TextPageUp,
+    /// Scroll it a box on.
+    TextPageDown,
 }
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 37] = [
+    pub const ALL: [Self; 39] = [
         Self::Primary,
         Self::Confirm,
         Self::ConfirmTargetBatch,
@@ -156,6 +162,8 @@ impl Action {
         Self::AnswerNo,
         Self::NumberUp,
         Self::NumberDown,
+        Self::TextPageUp,
+        Self::TextPageDown,
         Self::ToggleTextView,
         Self::ToggleBrowser,
         Self::ToggleLog,
@@ -197,6 +205,8 @@ impl Action {
             Self::AnswerNo => Phrase::ActAnswerNo,
             Self::NumberUp => Phrase::ActNumberUp,
             Self::NumberDown => Phrase::ActNumberDown,
+            Self::TextPageUp => Phrase::ActTextPageUp,
+            Self::TextPageDown => Phrase::ActTextPageDown,
             Self::RailUp => Phrase::ActRailUp,
             Self::RailDown => Phrase::ActRailDown,
             Self::FocusNextSeat => Phrase::ActFocusNextSeat,
@@ -249,9 +259,12 @@ impl Action {
             | Self::AnswerNo
             | Self::NumberUp
             | Self::NumberDown => Phrase::GroupQuestions,
-            Self::ToggleTextView | Self::ToggleBrowser | Self::ToggleLog | Self::Report => {
-                Phrase::GroupDisplay
-            }
+            Self::ToggleTextView
+            | Self::ToggleBrowser
+            | Self::ToggleLog
+            | Self::Report
+            | Self::TextPageUp
+            | Self::TextPageDown => Phrase::GroupDisplay,
         }
     }
 }
@@ -367,6 +380,9 @@ fn pretty_key(name: &str) -> String {
         "ArrowDown" => "↓".to_string(),
         "ArrowLeft" => "←".to_string(),
         "ArrowRight" => "→".to_string(),
+        // What the keys say on most keyboards, and short enough for a cap.
+        "PageUp" => "PgUp".to_string(),
+        "PageDown" => "PgDn".to_string(),
         other => other
             .strip_prefix("Key")
             .or_else(|| other.strip_prefix("Digit"))
@@ -506,6 +522,8 @@ impl Keymap {
         bind(Action::HandDrawer, vec![Chord::key("KeyI")]);
         bind(Action::FoldDecision, vec![Chord::key("KeyX")]);
         bind(Action::Report, vec![Chord::key("F8")]);
+        bind(Action::TextPageUp, vec![Chord::key("PageUp")]);
+        bind(Action::TextPageDown, vec![Chord::key("PageDown")]);
         Self { bindings }
     }
 
@@ -540,6 +558,8 @@ impl Keymap {
         map.bindings.remove(&Action::NextArrangement);
         map.bindings.remove(&Action::HandDrawer);
         map.bindings.remove(&Action::FoldDecision);
+        map.bindings.remove(&Action::TextPageUp);
+        map.bindings.remove(&Action::TextPageDown);
         map
     }
 
@@ -1028,6 +1048,7 @@ mod tests {
         assert_eq!(Chord::shift("KeyW").display(), "Shift+W");
         assert_eq!(Chord::key("Escape").display(), "Esc");
         assert_eq!(Chord::key("ArrowUp").display(), "↑");
+        assert_eq!(Chord::key("PageDown").display(), "PgDn");
         assert_eq!(Chord::key("Digit3").display(), "3");
         assert!(Chord::key("Space").plain());
         assert!(!Chord::shift("Space").plain());
