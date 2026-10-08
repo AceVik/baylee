@@ -1745,10 +1745,14 @@ fn add_present_systems(app: &mut App) {
                 // And after the rebuild too: a preview rebuilt this frame is
                 // stood back where its text had been scrolled to, and its
                 // scrollbar shown if the text runs over (#259).
+                // And a stack entry's sentence the same way: stood where it
+                // had been scrolled to, its keys' steps taken, and its bar
+                // shown while it runs over.
                 (
                     hud::wash_the_slip_in,
                     hud::keep_the_preview_scrolled,
                     face::show_scrollbars,
+                    hud::stack_text,
                 )
                     .after(hud::sync_overlay),
                 // After the rebuild for the reason `ease_the_stack_in` is:
@@ -2080,6 +2084,7 @@ impl Plugin for DuelPlugin {
             .insert_resource(settings::ClientSettings::load())
             .init_resource::<Duel>()
             .init_resource::<hud::PreviewScroll>()
+            .init_resource::<hud::StackTextScroll>()
             // Both are written by systems that run every frame; a missing
             // resource here is a panic at the table, not a compile error.
             .init_resource::<table::SceneIndex>()

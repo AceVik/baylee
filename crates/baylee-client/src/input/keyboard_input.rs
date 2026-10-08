@@ -3,13 +3,22 @@
 #[allow(clippy::wildcard_imports)] // the input module's shared vocabulary
 use super::*;
 
+/// What else may hold the keys besides the table: the report form, the
+/// arrangement menu, and the sentence of the stack entry the cursor is on.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct KeyClaims<'w> {
+    desk: Option<Res<'w, crate::report::ReportDesk>>,
+    arrangements: Option<ResMut<'w, crate::arrangement::ArrangementFrame>>,
+    stack_text: Option<ResMut<'w, crate::hud::StackTextScroll>>,
+}
+
 /// Keyboard handling: every key comes from the account's keymap.
 ///
 /// The handler asks *actions*, never keys. That is what makes rebinding work
 /// at all, and it also removed the `if !shift` guards that used to be sprayed
 /// through here — `W` and `⇧W` are two chords, and telling them apart is the
 /// keymap's job, not this function's.
-#[allow(clippy::too_many_arguments)] // the eighth is the report form's claim on the keys
+#[allow(clippy::too_many_arguments)] // the eighth is what else may claim the keys
 pub fn keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     logical: Option<Res<ButtonInput<Key>>>,
@@ -18,13 +27,10 @@ pub fn keyboard(
     mut prefs: ResMut<crate::prefs::Prefs>,
     mut settings: ResMut<crate::settings::ClientSettings>,
     mut had_keyboard: Local<bool>,
-    (desk, mut arrangements): (
-        Option<Res<crate::report::ReportDesk>>,
-        Option<ResMut<crate::arrangement::ArrangementFrame>>,
-    ),
+    mut claims: KeyClaims,
 ) {
     // The report form, when it is up, has every key (#309).
-    if desk.is_some_and(|desk| desk.holds_keyboard()) {
+    if claims.desk.is_some_and(|desk| desk.holds_keyboard()) {
         typed.clear();
         return;
     }
@@ -41,7 +47,7 @@ pub fn keyboard(
     // The arrangement menu, while it stands, has every key too (DESIGN-v8
     // §2.3): the table hears nothing until it is shut.
     if duel.arrangement_menu.is_some()
-        && let Some(frame) = arrangements.as_deref_mut()
+        && let Some(frame) = claims.arrangements.as_deref_mut()
     {
         arrangement_menu_keys(fired, &mut typed, &mut duel, &mut settings, frame);
         return;
@@ -107,7 +113,7 @@ pub fn keyboard(
     // `P` opens the arrangement menu, `Shift+P` takes the next arrangement:
     // after every text field has had its keys, so a `p` typed into the
     // browser's filter is a letter.
-    if let Some(frame) = arrangements.as_deref_mut()
+    if let Some(frame) = claims.arrangements.as_deref_mut()
         && crate::arrangement::keys(fired, &[], &mut duel, &mut settings, frame)
     {
         return;
@@ -167,6 +173,9 @@ pub fn keyboard(
     // spend Enter on whatever card the pointer happens to be resting on
     // behind the sheet.
     if browser_answer_keys(fired, &mut duel) {
+        return;
+    }
+    if crate::hud::stack_text_keys(fired, &duel, claims.stack_text.as_deref_mut()) {
         return;
     }
     if the_click(fired, &mut duel, &mut prefs) {
