@@ -293,8 +293,6 @@ pub(crate) mod glyph {
     pub const HOURGLASS: char = '\u{f254}';
     /// Clock from the same cmap: a seat's decision clock beside its plate.
     pub const CLOCK: char = '\u{f017}';
-    /// Sun, from the same cmap: the seat whose turn it is (DESIGN-v7 §3.6).
-    pub const SUN: char = '\u{f185}';
     /// Heart (life total).
     pub const HEART: char = '\u{f004}';
     /// Hand (cards in hand).
@@ -305,8 +303,6 @@ pub(crate) mod glyph {
     pub const SKULL: char = '\u{f54c}';
     /// Ban (exile).
     pub const EXILE: char = '\u{f05e}';
-    /// Skull and crossbones (poison counters), on a player's button (#264).
-    pub const POISON: char = '\u{f714}';
     /// Battery half (charge counters on a permanent).
     pub const CHARGE: char = '\u{f242}';
     /// Bolt (energy counters).
@@ -322,9 +318,22 @@ pub(crate) mod glyph {
     pub const CARET_DOWN: char = '\u{f0d7}';
     /// Expand (resize handle).
     pub const EXPAND: char = '\u{f065}';
-    /// Crown (the command zone, and a commander's damage on a player's
-    /// button, #264).
+    /// Crown (the command zone).
     pub const COMMAND: char = '\u{f521}';
+    /// Crown again, as the monarch's (CR 724): on the monarch's plate and
+    /// chip, in the candle's gold (the owner, 08.10.2026). The same glyph as
+    /// [`COMMAND`], which is why commander damage left it.
+    pub const CROWN: char = '\u{f521}';
+    /// Chevron up: open the question's sheet from its pill.
+    pub const CHEVRON_UP: char = '\u{f077}';
+    /// Chevron down: fold the question's sheet to its pill.
+    pub const CHEVRON_DOWN: char = '\u{f078}';
+    /// Infinity: a hand no maximum size applies to, the mark alone.
+    pub const INFINITY: char = '\u{f534}';
+    /// Half a shield: the most damage one commander has dealt a seat
+    /// (CR 903.10a), on its plate and chip. It wore the crown until the
+    /// monarch needed it.
+    pub const COMMANDER_DAMAGE: char = '\u{f3ed}';
     /// Robot (a chair the house plays, on a player's button, #264).
     pub const HOUSE: char = '\u{f544}';
     /// Person walking (a player who stepped away, whose chair is held).
@@ -565,6 +574,9 @@ pub enum MenuAction {
     /// Decline a payment window: pass it without paying. The pay button is
     /// the prompt's confirm ([`crate::Duel::pay_owed`]).
     DeclinePayment,
+    /// Take back the spell being cast (`Duel::cancel_cast`): the shelf's
+    /// last answer while the view names one, and `Esc`'s last rung.
+    CancelCast,
     /// Open the report form (#309), from the game menu.
     Report,
     /// Open the arrangement menu (DESIGN-v8 §2.4): the game menu's row, and
@@ -579,6 +591,11 @@ pub enum MenuAction {
     ///
     /// Only ever drawn while one is running.
     ReleaseHold,
+    /// Fold the question's sheet to its pill, or open it again.
+    FoldDecision,
+    /// Show one letter group of the creature-type chooser's full list
+    /// (`typechooser::GROUPS`), emptying what was typed.
+    TypeGroup(u8),
     /// Hold priority until the stack is empty: `PriorityHold::UntilStackEmpty`,
     /// the same thing `Action::HoldForStack` sends and by the same road.
     ///
@@ -595,9 +612,12 @@ pub enum MenuAction {
     HoldForStack,
     /// Send the armed deed (`crate::Armed`).
     SendArmed,
-    /// Put away the cards another seat revealed (`hud::revealed`): a press
-    /// on the sheet, as `Esc` does. The next waiting reveal stands up.
+    /// Put away the cards another seat revealed (`hud::revealed`): its
+    /// close cross or its foot's button, as `Esc` does. The next waiting
+    /// reveal stands up.
     DismissReveal,
+    /// Fold the reveal's sheet to its pill, or open it again.
+    FoldReveal,
     /// Put it back with nothing on the wire.
     ///
     /// Both of these are `MenuButton`s rather than a component of their own
@@ -1940,6 +1960,25 @@ pub(crate) fn beside_corner(window: Vec2) -> Rect {
     )
 }
 
+/// What the HUD stands in over the table's two top corners, in a window
+/// `window` big: the arrangement pill at the left (at its widest name) and
+/// the report button with the square beside it at the right, each down to
+/// [`TOP_CLEAR`]. Ink pinned to the table that would reach either is drawn
+/// somewhere else (`seatbar::attached::plate_on`).
+#[must_use]
+pub(crate) fn hud_corners(window: Vec2) -> [Rect; 2] {
+    let pill = crate::arrangement::widest_pill();
+    [
+        Rect::new(0.0, 0.0, EDGE + pill + 4.0, TOP_CLEAR),
+        Rect::new(
+            window.x - BESIDE_CORNER - CORNER_BUTTON - 4.0,
+            0.0,
+            window.x,
+            TOP_CLEAR,
+        ),
+    ]
+}
+
 /// The end screen's root rung: over every other root of the table
 /// (`GlobalZIndex(0)`, the seat bars at -1). See [`finish`].
 pub(crate) const G_FINISH: i32 = 1;
@@ -2175,6 +2214,7 @@ pub struct DetachedHud;
 pub(crate) mod chosen_type;
 mod finish;
 mod hand;
+pub(crate) mod hint;
 mod ledge;
 pub(crate) use ledge::ai_log::update_ai_log;
 pub(crate) mod hand_drawer;
@@ -2211,19 +2251,25 @@ pub use hand::apply_hand_scroll;
 /// Gentle lift while inspecting a hand card.
 pub(crate) const HOVER_RAISE: f32 = 12.0;
 pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
+pub use hint::{Hint, show_hint};
 /// The one line the actions row carries, which `frontal` paints because the
 /// row is drawn by a `MaterialNode` and a border on one is a question.
 pub(crate) use ledge::LIP as LEDGE_LIP;
-pub use ledge::drawer::{DrawerRevision, DrawerRoot, sync_drawer, zoom_the_drawer};
+pub(crate) use ledge::drawer::sheet_asked;
+pub use ledge::drawer::{
+    DrawerRevision, DrawerRoot, SheetPill, SheetSource, SheetTitle, sync_drawer, zoom_the_drawer,
+};
 pub use ledge::log::{
     LogHover, LogLink, LogPanel, LogRevision, follow_the_log, grow_the_log, hover_log_links,
     sync_log,
 };
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, show_priority_switch, sync_menu};
+pub(crate) use ledge::players::STRIPS_H;
 pub use ledge::players::{
-    ChipTag, PlayersRevision, TagKind, glow_the_players, show_the_tags, sync_players,
+    ChipCrown, ChipTag, HintSeat, PlayersRevision, TagKind, glow_the_players, show_the_tags,
+    sync_players,
 };
-pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool, zoom_the_pool};
+pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool};
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
 pub use ledge::{
     DecisionClockLabel, LedgeLayout, LedgeRevision, LedgeShelf, count_down_the_decision, sync_ledge,
@@ -2237,6 +2283,7 @@ pub(crate) use scroll::scrolled;
 pub use scroll::{
     HandScroll, PreviewScroll, Scrolls, follow_the_hover, keep_the_preview_scrolled, scrolls,
 };
+pub use seatbar::attached::{PlateBeside, PlateMark, PlateMarkKind, PlateTab, plate_beside};
 pub use seatbar::plateclock::{PlateClock, PlateClockRoot, sync_plate_clocks, tick_plate_clocks};
 pub use seatbar::{
     BarRevision, LifeCell, SeatBar, SeatBarRoot, SeatInk, SeatStep, SeatTile, Shelf, Shelves,

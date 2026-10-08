@@ -98,6 +98,9 @@ pub struct LogLine {
     /// damage to a permanent, a transform, day and night, a loop, the end of
     /// the game.
     pub subject: Option<PlayerId>,
+    /// Whether the line crowns a monarch (CR 724), which a panel marks with
+    /// the crown the monarch's plate and chip wear.
+    pub crowned: bool,
 }
 
 impl LogLine {
@@ -453,6 +456,7 @@ impl Writer<'_> {
                 _ => None,
             },
             subject: piece.subject,
+            crowned: matches!(entry.event, LogEvent::BecameMonarch { .. }),
         }
     }
 
@@ -1194,6 +1198,15 @@ mod tests {
     /// `event` as Ada reads it in `lang`.
     fn say(lang: Lang, event: LogEvent) -> String {
         read(&book(&[entry(1, event)]), lang).text
+    }
+
+    /// The line crowning a monarch is marked so a panel can wear the crown,
+    /// and no other line is.
+    #[test]
+    fn only_the_monarchs_line_is_crowned() {
+        let crowned = |event| read(&book(&[entry(1, event)]), Lang::En).crowned;
+        assert!(crowned(LogEvent::BecameMonarch { player: ME }));
+        assert!(!crowned(LogEvent::Shuffled { player: ME }));
     }
 
     // ---- the book ----------------------------------------------------------
@@ -2457,6 +2470,7 @@ mod tests {
             players: Vec::new(),
             ability: None,
             subject: None,
+            crowned: false,
         };
         assert_eq!(line.clock(0), None, "a line the host never dated");
         // 2026-09-25 12:34:56.789 UTC.

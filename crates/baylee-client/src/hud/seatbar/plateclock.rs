@@ -3,13 +3,14 @@
 //! Player-Details-Overlay, für ALLE Spieler sichtbar, das Uhr-Icon und
 //! darunter oder daneben die Zeit, die der Spieler noch hat"*).
 //!
-//! **A small element of its own, beside the plate and not inside it.** The
-//! plate is [`attached::Panel::Identity`]; this module only *reads* where it
-//! stands ([`attached::pose`]) and its size ([`attached::Panel::size`]), and
-//! stands its own box at the plate's right-hand side ([`beside`]), turned and
-//! scaled with it. Nothing in the plate's tree or layout knows it is there,
-//! so the plate can be redrawn without this file. The one place the two
-//! meet is [`beside`].
+//! **A small element of its own, beside the plate and not inside it.** This
+//! module only *reads* where the plate is drawn — the plates' own anchor for
+//! what stands beside them, [`attached::plate_beside`] (its drawn quad, turn,
+//! scale and the mat edge's `along`/`away`) — and stands its own box at the
+//! plate's free side, `along` the mat's edge ([`beside`]), turned and scaled
+//! with it. Nothing in the plate's tree or layout knows it is there, so the
+//! plate can be redrawn without this file. The one place the two meet is
+//! [`beside`].
 //!
 //! **Its own root and its own lifetime.** One [`PlateClock`] per seat, built
 //! when the table's seats change and never on a view: a clock is shown and
@@ -76,20 +77,22 @@ pub fn ink(urgency: Urgency) -> Color {
     }
 }
 
-/// Where the clock stands, given where the plate stands: its box's top-left
-/// before the turn, the turn and the scale, which are the plate's.
+/// Where the clock's box stands (its top-left before the turn, which with the
+/// plate's turn and scale is what its `Node` and `UiTransform` take), given
+/// where the plate is drawn.
 ///
-/// The plate's own pose ([`attached::pose`]) is a box `plate` big, turned
-/// and scaled about its middle; the clock's middle is that middle moved
-/// along the plate's own row by half the plate, the gap and half the clock,
-/// all at the plate's scale. **The one line that says where the clock
-/// attaches:** change the offset here to stand it elsewhere (below the
-/// plate is `Vec2::new(0.0, plate.y * 0.5 + GAP + CLOCK_H * 0.5)`).
+/// The plate hangs at the mat's left corner and slides right, so its free
+/// side is `along` the mat's edge: the clock's middle is the middle of the
+/// plate's drawn edge on that side (`quad[1]`, `quad[2]`: top-right and
+/// bottom-right as it reads), moved on by the gap and half the clock at the
+/// plate's scale. **The one line that says where the clock attaches:** to
+/// stand it elsewhere, change the edge and the direction here (below the
+/// plate, away from the battlefield, is `quad[2]`/`quad[3]` and `away`).
 #[must_use]
-pub fn beside(plate_corner: Vec2, plate: Vec2, tilt: f32, scale: f32) -> Vec2 {
-    let middle = plate_corner + plate * 0.5;
-    let along = Vec2::new(plate.x * 0.5 + GAP + CLOCK_W * 0.5, 0.0);
-    middle + Rot2::radians(tilt) * along * scale - Vec2::new(CLOCK_W, CLOCK_H) * 0.5
+pub fn beside(plate: &attached::PlateBeside) -> Vec2 {
+    let edge = plate.quad[1].midpoint(plate.quad[2]);
+    let middle = edge + plate.along * (GAP + CLOCK_W * 0.5) * plate.scale;
+    middle - Vec2::new(CLOCK_W, CLOCK_H) * 0.5
 }
 
 /// Builds one clock per seat when the table's seats change: a hidden box
@@ -176,14 +179,15 @@ pub fn sync_plate_clocks(
 /// Counts every seat's clock down and stands each beside its plate.
 ///
 /// Hidden where the seat is on no clock, and wherever its plate is not
-/// drawn ([`attached::pose`] says `None`: a tear, a shelf off screen, a
-/// plate under the hand zone), because a clock with no plate beside it
-/// names nobody.
+/// drawn ([`attached::plate_beside`] says `None`: a tear, a shelf off
+/// screen, a plate under the hand zone), because a clock with no plate
+/// beside it names nobody.
 #[allow(clippy::type_complexity)] // two disjoint queries over one clock's parts
 pub fn tick_plate_clocks(
     time: Res<Time>,
     mut duel: ResMut<Duel>,
     shown: Res<crate::table::ShownRig>,
+    settings: Res<crate::settings::ClientSettings>,
     windows: Query<&Window>,
     mut clocks: Query<(&PlateClock, &mut Node, &mut UiTransform)>,
     mut inks: Query<(&PlateClockInk, &mut Text, &mut TextColor)>,
@@ -196,23 +200,22 @@ pub fn tick_plate_clocks(
     let lens = shown.rig().zip(windows.single().ok()).map(|(rig, window)| {
         crate::table::Lens::new(rig, Vec2::new(window.width(), window.height()))
     });
+    // The plates are drawn at the player's text step; so is what stands
+    // beside them.
+    let step = settings.text_size.factor();
     for (clock, mut node, mut turn) in &mut clocks {
-        let label = duel.seat_clocks.label(clock.player);
-        let pose = label.as_ref().and_then(|_| {
-            attached::pose(
-                &duel,
-                lens.as_ref(),
-                clock.player,
-                attached::Panel::Identity,
-            )
-        });
-        let Some((corner, tilt, scale)) = pose else {
+        let plate = duel
+            .seat_clocks
+            .label(clock.player)
+            .and(lens.as_ref())
+            .and_then(|lens| attached::plate_beside(&duel, lens, clock.player, step));
+        let Some(plate) = plate else {
             if node.display != Display::None {
                 node.display = Display::None;
             }
             continue;
         };
-        let at = beside(corner, attached::Panel::Identity.size(), tilt, scale);
+        let (at, tilt, scale) = (beside(&plate), plate.tilt, plate.scale);
         if node.display != Display::Flex {
             node.display = Display::Flex;
         }
@@ -248,34 +251,48 @@ pub fn tick_plate_clocks(
 mod tests {
     use super::*;
 
-    /// The clock stands to the right of the plate, clear of it, its middle
-    /// on the plate's middle line — upright, and turned with the plate.
+    /// The clock stands on the plate's free side, clear of it, its middle
+    /// on the plate's middle line, the gap scaled with the plate — and on a
+    /// plate turned a quarter, `along` the mat's edge, below it.
     #[test]
     fn the_clock_stands_beside_the_plate_and_turns_with_it() {
-        let plate = Vec2::new(240.0, 60.0);
-        let corner = Vec2::new(100.0, 400.0);
-        let at = beside(corner, plate, 0.0, 1.0);
-        let middle = at + Vec2::new(CLOCK_W, CLOCK_H) * 0.5;
-        assert!((middle.y - (corner.y + plate.y * 0.5)).abs() < 1e-3);
+        let flat = |scale: f32| attached::PlateBeside {
+            quad: [
+                Vec2::new(100.0, 400.0),
+                Vec2::new(340.0, 400.0),
+                Vec2::new(340.0, 460.0),
+                Vec2::new(100.0, 460.0),
+            ],
+            tilt: 0.0,
+            scale,
+            along: Vec2::X,
+            away: Vec2::Y,
+        };
+        let middle = |at: Vec2| at + Vec2::new(CLOCK_W, CLOCK_H) * 0.5;
+        let at = middle(beside(&flat(1.0)));
+        assert!((at.y - 430.0).abs() < 1e-3, "off the plate's middle line");
         assert!(
-            at.x >= corner.x + plate.x + GAP - 1e-3,
-            "the clock overlaps its plate: {at} beside {corner}"
+            at.x - CLOCK_W * 0.5 >= 340.0 + GAP - 1e-3,
+            "the clock overlaps its plate: {at}"
         );
+        let small = middle(beside(&flat(0.5)));
+        assert!((small.x - (340.0 + (GAP + CLOCK_W * 0.5) * 0.5)).abs() < 1e-3);
 
-        // Half the size: the gap and the offset halve with it.
-        let small = beside(corner, plate, 0.0, 0.5);
-        let small_middle = small + Vec2::new(CLOCK_W, CLOCK_H) * 0.5;
-        let plate_middle = corner + plate * 0.5;
-        assert!(
-            (small_middle.x - plate_middle.x - (plate.x * 0.5 + GAP + CLOCK_W * 0.5) * 0.5).abs()
-                < 1e-3
-        );
-
-        // A plate turned a quarter stands its clock below its middle.
-        let turned = beside(corner, plate, std::f32::consts::FRAC_PI_2, 1.0);
-        let turned_middle = turned + Vec2::new(CLOCK_W, CLOCK_H) * 0.5;
-        assert!((turned_middle.x - plate_middle.x).abs() < 1e-3);
-        assert!(turned_middle.y > plate_middle.y + plate.x * 0.5);
+        let turned = attached::PlateBeside {
+            quad: [
+                Vec2::new(430.0, 300.0),
+                Vec2::new(430.0, 540.0),
+                Vec2::new(370.0, 540.0),
+                Vec2::new(370.0, 300.0),
+            ],
+            tilt: std::f32::consts::FRAC_PI_2,
+            scale: 1.0,
+            along: Vec2::Y,
+            away: Vec2::NEG_X,
+        };
+        let at = middle(beside(&turned));
+        assert!((at.x - 400.0).abs() < 1e-3);
+        assert!(at.y > 540.0, "the clock is not past the plate's free end");
     }
 
     /// The table this client draws for seat 0 against seat 1, in a default
@@ -302,6 +319,7 @@ mod tests {
         app.insert_resource(duel)
             .insert_resource(ShownRig::standing(rig))
             .insert_resource(Time::<()>::default())
+            .init_resource::<crate::settings::ClientSettings>()
             .insert_resource(UiFonts {
                 text: default(),
                 medium: default(),
@@ -380,17 +398,16 @@ mod tests {
             .rig()
             .expect("a rig");
         let lens = crate::table::Lens::new(rig, Vec2::new(1280.0, 720.0));
-        let (corner, tilt, scale) = attached::pose(
+        let plate = attached::plate_beside(
             duel,
-            Some(&lens),
+            &lens,
             PlayerId::new(1),
-            attached::Panel::Identity,
+            crate::settings::ClientSettings::default()
+                .text_size
+                .factor(),
         )
         .expect("the opponent's plate is drawn");
-        assert_eq!(
-            at,
-            beside(corner, attached::Panel::Identity.size(), tilt, scale)
-        );
+        assert_eq!(at, beside(&plate));
 
         // A second and a half later: written once, as 2:59.
         let tick = |app: &mut App, secs: f32| {

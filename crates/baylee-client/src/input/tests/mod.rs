@@ -36,6 +36,7 @@
 
 mod alpha_choices;
 mod arming;
+mod cancel_cast;
 mod combat;
 mod dialog_keys;
 mod hover;
@@ -261,8 +262,24 @@ fn menu_app(duel: crate::Duel) -> (bevy::app::App, bevy::prelude::Entity, bevy::
     (app, draw, concede)
 }
 
+/// An app that runs the pointer's one system over `duel`, with everything
+/// it reads: what a test of a press needs and nothing else.
+pub(crate) fn pointer_app(duel: crate::Duel) -> bevy::app::App {
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::table::CameraRig>()
+        .init_resource::<crate::touch::Touched>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
+        .insert_resource(duel)
+        .init_resource::<crate::input::TrayGlide>()
+        .add_systems(Update, crate::input::pointer);
+    app
+}
+
 /// One click on one entity, as the picking backend would report it.
-fn click(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
+pub(crate) fn click(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
     use bevy::camera::NormalizedRenderTarget;
     use bevy::picking::events::{Click, Pointer};
     use bevy::picking::pointer::{Location, PointerId};

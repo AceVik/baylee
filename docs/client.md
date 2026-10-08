@@ -4705,9 +4705,10 @@ is three things that say what is happening:
   beats `Turn` rather than sitting inside it. It says what the window *is* and
   not what is owed, and stops short of what declining costs, because whether
   it is a countered spell or an unpaid tax is the engine's sentence.
-- **The number**, beside the mana pool rather than in the shelf's middle
-  column, in one register and scale with the pool, drawn by the same
-  `manapip`. It is the **remainder**, not the cost: `manaplan::remainder`
+- **The number**, on the shelf's right-end strip rather than in its middle
+  column, drawn by the same `manapip` as the plates' pools (since 08.10.2026
+  the strip says only this; the pool is on each seat's plate, §"Two lines, and
+  a plate at the mat's end"). It is the **remainder**, not the cost: `manaplan::remainder`
   subtracts the pool by the planner's own matching (a hybrid by either half,
   `{2/C}` the cheaper way, a CR 609.4b spending permission counted,
   restricted mana not, as in the planner), so `{2}{G}` owed with a Forest
@@ -4717,10 +4718,8 @@ is three things that say what is happening:
   (`nothing_is_owed_exactly_when_the_pool_pays_without_a_tap`). It is drawn
   only in this seat's own window (`view.awaiting == view.seat`): a seat
   watching an opponent pay a ward tax is owed nothing from its own pool. The
-  strip is hidden while nothing floats, and the first frame of a payment
-  window is exactly that case, so `owed` is a fourth conjunct on its `empty`
-  gate — otherwise the row saying what is owed would unfold only after the
-  player had worked it out.
+  strip stands exactly while something is owed and folds away when the
+  window closes.
 - **The lands**, through the planner unchanged. `manaplan::plan` takes a cost
   it did not derive and spends the pool first by its own contract, so passing
   `owed` — which is the *total*, not the remainder — needs no arithmetic here
@@ -6156,42 +6155,208 @@ button at the right side (sticked to right) into the actions bar AND finally:
 Put the player ettiketes there where the Manazone was above the actions bar at
 the left side."*
 
-- **The mana pool** hangs off the shelf's right end (`ledge::pool`, still
-  `strip_node`, now `StripSide::Right`, grown from its bottom-right corner).
-  The game log's panel stands on that strip's top edge, as it stood on the
-  tray's, so a log left open never covers the mana a player is spending.
+- **The mana pool** hung off the shelf's right end (`ledge::pool`, still
+  `strip_node`, `StripSide::Right`, grown from its bottom-right corner) until
+  08.10.2026, when it moved onto every seat's plate; the strip now stands only
+  while this seat owes in a payment window. The game log's panel stands on
+  that strip's top edge, as it stood on the tray's.
 - **The log's and the zones' doors** stand in the bar's own row, directly left
   of the burger and its size (`ledge::tray::root_node`; the right column
   reserves `tray::WIDTH` for them). They are still a retained node of their
   own and not the shelf's children, because the shelf is rebuilt on every
   sentence and the doors must always be there.
-- **The players' strip** (`ledge::players`) hangs off the left end: one button
+- **The players' strip** (`ledge::players`) hangs off the left end: one chip
   per seat, the reader's first, then the table's order with each team
-  together (4 px inside a team, 10 px between sides). A button is its seat's
-  spine in the colour the rim and the log name it by (`seat_colour`), a mark
-  for a house chair, an away one or a lost one, the name as the rim writes it
-  (`seatbar::called`), life, hand, library, and poison and the largest single
-  commander's damage when either is not zero. The design is Fable's, keyed to
-  the lobby's blue hour.
+  together (4 px inside a team, 10 px between sides). A chip is two lines
+  since 08.10.2026 (§"Two lines, and a plate at the mat's end"): its seat's
+  spine in the colour the rim and the log
+  name it by (`seat_colour`), then a mark for a house chair, an away one or a
+  lost one, the crown on the monarch, the name as the rim writes it
+  (`seatbar::called`) and the life; under them the hand (∞ beside it where no
+  maximum hand size applies), library, graveyard and exile, and poison,
+  energy and the largest single commander's damage when they are not zero.
+  The design is Fable's, keyed to the lobby's blue hour.
 - **Three edges for three states**, so they can all show at once: whose turn
-  it is is a candle line along the top (wiped in from the left in 240 ms,
+  it is is an ivory line along the top (wiped in from the left in 240 ms,
   faded in 120), who the table is waiting on breathes in the border (1.6 s),
   and the seat the camera is on has a bar along the bottom (grown from the
   middle in 160 ms). `glow_the_players` runs them; under `reduce_motion` each
   stands at its end. A changed life is lit green or red for 300 ms.
+- **No ☀ or ⌛** (the owner, 08.10.2026): the two states a colour must not
+  carry alone are two lines along the **top** edge of chip, plate and peek.
+  The turn is ivory the whole width, 3 px (`players::TURN_H`); the table
+  waiting on the seat (priority, or any question it is deciding) is teal,
+  2 px (`PRIORITY_H`), set in by 22 % from both ends, just under it. The
+  colours are the dial's two hands' (`felt.wgsl`'s `IVORY` and `TEAL` =
+  `palette::ACCENT`); place, length and weight tell them apart without
+  colour, and both stand together on the seat that is both. They are
+  spawned once (`players::line`, `ChipTag`) and shown by `show_the_tags`;
+  the chip's and the plate's hint says *"Am Zug"* / *"Der Tisch wartet"*
+  while they hold (`HintSeat`). `/state.chips[].lines` and
+  `/state.plates[].lines` report `{"turn", "priority"}`.
 - **A press is the rim's press**: every button is a `PlayerTab`, so your own
   seat or the one the camera is on brings the camera home, any other glides to
   that seat (`navigate_to_player`, eased by `ShownRig`), and while a question
   can target a player the press points at that player instead.
-- **Narrow windows lose words, not height** (`players::Tier`): full, middle
-  (no library), compact (badges without numbers), initials and life. The row
-  keeps 300 px free for the pool whether or not mana floats, so it does not
-  change tier when a mana arrives.
+- **Narrow windows lose words, not lines** (`players::Tier`): full, middle
+  (no exile), compact (hand and the threatening counters), initials, life
+  and hand. Each chip is priced from what it says (`players::chip_width`),
+  so a seat with poison, commander damage and three-digit counts is not
+  priced like a quiet one (D20). The row keeps 150 px free for the owed strip
+  on a laptop whether or not a payment is open, so it does not change tier
+  when one opens; below 1000 px it keeps none and the strip stands over the
+  last chips while a payment is open. The text step scales the chips and is
+  part of the fit; a row even the narrowest tier cannot fit is cut at the
+  strip's edge rather than run off the window.
 - **The drawer stands over it.** The strip is at the shelf's rung and spawned
   before the drawer, which grows out of the same edge, centred; at eight seats
   the row reaches past the window's middle, and a question is read over the
-  roster. A maximised zone dialog covers it too, while the pool's strip stays
-  at `Z_TRAY` over both, because mana is read while it is spent.
+  roster. A maximised zone dialog covers it too, while the owed strip stays
+  at `Z_TRAY` over both, because a payment is read while it is made.
+
+### Two lines, and a plate at the mat's end (08.10.2026)
+
+The owner's six requests for the table, and what each became:
+
+- **The chips are two lines** (above): name and life, then the details. The
+  strip is `PLAYERS_STRIP_H` tall (a chip and the strip's padding) and grows
+  upwards out of the shelf by the second line; what it gives back is width —
+  eight seats fit whole on a laptop and as initials, life and hand at 844.
+- **The plate** (`seatbar::attached`, `Panel::Identity`) is what the rim's
+  identity panel was, cleaner and in the chips' blue hour: a seat-coloured
+  spine, then the same lines (`client_core::seatplate::SeatPlate`, the one
+  reading both surfaces share) — crown, mark, name and life, under the
+  turn's and the wait's lines along its top edge;
+  the details; and a third line with the pool's pips (Mana font, a count
+  each, restricted mana framed) only while mana floats, for every seat. The
+  counts that stood beside the piles (`Panel::Zone`) are gone into it.
+- **Where it stands**: flush with the seat's battlefield (the owner's second
+  word of 08.10.2026, after a first cut stood the plates out by the rim):
+  its edge on the mat's drawn edge on the hearth side (where `mat.wgsl`
+  crops the field at the shelf: the ledge band's far line), a hairline off
+  (`BAND_AIR`, the one constant the steps hang by too), square to that edge under any perspective, its end at the
+  mat's corner on the seat's own left (`mat_edge`, `plate_on`). Outside the
+  mat, so it covers no card and no badge. Plates are placed seat by seat in
+  the table's order, each sliding along its edge (a quarter of its width at
+  a time) off the window's edge, the HUD's top corners
+  (`hud::hud_corners`), the strips and the hand (`STRIPS_H`), other seats'
+  places and the plates already placed — so a duel's two plates, whose mats
+  face each other across a narrow hearth, stand at opposite ends. A
+  three-line plate grows away from the mat. The text step scales it.
+  `every_plate_is_flush_with_its_battlefield_and_meets_no_other` holds all
+  of it for every built arrangement, two to eight seats, a laptop's and a
+  phone's window.
+- **One control**: every node on the plate is `Pickable::IGNORE`, so the
+  plate takes the hover and the press (`nothing_on_a_plate_takes_the_pointer_from_it`).
+  It is a `PlateTab`, not a `PlayerTab`: a press chooses the seat while a
+  question can target it (`Interaction::toggle_player`) and does nothing
+  otherwise — never the camera, which the chips move. Its light
+  (`PlateLight`): offered, aimed (pointer or the keyboard's `Pick::Seat`
+  aim), chosen. Its `Hint` is the plate in words, shown by the hint bubble
+  and reported as `/state.plates[].hint`.
+- **∞**: no maximum hand size is the ∞ mark alone beside the hand, on plate
+  and chip (`glyph::INFINITY`); never "7/∞", never the phrase.
+- **The monarch** wears a crown before the name on plate and chip
+  (`glyph::CROWN`, `view.monarch`). Commander damage, which had the crown,
+  wears half a shield (`glyph::COMMANDER_DAMAGE`). The log's line for
+  becoming the monarch (`LogEvent::BecameMonarch`) wears it too
+  (`LogLine::crowned`).
+- **The steps** hang on the same edge as the plate, by the same
+  `BAND_AIR` (the owner's first alignment rule: plate and bar *"at the same
+  distance from the battlefield"*), with the panel's end on the seat's
+  right at the mat's drawn corner there (the second: *"the phases bar's
+  right edge on the same line as the battlefield's right edge"*, which for
+  a seat across the table is on the screen's left) — `attached::steps_on`,
+  from the projected mat edge, so it holds in every arrangement and frame.
+  Their tiles are the panel's end that meets the battlefield and the step's
+  name the end away from it (`JustifyContent::FlexEnd`, the column turned
+  round by `place` where the mat is above the panel): over the tiles on my
+  band, under them on the band across (the owner's third word). A plate
+  slides off every seat's steps. `every_plate_is_flush_with_its_battlefield_and_meets_no_other`
+  measures both gaps (1.5 px) and the corner (2 px) for every built
+  arrangement, two to eight seats, at 1708, 1280 and 844;
+  `the_steps_names_face_away_from_the_battlefield` the turn.
+- **The pool's old strip** says only what is owed now (above).
+
+Anything another lane stands beside a plate (the decision clock) reads
+`hud::plate_beside` → `PlateBeside`: the plate's drawn quad, turn and
+scale, `along` (towards its free end) and `away` (from the mat), so the
+two never place the same thing twice.
+
+`/state.plates` reports each plate's box, whether it is drawn, its lines,
+crown, ∞ and pool line and its hint; `/state.chips` each chip's lines,
+crown, hint and box.
+
+### The question's sheet, and its fold (08.10.2026)
+
+The owner's item 7: *"the dialog/overlay for target decisions looks
+unordered. Make it clean and structured … minimisable … it never
+auto-dismisses the question."* The drawer is now a **decision sheet** for
+every question it draws that is this seat's own (`drawer::sheet::is_sheet`:
+targets, a creature type, a card name, a colour, a number, a player, a pile,
+the legend rule, cards to choose, a mana ability, damage sources and
+effects, prevention, a word change, a discard or the cards to the bottom;
+combat stays on the creatures and the cast choosers on the parchment beside
+the card):
+
+- **Head**: the question as the shelf would say it (`shelf_headline`), the
+  source's own words under it (`choices::target_question`: whose question,
+  the sentence), and at its left the source's picture — a `ChoicePreview`,
+  so the pointer on it opens the table's preview of that object and a press
+  answers nothing. The source is what the view names
+  (`PlayerView::targeting`); the view names none for the other questions
+  (a creature type chosen as a land enters has no object on the stack), so
+  their head has no picture rather than a guessed one.
+- **Foot**: the shelf. The sheet grows out of the shelf, so the shelf's row
+  of answers with their key caps is its foot for every question; while the
+  sheet stands the shelf drops its own sentence (`sheet_up`).
+- **Cancel cast**: while the view names a cast (`PlayerView::casting`,
+  only in the caster's own view, through the cast's mode, X, target and
+  extra-cost questions and its payment window), the shelf's last answer is
+  *"Abbrechen"* / *"Cancel cast"* with `Esc`'s cap, and `Esc` is its last
+  rung, under a half-built answer and a visit (`Duel::cancel_cast`). It
+  sends `PlayerAction::CancelCast` and ends the client's `ManaRun` for the
+  card, so a cast-first run never taps the lands the engine just untapped.
+  A cast an effect made, or a mana ability's colour asked in the window,
+  names no cast and offers no cancel.
+- **A discard and the cards to the bottom** are sheets too (`is_sheet`:
+  `Prompt::Discard`, `Prompt::BottomCards`, and a discard asked as
+  `ChooseCards`): the same head with its fold, so the hand under a folded
+  sheet is all there is to pick from
+  (`a_discard_and_the_cards_to_the_bottom_fold_like_a_target_question`).
+- **Fold**: the control at the head's right, the `X` key
+  (`Action::FoldDecision`) and a press on the pill. Folded, the sheet is a
+  pill at the window's right edge over the strips — the source's picture,
+  the question, the restore mark and its cap — the table under it is the
+  table, and every target on it takes the press
+  (`a_fold_leaves_the_table_to_pick_on_and_the_question_standing`). The fold
+  belongs to the question it was made on (`client-core::decisionfold`, keyed
+  on the view's `seq`), so the next question opens unfolded; folding sends
+  nothing.
+
+### The creature type (08.10.2026)
+
+The owner's item 8. The type chooser in the sheet is three things over the
+filter box (where `Space` types a space and `Enter` takes the highlighted
+chip; arrows walk the chips, quick list first):
+
+- **The quick list** (`client-core::typechooser::quick`, `choices::type_lists`):
+  the offered types the seat's deck's creatures carry most, each chip with
+  its count (`Elf · 8`), at most eight, ties by name, none at zero. The deck
+  is the seat's decklist where this client hosts the game itself
+  (`DuelHost::own_deck`, `Duel::own_deck`); a networked seat is never sent
+  its list, so there it counts the seat's own cards the view has shown it
+  (hand, permanents, graveyard, exile, command zone). **A changeling counts
+  for no type**: it is every type at once (CR 702.73a), would raise all of
+  them alike and only push the deck's real tribes down.
+- **The letter groups** `A–D · E–H · I–L · M–P · R–T · U–Z` (Q under R–T,
+  umlauts under their base letter): with nothing typed the full list shows
+  one group, so every offered type is reachable without a scrolling list of
+  three hundred; typing filters across all of them instead.
+- **The full list**: alphabetical in the player's language
+  (`type_names`), filtered by the shown or the English name. Only offered
+  types appear anywhere, and every chip answers with the offer's own index
+  (`a_creature_type_is_answered_from_the_decks_quick_list`).
 
 ## The bar's hinge says which turn and what the game is
 
@@ -8261,6 +8426,24 @@ queue, the clock, the fit), `log_feed_tests::another_seat_s_reveal_…` (the
 join through `poll_host`), `hud::revealed::tests` (the sheet), and
 `input::tests::menu` (`Esc`, and a question in front of a reveal answered
 by its own key).
+
+**In the decision sheet's style (08.10.2026).** The owner: *"the card reveal
+… in the same sheet style as discard/target selection … also minimisable,
+and closable by click or Esc."* The sheet is now the decision sheet's paper
+(the drawer's dock ground and edge) built from its own parts
+(`ledge::drawer::sheet`): the head (*"Bo reveals"*, *"N more to come"* under
+it, the fold and a close cross), the cards large, and a foot with *"Close"*
+and `Esc`'s cap (`sheet::footer_button`). Each card carries the log's own
+`LogLink` on a node over its picture, so the pointer on it opens the table's
+large preview of that printing (`hover_log_links`), as a [link] in the log
+does. The fold (`MenuAction::FoldReveal`, `Duel::reveal_fold` keyed on the
+reveal's number) folds it to the sheet's pill at the top centre; the pill
+opens it again, and the next reveal stands up open. Its rules are as
+before: news only, at `Z_LOG` under anything this seat answers, queued, and
+timed — folded or not. The whole paper is no longer a button: the cross,
+the foot's answer and `Esc` put it away, and a press on a card previews it.
+Tests: `a_reveal_is_the_sheet_with_its_fold_its_close_and_a_preview_on_every_card`,
+`a_folded_reveal_is_a_pill_and_the_next_one_opens`.
 
 ## Reporting a problem (#309, #310)
 

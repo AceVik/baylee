@@ -319,6 +319,8 @@ pub struct BarRevision {
     designated: bool,
     /// The interface's language.
     lang: Option<Lang>,
+    /// The text step, which the plates are drawn at.
+    step: Option<crate::shellkit::TextSize>,
 }
 
 /// Measures every seat's shelf through the rig the camera was set from.
@@ -361,6 +363,7 @@ pub fn place_seat_bars(
     shelves: Res<Shelves>,
     duel: Res<Duel>,
     shown: Res<crate::table::ShownRig>,
+    settings: Res<crate::settings::ClientSettings>,
     windows: Query<&Window>,
     mut bars: Query<(
         &mut SeatBar,
@@ -370,6 +373,7 @@ pub fn place_seat_bars(
     )>,
 ) {
     let designated = duel.view.as_ref().is_some_and(|v| v.day_night.is_some());
+    let step = settings.text_size.factor();
     let lens = shown.rig().zip(windows.single().ok()).map(|(rig, window)| {
         crate::table::Lens::new(rig, Vec2::new(window.width(), window.height()))
     });
@@ -378,8 +382,7 @@ pub fn place_seat_bars(
             attached::place(
                 &duel,
                 lens.as_ref(),
-                bar.player,
-                *panel,
+                (bar.player, *panel, step),
                 &mut node,
                 &mut turn,
             );
@@ -495,6 +498,7 @@ pub fn sync_seat_bars(
             .collect(),
         designated,
         lang: Some(lang),
+        step: Some(settings.text_size),
     };
     if *revision == fresh && !existing.is_empty() {
         return;

@@ -1,27 +1,132 @@
 name: ci
 
+# Who waits for what (owner, 08.10.2026: "CI green only matters when we
+# release"). A change lands on main after the three local gates
+# (`scripts/land.sh`) without waiting for CI. CI then has two jobs:
+#
+# - **main push**: everything that protects a release. `release.yml` promotes
+#   only the packages of a *successful push run at the tagged commit*, and
+#   `scripts/release/ci_artifacts.py` also requires each job named in its
+#   REQUIRED_JOBS to have run and passed in that run, so nothing here can be
+#   skipped on a commit that is then released.
+# - **pull request**: the quick half (fmt, clippy, the debug suite in two
+#   partitions, wasm, validate, deny), each only when its inputs changed. The
+#   label `ci:full` runs a PR as a main push would; so does any change to CI
+#   itself.
+# - **nightly**: the full set again plus the five-platform `build` matrix,
+#   for what rots without a push (a new stable toolchain, a new advisory).
+#
+# Measured before this layout (30 main pushes and 31 PRs, 06.–08.10.2026):
+# PR p50 27 min (p95 40), main push p50 56 (p95 69), and three jobs stuck for 4–6 h in
+# `apt-get update`. `docs/releasing.md` §"CI" has the table.
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    # Nightly, at an odd minute: the top of the hour is the most delayed slot.
+    - cron: '41 2 * * *'
+  workflow_dispatch:
+    inputs:
+      full:
+        description: Run what a main push runs, packages included (a dispatched run is never promotable)
+        type: boolean
+        default: true
+      platforms:
+        description: Also link every binary on all five runner platforms (the nightly matrix)
+        type: boolean
+        default: false
 
 env:
   CARGO_TERM_COLOR: always
 
-# One run per ref at a time: four overlapping runs of one branch were four
-# jobs queueing for the same macOS pool, not four verdicts. On a pull request
-# a push supersedes the run before it. On main a running run is never
+# One run per event and ref at a time. On main a running run is never
 # cancelled: on 24.09.2026 eleven heads in a row were cancelled by the next
-# integration and main went two hours without a verdict. GitHub keeps one
+# integration and main went two hours without a verdict, and the version-bump
+# commit a release is tagged on needs its run to finish. GitHub keeps one
 # pending run per group, so a burst of pushes still costs one run in progress
-# plus the newest queued, and every run that starts finishes.
+# plus the newest queued. Everything else (a PR, a dispatch, the nightly) is
+# superseded by its next run. The event is in the key so a nightly never takes
+# the pending slot of a main push.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
+  # What changed, so a job runs only when its inputs did (`scripts/ci-changes.sh`
+  # says which paths are which). Every push still gets a run: a workflow-level
+  # `paths-ignore` would leave a commit with no run at all.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+      rust: ${{ steps.scope.outputs.rust }}
+      tests: ${{ steps.scope.outputs.tests }}
+      web: ${{ steps.scope.outputs.web }}
+      packages: ${{ steps.scope.outputs.packages }}
+      platforms: ${{ steps.scope.outputs.platforms }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: scope
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          FULL_INPUT: ${{ inputs.full }}
+          PLATFORMS_INPUT: ${{ inputs.platforms }}
+          LABELLED_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'ci:full') }}
+        run: |
+          # A push diffs every commit it brought (`before`), a PR its merge
+          # commit against the base it merges into. No diff (a new branch, a
+          # schedule, a dispatch) or an empty one counts as everything.
+          files=
+          case $EVENT in
+            push)
+              if git fetch --no-tags --depth=1 origin "$BEFORE" 2>/dev/null; then
+                files=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
+              fi ;;
+            pull_request)
+              files=$(git diff --name-only HEAD^1 HEAD) ;;
+          esac
+          if [ -z "$files" ]; then
+            code=true docs=true web=true ci=true
+          else
+            while IFS='=' read -r key value; do
+              case $key in code) code=$value ;; docs) docs=$value ;; web) web=$value ;; ci) ci=$value ;; esac
+            done < <(scripts/ci-changes.sh <<<"$files")
+          fi
+          full=false
+          case $EVENT in
+            push) if [ "$code" = true ] || [ "$ci" = true ]; then full=true; fi ;;
+            schedule) full=true ;;
+            workflow_dispatch) full=$FULL_INPUT ;;
+            pull_request) if [ "$LABELLED_FULL" = true ] || [ "$ci" = true ]; then full=true; fi ;;
+          esac
+          rust=false; if [ "$code" = true ] || [ "$ci" = true ] || [ "$full" = true ]; then rust=true; fi
+          tests=false; if [ "$rust" = true ] || [ "$docs" = true ]; then tests=true; fi
+          webjob=false; if [ "$web" = true ] || [ "$full" = true ]; then webjob=true; fi
+          packages=false; if [ "$full" = true ] && [ "$EVENT" != schedule ]; then packages=true; fi
+          platforms=false
+          if [ "$EVENT" = schedule ] || { [ "$EVENT" = workflow_dispatch ] && [ "$PLATFORMS_INPUT" = true ]; }; then
+            platforms=true
+          fi
+          {
+            echo "full=$full"; echo "rust=$rust"; echo "tests=$tests"; echo "web=$webjob"
+            echo "packages=$packages"; echo "platforms=$platforms"
+          } | tee -a "$GITHUB_OUTPUT"
+          {
+            echo "### Scope"
+            echo "changed: code=$code docs=$docs web=$web ci=$ci"
+            echo "runs: full=$full rust=$rust tests=$tests web=$webjob packages=$packages platforms=$platforms"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   fmt:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -30,8 +135,19 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: python3 -m unittest discover -s scripts/release/tests -v
 
+  # Caches. The repository has 10 GB of Actions cache and each Rust cache is
+  # 1.0–1.7 GB; on 08.10.2026 eight entries filled it, all from that day, and
+  # most jobs logged "No cache found" (the debug suite compiled for 7.7 min
+  # instead of 3.5, the optimized one for 25 instead of 17). The writers were
+  # PRs: a PR's cache lives under `refs/pull/N/merge`, which no other run can
+  # read, and the PR-only platform matrix wrote five more. So only a push to
+  # main writes a cache now, and every other run restores main's. Jobs whose
+  # cold build is a few minutes (bench, msrv, the nightly matrix) write none.
   clippy:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/linux-deps
@@ -41,7 +157,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: tests-debug
-          cache-on-failure: true
           save-if: false
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
@@ -52,8 +167,24 @@ jobs:
   # Each spawned gateway takes a schema of its own and caps its pool at two,
   # which is what lets three dozen of them share one server that allows a
   # hundred connections in total.
+  #
+  # Two partitions, each building the whole suite and running half of it.
+  # Measured 08.10.2026: 10346 tests, 2716 s of test time, 860 s on one
+  # four-core runner after 3.5 min (warm) to 7.7 min (cold) of compiling; the
+  # longest test alone is 271 s, which is the floor any split runs into. Each
+  # half compiles for itself rather than sharing a `nextest archive`: the
+  # archive would be gigabytes of Bevy test binaries to upload and download,
+  # and the e2e tests reach other binaries by compile-time paths.
   test:
+    name: test (${{ matrix.partition }}/2)
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2]
     services:
       postgres:
         image: postgres:18-alpine
@@ -77,32 +208,33 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
+      - uses: rui314/setup-mold@v1
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: tests-debug
           cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
+          save-if: ${{ matrix.partition == 1 && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@nextest
-      # nextest rather than `cargo test`: 48 s against 104 s for the same 2828
-      # tests on the developer's machine, and it reports per *test* instead of
-      # per binary, which is how the next outlier is found before it costs a
-      # minute. It also runs each test in its own process and fans them wider,
-      # which is not free honesty — it is how a three-second deadline in an
-      # xtask test was found to be a scheduling assumption (#55). There are no
-      # doctests in this workspace (`cargo test --doc` finds zero), so nextest
-      # not running them costs nothing that `--all-targets` was not already
-      # skipping.
-      #
-      # `--no-fail-fast` because a CI run that stops at the first failure hides
-      # how much else is broken, and a second push to find out is the expensive
-      # way to learn it.
-      - run: cargo nextest run --locked --workspace --all-targets --no-fail-fast
+      # nextest rather than `cargo test`: it runs each test in its own process,
+      # reports per *test* rather than per binary (which is how the next
+      # outlier is found), and partitions. There are no doctests in this
+      # workspace (`cargo test --doc` finds zero), so nextest not running them
+      # costs nothing. `--no-fail-fast`: a run that stops at the first failure
+      # hides how much else is broken.
+      - run: >-
+          cargo nextest run --locked --workspace --all-targets --no-fail-fast
+          --partition count:${{ matrix.partition }}/2
 
   # Debug-only behavior has bitten before (a `debug_assert!` hid the mana
-  # payment from every release build), so the suite also runs optimized
-  # with release assertions/overflow semantics, without per-test LTO.
+  # payment from every release build), so the suite also runs optimized with
+  # release assertions/overflow semantics, without per-test LTO. Main pushes
+  # and the nightly only: 17 min of compiling when warm, 25 cold, for 3.5 min
+  # of tests, and it guards a release, not a review.
   test-release:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:18-alpine
@@ -123,26 +255,35 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
+      - uses: rui314/setup-mold@v1
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: tests-optimized
           cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@nextest
       - run: cargo nextest run --locked --workspace --all-targets --no-fail-fast --cargo-profile ci-release
 
   # Main builds the actual dist packages once. Tags promote those exact
-  # artifacts; PRs retain the quicker native debug/link matrix below.
+  # artifacts. A dispatched or `ci:full` run builds them too, but only a main
+  # push's packages can ever be promoted (`ci_artifacts.trusted_run`).
   packages:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: changes
+    if: needs.changes.outputs.packages == 'true'
     uses: ./.github/workflows/client-packages.yml
     permissions:
       contents: read
       actions: read
 
+  # The sixth target: an arm64 Mac links x86_64 with nothing but `rustup target
+  # add`, since the macOS SDK carries both slices (measured before the row was
+  # written). x86_64 macOS runners retire with `macos-15-intel` in 2027, and
+  # `macos-13` already sat 91 minutes in `queued` after its retirement.
   macos-intel:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -150,95 +291,66 @@ jobs:
           targets: x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
         with:
-          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: cargo build --locked --workspace --bins --target x86_64-apple-darwin
 
-  # Every platform this is meant to run on, on its own architecture.
-  #
-  # What breaks per-platform is exactly what one Linux runner cannot see: a
-  # path separator, a `cfg` that has only ever run on 64-bit x86, a build
-  # script that assumes a shell, and above all the **link**. So this builds
-  # rather than checks — the client is a GUI binary and half of what a new
-  # platform costs is discovered by the linker and not by the type checker.
-  #
-  # The suite itself does not run here, deliberately. The tests are
-  # arithmetic and protocol, both architecture-independent, so running them
-  # six times would re-prove what the two jobs above already prove while
-  # making every pull request wait on six Bevy builds.
+  # Every binary on every platform this is meant to run on, on its own
+  # architecture: the nightly and a dispatch with `platforms`. Main's
+  # `packages` already link the shipped client and launcher and check every
+  # target's code (`--all-targets`) on all five platforms; this is the link of
+  # the *other* binaries (gateway, agent, seat, xtask, ...) there. What breaks
+  # per platform is what one Linux runner cannot see — a path separator, a
+  # `cfg` that has only met 64-bit x86, a build script that assumes a shell,
+  # and above all the link — and none of it changes per push often enough to
+  # make every change wait on five Bevy builds (macOS took 24–32 min of every
+  # PR).
   build:
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: needs.changes.outputs.platforms == 'true'
     name: build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
-      # One platform failing must not hide the state of the other five; the
+      # One platform failing must not hide the state of the other four; the
       # whole value of a matrix is knowing *which* of them broke.
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest      # x86_64-unknown-linux-gnu
+            timeout: 40
           - os: ubuntu-24.04-arm   # aarch64-unknown-linux-gnu
+            timeout: 40
           - os: windows-latest     # x86_64-pc-windows-msvc
+            timeout: 60
           - os: windows-11-arm     # aarch64-pc-windows-msvc
-          # Six targets, five runners: the Apple Silicon runner builds the
-          # Intel slice too.
-          #
-          # `macos-13` stood here as its own row and had been **retired**
-          # since 2025-12-08, following GitHub's N-1 policy after Apple
-          # dropped x86_64 — so the job never started, sat in `queued` for 91
-          # minutes on one run, and kept the whole run from ever concluding.
-          # `macos-15-intel` is the documented successor and would work, but
-          # GitHub has also announced that x86_64 macOS runners go away
-          # entirely when that image retires in autumn 2027, so a row naming
-          # one is a row with a second expiry date on it.
-          #
-          # An arm64 Mac links x86_64 with nothing but `rustup target add`:
-          # the macOS SDK carries both slices, so `rustc --target
-          # x86_64-apple-darwin` produces a real `Mach-O 64-bit executable
-          # x86_64`. Measured on this machine before the row was written.
-          # That is the same **link** the matrix comment above says this job
-          # exists for; what it gives up is *running* the result, which no
-          # row of this matrix does anyway.
+            timeout: 60
           - os: macos-latest       # aarch64-apple-darwin
-            extra-target: x86_64-apple-darwin
+            timeout: 75
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
+          save-if: false
           key: ${{ matrix.os }}
-      - run: cargo build --workspace --bins
+      - run: cargo build --locked --workspace --bins
       # `--bins` links every binary; this is the half it does not reach, and
-      # it is where a `cfg(test)` block first meets a platform. Checked
-      # rather than built, because linking test harnesses on six platforms
-      # is a cost with no matching failure mode.
-      - run: cargo check --workspace --all-targets
-      # The second architecture of a runner that can reach one. Installed
-      # here rather than through the toolchain action's `targets:`, because
-      # that field would have to be handed an empty string on every other
-      # row, and an empty target is not the same thing as no target.
-      - if: matrix.extra-target
-        run: rustup target add ${{ matrix.extra-target }}
-      - if: matrix.extra-target
-        run: cargo build --workspace --bins --target ${{ matrix.extra-target }}
+      # it is where a `cfg(test)` block first meets a platform.
+      - run: cargo check --locked --workspace --all-targets
 
-  # Cards are not generated here, and the job that tried to is gone. `codegen`
-  # reads the external card-script reference, which is GPL and deliberately
-  # not vendored (`NOTICE`), so a runner has none of it — `note: card-script
-  # reference not found at …/mtg/card-scripts, skipping index` — and the
-  # generator then writes different files than the machine that committed
-  # them: run 34990754077 reported 85 stale files, 79 of them for no reason
-  # but the absent corpus. Generating a card is a developer's job, and what
-  # comes out of it is committed code the compiler and the tests already
-  # check. What CI checks about the *cards* is this job: every `//! Oracle:`
-  # header against the CardDef the code builds, and against the oracle text
-  # and type line Scryfall prints — drift that stable clippy and the tests
-  # cannot see, and it has caught a card carrying the wrong cost and P/T
-  # through a "fix".
+  # Cards are not generated here. `codegen` reads the external card-script
+  # reference, which is GPL and deliberately not vendored (`NOTICE`), so a
+  # runner has none of it and would write different files than the machine
+  # that committed them (run 34990754077: 85 stale files, 79 for no reason but
+  # the absent corpus). What CI checks about the *cards* is this job: every
+  # `//! Oracle:` header against the CardDef the code builds, and against the
+  # oracle text and type line Scryfall prints.
   validate:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/scryfall-cache
@@ -247,27 +359,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: tests-debug
-          cache-on-failure: true
           save-if: false
-      # `validate` reads a cache it cannot fill. It looks every printing up
-      # through `cached_printing`, a pure read with no network at all, so on a
-      # cold cache it compares nothing and says so ("only 0 comparisons were
-      # made against the printings; the sweep is not reaching the pool")
-      # rather than reporting a clean pool. Filling it used to be `codegen`'s
-      # side effect, which is how a check about card headers came to depend on
-      # a generator. `xtask scryfall-cache` is the command that fetches and
-      # does nothing else, and it is one bulk download — 2.3 s on this runner,
-      # measured cold in run 34990754077.
-      - run: cargo run -p xtask -- scryfall-cache
-      - run: cargo run -p xtask -- validate
-      # The fetch is the expensive half, so it is saved even when the
-      # comparison fails: `actions/cache`'s own post step is skipped on a
-      # failed job, which is what kept every run of this job starting from an
-      # empty cache. `!cancelled()` and deliberately **not** `always()`, which
-      # this job was given for one commit and which immediately poisoned the
-      # key — `actions/cache/save` refuses to overwrite a key that exists, so
-      # a run cancelled four minutes in saved a 17 KB directory under the key
-      # the full fetch was going to write 30 MB to.
+      # `validate` reads a cache it cannot fill (a pure read, no network), so
+      # on a cold cache it compares nothing and says so. `xtask
+      # scryfall-cache` is the command that fetches: one bulk download, 3322
+      # payloads in about 30 s (run 37787880265).
+      - run: cargo run --locked -p xtask -- scryfall-cache
+      - run: cargo run --locked -p xtask -- validate
+      # Saved even when the comparison fails (`actions/cache`'s own post step
+      # is skipped on a failed job). `!cancelled()` and deliberately not
+      # `always()`: `actions/cache/save` never overwrites a key, so a run
+      # cancelled early would have saved a partial directory under the key
+      # the full fetch was going to write.
       - uses: actions/cache/save@v4
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -275,18 +378,13 @@ jobs:
           path: data/scryfall-cache
           key: ${{ steps.scryfall.outputs.key }}
 
-  # The browser client compiles nothing on a native build: its localStorage
-  # settings and Web Crypto entropy live behind `cfg(target_arch = "wasm32")`
-  # and would rot unnoticed without a target-specific job.
-  #
-  # All seven crates are named rather than the client alone, and that is not
-  # redundancy: cargo unifies features across the members a command selects,
-  # so `-p baylee-client` resolves the other six with whatever the client
-  # happens to ask for. Naming them is what checks that each one still
-  # compiles for this target on its *own* default features, which is the
-  # promise the architecture section of CLAUDE.md makes about them.
+  # The browser client's crates for wasm32; `scripts/gate-wasm.sh` says why
+  # all seven are named.
   wasm:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -294,48 +392,23 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
-      - run: >-
-          cargo check
-          -p baylee-cardtext
-          -p baylee-core
-          -p baylee-deckio
-          -p baylee-protocol
-          -p baylee-view
-          -p baylee-client-core
-          -p baylee-client
-          --target wasm32-unknown-unknown
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: scripts/gate-wasm.sh
 
-  # The eight features `--workspace` never builds.
-  #
-  # The clippy job above, `cargo test --workspace --all-targets`, and every
-  # local gate compile each crate with its **default** features. This
-  # workspace declares eight non-default ones — `dev-control`, `dev-reload` and
-  # `dev-dylink` on the client, `dev-control` on the Android shim, `dev-table`
-  # on the gateway, `test-support` on client-core, `fuzz` on the engine,
-  # `mutate` on the card registry — so eight pieces of it were compiled by
-  # nobody.
-  #
-  # The hole is real and it runs in **both** directions. `devctl.rs` broke on
-  # `Option<Refusal>` while every job here was green, and the commit had to be
-  # pulled back out of a push (#121). And a feature also makes *other* code
-  # live that the default build reads as dead, so `-D warnings` fires on an
-  # unused import only once the feature is on. Measured on 20.09.2026: 738
-  # client tests on the default build, **758** under `dev-control` — twenty
-  # tests that existed on no build this workflow had ever made.
-  #
-  # `--all-features` is deliberately not the shortcut. `dev-dylink` changes
-  # how the binary links and `dev-reload` changes how assets are loaded, so
-  # everything-on measures a configuration nobody runs while hiding the two
-  # that matter. The matrix lives in `scripts/gate-features.sh` rather than
-  # here, so a developer and this runner cannot drift apart, and that file
-  # says per feature what shape of check it gets and why it is that shape.
+  # The eight features `--workspace` never builds (`scripts/gate-features.sh`
+  # holds the matrix and says per feature why it gets the check it gets;
+  # `--all-features` is deliberately not the shortcut). The hole runs both
+  # ways: `devctl.rs` broke with every job green (#121), and a feature makes
+  # code live that `-D warnings` then flags. Main pushes and the nightly: the
+  # same script is a local gate before every landing.
   #
   # PostgreSQL is here for one of the eight: `dev-table` is a gateway feature
   # and a gateway with no database refuses to start.
   features:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:18-alpine
@@ -358,55 +431,43 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      - uses: rui314/setup-mold@v1
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: tests-debug
-          cache-on-failure: true
           save-if: false
       - run: ./scripts/gate-features.sh
 
-  # Benches run in CI so they never silently rot; the numbers land in the
-  # job log for comparison against docs/perf-baseline.md (manual check —
-  # runner timing is too noisy for a hard 10% gate).
+  # Benches run so they never silently rot; the numbers land in the job log
+  # for comparison against docs/perf-baseline.md (manual check — runner timing
+  # is too noisy for a hard 10% gate). No `linux-deps`: the engine links no
+  # audio, input or display library, and that step is where three jobs hung.
   bench:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
-      # `--bench basics` names the target on purpose. Without it `cargo bench`
-      # runs every bench target in the crate, the lib's own libtest harness
-      # included, and that harness answers `--quick` with "Unrecognized
-      # option" and exit 101 — criterion never sees the flag it is meant for.
-      - run: cargo bench -p baylee-engine --bench basics -- --quick
+          save-if: false
+      # `--bench basics` names the target on purpose: without it libtest's own
+      # harness answers `--quick` with "Unrecognized option" and exit 101.
+      - run: cargo bench --locked -p baylee-engine --bench basics -- --quick
 
-  # The declared MSRV is a promise, and two things were wrong with it at once.
-  # The number was false: `Cargo.toml` said 1.88 while `bevy` 0.19.1 declares
-  # `rust-version = "1.95.0"`, so nothing here had built on 1.88 for months —
-  # and `cargo upgrade`, which is MSRV-aware, read our own file and offered to
-  # downgrade bevy and sea-orm to honour it.
-  #
-  # And this job proved nothing. `rust-toolchain.toml` pins `channel =
-  # "stable"`, and a toolchain file beats `rustup default`, which is all
-  # `dtolnay/rust-toolchain` sets — so the 1.88 it installed was never used and
-  # the job was green because it checked stable twice. Run 34990754077 says so
-  # in rustup's own words: "note that the toolchain
-  # 'stable-x86_64-unknown-linux-gnu' is currently in use (overridden by
-  # '/home/runner/work/baylee/baylee/rust-toolchain.toml')".
-  #
-  # `RUSTUP_TOOLCHAIN` is the one override that beats the file — measured, not
-  # assumed: with the file saying stable, `RUSTUP_TOOLCHAIN=nightly rustc
-  # --version` answers nightly. It is exported *before* `rust-cache`, which
-  # hashes `rustc -vV` into its key, so the cache belongs to the compiler that
-  # actually compiles. And the version is read out of `Cargo.toml` rather than
-  # typed here, because a number that appears twice is a number that drifts —
-  # which is how this one came to be 1.88 in two places and true in neither.
+  # The declared MSRV is a promise. `rust-toolchain.toml` pins `channel =
+  # "stable"` and a toolchain file beats `rustup default`, which is all
+  # `dtolnay/rust-toolchain` sets, so this job once checked stable twice (run
+  # 34990754077: "overridden by '…/rust-toolchain.toml'").
+  # `RUSTUP_TOOLCHAIN` is the one override that beats the file, and the
+  # version is read out of `Cargo.toml` rather than typed here.
   msrv:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/linux-deps
@@ -421,21 +482,21 @@ jobs:
       - run: echo "RUSTUP_TOOLCHAIN=${{ steps.declared.outputs.version }}" >> "$GITHUB_ENV"
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
+          save-if: false
       # In the log, so the next person reading a green tick can see which
       # compiler earned it. This is the line whose absence hid the bug.
       - run: rustc --version && cargo --version
-      - run: cargo check --workspace --all-targets
+      - run: cargo check --locked --workspace --all-targets
 
   # The feedback service's web UI (web/feedback, #311): the lockfile's tree,
   # the type check, lint, the unit and component tests, and the build the
-  # service would serve. No Rust and no browser: the end-to-end tests
-  # (`npm run e2e`) need the binary built and a Chromium downloaded, most of
-  # a cargo job again for eight tests, so they run on a developer's machine
-  # before a UI change is pushed.
+  # service would serve. The end-to-end tests (`npm run e2e`) need the binary
+  # and a Chromium, so they run on a developer's machine before a UI change.
   web-feedback:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: web/feedback
@@ -453,19 +514,24 @@ jobs:
       - run: npm run build
 
   deny:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
 
+  # Main pushes and the nightly: a new advisory arrives without a push, which
+  # is what the nightly is for.
   audit:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # `audit-check` reports through a **check run**, which is a write, and
-    # this workflow's `GITHUB_TOKEN` is read-only: the job failed with
-    # "Resource not accessible by integration" before it had looked at a
-    # single advisory. Named on the job rather than raised repository-wide,
-    # because a permission granted to one job is the one the other thirteen
-    # do not get — and `contents: read` has to be restated, since a
+    # this workflow's `GITHUB_TOKEN` is read-only. Named on the job rather
+    # than raised repository-wide; `contents: read` is restated because a
     # `permissions` block replaces the defaults rather than adding to them.
     permissions:
       contents: read

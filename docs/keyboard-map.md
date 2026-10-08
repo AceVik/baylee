@@ -23,7 +23,7 @@ Two consequences worth knowing before changing anything here:
 |---|---|---|
 | The click (a sheet holding the question → card under cursor → phase toggle → pass) | `Enter` | implemented |
 | Confirm / pass (ticks a row on a sheet holding the question, toggles nothing else, and does not declare an empty attack or block) | `Space` | implemented |
-| Cancel: armed deed, then preview, then cards another seat revealed (one reveal a press), then the game menu, then the game log, then the zone browser *if the player may put it away*, then phase selection, then half-built answer | `Esc` | implemented |
+| Cancel: armed deed, then preview, then cards another seat revealed (one reveal a press), then the game menu, then the game log, then the zone browser *if the player may put it away*, then phase selection, then half-built answer, then a visit (home), then — only while the view names a cast (`PlayerView::casting`: its own questions and its payment window) — the cast itself (CR 732; the shelf's last answer "Abbrechen" / "Cancel cast" is the same door) | `Esc` | implemented |
 | Put away cards another seat revealed (the sheet at the top; it also goes by itself after 7 s, longer for more cards) | `Esc`, or a press on the sheet | implemented |
 | Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
@@ -35,6 +35,7 @@ Two consequences worth knowing before changing anything here:
 | Choose the table's arrangement (DESIGN-v8): the menu under the top-left pill; while it is up every key is the menu's — `↑` `↓` (or `W` `S`) walk the rows, `Enter`/`Space` choose, `1`–`8` choose a row, `Esc` or `P` shut it | `P`, the pill, or the game menu's row | implemented |
 | The next arrangement offered here (the pill flashes its name) | `⇧P` | implemented |
 | Open or shut the hand's drawer on a phone (DESIGN-v8 WA11; also the tab on the actions bar, tapped or swiped) | `I` | implemented |
+| Fold the question's sheet to its pill at the window's edge, or open it again; the question stands, and the table under the pill takes every pick (the owner, 08.10.2026; also the sheet's fold control and a press on the pill) | `X` | implemented |
 | Aim the next attack (or block) at the next defender | `C` / `⇧C` | implemented |
 | Declare nothing — no attackers, or no blockers | `O` | implemented |
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |

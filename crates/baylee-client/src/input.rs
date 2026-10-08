@@ -60,7 +60,7 @@ pub use sheet_keys::*;
 pub use sheets::*;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 #[cfg(test)]
 mod refusal_tests;

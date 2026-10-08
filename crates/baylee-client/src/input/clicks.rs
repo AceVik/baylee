@@ -40,6 +40,10 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         MenuAction::DismissReveal => {
             duel.reveals.dismiss();
         }
+        MenuAction::FoldReveal => {
+            let number = duel.reveals.current().map(|r| r.number);
+            duel.reveal_fold.toggle(number);
+        }
         MenuAction::ToggleAiLog => duel.ai_log_open = !duel.ai_log_open,
         MenuAction::Report => duel.report_asked = true,
         // The game menu shuts and the arrangement menu opens in its place;
@@ -91,6 +95,11 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // press having done nothing visible. The autopilot is entirely the
         // client's and reaches no wire, so it is simply dropped; nothing else
         // ends it but its own arrival at the next turn.
+        MenuAction::FoldDecision => duel.fold_decision(),
+        MenuAction::TypeGroup(group) => {
+            duel.subtype_group = usize::from(group);
+            duel.subtype_filter.clear();
+        }
         MenuAction::ReleaseHold => {
             duel.autopilot = None;
             if duel.priority_held()
@@ -107,6 +116,7 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // to do nothing or into a cancellation, and neither is what the cap
         // says.
         // Declining a payment: the window's own pass, sent without a tap.
+        MenuAction::CancelCast => duel.cancel_cast(),
         MenuAction::DeclinePayment => {
             if duel.paying() && duel.mana_run.is_none() {
                 duel.submit(PlayerAction::PassPriority);

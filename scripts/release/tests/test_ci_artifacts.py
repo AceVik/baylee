@@ -4,6 +4,7 @@ import copy
 import importlib.util
 import json
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,6 +29,16 @@ RUN = {
     "head_repository": {"full_name": REPO},
 }
 ARTIFACTS = [{"name": f"client-{target}", "expired": False} for target in ci.TARGETS]
+JOBS = [
+    {"name": name, "conclusion": "success"}
+    for name in ci.REQUIRED_JOBS
+    if name != "test"
+] + [
+    {"name": "test (1/2)", "conclusion": "success"},
+    {"name": "test (2/2)", "conclusion": "success"},
+    {"name": "build (macos-latest)", "conclusion": "skipped"},
+    {"name": "packages / package (aarch64-apple-darwin)", "conclusion": "success"},
+]
 
 
 class Provenance(unittest.TestCase):
@@ -57,7 +68,9 @@ class Provenance(unittest.TestCase):
         self.assertFalse(ci.trusted_run({}, REPO, SHA))
 
     def test_verify_run_requires_complete_live_artifact_set(self):
-        with patch.object(ci, "api", side_effect=[RUN, {"artifacts": ARTIFACTS}]):
+        with patch.object(
+            ci, "api", side_effect=[RUN, {"jobs": JOBS}, {"artifacts": ARTIFACTS}]
+        ):
             ci.verify_run("123")
         broken = [
             ARTIFACTS[:-1],
@@ -67,7 +80,11 @@ class Provenance(unittest.TestCase):
         for artifacts in broken:
             with (
                 self.subTest(artifacts=artifacts),
-                patch.object(ci, "api", side_effect=[RUN, {"artifacts": artifacts}]),
+                patch.object(
+                    ci,
+                    "api",
+                    side_effect=[RUN, {"jobs": JOBS}, {"artifacts": artifacts}],
+                ),
                 self.assertRaises(ValueError),
             ):
                 ci.verify_run("123")
@@ -79,6 +96,52 @@ class Provenance(unittest.TestCase):
         with self.assertRaises(ValueError):
             ci.verify_run("../123")
 
+    def test_verify_run_requires_every_release_job_to_have_run_and_passed(self):
+        # A job skipped by its `if:` leaves the run green; that is the hole.
+        docs_only = [
+            j for j in JOBS if j["name"] in ("fmt", "test (1/2)", "test (2/2)")
+        ]
+        one_partition_red = [
+            dict(j, conclusion="failure") if j["name"] == "test (2/2)" else j
+            for j in JOBS
+        ]
+        skipped = [
+            dict(j, conclusion="skipped") if j["name"] == "test-release" else j
+            for j in JOBS
+        ]
+        no_test_rows = [j for j in JOBS if not j["name"].startswith("test (")]
+        for jobs, named in [
+            (docs_only, "test-release"),
+            (one_partition_red, "test"),
+            (skipped, "test-release"),
+            (no_test_rows, "test"),
+        ]:
+            with self.subTest(named=named):
+                self.assertIn(named, ci.unproven_jobs(jobs))
+                with (
+                    patch.object(
+                        ci,
+                        "api",
+                        side_effect=[RUN, {"jobs": jobs}, {"artifacts": ARTIFACTS}],
+                    ),
+                    self.assertRaises(ValueError),
+                ):
+                    ci.verify_run("123")
+        # `test-release` is not a row of `test`, nor the other way round.
+        self.assertIn(
+            "test", ci.unproven_jobs([j for j in JOBS if j["name"] == "test-release"])
+        )
+        self.assertEqual(ci.unproven_jobs(JOBS), [])
+
+    def test_every_required_job_is_a_job_of_the_ci_workflow(self):
+        # A renamed job would otherwise make every release fail, or a list
+        # entry nobody runs would be required forever.
+        workflow = (Path(__file__).parents[3] / ".github/workflows/ci.yml").read_text()
+        jobs = workflow[workflow.index("\njobs:\n") :]
+        ids = set(re.findall(r"^  ([A-Za-z0-9_-]+):$", jobs, re.MULTILINE))
+        self.assertGreater(len(ids), len(ci.REQUIRED_JOBS))
+        self.assertLessEqual(set(ci.REQUIRED_JOBS), ids)
+
     def test_resolve_rejects_pr_or_wrong_commit_even_if_api_returns_it(self):
         for run in [dict(RUN, event="pull_request"), dict(RUN, head_sha="b" * 40)]:
             with (
@@ -89,7 +152,12 @@ class Provenance(unittest.TestCase):
         with patch.object(
             ci,
             "api",
-            side_effect=[{"workflow_runs": [RUN]}, RUN, {"artifacts": ARTIFACTS}],
+            side_effect=[
+                {"workflow_runs": [RUN]},
+                RUN,
+                {"jobs": JOBS},
+                {"artifacts": ARTIFACTS},
+            ],
         ):
             self.assertEqual(ci.resolve(), "123")
 

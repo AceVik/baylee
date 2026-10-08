@@ -103,6 +103,14 @@ pub trait DuelHost: Send + Sync + 'static {
     /// The seat this client plays.
     fn seat(&self) -> PlayerId;
 
+    /// This seat's own decklist, one entry per card, where the host knows it.
+    ///
+    /// Empty by default: a networked seat is handed its deck by the gateway
+    /// and never sees the list, only the cards as they are shown to it.
+    fn own_deck(&self) -> Vec<baylee_core::ids::CardIndex> {
+        Vec::new()
+    }
+
     /// Whether the connection this host plays through is still there.
     ///
     /// Defaults to [`LinkState::Local`], which is the truthful answer for a host
@@ -225,6 +233,8 @@ pub struct LocalHost {
     /// Its file among the kept records, written step by step
     /// (`crate::records`).
     live: crate::records::LiveRecord,
+    /// The local seat's decklist, for the creature-type chooser's quick list.
+    deck: Vec<baylee_core::ids::CardIndex>,
 }
 
 impl LocalHost {
@@ -255,6 +265,11 @@ impl LocalHost {
             live: crate::records::LiveRecord::new(
                 &baylee_client_core::bugreport::record_file_name(wall_ms(), preset.seed),
             ),
+            deck: preset
+                .seats
+                .get(seat.get() as usize)
+                .map(|spec| spec.deck.iter().map(|entry| entry.card).collect())
+                .unwrap_or_default(),
         };
         host.take_the_record();
         Some(host)
@@ -351,6 +366,10 @@ impl DuelHost for LocalHost {
 
     /// Nothing to say: this table opened on the first poll.
     fn ready(&mut self) {}
+
+    fn own_deck(&self) -> Vec<baylee_core::ids::CardIndex> {
+        self.deck.clone()
+    }
 
     fn seat(&self) -> PlayerId {
         self.seat

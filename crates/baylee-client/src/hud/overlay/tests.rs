@@ -114,10 +114,10 @@ fn bar_of(duel: Duel) -> App {
                 ledge::drawer::sync_drawer,
                 ledge::drawer::zoom_the_drawer,
                 ledge::pool::sync_pool,
-                ledge::pool::zoom_the_pool,
                 ledge::pool::grow_the_pool,
                 ledge::players::sync_players,
                 ledge::players::glow_the_players,
+                ledge::players::show_the_tags,
                 ledge::menu::sync_menu,
                 ledge::menu::grow_the_menu,
                 tray::sync_tray,
@@ -249,6 +249,7 @@ fn duel_choosing_a_colour() -> Duel {
 }
 
 mod answer_tests;
+mod decision_tests;
 mod menu_tests;
 mod preview_tests;
 mod sheet_tests;

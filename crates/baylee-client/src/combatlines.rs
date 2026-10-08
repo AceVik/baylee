@@ -152,9 +152,14 @@ fn tint(kind: LineKind, standing: bool) -> Color {
 
 /// Aim at the displayed life value, sharing the identity's projection.
 /// The ledge fallback is used only before a camera/window exists.
-pub(crate) fn player_end(slot: &SeatSlot, lens: Option<&crate::table::Lens>) -> Vec3 {
+pub(crate) fn player_end(
+    duel: &Duel,
+    slot: &SeatSlot,
+    lens: Option<&crate::table::Lens>,
+    step: f32,
+) -> Vec3 {
     lens.and_then(|lens| {
-        crate::hud::seatbar::attached::life_anchor(slot, lens)
+        crate::hud::seatbar::attached::life_anchor(duel, slot.player, lens, step)
             .and_then(|point| lens.on_plane(point, LINE_Y))
     })
     .unwrap_or_else(|| to_world(seat_anchor(slot), LINE_Y))
@@ -175,6 +180,7 @@ pub fn sync_combat_lines(
     duel: Res<Duel>,
     shown: Option<Res<crate::table::ShownRig>>,
     windows: Query<&Window>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
     prefs: Res<crate::prefs::Prefs>,
     mut assets: ResMut<LineAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -195,7 +201,8 @@ pub fn sync_combat_lines(
         .and_then(|s| s.rig())
         .zip(windows.single().ok())
         .map(|(rig, w)| crate::table::Lens::new(rig, Vec2::new(w.width(), w.height())));
-    let wanted = wanted_lines(&duel, &cards, lens.as_ref());
+    let step = settings.as_ref().map_or(1.0, |s| s.text_size.factor());
+    let wanted = wanted_lines(&duel, &cards, lens.as_ref(), step);
     let motion = crate::cardmat::motion_of(prefs.all().reduce_motion);
 
     // Reused in a stable order. Query iteration follows archetype order,
@@ -261,6 +268,7 @@ fn wanted_lines(
     duel: &Duel,
     cards: &Query<(&CardVisual, &Transform), Without<CombatLine>>,
     lens: Option<&crate::table::Lens>,
+    step: f32,
 ) -> Vec<(Line, Vec3, Vec3)> {
     let (Some(view), Some(layout)) = (duel.view.as_ref(), duel.layout.as_ref()) else {
         return Vec::new();
@@ -280,7 +288,9 @@ fn wanted_lines(
     };
     let at_end = |end: LineEnd| match end {
         LineEnd::Object(id) => at_object(id),
-        LineEnd::Seat(player) => layout.shown(player).map(|slot| player_end(slot, lens)),
+        LineEnd::Seat(player) => layout
+            .shown(player)
+            .map(|slot| player_end(duel, slot, lens, step)),
     };
 
     combat
@@ -400,6 +410,7 @@ pub fn sync_focus_ring(
     duel: Res<Duel>,
     shown: Option<Res<crate::table::ShownRig>>,
     windows: Query<&Window>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
     mut assets: ResMut<FocusAssets>,
@@ -413,7 +424,8 @@ pub fn sync_focus_ring(
         .and_then(|s| s.rig())
         .zip(windows.single().ok())
         .map(|(rig, w)| crate::table::Lens::new(rig, Vec2::new(w.width(), w.height())));
-    let at = focus_position(&duel, &cards, lens.as_ref());
+    let step = settings.as_ref().map_or(1.0, |s| s.text_size.factor());
+    let at = focus_position(&duel, &cards, lens.as_ref(), step);
     let Some(at) = at else {
         for (entity, _) in &ring {
             commands.entity(entity).despawn();
@@ -469,6 +481,7 @@ fn focus_position(
     duel: &Duel,
     cards: &Query<(&CardVisual, &Transform), Without<FocusRing>>,
     lens: Option<&crate::table::Lens>,
+    step: f32,
 ) -> Option<Vec3> {
     let view = duel.view.as_ref()?;
     let layout = duel.layout.as_ref()?;
@@ -478,7 +491,9 @@ fn focus_position(
             .iter()
             .find(|(card, _)| card.object == id)
             .map(|(_, at)| Vec3::new(at.translation.x, LINE_Y, at.translation.z)),
-        LineEnd::Seat(player) => layout.shown(player).map(|slot| player_end(slot, lens)),
+        LineEnd::Seat(player) => layout
+            .shown(player)
+            .map(|slot| player_end(duel, slot, lens, step)),
     }
 }
 
@@ -498,9 +513,16 @@ mod tests {
         );
         let canvas = Canvas::hud(Vec2::new(1728.0, 1052.0));
         let lens = Lens::new(CameraRig::home(&layout, canvas), canvas.window);
+        let duel = Duel {
+            layout: Some(layout.clone()),
+            ..Duel::default()
+        };
         for slot in &layout.slots {
-            let expected = crate::hud::seatbar::attached::life_anchor(slot, &lens).unwrap();
-            let actual = lens.project_world(player_end(slot, Some(&lens))).unwrap();
+            let expected =
+                crate::hud::seatbar::attached::life_anchor(&duel, slot.player, &lens, 1.0).unwrap();
+            let actual = lens
+                .project_world(player_end(&duel, slot, Some(&lens), 1.0))
+                .unwrap();
             assert!(
                 actual.distance(expected) < 0.1,
                 "{actual:?} vs {expected:?}"

@@ -182,26 +182,35 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
         }
         return;
     }
-    let offered = duel
+    // A creature type is answered from two lists (the deck's quick list and
+    // a letter group), neither of which is the filter's first rows: any
+    // offered type is a row of one of them.
+    let a_type = duel
         .interaction
         .as_ref()
         .map(baylee_client_core::Interaction::prompt)
-        // The language and the face names are irrelevant here and
-        // deliberately not plumbed: only the *shape* of the answer is read
-        // back -- whether this prompt is an indexed choice at all, and how
-        // many rows it has. The labels are the renderer's business.
-        .and_then(|p| {
-            crate::choices::options(
-                &p,
-                baylee_client_core::Lang::En,
-                duel.statics.as_ref(),
-                &duel.subtype_filter,
-                crate::choices::FaceNames::default(),
-            )
-        })
-        // Not `index < rows.len()`: a filtered list's rows carry the
-        // engine's own indices, and most of them are not on screen.
-        .is_some_and(|rows| rows.iter().any(|row| row.index == index));
+        .is_some_and(|p| matches!(p, Prompt::ChooseSubtype { options } if index < options.len()));
+    let offered = a_type
+        || duel
+            .interaction
+            .as_ref()
+            .map(baylee_client_core::Interaction::prompt)
+            // The language and the face names are irrelevant here and
+            // deliberately not plumbed: only the *shape* of the answer is read
+            // back -- whether this prompt is an indexed choice at all, and how
+            // many rows it has. The labels are the renderer's business.
+            .and_then(|p| {
+                crate::choices::options(
+                    &p,
+                    baylee_client_core::Lang::En,
+                    duel.statics.as_ref(),
+                    &duel.subtype_filter,
+                    crate::choices::FaceNames::default(),
+                )
+            })
+            // Not `index < rows.len()`: a filtered list's rows carry the
+            // engine's own indices, and most of them are not on screen.
+            .is_some_and(|rows| rows.iter().any(|row| row.index == index));
     if !offered {
         return;
     }
