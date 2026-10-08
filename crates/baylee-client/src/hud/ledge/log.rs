@@ -737,6 +737,21 @@ pub(in crate::hud) fn spawn_line(
             .id();
         commands.entity(row).add_child(swatch);
     }
+    if line.crowned {
+        // The monarch's crown, as their plate and chip wear it.
+        let mut crown = commands.spawn((
+            Text::new(glyph::CROWN.to_string()),
+            icon_tf(fonts, inks.line_pt * 0.8),
+            Node {
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ));
+        (inks.paint)(&mut crown, Paint::Ink(palette::CANDLE));
+        let crown = crown.id();
+        commands.entity(row).add_child(crown);
+    }
     commands.entity(row).add_child(sentence);
     row
 }
@@ -1173,6 +1188,7 @@ mod tests {
                 .collect(),
             ability: None,
             subject: None,
+            crowned: false,
         }
     }
 

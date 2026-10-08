@@ -101,6 +101,7 @@ pub(crate) fn animate(
     mut duel: ResMut<Duel>,
     shown: Res<ShownRig>,
     windows: Query<&Window>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     cards: Query<(Entity, &CardVisual, &Transform), Without<Impact>>,
@@ -108,6 +109,7 @@ pub(crate) fn animate(
     mut geometry: Local<Option<(Handle<Mesh>, Handle<Mesh>)>>,
 ) {
     let now = time.elapsed_secs();
+    let step = settings.as_ref().map_or(1.0, |s| s.text_size.factor());
     let still = prefs.all().reduce_motion;
     let strikes = std::mem::take(&mut duel.strikes);
     if strikes.is_empty() {
@@ -147,7 +149,7 @@ pub(crate) fn animate(
                 .layout
                 .as_ref()
                 .and_then(|l| l.slot(id))
-                .map(|s| crate::combatlines::player_end(s, lens.as_ref())),
+                .map(|s| crate::combatlines::player_end(&duel, s, lens.as_ref(), step)),
         };
         let Some(target) = target else {
             continue;

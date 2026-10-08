@@ -532,6 +532,12 @@ pub struct Duel {
     pub hand_drawer: baylee_client_core::handdrawer::HandDrawer,
     /// How far open the drawer is drawn, 0 to 1 (`hud::hand_drawer`).
     pub hand_shown: f32,
+    /// Whether the question's sheet is folded to its pill (the owner,
+    /// 08.10.2026): the fold belongs to the question it was made on.
+    pub decision_fold: baylee_client_core::decisionfold::DecisionFold,
+    /// Whether another seat's reveal is folded to its pill, keyed on the
+    /// reveal's number: the next reveal stands up open.
+    pub reveal_fold: baylee_client_core::decisionfold::DecisionFold,
     /// Whether the drawer stands open as drawn — the player's choice and
     /// the question's, and open while the table is still being prepared —
     /// which is what the table's canvas is framed against
@@ -790,6 +796,14 @@ pub struct Duel {
     /// box under the player's fingers. It is cleared when an action is sent
     /// and when a choice arrives that is not asking for a type.
     pub subtype_filter: String,
+    /// Which letter group the creature-type chooser's full list shows while
+    /// nothing is typed (`typechooser::GROUPS`). Kept with the filter, and
+    /// cleared with it.
+    pub subtype_group: usize,
+    /// This seat's own decklist, one entry per card, where this client knows
+    /// it (a game it hosts itself, `DuelHost::own_deck`): what the
+    /// creature-type chooser's quick list counts (`choices::type_lists`).
+    pub own_deck: Vec<baylee_core::ids::CardIndex>,
     /// Whether the concede button is waiting for its second press.
     ///
     /// There is no undo in the engine and conceding is the most irreversible
@@ -992,6 +1006,7 @@ impl Duel {
         }
         // Whatever was typed belonged to the question just answered.
         self.subtype_filter.clear();
+        self.subtype_group = 0;
         // And so did the last refusal. Cleared here rather than when a new
         // question arrives, because the acting seat is re-sent its own
         // question every time anybody says anything — a refusal would have
@@ -1130,6 +1145,32 @@ impl Duel {
         })
     }
 
+    /// The spell this seat may take back now (CR 732): the view's
+    /// `casting`, which the engine names only in the caster's own view and
+    /// only through the cast's own questions and its payment window, while
+    /// this seat is the one asked. A cast an effect made, or a mana
+    /// ability's colour asked inside the window, names none.
+    #[must_use]
+    pub fn cancellable_cast(&self) -> Option<ObjectId> {
+        self.interaction.as_ref().filter(|i| i.is_mine())?;
+        self.view.as_ref().and_then(|v| v.casting)
+    }
+
+    /// Takes the cast back (`PlayerAction::CancelCast`), and with it the run
+    /// that was paying for it or waiting on its question: the engine puts
+    /// the card, the lands and the floating mana back as they were, and a
+    /// run that outlived it would tap them again. Nothing if no cast is
+    /// cancellable now.
+    pub fn cancel_cast(&mut self) {
+        if self.cancellable_cast().is_none() {
+            return;
+        }
+        self.mana_run = None;
+        self.armed = None;
+        self.cast_answer = None;
+        self.submit(PlayerAction::CancelCast);
+    }
+
     /// Pays what a payment window still owes: taps the owed plan's lands,
     /// then passes, which settles it ([`RunEnd::Settle`]). The confirm key
     /// and the shelf's pay button both come here.
@@ -1233,6 +1274,7 @@ impl Duel {
             Pending::ChooseSubtype { .. } | Pending::ChooseCardName { .. }
         ) {
             self.subtype_filter.clear();
+            self.subtype_group = 0;
         }
         let combat_before = self.interaction.as_ref().is_some_and(my_combat_question);
         self.interaction = Some(Interaction::new_keeping(
@@ -1789,10 +1831,9 @@ fn add_present_systems(app: &mut App) {
                 // leave, and a panel it has just spawned is drawn small on
                 // the frame it first appears rather than a frame later.
                 hud::zoom_the_drawer.after(hud::sync_drawer),
-                // The pool's own row, on its own revision, after the shelf it
-                // hangs beside — and its two movements after that, for the
-                // drawer's reason: a spent mana has to be able to leave, and
-                // so does the strip it was the last thing on.
+                // The owed strip, on its own revision, after the shelf it
+                // hangs beside — and its movement after that, for the
+                // drawer's reason: the strip has to be able to fold away.
                 // Nested, and it has to stay nested: `add_systems` takes a
                 // tuple and a tuple of systems is implemented up to twenty.
                 // This set was at twenty, so the pair goes in together rather
@@ -1812,7 +1853,6 @@ fn add_present_systems(app: &mut App) {
                 // run time and the pair that belongs together is the one that
                 // pays for the ceiling.
                 (
-                    hud::zoom_the_pool.after(hud::sync_pool),
                     hud::grow_the_pool.after(hud::sync_pool),
                     // The game menu's panel and its movement, in the pool's
                     // nest for the pool's reason — the tuple above is at
@@ -1858,6 +1898,9 @@ fn add_present_systems(app: &mut App) {
                     hud::glow_the_players.after(hud::sync_players),
                     hud::show_the_tags.after(hud::sync_players),
                     hud::show_priority_switch,
+                    // A chip's or a plate's name in words, under a pointer
+                    // resting on it.
+                    hud::show_hint.after(hud::sync_players),
                 ),
                 // The zone dialog, on a revision of its own for the same
                 // reason as the shelf and with a louder symptom: the dialog
@@ -2189,6 +2232,10 @@ fn poll_host(
                     journey.changed_scene();
                 }
                 duel.statics = Some(*statics);
+                // The seat's own decklist, where this host knows it.
+                if duel.own_deck.is_empty() {
+                    duel.own_deck = host.0.own_deck();
+                }
                 // Every attach opens with this payload. One before the
                 // curtain is up is a seat the engine may not have heard
                 // from, so it is told again once the view is built.
@@ -2474,6 +2521,23 @@ impl ManaRun {
     #[must_use]
     pub const fn card(&self) -> ObjectId {
         self.card
+    }
+
+    /// The spell a cast-first run has sent and is answering the questions
+    /// of before it pays (CR 601.2c–g): the decision sheet says the cast and
+    /// the question in one sentence, and that the mana comes after.
+    #[must_use]
+    pub fn casting_first(&self) -> Option<ObjectId> {
+        (self.cast_first == Some(CastFirst::Sent)).then_some(self.card)
+    }
+
+    /// The same run once its cast has been sent, for a test that stands in
+    /// that moment.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) const fn sent(mut self) -> Self {
+        self.cast_first = Some(CastFirst::Sent);
+        self
     }
 }
 
@@ -3008,6 +3072,20 @@ impl Duel {
             self.view.as_ref(),
             self.interaction.as_ref().map(Interaction::pending),
         )
+    }
+
+    /// The snapshot the question in hand was asked at: what a fold of its
+    /// sheet is kept against, so the next question opens unfolded.
+    #[must_use]
+    pub fn decision_seq(&self) -> Option<u64> {
+        self.view.as_ref().map(|v| v.seq)
+    }
+
+    /// Folds the question's sheet to its pill, or opens it again. It answers
+    /// nothing: the question stands, folded or not.
+    pub fn fold_decision(&mut self) {
+        let seq = self.decision_seq();
+        self.decision_fold.toggle(seq);
     }
 
     /// The tab tapped, or `I`: open becomes shut and shut open.

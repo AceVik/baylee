@@ -155,8 +155,58 @@ pub(super) struct Believed<'w, 's> {
         >,
         Query<'w, 's, (&'static crate::table::SeatMat, &'static Transform)>,
     ),
-    /// The ☀ / ⌛ tags on the strip's seat buttons, and whether each shows.
-    chips: Query<'w, 's, (&'static crate::hud::ChipTag, &'static Visibility)>,
+    /// The two top-edge lines (turn, priority) on the strip's seat buttons
+    /// and the seats' plates, and whether each shows (shown and inked: the
+    /// chip's turn line fades rather than hides); then the chips and the plates themselves:
+    /// where each plate is drawn, what its crown, ∞ and pool line say, and
+    /// every control's [`crate::hud::Hint`] (its name in words); and where
+    /// each seat's steps are drawn, with their names over or under them.
+    #[allow(clippy::type_complexity)] // six readings of the seats' surfaces
+    chips: (
+        Query<
+            'w,
+            's,
+            (
+                &'static crate::hud::ChipTag,
+                &'static Visibility,
+                &'static BackgroundColor,
+            ),
+        >,
+        Query<
+            'w,
+            's,
+            (
+                &'static crate::hud::PlateTab,
+                &'static Node,
+                &'static ComputedNode,
+                &'static UiGlobalTransform,
+                Option<&'static crate::hud::Hint>,
+            ),
+        >,
+        Query<
+            'w,
+            's,
+            (
+                &'static crate::hud::PlayerTab,
+                &'static crate::hud::Hint,
+                &'static ComputedNode,
+                &'static UiGlobalTransform,
+            ),
+        >,
+        Query<'w, 's, &'static crate::hud::PlateMark>,
+        Query<'w, 's, &'static crate::hud::ChipCrown>,
+        Query<
+            'w,
+            's,
+            (
+                &'static crate::hud::SeatBar,
+                &'static crate::hud::seatbar::attached::Panel,
+                &'static Node,
+                &'static ComputedNode,
+                &'static UiGlobalTransform,
+            ),
+        >,
+    ),
     /// Every card on the table, with the transform `glide` has it at right
     /// now rather than the one it is heading for, and whether it is drawn:
     /// a scrolled row does not draw the cards outside the run it shows.
@@ -738,11 +788,12 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\
-         \"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips}}}",
+         \"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates}}}",
         shell = shell_keys_json(believed),
         camera = camera_json(believed, duel),
         dial = dial_json(believed),
         chips = chips_json(believed),
+        plates = plates_json(believed),
         arrangement = arrangement_json(believed, duel),
         ui_rebuilds = rebuilds_json(believed),
         desk_controls = desk_controls_json(believed),
@@ -966,24 +1017,140 @@ fn camera_json(believed: &Believed, duel: &Duel) -> String {
     )
 }
 
-/// The seat buttons' tags that are showing (DESIGN-v7 WT5): per seat, which
-/// of ☀ (`turn`) and ⌛ (`wait`) stand on its button.
+/// Which of a seat's two top-edge lines show, on its chip (`plate` false)
+/// or its plate: `{"turn":…,"priority":…}`.
+fn lines_json(believed: &Believed, player: u8, plate: bool) -> String {
+    let shows = |kind: crate::hud::TagKind| {
+        believed.chips.0.iter().any(|(tag, seen, ink)| {
+            tag.player.get() == player
+                && tag.plate == plate
+                && tag.kind == kind
+                && *seen != Visibility::Hidden
+                && ink.0.alpha() >= 0.5
+        })
+    };
+    format!(
+        "{{\"turn\":{},\"priority\":{}}}",
+        shows(crate::hud::TagKind::Turn),
+        shows(crate::hud::TagKind::Priority)
+    )
+}
+
+/// The seat buttons (DESIGN-v7 WT5, and the owner's lines of 08.10.2026):
+/// per seat, which of its top-edge lines show, its crown, its words and its
+/// box.
 fn chips_json(believed: &Believed) -> String {
-    let mut seats: std::collections::BTreeMap<u8, Vec<&str>> = std::collections::BTreeMap::new();
-    for (tag, seen) in &believed.chips {
-        let shown = seats.entry(tag.player.get()).or_default();
-        if *seen != Visibility::Hidden {
-            shown.push(tag.kind.name());
-        }
-    }
+    let seats: std::collections::BTreeSet<u8> = believed
+        .chips
+        .0
+        .iter()
+        .filter(|(tag, ..)| !tag.plate)
+        .map(|(tag, ..)| tag.player.get())
+        .collect();
     let rows: Vec<String> = seats
         .iter()
-        .map(|(seat, tags)| {
-            let tags: Vec<String> = tags.iter().map(|t| quoted(t)).collect();
-            format!("{{\"seat\":{seat},\"tags\":[{}]}}", tags.join(","))
+        .map(|seat| {
+            let lines = lines_json(believed, *seat, false);
+            let chip = believed
+                .chips
+                .2
+                .iter()
+                .find(|(tab, ..)| tab.player.get() == *seat);
+            let crown = believed
+                .chips
+                .4
+                .iter()
+                .any(|c| c.player.get() == *seat);
+            let (hint, rect) = chip.map_or_else(
+                || ("null".to_string(), "null".to_string()),
+                |(_, hint, node, at)| (quoted(&hint.0), rect_json(node, at)),
+            );
+            format!(
+                "{{\"seat\":{seat},\"lines\":{lines},\"crown\":{crown},\"hint\":{hint},\"rect\":{rect}}}"
+            )
         })
         .collect();
     format!("[{}]", rows.join(","))
+}
+
+/// A UI node's drawn box in logical pixels, `[x, y, w, h]`: its middle and
+/// its unturned size (a turned plate reports the box before the turn).
+fn rect_json(node: &ComputedNode, at: &UiGlobalTransform) -> String {
+    let scale = node.inverse_scale_factor();
+    let size = node.size() * scale;
+    let middle = at.translation * scale;
+    format!(
+        "[{:.1},{:.1},{:.1},{:.1}]",
+        middle.x - size.x * 0.5,
+        middle.y - size.y * 0.5,
+        size.x,
+        size.y
+    )
+}
+
+/// The seats' plates on the table (the owner's requests of 08.10.2026): per
+/// seat, whether it is drawn, its box, its crown, ∞ and pool line, and its
+/// name in words.
+fn plates_json(believed: &Believed) -> String {
+    let mut rows: Vec<(u8, String)> = believed
+        .chips
+        .1
+        .iter()
+        .map(|(tab, node, computed, at, hint)| {
+            let seat = tab.player.get();
+            let marked = |kind: crate::hud::PlateMarkKind| {
+                believed
+                    .chips
+                    .3
+                    .iter()
+                    .any(|m| m.player == tab.player && m.kind == kind)
+            };
+            (
+                seat,
+                format!(
+                    "{{\"seat\":{seat},\"shown\":{},\"rect\":{},\"lines\":{},\"crown\":{},\"unlimited\":{},\"pool\":{},\"hint\":{},\"steps\":{}}}",
+                    node.display != Display::None,
+                    rect_json(computed, at),
+                    lines_json(believed, seat, true),
+                    marked(crate::hud::PlateMarkKind::Crown),
+                    marked(crate::hud::PlateMarkKind::Unlimited),
+                    marked(crate::hud::PlateMarkKind::Pool),
+                    hint.map_or_else(|| "null".to_string(), |h| quoted(&h.0)),
+                    steps_json(believed, tab.player),
+                ),
+            )
+        })
+        .collect();
+    rows.sort_by_key(|(seat, _)| *seat);
+    let rows: Vec<String> = rows.into_iter().map(|(_, row)| row).collect();
+    format!("[{}]", rows.join(","))
+}
+
+/// Where `player`'s steps are drawn — `{"shown", "rect", "names"}`, the
+/// names `"over"` or `"under"` the tiles — or `null` with no steps panel.
+fn steps_json(believed: &Believed, player: baylee_core::ids::PlayerId) -> String {
+    believed
+        .chips
+        .5
+        .iter()
+        .find(|(bar, panel, ..)| {
+            bar.player == player && matches!(panel, crate::hud::seatbar::attached::Panel::Phases)
+        })
+        .map_or_else(
+            || "null".to_string(),
+            |(_, _, node, computed, at)| {
+                let names = if node.flex_direction == FlexDirection::ColumnReverse {
+                    "under"
+                } else {
+                    "over"
+                };
+                format!(
+                    "{{\"shown\":{},\"rect\":{},\"names\":\"{names}\"}}",
+                    node.display != Display::None,
+                    rect_json(computed, at)
+                )
+            },
+        )
 }
 
 /// The dial (DESIGN-v7 §2.7): where the hands point, who is deciding, the

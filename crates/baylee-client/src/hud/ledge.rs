@@ -175,6 +175,14 @@ pub struct LedgeRevision {
     pub(super) window_w: i32,
 }
 
+impl LedgeRevision {
+    /// The sentence the shelf was last drawn with, for the tests.
+    #[cfg(test)]
+    pub(in crate::hud) fn prompt_for_tests(&self) -> Option<&str> {
+        self.prompt.as_deref()
+    }
+}
+
 /// The size the shelf's own prose is set at.
 const SENTENCE_PT: f32 = 14.0;
 
@@ -333,21 +341,15 @@ const RIGHT_RESERVED: f32 = EDGE + menu::BURGER + tray::WIDTH;
 /// it once and afterwards reads only what stands beside it.
 const POOL_LABEL_PT: f32 = 11.0;
 
-/// A floating mana's disc.
+/// An owed mana's disc.
 const POOL_PIP: f32 = 16.0;
 
-/// The numeral beside it, in Bold — the one number on the shelf.
-const POOL_COUNT_PT: f32 = 12.0;
-
-/// From the label to the first entry: a wider step than between the entries,
-/// because the label names the row and is not part of it.
+/// From the word `Owed` to the first pip: a wider step than between the
+/// pips, because the word names the row and is not part of it.
 const POOL_LABEL_GAP: f32 = 10.0;
 
-/// Between two entries of the pool.
+/// Between two owed pips.
 const POOL_ENTRY_GAP: f32 = 6.0;
-
-/// Between an entry's disc and its numeral, which are one thing.
-const POOL_PIP_GAP: f32 = 4.0;
 
 mod answers;
 mod buttons;

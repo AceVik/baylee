@@ -1260,6 +1260,18 @@ messages! {
     ActNextArrangement { en: "Next arrangement", de: "Nächste Anordnung" },
     /// Open or shut the hand's drawer on a phone (DESIGN-v8 WA11)
     ActHandDrawer { en: "Open or shut the hand (phone)", de: "Hand auf- oder zuklappen (Telefon)" },
+    /// The creature-type chooser's quick list: the types the deck plays most.
+    TypesInDeck { en: "Most in your deck", de: "Am häufigsten in deinem Deck" },
+    /// The creature-type chooser's full list.
+    TypesAll { en: "All types", de: "Alle Typen" },
+    /// A cast made before its mana, asking its own question first: the
+    /// spell, the question, and that the payment comes after (CR 601.2g).
+    CastFirstQuestion { en: "Cast {0}: {1} — paid after", de: "{0} wirken: {1} — bezahlt wird danach" },
+    /// The answer that takes back a spell being cast (CR 732), in its
+    /// questions and its payment window.
+    CancelCast { en: "Cancel cast", de: "Abbrechen" },
+    /// Fold the question's sheet to its pill, or open it again.
+    ActFoldDecision { en: "Fold or open the question's sheet", de: "Entscheidung ein- oder ausklappen" },
     /// The ring (DESIGN-v8 arrangement 1)
     ArrRing { en: "Ring", de: "Ring" },
     /// What the ring does
@@ -2759,6 +2771,30 @@ messages! {
     // ---- the mana pool
     /// Mana pool
     ManaPool { en: "Mana pool", de: "Manavorrat" },
+    /// A seat's plate and chip, said in words (tooltip, accessible name).
+    PlateLife { en: "{0} life", de: "{0} Leben" },
+    /// Cards in a seat's hand.
+    PlateHand { en: "{0} in hand", de: "{0} auf der Hand" },
+    /// Cards in a seat's library.
+    PlateLibrary { en: "{0} in library", de: "{0} in der Bibliothek" },
+    /// Cards in a seat's graveyard.
+    PlateGraveyard { en: "{0} in graveyard", de: "{0} im Friedhof" },
+    /// Cards in a seat's public exile.
+    PlateExile { en: "{0} in exile", de: "{0} im Exil" },
+    /// Poison counters on a seat.
+    PlatePoison { en: "{0} poison", de: "{0} Gift" },
+    /// Energy counters on a seat.
+    PlateEnergy { en: "{0} energy", de: "{0} Energie" },
+    /// The most combat damage one commander has dealt a seat.
+    PlateCommander { en: "{0} commander damage", de: "{0} Kommandeurschaden" },
+    /// The monarch designation (CR 724), beside the crown.
+    PlateMonarch { en: "Monarch", de: "Monarch" },
+    /// A seat that is out of the game.
+    PlateLost { en: "Out of the game", de: "Ausgeschieden" },
+    /// The seat whose turn it is (the ☀ tag's words).
+    PlateTurn { en: "Their turn", de: "Am Zug" },
+    /// The seat the table waits for (the ⌛ tag's words).
+    PlateWaiting { en: "The table waits for them", de: "Der Tisch wartet" },
     /// Badge on the player whose turn is in progress (not merely priority).
     ActiveTurn { en: "Turn", de: "Am Zug" },
     /// The creature type publicly named for this permanent.

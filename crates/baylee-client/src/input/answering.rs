@@ -218,6 +218,17 @@ pub(super) fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut cra
             // nothing on the screen or in the answer is left to take back
             // (DESIGN-v7 §2.4).
             navigate_home(duel);
+        } else if duel.cancellable_cast().is_some()
+            && duel
+                .interaction
+                .as_ref()
+                .is_none_or(|i| i.selected().next().is_none() && i.assignments().is_empty())
+        {
+            // The last rung, and the only one that is a move in the game:
+            // with nothing on the screen or in the answer left to take back,
+            // `Esc` in a cast's question or its payment window takes the
+            // cast back (CR 732).
+            duel.cancel_cast();
         } else if let Some(i) = duel.interaction.as_mut() {
             i.cancel();
         }

@@ -200,3 +200,104 @@ fn the_cards_fit_any_window_the_client_supports() {
         assert!(width > 0.0 && width <= WIDEST, "{window}: {width}");
     }
 }
+
+fn count<C: Component>(app: &mut App) -> usize {
+    let mut q = app.world_mut().query_filtered::<(), With<C>>();
+    q.iter(app.world()).count()
+}
+
+fn actions(app: &mut App) -> Vec<MenuAction> {
+    let mut q = app.world_mut().query::<&super::super::MenuButton>();
+    q.iter(app.world()).map(|b| b.action).collect()
+}
+
+/// The decision sheet's parts (the owner, 08.10.2026): a head with the fold
+/// and the close cross, a foot with the close answer, and on every card
+/// the log's own link, which is what opens the table's preview of it.
+#[test]
+fn a_reveal_is_the_sheet_with_its_fold_its_close_and_a_preview_on_every_card() {
+    let mut app = table();
+    let mut line = revealed_line(1, 40, 7);
+    if let baylee_view::LogEvent::Revealed { cards, .. } = &mut line.event {
+        cards.extend(revealed_line(1, 41, 8).event.objects().cloned());
+    }
+    reveal(&mut app, vec![line]);
+    app.update();
+    let said = actions(&mut app);
+    assert_eq!(
+        said.iter()
+            .filter(|a| **a == MenuAction::FoldReveal)
+            .count(),
+        1,
+        "one fold: {said:?}"
+    );
+    assert_eq!(
+        said.iter()
+            .filter(|a| **a == MenuAction::DismissReveal)
+            .count(),
+        2,
+        "the head's cross and the foot's answer: {said:?}"
+    );
+    let links: Vec<Entity> = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<Entity, (With<LogLink>, With<Node>)>();
+        q.iter(app.world()).collect()
+    };
+    assert_eq!(links.len(), 2, "a link on each card");
+    for link in links {
+        let parent = app.world().get::<ChildOf>(link).map(ChildOf::parent);
+        assert!(
+            parent.is_some_and(|p| app.world().get::<RevealCard>(p).is_some()),
+            "the link lies on its card"
+        );
+        assert_ne!(
+            app.world().get::<Pickable>(link),
+            Some(&Pickable::IGNORE),
+            "and takes the pointer, so the preview opens"
+        );
+    }
+}
+
+/// Folded, the reveal is a pill and nothing else of it stands; the pill
+/// opens it again; the next reveal stands up open. Its time runs either way.
+#[test]
+fn a_folded_reveal_is_a_pill_and_the_next_one_opens() {
+    let mut app = table();
+    reveal(
+        &mut app,
+        vec![revealed_line(1, 40, 7), revealed_line(1, 41, 8)],
+    );
+    app.update();
+    assert_eq!(count::<RevealCard>(&mut app), 1);
+    let fold = |app: &mut App| {
+        let mut duel = app.world_mut().resource_mut::<Duel>();
+        let number = duel.reveals.current().map(|r| r.number);
+        duel.reveal_fold.toggle(number);
+    };
+    fold(&mut app);
+    app.update();
+    assert_eq!(count::<RevealPill>(&mut app), 1, "folded to its pill");
+    assert_eq!(count::<RevealCard>(&mut app), 0, "and no card stands");
+    fold(&mut app);
+    app.update();
+    assert_eq!(count::<RevealPill>(&mut app), 0, "opened again");
+    assert_eq!(count::<RevealCard>(&mut app), 1);
+
+    fold(&mut app);
+    app.update();
+    app.world_mut().resource_mut::<Duel>().reveals.dismiss();
+    app.update();
+    assert_eq!(count::<RevealPill>(&mut app), 0, "the next reveal is open");
+    assert_eq!(count::<RevealCard>(&mut app), 1);
+
+    fold(&mut app);
+    app.update();
+    let all = Duration::from_secs_f64(SHOW_SECS + 0.1);
+    app.world_mut().resource_mut::<Time>().advance_by(all);
+    app.update();
+    assert!(
+        sheets(&mut app).is_empty(),
+        "a folded reveal still times out"
+    );
+}

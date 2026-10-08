@@ -99,7 +99,6 @@ pub(super) fn answers_for(
     waiting: bool,
     elsewhere: bool,
 ) -> Vec<(Says, String)> {
-    use baylee_engine::choice::Pending;
     // Above the suppression and not below it: the hold exists **only** while
     // this seat is not being asked, so a branch under that `return` would be
     // dead code that looked like a feature.
@@ -109,9 +108,28 @@ pub(super) fn answers_for(
             Phrase::HoldRelease.text(lang).to_string(),
         )];
     }
-    if over || waiting || duel.cast_menu.is_some() {
+    if over || waiting {
         return Vec::new();
     }
+    let mut row = if duel.cast_menu.is_some() {
+        Vec::new()
+    } else {
+        question_row(duel, lang, elsewhere)
+    };
+    // A cast in its questions or its payment window can be taken back
+    // (CR 732): the last answer, and `Esc`'s last rung.
+    if duel.cancellable_cast().is_some() {
+        row.push((
+            Says::Command(super::MenuAction::CancelCast),
+            Phrase::CancelCast.text(lang).to_string(),
+        ));
+    }
+    row
+}
+
+/// The answers the engine's question itself takes.
+fn question_row(duel: &Duel, lang: Lang, elsewhere: bool) -> Vec<(Says, String)> {
+    use baylee_engine::choice::Pending;
     let say = |action: PromptAction, phrase: Phrase| {
         (Says::Answer(action), phrase.text(lang).to_string())
     };
@@ -395,6 +413,11 @@ pub(super) fn keys_for(
             // gets no cap.
             Says::Command(super::MenuAction::ReleaseHold) => {
                 held.then_some(baylee_client_core::prefs::Action::HoldForStack)
+            }
+            // `Esc` reaches it once nothing nearer is left to take back
+            // (`input::answering`'s ladder).
+            Says::Command(super::MenuAction::CancelCast) => {
+                Some(baylee_client_core::prefs::Action::Cancel)
             }
             Says::Command(_) => None,
         })
