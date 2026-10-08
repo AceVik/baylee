@@ -1141,6 +1141,32 @@ impl Duel {
         })
     }
 
+    /// The spell this seat may take back now (CR 732): the view's
+    /// `casting`, which the engine names only in the caster's own view and
+    /// only through the cast's own questions and its payment window, while
+    /// this seat is the one asked. A cast an effect made, or a mana
+    /// ability's colour asked inside the window, names none.
+    #[must_use]
+    pub fn cancellable_cast(&self) -> Option<ObjectId> {
+        self.interaction.as_ref().filter(|i| i.is_mine())?;
+        self.view.as_ref().and_then(|v| v.casting)
+    }
+
+    /// Takes the cast back (`PlayerAction::CancelCast`), and with it the run
+    /// that was paying for it or waiting on its question: the engine puts
+    /// the card, the lands and the floating mana back as they were, and a
+    /// run that outlived it would tap them again. Nothing if no cast is
+    /// cancellable now.
+    pub fn cancel_cast(&mut self) {
+        if self.cancellable_cast().is_none() {
+            return;
+        }
+        self.mana_run = None;
+        self.armed = None;
+        self.cast_answer = None;
+        self.submit(PlayerAction::CancelCast);
+    }
+
     /// Pays what a payment window still owes: taps the owed plan's lands,
     /// then passes, which settles it ([`RunEnd::Settle`]). The confirm key
     /// and the shelf's pay button both come here.

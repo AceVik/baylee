@@ -36,6 +36,7 @@
 
 mod alpha_choices;
 mod arming;
+mod cancel_cast;
 mod combat;
 mod dialog_keys;
 mod hover;

@@ -23,7 +23,7 @@ Two consequences worth knowing before changing anything here:
 |---|---|---|
 | The click (a sheet holding the question → card under cursor → phase toggle → pass) | `Enter` | implemented |
 | Confirm / pass (ticks a row on a sheet holding the question, toggles nothing else, and does not declare an empty attack or block) | `Space` | implemented |
-| Cancel: armed deed, then preview, then cards another seat revealed (one reveal a press), then the game menu, then the game log, then the zone browser *if the player may put it away*, then phase selection, then half-built answer | `Esc` | implemented |
+| Cancel: armed deed, then preview, then cards another seat revealed (one reveal a press), then the game menu, then the game log, then the zone browser *if the player may put it away*, then phase selection, then half-built answer, then a visit (home), then — only while the view names a cast (`PlayerView::casting`: its own questions and its payment window) — the cast itself (CR 732; the shelf's last answer "Abbrechen" / "Cancel cast" is the same door) | `Esc` | implemented |
 | Put away cards another seat revealed (the sheet at the top; it also goes by itself after 7 s, longer for more cards) | `Esc`, or a press on the sheet | implemented |
 | Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |

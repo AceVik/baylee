@@ -6285,6 +6285,15 @@ the card):
 - **Foot**: the shelf. The sheet grows out of the shelf, so the shelf's row
   of answers with their key caps is its foot for every question; while the
   sheet stands the shelf drops its own sentence (`sheet_up`).
+- **Cancel cast**: while the view names a cast (`PlayerView::casting`,
+  only in the caster's own view, through the cast's mode, X, target and
+  extra-cost questions and its payment window), the shelf's last answer is
+  *"Abbrechen"* / *"Cancel cast"* with `Esc`'s cap, and `Esc` is its last
+  rung, under a half-built answer and a visit (`Duel::cancel_cast`). It
+  sends `PlayerAction::CancelCast` and ends the client's `ManaRun` for the
+  card, so a cast-first run never taps the lands the engine just untapped.
+  A cast an effect made, or a mana ability's colour asked in the window,
+  names no cast and offers no cancel.
 - **Fold**: the control at the head's right, the `X` key
   (`Action::FoldDecision`) and a press on the pill. Folded, the sheet is a
   pill at the window's right edge over the strips — the source's picture,

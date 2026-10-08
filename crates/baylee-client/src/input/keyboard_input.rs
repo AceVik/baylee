@@ -459,6 +459,11 @@ fn subtype_keys(
         return true;
     }
     if fired.has(Action::Cancel) {
+        // The typed filter first; with nothing typed, `Esc` goes on down
+        // the question's ladder (a cast's question is taken back there).
+        if duel.subtype_filter.is_empty() {
+            return false;
+        }
         duel.subtype_filter.clear();
         return true;
     }

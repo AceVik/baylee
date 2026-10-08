@@ -572,6 +572,9 @@ pub enum MenuAction {
     /// Decline a payment window: pass it without paying. The pay button is
     /// the prompt's confirm ([`crate::Duel::pay_owed`]).
     DeclinePayment,
+    /// Take back the spell being cast (`Duel::cancel_cast`): the shelf's
+    /// last answer while the view names one, and `Esc`'s last rung.
+    CancelCast,
     /// Open the report form (#309), from the game menu.
     Report,
     /// Open the arrangement menu (DESIGN-v8 §2.4): the game menu's row, and

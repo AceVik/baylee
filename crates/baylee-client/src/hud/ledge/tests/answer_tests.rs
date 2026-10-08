@@ -453,3 +453,53 @@ fn auto_damage_button_is_only_offered_for_combat_shares() {
         );
     }
 }
+
+/// A cast the view names (CR 732) adds "Cancel cast" as the last answer,
+/// capped with `Esc`, to its target question and its payment window alike;
+/// the same questions with no cast named offer no such answer.
+#[test]
+fn a_named_cast_offers_its_cancel_and_nothing_else_does() {
+    use baylee_engine::choice::{LegalActions, Pending, TargetPrompt};
+    let questions = [
+        Pending::ChooseTargets {
+            player: PlayerId::new(0),
+            options: vec![ObjectId::new(30, 0)],
+            player_options: Vec::new(),
+            min: 1,
+            max: 1,
+            reason: TargetPrompt::Targets,
+        },
+        Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                ..LegalActions::default()
+            }),
+        },
+    ];
+    let prefs = crate::prefs::Prefs::default();
+    for pending in questions {
+        for named in [true, false] {
+            let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+            view.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+                baylee_core::mana::ManaCost::parse("{1}{R}"),
+            ));
+            view.casting = named.then_some(ObjectId::new(90, 0));
+            let mut duel = Duel::default();
+            duel.receive_view(view);
+            duel.receive_choice(pending.clone());
+            let answers = answers_for(&duel, Lang::En, false, false, false);
+            let at = answers
+                .iter()
+                .position(|(says, _)| *says == Says::Command(super::super::MenuAction::CancelCast));
+            if named {
+                assert_eq!(at, Some(answers.len() - 1), "last: {answers:?}");
+                assert_eq!(answers[answers.len() - 1].1, "Cancel cast");
+                let caps = keys_for(&prefs, &answers, false, false);
+                assert!(caps[answers.len() - 1].is_some(), "with Esc's cap");
+            } else {
+                assert_eq!(at, None, "{answers:?}");
+            }
+        }
+    }
+}

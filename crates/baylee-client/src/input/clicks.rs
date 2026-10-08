@@ -112,6 +112,7 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // to do nothing or into a cancellation, and neither is what the cap
         // says.
         // Declining a payment: the window's own pass, sent without a tap.
+        MenuAction::CancelCast => duel.cancel_cast(),
         MenuAction::DeclinePayment => {
             if duel.paying() && duel.mana_run.is_none() {
                 duel.submit(PlayerAction::PassPriority);
