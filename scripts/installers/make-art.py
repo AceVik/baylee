@@ -27,9 +27,10 @@ Writes:
   exists (macOS), so the 16 and 32 pt entries are there too.
 - crates/baylee-client/assets/brand/baylee-window.png: 128 px, the window
   icon a Linux X11 client sets on itself (`window_icon.rs`).
-- windows/baylee.ico: embedded as the icon resource of baylee-client.exe
-  and baylee-launch.exe (their build.rs), and the setup's, the shortcuts'
-  and Apps & features' icon.
+- windows/baylee.ico: embedded as the icon resource of both packaged
+  programs, the launcher (baylee-client.exe, built as baylee-launch) and
+  the client (baylee-runtime.exe), by build.rs of baylee-update and
+  baylee-client; and the setup's, the shortcuts' and Apps & features' icon.
 - linux/baylee.png (256 px, the AppImage's) and
   linux/hicolor/<n>x<n>/apps/baylee.png for every size in LINUX_SIZES (the
   .deb's).
