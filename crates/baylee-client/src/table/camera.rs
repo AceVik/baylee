@@ -229,12 +229,28 @@ impl CameraRig {
         // top-pinned panel keeps below (DESIGN-v8 §2.2's fallback — the ring
         // pays, and only where a seat reaches a button). One more fit, and
         // only for such a table.
-        if ring
-            && canvas.top < crate::hud::TOP_CLEAR
-            && reaches_the_top(layout, rig, canvas, shot.arrangement)
-        {
-            let below = fit(min, max, &corners, tilt, canvas.below_the_pill());
-            return (below.rig(0.0, tilt, |p| p), below.binds);
+        //
+        // The same at the bottom: the players' strip stands on the hand
+        // zone's shelf over the table (it "grows upwards out of the shelf",
+        // `hud::ledge::players`), and a table whose depth binds stands my own
+        // board's land row under it. A ring that would is framed above it.
+        if !ring {
+            return (rig, framed.binds);
+        }
+        let top = canvas.top < crate::hud::TOP_CLEAR
+            && reaches_the_top(layout, rig, canvas, shot.arrangement);
+        // From five seats the strip holds five chips and more, about 150 px
+        // each, so it runs out under the near edge's middle; at three and
+        // four it ends short of my board (a three-seat strip at 1708 stops
+        // at 448 px, my mat begins at 457) and a ring stays as v7 framed it.
+        let strips = layout.on_felt().count() >= 5 && reaches_the_strips(layout, rig, canvas);
+        if top || strips {
+            let mut clear = if top { canvas.below_the_pill() } else { canvas };
+            if strips {
+                clear.bottom += crate::hud::STRIPS_H;
+            }
+            let refit = fit(min, max, &corners, tilt, clear);
+            return (refit.rig(0.0, tilt, |p| p), refit.binds);
         }
         (rig, framed.binds)
     }
@@ -561,6 +577,19 @@ fn visit_reach(layout: &TableLayout, frame: VisitFrame, air: f32) -> Option<f32>
         }
     };
     Some((far - lo.y).max(hi.y - lo.y))
+}
+
+/// Whether any seat's whole place, seen through `rig`, reaches down into the
+/// band the players' strip stands in over the table, [`crate::hud::STRIPS_H`]
+/// above the hand zone.
+fn reaches_the_strips(layout: &TableLayout, rig: CameraRig, canvas: Canvas) -> bool {
+    let lens = Lens::new(rig, canvas.window);
+    let line = canvas.window.y - canvas.bottom - crate::hud::STRIPS_H;
+    layout
+        .corners(0.0)
+        .into_iter()
+        .filter_map(|p| lens.project(p))
+        .any(|at| at.y > line)
 }
 
 /// Whether any seat's whole place, seen through `rig`, reaches a button at

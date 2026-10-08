@@ -627,8 +627,17 @@ fn the_shot_is_as_close_as_the_band_allows() {
 #[test]
 fn the_table_sits_in_the_middle_of_what_can_be_seen() {
     let canvas = Canvas::hud(WINDOW);
-    let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
-    let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
+    // The band the shot frames in: the HUD's, or — where a ring would put
+    // a seat under the players' strip or a top button — that band less
+    // the strip, the top line, or both (`CameraRig::home_shot`).
+    let mut strips = canvas;
+    strips.bottom += crate::hud::STRIPS_H;
+    let bands = [
+        canvas,
+        strips,
+        canvas.below_the_pill(),
+        strips.below_the_pill(),
+    ];
     for n in 2..=8u8 {
         let layout = TableLayout::new(&seats(n), 2.01, None);
         let rig = CameraRig::home(&layout, canvas);
@@ -636,10 +645,19 @@ fn the_table_sits_in_the_middle_of_what_can_be_seen() {
         let eye = rig.distance * (1.0 + rig.lean * rig.lean).sqrt();
         // The rig stores world x/z; `+y` away from the local seat is `-z`.
         let along = -rig.target.y;
-        let behind = eye * ground(top, rig.lean) - (max.y - along);
-        let ahead = (min.y - along) - eye * ground(bottom, rig.lean);
+        let off = |band: &Canvas| {
+            let top = 1.0 - 2.0 * band.top / band.window.y;
+            let bottom = -1.0 + 2.0 * band.bottom / band.window.y;
+            let behind = eye * ground(top, rig.lean) - (max.y - along);
+            let ahead = (min.y - along) - eye * ground(bottom, rig.lean);
+            (behind, ahead)
+        };
+        let (behind, ahead) = off(&canvas);
         assert!(
-            (behind - ahead).abs() < 0.1,
+            bands.iter().any(|band| {
+                let (b, a) = off(band);
+                (b - a).abs() < 0.1
+            }),
             "{n} seats: {behind:.2} units of felt behind the far seat \
              against {ahead:.2} in front of the near one"
         );
@@ -1076,6 +1094,51 @@ fn the_corner_beside_the_report_button_lies_on_no_seat_s_place() {
         Vec2::new(800.0, 600.0),
     ] {
         on_no_seat_s_place(window, crate::hud::beside_corner(window));
+    }
+}
+
+/// From five seats the players' strip runs under the middle of the near
+/// edge, and no seat's place lies under it at the ring's home — my own
+/// land row least of all — alone and in teams, on the desktop windows.
+#[test]
+fn no_seat_s_place_lies_under_the_players_strip() {
+    use baylee_client_core::tableview::{Arrangement, TableFrame};
+    for window in [
+        WINDOW,
+        Vec2::new(1708.0, 1032.0),
+        Vec2::new(1280.0, 800.0),
+        Vec2::new(2560.0, 1440.0),
+    ] {
+        let canvas = Canvas::hud(window);
+        let frame = TableFrame::of(window.x, window.y);
+        let line = window.y - canvas.bottom - crate::hud::STRIPS_H;
+        for n in 5..=8u8 {
+            for team in [None, Some(2_u8), Some(3)] {
+                let roster: Vec<Seat> = seats(n)
+                    .into_iter()
+                    .map(|p| Seat::on(p, team.map(|k| p.get() % k)))
+                    .collect();
+                let layout = TableLayout::arranged_in(
+                    &roster,
+                    canvas.aspect(),
+                    Arrangement::Ring,
+                    None,
+                    frame,
+                );
+                let rig = CameraRig::home_shot(&layout, canvas, Shot::default()).0;
+                let lens = Lens::new(rig, window);
+                let lowest = places(&layout)
+                    .into_iter()
+                    .filter_map(|p| lens.project(p))
+                    .map(|at| at.y)
+                    .fold(f32::NEG_INFINITY, f32::max);
+                assert!(
+                    lowest <= line + 0.5,
+                    "{n} seats ({team:?}) in {window}: a place reaches {lowest:.1} px, \
+                     the strip stands from {line:.1}"
+                );
+            }
+        }
     }
 }
 
