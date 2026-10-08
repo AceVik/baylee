@@ -414,6 +414,7 @@ fn an_opponent_is_visited_from_across_and_a_teammate_from_behind() {
     use baylee_client_core::layout::Seat;
     use baylee_client_core::tableview::Arrangement;
     let canvas = Canvas::hud(WINDOWS[0]);
+    let frame = baylee_client_core::tableview::TableFrame::of(WINDOWS[0].x, WINDOWS[0].y);
     for arrangement in [Arrangement::Ring, Arrangement::UprightRing] {
         for n in [3_u8, 4, 6] {
             // Teams of two from four seats: seat 2 is my teammate.
@@ -424,7 +425,8 @@ fn an_opponent_is_visited_from_across_and_a_teammate_from_behind() {
                     Seat::on(p, team)
                 })
                 .collect();
-            let layout = TableLayout::arranged(&roster, canvas.aspect(), arrangement, None);
+            let layout =
+                TableLayout::arranged_in(&roster, canvas.aspect(), arrangement, None, frame);
             let shot = Shot {
                 arrangement,
                 teammates: Shot::teammates_of(

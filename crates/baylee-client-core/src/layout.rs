@@ -39,10 +39,12 @@
 use crate::cardplate::PlateRoom;
 
 mod arrangement;
+mod frame;
 #[cfg(test)]
 use arrangement::upright_apart as arrangement_upright_apart;
 pub use arrangement::{Arrangement, IN_VIEW, peeks, rail_window, transition};
 use baylee_core::ids::PlayerId;
+pub use frame::{DIAL_CLEAR, HEARTH_BAND, POD_GAP};
 use glam::Vec2;
 
 /// Width of a card in table units. Height follows the real card ratio
@@ -1095,6 +1097,40 @@ impl TableLayout {
         }
     }
 
+    /// [`Self::arranged`] for a window of `frame`'s class, which is what the
+    /// client lays its table with.
+    ///
+    /// The one difference is a phone's ring: its home shot frames my own
+    /// board and the dial (DESIGN-v7 §1.4) and every other board is read by
+    /// visiting it, a board at a time, so what a frame buys — the whole
+    /// table framed closer — is not what a phone draws, and what it costs —
+    /// my board further from the dial, a flank turned into the window's top
+    /// corner where the report button stands — is. A phone's ring and
+    /// upright ring stay on the ellipse.
+    #[must_use]
+    pub fn arranged_in(
+        seats: &[Seat],
+        aspect: f32,
+        arrangement: Arrangement,
+        interest: Option<PlayerId>,
+        frame: crate::tableview::TableFrame,
+    ) -> Self {
+        if frame == crate::tableview::TableFrame::Phone && seats.len() > 2 {
+            match arrangement {
+                Arrangement::Ring => return Self::on_ring(seats, aspect, None),
+                Arrangement::UprightRing => {
+                    return arrangement::upright_of(
+                        Self::on_ring(seats, aspect, None),
+                        seats,
+                        aspect,
+                    );
+                }
+                _ => {}
+            }
+        }
+        Self::arranged(seats, aspect, arrangement, interest)
+    }
+
     /// The same, for a table where some of the seats are allied.
     ///
     /// `aspect` is the aspect ratio of the part of the window the table is
@@ -1125,10 +1161,65 @@ impl TableLayout {
     /// that pod is enlarged at the expense of the other seats, never of the
     /// local one.
     ///
+    /// From four sides with a team among them, or five sides, the same sides
+    /// are also laid on a **frame** ([`frame`]): the edges of a rectangle,
+    /// [`POD_GAP`] apart, which draws the least favoured board at the table
+    /// larger wherever the ellipse leaves its corners and flat runs bare
+    /// (owner, 08.10.2026). Whichever of the two draws that board larger is
+    /// the table.
+    ///
     /// # Panics
     /// Never — an empty seat list produces an empty layout.
     #[must_use]
     pub fn seated(seats: &[Seat], aspect: f32, focus: Option<PlayerId>) -> Self {
+        let ring = Self::on_ring(seats, aspect, focus);
+        let n = seats.len();
+        let parties = sides_of(seats);
+        let alone = parties.iter().all(|party| party.len() == 1);
+        // Never for a focus (it re-cuts the ring's widths), and not for
+        // three playing for themselves, who sit on a circle ([`ROUND_COST`])
+        // — wherever their ring keeps the gaps a frame keeps.
+        if focus.is_some() || n < 3 {
+            return ring;
+        }
+        let holds = ring.keeps_clear();
+        if alone && parties.len() == 3 && holds {
+            return ring;
+        }
+        let standard = standard_board(n, aspect);
+        let aspect = aspect.clamp(0.45, 2.8);
+        // An ellipse that brings two boards nearer than a frame's gap is no
+        // candidate at all.
+        let ellipse = match ring.extent() {
+            Some((lo, hi)) if holds => frame::price(hi - lo, aspect, &ring.slots),
+            _ => f32::INFINITY,
+        };
+        match frame::frame(seats, &parties, standard * 0.5, POD_DEPTH * 0.5, aspect) {
+            // A hundredth's margin: a frame that only matches the ellipse
+            // is not worth the table changing shape for.
+            Some(framed) if framed.price < ellipse * 0.99 => Self {
+                slots: framed.slots,
+                radius: framed.radius,
+            },
+            _ => ring,
+        }
+    }
+
+    /// Whether this table keeps what a frame keeps by construction: every
+    /// two boards on the felt [`POD_GAP`] apart, none on another's
+    /// [`HEARTH_BAND`], nothing drawn within [`DIAL_CLEAR`] of the middle.
+    /// An ellipse that does not is no candidate where a frame is
+    /// ([`Self::seated`]).
+    #[must_use]
+    pub fn keeps_clear(&self) -> bool {
+        frame::holds(&self.slots)
+    }
+
+    /// [`Self::seated`]'s ellipse alone: the ring the arrangements that
+    /// build their own geometry take their template from (a board's size,
+    /// a parked seat's bearing), and the shape a frame is compared against.
+    #[must_use]
+    pub fn on_ring(seats: &[Seat], aspect: f32, focus: Option<PlayerId>) -> Self {
         let n = seats.len();
         // Read before the aspect is narrowed below: the duel it asks about
         // narrows its own, and would otherwise be asked about a canvas it

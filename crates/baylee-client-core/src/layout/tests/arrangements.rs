@@ -275,7 +275,8 @@ fn print_the_upright_growth() {
 }
 
 /// Invariant 7: the dial is a compass of the roster in every arrangement —
-/// a jewel for every seat, no two in one direction, mine straight down; and
+/// a jewel for every seat, no two in one direction, mine down at my board
+/// (straight down unless a frame seats me off the near edge's middle); and
 /// where the arrangement keeps the ring's order round the table (the ring
 /// and the upright ring), the jewels go round clockwise in turn order, one
 /// turn exactly.
@@ -295,10 +296,17 @@ fn the_dial_is_a_compass_of_the_roster_in_every_arrangement() {
                 );
                 let what = format!("{arrangement:?} n={n} aspect={aspect}");
                 assert_eq!(jewels.len(), usize::from(n), "{what}");
+                // Straight down, or — where a frame seats me a board off the
+                // near edge's middle (six seats: two to a long edge) — down
+                // towards my board, never round the side.
                 assert!(
-                    jewels[0].1.dot(Vec2::NEG_Y) > 0.99,
+                    jewels[0].1.dot(Vec2::NEG_Y) > 0.6,
                     "{what}: my jewel at {:?}",
                     jewels[0].1
+                );
+                assert!(
+                    jewels[0].1.dot(layout.slots[0].center.normalize()) > 0.999,
+                    "{what}: my jewel points past my board"
                 );
                 for (i, a) in jewels.iter().enumerate() {
                     for b in &jewels[i + 1..] {

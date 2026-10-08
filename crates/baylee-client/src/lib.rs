@@ -573,6 +573,11 @@ pub struct Duel {
     /// is no window to ask, and `None` means "assume a wide screen", which is
     /// the hard-coded `16.0 / 9.0` this replaces.
     pub canvas_aspect: Option<f32>,
+    /// The window's class, measured with [`Self::canvas_aspect`]: a phone's
+    /// ring is laid on the ellipse, every other window's may be packed on a
+    /// frame (`TableLayout::arranged_in`). `None` until measured, read as
+    /// a wide window.
+    pub canvas_frame: Option<baylee_client_core::tableview::TableFrame>,
     /// The engaged autopilot, if any ("next phase" / "end turn").
     pub autopilot: Option<AutoPilot>,
     /// Stack entry chosen as the next manual response boundary.
@@ -3216,11 +3221,13 @@ pub fn rebuild_board(duel: &mut Duel) {
         .chain(view.opponents_in_turn_order())
         .map(|player| Seat::on(player, team_of(player)))
         .collect();
-    let mut layout = TableLayout::arranged(
+    let mut layout = TableLayout::arranged_in(
         &seats,
         duel.canvas_aspect.unwrap_or(16.0 / 9.0),
         duel.arrangement,
         duel.visiting,
+        duel.canvas_frame
+            .unwrap_or(baylee_client_core::tableview::TableFrame::Wide),
     );
     duel.interest_laid = duel.visiting;
     for slot in &mut layout.slots {

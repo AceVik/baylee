@@ -471,8 +471,13 @@ fn at_the_gentle_lean_every_seat_is_drawn_a_board_of_the_same_width() {
         (Vec2::new(1280.0, 800.0), 1.14),
         // 1.20 since v7: a ring keeps one unit of air where it kept three
         // and a half, the camera stands closer and the near seat gains on
-        // the far ones (19.7 % at five seats, measured).
-        (Vec2::new(430.0, 932.0), 1.20),
+        // the far ones (19.7 % at five seats, measured). 1.25 since the
+        // packed table (owner, 08.10.2026): from five seats this canvas lays
+        // a frame, the camera comes closer again and every board is drawn
+        // wider — the narrowest 165 → 176 px at five seats, 125 → 133 at
+        // seven, 113 → 120 at eight — while the spread goes 19.3 → 20.7 %,
+        // 18.4 → 24.8 % and 19.5 → 21.7 %.
+        (Vec2::new(430.0, 932.0), 1.25),
     ] {
         let canvas = Canvas::hud(window);
         for n in 2..=8u8 {
@@ -1095,9 +1100,20 @@ fn the_arrangement_pill_lies_on_no_seat_s_place() {
             Vec2::new(360.0, 800.0),
             Vec2::new(2560.0, 1440.0),
         ] {
+            // The pill names the arrangement chosen where it is offered at
+            // this seat count, and the ring it resolves to where it is not
+            // (`arrangement::pill_names`).
+            let frame = baylee_client_core::tableview::TableFrame::of(window.x, window.y);
             on_no_seat_s_place_in(
                 window,
-                crate::arrangement::pill_corner(window, arrangement),
+                |n| {
+                    let named = if arrangement.offered(usize::from(n), frame).is_ok() {
+                        arrangement
+                    } else {
+                        baylee_client_core::tableview::Arrangement::Ring
+                    };
+                    crate::arrangement::pill_corner(window, named)
+                },
                 arrangement,
             );
         }
@@ -1109,7 +1125,7 @@ fn the_arrangement_pill_lies_on_no_seat_s_place() {
 fn on_no_seat_s_place(window: Vec2, corner: Rect) {
     on_no_seat_s_place_in(
         window,
-        corner,
+        |_| corner,
         baylee_client_core::tableview::Arrangement::Ring,
     );
 }
@@ -1118,22 +1134,24 @@ fn on_no_seat_s_place(window: Vec2, corner: Rect) {
 /// interest) and the rig its home pose takes.
 fn on_no_seat_s_place_in(
     window: Vec2,
-    corner: Rect,
+    corner_at: impl Fn(u8) -> Rect,
     arrangement: baylee_client_core::tableview::Arrangement,
 ) {
     {
         let canvas = Canvas::hud(window);
-        let square = [
-            corner.min,
-            Vec2::new(corner.max.x, corner.min.y),
-            corner.max,
-            Vec2::new(corner.min.x, corner.max.y),
-        ];
         let frame = baylee_client_core::tableview::TableFrame::of(window.x, window.y);
         for n in 2..=8u8 {
+            let corner = corner_at(n);
+            let square = [
+                corner.min,
+                Vec2::new(corner.max.x, corner.min.y),
+                corner.max,
+                Vec2::new(corner.min.x, corner.max.y),
+            ];
             let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
             let arrangement = arrangement.effective(usize::from(n), frame);
-            let layout = TableLayout::arranged(&roster, canvas.aspect(), arrangement, None);
+            let layout =
+                TableLayout::arranged_in(&roster, canvas.aspect(), arrangement, None, frame);
             let shot = Shot {
                 arrangement,
                 ..Shot::default()

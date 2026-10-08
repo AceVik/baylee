@@ -221,8 +221,22 @@ impl CameraRig {
         }
         let (min, max) = (min - Vec2::splat(air), max + Vec2::splat(air));
         let corners = layout.corners(air);
-        let fit = fit(min, max, &corners, tilt, canvas);
-        (fit.rig(0.0, tilt, |p| p), fit.binds)
+        let framed = fit(min, max, &corners, tilt, canvas);
+        let rig = framed.rig(0.0, tilt, |p| p);
+        // A table whose depth binds stands its far edge at the top of the
+        // window, where the arrangement pill and the report button are: a
+        // ring whose seat would lie under one keeps below the line every
+        // top-pinned panel keeps below (DESIGN-v8 §2.2's fallback — the ring
+        // pays, and only where a seat reaches a button). One more fit, and
+        // only for such a table.
+        if ring
+            && canvas.top < crate::hud::TOP_CLEAR
+            && reaches_the_top(layout, rig, canvas, shot.arrangement)
+        {
+            let below = fit(min, max, &corners, tilt, canvas.below_the_pill());
+            return (below.rig(0.0, tilt, |p| p), below.binds);
+        }
+        (rig, framed.binds)
     }
 
     /// The shot of one seat's board, the camera standing behind it so its
@@ -547,6 +561,60 @@ fn visit_reach(layout: &TableLayout, frame: VisitFrame, air: f32) -> Option<f32>
         }
     };
     Some((far - lo.y).max(hi.y - lo.y))
+}
+
+/// Whether any seat's whole place, seen through `rig`, reaches a button at
+/// the top of the window — the pill naming `arrangement`, the report button
+/// or the square beside it: the separating-axis test of each place's drawn
+/// quad against each button's box, as the camera tests ask it.
+fn reaches_the_top(
+    layout: &TableLayout,
+    rig: CameraRig,
+    canvas: Canvas,
+    arrangement: Arrangement,
+) -> bool {
+    let lens = Lens::new(rig, canvas.window);
+    let corners = [
+        crate::arrangement::pill_corner(canvas.window, arrangement),
+        crate::hud::report_corner(canvas.window),
+        crate::hud::beside_corner(canvas.window),
+    ];
+    layout.corners(0.0).chunks(4).any(|place| {
+        // `corners` walks (-,-), (-,+), (+,-), (+,+): round the loop, that
+        // is 0, 1, 3, 2.
+        let Some(quad) = [0usize, 1, 3, 2]
+            .iter()
+            .map(|&i| lens.project(place[i]))
+            .collect::<Option<Vec<Vec2>>>()
+        else {
+            return false;
+        };
+        corners.iter().any(|corner| {
+            let square = [
+                corner.min,
+                Vec2::new(corner.max.x, corner.min.y),
+                corner.max,
+                Vec2::new(corner.min.x, corner.max.y),
+            ];
+            let mut axes = vec![Vec2::X, Vec2::Y];
+            for i in 0..4 {
+                let edge = quad[(i + 1) % 4] - quad[i];
+                axes.push(Vec2::new(-edge.y, edge.x));
+            }
+            let span = |points: &[Vec2], axis: Vec2| {
+                points
+                    .iter()
+                    .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), p| {
+                        (lo.min(p.dot(axis)), hi.max(p.dot(axis)))
+                    })
+            };
+            !axes.iter().any(|&axis| {
+                let (a0, a1) = span(&quad, axis);
+                let (b0, b1) = span(&square, axis);
+                a1 < b0 || b1 < a0
+            })
+        })
+    })
 }
 
 /// A box's four corners.
@@ -876,13 +944,16 @@ pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
     let aspect = Canvas::for_table(Vec2::new(window.width(), window.height()), duel.arrangement)
         .with_drawer(duel.hand_drawn_open)
         .aspect();
+    let frame = baylee_client_core::tableview::TableFrame::of(window.width(), window.height());
     // A resize is a rebuild of the whole layout, so the comparison has to be
     // loose enough that a window nudged by a pixel does not do one per frame.
     if duel
         .canvas_aspect
         .is_none_or(|shown| (shown - aspect).abs() > 0.01)
+        || duel.canvas_frame != Some(frame)
     {
         duel.canvas_aspect = Some(aspect);
+        duel.canvas_frame = Some(frame);
         crate::rebuild_board(&mut duel);
     }
 }

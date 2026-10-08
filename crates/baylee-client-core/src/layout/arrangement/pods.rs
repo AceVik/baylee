@@ -58,7 +58,7 @@ pub fn pods(seats: &[Seat], aspect: f32) -> TableLayout {
 
 /// The grid with every board cut at `aspect`.
 fn cut_at(seats: &[Seat], aspect: f32) -> TableLayout {
-    let ring = TableLayout::seated(seats, aspect, None);
+    let ring = TableLayout::on_ring(seats, aspect, None);
     let mine = ring.slots[0];
     let others: Vec<usize> = sides_of(seats).into_iter().skip(1).flatten().collect();
     if others.is_empty() {

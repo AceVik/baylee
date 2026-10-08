@@ -10,10 +10,15 @@ fn the_local_seat_is_always_at_the_near_edge() {
         let local = layout.local().expect("a local slot");
         assert!(local.is_local);
         assert_eq!(local.ring_index, 0);
+        // Centred, or — where a frame stands two to a long edge (six
+        // seats) — half a board's step off the middle and no further.
+        let step = (local.footprint().x * 2.0 + POD_GAP) * 0.5;
         assert!(
-            local.center.x.abs() < 1e-4,
-            "local seat is centred horizontally for {n} seats"
+            local.center.x.abs() < 1e-4 || (local.center.x.abs() - step).abs() < 1e-3,
+            "local seat is centred horizontally for {n} seats: {}",
+            local.center.x
         );
+        assert!(local.facing.abs() < 1e-6, "upright for {n} seats");
         assert!(
             local.center.y < 0.0,
             "local seat is on the near side for {n} seats"

@@ -47,7 +47,13 @@ const MOST: f32 = 3.0;
 /// the seat points.
 #[must_use]
 pub fn upright(seats: &[Seat], aspect: f32) -> TableLayout {
-    let mut layout = TableLayout::seated(seats, aspect, None);
+    upright_of(TableLayout::seated(seats, aspect, None), seats, aspect)
+}
+
+/// [`upright`] over a ring already laid: the ellipse's, where a phone keeps
+/// it (`TableLayout::arranged_in`).
+#[must_use]
+pub fn upright_of(mut layout: TableLayout, seats: &[Seat], aspect: f32) -> TableLayout {
     for slot in &mut layout.slots {
         slot.facing = facing_for(seats, slot.ring_index);
     }

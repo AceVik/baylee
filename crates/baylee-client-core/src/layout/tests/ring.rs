@@ -205,10 +205,13 @@ fn six_cards_lie_side_by_side_at_a_four_seat_table() {
 // the ceiling exists — and a ceiling that no seat count ever reaches is a
 // ceiling nobody has checked. No table the gateway deals reaches it since
 // #264 (eight seats at a duel's width is what it is set for, above), so it
-// is checked at twelve, which the layout would still be asked to seat.
+// is checked at twelve, which the layout would still be asked to seat — on
+// the ellipse, whose ceiling it is: a frame seats twelve at a duel's width
+// inside it, and is only taken where it draws the table larger.
 #[test]
 fn a_crowded_table_stops_growing_at_the_ceiling() {
-    let layout = TableLayout::new(&seats(12), HUD_ASPECT, None);
+    let alone: Vec<Seat> = seats(12).into_iter().map(Seat::alone).collect();
+    let layout = TableLayout::on_ring(&alone, HUD_ASPECT, None);
     assert!(
         layout.radius.x <= MAX_RING_X + 0.01 && layout.radius.y <= MAX_RING_Y + 0.01,
         "the ring outgrew what the camera can frame: {:?}",
