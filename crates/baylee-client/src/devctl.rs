@@ -48,9 +48,10 @@
 //! POST /hide     {"what":"felt","hidden":true}   (one material's entities away)
 //! POST /msaa     {"samples":1}   (every camera's multisampling)
 //! POST /executor {"single":true}   (every schedule on one thread, or back)
+//! POST /allocs   {"every":31}   (keep every 31st allocation's stack; `{}` stops and reports)
 //! ```
 //!
-//! The last four measure rather than drive: `docs/perf-client.md` has what
+//! The last five measure rather than drive: `docs/perf-client.md` has what
 //! they found and how a measurement is taken with them.
 //!
 //! The last three are one tool. Almost everything worth photographing here is

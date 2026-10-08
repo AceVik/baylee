@@ -624,7 +624,6 @@ build was `baylee-build`'s script watching `../../.git/HEAD`, which in a
 linked worktree does not exist, and cargo calls a missing watched path
 changed on every build, so every agent's worktree rebuilt the gateway, the
 engine-server, the client and xtask each time.
-||||||| a27c5139d
 
 ## The engine profiled and cleaned up (2026-10-06, task E for 0.1.0-beta.6)
 
@@ -790,3 +789,79 @@ under load averages of 15 to 45:
 
 No measurable effect under this load: the test binary is one crate either
 way, and a one-line edit still rebuilds and links it.
+
+## The client at rest, second round (2026-10-08)
+
+The owner's report after the table work (07.10.): the MacBook stutters and its
+fans get loud. Same M1 Max, built-in display at 2× (1708×1028 logical,
+3416×2056 px, and the phone frame 844×386), `dist` builds (`release` + line
+tables) with `dev-control`; before is `8973728ac`, after is
+`c41/client-perf-2`. Every row is two interleaved passes (before, after,
+before, after) on fresh tables against the house AI, the client on a copied
+config with the music muted; ranges are the two passes. CPU is the process's
+CPU time over wall time (all threads), energy is `top`'s energy impact over
+the same 8 s, GPU is Metal System Trace ms per wall second. Raw rows, the
+method and every A/B: `.claude/ux-table/mocks/real/perf2-measures.md`.
+
+| Table | Frame | State | Frames/s | CPU | Energy | GPU ms/s | Allocations a frame | RSS |
+|---|---|---|---|---|---|---|---|---|
+| 6 seats | 1708 | rest | 60 → **30** | 57–58 % → **34 %** | 54 → **33** | 521–575 → **313–375** | 4.1–4.2 k, 1.9 MB → 3.3–3.6 k, 1.0 MB | 540 → 495 MB |
+| 6 seats | 1708 | play | 60 → 59–60 | 57–61 % → **46 %** | 54–57 → **43–44** | 504–594 → 484–536 | 4.1–5.0 k, 1.9–2.2 MB → 4.3 k, 1.3 MB | 504–543 → 499–503 MB |
+| 6 seats | 844 | rest | 60 → 30 | 54–57 % → **33 %** | 51–54 → **32** | 298–311 → **102–105** | 3.7 k, 1.6 MB → 2.9–3.0 k, 0.8 MB | 508–546 → 565 MB |
+| 6 seats | 844 | play | 60 | 53–57 % → **45–47 %** | 50–54 → **43–45** | 302–317 → **204–212** | 3.7–4.2 k → 3.4–3.6 k | 510–549 → 570 MB |
+| duel | 1708 | rest | 60 → 30 | 57 % → **32–34 %** | 53–54 → **32–34** | 543–547 → **329–360** | 3.5 k, 1.7 MB → 2.7–2.8 k, 0.8 MB | 520–524 → 505–514 MB |
+| duel | 1708 | play | 60 | 56–58 % → **45–47 %** | 53–55 → **43–45** | 539–583 → 520–548 | 3.9–4.0 k → 3.3–3.4 k, 1.0 MB | 529 → 459–471 MB |
+| duel | 844 | rest | 60 → 30 | 51–55 % → **31–33 %** | 49–52 → **31–32** | 336–353 → **131–145** | 3.4–3.7 k → 3.1–3.2 k | 534–554 → 481–497 MB |
+
+Frame time at rest is the pacing's (p50 16.7 → 33.4 ms, p99 17.5–21 → 36–37
+ms); in play p50 16.7 ms both, p95 17.2–18.6 → 18.2–19.3 ms. Main-schedule
+time per frame in play is unchanged (p50 1.09–1.33 → 1.15–1.34 ms); at rest it
+reads 1.1–1.3 → 1.8–2.5 ms a frame at half the frames (the scheduler puts a
+lightly loaded main thread on the efficiency cores), 65–76 ms a second either
+way. Startup to the harness answering: 1.19–1.43 s → 1.24–1.39 s, unchanged.
+Six visits in the Spotlight (each a tear) from full rate: worst frame 18.5–20.2
+ms before, 19.1–20.8 ms after, main schedule at most 4.4 ms; the 48 ms first
+frame the arrangements round saw did not appear in either build. GPU ms/s in
+play is the least comparable column: two different games, and a GPU that is
+less busy clocks down, so the same work reads longer (`docs/perf-client.md`).
+
+What changed, and what each measured on its own (`perf2-measures.md` has the
+pairs):
+
+- **A table at rest draws 30 frames** (`graphics::TABLE_REST_FPS`): two seconds
+  after the last input and the last thing the game did. The largest single
+  item: every shader and every system at half the rate.
+- **The cloth's slow fields are baked** once per cut (`client-core::feltwarp`):
+  403 → 328 GPU ms/s at six seats, the same rate (ceiling 418 → 303); the
+  picture moves by RMSE 0.21 levels.
+- **No light work**: bevy's light-visibility checks run only with a light, and
+  the table camera clusters nothing on the CPU — the four GPU clustering passes
+  and the bin unpacking (~10 ms/s) are gone, and a fifth of the main thread's
+  allocations with the visibility checks.
+- **Extraction on one thread**: process CPU 39 → 35 % at a duel at rest (one
+  binary, an environment switch since removed), and the per-system tasks the
+  multi-threaded executor allocated every frame.
+- **A muted orchestra is paused**: the audio thread was 11 % of the process's
+  samples rendering a score at volume 0, 1.5 % after; the bank is read in place
+  (17 MB of heap gone, +6 % to render an audible second).
+- **What has not changed is not written**: the keyboard system, the life flash,
+  the decision clock, the Scryfall door, the seat bars, the preview's flip,
+  the granted-actions sheet and the action shelf touched the duel, the
+  settings, the texts or eleven `Node`s on every frame (found with bevy's
+  `track_location`); each is guarded and tested at rest.
+
+Allocations: what is left at rest is mostly bevy's and wgpu's own — bind
+groups and staging buffers made every frame on the render thread and the
+compute pool, bevy_winit building a `SystemState` every redraw, taffy and
+picking on the main thread. `/allocs` (`devctl::perf`) names the sites;
+`/perf` now reports `main_allocs_per_frame`, the part the app's own systems
+own (600–1 000 at rest after this round).
+
+Left, measured: the wasm bundle is 62.9 MB (15.6 MB brotli), of which the
+orchestra's PCM bank is 8.9 MB (5.6 MB brotli, 36 % of the download) —
+fetching it after the first frame is the next startup win for the browser. A
+render scale needs the table camera on an offscreen target and picking mapped
+into it (bevy 0.19's `MainPassResolutionOverride` only shrinks the viewport
+and wants an upscaler). The vein distances are the felt's next cost (418 →
+349 GPU ms/s with them taken out), but they are the sharp part and stay per
+pixel.

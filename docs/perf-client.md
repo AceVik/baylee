@@ -134,7 +134,8 @@ lights at all). Reduced motion stays the account's.
 - The browser build's size and frame time: not measured this round; nor a
   four-seat table on the old build (only the new one above).
 - The audio thread was 3.8 % of a core at the resting front door before the
-  block renderer; not re-measured in the app after it.
+  block renderer; not re-measured in the app after it (the second round below
+  measured it at a table).
 - The house AI (`baylee-ai`) never showed in a client profile; only its file
   was split.
 - The native seat socket uses tungstenite 0.24, which reads into one fixed
@@ -147,3 +148,31 @@ lights at all). Reduced motion stays the account's.
   move would raise the frame rate past it). bevy_winit then redraws a macOS
   live resize only when the cap's timer fires; this was not tried live.
 - VIEW_VERSION 54: gateway, engine and clients ship as one build, as always.
+
+## The second round (8 October 2026)
+
+Numbers: `docs/perf-baseline.md` §"The client at rest, second round"; raw rows
+and every A/B: `.claude/ux-table/mocks/real/perf2-measures.md`. What the
+method gained:
+
+- **Energy beside CPU.** `top -l 2 -s 8 -pid <pid> -stats pid,power`, the
+  second sample, over the same window as the CPU reading. GPU ms per second
+  stays in the table but reads longer on a GPU that has clocked down, so a
+  rate change is judged on CPU and energy, and a shader change on GPU ms/s at
+  one fixed rate in one binary.
+- **Where allocations come from.** `/allocs {"every":N}` keeps every N-th
+  allocation's stack on each thread and `/allocs {}` ranks the sites; build
+  with `RUSTFLAGS="-Cforce-unwind-tables=yes -Cforce-frame-pointers=yes"`
+  (a separate `CARGO_TARGET_DIR`), or the release profile's stacks stop after
+  a few frames. `/perf` reports `main_allocs_per_frame` beside the process's.
+- **What marks a resource changed every frame.** A build with
+  `--features bevy/track_location` and a system in `Last` printing
+  `changed_by()` for the duel, the settings, the texts and every changed
+  `Node`/`Text`/`UiTransform`/`Transform`; only the last writer is recorded,
+  so fix it and run again until nothing moves at rest.
+- **Interleaved rounds.** Before and after alternate on fresh tables, twice,
+  so neither has the quiet half of a shared machine.
+
+The audio thread at a table with the music muted was 11 % of the process's
+samples before the orchestra learnt to pause (1.5 % after). The browser build
+is measured in the baseline (62.9 MB, 15.6 MB brotli); its frame time is not.
