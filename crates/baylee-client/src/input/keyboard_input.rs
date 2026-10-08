@@ -29,20 +29,21 @@ pub fn keyboard(
         return;
     }
     let fired = Fired::of_layout(&keys, logical.as_deref(), prefs.keymap());
+    // A frame with no key at all is a frame for none of the handlers below,
+    // and they take the duel and the settings mutably: borrowed here, both
+    // read as changed on every frame of a table at rest, and so did
+    // everything that watches them (`docs/perf-baseline.md`, 08.10.2026).
+    // The one thing a quiet frame still owes is the typing guard's memory.
+    if fired.quiet() && typed.is_empty() {
+        *had_keyboard = duel.browser.is_typing();
+        return;
+    }
     // The arrangement menu, while it stands, has every key too (DESIGN-v8
     // §2.3): the table hears nothing until it is shut.
     if duel.arrangement_menu.is_some()
         && let Some(frame) = arrangements.as_deref_mut()
     {
-        let digits: Vec<u32> = typed
-            .read()
-            .filter(|event| event.state.is_pressed())
-            .filter_map(|event| match &event.logical_key {
-                Key::Character(s) => s.chars().find_map(|c| c.to_digit(10)),
-                _ => None,
-            })
-            .collect();
-        crate::arrangement::keys(fired, &digits, &mut duel, &mut settings, frame);
+        arrangement_menu_keys(fired, &mut typed, &mut duel, &mut settings, frame);
         return;
     }
     // The keystroke that opened the panel is not a keystroke for the box.
@@ -176,6 +177,25 @@ pub fn keyboard(
     } else {
         between_questions(fired, &mut duel);
     }
+}
+
+/// The open arrangement menu's keys: its own actions, and a digit for a row.
+fn arrangement_menu_keys(
+    fired: Fired,
+    typed: &mut MessageReader<KeyboardInput>,
+    duel: &mut Duel,
+    settings: &mut crate::settings::ClientSettings,
+    frame: &mut crate::arrangement::ArrangementFrame,
+) {
+    let digits: Vec<u32> = typed
+        .read()
+        .filter(|event| event.state.is_pressed())
+        .filter_map(|event| match &event.logical_key {
+            Key::Character(s) => s.chars().find_map(|c| c.to_digit(10)),
+            _ => None,
+        })
+        .collect();
+    crate::arrangement::keys(fired, &digits, duel, settings, frame);
 }
 
 /// `Esc` between two questions, innermost first: a reveal another seat

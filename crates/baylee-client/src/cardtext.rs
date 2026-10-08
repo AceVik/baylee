@@ -479,7 +479,9 @@ pub fn request(
     }
     if texts.down || gateway.0.is_none() {
         // Signed in to no gateway, nothing at one would answer (#270).
-        texts.down = true;
+        if !texts.down {
+            texts.down = true;
+        }
         ask_scryfall(&mut texts, view, time.elapsed_secs_f64());
         return;
     }
@@ -582,12 +584,18 @@ const PACE: f64 = 0.3;
 
 /// Asks Scryfall about the next card the view names without text, if the
 /// door is open; see [`Door`].
-fn ask_scryfall(texts: &mut CardTexts, view: &PlayerView, now: f64) {
+///
+/// Takes the resource itself, not the texts behind it, and writes only what
+/// moves: it is asked on every frame a seat signed in nowhere plays, and a
+/// mutable borrow alone marked the texts changed for every one of them.
+fn ask_scryfall(texts: &mut ResMut<CardTexts>, view: &PlayerView, now: f64) {
     if texts.scryfall.waiting.is_some() || now < texts.scryfall.next_at {
         return;
     }
     let Some(card) = texts.next_for_scryfall(view, now) else {
-        texts.scryfall.walked = Some(view.seq);
+        if texts.scryfall.walked != Some(view.seq) {
+            texts.scryfall.walked = Some(view.seq);
+        }
         return;
     };
     texts.scryfall.tried.insert(card);

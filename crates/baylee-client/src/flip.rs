@@ -76,6 +76,7 @@ pub fn faces(turn: f32) -> (f32, bool) {
 }
 
 /// Advances every flip and writes the two sides.
+#[allow(clippy::float_cmp)] // exact: a write is skipped only when nothing would change
 fn turn(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -102,22 +103,33 @@ fn turn(
         // Linear rather than exponential, unlike everything else that moves
         // in this client: a turn has a *far* side, and an asymptote would
         // leave the card a hair short of flat for as long as shift is held.
-        flip.turn += (target - flip.turn).clamp(-step, step);
-        let (squeeze, showing_back) = faces(flip.turn);
-        transform.scale.x = squeeze;
+        // Every write below is guarded on what is already there: a preview
+        // standing still is touched by nothing, so the interface is not laid
+        // out again on every frame it stays open.
+        let turned = flip.turn + (target - flip.turn).clamp(-step, step);
+        if turned != flip.turn {
+            flip.turn = turned;
+        }
+        let (squeeze, showing_back) = faces(turned);
+        if transform.scale.x != squeeze {
+            transform.scale.x = squeeze;
+        }
         for child in children {
             let Ok((side, mut visibility, mut child_transform)) = sides.get_mut(*child) else {
                 continue;
             };
             let shown = (*side == Side::Back) == showing_back;
-            *visibility = if shown {
+            visibility.set_if_neq(if shown {
                 Visibility::Inherited
             } else {
                 Visibility::Hidden
-            };
+            });
             // The back cancels the parent's negative scale; the front never
             // sees one, because it is hidden before the sign changes.
-            child_transform.scale.x = if *side == Side::Back { -1.0 } else { 1.0 };
+            let mirror = if *side == Side::Back { -1.0 } else { 1.0 };
+            if child_transform.scale.x != mirror {
+                child_transform.scale.x = mirror;
+            }
         }
     }
 }
@@ -246,5 +258,28 @@ mod tests {
             Some(&Visibility::Inherited),
             "the card a player is looking at must not disappear"
         );
+    }
+
+    /// A preview at rest is written by nothing: once a turn has finished,
+    /// another frame leaves the frame's and both sides' transforms and
+    /// visibilities unchanged — a changed `UiTransform` lays the interface
+    /// out again, every frame the preview stands open. Read by a system
+    /// right after the turn, in the same frame, because `App::update` clears
+    /// the change trackers on its way out.
+    #[test]
+    fn a_preview_at_rest_is_not_touched() {
+        #[derive(Resource, Default)]
+        struct Written(usize);
+        fn watch(mut written: ResMut<Written>, parts: Query<(Ref<UiTransform>, Ref<Visibility>)>) {
+            written.0 = parts
+                .iter()
+                .filter(|(t, v)| t.is_changed() || v.is_changed())
+                .count();
+        }
+        let (mut app, ..) = harness(true);
+        app.init_resource::<Written>()
+            .add_systems(Update, watch.after(turn));
+        settle(&mut app);
+        assert_eq!(app.world().resource::<Written>().0, 0, "written at rest");
     }
 }

@@ -104,8 +104,13 @@ pub fn count_down_the_decision(
     mut duel: ResMut<crate::Duel>,
     mut label: Query<&mut Text, With<DecisionClockLabel>>,
 ) {
-    duel.clock.advance(time.delta_secs());
-    if let Some(cue) = duel.clock.claim() {
+    // Past change detection, as `sound::tell_the_cues_the_time` tells the
+    // cue queue the time: a clock ticking is not the duel changing, and a
+    // write through `DerefMut` reported the whole duel as moved on every
+    // frame. A cue it hands over is a change, and is written as one.
+    let clock = &mut duel.bypass_change_detection().clock;
+    clock.advance(time.delta_secs());
+    if let Some(cue) = clock.claim() {
         duel.cues.push(cue);
     }
     let Ok(mut text) = label.single_mut() else {

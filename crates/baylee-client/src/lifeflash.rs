@@ -96,7 +96,11 @@ pub fn flash_life_changes(
         &mut TextColor,
     )>,
 ) {
-    duel.life_flash.tick(time.delta_secs());
+    // Only while something flashes: ticking nothing is no change, and the
+    // mutable borrow alone marked the whole duel changed on every frame.
+    if duel.life_flash.flashes().next().is_some() {
+        duel.life_flash.tick(time.delta_secs());
+    }
     let reduce_motion = prefs.is_some_and(|p| p.all().reduce_motion);
 
     for (entity, mut flashing, mut node, mut transform, mut text, mut colour) in &mut drawn {

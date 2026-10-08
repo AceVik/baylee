@@ -83,7 +83,10 @@ pub fn sync_ledge(
         priority_held: duel.priority_held(),
         autopilot: duel.autopilot.is_some(),
         lang: Some(lang),
-        keys: Some(prefs.keymap().clone()),
+        // Compared in place below and cloned only for a rebuild: a keymap is
+        // a map of lists, and copying it to compare it was ~70 allocations
+        // on every frame of a table at rest.
+        keys: None,
         window_w,
     };
     // The second half of the gate is what covers a shelf that was spawned
@@ -92,10 +95,18 @@ pub fn sync_ledge(
     // therefore also not evidence that the rebuild has run, so the question is
     // whether anything else is standing there.
     let filled = standing.is_some_and(|c| c.iter().any(|child| retained.get(child).is_err()));
-    if *revision == next && filled {
+    // The stored keymap is lifted out for the comparison and put back, past
+    // change detection: comparing is not a rebuild.
+    let kept = revision.bypass_change_detection().keys.take();
+    let same = *revision == next && kept.as_ref() == Some(prefs.keymap());
+    revision.bypass_change_detection().keys = kept;
+    if same && filled {
         return;
     }
-    *revision = next;
+    *revision = LedgeRevision {
+        keys: Some(prefs.keymap().clone()),
+        ..next
+    };
 
     for child in standing.into_iter().flatten() {
         // Everything the shelf was not spawned with. The two casts are

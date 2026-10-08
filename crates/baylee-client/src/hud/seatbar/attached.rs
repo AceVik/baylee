@@ -38,14 +38,52 @@ impl Panel {
 }
 
 /// The letters remain upright; their centres and scale follow the table.
+///
+/// Every write is guarded on what the node already holds, through the
+/// `Mut`s themselves: a `Node` merely borrowed mutably reads as changed, and
+/// a changed `Node` relays out the whole UI — which this did for every panel
+/// on every frame of a table at rest (`docs/perf-baseline.md`, 08.10.2026).
 pub(super) fn place(
     duel: &Duel,
     lens: Option<&crate::table::Lens>,
     player: PlayerId,
     panel: Panel,
-    node: &mut Node,
-    turn: &mut UiTransform,
+    node: &mut Mut<Node>,
+    turn: &mut Mut<UiTransform>,
 ) {
+    let Some((corner, tilt, scale)) = pose(duel, lens, player, panel) else {
+        if node.display != Display::None {
+            node.display = Display::None;
+        }
+        return;
+    };
+    if node.display != Display::Flex {
+        node.display = Display::Flex;
+    }
+    if node.left != px(corner.x) {
+        node.left = px(corner.x);
+    }
+    if node.top != px(corner.y) {
+        node.top = px(corner.y);
+    }
+    let rotation = Rot2::radians(tilt);
+    if turn.rotation != rotation {
+        turn.rotation = rotation;
+    }
+    if turn.scale != Vec2::splat(scale) {
+        turn.scale = Vec2::splat(scale);
+    }
+}
+
+/// Where one of `player`'s panels stands — its box's top-left, turn and
+/// scale — or `None` where it is not drawn (a tear running, no shelf on
+/// screen, or under the hand zone).
+pub(super) fn pose(
+    duel: &Duel,
+    lens: Option<&crate::table::Lens>,
+    player: PlayerId,
+    panel: Panel,
+) -> Option<(Vec2, f32, f32)> {
     let pose = (|| {
         // Ink pinned to a band of felt that is tearing would jump stage by
         // stage ahead of its mat: the bars stand down for the second it
@@ -90,28 +128,7 @@ pub(super) fn place(
     let covered = |&(corner, tilt, scale): &(Vec2, f32, f32)| {
         lens.is_some_and(|lens| under_the_hand(corner, panel.size(), tilt, scale, lens.window()))
     };
-    let Some((corner, tilt, scale)) = pose.filter(|pose| !covered(pose)) else {
-        if node.display != Display::None {
-            node.display = Display::None;
-        }
-        return;
-    };
-    if node.display != Display::Flex {
-        node.display = Display::Flex;
-    }
-    if node.left != px(corner.x) {
-        node.left = px(corner.x);
-    }
-    if node.top != px(corner.y) {
-        node.top = px(corner.y);
-    }
-    let rotation = Rot2::radians(tilt);
-    if turn.rotation != rotation {
-        turn.rotation = rotation;
-    }
-    if turn.scale != Vec2::splat(scale) {
-        turn.scale = Vec2::splat(scale);
-    }
+    pose.filter(|pose| !covered(pose))
 }
 
 /// Where one panel sits on a seat's projected band, and how big.
@@ -938,10 +955,11 @@ mod tests {
             ..Duel::default()
         };
         let lens = crate::table::Lens::new(rig, window);
-        let mut node = Node::default();
-        let mut turn = UiTransform::default();
-        place(&duel, Some(&lens), player, panel, &mut node, &mut turn);
-        node.display
+        if pose(&duel, Some(&lens), player, panel).is_some() {
+            Display::Flex
+        } else {
+            Display::None
+        }
     }
 
     /// #303: aimed at an opponent, the camera stands over the local seat's
@@ -949,6 +967,57 @@ mod tests {
     /// It is not drawn there — and the rule hides nothing in the shot every
     /// table opens on, at any seat count, where every panel is above the
     /// hand.
+    /// Placing a panel where it already stands writes nothing: its `Node`
+    /// and `UiTransform` do not read as changed, so a table at rest costs
+    /// the interface no relayout. The first placement does write.
+    #[test]
+    fn a_panel_that_stays_put_is_not_touched() {
+        use crate::table::{CameraRig, Canvas};
+        use baylee_client_core::layout::TableLayout;
+        let window = Vec2::new(1728.0, 1052.0);
+        let canvas = Canvas::hud(window);
+        let seats = [PlayerId::new(0), PlayerId::new(1)];
+        let layout = TableLayout::new(&seats, canvas.aspect(), None);
+        let lens = crate::table::Lens::new(CameraRig::home(&layout, canvas), window);
+        let duel = Duel {
+            layout: Some(layout),
+            ..Duel::default()
+        };
+        let mut world = World::new();
+        let panel = world.spawn((Node::default(), UiTransform::default())).id();
+        let mut parts = world.query::<(&mut Node, &mut UiTransform)>();
+        let mut place_once = |world: &mut World| {
+            world.clear_trackers();
+            let (mut node, mut turn) = parts.get_mut(world, panel).expect("the panel");
+            place(
+                &duel,
+                Some(&lens),
+                seats[0],
+                Panel::Identity,
+                &mut node,
+                &mut turn,
+            );
+            let entity = world.entity(panel);
+            (
+                entity.get_ref::<Node>().expect("a node").is_changed(),
+                entity
+                    .get_ref::<UiTransform>()
+                    .expect("a turn")
+                    .is_changed(),
+            )
+        };
+        assert_eq!(
+            place_once(&mut world),
+            (true, true),
+            "placed the first time"
+        );
+        assert_eq!(
+            place_once(&mut world),
+            (false, false),
+            "placed again where it stands: nothing written"
+        );
+    }
+
     #[test]
     fn no_ink_is_written_under_the_hand() {
         use crate::table::{CameraRig, Canvas};

@@ -22,14 +22,13 @@ impl Lang {
     /// wrote one out in full meant the language.
     #[must_use]
     pub fn of(code: &str) -> Self {
-        let base = code
-            .split(['-', '_'])
-            .next()
-            .unwrap_or_default()
-            .to_ascii_lowercase();
-        match base.as_str() {
-            "de" => Self::De,
-            _ => Self::En,
+        // Compared without folding into a new string: dozens of systems ask
+        // this every frame, and a lowercased copy was an allocation each.
+        let base = code.split(['-', '_']).next().unwrap_or_default();
+        if base.eq_ignore_ascii_case("de") {
+            Self::De
+        } else {
+            Self::En
         }
     }
 

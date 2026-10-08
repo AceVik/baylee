@@ -2,7 +2,17 @@
 #[allow(clippy::wildcard_imports)] // the shared sheet vocabulary
 use super::*;
 use baylee_cards_dsl::SpecialActionCost;
+use baylee_client_core::granted;
 use baylee_engine::choice::{GrantedActionKind, GrantedActionOffer};
+
+/// What the granted-actions sheet was last built from.
+pub(crate) struct GrantedRevision {
+    menu: granted::Draft,
+    offers: Vec<GrantedActionOffer>,
+    lang: Lang,
+    generation: u64,
+    seq: Option<u64>,
+}
 
 /// Current offers belong only to this seat's priority, including mana payment.
 pub(crate) fn granted_offers(duel: &Duel) -> &[GrantedActionOffer] {
@@ -127,25 +137,42 @@ pub(crate) fn sync_granted_sheet(
     faces: Res<crate::cardtext::CardTexts>,
     settings: Res<crate::settings::ClientSettings>,
     existing: Query<Entity, With<GrantedSheet>>,
-    mut revision: Local<String>,
+    mut revision: Local<Option<GrantedRevision>>,
 ) {
-    let offers = granted_offers(&duel).to_vec();
-    duel.granted_menu.sync(&offers);
-    if duel.ability_menu.is_some() || duel.cast_menu.is_some() {
-        duel.granted_menu = default();
+    // The draft as it should stand, written back only if it moved: this runs
+    // every frame, and a write through the duel marks all of it changed.
+    let menu = if duel.ability_menu.is_some() || duel.cast_menu.is_some() {
+        granted::Draft::default()
+    } else {
+        let mut menu = duel.granted_menu.clone();
+        menu.sync(granted_offers(&duel));
+        menu
+    };
+    if menu != duel.granted_menu {
+        duel.granted_menu = menu;
     }
     let lang = Lang::of(&settings.lang);
-    let key = format!(
-        "{:?}/{:?}/{lang:?}/{}/{:?}",
-        duel.granted_menu,
-        offers,
-        faces.generation(),
-        duel.view.as_ref().map(|v| v.seq)
-    );
-    if *revision == key {
+    let generation = faces.generation();
+    let seq = duel.view.as_ref().map(|v| v.seq);
+    let offers = granted_offers(&duel);
+    // Compared in place, and copied only when it differs: the key used to be
+    // a `Debug` string formatted on every frame.
+    if revision.as_ref().is_some_and(|r| {
+        r.menu == duel.granted_menu
+            && r.offers == offers
+            && r.lang == lang
+            && r.generation == generation
+            && r.seq == seq
+    }) {
         return;
     }
-    *revision = key;
+    *revision = Some(GrantedRevision {
+        menu: duel.granted_menu.clone(),
+        offers: offers.to_vec(),
+        lang,
+        generation,
+        seq,
+    });
     for entity in &existing {
         commands.entity(entity).despawn();
     }
@@ -203,7 +230,7 @@ pub(crate) fn sync_granted_sheet(
         ))
         .id();
     commands.entity(sheet).add_child(heading);
-    spawn_granted_rows(&mut commands, &fonts, &faces, &duel, lang, sheet, &offers);
+    spawn_granted_rows(&mut commands, &fonts, &faces, &duel, lang, sheet, offers);
     spawn_granted_footer(
         &mut commands,
         &fonts,
@@ -423,6 +450,8 @@ mod tests {
     }
     #[test]
     fn presenter_updates_confirmation_on_selection_and_removes_expired_sheet() {
+        #[derive(Resource, Default)]
+        struct DuelMoved(bool);
         let mut app = App::new();
         let mut duel = duel();
         granted_click(&mut duel, MenuAction::ToggleGrantedActions);
@@ -456,6 +485,27 @@ mod tests {
         );
         app.update();
         assert_eq!(confirms(&mut app), 1);
+        // A frame where nothing moved rebuilds nothing and leaves the duel
+        // unchanged: the sheet standing open costs a comparison.
+        app.init_resource::<DuelMoved>().add_systems(
+            Update,
+            (|duel: Res<Duel>, mut moved: ResMut<DuelMoved>| moved.0 = duel.is_changed())
+                .after(sync_granted_sheet),
+        );
+        let sheet = |app: &mut App| {
+            app.world_mut()
+                .query_filtered::<Entity, With<GrantedSheet>>()
+                .single(app.world())
+                .expect("the sheet stands")
+        };
+        let standing = sheet(&mut app);
+        app.update();
+        app.update();
+        assert_eq!(sheet(&mut app), standing, "rebuilt with nothing changed");
+        assert!(
+            !app.world().resource::<DuelMoved>().0,
+            "the sheet marked the duel changed"
+        );
         app.world_mut()
             .resource_mut::<Duel>()
             .receive_choice(pending(vec![]));
