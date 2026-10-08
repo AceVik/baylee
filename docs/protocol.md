@@ -175,7 +175,8 @@ is no account yet:
   door draws it under the Fan Content notice, and draws the client's own
   repository instead while the gateway has not said.
 - `terms` is the version of the terms of use a player accepts here, or
-  `null` on a gateway without terms (§"Terms of use (WG-1)").
+  `null` on a gateway without terms (§"Terms of use (WG-1)"). It is one
+  version for every language the terms are in.
 - `registration` is who may make an account: `open`, `invite` (a closed
   beta, §"A closed beta: keys (#317)") or `off`; `guests` is whether it takes
   guests. Both are absent from a gateway older than #317. They are here so a
@@ -1577,6 +1578,14 @@ turns 13 and 16):
 Where a piece breaks changes nothing else: the pieces are gzip members of
 their own, and the record they make is the same bytes with or without
 flushes (`flushes_at_any_moment_change_nothing_but_where_the_pieces_break`).
+
+Training and balancing read records only through the operator's export,
+`baylee-gateway records export --out <dir>` (no route): every complete
+record, one gzip member each, `000001.jsonl.gz` onward, without its game
+id, with every `at` 0 and a `Human` seat's account number 0, refused when a
+line is of an unknown kind or the text holds anything that names an account
+seated at the game. It still replays on the build that played it.
+`docs/privacy.md` §"Game records and reports (#315, #307, #308)" says what it keeps.
 The store takes pieces of any size in `seq` order, under the same 64 MiB
 bound.
 
@@ -2010,22 +2019,142 @@ door, key or no key.
   one key per line on stdout, and nothing else, so it pipes; `list` shows
   every key's id, note, uses left, accounts admitted, expiry and state,
   never a key; `revoke <id>` closes one. A key is shown once, when made.
+  The admin console below makes, lists and revokes keys the same way.
+
+## The admin console
+
+What a gateway's operator asks of it without a shell: how busy it is, in
+counts, and its closed-beta keys. Meant for one caller, the feedback
+service's Overview on the same machine (`docs/feedback.md` §"The admin
+console"), which signs its admins in itself; the gateway takes no player's
+session here and knows no admin.
+
+**Where.** `BAYLEE_ADMIN_TOKEN` (32 characters at least, one word, none of
+the gateway's other secrets: `BAYLEE_AGENT_TOKEN`, `BAYLEE_FEEDBACK_TOKEN`,
+`BAYLEE_FEEDBACK_KEY`) switches it on; unset, there is no console and its
+paths are `404` like any unknown path. It listens on a TCP listener of its
+own, `BAYLEE_ADMIN_BIND` (`127.0.0.1:28767`), which must be a loopback
+address, and on nothing else: **never on the public port**, which the
+reverse proxy forwards from the internet (`/admin/…` there is `404`), and
+not on `BAYLEE_UNIX_SOCKET` either, whose mode the feedback service's
+`DynamicUser` could not open. A bind that is not loopback, a short token, a
+token equal to another secret, or a bind without a token stops the gateway
+before it touches its database. `BAYLEE_ADMIN_PORT_FILE` (a path) receives
+the port, written before `BAYLEE_PORT_FILE`, for tests with
+`BAYLEE_ADMIN_BIND=127.0.0.1:0`.
+
+**Checks, in order** (`crates/baylee-gateway/src/admin.rs`):
+
+1. `Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode` present: `403`, before the
+   token is read. A browser sends one of them with every request a page
+   makes, so no page, this machine's included, drives the console; no
+   server-side caller sends them. There is no CORS header and a preflight is
+   refused the same way.
+2. A `Host` that is not `localhost` or a loopback address: `403`, so a name
+   rebound to `127.0.0.1` reaches nothing.
+3. Ten wrong tokens in five minutes: every request `429` with
+   `Retry-After: 300`, the right token included, until the window passes;
+   600 requests a minute likewise. One budget for the listener (its callers
+   are this machine), in memory.
+4. `Authorization: Bearer <BAYLEE_ADMIN_TOKEN>`, compared as SHA-256
+   digests in constant time; missing and wrong both `401 {"error":"the admin
+   token is needed"}`.
+5. A request that changes something names its admin in `X-Baylee-Admin`
+   (1–64 of `A–Z a–z 0–9 . - _`, the feedback service's rule for an admin's
+   name); without one, `400`.
+
+Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
+
+| route | answer |
+| --- | --- |
+| `GET /admin/stats` | the numbers below |
+| `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
+| `POST /admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}`, `invite create`'s flags as fields, read by the command's own parser (the same defaults, bounds and refusals, word for word, as `400 {"error"}`); unknown fields are `400`. `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`: the one time the keys exist outside the hand they are given to. Made in one transaction by the function `invite create` uses |
+| `DELETE /admin/invites/{id}` | revokes as `invite revoke` does: `204`; `404 {"error":"no key <id> that is not revoked already"}`; `400` for an id that is not a UUID. The row stays, revoked, as it does there |
+
+**Audit.** Every change is a log line on the target `baylee_gateway::audit`
+at `info` (so `RUST_LOG=info` must reach it): `admin=<name>`,
+`action=invite.create` with `count`, `uses`, `expires` and the key `ids`, or
+`action=invite.revoke` with the `id`. Never a key, the token, or a key's
+note, which may name a person. Reads are not audited.
+
+**The numbers** (`GET /admin/stats`) are counts and sums only, one SQL
+statement (`baylee_db::stats`) and the gateway's memory; no field can hold
+a name, an id, an address or anything per person:
+
+```json
+{
+  "at": "2026-10-08T12:00:00Z",
+  "gateway": { "name": "Baylee EU", "registration": "invite", "version": "…", "commit": "…", "build": 2648, "built_at": "…", "dirty": false },
+  "accounts": { "registered": 41, "with_email": 3, "confirmed_email": 2, "admitted_by_key": 40,
+                "created": { "today_utc": 1, "last_7d": 6, "last_30d": 41 } },
+  "guests": { "enabled": true, "live": 7, "cap": 1000 },
+  "online": { "players": 9, "in_lobby": 6, "seated": 4, "sessions_live": 52, "accounts_signed_in": 44 },
+  "games": { "running": 2, "local_running": 2, "waiting": 1, "seats_awaiting_engine": 0,
+             "recorded": 310, "started": { "today_utc": 4, "last_7d": 30, "last_30d": 310 },
+             "finished": 301, "finished_since": { "today_utc": 3, "last_7d": 29, "last_30d": 301 } },
+  "agents": { "connected": 1, "local": 1, "capacity": null, "games": 2 },
+  "invites": { "total": 50, "active": 9, "used_up": 30, "expired": 6, "revoked": 5, "uses_left": 11, "admitted": 40 }
+}
+```
+
+- `registered` is every account that is not a guest; `guests.live` every
+  guest account (each one a live session leads to, until the next sweep);
+  `cap` is `null` for no cap.
+- `online.players` is what `GET /lobby/stats` calls `players_online`: the
+  accounts with a lobby socket open (`in_lobby`) together with those in a
+  chair of a running game (`seated`). `sessions_live` counts sessions that
+  have not lapsed, which is not presence (a guest's lasts 30 days).
+- `games.running`, `local_running`, `waiting` and `seats_awaiting_engine`
+  are `/health`'s. `recorded`, `started` and `finished` count game records
+  (#315): a game counts once its engine sent the first piece of its record,
+  and as finished once the last; a game whose engine died is started and
+  never finished. The windows are since midnight UTC and the last 7 × 24
+  and 30 × 24 hours.
+- `agents.capacity` is the sum of the agents' capacities, `null` when one
+  of them has none.
+- `invites.uses_left` sums the uses of the keys that still admit somebody;
+  `admitted` counts the existing accounts a key let in.
 
 ## Terms of use (WG-1)
 
 A gateway may ask its players to accept terms of use. The operator points
-`BAYLEE_TERMS_PATH` at a UTF-8 Markdown file of at most 64 KiB; unset, the
-gateway has none and **nothing below appears**: no `terms_stale`, `"terms":
-null` in `/info`, `404` on `/terms`. Set but unreadable, oversize, not UTF-8
-or empty, the gateway refuses to start. The file is read once, at start.
+`BAYLEE_TERMS_PATH` at either
 
-- `GET /terms` (public) → `{"version", "updated"?, "markdown"}`. `version`
-  is the first 16 hex digits of the file's SHA-256, so any edit asks every
-  player again — unless the file's **first line** is `<!-- version: 2026-10
-  -->`, which names it (at most 64 characters, no whitespace), so an
-  editorial fix need not be accepted twice. `updated` is the date an
-  `<!-- updated: 2026-10-06 -->` line among the leading comment lines names;
-  absent without one. The leading comment lines are not part of `markdown`.
+- **a file**: a UTF-8 Markdown file of at most 64 KiB, shown to every
+  player in whatever language their client speaks; or
+- **a directory** of `terms.<lang>.md` files, one per language, `<lang>` a
+  lowercase BCP-47 primary language tag (`terms.de.md`, `terms.en.md`). It
+  must hold `terms.en.md`, because English is what a player whose language
+  is not there is shown. Every file is held to what a single file is, and
+  **every file names the same version** on its first line (below): the
+  version is what an account accepts, and accepting the terms in one
+  language accepts them in all. A file not named `terms.*.md` is not read;
+  `terms.de-AT.md` or `terms.DE.md` is a mistake and refuses startup.
+
+Unset, the gateway has none and **nothing below appears**: no
+`terms_stale`, `"terms": null` in `/info`, `404` on `/terms`. Set but
+unreadable, oversize, not UTF-8 or empty, a directory without
+`terms.en.md`, or a directory whose files name different versions, the
+gateway refuses to start, saying which. The files are read once, at start.
+
+- `GET /terms?lang=de` (public) → `{"version", "updated"?, "markdown",
+  "lang"?}`. `lang` is read by its primary tag (`de-AT` is `de`); the text
+  is the one in that language, else the English one, else (a file) the one
+  file. `lang` in the answer, and a `Content-Language` header, say which
+  language the text is in; a gateway with one file names none, so its
+  answer is exactly what it was before there were languages. Only `?lang=`
+  decides, never `Accept-Language`: the interface's language is the
+  player's choice and need not be the browser's, and an answer that varies
+  by its address alone is never cached in the wrong language. Without
+  `?lang=` the answer is English. `version` is the first 16 hex digits of
+  the file's SHA-256, so any edit asks every player again — unless the
+  file's **first line** is `<!-- version: 2026-10 -->`, which names it (at
+  most 64 characters, no whitespace), so an editorial fix need not be
+  accepted twice. Two languages never hash alike, so the files of a
+  directory name theirs. `updated` is the date an `<!-- updated: 2026-10-06
+  -->` line among the leading comment lines names, per language; absent
+  without one. The leading comment lines are not part of `markdown`.
 - `/info` carries `"terms": "<version>"`, so a client can compare it with
   what it last accepted before anyone signs in.
 - `POST /auth/login`, `/auth/register` and `/auth/guest` answer
@@ -2043,12 +2172,14 @@ to the terms never blinds a lobby or locks a seat out of its game; the
 client asks right after sign-in. A returning guest signs in with its kept
 session and so never sees `terms_stale`; the client compares `/info.terms`
 with its own copy of what it accepted. The repository's
-`docs/terms-placeholder.md` is a placeholder for testing the sheet and is
-not legal text; no deploy reads it.
+`docs/terms-placeholder.md` (a file) and `docs/terms-placeholder/` (a
+directory, `de` and `en`) are placeholders for testing the sheet and are
+not legal text; no deploy reads them.
 
 The client (WP1, `baylee-client-core::terms`, `lobby::front::terms`): a
 sign-in's `terms_stale` is read off the answer before its event; `true`
-raises the sheet and `GET /terms`; `false` with `/info.terms` named keeps
+raises the sheet and `GET /terms?lang=` in the interface's language
+(`terms::url`); `false` with `/info.terms` named keeps
 that version as the device's copy (`ClientSettings.terms`, by gateway
 address). A kept guest, which signs in to nothing, is asked when
 `/info.terms` differs from that copy. The sheet renders the Markdown subset
@@ -2057,8 +2188,16 @@ link as its text and address; anything else is text, no HTML is
 interpreted), enables Accept only once the end of the text has been in
 view, posts the version it showed, and on `409` fetches and shows the new
 text. Not now signs out with nothing stored (a guest is asked first); Esc
-never signs out. A failed `GET /terms` says "Couldn't load the terms ·
-Retry", accepts nothing and keeps the session.
+never signs out. Decline and delete account (shown with the text) is the
+account's deletion, §"Deleting an account (#292)", unchanged: a session that
+has not accepted the current version may delete its account like any other,
+since no route refuses it. A failed `GET /terms` says "Couldn't load the terms ·
+Retry", accepts nothing and keeps the session. Switching the interface's
+language while the sheet is up asks for the text again in the new one
+(`Terms::relang`): the text on the sheet stays until the new one comes, an
+answer to the language left behind is dropped, and the new text must be
+read to its end before Accept works again. The version it posts is the
+same in every language.
 
 ## Deleting an account (#292)
 

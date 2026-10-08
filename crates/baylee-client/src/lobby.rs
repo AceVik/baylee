@@ -189,6 +189,7 @@ impl Plugin for LobbyPlugin {
                     front::keys::unpark_on_placement,
                     front::keys::lobby_to_kit,
                     front::terms::follow_the_session,
+                    front::terms::follow_the_language,
                     front::terms::terms_keys,
                     front::terms::read_the_terms,
                     front::terms::place_sheet_focus,

@@ -1,11 +1,16 @@
-// Two pages need no router library: the list at `/` (its filters in the
-// query string, so a filtered view can be linked) and one report at `/r/{id}`.
+// Three pages need no router library: the list at `/` (its filters in the
+// query string, so a filtered view can be linked), one report at `/r/{id}`,
+// and the admin console's overview at `/admin`.
 
 import { useEffect, useState } from "react";
 
-export type Route = { page: "list"; search: string } | { page: "report"; id: string };
+export type Route =
+  | { page: "list"; search: string }
+  | { page: "report"; id: string }
+  | { page: "admin" };
 
 export function parseRoute(pathname: string, search: string): Route {
+  if (/^\/admin\/?$/.test(pathname)) return { page: "admin" };
   const match = /^\/r\/([^/]+)\/?$/.exec(pathname);
   const id = match?.[1];
   if (id !== undefined) return { page: "report", id: decodeURIComponent(id) };

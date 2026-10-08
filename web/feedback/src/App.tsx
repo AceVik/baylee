@@ -1,23 +1,50 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type MouseEvent } from "react";
 
+import { Admin } from "./Admin";
 import { api, onSignedOut } from "./api";
+import { browserLang, t } from "./i18n";
 import { Login } from "./Login";
 import { ReportDetail } from "./ReportDetail";
 import { ReportList } from "./ReportList";
-import { navigate, useRoute } from "./router";
+import { listPath, navigate, useRoute } from "./router";
 
-type Auth = { state: "checking" } | { state: "out" } | { state: "in"; name: string };
+type Auth = { state: "checking" } | { state: "out" } | { state: "in"; name: string; console: boolean };
+
+/** A link's click as an in-page move; a modified click opens as usual. */
+const go = (to: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+  event.preventDefault();
+  navigate(to);
+};
+
+/** Whether the page has scrolled past the top, for the header to fold. */
+function useScrolled(): boolean {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const update = () => {
+      setScrolled(window.scrollY > 8);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", update);
+    };
+  }, []);
+  return scrolled;
+}
 
 export function App() {
   const [auth, setAuth] = useState<Auth>({ state: "checking" });
   const route = useRoute();
+  const scrolled = useScrolled();
+  const lang = browserLang();
 
   useEffect(() => {
     let live = true;
     api
       .me()
       .then((me) => {
-        if (live) setAuth({ state: "in", name: me.name });
+        if (live) setAuth({ state: "in", name: me.name, console: me.gateway_admin === true });
       })
       .catch(() => {
         // Signed out, or no answer: either way the way in is the form.
@@ -52,36 +79,55 @@ export function App() {
     return (
       <Login
         onSignedIn={(name) => {
-          setAuth({ state: "in", name });
+          // The sign-in answers the name; whether there is a console is
+          // asked once more, as a reload would.
+          setAuth({ state: "in", name, console: false });
+          api
+            .me()
+            .then((me) => {
+              setAuth({ state: "in", name: me.name, console: me.gateway_admin === true });
+            })
+            .catch(() => {
+              // The list works without it.
+            });
         }}
       />
     );
   }
+  const onAdmin = route.page === "admin" && auth.console;
   return (
     <>
-      <header className="bar">
-        <a
-          className="brand"
-          href="/"
-          onClick={(event) => {
-            event.preventDefault();
-            navigate("/");
-          }}
-        >
-          Baylee reports
+      <header className={scrolled ? "bar folded" : "bar"}>
+        <a className="brand" href="/" onClick={go("/")}>
+          <span className="brand-long">Baylee reports</span>
+          <span className="brand-short" aria-hidden="true">
+            Baylee
+          </span>
         </a>
+        {auth.console && (
+          <nav className="tabs" aria-label={t(lang, "nav.label")}>
+            <a href={listPath()} aria-current={onAdmin ? undefined : "page"} onClick={go(listPath())}>
+              {t(lang, "nav.reports")}
+            </a>
+            <a href="/admin" aria-current={onAdmin ? "page" : undefined} onClick={go("/admin")}>
+              {t(lang, "nav.admin")}
+            </a>
+          </nav>
+        )}
         <span className="spacer" />
         <span className="muted who" title="Signed in as">
           {auth.name}
         </span>
         <button type="button" className="quiet" onClick={() => void signOut()}>
-          Sign out
+          {t(lang, "nav.signOut")}
         </button>
       </header>
-      {route.page === "report" ? (
+      {onAdmin ? (
+        <Admin lang={lang} />
+      ) : route.page === "report" ? (
         <ReportDetail id={route.id} key={route.id} />
       ) : (
-        <ReportList search={route.search} />
+        <ReportList search={route.page === "list" ? route.search : ""} />
       )}
     </>
   );

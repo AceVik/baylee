@@ -303,7 +303,7 @@ route below is `401`.
 
 | route | what |
 | --- | --- |
-| `GET /ui/api/me` | `{"name"}` |
+| `GET /ui/api/me` | `{"name", "gateway_admin"}`: the second says whether the admin console is configured (below) |
 | `GET /ui/api/reports?…` | the list, with the filters above |
 | `GET /ui/api/reports/{id}` | one report with `client` |
 | `GET /ui/api/reports/{id}/record` | the record, as a download |
@@ -312,11 +312,74 @@ route below is `401`.
 | `DELETE /ui/api/reports/{id}` | `204` |
 | `GET /ui/api/facets` | `{gateways, statuses, kinds, reporters}`, each `[{"value","count"}]`; the 50 busiest reporters |
 | `POST /ui/api/login`, `POST /ui/api/logout` | above |
+| `/ui/api/admin/…` | the admin console, below |
 
-The UI links an issue by number and opens GitHub's own "new issue" page
-prefilled with the report's text, kind, build, gateway, arrival time, record
-state and a link back to the report (not its pseudonym or client details); the admin submits it there. The service holds no GitHub
-token and never calls GitHub.
+The UI links an issue by number and opens GitHub's own "new issue" page;
+the admin submits it there. The service holds no GitHub token and never
+calls GitHub. **What goes into that public issue** (owner, 08.10.2026) is
+only a neutral technical summary the admin writes themselves, in a field
+that is empty until they do and says "no personal data, no quotes from the
+report", a neutral category (bug, crash, improvement, feedback, other; the
+report's kind until changed) and the build. Never the player's text, their
+pseudonym, the client's details, the gateway, the arrival time, the report's
+id or a link back to it: the service's address and a report id (a UUIDv7,
+which carries when the report came) tell a stranger nothing they need, and
+the way back runs inside the service, where the report keeps the issue's
+number. Until a summary is written there is no link to open
+(`web/feedback/src/github.ts`; `e2e/triage.spec.ts` holds the issue URL to
+no report text).
+
+### The admin console (`/ui/api/admin/…`)
+
+The UI's **Overview** (`/admin`) shows one gateway's numbers and manages its
+closed-beta keys, so the owner does not need a shell for either. The
+service passes each request on to the gateway's admin console
+(`docs/protocol.md` §"The admin console") with the gateway's token, which
+the browser never sees:
+
+| route | what |
+| --- | --- |
+| `GET /ui/api/admin/stats` | the gateway's `GET /admin/stats`, as it answers |
+| `GET /ui/api/admin/invites` | its keys, newest first; never a key |
+| `POST /ui/api/admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}` as `invite create` takes them (`"30d"`, `"12h"`); `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`, the only time a key is shown |
+| `DELETE /ui/api/admin/invites/{id}` | revokes one: `204`, or `404` for no key not already revoked |
+| `GET /ui/api/admin/audit` | the 50 latest changes made here, `[{"at", "actor", "action", "detail"}]`, newest first |
+
+- **Who.** A live session on every route (`401` without), and on the two
+  that change something the CSRF rule above too (`403`). The read and admin
+  tokens open none of them.
+- **Configured by** `FEEDBACK_GATEWAY_ADMIN_URL` (`http://127.0.0.1:28767`)
+  and `FEEDBACK_GATEWAY_ADMIN_TOKEN` (the gateway's `BAYLEE_ADMIN_TOKEN`),
+  both or neither, else the service refuses to start; the token has 32
+  characters at least and is none of the service's own tokens or its direct
+  key. Unset, the routes answer `404` and the Overview tab is not drawn.
+- **What reaches the gateway.** The service builds every request itself: a
+  body is read into the four fields and written out again (anything else is
+  `400` here), an id must be a UUID, and only `Authorization` (the
+  service's token) and `X-Baylee-Admin` (the signed-in admin's name) are
+  sent, never the cookie or `Origin`. Proxy settings in the environment and
+  redirects are ignored, so the token goes to that address and nowhere else.
+- **What comes back.** The gateway's answer and status as they are, with
+  three exceptions: a gateway refusing the token (`401`, `403`) is `502`
+  here, never a `401` that the UI would read as "signed out"; its limit
+  (`429`) is `503`; a gateway that does not answer is `502`.
+- **Audit.** Every change that succeeded is a row in `feedback_audit`
+  without a report (action `gateway.invite.create` or
+  `gateway.invite.revoke`, the admin, the time, and the ids, uses and
+  expiry; never a key or a note) and an `info` line in the log; the gateway
+  logs its own line too. A key's note may name a person, so it is kept only
+  at the gateway, as the command keeps it.
+- **The page.** Mobile first (one column on a phone, 44 px targets, safe-area
+  insets, a sticky bar that folds as the page scrolls), light and dark as
+  the system says, English or German as the browser asks. The numbers are
+  asked again every 15 seconds while the page is visible and not while it
+  is hidden. New keys are shown once with Copy, Copy all and, where the
+  browser has it, Share; there is no invite link, because the client takes
+  a key only typed into its sign-up form. Revoking asks once more.
+
+Several gateways are not configured yet: the routes would take a
+`?gateway=<name>` and the two settings a list of `name=url` pairs, as
+`FEEDBACK_GATEWAY_TOKENS` does.
 
 ### Headers
 
@@ -358,7 +421,9 @@ served.
   a limit. Failed sign-ins are counted per address and per name in memory
   for 15 minutes and never written down; the log says that a sign-in
   failed, not by whom or from where, and names the admin who signed in or
-  out.
+  out. A change made through the admin console is an audit row without a
+  report id (the admin, the time, key ids, uses, expiry), also without a
+  limit; the gateway's numbers it shows are not stored here at all.
 
 ## Running it
 
@@ -374,8 +439,20 @@ FEEDBACK_ADMIN_TOKEN=<openssl rand -hex 32>
 FEEDBACK_WEB_DIR=/opt/baylee/web/feedback
 FEEDBACK_TRUSTED_PROXIES=127.0.0.1
 FEEDBACK_DIRECT_KEY=<openssl rand -hex 32>   # only to take reports straight from clients
+FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767        # the admin console
+FEEDBACK_GATEWAY_ADMIN_TOKEN=<the gateway's BAYLEE_ADMIN_TOKEN>
 RUST_LOG=info
 ```
+
+The last two need nobody to type them: `baylee-deploy stage`, where the
+feedback unit is installed, makes one token with `openssl rand -hex 32`
+when neither `/etc/baylee/gateway.env` nor `/etc/baylee/feedback.env` has
+it, copies it across when one of them does, never replaces one, writes
+`BAYLEE_ADMIN_TOKEN` to the first and the two `FEEDBACK_GATEWAY_ADMIN_…`
+lines to the second, and leaves both files `0600`; the token is never
+printed or put on a command line. The service restarts with it at once,
+the gateway when `finish` restarts it (until then the Overview says the
+gateway did not answer).
 
 Direct reports also need the route on the public site
 (`scripts/server/feedback-direct.caddy`, whose header says how to install

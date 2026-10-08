@@ -73,6 +73,7 @@ pub mod migration;
 pub mod pictures;
 pub mod precons;
 pub mod records;
+pub mod stats;
 pub mod usernames;
 
 use anyhow::{Context, Result};

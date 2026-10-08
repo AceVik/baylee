@@ -9,6 +9,12 @@
 //! version it showed (`POST /account/terms`). `docs/protocol.md` §"Terms of
 //! use (WG-1)" is the wire.
 //!
+//! The text is asked for in the interface's language (`GET /terms?lang=`),
+//! and asked again when the player switches language while the sheet is up.
+//! A gateway that lacks the language answers in English, one with a single
+//! file answers that; the version, which is what is accepted, is the same
+//! in every language.
+//!
 //! Two rules the sheet keeps, both here so they are tested without a
 //! renderer: **Esc never signs out** — it only moves the keyboard's focus to
 //! *Not now* (the sheet is modal and cannot be dismissed without choosing);
@@ -23,6 +29,8 @@
 //! a hostile gateway gets plain words on a sheet and nothing more.
 
 use serde::Deserialize;
+
+use crate::i18n::Lang;
 
 /// A run of text in one style.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -283,6 +291,21 @@ pub struct TermsDoc {
     pub updated: Option<String>,
     /// The text.
     pub markdown: String,
+    /// The language the text is in, when the gateway has the terms in more
+    /// than one (the asked one, or English where it lacks that); `None` from
+    /// a gateway with one text for all.
+    #[serde(default)]
+    pub lang: Option<String>,
+}
+
+/// Where the terms are asked for: `GET /terms` in the interface's language.
+#[must_use]
+pub fn url(gateway: &str, lang: Lang) -> String {
+    format!(
+        "{}/terms?lang={}",
+        gateway.trim_end_matches('/'),
+        lang.code()
+    )
 }
 
 /// Whether the sheet has to be shown after a sign-in.
@@ -302,8 +325,8 @@ pub fn must_ask(stale: Option<bool>, current: Option<&str>, accepted_here: Optio
 /// What a press on the sheet asks the shell to do.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Ask {
-    /// `GET /terms`.
-    Fetch,
+    /// `GET /terms` in this language ([`url`]).
+    Fetch(Lang),
     /// `POST /account/terms {version}`.
     Accept(String),
     /// Sign out, nothing stored.
@@ -345,6 +368,9 @@ pub struct Reading {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Terms {
     sheet: Sheet,
+    /// The language the text was last asked in: an answer asked in another
+    /// is one the player has switched away from, and is dropped.
+    lang: Lang,
 }
 
 impl Terms {
@@ -360,15 +386,44 @@ impl Terms {
         !matches!(self.sheet, Sheet::Closed)
     }
 
-    /// The sheet is wanted: it goes up and the text is asked for.
-    pub fn ask(&mut self) -> Ask {
+    /// The sheet is wanted: it goes up and the text is asked for in the
+    /// interface's language.
+    pub fn ask(&mut self, lang: Lang) -> Ask {
         self.sheet = Sheet::Fetching;
-        Ask::Fetch
+        self.lang = lang;
+        Ask::Fetch(lang)
     }
 
-    /// `GET /terms` answered.
-    pub fn loaded(&mut self, doc: TermsDoc) {
-        if !self.up() {
+    /// The language the text was last asked in.
+    #[must_use]
+    pub fn lang(&self) -> Lang {
+        self.lang
+    }
+
+    /// The player switched the interface's language: the sheet, if it is up,
+    /// asks for the text again in the new one. The text on it stays until the
+    /// new one arrives, and must then be read to its end again, since it is
+    /// another text. Nothing while the acceptance is on its way (the sheet is
+    /// about to close), nor when the language is the one already asked.
+    pub fn relang(&mut self, lang: Lang) -> Option<Ask> {
+        if !self.up() || lang == self.lang {
+            return None;
+        }
+        match &self.sheet {
+            Sheet::Reading(reading) if reading.sending => None,
+            Sheet::Reading(_) => {
+                self.lang = lang;
+                Some(Ask::Fetch(lang))
+            }
+            _ => Some(self.ask(lang)),
+        }
+    }
+
+    /// `GET /terms` answered, to a question asked in `asked`.
+    pub fn loaded(&mut self, doc: TermsDoc, asked: Lang) {
+        // The sheet went down meanwhile, or the player switched language and
+        // the answer to the new question is still on its way.
+        if !self.up() || asked != self.lang {
             return;
         }
         let blocks = parse(&doc.markdown);
@@ -390,7 +445,7 @@ impl Terms {
 
     /// Retry after a failure.
     pub fn retry(&mut self) -> Option<Ask> {
-        matches!(self.sheet, Sheet::Failed).then(|| self.ask())
+        matches!(self.sheet, Sheet::Failed).then(|| self.ask(self.lang))
     }
 
     /// The end of the text is in view: scrolled there, `End`, or the text
@@ -436,7 +491,7 @@ impl Terms {
     /// The gateway refused the version (`409`: the file changed while the
     /// sheet was up): the new text is asked for and must be read again.
     pub fn changed(&mut self) -> Ask {
-        self.ask()
+        self.ask(self.lang)
     }
 
     /// The acceptance failed some other way: Accept works again.
@@ -492,13 +547,14 @@ mod tests {
             version: "v1".into(),
             updated: Some("2026-10-07".into()),
             markdown: "# Terms\n\nPlay **fair**.".into(),
+            lang: None,
         }
     }
 
     fn reading() -> Terms {
         let mut terms = Terms::default();
-        assert_eq!(terms.ask(), Ask::Fetch);
-        terms.loaded(doc());
+        assert_eq!(terms.ask(Lang::En), Ask::Fetch(Lang::En));
+        terms.loaded(doc(), Lang::En);
         terms
     }
 
@@ -620,6 +676,25 @@ mod tests {
                 ..
             }
         )));
+        // The per-language placeholders, likewise.
+        for text in [
+            include_str!("../../../docs/terms-placeholder/terms.de.md"),
+            include_str!("../../../docs/terms-placeholder/terms.en.md"),
+        ] {
+            let blocks = parse(text);
+            assert!(blocks.contains(&Block::Rule), "{blocks:?}");
+            assert!(
+                blocks.iter().all(|b| match b {
+                    Block::Heading { spans, .. }
+                    | Block::Paragraph(spans)
+                    | Block::Item { spans, .. } => spans
+                        .iter()
+                        .all(|s| !s.text.contains("**") && !s.text.contains("<!--")),
+                    Block::Rule => true,
+                }),
+                "{blocks:?}"
+            );
+        }
     }
 
     #[test]
@@ -639,11 +714,14 @@ mod tests {
         let mut terms = reading();
         terms.reached_end();
         terms.accept();
-        assert_eq!(terms.changed(), Ask::Fetch);
-        terms.loaded(TermsDoc {
-            version: "v2".into(),
-            ..doc()
-        });
+        assert_eq!(terms.changed(), Ask::Fetch(Lang::En));
+        terms.loaded(
+            TermsDoc {
+                version: "v2".into(),
+                ..doc()
+            },
+            Lang::En,
+        );
         assert!(!terms.can_accept(), "the new text is unread");
     }
 
@@ -684,14 +762,76 @@ mod tests {
     #[test]
     fn a_failed_fetch_offers_retry_and_accepts_nothing() {
         let mut terms = Terms::default();
-        terms.ask();
+        terms.ask(Lang::De);
         terms.failed();
         assert_eq!(terms.sheet(), &Sheet::Failed);
         assert_eq!(terms.accept(), None);
-        assert_eq!(terms.retry(), Some(Ask::Fetch));
+        assert_eq!(terms.retry(), Some(Ask::Fetch(Lang::De)), "in its language");
         // Not now still signs out from a failed sheet.
         terms.failed();
         assert_eq!(terms.not_now(false), Some(Ask::SignOut));
+    }
+
+    /// The request carries the interface's language, so a gateway with the
+    /// terms in several shows the player's.
+    #[test]
+    fn the_terms_are_asked_for_in_the_interface_language() {
+        assert_eq!(
+            url("http://gw.example:28766/", Lang::De),
+            "http://gw.example:28766/terms?lang=de"
+        );
+        assert_eq!(url("https://gw", Lang::En), "https://gw/terms?lang=en");
+        let mut terms = Terms::default();
+        assert_eq!(terms.ask(Lang::De), Ask::Fetch(Lang::De));
+        assert_eq!(terms.lang(), Lang::De);
+        // An older gateway, or one file for all, names no language.
+        let doc: TermsDoc =
+            serde_json::from_str(r#"{"version":"v1","markdown":"x"}"#).expect("parses");
+        assert_eq!(doc.lang, None);
+        let doc: TermsDoc =
+            serde_json::from_str(r#"{"version":"v1","markdown":"x","lang":"de"}"#).expect("parses");
+        assert_eq!(doc.lang.as_deref(), Some("de"));
+    }
+
+    /// A language switch while the sheet is up asks again; the text on it
+    /// stays until the new one comes, which must then be read to its end;
+    /// an answer to the language switched away from is dropped.
+    #[test]
+    fn switching_language_asks_again_and_drops_the_old_answer() {
+        let mut terms = reading();
+        terms.reached_end();
+        assert_eq!(terms.relang(Lang::En), None, "the language it has");
+        assert_eq!(terms.relang(Lang::De), Some(Ask::Fetch(Lang::De)));
+        assert!(terms.can_accept(), "the old text stays until the new comes");
+        // The English answer, late: not what is now wanted.
+        terms.loaded(doc(), Lang::En);
+        assert!(terms.can_accept(), "a stale answer replaced the sheet");
+        let german = TermsDoc {
+            markdown: "# Bedingungen".into(),
+            lang: Some("de".into()),
+            ..doc()
+        };
+        terms.loaded(german.clone(), Lang::De);
+        assert!(matches!(terms.sheet(), Sheet::Reading(r) if r.doc == german));
+        assert!(!terms.can_accept(), "another text, unread");
+
+        // While the text is still coming, or failed, the switch asks again.
+        let mut fetching = Terms::default();
+        fetching.ask(Lang::En);
+        assert_eq!(fetching.relang(Lang::De), Some(Ask::Fetch(Lang::De)));
+        assert_eq!(fetching.sheet(), &Sheet::Fetching);
+        fetching.failed();
+        assert_eq!(fetching.relang(Lang::En), Some(Ask::Fetch(Lang::En)));
+        assert_eq!(fetching.sheet(), &Sheet::Fetching);
+
+        // Nothing while the acceptance is on its way, or the sheet is down.
+        let mut sending = reading();
+        sending.reached_end();
+        sending.accept();
+        assert_eq!(sending.relang(Lang::De), None);
+        sending.send_failed();
+        assert_eq!(sending.relang(Lang::De), Some(Ask::Fetch(Lang::De)));
+        assert_eq!(Terms::default().relang(Lang::De), None);
     }
 
     #[test]

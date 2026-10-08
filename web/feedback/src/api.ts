@@ -78,6 +78,95 @@ export interface AuditEntry {
 
 export interface Me {
   name: string;
+  /** Whether a gateway's admin console is configured (the Overview pages). */
+  gateway_admin?: boolean;
+}
+
+/** How many since three moments (`docs/protocol.md` §"The admin console"). */
+export interface Since {
+  today_utc: number;
+  last_7d: number;
+  last_30d: number;
+}
+
+/** `GET /ui/api/admin/stats`: a gateway's numbers, counts only. */
+export interface Stats {
+  at: string;
+  gateway: { name: string | null; version: string; registration: string };
+  accounts: {
+    registered: number;
+    with_email: number;
+    confirmed_email: number;
+    admitted_by_key: number;
+    created: Since;
+  };
+  guests: { enabled: boolean; live: number; cap: number | null };
+  online: {
+    players: number;
+    in_lobby: number;
+    seated: number;
+    sessions_live: number;
+    accounts_signed_in: number;
+  };
+  games: {
+    running: number;
+    local_running: number;
+    waiting: number;
+    seats_awaiting_engine: number;
+    recorded: number;
+    started: Since;
+    finished: number;
+    finished_since: Since;
+  };
+  agents: { connected: number; local: number; capacity: number | null; games: number };
+  invites: {
+    total: number;
+    active: number;
+    used_up: number;
+    expired: number;
+    revoked: number;
+    uses_left: number;
+    admitted: number;
+  };
+}
+
+export const INVITE_STATES = ["active", "used_up", "expired", "revoked"] as const;
+export type InviteState = (typeof INVITE_STATES)[number];
+
+/** A closed-beta key as the gateway lists it: never the key. */
+export interface Invite {
+  id: string;
+  created_at: string;
+  note: string | null;
+  uses_left: number;
+  expires_at: string | null;
+  revoked_at: string | null;
+  admitted: number;
+  state: InviteState;
+}
+
+/** What `invite create` takes, as fields. */
+export interface InviteOrder {
+  count?: number;
+  uses?: number;
+  expires?: string;
+  note?: string;
+}
+
+/** Keys just made: the only time a key is shown. */
+export interface MadeKeys {
+  keys: { id: string; key: string }[];
+  uses: number;
+  expires_at: string | null;
+  note: string | null;
+}
+
+/** A change made through the console, as this service audited it. */
+export interface ConsoleChange {
+  at: string;
+  actor: string;
+  action: string;
+  detail: string | null;
 }
 
 /** The list's filters, as the query string carries them. */
@@ -233,4 +322,13 @@ export const api = {
     await request("DELETE", `/ui/api/reports/${encodeURIComponent(id)}`);
   },
   recordUrl: (id: string) => `/ui/api/reports/${encodeURIComponent(id)}/record`,
+  admin: {
+    stats: () => json<Stats>("GET", "/ui/api/admin/stats"),
+    invites: () => json<Invite[]>("GET", "/ui/api/admin/invites"),
+    create: (order: InviteOrder) => json<MadeKeys>("POST", "/ui/api/admin/invites", order),
+    revoke: async (id: string) => {
+      await request("DELETE", `/ui/api/admin/invites/${encodeURIComponent(id)}`);
+    },
+    audit: () => json<ConsoleChange[]>("GET", "/ui/api/admin/audit"),
+  },
 };

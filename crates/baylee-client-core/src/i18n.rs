@@ -4429,6 +4429,9 @@ messages! {
     TermsStay { en: "Stay", de: "Bleiben" },
     /// The guest signs out after all.
     TermsSignOut { en: "Sign out", de: "Abmelden" },
+    /// Declines the terms and deletes the account (its own confirmation
+    /// follows). The terms text names this button word for word.
+    TermsDecline { en: "Decline and delete account", de: "Ablehnen und Konto l\u{f6}schen" },
     // ---- play + room (WP2) -----------------------------------------------
     /// A clock's span in minutes. `{0}` minutes.
     ClockMinutes { en: "{0} min", de: "{0} Min." },

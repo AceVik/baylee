@@ -5,8 +5,11 @@
 //! drawing. The sheet stands over whatever the lobby shows after a sign-in
 //! (it is modal, its own `TabOrder`), and holds the screen until answered:
 //! **Accept and continue** (enabled once the end of the text has been in
-//! view) or **Not now**, which signs out with nothing stored — a guest is
-//! asked first. Esc moves focus to Not now and does nothing else.
+//! view), **Not now**, which signs out with nothing stored — a guest is
+//! asked first — or **Decline and delete account**, which opens the
+//! account deletion's own confirmation over the sheet (#292: the password
+//! again for an account, none for a guest). Esc moves focus to Not now and
+//! does nothing else; in the confirmation it is the confirmation's Cancel.
 
 use std::sync::Arc;
 
@@ -34,8 +37,14 @@ use crate::shellkit::tokens;
 pub(crate) enum TermsReply {
     /// A sign-in's `terms_stale`, read off its answer before its event.
     Stale(bool),
-    /// `GET /terms`.
-    Doc(TermsDoc),
+    /// `GET /terms`, to a question asked in `asked`.
+    Doc {
+        /// The language the text was asked in (not the one it came in: a
+        /// gateway without that language answers in English).
+        asked: Lang,
+        /// What came back.
+        doc: TermsDoc,
+    },
     /// `GET /terms` failed (or the gateway has no terms after all).
     FetchFailed,
     /// `POST /account/terms` recorded this version.
@@ -62,8 +71,28 @@ pub(crate) fn place_sheet_focus(
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
     mut remembered: ResMut<crate::shellkit::focus::Remembered>,
-    mut was: Local<(bool, bool)>,
+    mut was: Local<(bool, bool, bool)>,
 ) {
+    // Decline's confirmation stands over the sheet and takes the keyboard
+    // (its password box, Enter, Esc, Tab; `keyboard`): no stop of the sheet
+    // keeps the focus under it, or Enter would press that stop too, and
+    // none is restored while it stands. Cancelled, focus is back on Decline.
+    let deleting = state.terms.up() && state.lobby.deleting_account().is_some();
+    if deleting != was.2 {
+        was.2 = deleting;
+        if !deleting && state.terms.up() {
+            wanted.0 = Some("decline");
+        }
+    }
+    if deleting {
+        if focus.get().is_some() {
+            focus.clear();
+        }
+        if remembered.0.is_some() {
+            remembered.0 = None;
+        }
+        return;
+    }
     let table = if state.terms.up() {
         Some(TERMS.name)
     } else if state.about_open {
@@ -73,7 +102,7 @@ pub(crate) fn place_sheet_focus(
     };
     let reading = matches!(state.terms.sheet(), Sheet::Reading(_));
     let now = (table.is_some(), reading);
-    if now != *was {
+    if now != (was.0, was.1) {
         // Opened, or its text arrived: focus on the text; while the terms
         // are still on their way (or failed), on the sheet's one answer.
         if table.is_some() {
@@ -85,7 +114,7 @@ pub(crate) fn place_sheet_focus(
                 "not-now"
             });
         }
-        *was = now;
+        (was.0, was.1) = now;
     }
     let (Some(table), Some(id)) = (table, wanted.0) else {
         if table.is_none() && wanted.0.is_some() {
@@ -122,18 +151,21 @@ pub(crate) fn stale_of(body: &[u8]) -> Option<bool> {
         .as_bool()
 }
 
-/// `GET /terms` (public).
-fn fetch(gateway: &str, epoch: u64, mailbox: &Mailbox) {
+/// `GET /terms?lang=` (public), in the interface's language.
+fn fetch(gateway: &str, lang: Lang, epoch: u64, mailbox: &Mailbox) {
     // No address, nothing to ask (a headless test's lobby).
     if gateway.is_empty() {
         return;
     }
-    let url = format!("{}/terms", gateway.trim_end_matches('/'));
+    let url = baylee_client_core::terms::url(gateway, lang);
     let box_ = Arc::clone(&mailbox.0);
     crate::transport::fetch(ehttp::Request::get(url), move |answer| {
         let reply = match answer {
             Ok(response) if response.ok => serde_json::from_slice::<TermsDoc>(&response.bytes)
-                .map_or(TermsReply::FetchFailed, TermsReply::Doc),
+                .map_or(TermsReply::FetchFailed, |doc| TermsReply::Doc {
+                    asked: lang,
+                    doc,
+                }),
             _ => TermsReply::FetchFailed,
         };
         if let Ok(mut box_) = box_.lock() {
@@ -184,9 +216,9 @@ pub(in crate::lobby) fn perform(
     settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
 ) {
     match ask {
-        Ask::Fetch => {
+        Ask::Fetch(lang) => {
             scrolled.set(List::Terms, 0.0);
-            fetch(&state.gateway, state.gateway_epoch, mailbox);
+            fetch(&state.gateway, lang, state.gateway_epoch, mailbox);
         }
         Ask::Accept(version) => {
             if let Some(token) = state.lobby.token().map(str::to_string) {
@@ -213,7 +245,7 @@ pub(in crate::lobby) fn receive(
 ) {
     match reply {
         TermsReply::Stale(stale) => state.terms_stale = Some(stale),
-        TermsReply::Doc(doc) => state.terms.loaded(doc),
+        TermsReply::Doc { asked, doc } => state.terms.loaded(doc, asked),
         TermsReply::FetchFailed => state.terms.failed(),
         TermsReply::Accepted(version) => {
             if state.terms.accepted().is_some() {
@@ -227,8 +259,9 @@ pub(in crate::lobby) fn receive(
             }
         }
         TermsReply::Changed => {
-            state.terms.changed();
-            fetch(&state.gateway, state.gateway_epoch, mailbox);
+            if let Ask::Fetch(lang) = state.terms.changed() {
+                fetch(&state.gateway, lang, state.gateway_epoch, mailbox);
+            }
         }
         TermsReply::SendFailed(said) => {
             state.terms.send_failed();
@@ -276,7 +309,8 @@ pub(in crate::lobby) fn follow_the_session(
         .as_ref()
         .and_then(|s| s.terms.get(&gateway).cloned());
     if must_ask(stale, current.as_deref(), here.as_deref()) {
-        let ask = state.terms.ask();
+        let lang = state.lobby.lang();
+        let ask = state.terms.ask(lang);
         perform(
             ask,
             &mut state,
@@ -294,6 +328,27 @@ pub(in crate::lobby) fn follow_the_session(
         // follows, for a later return as a kept guest.
         settings.terms.insert(gateway, version);
         settings.save();
+    }
+}
+
+/// Follows the interface's language: a switch while the sheet is up asks
+/// for the text again in the new one (`terms::Terms::relang`).
+pub(in crate::lobby) fn follow_the_language(
+    mut state: ResMut<LobbyState>,
+    mut scrolled: ResMut<Scrolled>,
+    mailbox: Res<Mailbox>,
+) {
+    let lang = state.lobby.lang();
+    // Read without `DerefMut` first: a sheet that is down, up in this
+    // language already, or sending its acceptance, is nearly every frame,
+    // and must not mark the lobby changed.
+    let sending = matches!(state.terms.sheet(), Sheet::Reading(r) if r.sending);
+    if !state.terms.up() || state.terms.lang() == lang || sending {
+        return;
+    }
+    if let Some(Ask::Fetch(lang)) = state.terms.relang(lang) {
+        scrolled.set(List::Terms, 0.0);
+        fetch(&state.gateway, lang, state.gateway_epoch, &mailbox);
     }
 }
 
@@ -341,7 +396,8 @@ pub(in crate::lobby) fn terms_keys(
     mut scrolled: ResMut<Scrolled>,
     mailbox: Res<Mailbox>,
 ) {
-    if !state.terms.up() {
+    // Decline's confirmation over the sheet answers its own keys.
+    if !state.terms.up() || state.lobby.deleting_account().is_some() {
         keys.clear();
         return;
     }
@@ -751,6 +807,22 @@ pub(crate) fn sheet(
                 } else {
                     Live::No(Phrase::TermsScrollToAccept.text(lang))
                 };
+                // Declining is the account's deletion, by its own
+                // confirmation (password again for an account, none for a
+                // guest); the terms text names this button word for word.
+                let decline = controls::button(
+                    commands,
+                    kit,
+                    Phrase::TermsDecline.text(lang),
+                    Weight::Danger,
+                    if reading.sending {
+                        Live::No(Phrase::TermsSending.text(lang))
+                    } else {
+                        Live::Yes
+                    },
+                    None,
+                    (Press::Front(FrontPress::TermsDecline), at("decline")),
+                );
                 let accept = controls::button(
                     commands,
                     kit,
@@ -760,7 +832,7 @@ pub(crate) fn sheet(
                     Some("Enter"),
                     (Press::Front(FrontPress::TermsAccept), at("accept")),
                 );
-                footer.extend([not_now, accept]);
+                footer.extend([not_now, decline, accept]);
             }
         }
     }

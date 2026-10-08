@@ -12,6 +12,8 @@
 //! - `PATCH /reports/{id}` (status), `DELETE /reports/{id}`: the admin token.
 //! - `/ui/api/…`: the web UI's JSON routes, for a signed-in admin (#311,
 //!   [`ui`]); `FEEDBACK_WEB_DIR` serves the UI itself ([`web`]).
+//! - `/ui/api/admin/…`: the same admins, passed on to a gateway's admin
+//!   console (its numbers and closed-beta keys, [`console`]).
 //!
 //! Nothing it stores names a player: a report carries the gateway's
 //! pseudonym for its reporter, and no request's address is kept or logged.
@@ -20,6 +22,7 @@
 #![warn(missing_docs)]
 
 pub mod admin;
+pub mod console;
 pub mod direct;
 pub mod migration;
 pub mod ui;
@@ -81,16 +84,22 @@ pub struct Config {
     /// `FEEDBACK_DIRECT_KEY`, hashed: the key direct reports' reporters are
     /// made with; `None` = the direct route is off.
     direct: Option<TokenHash>,
+    /// `FEEDBACK_GATEWAY_ADMIN_URL` and `FEEDBACK_GATEWAY_ADMIN_TOKEN`: the
+    /// gateway's admin console the UI's admin pages talk to ([`console`]);
+    /// `None` = no admin pages.
+    gateway_admin: Option<console::Gateway>,
 }
 
 impl Config {
     /// Reads `FEEDBACK_GATEWAY_TOKENS`, `FEEDBACK_READ_TOKEN`,
-    /// `FEEDBACK_ADMIN_TOKEN` and `FEEDBACK_DIRECT_KEY`.
+    /// `FEEDBACK_ADMIN_TOKEN`, `FEEDBACK_DIRECT_KEY`,
+    /// `FEEDBACK_GATEWAY_ADMIN_URL` and `FEEDBACK_GATEWAY_ADMIN_TOKEN`.
     ///
     /// # Errors
     ///
-    /// When a value is malformed; see [`Config::new`] and
-    /// [`Config::with_direct_key`].
+    /// When a value is malformed; see [`Config::new`],
+    /// [`Config::with_direct_key`] and [`Config::with_gateway_admin`]. One
+    /// of the last two without the other is malformed too.
     pub fn from_env() -> Result<Self> {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
         let config = Self::new(
@@ -98,10 +107,51 @@ impl Config {
             var("FEEDBACK_READ_TOKEN").as_deref(),
             var("FEEDBACK_ADMIN_TOKEN").as_deref(),
         )?;
-        match var("FEEDBACK_DIRECT_KEY") {
-            Some(key) => config.with_direct_key(&key),
-            None => Ok(config),
+        let config = match var("FEEDBACK_DIRECT_KEY") {
+            Some(key) => config.with_direct_key(&key)?,
+            None => config,
+        };
+        match (
+            var("FEEDBACK_GATEWAY_ADMIN_URL"),
+            var("FEEDBACK_GATEWAY_ADMIN_TOKEN"),
+        ) {
+            (Some(url), Some(token)) => config.with_gateway_admin(&url, &token),
+            (None, None) => Ok(config),
+            (Some(_), None) => {
+                bail!("FEEDBACK_GATEWAY_ADMIN_URL is set, and FEEDBACK_GATEWAY_ADMIN_TOKEN is not")
+            }
+            (None, Some(_)) => {
+                bail!("FEEDBACK_GATEWAY_ADMIN_TOKEN is set, and FEEDBACK_GATEWAY_ADMIN_URL is not")
+            }
         }
+    }
+
+    /// Lets the UI's admins administer a gateway: its admin console at
+    /// `url` (`http://127.0.0.1:28767`), asked with `token`, the gateway's
+    /// `BAYLEE_ADMIN_TOKEN`.
+    ///
+    /// # Errors
+    ///
+    /// When `url` is not a plain `http://` or `https://` address (no
+    /// credentials, query or fragment), or `token` is shorter than
+    /// [`console::MIN_TOKEN_CHARS`], holds whitespace, or is one of this
+    /// service's own tokens or its direct key.
+    pub fn with_gateway_admin(mut self, url: &str, token: &str) -> Result<Self> {
+        let h = hash(token);
+        let taken = self.gateways.iter().any(|(_, t)| *t == h)
+            || self.read == Some(h)
+            || self.admin == Some(h)
+            || self.direct == Some(h);
+        if taken {
+            bail!("FEEDBACK_GATEWAY_ADMIN_TOKEN: that token is already given to something else");
+        }
+        self.gateway_admin = Some(console::Gateway::new(url, token)?);
+        Ok(self)
+    }
+
+    /// The gateway the admin pages talk to, if any.
+    pub(crate) fn gateway_admin(&self) -> Option<&console::Gateway> {
+        self.gateway_admin.as_ref()
     }
 
     /// Takes direct reports (`POST /client/reports`), their reporters made
@@ -118,7 +168,11 @@ impl Config {
         let h = hash(key);
         let taken = self.gateways.iter().any(|(_, t)| *t == h)
             || self.read == Some(h)
-            || self.admin == Some(h);
+            || self.admin == Some(h)
+            || self
+                .gateway_admin
+                .as_ref()
+                .is_some_and(|g| g.token_hash() == h);
         if taken {
             bail!("FEEDBACK_DIRECT_KEY: that key is already a token");
         }
@@ -174,6 +228,7 @@ impl Config {
             read: read.map(|t| take("FEEDBACK_READ_TOKEN", t)).transpose()?,
             admin: admin.map(|t| take("FEEDBACK_ADMIN_TOKEN", t)).transpose()?,
             direct: None,
+            gateway_admin: None,
         })
     }
 

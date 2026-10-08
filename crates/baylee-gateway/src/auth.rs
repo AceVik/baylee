@@ -282,6 +282,23 @@ impl RateLimiter {
         self.hits.lock().remove(key);
     }
 
+    /// Whether `key` has spent every attempt in the window, without
+    /// counting one: for a limit on *failures*, which has to be asked
+    /// before the attempt is judged and counted only when it fails.
+    pub fn spent(&self, key: &str) -> bool {
+        self.spent_at(key, Instant::now())
+    }
+
+    /// [`Self::spent`] at `now`.
+    pub(crate) fn spent_at(&self, key: &str, now: Instant) -> bool {
+        self.hits.lock().get(key).is_some_and(|hits| {
+            hits.iter()
+                .filter(|t| now.duration_since(**t) < self.window)
+                .count()
+                >= self.max_attempts
+        })
+    }
+
     /// Takes back the latest attempt under `key`, for one that did not
     /// happen after all.
     pub fn give_back(&self, key: &str) {
@@ -573,6 +590,24 @@ mod tests {
     /// **The window slides**, which is the half the counting tests cannot
     /// see: eight wrong passwords are a lockout for five minutes and not for
     /// ever, so a key that has spent its budget gets it back by waiting.
+    #[test]
+    fn asking_whether_a_budget_is_spent_spends_none_of_it() {
+        let limiter = RateLimiter::new(Duration::from_secs(60), 2);
+        let now = Instant::now();
+        for _ in 0..10 {
+            assert!(!limiter.spent_at("console", now), "asking counted");
+        }
+        assert!(limiter.allow_at("console", now));
+        assert!(!limiter.spent_at("console", now));
+        assert!(limiter.allow_at("console", now));
+        assert!(limiter.spent_at("console", now), "two of two spent");
+        assert!(
+            !limiter.spent_at("console", now + Duration::from_secs(61)),
+            "the window moved on"
+        );
+        assert!(!limiter.spent_at("someone else", now));
+    }
+
     #[test]
     fn a_spent_budget_comes_back_when_the_window_has_passed() {
         let limiter = RateLimiter::new(Duration::from_millis(120), 2);

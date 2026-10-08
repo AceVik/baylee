@@ -465,6 +465,10 @@ pub(super) fn ui(
     if state.confirmation.is_some() {
         *builder_drawn = None;
     }
-    // The terms stand over whatever the sign-in led to, until answered.
+    // The terms stand over whatever the sign-in led to, until answered;
+    // their Decline's confirmation stands over them.
     super::front::terms::sheet(&mut commands, root, &state, kit, &scrolled_to);
+    if state.terms.up() {
+        super::confirm::draw_deletion(&mut commands, root, &state, &fonts, metrics);
+    }
 }
