@@ -15,8 +15,8 @@ npm test             # vitest + Testing Library, jsdom
 npm run build        # dist/, what FEEDBACK_WEB_DIR points at
 npm run check        # all four, as CI runs them
 
-# End to end, against a real service and PostgreSQL (not in CI):
-cargo build -p baylee-feedback
+# End to end, against a real service, a real gateway and PostgreSQL (not in CI):
+cargo build -p baylee-feedback -p baylee-gateway
 npm run build
 npx playwright install chromium          # once
 DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee npm run e2e
@@ -25,9 +25,14 @@ DATABASE_URL=… npm run serve:e2e         # the seeded service, to look at by h
 ```
 
 The end-to-end harness (`e2e/harness.ts`) makes a schema of its own, adds an
-admin through the binary's `admin add`, starts the binary with
-`FEEDBACK_WEB_DIR=dist`, hands reports in through `/intake/reports` as a
-gateway does, and drops the schema afterwards.
+admin through the binary's `admin add`, starts a `baylee-gateway` in a
+second schema as a closed beta with its admin console on a loopback port
+(two players let in with keys its `invite create` made), starts the service
+with `FEEDBACK_WEB_DIR=dist` and that console, hands reports in through
+`/intake/reports` as a gateway does, and drops both schemas afterwards.
+`e2e/admin.spec.ts` drives the console at 360×740 and 740×360 (touch, the
+first in German) and 1280×800, and fails on a page or a card wider than its
+screen and on a control under 44 px; with `SCREENSHOTS_DIR` it saves each.
 
 ## TypeScript
 
@@ -91,7 +96,18 @@ reaches the built page.
   `client` object as a folding tree; the game record's size and
   completeness and a download. `Escape` goes back to the list.
 - Triage: the status; the GitHub issue, linked by number or URL; a button
-  that opens GitHub's new-issue page prefilled with the report's text, kind
-  and build (not the pseudonym, not the client's details). The server holds
-  no GitHub token. Deleting asks once more. Every change is in the report's
-  history, under the admin's name.
+  that opens GitHub's new-issue page with a neutral technical summary the
+  admin writes in the field above it (empty until they do: no personal
+  data, no quotes from the report), a neutral category and the build, and
+  nothing else: not the player's text, not the pseudonym, not the client's
+  details, and no link back to the report (owner, 08.10.2026). The server
+  holds no GitHub token. Deleting asks once more. Every change is in the
+  report's history, under the admin's name.
+- Overview (`/admin`, shown when the service has a gateway's console,
+  `docs/feedback.md` §"The admin console"): the gateway's numbers, asked
+  again every 15 seconds while the page is visible and not while it is
+  hidden; closed-beta keys made (each shown once, with Copy, Copy all and,
+  where the browser can, Share), listed (never the key, which is kept only
+  as a hash) and revoked after a second question; the latest console
+  changes. In German when the browser asks for German, else English; the
+  rest of the UI is English only.

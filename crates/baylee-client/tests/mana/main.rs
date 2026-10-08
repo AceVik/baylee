@@ -20,6 +20,7 @@
 mod arming;
 mod cast_modes;
 mod chooser;
+mod pain;
 mod pips;
 mod planning;
 mod sheet;

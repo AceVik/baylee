@@ -117,6 +117,7 @@ pre {
 
 input,
 select,
+textarea,
 button,
 .button {
   font: inherit;
@@ -225,7 +226,8 @@ label {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem max(1rem, env(safe-area-inset-right)) 0.5rem max(1rem, env(safe-area-inset-left));
+  padding-top: max(0.5rem, env(safe-area-inset-top));
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -233,10 +235,337 @@ label {
   z-index: 2;
 }
 
+/* Scrolled: the bar gives the page back some height. */
+.bar.folded {
+  padding-top: max(0.2rem, env(safe-area-inset-top));
+  padding-bottom: 0.2rem;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+}
+
 .brand {
   font-weight: 600;
   color: var(--text);
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.brand-short {
+  display: none;
+}
+
+/* The bar's links and buttons are finger-sized everywhere: the bar is the
+   one part of every page a phone and a desktop share. */
+.bar .brand,
+.bar button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* The sections, as tabs in the bar. */
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tabs a:hover {
+  background: var(--surface-2);
+}
+
+.tabs a[aria-current="page"] {
+  background: var(--selected);
+  box-shadow: inset 0 -3px 0 var(--accent);
+  font-weight: 600;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.new-issue {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.75rem;
+}
+
+.new-issue p {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------ the console */
+
+.admin-page {
+  padding: 0.75rem max(1rem, env(safe-area-inset-right)) max(2rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+  max-width: 1400px;
+  margin: 0 auto;
+  overflow-wrap: anywhere;
+}
+
+/* Touch targets of at least 44 px in the console, wherever it is used. */
+.admin-page button,
+.admin-page input,
+.admin-page select,
+.admin-page .button {
+  min-height: 44px;
+}
+
+.admin-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-head h1 {
+  margin: 0;
+}
+
+.admin-head p {
+  margin: 0;
+  flex: 1 1 12rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.stat h2 {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.stat h3 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.big {
+  margin: 0 0 0.5rem;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.5rem;
+}
+
+.big-number {
+  font-size: 2.2rem;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.big-label {
+  color: var(--muted);
+}
+
+/* Label left, number right, the number never broken across lines. Two
+   classes, so `.facts` further down (the report page's) does not win. */
+.facts.stat-facts,
+.facts.invite-facts {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.facts.stat-facts dd,
+.facts.invite-facts dd {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.stat .build {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.invites {
+  margin-top: 1.5rem;
+}
+
+.invites > h2 {
+  font-size: 1.1rem;
+}
+
+.invites > h3 {
+  margin-top: 1.25rem;
+}
+
+.create-form,
+.made {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 48rem;
+}
+
+.create-form h3,
+.made h3 {
+  margin: 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+  gap: 0.6rem 0.75rem;
+}
+
+.form-grid .field.wide {
+  grid-column: 1 / -1;
+}
+
+.form-grid input,
+.form-grid select {
+  width: 100%;
+}
+
+.create-form > button {
+  justify-self: start;
+}
+
+.made-keys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.made-keys li {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.made-keys input.key {
+  flex: 1;
+  min-width: 0;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.invite-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: 0.6rem;
+}
+
+.invite {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.8rem;
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+}
+
+.invite-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.invite-note {
+  font-weight: 600;
+  min-width: 0;
+}
+
+.invite.state-revoked,
+.invite.state-expired,
+.invite.state-used_up {
+  color: var(--muted);
+}
+
+.invite-state.state-active {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.invite-state.state-revoked {
+  color: var(--danger);
+}
+
+.invite > button {
+  justify-self: start;
+}
+
+.confirm {
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.confirm legend {
+  padding: 0 0.25rem;
+  color: var(--text);
+}
+
+.console-audit {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+  .brand-long {
+    display: none;
+  }
+  .brand-short {
+    display: inline;
+  }
+  .bar {
+    gap: 0.4rem;
+  }
+  .who {
+    display: none;
+  }
+  /* With the tabs there, "Reports" is the way home: the brand steps aside. */
+  .bar:has(.tabs) .brand {
+    display: none;
+  }
+  .tabs a {
+    padding: 0 0.55rem;
+  }
+  .big-number {
+    font-size: 1.9rem;
+  }
+}
+
+/* A coarse pointer (a finger) gets 44 px targets everywhere. */
+@media (pointer: coarse) {
+  button,
+  .button,
+  input,
+  select {
+    min-height: 44px;
+  }
 }
 
 .spacer {

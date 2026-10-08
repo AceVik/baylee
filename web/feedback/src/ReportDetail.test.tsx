@@ -165,13 +165,29 @@ describe("triage", () => {
     expect(calls.some((c) => c.method === "PATCH")).toBe(false);
   });
 
-  test("the new-issue link is prefilled and opens GitHub in a new tab", async () => {
+  test("a new issue carries only the admin's summary, the category and the build", async () => {
     start(fullReport());
     render(<ReportDetail id="x" />);
-    const link = await screen.findByRole("link", { name: "Open a new issue on GitHub" });
-    const url = new URL(link.getAttribute("href") ?? "");
+    const summary = await screen.findByLabelText("Summary for a new issue");
+    // Empty until the admin writes it.
+    expect((summary as HTMLTextAreaElement).value).toBe("");
+    expect(screen.queryByRole("link", { name: "Open a new issue on GitHub" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Open a new issue on GitHub" })).toHaveProperty("disabled", true);
+
+    await userEvent.type(summary, "A basic land untaps during its controller's upkeep.");
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "crash");
+    const link = screen.getByRole("link", { name: "Open a new issue on GitHub" });
+    const href = link.getAttribute("href") ?? "";
+    const url = new URL(href);
     expect(url.origin + url.pathname).toBe("https://github.com/AceVik/baylee/issues/new");
-    expect(url.searchParams.get("title")).toBe("Bug: The Swamp untapped by itself.");
+    expect(url.searchParams.get("title")).toBe("Crash: A basic land untaps during its controller's upkeep.");
+    expect(url.searchParams.get("body")).toContain("- Build: 0.1.0-beta.1+build.42 (3f9a1c7e21)");
+    // Read as GitHub reads it: a query string's `+` is a space, which
+    // `decodeURIComponent` would leave standing and so miss every phrase.
+    const filed = `${href}\n${url.searchParams.get("title") ?? ""}\n${url.searchParams.get("body") ?? ""}`;
+    for (const leak of ["Swamp untapped", "5bdc0e1f9a7c33aa", "0199aaaa", "/r/", "Apple M1", "eu.example"]) {
+      expect(filed).not.toContain(leak);
+    }
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   });

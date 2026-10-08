@@ -2398,6 +2398,22 @@ pub struct ManaRun {
     card: ObjectId,
     /// What the mana is spent on once every tap is made.
     then: RunEnd,
+    /// Set for a cast made before its mana (CR 601.2g): the card was
+    /// `LegalActions::payable`, so the cast is sent first, its own questions
+    /// are answered as they come, and the plan is worked out against the
+    /// payment window it opens (`PlayerView::owed`). Its mana's triggers
+    /// then wait until the spell is cast (CR 601.2i). `None` for a run that
+    /// taps first.
+    cast_first: Option<CastFirst>,
+}
+
+/// Where a cast-first run stands.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum CastFirst {
+    /// The cast is still to be sent.
+    Unsent,
+    /// The cast was sent; the run waits for its payment window.
+    Sent,
 }
 
 impl ManaRun {
@@ -2409,6 +2425,20 @@ impl ManaRun {
             asking: None,
             card,
             then,
+            cast_first: None,
+        }
+    }
+
+    /// Starts a run that casts `card` first and pays for it in the window
+    /// the cast opens (CR 601.2g), for a card in `LegalActions::payable`.
+    #[must_use]
+    pub fn cast_first(card: ObjectId) -> Self {
+        Self {
+            steps: std::collections::VecDeque::new(),
+            asking: None,
+            card,
+            then: RunEnd::Cast,
+            cast_first: Some(CastFirst::Unsent),
         }
     }
 
@@ -2449,6 +2479,11 @@ pub fn advance_mana_run(duel: &mut Duel) {
     };
     let seat = duel.seat().unwrap_or(PlayerId::new(0));
     let pending = interaction.pending().clone();
+    if let Some(phase) = duel.mana_run.as_ref().and_then(|r| r.cast_first)
+        && advance_cast_first(duel, phase, &pending, seat)
+    {
+        return;
+    }
     let mut action = None;
     let mut finished = false;
     let mut abort = None;
@@ -2545,6 +2580,75 @@ pub fn advance_mana_run(duel: &mut Duel) {
     if let Some(action) = action {
         duel.submit(action);
     }
+}
+
+/// The cast-first half of a run (CR 601.2g); returns whether it handled this
+/// question, and `false` once the payment window is open and the run has
+/// become an ordinary settle.
+///
+/// The cast goes out on this seat's priority. Every question after it that
+/// is not the window is the cast's own (its mode, X, targets) and is the
+/// player's to answer: the run waits. The window's plan is worked out the
+/// way the pay button's is ([`Duel::compute_owed_plan`]), against the pool
+/// as it stands, so a land tapped by hand is counted. A priority that is not
+/// a window means the cast is over: on the stack, or reversed.
+fn advance_cast_first(
+    duel: &mut Duel,
+    phase: CastFirst,
+    pending: &Pending,
+    seat: PlayerId,
+) -> bool {
+    let Some(card) = duel.mana_run.as_ref().map(|r| r.card) else {
+        return true;
+    };
+    let Pending::Priority { player, legal } = pending else {
+        // The cast's own questions, answered by the player (or the cast
+        // chooser's answer, `take_the_chosen_cast_mode`).
+        if phase == CastFirst::Unsent {
+            duel.last_error = Some(Refusal::Said(Phrase::PlanQuestionChanged));
+            duel.mana_run = None;
+        }
+        return true;
+    };
+    if *player != seat {
+        return true;
+    }
+    if phase == CastFirst::Unsent {
+        if legal.castable.contains(&card) || legal.payable.contains(&card) {
+            if let Some(run) = duel.mana_run.as_mut() {
+                run.cast_first = Some(CastFirst::Sent);
+            }
+            duel.submit(PlayerAction::CastSpell { card });
+        } else {
+            duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
+            duel.mana_run = None;
+        }
+        return true;
+    }
+    if !duel.paying() {
+        let cast = duel
+            .view
+            .as_ref()
+            .is_some_and(|v| v.stack.iter().any(|o| o.id == card));
+        duel.mana_run = None;
+        if !cast {
+            duel.last_error = Some(Refusal::Said(Phrase::PlanSpellRefused));
+        }
+        return true;
+    }
+    let Some(plan) = duel.compute_owed_plan() else {
+        // Nothing here pays it: passing reverses the cast (CR 601.2h).
+        duel.mana_run = None;
+        duel.submit(PlayerAction::PassPriority);
+        duel.last_error = Some(Refusal::Said(Phrase::CardCostsUnavailable));
+        return true;
+    };
+    if let Some(run) = duel.mana_run.as_mut() {
+        run.steps = plan.steps.into();
+        run.then = RunEnd::Settle;
+        run.cast_first = None;
+    }
+    false
 }
 
 /// The action for one tap, or `None` when the engine is no longer offering it.

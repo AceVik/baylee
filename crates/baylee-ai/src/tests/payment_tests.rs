@@ -605,3 +605,59 @@ fn a_counterspell_behind_a_price_is_read_as_one() {
         );
     }
 }
+
+/// The house AI reads a painland as the client does (owner, 08.10.2026):
+/// Adarkar Wastes' coloured tap was invisible to it (`mana_shape` refused
+/// the damage beside the mana), so a `{W}{U}` spell beside a Plains was
+/// never payable. Now the coloured tap is there, and taken only for the
+/// colour nothing clean makes: one white is the Plains', and the blue of
+/// `{W}{U}` is the Wastes' for its damage.
+#[test]
+fn the_ai_taps_a_painland_for_its_colour_only_when_the_colour_needs_it() {
+    use baylee_client_core::manaplan::{self, Step, Tap};
+    use baylee_core::mana::{ManaColor, ManaCost};
+
+    let seat = PlayerId::new(0);
+    let mut wastes = carded(permanent(obj(20), seat, 0), "Adarkar Wastes", TypeSet::LAND);
+    wastes.power = None;
+    wastes.toughness = None;
+    let mut plains = permanent(obj(21), seat, 0);
+    plains.types = TypeSet::LAND;
+    plains.power = None;
+    plains.toughness = None;
+    plains
+        .subtypes
+        .insert(baylee_core::generated::subtypes::land::PLAINS);
+    let v = view(0, &[20, 20], vec![wastes, plains]);
+    let legal = baylee_engine::choice::LegalActions {
+        can_pass: true,
+        abilities: vec![(obj(20), 0), (obj(20), 1)],
+        mana_abilities: vec![obj(21)],
+        ..Default::default()
+    };
+    let sources = policy::sources(&v, &legal);
+    let plan = |cost: &str| {
+        manaplan::plan(
+            &ManaCost::parse(cost),
+            &baylee_view::ManaPoolView::default(),
+            &sources,
+        )
+        .map(|p| p.steps)
+    };
+    let the_plains = Step {
+        source: obj(21),
+        tap: Tap::Intrinsic,
+        color: None,
+    };
+    assert_eq!(plan("{W}"), Some(vec![the_plains]), "the Plains pays white");
+    let both = plan("{W}{U}").expect("a Plains and a painland pay {W}{U}");
+    assert!(both.contains(&the_plains), "{both:?}");
+    assert!(
+        both.contains(&Step {
+            source: obj(20),
+            tap: Tap::Ability(1),
+            color: Some(ManaColor::Blue),
+        }),
+        "{both:?}"
+    );
+}

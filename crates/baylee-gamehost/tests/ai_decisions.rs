@@ -221,19 +221,19 @@ fn a_described_table_breaks_its_ties_with_its_own_randomness() {
 /// it. The unit test beside `a_time_counter_delays_the_suspended_card_that_is_about_to_cast`
 /// holds the scoring half.
 ///
-/// What the card actually does is worse and is **#170**: `mana_shape` matches
-/// a one-element `[Effect::AddMana { .. }]`, so a mana ability with any second
-/// sentence is invisible to the planner. The Clocktower is one of 92 such
+/// What the card did was worse and was **#170**: `mana_shape` matches a
+/// one-element `[Effect::AddMana { .. }]`, so a mana ability with any second
+/// sentence was invisible to the planner. The Clocktower is one of 92 such
 /// faces — every painland, every Karoo, every Odyssey filter land, the
-/// Talismans and Signets, Ancient Tomb.
+/// Talismans and Signets, Ancient Tomb. This was a pinned limitation, and it
+/// moved on 08.10.2026 (the owner's painland report): the house AI reads
+/// sources through `mana_with_riders`, as the client does, with the rider as
+/// a price.
 ///
-/// So this is a **pinned limitation** and it is written to fail the day it is
-/// fixed. The first assertion is the one that keeps it honest: the engine
-/// *does* offer the ability, so what follows is the agent declining an offer
-/// rather than a board that never had one. Without it, deleting the
-/// Clocktower from the fixture would leave the other two assertions green.
+/// The first assertion keeps it honest: the engine offers the ability, so a
+/// cast is the agent taking the offer.
 #[test]
-fn a_mana_land_that_also_counts_is_invisible_to_the_planner() {
+fn a_mana_land_that_also_counts_pays_for_the_spell() {
     let mut offered = false;
     let mut pressed = false;
     let mut cast = false;
@@ -299,9 +299,8 @@ fn a_mana_land_that_also_counts_is_invisible_to_the_planner() {
          is a board with nothing to press rather than an agent declining"
     );
     assert!(
-        !pressed && !cast,
-        "#170 is fixed: the planner now reads a mana ability that has a second \
-         sentence. Delete this test and assert the cast instead."
+        pressed && cast,
+        "the Clocktower's {{U}} paid for a Brainstorm: pressed {pressed}, cast {cast}"
     );
 }
 

@@ -117,11 +117,26 @@ test("status, issue link and deletion stick, and are in the history", async ({ p
   const issue = page.getByRole("link", { name: "#311" });
   await expect(issue).toHaveAttribute("href", "https://github.com/AceVik/baylee/issues/311");
 
-  const prefill = page.getByRole("link", { name: "Open a new issue on GitHub" });
-  const href = new URL((await prefill.getAttribute("href")) ?? "");
+  // A new issue carries nothing of the report (owner, 08.10.2026): before
+  // the admin writes a summary there is no link at all, and after it the
+  // link holds their words, the category and the build, and no player text,
+  // pseudonym, report id or address of this service.
+  await expect(page.getByLabel("Summary for a new issue")).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Open a new issue on GitHub" })).toBeDisabled();
+  await page.getByLabel("Summary for a new issue").fill("The deck list has no sort order to choose.");
+  const opener = page.getByRole("link", { name: "Open a new issue on GitHub" });
+  const raw = (await opener.getAttribute("href")) ?? "";
+  const href = new URL(raw);
   expect(href.origin + href.pathname).toBe("https://github.com/AceVik/baylee/issues/new");
-  expect(href.searchParams.get("title")).toBe("Improvement: Let me sort the deck list by colour.");
-  expect(href.searchParams.get("body")).toContain(`${BASE_URL}/r/`);
+  expect(href.searchParams.get("title")).toBe("Improvement: The deck list has no sort order to choose.");
+  expect(href.searchParams.get("body")).toContain("- Build: 0.1.0-beta.1+build.42 (3f9a1c7e21)");
+  const reportId = page.url().split("/r/")[1] ?? "no id";
+  // Read as GitHub reads it: in a query string `+` is a space, which
+  // `decodeURIComponent` leaves standing, so a phrase would slip past it.
+  const filed = `${raw}\n${href.searchParams.get("title") ?? ""}\n${href.searchParams.get("body") ?? ""}`;
+  for (const leak of ["sort the deck list by colour", "77aa01bc22dd33ee", reportId, BASE_URL, "localhost", "/r/"]) {
+    expect(filed, leak).not.toContain(leak);
+  }
 
   await page.reload();
   await expect(page.getByLabel("Status")).toHaveValue("triaged");

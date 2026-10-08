@@ -109,7 +109,11 @@ pub(super) fn write_stack(
         || entrance.active()
         || desk.is_some_and(|d| d.holds_keyboard());
     // The seat panel's boxes walk with Tab themselves.
-    let seat = state.settings_open() && state.seat.typing();
+    // So does the account deletion's confirmation over the terms sheet
+    // (its Decline): its password box is a lobby field with no stop, and
+    // the walker would take Tab back to the sheet under it.
+    let seat = (state.settings_open() && state.seat.typing())
+        || (state.terms.up() && state.lobby.deleting_account().is_some());
     if yields.0 != seat {
         yields.0 = seat;
     }

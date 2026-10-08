@@ -35,6 +35,45 @@ fn politics_decides_who_gets_attacked() {
     );
 }
 
+/// The monarch is the one to hit, under every profile: combat damage takes
+/// the crown (CR 724.2). Seat 1 is neither the leader nor the biggest board,
+/// and every policy used to pass it by.
+#[test]
+fn every_politics_goes_for_the_monarch() {
+    let board = vec![
+        permanent(obj(10), PlayerId::new(2), 2),
+        permanent(obj(11), PlayerId::new(2), 2),
+    ];
+    let mut v = view(0, &[40, 5, 40], board);
+    v.monarch = Some(PlayerId::new(1));
+    let defenders = [PlayerId::new(1), PlayerId::new(2)];
+    for politics in [
+        Politics::AttackLeader,
+        Politics::Archenemy,
+        Politics::Random,
+    ] {
+        let agent = HeuristicAgent::new(AIProfile {
+            politics,
+            ..AIProfile::default()
+        });
+        assert_eq!(
+            agent.pick_defender(&v, &defenders),
+            PlayerId::new(1),
+            "{politics:?}"
+        );
+    }
+    v.monarch = Some(PlayerId::new(0));
+    let leader = HeuristicAgent::new(AIProfile {
+        politics: Politics::AttackLeader,
+        ..AIProfile::default()
+    });
+    assert_eq!(
+        leader.pick_defender(&v, &defenders),
+        PlayerId::new(2),
+        "this seat holds the crown itself: back to the policy"
+    );
+}
+
 /// "Random" must still be a function of the game state — a real RNG here
 /// would make replays and the soak diverge.
 #[test]

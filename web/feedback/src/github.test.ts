@@ -1,47 +1,54 @@
 import { describe, expect, test } from "vitest";
 
-import { firstLine, newIssueUrl, parseIssue, REPOSITORY, TEXT_CHARS } from "./github";
-import { summary } from "./test-utils";
+import { firstLine, newIssueUrl, parseIssue, REPOSITORY, SUMMARY_CHARS } from "./github";
+
+const BUILD = "0.1.0-beta.1+build.42 (3f9a1c7e21)";
+
+function issue(summary: string, category: "bug" | "crash" = "bug"): URL {
+  const url = newIssueUrl({ summary, category, build: BUILD });
+  if (url === null) throw new Error("no URL");
+  return new URL(url);
+}
 
 describe("newIssueUrl", () => {
-  test("opens this repository's new-issue page with the title and body encoded", () => {
+  test("opens this repository's new-issue page with the admin's summary encoded", () => {
     const text = "Mana & tapping: 50% of #turns?\nsecond line <b>\"quoted\"</b> → ünïcode";
-    const url = new URL(newIssueUrl(summary({ kind: "bug", text }), "https://feedback.example"));
+    const url = issue(text);
     expect(`${url.origin}${url.pathname}`).toBe(`${REPOSITORY}/issues/new`);
     // Nothing in the text escapes its parameter: only title and body exist.
     expect([...url.searchParams.keys()]).toEqual(["title", "body"]);
     expect(url.searchParams.get("title")).toBe("Bug: Mana & tapping: 50% of #turns?");
-    const body = url.searchParams.get("body") ?? "";
-    expect(body).toContain("> Mana & tapping: 50% of #turns?\n> second line <b>\"quoted\"</b> → ünïcode");
-    expect(body).toContain("- Report: https://feedback.example/r/0199aaaa-0000-7000-8000-000000000001");
-    expect(body).toContain("- Build: 0.1.0-beta.1+build.42 (3f9a1c7e21)");
+    expect(url.searchParams.get("body")).toBe(`${text}\n\n- Category: bug\n- Build: ${BUILD}`);
     // Raw characters that would break a query string are escaped in the URL.
-    const raw = newIssueUrl(summary({ text }), "https://feedback.example");
+    const raw = newIssueUrl({ summary: text, category: "bug", build: BUILD }) ?? "";
     const query = raw.split("?")[1] ?? "";
     expect(query).not.toMatch(/[ \n#"<>→]/);
     expect(query.split("&")).toHaveLength(2);
   });
 
-  test("leaves the pseudonym and the client's details out", () => {
-    const url = newIssueUrl(summary({ reporter: "deadbeefcafe" }), "https://x");
-    expect(url).not.toContain("deadbeefcafe");
+  test("files nothing before the admin has written a summary", () => {
+    expect(newIssueUrl({ summary: "", category: "bug", build: BUILD })).toBeNull();
+    expect(newIssueUrl({ summary: "  \n ", category: "crash", build: BUILD })).toBeNull();
   });
 
-  test("cuts a long text and a long title", () => {
-    const long = "word ".repeat(2000);
-    const url = new URL(newIssueUrl(summary({ text: long }), "https://x"));
+  test("carries no link back, no service address and no report id", () => {
+    const url = issue("The stack resolves twice.").toString();
+    expect(url).not.toMatch(/feedback|\/r\/|report/i);
+    expect(url).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/);
+  });
+
+  test("cuts a long summary and a long title", () => {
+    const url = issue("word ".repeat(2000));
     const body = url.searchParams.get("body") ?? "";
-    expect(body.length).toBeLessThan(TEXT_CHARS + 600);
+    expect(body.length).toBeLessThan(SUMMARY_CHARS + 200);
     expect(body).toContain("[…]");
     expect((url.searchParams.get("title") ?? "").length).toBeLessThanOrEqual("Bug: ".length + 80);
   });
 
-  test("names each kind and says how much of the record there is", () => {
-    const crash = new URL(newIssueUrl(summary({ kind: "crash", has_record: true, record_complete: false }), "https://x"));
-    expect(crash.searchParams.get("title")).toMatch(/^Crash: /);
-    expect(crash.searchParams.get("body")).toContain("- Game record: partial");
-    const empty = new URL(newIssueUrl(summary({ text: "  \n " }), "https://x"));
-    expect(empty.searchParams.get("title")).toBe("Bug: (no text)");
+  test("names the category", () => {
+    const crash = issue("Panics when the deck list opens.", "crash");
+    expect(crash.searchParams.get("title")).toBe("Crash: Panics when the deck list opens.");
+    expect(crash.searchParams.get("body")).toContain("- Category: crash");
   });
 });
 

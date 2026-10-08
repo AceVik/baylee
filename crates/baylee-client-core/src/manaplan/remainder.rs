@@ -68,7 +68,7 @@ fn owed(symbols: &[ManaSymbol], pool: &ManaPoolView, generic_twobrid: bool) -> V
     // `assign` an unmatched demand is not a failure but the answer, and Kuhn
     // never unmatches a demand it has matched, so taking the narrowest first
     // spends a floating green on `{G}` before `{1}` can claim it.
-    let floating = units(pool, &[], needs.len());
+    let floating = units(pool, &[], needs.len(), false);
     let order: Vec<usize> = (0..floating.len()).collect();
     let mut demands: Vec<usize> = (0..needs.len()).collect();
     demands.sort_by_key(|&n| needs[n].count());

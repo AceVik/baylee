@@ -1080,6 +1080,16 @@ triggers from `ObjectId::NO_SOURCE`, controlled by the monarch they
 triggered against; on the stack they are named "Monarch". The takeover is
 `BecomeMonarch(ControllerOfTarget)`, read off the creature it carries.
 
+`GameState::set_monarch` is the one door to the designation. It journals
+`GameEvent::BecameMonarch` when the crown moves, and only then (a monarch
+told to become the monarch again does not become it), which is what the
+game log's line and Palace Jailer's CR 610.3b check read: an exile "until an
+opponent becomes the monarch" that resolves after an opponent was crowned
+since it was put on the stack exiles nothing
+(`resolve::zones::an_opponent_was_crowned_since`). Players who lose in one
+state-based check leave together (`sba::run` finds every loss first), so
+the crown passes over all of them to the heir (CR 724.4), never through one.
+
 ### Undying and persist, and the question about an object that is gone
 
 Both are keyword *triggered* abilities (CR 702.93a, CR 702.79a) and neither

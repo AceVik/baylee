@@ -16,6 +16,7 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
         player: me(),
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
+            payable: vec![],
             spell_increases: vec![],
             activation_increases: vec![],
             can_pass: true,
@@ -495,6 +496,7 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
             player: me(),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                payable: vec![],
                 spell_increases: vec![],
                 activation_increases: vec![],
                 can_pass: true,
@@ -677,6 +679,7 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
         player: me(),
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
+            payable: vec![],
             spell_increases: vec![],
             activation_increases: vec![],
             can_pass: true,

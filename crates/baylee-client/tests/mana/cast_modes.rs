@@ -503,7 +503,33 @@ fn khalni_spell_selection_survives_automatic_and_manual_mana() {
             table.pending
         );
         assert!(!table.view().battlefield.iter().any(|o| o.id == card));
-        assert_eq!(untapped_lands(&table), 0);
+        if floating {
+            assert_eq!(untapped_lands(&table), 0, "tapped by hand before");
+            continue;
+        }
+        // Nothing floating: the spell is cast first (CR 601.2g), so its
+        // targets are asked before a land is tapped (CR 601.2c), and the
+        // run waits for the window that follows.
+        assert_eq!(
+            untapped_lands(&table),
+            3,
+            "no mana is made before the targets"
+        );
+        assert!(duel.mana_run.is_some(), "the run waits for its window");
+        while let Some(Pending::ChooseTargets { options, min, .. }) = table.pending.clone() {
+            let take = usize::try_from(min.max(1)).unwrap_or(1);
+            table.submit(PlayerAction::ChooseTargets {
+                objects: options.into_iter().take(take).collect(),
+                players: vec![],
+            });
+        }
+        play_it_out(&mut duel, &mut table);
+        assert!(duel.mana_run.is_none(), "the window was paid");
+        assert_eq!(untapped_lands(&table), 0, "the Forests paid it");
+        assert!(
+            table.view().stack.iter().any(|o| o.id == card),
+            "and the spell is on the stack"
+        );
     }
 }
 

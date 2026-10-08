@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-import { api, Refused, SignedOut, STATUS_LABELS, STATUSES, type AuditEntry, type Report, type Status } from "./api";
+import {
+  api,
+  KINDS,
+  Refused,
+  SignedOut,
+  STATUS_LABELS,
+  STATUSES,
+  type AuditEntry,
+  type Kind,
+  type Report,
+  type Status,
+} from "./api";
 import { part, readBuild, readCrash, readLog, readScreenshot, readSystem } from "./dump";
 import { formatBytes, formatTime } from "./format";
-import { newIssueUrl, parseIssue } from "./github";
+import { CATEGORY_TITLES, newIssueUrl, parseIssue } from "./github";
 import { JsonTree } from "./JsonTree";
 import { listPath, navigate } from "./router";
 
@@ -30,6 +41,8 @@ export function ReportDetail({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [issueDraft, setIssueDraft] = useState("");
+  const [issueSummary, setIssueSummary] = useState("");
+  const [issueCategory, setIssueCategory] = useState<Kind | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -135,6 +148,13 @@ export function ReportDetail({ id }: { id: string }) {
   const crash = readCrash(client);
   const game = part(client, "game");
   const settings = part(client, "settings");
+  // Only the admin's words, the category and the build: nothing of the
+  // report itself (owner, 08.10.2026; `github.ts`).
+  const issueUrl = newIssueUrl({
+    summary: issueSummary,
+    category: issueCategory ?? report.kind,
+    build: report.gateway_version,
+  });
 
   return (
     <main className="detail-page">
@@ -343,16 +363,48 @@ export function ReportDetail({ id }: { id: string }) {
                 Link
               </button>
             </form>
-            <p>
-              <a
-                className="button"
-                href={newIssueUrl(report, window.location.origin)}
-                target="_blank"
-                rel="noopener noreferrer"
+            <div className="new-issue">
+              <label htmlFor="d-issue-summary">Summary for a new issue</label>
+              <p className="muted small" id="d-issue-hint">
+                Public on GitHub: no personal data, no quotes from the report. Describe the problem in
+                your own words.
+              </p>
+              <textarea
+                id="d-issue-summary"
+                rows={4}
+                aria-describedby="d-issue-hint"
+                value={issueSummary}
+                onChange={(event) => {
+                  setIssueSummary(event.target.value);
+                }}
+              />
+              <label htmlFor="d-issue-category">Category</label>
+              <select
+                id="d-issue-category"
+                value={issueCategory ?? report.kind}
+                onChange={(event) => {
+                  const kind = KINDS.find((k) => k === event.target.value);
+                  if (kind) setIssueCategory(kind);
+                }}
               >
-                Open a new issue on GitHub
-              </a>
-            </p>
+                {KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {CATEGORY_TITLES[k]}
+                  </option>
+                ))}
+              </select>
+              <p>
+                {issueUrl === null ? (
+                  <button type="button" disabled>
+                    Open a new issue on GitHub
+                  </button>
+                ) : (
+                  <a className="button" href={issueUrl} target="_blank" rel="noopener noreferrer">
+                    Open a new issue on GitHub
+                  </a>
+                )}
+              </p>
+            </div>
 
             {notice !== null && (
               <output className="notice">

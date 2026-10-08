@@ -7,6 +7,7 @@
 //! must never be exposed on a plaintext listener in production.
 
 mod account;
+mod admin;
 mod art;
 mod auth;
 mod chair;
@@ -21,6 +22,7 @@ mod namebook;
 mod pool;
 mod presence;
 mod record;
+mod recordexport;
 mod report;
 mod room;
 mod routes;
@@ -226,6 +228,11 @@ async fn main() {
     if args.first().map(String::as_str) == Some("invite") {
         std::process::exit(invite::cli(&args[1..]).await);
     }
+    // The anonymised export of game records for training and balancing,
+    // likewise the operator's and the database's alone.
+    if args.first().map(String::as_str) == Some("records") {
+        std::process::exit(recordexport::cli(&args[1..]).await);
+    }
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
@@ -252,6 +259,17 @@ async fn main() {
             .unwrap_or_else(|why| panic!("BAYLEE_WS_LEGACY_TOKENS: {why}"));
     let terms = terms::from_env(std::env::var_os("BAYLEE_TERMS_PATH").as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_TERMS_PATH: {why}"));
+    let var = |name: &str| std::env::var(name).ok();
+    let console = admin::Settings::from_env(
+        var("BAYLEE_ADMIN_TOKEN").as_deref(),
+        var("BAYLEE_ADMIN_BIND").as_deref(),
+        &[
+            var("BAYLEE_AGENT_TOKEN").as_deref(),
+            var("BAYLEE_FEEDBACK_TOKEN").as_deref(),
+            var("BAYLEE_FEEDBACK_KEY").as_deref(),
+        ],
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let db = open_database(&store_path).await;
@@ -260,6 +278,12 @@ async fn main() {
     // to know the port: with `PORT=0` the kernel chooses it (#279), and the
     // address an engine is told to dial back on below must be that one.
     let (listener, port) = listen(port).await;
+    // The admin console's own listener (`admin.rs`), loopback only and
+    // bound beside the public one, so a taken port stops the start.
+    let console_listener = match &console {
+        Some(settings) => Some(admin::bind(settings).await),
+        None => None,
+    };
     let agent_token = std::env::var("BAYLEE_AGENT_TOKEN")
         .ok()
         .filter(|t| !t.is_empty());
@@ -310,6 +334,15 @@ async fn main() {
     account::sweep_pictures(&state).await;
     spawn_cleanup(state.clone());
     spawn_ticket_sweep(state.clone());
+    if let (Some(settings), Some((listener, admin_port))) = (&console, console_listener) {
+        admin::serve(listener, state.clone(), settings);
+        // Before `BAYLEE_PORT_FILE`, which says the gateway is up: whoever
+        // waits for that finds this one written too.
+        if let Some(path) = std::env::var_os("BAYLEE_ADMIN_PORT_FILE") {
+            write_port_file(std::path::Path::new(&path), admin_port)
+                .unwrap_or_else(|e| panic!("BAYLEE_ADMIN_PORT_FILE {}: {e}", path.display()));
+        }
+    }
 
     let app = Router::new()
         .route("/health", get(health))

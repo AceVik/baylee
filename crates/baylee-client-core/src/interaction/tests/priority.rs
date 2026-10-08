@@ -7,6 +7,7 @@ use super::*;
 fn priority_confirms_as_a_pass_and_exposes_the_legal_actions() {
     let legal = LegalActions {
         unpaid_abilities: vec![],
+        payable: vec![],
         spell_increases: vec![],
         activation_increases: vec![],
         can_pass: true,
@@ -29,6 +30,7 @@ fn priority_confirms_as_a_pass_and_exposes_the_legal_actions() {
 fn playing_a_card_maps_to_the_right_action_and_refuses_illegal_ones() {
     let legal = LegalActions {
         unpaid_abilities: vec![],
+        payable: vec![],
         spell_increases: vec![],
         activation_increases: vec![],
         can_pass: true,
@@ -74,6 +76,7 @@ fn an_offered_ability_at_index_zero_beats_a_granted_mana_ability() {
         player: me(),
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
+            payable: vec![],
             spell_increases: vec![],
             activation_increases: vec![],
             can_pass: true,
@@ -105,6 +108,7 @@ fn index_zero_is_the_mana_shortcut_when_nothing_else_was_offered_there() {
         player: me(),
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
+            payable: vec![],
             spell_increases: vec![],
             activation_increases: vec![],
             can_pass: true,
@@ -131,6 +135,7 @@ fn a_card_offered_as_both_a_land_and_a_spell_is_not_a_one_click_land() {
         player: me(),
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
+            payable: vec![],
             spell_increases: vec![],
             activation_increases: vec![],
             can_pass: true,
@@ -155,6 +160,7 @@ fn a_card_offered_as_both_a_land_and_a_spell_is_not_a_one_click_land() {
 fn activating_an_ability_requires_it_to_have_been_offered() {
     let legal = LegalActions {
         unpaid_abilities: vec![],
+        payable: vec![],
         spell_increases: vec![],
         activation_increases: vec![],
         can_pass: true,

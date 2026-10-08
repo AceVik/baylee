@@ -47,6 +47,8 @@ set -euo pipefail
 # BAYLEE_DEPLOY_ROOT moves the tree it works in, for its test
 # (crates/baylee-feedback/tests/deploy.rs); a server leaves it unset.
 root=${BAYLEE_DEPLOY_ROOT:-/opt/baylee}
+# The services' settings; BAYLEE_DEPLOY_ETC moves them for the same test.
+etc=${BAYLEE_DEPLOY_ETC:-/etc/baylee}
 src=$root/src
 bin=$root/bin
 state=$root/state
@@ -94,7 +96,8 @@ open_games() {
     # count of local games is 0, and trusting it would swap the gateway
     # under running games; so then every running game counts.
     local field=running
-    if grep -qs '^BAYLEE_UNIX_SOCKET=.' /etc/baylee/gateway.env; then
+    # With sudo: the file holds the admin console's token and is 0600.
+    if sudo grep -qs '^BAYLEE_UNIX_SOCKET=.' "$etc/gateway.env"; then
         field=local_running
     fi
     curl -fsS -m 5 "$gateway/health" \
@@ -130,10 +133,62 @@ stage() {
     if installed baylee-feedback; then
         sudo install -m755 target/release/baylee-feedback "$bin/"
         feedback_web
+        console_token
         sudo systemctl restart baylee-feedback
         log "feedback service ${rev:0:10} installed"
     fi
     finish "$force"
+}
+
+# The admin console's shared token (docs/feedback.md §"The admin console"):
+# the gateway's BAYLEE_ADMIN_TOKEN and the feedback service's
+# FEEDBACK_GATEWAY_ADMIN_TOKEN are one secret. Made once with openssl where
+# neither file has it, copied across where one has it, never replaced, and
+# never printed: it lives in a shell variable and reaches the files through
+# printf (a builtin, so no command line shows it) and `sudo tee -a`. Both
+# files end 0600. The feedback service restarts right after this; the
+# gateway reads its half when finish restarts it, and until then the
+# console answers 502.
+#
+# Never fatal: it runs after the agent has stopped, and a stage that died
+# here would leave the server starting no game. Whatever fails (a sudoers
+# rule that does not allow one of these commands, no openssl) is logged and
+# the deploy goes on without the console.
+console_token() {
+    console_token_now || log "the admin console's token was not set up; set BAYLEE_ADMIN_TOKEN in $etc/gateway.env and FEEDBACK_GATEWAY_ADMIN_URL/_TOKEN in $etc/feedback.env by hand (docs/feedback.md)"
+}
+
+# Every step answers for itself (`|| return 1`): errexit does not reach
+# inside a function called on the left of `||`.
+console_token_now() {
+    local gw=$etc/gateway.env fb=$etc/feedback.env token theirs
+    if ! sudo test -f "$gw" || ! sudo test -f "$fb"; then
+        log "no $gw or $fb: the admin console's token is not set up"
+        return 0
+    fi
+    token=$(sudo sed -n 's/^BAYLEE_ADMIN_TOKEN=//p' "$gw" | tail -1) || return 1
+    theirs=$(sudo sed -n 's/^FEEDBACK_GATEWAY_ADMIN_TOKEN=//p' "$fb" | tail -1) || return 1
+    if [ -n "$token" ] && [ -n "$theirs" ] && [ "$token" != "$theirs" ]; then
+        log "BAYLEE_ADMIN_TOKEN in $gw and FEEDBACK_GATEWAY_ADMIN_TOKEN in $fb differ; left as they are"
+    fi
+    [ -n "$token" ] || token=$theirs
+    if [ -z "$token" ]; then
+        token=$(openssl rand -hex 32) || return 1
+        [ ${#token} -ge 32 ] || return 1
+        log "admin console token made for $gw and $fb"
+    fi
+    if ! sudo grep -q '^BAYLEE_ADMIN_TOKEN=.' "$gw"; then
+        printf 'BAYLEE_ADMIN_TOKEN=%s\n' "$token" | sudo tee -a "$gw" >/dev/null || return 1
+    fi
+    if ! sudo grep -q '^FEEDBACK_GATEWAY_ADMIN_TOKEN=.' "$fb"; then
+        printf 'FEEDBACK_GATEWAY_ADMIN_TOKEN=%s\n' "$token" | sudo tee -a "$fb" >/dev/null || return 1
+    fi
+    if ! sudo grep -q '^FEEDBACK_GATEWAY_ADMIN_URL=.' "$fb"; then
+        echo "FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767" | sudo tee -a "$fb" >/dev/null || return 1
+    fi
+    token=''
+    theirs=''
+    sudo chmod 600 "$gw" "$fb" || return 1
 }
 
 # The browser client, built into the stage (#327). Skipped, with a line in

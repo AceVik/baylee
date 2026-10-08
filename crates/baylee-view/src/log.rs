@@ -456,6 +456,12 @@ pub enum LogEvent {
         /// Which it is now.
         now: DayNight,
     },
+    /// A player became the monarch (CR 724.3). Who the monarch is now is
+    /// [`crate::PlayerView::monarch`]; this line says when it changed.
+    BecameMonarch {
+        /// The new monarch.
+        player: PlayerId,
+    },
 }
 
 impl LogEvent {
@@ -471,6 +477,7 @@ impl LogEvent {
             | Self::Returned { .. }
             | Self::Life { .. }
             | Self::Shuffled { .. }
+            | Self::BecameMonarch { .. }
             | Self::DiceRolled { .. }
             | Self::Lost { .. }
             | Self::GameOver { .. }
@@ -522,6 +529,7 @@ impl LogEvent {
             | Self::Returned { .. }
             | Self::Life { .. }
             | Self::Shuffled { .. }
+            | Self::BecameMonarch { .. }
             | Self::DiceRolled { .. }
             | Self::Lost { .. }
             | Self::GameOver { .. }

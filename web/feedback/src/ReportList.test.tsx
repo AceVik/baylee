@@ -25,7 +25,7 @@ const reports: Summary[] = [
 /** The list page as the app mounts it, following the URL. */
 function Page() {
   const route = useRoute();
-  return route.page === "list" ? <ReportList search={route.search} /> : <p>report {route.id}</p>;
+  return route.page === "list" ? <ReportList search={route.search} /> : <p>report {route.page === "report" ? route.id : ""}</p>;
 }
 
 function start(total = reports.length) {
