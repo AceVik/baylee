@@ -30,6 +30,12 @@ fn labels(lang: Lang, phrases: &[Phrase]) -> Vec<&'static str> {
     phrases.iter().map(|p| p.text(lang)).collect()
 }
 
+/// The anti-aliasing row's segments, in [`AntiAliasing::ALL`]'s order: the
+/// first is a word and so a [`Phrase`], the rest are names of methods.
+fn anti_aliasing_names(lang: Lang) -> [&'static str; 4] {
+    [Phrase::SwitchOff.text(lang), "FXAA", "2\u{d7}", "4\u{d7}"]
+}
+
 fn index<T: PartialEq>(all: &[T], now: &T) -> Option<usize> {
     all.iter().position(|v| v == now)
 }
@@ -117,7 +123,7 @@ pub(crate) fn graphics(out: &mut Out, view: &View) {
     let control = if view.builds.phone {
         out.words(Phrase::AntiAliasingLocked.text(lang), true)
     } else {
-        let names = ["Off", "FXAA", "2\u{d7}", "4\u{d7}"];
+        let names = anti_aliasing_names(lang);
         out.seg(
             "anti-aliasing",
             &names,
@@ -594,5 +600,25 @@ pub(crate) fn draw(section: Section, out: &mut Out, view: &View) {
         Section::LanguageModels => models(out, view),
         Section::Updates => updates(out, view),
         Section::Privacy => privacy(out, view),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The row's first segment is a word, and words are `Phrase`s: it read
+    /// "Off" in a German Grafik section beside the VSync row's "aus"
+    /// (beta.6 QA).
+    #[test]
+    fn the_anti_aliasing_segments_speak_the_interface_language() {
+        for lang in [Lang::En, Lang::De] {
+            assert_eq!(
+                anti_aliasing_names(lang)[0],
+                Phrase::SwitchOff.text(lang),
+                "{lang:?}"
+            );
+        }
+        assert_eq!(anti_aliasing_names(Lang::De).len(), AntiAliasing::ALL.len());
     }
 }
