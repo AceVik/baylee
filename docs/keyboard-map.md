@@ -348,7 +348,10 @@ takes **both** of the first two keys above, and takes them before anything
 else reads a key.
 
 `Space` ticks the row the focus is on; `Enter` sends what is ticked. Both
-consume the frame even when they change nothing. An `Enter` with nothing
+consume the frame even when they change nothing. While the sheet's filter box
+holds the caret, `Space` into an empty box and `Enter` into an empty box or
+once a row is ticked let go of the box and answer as above; with words in the
+box they are the box's (a blank, letting go). An `Enter` with nothing
 ticked leaves the dialog standing rather than falling through, because what it
 fell through to was the card the pointer happened to be resting on behind the
 sheet — and opening *that* card's pile is not an answer to the question on the

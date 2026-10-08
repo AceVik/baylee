@@ -166,3 +166,109 @@ fn the_cursor_keys_move_a_held_card_and_nothing_else() {
     assert!(it.is_selected(obj(1)), "and still held for the next move");
     assert!(duel.outbox().is_empty(), "moving is not sending");
 }
+
+/// A search sheet a question opened, its filter box holding the keyboard
+/// (as `browser_takes_the_keyboard` leaves it), in an app with the table's
+/// whole keyboard system.
+fn a_search_sheet_typing() -> (bevy::prelude::App, bevy::prelude::Entity) {
+    use bevy::input::ButtonInput;
+    use bevy::input::keyboard::KeyboardInput;
+    use bevy::prelude::*;
+    let mut app = App::new();
+    let mut duel = duel_searching(1);
+    duel.browser.start_typing();
+    app.init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::table::CameraRig>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .add_message::<KeyboardInput>()
+        .init_resource::<Keystrokes>()
+        .insert_resource(duel)
+        .add_systems(PreUpdate, deliver_keystrokes)
+        .add_systems(Update, keyboard);
+    let window = app.world_mut().spawn_empty().id();
+    app.update();
+    (app, window)
+}
+
+fn a_key(
+    app: &mut bevy::prelude::App,
+    window: bevy::prelude::Entity,
+    code: bevy::prelude::KeyCode,
+    logical: bevy::input::keyboard::Key,
+    text: Option<&str>,
+) {
+    use bevy::input::ButtonInput;
+    use bevy::input::keyboard::KeyboardInput;
+    use bevy::prelude::*;
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(code);
+    app.world_mut()
+        .resource_mut::<Keystrokes>()
+        .0
+        .push(KeyboardInput {
+            key_code: code,
+            logical_key: logical,
+            state: bevy::input::ButtonState::Pressed,
+            text: text.map(Into::into),
+            repeat: false,
+            window,
+        });
+    app.update();
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .clear();
+}
+
+/// The library search a tutor opened (beta.6 QA): its filter box held the
+/// keyboard, so Space typed a blank into an empty filter and Enter only let
+/// go of the box — the two keys the dialog answers with did nothing. Into
+/// an empty box Space ticks the row and Enter sends; a letter still types.
+#[test]
+fn space_and_enter_answer_a_search_whose_filter_box_is_empty() {
+    use bevy::input::keyboard::Key;
+    use bevy::prelude::KeyCode;
+    let (mut app, window) = a_search_sheet_typing();
+    a_key(&mut app, window, KeyCode::Space, Key::Space, Some(" "));
+    {
+        let duel = app.world().resource::<crate::Duel>();
+        assert_eq!(duel.browser.filter(), "", "a blank typed into the box");
+        let it = duel.interaction.as_ref().expect("the question stands");
+        assert!(it.is_selected(obj(1)), "Space ticked the focused row");
+    }
+    a_key(&mut app, window, KeyCode::Enter, Key::Enter, None);
+    assert_eq!(
+        app.world().resource::<crate::Duel>().outbox(),
+        &[PlayerAction::ChooseObjects {
+            objects: vec![obj(1)]
+        }],
+        "Enter sent the tick"
+    );
+}
+
+/// The counter-test: with words in the box the keys are the box's.
+#[test]
+fn a_letter_and_a_blank_still_type_into_a_search_with_words() {
+    use bevy::input::keyboard::Key;
+    use bevy::prelude::KeyCode;
+    let (mut app, window) = a_search_sheet_typing();
+    a_key(
+        &mut app,
+        window,
+        KeyCode::KeyA,
+        Key::Character("a".into()),
+        Some("a"),
+    );
+    a_key(&mut app, window, KeyCode::Space, Key::Space, Some(" "));
+    a_key(
+        &mut app,
+        window,
+        KeyCode::KeyB,
+        Key::Character("b".into()),
+        Some("b"),
+    );
+    let duel = app.world().resource::<crate::Duel>();
+    assert_eq!(duel.browser.filter(), "a b");
+    assert!(duel.outbox().is_empty());
+}
