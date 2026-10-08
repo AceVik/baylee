@@ -45,7 +45,7 @@ fn the_seconds_are_written_in_place_and_only_when_they_move() {
         .clock
         .sync(Some(12_000), true);
     advance(&mut app, 0.0);
-    assert_eq!(says(&app), "12", "the cell was never written");
+    assert_eq!(says(&app), "0:12", "the cell was never written");
     assert!(
         app.world().resource::<Wrote>().0,
         "and the write is a write"
@@ -54,7 +54,7 @@ fn the_seconds_are_written_in_place_and_only_when_they_move() {
     // Two frames inside the same second: the string does not move, so
     // nothing is assigned and no glyph is re-shaped.
     advance(&mut app, 0.1);
-    assert_eq!(says(&app), "12");
+    assert_eq!(says(&app), "0:12");
     assert!(
         !app.world().resource::<Wrote>().0,
         "an unchanged number was written again, which re-lays every glyph"
@@ -64,7 +64,7 @@ fn the_seconds_are_written_in_place_and_only_when_they_move() {
 
     // And over the boundary it does move.
     advance(&mut app, 0.5);
-    assert_eq!(says(&app), "11");
+    assert_eq!(says(&app), "0:11");
     assert!(app.world().resource::<Wrote>().0, "the second never turned");
 
     // A question that ends takes the number away rather than leaving the

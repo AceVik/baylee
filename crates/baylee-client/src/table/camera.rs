@@ -1225,6 +1225,17 @@ impl ShownRig {
     pub fn moving(self) -> bool {
         self.orbit.is_some()
     }
+
+    /// A camera already standing at `rig`, for a test of what is placed
+    /// from it.
+    #[cfg(test)]
+    #[must_use]
+    pub fn standing(rig: CameraRig) -> Self {
+        Self {
+            rig: Some(rig),
+            ..Self::default()
+        }
+    }
 }
 
 impl CameraRig {

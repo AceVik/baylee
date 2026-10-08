@@ -253,12 +253,14 @@ pub fn sync_ledge(
         let cell = commands
             .spawn((
                 DecisionClockLabel,
+                BesideTheQuestion,
                 Text::default(),
                 // A readout and not prose, so the shelf's own bold rather
-                // than the slant the question is written in. Flat: one ink at
-                // sixty seconds and the same ink at one. What marks the two
-                // moments is `Cue::ClockLow`, which is a sound and does not
-                // have to compete with a board for the eye.
+                // than the slant the question is written in. Its ink is
+                // `count_down_the_decision`'s: soft while the clock is calm,
+                // and turning at the two moments `Cue::ClockLow` sounds at,
+                // because since the number is always on (owner, 08.10.2026)
+                // its appearing no longer marks the last minute.
                 super::tf_bold(&fonts, SENTENCE_PT),
                 TextColor(palette::LEDGE_SOFT),
                 Node {

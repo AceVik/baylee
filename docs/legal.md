@@ -500,6 +500,11 @@ these samples.” Attribution and the bundled CC0 dedication remain intact;
 no third-party melody or additional recording was imported. The login fade
 changes original procedural button surfaces only.
 
+The decision clock beside each player's plate (2026-10-08) uses the `clock`
+glyph (U+F017) already in the bundled Font Awesome Free font, under the
+same licence line quoted below; it is drawn on our own pill on the table's
+overlay, never on a card image.
+
 Compact charge labels (2026-10-02) use the battery-half glyph already in the
 bundled Font Awesome Free font, distinct from the player's energy symbol.
 The [upstream licence](https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/LICENSE.txt)

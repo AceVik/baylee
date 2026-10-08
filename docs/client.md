@@ -3577,13 +3577,38 @@ from it and takes the next view as the correction — an absolute deadline
 would make this machine's clock a rules question.
 
 The owner's question on #69 was not "how many seconds" but **"does the player
-ever see the clock, and from when"**: a countdown visible the whole time turns
-every decision into a timed test, one that appears at the end is a warning.
-This is the warning. `DecisionClock::SHOW_AT` is 60 s, flat rather than a
-fraction of the table's limit — which is what makes `blitz` (30 s to decide)
-right by construction rather than an edge, because at that table every
-question *is* the last minute and the number is on from the moment it
-arrives. `Cue::ClockLow` sounds at 60 s and again at 10 s.
+ever see the clock, and from when"**, and the answer then was the warning: the
+number appeared in a question's last minute. **On 08.10.2026 the owner
+reversed it**: the client always shows the time, `m:ss`
+(`decisionclock::mmss`: `3:00`, `0:09`, `60:00` at most), from a question's
+first second, beside the question or in the button the clock presses alike.
+The minute is still the first warning, flat rather than a fraction of the
+table's limit (`DecisionClock::LOW_AT` 60 s, so at `blitz` every question *is*
+the last minute): `Cue::ClockLow` sounds at 60 s and again at 10 s
+(`LAST_CALL`), and the cell beside the question turns with
+`decisionclock::Urgency` — the shelf's soft ink while calm, `CANDLE` in the
+last minute, `DANGER` in the last ten seconds — since its appearing no longer
+marks the minute. A number in a button keeps the button's ink: it is part of
+what the button says. Both cells are reserved `60:00` wide (an hour is the
+gateway's ceiling), so nothing beside them moves as the digits change.
+
+**Every player's plate carries its own clock** (owner, 08.10.2026), at every
+seat: a clock icon (Font Awesome's `clock`, `glyph::CLOCK`) and the time that
+seat has left, in a small pill beside the plate. It is fed by
+`PlayerView::clocks` (docs/protocol.md §"Every seat's clock, at every seat"),
+counted between views by `decisionclock::SeatClocks` (no sound: the sound is
+this seat's own, rung by `DecisionClock`), and drawn by
+`hud/seatbar/plateclock.rs`, which is **not part of the plate**: it reads the
+plate's pose (`attached::pose(…, Panel::Identity)`, `Panel::size`) and stands
+its own box at the plate's right-hand side, turned and scaled with it
+(`plateclock::beside`, the one function that says where). One `PlateClock` per
+seat under its own `PlateClockRoot`, built when the seats change and never on
+a view; `tick_plate_clocks` counts, places and writes past change detection,
+each write guarded, so a clock costs a `Text` write once a second and a camera
+standing still moves nothing. Hidden for a seat on no clock and wherever the
+plate is not drawn (under the hand, a tear, off screen). Its ink follows
+`Urgency` too (`INK`, `ACTIVE`, `DANGER`). A local game is untimed
+(`LocalHost` runs no clock, so a limit there would only be drawn).
 
 Three decisions worth keeping.
 

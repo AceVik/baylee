@@ -761,6 +761,11 @@ pub struct Duel {
     /// the counting is what makes it a second of arc rather than a figure
     /// that changes when the table does.
     pub clock: baylee_client_core::decisionclock::DecisionClock,
+    /// Every seat's decision clock, counted between views: what each
+    /// player's plate draws beside it (`PlayerView::clocks`, owner
+    /// 08.10.2026). [`Self::clock`] is the awaited seat's and rings; this
+    /// one only counts.
+    pub seat_clocks: baylee_client_core::decisionclock::SeatClocks,
     /// Strikes waiting for their visual presentation, read at snapshot edges.
     pub strikes: Vec<baylee_client_core::strike::Strike>,
     /// This game's log, as far as the host has told it (#262).
@@ -1064,6 +1069,7 @@ impl Duel {
         // correction by size, because the view carries no question identity.
         self.clock
             .sync(view.decision_remaining_ms, view.awaiting == Some(view.seat));
+        self.seat_clocks.sync(&view.clocks);
         self.known_cards.extend(view.cards());
         // My turn beginning brings the camera home (DESIGN-v7 §2.4): an edge
         // read against the view before this one, never a state per frame.
@@ -1731,6 +1737,11 @@ fn add_present_systems(app: &mut App) {
                     hud::sync_seat_bars,
                     hud::place_seat_bars,
                     hud::stretch_step_tiles,
+                    // Each seat's clock beside its plate: built when the
+                    // seats change, then counted and stood beside the plate
+                    // `place_seat_bars` has just placed, from the same rig.
+                    hud::sync_plate_clocks,
+                    hud::tick_plate_clocks,
                     hud::chosen_type::sync.after(table::glide),
                     hud::suspended::sync,
                     hud::describe_phase,

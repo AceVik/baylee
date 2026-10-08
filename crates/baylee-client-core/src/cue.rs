@@ -104,7 +104,7 @@ pub enum Cue {
     /// This seat is running out of time to answer.
     ///
     /// Made twice on one question, at
-    /// [`crate::decisionclock::DecisionClock::SHOW_AT`] and again at
+    /// [`crate::decisionclock::DecisionClock::LOW_AT`] and again at
     /// `LAST_CALL`, and never for somebody else's clock — the number is
     /// drawn for every seat, the sound is not. One name for both thresholds
     /// rather than two, because they are the same thing said twice and a
