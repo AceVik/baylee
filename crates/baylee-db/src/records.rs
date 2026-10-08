@@ -6,8 +6,11 @@
 //! a piece is added and counted in one statement.
 //!
 //! Nothing a seat or the lobby can ask reaches these tables. The one reader
-//! is [`for_seated`], which the gateway calls for a bug report from a player
-//! who sat at the game, and which answers nothing for anyone else.
+//! a route reaches is [`for_seated`], which the gateway calls for a bug
+//! report from a player who sat at the game, and which answers nothing for
+//! anyone else. The operator's anonymised export for training and balancing
+//! (`baylee-gateway records export`, no route) reads [`complete_ids`],
+//! [`for_export`] and [`seated_identities`].
 
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbErr, Statement, TransactionTrait, Value};
 use uuid::Uuid;
@@ -148,4 +151,81 @@ pub async fn for_seated(
         })
     })
     .transpose()
+}
+
+/// The games whose record is complete, oldest first, for the anonymised
+/// export (`baylee-gateway records export`). Their ids never leave the
+/// export: an id is the join to who sat there, and a time besides.
+///
+/// # Errors
+///
+/// When the statement fails.
+pub async fn complete_ids(db: &impl ConnectionTrait) -> Result<Vec<String>, DbErr> {
+    let rows = db
+        .query_all_raw(Statement::from_string(
+            db.get_database_backend(),
+            "SELECT game_id FROM game_record WHERE complete ORDER BY started_at, game_id",
+        ))
+        .await?;
+    rows.iter().map(|row| row.try_get("", "game_id")).collect()
+}
+
+/// The record of `game_id` whoever sat there, for the anonymised export
+/// only; `None` for a game with no record. A seat's or a report's question
+/// goes through [`for_seated`].
+///
+/// # Errors
+///
+/// When the statement fails.
+pub async fn for_export(db: &impl ConnectionTrait, game_id: &str) -> Result<Option<Record>, DbErr> {
+    let row = db
+        .query_one_raw(Statement::from_sql_and_values(
+            db.get_database_backend(),
+            "SELECT r.complete, \
+                 coalesce((SELECT string_agg(c.data, ''::bytea ORDER BY c.seq) \
+                           FROM game_record_chunk c WHERE c.game_id = r.game_id), ''::bytea) \
+                   AS data \
+             FROM game_record r WHERE r.game_id = $1",
+            [game_id.into()],
+        ))
+        .await?;
+    row.map(|row| {
+        Ok(Record {
+            data: row.try_get("", "data")?,
+            complete: row.try_get("", "complete")?,
+        })
+    })
+    .transpose()
+}
+
+/// Everything that names an account linked to a seat of `game_id` (one that
+/// played it, or whose seat bridge did): its id, email, username, display
+/// name and invite key's id, as text. The export refuses a record in which
+/// any of them is found.
+///
+/// # Errors
+///
+/// When the statement fails.
+pub async fn seated_identities(
+    db: &impl ConnectionTrait,
+    game_id: &str,
+) -> Result<Vec<String>, DbErr> {
+    let rows = db
+        .query_all_raw(Statement::from_sql_and_values(
+            db.get_database_backend(),
+            "SELECT DISTINCT unnest(ARRAY[a.id::text, a.email, a.username, a.display_name, \
+                                          a.invite_id::text]) AS said \
+             FROM game_record_seat s \
+             JOIN account a ON a.id = s.account_id OR a.id = s.delegated_by \
+             WHERE s.game_id = $1",
+            [game_id.into()],
+        ))
+        .await?;
+    let mut said = Vec::with_capacity(rows.len());
+    for row in &rows {
+        if let Some(text) = row.try_get::<Option<String>>("", "said")? {
+            said.push(text);
+        }
+    }
+    Ok(said)
 }

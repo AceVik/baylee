@@ -464,9 +464,31 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   (who played a seat, or whose seat bridge did), which goes with the
   account. What stays after that is a game between
   numbered seats, with their decks and every card they held.
-- **No seat or lobby route reads a record.** The one reader is
-  `POST /reports`, which attaches a game's record only when the reporter sat
-  at that game (`docs/protocol.md` §"The game record").
+- **No seat or lobby route reads a record.** The one reader a route
+  reaches is `POST /reports`, which attaches a game's record only when the
+  reporter sat at that game (`docs/protocol.md` §"The game record"). The
+  other is the operator's export below, which no route reaches.
+- **Training and balancing use only the anonymised export.** The house AI's
+  training and the balancing of decks read game records only as
+  `baylee-gateway records export --out <dir>` writes them
+  (`crates/baylee-gateway/src/recordexport.rs`), never the database. The
+  export leaves out the game's id (the join to `game_record_seat` and to a
+  feedback report, and a time, being a UUIDv7) and `game_record_seat`
+  altogether; sets every line's host time (`at`) to 0; sets a `Human`
+  seat's account number to 0; names each file by a count
+  (`000001.jsonl.gz`), with no index of ids or times beside it; refuses a
+  record with a line of a kind it does not know; and refuses a record in
+  which the id, email, username, display name or invite key of an account
+  seated at the game (or whose seat bridge played there) occurs, counting
+  refusals without naming them. What stays is the game: the build, the
+  preset (format, seed, seats by number with their teams, decks and
+  printings, the house's profiles), every input with its seat and who
+  answered it (a player, the clock, the house, a stand-in), chair changes,
+  each seat's declared mind (the model a seat said it was) and the end.
+  Names shorter than three characters are not searched for. A deck list or
+  a rare printing can still be recognised by someone who knows the deck;
+  the export does not hide which cards were played. Opting a player out of
+  training is not built (`tools/trainer/HANDOVER.md`).
 - **What reaches the feedback service** is `docs/feedback.md`'s list: the
   gateway's name, public URL and build, the pseudonym (HMAC-SHA256 of the
   account id under `BAYLEE_FEEDBACK_KEY`, which the service does not hold),
@@ -590,7 +612,12 @@ to weigh, not conclusions.
    the gateway sees those.
 4. **Retention of stdout logs and of backups** is not set anywhere in the
    repository.
-5. **Game records** (#315) are kept without a time limit and name seats by
-   account id: an account's id stays in them after the account is deleted.
+5. **Game records** (#315) are kept without a time limit. The record names
+   no account; who sat in a seat is `game_record_seat.account_id` (and
+   `delegated_by` for a host's seat bridge), both `ON DELETE SET NULL`
+   (migrations `m20260927_000009`, `m20261006_000013`; held by
+   `baylee-db/tests/schema.rs`): an account's deletion cuts its link to
+   every record, and the game, between numbered seats, stays. Training and
+   balancing read only the anonymised export (above).
 6. **Reports:** a screenshot can show other players' names, and the text
    the player writes can contain anything; neither is filtered.

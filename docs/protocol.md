@@ -1578,6 +1578,14 @@ turns 13 and 16):
 Where a piece breaks changes nothing else: the pieces are gzip members of
 their own, and the record they make is the same bytes with or without
 flushes (`flushes_at_any_moment_change_nothing_but_where_the_pieces_break`).
+
+Training and balancing read records only through the operator's export,
+`baylee-gateway records export --out <dir>` (no route): every complete
+record, one gzip member each, `000001.jsonl.gz` onward, without its game
+id, with every `at` 0 and a `Human` seat's account number 0, refused when a
+line is of an unknown kind or the text holds anything that names an account
+seated at the game. It still replays on the build that played it.
+`docs/privacy.md` §"Game records and reports (#315, #307, #308)" says what it keeps.
 The store takes pieces of any size in `seq` order, under the same 64 MiB
 bound.
 
