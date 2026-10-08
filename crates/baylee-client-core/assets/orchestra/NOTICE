@@ -1,0 +1,28 @@
+Baylee's music: the recordings in this directory
+================================================
+
+The score that plays these recordings is Baylee's own composition and code
+(AGPL-3.0-only, see the repository's LICENSE). The recordings are prepared
+(trimmed, mono, 44,100 Hz, looped) from three sources, each dedicated to the
+public domain under CC0 1.0 Universal. CC0 asks for no credit; we give it.
+
+VCSL - Versilian Community Sample Library
+  Versilian Studios LLC. https://github.com/sgossner/VCSL
+  commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e
+  Licence: LICENSE-CC0-VCSL.txt (the repository's LICENSE, byte for byte)
+
+VSCO 2 Community Edition
+  Versilian Studios. Recordings: Sam Gossner and Simon Dalzell; sample
+  editing: Elan Hickler / Soundemote.
+  https://github.com/sgossner/VSCO-2-CE
+  commit 440300901dfe9275fd84e0b7763af1f8443ae62e
+  Licence: LICENSE-CC0.txt
+
+FreePats Bagpipe
+  Samples recorded in August 2020 by Gilles Sadowski, on a bagpipe in G
+  designed by Remy Dubois and built by Olle Geris.
+  https://github.com/freepats/bagpipe (http://freepats.zenvoid.org/)
+  commit 496f2f6e82f226d650e270c0f0ad5febbebec249
+  Licence: LICENSE-CC0-FreePats.txt (the repository's LICENSE.txt, byte for byte)
+
+Which file came from where, with its original's SHA-256: art/music/samples.json.

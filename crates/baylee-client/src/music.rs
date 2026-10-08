@@ -1,8 +1,11 @@
 //! One orchestra follows the player through the whole app. The conductor
-//! changes future bars from public game activity; the audio player never
-//! restarts at a screen change. Only the user's own volume fades the master.
-use crate::{Duel, DuelPhase, settings::ClientSettings};
-use baylee_client_core::music::{self, Mood, ScoreControl, Tune};
+//! (`client-core::music::direct`, a pure function of the screen and the
+//! `PlayerView`) changes future bars; the audio player never restarts at a
+//! screen change. Only the user's own volume fades the master, and a
+//! priority cue ducks it for a moment.
+use crate::{Duel, DuelPhase, lobby::LobbyState, settings::ClientSettings};
+use baylee_client_core::lobby::Screen;
+use baylee_client_core::music::{self, Ending, Memory, Place, ScoreControl, ScoreRequest, Tune};
 use bevy::audio::{
     AddAudioSource, AudioPlayer, AudioPlugin, AudioSink, AudioSinkPlayback, ChannelCount,
     Decodable, PlaybackSettings, Sample, SampleRate, Source, Volume,
@@ -59,13 +62,41 @@ struct Conductor {
 struct Playing {
     gain: f32,
 }
-#[derive(Default)]
-struct Activity {
-    seq: Option<u64>,
-    life: i32,
-    objects: usize,
-    stack: usize,
-    energy: f32,
+
+/// The last request the conductor sent, which `/state` reports as `score`
+/// (dev-control): what the drivers decided, beside what a player hears.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct Heard(pub ScoreRequest);
+
+/// Priority cues the music ducks under: `sound.rs` counts each one it plays.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct Duck {
+    cues: u32,
+}
+
+impl Duck {
+    /// A priority cue was played.
+    pub fn cue(&mut self) {
+        self.cues = self.cues.wrapping_add(1);
+    }
+}
+
+/// How far the music is ducked, `since` seconds after a priority cue: down
+/// 6 dB in 30 ms, held while the cue speaks, back over 400 ms.
+fn ducked(since: f32) -> f32 {
+    const DOWN: f32 = 0.03;
+    const HOLD: f32 = 0.18;
+    const BACK: f32 = 0.4;
+    const FLOOR: f32 = 0.5;
+    if since < DOWN {
+        1.0 - (1.0 - FLOOR) * since / DOWN
+    } else if since < DOWN + HOLD {
+        FLOOR
+    } else if since < DOWN + HOLD + BACK {
+        FLOOR + (1.0 - FLOOR) * (since - DOWN - HOLD) / BACK
+    } else {
+        1.0
+    }
 }
 
 #[derive(Resource)]
@@ -76,7 +107,9 @@ pub fn install(app: &mut App) {
     if app.world().contains_resource::<Installed>() {
         return;
     }
-    app.insert_resource(Installed);
+    app.insert_resource(Installed)
+        .init_resource::<Heard>()
+        .init_resource::<Duck>();
     app.add_systems(Update, show_level);
     if !app.is_plugin_added::<AudioPlugin>() {
         return;
@@ -92,52 +125,40 @@ pub fn install(app: &mut App) {
         .add_systems(Update, perform);
 }
 
+/// Where the player is, as the score's drivers read it: a duel's phase
+/// first, else the lobby's screen.
+fn place(phase: DuelPhase, screen: Option<&Screen>) -> Place {
+    match phase {
+        DuelPhase::Opening => Place::Opening,
+        DuelPhase::Playing => Place::Table,
+        DuelPhase::Finished => Place::Finished,
+        DuelPhase::Closed => match screen {
+            None | Some(Screen::SignIn { .. }) => Place::FrontDoor,
+            Some(Screen::Build) => Place::Build,
+            Some(Screen::Table | Screen::Seated(_)) => Place::Lobby,
+        },
+    }
+}
+
+/// The request for this frame: the duel's view and result, through the pure
+/// drivers in client-core — the same for a hosted game and a `LocalHost`
+/// game, which fill `Duel::view` alike.
 fn direction(
     phase: DuelPhase,
+    screen: Option<&Screen>,
     duel: Option<&Duel>,
-    activity: &mut Activity,
+    memory: &mut Memory,
     dt: f32,
-) -> (Mood, f32) {
-    activity.energy *= (-dt / 9.0).exp();
-    if phase == DuelPhase::Closed {
-        activity.seq = None;
-        return (Mood::Sanctuary, 0.0);
-    }
-    if let Some(duel) = duel
-        && let Some(view) = duel.view.as_ref()
-    {
-        if let Some(result) = duel.ending() {
-            return (
-                match baylee_client_core::interaction::outcome(result, view.seat, duel.my_team())
-                    .won()
-                {
-                    Some(true) => Mood::Victory,
-                    Some(false) => Mood::Defeat,
-                    None => Mood::Draw,
-                },
-                0.0,
-            );
-        }
-        if activity.seq != Some(view.seq) {
-            let life = view.seats.iter().map(|seat| seat.life).sum::<i32>();
-            if activity.seq.is_some() {
-                #[allow(clippy::cast_precision_loss)] // small visible board counts
-                let burst = (activity.life - life).max(0) as f32 * 0.065
-                    + activity.objects.abs_diff(view.battlefield.len()) as f32 * 0.06
-                    + activity.stack.abs_diff(view.stack.len()) as f32 * 0.13;
-                activity.energy = (activity.energy + burst).min(1.0);
-            }
-            activity.seq = Some(view.seq);
-            activity.life = life;
-            activity.objects = view.battlefield.len();
-            activity.stack = view.stack.len();
-        }
-        #[allow(clippy::cast_precision_loss)] // capped after conversion
-        let pressure =
-            (view.combat.attackers.len() as f32 * 0.09 + view.stack.len() as f32 * 0.10).min(0.65);
-        return (Mood::Battle, (0.12 + pressure + activity.energy).min(1.0));
-    }
-    (Mood::Battle, 0.15)
+) -> ScoreRequest {
+    let view = duel.and_then(|duel| duel.view.as_ref());
+    let ending = duel.and_then(|duel| {
+        let result = duel.ending()?;
+        let view = duel.view.as_ref()?;
+        Some(Ending::of(
+            baylee_client_core::interaction::outcome(result, view.seat, duel.my_team()).won(),
+        ))
+    });
+    music::direct(place(phase, screen), view, ending, memory, dt)
 }
 
 #[allow(clippy::too_many_arguments)] // Bevy system: conductor, screen, game, settings and the persistent player
@@ -147,19 +168,34 @@ fn perform(
     conductor: Res<Conductor>,
     phase: Option<Res<State<DuelPhase>>>,
     duel: Option<Res<Duel>>,
+    lobby: Option<Res<LobbyState>>,
     settings: Option<Res<ClientSettings>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut players: Query<(&mut Playing, Option<&mut AudioSink>)>,
-    mut activity: Local<Activity>,
+    mut heard: ResMut<Heard>,
+    duck: Res<Duck>,
+    mut memory: Local<Memory>,
+    mut ducking: Local<(u32, f32)>,
 ) {
     let dt = time.delta_secs();
-    let (mood, energy) = direction(
+    let request = direction(
         phase.map_or(DuelPhase::Closed, |p| *p.get()),
+        lobby.as_deref().map(|lobby| lobby.lobby.screen()),
         duel.as_deref(),
-        &mut activity,
+        &mut memory,
         dt,
     );
-    conductor.control.set(mood, energy);
+    conductor.control.set(request);
+    if heard.0 != request {
+        heard.0 = request;
+    }
+    // A priority cue ducks the music from the frame it is heard.
+    if ducking.0 == duck.cues {
+        ducking.1 += dt;
+    } else {
+        *ducking = (duck.cues, 0.0);
+    }
+    let duck = ducked(ducking.1);
     let focused = crate::quality::focused(&windows);
     let target = settings.map_or_else(
         || music::MusicLevel::default().gain(),
@@ -170,7 +206,7 @@ fn perform(
         any = true;
         playing.gain += (target - playing.gain) * (1.0 - (-dt / 0.10).exp());
         if let Some(mut sink) = sink {
-            sink.set_volume(Volume::Linear(playing.gain));
+            sink.set_volume(Volume::Linear(playing.gain * duck));
             // A silent orchestra stops being rendered: a paused sink stops
             // pulling the score, where one at volume 0 still synthesised
             // every voice on the audio thread (`docs/perf-baseline.md`,
@@ -372,6 +408,8 @@ mod tests {
                 handle: Handle::default(),
                 control: Arc::new(ScoreControl::default()),
             })
+            .init_resource::<Heard>()
+            .init_resource::<Duck>()
             .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
                 Duration::from_millis(100),
             ))
@@ -435,28 +473,37 @@ mod tests {
         assert!(sounding(0.01, 0.0), "a quiet volume is still a volume");
     }
 
+    /// The screens and the phases name their places: a duel's phase wins
+    /// over the lobby's screen.
     #[test]
-    fn action_energy_decays_and_does_not_count_a_repeated_snapshot() {
-        use baylee_client_core::test_support::ViewBuilder;
-        let mut duel = Duel {
-            view: Some(ViewBuilder::new(2).build()),
-            ..Default::default()
-        };
-        let mut activity = Activity::default();
-        direction(DuelPhase::Playing, Some(&duel), &mut activity, 0.1);
-        let v = duel.view.as_mut().unwrap();
-        v.seq += 1;
-        v.seats[0].life -= 7;
-        let (_, peak) = direction(DuelPhase::Playing, Some(&duel), &mut activity, 0.1);
-        let (_, later) = direction(DuelPhase::Playing, Some(&duel), &mut activity, 5.0);
-        assert!(peak > 0.5 && later < peak);
+    fn the_screens_and_phases_are_places() {
+        let sign_in = Screen::SignIn { registering: false };
+        assert_eq!(place(DuelPhase::Closed, None), Place::FrontDoor);
+        assert_eq!(place(DuelPhase::Closed, Some(&sign_in)), Place::FrontDoor);
+        assert_eq!(place(DuelPhase::Closed, Some(&Screen::Table)), Place::Lobby);
+        assert_eq!(place(DuelPhase::Closed, Some(&Screen::Build)), Place::Build);
         assert_eq!(
-            direction(DuelPhase::Closed, Some(&duel), &mut activity, 0.1).0,
-            Mood::Sanctuary
+            place(DuelPhase::Opening, Some(&Screen::Build)),
+            Place::Opening
         );
+        assert_eq!(place(DuelPhase::Playing, None), Place::Table);
+        assert_eq!(place(DuelPhase::Finished, None), Place::Finished);
     }
+
+    /// A priority cue ducks the music 6 dB within 30 ms and gives it back
+    /// within half a second.
     #[test]
-    fn results_choose_the_matching_cadence() {
+    fn a_priority_cue_ducks_the_music() {
+        assert!((ducked(0.0) - 1.0).abs() < 1e-6);
+        assert!((ducked(0.03) - 0.5).abs() < 1e-6);
+        assert!((ducked(0.1) - 0.5).abs() < 1e-6);
+        assert!(ducked(0.4) > 0.5 && ducked(0.4) < 1.0);
+        assert!((ducked(0.7) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn results_choose_the_matching_ending() {
+        use baylee_client_core::music::Scene;
         use baylee_client_core::{Interaction, test_support::ViewBuilder};
         use baylee_core::ids::PlayerId;
         use baylee_engine::{
@@ -464,9 +511,9 @@ mod tests {
             win::{EndReason, GameResult, Victor},
         };
         for (winner, expected) in [
-            (Some(Victor::Player(PlayerId::new(0))), Mood::Victory),
-            (Some(Victor::Player(PlayerId::new(1))), Mood::Defeat),
-            (None, Mood::Draw),
+            (Some(Victor::Player(PlayerId::new(0))), Scene::Victory),
+            (Some(Victor::Player(PlayerId::new(1))), Scene::Defeat),
+            (None, Scene::Draw),
         ] {
             let duel = Duel {
                 view: Some(ViewBuilder::new(2).build()),
@@ -483,16 +530,14 @@ mod tests {
                 )),
                 ..Default::default()
             };
-            assert_eq!(
-                direction(
-                    DuelPhase::Finished,
-                    Some(&duel),
-                    &mut Activity::default(),
-                    0.1
-                )
-                .0,
-                expected
+            let request = direction(
+                DuelPhase::Finished,
+                None,
+                Some(&duel),
+                &mut Memory::default(),
+                0.1,
             );
+            assert_eq!(request.scene, expected);
         }
     }
 

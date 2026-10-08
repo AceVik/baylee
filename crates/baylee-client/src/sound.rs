@@ -1489,6 +1489,7 @@ pub fn play_the_cues(
     prefs: Option<Res<Prefs>>,
     settings: Option<Res<crate::settings::ClientSettings>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mut duck: Option<ResMut<crate::music::Duck>>,
 ) {
     if duel.cues.pending().is_empty() {
         return;
@@ -1510,6 +1511,14 @@ pub fn play_the_cues(
                 mix
             };
             sound(&mut commands, voices, beat, level, mix);
+            // The music makes room under a cue that must be heard: the
+            // priority strike, a refusal, combat and this seat's own life.
+            if mix > 0.0
+                && (beat.cue == Cue::YourMove || rank(beat.cue) <= 1)
+                && let Some(duck) = duck.as_mut()
+            {
+                duck.cue();
+            }
         }
     }
 }

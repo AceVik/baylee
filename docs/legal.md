@@ -228,25 +228,65 @@ Urheber- und Medienrecht.
    no Impressum is required (no commercial/public telemedia service).
 5. **Audio:** interface/gameplay cues remain original computed PCM in
    `crates/baylee-client/src/sound.rs`. The continuous music is an original
-   composition, now performed using recordings of real instruments from
-   **Versilian Studios VSCO 2 Community Edition**, not the paid editions.
-   The [publisher's original-WAV page](https://versilian-studios.com/vsco-community/)
-   states: “Licensed under CC0 (Creative Commons Zero) you can do whatever
-   you want with these samples.” Checked 26.09.2026, together with the
-   [source repository licence](https://github.com/sgossner/VSCO-2-CE/blob/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE).
-   The full CC0 dedication is shipped in
-   `crates/baylee-client-core/assets/orchestra/LICENSE-CC0.txt`.
-   Recordings: Sam Gossner and Simon Dalzell; sample editing: Elan Hickler /
-   Soundemote. `art/music/samples.json` records each original path, pinned
-   revision, SHA-256 and prepared PCM hash. `art/music/prepare.py` reproducibly
-   downmixes/resamples the selected recordings to mono 22,050 Hz PCM16.
-   The score and sampler are project code under AGPL; the samples remain CC0.
-   The owner's follow-up removes flute and adds fifteen `Keys/Upright Nr1`
-   recordings from the same pinned CC0 source: five registers, three dynamics.
-   The publisher licence quote above was checked again for this revision.
-   No game soundtrack, melody or recording from Wizards or Blizzard is used.
-   This replaces the earlier arithmetic-only music decision at the owner's
-   explicit request for real orchestral instruments on 26.09.2026.
+   composition (`crates/baylee-client-core/src/music/`, AGPL), performed from
+   CC0 recordings of real instruments and one synthesised plucked string of
+   our own (a Karplus–Strong lute). Since music v2 (08.10.2026) the bank
+   holds recordings from exactly three CC0 sources, each pinned to a commit:
+   - **VCSL** (Versilian Community Sample Library, Versilian Studios LLC),
+     [github.com/sgossner/VCSL](https://github.com/sgossner/VCSL) at
+     `c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e`. Its README at that commit:
+     “This collection is under a Creative Commons 0 license. Essentially
+     it's Public Domain- you can do whatever you want with these sounds
+     (even make commercial software), no royalties, no credit, no special
+     terms.” Its `LICENSE` is the CC0 1.0 Universal legal code. Recorders,
+     bowed and plucked psaltery, folk harp, strumstick, Renaissance organ,
+     frame drums, bass drum (the davul), timpani (the nakers), rope-tension
+     snare, tambourine, hand bells, sleigh bells, finger cymbals, tubular
+     bells.
+   - **VSCO 2 Community Edition** (Versilian Studios), not the paid
+     editions, [github.com/sgossner/VSCO-2-CE](https://github.com/sgossner/VSCO-2-CE)
+     at `440300901dfe9275fd84e0b7763af1f8443ae62e`. The
+     [publisher's original-WAV page](https://versilian-studios.com/vsco-community/)
+     states: “Licensed under CC0 (Creative Commons Zero) you can do whatever
+     you want with these samples.” Checked 26.09.2026, together with the
+     [source repository licence](https://github.com/sgossner/VSCO-2-CE/blob/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE).
+     Recordings: Sam Gossner and Simon Dalzell; sample editing: Elan
+     Hickler / Soundemote. Solo violin, solo contrabass (arco and
+     pizzicato), cello section, French horn (only for the hunt's call).
+   - **FreePats Bagpipe**, [github.com/freepats/bagpipe](https://github.com/freepats/bagpipe)
+     ([freepats.zenvoid.org](http://freepats.zenvoid.org/Ethnic/bagpipe.html))
+     at `496f2f6e82f226d650e270c0f0ad5febbebec249` (release 2026-08-06). Its
+     README at that commit: “Published under the terms of Creative Commons
+     CC0 public domain dedication:
+     https://creativecommons.org/publicdomain/zero/1.0/”, and “Samples
+     recorded on August 2020 by Gilles Sadowski, on a bagpipe in G designed
+     by Rémy Dubois and built by Olle Geris.” Its `LICENSE.txt` is the CC0
+     1.0 legal code. Chanter and both drones.
+
+   `art/music/samples.json` records for every recording its source, path,
+   pinned revision, SHA-256 of the original, the prepared PCM's SHA-256 and
+   its pitch and loop facts; `art/music/prepare.py` rebuilds the bank
+   reproducibly (mono 44,100 Hz PCM16, sustains looped). Shipped beside the
+   bank in `crates/baylee-client-core/assets/orchestra/`: `LICENSE-CC0.txt`
+   (VSCO 2 CE's), `LICENSE-CC0-VCSL.txt`, `LICENSE-CC0-FreePats.txt` (each
+   source's own file, byte for byte) and `NOTICE` naming the three sources
+   and their recordists, which CC0 does not require and we keep anyway. A
+   test (`bank_is_complete_and_embedded`) holds every row to one of these
+   three sources at the revision pinned here. The piano, oboe, orchestral
+   strings, timpani, snare and suspended cymbal of the earlier VSCO 2 CE bank
+   left with music v2 (owner, 08.10.2026).
+   Considered and **not used**: the Polyphone soundfont “Early European
+   Instruments” (stated “public domain” by an uploader whose samples came
+   from “various records”: no provenance to stand on); single Freesound
+   uploads marked CC0 (one uploader's word and no second source); and every
+   non-CC0 library (MF Tin Whistle CC BY-NC-SA, Karoryfer's commercial sets,
+   Garritan, Philharmonia, Iowa MIS, Pianobook, Sonatina).
+   Every melody is written for Baylee; the styles named in the brief
+   (British and Slavic folk, medieval European music, fantasy scores) are
+   references in words only. `art/music/avoid.json` holds the openings of
+   tunes we must not echo, as directed intervals, and a test fails any score
+   melody that shares six of them in a row. No game soundtrack, melody or
+   recording from Wizards or Blizzard is used.
 6. **AGPL §13 — the network clause.** This is the one licence obligation the
    project's own architecture triggers, and it was written down nowhere.
    §13 says a user who interacts with a modified version of the program

@@ -6,11 +6,11 @@
 #![allow(missing_docs)]
 
 use baylee_client_core::feltveins::VeinTable;
-use baylee_client_core::music::{RATE, Tune};
+use baylee_client_core::music::{RATE, Scene, ScoreControl, ScoreRequest, Tune};
 use baylee_client_core::test_support::{ViewBuilder, token};
 use baylee_view::PlayerView;
 use criterion::{Criterion, criterion_group, criterion_main};
-use std::hint::black_box;
+use std::{hint::black_box, sync::Arc};
 
 fn music(c: &mut Criterion) {
     // Each tune is settled into the score first: the opening seconds play
@@ -37,6 +37,39 @@ fn music(c: &mut Criterion) {
             }
         });
     });
+    // One second of each scene as the audio thread pulls it, settled first.
+    let table = |tension: f32| ScoreRequest {
+        scene: Scene::Table,
+        tension,
+        own_turn: true,
+        ..ScoreRequest::default()
+    };
+    for (name, request) in [
+        (
+            "lobby",
+            ScoreRequest {
+                scene: Scene::Lobby,
+                ..ScoreRequest::default()
+            },
+        ),
+        ("calm", table(0.05)),
+        ("tension", table(0.6)),
+        ("climax", table(0.95)),
+    ] {
+        c.bench_function(&format!("music/one_second/{name}"), |b| {
+            let control = Arc::new(ScoreControl::default());
+            control.set(request);
+            let mut tune = Tune::with_control(control);
+            for _ in 0..RATE * 12 {
+                tune.next();
+            }
+            b.iter(|| {
+                for _ in 0..RATE * 2 {
+                    black_box(tune.next());
+                }
+            });
+        });
+    }
 }
 
 /// A busy four-seat view: twenty permanents a seat.

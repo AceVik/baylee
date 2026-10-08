@@ -1,20 +1,30 @@
-//! Baylee's continuous adaptive orchestral score. Real CC0 instrument recordings
-//! are performed by one sampler and one musical clock, from sanctuary to battle
-//! and back. Scene changes alter future notes at bar boundaries; held notes and
-//! the room continue. No track is stopped or crossfaded.
+//! Baylee's continuous adaptive score: an original modal score around B♭,
+//! performed from CC0 recordings of old instruments (recorders, bowed and
+//! plucked psaltery, folk harp, bagpipe, frame drums, davul, bells; VCSL,
+//! VSCO 2 CE, `FreePats`) and one synthesised lute, by one sampler and one
+//! musical clock, from the front door to the table and its ending. Scene
+//! changes alter future notes at bar lines; held notes and the room continue.
+//! No track is stopped or crossfaded. Everything plays offline: the bank is
+//! in the binary, and the drivers read only the [`PlayerView`].
+//!
+//! [`PlayerView`]: baylee_view::PlayerView
 
+mod bank;
+mod direct;
 mod orchestra;
 mod score;
-pub use score::{Mood, ScoreControl, Tune};
+pub use direct::{Ending, Memory, Place, Scene, ScoreRequest, direct};
+pub use score::{ScoreControl, Tune};
 
-/// Stereo output sample rate.
+/// Stereo output sample rate, and the bank's.
 pub const RATE: u32 = 44_100;
 /// Interleaved left and right channels.
 pub const CHANNELS: u16 = 2;
 
-/// Decode the small embedded sample bank before starting the audio device.
+/// Read the embedded sample bank's table once before starting the audio
+/// device.
 pub fn prepare() {
-    orchestra::bank();
+    orchestra::instruments();
 }
 
 /// How loud the front door's music is, as this device remembers it.

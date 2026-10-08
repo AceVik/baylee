@@ -70,6 +70,8 @@ pub(super) struct Believed<'w, 's> {
     >,
     duel: Option<Res<'w, Duel>>,
     settings: Option<Res<'w, ClientSettings>>,
+    /// The music's last request: what the drivers decided (`score`).
+    score: Option<Res<'w, crate::music::Heard>>,
     /// The card text the sheet draws its rows from, so an ability row can be
     /// reported as it reads.
     texts: Option<Res<'w, crate::cardtext::CardTexts>>,
@@ -684,7 +686,16 @@ fn presentation_json(believed: &Believed) -> serde_json::Value {
         .collect();
     serde_json::json!({"legal":legal,"music_controls":music,"preview_hints":preview_hints,
         "volume":believed.settings.as_ref().map(|s|s.music.volume()),
-        "muted":believed.settings.as_ref().map(|s|s.music.muted())})
+        "muted":believed.settings.as_ref().map(|s|s.music.muted()),
+        "score":believed.score.as_ref().map(|heard| score_json(heard.0))})
+}
+
+/// The music's last request, as the drivers decided it.
+fn score_json(r: baylee_client_core::music::ScoreRequest) -> serde_json::Value {
+    serde_json::json!({"scene":format!("{:?}", r.scene),"tension":r.tension,"combat":r.combat,
+        "big_spell":r.big_spell,"low_life":r.low_life,"lethal":r.lethal,"own_turn":r.own_turn,
+        "about_to_lose":r.about_to_lose,"hunts":r.hunts,"hunt_mine":r.hunt_mine,
+        "monarchs":r.monarchs,"spells":r.spells,"arrivals":r.arrivals})
 }
 
 fn loading_json(believed: &Believed) -> serde_json::Value {

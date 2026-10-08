@@ -1,0 +1,656 @@
+[
+ {
+  "name": "Greensleeves",
+  "intervals": [
+   3,
+   2,
+   2,
+   1,
+   -1,
+   -2,
+   -3,
+   -4,
+   2,
+   2,
+   1
+  ],
+  "alt_intervals": [],
+  "verified": true,
+  "public_domain": true,
+  "source": "score",
+  "source_url": "https://ibiblio.org/mutopia/ftp/Traditional/greensleeves/greensleeves.ly",
+  "remark": "Mutopia Project LilyPond source (public domain, from cyberhymnal, hymn tune 'What Child Is This'), soprano line, E-minor shape (file says key g major but notes use F#/C natural;). Pickup E included (familiar start). Embedded ABC in the same file agrees. Single source, no second cross-check; standard Greensleeves shape."
+ },
+ {
+  "name": "Scarborough Fair",
+  "intervals": [
+   0,
+   7,
+   0,
+   0,
+   -5,
+   1,
+   -1,
+   -2,
+   7,
+   3,
+   2
+  ],
+  "alt_intervals": [
+   [
+    0,
+    7,
+    0,
+    -5,
+    1,
+    -1,
+    -2,
+    7,
+    3,
+    2,
+    -2
+   ],
+   [
+    0,
+    7,
+    -2,
+    2,
+    -5,
+    1,
+    -1,
+    -2,
+    0,
+    7,
+    -9
+   ]
+  ],
+  "verified": true,
+  "public_domain": true,
+  "source": "score",
+  "source_url": "https://en.wikipedia.org/wiki/Scarborough_Fair_(ballad)",
+  "remark": "Wikipedia wikitext LilyPond score captioned 'Version commonly used today' (D dorian, 3/4; rest between 'Fair' and 'Parsley' skipped; notes after the rest: A C D). Two thesession.org settings (7522, 18994, E dorian) give the same shape with one fewer repeated note on 'going' (E E B B F# G F# E ...: [0,7,0,-5,1,-1,-2,7,3,2,-2]) or ornamented (E E B A B F# G F# E: [0,7,-2,2,-5,1,-1,-2,0,7,-9]). Traditional ballad PD; this arrangement is the folk-revival tune."
+ },
+ {
+  "name": "Londonderry Air (Danny Boy)",
+  "intervals": [
+   1,
+   2,
+   2,
+   -2,
+   2,
+   5,
+   -2,
+   -3,
+   -2,
+   -2,
+   -3
+  ],
+  "alt_intervals": [],
+  "verified": true,
+  "public_domain": true,
+  "source": "score",
+  "source_url": "https://en.wikipedia.org/wiki/Londonderry_Air",
+  "remark": "Wikipedia LilyPond score (Eb major, 4/4, pickup D Eb F included, 'Oh Danny boy' text start). thesession.org tune 6867 (The Derry Air, G major: F# G A B A B e d B A G E) gives exactly the same 11 intervals, so two independent notations agree."
+ },
+ {
+  "name": "Skye Boat Song",
+  "intervals": [
+   2,
+   -2,
+   5,
+   0,
+   0,
+   2,
+   2,
+   -2,
+   5,
+   -3,
+   -2
+  ],
+  "alt_intervals": [
+   [
+    2,
+    -2,
+    5,
+    0,
+    2,
+    2,
+    -2,
+    5,
+    -3,
+    -2,
+    2
+   ]
+  ],
+  "verified": true,
+  "public_domain": true,
+  "source": "score",
+  "source_url": "https://en.wikipedia.org/wiki/The_Skye_Boat_Song",
+  "remark": "Wikipedia LilyPond score, 6/8, first line 'Speed bonnie boat, like a bird on the wing' (G G G on 'boat like a'). The second statement of the phrase, and thesession.org tune 3690, use two G's (D E D G G A B A D B A B: [2,-2,5,0,2,2,-2,5,-3,-2,2]); so the start has two settings. Tune PD (Annie MacLeod 1884 / Boulton 1908 arrangement)."
+ },
+ {
+  "name": "Loch Lomond",
+  "intervals": [
+   5,
+   0,
+   2,
+   2,
+   -2,
+   -2,
+   2,
+   0,
+   -2,
+   -3,
+   -2
+  ],
+  "alt_intervals": [
+   [
+    5,
+    0,
+    2,
+    2,
+    0,
+    -4,
+    2,
+    0,
+    -2,
+    -3,
+    -2
+   ]
+  ],
+  "verified": true,
+  "public_domain": true,
+  "source": "abc",
+  "source_url": "https://github.com/syntithenai/abc2book/blob/4d24f4cf30ae074f21190d8a2dae771c3426d316/abcresources/jc/abc_tune_jc_201303027.abc",
+  "remark": "ABC from the Digital Tradition (mirrored in the abc2book corpus), 'By yon bonnie banks', pickup D included; 11 syllables = 11 notes. Setting variants: two other ABC copies (jc 201214820-style, folktunefinder 54021/50523/61779) have B B G instead of B A G on 'and by': D G G A B B G A A G E D [5,0,2,2,0,-4,2,0,-2,-3,-2]; one has an F# ornament pickup. Intervals 1-4 and 7+ are stable across settings. thesession.org 4952 'Loch Lomond' is a different (reel) tune, not used."
+ },
+ {
+  "name": "The Parting Glass",
+  "intervals": [
+   -2,
+   -2,
+   -3,
+   0,
+   -2,
+   2,
+   3,
+   0,
+   2,
+   -2,
+   2
+  ],
+  "alt_intervals": [],
+  "verified": true,
+  "public_domain": true,
+  "source": "abc",
+  "source_url": "https://github.com/syntithenai/abc2book/blob/4d24f4cf30ae074f21190d8a2dae771c3426d316/abcresources/folktunefinder/abc_tune_folktunefinder_181647.txt",
+  "remark": "ABC (origin: music.gordfisch.net / folktunefinder 181647, E minor, 4/4), pickup B A included ('Of all the money that e'er I had'). Three other ABC copies (jc 201212613 in G, jc 201322397, folktunefinder 112296) give identical intervals. thesession.org 6275 setting 0 (A minor march, E D C B C A A B ...) is a different, ornamented setting and was not used."
+ },
+ {
+  "name": "She Moved Through the Fair",
+  "intervals": [
+   2,
+   2,
+   1,
+   -1,
+   1,
+   2,
+   0,
+   -2,
+   -3,
+   -4,
+   2
+  ],
+  "alt_intervals": [],
+  "verified": true,
+  "public_domain": true,
+  "source": "abc",
+  "source_url": "https://thesession.org/tunes/4735",
+  "remark": "thesession.org tune 4735 setting 0 (D mixolydian, 3/4) with the opening triplet pickup (3DEF included; first-bar tie A2-A4 merged); setting 17234 (D major) gives the same intervals. Traditional (Colum/Hughes 1909 words by Padraic Colum, tune from Herbert Hughes collection; treat the 1909 Hughes version as PD-age)."
+ },
+ {
+  "name": "Auld Lang Syne",
+  "intervals": [
+   5,
+   0,
+   0,
+   4,
+   -2,
+   -2,
+   2,
+   2,
+   -4,
+   0,
+   4
+  ],
+  "alt_intervals": [
+   [
+    5,
+    0,
+    0,
+    4,
+    -2,
+    -2,
+    2,
+    2,
+    -2,
+    -2,
+    0
+   ]
+  ],
+  "verified": true,
+  "public_domain": true,
+  "source": "score",
+  "source_url": "https://en.wikipedia.org/wiki/Auld_Lang_Syne",
+  "remark": "Wikipedia LilyPond score (F major, 4/4, pickup C included: 'Should auld acquaintance be forgot'). thesession.org 12441 settings give the same up to note 8 and then an ornamented bar-2 end (B>A: D G G G B A G A B A G G, [5,0,0,4,-2,-2,2,2,-2,-2,0]); setting 20766 has G F# G B at the start. Plain melody used as primary."
+ },
+ {
+  "name": "Kalinka (Larionov)",
+  "intervals": [
+   0,
+   -2,
+   -3,
+   1,
+   2,
+   -3,
+   1,
+   2,
+   -2,
+   -1,
+   -2
+  ],
+  "alt_intervals": [
+   [
+    -2,
+    -3,
+    1,
+    2,
+    -3,
+    1,
+    2,
+    -2,
+    -1,
+    -2,
+    7
+   ]
+  ],
+  "verified": true,
+  "public_domain": true,
+  "source": "abc",
+  "source_url": "https://github.com/syntithenai/abc2book/blob/4d24f4cf30ae074f21190d8a2dae771c3426d316/abcresources/folkinfo/abc_tune_folkinfo_1541.abc",
+  "remark": "ABC from the folkinfo collection (BBC Singing Together 1975, K:G but E-minor mode) = the slow verse 'Kalinka, kalinka, kalinka my dear'. The fast refrain 'Ah you garden' (Michel Bellon / folktunefinder 102659, Am: E D B C D B C D C B A E) gives [-2,-3,1,2,-3,1,2,-2,-1,-2,7] (leading E is a held pickup, included). Larionov 1860 tune is PD; this arrangement's tune is the traditional-style melody."
+ },
+ {
+  "name": "Korobeiniki",
+  "intervals": [
+   -5,
+   1,
+   2,
+   -2,
+   -1,
+   -2,
+   0,
+   3,
+   4,
+   -2,
+   -2
+  ],
+  "alt_intervals": [
+   [
+    4,
+    3,
+    -3,
+    -4,
+    5,
+    3,
+    4,
+    -2,
+    -2,
+    -1,
+    1
+   ],
+   [
+    4,
+    3,
+    -3,
+    -4,
+    5,
+    2,
+    1,
+    -1,
+    -2,
+    2,
+    1
+   ]
+  ],
+  "verified": true,
+  "public_domain": true,
+  "source": "abc",
+  "source_url": "https://thesession.org/tunes/13747",
+  "remark": "thesession.org 13747 setting 0 (G major shape of the A-minor tune; = the Tetris 'Type A' melody E B C D C B A A C E D C B..., setting 1 in D minor identical). IMPORTANT: Wikipedia's wikitext score for Korobeiniki (A minor: E G# B G# E A C E D C B C) differs after the opening: [4,3,-3,-4,5,3,4,-2,-2,-1,1], and the klezmer 'Korobushka' ABC (abc2book jc/allklez/89, Bm: F# A# C# A# F# B C# D C# B C# D) gives [4,3,-3,-4,5,2,1,-1,-2,2,1]; so avoid BOTH shapes. Folk tune PD (Nekrasov poem 1861); Tetris arrangement is not."
+ },
+ {
+  "name": "Ochi chornye (Dark Eyes)",
+  "intervals": [
+   1,
+   1,
+   -1,
+   0,
+   -1,
+   1,
+   1,
+   -1,
+   0,
+   0,
+   5
+  ],
+  "alt_intervals": [],
+  "verified": true,
+  "public_domain": true,
+  "source": "abc",
+  "source_url": "https://github.com/syntithenai/abc2book/blob/4d24f4cf30ae074f21190d8a2dae771c3426d316/abcresources/folktunefinder/abc_tune_folktunefinder_151450.txt",
+  "remark": "ABC transcribed by Frank Nordberg for musicaviva.com (G minor, 3/4) from folktunefinder 151450; opening pickup C# D included; rests skipped (rest between the two 'E D D' groups and before D G). Melody (Hermann 1840s) PD. Single source."
+ },
+ {
+  "name": "Hej Sokoly",
+  "intervals": [
+   3,
+   -3,
+   3,
+   4,
+   0,
+   -2,
+   -2,
+   -1,
+   3,
+   -3,
+   3
+  ],
+  "alt_intervals": [],
+  "verified": true,
+  "public_domain": true,
+  "source": "score",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Hey_sokoly_-_Song_notes.jpg",
+  "remark": "Read from the Wikimedia Commons score image (D minor, 4/4, 'Hej tam gdzies z nad czarnej wody', first bars D F D F | A. A G F | E G E G | Bb. Bb A G) and cross-checked by parsing the Commons MIDI File:Hej Sokoly.mid (melody track notes D F D F A A G F E G E G Bb Bb A G), identical. Traditional Polish/Ukrainian-Cossack tune, PD."
+ },
+ {
+  "name": "Palastinalied (Walther von der Vogelweide)",
+  "intervals": [
+   0,
+   3,
+   0,
+   -1,
+   -2,
+   0,
+   2,
+   1,
+   -1,
+   -2,
+   0
+  ],
+  "alt_intervals": [
+   [
+    -7,
+    0,
+    3,
+    0,
+    -3,
+    0,
+    2,
+    1,
+    -1,
+    -2,
+    0
+   ]
+  ],
+  "verified": true,
+  "public_domain": true,
+  "source": "abc",
+  "source_url": "https://github.com/sshlien/runabc/blob/master/nmodes.abc",
+  "remark": "Jack Campin's medieval-song ABC (runabc nmodes.abc, X:40 'Palestine Song / Nu alrest leb ich mir werde', D dorian, 3/4, hexatonic reading). Uncertain: X:280 of the same file (4/4, pickup A) gives A D D F F D D E F E D D [-7,0,3,0,-3,0,2,1,-1,-2,0], i.e. no E after the second F. Rhythm and exact first notes of medieval melody are an editorial reconstruction; melody is c.1204 (PD)."
+ },
+ {
+  "name": "Stella splendens (Llibre Vermell)",
+  "intervals": [
+   0,
+   -2,
+   2,
+   -4,
+   -3,
+   3,
+   2,
+   3,
+   -1,
+   -4,
+   2
+  ],
+  "alt_intervals": [],
+  "verified": true,
+  "public_domain": true,
+  "source": "abc",
+  "source_url": "https://github.com/syntithenai/abc2book/blob/4d24f4cf30ae074f21190d8a2dae771c3426d316/abcresources/folktunefinder/abc_tune_folktunefinder_84292.txt",
+  "remark": "Michel Bellon's ABC from the Llibre Vermell de Montserrat (G, 2/2); the F-major copy (folktunefinder 40202: D D C D Bb G Bb C Eb D Bb C) and the thesession.org polka 10159 (B B A B G E G A c B G A) give identical intervals, so three notations agree. No pickup. Medieval melody PD."
+ },
+ {
+  "name": "Saltarello (Add. 29987, first saltarello)",
+  "intervals": [
+   -7,
+   7,
+   -7,
+   7,
+   -7,
+   7,
+   -2,
+   -3,
+   1,
+   2,
+   -2
+  ],
+  "alt_intervals": [
+   [
+    5,
+    -5,
+    5,
+    -5,
+    5,
+    -5,
+    -2,
+    -3,
+    1,
+    2,
+    -2
+   ]
+  ],
+  "verified": true,
+  "public_domain": true,
+  "source": "abc",
+  "source_url": "https://github.com/syntithenai/abc2book/blob/4d24f4cf30ae074f21190d8a2dae771c3426d316/abcresources/norbeck/abc_tune_norbeck_2910.abc",
+  "remark": "Norbeck's collection 'Saltarello' (labelled 14th century Italian, E dorian, 2/4); first 2 notes G A are the pickup into the repeat (they only appear as an ABC anacrusis mirroring the first-ending), skipped. The Dead Can Dance-derived ABC (jc 201333749, 'Saltarello', no pickup) gives identical intervals B E B E B E B A F# G A G. Absolute octaves as written (B down to E, E up to B: +-7); the real melody may spell the same pitch classes with fourth leaps (+-5): treat as interval classes +-5/+-7. Not verified against the manuscript facsimile."
+ },
+ {
+  "name": "Wild Mountain Thyme / Will Ye Go Lassie Go (verse)",
+  "intervals": [
+   2,
+   2,
+   0,
+   -2,
+   -2,
+   -3,
+   3,
+   4,
+   3,
+   2,
+   0
+  ],
+  "alt_intervals": [
+   [
+    -3,
+    -2,
+    0,
+    2,
+    3,
+    0,
+    0,
+    4,
+    3,
+    2,
+    -2
+   ]
+  ],
+  "verified": true,
+  "public_domain": false,
+  "source": "abc",
+  "source_url": "https://github.com/syntithenai/abc2book/blob/4d24f4cf30ae074f21190d8a2dae771c3426d316/abcresources/folktunefinder/abc_tune_folktunefinder_51369.txt",
+  "remark": "Verse 'Oh the summer time is coming' as in folktunefinder 51102/51369 (G, 4/4) and jc 201360967 (D): identical in 3 copies. The chorus 'Will ye go lassie go' starts G E D D E G G G B D E D [-3,-2,0,2,3,0,0,4,3,2,-2] (jc 201212396 'A17', thesession.org 10655/23161, norbeck 2752); the song may be sung from either. PUBLIC DOMAIN: not established - Francis McPeake claimed the 1957 song/arrangement (copyright, died 1971 so UK PD only from 2042); the tune is related to Tannahill's 'The Braes o' Balquhidder' (1810) but the shape here is the McPeake version. Treat as not PD."
+ },
+ {
+  "name": "Katyusha (Blanter 1938)",
+  "intervals": [
+   2,
+   1,
+   -3,
+   3,
+   0,
+   -1,
+   -2,
+   2,
+   -7,
+   7,
+   1
+  ],
+  "alt_intervals": [
+   [
+    2,
+    1,
+    -3,
+    3,
+    2,
+    -2,
+    -1,
+    -2,
+    2,
+    -7,
+    7
+   ]
+  ],
+  "verified": true,
+  "public_domain": false,
+  "source": "abc",
+  "source_url": "https://thesession.org/tunes/14315",
+  "remark": "thesession.org 14315 setting 1 (A minor: A B C A C C B A B E B C) and the Wikifonia ABC of Matvei Blanter's score (wikifonia-dataset/original-abc/MatveiBlanterKatyusha.abc, 'All Rights Reserved', E minor shape) give identical intervals; thesession setting 0 is a variant ('cd/c/ BA' gives A B C A C D C B A B E B [2,1,-3,3,2,-2,-1,-2,2,-7,7]). NOT PUBLIC DOMAIN in many places (Blanter d. 1990): interval shape only."
+ },
+ {
+  "name": "Ederlezi",
+  "intervals": [
+   2,
+   1,
+   2,
+   -2,
+   -1,
+   -2,
+   2,
+   1
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": null,
+  "source": "interval shape written from memory (08.10.2026); no notation found in three attempts",
+  "source_url": null,
+  "remark": null
+ },
+ {
+  "name": "Concerning Hobbits (film)",
+  "intervals": [
+   2,
+   2,
+   3,
+   -3,
+   -2,
+   -2,
+   2,
+   2
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (08.10.2026); a film or game theme: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": null
+ },
+ {
+  "name": "Game of Thrones title (TV)",
+  "intervals": [
+   -7,
+   3,
+   2,
+   -2,
+   -3,
+   -7,
+   3,
+   2
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (08.10.2026); a film or game theme: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": null
+ },
+ {
+  "name": "Dragonborn (Skyrim)",
+  "intervals": [
+   0,
+   0,
+   0,
+   2,
+   -2,
+   0,
+   0,
+   0
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (08.10.2026); a film or game theme: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": null
+ },
+ {
+  "name": "Hedwig's Theme (film)",
+  "intervals": [
+   5,
+   3,
+   -1,
+   -2,
+   5,
+   -7,
+   7,
+   2
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (08.10.2026); a film or game theme: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": null
+ },
+ {
+  "name": "Braveheart main theme (film)",
+  "intervals": [
+   2,
+   3,
+   2,
+   -2,
+   -3,
+   3,
+   2,
+   2
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (08.10.2026); a film or game theme: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": null
+ }
+]

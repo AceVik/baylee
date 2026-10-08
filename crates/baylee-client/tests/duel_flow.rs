@@ -16,6 +16,7 @@ use baylee_client_core::browser::{Browser, Names};
 use baylee_client_core::cue::Cue;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::interaction::{CombatFocus, Interaction, ending_reason, outcome, verdict};
+use baylee_client_core::music;
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};
 use baylee_core::preset::{
     AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,
@@ -340,6 +341,10 @@ struct Client {
     asked: Option<&'static str>,
     /// The answer itself, as the engine saw it.
     sent: Option<String>,
+    /// What the music was asked for on every view, by the client's own
+    /// drivers (`music::direct`), and their memory between views.
+    music: Vec<music::ScoreRequest>,
+    heard: music::Memory,
 }
 
 impl Client {
@@ -354,6 +359,9 @@ impl Client {
                         self.statics.as_ref().map_or(&[][..], |s| &s.seats),
                         baylee_client::cardart::registry(),
                     ));
+                    let request =
+                        music::direct(music::Place::Table, Some(&v), None, &mut self.heard, 0.25);
+                    self.music.push(request);
                     self.view = Some(*v);
                 }
                 HostMessage::Choice(p) => self.pending = Some(*p),
@@ -1273,6 +1281,54 @@ fn a_whole_game_can_be_won_through_the_clients_combat_path() {
         "the opponent should be dead, at {}",
         them.life
     );
+}
+
+/// The music follows a house game played offline (`LocalHost`: no gateway,
+/// no socket, no network) exactly as it would a hosted one, because its
+/// drivers read only the `PlayerView`: the attack calls the hunt and raises
+/// the tension above the quiet board, the opponent's falling life raises it
+/// further, and the result is the victory. The score that plays it is in the
+/// binary (`bank_is_complete_and_embedded`), so nothing is fetched.
+#[test]
+fn the_music_follows_a_house_game_offline() {
+    let (client, _) = run(&combat_preset(9), 4_000, Fight::Always);
+    let Some(Pending::GameOver(result)) = &client.pending else {
+        panic!("the game never ended: {:?}", client.pending);
+    };
+    let heard = &client.music;
+    assert!(heard.len() > 3, "{} views", heard.len());
+    let quiet = heard[0].tension;
+    assert!(heard.iter().all(|r| r.scene == music::Scene::Table));
+    let attack = heard
+        .iter()
+        .find(|r| r.combat)
+        .expect("an attack was declared and heard");
+    assert!(
+        attack.hunts >= 1 && attack.hunt_mine,
+        "this seat's attack calls the horn"
+    );
+    assert!(attack.tension > quiet + 0.2, "{quiet} → {}", attack.tension);
+    assert!(
+        heard.iter().any(|r| r.low_life || r.lethal),
+        "the end of the game reads as dangerous"
+    );
+    let hunts = heard.last().map_or(0, |r| r.hunts);
+    let turns = client.view.as_ref().map_or(0, |v| v.turn);
+    assert!(
+        u32::from(hunts) <= turns,
+        "one horn call a turn at most: {hunts} in {turns} turns"
+    );
+    let view = client.view.as_ref().expect("a final view");
+    let mut memory = music::Memory::default();
+    let ending = music::Ending::of(outcome(result, view.seat, None).won());
+    let request = music::direct(
+        music::Place::Finished,
+        Some(view),
+        Some(ending),
+        &mut memory,
+        0.25,
+    );
+    assert_eq!(request.scene, music::Scene::Victory);
 }
 
 #[test]

@@ -39,6 +39,7 @@ test-support = []
 
 [dev-dependencies]
 criterion.workspace = true
+sha2.workspace = true
 
 # Per-call costs outside the renderer (`docs/perf-client.md`):
 # `cargo bench -p baylee-client-core --features test-support --bench client`.
