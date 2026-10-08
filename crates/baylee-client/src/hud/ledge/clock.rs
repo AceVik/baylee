@@ -108,10 +108,7 @@ pub struct DecisionClockLabel;
 pub fn count_down_the_decision(
     time: Res<Time>,
     mut duel: ResMut<crate::Duel>,
-    mut label: Query<
-        (&mut Text, Option<&mut TextColor>, Has<BesideTheQuestion>),
-        With<DecisionClockLabel>,
-    >,
+    mut label: Query<ClockCell, With<DecisionClockLabel>>,
 ) {
     // Past change detection, as `sound::tell_the_cues_the_time` tells the
     // cue queue the time: a clock ticking is not the duel changing, and a
@@ -153,6 +150,14 @@ pub fn count_down_the_decision(
         }
     }
 }
+
+/// What [`count_down_the_decision`] writes: the digits, the ink where the
+/// cell has its own, and whether it is the cell beside the question.
+type ClockCell = (
+    &'static mut Text,
+    Option<&'static mut TextColor>,
+    Has<BesideTheQuestion>,
+);
 
 /// Marks the countdown's own cell beside the question, the one whose ink
 /// follows the clock's [`Urgency`](baylee_client_core::decisionclock::Urgency).
