@@ -308,10 +308,10 @@ impl<L: CardLookup> Engine<L> {
             if !from_hand {
                 continue;
             }
-            if casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
-                && self.has_a_legal_target(player, card)
-            {
-                legal.castable.push(card);
+            match casting::can_cast(&self.state, &self.lookup, player, card) {
+                Ok(()) if self.has_a_legal_target(player, card) => legal.castable.push(card),
+                Err(casting::CastError::NotEnoughMana) => legal.payable.push(card),
+                _ => {}
             }
         }
         // Adventure + Opposition Agent: cards castable from exile.
@@ -374,10 +374,10 @@ impl<L: CardLookup> Engine<L> {
         // The emblems sharing that zone are filtered out by `can_cast`,
         // which asks the marker list rather than the zone.
         for &card in self.state.zones.list(ZoneLocation::Command(player)) {
-            if casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
-                && self.has_a_legal_target(player, card)
-            {
-                legal.castable.push(card);
+            match casting::can_cast(&self.state, &self.lookup, player, card) {
+                Ok(()) if self.has_a_legal_target(player, card) => legal.castable.push(card),
+                Err(casting::CastError::NotEnoughMana) => legal.payable.push(card),
+                _ => {}
             }
         }
         // Flashback (CR 702.34) and disturb (CR 702.146): a card in your own
@@ -787,6 +787,7 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         self.offer_granted_actions(player, &mut legal);
+        self.settle_payable(player, &mut legal);
         self.narrow_under_chosen_names(&mut legal);
         self.narrow_under_split_second(&mut legal);
         self.narrow_to_mana_window(player, &mut legal);
@@ -933,9 +934,39 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         legal.castable.clear();
+        legal.payable.clear();
         legal.suspendable.clear();
         legal.abilities.retain(|&(source, index)| {
             crate::choice::is_special_action(index) || self.is_mana_offer(source, index)
+        });
+    }
+
+    /// Keeps of the cards the pool could not pay for (`legal.payable`, the
+    /// candidates the sweep collected) those that may be cast and paid for
+    /// while casting (CR 601.2g): only while the seat has a mana ability on
+    /// offer, and only a card with something to point at, as `castable`.
+    fn settle_payable(&self, player: PlayerId, legal: &mut LegalActions) {
+        if legal.payable.is_empty() {
+            return;
+        }
+        let makes_mana = !legal.mana_abilities.is_empty()
+            || legal
+                .abilities
+                .iter()
+                .any(|&(source, index)| self.is_mana_offer(source, index))
+            || legal.granted_actions.iter().any(|offer| {
+                matches!(
+                    offer.effect,
+                    crate::choice::GrantedActionKind::AddMana { .. }
+                )
+            });
+        if !makes_mana {
+            legal.payable.clear();
+            return;
+        }
+        legal.payable.retain(|&card| {
+            casting::can_cast_paying_later(&self.state, &self.lookup, player, card).is_ok()
+                && self.has_a_legal_target(player, card)
         });
     }
 
@@ -988,6 +1019,7 @@ impl<L: CardLookup> Engine<L> {
             .retain(|offer| offer.timing == baylee_cards_dsl::SpecialActionTiming::ManaAbility);
         legal.lands.clear();
         legal.castable.clear();
+        legal.payable.clear();
         legal.suspendable.clear();
         legal
             .abilities

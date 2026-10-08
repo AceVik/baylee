@@ -3635,7 +3635,7 @@ Throne of the High City; the DSL has no "if you're the monarch" condition and
 no "whenever you become the monarch" trigger, because no pool card prints
 either. The journal event is what such a trigger would read.
 
-### 64. A painland's colour was out of the planner's reach, and City of Brass stopped the cast it paid for — PART FIXED
+### 64. A painland's colour was out of the planner's reach, and City of Brass stopped the cast it paid for — FIXED
 
 Owner, 08.10.2026: "whenever the player casts something and this land gets
 tapped, the cast is interrupted and the mana is auto-tapped" (painlands,
@@ -3686,4 +3686,22 @@ Tests, red before: `pain::white_and_blue_from_a_plains_and_a_painland_casts_the_
 `baylee-ai payment_tests::the_ai_taps_a_painland_for_its_colour_only_when_the_colour_needs_it`;
 `gamehost ai_decisions::a_mana_land_that_also_counts_pays_for_the_spell` was
 the pinned #170 limitation and now asserts the cast.
+
+**The second half, fixed the same day** (owner: into beta.6). The client
+casts first and pays inside the cast (CR 601.2g). The engine offers it as
+`LegalActions::payable` (`casting::can_cast_paying_later`, every rule of
+`can_cast` but the pool), takes `CastSpell` for such a card
+(`priority_fault`), runs the wizard with `CastWizard::pay_in_window`, which
+`cast_options` reads as deferred mana and `makes_mana_after_choices` folds
+into the window `cast_or_make_miracle_mana` opens; triggers wait through the
+window (`advance_payment_window`) and go on the stack above the spell. A
+window passed short reverses the cast and the player keeps priority
+(CR 732.2: `finish_miracle_payment` now calls `after_action` for such a
+cast; it handed priority on before). The client is `ManaRun::cast_first`.
+`pain::city_of_brass_as_the_only_colour_still_stops_a_creature_cast` became
+`city_of_brass_as_the_only_colour_pays_for_a_creature_cast_first`. New:
+`engine::pay_in_cast_tests` (four tests),
+`pain::a_painland_beside_a_damage_trigger_pays_for_a_creature_cast_first`
+(Living Artifact on a Sol Ring), and the Khalni Ambush cast-mode test now
+follows the cast through its targets and window.
 

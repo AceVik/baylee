@@ -540,6 +540,15 @@ fn fire_cast_payment(duel: &mut Duel, object: ObjectId, plan: baylee_client_core
         .cast_answer
         .as_ref()
         .is_some_and(|(card, _)| *card == object);
+    // A card the pool cannot pay for yet is cast first and paid for in the
+    // window its cast opens (CR 601.2g), so the mana's triggers wait until
+    // it is cast (CR 601.2i). The plan that made it reachable is only the
+    // promise that the window can be paid.
+    let payable = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+        .is_some_and(|legal| legal.payable.contains(&object));
     if chosen {
         let Some(plan) = chosen_cast_plan(duel, object) else {
             duel.cast_answer = None;
@@ -547,7 +556,11 @@ fn fire_cast_payment(duel: &mut Duel, object: ObjectId, plan: baylee_client_core
             return;
         };
         duel.last_error = None;
-        duel.mana_run = Some(crate::ManaRun::new(plan, object, crate::RunEnd::Cast));
+        duel.mana_run = Some(if payable {
+            crate::ManaRun::cast_first(object)
+        } else {
+            crate::ManaRun::new(plan, object, crate::RunEnd::Cast)
+        });
     } else if let Some(action) = duel
         .interaction
         .as_ref()
@@ -558,7 +571,11 @@ fn fire_cast_payment(duel: &mut Duel, object: ObjectId, plan: baylee_client_core
         duel.submit(action);
     } else if duel.reachable.contains(&object) {
         duel.last_error = None;
-        duel.mana_run = Some(crate::ManaRun::new(plan, object, crate::RunEnd::Cast));
+        duel.mana_run = Some(if payable {
+            crate::ManaRun::cast_first(object)
+        } else {
+            crate::ManaRun::new(plan, object, crate::RunEnd::Cast)
+        });
     } else {
         duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
     }

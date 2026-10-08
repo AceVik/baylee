@@ -741,7 +741,47 @@ pub fn can_cast(
     player: PlayerId,
     card: ObjectId,
 ) -> Result<(), CastError> {
-    let normal = can_cast_form(state, lookup, player, card, None);
+    can_cast_paying(state, lookup, player, card, Paying::FromThePool)
+}
+
+/// Whether `card` could be cast by `player` right now if its mana is made
+/// while it is being cast (CR 601.2g): every rule [`can_cast`] asks, except
+/// that no mana cost is asked to be in the pool already.
+///
+/// What it does not know is whether the seat's mana abilities can make that
+/// mana, which is a question about colours and amounts a player answers by
+/// tapping; a cast that cannot be paid is reversed in its payment window
+/// (CR 601.2h, 732.1).
+///
+/// # Errors
+/// [`CastError`] describing the first legality violation.
+pub fn can_cast_paying_later(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+) -> Result<(), CastError> {
+    can_cast_paying(state, lookup, player, card, Paying::DuringTheCast)
+}
+
+/// Where a cast's mana is asked to come from: the pool as it stands, or
+/// mana abilities activated during the cast (CR 601.2g).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Paying {
+    /// The mana must already be floating.
+    FromThePool,
+    /// No mana cost is asked of the pool.
+    DuringTheCast,
+}
+
+fn can_cast_paying(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+    paying: Paying,
+) -> Result<(), CastError> {
+    let normal = can_cast_form_paying(state, lookup, player, card, None, paying);
     if normal.is_ok() {
         return normal;
     }
@@ -758,7 +798,7 @@ pub fn can_cast(
         .into_iter()
         .flatten()
         {
-            if can_cast_form(state, lookup, player, card, Some(form)).is_ok() {
+            if can_cast_form_paying(state, lookup, player, card, Some(form), paying).is_ok() {
                 return Ok(());
             }
         }
@@ -784,13 +824,19 @@ pub(crate) fn may_begin_casting(state: &GameState, player: PlayerId) -> bool {
 }
 
 #[allow(clippy::too_many_lines)] // one gate per casting rule
-pub(crate) fn can_cast_form(
+pub(crate) fn can_cast_form_paying(
     state: &GameState,
     lookup: &impl crate::state::CardLookup,
     player: PlayerId,
     card: ObjectId,
     form: Option<SpellForm>,
+    paying: Paying,
 ) -> Result<(), CastError> {
+    // Every mana probe below asks the pool, unless the mana is made during
+    // the cast; the other parts of a cost are asked either way.
+    let affordable = |state: &GameState, player: PlayerId, pool: &ManaPool, cost: &ManaCost| {
+        paying == Paying::DuringTheCast || affordable(state, player, pool, cost)
+    };
     let obj = state.object(card).ok_or(CastError::NotInHand)?;
     let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
     let in_own_graveyard = obj.zone == Zone::Graveyard && obj.zone_owner == Some(player);

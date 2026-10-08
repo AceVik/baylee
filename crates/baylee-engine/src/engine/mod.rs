@@ -1813,6 +1813,8 @@ mod offer_tests;
 #[cfg(test)]
 mod pact_payment_tests;
 #[cfg(test)]
+mod pay_in_cast_tests;
+#[cfg(test)]
 mod phasing_tests;
 #[cfg(test)]
 mod player_damage_tests;

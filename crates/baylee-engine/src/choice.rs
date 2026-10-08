@@ -1509,7 +1509,9 @@ fn priority_fault(legal: &LegalActions, deed: &PlayerAction) -> Option<AnswerFau
     let listed = match deed {
         PlayerAction::PassPriority => true,
         PlayerAction::PlayLand { card } => legal.lands.contains(card),
-        PlayerAction::CastSpell { card } => legal.castable.contains(card),
+        PlayerAction::CastSpell { card } => {
+            legal.castable.contains(card) || legal.payable.contains(card)
+        }
         PlayerAction::ActivateAbility {
             source,
             ability_index,
@@ -2009,6 +2011,16 @@ pub struct LegalActions {
     pub lands: Vec<ObjectId>,
     /// Castable cards in hand (timing + mana verified).
     pub castable: Vec<ObjectId>,
+    /// Cards in hand or the command zone that may be cast now and paid for
+    /// while they are cast (CR 601.2g): every rule `castable` asks holds
+    /// except that the mana is not floating yet. Offered only while the seat
+    /// has a mana ability to activate. `CastSpell` for one runs the cast's
+    /// choices, then opens a payment window (`PlayerView::owed`); passing
+    /// in it with the cost unpaid reverses the cast (CR 601.2h, 732.1).
+    /// Whether the seat's sources can make that mana is not checked: that
+    /// is the planner's question. Never in `castable` as well.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub payable: Vec<ObjectId>,
     /// Public rules-effect increases, excluding commander tax, for mana planning.
     /// Form-specific entries override Normal; alternatives use Normal's color.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

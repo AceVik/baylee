@@ -17,6 +17,11 @@ const BRASS: &str = "f25351e3-539b-4bbc-b92d-6480acf4d722";
 const ZEALOT: &str = "989a7353-8d3d-4ea2-ab5e-8535d95dddae";
 /// Crystalline Sliver, `{W}{U}`: a creature, so cast only with an empty stack.
 const SLIVER: &str = "ba3aa1eb-722a-47d3-83be-96daddb50265";
+/// Living Artifact: "Whenever you're dealt damage, put that many vitality
+/// counters on this Aura."
+const LIVING_ARTIFACT: &str = "4ff9af56-ac18-4966-9e48-183e1ca1c2d0";
+/// Sol Ring, the artifact it enchants.
+const SOL_RING: &str = "6ad8011d-3471-4369-9d68-b264cc027487";
 
 /// Seat 0 with `hand` and these lands, in its first main phase.
 fn table_with(hand: &[&str], lands: &[&str]) -> Table {
@@ -126,22 +131,79 @@ fn city_of_brass_is_passed_over_when_a_clean_land_makes_the_colour() {
     assert_eq!(life(&table), before, "the City was never tapped");
 }
 
-/// **A pinned limitation**, the half of the owner's report a planner cannot
-/// reach. City of Brass is the only white here, and its damage is a
-/// triggered ability: tapped before the spell, as this client pays (the mana
-/// floats first, then the spell is cast), the trigger goes on the stack the
-/// next time a player would receive priority (CR 603.3), which is right
-/// then, and a creature can no longer be cast. The run stops with the City
-/// tapped and the mana floating. Any painland does the same the moment
-/// something on the board triggers on damage or life loss.
-///
-/// The rules answer is to tap inside the cast (CR 601.2g), where a trigger
-/// waits until the spell has been cast (CR 601.2i). That is a change to how
-/// this client casts, and this test goes red the day it lands.
+/// The owner's report (08.10.2026), and the half a planner could not reach:
+/// City of Brass is the only white here, and its damage is a triggered
+/// ability. Tapped before the cast, as this client used to pay, its trigger
+/// went on the stack first and a creature could no longer be cast
+/// (`PlanSpellRefused`, the lands tapped and the mana floating). The card
+/// is now cast first and paid for in the window its cast opens (CR 601.2g),
+/// so the trigger waits until the creature is cast (CR 601.2i) and goes on
+/// the stack above it.
 #[test]
-fn city_of_brass_as_the_only_colour_still_stops_a_creature_cast() {
+fn city_of_brass_as_the_only_colour_pays_for_a_creature_cast_first() {
     let mut table = table_with(&[SLIVER], &[ISLAND, BRASS]);
-    let refusal = click_to_cast(&mut table, "Crystalline Sliver");
-    assert_eq!(refusal.as_deref(), Some("Said(PlanSpellRefused)"));
-    assert!(!on_stack_or_battlefield(&table, "Crystalline Sliver"));
+    let before = life(&table);
+    assert_eq!(click_to_cast(&mut table, "Crystalline Sliver"), None);
+    let stack: Vec<&str> = table.view().stack.iter().map(|o| o.name.as_str()).collect();
+    assert_eq!(
+        stack.len(),
+        2,
+        "the creature and the City's trigger: {stack:?}"
+    );
+    assert_eq!(stack[0], "Crystalline Sliver", "the creature underneath");
+    assert_eq!(life(&table), before, "the trigger has not resolved yet");
+}
+
+/// Living Artifact ("Whenever you're dealt damage") on a Sol Ring, and
+/// Adarkar Wastes paying the blue: the painland's damage sets off the Aura.
+/// Paid before the cast, the Aura's trigger stopped it; paid inside it, the
+/// trigger waits above the creature.
+#[test]
+fn a_painland_beside_a_damage_trigger_pays_for_a_creature_cast_first() {
+    let mut preset = white_preset(&[LIVING_ARTIFACT, SLIVER], 0);
+    preset.seats[0].starting_battlefield = [FOREST, SOL_RING, PLAINS, ADARKAR]
+        .iter()
+        .map(|l| entry(l))
+        .collect();
+    let mut table = Table::open_with(&preset);
+    table.walk_to_main();
+    let named = |table: &Table, name: &str| {
+        table
+            .view()
+            .battlefield
+            .iter()
+            .find(|o| o.name == name)
+            .unwrap_or_else(|| panic!("{name} on the table"))
+            .id
+    };
+    let (forest, ring) = (named(&table, "Forest"), named(&table, "Sol Ring"));
+    table.submit(PlayerAction::ActivateManaAbility { source: forest });
+    table.submit(PlayerAction::CastSpell {
+        card: id_in_hand(&table, "Living Artifact"),
+    });
+    table.submit(PlayerAction::ChooseTargets {
+        objects: vec![ring],
+        players: vec![],
+    });
+    while !table.view().stack.is_empty() {
+        table.submit(PlayerAction::PassPriority);
+    }
+    assert!(
+        table
+            .view()
+            .battlefield
+            .iter()
+            .any(|o| o.name == "Living Artifact")
+    );
+
+    let before = life(&table);
+    assert_eq!(click_to_cast(&mut table, "Crystalline Sliver"), None);
+    let stack: Vec<&str> = table.view().stack.iter().map(|o| o.name.as_str()).collect();
+    assert_eq!(
+        stack.len(),
+        2,
+        "the creature and the Aura's trigger: {stack:?}"
+    );
+    assert_eq!(stack[0], "Crystalline Sliver");
+    assert_eq!(life(&table), before - 1, "the Wastes' blue cost a life");
 }

@@ -4632,6 +4632,24 @@ The two differ in one thing that is not a colour: the `Surface` they hand it.
 A zone row is a projection and a pool row is a printing, so the flags an `is:`
 row offers and the rows the panel warns about are not the same on both.
 
+## A cast paid for while it is cast (`LegalActions::payable`, 08.10.2026)
+
+A card the pool cannot pay for is no longer paid for first and cast second.
+That order put the mana's own triggers on the stack between the taps and the
+cast (City of Brass; any painland beside "whenever you're dealt damage"), a
+creature could no longer be cast, and the run stopped with the lands tapped
+and the mana floating (`PlanSpellRefused`). `fire_cast_payment` starts
+`ManaRun::cast_first` for a card in `LegalActions::payable`: the cast is sent
+first, the cast's own questions (mode through `take_the_chosen_cast_mode`,
+X, targets) are the player's and the run waits through them, and the payment
+window the cast opens is planned the way the pay button plans it
+(`Duel::compute_owed_plan`, against the pool as it stands) and settled. A
+window nothing can pay is passed, which reverses the cast. `reachable` still
+decides whether the card is lit; the plan that made it reachable is only the
+promise that the window can be paid. A card already `castable` (mana floating,
+or Phyrexian life alone) takes the old run. The house AI still floats first:
+it casts only from `castable`.
+
 ## A payment window, and the sentence it did not have
 
 A CR 605.3a payment window is **deliberately shaped like nothing**: an
