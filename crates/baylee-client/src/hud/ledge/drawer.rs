@@ -43,6 +43,10 @@ use baylee_client_core::Prompt;
 use baylee_engine::choice::Pending;
 
 mod attack;
+mod sheet;
+
+pub use sheet::{SheetPill, SheetSource, SheetTitle};
+pub(crate) use sheet::{sheet_asked, sheet_up};
 
 /// The widest, which is the slip's old ceiling: past this a line of prose
 /// stops being one line and starts being a paragraph.
@@ -169,12 +173,28 @@ pub struct DrawerRevision {
     /// The slide that puts the panel over the question, in logical pixels of
     /// padding on one side.
     shift: f32,
+    /// The sheet's head, and whether it is folded to its pill.
+    head: Option<sheet::Head>,
+    /// The creature-type chooser's quick list: the deck's most-played
+    /// offered types, each with its count (item 8).
+    quick: Vec<crate::choices::ChoiceOption>,
+    /// The letter group the type chooser's full list shows, while it
+    /// stands (`typechooser::GROUPS`).
+    group: Option<usize>,
+    /// Whether the window is a phone's, where a chooser's cells are 44-px
+    /// targets.
+    phone: bool,
+    /// The fold control's key cap, which a player may rebind.
+    fold_cap: Option<String>,
 }
 
 impl DrawerRevision {
     /// Whether there is anything at all to draw.
     fn empty(&self) -> bool {
-        self.lines.is_empty() && self.number.is_none() && self.filter.is_none()
+        self.head.is_none()
+            && self.lines.is_empty()
+            && self.number.is_none()
+            && self.filter.is_none()
             // Rows are drawn even when the list is empty *if* a filter is
             // open — see the filter's own comment — but an empty list with no
             // filter is a chooser with nothing in it, which is no chooser.
@@ -230,15 +250,26 @@ pub fn sync_drawer(
     mut zooms: Query<&mut DrawerZoom>,
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
-    texts: Res<crate::cardtext::CardTexts>,
+    (texts, prefs): (Res<crate::cardtext::CardTexts>, Res<crate::prefs::Prefs>),
+    (mut textures, assets): (Option<ResMut<CardTextures>>, Option<Res<AssetServer>>),
     mut cloth: Option<ResMut<crate::frontal::Cloth>>,
     mut materials: Option<ResMut<Assets<crate::frontal::FrontalMaterial>>>,
+    (pills, windows): (Query<(), With<SheetPill>>, Query<&Window>),
 ) {
     let Ok((root, standing)) = root.single() else {
         return;
     };
     let lang = Lang::of(&settings.lang);
-    let next = reading(&duel, lang, &texts, &layout);
+    let mut next = reading(&duel, lang, &texts, &layout);
+    next.phone = windows.single().is_ok_and(|w| {
+        baylee_client_core::tableview::TableFrame::of(w.width(), w.height())
+            == baylee_client_core::tableview::TableFrame::Phone
+    });
+    next.fold_cap = prefs
+        .keymap()
+        .chords(baylee_client_core::prefs::Action::FoldDecision)
+        .first()
+        .map(baylee_client_core::prefs::Chord::display);
     let shut = next.empty();
     // At most one, and it is the panel. `Option` rather than a loop because
     // everything below asks what state that one panel is in.
@@ -253,6 +284,10 @@ pub fn sync_drawer(
     // is on screen only because §7 gives the drawer a way out as well as a
     // way in.
     let open = hanging.is_some_and(|(_, closing)| !closing);
+    // A fold swaps the panel for the pill and back: a different thing
+    // hangs there, so the one hanging goes and the other opens.
+    let folded = next.head.as_ref().is_some_and(|h| h.folded);
+    let hanging = hanging.filter(|(panel, _)| pills.contains(*panel) == folded);
     // The second half is the same guard the shelf carries and is here for the
     // same reason turned the other way up: a node spawned afresh with the
     // revision still describing the panel that used to hang off it. The tree
@@ -264,7 +299,15 @@ pub fn sync_drawer(
     *revision = next;
 
     if let Ok(mut node) = node.single_mut() {
-        node.padding = super::mid_padding(layout.mid_x, layout.window_w);
+        // Folded, the pill stands at the window's right edge; open, the
+        // sheet over the question.
+        if folded {
+            node.padding = UiRect::right(px(EDGE));
+            node.justify_content = JustifyContent::FlexEnd;
+        } else {
+            node.padding = super::mid_padding(layout.mid_x, layout.window_w);
+            node.justify_content = JustifyContent::Center;
+        }
     }
     if shut {
         // Sent away rather than despawned. `zoom_the_drawer` is what takes it
@@ -297,6 +340,18 @@ pub fn sync_drawer(
             if let Some((leaving, _)) = was {
                 commands.entity(leaving).despawn();
             }
+            // A pill or a panel standing in the other's place goes too.
+            for kid in standing.into_iter().flatten() {
+                if Some(*kid) != was.map(|(p, _)| p) {
+                    commands.entity(*kid).despawn();
+                }
+            }
+            if folded {
+                let picture =
+                    picture_of(&revision, &duel, textures.as_deref_mut(), assets.as_deref());
+                hang_the_pill(&mut commands, &fonts, &revision, picture, root);
+                return;
+            }
             spawn_panel(
                 &mut commands,
                 root,
@@ -307,8 +362,39 @@ pub fn sync_drawer(
         }
     };
 
+    if folded {
+        // The pill says what it said; nothing under it changed.
+        return;
+    }
+    let picture = picture_of(&revision, &duel, textures.as_deref_mut(), assets.as_deref());
+    fill_panel(
+        &mut commands,
+        &fonts,
+        lang,
+        (&revision, &duel),
+        panel,
+        picture,
+    );
+}
+
+/// Writes the open sheet: its head, the lines, the stepper, the type
+/// chooser's lists and the rows.
+fn fill_panel(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    (revision, duel): (&DrawerRevision, &Duel),
+    panel: Entity,
+    picture: Option<Handle<Image>>,
+) {
+    if let Some(head) = revision.head.as_ref() {
+        let written =
+            sheet::spawn_head(commands, fonts, head, picture, revision.fold_cap.as_deref());
+        commands.entity(panel).add_child(written);
+    }
+
     for line in &revision.lines {
-        let written = sentence(&mut commands, &fonts, &line.text, line.size, line.ink);
+        let written = sentence(commands, fonts, &line.text, line.size, line.ink);
         commands.entity(written).insert(Node {
             max_width: percent(100),
             ..default()
@@ -317,39 +403,106 @@ pub fn sync_drawer(
     }
 
     if let Some(value) = revision.number {
-        let row = stepper(&mut commands, &fonts, value);
+        let row = stepper(commands, fonts, value);
         commands.entity(panel).add_child(row);
     }
 
+    if !revision.quick.is_empty() {
+        let caption = sentence(
+            commands,
+            fonts,
+            Phrase::TypesInDeck.text(lang),
+            HINT_PT,
+            crate::shellkit::tokens::MUTED,
+        );
+        let quick = chooser(
+            commands,
+            fonts,
+            &revision.quick,
+            revision.picked,
+            &[],
+            (revision.decision_id, revision.phone),
+        );
+        commands.entity(panel).add_children(&[caption, quick]);
+    }
+
     if let Some(typed) = revision.filter.clone() {
-        let field = filter_field(&mut commands, &fonts, &typed);
+        let field = filter_field(commands, fonts, &typed);
         commands.entity(panel).add_child(field);
+    }
+
+    if let Some(group) = revision.group {
+        let cells = letter_groups(
+            commands,
+            fonts,
+            group,
+            revision.filter.as_deref(),
+            revision.phone,
+        );
+        commands.entity(panel).add_child(cells);
     }
 
     if !revision.seat_filters.is_empty() {
         let filters = chooser(
-            &mut commands,
-            &fonts,
+            commands,
+            fonts,
             &revision.seat_filters,
             Some(baylee_client_core::targeting::filter_index(
                 duel.target_filter,
             )),
             &[],
-            None,
+            (None, revision.phone),
         );
         commands.entity(panel).add_child(filters);
     }
     if !revision.rows.is_empty() {
         let rows = chooser(
-            &mut commands,
-            &fonts,
+            commands,
+            fonts,
             &revision.rows,
             revision.picked,
             &revision.previews,
-            revision.decision_id,
+            (revision.decision_id, revision.phone),
         );
         commands.entity(panel).add_child(rows);
     }
+}
+
+/// Hangs the folded sheet's pill from the drawer's root, arriving as the
+/// panel does.
+fn hang_the_pill(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    revision: &DrawerRevision,
+    picture: Option<Handle<Image>>,
+    root: Entity,
+) {
+    let Some(head) = revision.head.as_ref() else {
+        return;
+    };
+    let pill = sheet::spawn_pill(commands, fonts, head, picture, revision.fold_cap.as_deref());
+    commands.entity(pill).insert((
+        DrawerZoom::default(),
+        UiTransform {
+            scale: Vec2::splat(motion::ZOOM_FROM),
+            translation: motion::from_bottom(motion::ZOOM_FROM),
+            ..default()
+        },
+    ));
+    commands.entity(root).add_child(pill);
+}
+
+/// The source's picture for the sheet's head, when the view names a source
+/// with one and the textures are there to draw it.
+fn picture_of(
+    revision: &DrawerRevision,
+    duel: &Duel,
+    textures: Option<&mut CardTextures>,
+    assets: Option<&AssetServer>,
+) -> Option<Handle<Image>> {
+    let key = revision.head.as_ref()?.source?.art?;
+    let statics = duel.statics.as_ref()?;
+    Some(textures?.get(key, statics, assets?))
 }
 
 /// The panel itself: the drawer's one child, and the thing that moves.
@@ -562,6 +715,15 @@ fn reading(
     // with nothing on it to click. It is also §5's flat rule — over a dialog
     // stands nothing but the dialog's own sheet.
     let elsewhere = duel.browser.answers_here(duel.interaction.as_ref());
+    let head = sheet::head_of(duel, lang, texts);
+    if head.as_ref().is_some_and(|h| h.folded) {
+        // Folded: the pill, and the table to pick on. The question stands.
+        return DrawerRevision {
+            shift,
+            head,
+            ..DrawerRevision::default()
+        };
+    }
     let mut lines = Vec::new();
 
     // A choice that is answered by clicking has to say so. The bar used to
@@ -638,8 +800,9 @@ fn reading(
     // and a drawer that dropped one and kept the other would draw one question
     // in two different places depending on how it had arrived.
     let mut rows = choice_rows(duel, lang, texts, waiting);
+    let (quick, group) = type_reading(duel, lang, waiting, &mut rows);
     if !waiting && !elsewhere {
-        target_reading(duel, lang, texts, &mut lines, &mut rows);
+        target_reading(duel, lang, texts, head.is_some(), &mut lines, &mut rows);
         attack::reading(duel, lang, texts, &mut lines, &mut rows);
     }
     // The cursor of the one chooser this drawer still draws. `CastMenu::pick`
@@ -670,7 +833,41 @@ fn reading(
         previews,
         picked,
         shift,
+        head,
+        fold_cap: None,
+        quick,
+        group,
+        phone: false,
     }
+}
+
+/// The creature type is the one chooser with two lists: the deck's own
+/// types first (returned), then every offered type by letter or by what is
+/// typed (written over `rows`), and the letter group shown.
+fn type_reading(
+    duel: &Duel,
+    lang: Lang,
+    waiting: bool,
+    rows: &mut Vec<crate::choices::ChoiceOption>,
+) -> (Vec<crate::choices::ChoiceOption>, Option<usize>) {
+    let Some(Prompt::ChooseSubtype { options }) = duel
+        .interaction
+        .as_ref()
+        .filter(|_| !waiting)
+        .map(baylee_client_core::Interaction::prompt)
+    else {
+        return (Vec::new(), None);
+    };
+    let deck = crate::choices::own_cards(duel);
+    let (quick, full) = crate::choices::type_lists(
+        &options,
+        &duel.subtype_filter,
+        duel.subtype_group,
+        lang,
+        &deck,
+    );
+    *rows = full;
+    (quick, Some(duel.subtype_group))
 }
 
 /// Combat's two lines: where this seat is aiming, and what is coming back.
@@ -787,6 +984,72 @@ fn arrow(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str) -> E
         .id()
 }
 
+/// The type chooser's letter groups: six cells, the one shown lit; dimmed
+/// while a filter is typed, which is what the list shows then.
+fn letter_groups(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    group: usize,
+    typed: Option<&str>,
+    phone: bool,
+) -> Entity {
+    let filtering = typed.is_some_and(|t| !t.trim().is_empty());
+    let row = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: px(4),
+                flex_wrap: FlexWrap::Wrap,
+                justify_content: JustifyContent::Center,
+                max_width: percent(100),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for (at, label) in baylee_client_core::typechooser::GROUP_LABELS
+        .iter()
+        .enumerate()
+    {
+        let on = at == group && !filtering;
+        let (fill, edge, ink) = PANEL_KEY;
+        let fill = if on {
+            palette::CANDLE.with_alpha(PICKED_WASH)
+        } else {
+            fill
+        };
+        let cell = commands
+            .spawn((
+                MenuButton {
+                    action: MenuAction::TypeGroup(u8::try_from(at).unwrap_or(0)),
+                },
+                Node {
+                    min_width: px(44),
+                    // A finger's 44 px on a phone (C3-4).
+                    min_height: px(if phone { 44 } else { 26 }),
+                    padding: UiRect::axes(px(8), px(3)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    border: UiRect::all(px(1)),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(fill),
+                BorderColor::all(if on { palette::CANDLE } else { edge }),
+                Feel::new(fill),
+                children![(
+                    Text::new(*label),
+                    tf_bold(fonts, LABEL_PT),
+                    TextColor(if filtering { ink.with_alpha(0.5) } else { ink }),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id();
+        commands.entity(row).add_child(cell);
+    }
+    row
+}
+
 /// The type-to-filter box, for the one choice whose list is too long to look
 /// at.
 fn filter_field(commands: &mut Commands, fonts: &UiFonts, typed: &str) -> Entity {
@@ -830,7 +1093,7 @@ fn chooser(
     rows: &[crate::choices::ChoiceOption],
     picked: Option<usize>,
     previews: &[(usize, ObjectId)],
-    decision_id: Option<baylee_client_core::interaction::DecisionId>,
+    (decision_id, phone): (Option<baylee_client_core::interaction::DecisionId>, bool),
 ) -> Entity {
     let row = commands
         .spawn((
@@ -868,6 +1131,8 @@ fn chooser(
                 },
                 Node {
                     padding: UiRect::axes(px(BUTTON_PAD_X), px(5)),
+                    // A finger's 44 px on a phone.
+                    min_height: if phone { px(44) } else { Val::Auto },
                     border: UiRect::all(px(1)),
                     border_radius: btn_radius(),
                     column_gap: px(ROW_INNER_GAP),
@@ -991,6 +1256,7 @@ fn target_reading(
     duel: &Duel,
     lang: Lang,
     texts: &crate::cardtext::CardTexts,
+    headed: bool,
     lines: &mut Vec<Line>,
     rows: &mut Vec<crate::choices::ChoiceOption>,
 ) {
@@ -1019,8 +1285,11 @@ fn target_reading(
             ink: palette::DOCK_INK,
         });
     };
-    for line in crate::choices::target_question(i, view, lang, texts, duel.statics.as_ref()) {
-        say(line);
+    // Under a sheet's head the source and its sentence are the head's.
+    if !headed {
+        for line in crate::choices::target_question(i, view, lang, texts, duel.statics.as_ref()) {
+            say(line);
+        }
     }
     if let Some(context) = &view.targeting
         && matches!(
@@ -1211,6 +1480,7 @@ mod targeting_tests {
             duel,
             Lang::En,
             &crate::cardtext::CardTexts::default(),
+            false,
             &mut lines,
             &mut rows,
         );

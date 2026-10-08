@@ -1260,6 +1260,12 @@ messages! {
     ActNextArrangement { en: "Next arrangement", de: "Nächste Anordnung" },
     /// Open or shut the hand's drawer on a phone (DESIGN-v8 WA11)
     ActHandDrawer { en: "Open or shut the hand (phone)", de: "Hand auf- oder zuklappen (Telefon)" },
+    /// The creature-type chooser's quick list: the types the deck plays most.
+    TypesInDeck { en: "Most in your deck", de: "Am häufigsten in deinem Deck" },
+    /// The creature-type chooser's full list.
+    TypesAll { en: "All types", de: "Alle Typen" },
+    /// Fold the question's sheet to its pill, or open it again.
+    ActFoldDecision { en: "Fold or open the question's sheet", de: "Entscheidung ein- oder ausklappen" },
     /// The ring (DESIGN-v8 arrangement 1)
     ArrRing { en: "Ring", de: "Ring" },
     /// What the ring does

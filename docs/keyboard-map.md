@@ -35,6 +35,7 @@ Two consequences worth knowing before changing anything here:
 | Choose the table's arrangement (DESIGN-v8): the menu under the top-left pill; while it is up every key is the menu's — `↑` `↓` (or `W` `S`) walk the rows, `Enter`/`Space` choose, `1`–`8` choose a row, `Esc` or `P` shut it | `P`, the pill, or the game menu's row | implemented |
 | The next arrangement offered here (the pill flashes its name) | `⇧P` | implemented |
 | Open or shut the hand's drawer on a phone (DESIGN-v8 WA11; also the tab on the actions bar, tapped or swiped) | `I` | implemented |
+| Fold the question's sheet to its pill at the window's edge, or open it again; the question stands, and the table under the pill takes every pick (the owner, 08.10.2026; also the sheet's fold control and a press on the pill) | `X` | implemented |
 | Aim the next attack (or block) at the next defender | `C` / `⇧C` | implemented |
 | Declare nothing — no attackers, or no blockers | `O` | implemented |
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |

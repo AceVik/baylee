@@ -232,6 +232,11 @@ pub(super) fn look_around(
     if fired.has(Action::HandDrawer) {
         duel.toggle_hand_drawer();
     }
+    // The question's sheet folds to its pill and back; only while a sheet
+    // question stands, so the key never folds the next one in advance.
+    if fired.has(Action::FoldDecision) && crate::hud::sheet_asked(duel) {
+        duel.fold_decision();
+    }
     // The rail: move the highlight here, toggle it with the primary key.
     if fired.has(Action::RailUp) {
         prefs.rail_cursor().move_selection(-1);
@@ -368,8 +373,23 @@ pub(super) fn damage_keys(fired: Fired, duel: &mut Duel) -> bool {
     true
 }
 
-/// The same localized, sorted creature-type rows the renderer shows.
+/// The same localized, sorted creature-type rows the renderer shows: the
+/// deck's quick list first, then the full list, as the arrows walk them.
 fn visible_types(duel: &Duel, lang: baylee_client_core::Lang) -> Vec<crate::choices::ChoiceOption> {
+    if let Some(Prompt::ChooseSubtype { options }) =
+        duel.interaction.as_ref().map(Interaction::prompt)
+    {
+        let deck = crate::choices::own_cards(duel);
+        let (mut quick, full) = crate::choices::type_lists(
+            &options,
+            &duel.subtype_filter,
+            duel.subtype_group,
+            lang,
+            &deck,
+        );
+        quick.extend(full);
+        return quick;
+    }
     duel.interaction
         .as_ref()
         .map(Interaction::prompt)
@@ -417,6 +437,9 @@ fn subtype_keys(
             Key::Character(s) => duel
                 .subtype_filter
                 .extend(s.chars().filter(|c| !c.is_control())),
+            // A space is a character here (two-word types), and `Enter`
+            // takes the highlighted chip (TABLE-KEYBOARD §2).
+            Key::Space => duel.subtype_filter.push(' '),
             Key::Backspace => {
                 duel.subtype_filter.pop();
             }
@@ -457,7 +480,7 @@ fn subtype_keys(
         }
         return true;
     }
-    if (fired.has(Action::Confirm) || fired.has(Action::Primary))
+    if fired.has(Action::Primary)
         // Only a row that is still on screen: the filter may have moved on
         // since the highlight was set.
         && picked.is_some_and(|p| rows.iter().any(|row| row.index == p))

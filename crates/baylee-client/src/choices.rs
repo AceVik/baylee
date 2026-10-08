@@ -262,6 +262,108 @@ fn subtype_rows(options: &[SubtypeId], filter: &str, lang: Lang) -> Vec<ChoiceOp
     rows
 }
 
+/// The creature-type chooser's two lists (the owner, 08.10.2026, item 8):
+/// the quick list — the offered types this seat's deck's creatures carry
+/// most, each with its count ("Elf · 14") — and the full list under it,
+/// alphabetical in the player's language, filtered by what is typed or, with
+/// nothing typed, by the letter group `group` (`typechooser::GROUPS`).
+///
+/// The deck is the seat's own decklist where this client knows it
+/// (`Duel::own_deck`, a game it hosts itself), and otherwise the seat's own
+/// cards the view has shown it — the hand, its permanents, its graveyard and
+/// exile, its command zone: what a networked seat has seen of its deck. Only
+/// offered types appear in either list, and every row answers with the
+/// offer's own index.
+#[must_use]
+pub fn type_lists(
+    options: &[SubtypeId],
+    filter: &str,
+    group: usize,
+    lang: Lang,
+    deck: &[CardIndex],
+) -> (Vec<ChoiceOption>, Vec<ChoiceOption>) {
+    use baylee_client_core::typechooser::{self, DeckCard};
+    let shown = |id: SubtypeId| {
+        subtypes::name(id).map(|english| {
+            (
+                baylee_client_core::type_names::name(english, lang).to_string(),
+                english.to_string(),
+            )
+        })
+    };
+    let mut counted: Vec<(CardIndex, u32)> = Vec::new();
+    for card in deck {
+        match counted.iter_mut().find(|(c, _)| c == card) {
+            Some((_, n)) => *n += 1,
+            None => counted.push((*card, 1)),
+        }
+    }
+    let cards: Vec<DeckCard<'static>> = counted
+        .iter()
+        .filter_map(|(index, copies)| {
+            let def = baylee_cards::by_index(*index)?;
+            let face = def.faces.first()?;
+            Some(DeckCard {
+                copies: *copies,
+                creature: face.types.contains(baylee_core::types::TypeSet::CREATURE),
+                changeling: def
+                    .keywords
+                    .contains(baylee_cards_dsl::KeywordSet::CHANGELING)
+                    || face
+                        .keywords
+                        .contains(baylee_cards_dsl::KeywordSet::CHANGELING),
+                subtypes: face.subtypes,
+            })
+        })
+        .collect();
+    let quick = typechooser::quick(options, cards, |id| shown(id).map(|(name, _)| name))
+        .into_iter()
+        .map(|row| ChoiceOption::text(row.index, format!("{} · {}", row.name, row.count)))
+        .collect();
+    let typed = !filter.trim().is_empty();
+    let full = typechooser::full(options, filter, shown)
+        .into_iter()
+        .filter(|row| typed || typechooser::group_of(&row.name) == group)
+        .take(TYPE_ROWS)
+        .map(|row| ChoiceOption::text(row.index, row.name))
+        .collect();
+    (quick, full)
+}
+
+/// The most rows the full type list draws at once: a letter group's types
+/// fit, and a filter narrows the rest.
+pub const TYPE_ROWS: usize = 60;
+
+/// The seat's own cards this client knows of, for the type chooser's quick
+/// list: its decklist where it hosts the game, else what the view has shown
+/// it of its own.
+#[must_use]
+pub fn own_cards(duel: &crate::Duel) -> Vec<CardIndex> {
+    if !duel.own_deck.is_empty() {
+        return duel.own_deck.clone();
+    }
+    let Some(view) = duel.view.as_ref() else {
+        return Vec::new();
+    };
+    let me = view.seat;
+    let mine = |o: &&baylee_view::PublicObject| o.owner == me;
+    let at = me.get() as usize;
+    view.hand
+        .iter()
+        .map(|h| h.card.index)
+        .chain(
+            view.battlefield
+                .iter()
+                .filter(mine)
+                .chain(view.graveyards.get(at).into_iter().flatten())
+                .chain(view.exile.get(at).into_iter().flatten().filter(mine))
+                .chain(view.command.get(at).into_iter().flatten())
+                .filter(|o| o.token.is_none())
+                .filter_map(|o| o.card.map(|c| c.index)),
+        )
+        .collect()
+}
+
 /// The symbol for one colour of mana.
 ///
 /// [`manapip::of_color`] takes a [`baylee_core::color::Color`], which has no

@@ -274,6 +274,8 @@ fn every_mark_the_overlay_names_is_in_the_icon_face() {
         ("EXPAND", glyph::EXPAND),
         ("COMMAND", glyph::COMMAND),
         ("CROWN", glyph::CROWN),
+        ("CHEVRON_UP", glyph::CHEVRON_UP),
+        ("CHEVRON_DOWN", glyph::CHEVRON_DOWN),
         ("INFINITY", glyph::INFINITY),
         ("COMMANDER_DAMAGE", glyph::COMMANDER_DAMAGE),
         ("HOUSE", glyph::HOUSE),

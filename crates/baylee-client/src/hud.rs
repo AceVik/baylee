@@ -324,6 +324,10 @@ pub(crate) mod glyph {
     /// chip, in the candle's gold (the owner, 08.10.2026). The same glyph as
     /// [`COMMAND`], which is why commander damage left it.
     pub const CROWN: char = '\u{f521}';
+    /// Chevron up: open the question's sheet from its pill.
+    pub const CHEVRON_UP: char = '\u{f077}';
+    /// Chevron down: fold the question's sheet to its pill.
+    pub const CHEVRON_DOWN: char = '\u{f078}';
     /// Infinity: a hand no maximum size applies to, the mark alone.
     pub const INFINITY: char = '\u{f534}';
     /// Half a shield: the most damage one commander has dealt a seat
@@ -584,6 +588,11 @@ pub enum MenuAction {
     ///
     /// Only ever drawn while one is running.
     ReleaseHold,
+    /// Fold the question's sheet to its pill, or open it again.
+    FoldDecision,
+    /// Show one letter group of the creature-type chooser's full list
+    /// (`typechooser::GROUPS`), emptying what was typed.
+    TypeGroup(u8),
     /// Hold priority until the stack is empty: `PriorityHold::UntilStackEmpty`,
     /// the same thing `Action::HoldForStack` sends and by the same road.
     ///
@@ -2240,7 +2249,10 @@ pub use hint::{Hint, show_hint};
 /// The one line the actions row carries, which `frontal` paints because the
 /// row is drawn by a `MaterialNode` and a border on one is a question.
 pub(crate) use ledge::LIP as LEDGE_LIP;
-pub use ledge::drawer::{DrawerRevision, DrawerRoot, sync_drawer, zoom_the_drawer};
+pub(crate) use ledge::drawer::sheet_asked;
+pub use ledge::drawer::{
+    DrawerRevision, DrawerRoot, SheetPill, SheetSource, SheetTitle, sync_drawer, zoom_the_drawer,
+};
 pub use ledge::log::{
     LogHover, LogLink, LogPanel, LogRevision, follow_the_log, grow_the_log, hover_log_links,
     sync_log,

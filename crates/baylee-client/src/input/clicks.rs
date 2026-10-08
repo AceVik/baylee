@@ -91,6 +91,11 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // press having done nothing visible. The autopilot is entirely the
         // client's and reaches no wire, so it is simply dropped; nothing else
         // ends it but its own arrival at the next turn.
+        MenuAction::FoldDecision => duel.fold_decision(),
+        MenuAction::TypeGroup(group) => {
+            duel.subtype_group = usize::from(group);
+            duel.subtype_filter.clear();
+        }
         MenuAction::ReleaseHold => {
             duel.autopilot = None;
             if duel.priority_held()

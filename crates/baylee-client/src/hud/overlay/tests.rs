@@ -248,6 +248,7 @@ fn duel_choosing_a_colour() -> Duel {
 }
 
 mod answer_tests;
+mod decision_tests;
 mod menu_tests;
 mod preview_tests;
 mod sheet_tests;

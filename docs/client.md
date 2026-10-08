@@ -6188,6 +6188,63 @@ The owner's six requests for the table, and what each became:
 and pool line and its hint; `/state.chips` adds each chip's crown, hint and
 box.
 
+### The question's sheet, and its fold (08.10.2026)
+
+The owner's item 7: *"the dialog/overlay for target decisions looks
+unordered. Make it clean and structured … minimisable … it never
+auto-dismisses the question."* The drawer is now a **decision sheet** for
+every question it draws that is this seat's own (`drawer::sheet::is_sheet`:
+targets, a creature type, a card name, a colour, a number, a player, a pile,
+the legend rule, cards to choose, a mana ability, damage sources and
+effects, prevention, a word change, a discard or the cards to the bottom;
+combat stays on the creatures and the cast choosers on the parchment beside
+the card):
+
+- **Head**: the question as the shelf would say it (`shelf_headline`), the
+  source's own words under it (`choices::target_question`: whose question,
+  the sentence), and at its left the source's picture — a `ChoicePreview`,
+  so the pointer on it opens the table's preview of that object and a press
+  answers nothing. The source is what the view names
+  (`PlayerView::targeting`); the view names none for the other questions
+  (a creature type chosen as a land enters has no object on the stack), so
+  their head has no picture rather than a guessed one.
+- **Foot**: the shelf. The sheet grows out of the shelf, so the shelf's row
+  of answers with their key caps is its foot for every question; while the
+  sheet stands the shelf drops its own sentence (`sheet_up`).
+- **Fold**: the control at the head's right, the `X` key
+  (`Action::FoldDecision`) and a press on the pill. Folded, the sheet is a
+  pill at the window's right edge over the strips — the source's picture,
+  the question, the restore mark and its cap — the table under it is the
+  table, and every target on it takes the press
+  (`a_fold_leaves_the_table_to_pick_on_and_the_question_standing`). The fold
+  belongs to the question it was made on (`client-core::decisionfold`, keyed
+  on the view's `seq`), so the next question opens unfolded; folding sends
+  nothing.
+
+### The creature type (08.10.2026)
+
+The owner's item 8. The type chooser in the sheet is three things over the
+filter box (where `Space` types a space and `Enter` takes the highlighted
+chip; arrows walk the chips, quick list first):
+
+- **The quick list** (`client-core::typechooser::quick`, `choices::type_lists`):
+  the offered types the seat's deck's creatures carry most, each chip with
+  its count (`Elf · 8`), at most eight, ties by name, none at zero. The deck
+  is the seat's decklist where this client hosts the game itself
+  (`DuelHost::own_deck`, `Duel::own_deck`); a networked seat is never sent
+  its list, so there it counts the seat's own cards the view has shown it
+  (hand, permanents, graveyard, exile, command zone). **A changeling counts
+  for no type**: it is every type at once (CR 702.73a), would raise all of
+  them alike and only push the deck's real tribes down.
+- **The letter groups** `A–D · E–H · I–L · M–P · R–T · U–Z` (Q under R–T,
+  umlauts under their base letter): with nothing typed the full list shows
+  one group, so every offered type is reachable without a scrolling list of
+  three hundred; typing filters across all of them instead.
+- **The full list**: alphabetical in the player's language
+  (`type_names`), filtered by the shown or the English name. Only offered
+  types appear anywhere, and every chip answers with the offer's own index
+  (`a_creature_type_is_answered_from_the_decks_quick_list`).
+
 ## The bar's hinge says which turn and what the game is
 
 The day/night designation (CR 731) is drawn beside the turn number, on the

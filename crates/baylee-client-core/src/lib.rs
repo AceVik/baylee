@@ -103,6 +103,7 @@ pub mod textface;
 pub mod timing;
 pub mod touch;
 pub mod type_names;
+pub mod typechooser;
 pub mod userdirs;
 pub mod wsticket;
 pub mod zones;
@@ -154,3 +155,4 @@ pub mod text_choice;
 
 /// Separate decision actor, resource owner and entitled private hands.
 pub mod decision;
+pub mod decisionfold;

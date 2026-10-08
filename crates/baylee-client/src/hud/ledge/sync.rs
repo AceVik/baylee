@@ -39,7 +39,13 @@ pub fn sync_ledge(
     let over = duel.ending().is_some();
     let waiting = !duel.is_my_turn_to_act();
     let elsewhere = duel.browser.answers_here(duel.interaction.as_ref());
-    let prompt = shelf_headline(&duel, lang, &texts);
+    // Under a decision sheet the question is the sheet's head, and the shelf
+    // under it is the sheet's foot: its answers, without the sentence again.
+    let prompt = if super::drawer::sheet_up(&duel) {
+        None
+    } else {
+        shelf_headline(&duel, lang, &texts)
+    };
     #[allow(clippy::cast_possible_truncation)]
     let window_w = windows.single().map_or(1200, |w| w.width() as i32);
     let next = LedgeRevision {
