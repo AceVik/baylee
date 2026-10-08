@@ -15,8 +15,10 @@
 //! the owner heard. A frame limit here is a `Reactive` update mode with the
 //! limit's interval as its wait: winit sleeps until the next frame is due
 //! instead of spinning, and the cap holds whatever the pointer does (window
-//! events do not wake it early while the window is in front). A menu nobody
-//! has touched for two seconds eases to thirty frames, after half a minute to
+//! events do not wake it early while the window is in front). A table where
+//! nothing has been touched and nothing has happened for two seconds eases to
+//! thirty frames and stays there; a menu nobody has touched for two seconds
+//! eases to thirty frames, after half a minute to
 //! the background limit; behind other windows the background limit holds,
 //! and a hidden window draws one frame a second. Every reduced pace wakes on
 //! input at once (`baylee_client_core::graphics::Graphics::pace`).
@@ -63,6 +65,8 @@ pub struct Watch {
     /// as activity, so a flight that outlasts the settle time is not drawn
     /// at the settled rate.
     scene: Option<(crate::vista::Stage, bool, f32)>,
+    /// The game at the table as last seen: a change is activity.
+    game: Option<TableMotion>,
 }
 
 /// A phone: never `Continuous` (iOS stops asking for frames, see
@@ -110,6 +114,21 @@ impl Plugin for QualityPlugin {
         let mut schedules = app.world_mut().resource_mut::<Schedules>();
         for (_, schedule) in schedules.iter_mut() {
             schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
+        }
+        // Extraction too, for the same reason: it runs on the main thread
+        // between two frames and is mostly copying, and the multi-threaded
+        // executor spawned a task per extract system every frame — on a
+        // duel at rest about a third of the main thread's allocations, and
+        // process CPU 39 % -> 35 % (`docs/perf-baseline.md`, 08.10.2026).
+        // The render schedule itself keeps its own executor: some of its
+        // systems must reach the window on the main thread, which only the
+        // multi-threaded executor arranges (a single-threaded one runs them
+        // on the render thread and AppKit aborts).
+        if let Some(render) = app.get_sub_app_mut(bevy::render::RenderApp)
+            && let Some(mut schedules) = render.world_mut().get_resource_mut::<Schedules>()
+            && let Some(extract) = schedules.get_mut(bevy::render::ExtractSchedule)
+        {
+            extract.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
         }
     }
 }
@@ -314,20 +333,47 @@ fn note_input(
     }
 }
 
-/// A screen changing, or the front door's passage moving, is activity: the
-/// settle clock starts again, as if the player had touched something.
+/// A screen changing, the front door's passage moving, or the game at the
+/// table moving (a new view or log line, a tear running) is
+/// activity: the settle clock starts again, as if the player had touched
+/// something. That is what brings a table at rest back to the full rate for
+/// the cards an opponent's move deals.
 fn note_motion(
     time: Res<Time<Real>>,
     mut watch: ResMut<Watch>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     front: Option<Res<crate::vista::FrontScene>>,
+    duel: Option<Res<crate::Duel>>,
 ) {
     let changed_screen = phase.is_some_and(|p| p.is_changed());
     let scene = front.map(|f| (f.stage, f.entering, f.portal));
     let moving = scene.is_some() && scene != watch.scene;
     watch.scene = scene;
-    if changed_screen || moving {
+    let game = duel.as_deref().map(table_motion);
+    let playing = game.is_some_and(|g| g.tearing) || game != watch.game;
+    watch.game = game;
+    if changed_screen || moving || playing {
         watch.last_input = time.elapsed_secs_f64();
+    }
+}
+
+/// What of the game at the table tells the pacer something happened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct TableMotion {
+    /// The view's snapshot.
+    seq: Option<u64>,
+    /// How many log lines have arrived (a frame may carry lines and repeat
+    /// the view).
+    log: usize,
+    /// A tear is running (`Duel::tear`): it moves for as long as it lasts.
+    tearing: bool,
+}
+
+fn table_motion(duel: &crate::Duel) -> TableMotion {
+    TableMotion {
+        seq: duel.view.as_ref().map(|v| v.seq),
+        log: duel.log.entries().len(),
+        tearing: duel.tear.is_some(),
     }
 }
 
@@ -538,5 +584,72 @@ mod tests {
         });
         app.update();
         assert!((wait(&app).expect("capped") - 1.0).abs() < 1e-4);
+    }
+
+    /// A table nobody touches and where nothing happens comes to rest at
+    /// thirty frames; the game moving — a new view, a tear — brings the full
+    /// rate back on the next frame, untouched as the window still is.
+    /// Proved both ways: without the new view the table stays at rest.
+    #[test]
+    fn a_table_rests_until_its_game_moves() {
+        use baylee_client_core::graphics::{TABLE_REST_FPS, TABLE_SETTLE_SECS};
+        use baylee_client_core::test_support::ViewBuilder;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::state::app::StatesPlugin)
+            .add_plugins(bevy::input::InputPlugin)
+            .add_message::<CursorMoved>()
+            .add_message::<WindowOccluded>()
+            .add_message::<TouchInput>()
+            .init_state::<crate::DuelPhase>()
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                Duration::from_secs_f32(TABLE_SETTLE_SECS / 4.0),
+            ))
+            .insert_resource(WinitSettings::game())
+            .insert_resource(ClientSettings::default())
+            .insert_resource(crate::Duel {
+                view: Some(ViewBuilder::new(2).build()),
+                ..default()
+            })
+            .add_plugins(QualityPlugin);
+        app.world_mut().spawn((
+            Window {
+                focused: true,
+                ..default()
+            },
+            PrimaryWindow,
+        ));
+        app.world_mut()
+            .resource_mut::<NextState<crate::DuelPhase>>()
+            .set(crate::DuelPhase::Playing);
+        let wait = |app: &App| match app.world().resource::<WinitSettings>().focused_mode {
+            UpdateMode::Reactive { wait, .. } => wait.as_secs_f32(),
+            UpdateMode::Continuous => 0.0,
+        };
+        let full = 1.0 / 60.0;
+        #[allow(clippy::cast_precision_loss)]
+        let rest = 1.0 / TABLE_REST_FPS as f32;
+        app.update();
+        assert!((wait(&app) - full).abs() < 1e-4, "a table just opened");
+        for _ in 0..6 {
+            app.update();
+        }
+        assert!((wait(&app) - rest).abs() < 1e-4, "at rest");
+        // Nothing happens: still at rest.
+        app.update();
+        assert!((wait(&app) - rest).abs() < 1e-4, "still at rest");
+        // The opponent moves: a new view arrives.
+        app.world_mut()
+            .resource_mut::<crate::Duel>()
+            .view
+            .as_mut()
+            .expect("a view")
+            .seq += 1;
+        app.update();
+        assert!((wait(&app) - full).abs() < 1e-4, "the game moved");
+        for _ in 0..6 {
+            app.update();
+        }
+        assert!((wait(&app) - rest).abs() < 1e-4, "at rest again");
     }
 }

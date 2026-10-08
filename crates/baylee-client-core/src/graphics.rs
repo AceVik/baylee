@@ -303,7 +303,8 @@ pub const DISPLAY_REVERT_SECS: f32 = 15.0;
 
 /// Seconds without any input after which the front door and the lobby draw
 /// at the background rate. Never at the table, where an opponent's move is
-/// worth watching at full rate whether or not the mouse moves.
+/// worth watching whether or not the mouse moves: a table at rest holds
+/// [`TABLE_REST_FPS`], and its game moving brings the full rate back.
 pub const IDLE_AFTER_SECS: f32 = 30.0;
 
 /// Seconds without input after which a menu (front door, lobby, settings)
@@ -314,6 +315,20 @@ pub const MENU_SETTLE_SECS: f32 = 2.0;
 /// The most frames a settled menu draws per second. The front door's
 /// slowest-moving world reads the same at thirty as at sixty, and costs half.
 pub const MENU_FPS: u32 = 30;
+
+/// Seconds without input **or anything happening in the game** after which
+/// the table eases from the frame limit to [`TABLE_REST_FPS`]. What moves
+/// there on its own then is the cloth's slow drift, a flier's bob and the
+/// rim's eleven-second swell; a card dealt, a tear or a camera visit begins
+/// with an input or a new view, and those bring the full rate back on the
+/// frame they arrive.
+pub const TABLE_SETTLE_SECS: f32 = 2.0;
+
+/// The most frames a table at rest draws per second. Half the cost of sixty
+/// (`docs/perf-baseline.md`, 08.10.2026) and never lower: an opponent's move
+/// arrives without waking the window, so the rest rate is also how late the
+/// first frame of it can be.
+pub const TABLE_REST_FPS: u32 = 30;
 
 /// Frames per second a hidden or minimised window still draws.
 pub const HIDDEN_FPS: u32 = 1;
@@ -607,7 +622,8 @@ pub struct Showing {
     pub hidden: bool,
     /// A menu (the front door, the lobby, settings) rather than a table.
     pub menu: bool,
-    /// Seconds since the last key, click, pointer move, wheel or touch.
+    /// Seconds since the last key, click, pointer move, wheel or touch — or,
+    /// at the table, since the game last moved (a new view, a tear).
     pub untouched_secs: f32,
     /// Nothing ambient moves (effects `Low`, or reduced motion): an idle
     /// menu then has nothing to draw until something happens.
@@ -656,8 +672,9 @@ impl Graphics {
     /// ([`Self::rests`]), or at `High` draws at the background limit; behind
     /// other windows, the
     /// background limit; a menu settled for [`MENU_SETTLE_SECS`], at most
-    /// [`MENU_FPS`]; otherwise the focused limit. A reduced pace is never
-    /// faster than the focused limit.
+    /// [`MENU_FPS`]; a table at rest for [`TABLE_SETTLE_SECS`], at most
+    /// [`TABLE_REST_FPS`]; otherwise the focused limit. A reduced pace is
+    /// never faster than the focused limit.
     #[must_use]
     pub fn pace(&self, showing: Showing) -> (Pace, bool) {
         if showing.hidden {
@@ -674,6 +691,9 @@ impl Graphics {
         }
         if showing.menu && showing.untouched_secs >= MENU_SETTLE_SECS {
             return (held(MENU_FPS), true);
+        }
+        if !showing.menu && showing.untouched_secs >= TABLE_SETTLE_SECS {
+            return (held(TABLE_REST_FPS), true);
         }
         (focused.map_or(Pace::Unlimited, Pace::Fps), false)
     }
@@ -850,20 +870,40 @@ mod tests {
         assert_eq!(graphics.preset, Preset::High);
     }
 
-    /// The pace: the focused limit at the table, whatever the pointer does;
-    /// a settled menu at thirty; an idle menu, or any screen behind other
-    /// windows, at the background limit — and an idle menu with nothing
-    /// moving, like a hidden window, at one frame a second. A reduced pace
-    /// wakes on input, a cap does not, and none is faster than the cap.
+    /// The pace: the focused limit at a table where something happens,
+    /// whatever the pointer does, and thirty at a table at rest however long
+    /// it rests; a settled menu at thirty; an idle menu, or any screen behind
+    /// other windows, at the background limit — and an idle menu with
+    /// nothing moving, like a hidden window, at one frame a second. A reduced
+    /// pace wakes on input, a cap does not, and none is faster than the cap.
     #[test]
     fn the_pace_follows_the_window() {
         let medium = Graphics::of(Preset::Medium);
         assert_eq!(medium.pace(AT_DESK), (Pace::Fps(60), false));
+        let table_busy = Showing {
+            untouched_secs: TABLE_SETTLE_SECS * 0.5,
+            ..AT_DESK
+        };
+        assert_eq!(medium.pace(table_busy), (Pace::Fps(60), false));
+        let table_resting = Showing {
+            untouched_secs: TABLE_SETTLE_SECS,
+            ..AT_DESK
+        };
+        assert_eq!(
+            medium.pace(table_resting),
+            (Pace::Fps(TABLE_REST_FPS), true)
+        );
         let table_untouched = Showing {
             untouched_secs: 600.0,
             ..AT_DESK
         };
-        assert_eq!(medium.pace(table_untouched), (Pace::Fps(60), false));
+        assert_eq!(
+            medium.pace(table_untouched),
+            (Pace::Fps(TABLE_REST_FPS), true),
+            "a table never idles below its rest rate: the game may move"
+        );
+        let low = Graphics::of(Preset::Low);
+        assert_eq!(low.pace(table_untouched), (Pace::Fps(30), true));
         let menu = Showing {
             menu: true,
             ..AT_DESK
