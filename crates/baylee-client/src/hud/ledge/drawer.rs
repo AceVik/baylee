@@ -393,7 +393,10 @@ fn fill_panel(
         commands.entity(panel).add_child(written);
     }
 
-    for line in &revision.lines {
+    // A phone's type chooser has no line to spare: the box says it is
+    // where the typing goes.
+    let spare = !(revision.phone && revision.group.is_some());
+    for line in revision.lines.iter().filter(|_| spare) {
         let written = sentence(commands, fonts, &line.text, line.size, line.ink);
         commands.entity(written).insert(Node {
             max_width: percent(100),
@@ -415,6 +418,15 @@ fn fill_panel(
             HINT_PT,
             crate::shellkit::tokens::MUTED,
         );
+        if !spare {
+            commands
+                .entity(caption)
+                .insert(Visibility::Hidden)
+                .entry::<Node>()
+                .and_modify(|mut node| {
+                    node.display = Display::None;
+                });
+        }
         let quick = chooser(
             commands,
             fonts,
@@ -464,7 +476,30 @@ fn fill_panel(
             &revision.previews,
             (revision.decision_id, revision.phone),
         );
-        commands.entity(panel).add_child(rows);
+        if revision.group.is_some() {
+            // The type chooser's full list is a letter's worth of types or
+            // a filter's: a box of its own the wheel scrolls, so the sheet
+            // stays on the window whatever the group holds.
+            let scroller = commands
+                .spawn((
+                    crate::hud::scroll::Scrolls,
+                    bevy::ui::ScrollPosition::default(),
+                    Node {
+                        width: percent(100),
+                        // A phone's whole sheet fits in 390 px: its list
+                        // keeps a row or two and scrolls the rest.
+                        max_height: Val::Vh(if revision.phone { 15.0 } else { 28.0 }),
+                        overflow: Overflow::scroll_y(),
+                        justify_content: JustifyContent::Center,
+                        ..default()
+                    },
+                ))
+                .id();
+            commands.entity(scroller).add_child(rows);
+            commands.entity(panel).add_child(scroller);
+        } else {
+            commands.entity(panel).add_child(rows);
+        }
     }
 }
 

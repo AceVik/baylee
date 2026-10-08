@@ -316,8 +316,17 @@ pub fn type_lists(
             })
         })
         .collect();
+    // What is typed narrows the quick list too: the highlight then starts
+    // on a type the player is spelling, not on the deck's favourite.
+    let needle = filter.trim().to_lowercase();
     let quick = typechooser::quick(options, cards, |id| shown(id).map(|(name, _)| name))
         .into_iter()
+        .filter(|row| {
+            needle.is_empty()
+                || row.name.to_lowercase().starts_with(&needle)
+                || subtypes::name(options[row.index])
+                    .is_some_and(|english| english.to_lowercase().starts_with(&needle))
+        })
         .map(|row| ChoiceOption::text(row.index, format!("{} · {}", row.name, row.count)))
         .collect();
     let typed = !filter.trim().is_empty();

@@ -359,42 +359,80 @@ fn no_ink_is_written_under_the_hand() {
     );
 }
 
-/// The owner's "closer to the table edge": in a duel the plate stands
-/// further out along its band than the band's own inset left end, and
-/// it never leaves the window or lands on the HUD's corners or strips.
+/// The owner's "flush" (08.10.2026): in every built arrangement, at two to
+/// eight seats, in a laptop's and a phone's window, every plate's edge lies
+/// on its mat's drawn edge (within a pixel and a half of the hairline it is
+/// set off by), it stays clear of the HUD's corners and strips, and no two
+/// plates overlap. At a laptop's home shot every seat's plate is drawn.
 #[test]
-fn a_plate_moves_out_towards_the_rim_where_there_is_room() {
-    use crate::table::{CameraRig, Canvas};
-    use baylee_client_core::layout::TableLayout;
-    for window in [Vec2::new(1708.0, 1032.0), Vec2::new(844.0, 390.0)] {
+fn every_plate_is_flush_with_its_battlefield_and_meets_no_other() {
+    use crate::table::{CameraRig, Canvas, Shot};
+    use baylee_client_core::layout::{Seat, TableLayout};
+    use baylee_client_core::tableview::{Arrangement, TableFrame};
+    for window in [
+        Vec2::new(1708.0, 1032.0),
+        Vec2::new(1280.0, 800.0),
+        Vec2::new(844.0, 390.0),
+    ] {
         let canvas = Canvas::hud(window);
-        let seats = [PlayerId::new(0), PlayerId::new(1)];
-        let layout = TableLayout::new(&seats, canvas.aspect(), None);
-        let lens = crate::table::Lens::new(CameraRig::home(&layout, canvas), window);
-        for slot in &layout.slots {
-            let corners = lens.corners(slot.ledge_corners()).expect("a band");
-            let hand_top = window.y - crate::hud::HAND_ZONE_H;
-            let Some((corner, tilt, scale)) =
-                plate_on(&layout, slot, &lens, corners, (2, 1.0, hand_top))
-            else {
-                continue;
-            };
-            let quad = drawn_quad(corner, plate_size(2), tilt, scale);
-            assert!(
-                clear_of_the_hud(&quad, window, hand_top),
-                "{window}: {quad:?}"
-            );
-            let band = drawn(corners, Panel::Identity);
-            // Outwards = towards the seat's own left end of the band.
-            let [near_a, near_b, ..] = corners;
-            let left = (near_a - near_b).normalize();
-            let reach = |q: &[Vec2; 4]| q.iter().map(|p| p.dot(left)).fold(f32::MIN, f32::max);
-            if window.x > 1000.0 {
-                assert!(
-                    reach(&quad) > reach(&band) + 20.0,
-                    "{window}, seat {:?}: the plate did not move towards the rim",
-                    slot.player
-                );
+        let frame = TableFrame::of(window.x, window.y);
+        let hand_top = window.y - crate::hud::HAND_ZONE_H;
+        for wanted in Arrangement::ALL.into_iter().filter(|a| a.built()) {
+            for n in 2..=8u8 {
+                let roster: Vec<Seat> = (0..n).map(PlayerId::new).map(Seat::alone).collect();
+                let arrangement = wanted.effective(usize::from(n), frame);
+                let layout = TableLayout::arranged(&roster, canvas.aspect(), arrangement, None);
+                let shot = Shot {
+                    arrangement,
+                    ..Shot::default()
+                };
+                let rig = CameraRig::home_shot(&layout, canvas, shot).0;
+                let lens = crate::table::Lens::new(rig, window);
+                let mut quads: Vec<(PlayerId, [Vec2; 4])> = Vec::new();
+                let mut seen = 0;
+                for slot in layout.on_felt() {
+                    seen += 1;
+                    let Some(corners) = lens.corners(slot.ledge_corners()) else {
+                        continue;
+                    };
+                    let Some((at, tilt, scale)) =
+                        plate_on(&layout, &lens, slot.player, |_| 2, (1.0, hand_top))
+                    else {
+                        continue;
+                    };
+                    let quad = drawn_quad(at, plate_size(2), tilt, scale);
+                    let (corner, _, away) = mat_edge(slot, corners);
+                    // How far the plate's nearest point stands off the
+                    // mat's edge, measured away from the mat.
+                    let gap = quad
+                        .iter()
+                        .map(|p| (*p - corner).dot(away))
+                        .fold(f32::INFINITY, f32::min);
+                    assert!(
+                        (gap - PLATE_AIR).abs() <= 1.5,
+                        "{window}, {arrangement:?}, {n} seats, seat {:?}: the plate \
+                         stands {gap:.1} px off its mat's edge",
+                        slot.player
+                    );
+                    assert!(clear_of_the_hud(&quad, window, hand_top));
+                    quads.push((slot.player, quad));
+                }
+                for (at, (a, qa)) in quads.iter().enumerate() {
+                    for (b, qb) in &quads[at + 1..] {
+                        assert!(
+                            !overlaps(qa, qb),
+                            "{window}, {arrangement:?}, {n} seats: the plates of \
+                             {a:?} and {b:?} overlap"
+                        );
+                    }
+                }
+                if window.y > 700.0 && arrangement == Arrangement::Ring {
+                    assert_eq!(
+                        quads.len(),
+                        seen,
+                        "{window}, {n} seats at home: a plate is not drawn"
+                    );
+                }
             }
         }
     }

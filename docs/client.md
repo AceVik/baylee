@@ -6157,14 +6157,21 @@ The owner's six requests for the table, and what each became:
   the details; and a third line with the pool's pips (Mana font, a count
   each, restricted mana framed) only while mana floats, for every seat. The
   counts that stood beside the piles (`Panel::Zone`) are gone into it.
-- **Where it stands**: on the seat's band at its own left, pushed outwards
-  past the mat's drawn end towards the rim as far as the arrangement leaves
-  room (`plate_on`): five places from wholly outside to flush, then the
-  band's inset end. A place is taken only if it lies in the window, clear of
-  the HUD's top corners (`hud::hud_corners`: the widest arrangement pill, the
-  report button and the square beside it), above the strips and the hand
-  (`STRIPS_H`), and on no other seat's place (its footprint, projected). A
-  three-line plate grows towards the hearth. The text step scales it.
+- **Where it stands**: flush with the seat's battlefield (the owner's second
+  word of 08.10.2026, after a first cut stood the plates out by the rim):
+  its edge on the mat's drawn edge on the hearth side, a hairline off
+  (`PLATE_AIR`), square to that edge under any perspective, its end at the
+  mat's corner on the seat's own left (`mat_edge`, `plate_on`). Outside the
+  mat, so it covers no card and no badge. Plates are placed seat by seat in
+  the table's order, each sliding along its edge (a quarter of its width at
+  a time) off the window's edge, the HUD's top corners
+  (`hud::hud_corners`), the strips and the hand (`STRIPS_H`), other seats'
+  places and the plates already placed — so a duel's two plates, whose mats
+  face each other across a narrow hearth, stand at opposite ends. A
+  three-line plate grows away from the mat. The text step scales it.
+  `every_plate_is_flush_with_its_battlefield_and_meets_no_other` holds all
+  of it for every built arrangement, two to eight seats, a laptop's and a
+  phone's window.
 - **One control**: every node on the plate is `Pickable::IGNORE`, so the
   plate takes the hover and the press (`nothing_on_a_plate_takes_the_pointer_from_it`).
   It is a `PlateTab`, not a `PlayerTab`: a press chooses the seat while a

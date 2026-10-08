@@ -13,14 +13,12 @@
 //! strip reads too). A crown stands before the monarch's name and an ∞ after
 //! a hand no maximum size applies to.
 //!
-//! **Where.** On the seat's band, which runs along the mat's centre-facing
-//! edge, at the seat's own left — and pushed outwards along that band, past
-//! the mat's drawn end and onto the felt towards the rim, as far as the
-//! arrangement leaves room ([`plate_on`]): it may not leave the window, reach
-//! a corner the HUD stands in, lie under the strips and the hand, or cover
-//! another seat's place. A duel has room beside each mat; a ring of eight
-//! often has only the band. The steps went the other way, to the band's right
-//! end, so the middle of the table is the dial's.
+//! **Where.** Flush with the seat's battlefield: on the mat's drawn edge on
+//! the hearth side, at the seat's own left corner ([`plate_on`]), sliding
+//! along that edge only where the window, the HUD's corners, the strips and
+//! the hand, another seat's place or a plate already placed are in the way.
+//! The steps went to the band's right end, so the middle of the table is the
+//! dial's.
 //!
 //! **The plate is one control.** Everything written on it is
 //! `Pickable::IGNORE`, so the plate itself is what the pointer hovers and
@@ -34,10 +32,10 @@ use super::*;
 use baylee_client_core::seatplate::{Detail, SeatPlate};
 
 /// The plate's width at scale 1, step L.
-const PLATE_W: f32 = 260.0;
+const PLATE_W: f32 = 268.0;
 /// Its padding: across, and above and below.
-const PLATE_PAD_X: f32 = 8.0;
-const PLATE_PAD_Y: f32 = 5.0;
+const PLATE_PAD_X: f32 = 12.0;
+const PLATE_PAD_Y: f32 = 8.0;
 /// Its three lines' heights, and the gap between two.
 const LINE_1: f32 = 22.0;
 const LINE_2: f32 = 17.0;
@@ -187,17 +185,11 @@ pub(crate) fn pose(
     // The seat's own band, projected: the strip along the rim nearest the
     // middle of the table, taken from the model so the ink and `Shelf` — the
     // density probe and the tiny-overview fallback — describe one rectangle.
-    let corners = lens.corners(slot.ledge_corners())?;
     if matches!(panel, Panel::Identity) {
-        let lines = plate_lines(duel, player);
-        return plate_on(
-            layout,
-            slot,
-            lens,
-            corners,
-            (lines, step, hand_top(duel, lens)),
-        );
+        let top = hand_top(duel, lens);
+        return plate_on(layout, lens, player, |p| plate_lines(duel, p), (step, top));
     }
+    let corners = lens.corners(slot.ledge_corners())?;
     let pose = pose_on(corners, panel);
     (!under_the_hand(pose.0, panel.size(), pose.1, pose.2, hand_top(duel, lens))).then_some(pose)
 }
@@ -217,56 +209,125 @@ pub(crate) fn hand_top(duel: &Duel, lens: &crate::table::Lens) -> f32 {
     window.y - (crate::hud::HAND_ZONE_H - drop)
 }
 
-/// The plate's pose: as far out along the seat's band, towards the table's
-/// edge, as the arrangement leaves room for.
+/// The plate's pose: flush with the seat's battlefield — its edge on the
+/// mat's drawn edge on the hearth side, its end at the mat's corner on the
+/// seat's own left (the owner, 08.10.2026: *"right at the edge of the
+/// player's battlefield (flush)"*), in every arrangement, at every scale and
+/// turn. It stands outside the mat, so it covers none of the seat's cards or
+/// their badges.
 ///
-/// Five places are tried, outermost first: wholly past the mat's drawn end
-/// (on the felt by the rim), three steps in between, and flush with the mat's
-/// end; then the band's own left end, inset as the steps' panel is. The first
-/// that lies in the window, clear of the corners the HUD stands in
-/// ([`clear_of_the_hud`]), above the strips and the hand, and on no other
-/// seat's place is the one drawn. A plate grown to three lines grows towards
-/// the hearth, so its first line stays where it was.
+/// Where the corner place is not clear — out of the window, on a corner the
+/// HUD stands in ([`clear_of_the_hud`]), under the strips and the hand, or on
+/// another seat's place — the plate slides along the same edge towards the
+/// mat's middle, a quarter of its width at a time, and stays flush. None of
+/// those clear: not drawn (a visit that put the seat under the hand). A
+/// plate grown to three lines grows away from the mat, so its first line
+/// stays where it was.
 pub(crate) fn plate_on(
     layout: &baylee_client_core::layout::TableLayout,
-    slot: &baylee_client_core::layout::SeatSlot,
     lens: &crate::table::Lens,
-    corners: [Vec2; 4],
-    (lines, step, hand_top): (u8, f32, f32),
+    player: PlayerId,
+    lines_of: impl Fn(PlayerId) -> u8,
+    (step, hand_top): (f32, f32),
 ) -> Option<(Vec2, f32, f32)> {
-    let size = plate_size(lines);
-    let [near_a, near_b, far_b, far_a] = corners;
-    let left = near_a.midpoint(far_a);
-    let right = near_b.midpoint(far_b);
-    let axis = (right - left).normalize_or_zero();
-    let width = left.distance(right);
-    let hearth = (near_a.midpoint(near_b) - far_a.midpoint(far_b)).normalize_or_zero();
-    let (band_corner, tilt, band_scale) = pose_on(corners, Panel::Identity);
-    let scale = band_scale * step;
-    let grow = hearth * ((size.y - HEADER_H) * scale * 0.5);
-    let box_at = |middle: Vec2| middle + grow - size * 0.5;
-    // The mat is drawn `MAT_MARGIN` past the band's end, and a table unit
-    // along the band is `width / (2·half_extent.x)` pixels here.
-    let per_unit = width / (2.0 * slot.half_extent.x).max(f32::EPSILON);
-    let mat_end = left - axis * (baylee_client_core::tabletop::MAT_MARGIN * slot.scale * per_unit);
-    let half = size.x * scale * 0.5;
-    let window = lens.window();
-    let fits = |corner: Vec2| {
-        let quad = drawn_quad(corner, size, tilt, scale);
-        clear_of_the_hud(&quad, window, hand_top)
-            && !on_another_seat(&quad, layout, slot.player, lens)
-    };
-    for k in 0..=4u8 {
-        let off = half * (f32::from(k) * 0.5 - 1.0);
-        let corner = box_at(mat_end + axis * off);
-        if fits(corner) {
-            return Some((corner, tilt, scale));
+    // Seat by seat in the table's order, each plate kept off the ones placed
+    // before it: two mats whose edges face across a narrow hearth (a duel's)
+    // set their plates at opposite ends instead of on each other. A fixed
+    // array, because this runs for every plate on every frame.
+    let mut placed = [[Vec2::ZERO; 4]; 8];
+    let mut count = 0;
+    for slot in layout.on_felt() {
+        let pose = lens.corners(slot.ledge_corners()).and_then(|corners| {
+            let size = plate_size(lines_of(slot.player));
+            plate_at(
+                layout,
+                (slot, lens, corners),
+                size,
+                (step, hand_top),
+                &placed[..count],
+            )
+        });
+        if slot.player == player {
+            return pose.map(|(at, tilt, scale, _)| (at, tilt, scale));
+        }
+        if let Some((_, _, _, quad)) = pose
+            && count < placed.len()
+        {
+            placed[count] = quad;
+            count += 1;
         }
     }
-    let corner = band_corner + Panel::Identity.size() * 0.5;
-    let corner = box_at(corner);
-    let quad = drawn_quad(corner, size, tilt, scale);
-    clear_of_the_hud(&quad, window, hand_top).then_some((corner, tilt, scale))
+    None
+}
+
+/// One seat's plate, as [`plate_on`] tries it: flush at the corner, then
+/// sliding along the edge, clear of the HUD, other seats' places and the
+/// plates in `placed`. With the quad it is drawn as.
+fn plate_at(
+    layout: &baylee_client_core::layout::TableLayout,
+    (slot, lens, corners): (
+        &baylee_client_core::layout::SeatSlot,
+        &crate::table::Lens,
+        [Vec2; 4],
+    ),
+    size: Vec2,
+    (step, hand_top): (f32, f32),
+    placed: &[[Vec2; 4]],
+) -> Option<(Vec2, f32, f32, [Vec2; 4])> {
+    let (_, _, band_scale) = pose_on(corners, Panel::Identity);
+    let scale = band_scale * step;
+    let (corner, along, away) = mat_edge(slot, corners);
+    // Turned with the edge itself, folded upright as every panel is.
+    let tilt = upright(along.y.atan2(along.x));
+    let window = lens.window();
+    let half = size * scale * 0.5;
+    let [near_a, near_b, ..] = corners;
+    let room = near_a.distance(near_b) - size.x * scale;
+    (0..=12u8)
+        .map(|k| f32::from(k) * half.x * 0.5)
+        .take_while(|slide| *slide <= room.max(0.0))
+        .find_map(|slide| {
+            let middle = corner + along * (half.x + slide) + away * (half.y + PLATE_AIR);
+            let at = middle - size * 0.5;
+            let quad = drawn_quad(at, size, tilt, scale);
+            (clear_of_the_hud(&quad, window, hand_top)
+                && !on_another_seat(&quad, layout, slot.player, lens)
+                && !placed.iter().any(|other| overlaps(&quad, other)))
+            .then_some((at, tilt, scale, quad))
+        })
+}
+
+/// Between the mat's edge and the plate: a hairline, so the two read as
+/// touching and the mat's rim is not painted over.
+pub(crate) const PLATE_AIR: f32 = 1.0;
+
+/// The mat's drawn edge on the hearth side, as drawn: its corner on the
+/// seat's own left, the direction along the edge (towards the seat's right)
+/// and the one away from the mat (towards the hearth).
+///
+/// `corners` is the seat's band as [`crate::table::Lens`] projects it; its
+/// two near corners lie on that edge at the playing extent's ends, and the
+/// mat is drawn `MAT_MARGIN` past them.
+pub(crate) fn mat_edge(
+    slot: &baylee_client_core::layout::SeatSlot,
+    corners: [Vec2; 4],
+) -> (Vec2, Vec2, Vec2) {
+    let [near_a, near_b, far_b, far_a] = corners;
+    let along = (near_b - near_a).normalize_or_zero();
+    // Square to the edge, on the side away from the mat: under perspective
+    // the band's own depth axis leans, and a plate set off along it would
+    // stand into the mat at one end.
+    let outwards = near_a.midpoint(near_b) - far_a.midpoint(far_b);
+    let normal = Vec2::new(-along.y, along.x);
+    let away = if normal.dot(outwards) < 0.0 {
+        -normal
+    } else {
+        normal
+    };
+    let per_unit = near_a.distance(near_b) / (2.0 * slot.half_extent.x).max(f32::EPSILON);
+    let corner =
+        near_a - along * (baylee_client_core::tabletop::MAT_MARGIN * slot.scale * per_unit);
+    (corner, along, away)
 }
 
 /// The four corners a box posed like this is drawn at: `corner` is the
@@ -402,18 +463,22 @@ pub(crate) fn pose_on(corners: [Vec2; 4], panel: Panel) -> (Vec2, f32, f32) {
     };
     (
         middle - panel.size() * 0.5,
-        {
-            let angle = axis.y.atan2(axis.x);
-            if angle > std::f32::consts::FRAC_PI_2 {
-                angle - std::f32::consts::PI
-            } else if angle < -std::f32::consts::FRAC_PI_2 {
-                angle + std::f32::consts::PI
-            } else {
-                angle
-            }
-        },
+        upright(axis.y.atan2(axis.x)),
         scale.max(0.0),
     )
+}
+
+/// An angle folded into a half-turn, so ink is never drawn upside-down: the
+/// seat across the table has its band turned 180° and its ink the right way
+/// up.
+fn upright(angle: f32) -> f32 {
+    if angle > std::f32::consts::FRAC_PI_2 {
+        angle - std::f32::consts::PI
+    } else if angle < -std::f32::consts::FRAC_PI_2 {
+        angle + std::f32::consts::PI
+    } else {
+        angle
+    }
 }
 
 /// Whether any of a box posed like this lies under the hand zone (#303) or

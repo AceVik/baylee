@@ -115,8 +115,23 @@ pub fn full(
             }),
         })
         .collect();
-    rows.sort_by_cached_key(|row| (row.name.starts_with('#'), row.name.to_lowercase()));
+    rows.sort_by_cached_key(|row| (row.name.starts_with('#'), collated(&row.name)));
     rows
+}
+
+/// A name as an alphabet orders it: lower case, an umlaut under its base
+/// letter (`Bär` before `Bürger`), `ß` as `ss`.
+fn collated(name: &str) -> String {
+    name.to_lowercase()
+        .chars()
+        .flat_map(|c| match c {
+            'ä' => vec!['a'],
+            'ö' => vec!['o'],
+            'ü' => vec!['u'],
+            'ß' => vec!['s', 's'],
+            other => vec![other],
+        })
+        .collect()
 }
 
 /// The letter groups (DESIGN-v5 §6.3, C3-4): six cells over the full list,
@@ -256,6 +271,12 @@ mod tests {
         let g = full(&offered, "go", german);
         assert_eq!(g.len(), 1);
         assert_eq!(g[0].index, 2);
+    }
+
+    #[test]
+    fn an_umlaut_sorts_under_its_base_letter() {
+        assert!(collated("Bär") < collated("Bürger"));
+        assert!(collated("Bär") < collated("Buschköter"));
     }
 
     #[test]
