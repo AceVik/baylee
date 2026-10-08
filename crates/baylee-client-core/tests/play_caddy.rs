@@ -127,9 +127,10 @@ fn host(url: &str) -> String {
 #[test]
 fn every_scryfall_host_the_client_fetches_from_is_a_constant() {
     let (found, files) = scryfall_hosts_in_source();
-    // Both crates together are 184 files (27.09.2026); a walk that read a
-    // handful, or everything twice, is not the walk this test means.
-    assert!((150..350).contains(&files), "walked {files} source files");
+    // Both crates together are 184 files (27.09.2026), 353 (09.10.2026, the
+    // music's score in modules); a walk that read a handful, or everything
+    // twice, is not the walk this test means.
+    assert!((150..450).contains(&files), "walked {files} source files");
     let constants: BTreeSet<String> = [SCRYFALL_CDN, SCRYFALL_BACKS_CDN, SCRYFALL_API]
         .into_iter()
         .map(host)
