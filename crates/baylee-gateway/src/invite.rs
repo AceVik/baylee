@@ -330,6 +330,97 @@ fn table(rows: &[Invite]) -> String {
     out
 }
 
+/// A `create` as the admin console asks for it (`POST /admin/invites`),
+/// read by the command line's own rules: the fields are handed to
+/// [`parse_create`] as the flags they stand for, so a value the command
+/// refuses, the console is refused in the same words, and one it takes is
+/// taken the same way. An absent field is an absent flag.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Order {
+    /// Accounts each key admits.
+    pub uses: i32,
+    /// How long the keys admit anybody; `None` for ever.
+    pub expires: Option<time::Duration>,
+    /// Who they are for.
+    pub note: Option<String>,
+    /// How many keys.
+    pub count: u32,
+}
+
+/// [`Order`] from the console's fields, through the command line's parser.
+pub(crate) fn order(
+    uses: Option<i64>,
+    expires: Option<&str>,
+    note: Option<&str>,
+    count: Option<i64>,
+) -> Result<Order, String> {
+    let mut args: Vec<String> = Vec::new();
+    if let Some(uses) = uses {
+        args.extend(["--uses".into(), uses.to_string()]);
+    }
+    if let Some(expires) = expires {
+        args.extend(["--expires".into(), expires.to_owned()]);
+    }
+    if let Some(note) = note {
+        args.extend(["--note".into(), note.to_owned()]);
+    }
+    if let Some(count) = count {
+        args.extend(["--count".into(), count.to_string()]);
+    }
+    match parse_create(&args)? {
+        Command::Create {
+            uses,
+            expires,
+            note,
+            count,
+        } => Ok(Order {
+            uses,
+            expires,
+            note,
+            count,
+        }),
+        _ => Err("not a create".into()),
+    }
+}
+
+/// Makes and stores `count` keys, each admitting `uses` accounts until
+/// `expires_at`, for `note`, and answers each key's id and the key as it is
+/// printed: the only moment a key exists outside the hand it is given to.
+///
+/// One transaction, so either every key is stored or none is, and no key
+/// is answered that was not stored. `baylee-gateway invite create` and the
+/// admin console both make keys here and nowhere else.
+pub(crate) async fn make(
+    db: &sea_orm::DatabaseConnection,
+    uses: i32,
+    expires_at: Option<OffsetDateTime>,
+    note: Option<&str>,
+    count: u32,
+) -> Result<Vec<(uuid::Uuid, String)>, String> {
+    use sea_orm::TransactionTrait as _;
+    let stored = |e: sea_orm::DbErr| format!("storing a key: {e}");
+    let txn = db.begin().await.map_err(stored)?;
+    let mut made = Vec::with_capacity(usize::try_from(count).unwrap_or(0));
+    for _ in 0..count {
+        let key = generate();
+        let canonical = canonical(&key).ok_or("a key this command made does not read")?;
+        let id = invites::create(
+            &txn,
+            &NewInvite {
+                key_hash: digest(&canonical),
+                note: note.filter(|n| !n.is_empty()).map(str::to_owned),
+                uses,
+                expires_at,
+            },
+        )
+        .await
+        .map_err(stored)?;
+        made.push((id, key));
+    }
+    txn.commit().await.map_err(stored)?;
+    Ok(made)
+}
+
 /// `baylee-gateway invite …`: runs the command and answers the exit code.
 ///
 /// Its own entrance, taken before the gateway sets up logging, binds a port
@@ -382,20 +473,7 @@ async fn run(
             count,
         } => {
             let expires_at = expires.map(|d| now + d);
-            for _ in 0..count {
-                let key = generate();
-                let canonical = canonical(&key).ok_or("a key this command made does not read")?;
-                invites::create(
-                    db,
-                    &NewInvite {
-                        key_hash: digest(&canonical),
-                        note: note.clone().filter(|n| !n.is_empty()),
-                        uses,
-                        expires_at,
-                    },
-                )
-                .await
-                .map_err(|e| format!("storing a key: {e}"))?;
+            for (_, key) in make(db, uses, expires_at, note.as_deref(), count).await? {
                 println!("{key}");
             }
             eprintln!(
@@ -644,6 +722,65 @@ mod tests {
             assert!(parse(&args(wrong)).is_err(), "{wrong:?}");
         }
         assert_eq!(expiry("12h"), Ok(time::Duration::hours(12)));
+    }
+
+    /// The console's fields are the command's flags: the same defaults,
+    /// the same bounds, and the same words for a refusal.
+    #[test]
+    fn the_console_is_read_by_the_command_lines_rules() {
+        assert_eq!(
+            order(None, None, None, None),
+            Ok(Order {
+                uses: 1,
+                expires: None,
+                note: None,
+                count: 1
+            })
+        );
+        assert_eq!(
+            order(Some(3), Some("30d"), Some("  Max & Moritz "), Some(5)),
+            Ok(Order {
+                uses: 3,
+                expires: Some(time::Duration::days(30)),
+                note: Some("Max & Moritz".into()),
+                count: 5
+            })
+        );
+        assert_eq!(
+            order(None, Some("12h"), None, None).map(|o| o.expires),
+            Ok(Some(time::Duration::hours(12)))
+        );
+        let long = "x".repeat(101);
+        for (uses, expires, note, count, flags) in [
+            (Some(0), None, None, None, vec!["--uses", "0"]),
+            (Some(1001), None, None, None, vec!["--uses", "1001"]),
+            (Some(-1), None, None, None, vec!["--uses", "-1"]),
+            (None, None, None, Some(0), vec!["--count", "0"]),
+            (None, None, None, Some(101), vec!["--count", "101"]),
+            (None, Some("30"), None, None, vec!["--expires", "30"]),
+            (None, Some("30w"), None, None, vec!["--expires", "30w"]),
+            (None, Some("0d"), None, None, vec!["--expires", "0d"]),
+            (None, None, Some(long.as_str()), None, vec!["--note", &long]),
+            (
+                None,
+                None,
+                Some("two\nlines"),
+                None,
+                vec!["--note", "two\nlines"],
+            ),
+            (
+                None,
+                None,
+                Some("turned\u{202e}"),
+                None,
+                vec!["--note", "turned\u{202e}"],
+            ),
+        ] {
+            let console = order(uses, expires, note, count);
+            let flags: Vec<String> = flags.into_iter().map(str::to_owned).collect();
+            assert!(console.is_err(), "{flags:?} was taken");
+            assert_eq!(console.err(), parse_create(&flags).err(), "{flags:?}");
+        }
     }
 
     #[test]
