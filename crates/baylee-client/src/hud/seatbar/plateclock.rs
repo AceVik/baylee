@@ -81,16 +81,27 @@ pub fn ink(urgency: Urgency) -> Color {
 /// plate's turn and scale is what its `Node` and `UiTransform` take), given
 /// where the plate is drawn.
 ///
-/// The plate hangs at the mat's left corner and slides right, so its free
-/// side is `along` the mat's edge: the clock's middle is the middle of the
-/// plate's drawn edge on that side (`quad[1]`, `quad[2]`: top-right and
-/// bottom-right as it reads), moved on by the gap and half the clock at the
-/// plate's scale. **The one line that says where the clock attaches:** to
-/// stand it elsewhere, change the edge and the direction here (below the
-/// plate, away from the battlefield, is `quad[2]`/`quad[3]` and `away`).
+/// The plate hangs at the mat's left corner (its seat's left) and slides
+/// right, so its free side is `along` the mat's edge: the clock's middle is
+/// the middle of the plate's drawn end that lies furthest `along`, moved on
+/// by the gap and half the clock at the plate's scale. Which end that is
+/// depends on the seat, not on the reading: the plate reads upright on
+/// screen, and the seat across the table has its `along` pointing to the
+/// screen's left, so its free end is the plate's left as it reads (measured
+/// live, 08.10.2026: taking the reading's right put the opponent's clock on
+/// its own plate). **The one place that says where the clock attaches:** to
+/// stand it elsewhere, change the end and the direction here (below the
+/// plate, away from the battlefield, is the end furthest `away` and `away`).
 #[must_use]
 pub fn beside(plate: &attached::PlateBeside) -> Vec2 {
-    let edge = plate.quad[1].midpoint(plate.quad[2]);
+    let [top_left, top_right, bottom_right, bottom_left] = plate.quad;
+    let right = top_right.midpoint(bottom_right);
+    let left = top_left.midpoint(bottom_left);
+    let edge = if right.dot(plate.along) >= left.dot(plate.along) {
+        right
+    } else {
+        left
+    };
     let middle = edge + plate.along * (GAP + CLOCK_W * 0.5) * plate.scale;
     middle - Vec2::new(CLOCK_W, CLOCK_H) * 0.5
 }
@@ -293,6 +304,20 @@ mod tests {
         let at = middle(beside(&turned));
         assert!((at.x - 400.0).abs() < 1e-3);
         assert!(at.y > 540.0, "the clock is not past the plate's free end");
+
+        // The seat across: the plate reads upright, and its `along` runs to
+        // the screen's left, so the clock stands left of it, not on it.
+        let across = attached::PlateBeside {
+            along: Vec2::NEG_X,
+            away: Vec2::NEG_Y,
+            ..flat(1.0)
+        };
+        let at = middle(beside(&across));
+        assert!(
+            at.x + CLOCK_W * 0.5 <= 100.0 - GAP + 1e-3,
+            "the opponent's clock stands on its own plate: {at}"
+        );
+        assert!((at.y - 430.0).abs() < 1e-3);
     }
 
     /// The table this client draws for seat 0 against seat 1, in a default
@@ -408,6 +433,17 @@ mod tests {
         )
         .expect("the opponent's plate is drawn");
         assert_eq!(at, beside(&plate));
+        // And off the plate: the clock's middle lies outside the plate's
+        // drawn box (live, 08.10.2026, the opponent's stood on its own).
+        let middle = at + Vec2::new(CLOCK_W, CLOCK_H) * 0.5;
+        let (lo, hi) = plate.quad.iter().fold(
+            (Vec2::splat(f32::MAX), Vec2::splat(f32::MIN)),
+            |(lo, hi), p| (lo.min(*p), hi.max(*p)),
+        );
+        assert!(
+            middle.x < lo.x || middle.x > hi.x || middle.y < lo.y || middle.y > hi.y,
+            "the opponent's clock stands on its own plate: {middle} in {lo}..{hi}"
+        );
 
         // A second and a half later: written once, as 2:59.
         let tick = |app: &mut App, secs: f32| {
