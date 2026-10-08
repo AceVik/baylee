@@ -311,7 +311,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 55: `LogEvent::BecameMonarch`, a variant a reader of 54 cannot parse.
     // `PlayerView::casting` is additive, defaulted and skipped when `None`:
     // a reader of 55 without it ignores it, so 55 still names the shape.
-    const RECORDED: (u32, u64) = (55, 7_013_933_554_144_083_165);
+    // `PlayerView::clocks` (and its `SeatClock`) likewise: additive,
+    // defaulted, skipped while empty.
+    const RECORDED: (u32, u64) = (55, 6_167_713_700_859_141_159);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

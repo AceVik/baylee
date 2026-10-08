@@ -4,7 +4,8 @@
 //! and 60 s to reconnect — because nothing between a room and a
 //! `GamePreset` ever set `HouseRules`, and the only way to play at another
 //! pace was to edit a preset and rebuild. A room that cannot choose its clock
-//! has exactly one pace, and every table plays at it.
+//! has exactly one pace, and every table plays at it. Since 08.10.2026 a room
+//! that says nothing plays `classic`, three minutes a decision (the owner).
 //!
 //! The wire needed nothing: the gateway sends the whole `GamePreset` to the
 //! engine as JSON, `HouseRules` included, and gamehost has always decoded it.
@@ -27,15 +28,24 @@ pub struct Preset {
 
 /// The clocks a room may pick by name.
 ///
-/// Four, because they are four different games rather than four points on a
-/// slider. `casual` is first and is what every table played at before this
-/// existed, so a caller that says nothing keeps exactly the game it had.
+/// Five different games rather than five points on a slider. The first is
+/// the default, the clock a room that names none plays: `classic`, three
+/// minutes a decision (owner, 08.10.2026), the same number as
+/// [`HouseRules::default`]. `casual` was first until then, and every table
+/// played at its ten minutes; it is still offered, as is every other clock
+/// that was.
 pub const PRESETS: &[Preset] = &[
+    Preset {
+        name: "classic",
+        decision_timeout_secs: baylee_core::preset::DEFAULT_DECISION_SECS,
+        reconnect_window_secs: 60,
+        blurb: "three minutes a decision; the default",
+    },
     Preset {
         name: "casual",
         decision_timeout_secs: 600,
         reconnect_window_secs: 60,
-        blurb: "ten minutes a decision; the pace every table used to play at",
+        blurb: "ten minutes a decision",
     },
     Preset {
         name: "standard",
@@ -105,9 +115,9 @@ pub fn named(name: &str) -> Option<&'static Preset> {
 /// What a room asked for, resolved against the presets and the bounds.
 ///
 /// A name picks a row; the two numbers then override whatever it gave, so
-/// "blitz but I want longer to come back" needs no fifth preset and no
+/// "blitz but I want longer to come back" needs no sixth preset and no
 /// `custom` sentinel. Nothing named and nothing given is [`PRESETS`]`[0]`,
-/// which is what every table already played at.
+/// the default.
 ///
 /// # Errors
 /// A name no preset carries, or a number outside the bounds above. The
@@ -156,11 +166,31 @@ pub fn resolve(
 mod tests {
     use super::{MAX_SECS, MIN_DECISION_SECS, MIN_RECONNECT_SECS, PRESETS, resolve};
 
+    /// Three minutes a decision for a room that names no clock (owner,
+    /// 08.10.2026), and the same number a preset built without a room
+    /// gets: a table opened from the lobby and one opened by `dev-table`
+    /// or a rematch's defaults play at one pace.
     #[test]
-    fn saying_nothing_is_the_clock_every_table_already_played_at() {
+    fn saying_nothing_is_three_minutes_a_decision() {
         let rules = resolve(None, None, None).expect("the default resolves");
-        assert_eq!(rules.decision_timeout_secs, 600);
+        assert_eq!(rules.decision_timeout_secs, 180);
         assert_eq!(rules.reconnect_window_secs, 60);
+        assert_eq!(PRESETS[0].name, "classic");
+        assert_eq!(
+            PRESETS[0].decision_timeout_secs,
+            baylee_core::preset::HouseRules::default().decision_timeout_secs,
+            "the gateway's default clock and the house rules' default disagree"
+        );
+        // Every clock that was offered still is, at its own pace.
+        for (name, decide) in [
+            ("casual", 600),
+            ("standard", 120),
+            ("blitz", 30),
+            ("untimed", 0),
+        ] {
+            let rules = resolve(Some(name), None, None).expect("still offered");
+            assert_eq!(rules.decision_timeout_secs, decide, "{name}");
+        }
     }
 
     #[test]

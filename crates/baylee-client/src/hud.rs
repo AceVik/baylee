@@ -291,6 +291,8 @@ pub(crate) fn table_icon_tf(fonts: &UiFonts, glyph: char, size: f32) -> TextFont
 pub(crate) mod glyph {
     /// Hourglass from the shipped Font Awesome Free cmap (until end of turn).
     pub const HOURGLASS: char = '\u{f254}';
+    /// Clock from the same cmap: a seat's decision clock beside its plate.
+    pub const CLOCK: char = '\u{f017}';
     /// Heart (life total).
     pub const HEART: char = '\u{f004}';
     /// Hand (cards in hand).
@@ -2281,6 +2283,7 @@ pub use scroll::{
     HandScroll, PreviewScroll, Scrolls, follow_the_hover, keep_the_preview_scrolled, scrolls,
 };
 pub use seatbar::attached::{PlateBeside, PlateMark, PlateMarkKind, PlateTab, plate_beside};
+pub use seatbar::plateclock::{PlateClock, PlateClockRoot, sync_plate_clocks, tick_plate_clocks};
 pub use seatbar::{
     BarRevision, LifeCell, SeatBar, SeatBarRoot, SeatInk, SeatStep, SeatTile, Shelf, Shelves,
     measure_shelves, place_seat_bars, stretch_step_tiles, sync_seat_bars,

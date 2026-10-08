@@ -86,6 +86,28 @@ impl Session {
         }
     }
 
+    /// Every seat on a decision clock now and what it has left, in seat
+    /// order: what every socket's view carries as `PlayerView::clocks`
+    /// (owner, 08.10.2026), so each player's plate can show it to the whole
+    /// table.
+    ///
+    /// [`Self::decision_remaining_ms`] per awaited seat and nothing more, so
+    /// a seat is left out by exactly the rules that leave its own number
+    /// out: an AI chair, an untimed table, a seat on the stand-in clock, and
+    /// whatever the clock's owner reported as running no clock (the curtain
+    /// still down). One rule, read in one place, so the plate beside a seat
+    /// and the countdown on that seat's own shelf cannot disagree.
+    #[must_use]
+    pub fn running_clocks(&self) -> Vec<baylee_view::SeatClock> {
+        self.awaited()
+            .iter()
+            .filter_map(|seat| {
+                self.decision_remaining_ms(seat)
+                    .map(|remaining_ms| baylee_view::SeatClock { seat, remaining_ms })
+            })
+            .collect()
+    }
+
     /// Every seat that owes an answer: all that are still deciding their
     /// opening mulligans, and after them the one the game is waiting on.
     #[must_use]

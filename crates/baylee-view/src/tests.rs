@@ -63,6 +63,7 @@ fn view(seats: u8) -> PlayerView {
         awaiting: Some(PlayerId::new(0)),
         deciding: SeatSet::new(),
         decision_remaining_ms: None,
+        clocks: Vec::new(),
         priority_held: false,
         policy_acts: Vec::new(),
         monarch: None,
@@ -107,4 +108,27 @@ fn view(seats: u8) -> PlayerView {
         sorcery_lock: None,
         sorceries_have_flash: false,
     }
+}
+
+/// `PlayerView::clocks` is the compatible kind of addition: absent from
+/// the JSON while empty, so a reader of 55 that never heard of it reads
+/// the same bytes as before, and read as empty where an older host left
+/// it out.
+#[test]
+fn the_seat_clocks_are_absent_while_empty_and_read_back_when_present() {
+    let quiet = view(2);
+    let json = serde_json::to_value(&quiet).expect("serializes");
+    assert!(json.get("clocks").is_none(), "an empty list was written");
+    let back: PlayerView = serde_json::from_value(json).expect("an older view still reads");
+    assert!(back.clocks.is_empty());
+
+    let mut ticking = view(2);
+    ticking.clocks = vec![SeatClock {
+        seat: PlayerId::new(1),
+        remaining_ms: 179_400,
+    }];
+    let back: PlayerView =
+        serde_json::from_str(&serde_json::to_string(&ticking).expect("serializes"))
+            .expect("reads back");
+    assert_eq!(back.clocks, ticking.clocks);
 }

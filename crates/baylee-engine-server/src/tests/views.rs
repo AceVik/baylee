@@ -249,6 +249,105 @@ fn in_the_mulligans_each_seat_is_told_its_own_remainder() {
     assert_eq!(deciding.iter().map(PlayerId::get).collect::<Vec<_>>(), [0]);
 }
 
+/// `(seat, ms)` of every clock the last view `seat` was sent names.
+fn clocks_told(out: &[Envelope], seat: u32) -> Vec<(u8, u32)> {
+    last_view(out, seat)
+        .expect("a view")
+        .clocks
+        .iter()
+        .map(|clock| (clock.seat.get(), clock.remaining_ms))
+        .collect()
+}
+
+/// Every seat is told every running decision clock (owner, 08.10.2026),
+/// read off the timers the attach loop armed: during the mulligans both
+/// seats' clocks, each with its own remainder, at both seats — and a seat
+/// that has kept still sees the one still deciding.
+#[test]
+fn every_seat_is_told_every_running_clock() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &two_humans(180));
+    sit(&mut runner, 0);
+    sit(&mut runner, 1);
+    let [zero, one] = runner.clocks()[..] else {
+        panic!("both seats are deciding");
+    };
+    let out = runner.handle(
+        Envelope {
+            msg: Some(v1::envelope::Msg::SeatAttached(v1::SeatAttached {
+                seat: 1,
+                resync: true,
+            })),
+        },
+        &[(zero, 120_000), (one, 45_000)],
+    );
+    assert_eq!(clocks_told(&out, 1), [(0, 120_000), (1, 45_000)]);
+
+    let [zero, one] = runner.clocks()[..] else {
+        panic!("both seats are deciding");
+    };
+    let out = act_reading(
+        &mut runner,
+        0,
+        &PlayerAction::MulliganKeep,
+        &[(zero, 110_000), (one, 40_000)],
+    );
+    assert_eq!(
+        clocks_told(&out, 0),
+        [(1, 40_000)],
+        "seat 0 has kept and lost sight of the seat still deciding"
+    );
+    assert_eq!(clocks_told(&out, 1), [(1, 40_000)]);
+}
+
+/// No clock is told before the curtain is up (#256): no clock runs then,
+/// so no seat is drawn one, though every seat is already asked its
+/// opening hand.
+#[test]
+fn no_clock_is_told_before_the_curtain() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &two_humans(180));
+    let out = attach(&mut runner, 0);
+    assert!(runner.curtain_pending(), "this test needs the curtain down");
+    let view = last_view(&out, 0).expect("a seat is shown its table");
+    assert_eq!(view.clocks, [], "a clock was told before curtain-up");
+    assert_eq!(view.decision_remaining_ms, None);
+
+    let out = sit(&mut runner, 0);
+    let out = [out, sit(&mut runner, 1)].concat();
+    assert!(!runner.curtain_pending());
+    assert_eq!(clocks_told(&out, 1), [(0, 180_000), (1, 180_000)]);
+}
+
+/// A seat on the stand-in clock and an AI chair are on no decision clock,
+/// so neither has an entry anybody is told.
+#[test]
+fn a_seat_with_no_socket_and_an_ai_chair_are_told_no_clock() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &two_humans(180));
+    sit(&mut runner, 0);
+    sit(&mut runner, 1);
+    keep_both(&mut runner);
+    detach(&mut runner, 0);
+    let out = sit(&mut runner, 1);
+    assert_eq!(on_clock(&runner).map(|c| c.what), Some(Deadline::StandIn));
+    assert_eq!(
+        clocks_told(&out, 1),
+        [],
+        "a seat with no socket was drawn a clock"
+    );
+
+    // The house's chair in the acceptance duel never is.
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &duel(180));
+    let out = sit(&mut runner, 0);
+    let told = clocks_told(&out, 0);
+    assert!(
+        told.iter().all(|(seat, _)| *seat == 0),
+        "the house's chair was drawn a clock: {told:?}"
+    );
+}
+
 /// Two players on one team, against the house.
 fn partners() -> GamePreset {
     let mut preset = two_humans(600);

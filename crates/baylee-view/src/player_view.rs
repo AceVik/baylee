@@ -21,6 +21,17 @@ pub struct WordChange {
     pub to: u8,
 }
 
+/// One seat's running decision clock, as [`PlayerView::clocks`] tells it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct SeatClock {
+    /// The seat being asked.
+    pub seat: PlayerId,
+    /// How long it has left to answer, in milliseconds from the moment the
+    /// view was built: relative, for [`PlayerView::decision_remaining_ms`]'s
+    /// reason.
+    pub remaining_ms: u32,
+}
+
 // ---------------------------------------------------------------------- view
 
 /// The complete, hidden-information-filtered state of a game as one seat sees
@@ -133,6 +144,29 @@ pub struct PlayerView {
     /// its own agents, because an agent that read it would answer the same
     /// position differently on a slow machine.
     pub decision_remaining_ms: Option<u32>,
+    /// Every seat on a decision clock now, with how long it has left, in
+    /// seat order (owner, 08.10.2026): what each player's plate draws beside
+    /// it, at every seat at the table.
+    ///
+    /// [`Self::decision_remaining_ms`] names one seat, the one this view waits
+    /// on, and during the opening mulligans that is this seat or nobody. This
+    /// names them all: while several seats decide their opening hands at once
+    /// each of them is here, so a seat that has kept sees who is still
+    /// thinking and for how long. **Public**, for the same reason the other
+    /// field is: who is deciding is already on the table ([`Self::deciding`],
+    /// [`Self::awaiting`]), and the time a seat has left says nothing about
+    /// what it is looking at.
+    ///
+    /// The same numbers by the same rules, read from the same place
+    /// (`Session::decision_remaining_ms`): relative milliseconds from the
+    /// moment this view was built, and no entry where no decision clock runs
+    /// — an untimed table, an AI chair, a seat on the stand-in clock, a table
+    /// whose curtain is not up. Empty in every view handed to an agent, for
+    /// the reason [`Self::decision_remaining_ms`] gives.
+    ///
+    /// Additive: absent on the wire while empty, and read as empty when absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clocks: Vec<SeatClock>,
     /// Whether *this* seat has a standing order that is withholding its own
     /// priority — "let the stack resolve", "not this turn", and so on.
     ///

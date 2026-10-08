@@ -50,6 +50,7 @@ use baylee_client_core::seatbar::{
 use baylee_view::SeatView;
 
 pub(crate) mod attached;
+pub(crate) mod plateclock;
 
 /// Root of every seat bar. A sibling of [`HudRoot`], not a child.
 #[derive(Component)]

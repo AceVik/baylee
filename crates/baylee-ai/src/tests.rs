@@ -241,6 +241,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         awaiting: None,
         deciding: SeatSet::new(),
         decision_remaining_ms: None,
+        clocks: Vec::new(),
         priority_held: false,
         policy_acts: Vec::new(),
         monarch: None,
