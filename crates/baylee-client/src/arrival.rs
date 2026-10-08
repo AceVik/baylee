@@ -132,6 +132,20 @@ impl Prepared {
     fn ready(&self) -> bool {
         self.requested && self.acknowledged.load(Ordering::Acquire) == self.generation
     }
+
+    /// Whether the snapshot waits on an image the main world has taken out
+    /// of its store. A strong handle pins an image against being dropped,
+    /// never against `Assets::remove`, and the render world then takes its
+    /// `GpuImage` away too: the acknowledgement waited for it for ever (a
+    /// felt recut under the cover on a phone, `table::mats`).
+    fn waits_on_the_gone(&self, images: &Assets<Image>) -> bool {
+        self.images.iter().any(|image| !images.contains(image.id()))
+    }
+
+    /// Stops waiting on what is no longer there: nothing will draw it.
+    fn forget_the_gone(&mut self, images: &Assets<Image>) {
+        self.images.retain(|image| images.contains(image.id()));
+    }
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
@@ -394,6 +408,11 @@ fn prepare(
         prepared.meshes = meshes.iter().map(|mesh| mesh.0.clone()).collect();
         prepared.requested = true;
         return;
+    }
+    // Asked through `Deref` first: a write marks the request changed and
+    // extracts it again, so it is written only when something went.
+    if prepared.waits_on_the_gone(&images) {
+        prepared.forget_the_gone(&images);
     }
     if prepared.failed.load(Ordering::Relaxed) {
         journey.fail_local(Phrase::ArrivalGraphicsFailed);
@@ -684,6 +703,42 @@ mod tests {
         prepared.reset();
         prepared.requested = true;
         assert!(!prepared.ready());
+    }
+
+    /// The table's cover sat on "Der letzte Feinschliff" for ever on a
+    /// phone: the felt was recut under it and its old vein image taken out
+    /// of the store with `Assets::remove`, which a pinned strong handle does
+    /// not prevent. The render world dropped its `GpuImage`, and the
+    /// acknowledgement waited for one that would never come.
+    #[test]
+    fn an_image_taken_out_of_the_store_is_not_waited_for() {
+        let mut images = Assets::<Image>::default();
+        let kept = images.add(Image::default());
+        let recut = images.add(Image::default());
+        let mut prepared = Prepared::default();
+        prepared.reset();
+        // The snapshot `prepare` takes: strong handles to what is there.
+        prepared.images = [kept.id(), recut.id()]
+            .into_iter()
+            .filter_map(|id| images.get_strong_handle(id))
+            .collect();
+        prepared.requested = true;
+        assert!(!prepared.waits_on_the_gone(&images), "nothing went yet");
+
+        // What the felt's recut did.
+        images.remove(recut.id());
+        assert!(
+            prepared.images.iter().any(|h| h.id() == recut.id()),
+            "the premise: the pin did not keep it in the store, but it is still waited on"
+        );
+        assert!(prepared.waits_on_the_gone(&images));
+        prepared.forget_the_gone(&images);
+        assert!(!prepared.waits_on_the_gone(&images));
+        assert_eq!(
+            prepared.images.iter().map(Handle::id).collect::<Vec<_>>(),
+            vec![kept.id()],
+            "what is still there is still waited on"
+        );
     }
 
     #[test]
