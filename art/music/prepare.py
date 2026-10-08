@@ -378,6 +378,8 @@ def main():
             stale.unlink()
     MANIFEST.write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n")
     TABLE.write_text(rust_table(rows))
+    # Formatted as `cargo fmt` would, so a rebuild changes nothing it need not.
+    subprocess.run(["rustfmt", "--edition", "2024", str(TABLE)], check=True)
     total = sum(r["frames"] * 2 for r in rows)
     print(f"{len(rows)} recordings, {total} bytes ({total / 1e6:.2f} MB)")
 

@@ -7015,47 +7015,93 @@ counted cues exist to do.
 
 ### One orchestra follows the player
 
-`baylee-client-core/src/music/score.rs` performs the original 32-bar 6/8
-D-minor/Dorian theme with recorded VSCO 2 CE strings, expressive piano, harp,
-horns, timpani, snare and suspended cymbal. The 30-source bank is CC0; fifteen samples provide five piano registers and
-three touch layers. Piano voicings, bass inversions, suspensions and contrary
-string answers develop the shared theme without resetting the transport;
-provenance, pitch mapping and the reproducible preparation script live in
-`art/music/`. The sampler decodes the small embedded bank once before playback,
-uses bounded polyphony and allocates nothing while rendering. Stereo seating,
-natural recorded attacks, note releases, phrase dynamics and a damped diffuse
-room are shared by every state.
+`baylee-client-core/src/music/` performs an original modal score on CC0
+recordings of old instruments (music v2, 08.10.2026; the design is
+`.claude/music/DESIGN-music-v2.md`): baroque recorders, bowed and plucked
+psaltery, folk harp, strumstick, a Renaissance organ, a bagpipe (chanter and
+drones), solo violin, contrabass, cellos, frame drums, the davul, nakers,
+a rope snare, tambourine and bells, and a French horn for the hunt only — plus
+one string of our own, a Karplus–Strong lute. The bank (`bank.rs`, generated
+by `art/music/prepare.py`, provenance in `art/music/samples.json`) is 99
+recordings, mono 44,100 Hz PCM16, 15.6 MB, embedded in the binary: the music
+plays offline. Sustains are looped (the crossfade is baked in), the chanter
+keeps its own intonation (the SFZ's cents), and no recording is read more than
+a minor third from its pitch (a melody note a whole tone, the chanter a
+semitone; `no_recording_is_stretched_out_of_its_colour`).
 
-There is **one musical clock and one persistent AudioPlayer**. Public stack,
-combat, board and damage activity drives a decaying energy estimate. The
-conductor admits a new state on a bar line, changes future instrumentation,
-and lets the tempo approach its target over eight seconds. Sanctuary starts
-at a dotted-quarter 60; battle moves towards 72–100 according to energy.
-Held notes and reverb never restart, no screen transition fades a track out,
-and no other track fades in. Victory, defeat and draw each have a four-bar
-cadence. Dismissing the result early still completes that cadence before
-returning to sanctuary. Long result screens settle into quiet tonic strings.
+There is **one musical clock and one persistent AudioPlayer**. Every scene
+lives on one pitch set around B♭ (B♭ C D E♭ F G A; E is the one movable
+degree), and the drone decides the mode:
+
+| Scene | Final, mode | Metre |
+|---|---|---|
+| front door, lobby | B♭ Lydian (E♮: the wonder) | 6/8 |
+| deck building | B♭ Ionian | 6/8 |
+| a table opening | an arrival on B♭ (davul, bell, harp) | 6/8 |
+| the table at rest | C Dorian | 6/8 |
+| rising tension | G Aeolian; from 0.7 a D Phrygian shadow at phrase ends | 7/8 (3+2+2); 5/8 when a player is about to lose |
+| attackers declared (the hunt) | F Mixolydian, the hunting-horn call | 6/8 jig |
+| the climax | G Aeolian, full pipes and davul | 6/8 jig |
+| a big spell | one bar of B♭ Lydian light (harp E♮, bell) | — |
+| victory / draw / defeat | B♭ / the open fifth F–C, unresolved / G Aeolian | 6/8 / 3/4 / 3/4, slowing |
+
+The conductor admits a change on a bar line. Where the final moves, the bar
+after the request is a pivot bar: its bass already plays the new final's
+fifth and its melody rests (`the_drone_moves_at_a_bar_line_through_a_pivot`).
+Layers (drone, bass, ostinato, melody, drums, the pipe's drones, the chanter)
+slew per bar, up over two bars and down over three; the tempo approaches its
+target over six seconds (an ending's ritardando over 1.5). Held notes and the
+room never restart, no track is crossfaded. The bagpipe is the instrument of
+rising tension: its drones enter at a tension of 0.25 and grow, the chanter
+joins at 0.55, the climax is full pipes and the davul; the drums enter one by
+one (frame drum 0.35, davul 0.5, nakers 0.6, rope snare and tambourine 0.7).
+Tension enters at 0.35 and leaves below 0.2; the climax needs two bars at 0.8
+(or a lethal board) and leaves below 0.5, and after 64 bars takes a breath of
+eight. The horn calls once on the bar after attackers are declared (this
+seat's own attack near and full, another's from further off), at most once a
+turn and once in sixteen bars, never the same call twice running. Each ending
+takes eight bars, grows out of the last texture's pulse, finishes even when
+the result is dismissed early, and then holds its last chord until the player
+leaves. A long game varies by a 48-bar cycle at the table (16 bars of theme, 8
+of ostinato alone, 16 of the theme's variant, 8 of drone and harp), a melody
+instrument that turns by cycle and when the monarch changes hands, a drone
+colour every 24 bars and a second reading of the bass line. All of it is a
+function of the bar, the tick and the requests (`two_performances_of_one_script_are_identical`).
+
+The drivers are pure and in client-core: `music::direct(place, view, ending,
+memory, dt)` reads the lobby's screen, the duel's phase, the `PlayerView` and
+the result, and nothing else — combat, a big spell (mana value 5 or more, or a
+stack of three), low life (this seat's own weighs more), a player about to
+lose, a board that reads as lethal (the active player's untapped creatures
+that may attack against an opponent's life: a reading of the public board,
+not the engine's), the decaying activity of life and board changes, and
+accents counted once (the hunt, the monarch, a big spell, an arrival). A
+`LocalHost` game fills the view as the socket does, so a house game offline
+sounds as a hosted one (`the_music_follows_a_house_game_offline`). The Bevy
+`perform()` maps `DuelPhase` and `Screen` to a `Place`, sends the request
+(one `u64`, `ScoreControl`), and `/state` reports it as `score` (dev-control).
 
 Quick settings behind the login/lobby gear contain mute and volume controls
 in ten-percent steps. The full settings screen and the table's game menu
 provide the same controls. The chosen level remains device-local in
 `ClientSettings::music`; changing volume slews only the master over 100 ms.
-Muting keeps the musical transport running, so unmuting resumes the present
-phrase. Sound effects keep their independent preference.
+Once muted and faded out, the sink is paused and the score is not rendered at
+all; unmuting resumes it where it stood. A priority cue (the priority strike,
+a refusal, combat and this seat's own life) ducks the music 6 dB in 30 ms and
+gives it back over 400 ms (`Duck`). Sound effects keep their independent
+preference.
 
-Tests cover bar-boundary admission, sample-identical playback before a change,
-cadence completion, output headroom, single-player persistence across all
-screen states and activity decay. To render a listening demo from the exact
-runtime sampler:
+To hear the exact runtime score, scene by scene and through every transition:
 
 ```sh
-cargo run -p baylee-client-core --example music_demo -- /tmp/baylee-orchestra.wav
+cargo run --release -p baylee-client-core --example music_demo -- <dir>
 ```
 
-The 150-second demo visits sanctuary (0 s), restrained battle (32 s), intense
-battle (56 s), victory (80 s), sanctuary (90 s), battle (104 s), defeat (116 s),
-draw (126 s), and sanctuary (138 s). These are requests, admitted on musical
-boundaries. Browser playback retains the existing AudioContext gesture unlock
+It writes sixteen WAVs (the front door, the lobby, deck building, the
+arrival, the calm table on this seat's turn and another's, tension rising, the
+hunt, the climax, the three endings, big spells, the pipe's drones re-pitched,
+the monarch, and a whole game in five minutes) and prints each one's peak and
+loudness. Browser playback retains the existing AudioContext gesture unlock
 in `index.html`; autoplay permission remains the browser's decision.
 
 ## The zone browser is a dialog, which is a different material
