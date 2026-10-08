@@ -1958,6 +1958,12 @@ fn add_present_systems(app: &mut App) {
             .in_set(DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),
     );
+    // The cues' buffers, synthesised off the main thread since startup,
+    // arrive whenever the last is done: the lobby is open by then.
+    app.add_systems(
+        Update,
+        sound::collect_the_voices.run_if(resource_exists::<sound::Voicing>),
+    );
 }
 
 /// Everything a hand does, in the order the frame has to read it in.
@@ -2147,9 +2153,10 @@ impl Plugin for DuelPlugin {
                     hud::setup_fonts,
                     hud::setup_sheets,
                     // Once, on the frame the app opens: thirty-seven
-                    // buffers of arithmetic, and thereafter thirty-seven
-                    // handles. See `sound`'s header for why they are
-                    // computed and not shipped, and what the count buys.
+                    // buffers of arithmetic, started on the compute pool
+                    // and collected by `sound::collect_the_voices`. See
+                    // `sound`'s header for why they are computed and not
+                    // shipped, and what the count buys.
                     sound::voice_the_cues,
                 ),
             )
