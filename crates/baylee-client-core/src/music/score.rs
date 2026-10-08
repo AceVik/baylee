@@ -37,8 +37,14 @@ use std::sync::{
 };
 
 mod melodies;
+mod orchestral;
+mod textures;
+mod themes;
 #[allow(clippy::wildcard_imports)] // the score's note names and melodies, read as notation
 use melodies::*;
+
+pub use themes::Theme;
+use themes::Voicing;
 
 /// Lock-free message from the game to the conductor: a [`ScoreRequest`] in
 /// one word, an atomic snapshot also on wasm without threads.
@@ -100,13 +106,15 @@ impl Texture {
     /// The eighth's length this texture settles at, in seconds.
     fn eighth(self, tension: f32) -> f64 {
         match self {
-            Self::FrontDoor => 0.33,
-            Self::Lobby | Self::Build | Self::Arrival => 0.31,
-            // The table's dance: a dotted quarter of 69.
-            Self::Calm => 0.29,
-            Self::Tension => 0.185 - 0.02 * f64::from(tension),
-            Self::Hunt => 0.172,
-            Self::Climax => 60.0 / 118.0 / 3.0,
+            // Owner, 08.10.2026: noticeably faster, the table and the lobby
+            // most; the hunt and the climax stay the fastest.
+            Self::FrontDoor => 0.29,
+            Self::Lobby | Self::Build | Self::Arrival => 0.27,
+            // The table's dance: a dotted quarter of 78.
+            Self::Calm => 0.255,
+            Self::Tension => 0.166 - 0.018 * f64::from(tension),
+            Self::Hunt => 0.152,
+            Self::Climax => 60.0 / 134.0 / 3.0,
             Self::Victory => 0.19,
             Self::Draw => 0.21,
             Self::Defeat => 0.22,
@@ -155,6 +163,12 @@ struct Layers {
     drums: f32,
     pipe: f32,
     chanter: f32,
+    /// The orchestral body: the string sections' held chord, the spiccato
+    /// drive, the brass, the big drums.
+    strings: f32,
+    drive: f32,
+    brass: f32,
+    perc: f32,
 }
 
 impl Layers {
@@ -170,6 +184,10 @@ impl Layers {
         step(&mut self.drums, target.drums);
         step(&mut self.pipe, target.pipe);
         step(&mut self.chanter, target.chanter);
+        step(&mut self.strings, target.strings);
+        step(&mut self.drive, target.drive);
+        step(&mut self.brass, target.brass);
+        step(&mut self.perc, target.perc);
     }
 }
 
@@ -229,6 +247,15 @@ pub struct Tune {
     /// that changes: pitch and level.
     pipes_held: Option<(u8, f32)>,
     bed_held: Option<u8>,
+    strings_held: Option<(u8, f32)>,
+    low_held: Option<u8>,
+    /// The theme the score sings, and whether this bar is the breath a
+    /// change of theme takes before the new one sings.
+    theme: Theme,
+    theme_rest: bool,
+    /// The bar's root, as the scene's bass line sets it: what the orchestral
+    /// body voices its chord on.
+    root: u8,
     #[cfg(test)]
     played: Vec<Played>,
     /// Frames rendered ahead for the sample iterator, and how many of them
@@ -284,6 +311,11 @@ impl Tune {
             from: Texture::FrontDoor,
             pipes_held: None,
             bed_held: None,
+            strings_held: None,
+            low_held: None,
+            theme: Theme::default(),
+            theme_rest: false,
+            root: BB1,
             #[cfg(test)]
             played: Vec::new(),
             ahead: vec![[0.0; 2]; BLOCK],
@@ -322,6 +354,17 @@ impl Tune {
         }
     }
 
+    /// Runs the clock and the conductor for `frames` without rendering a
+    /// sample: what the tests that read only the notes scheduled need. The
+    /// voice list stops at its polyphony; nothing grows.
+    #[cfg(test)]
+    fn skim(&mut self, frames: usize) {
+        for _ in 0..frames {
+            self.transport();
+            self.advance();
+        }
+    }
+
     /// One frame of tempo inertia and of the tick countdown.
     fn advance(&mut self) {
         self.eighth += (self.eighth_target - self.eighth) / (f64::from(RATE) * self.inertia);
@@ -355,6 +398,19 @@ impl Tune {
         self.request = request;
         self.light = false;
         self.monarch = false;
+        // A new theme is taken on the bar line: one bar's breath, held notes
+        // and the orchestra's chord ringing on, then the new theme from its
+        // first bar.
+        self.theme_rest = request.theme != self.theme;
+        if self.theme_rest {
+            self.theme = request.theme;
+            if matches!(
+                self.texture,
+                Texture::FrontDoor | Texture::Lobby | Texture::Calm
+            ) {
+                self.here = 0;
+            }
+        }
         if let Some(next) = self.pivot.take() {
             self.enter(next);
         } else {
@@ -399,6 +455,11 @@ impl Tune {
             Texture::Defeat => {
                 Texture::Defeat.eighth(0.0) * 1.07_f64.powi(self.here.min(ENDING_BARS) as i32)
             }
+            texture @ (Texture::FrontDoor
+            | Texture::Lobby
+            | Texture::Build
+            | Texture::Arrival
+            | Texture::Calm) => texture.eighth(tension) * self.theme.book().tempo,
             texture => texture.eighth(tension),
         };
         self.ticks = self.texture.ticks();
@@ -483,10 +544,12 @@ impl Tune {
     }
 
     /// The layers' levels this texture and request ask for.
+    #[allow(clippy::too_many_lines)] // one table of levels
     fn target(&self) -> Layers {
         let t = self.request.tension;
         let pipe = pipe_level(t);
         let chanter = if t >= CHANTER_FROM { 1.0 } else { 0.0 };
+        let rise = |from: f32, span: f32| ((t - from) / span).clamp(0.0, 1.0);
         let full = Layers {
             drone: 1.0,
             bass: 1.0,
@@ -495,38 +558,103 @@ impl Tune {
             drums: 1.0,
             pipe: 0.0,
             chanter: 0.0,
+            strings: 1.0,
+            drive: 1.0,
+            brass: 1.0,
+            perc: 1.0,
+        };
+        let quiet = Layers {
+            drive: 0.0,
+            brass: 0.0,
+            perc: 0.0,
+            ..full
         };
         match self.texture {
             Texture::FrontDoor => Layers {
                 drums: 0.0,
                 ostinato: 0.4,
                 bass: 0.6,
-                ..full
+                strings: 0.45,
+                ..quiet
             },
-            Texture::Lobby => Layers { drums: 0.6, ..full },
+            Texture::Lobby => Layers {
+                drums: 0.6,
+                strings: 0.55,
+                drive: 0.2,
+                ..quiet
+            },
             Texture::Build => Layers {
                 melody: 0.0,
                 drums: 0.0,
+                strings: 0.5,
+                ..quiet
+            },
+            Texture::Arrival => Layers {
+                strings: 0.8,
+                brass: 0.4,
+                perc: 0.7,
+                drive: 0.0,
                 ..full
             },
-            Texture::Arrival => full,
-            Texture::Calm => Layers {
-                melody: if self.request.own_turn { 1.0 } else { 0.45 },
-                drums: 0.7,
-                pipe,
-                ..full
-            },
-            Texture::Tension | Texture::Hunt => Layers {
+            Texture::Calm => {
+                // The 48-bar arc, aimed a bar ahead so each layer has swelled
+                // by the bar it belongs to.
+                let (strings, drive, brass, perc) = match (self.here + 1) % 48 / 8 {
+                    1 => (0.7, 0.3, 0.0, 0.0),
+                    2 => (1.0, 0.6, 0.9, 0.45),
+                    3 => (0.6, 0.5, 0.0, 0.0),
+                    4 => (0.55, 0.15, 0.0, 0.0),
+                    _ => (0.35, 0.0, 0.0, 0.0),
+                };
+                Layers {
+                    melody: if self.request.own_turn { 1.0 } else { 0.45 },
+                    drums: 0.7,
+                    pipe,
+                    strings,
+                    drive,
+                    brass,
+                    perc,
+                    ..full
+                }
+            }
+            Texture::Tension => Layers {
                 pipe,
                 chanter,
+                strings: 0.7 + 0.3 * rise(0.35, 0.5),
+                drive: rise(0.35, 0.4),
+                brass: rise(0.5, 0.3),
+                perc: rise(0.45, 0.35),
                 ..full
             },
-            Texture::Climax | Texture::Victory => Layers {
+            Texture::Hunt => Layers {
+                pipe,
+                chanter,
+                strings: 0.8,
+                brass: 0.4 + 0.6 * rise(0.4, 0.4),
+                perc: 0.5 + 0.5 * rise(0.4, 0.4),
+                ..full
+            },
+            Texture::Climax => Layers {
                 pipe: 1.0,
                 chanter: 1.0,
                 ..full
             },
-            Texture::Draw | Texture::Defeat => Layers { pipe: 0.0, ..full },
+            Texture::Victory => Layers {
+                pipe: 1.0,
+                chanter: 1.0,
+                drive: 0.3,
+                perc: 0.5,
+                ..full
+            },
+            Texture::Draw => Layers {
+                strings: 0.6,
+                ..quiet
+            },
+            Texture::Defeat => Layers {
+                strings: 0.75,
+                brass: 0.0,
+                ..quiet
+            },
         }
     }
 
@@ -624,9 +752,24 @@ impl Tune {
         pitch
     }
 
-    /// Whether the melody plays this bar: never in a pivot or a lit bar.
+    /// Whether the melody plays this bar: never in a pivot, a lit bar or the
+    /// breath a change of theme takes.
     fn singing(&self) -> bool {
-        self.pivot.is_none() && !self.light
+        self.pivot.is_none() && !self.light && !self.theme_rest
+    }
+
+    /// Sings one bar of a phrase as a scene voices it (`themes::voice`).
+    fn sing(
+        &mut self,
+        phrase: Phrase,
+        bar: usize,
+        family: Family,
+        gain: f32,
+        touch: Touch,
+        v: Voicing,
+    ) {
+        let (notes, n) = themes::voice(phrase, bar, v, self.texture.lydian() || self.light);
+        self.line(&notes[..n], family, gain, touch, 0);
     }
 
     /// Plays the notes of one melody bar that start on this tick. `step`
@@ -637,12 +780,19 @@ impl Tune {
             if onset == self.tick && pitch > 0 {
                 let pitch = self.shift(pitch, step);
                 let long = eighths >= 3;
-                let mordent = long && (self.bar + u64::from(onset)) % 3 == 1
-                    || eighths == 2 && self.bar % 4 == 1 && onset > 0;
-                // A turn dips below the note: never below the instrument.
+                // An ornament's neighbours stay inside the instrument (the
+                // chanter has nine notes and no more).
                 let lowest = bank::BANK[family.first].midi;
-                let turn =
-                    long && !mordent && self.bar % 4 == 3 && self.shift(pitch, -1) + 1 >= lowest;
+                let highest = bank::BANK[family.first + family.len - 1].midi;
+                let above = self.shift(pitch, 1) <= highest + 1;
+                let mordent = above
+                    && (long && (self.bar + u64::from(onset)) % 3 == 1
+                        || eighths == 2 && self.bar % 4 == 1 && onset > 0);
+                let turn = long
+                    && above
+                    && !mordent
+                    && self.bar % 4 == 3
+                    && self.shift(pitch, -1) + 1 >= lowest;
                 if turn {
                     // A turn: the note, above, the note, below, the note.
                     let upper = self.shift(pitch, 1);
@@ -715,6 +865,7 @@ impl Tune {
             Texture::Draw => self.draw(),
             Texture::Defeat => self.defeat(),
         }
+        self.orchestral();
         if !self.texture.ending() && self.texture != Texture::Arrival {
             self.fill();
             self.run();
@@ -752,25 +903,31 @@ impl Tune {
             self.strike(at::DAVUL_2, 60, 2.0, 0.13 * drums, Touch::at(0.0));
             self.strike(at::NAKER_HIGH, 74, 1.0, 0.07 * drums, Touch::at(0.3));
         }
+        // The orchestra's toms under the frame drums as the big drums rise.
+        let perc = self.layers.perc;
+        if perc > 0.3 && k > 0 {
+            let tom = if k == 1 { at::TOM_HIGH } else { at::TOM_LOW };
+            self.strike(tom, 60, 1.0, 0.11 * perc, Touch::at(-0.2 + 0.3 * k as f32));
+        }
     }
 
-    /// A running passage on the psaltery into every eighth bar's line: five
-    /// sixteenths climbing the scale to a step below the final.
+    /// A running passage on the harp into every eighth bar's line: five
+    /// sixteenths climbing the scale to the final.
     fn run(&mut self) {
         const COUNT: u8 = 5;
         if self.here % 8 != 7 || !self.singing() || self.tick + COUNT < self.ticks {
             return;
         }
         let target = match self.texture {
-            Texture::Calm => C6,
-            Texture::Tension | Texture::Climax => G5,
-            Texture::Hunt => F5,
-            _ => BB5,
+            Texture::Calm => C5,
+            Texture::Tension | Texture::Climax => G4,
+            Texture::Hunt => F4,
+            _ => BB4,
         };
         let k = self.tick + COUNT - self.ticks;
         let pitch = self.shift(target, k as i8 - COUNT as i8);
         let gain = (0.06 + 0.015 * f32::from(k)) * self.layers.ostinato;
-        self.play(bank::PSALTERY, pitch, 1.6, gain, Touch::at(0.35));
+        self.play(bank::HARP, pitch, 1.6, gain, Touch::at(0.35));
     }
 
     /// The pipe's drones, under every table texture by the tension's level:
@@ -836,1030 +993,6 @@ impl Tune {
     fn unbed(&mut self) {
         if self.bed_held.take().is_some() {
             self.orchestra.release(BED);
-        }
-    }
-
-    /// B♭ Lydian: the front door (the alto alone over drone and harp) and the
-    /// lobby (with its ostinato and a muted frame drum).
-    #[allow(clippy::too_many_lines)] // one texture's arrangement, read top to bottom
-    fn lydian_home(&mut self) {
-        let t = self.tick;
-        let b = self.here as usize;
-        let lobby = self.texture == Texture::Lobby;
-        let l = self.layers;
-        let root = self.bass(FRONT_BASS[b % 8]);
-        if t == 0 {
-            self.bed(
-                BB,
-                &[
-                    (bank::ORGAN, BB2, 0.055, 0.0),
-                    (bank::LONGBOW, BB4, 0.035, -0.3),
-                    (bank::LONGBOW, F5, 0.03, 0.3),
-                ],
-            );
-            self.play(
-                bank::CONTRABASS,
-                root,
-                11.5,
-                0.11 * l.bass,
-                Touch::at(0.05).attack(0.25),
-            );
-            if lobby && b % 2 == 1 {
-                self.strike(at::FRAMEDRUM_MUTED, 60, 2.0, 0.08 * l.drums, Touch::at(0.1));
-            }
-        }
-        // Harp: the whole Lydian figure in the lobby, two strings of it at
-        // the front door.
-        if lobby && b % 2 == 1 {
-            let degree = [0, 7, 12, 14, 18, 14, 12, 7, 12, 14, 18, 12][usize::from(t)];
-            let gain = if t.is_multiple_of(2) { 0.10 } else { 0.065 };
-            self.play(
-                bank::HARP,
-                BB3 + degree,
-                3.0,
-                gain * l.ostinato,
-                Touch::at(-0.35),
-            );
-        } else if t.is_multiple_of(2) {
-            let k = usize::from(t / 2);
-            let degree = [0, 7, 12, 14, 18, 12][k];
-            if lobby || k == 0 || k == 3 {
-                let gain = [0.13, 0.10, 0.11, 0.09, 0.10, 0.09][k] * l.ostinato.max(0.5);
-                self.play(bank::HARP, BB3 + degree, 5.0, gain, Touch::at(-0.35));
-            }
-            if lobby {
-                let pitch = [BB4, F5, BB5, F5, E5, F5][k];
-                self.play(
-                    bank::PSALTERY,
-                    pitch,
-                    3.0,
-                    0.06 * l.ostinato,
-                    Touch::at(0.4),
-                );
-            }
-        }
-        // The theme: 16 bars of it, 16 of drone and harp (32 at the lobby,
-        // where it sings every other cycle).
-        let cycle = if lobby { 64 } else { 32 };
-        let pos = b % cycle;
-        if pos < 16 && self.singing() {
-            let phrase = if pos < 8 { FRONT_A } else { FRONT_B };
-            self.line(
-                phrase[pos % 8],
-                bank::ALTO,
-                0.24 * l.melody,
-                Touch::at(0.15),
-                0,
-            );
-        }
-    }
-
-    /// B♭ Ionian, to think over: harp and psaltery over the drone, no melody.
-    fn build(&mut self) {
-        let t = self.tick;
-        let b = self.here as usize;
-        let l = self.layers;
-        let root = self.bass(if b % 8 < 6 { BB1 } else { F2 });
-        if t == 0 {
-            self.bed(
-                BB,
-                &[
-                    (bank::ORGAN, BB2, 0.06, 0.0),
-                    (bank::LONGBOW, F5, 0.025, 0.3),
-                ],
-            );
-            self.play(
-                bank::CONTRABASS,
-                root,
-                11.5,
-                0.10 * l.bass,
-                Touch::at(0.05).attack(0.25),
-            );
-        }
-        if t.is_multiple_of(2) {
-            let k = usize::from(t / 2);
-            let degree = [0, 7, 12, 16, 14, 7][k];
-            let harp_root = if b % 8 < 6 { BB3 } else { F3 };
-            self.play(
-                bank::HARP,
-                harp_root + degree,
-                5.0,
-                0.11 * l.ostinato,
-                Touch::at(-0.35),
-            );
-        }
-        if b % 4 == 3 && (6..10).contains(&t) {
-            let pitch = [BB4, C5, D5, F5][usize::from(t - 6)];
-            self.play(
-                bank::PSALTERY,
-                pitch,
-                4.0,
-                0.08 * l.ostinato,
-                Touch::at(0.4),
-            );
-        }
-    }
-
-    /// The table arriving: a davul stroke and a bell on B♭, a harp sweep,
-    /// then the drone holds through the loading cover.
-    fn arrival(&mut self) {
-        let t = self.tick;
-        let l = self.layers;
-        if t == 0 {
-            self.bed(
-                BB,
-                &[
-                    (bank::ORGAN, BB2, 0.07, 0.0),
-                    (bank::LONGBOW, BB4, 0.03, -0.3),
-                ],
-            );
-            let root = self.bass(BB1);
-            self.play(
-                bank::CONTRABASS,
-                root,
-                11.5,
-                0.12 * l.bass,
-                Touch::at(0.05).attack(0.3),
-            );
-        }
-        match self.here {
-            0 => {
-                if t == 0 {
-                    self.strike(at::DAVUL_FORTE, 60, 4.0, 0.26, Touch::at(0.0));
-                    self.play(bank::CHIMES, BB4, 16.0, 0.09, Touch::at(0.25));
-                }
-                if t.is_multiple_of(2) {
-                    let pitch = [BB2, C3, D3, F3, G3, BB3][usize::from(t / 2)];
-                    self.play(bank::HARP, pitch + 12, 6.0, 0.12, Touch::at(-0.3));
-                }
-            }
-            1 if t == 0 => {
-                self.strike(at::DAVUL_1, 60, 3.0, 0.16, Touch::at(0.0));
-                self.play(bank::CHIMES, F4, 16.0, 0.06, Touch::at(-0.25));
-            }
-            _ if t == 0 && self.here.is_multiple_of(2) => {
-                self.play(bank::HARP, BB3, 8.0, 0.08, Touch::at(-0.3));
-                self.play(bank::HARP, F4, 8.0, 0.06, Touch::at(-0.3));
-            }
-            _ => {}
-        }
-    }
-
-    /// The table at rest, C Dorian in 6/8: strumstick and a drone that
-    /// changes colour every 24 bars, the bass line on the contrabass, the
-    /// harp's broken fifths, a muted frame drum, and the theme over a 48-bar
-    /// cycle whose instrument turns by cycle (and by the monarch).
-    #[allow(clippy::too_many_lines)] // one texture's arrangement, read top to bottom
-    fn calm(&mut self) {
-        let t = self.tick;
-        let b = self.here as usize;
-        let l = self.layers;
-        let reading = if (b / 48).is_multiple_of(2) {
-            CALM_BASS
-        } else {
-            CALM_BASS_2
-        };
-        let normal = reading[b % 8];
-        let root = self.bass(normal);
-        if t == 0 {
-            self.play(
-                bank::STRUMSTICK,
-                root + 12,
-                11.5,
-                0.17 * l.drone,
-                Touch::at(-0.2),
-            );
-            match (b / 24) % 3 {
-                0 => self.bed(C, &[(bank::ORGAN, C3, 0.035, 0.0)]),
-                1 => self.bed(
-                    C,
-                    &[
-                        (bank::LONGBOW, C5, 0.035, -0.2),
-                        (bank::LONGBOW, G5, 0.025, 0.2),
-                    ],
-                ),
-                _ => self.unbed(),
-            }
-            self.play(
-                bank::CONTRABASS,
-                root,
-                12.2,
-                0.13 * l.bass,
-                Touch::at(0.05).attack(0.25),
-            );
-            if self.request.own_turn && b.is_multiple_of(2) {
-                self.play(bank::PIZZICATO, root, 6.0, 0.11 * l.bass, Touch::at(0.1));
-            }
-            if b % 2 == 1 {
-                self.strike(at::FRAMEDRUM_MUTED, 60, 2.0, 0.09 * l.drums, Touch::at(0.1));
-            }
-        }
-        if t == 6 && b % 2 == 1 {
-            self.strike(
-                at::FRAMEDRUM_SMALL_MUTED,
-                60,
-                1.0,
-                0.05 * l.drums,
-                Touch::at(0.25),
-            );
-        }
-        let pos = b % 48;
-        let thin = pos >= 40;
-        // Every other bar the harp runs in sixteenths: inner motion, not a pad.
-        let harp = if self.light { root } else { normal };
-        if b % 2 == 1 && !thin {
-            let degree = [0, 7, 12, 7, 14, 7, 12, 7, 14, 12, 7, 12][usize::from(t)];
-            let gain = if t.is_multiple_of(2) { 0.12 } else { 0.075 };
-            self.play(
-                bank::HARP,
-                harp + 24 + degree,
-                3.0,
-                gain * l.ostinato,
-                Touch::at(-0.35),
-            );
-        } else if t.is_multiple_of(2) && (!thin || t.is_multiple_of(6)) {
-            let k = usize::from(t / 2);
-            let degree = [0, 7, 12, 7, 14, 12][k];
-            let gain = [0.15, 0.11, 0.12, 0.10, 0.11, 0.10][k];
-            // A pivot moves only the bass; a lit bar moves the harp with it.
-            self.play(
-                bank::HARP,
-                harp + 24 + degree,
-                5.0,
-                gain * l.ostinato,
-                Touch::at(-0.35),
-            );
-        }
-        // The lute plucks the offbeats under it.
-        if (t == 3 || t == 9) && !thin {
-            let gain = 0.06 * l.ostinato * self.dynamics() * self.texture.level();
-            let pitch = if t == 3 { root + 12 } else { root + 19 };
-            self.orchestra
-                .lute(pitch, self.seconds(4.0), gain, -0.3, 0.45);
-        }
-        // The theme in its 48 bars: A B, ostinato alone, A' B', drone and harp.
-        let phrase = match pos / 8 {
-            0 => Some(CALM_A),
-            1 => Some(CALM_B),
-            3 => Some(CALM_A2),
-            4 => Some(CALM_B2),
-            _ => None,
-        };
-        if let Some(phrase) = phrase.filter(|_| self.singing()) {
-            let bar = phrase[pos % 8];
-            let gain = 0.25 * l.melody;
-            match ((self.bar / 48) as u8).wrapping_add(self.rotation) % 4 {
-                0 => self.line(bar, bank::ALTO, gain, Touch::at(0.15), 0),
-                1 => self.line(bar, bank::VIOLIN, gain * 0.55, Touch::at(-0.2), 0),
-                2 => {
-                    self.line(bar, bank::ALTO, gain, Touch::at(0.15), 0);
-                    // Heterophony: the fiddle a sixth below, a breath late.
-                    self.line(
-                        bar,
-                        bank::VIOLIN,
-                        gain * 0.35,
-                        Touch::at(-0.3).late(0.04),
-                        -5,
-                    );
-                }
-                _ => {
-                    self.line(bar, bank::ALTO, gain, Touch::at(0.15), 0);
-                    self.line(
-                        bar,
-                        bank::PSALTERY,
-                        gain * 0.35,
-                        Touch::at(0.4).late(0.03),
-                        0,
-                    );
-                }
-            }
-        }
-        // Answers at the ends of phrases, by whose turn it is.
-        if (pos % 8 == 3 || pos % 8 == 7) && (6..10).contains(&t) && self.singing() {
-            let pitch = [C5, D5, EB5, G5][usize::from(t - 6)];
-            let gain = 0.11 * l.ostinato;
-            match self.request.turn_seat % 3 {
-                0 => self.play(bank::PSALTERY, pitch, 3.0, gain, Touch::at(0.4)),
-                1 => self.play(bank::HARP, pitch, 3.0, gain, Touch::at(0.3)),
-                _ => self.play(bank::VIOLIN, pitch - 12, 2.0, gain * 0.6, Touch::at(0.35)),
-            }
-        }
-    }
-
-    /// Rising tension, G Aeolian in 7/8 (3+2+2): psaltery ostinato over a
-    /// lute, bowed fifth, contrabass on the accents, the tenor's line and the
-    /// fiddle's (the chanter's from 0.55) in turn; the drums enter one by one
-    /// by tension; from 0.7 the bass leans E♭–D at phrase ends (D Phrygian).
-    #[allow(clippy::too_many_lines)] // one texture's arrangement, read top to bottom
-    fn tension(&mut self) {
-        let t = self.tick;
-        let b = self.here as usize;
-        let l = self.layers;
-        let tension = self.request.tension;
-        let heavy = ((tension - 0.35) / 0.5).clamp(0.0, 1.0);
-        let dark = tension >= 0.7 && b % 4 == 3 && self.singing();
-        let root = self.bass(TENSION_BASS[b % 8]);
-        let five = self.ticks == 10;
-        // Drums, each at its threshold.
-        let d = l.drums;
-        match t {
-            0 => {
-                let drum = if b.is_multiple_of(2) {
-                    at::FRAMEDRUM_1
-                } else {
-                    at::FRAMEDRUM_2
-                };
-                self.strike(drum, 60, 2.0, 0.21 * d, Touch::at(-0.1));
-                if tension >= 0.5 {
-                    let davul = if b.is_multiple_of(2) {
-                        at::DAVUL_1
-                    } else {
-                        at::DAVUL_2
-                    };
-                    self.strike(davul, 60, 3.0, (0.12 + 0.14 * heavy) * d, Touch::at(0.0));
-                }
-            }
-            4 => self.strike(at::FRAMEDRUM_SMALL_MUTED, 60, 1.0, 0.07 * d, Touch::at(0.3)),
-            6 => {
-                self.strike(at::FRAMEDRUM_SMALL, 60, 1.0, 0.15 * d, Touch::at(0.2));
-                if tension >= 0.6 {
-                    let naker = if b.is_multiple_of(2) {
-                        at::NAKER_1
-                    } else {
-                        at::NAKER_2
-                    };
-                    self.strike(naker, 72, 1.5, (0.07 + 0.07 * heavy) * d, Touch::at(0.25));
-                }
-                if tension >= 0.7 {
-                    self.strike(at::TAMBOURINE_HIT, 60, 1.0, 0.06 * d, Touch::at(-0.3));
-                }
-            }
-            10 if !five => {
-                self.strike(at::FRAMEDRUM_SMALL_MUTED, 60, 1.0, 0.12 * d, Touch::at(0.2));
-                if tension >= 0.6 {
-                    self.strike(
-                        at::NAKER_HIGH,
-                        74,
-                        1.0,
-                        (0.05 + 0.06 * heavy) * d,
-                        Touch::at(0.3),
-                    );
-                }
-                if tension >= 0.7 {
-                    self.strike(at::TAMBOURINE_HIT, 60, 1.0, 0.05 * d, Touch::at(-0.3));
-                }
-            }
-            11 if tension >= 0.7 && !five => {
-                let rope = if b.is_multiple_of(2) {
-                    at::ROPESNARE_1
-                } else {
-                    at::ROPESNARE_2
-                };
-                self.strike(rope, 60, 0.8, 0.06 * d, Touch::at(0.3));
-            }
-            _ => {}
-        }
-        // Bass: the contrabass on the 3+2+2 accents, the cello holding.
-        if t == 0 {
-            self.play(bank::PIZZICATO, root, 3.0, 0.16 * l.bass, Touch::at(0.05));
-            self.play(
-                bank::CELLO,
-                root + 12,
-                f32::from(self.ticks) + 0.3,
-                0.065 * l.bass,
-                Touch::at(-0.1).attack(0.2),
-            );
-            self.play(
-                bank::STRUMSTICK,
-                G3,
-                f32::from(self.ticks) * 0.9,
-                0.15 * l.drone,
-                Touch::at(0.0),
-            );
-            self.bed(
-                G,
-                &[
-                    (bank::LONGBOW, D5, 0.06, -0.2),
-                    (bank::LONGBOW, G5, 0.04, 0.2),
-                ],
-            );
-        }
-        if t == 6 {
-            let pitch = if dark { EB2 } else { root };
-            self.play(bank::PIZZICATO, pitch, 3.0, 0.11 * l.bass, Touch::at(0.05));
-        }
-        if t == 10 && !five {
-            let pitch = if dark { D2 } else { self.shift(root, 4) };
-            self.play(bank::PIZZICATO, pitch, 3.0, 0.11 * l.bass, Touch::at(0.05));
-            if dark {
-                self.play(bank::LONGBOW, EB5, 2.0, 0.05 * l.drone, Touch::at(-0.1));
-            }
-        }
-        if t == 12 && dark && !five {
-            self.play(bank::LONGBOW, D5, 2.0, 0.05 * l.drone, Touch::at(-0.1));
-        }
-        // The plucked ostinato and the lute beneath it; from 0.55 a sixteenth
-        // after each accent drives it on.
-        if tension >= 0.55 && matches!(t, 1 | 7 | 11) {
-            let pitch = TENSION_OSTINATO[usize::from(t / 2) % TENSION_OSTINATO.len()];
-            self.play(
-                bank::PSALTERY,
-                pitch,
-                1.5,
-                0.07 * l.ostinato,
-                Touch::at(0.3),
-            );
-        }
-        if t.is_multiple_of(2) {
-            let k = usize::from(t / 2);
-            let pitch = TENSION_OSTINATO[k % TENSION_OSTINATO.len()];
-            let gain = if matches!(k, 0 | 3 | 5) { 0.14 } else { 0.10 };
-            self.play(
-                bank::PSALTERY,
-                pitch,
-                3.0,
-                gain * l.ostinato,
-                Touch::at(0.35),
-            );
-            let gain = 0.09 * l.ostinato * self.texture.level();
-            self.orchestra
-                .lute(pitch - 24, self.seconds(5.0), gain, -0.35, 0.4);
-        }
-        // The line: the tenor, then the fiddle or the chanter, four bars each.
-        if self.singing() && !five {
-            let bar = TENSION_LINE[b % 4];
-            if (b / 4).is_multiple_of(2) {
-                self.line(bar, bank::TENOR, 0.24 * l.melody, Touch::at(0.1), 0);
-            } else if l.chanter > 0.0 {
-                let bar = TENSION_CHANTER[b % 4];
-                self.line(
-                    bar,
-                    bank::CHANTER,
-                    0.24 * l.chanter,
-                    Touch::at(0.05).attack(0.015).release(0.05),
-                    0,
-                );
-            } else {
-                self.line(
-                    bar,
-                    bank::VIOLIN,
-                    0.11 * l.melody,
-                    Touch::at(-0.25).late(0.02),
-                    7,
-                );
-            }
-        }
-    }
-
-    /// The hunt: attackers are declared, F Mixolydian in a 6/8 jig; the horn
-    /// calls (`horn_call`), the tenor answers, the chanter rides from 0.55.
-    #[allow(clippy::too_many_lines)] // one texture's arrangement, read top to bottom
-    fn hunt(&mut self) {
-        let t = self.tick;
-        let b = self.here as usize;
-        let l = self.layers;
-        let tension = self.request.tension;
-        let d = l.drums;
-        let root = self.bass(F2);
-        match t {
-            0 => {
-                let drum = if b.is_multiple_of(2) {
-                    at::FRAMEDRUM_1
-                } else {
-                    at::FRAMEDRUM_2
-                };
-                self.strike(drum, 60, 2.0, 0.22 * d, Touch::at(-0.1));
-                if tension >= 0.5 {
-                    let davul = if b.is_multiple_of(2) {
-                        at::DAVUL_1
-                    } else {
-                        at::DAVUL_2
-                    };
-                    self.strike(davul, 60, 3.0, 0.20 * d, Touch::at(0.0));
-                }
-                self.play(bank::PIZZICATO, root, 3.0, 0.16 * l.bass, Touch::at(0.05));
-                self.play(
-                    bank::CONTRABASS,
-                    root,
-                    12.2,
-                    0.11 * l.bass,
-                    Touch::at(0.05).attack(0.2),
-                );
-                self.play(bank::STRUMSTICK, F3, 10.0, 0.15 * l.drone, Touch::at(-0.1));
-                self.bed(
-                    F,
-                    &[
-                        (bank::LONGBOW, C5, 0.05, -0.2),
-                        (bank::LONGBOW, F5, 0.04, 0.2),
-                    ],
-                );
-            }
-            4 | 10 => self.strike(at::FRAMEDRUM_SMALL_MUTED, 60, 1.0, 0.09 * d, Touch::at(0.3)),
-            6 => {
-                self.strike(at::FRAMEDRUM_SMALL, 60, 1.0, 0.16 * d, Touch::at(0.2));
-                self.strike(at::TAMBOURINE_HIT, 60, 1.0, 0.06 * d, Touch::at(-0.3));
-                self.play(bank::PIZZICATO, C2, 3.0, 0.12 * l.bass, Touch::at(0.05));
-                if tension >= 0.6 {
-                    self.strike(at::NAKER_1, 72, 1.5, 0.08 * d, Touch::at(0.25));
-                }
-            }
-            11 if tension >= 0.7 => {
-                self.strike(at::ROPESNARE_1, 60, 0.8, 0.06 * d, Touch::at(0.3));
-            }
-            _ => {}
-        }
-        // The jig's lilt: a light tambourine on the third eighth of each beat.
-        if matches!(t, 4 | 10) {
-            self.strike(at::TAMBOURINE_HIT, 60, 0.8, 0.035 * d, Touch::at(-0.35));
-        }
-        if t.is_multiple_of(2) {
-            let k = usize::from(t / 2);
-            let pitch = [F5, A5, C6, A5, F5, C5][k];
-            let gain = if k.is_multiple_of(3) { 0.13 } else { 0.09 };
-            self.play(
-                bank::PSALTERY,
-                pitch,
-                2.5,
-                gain * l.ostinato,
-                Touch::at(0.4),
-            );
-        }
-        // After a call, the tenor answers it an octave up; the chanter, when
-        // the pipe is up, rides the hunt.
-        if self.horn.is_none() && self.singing() {
-            let bar = HUNT[b % 4];
-            if l.chanter > 0.0 {
-                self.line(
-                    bar,
-                    bank::CHANTER,
-                    0.22 * l.chanter,
-                    Touch::at(0.05).attack(0.015).release(0.05),
-                    0,
-                );
-            } else if b % 8 < 4 {
-                self.line(bar, bank::TENOR, 0.18 * l.melody, Touch::at(0.15), 0);
-            }
-        }
-    }
-
-    /// The hunting-horn call: two bars on the natural horn's notes in F, on
-    /// the bar after attackers are declared. This seat's own attack calls
-    /// near and full; another's from further off. Never the same call twice
-    /// running.
-    fn horn_call(&mut self) {
-        let Some((bar, mine)) = self.horn else {
-            return;
-        };
-        let call = CALLS[(self.horn_calls as usize + CALLS.len() - 1) % CALLS.len()];
-        let gain = if mine { 0.30 } else { 0.17 };
-        let pan = if mine { 0.1 } else { -0.55 };
-        self.line(
-            call[usize::from(bar)],
-            bank::HORN,
-            gain,
-            Touch::at(pan).attack(0.04),
-            0,
-        );
-        if self.tick + 1 == self.ticks {
-            self.horn = if bar == 0 { Some((1, mine)) } else { None };
-        }
-    }
-
-    /// One-bar accents: the monarch's bell and harp, and a big spell's B♭
-    /// Lydian light.
-    fn accents(&mut self) {
-        let t = self.tick;
-        if self.monarch && t == 0 {
-            self.strike(at::HANDBELL_1, 60, 6.0, 0.08, Touch::at(0.35));
-        }
-        if self.monarch && (2..8).contains(&t) {
-            let pitch = [F4, G4, BB4, C5, D5, F5][usize::from(t - 2)];
-            self.play(bank::HARP, pitch, 3.0, 0.09, Touch::at(-0.3));
-        }
-        if self.light && t < 6 {
-            // B♭ C D E F, rising, and the bell: E♮ is the light.
-            let pitch = [BB4, C5, D5, E5, F5, BB5][usize::from(t)];
-            self.play(bank::HARP, pitch, 4.0, 0.10, Touch::at(-0.25));
-            if t == 0 {
-                self.strike(at::HANDBELL_2, 60, 6.0, 0.07, Touch::at(0.3));
-                self.play(bank::CHIMES, BB4, 12.0, 0.05, Touch::at(0.2));
-            }
-        }
-    }
-
-    /// The climax: G Aeolian in a fast jig, both pipes and the davul.
-    #[allow(clippy::too_many_lines)] // one texture's arrangement, read top to bottom
-    fn climax(&mut self) {
-        let t = self.tick;
-        let b = self.here as usize;
-        let l = self.layers;
-        let d = l.drums;
-        let root = self.bass(G2);
-        match t {
-            0 => {
-                let even = b.is_multiple_of(2);
-                self.strike(
-                    if even { at::DAVUL_1 } else { at::DAVUL_2 },
-                    60,
-                    3.0,
-                    0.28 * d,
-                    Touch::at(0.0),
-                );
-                self.strike(
-                    if even {
-                        at::FRAMEDRUM_1
-                    } else {
-                        at::FRAMEDRUM_2
-                    },
-                    60,
-                    2.0,
-                    0.24 * d,
-                    Touch::at(-0.1),
-                );
-                if b >= 8 {
-                    self.strike(at::FINGERCYMBAL, 60, 4.0, 0.045 * d, Touch::at(-0.3));
-                }
-                self.play(bank::PIZZICATO, root, 3.0, 0.17 * l.bass, Touch::at(0.05));
-                self.play(
-                    bank::CONTRABASS,
-                    root,
-                    12.2,
-                    0.11 * l.bass,
-                    Touch::at(0.05).attack(0.2),
-                );
-                self.play(
-                    bank::CELLO,
-                    D3,
-                    12.2,
-                    0.06 * l.bass,
-                    Touch::at(-0.1).attack(0.2),
-                );
-                self.play(bank::STRUMSTICK, G3, 10.0, 0.16 * l.drone, Touch::at(0.0));
-                self.bed(G, &[(bank::LONGBOW, D5, 0.04, -0.2)]);
-                if b.is_multiple_of(8) {
-                    self.play(bank::CHIMES, G4, 14.0, 0.07, Touch::at(0.2));
-                }
-            }
-            4 | 10 => {
-                self.strike(at::FRAMEDRUM_SMALL_MUTED, 60, 1.0, 0.10 * d, Touch::at(0.3));
-                if t == 10 {
-                    self.strike(at::NAKER_HIGH, 74, 1.0, 0.07 * d, Touch::at(0.3));
-                }
-            }
-            6 => {
-                self.strike(at::FRAMEDRUM_SMALL, 60, 1.0, 0.19 * d, Touch::at(0.2));
-                let naker = if b.is_multiple_of(2) {
-                    at::NAKER_1
-                } else {
-                    at::NAKER_2
-                };
-                self.strike(naker, 72, 1.5, 0.11 * d, Touch::at(0.25));
-                self.strike(at::ROPESNARE_1, 60, 0.8, 0.08 * d, Touch::at(0.3));
-                self.strike(at::TAMBOURINE_HIT, 60, 1.0, 0.065 * d, Touch::at(-0.3));
-                self.play(bank::PIZZICATO, D2, 3.0, 0.12 * l.bass, Touch::at(0.05));
-            }
-            8 if b % 4 == 3 => {
-                self.strike(at::TAMBOURINE_SHAKE, 60, 2.0, 0.05 * d, Touch::at(-0.3));
-            }
-            11 => self.strike(at::ROPESNARE_2, 60, 0.8, 0.05 * d, Touch::at(0.3)),
-            _ => {}
-        }
-        // Sixteenths after the beats drive the jig.
-        if matches!(t, 1 | 7) {
-            self.play(bank::PSALTERY, D5, 1.5, 0.065 * l.ostinato, Touch::at(0.3));
-        }
-        if t.is_multiple_of(2) {
-            let k = usize::from(t / 2);
-            let pitch = [G5, D5, G5, D5, BB5, D5][k];
-            let gain = if k.is_multiple_of(3) { 0.13 } else { 0.09 };
-            self.play(
-                bank::PSALTERY,
-                pitch,
-                2.5,
-                gain * l.ostinato,
-                Touch::at(0.4),
-            );
-        }
-        if self.singing() && self.horn.is_none() {
-            let pass = (b / 8) % 2;
-            let bar = if (b / 16).is_multiple_of(2) {
-                CLIMAX[b % 8]
-            } else {
-                CLIMAX_2[b % 8]
-            };
-            let pipe = Touch::at(0.05).attack(0.015).release(0.05);
-            self.line(bar, bank::CHANTER, 0.28 * l.chanter, pipe, 0);
-            self.line(
-                bar,
-                bank::VIOLIN,
-                0.09 * l.melody,
-                Touch::at(-0.3).late(0.035),
-                7,
-            );
-            if pass == 1 {
-                self.line(
-                    bar,
-                    bank::ALTO,
-                    0.11 * l.melody,
-                    Touch::at(0.3).late(0.01),
-                    0,
-                );
-                self.line(
-                    bar,
-                    bank::TENOR,
-                    0.09 * l.melody,
-                    Touch::at(-0.15).late(0.01),
-                    -4,
-                );
-            }
-        }
-    }
-
-    /// The first two bars of an ending keep the last texture's pulse, thinner
-    /// each bar: an ending grows out of what was playing.
-    fn thin_drums(&mut self) {
-        if self.here >= 2 || self.tick != 0 {
-            return;
-        }
-        let level = if self.here == 0 { 0.6 } else { 0.3 };
-        if matches!(
-            self.from,
-            Texture::Tension | Texture::Hunt | Texture::Climax
-        ) {
-            self.strike(at::FRAMEDRUM_1, 60, 2.0, 0.2 * level, Touch::at(-0.1));
-        }
-    }
-
-    /// Victory in B♭: the pipes' drones re-pitched to B♭ and F, the chanter,
-    /// recorders and fiddle on the rising cadence, the harp broadening, the
-    /// davul and bells; it slows by 4 % a bar and its final rings.
-    #[allow(clippy::too_many_lines)] // one texture's arrangement, read top to bottom
-    fn victory(&mut self) {
-        let t = self.tick;
-        let k = self.here;
-        self.thin_drums();
-        if k == 0 && t == 0 {
-            self.orchestra.release(PIPES);
-            self.hold(PIPES, bank::DRONE, BB2, 0.12, Touch::at(0.0).attack(0.3));
-            self.hold(PIPES, bank::DRONE, F3, 0.07, Touch::at(0.12).attack(0.3));
-            self.pipes_held = None;
-        }
-        if k >= ENDING_BARS {
-            self.after(
-                BB,
-                &[
-                    (bank::ORGAN, BB2, 0.05, 0.0),
-                    (bank::LONGBOW, F5, 0.025, 0.3),
-                ],
-            );
-            if k == ENDING_BARS + 1 && t == 0 {
-                self.orchestra.release(PIPES);
-            }
-            return;
-        }
-        let k = k as usize;
-        if t == 0 {
-            self.play(
-                bank::CONTRABASS,
-                BB1,
-                12.3,
-                0.14,
-                Touch::at(0.05).attack(0.2),
-            );
-            self.play(
-                bank::CELLO,
-                F2 + 12,
-                12.3,
-                0.07,
-                Touch::at(-0.1).attack(0.2),
-            );
-            self.strike(
-                if k.is_multiple_of(2) {
-                    at::DAVUL_1
-                } else {
-                    at::DAVUL_2
-                },
-                60,
-                3.0,
-                0.22,
-                Touch::at(0.0),
-            );
-            self.strike(at::FRAMEDRUM_1, 60, 2.0, 0.15, Touch::at(-0.1));
-            let bell = if k.is_multiple_of(2) {
-                at::HANDBELL_2
-            } else {
-                at::HANDBELL_1
-            };
-            self.strike(bell, 60, 6.0, 0.06, Touch::at(0.3));
-        }
-        if t == 6 && k < 6 {
-            self.strike(at::FRAMEDRUM_SMALL, 60, 1.0, 0.12, Touch::at(0.2));
-            self.strike(at::NAKER_1, 72, 1.5, 0.08, Touch::at(0.25));
-        }
-        if t.is_multiple_of(2) {
-            let degree = [0, 7, 12, 16, 19, 16][usize::from(t / 2)];
-            self.play(bank::HARP, BB3 + degree, 6.0, 0.11, Touch::at(-0.35));
-        }
-        let last = k + 1 == ENDING_BARS as usize;
-        let release = if last { 3.0 } else { 0.3 };
-        let bar = VICTORY[k];
-        self.line(
-            bar,
-            bank::CHANTER,
-            0.27,
-            Touch::at(0.05)
-                .attack(0.015)
-                .release(if last { 2.5 } else { 0.05 }),
-            0,
-        );
-        self.line(
-            bar,
-            bank::ALTO,
-            0.12,
-            Touch::at(0.3).late(0.01).release(release),
-            0,
-        );
-        self.line(
-            bar,
-            bank::VIOLIN,
-            0.09,
-            Touch::at(-0.3).late(0.035).release(release),
-            7,
-        );
-        self.line(
-            bar,
-            bank::TENOR,
-            0.09,
-            Touch::at(-0.15).late(0.01).release(release),
-            -7,
-        );
-        if t == 0 && k == 3 {
-            self.play(bank::CHIMES, BB4, 16.0, 0.08, Touch::at(0.2));
-        }
-        if t == 0 && last {
-            self.play(bank::CHIMES, BB4, 24.0, 0.13, Touch::at(0.2));
-            self.strike(at::SLEIGH, 60, 6.0, 0.05, Touch::at(0.3));
-            self.strike(at::DAVUL_FORTE, 60, 6.0, 0.28, Touch::at(0.0));
-        }
-        if t == 2 && last {
-            self.play(bank::CHIMES, D5, 24.0, 0.09, Touch::at(-0.2));
-        }
-    }
-
-    /// The draw: the pipe falls away, an open fifth F–C under the alto, whose
-    /// line ends on C, unresolved; in 3/4, slowing by 6 % a bar.
-    #[allow(clippy::too_many_lines)] // one texture's arrangement, read top to bottom
-    fn draw(&mut self) {
-        let t = self.tick;
-        let k = self.here;
-        self.thin_drums();
-        if k == 0 && t == 0 {
-            self.orchestra.release(PIPES);
-            self.pipes_held = None;
-        }
-        if k >= ENDING_BARS {
-            self.after(
-                F,
-                &[(bank::CELLO, F3, 0.06, -0.2), (bank::VIOLIN, C4, 0.03, 0.2)],
-            );
-            return;
-        }
-        let k = k as usize;
-        if t == 0 {
-            self.play(
-                bank::CELLO,
-                F3,
-                12.6,
-                0.09,
-                Touch::at(-0.2).attack(if k == 0 { 0.5 } else { 0.1 }),
-            );
-            self.play(
-                bank::VIOLIN,
-                C4,
-                12.6,
-                0.045,
-                Touch::at(0.2).attack(if k == 0 { 0.5 } else { 0.1 }),
-            );
-            self.play(
-                bank::CONTRABASS,
-                F2,
-                12.3,
-                0.12,
-                Touch::at(0.05).attack(0.3),
-            );
-            if k < 4 {
-                self.strike(
-                    at::FRAMEDRUM_MUTED,
-                    60,
-                    2.0,
-                    0.09 * (1.0 - k as f32 / 4.0),
-                    Touch::at(0.1),
-                );
-            }
-        }
-        if t.is_multiple_of(4) {
-            let degree = [0, 7, 12][usize::from(t / 4)];
-            let gain = 0.12 * (1.0 - k as f32 / 10.0) + 0.03;
-            self.play(bank::HARP, F3 + degree, 8.0, gain, Touch::at(-0.35));
-        }
-        let last = k + 1 == ENDING_BARS as usize;
-        let touch = Touch::at(0.15)
-            .late(0.01)
-            .release(if last { 3.0 } else { 0.4 });
-        self.line(DRAW[k], bank::ALTO, 0.21, touch, 0);
-        self.line(DRAW[k], bank::PSALTERY, 0.07, Touch::at(0.4), 0);
-        if t == 0 && last {
-            self.strike(at::HANDBELL_1, 60, 8.0, 0.06, Touch::at(0.3));
-        }
-    }
-
-    /// The defeat: a slow davul heartbeat that dies away, the contrabass and
-    /// cellos on G and D, the harp in halves, the tenor descending to G with
-    /// the fiddle beneath; one low bell. In 3/4, slowing by 7 % a bar.
-    #[allow(clippy::too_many_lines)] // one texture's arrangement, read top to bottom
-    fn defeat(&mut self) {
-        let t = self.tick;
-        let k = self.here;
-        self.thin_drums();
-        if k == 0 && t == 0 {
-            self.orchestra.release(PIPES);
-            self.pipes_held = None;
-        }
-        if k >= ENDING_BARS {
-            self.after(
-                G,
-                &[
-                    (bank::CONTRABASS, G2, 0.07, 0.0),
-                    (bank::CELLO, D3, 0.05, -0.2),
-                ],
-            );
-            return;
-        }
-        let k = k as usize;
-        if t == 0 {
-            self.play(
-                bank::CONTRABASS,
-                G2,
-                12.6,
-                0.12,
-                Touch::at(0.05).attack(0.3),
-            );
-            self.play(
-                bank::CELLO,
-                D3,
-                12.6,
-                0.08,
-                Touch::at(-0.2).attack(if k == 0 { 0.6 } else { 0.1 }),
-            );
-            if k < 6 {
-                let fade = 1.0 - k as f32 / 7.0;
-                self.strike(at::DAVUL_1, 60, 4.0, 0.15 * fade, Touch::at(0.0));
-            }
-        }
-        if t == 4 && k < 6 {
-            self.strike(
-                at::DAVUL_2,
-                60,
-                4.0,
-                0.08 * (1.0 - k as f32 / 7.0),
-                Touch::at(0.0),
-            );
-        }
-        if k.is_multiple_of(2) && (t == 0 || t == 6) {
-            self.play(
-                bank::HARP,
-                if t == 0 { G3 } else { D4 },
-                10.0,
-                if t == 0 { 0.10 } else { 0.07 },
-                Touch::at(-0.3),
-            );
-        }
-        let last = k + 1 == ENDING_BARS as usize;
-        let release = if last { 3.5 } else { 0.4 };
-        self.line(
-            DEFEAT[k],
-            bank::TENOR,
-            0.22,
-            Touch::at(0.1).late(0.01).release(release),
-            0,
-        );
-        self.line(
-            DEFEAT[k],
-            bank::VIOLIN,
-            0.055,
-            Touch::at(-0.3).late(0.04).release(release),
-            0,
-        );
-        if t == 0 && last {
-            self.play(bank::CHIMES, G4, 24.0, 0.08, Touch::at(0.2));
-        }
-    }
-
-    /// After an ending's cadence: its last chord held, softly, until the
-    /// player leaves the result.
-    fn after(&mut self, root: u8, voices: &[(Family, u8, f32, f32)]) {
-        if self.tick == 0 {
-            self.bed(root, voices);
         }
     }
 }

@@ -5013,6 +5013,20 @@ messages! {
     HelpMaster { en: "Every sound, the music included", de: "Jeder Klang, die Musik eingeschlossen" },
     /// Audio: the music.
     RowMusic { en: "Music", de: "Musik" },
+    /// Audio: the music's theme.
+    RowMusicTheme { en: "Music theme", de: "Musik-Thema" },
+    /// Audio: what the four themes are.
+    HelpMusicTheme { en: "Ballad: a lyrical folk song · Dance: a driving minor dance · Epic: broad and heroic · Jig: a playful medieval jig · Rotating: a different one each game. It changes at the next bar, no restart", de: "Ballade: ein lyrisches Volkslied · Tanz: ein treibender Moll-Tanz · Episch: weit und heroisch · Jig: eine verspielte mittelalterliche Gigue · Wechselnd: jedes Spiel ein anderes. Es wechselt mit dem n\u{e4}chsten Takt, ohne Neustart" },
+    /// Audio: theme A.
+    MusicThemeBallad { en: "Ballad", de: "Ballade" },
+    /// Audio: theme B.
+    MusicThemeDance { en: "Dance", de: "Tanz" },
+    /// Audio: theme C.
+    MusicThemeEpic { en: "Epic", de: "Episch" },
+    /// Audio: theme D.
+    MusicThemeJig { en: "Jig", de: "Jig" },
+    /// Audio: a different theme each game.
+    MusicThemeRotating { en: "Rotating", de: "Wechselnd" },
     /// Audio: the music's volume.
     HelpMusic { en: "The lobby's own score; every lobby screen has its switch", de: "Die eigene Musik der Lobby; jeder Lobby-Bildschirm hat ihren Schalter" },
     /// Audio: the table's sounds.

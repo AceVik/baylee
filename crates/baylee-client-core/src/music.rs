@@ -14,7 +14,48 @@ mod direct;
 mod orchestra;
 mod score;
 pub use direct::{Ending, Memory, Place, Scene, ScoreRequest, direct};
-pub use score::{ScoreControl, Tune};
+pub use score::{ScoreControl, Theme, Tune};
+
+/// The theme the player chose in Settings → Audio, per device: one of the
+/// four, or a different one each game.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MusicTheme {
+    /// A: the ballad.
+    Ballad,
+    /// B: the dance.
+    Dance,
+    /// C: the epic (the default).
+    #[default]
+    Epic,
+    /// D: the jig.
+    Jig,
+    /// A different theme each game.
+    Rotating,
+}
+
+impl MusicTheme {
+    /// Every choice, in the order the settings show them.
+    pub const ALL: [Self; 5] = [
+        Self::Ballad,
+        Self::Dance,
+        Self::Epic,
+        Self::Jig,
+        Self::Rotating,
+    ];
+
+    /// The theme this choice sings at the `turn`-th rotation.
+    #[must_use]
+    pub const fn pick(self, turn: u8) -> Theme {
+        match self {
+            Self::Ballad => Theme::Ballad,
+            Self::Dance => Theme::Dance,
+            Self::Epic => Theme::Epic,
+            Self::Jig => Theme::Jig,
+            Self::Rotating => Theme::ALL[(turn % 4) as usize],
+        }
+    }
+}
 
 /// Stereo output sample rate, and the bank's.
 pub const RATE: u32 = 44_100;
@@ -39,6 +80,8 @@ pub fn prepare() {
 pub struct MusicLevel {
     volume: f32,
     muted: bool,
+    /// The theme (absent from a file older than the themes: the default).
+    theme: MusicTheme,
 }
 
 impl Default for MusicLevel {
@@ -48,6 +91,7 @@ impl Default for MusicLevel {
         Self {
             volume: 0.5,
             muted: false,
+            theme: MusicTheme::default(),
         }
     }
 }
@@ -69,6 +113,17 @@ impl MusicLevel {
         if volume.is_finite() {
             self.volume = volume.clamp(0.0, 1.0);
         }
+    }
+
+    /// The theme the player chose.
+    #[must_use]
+    pub const fn theme(self) -> MusicTheme {
+        self.theme
+    }
+
+    /// Chooses a theme: heard from the next bar line, no restart.
+    pub const fn set_theme(&mut self, theme: MusicTheme) {
+        self.theme = theme;
     }
 
     /// Whether the player silenced it.
@@ -135,9 +190,17 @@ mod tests {
         // A settings file from before the music opens with it playing.
         let old: MusicLevel = serde_json::from_str("{}").expect("reads");
         assert_eq!(old, MusicLevel::default());
+        level.set_theme(MusicTheme::Rotating);
         let kept: MusicLevel =
             serde_json::from_str(&serde_json::to_string(&level).expect("writes")).expect("reads");
-        assert_eq!(kept, level);
+        assert_eq!(kept, level, "the theme is kept with the level");
+        let older: MusicLevel =
+            serde_json::from_str(r#"{"volume":0.3,"muted":false}"#).expect("reads");
+        assert_eq!(
+            older.theme(),
+            MusicTheme::Epic,
+            "a file from before the themes plays the epic"
+        );
     }
 
     /// The switch flips what is heard: a playing tune goes silent and keeps

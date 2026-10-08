@@ -76,9 +76,13 @@ NOTE = {"C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4, "F": 5, "F#": 6, "G": 7, "G#":
 KIND = {
     "sus": dict(attack=0.03, release=0.35, room=0.30),
     "drone": dict(attack=0.40, release=1.20, room=0.30),
-    "pluck": dict(attack=0.002, release=0.90, room=0.22, keep=2.0),
-    "bell": dict(attack=0.001, release=1.50, room=0.35, keep=3.2),
-    "drum": dict(attack=0.001, release=0.40, room=0.14, keep=1.0),
+    "pluck": dict(attack=0.005, release=0.90, room=0.22, keep=2.0),
+    "bell": dict(attack=0.003, release=1.50, room=0.35, keep=2.6),
+    "drum": dict(attack=0.002, release=0.40, room=0.14, keep=1.0),
+    # The orchestra's big drums ring longer; rolls and swells are kept whole.
+    "boom": dict(attack=0.002, release=0.80, room=0.22, keep=1.8),
+    "swell": dict(attack=0.01, release=0.80, room=0.30, keep=3.4),
+    "short": dict(attack=0.004, release=0.20, room=0.26, keep=0.55),
 }
 # A sustain's loop: where it starts after the onset and how long it is.
 LOOP = {"sus": (0.30, 1.25), "drone": (0.60, 2.40)}
@@ -96,6 +100,14 @@ VSCO_CTB = "Strings/Solo Contrabass/{0}/BKCtbss_{0}_{1}_v1_rr1.wav"
 VSCO_CELLO = "Strings/Cello Section/susvib/susvib_{}_v1_1.wav"
 VSCO_VIOLIN = "Strings/Solo Violin/Arco Vib/LLVln_ArcoVib_{}_p.wav"
 VSCO_HORN = "Brass/F Horn/sus/MOHorn_sus_{}_v2_1.wav"
+VSCO_VIOLINS = "Strings/Violin Section/susVib/VlnEns_susVib_{}_v1.wav"
+VSCO_VIOLAS = "Strings/Viola Section/susvib/ViolaEns_susvib_{}_v1_1.wav"
+VSCO_VIOLINS_SPIC = "Strings/Violin Section/Spic/VlnEns_Spic_{}_v1_rr1.wav"
+VSCO_VIOLAS_SPIC = "Strings/Viola Section/spic/Violas_spic_{}_v1_rr1.wav"
+VSCO_CELLOS_SPIC = "Strings/Cello Section/spic/spic_{}_v1_RR1.wav"
+VSCO_TROMBONE = "Brass/Tenor Trombone/sus/tenortbn_sus_{}_v2_1.wav"
+VSCO_TUBA = "Brass/Tuba/sus/Tuba3_sus_{}_v2_rr1_Mid.wav"
+VSCO1 = "VSCO 1 Percussion/"
 
 
 def row(family, name, source, path, kind, note=None, octave=0, rr=None):
@@ -111,7 +123,7 @@ def selection():
         rows.append(row("tenor", "tenor-" + n, "VCSL", VCSL_TENOR.format(n), "sus", n, 1))
     for n, rr in [("A#3", "rr1"), ("C4", "rr1"), ("D4", "rr1"), ("E4", "rr2"), ("F#4", "rr1"), ("G#4", "rr3"), ("A#4", "rr1"), ("C5", "rr1")]:
         rows.append(row("psaltery", "psaltery-" + n, "VCSL", VCSL_PSALTERY.format("Pluck", n, "Pluck", rr), "pluck", n, 1))
-    for n, rr in [("A#3", "rr2"), ("C4", "rr1"), ("D4", "rr1"), ("E4", "rr2"), ("F#4", "rr1")]:
+    for n, rr in [("A#3", "rr2"), ("C4", "rr1"), ("D4", "rr1")]:
         rows.append(row("longbow", "longbow-" + n, "VCSL", VCSL_PSALTERY.format("LongBow", n, "LongBow", rr), "sus", n, 1))
     for n in "A#1 D2 F#2 A#2 D3 F#3 A#3 D4 F#4".split():
         rows.append(row("harp", "harp-" + n, "VCSL", VCSL_HARP.format(n), "pluck", n, 1))
@@ -123,7 +135,6 @@ def selection():
     rows.append(row("chimes", "chimes-C4", "VCSL", IDIO + "Tubular Bells 1/chimes_C4_p_rr1.wav", "bell", "C4", 1))
     for i in (1, 2):
         rows.append(row("handbell", f"handbell-{i}", "VCSL", IDIO + f"Hand Bells, Nepalese/HB_{i}.wav", "bell"))
-    rows.append(row("sleigh", "sleigh", "VCSL", IDIO + "Sleigh Bells/Sleighbells_Hit_rr1_Mid.wav", "bell"))
     rows.append(row("fingercymbal", "fingercymbal", "VCSL", IDIO + "Finger Cymbals/Fing_Cymb.wav", "bell"))
     for name, f in [("framedrum-1", "HDrumL_Hit_v2_rr1_Sum"), ("framedrum-2", "HDrumL_Hit_v3_rr1_Sum"),
                     ("framedrum-muted", "HDrumL_HitMuted_v2_rr1_Sum"), ("framedrum-small", "HDrumS_Hit_v2_rr1_Sum"),
@@ -136,17 +147,42 @@ def selection():
     for i in (1, 2):
         rows.append(row("ropesnare", f"ropesnare-{i}", "VCSL", PERC + f"Snare Drum, Rope Tension/Low/RopeSnare_low_sn_Main_vl2_rr{i}.wav", "drum"))
     rows.append(row("tambourine", "tambourine-hit", "VCSL", IDIO + "Tambourine 1/Tamb1_Hit_v2_rr1_Mid.wav", "drum"))
-    rows.append(row("tambourine", "tambourine-shake", "VCSL", IDIO + "Tambourine 1/Tamb1_Shake_rr1_Mid.wav", "drum"))
     for n in "C1 E1 G#1 A1".split():
         rows.append(row("contrabass", "contrabass-" + n, "VSCO 2 CE", VSCO_CTB.format("SusNV", n), "sus", n, 1))
     for n in "C1 E1 G#1 A1".split():
         rows.append(row("pizzicato", "pizzicato-" + n, "VSCO 2 CE", VSCO_CTB.format("Pizz", n), "pluck", n, 1))
     for n in "B1 D2 F2 A2".split():
         rows.append(row("cello", "cello-" + n, "VSCO 2 CE", VSCO_CELLO.format(n), "sus", n, 1))
-    for n in "G3 C4 E4 G4 A4 C5 E5 G5".split():
+    for n in "G3 C4 E4 G4 A4 C5".split():
         rows.append(row("violin", "violin-" + n, "VSCO 2 CE", VSCO_VIOLIN.format(n), "sus", n, 0))
     for n in "D2 F2 A2 C3".split():
         rows.append(row("horn", "horn-" + n, "VSCO 2 CE", VSCO_HORN.format(n), "sus", n, 1))
+    # The orchestral body (cinematic hybrid): sections, low brass, big drums.
+    for n in "D3 F#3 A3 C4 E4".split():
+        rows.append(row("violins", "violins-" + n, "VSCO 2 CE", VSCO_VIOLINS.format(n), "sus", n, 1))
+    for n in "D2 G2 B2 D3".split():
+        rows.append(row("violas", "violas-" + n, "VSCO 2 CE", VSCO_VIOLAS.format(n), "sus", n, 1))
+    for n in "D3 F#3 A3 C4".split():
+        rows.append(row("violins-spic", "violins-spic-" + n, "VSCO 2 CE", VSCO_VIOLINS_SPIC.format(n), "short", n, 1))
+    for n in "C2 E2 G2".split():
+        rows.append(row("violas-spic", "violas-spic-" + n, "VSCO 2 CE", VSCO_VIOLAS_SPIC.format(n), "short", n, 1))
+    for n in "G1 B1 D2 F2 A2".split():
+        rows.append(row("cellos-spic", "cellos-spic-" + n, "VSCO 2 CE", VSCO_CELLOS_SPIC.format(n), "short", n, 1))
+    for n in "A#1 D2 F2 C3".split():
+        rows.append(row("trombone", "trombone-" + n, "VSCO 2 CE", VSCO_TROMBONE.format(n), "sus", n, 1))
+    for n in "A#0 D#1 F1 A#1".split():
+        rows.append(row("tuba", "tuba-" + n, "VSCO 2 CE", VSCO_TUBA.format(n), "sus", n, 1))
+    giant = VSCO1 + "drums/other/ethnic/giant/"
+    for name, f in [("taiko-ff", "mallet/EthnicLargeMallet_hit_ff_1"), ("taiko-f", "mallet/EthnicLargeMallet_hit_f_1"),
+                    ("taiko-mf", "mallet/EthnicLargeMallet_hit_mf_1"), ("taiko-sticks", "sticks/EthnicLargeSticks_hit_f_1")]:
+        rows.append(row("taiko", name, "VSCO 2 CE", giant + f + ".wav", "boom"))
+    rows.append(row("bigdrum", "bigdrum-hit", "VSCO 2 CE", VSCO1 + "drums/bass/bdrum_fff_1.wav", "boom"))
+    rows.append(row("bigdrum", "bigdrum-roll", "VSCO 2 CE", VSCO1 + "drums/bass/bdrum_roll_long1.wav", "swell"))
+    rows.append(row("toms", "tom-high", "VCSL", PERC + "Tom 1/Mallet/TomH_HitM_v3_rr1_Mid.wav", "drum"))
+    rows.append(row("toms", "tom-low", "VCSL", PERC + "Tom 2/Mallet/TomL_HitM_v3_rr1_Mid.wav", "drum"))
+    rows.append(row("timpani", "timpani-roll", "VSCO 2 CE", "Percussion/Timpani/Rolls/Timpani2_Roll_v5_rr1_Sum.wav", "swell"))
+    rows.append(row("cymbal", "cymbal-swell", "VSCO 2 CE", VSCO1 + "varMetal/Cymbals/susp/susp_hit_softmall_roll2_cresc.wav", "swell"))
+    rows.append(row("gong", "gong", "VCSL", IDIO + "Gong 1/gong_f.wav", "swell"))
     for n in "F4 G4 A4 A#4 C5 D5 E5 F5 G5".split():
         f = f"{n}_32" if n == "C5" else f"{n}_31"
         rows.append(row("chanter", "chanter-" + n, "FreePats Bagpipe", f"samples/{f}.flac", "sus", n, 0))
@@ -317,7 +353,8 @@ def prepare(spec, pinned, sfz):
 
 
 def rust_table(rows):
-    kinds = {"sus": "Sus", "drone": "Drone", "pluck": "Pluck", "bell": "Bell", "drum": "Drum"}
+    kinds = {"sus": "Sus", "drone": "Drone", "pluck": "Pluck", "bell": "Bell", "drum": "Drum",
+             "boom": "Drum", "swell": "Drum", "short": "Pluck"}
     lines = [
         "// GENERATED by art/music/prepare.py from art/music/samples.json; do not edit.",
         "//! The sample bank as shipped: one row per recording, in the families the",

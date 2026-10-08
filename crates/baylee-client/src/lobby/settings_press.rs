@@ -36,6 +36,8 @@ pub(crate) enum SettingsPress {
     PickSky(baylee_client_core::sky::SkyMode),
     /// Turn the table up, down, or off.
     PickSound(baylee_client_core::cue::Loudness),
+    /// Choose the music's theme (per device; heard from the next bar).
+    PickMusicTheme(baylee_client_core::music::MusicTheme),
     /// Put weather in the air over the table, or take it away.
     PickAtmosphere(baylee_client_core::atmosphere::Atmosphere),
     /// Turn one step of the phase rail red or green.
@@ -198,6 +200,11 @@ impl SettingsPress {
             SettingsPress::PriorityCue => device(settings, |s| {
                 s.audio.priority_cue = !s.audio.priority_cue;
                 true
+            }),
+            SettingsPress::PickMusicTheme(theme) => device(settings, |s| {
+                let differs = s.music.theme() != theme;
+                s.music.set_theme(theme);
+                differs
             }),
             SettingsPress::TableLean(lean) => device(settings, |s| {
                 let differs = s.table.lean != lean;
@@ -447,6 +454,7 @@ impl SettingsPress {
             | SettingsPress::Ambient(_)
             | SettingsPress::MuteUnfocused
             | SettingsPress::PriorityCue
+            | SettingsPress::PickMusicTheme(_)
             | SettingsPress::TableLean(_)
             | SettingsPress::VisitCamera(_)
             | SettingsPress::Arrangement(_)

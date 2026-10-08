@@ -263,7 +263,7 @@ fn stretched(instrument: usize, pitch: u8) -> u8 {
 
 /// The score's notes, recorded as it schedules them, over a script that
 /// visits every scene, the accents and the transitions between them.
-fn performance() -> Vec<Played> {
+fn performance(theme: Theme) -> Vec<Played> {
     let control = Arc::new(ScoreControl::default());
     let mut tune = Tune::with_control(control.clone());
     let script = [
@@ -336,15 +336,17 @@ fn performance() -> Vec<Played> {
         (440, scene(Scene::Defeat)),
         (480, scene(Scene::Lobby)),
     ];
-    let mut block = [[0.0f32; 2]; BLOCK];
     let mut next = 0;
     for k in 0..(500 * RATE as usize / BLOCK) {
         let second = k * BLOCK / RATE as usize;
         while next < script.len() && script[next].0 <= second {
-            control.set(script[next].1);
+            control.set(ScoreRequest {
+                theme,
+                ..script[next].1
+            });
             next += 1;
         }
-        tune.render(&mut block);
+        tune.skim(BLOCK);
     }
     std::mem::take(&mut tune.played)
 }
@@ -354,7 +356,13 @@ fn performance() -> Vec<Played> {
 /// and a big spell's lit bar; and every texture was heard.
 #[test]
 fn every_note_is_in_its_scenes_pitch_set() {
-    let played = performance();
+    for theme in Theme::ALL {
+        every_note_of(theme);
+    }
+}
+
+fn every_note_of(theme: Theme) {
+    let played = performance(theme);
     let mut seen = Vec::new();
     for &(instrument, pitch, texture, light, _) in &played {
         if !seen.contains(&texture) {
@@ -366,7 +374,7 @@ fn every_note_is_in_its_scenes_pitch_set() {
             let lydian = texture.lydian() || light;
             assert!(
                 set_holds(lydian, pitch),
-                "{texture:?}{}: {} plays MIDI {pitch}, outside its set",
+                "{theme:?} {texture:?}{}: {} plays MIDI {pitch}, outside its set",
                 if light { " (lit)" } else { "" },
                 def.name
             );
@@ -395,7 +403,10 @@ fn every_note_is_in_its_scenes_pitch_set() {
 /// minor third, the pipe's drones exactly by the design's re-pitching.
 #[test]
 fn no_recording_is_stretched_out_of_its_colour() {
-    for (instrument, pitch, texture, _, _) in performance() {
+    for (theme, (instrument, pitch, texture, _, _)) in Theme::ALL
+        .into_iter()
+        .flat_map(|theme| performance(theme).into_iter().map(move |p| (theme, p)))
+    {
         let def = &bank::BANK[instrument];
         if !pitched(def) {
             continue;
@@ -408,7 +419,7 @@ fn no_recording_is_stretched_out_of_its_colour() {
         };
         assert!(
             off <= most,
-            "{texture:?}: {} played at MIDI {pitch}, {off} semitones off",
+            "{theme:?} {texture:?}: {} played at MIDI {pitch}, {off} semitones off",
             def.name
         );
         if def.name.starts_with("drone") {
@@ -446,7 +457,7 @@ fn the_drone_moves_at_a_bar_line_through_a_pivot() {
     assert_eq!(bass.len(), 1, "one bass note: {bass:?}");
     assert_eq!(bass[0] % 12, (G + 7) % 12, "the bass plays D, G's fifth");
     assert!(
-        !pivot.iter().any(|p| ["alto", "violin"]
+        !pivot.iter().any(|p| ["alto-", "violin-", "tenor-", "horn-"]
             .iter()
             .any(|m| bank::BANK[p.0].name.starts_with(m))),
         "the melody rests in the pivot bar"
@@ -647,46 +658,86 @@ fn the_horn_calls_for_the_hunt_and_rests() {
     assert_eq!(horn(&lobby), 0, "no hunt in the lobby");
 }
 
-/// The melodies are what their metre says: every bar of a 6/8 or 3/4 melody
-/// holds six eighths, every 7/8 bar seven; every melody note is in the B♭
-/// set (the front door's in its Lydian one).
+/// The themes are what their metre says: every bar of their phrases holds
+/// six eighths (6/8), each phrase eight bars, every note in the B♭ set; the
+/// horn calls likewise. Every line the score derives from them stays in the
+/// set too, and the chanter's inside its nine notes.
 #[test]
 fn every_melody_bar_is_whole_and_in_its_set() {
-    for (name, phrase) in MELODIES {
-        let seven = name.starts_with("tension");
-        let lydian = name.starts_with("front");
+    let calls = CALLS.iter().map(|call| ("call", *call));
+    let books = Theme::ALL
+        .into_iter()
+        .flat_map(|theme| [("theme A", theme.book().a), ("theme B", theme.book().b)]);
+    for (name, phrase) in books.chain(calls) {
         for (k, bar) in phrase.iter().enumerate() {
             let eighths: u8 = bar.iter().map(|n| n.1).sum();
-            assert_eq!(eighths, if seven { 7 } else { 6 }, "{name}, bar {k}");
+            assert_eq!(eighths, 6, "{name}, bar {k}");
             for &(pitch, _) in *bar {
                 assert!(
-                    pitch == 0 || set_holds(lydian, pitch),
+                    pitch == 0 || set_holds(false, pitch),
                     "{name}, bar {k}: {pitch}"
                 );
+            }
+        }
+    }
+    for (name, pitches) in themes::every_line() {
+        let lydian = name.contains("front");
+        for pitch in &pitches {
+            assert!(set_holds(lydian, *pitch), "{name}: {pitch}");
+            if name.contains("chanter") || name.contains("climax") || name.contains("victory") {
+                assert!((65..=79).contains(pitch), "{name}: the chanter at {pitch}");
             }
         }
     }
 }
 
 /// The interval-signature check (`art/music/originality.py`, design §2.4):
-/// no run of six or more directed intervals in any of our melodies matches
-/// the opening of a tune on the avoid list, transposed anywhere; and the
-/// check fires on an injected opening.
+/// no run of six or more directed intervals in any line the score sings —
+/// every theme's phrases and every line derived from them, the horn calls —
+/// nor in its bass lines and ostinati, matches a tune or figure on the avoid
+/// list, transposed anywhere; and the check fires on an injected opening.
 #[test]
+#[allow(clippy::too_many_lines)] // one check over every line, read top to bottom
 fn no_melody_echoes_a_tune_we_must_not() {
     const RUN: usize = 6;
     let avoid: Vec<serde_json::Value> =
         serde_json::from_str(include_str!("../../../../../art/music/avoid.json"))
             .expect("the avoid list reads");
-    let intervals = |phrase: Phrase| -> Vec<i32> {
-        let pitches: Vec<i32> = phrase
+    let intervals = |pitches: &[u8]| -> Vec<i32> {
+        pitches
+            .windows(2)
+            .map(|w| i32::from(w[1]) - i32::from(w[0]))
+            .collect()
+    };
+    let flat = |phrase: Phrase| -> Vec<u8> {
+        phrase
             .iter()
             .flat_map(|bar| bar.iter())
             .filter(|n| n.0 > 0)
-            .map(|n| i32::from(n.0))
-            .collect();
-        pitches.windows(2).map(|w| w[1] - w[0]).collect()
+            .map(|n| n.0)
+            .collect()
     };
+    let mut lines = themes::every_line();
+    for (k, call) in CALLS.iter().enumerate() {
+        lines.push((format!("horn call {}", k + 1), flat(call)));
+    }
+    for (name, figure) in FIGURES {
+        lines.push(((*name).to_owned(), figure.to_vec()));
+    }
+    // The string figures, realised on C (a figure is the same shape on any
+    // root, the set aside), twice round.
+    for (name, figure) in [
+        ("spiccato 6/8", &SPIC_SIX[..]),
+        ("spiccato hemiola", &SPIC_HEMIOLA[..]),
+        ("spiccato 7/8", &SPIC_SEVEN[..]),
+    ] {
+        let pitches: Vec<u8> = figure
+            .iter()
+            .chain(figure.iter())
+            .map(|step| themes::step_in(C4, *step, false))
+            .collect();
+        lines.push((name.to_owned(), pitches));
+    }
     let shared = |a: &[i32], b: &[i32]| -> usize {
         let mut best = 0;
         for i in 0..a.len() {
@@ -736,17 +787,94 @@ fn no_melody_echoes_a_tune_we_must_not() {
         "the avoid list was read: {}",
         tunes.len()
     );
-    for (name, phrase) in MELODIES {
-        let ours = intervals(phrase);
+    assert!(lines.len() > 70, "every line was read: {}", lines.len());
+    let mut echoes = Vec::new();
+    for (name, pitches) in &lines {
+        let ours = intervals(pitches);
         for (tune, theirs) in &tunes {
             let run = shared(&ours, theirs);
-            assert!(run < RUN, "{name} shares {run} intervals with {tune}");
+            if run >= RUN {
+                echoes.push(format!("{name} shares {run} intervals with {tune}"));
+            }
         }
     }
+    assert!(echoes.is_empty(), "{echoes:#?}");
     let (tune, theirs) = &tunes[0];
     let injected = theirs[..RUN.min(theirs.len())].to_vec();
     assert!(
         shared(&injected, theirs) >= RUN.min(theirs.len()),
         "the check fires on {tune}"
     );
+}
+
+/// Every theme stays inside the headroom and near the loudness the design
+/// asks for, at rest and at the climax.
+#[test]
+fn every_theme_is_within_its_loudness() {
+    let mut bad = Vec::new();
+    for theme in Theme::ALL {
+        for (name, request, target) in
+            [("calm", table(0.05), -23.0), ("climax", table(0.95), -17.0)]
+        {
+            let (_, mut tune) = settled(ScoreRequest { theme, ..request }, 6);
+            let (peak, rms, jump) = listen(&mut tune, 10);
+            let level = dbfs(rms);
+            eprintln!("{theme:?} {name}: peak {peak:.3}, {level:.1} dBFS, step {jump:.3}");
+            if peak >= 0.8 || jump >= 0.25 || (level - target).abs() > 3.5 {
+                bad.push(format!(
+                    "{theme:?} {name}: peak {peak:.3}, {level:.1} dBFS, step {jump:.3}"
+                ));
+            }
+        }
+    }
+    assert!(bad.is_empty(), "{bad:#?}");
+}
+
+/// The theme changes live: the request is taken on the next bar line, the
+/// transport runs on (no reset of the bar count), the bar after the change
+/// is a breath with no melody, and then the new theme's own first bar sings.
+#[test]
+fn the_theme_changes_on_a_bar_line_without_a_restart() {
+    let (control, mut tune) = settled(
+        ScoreRequest {
+            theme: Theme::Ballad,
+            ..table(0.05)
+        },
+        8,
+    );
+    assert_eq!(tune.theme, Theme::Ballad);
+    let before = tune.bar;
+    control.set(ScoreRequest {
+        theme: Theme::Jig,
+        ..table(0.05)
+    });
+    tune.played.clear();
+    while tune.theme != Theme::Jig {
+        tune.frame();
+    }
+    let changed = tune.bar;
+    assert!(
+        changed >= before && changed <= before + 1,
+        "taken on the next bar line"
+    );
+    assert_eq!(tune.tick, 1, "on its first tick");
+    listen(&mut tune, 4);
+    let lead = |bar: u64| -> Vec<u8> {
+        tune.played
+            .iter()
+            .filter(|p| p.4 == bar && bank::BANK[p.0].name.starts_with("alto-"))
+            .map(|p| p.1)
+            .collect()
+    };
+    assert!(
+        lead(changed).is_empty(),
+        "the breath: no melody in the bar of the change"
+    );
+    let first = Theme::Jig.book().a[0][0].0;
+    let sung = lead(changed + 1);
+    assert!(
+        sung.first().is_some_and(|p| p % 12 == first % 12),
+        "then the jig from its first note: {sung:?}"
+    );
+    assert!(tune.bar > changed + 1, "the transport ran on");
 }

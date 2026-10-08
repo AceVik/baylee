@@ -7029,6 +7029,43 @@ keeps its own intonation (the SFZ's cents), and no recording is read more than
 a minor third from its pitch (a melody note a whole tone, the chanter a
 semitone; `no_recording_is_stretched_out_of_its_colour`).
 
+Since round 2 (owner, 08.–09.10.2026) the consort sits on an **orchestral
+body** in a cinematic hybrid orchestral manner (`score/orchestral.rs`): the
+violin, viola and cello sections hold each bar's chord with their own swells
+on a slow harmonic rhythm, spiccato strings drive by layers (eighths, then
+sixteenths; 3+3, 3+2+2, or the dance's 2+2+2), a tuba pedal and trombone
+swells give weight in the tense scenes, horns (with a trombone beneath) state
+the theme heroically, and taiko-like drums, toms, a timpani roll into each
+phrase, a cymbal swell and a gong build. Each layer is a level slewed per bar
+like the others, so a scene grows from intimate to huge by adding layers and
+density. The table's 48-bar arc: the theme alone, its answer with the strings
+swelling in, the theme on the horns with the whole body, the ostinato alone,
+the answer quietly, drone and harp.
+
+**Four themes, chosen in Settings → Audio → "Music theme"** (`MusicTheme`,
+per device in `ClientSettings::music`, default Epic): A Ballad (lyrical, in
+the British folk manner; alto recorder), B Dance (a driving Slavic minor
+dance pulled into 2+2+2; fiddle), C Epic (broad and heroic; tenor recorder,
+horns and strings), D Jig (a playful medieval jig; alto recorder and
+psaltery), or Rotating (a different theme each table, starting somewhere new
+each run). A theme is two eight-bar phrases in C Dorian (`score/melodies.rs`)
+and a character (`score/themes.rs`); every scene derives its line from them
+by moving it within the pitch set (one degree down to B♭, three to G, four to
+F), re-rhythming it 3+2+2 for tension, and centring it in each instrument's
+register (the chanter folded into its nine notes; an ending's last note drawn
+to its final). A change is taken on the next bar line: one bar's breath, the
+orchestra's chord ringing on, then the new theme from its first bar
+(`the_theme_changes_on_a_bar_line_without_a_restart`). Choosing a theme in
+the settings is therefore its own preview.
+
+It is **not shrill** (owner, 08.10.): the bright families (bells, cymbals,
+tambourine, the chanter, psaltery, violins) play through a gentle low-pass,
+the master has a high shelf (−3.7 dB above about 2.5 kHz), the room is
+darker and wetter, the high bowed-psaltery beds and octave-up doublings are
+gone, and attacks are softened by a few milliseconds. Energy above 4 kHz fell
+4–30× per scene (`.claude/music/previews/round2/`, before/after pairs). Tempi
+rose about 12 % (the table at a dotted quarter of 78, the climax 134).
+
 There is **one musical clock and one persistent AudioPlayer**. Every scene
 lives on one pitch set around B♭ (B♭ C D E♭ F G A; E is the one movable
 degree), and the drone decides the mode:

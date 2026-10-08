@@ -8,7 +8,52 @@ fn quiet() -> PlayerView {
 }
 
 fn at_table(view: &PlayerView, memory: &mut Memory) -> ScoreRequest {
-    direct(Place::Table, Some(view), None, memory, 0.016)
+    direct(
+        Place::Table,
+        Some(view),
+        None,
+        MusicTheme::Epic,
+        memory,
+        0.016,
+    )
+}
+
+/// The chosen theme rides in the request; "rotating" starts where the seed
+/// says and moves on at every table that opens.
+#[test]
+fn the_theme_is_chosen_and_rotates_by_table() {
+    let mut memory = Memory::default();
+    for (choice, theme) in [
+        (MusicTheme::Ballad, Theme::Ballad),
+        (MusicTheme::Dance, Theme::Dance),
+        (MusicTheme::Epic, Theme::Epic),
+        (MusicTheme::Jig, Theme::Jig),
+    ] {
+        let request = direct(Place::Lobby, None, None, choice, &mut memory, 0.016);
+        assert_eq!(request.theme, theme);
+        assert_eq!(ScoreRequest::unpack(request.pack()).theme, theme);
+    }
+    let rotating = MusicTheme::Rotating;
+    let mut memory = Memory::seeded(1);
+    let first = direct(Place::Lobby, None, None, rotating, &mut memory, 0.016).theme;
+    assert_eq!(first, Theme::Dance, "the seed picks the first");
+    direct(Place::Opening, None, None, rotating, &mut memory, 0.016);
+    let view = quiet();
+    let second = direct(
+        Place::Table,
+        Some(&view),
+        None,
+        rotating,
+        &mut memory,
+        0.016,
+    )
+    .theme;
+    assert_eq!(second, Theme::Epic, "the next table, the next theme");
+    let back = direct(Place::Lobby, None, None, rotating, &mut memory, 0.016).theme;
+    assert_eq!(
+        back, second,
+        "it keeps its theme back in the lobby until the next table"
+    );
 }
 
 fn attack(view: &mut PlayerView, creatures: u32) {
@@ -40,6 +85,7 @@ fn a_request_packs_into_one_word() {
         spells: 15,
         arrivals: 7,
         turn_seat: 5,
+        theme: Theme::Jig,
     };
     assert_eq!(ScoreRequest::unpack(request.pack()), request);
     let nan = ScoreRequest {
@@ -66,10 +112,20 @@ fn every_place_has_its_scene() {
         (Place::Build, Scene::Build),
         (Place::Opening, Scene::Opening),
     ] {
-        assert_eq!(direct(place, None, None, &mut memory, 0.016).scene, scene);
+        assert_eq!(
+            direct(place, None, None, MusicTheme::Epic, &mut memory, 0.016).scene,
+            scene
+        );
     }
     assert_eq!(memory.arrivals, 1, "one table opened");
-    direct(Place::Opening, None, None, &mut memory, 0.016);
+    direct(
+        Place::Opening,
+        None,
+        None,
+        MusicTheme::Epic,
+        &mut memory,
+        0.016,
+    );
     assert_eq!(
         memory.arrivals, 1,
         "an opening is one arrival however long it takes"
@@ -85,6 +141,7 @@ fn every_place_has_its_scene() {
             Place::Finished,
             Some(&view),
             Some(ending),
+            MusicTheme::Epic,
             &mut memory,
             0.016,
         );
@@ -221,18 +278,50 @@ fn accents_are_counted_once() {
 fn activity_decays_and_a_repeated_snapshot_is_not_counted() {
     let mut memory = Memory::default();
     let mut view = quiet();
-    let calm = direct(Place::Table, Some(&view), None, &mut memory, 0.1).tension;
+    let calm = direct(
+        Place::Table,
+        Some(&view),
+        None,
+        MusicTheme::Epic,
+        &mut memory,
+        0.1,
+    )
+    .tension;
     view.seq += 1;
     view.seats[0].life -= 7;
-    let peak = direct(Place::Table, Some(&view), None, &mut memory, 0.1).tension;
-    let again = direct(Place::Table, Some(&view), None, &mut memory, 0.0).tension;
-    let later = direct(Place::Table, Some(&view), None, &mut memory, 9.0).tension;
+    let peak = direct(
+        Place::Table,
+        Some(&view),
+        None,
+        MusicTheme::Epic,
+        &mut memory,
+        0.1,
+    )
+    .tension;
+    let again = direct(
+        Place::Table,
+        Some(&view),
+        None,
+        MusicTheme::Epic,
+        &mut memory,
+        0.0,
+    )
+    .tension;
+    let later = direct(
+        Place::Table,
+        Some(&view),
+        None,
+        MusicTheme::Epic,
+        &mut memory,
+        9.0,
+    )
+    .tension;
     assert!(peak > calm + 0.2, "{calm} → {peak}");
     assert!(
         (again - peak).abs() < 1e-6,
         "the same snapshot again adds nothing"
     );
     assert!(later < peak && later > calm, "decays: {later}");
-    direct(Place::Lobby, None, None, &mut memory, 0.1);
+    direct(Place::Lobby, None, None, MusicTheme::Epic, &mut memory, 0.1);
     assert!(memory.activity.abs() < f32::EPSILON && memory.seq.is_none());
 }

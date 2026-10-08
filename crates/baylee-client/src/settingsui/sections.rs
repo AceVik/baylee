@@ -383,6 +383,26 @@ pub(crate) fn audio(out: &mut Out, view: &View) {
     out.row(Row::Master, control);
     let control = out.slider("music", percent(music), Volume::Music);
     out.row(Row::Music, control);
+    let themes = baylee_client_core::music::MusicTheme::ALL;
+    let chosen = view
+        .settings
+        .map_or_else(baylee_client_core::music::MusicTheme::default, |s| {
+            s.music.theme()
+        });
+    let names = labels(
+        lang,
+        &[
+            Phrase::MusicThemeBallad,
+            Phrase::MusicThemeDance,
+            Phrase::MusicThemeEpic,
+            Phrase::MusicThemeJig,
+            Phrase::MusicThemeRotating,
+        ],
+    );
+    let control = out.seg("music-theme", &names, index(&themes, &chosen), |i| {
+        Press::Settings(SettingsPress::PickMusicTheme(themes[i]))
+    });
+    out.row(Row::MusicTheme, control);
     let control = out.slider("effects", percent(effects), Volume::Effects);
     out.row(Row::Effects, control);
     let control = out.toggle(

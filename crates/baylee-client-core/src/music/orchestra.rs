@@ -96,6 +96,26 @@ pub(super) struct Instrument {
     attack: f32,
     release: f32,
     room_send: f32,
+    /// A one-pole low-pass on the bright families (1.0 passes it untouched):
+    /// what keeps bells, cymbals, the chanter and the bowed and plucked
+    /// strings from being shrill (owner, 08.10.2026).
+    tone: f32,
+}
+
+/// The low-pass a recording plays through, by its family: 0.35 is about
+/// 3 kHz, 0.5 about 4.9 kHz.
+fn tone_of(name: &str) -> f32 {
+    const DARK: [&str; 4] = ["tambourine", "fingercymbal", "cymbal", "handbell"];
+    const SOFT: [&str; 7] = [
+        "chanter", "psaltery", "violin-", "violins", "longbow", "chimes", "gong",
+    ];
+    if DARK.iter().any(|family| name.starts_with(family)) {
+        0.35
+    } else if SOFT.iter().any(|family| name.starts_with(family)) {
+        0.5
+    } else {
+        1.0
+    }
 }
 
 impl Instrument {
@@ -140,6 +160,7 @@ pub(super) fn instruments() -> &'static [Instrument] {
                 attack: def.attack,
                 release: def.release,
                 room_send: def.room_send,
+                tone: tone_of(def.name),
             })
             .collect()
     })
@@ -196,9 +217,21 @@ struct Voice {
     attack: u32,
     gain: [f32; 2],
     room_send: f32,
+    /// The tone filter's memory.
+    low: f32,
 }
 
 impl Voice {
+    /// The interpolated sample through the recording's tone filter.
+    #[inline]
+    fn toned(&mut self, samples: &Instrument, wave: f32) -> f32 {
+        if samples.tone < 1.0 {
+            self.low += (wave - self.low) * samples.tone;
+            self.low
+        } else {
+            wave
+        }
+    }
     /// The envelope at this age and place: attack, squared release and the
     /// fade at a recording's end.
     #[inline]
@@ -258,7 +291,7 @@ impl Voice {
             }
             let fraction = self.position.fract() as f32;
             let (a, b) = samples.pair(i);
-            let wave = a + (b - a) * fraction;
+            let wave = self.toned(samples, a + (b - a) * fraction);
             let steady = self.age >= self.attack
                 && self.age <= self.hold
                 && (samples.looped.is_some() || samples.len() - i >= TAIL);
@@ -290,7 +323,7 @@ impl Voice {
         }
         let fraction = self.position.fract() as f32;
         let (a, b) = samples.pair(i);
-        let wave = a + (b - a) * fraction;
+        let wave = self.toned(samples, a + (b - a) * fraction);
         let envelope = self.envelope(samples, i);
         self.step(samples);
         Some(self.gain.map(|gain| gain * wave * envelope))
@@ -417,7 +450,8 @@ impl Delay {
     }
     fn comb(&mut self, input: f32) -> f32 {
         let out = self.data[self.at];
-        self.low += (out - self.low) * 0.34;
+        // Damped: a warm room, not a bright one.
+        self.low += (out - self.low) * 0.24;
         self.data[self.at] = input + self.low * 0.84;
         self.step();
         out
@@ -451,7 +485,20 @@ pub(super) struct Orchestra {
     plucks: u32,
     room: [Delay; 8],
     scatter: [Delay; 4],
+    /// The master's tilt: a low-pass memory per side for a gentle high shelf.
+    tilt: [f32; 2],
 }
+
+/// The master's high shelf: above about 2.5 kHz the mix is 3.7 dB softer.
+#[inline]
+fn tilt(low: &mut f32, x: f32) -> f32 {
+    *low += (x - *low) * 0.3;
+    x - 0.35 * (x - *low)
+}
+
+/// The room's share of the mix.
+const WET: f32 = 0.55;
+
 impl Default for Orchestra {
     fn default() -> Self {
         instruments();
@@ -461,6 +508,7 @@ impl Default for Orchestra {
             plucks: 0,
             room: [1499, 1877, 2137, 2593, 1559, 1931, 2203, 2683].map(Delay::new),
             scatter: [347, 113, 379, 127].map(Delay::new),
+            tilt: [0.0; 2],
         }
     }
 }
@@ -502,6 +550,7 @@ impl Orchestra {
             attack: ((attack * RATE as f32) as u32).max(1),
             room_send: sample.room_send,
             gain: panned(gain, touch.pan),
+            low: 0.0,
         });
     }
 
@@ -589,10 +638,10 @@ impl Orchestra {
             }
         }
         for (frame, w) in out.iter_mut().zip(wet.iter()) {
-            *frame = std::array::from_fn(|i| {
-                let x = (frame[i] + w[i] * 0.48) * 1.5;
-                x / (1.0 + x.abs())
-            });
+            for i in 0..2 {
+                let x = tilt(&mut self.tilt[i], frame[i] + w[i] * WET) * 1.5;
+                frame[i] = x / (1.0 + x.abs());
+            }
         }
     }
 
@@ -625,11 +674,13 @@ impl Orchestra {
         for (i, delay) in self.scatter.iter_mut().enumerate() {
             wet[i / 2] = delay.diffuse(wet[i / 2]);
         }
-        std::array::from_fn(|i| {
-            let x = (dry[i] + wet[i] * 0.48) * 1.5;
+        let mut out = [0.0; 2];
+        for i in 0..2 {
+            let x = tilt(&mut self.tilt[i], dry[i] + wet[i] * WET) * 1.5;
             // Soft safety ceiling leaves room for UI cues; never hard clips.
-            x / (1.0 + x.abs())
-        })
+            out[i] = x / (1.0 + x.abs());
+        }
+        out
     }
 }
 

@@ -31,7 +31,10 @@ python3 art/music/originality.py
 - **VSCO 2 Community Edition**, `sgossner/VSCO-2-CE` at
   `440300901dfe9275fd84e0b7763af1f8443ae62e` (recordings Sam Gossner and Simon
   Dalzell, editing Elan Hickler / Soundemote): solo violin, solo contrabass
-  (arco and pizzicato), cello section, French horn.
+  (arco and pizzicato), the violin, viola and cello sections (sustained and
+  spiccato), French horn, tenor trombone, tuba, a timpani roll, and from its
+  "VSCO 1 Percussion" folder a large ethnic drum (the taiko), a bass drum and
+  its roll, a suspended cymbal's roll.
 - **FreePats Bagpipe**, `freepats/bagpipe` at
   `496f2f6e82f226d650e270c0f0ad5febbebec249` (recorded August 2020 by Gilles
   Sadowski on a bagpipe in G by Rémy Dubois and Olle Geris): the chanter
@@ -63,10 +66,12 @@ Each source's licence file ships beside the bank, byte for byte, with a
   start; a 60 ms crossfade is baked in, and the sample one past the loop's
   end is the loop's first, so playback reads straight across the seam
   (`a_loop_seam_is_no_jump`).
-- 99 recordings, 15.6 MB. The completeness test
+- 133 recordings, 19.6 MB (round 2 added the orchestral body and dropped
+  the sleigh bells, a tambourine shake, the two highest bowed-psaltery and
+  solo-violin notes). No choir: neither source has one. The completeness test
   (`bank_is_complete_and_embedded`) holds every row to its embedded bytes,
   every `.pcm` to a row, every source to the three above at the revisions
-  `docs/legal.md` pins, and the whole under 16 MB.
+  `docs/legal.md` pins, and the whole under 20 MB.
 
 ## The melodies
 

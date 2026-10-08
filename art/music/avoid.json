@@ -652,5 +652,186 @@
   "source": "interval shape written from memory (08.10.2026); a film or game theme: its shape only, never a recording or a score",
   "source_url": null,
   "remark": null
+ },
+ {
+  "name": "Pirates of the Caribbean main theme (film)",
+  "intervals": [
+   3,
+   2,
+   0,
+   0,
+   2,
+   1,
+   0,
+   0,
+   2,
+   -3,
+   0,
+   -2,
+   -2,
+   0,
+   2
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (09.10.2026); a film or game theme or figure: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": "melodies and bass/ostinato lines are both checked against it"
+ },
+ {
+  "name": "The Lord of the Rings, the Fellowship theme (film)",
+  "intervals": [
+   2,
+   2,
+   3,
+   -3,
+   -2,
+   -2,
+   2,
+   2,
+   2,
+   -2,
+   -2,
+   -2
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (09.10.2026); a film or game theme or figure: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": "melodies and bass/ostinato lines are both checked against it"
+ },
+ {
+  "name": "The Lion King, Circle of Life chorus (film)",
+  "intervals": [
+   2,
+   2,
+   0,
+   -2,
+   2,
+   3,
+   -3,
+   -2,
+   -2
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (09.10.2026); a film or game theme or figure: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": "melodies and bass/ostinato lines are both checked against it"
+ },
+ {
+  "name": "Gladiator, Now We Are Free (film)",
+  "intervals": [
+   3,
+   -1,
+   -2,
+   -2,
+   2,
+   1,
+   2,
+   -5,
+   5
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (09.10.2026); a film or game theme or figure: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": "melodies and bass/ostinato lines are both checked against it"
+ },
+ {
+  "name": "Interstellar main theme (film)",
+  "intervals": [
+   7,
+   -7,
+   7,
+   -7,
+   8,
+   -8,
+   7,
+   -7
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (09.10.2026); a film or game theme or figure: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": "melodies and bass/ostinato lines are both checked against it"
+ },
+ {
+  "name": "Inception, the four-chord bass of Time (film)",
+  "intervals": [
+   -5,
+   3,
+   -5,
+   7,
+   -5,
+   3,
+   -5
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (09.10.2026); a film or game theme or figure: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": "melodies and bass/ostinato lines are both checked against it"
+ },
+ {
+  "name": "The Dark Knight, two-note ostinato (film)",
+  "intervals": [
+   -1,
+   1,
+   -1,
+   1,
+   -1,
+   1,
+   -1
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (09.10.2026); a film or game theme or figure: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": "melodies and bass/ostinato lines are both checked against it"
+ },
+ {
+  "name": "Dune, the main motif (film)",
+  "intervals": [
+   -1,
+   -2,
+   1,
+   2,
+   -1,
+   -2,
+   1
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (09.10.2026); a film or game theme or figure: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": "melodies and bass/ostinato lines are both checked against it"
+ },
+ {
+  "name": "The Witcher 3, main theme (game)",
+  "intervals": [
+   -2,
+   -1,
+   -2,
+   5,
+   -2,
+   -1,
+   -2,
+   -2
+  ],
+  "alt_intervals": [],
+  "verified": false,
+  "public_domain": false,
+  "source": "interval shape written from memory (09.10.2026); a film or game theme or figure: its shape only, never a recording or a score",
+  "source_url": null,
+  "remark": "melodies and bass/ostinato lines are both checked against it"
  }
 ]

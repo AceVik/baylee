@@ -147,6 +147,7 @@ fn direction(
     phase: DuelPhase,
     screen: Option<&Screen>,
     duel: Option<&Duel>,
+    theme: music::MusicTheme,
     memory: &mut Memory,
     dt: f32,
 ) -> ScoreRequest {
@@ -158,7 +159,7 @@ fn direction(
             baylee_client_core::interaction::outcome(result, view.seat, duel.my_team()).won(),
         ))
     });
-    music::direct(place(phase, screen), view, ending, memory, dt)
+    music::direct(place(phase, screen), view, ending, theme, memory, dt)
 }
 
 #[allow(clippy::too_many_arguments)] // Bevy system: conductor, screen, game, settings and the persistent player
@@ -174,15 +175,21 @@ fn perform(
     mut players: Query<(&mut Playing, Option<&mut AudioSink>)>,
     mut heard: ResMut<Heard>,
     duck: Res<Duck>,
-    mut memory: Local<Memory>,
+    mut memory: Local<Option<Memory>>,
     mut ducking: Local<(u32, f32)>,
 ) {
     let dt = time.delta_secs();
+    // "Rotating" starts somewhere new each run of the client.
+    let memory = memory.get_or_insert_with(|| Memory::seeded(seed()));
+    let theme = settings
+        .as_ref()
+        .map_or_else(music::MusicTheme::default, |s| s.music.theme());
     let request = direction(
         phase.map_or(DuelPhase::Closed, |p| *p.get()),
         lobby.as_deref().map(|lobby| lobby.lobby.screen()),
         duel.as_deref(),
-        &mut memory,
+        theme,
+        memory,
         dt,
     );
     conductor.control.set(request);
@@ -225,6 +232,14 @@ fn perform(
             Playing { gain: 0.0 },
         ));
     }
+}
+
+/// Where the rotating theme starts: the clock's seconds, so two runs of the
+/// client rarely start alike (`web_time`: the browser has no `SystemTime`).
+fn seed() -> u8 {
+    web_time::SystemTime::now()
+        .duration_since(web_time::UNIX_EPOCH)
+        .map_or(0, |since| (since.as_secs() % 4) as u8)
 }
 
 /// Below this gain the music is inaudible: a sink that has faded to it and
@@ -461,6 +476,27 @@ mod tests {
             app.update();
         }
         assert!(app.world().get::<Playing>(entity).unwrap().gain > 0.24);
+        // The theme is a setting: changed, the very next request carries it,
+        // and the one player plays on (the score takes it at a bar line).
+        for theme in music::MusicTheme::ALL {
+            app.world_mut()
+                .resource_mut::<ClientSettings>()
+                .music
+                .set_theme(theme);
+            app.update();
+            let heard = app.world().resource::<Heard>().0.theme;
+            if theme != music::MusicTheme::Rotating {
+                assert_eq!(heard, theme.pick(0), "{theme:?}");
+            }
+            assert_eq!(
+                app.world_mut()
+                    .query_filtered::<Entity, With<Playing>>()
+                    .single(app.world())
+                    .unwrap(),
+                entity,
+                "no restart for a theme"
+            );
+        }
     }
     /// Muting fades out first and pauses once silent; any gain asked for,
     /// however small, renders again.
@@ -534,6 +570,7 @@ mod tests {
                 DuelPhase::Finished,
                 None,
                 Some(&duel),
+                music::MusicTheme::Epic,
                 &mut Memory::default(),
                 0.1,
             );

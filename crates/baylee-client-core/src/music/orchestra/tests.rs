@@ -8,9 +8,10 @@ const MANIFEST: &str = include_str!("../../../../../art/music/samples.json");
 const LEGAL: &str = include_str!("../../../../../docs/legal.md");
 /// The three CC0 sources `docs/legal.md` §5 admits, nothing else.
 const SOURCES: [&str; 3] = ["VCSL", "VSCO 2 CE", "FreePats Bagpipe"];
-/// The bank's ceiling: what it weighs today (15.4 MB at 44.1 kHz) and a
-/// little room, so a careless addition is noticed rather than shipped.
-const CEILING: usize = 16_000_000;
+/// The bank's ceiling: what it weighs today (19.6 MB at 44.1 kHz, with the
+/// orchestral body) and a little room, so a careless addition is noticed
+/// rather than shipped.
+const CEILING: usize = 20_000_000;
 
 fn rows() -> Vec<serde_json::Value> {
     serde_json::from_str(MANIFEST).expect("samples.json reads")

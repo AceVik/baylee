@@ -15,6 +15,8 @@ use baylee_core::ids::PlayerId;
 use baylee_core::types::TypeSet;
 use baylee_view::{ObjectStatus, PlayerView};
 
+use super::{MusicTheme, Theme};
+
 /// Where the player is: the screens outside a game, and a game's phases.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Place {
@@ -135,6 +137,8 @@ pub struct ScoreRequest {
     pub arrivals: u8,
     /// Whose turn it is, as a seat number (mod 8).
     pub turn_seat: u8,
+    /// The theme to sing.
+    pub theme: Theme,
 }
 
 impl ScoreRequest {
@@ -163,6 +167,7 @@ impl ScoreRequest {
             | u64::from(self.spells & 15) << 29
             | u64::from(self.arrivals & 15) << 33
             | u64::from(self.turn_seat & 7) << 37
+            | u64::from(self.theme as u8 & 3) << 40
     }
 
     /// The request a word holds.
@@ -186,6 +191,7 @@ impl ScoreRequest {
             spells: nibble(29),
             arrivals: nibble(33),
             turn_seat: nibble(37) & 7,
+            theme: Theme::of(nibble(40)),
         }
     }
 }
@@ -215,6 +221,20 @@ pub struct Memory {
     spells: u8,
     arrivals: u8,
     opening: bool,
+    /// Where "rotating" starts: a different theme each run of the client,
+    /// then the next at every table that opens.
+    seed: u8,
+}
+
+impl Memory {
+    /// A memory whose rotating theme starts at `seed`.
+    #[must_use]
+    pub fn seeded(seed: u8) -> Self {
+        Self {
+            seed,
+            ..Self::default()
+        }
+    }
 }
 
 /// How tense a view is, 0 to 1, and what is going on in it (design §3.1):
@@ -278,6 +298,7 @@ pub fn direct(
     place: Place,
     view: Option<&PlayerView>,
     ending: Option<Ending>,
+    theme: MusicTheme,
     memory: &mut Memory,
     dt: f32,
 ) -> ScoreRequest {
@@ -296,9 +317,10 @@ pub fn direct(
     };
     if !matches!(place, Place::Table | Place::Finished | Place::Opening) {
         // A game left behind: the next one starts from nothing.
-        let arrivals = memory.arrivals;
+        let (arrivals, seed) = (memory.arrivals, memory.seed);
         *memory = Memory {
             arrivals,
+            seed,
             ..Memory::default()
         };
     }
@@ -359,6 +381,7 @@ pub fn direct(
     request.monarchs = memory.monarchs;
     request.spells = memory.spells;
     request.arrivals = memory.arrivals;
+    request.theme = theme.pick(memory.seed.wrapping_add(memory.arrivals));
     request
 }
 

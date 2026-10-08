@@ -359,8 +359,14 @@ impl Client {
                         self.statics.as_ref().map_or(&[][..], |s| &s.seats),
                         baylee_client::cardart::registry(),
                     ));
-                    let request =
-                        music::direct(music::Place::Table, Some(&v), None, &mut self.heard, 0.25);
+                    let request = music::direct(
+                        music::Place::Table,
+                        Some(&v),
+                        None,
+                        music::MusicTheme::Epic,
+                        &mut self.heard,
+                        0.25,
+                    );
                     self.music.push(request);
                     self.view = Some(*v);
                 }
@@ -1325,6 +1331,7 @@ fn the_music_follows_a_house_game_offline() {
         music::Place::Finished,
         Some(view),
         Some(ending),
+        music::MusicTheme::Epic,
         &mut memory,
         0.25,
     );

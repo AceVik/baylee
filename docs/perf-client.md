@@ -198,3 +198,9 @@ new one the same as its bench; why the old differed was not chased. A table
 at tension or climax was benched, not sampled in the app. The bank is
 15.6 MB in every build (8.9 MB before); the browser build, not released now,
 carries it too.
+
+Round 2 (9 October 2026: the orchestral body, four themes, de-shrilled)
+costs more at the loud end: one second of music as the audio thread pulls
+it is lobby 6.5, calm table 10.7, tension 15.9, climax 20.5 ms (criterion,
+M1 Max): at most 2 % of one core at the climax, about 1 % at rest. Not
+sampled in the app this round. The bank is 19.6 MB (133 recordings).

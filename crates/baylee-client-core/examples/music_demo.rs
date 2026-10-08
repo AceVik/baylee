@@ -12,8 +12,17 @@
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
 )] // seconds and frames of a listening demo
-use baylee_client_core::music::{RATE, Scene, ScoreControl, ScoreRequest, Tune};
+use baylee_client_core::music::{RATE, Scene, ScoreControl, ScoreRequest, Theme, Tune};
+use std::sync::Mutex;
 use std::{io::Write, path::Path, sync::Arc};
+
+/// The theme every request of the next renders sings, and the prefix their
+/// files are named with.
+static THEME: Mutex<(Theme, &str)> = Mutex::new((Theme::Epic, ""));
+
+fn with(theme: Theme, prefix: &'static str) {
+    *THEME.lock().expect("one thread") = (theme, prefix);
+}
 
 /// From `second`, ask for `request`.
 type Script = Vec<(f32, ScoreRequest)>;
@@ -53,7 +62,8 @@ fn render(dir: &Path, name: &str, seconds: f32, script: &Script) -> std::io::Res
     let mut tune = Tune::with_control(control.clone());
     let frames = (seconds * RATE as f32) as u32;
     let bytes = frames * 4;
-    let path = dir.join(format!("{name}.wav"));
+    let (theme, prefix) = *THEME.lock().expect("one thread");
+    let path = dir.join(format!("{prefix}{name}.wav"));
     let mut out = std::io::BufWriter::new(std::fs::File::create(&path)?);
     out.write_all(b"RIFF")?;
     out.write_all(&(bytes + 36).to_le_bytes())?;
@@ -74,7 +84,10 @@ fn render(dir: &Path, name: &str, seconds: f32, script: &Script) -> std::io::Res
     while done < frames {
         let now = done as f32 / RATE as f32;
         while next < script.len() && script[next].0 <= now {
-            control.set(script[next].1);
+            control.set(ScoreRequest {
+                theme,
+                ..script[next].1
+            });
             next += 1;
         }
         let run = (frames - done).min(256) as usize;
@@ -105,6 +118,73 @@ fn main() -> std::io::Result<()> {
         .unwrap_or_else(|| "/tmp/baylee-music".into());
     let dir = Path::new(&dir);
     std::fs::create_dir_all(dir)?;
+    let started = std::time::Instant::now();
+    // The four themes, each at the table (40 s: intimate, the strings
+    // swelling in, the horns' statement) and through every scene.
+    for (theme, name) in [
+        (Theme::Ballad, "theme-A-ballad"),
+        (Theme::Dance, "theme-B-slavic-dance"),
+        (Theme::Epic, "theme-C-epic-heroic"),
+        (Theme::Jig, "theme-D-medieval-jig"),
+    ] {
+        with(theme, "");
+        render(dir, name, 42.0, &vec![(0.0, table(0.05))])?;
+        let mut tour: Script = vec![(0.0, at(Scene::Lobby, 0.0))];
+        tour.push((
+            16.0,
+            ScoreRequest {
+                arrivals: 1,
+                ..at(Scene::Opening, 0.0)
+            },
+        ));
+        tour.push((21.0, table(0.05)));
+        ramp(&mut tour, 45.0, 24.0, 0.2, 0.7, table(0.0));
+        tour.push((
+            70.0,
+            ScoreRequest {
+                combat: true,
+                hunts: 1,
+                hunt_mine: true,
+                ..table(0.6)
+            },
+        ));
+        tour.push((
+            86.0,
+            ScoreRequest {
+                hunts: 1,
+                ..table(0.95)
+            },
+        ));
+        tour.push((
+            112.0,
+            ScoreRequest {
+                hunts: 1,
+                ..at(Scene::Victory, 0.0)
+            },
+        ));
+        render(
+            dir,
+            &format!("{name}-tour-lobby-table-tension-hunt-climax-victory"),
+            135.0,
+            &tour,
+        )?;
+        let endings = vec![
+            (0.0, table(0.55)),
+            (8.0, at(Scene::Draw, 0.0)),
+            (34.0, table(0.55)),
+            (44.0, at(Scene::Defeat, 0.0)),
+        ];
+        render(dir, &format!("{name}-draw-then-defeat"), 72.0, &endings)?;
+    }
+    eprintln!("themes rendered in {:?}", started.elapsed());
+    // The scenes as before, in the default theme: the "after" half of the
+    // before/after pairs.
+    with(Theme::Epic, "after-");
+    scenes(dir)
+}
+
+#[allow(clippy::too_many_lines)] // one script per preview, read top to bottom
+fn scenes(dir: &Path) -> std::io::Result<()> {
     let started = std::time::Instant::now();
 
     render(

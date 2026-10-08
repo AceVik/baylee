@@ -232,6 +232,8 @@ pub enum Row {
     Master,
     /// The music.
     Music,
+    /// The music's theme: one of four, or a different one each game.
+    MusicTheme,
     /// The table's cues, under the account's ceiling.
     Effects,
     /// Silent behind other windows.
@@ -438,6 +440,13 @@ pub const ROWS: &[RowDef] = &[
     def(Row::Sky, S::Graphics, A, P::Sky, P::HelpSky),
     def(Row::Master, S::Audio, D, P::MasterVolume, P::HelpMaster),
     def(Row::Music, S::Audio, D, P::RowMusic, P::HelpMusic),
+    def(
+        Row::MusicTheme,
+        S::Audio,
+        D,
+        P::RowMusicTheme,
+        P::HelpMusicTheme,
+    ),
     def(Row::Effects, S::Audio, D, P::EffectsVolume, P::HelpEffects),
     def(
         Row::MuteUnfocused,
@@ -742,6 +751,7 @@ mod tests {
             [
                 Row::Master,
                 Row::Music,
+                Row::MusicTheme,
                 Row::Effects,
                 Row::MuteUnfocused,
                 Row::PriorityCue,

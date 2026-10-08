@@ -178,7 +178,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -0.6,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -189,7 +189,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -1.3,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -200,7 +200,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.9,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -211,7 +211,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -2.6,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -222,7 +222,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -1.1,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -233,7 +233,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -0.1,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -244,7 +244,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -0.6,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -255,7 +255,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.1,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -293,35 +293,13 @@ pub(super) const BANK: &[Def] = &[
         room_send: 0.3,
     },
     Def {
-        name: "longbow-E4",
-        pcm: include_bytes!("../../assets/orchestra/longbow-E4.pcm"),
-        midi: 76,
-        cents: 0.1,
-        looped: Some((13230, 58652)),
-        kind: Kind::Sus,
-        attack: 0.03,
-        release: 0.35,
-        room_send: 0.3,
-    },
-    Def {
-        name: "longbow-F#4",
-        pcm: include_bytes!("../../assets/orchestra/longbow-F#4.pcm"),
-        midi: 78,
-        cents: 0.9,
-        looped: Some((13230, 58086)),
-        kind: Kind::Sus,
-        attack: 0.03,
-        release: 0.35,
-        room_send: 0.3,
-    },
-    Def {
         name: "harp-A#1",
         pcm: include_bytes!("../../assets/orchestra/harp-A#1.pcm"),
         midi: 46,
         cents: 5.6,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -332,7 +310,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 2.3,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -343,7 +321,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 3.6,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -354,7 +332,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -3.1,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -365,7 +343,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 1.4,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -376,7 +354,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -11.3,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -387,7 +365,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -0.0,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -398,7 +376,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -2.1,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -409,7 +387,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 3.3,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -420,7 +398,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.4,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -431,7 +409,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.5,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -442,7 +420,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -0.1,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -486,7 +464,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Bell,
-        attack: 0.001,
+        attack: 0.003,
         release: 1.5,
         room_send: 0.35,
     },
@@ -497,7 +475,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Bell,
-        attack: 0.001,
+        attack: 0.003,
         release: 1.5,
         room_send: 0.35,
     },
@@ -508,7 +486,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Bell,
-        attack: 0.001,
+        attack: 0.003,
         release: 1.5,
         room_send: 0.35,
     },
@@ -519,18 +497,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Bell,
-        attack: 0.001,
-        release: 1.5,
-        room_send: 0.35,
-    },
-    Def {
-        name: "sleigh",
-        pcm: include_bytes!("../../assets/orchestra/sleigh.pcm"),
-        midi: 60,
-        cents: 0.0,
-        looped: None,
-        kind: Kind::Bell,
-        attack: 0.001,
+        attack: 0.003,
         release: 1.5,
         room_send: 0.35,
     },
@@ -541,7 +508,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Bell,
-        attack: 0.001,
+        attack: 0.003,
         release: 1.5,
         room_send: 0.35,
     },
@@ -552,7 +519,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -563,7 +530,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -574,7 +541,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -585,7 +552,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -596,7 +563,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -607,7 +574,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -618,7 +585,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -629,7 +596,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -640,7 +607,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -651,7 +618,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -662,7 +629,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -673,7 +640,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -684,7 +651,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -695,18 +662,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 0.0,
         looped: None,
         kind: Kind::Drum,
-        attack: 0.001,
-        release: 0.4,
-        room_send: 0.14,
-    },
-    Def {
-        name: "tambourine-shake",
-        pcm: include_bytes!("../../assets/orchestra/tambourine-shake.pcm"),
-        midi: 60,
-        cents: 0.0,
-        looped: None,
-        kind: Kind::Drum,
-        attack: 0.001,
+        attack: 0.002,
         release: 0.4,
         room_send: 0.14,
     },
@@ -761,7 +717,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -21.5,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -772,7 +728,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -13.7,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -783,7 +739,7 @@ pub(super) const BANK: &[Def] = &[
         cents: -3.3,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -794,7 +750,7 @@ pub(super) const BANK: &[Def] = &[
         cents: 13.5,
         looped: None,
         kind: Kind::Pluck,
-        attack: 0.002,
+        attack: 0.005,
         release: 0.9,
         room_send: 0.22,
     },
@@ -909,28 +865,6 @@ pub(super) const BANK: &[Def] = &[
         room_send: 0.3,
     },
     Def {
-        name: "violin-E5",
-        pcm: include_bytes!("../../assets/orchestra/violin-E5.pcm"),
-        midi: 76,
-        cents: 5.8,
-        looped: Some((13230, 71450)),
-        kind: Kind::Sus,
-        attack: 0.03,
-        release: 0.35,
-        room_send: 0.3,
-    },
-    Def {
-        name: "violin-G5",
-        pcm: include_bytes!("../../assets/orchestra/violin-G5.pcm"),
-        midi: 79,
-        cents: -4.2,
-        looped: Some((13230, 68667)),
-        kind: Kind::Sus,
-        attack: 0.03,
-        release: 0.35,
-        room_send: 0.3,
-    },
-    Def {
         name: "horn-D2",
         pcm: include_bytes!("../../assets/orchestra/horn-D2.pcm"),
         midi: 50,
@@ -972,6 +906,446 @@ pub(super) const BANK: &[Def] = &[
         kind: Kind::Sus,
         attack: 0.03,
         release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "violins-D3",
+        pcm: include_bytes!("../../assets/orchestra/violins-D3.pcm"),
+        midi: 62,
+        cents: -0.6,
+        looped: Some((13230, 60397)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "violins-F#3",
+        pcm: include_bytes!("../../assets/orchestra/violins-F#3.pcm"),
+        midi: 66,
+        cents: -1.9,
+        looped: Some((13230, 70609)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "violins-A3",
+        pcm: include_bytes!("../../assets/orchestra/violins-A3.pcm"),
+        midi: 69,
+        cents: -7.0,
+        looped: Some((13230, 78948)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "violins-C4",
+        pcm: include_bytes!("../../assets/orchestra/violins-C4.pcm"),
+        midi: 72,
+        cents: 4.8,
+        looped: Some((13230, 78063)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "violins-E4",
+        pcm: include_bytes!("../../assets/orchestra/violins-E4.pcm"),
+        midi: 76,
+        cents: 3.6,
+        looped: Some((13230, 65423)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "violas-D2",
+        pcm: include_bytes!("../../assets/orchestra/violas-D2.pcm"),
+        midi: 50,
+        cents: 2.3,
+        looped: Some((13230, 72486)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "violas-G2",
+        pcm: include_bytes!("../../assets/orchestra/violas-G2.pcm"),
+        midi: 55,
+        cents: -1.6,
+        looped: Some((13230, 71073)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "violas-B2",
+        pcm: include_bytes!("../../assets/orchestra/violas-B2.pcm"),
+        midi: 59,
+        cents: 6.0,
+        looped: Some((13230, 71007)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "violas-D3",
+        pcm: include_bytes!("../../assets/orchestra/violas-D3.pcm"),
+        midi: 62,
+        cents: 5.3,
+        looped: Some((13230, 75684)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "violins-spic-D3",
+        pcm: include_bytes!("../../assets/orchestra/violins-spic-D3.pcm"),
+        midi: 62,
+        cents: -12.6,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "violins-spic-F#3",
+        pcm: include_bytes!("../../assets/orchestra/violins-spic-F#3.pcm"),
+        midi: 66,
+        cents: -1.9,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "violins-spic-A3",
+        pcm: include_bytes!("../../assets/orchestra/violins-spic-A3.pcm"),
+        midi: 69,
+        cents: -19.0,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "violins-spic-C4",
+        pcm: include_bytes!("../../assets/orchestra/violins-spic-C4.pcm"),
+        midi: 72,
+        cents: -4.7,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "violas-spic-C2",
+        pcm: include_bytes!("../../assets/orchestra/violas-spic-C2.pcm"),
+        midi: 48,
+        cents: 0.9,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "violas-spic-E2",
+        pcm: include_bytes!("../../assets/orchestra/violas-spic-E2.pcm"),
+        midi: 52,
+        cents: -10.1,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "violas-spic-G2",
+        pcm: include_bytes!("../../assets/orchestra/violas-spic-G2.pcm"),
+        midi: 55,
+        cents: -15.0,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "cellos-spic-G1",
+        pcm: include_bytes!("../../assets/orchestra/cellos-spic-G1.pcm"),
+        midi: 43,
+        cents: -10.5,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "cellos-spic-B1",
+        pcm: include_bytes!("../../assets/orchestra/cellos-spic-B1.pcm"),
+        midi: 47,
+        cents: -16.5,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "cellos-spic-D2",
+        pcm: include_bytes!("../../assets/orchestra/cellos-spic-D2.pcm"),
+        midi: 50,
+        cents: -5.6,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "cellos-spic-F2",
+        pcm: include_bytes!("../../assets/orchestra/cellos-spic-F2.pcm"),
+        midi: 53,
+        cents: -25.1,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "cellos-spic-A2",
+        pcm: include_bytes!("../../assets/orchestra/cellos-spic-A2.pcm"),
+        midi: 57,
+        cents: 12.2,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.004,
+        release: 0.2,
+        room_send: 0.26,
+    },
+    Def {
+        name: "trombone-A#1",
+        pcm: include_bytes!("../../assets/orchestra/trombone-A#1.pcm"),
+        midi: 46,
+        cents: 0.6,
+        looped: Some((13230, 62422)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "trombone-D2",
+        pcm: include_bytes!("../../assets/orchestra/trombone-D2.pcm"),
+        midi: 50,
+        cents: 0.4,
+        looped: Some((13230, 79008)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "trombone-F2",
+        pcm: include_bytes!("../../assets/orchestra/trombone-F2.pcm"),
+        midi: 53,
+        cents: 0.1,
+        looped: Some((13230, 69557)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "trombone-C3",
+        pcm: include_bytes!("../../assets/orchestra/trombone-C3.pcm"),
+        midi: 60,
+        cents: -0.2,
+        looped: Some((13230, 67507)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "tuba-A#0",
+        pcm: include_bytes!("../../assets/orchestra/tuba-A#0.pcm"),
+        midi: 34,
+        cents: -1.9,
+        looped: Some((13230, 57899)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "tuba-D#1",
+        pcm: include_bytes!("../../assets/orchestra/tuba-D#1.pcm"),
+        midi: 39,
+        cents: -1.3,
+        looped: Some((13230, 67084)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "tuba-F1",
+        pcm: include_bytes!("../../assets/orchestra/tuba-F1.pcm"),
+        midi: 41,
+        cents: -3.3,
+        looped: Some((13230, 57682)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "tuba-A#1",
+        pcm: include_bytes!("../../assets/orchestra/tuba-A#1.pcm"),
+        midi: 46,
+        cents: 3.1,
+        looped: Some((13230, 77182)),
+        kind: Kind::Sus,
+        attack: 0.03,
+        release: 0.35,
+        room_send: 0.3,
+    },
+    Def {
+        name: "taiko-f",
+        pcm: include_bytes!("../../assets/orchestra/taiko-f.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.002,
+        release: 0.8,
+        room_send: 0.22,
+    },
+    Def {
+        name: "taiko-ff",
+        pcm: include_bytes!("../../assets/orchestra/taiko-ff.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.002,
+        release: 0.8,
+        room_send: 0.22,
+    },
+    Def {
+        name: "taiko-mf",
+        pcm: include_bytes!("../../assets/orchestra/taiko-mf.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.002,
+        release: 0.8,
+        room_send: 0.22,
+    },
+    Def {
+        name: "taiko-sticks",
+        pcm: include_bytes!("../../assets/orchestra/taiko-sticks.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.002,
+        release: 0.8,
+        room_send: 0.22,
+    },
+    Def {
+        name: "bigdrum-hit",
+        pcm: include_bytes!("../../assets/orchestra/bigdrum-hit.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.002,
+        release: 0.8,
+        room_send: 0.22,
+    },
+    Def {
+        name: "bigdrum-roll",
+        pcm: include_bytes!("../../assets/orchestra/bigdrum-roll.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.01,
+        release: 0.8,
+        room_send: 0.3,
+    },
+    Def {
+        name: "tom-high",
+        pcm: include_bytes!("../../assets/orchestra/tom-high.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.002,
+        release: 0.4,
+        room_send: 0.14,
+    },
+    Def {
+        name: "tom-low",
+        pcm: include_bytes!("../../assets/orchestra/tom-low.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.002,
+        release: 0.4,
+        room_send: 0.14,
+    },
+    Def {
+        name: "timpani-roll",
+        pcm: include_bytes!("../../assets/orchestra/timpani-roll.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.01,
+        release: 0.8,
+        room_send: 0.3,
+    },
+    Def {
+        name: "cymbal-swell",
+        pcm: include_bytes!("../../assets/orchestra/cymbal-swell.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.01,
+        release: 0.8,
+        room_send: 0.3,
+    },
+    Def {
+        name: "gong",
+        pcm: include_bytes!("../../assets/orchestra/gong.pcm"),
+        midi: 60,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Drum,
+        attack: 0.01,
+        release: 0.8,
         room_send: 0.3,
     },
     Def {
@@ -1106,66 +1480,102 @@ pub(super) const TENOR: Family = Family { first: 8, len: 7 };
 /// The psaltery family: 8 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
 pub(super) const PSALTERY: Family = Family { first: 15, len: 8 };
-/// The longbow family: 5 recordings.
+/// The longbow family: 3 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const LONGBOW: Family = Family { first: 23, len: 5 };
+pub(super) const LONGBOW: Family = Family { first: 23, len: 3 };
 /// The harp family: 9 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const HARP: Family = Family { first: 28, len: 9 };
+pub(super) const HARP: Family = Family { first: 26, len: 9 };
 /// The strumstick family: 3 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const STRUMSTICK: Family = Family { first: 37, len: 3 };
+pub(super) const STRUMSTICK: Family = Family { first: 35, len: 3 };
 /// The organ family: 3 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const ORGAN: Family = Family { first: 40, len: 3 };
+pub(super) const ORGAN: Family = Family { first: 38, len: 3 };
 /// The chimes family: 2 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const CHIMES: Family = Family { first: 43, len: 2 };
+pub(super) const CHIMES: Family = Family { first: 41, len: 2 };
 /// The handbell family: 2 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const HANDBELL: Family = Family { first: 45, len: 2 };
-/// The sleigh family: 1 recording.
-#[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const SLEIGH: Family = Family { first: 47, len: 1 };
+pub(super) const HANDBELL: Family = Family { first: 43, len: 2 };
 /// The fingercymbal family: 1 recording.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const FINGERCYMBAL: Family = Family { first: 48, len: 1 };
+pub(super) const FINGERCYMBAL: Family = Family { first: 45, len: 1 };
 /// The framedrum family: 5 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const FRAMEDRUM: Family = Family { first: 49, len: 5 };
+pub(super) const FRAMEDRUM: Family = Family { first: 46, len: 5 };
 /// The davul family: 3 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const DAVUL: Family = Family { first: 54, len: 3 };
+pub(super) const DAVUL: Family = Family { first: 51, len: 3 };
 /// The naker family: 3 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const NAKER: Family = Family { first: 57, len: 3 };
+pub(super) const NAKER: Family = Family { first: 54, len: 3 };
 /// The ropesnare family: 2 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const ROPESNARE: Family = Family { first: 60, len: 2 };
-/// The tambourine family: 2 recordings.
+pub(super) const ROPESNARE: Family = Family { first: 57, len: 2 };
+/// The tambourine family: 1 recording.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const TAMBOURINE: Family = Family { first: 62, len: 2 };
+pub(super) const TAMBOURINE: Family = Family { first: 59, len: 1 };
 /// The contrabass family: 4 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const CONTRABASS: Family = Family { first: 64, len: 4 };
+pub(super) const CONTRABASS: Family = Family { first: 60, len: 4 };
 /// The pizzicato family: 4 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const PIZZICATO: Family = Family { first: 68, len: 4 };
+pub(super) const PIZZICATO: Family = Family { first: 64, len: 4 };
 /// The cello family: 4 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const CELLO: Family = Family { first: 72, len: 4 };
-/// The violin family: 8 recordings.
+pub(super) const CELLO: Family = Family { first: 68, len: 4 };
+/// The violin family: 6 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const VIOLIN: Family = Family { first: 76, len: 8 };
+pub(super) const VIOLIN: Family = Family { first: 72, len: 6 };
 /// The horn family: 4 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const HORN: Family = Family { first: 84, len: 4 };
+pub(super) const HORN: Family = Family { first: 78, len: 4 };
+/// The violins family: 5 recordings.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const VIOLINS: Family = Family { first: 82, len: 5 };
+/// The violas family: 4 recordings.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const VIOLAS: Family = Family { first: 87, len: 4 };
+/// The violins-spic family: 4 recordings.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const VIOLINS_SPIC: Family = Family { first: 91, len: 4 };
+/// The violas-spic family: 3 recordings.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const VIOLAS_SPIC: Family = Family { first: 95, len: 3 };
+/// The cellos-spic family: 5 recordings.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const CELLOS_SPIC: Family = Family { first: 98, len: 5 };
+/// The trombone family: 4 recordings.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const TROMBONE: Family = Family { first: 103, len: 4 };
+/// The tuba family: 4 recordings.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const TUBA: Family = Family { first: 107, len: 4 };
+/// The taiko family: 4 recordings.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const TAIKO: Family = Family { first: 111, len: 4 };
+/// The bigdrum family: 2 recordings.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const BIGDRUM: Family = Family { first: 115, len: 2 };
+/// The toms family: 2 recordings.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const TOMS: Family = Family { first: 117, len: 2 };
+/// The timpani family: 1 recording.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const TIMPANI: Family = Family { first: 119, len: 1 };
+/// The cymbal family: 1 recording.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const CYMBAL: Family = Family { first: 120, len: 1 };
+/// The gong family: 1 recording.
+#[allow(dead_code)] // a drum or a bell is played by its recording's name
+pub(super) const GONG: Family = Family { first: 121, len: 1 };
 /// The chanter family: 9 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const CHANTER: Family = Family { first: 88, len: 9 };
+pub(super) const CHANTER: Family = Family { first: 122, len: 9 };
 /// The drone family: 2 recordings.
 #[allow(dead_code)] // a drum or a bell is played by its recording's name
-pub(super) const DRONE: Family = Family { first: 97, len: 2 };
+pub(super) const DRONE: Family = Family { first: 131, len: 2 };
 
 /// Each recording's place in [`BANK`], by name (`#` spelt `S`).
 #[allow(dead_code)] // the score names the ones it plays by hand
@@ -1196,77 +1606,111 @@ pub(super) mod at {
     pub(in crate::music) const LONGBOW_AS3: usize = 23;
     pub(in crate::music) const LONGBOW_C4: usize = 24;
     pub(in crate::music) const LONGBOW_D4: usize = 25;
-    pub(in crate::music) const LONGBOW_E4: usize = 26;
-    pub(in crate::music) const LONGBOW_FS4: usize = 27;
-    pub(in crate::music) const HARP_AS1: usize = 28;
-    pub(in crate::music) const HARP_D2: usize = 29;
-    pub(in crate::music) const HARP_FS2: usize = 30;
-    pub(in crate::music) const HARP_AS2: usize = 31;
-    pub(in crate::music) const HARP_D3: usize = 32;
-    pub(in crate::music) const HARP_FS3: usize = 33;
-    pub(in crate::music) const HARP_AS3: usize = 34;
-    pub(in crate::music) const HARP_D4: usize = 35;
-    pub(in crate::music) const HARP_FS4: usize = 36;
-    pub(in crate::music) const STRUMSTICK_D2: usize = 37;
-    pub(in crate::music) const STRUMSTICK_FS2: usize = 38;
-    pub(in crate::music) const STRUMSTICK_G2: usize = 39;
-    pub(in crate::music) const ORGAN_AS1: usize = 40;
-    pub(in crate::music) const ORGAN_C2: usize = 41;
-    pub(in crate::music) const ORGAN_FS2: usize = 42;
-    pub(in crate::music) const CHIMES_GS3: usize = 43;
-    pub(in crate::music) const CHIMES_C4: usize = 44;
-    pub(in crate::music) const HANDBELL_1: usize = 45;
-    pub(in crate::music) const HANDBELL_2: usize = 46;
-    pub(in crate::music) const SLEIGH: usize = 47;
-    pub(in crate::music) const FINGERCYMBAL: usize = 48;
-    pub(in crate::music) const FRAMEDRUM_1: usize = 49;
-    pub(in crate::music) const FRAMEDRUM_2: usize = 50;
-    pub(in crate::music) const FRAMEDRUM_MUTED: usize = 51;
-    pub(in crate::music) const FRAMEDRUM_SMALL: usize = 52;
-    pub(in crate::music) const FRAMEDRUM_SMALL_MUTED: usize = 53;
-    pub(in crate::music) const DAVUL_1: usize = 54;
-    pub(in crate::music) const DAVUL_2: usize = 55;
-    pub(in crate::music) const DAVUL_FORTE: usize = 56;
-    pub(in crate::music) const NAKER_1: usize = 57;
-    pub(in crate::music) const NAKER_2: usize = 58;
-    pub(in crate::music) const NAKER_HIGH: usize = 59;
-    pub(in crate::music) const ROPESNARE_1: usize = 60;
-    pub(in crate::music) const ROPESNARE_2: usize = 61;
-    pub(in crate::music) const TAMBOURINE_HIT: usize = 62;
-    pub(in crate::music) const TAMBOURINE_SHAKE: usize = 63;
-    pub(in crate::music) const CONTRABASS_C1: usize = 64;
-    pub(in crate::music) const CONTRABASS_E1: usize = 65;
-    pub(in crate::music) const CONTRABASS_GS1: usize = 66;
-    pub(in crate::music) const CONTRABASS_A1: usize = 67;
-    pub(in crate::music) const PIZZICATO_C1: usize = 68;
-    pub(in crate::music) const PIZZICATO_E1: usize = 69;
-    pub(in crate::music) const PIZZICATO_GS1: usize = 70;
-    pub(in crate::music) const PIZZICATO_A1: usize = 71;
-    pub(in crate::music) const CELLO_B1: usize = 72;
-    pub(in crate::music) const CELLO_D2: usize = 73;
-    pub(in crate::music) const CELLO_F2: usize = 74;
-    pub(in crate::music) const CELLO_A2: usize = 75;
-    pub(in crate::music) const VIOLIN_G3: usize = 76;
-    pub(in crate::music) const VIOLIN_C4: usize = 77;
-    pub(in crate::music) const VIOLIN_E4: usize = 78;
-    pub(in crate::music) const VIOLIN_G4: usize = 79;
-    pub(in crate::music) const VIOLIN_A4: usize = 80;
-    pub(in crate::music) const VIOLIN_C5: usize = 81;
-    pub(in crate::music) const VIOLIN_E5: usize = 82;
-    pub(in crate::music) const VIOLIN_G5: usize = 83;
-    pub(in crate::music) const HORN_D2: usize = 84;
-    pub(in crate::music) const HORN_F2: usize = 85;
-    pub(in crate::music) const HORN_A2: usize = 86;
-    pub(in crate::music) const HORN_C3: usize = 87;
-    pub(in crate::music) const CHANTER_F4: usize = 88;
-    pub(in crate::music) const CHANTER_G4: usize = 89;
-    pub(in crate::music) const CHANTER_A4: usize = 90;
-    pub(in crate::music) const CHANTER_AS4: usize = 91;
-    pub(in crate::music) const CHANTER_C5: usize = 92;
-    pub(in crate::music) const CHANTER_D5: usize = 93;
-    pub(in crate::music) const CHANTER_E5: usize = 94;
-    pub(in crate::music) const CHANTER_F5: usize = 95;
-    pub(in crate::music) const CHANTER_G5: usize = 96;
-    pub(in crate::music) const DRONE_G2: usize = 97;
-    pub(in crate::music) const DRONE_G3: usize = 98;
+    pub(in crate::music) const HARP_AS1: usize = 26;
+    pub(in crate::music) const HARP_D2: usize = 27;
+    pub(in crate::music) const HARP_FS2: usize = 28;
+    pub(in crate::music) const HARP_AS2: usize = 29;
+    pub(in crate::music) const HARP_D3: usize = 30;
+    pub(in crate::music) const HARP_FS3: usize = 31;
+    pub(in crate::music) const HARP_AS3: usize = 32;
+    pub(in crate::music) const HARP_D4: usize = 33;
+    pub(in crate::music) const HARP_FS4: usize = 34;
+    pub(in crate::music) const STRUMSTICK_D2: usize = 35;
+    pub(in crate::music) const STRUMSTICK_FS2: usize = 36;
+    pub(in crate::music) const STRUMSTICK_G2: usize = 37;
+    pub(in crate::music) const ORGAN_AS1: usize = 38;
+    pub(in crate::music) const ORGAN_C2: usize = 39;
+    pub(in crate::music) const ORGAN_FS2: usize = 40;
+    pub(in crate::music) const CHIMES_GS3: usize = 41;
+    pub(in crate::music) const CHIMES_C4: usize = 42;
+    pub(in crate::music) const HANDBELL_1: usize = 43;
+    pub(in crate::music) const HANDBELL_2: usize = 44;
+    pub(in crate::music) const FINGERCYMBAL: usize = 45;
+    pub(in crate::music) const FRAMEDRUM_1: usize = 46;
+    pub(in crate::music) const FRAMEDRUM_2: usize = 47;
+    pub(in crate::music) const FRAMEDRUM_MUTED: usize = 48;
+    pub(in crate::music) const FRAMEDRUM_SMALL: usize = 49;
+    pub(in crate::music) const FRAMEDRUM_SMALL_MUTED: usize = 50;
+    pub(in crate::music) const DAVUL_1: usize = 51;
+    pub(in crate::music) const DAVUL_2: usize = 52;
+    pub(in crate::music) const DAVUL_FORTE: usize = 53;
+    pub(in crate::music) const NAKER_1: usize = 54;
+    pub(in crate::music) const NAKER_2: usize = 55;
+    pub(in crate::music) const NAKER_HIGH: usize = 56;
+    pub(in crate::music) const ROPESNARE_1: usize = 57;
+    pub(in crate::music) const ROPESNARE_2: usize = 58;
+    pub(in crate::music) const TAMBOURINE_HIT: usize = 59;
+    pub(in crate::music) const CONTRABASS_C1: usize = 60;
+    pub(in crate::music) const CONTRABASS_E1: usize = 61;
+    pub(in crate::music) const CONTRABASS_GS1: usize = 62;
+    pub(in crate::music) const CONTRABASS_A1: usize = 63;
+    pub(in crate::music) const PIZZICATO_C1: usize = 64;
+    pub(in crate::music) const PIZZICATO_E1: usize = 65;
+    pub(in crate::music) const PIZZICATO_GS1: usize = 66;
+    pub(in crate::music) const PIZZICATO_A1: usize = 67;
+    pub(in crate::music) const CELLO_B1: usize = 68;
+    pub(in crate::music) const CELLO_D2: usize = 69;
+    pub(in crate::music) const CELLO_F2: usize = 70;
+    pub(in crate::music) const CELLO_A2: usize = 71;
+    pub(in crate::music) const VIOLIN_G3: usize = 72;
+    pub(in crate::music) const VIOLIN_C4: usize = 73;
+    pub(in crate::music) const VIOLIN_E4: usize = 74;
+    pub(in crate::music) const VIOLIN_G4: usize = 75;
+    pub(in crate::music) const VIOLIN_A4: usize = 76;
+    pub(in crate::music) const VIOLIN_C5: usize = 77;
+    pub(in crate::music) const HORN_D2: usize = 78;
+    pub(in crate::music) const HORN_F2: usize = 79;
+    pub(in crate::music) const HORN_A2: usize = 80;
+    pub(in crate::music) const HORN_C3: usize = 81;
+    pub(in crate::music) const VIOLINS_D3: usize = 82;
+    pub(in crate::music) const VIOLINS_FS3: usize = 83;
+    pub(in crate::music) const VIOLINS_A3: usize = 84;
+    pub(in crate::music) const VIOLINS_C4: usize = 85;
+    pub(in crate::music) const VIOLINS_E4: usize = 86;
+    pub(in crate::music) const VIOLAS_D2: usize = 87;
+    pub(in crate::music) const VIOLAS_G2: usize = 88;
+    pub(in crate::music) const VIOLAS_B2: usize = 89;
+    pub(in crate::music) const VIOLAS_D3: usize = 90;
+    pub(in crate::music) const VIOLINS_SPIC_D3: usize = 91;
+    pub(in crate::music) const VIOLINS_SPIC_FS3: usize = 92;
+    pub(in crate::music) const VIOLINS_SPIC_A3: usize = 93;
+    pub(in crate::music) const VIOLINS_SPIC_C4: usize = 94;
+    pub(in crate::music) const VIOLAS_SPIC_C2: usize = 95;
+    pub(in crate::music) const VIOLAS_SPIC_E2: usize = 96;
+    pub(in crate::music) const VIOLAS_SPIC_G2: usize = 97;
+    pub(in crate::music) const CELLOS_SPIC_G1: usize = 98;
+    pub(in crate::music) const CELLOS_SPIC_B1: usize = 99;
+    pub(in crate::music) const CELLOS_SPIC_D2: usize = 100;
+    pub(in crate::music) const CELLOS_SPIC_F2: usize = 101;
+    pub(in crate::music) const CELLOS_SPIC_A2: usize = 102;
+    pub(in crate::music) const TROMBONE_AS1: usize = 103;
+    pub(in crate::music) const TROMBONE_D2: usize = 104;
+    pub(in crate::music) const TROMBONE_F2: usize = 105;
+    pub(in crate::music) const TROMBONE_C3: usize = 106;
+    pub(in crate::music) const TUBA_AS0: usize = 107;
+    pub(in crate::music) const TUBA_DS1: usize = 108;
+    pub(in crate::music) const TUBA_F1: usize = 109;
+    pub(in crate::music) const TUBA_AS1: usize = 110;
+    pub(in crate::music) const TAIKO_F: usize = 111;
+    pub(in crate::music) const TAIKO_FF: usize = 112;
+    pub(in crate::music) const TAIKO_MF: usize = 113;
+    pub(in crate::music) const TAIKO_STICKS: usize = 114;
+    pub(in crate::music) const BIGDRUM_HIT: usize = 115;
+    pub(in crate::music) const BIGDRUM_ROLL: usize = 116;
+    pub(in crate::music) const TOM_HIGH: usize = 117;
+    pub(in crate::music) const TOM_LOW: usize = 118;
+    pub(in crate::music) const TIMPANI_ROLL: usize = 119;
+    pub(in crate::music) const CYMBAL_SWELL: usize = 120;
+    pub(in crate::music) const GONG: usize = 121;
+    pub(in crate::music) const CHANTER_F4: usize = 122;
+    pub(in crate::music) const CHANTER_G4: usize = 123;
+    pub(in crate::music) const CHANTER_A4: usize = 124;
+    pub(in crate::music) const CHANTER_AS4: usize = 125;
+    pub(in crate::music) const CHANTER_C5: usize = 126;
+    pub(in crate::music) const CHANTER_D5: usize = 127;
+    pub(in crate::music) const CHANTER_E5: usize = 128;
+    pub(in crate::music) const CHANTER_F5: usize = 129;
+    pub(in crate::music) const CHANTER_G5: usize = 130;
+    pub(in crate::music) const DRONE_G2: usize = 131;
+    pub(in crate::music) const DRONE_G3: usize = 132;
 }

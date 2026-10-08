@@ -44,9 +44,7 @@ pub(super) const EB5: u8 = 75;
 pub(super) const E5: u8 = 76;
 pub(super) const F5: u8 = 77;
 pub(super) const G5: u8 = 79;
-pub(super) const A5: u8 = 81;
 pub(super) const BB5: u8 = 82;
-pub(super) const C6: u8 = 84;
 
 /// Whether `pitch` is in the B♭ set (B♭ C D E♭ F G A), or with `lydian` in
 /// B♭ Lydian's (E♮ for E♭).
@@ -71,151 +69,107 @@ pub(super) const TENSION_BASS: [u8; 8] = [G2, G2, F2, G2, D2, G2, BB2, G2];
 /// Tension's psaltery, one note an eighth over the 7/8 bar.
 pub(super) const TENSION_OSTINATO: [u8; 7] = [G5, G5, BB5, G5, F5, G5, D5];
 
-// ----------------------------------------------------------------- melodies
+// ------------------------------------------------- the four themes (C Dorian)
 
-/// The table's theme, C Dorian, first phrase (6/8).
-pub(super) const CALM_A: Phrase = &[
-    &[(C5, 3), (EB5, 1), (D5, 2)],
-    &[(C5, 2), (BB4, 1), (G4, 3)],
-    &[(BB4, 2), (C5, 1), (D5, 3)],
-    &[(C5, 6)],
-    &[(EB5, 3), (F5, 1), (G5, 2)],
-    &[(F5, 2), (EB5, 1), (D5, 3)],
-    &[(C5, 2), (D5, 1), (BB4, 2), (G4, 1)],
-    &[(C5, 6)],
-];
-/// Its second phrase.
-pub(super) const CALM_B: Phrase = &[
-    &[(G5, 3), (F5, 1), (EB5, 2)],
-    &[(D5, 2), (EB5, 1), (C5, 3)],
-    &[(BB4, 2), (G4, 1), (BB4, 3)],
-    &[(C5, 3), (BB4, 1), (D5, 2)],
-    &[(EB5, 3), (D5, 1), (C5, 2)],
-    &[(BB4, 2), (C5, 1), (D5, 3)],
-    &[(C5, 2), (G4, 1), (A4, 2), (BB4, 1)],
-    &[(C5, 6)],
-];
-/// The first phrase varied, for the cycle's second half.
-pub(super) const CALM_A2: Phrase = &[
-    &[(C5, 2), (D5, 1), (EB5, 3)],
-    &[(D5, 2), (C5, 1), (G4, 3)],
-    &[(BB4, 3), (C5, 1), (D5, 2)],
-    &[(EB5, 3), (D5, 3)],
-    &[(F5, 2), (G5, 1), (A5, 3)],
-    &[(G5, 2), (F5, 1), (EB5, 3)],
-    &[(D5, 2), (C5, 1), (BB4, 2), (D5, 1)],
-    &[(C5, 6)],
-];
-/// The second phrase varied.
-pub(super) const CALM_B2: Phrase = &[
-    &[(G5, 3), (EB5, 1), (F5, 2)],
-    &[(D5, 3), (C5, 3)],
-    &[(BB4, 2), (D5, 1), (C5, 2), (EB5, 1)],
-    &[(F5, 6)],
+/// A — the ballad: lyrical and singable, in the British folk manner.
+pub(super) const BALLAD_A: Phrase = &[
+    &[(G4, 2), (C5, 1), (D5, 2), (C5, 1)],
     &[(EB5, 3), (D5, 1), (C5, 2)],
     &[(BB4, 2), (G4, 1), (BB4, 3)],
-    &[(C5, 2), (D5, 1), (BB4, 2), (A4, 1)],
+    &[(C5, 6)],
+    &[(G4, 2), (C5, 1), (D5, 2), (EB5, 1)],
+    &[(F5, 3), (D5, 1), (EB5, 2)],
+    &[(C5, 2), (BB4, 1), (G4, 2), (A4, 1)],
+    &[(G4, 6)],
+];
+/// The ballad's answer, home to C.
+pub(super) const BALLAD_B: Phrase = &[
+    &[(EB5, 3), (D5, 1), (C5, 2)],
+    &[(D5, 2), (BB4, 1), (G4, 3)],
+    &[(A4, 2), (C5, 1), (BB4, 2), (D5, 1)],
+    &[(EB5, 6)],
+    &[(D5, 2), (C5, 1), (BB4, 2), (G4, 1)],
+    &[(F4, 3), (G4, 1), (A4, 2)],
+    &[(BB4, 3), (D5, 1), (BB4, 2)],
     &[(C5, 6)],
 ];
-/// The front door's theme, B♭ Lydian: the table's theme heard in the
-/// geode's light (its shape on the Lydian degrees; E♮ is the light).
-pub(super) const FRONT_A: Phrase = &[
-    &[(BB4, 3), (D5, 1), (C5, 2)],
-    &[(BB4, 2), (A4, 1), (F4, 3)],
-    &[(A4, 2), (BB4, 1), (C5, 3)],
-    &[(BB4, 6)],
-    &[(D5, 3), (E5, 1), (F5, 2)],
-    &[(E5, 2), (D5, 1), (C5, 3)],
-    &[(BB4, 2), (C5, 1), (A4, 2), (F4, 1)],
-    &[(BB4, 6)],
+/// B — the dance: a driving minor dance in the Slavic manner; bars pulled
+/// into three twos (a hemiola) against the 6/8.
+pub(super) const DANCE_A: Phrase = &[
+    &[(C5, 1), (C5, 1), (D5, 1), (EB5, 2), (D5, 1)],
+    &[(C5, 2), (BB4, 2), (G4, 2)],
+    &[(G4, 1), (A4, 1), (BB4, 1), (D5, 2), (BB4, 1)],
+    &[(A4, 2), (BB4, 2), (F4, 2)],
+    &[(G4, 1), (BB4, 1), (G4, 1), (D5, 2), (C5, 1)],
+    &[(EB5, 2), (D5, 2), (C5, 2)],
+    &[(D5, 1), (C5, 1), (BB4, 1), (A4, 1), (BB4, 1), (G4, 1)],
+    &[(C5, 2), (G4, 1), (C5, 3)],
 ];
-/// Its answer.
-pub(super) const FRONT_B: Phrase = &[
-    &[(F5, 3), (E5, 1), (D5, 2)],
-    &[(C5, 2), (D5, 1), (BB4, 3)],
-    &[(A4, 2), (F4, 1), (A4, 3)],
-    &[(BB4, 3), (A4, 1), (C5, 2)],
-    &[(D5, 3), (C5, 1), (BB4, 2)],
-    &[(A4, 2), (BB4, 1), (C5, 3)],
-    &[(BB4, 2), (F4, 1), (G4, 2), (A4, 1)],
-    &[(BB4, 6)],
+/// The dance's second strain.
+pub(super) const DANCE_B: Phrase = &[
+    &[(EB5, 1), (EB5, 1), (D5, 1), (C5, 2), (D5, 1)],
+    &[(EB5, 2), (C5, 2), (EB5, 2)],
+    &[(D5, 1), (C5, 1), (BB4, 1), (C5, 2), (D5, 1)],
+    &[(G4, 2), (A4, 2), (BB4, 2)],
+    &[(C5, 1), (A4, 1), (BB4, 1), (G4, 2), (A4, 1)],
+    &[(BB4, 2), (D5, 2), (C5, 2)],
+    &[(EB5, 1), (D5, 1), (C5, 1), (BB4, 1), (A4, 1), (BB4, 1)],
+    &[(C5, 2), (G4, 1), (C5, 3)],
 ];
-/// Tension's line, G Aeolian in 7/8 (3+2+2), on the tenor recorder.
-pub(super) const TENSION_LINE: Phrase = &[
-    &[(G4, 3), (BB4, 2), (A4, 2)],
-    &[(G4, 3), (F4, 2), (D4, 2)],
-    &[(BB4, 3), (C5, 2), (BB4, 2)],
-    &[(A4, 5), (G4, 2)],
-];
-/// The chanter's answer to it, from a tension of 0.55.
-pub(super) const TENSION_CHANTER: Phrase = &[
-    &[(D5, 3), (C5, 2), (BB4, 2)],
-    &[(A4, 3), (BB4, 2), (G4, 2)],
-    &[(F4, 3), (G4, 2), (A4, 2)],
-    &[(BB4, 3), (A4, 2), (G4, 2)],
-];
-/// The hunt, F Mixolydian in 6/8, after the horn.
-pub(super) const HUNT: Phrase = &[
-    &[(F4, 2), (A4, 1), (C5, 2), (A4, 1)],
-    &[(BB4, 2), (G4, 1), (C5, 3)],
-    &[(D5, 2), (C5, 1), (BB4, 2), (A4, 1)],
-    &[(G4, 3), (F4, 3)],
-];
-/// The climax, G Aeolian, on the chanter over both drones.
-pub(super) const CLIMAX: Phrase = &[
-    &[(G4, 2), (A4, 1), (BB4, 2), (G4, 1)],
-    &[(D5, 3), (C5, 1), (BB4, 2)],
-    &[(A4, 2), (G4, 1), (A4, 2), (BB4, 1)],
-    &[(G4, 4), (F4, 2)],
-    &[(G4, 2), (BB4, 1), (D5, 2), (EB5, 1)],
-    &[(D5, 3), (BB4, 1), (A4, 2)],
-    &[(BB4, 2), (A4, 1), (G4, 2), (F4, 1)],
+/// C — the epic: broad and heroic, long notes and open leaps, for horns and
+/// strings.
+pub(super) const EPIC_A: Phrase = &[
+    &[(C4, 3), (G4, 3)],
+    &[(F4, 2), (EB4, 1), (D4, 3)],
+    &[(C4, 2), (D4, 1), (EB4, 3)],
+    &[(G4, 6)],
+    &[(C5, 3), (BB4, 2), (A4, 1)],
+    &[(G4, 3), (F4, 2), (EB4, 1)],
+    &[(F4, 2), (G4, 1), (BB4, 2), (A4, 1)],
     &[(G4, 6)],
 ];
-/// Its variant, every other sixteen bars.
-pub(super) const CLIMAX_2: Phrase = &[
-    &[(D5, 2), (C5, 1), (BB4, 2), (C5, 1)],
-    &[(D5, 3), (G5, 1), (F5, 2)],
-    &[(EB5, 2), (D5, 1), (C5, 2), (BB4, 1)],
-    &[(A4, 4), (F4, 2)],
-    &[(G4, 2), (A4, 1), (BB4, 2), (C5, 1)],
-    &[(D5, 2), (EB5, 1), (D5, 2), (C5, 1)],
-    &[(BB4, 2), (A4, 1), (F4, 2), (A4, 1)],
+/// The epic's answer, rising to its height.
+pub(super) const EPIC_B: Phrase = &[
+    &[(C5, 3), (G4, 3)],
+    &[(A4, 2), (BB4, 1), (C5, 3)],
+    &[(D5, 3), (C5, 2), (BB4, 1)],
     &[(G4, 6)],
-];
-/// The victory, B♭ Ionian: the rising cadence.
-pub(super) const VICTORY: Phrase = &[
-    &[(F4, 2), (BB4, 1), (C5, 3)],
-    &[(D5, 3), (EB5, 1), (D5, 2)],
-    &[(C5, 2), (BB4, 1), (A4, 3)],
-    &[(BB4, 6)],
-    &[(D5, 3), (F5, 1), (G5, 2)],
-    &[(F5, 2), (D5, 1), (EB5, 3)],
-    &[(D5, 2), (C5, 1), (A4, 2), (C5, 1)],
-    &[(BB4, 6)],
-];
-/// The draw, over the open fifth F–C: it ends on C, unresolved (3/4).
-pub(super) const DRAW: Phrase = &[
-    &[(A4, 4), (C5, 2)],
-    &[(BB4, 4), (G4, 2)],
-    &[(A4, 2), (BB4, 2), (C5, 2)],
-    &[(D5, 6)],
-    &[(C5, 4), (BB4, 2)],
-    &[(A4, 4), (F4, 2)],
-    &[(G4, 4), (A4, 2)],
+    &[(EB5, 3), (D5, 2), (C5, 1)],
+    &[(BB4, 2), (A4, 1), (G4, 3)],
+    &[(EB4, 2), (F4, 1), (G4, 2), (BB4, 1)],
     &[(C5, 6)],
 ];
-/// The defeat, G Aeolian, descending to the final (3/4).
-pub(super) const DEFEAT: Phrase = &[
-    &[(D5, 4), (BB4, 2)],
-    &[(C5, 4), (A4, 2)],
-    &[(BB4, 4), (G4, 2)],
-    &[(F4, 6)],
-    &[(EB4, 4), (F4, 2)],
-    &[(G4, 4), (A4, 2)],
-    &[(BB4, 4), (A4, 2)],
-    &[(G4, 6)],
+/// D — the jig: a playful medieval jig, running eighths.
+pub(super) const JIG_A: Phrase = &[
+    &[(C5, 1), (D5, 1), (EB5, 1), (D5, 1), (C5, 1), (BB4, 1)],
+    &[(C5, 1), (G4, 1), (G4, 1), (C5, 2), (D5, 1)],
+    &[(EB5, 1), (F5, 1), (D5, 1), (EB5, 1), (C5, 1), (D5, 1)],
+    &[(BB4, 1), (A4, 1), (G4, 1), (BB4, 3)],
+    &[(C5, 1), (EB5, 1), (D5, 1), (F5, 1), (EB5, 1), (D5, 1)],
+    &[(C5, 1), (BB4, 1), (C5, 1), (D5, 2), (G4, 1)],
+    &[(A4, 1), (BB4, 1), (C5, 1), (A4, 1), (BB4, 1), (G4, 1)],
+    &[(C5, 2), (G4, 1), (C5, 3)],
 ];
+/// The jig's second strain.
+pub(super) const JIG_B: Phrase = &[
+    &[(F5, 1), (EB5, 1), (D5, 1), (EB5, 2), (C5, 1)],
+    &[(D5, 1), (C5, 1), (BB4, 1), (C5, 2), (G4, 1)],
+    &[(A4, 1), (BB4, 1), (C5, 1), (D5, 1), (EB5, 1), (F5, 1)],
+    &[(D5, 3), (BB4, 3)],
+    &[(C5, 1), (EB5, 1), (D5, 1), (C5, 1), (BB4, 1), (A4, 1)],
+    &[(G4, 1), (BB4, 1), (A4, 1), (C5, 2), (BB4, 1)],
+    &[(A4, 1), (G4, 1), (F4, 1), (G4, 1), (A4, 1), (BB4, 1)],
+    &[(C5, 6)],
+];
+
+// -------------------------------------------------------- the string section
+
+/// The spiccato strings' figures, in scale steps above the bar's root: a
+/// 6/8 bar of eighths (3+3), the same bar as three twos (the dance's
+/// hemiola), and a 7/8 bar of eighths (3+2+2).
+pub(super) const SPIC_SIX: [i8; 6] = [0, 4, 7, 4, 2, 4];
+pub(super) const SPIC_HEMIOLA: [i8; 6] = [0, 4, 0, 7, 0, 4];
+pub(super) const SPIC_SEVEN: [i8; 7] = [0, 4, 2, 7, 4, 2, 4];
 
 /// The hunting-horn calls, two bars each on the natural horn's notes in F
 /// (C3 F3 A3 C4: its third to sixth partials).
@@ -231,24 +185,13 @@ pub(super) const CALLS: &[Phrase] = &[
     &[&[(C4, 3), (A3, 1), (F3, 2)], &[(C3, 2), (F3, 1), (A3, 3)]],
 ];
 
-/// Every melody, named, for the originality check and the tests.
+/// The horn calls and the bass lines and ostinati, named, for the
+/// originality check (the themes' lines come from `themes::every_line`).
 #[cfg(test)]
-pub(super) const MELODIES: &[(&str, Phrase)] = &[
-    ("calm A", CALM_A),
-    ("calm B", CALM_B),
-    ("calm A2", CALM_A2),
-    ("calm B2", CALM_B2),
-    ("front A", FRONT_A),
-    ("front B", FRONT_B),
-    ("tension line", TENSION_LINE),
-    ("tension chanter", TENSION_CHANTER),
-    ("hunt", HUNT),
-    ("climax", CLIMAX),
-    ("climax 2", CLIMAX_2),
-    ("victory", VICTORY),
-    ("draw", DRAW),
-    ("defeat", DEFEAT),
-    ("horn call 1", CALLS[0]),
-    ("horn call 2", CALLS[1]),
-    ("horn call 3", CALLS[2]),
+pub(super) const FIGURES: &[(&str, &[u8])] = &[
+    ("calm bass", &CALM_BASS),
+    ("calm bass 2", &CALM_BASS_2),
+    ("front bass", &FRONT_BASS),
+    ("tension bass", &TENSION_BASS),
+    ("tension ostinato", &TENSION_OSTINATO),
 ];

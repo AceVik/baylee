@@ -241,8 +241,8 @@ Urheber- und Medienrecht.
      terms.” Its `LICENSE` is the CC0 1.0 Universal legal code. Recorders,
      bowed and plucked psaltery, folk harp, strumstick, Renaissance organ,
      frame drums, bass drum (the davul), timpani (the nakers), rope-tension
-     snare, tambourine, hand bells, sleigh bells, finger cymbals, tubular
-     bells.
+     snare, tambourine, hand bells, finger cymbals, tubular bells, toms, a
+     gong.
    - **VSCO 2 Community Edition** (Versilian Studios), not the paid
      editions, [github.com/sgossner/VSCO-2-CE](https://github.com/sgossner/VSCO-2-CE)
      at `440300901dfe9275fd84e0b7763af1f8443ae62e`. The
@@ -252,7 +252,11 @@ Urheber- und Medienrecht.
      [source repository licence](https://github.com/sgossner/VSCO-2-CE/blob/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE).
      Recordings: Sam Gossner and Simon Dalzell; sample editing: Elan
      Hickler / Soundemote. Solo violin, solo contrabass (arco and
-     pizzicato), cello section, French horn (only for the hunt's call).
+     pizzicato), the violin, viola and cello sections (sustained and
+     spiccato), French horn, tenor trombone, tuba, a timpani roll, and from
+     the bundled "VSCO 1 Percussion" folder (same repository, same licence) a
+     large ethnic drum, a bass drum and its roll, and a suspended cymbal's
+     roll (music v2's orchestral body, 09.10.2026).
    - **FreePats Bagpipe**, [github.com/freepats/bagpipe](https://github.com/freepats/bagpipe)
      ([freepats.zenvoid.org](http://freepats.zenvoid.org/Ethnic/bagpipe.html))
      at `496f2f6e82f226d650e270c0f0ad5febbebec249` (release 2026-08-06). Its
@@ -282,8 +286,12 @@ Urheber- und Medienrecht.
    non-CC0 library (MF Tin Whistle CC BY-NC-SA, Karoryfer's commercial sets,
    Garritan, Philharmonia, Iowa MIS, Pianobook, Sonatina).
    Every melody is written for Baylee; the styles named in the brief
-   (British and Slavic folk, medieval European music, fantasy scores) are
-   references in words only. `art/music/avoid.json` holds the openings of
+   (British and Slavic folk, medieval European music, fantasy scores, a
+   cinematic hybrid orchestral sound) are references in words only: a
+   style may be emulated, a work may not. No theme, ostinato or chord
+   progression of any film or game score is quoted or paraphrased; the
+   best-known ones are on the avoid list as interval shapes, checked against
+   every melody and every bass and ostinato line. `art/music/avoid.json` holds the openings of
    tunes we must not echo, as directed intervals, and a test fails any score
    melody that shares six of them in a row. No game soundtrack, melody or
    recording from Wizards or Blizzard is used.
