@@ -2010,6 +2010,102 @@ door, key or no key.
   one key per line on stdout, and nothing else, so it pipes; `list` shows
   every key's id, note, uses left, accounts admitted, expiry and state,
   never a key; `revoke <id>` closes one. A key is shown once, when made.
+  The admin console below makes, lists and revokes keys the same way.
+
+## The admin console
+
+What a gateway's operator asks of it without a shell: how busy it is, in
+counts, and its closed-beta keys. Meant for one caller, the feedback
+service's Overview on the same machine (`docs/feedback.md` §"The admin
+console"), which signs its admins in itself; the gateway takes no player's
+session here and knows no admin.
+
+**Where.** `BAYLEE_ADMIN_TOKEN` (32 characters at least, one word, none of
+the gateway's other secrets: `BAYLEE_AGENT_TOKEN`, `BAYLEE_FEEDBACK_TOKEN`,
+`BAYLEE_FEEDBACK_KEY`) switches it on; unset, there is no console and its
+paths are `404` like any unknown path. It listens on a TCP listener of its
+own, `BAYLEE_ADMIN_BIND` (`127.0.0.1:28767`), which must be a loopback
+address, and on nothing else: **never on the public port**, which the
+reverse proxy forwards from the internet (`/admin/…` there is `404`), and
+not on `BAYLEE_UNIX_SOCKET` either, whose mode the feedback service's
+`DynamicUser` could not open. A bind that is not loopback, a short token, a
+token equal to another secret, or a bind without a token stops the gateway
+before it touches its database. `BAYLEE_ADMIN_PORT_FILE` (a path) receives
+the port, written before `BAYLEE_PORT_FILE`, for tests with
+`BAYLEE_ADMIN_BIND=127.0.0.1:0`.
+
+**Checks, in order** (`crates/baylee-gateway/src/admin.rs`):
+
+1. `Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode` present: `403`, before the
+   token is read. A browser sends one of them with every request a page
+   makes, so no page, this machine's included, drives the console; no
+   server-side caller sends them. There is no CORS header and a preflight is
+   refused the same way.
+2. A `Host` that is not `localhost` or a loopback address: `403`, so a name
+   rebound to `127.0.0.1` reaches nothing.
+3. Ten wrong tokens in five minutes: every request `429` with
+   `Retry-After: 300`, the right token included, until the window passes;
+   600 requests a minute likewise. One budget for the listener (its callers
+   are this machine), in memory.
+4. `Authorization: Bearer <BAYLEE_ADMIN_TOKEN>`, compared as SHA-256
+   digests in constant time; missing and wrong both `401 {"error":"the admin
+   token is needed"}`.
+5. A request that changes something names its admin in `X-Baylee-Admin`
+   (1–64 of `A–Z a–z 0–9 . - _`, the feedback service's rule for an admin's
+   name); without one, `400`.
+
+Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
+
+| route | answer |
+| --- | --- |
+| `GET /admin/stats` | the numbers below |
+| `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
+| `POST /admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}`, `invite create`'s flags as fields, read by the command's own parser (the same defaults, bounds and refusals, word for word, as `400 {"error"}`); unknown fields are `400`. `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`: the one time the keys exist outside the hand they are given to. Made in one transaction by the function `invite create` uses |
+| `DELETE /admin/invites/{id}` | revokes as `invite revoke` does: `204`; `404 {"error":"no key <id> that is not revoked already"}`; `400` for an id that is not a UUID. The row stays, revoked, as it does there |
+
+**Audit.** Every change is a log line on the target `baylee_gateway::audit`
+at `info` (so `RUST_LOG=info` must reach it): `admin=<name>`,
+`action=invite.create` with `count`, `uses`, `expires` and the key `ids`, or
+`action=invite.revoke` with the `id`. Never a key, the token, or a key's
+note, which may name a person. Reads are not audited.
+
+**The numbers** (`GET /admin/stats`) are counts and sums only, one SQL
+statement (`baylee_db::stats`) and the gateway's memory; no field can hold
+a name, an id, an address or anything per person:
+
+```json
+{
+  "at": "2026-10-08T12:00:00Z",
+  "gateway": { "name": "Baylee EU", "registration": "invite", "version": "…", "commit": "…", "build": 2648, "built_at": "…", "dirty": false },
+  "accounts": { "registered": 41, "with_email": 3, "confirmed_email": 2, "admitted_by_key": 40,
+                "created": { "today_utc": 1, "last_7d": 6, "last_30d": 41 } },
+  "guests": { "enabled": true, "live": 7, "cap": 1000 },
+  "online": { "players": 9, "in_lobby": 6, "seated": 4, "sessions_live": 52, "accounts_signed_in": 44 },
+  "games": { "running": 2, "local_running": 2, "waiting": 1, "seats_awaiting_engine": 0,
+             "recorded": 310, "started": { "today_utc": 4, "last_7d": 30, "last_30d": 310 },
+             "finished": 301, "finished_since": { "today_utc": 3, "last_7d": 29, "last_30d": 301 } },
+  "agents": { "connected": 1, "local": 1, "capacity": null, "games": 2 },
+  "invites": { "total": 50, "active": 9, "used_up": 30, "expired": 6, "revoked": 5, "uses_left": 11, "admitted": 40 }
+}
+```
+
+- `registered` is every account that is not a guest; `guests.live` every
+  guest account (each one a live session leads to, until the next sweep);
+  `cap` is `null` for no cap.
+- `online.players` is what `GET /lobby/stats` calls `players_online`: the
+  accounts with a lobby socket open (`in_lobby`) together with those in a
+  chair of a running game (`seated`). `sessions_live` counts sessions that
+  have not lapsed, which is not presence (a guest's lasts 30 days).
+- `games.running`, `local_running`, `waiting` and `seats_awaiting_engine`
+  are `/health`'s. `recorded`, `started` and `finished` count game records
+  (#315): a game counts once its engine sent the first piece of its record,
+  and as finished once the last; a game whose engine died is started and
+  never finished. The windows are since midnight UTC and the last 7 × 24
+  and 30 × 24 hours.
+- `agents.capacity` is the sum of the agents' capacities, `null` when one
+  of them has none.
+- `invites.uses_left` sums the uses of the keys that still admit somebody;
+  `admitted` counts the existing accounts a key let in.
 
 ## Terms of use (WG-1)
 

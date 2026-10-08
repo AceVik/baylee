@@ -16,6 +16,7 @@ the pointers, because line numbers move.
 | Guest account | Postgres `account` (`guest`) | until its last session lapses, 29–30 days after its last request | the sweep, or signing out |
 | Session | Postgres `session_token` (hash only) | 12 h (account) / 30 days (guest), sliding | the sweep, use after expiry, signing out |
 | Closed beta key (#317) | Postgres `invite` (hash only), and which key admitted an account (`account.invite_id`) | until the operator removes the row | SQL by the operator; revoking only closes it |
+| Admin console numbers (counts only) | nowhere: counted per request | — | — |
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
@@ -140,14 +141,43 @@ the pointers, because line numbers move.
 - **Linked:** an account made with a key keeps its id (`account.invite_id`),
   so `invite list` can say how many accounts each key admitted. Nothing
   about the player is written to the key's row.
-- **Seen by:** the operator, through `invite list` or SQL. No route shows a
-  key's row, and no player sees another's `invite_id`.
+- **Seen by:** the operator, through `invite list`, SQL, or the admin
+  console (`GET /admin/invites` on its loopback listener, shown to the
+  feedback service's signed-in admins, below). No public route shows a
+  key's row, and no player sees another's `invite_id`. The console shows a
+  key only in the answer that made it, as the command prints it once.
 - **Kept:** until the operator removes the row. `invite revoke` only closes
   a key; there is no delete command, so removal is SQL
   (`DELETE FROM invite WHERE id = …`). Removing a key leaves its accounts
   (`ON DELETE SET NULL`), and deleting an account leaves its key's row.
 - **Key tries** count in `AppState.sign_in_limiter` under the caller's
   address (below).
+
+## The admin console's numbers
+
+`GET /admin/stats` (`docs/protocol.md` §"The admin console"), on a loopback
+listener of the gateway's own and shown to the feedback service's signed-in
+admins on its Overview.
+
+- **What it reveals:** counts and sums only: accounts (all, with an
+  address, confirmed, admitted by a key, made today and in the last 7 and
+  30 days), guests, live sessions and the accounts they belong to, players
+  with a lobby socket open or at a table, games running, waiting, started
+  and finished, agents and their capacity, and keys by state. No list of
+  users, no name, username, address, account id, game id or IP; the
+  gateway's e2e test holds the answer free of the names it registered.
+- **What a count can still tell:** on a small gateway a count is close to
+  a person. "1 player online" or "1 account made today" says that somebody
+  is; the admins who see it are the operator's own, signed in at the
+  feedback service.
+- **Kept:** nowhere. The numbers are counted from the tables and memory
+  above at each request; neither the gateway nor the feedback service
+  stores them. The service's audit keeps who made or revoked which key id
+  through the console, and when (`docs/feedback.md` §"What is kept").
+- **Logs:** the gateway logs each change made through the console on
+  `baylee_gateway::audit`: the admin's name (an operator's, not a
+  player's), the action and key ids; never a key, the token, or a key's
+  note.
 
 ## Confirmation mail
 
@@ -480,10 +510,14 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   `HttpOnly; Secure; SameSite=Strict`) holds the session token and is sent
   only to the service's own origin; the page loads nothing from anywhere
   else (no CDN, font or telemetry) and opens GitHub only when an admin
-  presses "New issue", with the report's text, kind, build, gateway, arrival time and
-  a link back to it, never its pseudonym or client details; the admin
-  reads it over on GitHub before submitting. The audit names the admin who
-  changed a report; it names no player.
+  presses "Open a new issue on GitHub", and then with nothing of the report
+  (owner, 08.10.2026): only a neutral technical summary the admin wrote
+  themselves (the field asks for no personal data and no quotes from the
+  report), a neutral category and the build. Not the player's text, not
+  the pseudonym, not the client's details, and no link back to the report
+  or the service; the admin reads it over on GitHub before submitting. The
+  audit names the admin who changed a report; it names no player. Its
+  Overview shows a gateway's numbers (counts only, above) and its keys.
 - **Open:** records have no deletion path yet, not even for a player who
   deletes their account; their account link is cut, the game stays.
 

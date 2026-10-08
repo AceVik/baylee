@@ -22,6 +22,9 @@ fn stub(dir: &Path, name: &str, body: &str) {
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
+/// What the stand-in `openssl rand -hex 32` makes.
+const CONSOLE_TOKEN: &str = "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00";
+
 /// What npm does on the server under test.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Npm {
@@ -141,8 +144,29 @@ exit {}"#,
     );
 }
 
+/// sudo, which does nothing, or with `reads` runs the commands that read and
+/// append the settings (and stands in for the rest).
+fn sudo_stub(stubs: &Path, reads: bool) {
+    stub(
+        stubs,
+        "sudo",
+        if reads {
+            r#"case "$1" in test|sed|grep|tee|chmod) exec "$@" ;; esac; exit 0"#
+        } else {
+            "exit 0"
+        },
+    );
+}
+
 /// The same on any server; also what `stage` said.
 fn stage_on(server: Server) -> (PathBuf, String, String) {
+    stage_in(server, None)
+}
+
+/// [`stage_on`] with the services' settings in `etc` (`BAYLEE_DEPLOY_ETC`),
+/// where sudo really reads and appends: it runs `test`, `sed`, `grep`, `tee`
+/// and `chmod` and stands in for everything else, as on any other run.
+fn stage_in(server: Server, etc: Option<&Path>) -> (PathBuf, String, String) {
     // Tests run at once, some with the same arguments: each run its own tree.
     static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let Server {
@@ -190,8 +214,9 @@ fn stage_on(server: Server) -> (PathBuf, String, String) {
             }
         },
     );
-    stub(&stubs, "sudo", "exit 0");
+    sudo_stub(&stubs, etc.is_some());
     stub(&stubs, "logger", "exit 0");
+    stub(&stubs, "openssl", &format!("echo {CONSOLE_TOKEN}"));
     stub(&stubs, "flock", "exit 0");
     machine_stubs(&stubs, feedback_installed, game_running);
     browser_stubs(&stubs, trunk, wasm_target);
@@ -207,7 +232,10 @@ fn stage_on(server: Server) -> (PathBuf, String, String) {
         stubs.join("trunk")
     };
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/server/baylee-deploy");
-    let out = std::process::Command::new("bash")
+    let mut command = std::process::Command::new("bash");
+    let no_etc = scratch.join("no-etc");
+    command.env("BAYLEE_DEPLOY_ETC", etc.unwrap_or(&no_etc));
+    let out = command
         .arg(&script)
         .args(["stage", "0123456789abcdef0123"])
         .env("BAYLEE_DEPLOY_ROOT", &root)
@@ -488,4 +516,75 @@ fn the_invite_command_runs_the_gateway_with_its_settings() {
          reg: invite\n"
     );
     let _ = std::fs::remove_dir_all(&scratch);
+}
+
+/// The admin console's token (`docs/feedback.md` §"The admin console"):
+/// stage makes it once, writes the same one to the gateway's and the feedback
+/// service's settings, both 0600, with the console's address, and never
+/// says it; a second stage changes nothing, and a token one file already
+/// has is copied to the other rather than replaced.
+#[test]
+fn stage_sets_up_one_console_token_for_both_services_and_never_prints_it() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let etc = std::env::temp_dir().join(format!("baylee-deploy-etc-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&etc);
+    std::fs::create_dir_all(&etc).unwrap();
+    let (gw, fb) = (etc.join("gateway.env"), etc.join("feedback.env"));
+    std::fs::write(&gw, "BAYLEE_REGISTRATION=invite\n").unwrap();
+    std::fs::write(&fb, "FEEDBACK_DATABASE_URL=postgres://f@127.0.0.1/f\n").unwrap();
+    let server = Server::with_feedback(true, Npm::Absent);
+
+    let (_, ran, said) = stage_in(server, Some(&etc));
+    let gateway = std::fs::read_to_string(&gw).unwrap();
+    let feedback = std::fs::read_to_string(&fb).unwrap();
+    assert_eq!(
+        gateway,
+        format!("BAYLEE_REGISTRATION=invite\nBAYLEE_ADMIN_TOKEN={CONSOLE_TOKEN}\n")
+    );
+    assert_eq!(
+        feedback,
+        format!(
+            "FEEDBACK_DATABASE_URL=postgres://f@127.0.0.1/f\n\
+             FEEDBACK_GATEWAY_ADMIN_TOKEN={CONSOLE_TOKEN}\n\
+             FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767\n"
+        )
+    );
+    for file in [&gw, &fb] {
+        let mode = std::fs::metadata(file).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "{}", file.display());
+    }
+    assert!(!ran.contains(CONSOLE_TOKEN), "on a command line: {ran}");
+    assert!(!said.contains(CONSOLE_TOKEN), "printed: {said}");
+    assert!(said.contains("admin console token made"), "{said}");
+    // Before the service restarts, so it starts with its half.
+    let wrote = ran.find("sudo tee -a").expect("written");
+    let restart = ran
+        .find("sudo systemctl restart baylee-feedback")
+        .expect("restarted");
+    assert!(wrote < restart, "{ran}");
+
+    // Again: nothing changes, nothing is made.
+    let (_, ran, said) = stage_in(server, Some(&etc));
+    assert_eq!(std::fs::read_to_string(&gw).unwrap(), gateway);
+    assert_eq!(std::fs::read_to_string(&fb).unwrap(), feedback);
+    assert!(!ran.contains("openssl"), "{ran}");
+    assert!(!said.contains("token made"), "{said}");
+
+    // A gateway that has one already lends it to the service.
+    let chosen = "one-the-operator-chose-0123456789abcdef";
+    std::fs::write(&gw, format!("BAYLEE_ADMIN_TOKEN={chosen}\n")).unwrap();
+    std::fs::write(&fb, "FEEDBACK_DATABASE_URL=x\n").unwrap();
+    let (_, ran, _) = stage_in(server, Some(&etc));
+    assert!(!ran.contains("openssl"), "{ran}");
+    assert!(
+        std::fs::read_to_string(&fb)
+            .unwrap()
+            .contains(&format!("FEEDBACK_GATEWAY_ADMIN_TOKEN={chosen}\n"))
+    );
+    assert_eq!(
+        std::fs::read_to_string(&gw).unwrap(),
+        format!("BAYLEE_ADMIN_TOKEN={chosen}\n"),
+        "never replaced"
+    );
+    let _ = std::fs::remove_dir_all(&etc);
 }

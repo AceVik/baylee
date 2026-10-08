@@ -4,7 +4,9 @@
 //! (`name=token,…`), `FEEDBACK_READ_TOKEN`, `FEEDBACK_ADMIN_TOKEN`,
 //! `FEEDBACK_BIND` (`127.0.0.1:28780`), `FEEDBACK_POOL` (4),
 //! `FEEDBACK_WEB_DIR` (the built web UI; unset = none),
-//! `FEEDBACK_TRUSTED_PROXIES`.
+//! `FEEDBACK_TRUSTED_PROXIES`, `FEEDBACK_DIRECT_KEY`,
+//! `FEEDBACK_GATEWAY_ADMIN_URL` and `FEEDBACK_GATEWAY_ADMIN_TOKEN` (a
+//! gateway's admin console, both or neither).
 //!
 //! ```text
 //! baylee-feedback                      serve
