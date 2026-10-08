@@ -3667,8 +3667,8 @@ the coloured line resolves at once, CR 605.3b, nothing stacks):
   the board triggers on damage or life loss. **Mitigated:** a tap that sets
   off the permanent's own trigger is priced, so a clean land pays first
   (`city_of_brass_is_passed_over_when_a_clean_land_makes_the_colour`).
-  **Not fixed:** where the City is the only source of a colour,
-  `city_of_brass_as_the_only_colour_still_stops_a_creature_cast` pins it.
+  Where the City is the only source of a colour, the cast now pays inside
+  itself (below; `pain::city_of_brass_as_the_only_colour_pays_for_a_creature_cast_first`).
 
 The rules answer to the second is to tap inside the cast (CR 601.2g), where
 a trigger waits until the spell has been cast (CR 601.2i). The engine half
