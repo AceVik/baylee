@@ -16,8 +16,9 @@
 //!   so ([`CAMERA_CLUSTERS`]).
 //!
 //! Spawn a light one day and both come back by themselves: the visibility
-//! sets by their run condition, and clustering by taking
-//! [`CAMERA_CLUSTERS`] off the camera.
+//! sets by their run condition, and clustering, on the CPU, by taking
+//! [`CAMERA_CLUSTERS`] off the camera ([`install`] turns GPU clustering off
+//! for good, on every platform, the browser's WebGPU included).
 
 use bevy::light::cluster::{ClusterConfig, GlobalClusterSettings};
 use bevy::light::{SimulationLightSystems, WithLight};
