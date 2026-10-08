@@ -281,3 +281,51 @@ fn shift_e_takes_the_whole_merged_card_and_gives_it_back() {
     assert_eq!(press(&mut app), 12, "the whole card was declared");
     assert_eq!(press(&mut app), 0, "and the whole card taken back");
 }
+
+/// A frame with no key leaves the duel and the settings unchanged: the
+/// keyboard system borrowed both mutably on every frame, and a mutable
+/// borrow alone marks a resource changed for everything that watches it. A
+/// key that does something still changes them.
+#[test]
+fn a_frame_without_a_key_changes_nothing() {
+    use bevy::input::ButtonInput;
+    use bevy::input::keyboard::KeyboardInput;
+    use bevy::prelude::*;
+
+    #[derive(Resource, Default)]
+    struct Moved(bool, bool);
+
+    let mut app = App::new();
+    app.init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::table::CameraRig>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .add_message::<KeyboardInput>()
+        .init_resource::<crate::Duel>()
+        .init_resource::<Moved>()
+        .add_systems(
+            Update,
+            (
+                keyboard,
+                |duel: Res<crate::Duel>,
+                 settings: Res<crate::settings::ClientSettings>,
+                 mut moved: ResMut<Moved>| {
+                    *moved = Moved(duel.is_changed(), settings.is_changed());
+                },
+            )
+                .chain(),
+        );
+    app.update();
+    app.update();
+    let moved = app.world().resource::<Moved>();
+    assert!(!moved.0, "a quiet frame marked the duel changed");
+    assert!(!moved.1, "a quiet frame marked the settings changed");
+
+    // The counter-test: a bound key that does something still reaches the
+    // duel (`L` opens the log).
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::KeyL);
+    app.update();
+    assert!(app.world().resource::<Moved>().0, "a key reached the duel");
+}
