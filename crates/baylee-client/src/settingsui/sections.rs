@@ -285,7 +285,12 @@ fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableV
             out.commands,
             out.kit,
             &text,
-            crate::shellkit::controls::Weight::Secondary,
+            // The default stands apart, as a segmented control's choice does.
+            if arrangement == table.arrangement {
+                crate::shellkit::controls::Weight::Primary
+            } else {
+                crate::shellkit::controls::Weight::Secondary
+            },
             live,
             None,
             (

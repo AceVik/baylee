@@ -820,6 +820,48 @@ fn letters_on_the_nav_jump_to_the_section_they_begin() {
     assert_eq!((at.id, at.item), ("nav", 3), "focus on Controls");
 }
 
+/// The arrangement row says which arrangement is the default: its button
+/// stands apart from the seven others. It carried the composite's `Current`
+/// for the keyboard and nothing for the eye (beta.6 QA).
+#[test]
+fn the_default_arrangement_is_drawn_as_chosen() {
+    use baylee_client_core::settings_map::Section;
+    use baylee_client_core::tableview::Arrangement;
+    let mut app = settings_at(Section::Graphics);
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Arrangement(Arrangement::Spotlight)),
+    );
+    let grounds: Vec<(Arrangement, Color)> = {
+        let world = app.world_mut();
+        let mut buttons = world.query::<(&Press, &Children)>();
+        let mut faces = world.query::<&BackgroundColor>();
+        buttons
+            .iter(world)
+            .filter_map(|(press, children)| match press {
+                Press::Settings(SettingsPress::Arrangement(a)) => children
+                    .iter()
+                    .find_map(|c| faces.get(world, c).ok())
+                    .map(|g| (*a, g.0)),
+                _ => None,
+            })
+            .collect()
+    };
+    assert_eq!(grounds.len(), Arrangement::ALL.len(), "{grounds:?}");
+    let chosen = grounds
+        .iter()
+        .find(|(a, _)| *a == Arrangement::Spotlight)
+        .map(|(_, g)| *g)
+        .expect("drawn");
+    let others: Vec<Color> = grounds
+        .iter()
+        .filter(|(a, _)| *a != Arrangement::Spotlight)
+        .map(|(_, g)| *g)
+        .collect();
+    assert!(others.iter().all(|g| *g == others[0]), "{grounds:?}");
+    assert_ne!(chosen, others[0], "the default looks like every other");
+}
+
 /// Updates draws each of its switches once. Its first row was a settings
 /// row with an empty control — the label and help of "check automatically"
 /// over nothing — standing above the updater's own switch saying the same
