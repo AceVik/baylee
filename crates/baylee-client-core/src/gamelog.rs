@@ -1022,6 +1022,12 @@ impl Writer<'_> {
                 DayNight::Day => Phrase::LogDay,
                 DayNight::Night => Phrase::LogNight,
             }),
+            LogEvent::BecameMonarch { player } => self.about(
+                *player,
+                Phrase::LogMonarchYou,
+                Phrase::LogMonarch,
+                Vec::new(),
+            ),
         }
     }
 }
@@ -1885,10 +1891,11 @@ mod tests {
             LogEvent::DayNight { .. } => 28,
             LogEvent::Banded { .. } => 30,
             LogEvent::CardsKept { .. } => 31,
+            LogEvent::BecameMonarch { .. } => 32,
         }
     }
 
-    const VARIANTS: usize = 32;
+    const VARIANTS: usize = 33;
 
     /// Every kind of line, about `player`, with every answer, cause, zone and
     /// counter a line can carry.
@@ -1991,6 +1998,7 @@ mod tests {
                 cards: vec![card.clone()],
             },
             LogEvent::Shuffled { player },
+            LogEvent::BecameMonarch { player },
             LogEvent::DiceRolled {
                 player,
                 sides: 20,
@@ -2212,6 +2220,7 @@ mod tests {
             | LogEvent::CardsKept { player, .. }
             | LogEvent::Revealed { player, .. }
             | LogEvent::Shuffled { player }
+            | LogEvent::BecameMonarch { player }
             | LogEvent::DiceRolled { player, .. }
             | LogEvent::Lost { player, .. } => Some(*player),
             LogEvent::Countered { .. }

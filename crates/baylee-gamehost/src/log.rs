@@ -607,6 +607,9 @@ impl GameLog {
                     Vec::new(),
                 );
             }
+            GameEvent::BecameMonarch { player } => {
+                self.push(LogEvent::BecameMonarch { player: *player }, Vec::new());
+            }
             GameEvent::TurnedFaceUp { object } => {
                 let (object, sees) = self.refer(state, *object);
                 self.push(LogEvent::TurnedFaceUp { object }, vec![sees]);

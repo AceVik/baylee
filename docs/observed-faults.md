@@ -3455,7 +3455,7 @@ the active player, to the next player in turn order still in the game, and
 to nobody when nobody is left. It goes through `set_monarch`, so the
 Jailer's exile ends if the heir is an opponent of the player who exiled.
 
-Not done: CR 610.3b for Palace Jailer. If an opponent becomes the monarch
+Not done (both fixed in 63): CR 610.3b for Palace Jailer. If an opponent becomes the monarch
 between the trigger and its resolution, the creature is still exiled. Nothing
 records that the crown moved in between. And players who lose in the same
 state-based check leave one after the other (`sba::run` walks the seats), so
@@ -3585,3 +3585,52 @@ The tests:
 The other cards' own tests play them on a board where owner and controller
 are one seat, so a controller assertion there would pass on the old code.
 The lint is what checks their field.
+
+### 63. The crown moved without a word, and passed through players on their way out — FIXED
+
+Owner, 08.10.2026: "the monarch mechanic does not work properly", at
+multiplayer tables. The rules side was checked against CR 724 at a table of
+four (`engine::monarch_table_tests`): only the monarch draws, once, at their
+own end step; combat damage to the monarch takes the crown and damage to
+anybody else does not; two creatures trigger twice; first strike takes it in
+the first step and the second step finds no monarch to hit; a monarch who
+leaves crowns the active player, or the next player still in the game. All
+of that held. What did not:
+
+- **Nobody was told.** `GameState::set_monarch` changed a field and journaled
+  nothing, so the game log had no line for it and the client drew nothing
+  (`PlayerView::monarch` was in every view, and no client code read it).
+  A card drawn at an end step, and a creature coming back from exile, were
+  all a table saw. `GameEvent::BecameMonarch` is journaled when the crown
+  moves, and only then; the log tells every seat `LogEvent::BecameMonarch`
+  (view version 55), in English and German.
+- **CR 610.3b for Palace Jailer** (the "not done" of 61). An opponent crowned
+  while the exile trigger waited on the stack: the creature was exiled anyway,
+  until some later crowning. The exile now reads the journal: an opponent's
+  `BecameMonarch` after the ability's `AbilityTriggered` means the card does
+  not move.
+- **Players who lose together left one at a time** (the other "not done" of
+  61). `sba::run` eliminated each loser before checking the next, so the
+  crown passed to a loser still waiting to be eliminated and on from them:
+  two crownings, one of a player on their way out. Every loss is now found
+  first, and `monarch_leaves` skips everybody leaving in the same check.
+- **The house AI never attacked for the crown.** `HeuristicAgent::pick_defender`
+  read life and boards, never `view.monarch`, so at a table of house seats the
+  crown never moved. It now goes for the monarch under every profile.
+- The doc comment on `GameState::monarch` cited the wrong rule (718).
+
+Tests, each red with its fix injected away:
+`card_tests::creatures::mv_4::palace_jailer::palace_jailer_exiles_nothing_once_an_opponent_was_crowned_in_response`,
+`sba::tests::players_who_lose_together_pass_the_crown_over_each_other`,
+`baylee-ai attacks_tests::every_politics_goes_for_the_monarch`. The log line
+(`gamehost view::tests::log::every_seat_sees_the_monarch_and_is_told_when_the_crown_moves`,
+`engine::monarch_table_tests::becoming_the_monarch_is_journaled_once_per_change`)
+did not compile before the event existed. Also
+`palace_jailer_keeps_its_prisoner_when_a_teammate_is_crowned` (green before:
+it pins the "opponent" reading at a table of teams).
+
+Not done: a client indicator (a crown) for `PlayerView::monarch` belongs to
+the client lane (#14, #205). The pool has two monarch cards, Palace Jailer and
+Throne of the High City; the DSL has no "if you're the monarch" condition and
+no "whenever you become the monarch" trigger, because no pool card prints
+either. The journal event is what such a trigger would read.

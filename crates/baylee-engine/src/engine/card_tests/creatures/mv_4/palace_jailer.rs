@@ -323,3 +323,141 @@ fn a_monarch_who_leaves_crowns_the_active_player_and_frees_the_jailers_prisoner(
     assert_eq!(freed.zone, Zone::Battlefield, "an opponent was crowned");
     assert_eq!((freed.owner, freed.controller), (p1, p1));
 }
+
+/// Passes priority until `seat` holds it.
+#[track_caller]
+fn pass_to(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    for _ in 0..12 {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } if player == seat => return,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("expected priority, got {other:?}"),
+        }
+    }
+    panic!("{seat:?} never got priority");
+}
+
+/// `seat` taps its Plains and sacrifices its Throne of the High City: "You
+/// become the monarch", waiting on the stack.
+#[track_caller]
+fn crown_with_the_throne(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    pass_to(engine, seat);
+    let throne = on_battlefield(engine, seat, throne_of_the_high_city()).expect("the Throne");
+    tap_mana_except(engine, seat, throne);
+    activate(engine, seat, throne_of_the_high_city(), 1);
+}
+
+/// Casts the Jailer for seat 0 at a table of four and aims its exile at seat
+/// 1's Elves, leaving both enters triggers on the stack.
+fn jailer_aimed_at_seat_ones_elves(engine: &mut Engine<RegistryLookup>) -> ObjectId {
+    let p0 = PlayerId::new(0);
+    assert!(walk_to_own_main(engine, p0), "p0 reaches its own main");
+    let elves = on_battlefield(engine, PlayerId::new(1), llanowar_elves()).expect("p1's Elves");
+    let plains = plains_of(engine, p0);
+    tap_mana_where(engine, p0, |id| plains.contains(&id));
+    cast_with_floating(engine, p0, palace_jailer());
+    let options = pass_until_targets(engine, p0);
+    assert!(options.contains(&elves), "{options:?}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Elves are targeted");
+    elves
+}
+
+/// An opponent becomes the monarch while the Jailer's exile waits on the
+/// stack: the event it lasts until has already happened since the ability
+/// triggered, so the Elves never leave (CR 610.3b).
+///
+/// The exile used to happen anyway, and lasted until some *other* crowning
+/// of an opponent: the Jailer's controller crowned themselves a moment later,
+/// and the Elves stayed in exile.
+#[test]
+fn palace_jailer_exiles_nothing_once_an_opponent_was_crowned_in_response() {
+    let (p0, p2) = (PlayerId::new(0), PlayerId::new(2));
+    let mut engine = Duel::table(6103, plains(), 4)
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .battlefield(1, &[llanowar_elves()])
+        .battlefield(
+            2,
+            &[
+                throne_of_the_high_city(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+            ],
+        )
+        .hand(0, &[palace_jailer()])
+        .start();
+    keep_mulligans(&mut engine);
+    let elves = jailer_aimed_at_seat_ones_elves(&mut engine);
+    crown_with_the_throne(&mut engine, p2);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "seat 2 was crowned after the exile triggered and before it resolved"
+    );
+    assert_eq!(
+        engine.state().monarch,
+        Some(p0),
+        "the Jailer's own crowning still resolved, after the Throne's"
+    );
+}
+
+/// "An opponent", and a teammate is not one: at a table of two teams, the
+/// Jailer's teammate taking the crown leaves the prisoner where it is, and an
+/// opponent taking it from them frees it, under its owner (CR 610.3c).
+#[test]
+fn palace_jailer_keeps_its_prisoner_when_a_teammate_is_crowned() {
+    let (p1, p2, p3) = (PlayerId::new(1), PlayerId::new(2), PlayerId::new(3));
+    let throne_board = [
+        throne_of_the_high_city(),
+        plains(),
+        plains(),
+        plains(),
+        plains(),
+    ];
+    let mut engine = Duel::table(6104, plains(), 4)
+        .team(0, 1)
+        .team(2, 1)
+        .team(1, 2)
+        .team(3, 2)
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .battlefield(1, &[llanowar_elves()])
+        .battlefield(2, &throne_board)
+        .battlefield(3, &throne_board)
+        .hand(0, &[palace_jailer()])
+        .start();
+    keep_mulligans(&mut engine);
+    let elves = jailer_aimed_at_seat_ones_elves(&mut engine);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.zone),
+        Some(Zone::Exile)
+    );
+
+    crown_with_the_throne(&mut engine, p2);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().monarch, Some(p2));
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.zone),
+        Some(Zone::Exile),
+        "seat 2 is the Jailer's teammate, not an opponent"
+    );
+
+    crown_with_the_throne(&mut engine, p3);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().monarch, Some(p3));
+    let freed = engine.state().object(elves).expect("seat 1's Elves");
+    assert_eq!(freed.zone, Zone::Battlefield, "seat 3 is an opponent");
+    assert_eq!((freed.owner, freed.controller), (p1, p1));
+}

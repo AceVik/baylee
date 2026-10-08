@@ -112,6 +112,10 @@ pub(crate) fn run_with_sagas(
     // --- Player losses (CR 704.5a-c) -----------------------------------
     // Everybody Lives: no losses while the effect is active.
     let cant_lose = players_cant_lose(state);
+    // Every loss is found before anybody leaves: they are one simultaneous
+    // event (CR 704.3), and the crown passes over every player leaving in it
+    // (CR 724.4), not through one of them on its way to the heir.
+    let mut losers: Vec<(PlayerId, LossReason)> = Vec::new();
     for player in 0..state.players.len() {
         if cant_lose {
             break;
@@ -151,9 +155,13 @@ pub(crate) fn run_with_sagas(
             None
         };
         if let Some(reason) = reason {
-            eliminate_player(state, p, reason);
-            outcome.changed = true;
+            losers.push((p, reason));
         }
+    }
+    let leaving: Vec<PlayerId> = losers.iter().map(|&(p, _)| p).collect();
+    for (p, reason) in losers {
+        leave(state, p, reason, &leaving);
+        outcome.changed = true;
     }
 
     // Conceding while another choice is pending can remove an owner and
@@ -838,6 +846,17 @@ pub fn eliminate_player(
     player: PlayerId,
     reason: LossReason,
 ) -> Vec<baylee_core::ids::ObjectId> {
+    leave(state, player, reason, &[player])
+}
+
+/// [`eliminate_player`] for one of `leaving`, the players leaving the game
+/// at the same time: none of them can be the monarch's heir (CR 724.4).
+fn leave(
+    state: &mut GameState,
+    player: PlayerId,
+    reason: LossReason,
+    leaving: &[PlayerId],
+) -> Vec<baylee_core::ids::ObjectId> {
     // The first loss is the one that happened: a seat that has already lost
     // and then concedes has not lost a second time for a second reason.
     let _ = state.players[player.get() as usize]
@@ -879,7 +898,7 @@ pub fn eliminate_player(
     // battlefield" has just left it without passing through `move_object`,
     // and the card comes back to its owner (CR 610.3).
     state.return_what_departed_hosts_held();
-    state.monarch_leaves(player);
+    state.monarch_leaves(player, leaving);
     let exiled = exile_what_the_departed_control(state);
     let mut gone: Vec<_> = state
         .combat
@@ -1892,6 +1911,36 @@ mod tests {
 
         eliminate_player(&mut state, seat(2), LossReason::Conceded);
         assert_eq!(state.monarch, None, "nobody is left to take it");
+    }
+
+    /// The monarch and the active player lose in one state-based check. They
+    /// leave together (CR 704.3), so the crown goes straight to the next
+    /// player in turn order who stays (CR 724.4), and the journal says so
+    /// once.
+    ///
+    /// The losers left one seat at a time, so the crown went to the active
+    /// player first, who was leaving too, and on from them: two crownings,
+    /// one of them of a player on their way out.
+    #[test]
+    fn players_who_lose_together_pass_the_crown_over_each_other() {
+        let seat = PlayerId::new;
+        let mut state = empty_table(47, 4);
+        state.turn.active = seat(2);
+        state.set_monarch(seat(1));
+        state.players[1].life = 0;
+        state.players[2].life = 0;
+        let from = state.journal.len();
+        let _ = run(&mut state, &RegistryLookup);
+        assert!(state.has_left(seat(1)) && state.has_left(seat(2)));
+        assert_eq!(state.monarch, Some(seat(3)));
+        let crowned: Vec<PlayerId> = state.journal.entries()[from..]
+            .iter()
+            .filter_map(|e| match e.event {
+                GameEvent::BecameMonarch { player } => Some(player),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(crowned, [seat(3)]);
     }
 
     /// A player loses the game once. A seat already out that is eliminated
