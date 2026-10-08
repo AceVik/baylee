@@ -2268,6 +2268,13 @@ pub enum PlayerAction {
     YesNo(bool),
     /// Concede the game.
     Concede,
+    /// Take back the spell this seat is casting (`Engine::cancellable_cast`,
+    /// `PlayerView::casting`): legal in every question of a cast it began
+    /// from priority, its own choices and its payment window alike. The cast
+    /// is reversed as CR 732.1 reverses one: the card stays where it was, the
+    /// costs chosen for it are not paid, and the mana abilities activated
+    /// for it are reversed with it. The seat keeps priority (CR 732.2).
+    CancelCast,
     /// Offer a draw to every other player still in the game (CR 104.4i).
     OfferDraw,
     /// Change when this seat wants to be offered priority.

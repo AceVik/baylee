@@ -152,6 +152,7 @@ impl Session {
             &self.house_answered,
         );
         view.targeting = crate::view::targeting_context(&self.engine, seat);
+        view.casting = self.engine.cancellable_cast(seat);
         self.show_hands(&mut view, seat);
         let mut out = state_frames(self.seq, &view, log);
         let over = Some(self.engine.pending()).filter(|p| matches!(p, Pending::GameOver(_)));

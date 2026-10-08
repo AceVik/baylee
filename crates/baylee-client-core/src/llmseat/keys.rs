@@ -20,7 +20,7 @@
 //! links it.
 
 use super::{Profile, Provider, is_loopback};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Mutex, PoisonError};
 
 /// The service every entry is kept under.
@@ -367,6 +367,10 @@ pub struct KeyDesk {
     heard: BTreeMap<KeyEntry, KeyState>,
     asked: BTreeMap<KeyEntry, bool>,
     queued: Vec<KeyJob>,
+    /// Entries a job was refused for: not looked at again until the screen
+    /// opens anew or the box is pressed, or the panel, which looks every
+    /// frame, asks every frame.
+    refused: BTreeSet<KeyEntry>,
     typing: Option<(KeyEntry, crate::textbuf::TextBuffer)>,
     said: Option<(KeyEntry, String)>,
 }
@@ -398,7 +402,7 @@ impl KeyDesk {
     /// Asks the store about `entry` unless it was asked already: what the
     /// panel calls each time it draws an entry, so a status is asked once.
     pub fn look(&mut self, entry: &KeyEntry) {
-        if !self.heard.contains_key(entry) && !self.busy(entry) {
+        if !self.heard.contains_key(entry) && !self.refused.contains(entry) && !self.busy(entry) {
             self.queued.push(KeyJob::Status(entry.clone()));
         }
     }
@@ -421,13 +425,17 @@ impl KeyDesk {
             Ok(state) => {
                 self.heard.insert(entry.clone(), state);
             }
-            Err(why) => self.said = Some((entry.clone(), blank_key_shapes_short(&why))),
+            Err(why) => {
+                self.refused.insert(entry.clone());
+                self.said = Some((entry.clone(), blank_key_shapes_short(&why)));
+            }
         }
     }
 
     /// Puts the caret in `entry`'s key box, empty.
     pub fn focus(&mut self, entry: &KeyEntry) {
         self.said = None;
+        self.refused.remove(entry);
         self.typing = Some((entry.clone(), crate::textbuf::TextBuffer::default()));
     }
 
@@ -468,6 +476,7 @@ impl KeyDesk {
     /// Forgets the key kept for `entry`.
     pub fn delete(&mut self, entry: &KeyEntry) {
         self.said = None;
+        self.refused.remove(entry);
         if self.typing.as_ref().is_some_and(|(at, _)| at == entry) {
             self.typing = None;
         }
@@ -479,6 +488,7 @@ impl KeyDesk {
     /// terminal meanwhile).
     pub fn forget(&mut self) {
         self.heard.clear();
+        self.refused.clear();
     }
 }
 
@@ -639,6 +649,39 @@ mod tests {
         assert!(
             matches!(desk.next_job(), Some(KeyJob::Status(_))),
             "asked anew"
+        );
+    }
+
+    /// A status the store could not give (no `baylee-seat` beside the
+    /// client, a locked store) is not asked again on the next frame: the
+    /// panel looks every frame, and each answer rebuilt the settings screen
+    /// under the pointer, so its presses missed (QA beta.6). Opening the
+    /// screen anew, or a press on the box, asks again.
+    #[test]
+    fn a_status_the_store_refused_is_not_asked_again_every_frame() {
+        let mut desk = KeyDesk::default();
+        let at = entry(&Preset::Anthropic.profile(), None).unwrap();
+        desk.look(&at);
+        assert!(matches!(desk.next_job(), Some(KeyJob::Status(_))));
+        desk.answered(&at, Err("TEST no baylee-seat beside the client".into()));
+        for _ in 0..3 {
+            desk.look(&at);
+            assert_eq!(desk.next_job(), None, "refused once, not asked again");
+        }
+        assert!(desk.said(&at).is_some(), "the refusal is shown");
+        desk.forget();
+        desk.look(&at);
+        assert!(
+            matches!(desk.next_job(), Some(KeyJob::Status(_))),
+            "asked anew once the screen opens again"
+        );
+        desk.answered(&at, Err("TEST again".into()));
+        desk.focus(&at);
+        desk.blur();
+        desk.look(&at);
+        assert!(
+            matches!(desk.next_job(), Some(KeyJob::Status(_))),
+            "a press on the box asks again"
         );
     }
 }

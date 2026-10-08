@@ -1668,6 +1668,7 @@ mod storied;
 mod targeting;
 pub use decision::DecisionContext;
 mod actions;
+mod cancel_cast;
 pub(crate) mod cast_wizard;
 mod checkpoint;
 #[cfg(test)]
@@ -1760,6 +1761,8 @@ mod state_trigger_tests;
 #[cfg(test)]
 mod timing_window_tests;
 
+#[cfg(test)]
+mod cancel_cast_tests;
 #[cfg(test)]
 mod end_step_tests;
 #[cfg(test)]

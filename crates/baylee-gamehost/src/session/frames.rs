@@ -182,6 +182,7 @@ impl Session {
             &self.house_answered,
         );
         view.targeting = crate::view::targeting_context(&self.engine, seat);
+        view.casting = self.engine.cancellable_cast(seat);
         self.show_hands(&mut view, seat);
         let mut out = Vec::new();
         let tail = self.log_tail(seat);

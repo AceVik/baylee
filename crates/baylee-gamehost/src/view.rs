@@ -565,6 +565,7 @@ pub fn player_view(
         // anything. It is the effect's *source* that travels, not a flag: the
         // client owes the player the card to point at.
         targeting: None,
+        casting: None,
         sorcery_lock: state
             .effects
             .iter()

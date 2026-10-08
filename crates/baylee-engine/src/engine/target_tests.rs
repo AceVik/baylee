@@ -139,6 +139,7 @@ fn named(action: &PlayerAction) -> Vec<ObjectId> {
             .collect(),
         PlayerAction::ChooseDamageSource { source, .. } => vec![source.object],
         PlayerAction::MulliganKeep
+        | PlayerAction::CancelCast
         | PlayerAction::ChooseDamageEffect { .. }
         | PlayerAction::AllocatePrevention { .. }
         | PlayerAction::MulliganTake

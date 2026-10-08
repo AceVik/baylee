@@ -629,14 +629,42 @@ the cast's own questions (mode, X, targets) and then opens a payment window
 trigger that mana sets off (City of Brass, a painland beside "whenever
 you're dealt damage") waits until the spell is cast (CR 601.2i) and goes on
 the stack above it. Passing the window with the cost unpaid reverses the
-cast (CR 601.2h, 732.1): the card goes back, the taps made in the window are
-given back unless something else happened in it (damage dealt, life paid),
-and the player keeps priority (CR 732.2). Whether the seat's sources can
+cast (CR 601.2h, 732.1) as `CancelCast` does (below), and the player keeps
+priority (CR 732.2). Whether the seat's sources can
 make that mana is not checked; a client plans it (`manaplan`). The field is
 an additive JSON field defaulted when absent, and an old client never sends
 `CastSpell` for a card outside `castable`, so engine and clients may deploy
 in either order. During the window the card is still in its zone; the
 engine moves it to the stack as the cost is paid, not first (CR 601.2a).
+
+## Taking back a cast (`PlayerAction::CancelCast`)
+
+A seat may take back a cast it began from priority at any of the cast's own
+questions (mode, X, targets, an extra cost's choice) and in its payment
+window. `PlayerView::casting` names the card while that is possible: it is
+set only in the casting seat's own view and only then, so a client shows a
+Cancel exactly when it is `Some`, and sends `PlayerAction::CancelCast`, which
+answers no question and is taken in every one of them. It is `None` while a
+mana ability inside the window asks its colour (answer that first) and for
+every cast an effect makes (rebound, a miracle, "you may cast it"), which only
+the effect can take back.
+
+The cast is reversed as CR 732.1 reverses an action that is not completed:
+the card stays where it was (the engine moves it to the stack only as the
+cost is paid), the costs chosen for it are not paid (a sacrifice chosen in
+the wizard was never made), and the mana abilities activated for it are
+reversed with it, which the rule lets the player do ("may also reverse any
+legal mana abilities"): the lands tapped for it are untapped, their mana is
+gone, mana that floated before the cast is in the pool again, and what a
+reversed mana ability did beside its mana is undone with it, since "no
+abilities trigger and no effects apply as a result of an undone action": a
+painland's damage is not dealt and City of Brass's trigger never goes on the
+stack. A cast whose mana touched a library (moved a card to or from it,
+shuffled it, revealed from it), which CR 732.1 forbids reversing, is still
+taken back and its mana abilities stand. The player keeps priority
+(CR 732.2). The journal records `GameEvent::CastCancelled`; the game log
+writes no line, because the card never left its zone and naming it would
+reveal a card in a hidden hand.
 
 ## What a seat owes (view version 24)
 

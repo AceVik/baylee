@@ -1367,6 +1367,13 @@ pub(crate) struct Checkpoint {
     journal: usize,
 }
 
+impl Checkpoint {
+    /// How long the journal was when the game was kept.
+    pub(crate) const fn journal_len(&self) -> usize {
+        self.journal
+    }
+}
+
 impl GameState {
     /// Keeps the game as it stands, for [`Self::roll_back`].
     ///
@@ -1392,6 +1399,15 @@ impl GameState {
     /// its length then. Nothing reads the journal while a payment runs (the
     /// trigger scan and the entry scan move only between actions), so no
     /// reader is left pointing past the cut.
+    /// [`Self::roll_back`] to a checkpoint that is kept, not spent: the
+    /// game is copied out of it.
+    pub(crate) fn roll_back_to(&mut self, to: &Checkpoint) {
+        let mut journal = std::mem::take(&mut self.journal);
+        journal.cancel_from(to.journal);
+        *self = (*to.state).clone();
+        self.journal = journal;
+    }
+
     pub(crate) fn roll_back(&mut self, to: Checkpoint) {
         let mut journal = std::mem::take(&mut self.journal);
         journal.cancel_from(to.journal);

@@ -103,6 +103,7 @@ fn view(seats: u8) -> PlayerView {
         library_tops: Vec::new(),
         owed: None,
         targeting: None,
+        casting: None,
         sorcery_lock: None,
         sorceries_have_flash: false,
     }

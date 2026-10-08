@@ -258,3 +258,30 @@ pub(super) fn run_fired(
         }
     }
 }
+
+/// `/` and Ctrl/Cmd+F on the settings screen: its search takes focus
+/// (`KEYBOARD.md` §7.8). After the kit's field editor, which has already
+/// dropped this frame's keys, so the `/` is not typed into the box (§1.7).
+pub(super) fn focus_the_settings_search(
+    mut fired: MessageReader<ShellFired>,
+    state: Res<LobbyState>,
+    stops: Query<(Entity, &crate::shellkit::focus::Stop)>,
+    mut focus: ResMut<bevy::input_focus::InputFocus>,
+    mut visible: ResMut<bevy::input_focus::InputFocusVisible>,
+) {
+    let asked = fired
+        .read()
+        .any(|ShellFired(action)| *action == ShellAction::Search);
+    if !asked || !state.settings_open() {
+        return;
+    }
+    let search = stops
+        .iter()
+        .find(|(_, s)| s.table == crate::settingsui::keys::SETTINGS.name && s.id == "search");
+    if let Some((entity, _)) = search
+        && focus.get() != Some(entity)
+    {
+        focus.set(entity, bevy::input_focus::FocusCause::Navigated);
+        visible.0 = true;
+    }
+}

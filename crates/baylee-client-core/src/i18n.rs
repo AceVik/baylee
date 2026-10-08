@@ -1312,7 +1312,7 @@ messages! {
         de: "Ein Duell gegen einen Sitz, die anderen als Chips in der Leiste; mit „Tisch folgt dem Zug“ folgt es dem Spiel.",
     },
     /// The turntable with rows (arrangement 7)
-    ArrTurntableRows { en: "Turntable with rows", de: "Drehteller mit Reihen" },
+    ArrTurntableRows { en: "Turntable+", de: "Drehteller+" },
     /// What it does, and what it is here
     ArrTurntableRowsBlurb {
         en: "Turntable up to four seats, Spotlight from five or on a phone.",

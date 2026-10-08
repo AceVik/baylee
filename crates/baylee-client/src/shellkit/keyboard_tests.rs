@@ -416,3 +416,31 @@ fn at_a_table_only_a_modal_sheet_takes_focus() {
         "no shell key at a table"
     );
 }
+
+/// A chord is not an activation. `Cmd/Ctrl+Enter` is the room's Start
+/// (`KEYBOARD.md` W2 step 9); before this the focused stop took the same
+/// Enter as its own press, so in a room whose focus stood on a seat's team
+/// chip the chord moved that chair to the next team and the table did not
+/// start (beta.6 QA). Plain Enter and Space still activate.
+#[test]
+fn a_command_chord_does_not_activate_the_focused_stop() {
+    let mut app = app();
+    app.init_resource::<Activations>()
+        .add_systems(Update, count_activations);
+    focus_on(&mut app, GALLERY_ORDER.name, "create");
+    key(&mut app, KeyCode::Enter, Key::Enter, &[command()]);
+    assert_eq!(app.world().resource::<Activations>().0, 0, "Cmd/Ctrl+Enter");
+    key(&mut app, KeyCode::Enter, Key::Enter, &[KeyCode::AltLeft]);
+    assert_eq!(app.world().resource::<Activations>().0, 0, "Alt+Enter");
+    key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    assert_eq!(app.world().resource::<Activations>().0, 1, "plain Enter");
+    key(&mut app, KeyCode::Space, Key::Space, &[]);
+    assert_eq!(app.world().resource::<Activations>().0, 2, "plain Space");
+}
+
+#[derive(Resource, Default)]
+struct Activations(usize);
+
+fn count_activations(mut read: MessageReader<focus::Activated>, mut n: ResMut<Activations>) {
+    n.0 += read.read().filter(|a| a.by_key).count();
+}

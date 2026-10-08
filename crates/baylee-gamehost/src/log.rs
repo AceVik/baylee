@@ -383,6 +383,11 @@ impl GameLog {
             // The permanent's own label says which doors are open, and a
             // trigger the unlock set off has its own line.
             | GameEvent::DoorUnlocked { .. }
+            // A cast taken back (CR 732.1) never left its zone, so no seat
+            // but the caster ever saw which card it was: a line naming it
+            // would reveal a card in a hidden hand, and a line naming none
+            // says only that the caster thought for a while.
+            | GameEvent::CastCancelled { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.
             | GameEvent::ZoneChanged {

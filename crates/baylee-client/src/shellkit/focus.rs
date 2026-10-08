@@ -503,13 +503,26 @@ fn activate(
     fields: Query<(), With<ShellField>>,
     off: Query<(), With<super::controls::Disabled>>,
     parents: Query<&ChildOf>,
+    codes: Option<Res<ButtonInput<KeyCode>>>,
     mut out: MessageWriter<Activated>,
 ) {
     // At a table a stop answers only inside a modal kit sheet.
     let at_table = !table_open(phase.as_deref());
     let answers = |stop: &Stop| !at_table || table(stop.table).is_some_and(|t| t.modal);
+    // A chord is the shell's, never the focused stop's: `Cmd/Ctrl+Enter` is
+    // the room's Start, and taken as Enter it pressed whatever had focus.
+    let chord = codes.as_deref().is_some_and(|c| {
+        c.any_pressed([
+            KeyCode::ControlLeft,
+            KeyCode::ControlRight,
+            KeyCode::SuperLeft,
+            KeyCode::SuperRight,
+            KeyCode::AltLeft,
+            KeyCode::AltRight,
+        ])
+    });
     for key in keys.read() {
-        if key.state != ButtonState::Pressed || key.repeat {
+        if key.state != ButtonState::Pressed || key.repeat || chord {
             continue;
         }
         if !matches!(key.logical_key, Key::Enter | Key::Space) {
