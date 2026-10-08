@@ -1062,12 +1062,16 @@ pub fn sync_overlay(
         board.stack.is_empty(),
         duel.statics.as_ref(),
     ) {
+        // The window is in the revision, so one crossing a phone's height
+        // rebuilds the sentence's box at its other height.
+        #[allow(clippy::cast_precision_loss)] // a window's height in pixels
+        let text_lines = super::stack::text_lines(canvas.1 as f32);
         let stack = spawn_stack_panel(
             &mut commands,
             duel.stack_selected,
             &prefs.all().ability_orders,
             stack_scroll,
-            full_height,
+            (full_height, text_lines),
             lang,
             board,
             view,

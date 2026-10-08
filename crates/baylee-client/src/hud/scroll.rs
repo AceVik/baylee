@@ -59,8 +59,9 @@ const HAND_LINE: f32 = 60.0;
 ///
 /// The marker is the *statement*, and it sits beside a [`ScrollPosition`]:
 /// `Overflow::scroll_y` alone clips, and a node that clips without scrolling
-/// is a design decision (the stack panel counts what does not fit rather
-/// than scrolling it). Only a node that says both is scrolled.
+/// is a design decision. Only a node that says both is scrolled. (A stack
+/// entry's sentence box scrolls and is not one of these: it is reached
+/// through its row, [`super::stack::StackTextRow`].)
 #[derive(Component, Clone, Copy, Default, Debug)]
 pub struct Scrolls;
 
@@ -122,18 +123,43 @@ pub fn keep_the_preview_scrolled(
 /// contents are.
 type Scrolled = (&'static mut ScrollPosition, &'static ComputedNode);
 
+/// A panel that scrolls ([`Scrolls`]): neither a preview's text nor a stack
+/// entry's sentence, which the borrow checker needs said.
+type Panel = (
+    With<Scrolls>,
+    Without<crate::face::FaceTextBox>,
+    Without<super::stack::StackTextBox>,
+);
+
+/// A stack entry's sentence box ([`super::stack::StackTextBox`]): neither a
+/// panel nor a preview, which the borrow checker needs said.
+type StackText = (
+    With<super::stack::StackTextBox>,
+    Without<Scrolls>,
+    Without<crate::face::FaceTextBox>,
+);
+
+/// The stack entries whose sentence a wheel over them may scroll, and those
+/// sentences' boxes.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct StackTexts<'w, 's> {
+    rows: Query<'w, 's, &'static super::stack::StackTextRow>,
+    boxes: Query<'w, 's, Scrolled, StackText>,
+}
+
 /// Turns a wheel into scrolling on whatever panel is under the pointer, or on
 /// the preview of the table card under it ([`PreviewScroll`]).
 #[allow(clippy::too_many_arguments)] // two targets a wheel can have, and their stores
 pub fn scrolls(
     mut wheels: MessageReader<Pointer<Scroll>>,
     parents: Query<&ChildOf>,
-    mut panels: Query<Scrolled, (With<Scrolls>, Without<crate::face::FaceTextBox>)>,
+    mut panels: Query<Scrolled, Panel>,
     hand: Query<(), With<HandScroll>>,
     hand_cards: Query<&HandCardVisual>,
     table: Query<&crate::table::CardVisual>,
     bars: Query<&crate::rowbar::RowBar>,
     mut previews: Query<Scrolled, With<crate::face::FaceTextBox>>,
+    mut stack: StackTexts,
     mut duel: ResMut<Duel>,
     mut preview: ResMut<PreviewScroll>,
 ) {
@@ -168,6 +194,27 @@ pub fn scrolls(
                 if duel.hovered == Some(card.object) {
                     wheel_the_preview(&mut previews, &mut preview, card.object, travel);
                 }
+                break;
+            }
+            // A stack entry whose sentence runs over its box: that sentence
+            // (the owner, 08.10.2026). The box is not pickable — it would
+            // take the row's hover — so the wheel lands on the row, and the
+            // row names its box. Ahead of the hand card's rule below, which
+            // the row would otherwise meet first (it is a `HandCardVisual`)
+            // and hand the wheel to the preview's text; and a sentence that
+            // fits leaves the wheel to that rule and then to the list.
+            if wheel.y.abs() >= wheel.x.abs()
+                && let Ok(row) = stack.rows.get(entity)
+                && let Ok((mut position, computed)) = stack.boxes.get_mut(row.text_box)
+                && runs_over(computed)
+            {
+                position.y = scrolled(
+                    position.y,
+                    -travel,
+                    computed.size().y,
+                    computed.content_size().y,
+                    computed.inverse_scale_factor(),
+                );
                 break;
             }
             // The hovered hand card, wheeled upright while its preview's
@@ -598,6 +645,94 @@ mod tests {
         wheel(&mut app, card, -1.0);
         assert!(app.world().resource::<Duel>().hand_scroll > 0.0);
         assert!(offset(&app, text).abs() < f32::EPSILON);
+    }
+
+    /// The stack panel's list, a full row in it standing for `object`, and
+    /// the row's sentence box holding `content` pixels of sentence in a box
+    /// 63 deep. Hovered, with the row's preview up and running over too: the
+    /// rule the box has to win against.
+    fn stack_row(app: &mut App, content: f32) -> (Entity, Entity, Entity, Entity) {
+        let object = ObjectId::new(30, 0);
+        let list = app
+            .world_mut()
+            .spawn((
+                Node::default(),
+                Scrolls,
+                ScrollPosition::default(),
+                ComputedNode {
+                    size: Vec2::new(330.0, 300.0),
+                    content_size: Vec2::new(330.0, 900.0),
+                    ..default()
+                },
+            ))
+            .id();
+        let text_box = app
+            .world_mut()
+            .spawn((
+                Node::default(),
+                super::super::stack::StackTextBox { object },
+                ScrollPosition::default(),
+                ComputedNode {
+                    size: Vec2::new(220.0, 63.0),
+                    content_size: Vec2::new(220.0, content),
+                    ..default()
+                },
+            ))
+            .id();
+        let row = app
+            .world_mut()
+            .spawn((
+                Node::default(),
+                HandCardVisual { object },
+                super::super::stack::StackTextRow { text_box },
+                ChildOf(list),
+            ))
+            .id();
+        app.world_mut().entity_mut(text_box).insert(ChildOf(row));
+        let preview = preview_text(app, 400.0);
+        app.world_mut().resource_mut::<Duel>().hovered = Some(object);
+        app.update();
+        (list, row, text_box, preview)
+    }
+
+    /// The owner's (08.10.2026): over a stack entry whose sentence runs over
+    /// its box, the wheel scrolls that sentence — not the list it is in,
+    /// not the hovered entry's preview, not the hand.
+    #[test]
+    fn a_wheel_over_a_stack_entry_whose_sentence_runs_over_scrolls_the_sentence() {
+        let mut app = app();
+        let (list, row, text_box, preview) = stack_row(&mut app, 200.0);
+        hand_card(&mut app);
+        wheel(&mut app, row, -1.0);
+        assert!(offset(&app, text_box) > 0.0, "the sentence moved");
+        assert!(offset(&app, list).abs() < f32::EPSILON, "the list did not");
+        assert!(
+            offset(&app, preview).abs() < f32::EPSILON,
+            "nor the preview"
+        );
+        assert!(app.world().resource::<Duel>().hand_scroll.abs() < f32::EPSILON);
+        // And no further than its end: the wheel is swallowed there, as a
+        // list's is, rather than handed to the list behind it.
+        wheel(&mut app, row, -50.0);
+        let end = 200.0 - 63.0;
+        assert!((offset(&app, text_box) - end).abs() < 0.01);
+        assert!(offset(&app, list).abs() < f32::EPSILON);
+    }
+
+    /// A sentence that fits leaves the wheel to what had it before: the
+    /// hovered entry's preview while that runs over, and otherwise the list.
+    #[test]
+    fn a_wheel_over_a_stack_entry_whose_sentence_fits_is_not_the_sentence_s() {
+        let mut app = app();
+        let (list, row, text_box, preview) = stack_row(&mut app, 40.0);
+        wheel(&mut app, row, -1.0);
+        assert!(offset(&app, text_box).abs() < f32::EPSILON);
+        assert!(offset(&app, preview) > 0.0, "the preview's, as before");
+        app.world_mut().resource_mut::<Duel>().hovered = None;
+        app.update();
+        wheel(&mut app, row, -1.0);
+        assert!(offset(&app, text_box).abs() < f32::EPSILON);
+        assert!(offset(&app, list) > 0.0, "the list's");
     }
 
     /// (c) A card whose text fits leaves the wheel inert: nothing moves,

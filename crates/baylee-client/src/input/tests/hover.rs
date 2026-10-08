@@ -288,3 +288,82 @@ fn opening_a_hand_inspection_clears_the_source_preview_but_not_later_hovers() {
         "re-sends preserve the inspected card's preview"
     );
 }
+
+/// Moving from a stack row onto its own scrollbar is not leaving the row
+/// (the owner, 08.10.2026). The bar lies inside the row and takes the
+/// pointer, so picking reports the row's `Out` and the bar's `Over` in one
+/// frame, and the overs are read first: the `Out` cleared the hover the
+/// bar's `Over` had just written, the overlay rebuilt on the hover change,
+/// and the bar being dragged was pulled from under the pointer. The second
+/// half is the counter-test: leaving the row for nothing still ends it.
+#[test]
+fn moving_onto_a_row_s_own_scrollbar_keeps_the_row_hovered() {
+    use bevy::ecs::entity::EntityHashMap;
+    use bevy::picking::backend::HitData;
+    use bevy::picking::events::{Out, Over, Pointer};
+    use bevy::picking::hover::HoverMap;
+    use bevy::picking::pointer::PointerId;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_message::<Pointer<Over>>()
+        .add_message::<Pointer<Out>>()
+        .add_message::<bevy::window::CursorMoved>()
+        .insert_resource(crate::Duel::default())
+        .init_resource::<HoverMap>()
+        .add_systems(Update, pointer_hover);
+    let row = app
+        .world_mut()
+        .spawn(crate::hud::HandCardVisual { object: obj(30) })
+        .id();
+    hover(&mut app, row);
+    assert_eq!(app.world().resource::<crate::Duel>().hovered, Some(obj(30)));
+
+    // The pointer moves onto the bar: picking holds the thumb, which blocks
+    // the row under it, and reports the row's `Out` with the thumb's `Over`.
+    let thumb = app.world_mut().spawn(ChildOf(row)).id();
+    let mut under = EntityHashMap::default();
+    under.insert(thumb, HitData::new(thumb, 0.0, None, None));
+    app.world_mut()
+        .resource_mut::<HoverMap>()
+        .0
+        .insert(PointerId::Mouse, under);
+    let at = pointer_at(&mut app);
+    app.world_mut().write_message(Pointer::new(
+        PointerId::Mouse,
+        at.clone(),
+        Out {
+            hit: HitData::new(row, 0.0, None, None),
+        },
+        row,
+    ));
+    hover(&mut app, thumb);
+    assert_eq!(
+        app.world().resource::<crate::Duel>().hovered,
+        Some(obj(30)),
+        "the row's own bar is still the row"
+    );
+
+    // And off the row altogether: nothing under the pointer stands for it.
+    app.world_mut().resource_mut::<HoverMap>().0.clear();
+    let window = app
+        .world_mut()
+        .query_filtered::<Entity, With<bevy::window::PrimaryWindow>>()
+        .single(app.world())
+        .unwrap();
+    app.world_mut().write_message(bevy::window::CursorMoved {
+        window,
+        position: Vec2::ONE,
+        delta: None,
+    });
+    app.world_mut().write_message(Pointer::new(
+        PointerId::Mouse,
+        at,
+        Out {
+            hit: HitData::new(thumb, 0.0, None, None),
+        },
+        thumb,
+    ));
+    app.update();
+    assert_eq!(app.world().resource::<crate::Duel>().hovered, None);
+}

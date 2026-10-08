@@ -1207,6 +1207,10 @@ messages! {
     ActNumberUp { en: "Number up", de: "Zahl hoch" },
     /// Number down
     ActNumberDown { en: "Number down", de: "Zahl runter" },
+    /// Scroll a stack entry's long text back a page
+    ActTextPageUp { en: "Scroll a stack entry's text up", de: "Text eines Stapeleintrags hochblättern" },
+    /// Scroll it on a page
+    ActTextPageDown { en: "Scroll a stack entry's text down", de: "Text eines Stapeleintrags runterblättern" },
     /// Rail selection up
     ActRailUp { en: "Rail selection up", de: "Phasenleiste hoch" },
     /// Rail selection down

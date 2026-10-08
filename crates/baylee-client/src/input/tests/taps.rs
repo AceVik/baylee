@@ -106,3 +106,39 @@ fn a_press_let_go_over_another_card_sends_nothing() {
         "a press that moved on is not a tap"
     );
 }
+
+/// A press on a scrollbar scrolls and chooses nothing (the owner,
+/// 08.10.2026). A stack row's sentence has its bar inside the row, and the
+/// row stands for its object, so the click on the bar's thumb — or the one a
+/// drag of it ends in — would otherwise reach the object through the
+/// lineage: a target taken, a stop marked. The second half is the
+/// counter-test: the row itself still answers.
+#[test]
+fn a_click_on_a_scrollbar_inside_a_card_s_row_chooses_nothing() {
+    use bevy::prelude::*;
+    use bevy::ui_widgets::{ControlOrientation, Scrollbar};
+    let mut app = hand_app();
+    let row = app
+        .world_mut()
+        .spawn(crate::hud::HandCardVisual { object: obj(3) })
+        .id();
+    let text_box = app.world_mut().spawn(ChildOf(row)).id();
+    let track = app
+        .world_mut()
+        .spawn((
+            Scrollbar::new(text_box, ControlOrientation::Vertical, 20.0),
+            ChildOf(row),
+        ))
+        .id();
+    let thumb = app.world_mut().spawn(ChildOf(track)).id();
+    finger_click(&mut app, thumb);
+    app.update();
+    assert_eq!(app.world().resource::<crate::Duel>().outbox(), []);
+    finger_click(&mut app, row);
+    app.update();
+    assert_eq!(
+        app.world().resource::<crate::Duel>().outbox(),
+        [PlayerAction::PlayLand { card: obj(3) }],
+        "the row answers for its card"
+    );
+}

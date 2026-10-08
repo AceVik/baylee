@@ -24,7 +24,10 @@ pub fn pointer(
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
     seats: SeatPresses,
-    peek_chips: Query<&crate::hud::peeks::PeekChip>,
+    (peek_chips, scrollbars): (
+        Query<&crate::hud::peeks::PeekChip>,
+        Query<&bevy::ui_widgets::Scrollbar>,
+    ),
     seat_steps: Query<&crate::hud::SeatStep>,
     menu_buttons: Query<&MenuButton>,
     prompt_buttons: Query<&PromptButton>,
@@ -49,6 +52,13 @@ pub fn pointer(
         // (DESIGN-v8 §2.4, the owner's tear): the card under the finger is
         // on its way somewhere else.
         if duel.tear.is_some() && find_in_lineage(e, &cards, &parents).is_some() {
+            continue;
+        }
+        // A scrollbar is pressed to scroll, never to choose: a stack row's
+        // bar lies inside the row, and the row stands for its spell, so a
+        // press on the bar — or the click a drag of its thumb ends in —
+        // would otherwise target the spell or mark a stop on it.
+        if find_in_lineage(e, &scrollbars, &parents).is_some() {
             continue;
         }
         if let Some(object) = find_in_lineage(e, &cards, &parents)
@@ -259,6 +269,35 @@ pub fn pointer(
     }
 }
 
+/// Whether the pointer is still over something that stands for `hovered`.
+///
+/// Leaving a node for one inside it that stands for the same card is not
+/// leaving the card: a stack row's scrollbar is in the row (the owner,
+/// 08.10.2026), and [`pointer_hover`] reads the overs before the outs, so
+/// the row's `Out` would otherwise clear the hover its own bar's `Over` had
+/// just written — and the rebuild that follows a hover change would pull the
+/// bar from under a drag.
+fn still_over(
+    hovers: Option<&bevy::picking::hover::HoverMap>,
+    hand_cards: &Query<&HandCardVisual>,
+    parents: &Query<&ChildOf>,
+    hovered: Option<ObjectId>,
+) -> bool {
+    hovers.is_some_and(|hovers| {
+        hovers
+            .values()
+            .flat_map(|over| over.keys().copied())
+            .any(|entity| {
+                find_in_lineage(entity, hand_cards, parents)
+                    .is_some_and(|h| hovered == Some(h.object))
+            })
+    })
+}
+
+/// The table's camera and where it is, for a card's place on the screen.
+type TableCamera<'w, 's> =
+    Query<'w, 's, (&'static Camera, &'static GlobalTransform), With<crate::table::TableCamera>>;
+
 /// Tracks the card under the pointer — the same cursor the WASD keys
 /// move, so mouse and keyboard never fight over two highlights.
 /// Like clicks, hover resolves through the entity's ancestors: the
@@ -292,7 +331,7 @@ pub fn pointer_hover(
     piles: Query<&crate::table::PileVisual>,
     parents: Query<&ChildOf>,
     places: Query<&GlobalTransform>,
-    table_camera: Query<(&Camera, &GlobalTransform), With<crate::table::TableCamera>>,
+    (table_camera, hovers): (TableCamera, Option<Res<bevy::picking::hover::HoverMap>>),
     mut duel: ResMut<Duel>,
 ) {
     // `hovered` has four writers and only one of them is this system. A hover
@@ -447,7 +486,7 @@ pub fn pointer_hover(
                     .is_some_and(|t| duel.hovered == Some(t.object))
                 || find_in_lineage(out.entity, &choice_previews, &parents)
                     .is_some_and(|t| duel.hovered == Some(t.object));
-            if is_current {
+            if is_current && !still_over(hovers.as_deref(), &hand_cards, &parents, duel.hovered) {
                 duel.hovered = None;
                 duel.hovered_at = None;
                 *source = HoverSource::Elsewhere;
