@@ -131,8 +131,11 @@ test("status, issue link and deletion stick, and are in the history", async ({ p
   expect(href.searchParams.get("title")).toBe("Improvement: The deck list has no sort order to choose.");
   expect(href.searchParams.get("body")).toContain("- Build: 0.1.0-beta.1+build.42 (3f9a1c7e21)");
   const reportId = page.url().split("/r/")[1] ?? "no id";
+  // Read as GitHub reads it: in a query string `+` is a space, which
+  // `decodeURIComponent` leaves standing, so a phrase would slip past it.
+  const filed = `${raw}\n${href.searchParams.get("title") ?? ""}\n${href.searchParams.get("body") ?? ""}`;
   for (const leak of ["sort the deck list by colour", "77aa01bc22dd33ee", reportId, BASE_URL, "localhost", "/r/"]) {
-    expect(decodeURIComponent(raw), leak).not.toContain(leak);
+    expect(filed, leak).not.toContain(leak);
   }
 
   await page.reload();

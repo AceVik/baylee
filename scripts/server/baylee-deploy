@@ -149,34 +149,46 @@ stage() {
 # files end 0600. The feedback service restarts right after this; the
 # gateway reads its half when finish restarts it, and until then the
 # console answers 502.
+#
+# Never fatal: it runs after the agent has stopped, and a stage that died
+# here would leave the server starting no game. Whatever fails (a sudoers
+# rule that does not allow one of these commands, no openssl) is logged and
+# the deploy goes on without the console.
 console_token() {
+    console_token_now || log "the admin console's token was not set up; set BAYLEE_ADMIN_TOKEN in $etc/gateway.env and FEEDBACK_GATEWAY_ADMIN_URL/_TOKEN in $etc/feedback.env by hand (docs/feedback.md)"
+}
+
+# Every step answers for itself (`|| return 1`): errexit does not reach
+# inside a function called on the left of `||`.
+console_token_now() {
     local gw=$etc/gateway.env fb=$etc/feedback.env token theirs
     if ! sudo test -f "$gw" || ! sudo test -f "$fb"; then
         log "no $gw or $fb: the admin console's token is not set up"
         return 0
     fi
-    token=$(sudo sed -n 's/^BAYLEE_ADMIN_TOKEN=//p' "$gw" | tail -1)
-    theirs=$(sudo sed -n 's/^FEEDBACK_GATEWAY_ADMIN_TOKEN=//p' "$fb" | tail -1)
+    token=$(sudo sed -n 's/^BAYLEE_ADMIN_TOKEN=//p' "$gw" | tail -1) || return 1
+    theirs=$(sudo sed -n 's/^FEEDBACK_GATEWAY_ADMIN_TOKEN=//p' "$fb" | tail -1) || return 1
     if [ -n "$token" ] && [ -n "$theirs" ] && [ "$token" != "$theirs" ]; then
         log "BAYLEE_ADMIN_TOKEN in $gw and FEEDBACK_GATEWAY_ADMIN_TOKEN in $fb differ; left as they are"
     fi
     [ -n "$token" ] || token=$theirs
     if [ -z "$token" ]; then
-        token=$(openssl rand -hex 32)
+        token=$(openssl rand -hex 32) || return 1
+        [ ${#token} -ge 32 ] || return 1
         log "admin console token made for $gw and $fb"
     fi
     if ! sudo grep -q '^BAYLEE_ADMIN_TOKEN=.' "$gw"; then
-        printf 'BAYLEE_ADMIN_TOKEN=%s\n' "$token" | sudo tee -a "$gw" >/dev/null
+        printf 'BAYLEE_ADMIN_TOKEN=%s\n' "$token" | sudo tee -a "$gw" >/dev/null || return 1
     fi
     if ! sudo grep -q '^FEEDBACK_GATEWAY_ADMIN_TOKEN=.' "$fb"; then
-        printf 'FEEDBACK_GATEWAY_ADMIN_TOKEN=%s\n' "$token" | sudo tee -a "$fb" >/dev/null
+        printf 'FEEDBACK_GATEWAY_ADMIN_TOKEN=%s\n' "$token" | sudo tee -a "$fb" >/dev/null || return 1
     fi
     if ! sudo grep -q '^FEEDBACK_GATEWAY_ADMIN_URL=.' "$fb"; then
-        echo "FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767" | sudo tee -a "$fb" >/dev/null
+        echo "FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767" | sudo tee -a "$fb" >/dev/null || return 1
     fi
     token=''
     theirs=''
-    sudo chmod 600 "$gw" "$fb"
+    sudo chmod 600 "$gw" "$fb" || return 1
 }
 
 # The browser client, built into the stage (#327). Skipped, with a line in

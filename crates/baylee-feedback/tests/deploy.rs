@@ -151,7 +151,8 @@ fn sudo_stub(stubs: &Path, reads: bool) {
         stubs,
         "sudo",
         if reads {
-            r#"case "$1" in test|sed|grep|tee|chmod) exec "$@" ;; esac; exit 0"#
+            r#"[ "$1" = "${SUDO_REFUSES:-}" ] && exit 1
+case "$1" in test|sed|grep|tee|chmod) exec "$@" ;; esac; exit 0"#
         } else {
             "exit 0"
         },
@@ -167,6 +168,12 @@ fn stage_on(server: Server) -> (PathBuf, String, String) {
 /// where sudo really reads and appends: it runs `test`, `sed`, `grep`, `tee`
 /// and `chmod` and stands in for everything else, as on any other run.
 fn stage_in(server: Server, etc: Option<&Path>) -> (PathBuf, String, String) {
+    stage_refusing(server, etc, "")
+}
+
+/// [`stage_in`] where sudo refuses to run `refused` (a sudoers rule that
+/// does not allow it).
+fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf, String, String) {
     // Tests run at once, some with the same arguments: each run its own tree.
     static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let Server {
@@ -235,6 +242,7 @@ fn stage_in(server: Server, etc: Option<&Path>) -> (PathBuf, String, String) {
     let mut command = std::process::Command::new("bash");
     let no_etc = scratch.join("no-etc");
     command.env("BAYLEE_DEPLOY_ETC", etc.unwrap_or(&no_etc));
+    command.env("SUDO_REFUSES", refused);
     let out = command
         .arg(&script)
         .args(["stage", "0123456789abcdef0123"])
@@ -587,4 +595,30 @@ fn stage_sets_up_one_console_token_for_both_services_and_never_prints_it() {
         "never replaced"
     );
     let _ = std::fs::remove_dir_all(&etc);
+}
+
+/// A server whose sudo does not allow a command the token needs still
+/// deploys: the stage says so and restarts the service without a console
+/// (`stage_refusing` asserts the stage itself succeeded).
+#[test]
+fn a_token_that_cannot_be_set_up_does_not_stop_the_deploy() {
+    for refused in ["sed", "tee", "chmod"] {
+        let etc = std::env::temp_dir().join(format!(
+            "baylee-deploy-etc-{refused}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&etc);
+        std::fs::create_dir_all(&etc).unwrap();
+        std::fs::write(etc.join("gateway.env"), "BAYLEE_REGISTRATION=invite\n").unwrap();
+        std::fs::write(etc.join("feedback.env"), "FEEDBACK_DATABASE_URL=x\n").unwrap();
+        let server = Server::with_feedback(true, Npm::Absent);
+        let (_, ran, said) = stage_refusing(server, Some(&etc), refused);
+        assert!(said.contains("token was not set up"), "{refused}: {said}");
+        assert!(
+            ran.contains("sudo systemctl restart baylee-feedback"),
+            "{refused}: {ran}"
+        );
+        assert!(!said.contains(CONSOLE_TOKEN), "{refused}: {said}");
+        let _ = std::fs::remove_dir_all(&etc);
+    }
 }

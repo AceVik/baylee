@@ -182,8 +182,11 @@ describe("triage", () => {
     expect(url.origin + url.pathname).toBe("https://github.com/AceVik/baylee/issues/new");
     expect(url.searchParams.get("title")).toBe("Crash: A basic land untaps during its controller's upkeep.");
     expect(url.searchParams.get("body")).toContain("- Build: 0.1.0-beta.1+build.42 (3f9a1c7e21)");
+    // Read as GitHub reads it: a query string's `+` is a space, which
+    // `decodeURIComponent` would leave standing and so miss every phrase.
+    const filed = `${href}\n${url.searchParams.get("title") ?? ""}\n${url.searchParams.get("body") ?? ""}`;
     for (const leak of ["Swamp untapped", "5bdc0e1f9a7c33aa", "0199aaaa", "/r/", "Apple M1", "eu.example"]) {
-      expect(decodeURIComponent(href)).not.toContain(leak);
+      expect(filed).not.toContain(leak);
     }
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
