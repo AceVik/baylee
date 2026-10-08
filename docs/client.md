@@ -6931,9 +6931,16 @@ is nothing for a player to tune. `Off` stops the device and nothing else:
 cues are still decided, drained and reported, which keeps "is it silent" and
 "is it deciding" two separate questions.
 
-Everything is computed once, on the frame the app opens, from a xorshift32
-seeded with a constant — so the table sounds the same on every machine, and
-`a_cue_renders_the_same_bytes_twice` is what says so. The one thing a
+Everything is computed once per run, from a xorshift32 seeded with a
+constant — so the table sounds the same on every machine, and
+`a_cue_renders_the_same_bytes_twice` is what says so. The frame the app opens
+on only starts it: `sound::voice_the_cues` spawns one task per buffer on the
+compute pool and `sound::collect_the_voices` fills `Voices` when the last is
+done (well inside a second on a desktop; a browser's one thread runs the
+tasks between frames instead). Computed inside that first frame it took
+3.7 s on a Windows desktop, with the window standing white meanwhile
+(`docs/perf-client.md` §"Windows"); a cue decided before the buffers arrive
+is reported and not heard. The one thing a
 generated sound has no other audit surface for is what it *sounds like*:
 `every_cue_written_out` is `#[ignore]`d and writes all thirty-seven to a
 directory for somebody to listen to — which is where the counted three have
@@ -9408,6 +9415,15 @@ console carries no gesture refusal, and `Window::set_maximized` — which the
 native build calls — is an explicit no-op in winit's web backend. So a
 browser window that fills the screen is Chrome's own window doing it. Framing
 the canvas is a change to that stylesheet and to nothing in Rust.
+
+**The desktop window opens hidden and is shown on its third frame**
+(`standalone::show_the_window`). Bevy shows a window at its default size and
+maximizes it on the first frame, so whatever that frame costs used to stand on
+screen as a small white window; created hidden, it appears maximized with the
+front door in it. A browser's canvas and a phone's surface are the page's and
+the system's to show, and keep `visible` as bevy sets it. A minimised window
+draws a frame a second: Windows sends no occlusion for it but resizes it to
+nothing, which `quality::minimised` reads (`docs/perf-client.md` §"Windows").
 
 ## Verification
 
