@@ -9,7 +9,9 @@ it to players.** The owner writes the real terms; legal pages stay private
 until launch (#316).
 
 Nothing reads this file unless an operator points `BAYLEE_TERMS_PATH` at it.
-No deploy script does.
+No deploy script does. `docs/terms-placeholder/` holds the same kind of
+placeholder in German and English, for a gateway whose terms are in more
+than one language.
 
 ## What the sheet has to show
 

@@ -146,7 +146,11 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
         // A sheet over the front door or the lobby holds the screen: only
         // its own controls answer (the terms are answered before anything
         // else; About is closed or followed to the source).
+        // The account deletion's confirmation stands over the terms when
+        // Decline asked for it, and its shade covers everything under it:
+        // its own controls answer then.
         if state.terms.up()
+            && state.lobby.deleting_account().is_none()
             && !matches!(
                 press,
                 Press::Front(
@@ -154,6 +158,7 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
                         | FrontPress::TermsNotNow
                         | FrontPress::TermsStay
                         | FrontPress::TermsRetry
+                        | FrontPress::TermsDecline
                 ) | Press::Shared(SharedPress::PickerNothing)
             )
         {

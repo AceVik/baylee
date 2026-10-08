@@ -169,6 +169,13 @@ pub(super) fn follow_focus(
         kept.0 = None;
         return;
     }
+    // The account deletion's confirmation over the terms sheet (its
+    // Decline) holds the keyboard and no stop: nothing under it gets the
+    // ring back while it stands, and the stop kept is Decline's again once
+    // it is cancelled (`front::terms::place_sheet_focus`).
+    if state.terms.up() && state.lobby.deleting_account().is_some() {
+        return;
+    }
     let drawn = |stop: &Stop| stops.iter().find(|(_, s)| *s == stop).map(|(e, _)| e);
     // A menu that closed gives the ring back to the control that opened it
     // (`KEYBOARD.md` §1.8): the stop that had it before the menu took it.

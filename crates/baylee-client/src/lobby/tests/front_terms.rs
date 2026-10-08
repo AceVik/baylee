@@ -8,6 +8,7 @@ use super::*;
 
 use super::super::front::terms::TermsReply;
 use super::front_keys::{focused_id, press_key};
+use baylee_client_core::i18n::Lang;
 use baylee_client_core::lobby::KeptGuest;
 use baylee_client_core::terms::{Sheet, TermsDoc};
 use bevy::ecs::system::RunSystemOnce;
@@ -29,6 +30,7 @@ fn doc(markdown: &str) -> TermsDoc {
         version: "v1".into(),
         updated: Some("2026-10-07".into()),
         markdown: markdown.into(),
+        lang: None,
     }
 }
 
@@ -71,9 +73,59 @@ fn signed_in_stale(guest: bool, markdown: &str) -> App {
         app.world().resource::<LobbyState>().terms.up(),
         "a stale sign-in raises the sheet"
     );
-    post(&mut app, Reply::Terms(TermsReply::Doc(doc(markdown))));
+    post(
+        &mut app,
+        Reply::Terms(TermsReply::Doc {
+            asked: Lang::En,
+            doc: doc(markdown),
+        }),
+    );
     app.update();
     app
+}
+
+/// The owner's case (08.10.2026): switching the interface's language while
+/// the sheet is up asks for the text in the new one; the old text stays
+/// until it comes, an answer in the language left behind is dropped, and
+/// the new text must be read to its end again.
+#[test]
+fn switching_language_on_the_sheet_asks_for_the_text_again() {
+    let mut app = signed_in_stale(false, "# Terms\n\nPlay fair.");
+    assert_eq!(app.world().resource::<LobbyState>().terms.lang(), Lang::En);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_lang(Lang::De);
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.terms.lang(), Lang::De, "not asked again in German");
+    assert!(
+        matches!(sheet(&app), Sheet::Reading(_)),
+        "the old text stays"
+    );
+    post(
+        &mut app,
+        Reply::Terms(TermsReply::Doc {
+            asked: Lang::En,
+            doc: doc("# Terms, late"),
+        }),
+    );
+    assert!(
+        matches!(sheet(&app), Sheet::Reading(r) if r.doc.markdown == "# Terms\n\nPlay fair."),
+        "an answer in the language left behind replaced the text"
+    );
+    let german = TermsDoc {
+        lang: Some("de".into()),
+        ..doc("# Bedingungen\n\nSei fair.")
+    };
+    post(
+        &mut app,
+        Reply::Terms(TermsReply::Doc {
+            asked: Lang::De,
+            doc: german.clone(),
+        }),
+    );
+    assert!(matches!(sheet(&app), Sheet::Reading(r) if r.doc == german));
 }
 
 fn sheet(app: &App) -> Sheet {
@@ -207,4 +259,117 @@ fn click(app: &mut App, press: Press) {
         .expect("the press ran");
     app.update();
     app.update();
+}
+
+/// Types `text` as keys, one character at a time.
+fn type_keys(app: &mut App, text: &str) {
+    for ch in text.chars() {
+        press_key(
+            app,
+            KeyCode::KeyA,
+            Key::Character(ch.to_string().into()),
+            &[],
+        );
+    }
+}
+
+/// The owner's case (08.10.2026): Decline and delete account, by keyboard
+/// alone. Tab reaches it; Enter opens the account deletion's own
+/// confirmation over the sheet (the password again), Esc there cancels
+/// back to the sheet with focus on Decline, and the confirmed deletion goes
+/// out as Settings' does and ends at the front door.
+#[test]
+fn decline_deletes_the_account_through_its_own_confirmation_by_keyboard() {
+    let mut app = signed_in_stale(false, "# Terms\n\nPlay fair.");
+    for _ in 0..6 {
+        if focused_id(&app) == Some("decline") {
+            break;
+        }
+        press_key(&mut app, KeyCode::Tab, Key::Tab, &[]);
+    }
+    assert_eq!(focused_id(&app), Some("decline"), "Tab never reached it");
+    press_key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    {
+        let state = app.world().resource::<LobbyState>();
+        let deletion = state.lobby.deleting_account().expect("the confirmation");
+        assert!(
+            deletion.refusal.is_none() && !state.lobby.busy(),
+            "Enter on Decline also confirmed it"
+        );
+        assert!(state.terms.up(), "the sheet stays under it");
+    }
+    assert_eq!(focused_id(&app), None, "a stop of the sheet kept the focus");
+
+    // Esc is the confirmation's Cancel: back to the sheet, still signed in.
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    app.update();
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .deleting_account()
+            .is_none()
+    );
+    assert!(signed_in(&app), "Esc signed out");
+    assert!(matches!(sheet(&app), Sheet::Reading(_)));
+    assert_eq!(focused_id(&app), Some("decline"));
+
+    // Again, with the password typed into the confirmation's own box.
+    press_key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    type_keys(&mut app, "pw");
+    press_key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    {
+        // Sent: still on its way, or already answered by the test's
+        // gateway, which is no gateway — never refused here for want of
+        // the password, which is the one refusal the client makes itself.
+        let state = app.world().resource::<LobbyState>();
+        let deletion = state.lobby.deleting_account().expect("still up while sent");
+        let unsent = Phrase::DeleteAccountNeedsPassword.text(Lang::En);
+        assert!(
+            (state.lobby.busy() || deletion.refusal.is_some())
+                && deletion.refusal.as_deref() != Some(unsent),
+            "not sent: {deletion:?}"
+        );
+    }
+    post(&mut app, Reply::Event(LobbyEvent::AccountDeleted));
+    let state = app.world().resource::<LobbyState>();
+    assert!(!signed_in(&app));
+    assert!(!state.terms.up(), "the sheet outlived the account");
+    assert!(matches!(state.lobby.screen(), Screen::SignIn { .. }));
+}
+
+/// A guest declines with no password: its confirmation sends at once.
+#[test]
+fn a_guest_declines_and_is_deleted_without_a_password() {
+    let mut app = signed_in_stale(true, "# Terms\n\nPlay fair.");
+    click(&mut app, Press::Front(FrontPress::TermsDecline));
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .deleting_account()
+            .is_some()
+    );
+    assert!(!app.world().resource::<LobbyState>().lobby.busy());
+    click(
+        &mut app,
+        Press::Settings(SettingsPress::ConfirmAccountDeletion),
+    );
+    {
+        // A guest's deletion is refused by nothing on this side: it is on
+        // its way, or the test's gateway (none) has answered it.
+        let lobby = &app.world().resource::<LobbyState>().lobby;
+        assert!(
+            lobby.busy()
+                || lobby
+                    .deleting_account()
+                    .is_some_and(|d| d.refusal.is_some()),
+            "a guest's deletion was not sent"
+        );
+    }
+    post(&mut app, Reply::Event(LobbyEvent::AccountDeleted));
+    let state = app.world().resource::<LobbyState>();
+    assert!(!signed_in(&app));
+    assert!(state.lobby.kept_guest().is_none(), "the guest is kept");
+    assert!(!state.terms.up());
 }

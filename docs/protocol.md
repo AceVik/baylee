@@ -175,7 +175,8 @@ is no account yet:
   door draws it under the Fan Content notice, and draws the client's own
   repository instead while the gateway has not said.
 - `terms` is the version of the terms of use a player accepts here, or
-  `null` on a gateway without terms (§"Terms of use (WG-1)").
+  `null` on a gateway without terms (§"Terms of use (WG-1)"). It is one
+  version for every language the terms are in.
 - `registration` is who may make an account: `open`, `invite` (a closed
   beta, §"A closed beta: keys (#317)") or `off`; `guests` is whether it takes
   guests. Both are absent from a gateway older than #317. They are here so a
@@ -1577,6 +1578,14 @@ turns 13 and 16):
 Where a piece breaks changes nothing else: the pieces are gzip members of
 their own, and the record they make is the same bytes with or without
 flushes (`flushes_at_any_moment_change_nothing_but_where_the_pieces_break`).
+
+Training and balancing read records only through the operator's export,
+`baylee-gateway records export --out <dir>` (no route): every complete
+record, one gzip member each, `000001.jsonl.gz` onward, without its game
+id, with every `at` 0 and a `Human` seat's account number 0, refused when a
+line is of an unknown kind or the text holds anything that names an account
+seated at the game. It still replays on the build that played it.
+`docs/privacy.md` §"Game records and reports (#315, #307, #308)" says what it keeps.
 The store takes pieces of any size in `seq` order, under the same 64 MiB
 bound.
 
@@ -2110,18 +2119,42 @@ a name, an id, an address or anything per person:
 ## Terms of use (WG-1)
 
 A gateway may ask its players to accept terms of use. The operator points
-`BAYLEE_TERMS_PATH` at a UTF-8 Markdown file of at most 64 KiB; unset, the
-gateway has none and **nothing below appears**: no `terms_stale`, `"terms":
-null` in `/info`, `404` on `/terms`. Set but unreadable, oversize, not UTF-8
-or empty, the gateway refuses to start. The file is read once, at start.
+`BAYLEE_TERMS_PATH` at either
 
-- `GET /terms` (public) → `{"version", "updated"?, "markdown"}`. `version`
-  is the first 16 hex digits of the file's SHA-256, so any edit asks every
-  player again — unless the file's **first line** is `<!-- version: 2026-10
-  -->`, which names it (at most 64 characters, no whitespace), so an
-  editorial fix need not be accepted twice. `updated` is the date an
-  `<!-- updated: 2026-10-06 -->` line among the leading comment lines names;
-  absent without one. The leading comment lines are not part of `markdown`.
+- **a file**: a UTF-8 Markdown file of at most 64 KiB, shown to every
+  player in whatever language their client speaks; or
+- **a directory** of `terms.<lang>.md` files, one per language, `<lang>` a
+  lowercase BCP-47 primary language tag (`terms.de.md`, `terms.en.md`). It
+  must hold `terms.en.md`, because English is what a player whose language
+  is not there is shown. Every file is held to what a single file is, and
+  **every file names the same version** on its first line (below): the
+  version is what an account accepts, and accepting the terms in one
+  language accepts them in all. A file not named `terms.*.md` is not read;
+  `terms.de-AT.md` or `terms.DE.md` is a mistake and refuses startup.
+
+Unset, the gateway has none and **nothing below appears**: no
+`terms_stale`, `"terms": null` in `/info`, `404` on `/terms`. Set but
+unreadable, oversize, not UTF-8 or empty, a directory without
+`terms.en.md`, or a directory whose files name different versions, the
+gateway refuses to start, saying which. The files are read once, at start.
+
+- `GET /terms?lang=de` (public) → `{"version", "updated"?, "markdown",
+  "lang"?}`. `lang` is read by its primary tag (`de-AT` is `de`); the text
+  is the one in that language, else the English one, else (a file) the one
+  file. `lang` in the answer, and a `Content-Language` header, say which
+  language the text is in; a gateway with one file names none, so its
+  answer is exactly what it was before there were languages. Only `?lang=`
+  decides, never `Accept-Language`: the interface's language is the
+  player's choice and need not be the browser's, and an answer that varies
+  by its address alone is never cached in the wrong language. Without
+  `?lang=` the answer is English. `version` is the first 16 hex digits of
+  the file's SHA-256, so any edit asks every player again — unless the
+  file's **first line** is `<!-- version: 2026-10 -->`, which names it (at
+  most 64 characters, no whitespace), so an editorial fix need not be
+  accepted twice. Two languages never hash alike, so the files of a
+  directory name theirs. `updated` is the date an `<!-- updated: 2026-10-06
+  -->` line among the leading comment lines names, per language; absent
+  without one. The leading comment lines are not part of `markdown`.
 - `/info` carries `"terms": "<version>"`, so a client can compare it with
   what it last accepted before anyone signs in.
 - `POST /auth/login`, `/auth/register` and `/auth/guest` answer
@@ -2139,12 +2172,14 @@ to the terms never blinds a lobby or locks a seat out of its game; the
 client asks right after sign-in. A returning guest signs in with its kept
 session and so never sees `terms_stale`; the client compares `/info.terms`
 with its own copy of what it accepted. The repository's
-`docs/terms-placeholder.md` is a placeholder for testing the sheet and is
-not legal text; no deploy reads it.
+`docs/terms-placeholder.md` (a file) and `docs/terms-placeholder/` (a
+directory, `de` and `en`) are placeholders for testing the sheet and are
+not legal text; no deploy reads them.
 
 The client (WP1, `baylee-client-core::terms`, `lobby::front::terms`): a
 sign-in's `terms_stale` is read off the answer before its event; `true`
-raises the sheet and `GET /terms`; `false` with `/info.terms` named keeps
+raises the sheet and `GET /terms?lang=` in the interface's language
+(`terms::url`); `false` with `/info.terms` named keeps
 that version as the device's copy (`ClientSettings.terms`, by gateway
 address). A kept guest, which signs in to nothing, is asked when
 `/info.terms` differs from that copy. The sheet renders the Markdown subset
@@ -2153,8 +2188,16 @@ link as its text and address; anything else is text, no HTML is
 interpreted), enables Accept only once the end of the text has been in
 view, posts the version it showed, and on `409` fetches and shows the new
 text. Not now signs out with nothing stored (a guest is asked first); Esc
-never signs out. A failed `GET /terms` says "Couldn't load the terms ·
-Retry", accepts nothing and keeps the session.
+never signs out. Decline and delete account (shown with the text) is the
+account's deletion, §"Deleting an account (#292)", unchanged: a session that
+has not accepted the current version may delete its account like any other,
+since no route refuses it. A failed `GET /terms` says "Couldn't load the terms ·
+Retry", accepts nothing and keeps the session. Switching the interface's
+language while the sheet is up asks for the text again in the new one
+(`Terms::relang`): the text on the sheet stays until the new one comes, an
+answer to the language left behind is dropped, and the new text must be
+read to its end before Accept works again. The version it posts is the
+same in every language.
 
 ## Deleting an account (#292)
 

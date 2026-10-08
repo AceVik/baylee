@@ -22,6 +22,7 @@ mod namebook;
 mod pool;
 mod presence;
 mod record;
+mod recordexport;
 mod report;
 mod room;
 mod routes;
@@ -226,6 +227,11 @@ async fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.first().map(String::as_str) == Some("invite") {
         std::process::exit(invite::cli(&args[1..]).await);
+    }
+    // The anonymised export of game records for training and balancing,
+    // likewise the operator's and the database's alone.
+    if args.first().map(String::as_str) == Some("records") {
+        std::process::exit(recordexport::cli(&args[1..]).await);
     }
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())

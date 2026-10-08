@@ -103,7 +103,9 @@ pub(crate) const GUEST: TabOrder = TabOrder {
 /// Sign out.
 pub(crate) const TERMS: TabOrder = TabOrder {
     name: "terms",
-    stops: &["text", "retry", "not-now", "accept", "stay", "leave"],
+    stops: &[
+        "text", "retry", "not-now", "decline", "accept", "stay", "leave",
+    ],
     modal: true,
 };
 /// The About sheet.

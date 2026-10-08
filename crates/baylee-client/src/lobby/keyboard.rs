@@ -40,8 +40,9 @@ pub(super) fn keyboard(
         return;
     }
     // The terms sheet answers its own keys (`front::terms::terms_keys`);
-    // nothing under it takes one.
-    if state.terms.up() {
+    // nothing under it takes one, except the account deletion's
+    // confirmation that its Decline stood over it (below).
+    if state.terms.up() && state.lobby.deleting_account().is_none() {
         keys.clear();
         return;
     }

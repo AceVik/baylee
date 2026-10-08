@@ -4107,12 +4107,25 @@ Shift and said under the password being typed.
 
 **The terms sheet** (WG-1; `client-core::terms`, `lobby/front/terms.rs`):
 modal over whatever the sign-in led to, its own `TabOrder` (text, Not now,
-Accept). Accept waits until the end of the text has been in view (scroll,
+Decline and delete account, Accept). Accept waits until the end of the text has been in view (scroll,
 `End`, `Space`/`PageDown`, or a text that fits); Enter in the text accepts
 once it may; **Esc never signs out** — it moves focus to Not now (or
 answers a guest's question with Stay); Not now signs out with nothing
-stored, and a guest is asked first. `docs/protocol.md` §"Terms of use
-(WG-1)" has the wire.
+stored, and a guest is asked first. **Decline and delete account** ("Ablehnen
+und Konto löschen", the words the terms name), drawn while the text is up
+(not on a sheet still loading or failed), opens the account deletion's own
+confirmation (#292, `confirm::draw_deletion`) over the sheet: the password
+again for an account, nothing for a guest, the same `DELETE /account`, the
+same limiter. That confirmation holds the keyboard (its box, Enter, Esc as
+Cancel, Tab); no stop of the sheet keeps focus under it, and cancelled,
+focus is back on Decline. Deleted, the session ends and the front door
+shows. The text is asked for in the
+interface's language (`GET /terms?lang=`, `terms::url`), and asked again
+when the language is switched while the sheet is up (`Terms::relang`,
+`front::terms::follow_the_language`): the text on it stays until the new
+one comes, an answer to the language left behind is dropped, and the new
+text is read to its end again. `docs/protocol.md` §"Terms of use (WG-1)"
+has the wire.
 
 ### A language model in a chair
 

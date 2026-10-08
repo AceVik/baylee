@@ -1,34 +1,67 @@
 //! The terms of use (WG-1): the text, accepting it, and whether a sign-in
-//! must ask (`terms.rs` reads the file).
+//! must ask (`terms.rs` reads the files, one or one per language).
 
 use crate::{
-    AppState, Deserialize, ErrorBody, HeaderMap, Json, Shared, State, StatusCode, authed, db_down,
-    err, store,
+    AppState, Deserialize, ErrorBody, HeaderMap, Json, Query, Shared, State, StatusCode, authed,
+    db_down, err, store,
 };
+use axum::http::{HeaderValue, header};
+use axum::response::{IntoResponse, Response};
 
 /// What a gateway without terms answers where terms would be.
 const NO_TERMS: &str = "this gateway has no terms of use";
 
-/// `GET /terms` → `{version, updated?, markdown}`.
+/// What `GET /terms` takes.
+#[derive(Deserialize)]
+pub(crate) struct TermsQuery {
+    /// The client's interface language (`de`, `en`; a regional tag is read
+    /// by its first part). Absent is English.
+    lang: Option<String>,
+}
+
+/// `GET /terms?lang=de` → `{version, updated?, markdown, lang?}`.
 ///
 /// Public, because the terms are what a player reads before agreeing to
 /// anything, and a gateway list may show them before anything is saved.
 /// `404` on a gateway without terms.
+///
+/// The text is in the asked language when the gateway has it, else in
+/// English; `lang` (and `Content-Language`) says which it is. A gateway
+/// with one file for everyone answers that file and names no language, so
+/// its answer is what it was before there were languages. Only `?lang=`
+/// decides, never `Accept-Language`: the interface's language is the
+/// player's choice and may not be the browser's, and an answer that varies
+/// by its address alone cannot be cached in the wrong language.
 pub(crate) async fn terms(
     State(state): State<Shared>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    Query(query): Query<TermsQuery>,
+) -> Result<Response, (StatusCode, Json<ErrorBody>)> {
     let terms = state
         .terms
         .as_ref()
         .ok_or_else(|| err(StatusCode::NOT_FOUND, NO_TERMS))?;
+    let text = terms.text(query.lang.as_deref());
     let mut body = serde_json::json!({
         "version": terms.version,
-        "markdown": terms.markdown,
+        "markdown": text.markdown,
     });
-    if let Some(updated) = &terms.updated {
+    if let Some(updated) = &text.updated {
         body["updated"] = updated.clone().into();
     }
-    Ok(Json(body))
+    if let Some(lang) = &text.lang {
+        body["lang"] = lang.clone().into();
+    }
+    let mut response = Json(body).into_response();
+    if let Some(lang) = text
+        .lang
+        .as_deref()
+        .and_then(|l| HeaderValue::from_str(l).ok())
+    {
+        response
+            .headers_mut()
+            .insert(header::CONTENT_LANGUAGE, lang);
+    }
+    Ok(response)
 }
 
 /// What `POST /account/terms` takes: the version the player read.

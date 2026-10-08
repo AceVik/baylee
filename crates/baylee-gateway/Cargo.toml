@@ -38,6 +38,9 @@ baylee-protocol.workspace = true
 # constant a client refuses on.
 baylee-view.workspace = true
 bytes.workspace = true
+# The anonymised record export reads a stored record (one gzip member per
+# piece the engine sent) and writes one member per record.
+flate2.workspace = true
 futures-util.workspace = true
 getrandom.workspace = true
 # Uploaded sleeves and playmats are decoded before they are stored — the
@@ -76,5 +79,4 @@ baylee-view.workspace = true
 # test that two of them play a whole game through this gateway. Its lobby
 # and socket code are the ones its binary runs.
 baylee-seat.workspace = true
-flate2.workspace = true
 tokio-tungstenite.workspace = true
