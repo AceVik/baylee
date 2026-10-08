@@ -303,8 +303,6 @@ pub(crate) mod glyph {
     pub const SKULL: char = '\u{f54c}';
     /// Ban (exile).
     pub const EXILE: char = '\u{f05e}';
-    /// Skull and crossbones (poison counters), on a player's button (#264).
-    pub const POISON: char = '\u{f714}';
     /// Battery half (charge counters on a permanent).
     pub const CHARGE: char = '\u{f242}';
     /// Bolt (energy counters).
@@ -320,9 +318,18 @@ pub(crate) mod glyph {
     pub const CARET_DOWN: char = '\u{f0d7}';
     /// Expand (resize handle).
     pub const EXPAND: char = '\u{f065}';
-    /// Crown (the command zone, and a commander's damage on a player's
-    /// button, #264).
+    /// Crown (the command zone).
     pub const COMMAND: char = '\u{f521}';
+    /// Crown again, as the monarch's (CR 724): on the monarch's plate and
+    /// chip, in the candle's gold (the owner, 08.10.2026). The same glyph as
+    /// [`COMMAND`], which is why commander damage left it.
+    pub const CROWN: char = '\u{f521}';
+    /// Infinity: a hand no maximum size applies to, the mark alone.
+    pub const INFINITY: char = '\u{f534}';
+    /// Half a shield: the most damage one commander has dealt a seat
+    /// (CR 903.10a), on its plate and chip. It wore the crown until the
+    /// monarch needed it.
+    pub const COMMANDER_DAMAGE: char = '\u{f3ed}';
     /// Robot (a chair the house plays, on a player's button, #264).
     pub const HOUSE: char = '\u{f544}';
     /// Person walking (a player who stepped away, whose chair is held).
@@ -1938,6 +1945,25 @@ pub(crate) fn beside_corner(window: Vec2) -> Rect {
     )
 }
 
+/// What the HUD stands in over the table's two top corners, in a window
+/// `window` big: the arrangement pill at the left (at its widest name) and
+/// the report button with the square beside it at the right, each down to
+/// [`TOP_CLEAR`]. Ink pinned to the table that would reach either is drawn
+/// somewhere else (`seatbar::attached::plate_on`).
+#[must_use]
+pub(crate) fn hud_corners(window: Vec2) -> [Rect; 2] {
+    let pill = crate::arrangement::widest_pill();
+    [
+        Rect::new(0.0, 0.0, EDGE + pill + 4.0, TOP_CLEAR),
+        Rect::new(
+            window.x - BESIDE_CORNER - CORNER_BUTTON - 4.0,
+            0.0,
+            window.x,
+            TOP_CLEAR,
+        ),
+    ]
+}
+
 /// The end screen's root rung: over every other root of the table
 /// (`GlobalZIndex(0)`, the seat bars at -1). See [`finish`].
 pub(crate) const G_FINISH: i32 = 1;
@@ -2173,6 +2199,7 @@ pub struct DetachedHud;
 pub(crate) mod chosen_type;
 mod finish;
 mod hand;
+pub(crate) mod hint;
 mod ledge;
 pub(crate) use ledge::ai_log::update_ai_log;
 pub(crate) mod hand_drawer;
@@ -2209,6 +2236,7 @@ pub use hand::apply_hand_scroll;
 /// Gentle lift while inspecting a hand card.
 pub(crate) const HOVER_RAISE: f32 = 12.0;
 pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
+pub use hint::{Hint, show_hint};
 /// The one line the actions row carries, which `frontal` paints because the
 /// row is drawn by a `MaterialNode` and a border on one is a question.
 pub(crate) use ledge::LIP as LEDGE_LIP;
@@ -2218,10 +2246,11 @@ pub use ledge::log::{
     sync_log,
 };
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, show_priority_switch, sync_menu};
+pub(crate) use ledge::players::STRIPS_H;
 pub use ledge::players::{
-    ChipTag, PlayersRevision, TagKind, glow_the_players, show_the_tags, sync_players,
+    ChipCrown, ChipTag, PlayersRevision, TagKind, glow_the_players, show_the_tags, sync_players,
 };
-pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool, zoom_the_pool};
+pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool};
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
 pub use ledge::{
     DecisionClockLabel, LedgeLayout, LedgeRevision, LedgeShelf, count_down_the_decision, sync_ledge,
@@ -2235,6 +2264,7 @@ pub(crate) use scroll::scrolled;
 pub use scroll::{
     HandScroll, PreviewScroll, Scrolls, follow_the_hover, keep_the_preview_scrolled, scrolls,
 };
+pub use seatbar::attached::{PlateMark, PlateMarkKind, PlateTab};
 pub use seatbar::{
     BarRevision, LifeCell, SeatBar, SeatBarRoot, SeatInk, SeatStep, SeatTile, Shelf, Shelves,
     measure_shelves, place_seat_bars, stretch_step_tiles, sync_seat_bars,

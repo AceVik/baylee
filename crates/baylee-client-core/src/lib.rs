@@ -89,6 +89,7 @@ pub mod reconnect;
 pub mod reveals;
 pub mod rowscroll;
 pub mod seatbar;
+pub mod seatplate;
 pub mod settings_map;
 pub mod shellkeys;
 pub mod sky;

@@ -4645,9 +4645,10 @@ is three things that say what is happening:
   beats `Turn` rather than sitting inside it. It says what the window *is* and
   not what is owed, and stops short of what declining costs, because whether
   it is a countered spell or an unpaid tax is the engine's sentence.
-- **The number**, beside the mana pool rather than in the shelf's middle
-  column, in one register and scale with the pool, drawn by the same
-  `manapip`. It is the **remainder**, not the cost: `manaplan::remainder`
+- **The number**, on the shelf's right-end strip rather than in its middle
+  column, drawn by the same `manapip` as the plates' pools (since 08.10.2026
+  the strip says only this; the pool is on each seat's plate, §"Two lines, and
+  a plate at the mat's end"). It is the **remainder**, not the cost: `manaplan::remainder`
   subtracts the pool by the planner's own matching (a hybrid by either half,
   `{2/C}` the cheaper way, a CR 609.4b spending permission counted,
   restricted mana not, as in the planner), so `{2}{G}` owed with a Forest
@@ -4657,10 +4658,8 @@ is three things that say what is happening:
   (`nothing_is_owed_exactly_when_the_pool_pays_without_a_tap`). It is drawn
   only in this seat's own window (`view.awaiting == view.seat`): a seat
   watching an opponent pay a ward tax is owed nothing from its own pool. The
-  strip is hidden while nothing floats, and the first frame of a payment
-  window is exactly that case, so `owed` is a fourth conjunct on its `empty`
-  gate — otherwise the row saying what is owed would unfold only after the
-  player had worked it out.
+  strip stands exactly while something is owed and folds away when the
+  window closes.
 - **The lands**, through the planner unchanged. `manaplan::plan` takes a cost
   it did not derive and spends the pool first by its own contract, so passing
   `owed` — which is the *total*, not the remainder — needs no arithmetic here
@@ -6096,23 +6095,27 @@ button at the right side (sticked to right) into the actions bar AND finally:
 Put the player ettiketes there where the Manazone was above the actions bar at
 the left side."*
 
-- **The mana pool** hangs off the shelf's right end (`ledge::pool`, still
-  `strip_node`, now `StripSide::Right`, grown from its bottom-right corner).
-  The game log's panel stands on that strip's top edge, as it stood on the
-  tray's, so a log left open never covers the mana a player is spending.
+- **The mana pool** hung off the shelf's right end (`ledge::pool`, still
+  `strip_node`, `StripSide::Right`, grown from its bottom-right corner) until
+  08.10.2026, when it moved onto every seat's plate; the strip now stands only
+  while this seat owes in a payment window. The game log's panel stands on
+  that strip's top edge, as it stood on the tray's.
 - **The log's and the zones' doors** stand in the bar's own row, directly left
   of the burger and its size (`ledge::tray::root_node`; the right column
   reserves `tray::WIDTH` for them). They are still a retained node of their
   own and not the shelf's children, because the shelf is rebuilt on every
   sentence and the doors must always be there.
-- **The players' strip** (`ledge::players`) hangs off the left end: one button
+- **The players' strip** (`ledge::players`) hangs off the left end: one chip
   per seat, the reader's first, then the table's order with each team
-  together (4 px inside a team, 10 px between sides). A button is its seat's
-  spine in the colour the rim and the log name it by (`seat_colour`), a mark
-  for a house chair, an away one or a lost one, the name as the rim writes it
-  (`seatbar::called`), life, hand, library, and poison and the largest single
-  commander's damage when either is not zero. The design is Fable's, keyed to
-  the lobby's blue hour.
+  together (4 px inside a team, 10 px between sides). A chip is two lines
+  since 08.10.2026 (§"Two lines, and a plate at the mat's end"): the ☀/⌛ tags
+  stacked at its left, its seat's spine in the colour the rim and the log
+  name it by (`seat_colour`), then a mark for a house chair, an away one or a
+  lost one, the crown on the monarch, the name as the rim writes it
+  (`seatbar::called`) and the life; under them the hand (∞ beside it where no
+  maximum hand size applies), library, graveyard and exile, and poison,
+  energy and the largest single commander's damage when they are not zero.
+  The design is Fable's, keyed to the lobby's blue hour.
 - **Three edges for three states**, so they can all show at once: whose turn
   it is is a candle line along the top (wiped in from the left in 240 ms,
   faded in 120), who the table is waiting on breathes in the border (1.6 s),
@@ -6123,15 +6126,67 @@ the left side."*
   seat or the one the camera is on brings the camera home, any other glides to
   that seat (`navigate_to_player`, eased by `ShownRig`), and while a question
   can target a player the press points at that player instead.
-- **Narrow windows lose words, not height** (`players::Tier`): full, middle
-  (no library), compact (badges without numbers), initials and life. The row
-  keeps 300 px free for the pool whether or not mana floats, so it does not
-  change tier when a mana arrives.
+- **Narrow windows lose words, not lines** (`players::Tier`): full, middle
+  (no exile), compact (hand and the threatening counters), initials, life
+  and hand. Each chip is priced from what it says (`players::chip_width`),
+  so a seat with poison, commander damage and three-digit counts is not
+  priced like a quiet one (D20). The row keeps 150 px free for the owed strip
+  on a laptop whether or not a payment is open, so it does not change tier
+  when one opens; below 1000 px it keeps none and the strip stands over the
+  last chips while a payment is open. The text step scales the chips and is
+  part of the fit; a row even the narrowest tier cannot fit is cut at the
+  strip's edge rather than run off the window.
 - **The drawer stands over it.** The strip is at the shelf's rung and spawned
   before the drawer, which grows out of the same edge, centred; at eight seats
   the row reaches past the window's middle, and a question is read over the
-  roster. A maximised zone dialog covers it too, while the pool's strip stays
-  at `Z_TRAY` over both, because mana is read while it is spent.
+  roster. A maximised zone dialog covers it too, while the owed strip stays
+  at `Z_TRAY` over both, because a payment is read while it is made.
+
+### Two lines, and a plate at the mat's end (08.10.2026)
+
+The owner's six requests for the table, and what each became:
+
+- **The chips are two lines** (above): name and life, then the details. The
+  strip is `PLAYERS_STRIP_H` tall (a chip and the strip's padding) and grows
+  upwards out of the shelf by the second line; what it gives back is width —
+  eight seats fit whole on a laptop and as initials, life and hand at 844.
+- **The plate** (`seatbar::attached`, `Panel::Identity`) is what the rim's
+  identity panel was, cleaner and in the chips' blue hour: a seat-coloured
+  spine, then the same lines (`client_core::seatplate::SeatPlate`, the one
+  reading both surfaces share) — crown, mark, name, life and the ☀/⌛ tags;
+  the details; and a third line with the pool's pips (Mana font, a count
+  each, restricted mana framed) only while mana floats, for every seat. The
+  counts that stood beside the piles (`Panel::Zone`) are gone into it.
+- **Where it stands**: on the seat's band at its own left, pushed outwards
+  past the mat's drawn end towards the rim as far as the arrangement leaves
+  room (`plate_on`): five places from wholly outside to flush, then the
+  band's inset end. A place is taken only if it lies in the window, clear of
+  the HUD's top corners (`hud::hud_corners`: the widest arrangement pill, the
+  report button and the square beside it), above the strips and the hand
+  (`STRIPS_H`), and on no other seat's place (its footprint, projected). A
+  three-line plate grows towards the hearth. The text step scales it.
+- **One control**: every node on the plate is `Pickable::IGNORE`, so the
+  plate takes the hover and the press (`nothing_on_a_plate_takes_the_pointer_from_it`).
+  It is a `PlateTab`, not a `PlayerTab`: a press chooses the seat while a
+  question can target it (`Interaction::toggle_player`) and does nothing
+  otherwise — never the camera, which the chips move. Its light
+  (`PlateLight`): offered, aimed (pointer or the keyboard's `Pick::Seat`
+  aim), chosen. Its `Hint` is the plate in words, shown by the hint bubble
+  and reported as `/state.plates[].hint`.
+- **∞**: no maximum hand size is the ∞ mark alone beside the hand, on plate
+  and chip (`glyph::INFINITY`); never "7/∞", never the phrase.
+- **The monarch** wears a crown before the name on plate and chip
+  (`glyph::CROWN`, `view.monarch`). Commander damage, which had the crown,
+  wears half a shield (`glyph::COMMANDER_DAMAGE`). The log writes no line
+  for becoming the monarch today, so there is none to crown.
+- **The steps** stand at the band's right end (`pose_on`'s `Phases` arm),
+  leaving the middle to the dial; the bands lie on the seats' places, which
+  no HUD corner reaches (`camera_tests`).
+- **The pool's old strip** says only what is owed now (above).
+
+`/state.plates` reports each plate's box, whether it is drawn, its crown, ∞
+and pool line and its hint; `/state.chips` adds each chip's crown, hint and
+box.
 
 ## The bar's hinge says which turn and what the game is
 

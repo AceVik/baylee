@@ -472,6 +472,21 @@ pub fn pill_width(arrangement: Arrangement, compact: bool) -> f32 {
     2.0 * PILL_PAD + DISC + PILL_PAD + name + caret + 2.0
 }
 
+/// The widest the pill is ever drawn, whatever it names: what the table's
+/// own ink keeps clear of (`hud::hud_corners`).
+#[must_use]
+pub fn widest_pill() -> f32 {
+    // Asked every frame for every seat's plate, and the same number every
+    // time: measured once.
+    static WIDEST: std::sync::OnceLock<f32> = std::sync::OnceLock::new();
+    *WIDEST.get_or_init(|| {
+        Arrangement::ALL
+            .into_iter()
+            .map(|a| pill_width(a, false))
+            .fold(0.0, f32::max)
+    })
+}
+
 /// Where the pill stands when it names `arrangement` in a window `window`
 /// big: what the camera tests hold that arrangement's seats clear of (§2.2).
 #[must_use]

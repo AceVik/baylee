@@ -2759,6 +2759,30 @@ messages! {
     // ---- the mana pool
     /// Mana pool
     ManaPool { en: "Mana pool", de: "Manavorrat" },
+    /// A seat's plate and chip, said in words (tooltip, accessible name).
+    PlateLife { en: "{0} life", de: "{0} Leben" },
+    /// Cards in a seat's hand.
+    PlateHand { en: "{0} in hand", de: "{0} auf der Hand" },
+    /// Cards in a seat's library.
+    PlateLibrary { en: "{0} in library", de: "{0} in der Bibliothek" },
+    /// Cards in a seat's graveyard.
+    PlateGraveyard { en: "{0} in graveyard", de: "{0} im Friedhof" },
+    /// Cards in a seat's public exile.
+    PlateExile { en: "{0} in exile", de: "{0} im Exil" },
+    /// Poison counters on a seat.
+    PlatePoison { en: "{0} poison", de: "{0} Gift" },
+    /// Energy counters on a seat.
+    PlateEnergy { en: "{0} energy", de: "{0} Energie" },
+    /// The most combat damage one commander has dealt a seat.
+    PlateCommander { en: "{0} commander damage", de: "{0} Kommandeurschaden" },
+    /// The monarch designation (CR 724), beside the crown.
+    PlateMonarch { en: "Monarch", de: "Monarch" },
+    /// A seat that is out of the game.
+    PlateLost { en: "Out of the game", de: "Ausgeschieden" },
+    /// The seat whose turn it is (the ☀ tag's words).
+    PlateTurn { en: "Their turn", de: "Am Zug" },
+    /// The seat the table waits for (the ⌛ tag's words).
+    PlateWaiting { en: "The table waits for them", de: "Der Tisch wartet" },
     /// Badge on the player whose turn is in progress (not merely priority).
     ActiveTurn { en: "Turn", de: "Am Zug" },
     /// The creature type publicly named for this permanent.

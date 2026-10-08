@@ -1743,10 +1743,9 @@ fn add_present_systems(app: &mut App) {
                 // leave, and a panel it has just spawned is drawn small on
                 // the frame it first appears rather than a frame later.
                 hud::zoom_the_drawer.after(hud::sync_drawer),
-                // The pool's own row, on its own revision, after the shelf it
-                // hangs beside — and its two movements after that, for the
-                // drawer's reason: a spent mana has to be able to leave, and
-                // so does the strip it was the last thing on.
+                // The owed strip, on its own revision, after the shelf it
+                // hangs beside — and its movement after that, for the
+                // drawer's reason: the strip has to be able to fold away.
                 // Nested, and it has to stay nested: `add_systems` takes a
                 // tuple and a tuple of systems is implemented up to twenty.
                 // This set was at twenty, so the pair goes in together rather
@@ -1766,7 +1765,6 @@ fn add_present_systems(app: &mut App) {
                 // run time and the pair that belongs together is the one that
                 // pays for the ceiling.
                 (
-                    hud::zoom_the_pool.after(hud::sync_pool),
                     hud::grow_the_pool.after(hud::sync_pool),
                     // The game menu's panel and its movement, in the pool's
                     // nest for the pool's reason — the tuple above is at
@@ -1812,6 +1810,9 @@ fn add_present_systems(app: &mut App) {
                     hud::glow_the_players.after(hud::sync_players),
                     hud::show_the_tags.after(hud::sync_players),
                     hud::show_priority_switch,
+                    // A chip's or a plate's name in words, under a pointer
+                    // resting on it.
+                    hud::show_hint.after(hud::sync_players),
                 ),
                 // The zone dialog, on a revision of its own for the same
                 // reason as the shelf and with a louder symptom: the dialog

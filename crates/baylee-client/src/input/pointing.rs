@@ -3,6 +3,15 @@
 #[allow(clippy::wildcard_imports)] // the input module's shared vocabulary
 use super::*;
 
+/// What a press on a seat can land on: a chip in the players' strip (or a
+/// peek), which may move the camera, and a seat's plate on the table, which
+/// never does.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct SeatPresses<'w, 's> {
+    tabs: Query<'w, 's, &'static PlayerTab>,
+    plates: Query<'w, 's, &'static crate::hud::PlateTab>,
+}
+
 /// Pointer handling: clicking a card, a player tab, or a rail button.
 ///
 /// A click means "this object", and what that does depends entirely on the
@@ -14,7 +23,7 @@ pub fn pointer(
     mut clicks: MessageReader<Pointer<Click>>,
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
-    tabs: Query<&PlayerTab>,
+    seats: SeatPresses,
     peek_chips: Query<&crate::hud::peeks::PeekChip>,
     seat_steps: Query<&crate::hud::SeatStep>,
     menu_buttons: Query<&MenuButton>,
@@ -63,7 +72,16 @@ pub fn pointer(
             crate::touch::answer(&mut touched, answer);
             continue;
         }
-        if let Some(tab) = find_in_lineage(e, &tabs, &parents) {
+        // A seat's plate on the table (the owner, 08.10.2026): a press
+        // chooses the seat while a question can target it, and is nothing
+        // otherwise — never the camera, which the players' strip moves.
+        if let Some(plate) = find_in_lineage(e, &seats.plates, &parents) {
+            if let Some(i) = duel.interaction.as_mut() {
+                i.toggle_player(plate.player);
+            }
+            continue;
+        }
+        if let Some(tab) = find_in_lineage(e, &seats.tabs, &parents) {
             // A seat is a legal target of what is being cast ("any target",
             // CR 115.4), so the tab is how a player points at a face. It only
             // stops being a camera control while that is true — and a click

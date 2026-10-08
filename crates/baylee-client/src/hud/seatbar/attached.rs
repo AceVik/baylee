@@ -1,27 +1,87 @@
-//! Identity at the seat's own left corner, phases along its centre-facing
-//! band, and counts beside the corresponding piles. Ink stays upright while
-//! its anchors follow the table projection, including opposing seats.
+//! A seat's plate at its mat's edge, its steps at the band's right end, and
+//! the turn number in the dial. Ink stays upright while its anchors follow
+//! the table projection, including opposing seats.
+//!
+//! # The plate (the owner's requests of 08.10.2026)
+//!
+//! *"Make it cleaner … and move it closer to the table edge (the mat's outer
+//! edge / the table rim, per arrangement). Clicking it means targeting that
+//! player … NO camera control from this plate."* The plate is the seat's
+//! name and life on its first line, its hand, library, graveyard, exile and
+//! counters on the second, and on a third — only while there is any — the
+//! mana floating in its pool (`client_core::seatplate`, which the players'
+//! strip reads too). A crown stands before the monarch's name and an ∞ after
+//! a hand no maximum size applies to.
+//!
+//! **Where.** On the seat's band, which runs along the mat's centre-facing
+//! edge, at the seat's own left — and pushed outwards along that band, past
+//! the mat's drawn end and onto the felt towards the rim, as far as the
+//! arrangement leaves room ([`plate_on`]): it may not leave the window, reach
+//! a corner the HUD stands in, lie under the strips and the hand, or cover
+//! another seat's place. A duel has room beside each mat; a ring of eight
+//! often has only the band. The steps went the other way, to the band's right
+//! end, so the middle of the table is the dial's.
+//!
+//! **The plate is one control.** Everything written on it is
+//! `Pickable::IGNORE`, so the plate itself is what the pointer hovers and
+//! presses (a label that took the hover would leave the plate cold under the
+//! pointer). It is a [`PlateTab`], not a `PlayerTab`: a press chooses the
+//! seat while a question can target it and otherwise does nothing — the
+//! players' strip is where the camera is moved from.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use baylee_client_core::seatplate::{Detail, SeatPlate};
 
-const HEADER_H: f32 = 60.0;
-const HEADER_W: f32 = 240.0;
-const TRACK_W: f32 = 80.0;
+/// The plate's width at scale 1, step L.
+const PLATE_W: f32 = 260.0;
+/// Its padding: across, and above and below.
+const PLATE_PAD_X: f32 = 8.0;
+const PLATE_PAD_Y: f32 = 5.0;
+/// Its three lines' heights, and the gap between two.
+const LINE_1: f32 = 22.0;
+const LINE_2: f32 = 17.0;
+const LINE_3: f32 = 20.0;
+const LINE_GAP: f32 = 2.0;
+/// The seat colour's spine down the plate's left edge, as on its chip.
+const PLATE_SPINE: f32 = 3.0;
+
+/// The plate's size at scale 1: two lines, or three while mana floats.
+#[must_use]
+pub(crate) const fn plate_size(lines: u8) -> Vec2 {
+    let two = 2.0 * PLATE_PAD_Y + LINE_1 + LINE_GAP + LINE_2;
+    Vec2::new(
+        PLATE_W,
+        if lines > 2 {
+            two + LINE_GAP + LINE_3
+        } else {
+            two
+        },
+    )
+}
+
+const HEADER_H: f32 = plate_size(2).y;
+const HEADER_W: f32 = PLATE_W;
+/// The steps' panel: its height across the band and its length along it.
+const TRACK_W: f32 = 60.0;
 const TRACK_H: f32 = 520.0;
 
 /// Minimum clear space around the identity and phase groups.
 const BAND_GAP: f32 = 32.0;
 
+/// The plate's ground: the players' strip's blue hour, so a seat's chip and
+/// its plate read as one thing in two places.
+const PLATE_GROUND: Color = Color::srgba(0.075, 0.115, 0.165, 0.90);
+/// Its rim at rest.
+const PLATE_RIM: Color = Color::srgba(0.40, 0.54, 0.62, 0.45);
+
 /// Which part of the seat's band carries this piece of its information.
 #[derive(Component, Clone, Copy, Debug)]
 pub enum Panel {
-    /// Name, life, priority and turn at the leftmost end of the band.
+    /// The plate: name, life and details, at the seat's own left.
     Identity,
-    /// The twelve steps, in the middle of the band.
+    /// The twelve steps, at the band's right end.
     Phases,
-    /// Icon and count beside its own pile.
-    Zone(Zone),
     /// One numeral inside the central compass.
     Turn,
 }
@@ -30,11 +90,18 @@ impl Panel {
     pub(crate) fn size(self) -> Vec2 {
         match self {
             Self::Identity => Vec2::new(HEADER_W, HEADER_H),
-            Self::Zone(_) => Vec2::new(54.0, HEADER_H),
             Self::Turn => Vec2::new(TURN_CELL * 3.0, TURN_EM * 1.2),
             Self::Phases => Vec2::new(TRACK_H, TRACK_W),
         }
     }
+}
+
+/// A seat's plate: a press chooses that seat while a question can target
+/// it, and does nothing otherwise (no camera, by the owner's word).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PlateTab {
+    /// The seat.
+    pub player: PlayerId,
 }
 
 /// The letters remain upright; their centres and scale follow the table.
@@ -46,12 +113,11 @@ impl Panel {
 pub(super) fn place(
     duel: &Duel,
     lens: Option<&crate::table::Lens>,
-    player: PlayerId,
-    panel: Panel,
+    (player, panel, step): (PlayerId, Panel, f32),
     node: &mut Mut<Node>,
     turn: &mut Mut<UiTransform>,
 ) {
-    let Some((corner, tilt, scale)) = pose(duel, lens, player, panel) else {
+    let Some((corner, tilt, scale)) = pose(duel, lens, player, panel, step) else {
         if node.display != Display::None {
             node.display = Display::None;
         }
@@ -75,60 +141,229 @@ pub(super) fn place(
     }
 }
 
+/// How many lines `player`'s plate is drawn with in `duel`'s view, without
+/// building the plate (this runs every frame).
+fn plate_lines(duel: &Duel, player: PlayerId) -> u8 {
+    let floating = duel
+        .view
+        .as_ref()
+        .and_then(|v| v.seat(player))
+        .is_some_and(|s| !s.mana_pool.is_empty());
+    if floating { 3 } else { 2 }
+}
+
 /// Where one of `player`'s panels stands — its box's top-left, turn and
 /// scale — or `None` where it is not drawn (a tear running, no shelf on
-/// screen, or under the hand zone).
-pub(super) fn pose(
+/// screen, or under the hand zone). `step` is the text step's factor, which
+/// the plate is drawn at.
+pub(crate) fn pose(
     duel: &Duel,
     lens: Option<&crate::table::Lens>,
     player: PlayerId,
     panel: Panel,
+    step: f32,
 ) -> Option<(Vec2, f32, f32)> {
-    let pose = (|| {
-        // Ink pinned to a band of felt that is tearing would jump stage by
-        // stage ahead of its mat: the bars stand down for the second it
-        // takes, and come back on the docked table.
-        if duel.tear.is_some() {
-            return None;
-        }
-        let lens = lens?;
-        let slot = duel.layout.as_ref()?.shown(player)?;
-        // The seat's own band, projected: the strip along the rim nearest the
-        // middle of the table. Taken from the model rather than measured off
-        // `half_extent` here, so the ink and `Shelf` — the density probe and
-        // the tiny-overview fallback — are describing one rectangle again.
-        let corners = lens.corners(slot.ledge_corners())?;
-        let (_, tilt, scale) = pose_on(corners, Panel::Identity);
-        if matches!(panel, Panel::Turn) {
-            // The number's size rule (DESIGN-v7 §3.4): a share of the dial's
-            // drawn diameter, floored at 16 px and capped at 40, so a turn
-            // past 100 reads at eight seats and does not shout on a visit.
-            let middle = lens.project(Vec2::ZERO)?;
-            let across = crate::dial::dial_px(lens)?;
-            return Some((
-                middle - panel.size() * 0.5,
-                0.0,
-                baylee_client_core::dial::number_px(across) / TURN_EM,
-            ));
-        }
-        if let Panel::Zone(zone) = panel {
-            use baylee_client_core::layout::PileKind;
-            let pile = match zone {
-                Zone::Library => PileKind::Library,
-                Zone::Graveyard => PileKind::Graveyard,
-                Zone::Exile => PileKind::Exile,
-                Zone::Hand => return Some(pose_on(corners, Panel::Identity)),
-            };
-            let side = Vec2::new(slot.facing.cos(), -slot.facing.sin());
-            let middle = lens.project(slot.pile_center(pile) + side * (0.91 * slot.scale))?;
-            return Some((middle - panel.size() * 0.5, tilt, scale));
-        }
-        Some(pose_on(corners, panel))
-    })();
-    let covered = |&(corner, tilt, scale): &(Vec2, f32, f32)| {
-        lens.is_some_and(|lens| under_the_hand(corner, panel.size(), tilt, scale, lens.window()))
+    // Ink pinned to a band of felt that is tearing would jump stage by
+    // stage ahead of its mat: the bars stand down for the second it takes,
+    // and come back on the docked table.
+    if duel.tear.is_some() {
+        return None;
+    }
+    let lens = lens?;
+    if matches!(panel, Panel::Turn) {
+        // The number's size rule (DESIGN-v7 §3.4): a share of the dial's
+        // drawn diameter, floored at 16 px and capped at 40, so a turn past
+        // 100 reads at eight seats and does not shout on a visit.
+        let middle = lens.project(Vec2::ZERO)?;
+        let across = crate::dial::dial_px(lens)?;
+        return Some((
+            middle - panel.size() * 0.5,
+            0.0,
+            baylee_client_core::dial::number_px(across) / TURN_EM,
+        ));
+    }
+    let layout = duel.layout.as_ref()?;
+    let slot = layout.shown(player)?;
+    // The seat's own band, projected: the strip along the rim nearest the
+    // middle of the table, taken from the model so the ink and `Shelf` — the
+    // density probe and the tiny-overview fallback — describe one rectangle.
+    let corners = lens.corners(slot.ledge_corners())?;
+    if matches!(panel, Panel::Identity) {
+        let lines = plate_lines(duel, player);
+        return plate_on(
+            layout,
+            slot,
+            lens,
+            corners,
+            (lines, step, hand_top(duel, lens)),
+        );
+    }
+    let pose = pose_on(corners, panel);
+    (!under_the_hand(pose.0, panel.size(), pose.1, pose.2, hand_top(duel, lens))).then_some(pose)
+}
+
+/// Where the hand zone's top edge stands in the lens's window: the zone's
+/// whole height on a laptop, and on a phone what of it the hand drawer has
+/// open (`hand_drawer::drop_at`) — shut, only the actions bar is left there.
+pub(crate) fn hand_top(duel: &Duel, lens: &crate::table::Lens) -> f32 {
+    let window = lens.window();
+    let phone = baylee_client_core::tableview::TableFrame::of(window.x, window.y)
+        == baylee_client_core::tableview::TableFrame::Phone;
+    let drop = if phone {
+        crate::hud::hand_drawer::drop_at(duel.hand_shown)
+    } else {
+        0.0
     };
-    pose.filter(|pose| !covered(pose))
+    window.y - (crate::hud::HAND_ZONE_H - drop)
+}
+
+/// The plate's pose: as far out along the seat's band, towards the table's
+/// edge, as the arrangement leaves room for.
+///
+/// Five places are tried, outermost first: wholly past the mat's drawn end
+/// (on the felt by the rim), three steps in between, and flush with the mat's
+/// end; then the band's own left end, inset as the steps' panel is. The first
+/// that lies in the window, clear of the corners the HUD stands in
+/// ([`clear_of_the_hud`]), above the strips and the hand, and on no other
+/// seat's place is the one drawn. A plate grown to three lines grows towards
+/// the hearth, so its first line stays where it was.
+pub(crate) fn plate_on(
+    layout: &baylee_client_core::layout::TableLayout,
+    slot: &baylee_client_core::layout::SeatSlot,
+    lens: &crate::table::Lens,
+    corners: [Vec2; 4],
+    (lines, step, hand_top): (u8, f32, f32),
+) -> Option<(Vec2, f32, f32)> {
+    let size = plate_size(lines);
+    let [near_a, near_b, far_b, far_a] = corners;
+    let left = near_a.midpoint(far_a);
+    let right = near_b.midpoint(far_b);
+    let axis = (right - left).normalize_or_zero();
+    let width = left.distance(right);
+    let hearth = (near_a.midpoint(near_b) - far_a.midpoint(far_b)).normalize_or_zero();
+    let (band_corner, tilt, band_scale) = pose_on(corners, Panel::Identity);
+    let scale = band_scale * step;
+    let grow = hearth * ((size.y - HEADER_H) * scale * 0.5);
+    let box_at = |middle: Vec2| middle + grow - size * 0.5;
+    // The mat is drawn `MAT_MARGIN` past the band's end, and a table unit
+    // along the band is `width / (2·half_extent.x)` pixels here.
+    let per_unit = width / (2.0 * slot.half_extent.x).max(f32::EPSILON);
+    let mat_end = left - axis * (baylee_client_core::tabletop::MAT_MARGIN * slot.scale * per_unit);
+    let half = size.x * scale * 0.5;
+    let window = lens.window();
+    let fits = |corner: Vec2| {
+        let quad = drawn_quad(corner, size, tilt, scale);
+        clear_of_the_hud(&quad, window, hand_top)
+            && !on_another_seat(&quad, layout, slot.player, lens)
+    };
+    for k in 0..=4u8 {
+        let off = half * (f32::from(k) * 0.5 - 1.0);
+        let corner = box_at(mat_end + axis * off);
+        if fits(corner) {
+            return Some((corner, tilt, scale));
+        }
+    }
+    let corner = band_corner + Panel::Identity.size() * 0.5;
+    let corner = box_at(corner);
+    let quad = drawn_quad(corner, size, tilt, scale);
+    clear_of_the_hud(&quad, window, hand_top).then_some((corner, tilt, scale))
+}
+
+/// The four corners a box posed like this is drawn at: `corner` is the
+/// top-left of the un-rotated box and `size` its size before `scale`; the
+/// turn and the scale are about the box's own middle.
+pub(crate) fn drawn_quad(corner: Vec2, size: Vec2, tilt: f32, scale: f32) -> [Vec2; 4] {
+    let middle = corner + size * 0.5;
+    let half = size * scale * 0.5;
+    let spin = Rot2::radians(tilt);
+    [
+        middle + spin * Vec2::new(-half.x, -half.y),
+        middle + spin * Vec2::new(half.x, -half.y),
+        middle + spin * Vec2::new(half.x, half.y),
+        middle + spin * Vec2::new(-half.x, half.y),
+    ]
+}
+
+/// Whether a drawn quad lies inside the window and clear of what the HUD
+/// stands over the table: the two top corners (the arrangement pill and the
+/// report button, with the square beside it) and the strips and the hand
+/// along the bottom (the hand zone's top is `hand_top`). Bars are drawn
+/// under the HUD (`GlobalZIndex(-1)`), so a plate there would be read
+/// half-covered.
+pub(crate) fn clear_of_the_hud(quad: &[Vec2; 4], window: Vec2, hand_top: f32) -> bool {
+    const MARGIN: f32 = crate::hud::EDGE;
+    let inside = quad.iter().all(|p| {
+        p.x >= MARGIN
+            && p.x <= window.x - MARGIN
+            && p.y >= MARGIN
+            && p.y <= hand_top - crate::hud::STRIPS_H
+    });
+    inside
+        && crate::hud::hud_corners(window)
+            .iter()
+            .all(|corner| !overlaps(quad, &rect_quad(*corner)))
+}
+
+/// A rectangle's corners, round the loop.
+fn rect_quad(rect: Rect) -> [Vec2; 4] {
+    [
+        rect.min,
+        Vec2::new(rect.max.x, rect.min.y),
+        rect.max,
+        Vec2::new(rect.min.x, rect.max.y),
+    ]
+}
+
+/// Whether two convex quads overlap: a separating-axis test on their edges'
+/// normals.
+pub(crate) fn overlaps(a: &[Vec2; 4], b: &[Vec2; 4]) -> bool {
+    let span = |points: &[Vec2; 4], axis: Vec2| {
+        points
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), p| {
+                (lo.min(p.dot(axis)), hi.max(p.dot(axis)))
+            })
+    };
+    let apart = |shape: &[Vec2; 4]| {
+        (0..4).any(|i| {
+            let edge = shape[(i + 1) % 4] - shape[i];
+            let axis = Vec2::new(-edge.y, edge.x);
+            let (a0, a1) = span(a, axis);
+            let (b0, b1) = span(b, axis);
+            a1 < b0 || b1 < a0
+        })
+    };
+    !(apart(a) || apart(b))
+}
+
+/// Whether a drawn quad covers any other seat's place — its mat and its piles,
+/// as the camera draws them.
+fn on_another_seat(
+    quad: &[Vec2; 4],
+    layout: &baylee_client_core::layout::TableLayout,
+    player: PlayerId,
+    lens: &crate::table::Lens,
+) -> bool {
+    layout
+        .on_felt()
+        .filter(|other| other.player != player)
+        .any(|other| {
+            let (sin, cos) = other.facing.sin_cos();
+            // Out to the mat as it is drawn, `MAT_MARGIN` past the playing
+            // extent, which is where its band and the ink on it stand too.
+            let half = other.footprint()
+                + Vec2::splat(baylee_client_core::tabletop::MAT_MARGIN * other.scale);
+            let at = |sx: f32, sy: f32| {
+                let local = half * Vec2::new(sx, sy);
+                other.footprint_center()
+                    + Vec2::new(
+                        cos.mul_add(local.x, sin * local.y),
+                        (-sin).mul_add(local.x, cos * local.y),
+                    )
+            };
+            lens.corners([at(-1.0, -1.0), at(1.0, -1.0), at(1.0, 1.0), at(-1.0, 1.0)])
+                .is_some_and(|place| overlaps(quad, &place))
+        })
 }
 
 /// Where one panel sits on a seat's projected band, and how big.
@@ -142,7 +377,10 @@ pub(super) fn pose(
 ///
 /// Returns the **top-left of the un-rotated box**, which is what a `Node`'s
 /// `left`/`top` want, together with the turn and the scale
-/// [`UiTransform`] applies about the box's own middle.
+/// [`UiTransform`] applies about the box's own middle. The identity is at
+/// the band's left end (the plate's last resort, [`plate_on`]) and the steps
+/// at its right end (the owner, 08.10.2026: *"further to the right
+/// corner"*), which leaves the middle to the dial.
 pub(crate) fn pose_on(corners: [Vec2; 4], panel: Panel) -> (Vec2, f32, f32) {
     let [near_a, near_b, far_b, far_a] = corners;
     // Preserve the owner's left/right order, even for the opposing seat.
@@ -159,9 +397,8 @@ pub(crate) fn pose_on(corners: [Vec2; 4], panel: Panel) -> (Vec2, f32, f32) {
         .min(1.0);
     let middle = match panel {
         Panel::Identity => left + axis * (HEADER_W * scale * 0.5 + BAND_GAP * scale),
-        Panel::Zone(_) => right - axis * (27.0 * scale + BAND_GAP * scale),
         Panel::Turn => left.midpoint(right),
-        Panel::Phases => left + axis * (width * 0.5 + (HEADER_W + BAND_GAP) * scale * 0.5),
+        Panel::Phases => right - axis * (TRACK_H * scale * 0.5 + BAND_GAP * scale),
     };
     (
         middle - panel.size() * 0.5,
@@ -179,7 +416,8 @@ pub(crate) fn pose_on(corners: [Vec2; 4], panel: Panel) -> (Vec2, f32, f32) {
     )
 }
 
-/// Whether any of a box posed like this lies under the hand zone (#303).
+/// Whether any of a box posed like this lies under the hand zone (#303) or
+/// the strips standing on it.
 ///
 /// `corner` is the top-left of the un-rotated box and `size` its size before
 /// `scale`, which is what [`pose_on`] hands over; the turn and the scale are
@@ -195,34 +433,32 @@ pub(crate) fn pose_on(corners: [Vec2; 4], panel: Panel) -> (Vec2, f32, f32) {
 /// writing, and the seat's name and life are on the players' strip above the
 /// bar anyway. A box any part of which would be covered is not drawn at all,
 /// since half a name is worse than none.
-///
-/// Only these panels ask. The legacy marks a seat falls back to
-/// (`Density::Mark`) are drawn where a band is too small to write on, which
-/// is a far seat and never one the camera stands over.
 pub(crate) fn under_the_hand(
     corner: Vec2,
     size: Vec2,
     tilt: f32,
     scale: f32,
-    window: Vec2,
+    hand_top: f32,
 ) -> bool {
     let (sin, cos) = tilt.sin_cos();
     let half = size * scale * 0.5;
     let reach = sin.abs().mul_add(half.x, cos.abs() * half.y);
-    corner.y + size.y * 0.5 + reach > window.y - crate::hud::HAND_ZONE_H
+    corner.y + size.y * 0.5 + reach > hand_top
 }
 
-/// Screen-space centre of the life value, sharing the identity's placement.
+/// Screen-space centre of the life value on `player`'s plate, wherever the
+/// plate stands: what an attack's arrow points at.
 pub(crate) fn life_anchor(
-    slot: &baylee_client_core::layout::SeatSlot,
+    duel: &Duel,
+    player: PlayerId,
     lens: &crate::table::Lens,
+    step: f32,
 ) -> Option<Vec2> {
-    let (corner, angle, scale) = pose_on(lens.corners(slot.ledge_corners())?, Panel::Identity);
-    let centre = corner + Panel::Identity.size() * 0.5;
-    Some(
-        centre
-            + Rot2::radians(angle) * (Vec2::new(36.0, 43.0) - Panel::Identity.size() * 0.5) * scale,
-    )
+    let (corner, angle, scale) = pose(duel, Some(lens), player, Panel::Identity, step)?;
+    let size = plate_size(plate_lines(duel, player));
+    let centre = corner + size * 0.5;
+    let life = Vec2::new(PLATE_W - PLATE_PAD_X - 34.0, PLATE_PAD_Y + LINE_1 * 0.5);
+    Some(centre + Rot2::radians(angle) * (life - size * 0.5) * scale)
 }
 
 fn frame(commands: &mut Commands, root: Entity, player: PlayerId, panel: Panel) -> Entity {
@@ -271,10 +507,10 @@ pub(super) fn spawn(
     fonts: &UiFonts,
 ) {
     spawn_identity(commands, root, lang, view, statics, seat, role, fonts);
-    spawn_counts(commands, root, view, seat, fonts);
     spawn_phases(commands, root, lang, view, statics, seat, orders, fonts);
 }
 
+/// The plate: spine, then three lines (`client_core::seatplate`).
 #[allow(clippy::too_many_arguments)]
 fn spawn_identity(
     commands: &mut Commands,
@@ -286,202 +522,395 @@ fn spawn_identity(
     role: baylee_client_core::board::SeatRole,
     fonts: &UiFonts,
 ) {
+    let Some(plate) = SeatPlate::of(view, seat.player) else {
+        return;
+    };
+    let size = plate_size(plate.lines());
+    let called = super::called(lang, view, statics, seat.player, role);
     let identity = frame(commands, root, seat.player, Panel::Identity);
     commands.entity(identity).insert((
-        PlayerTab {
+        PlateTab {
             player: seat.player,
         },
+        crate::hud::Hint(plate.describe(lang, &called)),
+        // The plate is the one thing here the pointer may land on.
         Pickable::default(),
         bevy::picking::hover::PickingInteraction::default(),
         Node {
             display: Display::None,
             position_type: PositionType::Absolute,
-            width: px(HEADER_W),
-            height: px(HEADER_H),
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::FlexStart,
-            justify_content: JustifyContent::Center,
-            row_gap: px(2),
+            width: px(size.x),
+            height: px(size.y),
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Stretch,
             border: UiRect::all(px(1)),
-            border_radius: BorderRadius::all(px(4)),
+            border_radius: BorderRadius::all(px(5)),
+            overflow: Overflow::clip(),
             ..default()
         },
+        BackgroundColor(PLATE_GROUND),
+        BorderColor::all(PLATE_RIM),
     ));
-    let label = name(
-        commands, lang, view, statics, seat, role, fonts, HEADER_W, 22.0,
-    );
-    let status = commands
+    let lost = plate.lost;
+    let away = role == baylee_client_core::board::SeatRole::Away;
+    let ink = if lost {
+        palette::DEAD
+    } else if away {
+        palette::LEDGE_DEAD
+    } else {
+        palette::DIALOG_INK
+    };
+    let soft = if lost || away {
+        ink
+    } else {
+        palette::LEDGE_SOFT
+    };
+    let spine = commands
         .spawn((
             Node {
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: px(8),
-                height: px(32),
+                width: px(PLATE_SPINE),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(if lost {
+                palette::DEAD
+            } else {
+                seat_colour(view.seat, statics, seat.player)
+            }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let column = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                min_width: px(0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                row_gap: px(LINE_GAP),
+                padding: UiRect::axes(px(PLATE_PAD_X), px(PLATE_PAD_Y)),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let vitality = life(commands, seat, fonts, 108.0, 32.0, Density::Split);
-    let hand = baylee_client_core::tableicons::ZONES[0];
-    let hand_count = commands
-        .spawn((
-            SeatInk {
-                player: seat.player,
-            },
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: px(6),
-                ..default()
-            },
-            children![
-                (
-                    Text::new(hand.to_string()),
-                    table_icon_tf(fonts, hand, 17.0),
-                    TextColor(palette::CANDLE),
-                    Pickable::IGNORE
-                ),
-                (
-                    Text::new(if seat.no_max_hand_size {
-                        format!("{}/∞", seat.hand_count)
-                    } else {
-                        seat.hand_count.to_string()
-                    }),
-                    tf_bold(fonts, 18.0),
-                    TextColor(ink_of(seat)),
-                    Pickable::IGNORE
-                ),
-            ],
-        ))
-        .id();
-    let priority = caret(commands, view, seat, fonts, 12.0, 20.0);
-    commands
-        .entity(status)
-        .add_children(&[vitality, hand_count, priority]);
-    if view.active == seat.player {
-        let turn = spawn_turn_badge(commands, fonts, lang);
-        commands.entity(status).add_child(turn);
-    }
-    commands.entity(identity).add_children(&[label, status]);
-    spawn_hand_limit(commands, identity, seat, lang, fonts);
-
-    for (mark, amount) in [
-        (baylee_client_core::tableicons::POISON, seat.poison),
-        (baylee_client_core::tableicons::ENERGY, seat.energy),
-    ] {
-        if amount == 0 {
-            continue;
+    let first = plate_first_line(commands, fonts, &plate, seat, view, &called, role, ink);
+    commands.entity(column).add_child(first);
+    if !lost {
+        let second = plate_details(commands, fonts, &plate, ink, soft);
+        commands.entity(column).add_child(second);
+        if !plate.pool.is_empty() {
+            let third = spawn_seat_pool(commands, fonts, &plate.pool);
+            commands.entity(third).insert(PlateMark {
+                player: plate.player,
+                kind: PlateMarkKind::Pool,
+            });
+            commands.entity(column).add_child(third);
         }
-        let counter = commands
-            .spawn((
-                Text::new(mark.to_string()),
-                table_icon_tf(fonts, mark, 14.0),
-                TextColor(palette::CANDLE),
-                Pickable::IGNORE,
-                children![(
-                    TextSpan::new(format!(" {amount}")),
-                    tf_bold(fonts, 15.0),
-                    Pickable::IGNORE
-                )],
-            ))
-            .id();
-        commands.entity(status).add_child(counter);
     }
+    commands.entity(identity).add_children(&[spine, column]);
 }
 
-fn spawn_turn_badge(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
+/// The plate's first line: crown, mark, name; then life and the two tags.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one line, one flat build
+fn plate_first_line(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    plate: &SeatPlate,
+    seat: &SeatView,
+    view: &PlayerView,
+    called: &str,
+    role: baylee_client_core::board::SeatRole,
+    ink: Color,
+) -> Entity {
+    let line = commands
+        .spawn((
+            Node {
+                height: px(LINE_1),
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(5),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mut parts = Vec::new();
+    if plate.monarch {
+        parts.push(plate_icon(
+            commands,
+            fonts,
+            glyph::CROWN,
+            12.0,
+            palette::CANDLE,
+            PlateMark {
+                player: plate.player,
+                kind: PlateMarkKind::Crown,
+            },
+        ));
+    }
+    let mark = if plate.lost {
+        Some(glyph::SKULL)
+    } else if role == baylee_client_core::board::SeatRole::Away {
+        Some(glyph::AWAY)
+    } else if role == baylee_client_core::board::SeatRole::House {
+        Some(glyph::HOUSE)
+    } else {
+        None
+    };
+    if let Some(mark) = mark {
+        parts.push(plate_icon(
+            commands,
+            fonts,
+            mark,
+            10.0,
+            palette::LEDGE_SOFT,
+            (),
+        ));
+    }
+    let name_ink = if plate.lost {
+        ink
+    } else if view.active == seat.player {
+        palette::CANDLE
+    } else if seat.player == view.seat {
+        palette::ACTIVE
+    } else {
+        ink
+    };
+    parts.push(
+        commands
+            .spawn((
+                Text::new(called.to_string()),
+                tf_bold(fonts, 13.0),
+                TextColor(name_ink),
+                TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
+                // The name gives way, and has to be told to: a `NoWrap`
+                // text's automatic minimum is the whole string.
+                Node {
+                    flex_shrink: 1.0,
+                    min_width: px(0),
+                    overflow: Overflow::clip_x(),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id(),
+    );
+    // Life and the two tags at the line's right end.
+    let spring = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    parts.push(spring);
+    if !plate.lost {
+        parts.push(plate_life(commands, fonts, plate, ink));
+    }
+    parts.push(
+        commands
+            .spawn(crate::hud::ledge::players::tag(
+                fonts,
+                plate.player,
+                crate::hud::TagKind::Turn,
+                true,
+            ))
+            .id(),
+    );
+    parts.push(
+        commands
+            .spawn(crate::hud::ledge::players::tag(
+                fonts,
+                plate.player,
+                crate::hud::TagKind::Wait,
+                true,
+            ))
+            .id(),
+    );
+    commands.entity(line).add_children(&parts);
+    line
+}
+
+/// The plate's life: a heart and the number, both in danger at five.
+fn plate_life(commands: &mut Commands, fonts: &UiFonts, plate: &SeatPlate, ink: Color) -> Entity {
+    let low = plate.life <= 5;
     commands
         .spawn((
-            Text::new(Phrase::ActiveTurn.text(lang)),
-            tf_bold(fonts, 14.0),
-            TextColor(palette::ACTIVE),
+            LifeCell {
+                player: plate.player,
+            },
+            Node {
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                column_gap: px(4),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
             Pickable::IGNORE,
+            children![
+                (
+                    Text::new(glyph::HEART.to_string()),
+                    icon_tf(fonts, 11.0),
+                    TextColor(if low {
+                        palette::DANGER
+                    } else {
+                        palette::LEDGE_SOFT
+                    }),
+                    Pickable::IGNORE,
+                ),
+                (
+                    Text::new(plate.life.to_string()),
+                    tf_bold(fonts, 16.0),
+                    TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
+                    TextColor(if low { palette::DANGER } else { ink }),
+                    Pickable::IGNORE,
+                ),
+            ],
         ))
         .id()
 }
 
-fn spawn_hand_limit(
+/// One of the things a plate says only sometimes, marked for
+/// `/state.plates` and the tests: the crown, the ∞, the pool's line.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct PlateMark {
+    /// Whose plate it stands on.
+    pub player: PlayerId,
+    /// Which.
+    pub kind: PlateMarkKind,
+}
+
+/// What a [`PlateMark`] marks.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum PlateMarkKind {
+    /// The crown before the monarch's name.
+    Crown,
+    /// The ∞ beside a hand no maximum size applies to.
+    Unlimited,
+    /// The third line: mana floating in the seat's pool.
+    Pool,
+}
+
+/// An icon on the plate, pointer-transparent, with whatever marker it wears.
+fn plate_icon(
     commands: &mut Commands,
-    identity: Entity,
-    seat: &SeatView,
-    lang: Lang,
     fonts: &UiFonts,
-) {
-    if seat.no_max_hand_size {
-        let limit = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    top: percent(100),
-                    left: px(0),
-                    ..default()
-                },
-                Text::new(Phrase::NoMaxHandSize.text(lang)),
-                tf(fonts, 16.0),
-                TextColor(palette::CANDLE),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(identity).add_child(limit);
+    mark: char,
+    size: f32,
+    ink: Color,
+    marker: impl Bundle,
+) -> Entity {
+    commands
+        .spawn((
+            Text::new(mark.to_string()),
+            table_icon_tf(fonts, mark, size),
+            TextColor(ink),
+            Node {
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+            marker,
+        ))
+        .id()
+}
+
+/// The glyph a detail is drawn with: the audited zone set for the four
+/// zones (`client_core::tableicons`), and the counters' own.
+pub(crate) const fn detail_glyph(detail: Detail) -> char {
+    use baylee_client_core::tableicons::{ENERGY, POISON, ZONES};
+    match detail {
+        Detail::Hand { .. } => ZONES[0],
+        Detail::Library(_) => ZONES[1],
+        Detail::Graveyard(_) => ZONES[2],
+        Detail::Exile(_) => ZONES[3],
+        Detail::Poison(_) => POISON,
+        Detail::Energy(_) => ENERGY,
+        Detail::Commander(_) => glyph::COMMANDER_DAMAGE,
     }
 }
 
-fn spawn_counts(
+/// The plate's second line: an icon and a number per detail.
+fn plate_details(
     commands: &mut Commands,
-    root: Entity,
-    view: &PlayerView,
-    seat: &SeatView,
     fonts: &UiFonts,
-) {
-    for (index, zone) in [Zone::Library, Zone::Graveyard, Zone::Exile]
-        .into_iter()
-        .enumerate()
-    {
-        let counts = frame(commands, root, seat.player, Panel::Zone(zone));
-        let value = match zone {
-            Zone::Hand => seat.hand_count,
-            Zone::Library => seat.library_count,
-            Zone::Graveyard => seat.graveyard_count,
-            Zone::Exile => u32::try_from(
-                view.exile
-                    .get(seat.player.get() as usize)
-                    .map_or(0, Vec::len),
-            )
-            .unwrap_or(u32::MAX),
+    plate: &SeatPlate,
+    ink: Color,
+    soft: Color,
+) -> Entity {
+    let line = commands
+        .spawn((
+            Node {
+                height: px(LINE_2),
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(6),
+                overflow: Overflow::clip_x(),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for detail in &plate.details {
+        let loud = if detail.dangerous() {
+            palette::DANGER
+        } else {
+            ink
         };
-        let mark = baylee_client_core::tableicons::ZONES[index + 1];
-        let cell = commands
+        let group = commands
             .spawn((
-                SeatInk {
-                    player: seat.player,
-                },
                 Node {
-                    flex_direction: FlexDirection::Column,
+                    flex_shrink: 0.0,
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    row_gap: px(3),
-                    width: percent(100),
-                    height: percent(100),
+                    column_gap: px(3),
                     ..default()
                 },
-                children![
-                    (
-                        Text::new(mark.to_string()),
-                        table_icon_tf(fonts, mark, 20.0),
-                        TextColor(palette::CANDLE),
-                        Pickable::IGNORE
-                    ),
-                    (
-                        Text::new(value.to_string()),
-                        tf_bold(fonts, 23.0),
-                        TextColor(ink_of(seat)),
-                        Pickable::IGNORE
-                    ),
-                ],
+                Pickable::IGNORE,
             ))
             .id();
-        commands.entity(counts).add_child(cell);
+        let mark = detail_glyph(*detail);
+        let icon = plate_icon(
+            commands,
+            fonts,
+            mark,
+            10.0,
+            if detail.dangerous() { loud } else { soft },
+            (),
+        );
+        let number = commands
+            .spawn((
+                Text::new(detail.number()),
+                tf(fonts, 11.5),
+                TextColor(loud),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(group).add_children(&[icon, number]);
+        if let Detail::Hand {
+            unlimited: true, ..
+        } = detail
+        {
+            let infinity = plate_icon(
+                commands,
+                fonts,
+                glyph::INFINITY,
+                10.0,
+                palette::CANDLE,
+                PlateMark {
+                    player: plate.player,
+                    kind: PlateMarkKind::Unlimited,
+                },
+            );
+            commands.entity(group).add_child(infinity);
+        }
+        commands.entity(line).add_child(group);
     }
+    line
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -520,16 +949,12 @@ fn spawn_phases(
             Pickable::IGNORE,
         ))
         .id();
-    let pool = spawn_seat_pool(commands, fonts, lang, &seat.mana_pool);
-    commands
-        .entity(track)
-        .add_children(&[caption, timeline, pool]);
+    commands.entity(track).add_children(&[caption, timeline]);
     let side = if same_team(statics, seat.player, view.seat) {
         RailSide::Mine
     } else {
         RailSide::Theirs
     };
-    let current = RailRow::current(view.phase, view.step);
     for phase in baylee_client_core::automation::RAIL_PHASES {
         let group = commands
             .spawn((
@@ -611,62 +1036,54 @@ fn spawn_phase_caption(
         .id()
 }
 
-/// Every seat's floating mana is public. Keep the same color/count and
-/// restricted-mana convention as the local player's larger pool strip.
+/// The plate's third line: every seat's floating mana is public. The same
+/// colour/count and restricted-mana convention the owed strip's pips use,
+/// in the Mana font as everywhere a symbol is drawn.
 fn spawn_seat_pool(
     commands: &mut Commands,
     fonts: &UiFonts,
-    lang: Lang,
-    pool: &baylee_view::ManaPoolView,
+    pool: &[baylee_client_core::manapool::Floating],
 ) -> Entity {
     let row = commands
         .spawn((
             Node {
-                height: px(20),
+                height: px(LINE_3),
+                flex_shrink: 0.0,
                 align_items: AlignItems::Center,
-                column_gap: px(6),
+                column_gap: px(4),
+                overflow: Overflow::clip_x(),
                 ..default()
             },
-            BackgroundColor(palette::DOCK_GROUND.with_alpha(0.85)),
             Pickable::IGNORE,
         ))
         .id();
-    let label = commands
-        .spawn((
-            Text::new(format!(
-                "{}: {}",
-                Phrase::ManaPool.text(lang),
-                if pool.total() == 0 { "0" } else { "" }
-            )),
-            tf(fonts, 14.0),
-            TextColor(palette::CANDLE),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(row).add_child(label);
-    for mana in baylee_client_core::manapool::row(pool) {
+    for mana in pool {
         let group = commands
             .spawn((
                 Node {
+                    flex_shrink: 0.0,
                     align_items: AlignItems::Center,
                     column_gap: px(2),
+                    padding: UiRect::axes(px(1), px(0)),
                     border: UiRect::all(px(1)),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BorderColor::all(if mana.restricted {
-                    palette::CANDLE
+                    palette::DIALOG_SOFT
                 } else {
                     Color::NONE
                 }),
                 Pickable::IGNORE,
             ))
             .id();
-        let pip = crate::manaui::spawn_pip(commands, fonts, mana.pip, 16.0);
+        let pip = crate::manaui::spawn_pip(commands, fonts, mana.pip, 12.0);
+        commands.entity(pip).insert(Pickable::IGNORE);
         let count = commands
             .spawn((
-                Text::new(mana.count.to_string()),
-                tf_bold(fonts, 14.0),
-                TextColor(palette::CANDLE),
+                Text::new(format!("\u{00d7}{}", mana.count)),
+                tf_bold(fonts, 10.5),
+                TextColor(palette::DIALOG_INK),
                 Pickable::IGNORE,
             ))
             .id();
@@ -710,61 +1127,90 @@ pub(crate) fn describe_phase(
     }
 }
 
-/// Legal player targets share the cards' gold cue; selection stays visible.
+/// How a plate is lit: offered to a target question, aimed at by the
+/// keyboard, under the pointer, chosen.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum PlateLight {
+    /// Nothing asks about this seat.
+    Rest,
+    /// A question can target it.
+    Offered,
+    /// Offered, and the pointer or the keyboard's aim is on it.
+    Aimed,
+    /// Chosen as a target.
+    Chosen,
+}
+
+impl PlateLight {
+    /// The light `player`'s plate wears in `duel`, `hovered` or not.
+    pub(crate) fn of(duel: &Duel, player: PlayerId, hovered: bool) -> Self {
+        let Some(i) = duel.interaction.as_ref().filter(|i| i.is_mine()) else {
+            return Self::Rest;
+        };
+        if i.is_seat_selected(player) {
+            return Self::Chosen;
+        }
+        let offered = matches!(
+            i.pending(),
+            baylee_engine::choice::Pending::ChooseTargets { player_options, .. }
+                if player_options.contains(&player)
+        );
+        if !offered {
+            return Self::Rest;
+        }
+        let aimed = i.aim() == Some(baylee_client_core::interaction::Pick::Seat(player));
+        if hovered || aimed {
+            Self::Aimed
+        } else {
+            Self::Offered
+        }
+    }
+
+    /// The plate's ground and rim in this light.
+    fn paint(self) -> (Color, Color) {
+        match self {
+            Self::Rest => (PLATE_GROUND, PLATE_RIM),
+            Self::Offered => (PLATE_GROUND, palette::CANDLE.with_alpha(0.55)),
+            Self::Aimed => (
+                mix(PLATE_GROUND, palette::CANDLE, 0.16),
+                palette::CANDLE.with_alpha(0.90),
+            ),
+            Self::Chosen => (mix(PLATE_GROUND, palette::CANDLE, 0.26), palette::CANDLE),
+        }
+    }
+}
+
+/// `a` to `b` by `t`, keeping `a`'s alpha.
+fn mix(a: Color, b: Color, t: f32) -> Color {
+    let (a, b) = (a.to_srgba(), b.to_srgba());
+    Color::srgba(
+        a.red + (b.red - a.red) * t,
+        a.green + (b.green - a.green) * t,
+        a.blue + (b.blue - a.blue) * t,
+        a.alpha,
+    )
+}
+
+/// Lights each plate for the target question in hand; a write only where
+/// the light changed.
 pub(crate) fn highlight_player(
     duel: Res<Duel>,
-    mut panels: Query<(
-        &PlayerTab,
-        &Panel,
+    mut plates: Query<(
+        &PlateTab,
         &bevy::picking::hover::PickingInteraction,
         &mut BackgroundColor,
         &mut BorderColor,
     )>,
 ) {
-    for (tab, panel, hover, mut background, mut border) in &mut panels {
-        if !matches!(panel, Panel::Identity) {
-            continue;
-        }
-        let offered = duel.interaction.as_ref().is_some_and(|i| {
-            i.is_mine() && matches!(i.pending(), baylee_engine::choice::Pending::ChooseTargets { player_options, .. } if player_options.contains(&tab.player))
-        });
-        let selected = duel
-            .interaction
-            .as_ref()
-            .is_some_and(|i| i.is_seat_selected(tab.player));
+    for (tab, hover, mut background, mut border) in &mut plates {
         let hovered = *hover != bevy::picking::hover::PickingInteraction::None;
-        let active = duel.view.as_ref().is_some_and(|v| v.active == tab.player);
-        let alpha = if selected {
-            0.24
-        } else if hovered {
-            0.12
-        } else if offered {
-            0.06
-        } else if active {
-            0.18
-        } else {
-            0.0
-        };
-        let tint = if selected || offered || hovered {
-            palette::CANDLE
-        } else {
-            palette::ACTIVE
+        let (ground, rim) = PlateLight::of(&duel, tab.player, hovered).paint();
+        if background.0 != ground {
+            background.0 = ground;
         }
-        .with_alpha(alpha);
-        if background.0 != tint {
-            background.0 = tint;
-        }
-        let edge = BorderColor::all(palette::CANDLE.with_alpha(if selected {
-            0.95
-        } else if offered || hovered {
-            0.55
-        } else if active {
-            0.9
-        } else {
-            0.0
-        }));
-        if *border != edge {
-            *border = edge;
+        let rim = BorderColor::all(rim);
+        if *border != rim {
+            *border = rim;
         }
     }
 }
@@ -829,342 +1275,4 @@ pub(super) fn spawn_turn(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn every_seats_pool_is_drawn_and_the_turn_highlight_moves_between_seats() {
-        let mut app = App::new();
-        let mut view = baylee_client_core::test_support::ViewBuilder::new(3).build();
-        view.active = PlayerId::new(1);
-        view.seats[1].mana_pool.blue = 7;
-        view.seats[2].mana_pool.restricted[0] = 9;
-        let fonts = UiFonts {
-            text: default(),
-            medium: default(),
-            bold: default(),
-            italic: default(),
-            medium_italic: default(),
-            serif: default(),
-            serif_italic: default(),
-            icons: default(),
-            mana: default(),
-        };
-        let mut queue = bevy::ecs::world::CommandQueue::default();
-        let mut commands = Commands::new(&mut queue, app.world());
-        let root = commands.spawn_empty().id();
-        for seat in &view.seats {
-            spawn(
-                &mut commands,
-                root,
-                Lang::De,
-                &view,
-                None,
-                seat,
-                SeatRole::Present,
-                &PhaseOrders::default(),
-                &fonts,
-            );
-        }
-        queue.apply(app.world_mut());
-        let words: Vec<_> = app
-            .world_mut()
-            .query::<&Text>()
-            .iter(app.world())
-            .map(|t| t.0.clone())
-            .collect();
-        assert_eq!(words.iter().filter(|t| *t == "Am Zug").count(), 1);
-        assert!(
-            words.iter().any(|t| t == "7"),
-            "opponent's ordinary mana is shown"
-        );
-        assert!(
-            words.iter().any(|t| t == "9"),
-            "opponent's restricted mana is shown"
-        );
-        assert!(
-            words.iter().any(|t| t == "Manavorrat: 0"),
-            "an empty pool is explicit"
-        );
-        app.insert_resource(Duel {
-            view: Some(view),
-            ..default()
-        });
-        app.add_systems(Update, highlight_player);
-        for active in [1, 2, 0] {
-            app.world_mut()
-                .resource_mut::<Duel>()
-                .view
-                .as_mut()
-                .unwrap()
-                .active = PlayerId::new(active);
-            app.update();
-            let mut query = app
-                .world_mut()
-                .query::<(&PlayerTab, &Panel, &BackgroundColor)>();
-            for (tab, panel, color) in query.iter(app.world()) {
-                if matches!(panel, Panel::Identity) {
-                    assert_eq!(color.0.alpha() > 0.1, tab.player == PlayerId::new(active));
-                }
-            }
-        }
-    }
-
-    /// A band as [`crate::table::Lens`] hands it over: the two corners on the
-    /// rim first, then the two that meet the lane behind it. `flip` is the
-    /// seat across the table, whose own left is this screen's right.
-    fn band(length: f32, depth: f32, slope: f32, flip: bool) -> [Vec2; 4] {
-        let mid = Vec2::new(1500.0, 620.0);
-        let along = Vec2::new(1.0, slope).normalize() * (length * 0.5);
-        let across = Vec2::new(-along.y, along.x).normalize() * (depth * 0.5);
-        let (near, far) = (mid - across, mid + across);
-        if flip {
-            [near + along, near - along, far - along, far + along]
-        } else {
-            [near - along, near + along, far + along, far - along]
-        }
-    }
-
-    /// The four corners a panel is actually drawn at, in the order the box
-    /// has them: the scale turns about the box's own middle, so the middle is
-    /// where [`pose_on`] put it and only the extent shrinks.
-    fn drawn(corners: [Vec2; 4], panel: Panel) -> [Vec2; 4] {
-        let (corner, tilt, scale) = pose_on(corners, panel);
-        let middle = corner + panel.size() * 0.5;
-        let half = panel.size() * scale * 0.5;
-        let turn = Rot2::radians(tilt);
-        [
-            middle + turn * Vec2::new(-half.x, -half.y),
-            middle + turn * Vec2::new(half.x, -half.y),
-            middle + turn * Vec2::new(half.x, half.y),
-            middle + turn * Vec2::new(-half.x, half.y),
-        ]
-    }
-
-    /// Where [`place`] puts one panel of `player`'s under this rig, if it
-    /// puts it anywhere.
-    fn placed(
-        layout: &baylee_client_core::layout::TableLayout,
-        rig: crate::table::CameraRig,
-        window: Vec2,
-        player: PlayerId,
-        panel: Panel,
-    ) -> Display {
-        let duel = Duel {
-            layout: Some(layout.clone()),
-            ..Duel::default()
-        };
-        let lens = crate::table::Lens::new(rig, window);
-        if pose(&duel, Some(&lens), player, panel).is_some() {
-            Display::Flex
-        } else {
-            Display::None
-        }
-    }
-
-    /// #303: aimed at an opponent, the camera stands over the local seat's
-    /// own mat, and that seat's ink was read through the hand zone's veil.
-    /// It is not drawn there — and the rule hides nothing in the shot every
-    /// table opens on, at any seat count, where every panel is above the
-    /// hand.
-    /// Placing a panel where it already stands writes nothing: its `Node`
-    /// and `UiTransform` do not read as changed, so a table at rest costs
-    /// the interface no relayout. The first placement does write.
-    #[test]
-    fn a_panel_that_stays_put_is_not_touched() {
-        use crate::table::{CameraRig, Canvas};
-        use baylee_client_core::layout::TableLayout;
-        let window = Vec2::new(1728.0, 1052.0);
-        let canvas = Canvas::hud(window);
-        let seats = [PlayerId::new(0), PlayerId::new(1)];
-        let layout = TableLayout::new(&seats, canvas.aspect(), None);
-        let lens = crate::table::Lens::new(CameraRig::home(&layout, canvas), window);
-        let duel = Duel {
-            layout: Some(layout),
-            ..Duel::default()
-        };
-        let mut world = World::new();
-        let panel = world.spawn((Node::default(), UiTransform::default())).id();
-        let mut parts = world.query::<(&mut Node, &mut UiTransform)>();
-        let mut place_once = |world: &mut World| {
-            world.clear_trackers();
-            let (mut node, mut turn) = parts.get_mut(world, panel).expect("the panel");
-            place(
-                &duel,
-                Some(&lens),
-                seats[0],
-                Panel::Identity,
-                &mut node,
-                &mut turn,
-            );
-            let entity = world.entity(panel);
-            (
-                entity.get_ref::<Node>().expect("a node").is_changed(),
-                entity
-                    .get_ref::<UiTransform>()
-                    .expect("a turn")
-                    .is_changed(),
-            )
-        };
-        assert_eq!(
-            place_once(&mut world),
-            (true, true),
-            "placed the first time"
-        );
-        assert_eq!(
-            place_once(&mut world),
-            (false, false),
-            "placed again where it stands: nothing written"
-        );
-    }
-
-    #[test]
-    fn no_ink_is_written_under_the_hand() {
-        use crate::table::{CameraRig, Canvas};
-        use baylee_client_core::layout::TableLayout;
-        let window = Vec2::new(1728.0, 1052.0);
-        let canvas = Canvas::hud(window);
-        let panels = [
-            Panel::Identity,
-            Panel::Phases,
-            Panel::Zone(Zone::Hand),
-            Panel::Zone(Zone::Library),
-            Panel::Zone(Zone::Graveyard),
-            Panel::Zone(Zone::Exile),
-            Panel::Turn,
-        ];
-        for n in 2..=8u8 {
-            let seats: Vec<PlayerId> = (0..n).map(PlayerId::new).collect();
-            let layout = TableLayout::new(&seats, canvas.aspect(), None);
-            let rig = CameraRig::home(&layout, canvas);
-            for &player in &seats {
-                for panel in panels {
-                    assert_eq!(
-                        placed(&layout, rig, window, player, panel),
-                        Display::Flex,
-                        "{n} seats at home: seat {player:?}'s {panel:?} is hidden"
-                    );
-                }
-            }
-        }
-
-        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
-        let layout = TableLayout::new(&[me, them], canvas.aspect(), Some(them));
-        let slot = *layout.slot(them).expect("the opponent has a seat");
-        // Looking at the opponent from my own side of the table (the home
-        // azimuth, not the visit, which stands behind them): that is what
-        // pushes my own band down under the hand zone.
-        let rig = CameraRig {
-            yaw: 0.0,
-            ..CameraRig::framing(&slot, Vec2::new(slot.center.x, -slot.center.y))
-        };
-        let lens = crate::table::Lens::new(rig, window);
-        let mine = layout.slot(me).expect("so do I");
-        let (corner, tilt, scale) = pose_on(
-            lens.corners(mine.ledge_corners())
-                .expect("my band is in front of the camera"),
-            Panel::Identity,
-        );
-        assert!(
-            under_the_hand(corner, Panel::Identity.size(), tilt, scale, window),
-            "aimed at the opponent, my name no longer stands under the hand, so \
-             this no longer tests the rule"
-        );
-        assert_eq!(
-            placed(&layout, rig, window, me, Panel::Identity),
-            Display::None,
-            "my name is written under the hand zone"
-        );
-        assert_eq!(
-            placed(&layout, rig, window, them, Panel::Identity),
-            Display::Flex,
-            "the seat the camera was aimed at lost its name"
-        );
-    }
-
-    /// Identity and phases stay separated, including when the band is only
-    /// wide enough for their combined widths and gaps. Their order follows
-    /// the owner's frame even when that seat faces away from the reader.
-    #[test]
-    fn identity_and_phases_never_overlap() {
-        let want = HEADER_W + TRACK_H + BAND_GAP * 3.0;
-        for length in [want, want * 2.0, 2160.0] {
-            for slope in [0.0_f32, 0.06, -0.06] {
-                for flip in [false, true] {
-                    let corners = band(length, 110.0, slope, flip);
-                    let boxes = [Panel::Identity, Panel::Phases].map(|panel| drawn(corners, panel));
-                    // Measure separation along the owner's reading direction.
-                    let along = Vec2::new(1.0, slope).normalize() * if flip { -1.0 } else { 1.0 };
-                    let at = |b: [Vec2; 4], pick: fn(f32, f32) -> f32| {
-                        b.iter().map(|c| c.dot(along)).fold(f32::NAN, pick)
-                    };
-                    for pair in boxes.windows(2) {
-                        let gap = at(pair[1], f32::min) - at(pair[0], f32::max);
-                        assert!(
-                            gap >= -0.01,
-                            "{length} long, slope {slope}, flipped {flip}: two \
-                             panels overlap by {}",
-                            -gap
-                        );
-                    }
-                    // And in the reader's order, whichever way the seat's own
-                    // frame runs: the name stays at its owner's left of the band.
-                    assert!(
-                        (boxes[0][0].x < boxes[1][0].x) != flip,
-                        "{length} long, slope {slope}, flipped {flip}: the \
-                         identity panel is not the leftmost"
-                    );
-                }
-            }
-        }
-    }
-
-    /// Nothing is written outside the strip the model keeps clear of cards.
-    ///
-    /// Measured across the band rather than in `y`, because a flank's band
-    /// slopes and a box that stayed inside the window could still be standing
-    /// on the creature lane behind it.
-    #[test]
-    fn no_panel_stands_off_its_own_band() {
-        for depth in [110.0_f32, 60.0, 26.0] {
-            for slope in [0.0_f32, 0.06, -0.06] {
-                for flip in [false, true] {
-                    let corners = band(2160.0, depth, slope, flip);
-                    let along = Vec2::new(1.0, slope).normalize();
-                    let across = Vec2::new(-along.y, along.x);
-                    let mid = corners
-                        .iter()
-                        .fold(Vec2::ZERO, |sum, c| sum + *c / corners.len() as f32);
-                    for panel in [Panel::Identity, Panel::Phases] {
-                        for corner in drawn(corners, panel) {
-                            let off = (corner - mid).dot(across).abs();
-                            assert!(
-                                off <= depth * 0.5 + 0.01,
-                                "{depth} deep, slope {slope}, flipped {flip}: a \
-                                 {panel:?} corner is {off} off the band's middle, \
-                                 past its {} of room",
-                                depth * 0.5
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// The ink reads in the viewer's order at every seat: a band running
-    /// right-to-left in its owner's frame is still written the right way up.
-    #[test]
-    fn a_seat_across_the_table_has_its_bar_upright() {
-        for slope in [0.0_f32, 0.3, -0.3] {
-            for flip in [false, true] {
-                let (_, tilt, _) = pose_on(band(2160.0, 110.0, slope, flip), Panel::Identity);
-                assert!(
-                    tilt.abs() <= std::f32::consts::FRAC_PI_2,
-                    "slope {slope}, flipped {flip}: the bar is turned {tilt} and \
-                     would be read upside-down"
-                );
-            }
-        }
-    }
-}
+mod tests;
