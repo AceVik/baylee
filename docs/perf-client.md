@@ -177,3 +177,24 @@ method gained:
 The audio thread at a table with the music muted was 11 % of the process's
 samples before the orchestra learnt to pause (1.5 % after). The browser build
 is measured in the baseline (62.9 MB, 15.6 MB brotli); its frame time is not.
+
+## Music v2 (8 October 2026)
+
+The score was rewritten (`docs/client.md` §"One orchestra follows the
+player"): 99 recordings at 44,100 Hz instead of 30 at 22,050, looped
+sustains, a synthesised lute, more voices at the climax. What it costs, on
+the M1 Max:
+
+| Where | Before (`47ea193d4`) | After (`c41/music-v2`) |
+|---|---|---|
+| criterion, one second of music, stream (the audio thread's path) | 8.0 ms (sanctuary) | front door 4.5–6.6, lobby 8.2, calm table 8.7, tension 13.5, climax 11.5 ms (after the owner's livelier pass; 6.9, 10.3 and 9.7 before it) |
+| the app at the resting front door (30 s untouched, unmuted, a fresh settings file): `Tune::next` in `sample <pid> 10` | 3.8 / 3.7 % of a core | 0.6 / 0.8 % of a core |
+| the same, process CPU (`top`, 10 s) | 4.7 / 4.7 % | 1.6 / 1.6 % |
+
+Two interleaved passes each (before, after, before, after; the app measured before the livelier pass), release
+builds with `dev-control`, other sessions' gates running on the machine.
+The old score cost more in the app than its bench (3.8 % against 0.8 %), the
+new one the same as its bench; why the old differed was not chased. A table
+at tension or climax was benched, not sampled in the app. The bank is
+15.6 MB in every build (8.9 MB before); the browser build, not released now,
+carries it too.

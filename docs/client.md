@@ -7062,7 +7062,7 @@ seat's own attack near and full, another's from further off), at most once a
 turn and once in sixteen bars, never the same call twice running. Each ending
 takes eight bars, grows out of the last texture's pulse, finishes even when
 the result is dismissed early, and then holds its last chord until the player
-leaves. A long game varies by a 48-bar cycle at the table (16 bars of theme, 8
+leaves. It moves and breathes (owner, 08.10.: livelier, more dynamics): the table dances at a dotted quarter of 69 (the front door 61, the lobby 65, the hunt 97, the climax 118); every struck note follows an eight-bar swell (−2.6 dB where a phrase begins to +1.4 dB at its crest), leans on the downbeat and gives way on offbeat sixteenths, and varies by ±5 % note to note; every fourth bar ends in a frame-drum fill (the tense textures add the davul and a naker every eighth), every eighth bar in a psaltery run into the next phrase; melodies take mordents and turns by bar number; the calm and lobby harps run in sixteenths every other bar with a lute on the offbeats, and tension and the climax drive on with sixteenths after their accents. A long game varies by a 48-bar cycle at the table (16 bars of theme, 8
 of ostinato alone, 16 of the theme's variant, 8 of drone and harp), a melody
 instrument that turns by cycle and when the monarch changes hands, a drone
 colour every 24 bars and a second reading of the bass line. All of it is a
