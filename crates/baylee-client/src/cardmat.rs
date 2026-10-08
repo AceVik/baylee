@@ -1170,6 +1170,91 @@ pub(crate) mod tests {
             CardLook::flat(Color::srgb(0.1, 0.2, 0.3), FinishTreatment::Plain)
         );
     }
+    /// No fragment entry point takes a derivative after a return inside a
+    /// branch. A return under a per-pixel condition leaves the rest of the
+    /// function in non-uniform control flow, and Chrome's WGSL compiler
+    /// (Tint) refuses `fwidth`, `dpdx`, `dpdy` and implicit-level sampling
+    /// there; naga accepts it, so the native build and `check_wgsl` never
+    /// see it. Measured in the beta.6 QA: `felt.wgsl` took `fwidth(table)`
+    /// after the tear's early returns, the felt pipeline was invalid in the
+    /// browser and the web client quit the moment a table opened.
+    ///
+    /// A text scan, so it sees calls written in the entry point itself and
+    /// not those inside helpers it calls.
+    #[test]
+    fn no_fragment_takes_a_derivative_after_an_early_return() {
+        const DERIVATIVES: [&str; 8] = [
+            "fwidth(",
+            "fwidthFine(",
+            "fwidthCoarse(",
+            "dpdx",
+            "dpdy",
+            "textureSample(",
+            "textureSampleBias(",
+            "textureSampleCompare(",
+        ];
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/shaders");
+        let mut entries: Vec<_> = std::fs::read_dir(&dir)
+            .expect("the shaders directory")
+            .map(|e| e.expect("an entry").path())
+            .filter(|p| p.extension().is_some_and(|x| x == "wgsl"))
+            .collect();
+        entries.sort();
+        let mut scanned = 0;
+        let mut faults = Vec::new();
+        for path in entries {
+            let source = std::fs::read_to_string(&path).expect("a shader");
+            // Comments say "return" and "fwidth" too; only code counts.
+            let code: String = source
+                .lines()
+                .map(|line| line.split("//").next().unwrap_or(""))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let mut rest = code.as_str();
+            while let Some(at) = rest.find("@fragment") {
+                rest = &rest[at + "@fragment".len()..];
+                let Some(open) = rest.find('{') else { break };
+                let mut depth = 0usize;
+                let mut end = rest.len();
+                let mut early_return: Option<usize> = None;
+                for (i, c) in rest[open..].char_indices() {
+                    match c {
+                        '{' => depth += 1,
+                        '}' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                end = open + i;
+                                break;
+                            }
+                        }
+                        'r' if depth >= 2
+                            && early_return.is_none()
+                            && rest[open + i..].starts_with("return") =>
+                        {
+                            early_return = Some(open + i);
+                        }
+                        _ => {}
+                    }
+                }
+                scanned += 1;
+                if let Some(from) = early_return {
+                    let after = &rest[from..end];
+                    for name in DERIVATIVES {
+                        if after.contains(name) {
+                            faults.push(format!(
+                                "{}: `{name}` after a branch's return",
+                                path.file_name().unwrap_or_default().to_string_lossy()
+                            ));
+                        }
+                    }
+                }
+                rest = &rest[end..];
+            }
+        }
+        assert!(scanned >= 10, "only {scanned} fragment entry points found");
+        assert!(faults.is_empty(), "{faults:#?}");
+    }
+
     /// Parses and validates a shader the way `wgpu` will.
     ///
     /// The two things naga cannot see are stripped first: `#import` lines,

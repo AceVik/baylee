@@ -548,6 +548,11 @@ pub fn segmented<B: Bundle>(
             Node {
                 padding: UiRect::all(px_fixed(2.0)),
                 column_gap: px_fixed(2.0),
+                // Wider than its row (four German camera choices at 640 px,
+                // beta.6 QA), its segments wrap rather than leave the window.
+                flex_wrap: FlexWrap::Wrap,
+                row_gap: px_fixed(2.0),
+                max_width: Val::Percent(100.0),
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
                 ..default()
@@ -688,13 +693,27 @@ pub struct Slider {
 /// A slider: 0–100, a value label, a 44-tall track and a 20-px knob (§2.4).
 pub fn slider(commands: &mut Commands, kit: Kit, value: u8, action: impl Bundle) -> Entity {
     let value = value.min(100);
+    // On a phone it stands beside its row's words where they leave room, so
+    // three rows still show in the 390-px height (§2.7, M4-6); a narrower
+    // row wraps it under them, where it grows to the full width.
+    let width = if kit.m.frame == super::size::Frame::Phone {
+        Node {
+            flex_grow: 1.0,
+            flex_basis: kit.m.px(240.0),
+            ..default()
+        }
+    } else {
+        Node {
+            width: Val::Percent(100.0),
+            ..default()
+        }
+    };
     let row = commands
         .spawn((
             Node {
                 align_items: AlignItems::Center,
                 column_gap: kit.m.px(12.0),
-                width: Val::Percent(100.0),
-                ..default()
+                ..width
             },
             Pickable::IGNORE,
         ))

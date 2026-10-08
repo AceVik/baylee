@@ -103,6 +103,10 @@ pub struct ReportDesk {
     drawn_form: bool,
     /// How often the tree has been drawn, for `devctl`'s `ui_rebuilds`.
     pub(crate) redraws: u64,
+    /// Ctrl/Cmd+Enter in the text, or Enter on the confirmation: the
+    /// form's Send or the confirmation's, on the next run of
+    /// [`send_by_key`] (`KEYBOARD.md` W9).
+    send_by_key: Option<form::DeskPress>,
 }
 
 impl ReportDesk {
@@ -198,6 +202,7 @@ pub(crate) fn install(app: &mut App) {
                 open_when_asked,
                 remember_the_gateway,
                 answers,
+                send_by_key,
                 send_the_crash,
                 form::draw,
                 form::retick,
@@ -516,6 +521,25 @@ fn ask_to_send(
     let gathered = desk.gathered.clone();
     if desk.form.ask_to_send(&gathered, &settings.reports, via) {
         send(desk, holders, settings, answers);
+    }
+}
+
+/// The keyboard's Send (`KEYBOARD.md` W9 step 3): what [`form::typing`]
+/// asked for, through the same two doors the buttons take.
+fn send_by_key(
+    mut desk: ResMut<ReportDesk>,
+    holders: Holders,
+    mut settings: ResMut<ClientSettings>,
+    answers: Res<Answers>,
+) {
+    let Some(press) = desk.send_by_key.take() else {
+        return;
+    };
+    let desk = desk.as_mut();
+    match press {
+        form::DeskPress::Send => ask_to_send(desk, &holders, &mut settings, &answers),
+        form::DeskPress::ConfirmSend => send(desk, &holders, &mut settings, &answers),
+        _ => {}
     }
 }
 

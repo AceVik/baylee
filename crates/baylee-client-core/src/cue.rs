@@ -500,9 +500,18 @@ impl Cues {
 
     /// Takes this seat's own action: a grant that follows it closely says
     /// nothing new.
+    ///
+    /// An action answers the question that was standing, so it is also the
+    /// falling flank of [`Self::note_question`]: the table is no longer
+    /// waiting for this seat. A table sends each seat its own question only
+    /// (`gamehost::Session` pushes `pending_for(seat)` and nothing else), so
+    /// another seat's question never arrives to end the wait, and without
+    /// this a networked seat heard `YourMove` once a game and counted
+    /// nothing held back after it (beta.6 QA).
     pub fn note_own_action(&mut self) {
         self.last_own_action = Some(self.now);
         self.foreign_since_own = false;
+        self.waiting = false;
     }
 
     /// Takes a view that moved by something not this seat's own doing

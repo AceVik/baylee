@@ -218,9 +218,32 @@ pub(super) fn browser_keys(
     } else {
         Step::Char
     };
+    // A sheet a question opened answers with Space (tick) and Enter (send).
+    // While its box holds the caret those keys were the box's: a blank typed
+    // into an empty filter, an Enter that only let go of it, and the tutor's
+    // search took two presses nobody could see (beta.6 QA). Into an empty box
+    // (or, for Enter, once something is ticked) the box lets go and the key
+    // goes on to the dialog; with words in it, it stays the box's.
+    let answering = target == Caret::Box && duel.browser.answers_here(duel.interaction.as_ref());
     for event in typed.read() {
         if !event.state.is_pressed() {
             continue;
+        }
+        if answering {
+            let empty = duel.browser.filter().is_empty();
+            let ticked = duel
+                .interaction
+                .as_ref()
+                .is_some_and(|it| it.selected().next().is_some());
+            let hand_on = match event.logical_key {
+                Key::Space => empty,
+                Key::Enter => empty || ticked,
+                _ => false,
+            };
+            if hand_on {
+                duel.browser.stop_typing();
+                return false;
+            }
         }
         let gesture = match &event.logical_key {
             Key::Backspace => Gesture::Back,

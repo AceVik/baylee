@@ -819,3 +819,176 @@ fn letters_on_the_nav_jump_to_the_section_they_begin() {
     let at = focused(&app).expect("focus");
     assert_eq!((at.id, at.item), ("nav", 3), "focus on Controls");
 }
+
+/// The arrangement row says which arrangement is the default: its button
+/// stands apart from the seven others. It carried the composite's `Current`
+/// for the keyboard and nothing for the eye (beta.6 QA).
+#[test]
+fn the_default_arrangement_is_drawn_as_chosen() {
+    use baylee_client_core::settings_map::Section;
+    use baylee_client_core::tableview::Arrangement;
+    let mut app = settings_at(Section::Graphics);
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Arrangement(Arrangement::Spotlight)),
+    );
+    let grounds: Vec<(Arrangement, Color)> = {
+        let world = app.world_mut();
+        let mut buttons = world.query::<(&Press, &Children)>();
+        let mut faces = world.query::<&BackgroundColor>();
+        buttons
+            .iter(world)
+            .filter_map(|(press, children)| match press {
+                Press::Settings(SettingsPress::Arrangement(a)) => children
+                    .iter()
+                    .find_map(|c| faces.get(world, c).ok())
+                    .map(|g| (*a, g.0)),
+                _ => None,
+            })
+            .collect()
+    };
+    assert_eq!(grounds.len(), Arrangement::ALL.len(), "{grounds:?}");
+    let chosen = grounds
+        .iter()
+        .find(|(a, _)| *a == Arrangement::Spotlight)
+        .map(|(_, g)| *g)
+        .expect("drawn");
+    let others: Vec<Color> = grounds
+        .iter()
+        .filter(|(a, _)| *a != Arrangement::Spotlight)
+        .map(|(_, g)| *g)
+        .collect();
+    assert!(others.iter().all(|g| *g == others[0]), "{grounds:?}");
+    assert_ne!(chosen, others[0], "the default looks like every other");
+}
+
+/// Updates draws each of its switches once. Its first row was a settings
+/// row with an empty control — the label and help of "check automatically"
+/// over nothing — standing above the updater's own switch saying the same
+/// (beta.6 QA, "Automatisch prüfen" twice in German).
+#[test]
+fn updates_says_check_automatically_once() {
+    use baylee_client_core::i18n::{Lang, Phrase};
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Updates);
+    let shown = labels(&mut app);
+    let count = |p: Phrase| shown.iter().filter(|l| *l == p.text(Lang::En)).count();
+    assert_eq!(count(Phrase::UpdateAutoCheck), 1, "{shown:?}");
+    assert_eq!(count(Phrase::RowCheckUpdates), 0, "{shown:?}");
+}
+
+/// `KEYBOARD.md` §7.8: `/` and Ctrl/Cmd+F focus the settings search, and
+/// the key that opened it is not typed into it (§1.7). Both fired the
+/// shell's Search and nothing answered it on this screen (beta.6 QA).
+#[test]
+fn slash_and_command_f_focus_the_settings_search() {
+    use super::front_keys::{focused, press_key};
+    use baylee_client_core::settings_map::Section;
+    let command = if crate::shellkit::keys::mac() {
+        KeyCode::SuperLeft
+    } else {
+        KeyCode::ControlLeft
+    };
+    for (code, ch, held) in [
+        (KeyCode::Slash, "/", vec![]),
+        (KeyCode::KeyF, "f", vec![command]),
+    ] {
+        let mut app = settings_at(Section::Graphics);
+        assert_ne!(focused(&app).map(|s| s.id), Some("search"));
+        press_key(&mut app, code, Key::Character(ch.into()), &held);
+        assert_eq!(focused(&app).map(|s| s.id), Some("search"), "{ch}");
+        assert_eq!(
+            app.world().resource::<LobbyState>().settings_query(),
+            "",
+            "{ch} is not typed into the search"
+        );
+    }
+}
+
+/// A settings row never shrinks in its scrolling column. Shrunk, the row
+/// kept the height its controls asked for while a five-line help text ran
+/// on into the next row (German Grafik, *Sitz ansehen* over
+/// *Tischanordnung*; beta.6 QA, measured live: row 72 px, its words 128).
+/// Headless tests lay nothing out, so this holds the rule that fixed it.
+#[test]
+fn a_settings_row_keeps_its_height_in_the_scrolling_column() {
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Graphics);
+    let rows: Vec<f32> = app
+        .world_mut()
+        .query::<(&crate::shellkit::role::Role, &Node)>()
+        .iter(app.world())
+        .filter(|(role, _)| **role == crate::shellkit::role::Role::Row)
+        .map(|(_, node)| node.flex_shrink)
+        .collect();
+    assert!(rows.len() > 10, "{} rows", rows.len());
+    assert!(rows.iter().all(|s| *s == 0.0), "{rows:?}");
+}
+
+/// A segmented choice wider than its row wraps its segments instead of
+/// leaving the window: the camera row's four German choices ran 20 px past
+/// a 640 × 360 window (beta.6 QA, `scripts/shell/settings.py`, D12's
+/// remaining window fault). Headless tests lay nothing out, so this holds
+/// the rule.
+#[test]
+fn a_segmented_choice_wraps_inside_its_row() {
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Graphics);
+    let groups: Vec<Entity> = app
+        .world_mut()
+        .query::<(&crate::shellkit::role::Role, &ChildOf)>()
+        .iter(app.world())
+        .filter(|(role, _)| **role == crate::shellkit::role::Role::Segment)
+        .map(|(_, of)| of.parent())
+        .collect();
+    assert!(groups.len() > 10, "{} segments", groups.len());
+    for hit in groups {
+        // A segment stands in its 44-px hit wrapper, in the group.
+        let group = app.world().get::<ChildOf>(hit).unwrap().parent();
+        let node = app.world().get::<Node>(group).unwrap();
+        assert_eq!(node.flex_wrap, FlexWrap::Wrap, "{node:?}");
+        assert_eq!(node.max_width, Val::Percent(100.0), "{node:?}");
+    }
+}
+
+/// On a phone an Audio volume stands beside its row's words, not on a line
+/// of its own: with the rows at their real height (D6), a slider under
+/// every label left two whole rows in view at 844 × 390, where M4-6 wants
+/// three (beta.6 QA, `scripts/shell/settings.py`). Wider, it keeps its line.
+#[test]
+fn on_a_phone_a_volume_stands_beside_its_words() {
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Audio);
+    let sliders = |app: &mut App| -> Vec<Node> {
+        let parents: Vec<Entity> = app
+            .world_mut()
+            .query::<(&crate::shellkit::role::Role, &ChildOf)>()
+            .iter(app.world())
+            .filter(|(role, _)| **role == crate::shellkit::role::Role::Slider)
+            .map(|(_, of)| of.parent())
+            .collect();
+        parents
+            .into_iter()
+            .map(|e| app.world().get::<Node>(e).unwrap().clone())
+            .collect()
+    };
+    let wide = sliders(&mut app);
+    assert_eq!(wide.len(), 3, "the three volumes");
+    assert!(wide.iter().all(|n| n.width == Val::Percent(100.0)));
+    {
+        let mut windows = app.world_mut().query::<&mut Window>();
+        let mut window = windows.iter_mut(app.world_mut()).next().unwrap();
+        window.resolution.set(844.0, 390.0);
+    }
+    app.update();
+    app.update();
+    let phone = sliders(&mut app);
+    assert_eq!(phone.len(), 3);
+    for node in &phone {
+        assert_ne!(node.width, Val::Percent(100.0), "a line of its own");
+        assert!(
+            node.flex_grow > 0.0 && node.flex_basis != Val::Auto,
+            "{node:?}"
+        );
+    }
+}
