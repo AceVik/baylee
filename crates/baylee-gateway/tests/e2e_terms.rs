@@ -265,3 +265,37 @@ fn a_directory_that_is_not_one_set_of_terms_refuses_startup() {
         );
     }
 }
+
+/// Declining the terms is deleting the account (the sheet's "Decline and
+/// delete account"): a session that has not accepted the current version
+/// may delete its account as any other may, an account with its password
+/// again, a guest with `{}`. No route refuses such a session.
+#[test]
+fn a_session_that_has_not_accepted_may_delete_its_account() {
+    let dir = terms_dir("decline", &[("terms.en.md", EN), ("terms.de.md", DE)]);
+    let gw = spawn_gateway_with(
+        "terms_decline",
+        &[("BAYLEE_TERMS_PATH", dir.to_string_lossy().into_owned())],
+    );
+    let port = gw.port;
+
+    let (_, logged_in) = register_and_login(port, "decliner");
+    assert_eq!(json(&logged_in)["terms_stale"], true, "{logged_in}");
+    let token = json_field(&logged_in, "token").to_string();
+    let wrong = r#"{"password":"not-the-password"}"#;
+    let (status, body) = http(port, "DELETE", "/account", Some(&token), wrong);
+    assert_eq!(status, 403, "the password is still asked: {body}");
+    let right = format!("{{\"password\":\"{PASSWORD}\"}}");
+    let (status, body) = http(port, "DELETE", "/account", Some(&token), &right);
+    assert_eq!(status, 204, "{body}");
+    let (status, _) = http(port, "GET", "/me", Some(&token), "");
+    assert_eq!(status, 401, "the session outlived its account");
+
+    let answer = guest(port);
+    assert_eq!(json(&answer)["terms_stale"], true, "{answer}");
+    let token = json_field(&answer, "token").to_string();
+    let (status, body) = http(port, "DELETE", "/account", Some(&token), "{}");
+    assert_eq!(status, 204, "{body}");
+    assert_eq!(gw.scalar("SELECT count(*) FROM account"), 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}

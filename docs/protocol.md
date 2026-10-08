@@ -2084,7 +2084,10 @@ link as its text and address; anything else is text, no HTML is
 interpreted), enables Accept only once the end of the text has been in
 view, posts the version it showed, and on `409` fetches and shows the new
 text. Not now signs out with nothing stored (a guest is asked first); Esc
-never signs out. A failed `GET /terms` says "Couldn't load the terms ·
+never signs out. Decline and delete account (shown with the text) is the
+account's deletion, §"Deleting an account (#292)", unchanged: a session that
+has not accepted the current version may delete its account like any other,
+since no route refuses it. A failed `GET /terms` says "Couldn't load the terms ·
 Retry", accepts nothing and keeps the session. Switching the interface's
 language while the sheet is up asks for the text again in the new one
 (`Terms::relang`): the text on the sheet stays until the new one comes, an

@@ -5,8 +5,11 @@
 //! drawing. The sheet stands over whatever the lobby shows after a sign-in
 //! (it is modal, its own `TabOrder`), and holds the screen until answered:
 //! **Accept and continue** (enabled once the end of the text has been in
-//! view) or **Not now**, which signs out with nothing stored — a guest is
-//! asked first. Esc moves focus to Not now and does nothing else.
+//! view), **Not now**, which signs out with nothing stored — a guest is
+//! asked first — or **Decline and delete account**, which opens the
+//! account deletion's own confirmation over the sheet (#292: the password
+//! again for an account, none for a guest). Esc moves focus to Not now and
+//! does nothing else; in the confirmation it is the confirmation's Cancel.
 
 use std::sync::Arc;
 
@@ -68,8 +71,28 @@ pub(crate) fn place_sheet_focus(
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
     mut remembered: ResMut<crate::shellkit::focus::Remembered>,
-    mut was: Local<(bool, bool)>,
+    mut was: Local<(bool, bool, bool)>,
 ) {
+    // Decline's confirmation stands over the sheet and takes the keyboard
+    // (its password box, Enter, Esc, Tab; `keyboard`): no stop of the sheet
+    // keeps the focus under it, or Enter would press that stop too, and
+    // none is restored while it stands. Cancelled, focus is back on Decline.
+    let deleting = state.terms.up() && state.lobby.deleting_account().is_some();
+    if deleting != was.2 {
+        was.2 = deleting;
+        if !deleting && state.terms.up() {
+            wanted.0 = Some("decline");
+        }
+    }
+    if deleting {
+        if focus.get().is_some() {
+            focus.clear();
+        }
+        if remembered.0.is_some() {
+            remembered.0 = None;
+        }
+        return;
+    }
     let table = if state.terms.up() {
         Some(TERMS.name)
     } else if state.about_open {
@@ -79,7 +102,7 @@ pub(crate) fn place_sheet_focus(
     };
     let reading = matches!(state.terms.sheet(), Sheet::Reading(_));
     let now = (table.is_some(), reading);
-    if now != *was {
+    if now != (was.0, was.1) {
         // Opened, or its text arrived: focus on the text; while the terms
         // are still on their way (or failed), on the sheet's one answer.
         if table.is_some() {
@@ -91,7 +114,7 @@ pub(crate) fn place_sheet_focus(
                 "not-now"
             });
         }
-        *was = now;
+        (was.0, was.1) = now;
     }
     let (Some(table), Some(id)) = (table, wanted.0) else {
         if table.is_none() && wanted.0.is_some() {
@@ -373,7 +396,8 @@ pub(in crate::lobby) fn terms_keys(
     mut scrolled: ResMut<Scrolled>,
     mailbox: Res<Mailbox>,
 ) {
-    if !state.terms.up() {
+    // Decline's confirmation over the sheet answers its own keys.
+    if !state.terms.up() || state.lobby.deleting_account().is_some() {
         keys.clear();
         return;
     }
@@ -783,6 +807,22 @@ pub(crate) fn sheet(
                 } else {
                     Live::No(Phrase::TermsScrollToAccept.text(lang))
                 };
+                // Declining is the account's deletion, by its own
+                // confirmation (password again for an account, none for a
+                // guest); the terms text names this button word for word.
+                let decline = controls::button(
+                    commands,
+                    kit,
+                    Phrase::TermsDecline.text(lang),
+                    Weight::Danger,
+                    if reading.sending {
+                        Live::No(Phrase::TermsSending.text(lang))
+                    } else {
+                        Live::Yes
+                    },
+                    None,
+                    (Press::Front(FrontPress::TermsDecline), at("decline")),
+                );
                 let accept = controls::button(
                     commands,
                     kit,
@@ -792,7 +832,7 @@ pub(crate) fn sheet(
                     Some("Enter"),
                     (Press::Front(FrontPress::TermsAccept), at("accept")),
                 );
-                footer.extend([not_now, accept]);
+                footer.extend([not_now, decline, accept]);
             }
         }
     }
