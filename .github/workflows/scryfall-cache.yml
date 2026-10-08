@@ -42,6 +42,7 @@ permissions:
 jobs:
   keep-warm:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       # The restore *is* the keep-alive: this is the access that resets the

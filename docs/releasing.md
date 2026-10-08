@@ -44,8 +44,11 @@ While the version is `0.x`:
    (`chore(release): 0.2.0`) and push it.
 2. Wait for `ci` to go green on that commit, including `packages`. The workflow
    refuses a tag without a successful **push to this repository's main** CI run
-   at that exact SHA, and a tag that differs from the workspace version. A green
-   PR run is insufficient.
+   at that exact SHA in which every job of `REQUIRED_JOBS`
+   (`scripts/release/ci_artifacts.py`) ran and passed, and a tag that differs
+   from the workspace version. A green PR run is insufficient, and so is the
+   run of a docs-only push, which skips the release jobs (§"CI"); the version
+   bump touches `Cargo.toml`, so its own run is always a full one.
 3. `git tag -a v0.2.0 -m "Baylee 0.2.0" && git push origin v0.2.0`.
 
 To dry-run, start `release` by hand (`gh workflow run release.yml`). It does
@@ -55,10 +58,13 @@ the same builds and uploads them as workflow artifacts, versioned
 ## Build reuse and caches
 
 `.github/workflows/client-packages.yml` is the one packaging recipe. Main CI
-links every workspace binary in `dist` on each of the five shipping targets,
-checks their test-only code, and uploads the client/launcher archives. The Intel
-macOS link check stays in its own parallel job. PRs keep their debug platform
-matrix and cannot supply release archives.
+links the two shipped binaries (`baylee-client`, `baylee-launch`) in `dist` on
+each of the five shipping targets, with `--workspace` as the selection so their
+dependencies' features unify exactly as a whole-workspace build would, checks
+every target's code (`--all-targets`), and uploads the client/launcher archives.
+The Intel macOS link check stays in its own parallel job; the link of the other
+binaries on all five platforms is the nightly `build` matrix. PR and dispatched
+runs cannot supply release archives.
 
 Each package artifact includes its archive, its installers, a SHA-256 checksum
 file for each and a manifest (schema 2) naming repository, commit, source CI
@@ -78,17 +84,19 @@ promotion/signing path after a green main CI without cutting another release:
 `gh workflow run release.yml --ref main -f promote-ci=true`. This reuses the
 workspace-version archives; the publish job remains tag-only.
 
-The five desktop package builds now cache compiled dependencies; the old
-release build restored no cache at all. Cache keys separate runner OS/target and
-compiler configuration. Only main push jobs write the dist caches. Ordinary
-PR check jobs keep their own PR-scoped caches, which main and tag runs cannot
-restore. Dry runs restore main caches without writing them.
+The five desktop package builds cache compiled dependencies. Cache keys
+separate runner OS/target and compiler configuration. **Only a push to main
+writes any cache**; every other run (a PR, a dispatch, the nightly, a dry run)
+restores main's. A PR's own cache would live under `refs/pull/N/merge`, which
+no other run can read, and on 08.10.2026 those PR writes plus the PR platform
+matrix had pushed the repository past its 10 GB, so most jobs restored nothing
+(§"CI").
 
-The full debug-test job writes a shared cache consumed read-only by Clippy,
-feature tests, validation and the signer. One writer avoids an immutable key
-being filled first by an incomplete Clippy-only build. Workspace crates are
-not added to every compiler cache: the repository already used about 9.9 GB
-before this change, and larger duplicated caches would evict each other. Exact
+The first debug-test partition writes a shared cache consumed read-only by
+Clippy, feature tests, validation and the signer. One writer avoids an
+immutable key being filled first by an incomplete Clippy-only build. Workspace
+crates are not added to every compiler cache, because larger duplicated caches
+would evict each other. Exact
 finished client packages instead live in the 14-day artifact store. Cache
 eviction or compiler/profile changes can still cause cold builds. No signing
 key enters a cache, and reuse never skips Cargo's freshness checks.
@@ -116,6 +124,47 @@ cargo test --locked -p baylee-update --test sign_script
 actionlint
 shellcheck scripts/package-*.sh scripts/installers/*.sh scripts/release/*.sh
 ```
+
+## CI
+
+`.github/workflows/ci.yml` runs on main pushes, pull requests, nightly and by
+hand. Since 08.10.2026 a change **lands on main after the local gates without
+waiting for CI**: `scripts/land.sh` runs `gate.sh`, `gate-features.sh` and
+`gate-wasm.sh` under the machine's cargo lock and then pushes the gated commit
+to main, only as a fast-forward (it never rebases, merges or forces; `--check`
+stops before the push). CI green matters at a release, which needs the main
+push run of the tagged commit green (§"Cutting one").
+
+| Trigger | Runs |
+| --- | --- |
+| main push (code or CI changed) | everything: fmt, clippy, test ×2, test-release, features, validate, wasm, web-feedback, deny, audit, bench, msrv, macos-intel, packages ×5 |
+| main push (docs only) | fmt, test ×2 (tests read docs); not taggable |
+| pull request | fmt, and as their inputs changed: clippy, test ×2, wasm, validate, deny, web-feedback |
+| pull request labelled `ci:full`, or changing CI | as a main push (its packages are never promotable) |
+| nightly | as a main push without packages, plus the five-platform `build` matrix |
+| `workflow_dispatch` | `full` (default on) as a main push; `platforms` adds the matrix |
+
+`scripts/ci-changes.sh` decides what a diff touches (try it with
+`git diff --name-only origin/main | scripts/ci-changes.sh`). Every job has a
+`timeout-minutes` of about 1.5× its measured p95. The debug suite runs in two
+nextest partitions (`--partition count:i/2`), each compiling for itself.
+
+Measured before this layout (30 main pushes and 31 PRs, 06.–08.10.2026,
+minutes; queueing was under 3 min at p95):
+
+| | PR p50 / p95 | main push p50 / p95 |
+| --- | --- | --- |
+| whole run (first attempt, to the last job) | 27 / 40 | 56 / 69 |
+| test (debug) | 19 / 24 | 19 / 24 |
+| test-release | 22 / 39 | 23 / 40 |
+| build matrix, macOS row | 24 / 29 | — |
+| features | 18 / 20 | 19 / 20 |
+| package aarch64-apple-darwin | — | 55 / 69 |
+| package x86_64-pc-windows-msvc | — | 37 / 51 |
+
+Three jobs (bench, msrv, features) hung on 07.10.2026 for 228, 361 and 360
+minutes, all in `apt-get update` against a mirror that stopped answering; apt
+is now bounded in `.github/actions/linux-deps` and every job has a timeout.
 
 ## Installers
 

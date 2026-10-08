@@ -13,11 +13,14 @@ DATABASE_URL=… ./scripts/gate.sh             # full gate as CI: fmt --check, c
 ./scripts/gate-rules.sh                      # while working: fmt, lint-rules, test-rules, validate (if data/scryfall-cache)
 ./scripts/gate-touched.sh [<rev>]            # fmt + clippy on changed files only; not a gate
 DATABASE_URL=… ./scripts/gate-features.sh    # the eight non-default features
+./scripts/gate-wasm.sh                       # the seven browser crates for wasm32 (CI's wasm job)
+DATABASE_URL=… ./scripts/land.sh [--check]   # gate.sh + gate-features.sh + gate-wasm.sh under the cargo lock, then ff-push to main
 ```
 
 - `lint-rules`/`test-rules` (`.cargo/config.toml`) exclude only `baylee-client`, never a hand-written crate list. Run the full gate before every push.
 - Non-default features: `dev-control`, `dev-reload`, `dev-dylink` (client), `dev-control` (Android shim), `dev-table` (gateway), `test-support` (client-core), `fuzz` (engine: `Engine::fingerprint`, every field, for a fuzzer; `Engine::projection_is_fresh`), `mutate` (cards: `BAYLEE_MUTATE`, on only through the engine's dev-dependencies; `docs/verification-hooks.md`). `--workspace` builds none, so run `gate-features.sh` before every push too (CI's `features` job): shared code (a type `devctl.rs` uses) breaks feature builds, and a feature can make an import live that `-D warnings` flags only then. Never `--all-features`: nobody runs it.
-- CI also runs tests in `--release` (never hide required behaviour in `debug_assert!`), a cross-platform `build` matrix (`--bins`, `check --all-targets`), `scryfall-cache` + `validate`, wasm32, benches, MSRV, `cargo-deny`, `cargo-audit`.
+- Landing (owner, 08.10.2026): a change lands on main after the three local gates without waiting for CI; `land.sh` does it (fast-forward only, never rebases or forces). CI runs on the main push, and a release needs that run green with every `REQUIRED_JOBS` entry (`scripts/release/ci_artifacts.py`); a docs-only push runs only fmt and tests and is not taggable. PRs run the quick half (fmt, clippy, two nextest partitions, wasm, validate, deny; label `ci:full` for everything). Table and triggers: `docs/releasing.md` §"CI".
+- Main pushes also run the tests in `--release` (`ci-release` profile; never hide required behaviour in `debug_assert!`), `features`, `scryfall-cache` + `validate`, benches, MSRV, `cargo-deny`, `cargo-audit`, the Intel-mac link and the five dist packages; the nightly adds the five-platform `build` matrix (`--bins`, `check --all-targets`). Only main pushes write Actions caches (10 GB per repository). Every job has `timeout-minutes`.
 - macOS uses `-Csplit-debuginfo=packed`. Builds crawl? Check `stat -f %z target/debug/deps`; sweep by renaming `target/debug` away.
 - Servers are silent without `RUST_LOG=info`.
 
