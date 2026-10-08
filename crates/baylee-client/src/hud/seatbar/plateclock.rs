@@ -1,7 +1,7 @@
 //! A clock beside each player's plate: the time that seat has left to
-//! answer, at every seat at the table (owner, 08.10.2026: *„neben dem
-//! Player-Details-Overlay, für ALLE Spieler sichtbar, das Uhr-Icon und
-//! darunter oder daneben die Zeit, die der Spieler noch hat"*).
+//! answer, at every seat at the table. The owner (08.10.2026, as relayed by
+//! the PM): beside the player details overlay, visible to all players, a
+//! clock icon and below or beside it the time that player still has.
 //!
 //! **A small element of its own, beside the plate and not inside it.** This
 //! module only *reads* where the plate is drawn — the plates' own anchor for
@@ -287,7 +287,7 @@ mod tests {
             "the clock overlaps its plate: {at}"
         );
         let small = middle(beside(&flat(0.5)));
-        assert!((small.x - (340.0 + (GAP + CLOCK_W * 0.5) * 0.5)).abs() < 1e-3);
+        assert!((small.x - (340.0 + GAP * 0.5 + CLOCK_W * 0.25)).abs() < 1e-3);
 
         let turned = attached::PlateBeside {
             quad: [
@@ -488,6 +488,127 @@ mod tests {
         next.seq += 1;
         duel.receive_view(next);
         assert!(duel.seat_clocks.label(PlayerId::new(1)).is_none());
+    }
+
+    /// Every table the owner may sit at (08.10.2026: three, five and seven
+    /// chairs as well as the even ones; free-for-all and uneven sides alike):
+    /// two to eight seats, every arrangement built, three windows, each
+    /// roster alone and in uneven teams. Wherever a seat's plate is drawn,
+    /// its clock is too, off its own plate and off every other seat's plate
+    /// and steps, and no two clocks meet. Who sits with whom moves the
+    /// plates, never what the clock is anchored to.
+    #[test]
+    #[allow(clippy::too_many_lines)] // one sweep: rosters, arrangements, counts, windows
+    fn every_seats_clock_stands_clear_at_every_table() {
+        use crate::table::{CameraRig, Canvas, Shot};
+        use baylee_client_core::layout::{Seat, TableLayout};
+        use baylee_client_core::tableview::{Arrangement, TableFrame};
+        // Free-for-all, and the uneven mixes: 1v1, 1v2, 2v1, 2v2, 2v3,
+        // 3v2+1, 3v3, 3v4, 4v4, a lone seat against a team of the rest.
+        let sides = |n: u8| -> Vec<Vec<Option<u8>>> {
+            let ffa = vec![None; usize::from(n)];
+            let halves = (0..n).map(|i| Some(u8::from(i < n / 2))).collect();
+            let lone = (0..n).map(|i| Some(u8::from(i == 0))).collect();
+            let thirds = (0..n).map(|i| Some(i % 3)).collect();
+            vec![ffa, halves, lone, thirds]
+        };
+        let size = Vec2::new(CLOCK_W, CLOCK_H);
+        let mut drawn = 0;
+        for window in [
+            Vec2::new(1708.0, 1032.0),
+            Vec2::new(1280.0, 800.0),
+            Vec2::new(844.0, 390.0),
+        ] {
+            let canvas = Canvas::hud(window);
+            let frame = TableFrame::of(window.x, window.y);
+            for wanted in Arrangement::ALL.into_iter().filter(|a| a.built()) {
+                for n in 2..=8u8 {
+                    for teams in sides(n) {
+                        let roster: Vec<Seat> = (0..n)
+                            .zip(&teams)
+                            .map(|(i, team)| Seat {
+                                player: PlayerId::new(i),
+                                team: *team,
+                            })
+                            .collect();
+                        let arrangement = wanted.effective(usize::from(n), frame);
+                        let layout =
+                            TableLayout::arranged(&roster, canvas.aspect(), arrangement, None);
+                        let shot = Shot {
+                            arrangement,
+                            ..Shot::default()
+                        };
+                        let lens = crate::table::Lens::new(
+                            CameraRig::home_shot(&layout, canvas, shot).0,
+                            window,
+                        );
+                        let duel = Duel {
+                            layout: Some(layout.clone()),
+                            ..Duel::default()
+                        };
+                        let mut plates = Vec::new();
+                        let mut steps = Vec::new();
+                        let mut clocks = Vec::new();
+                        for slot in layout.on_felt() {
+                            if let Some(corners) = lens.corners(slot.ledge_corners())
+                                && let Some((at, tilt, scale, _)) =
+                                    attached::steps_on(slot, &lens, corners)
+                            {
+                                steps.push((
+                                    slot.player,
+                                    attached::drawn_quad(
+                                        at,
+                                        attached::Panel::Phases.size(),
+                                        tilt,
+                                        scale,
+                                    ),
+                                ));
+                            }
+                            let Some(plate) =
+                                attached::plate_beside(&duel, &lens, slot.player, 1.0)
+                            else {
+                                continue;
+                            };
+                            let clock =
+                                attached::drawn_quad(beside(&plate), size, plate.tilt, plate.scale);
+                            plates.push((slot.player, plate.quad));
+                            clocks.push((slot.player, clock));
+                        }
+                        let at = |what: &str| {
+                            format!("{window}, {arrangement:?}, {n} seats, sides {teams:?}: {what}")
+                        };
+                        for (i, (seat, clock)) in clocks.iter().enumerate() {
+                            drawn += 1;
+                            for (other, plate) in &plates {
+                                assert!(
+                                    !attached::overlaps(clock, plate),
+                                    "{}",
+                                    at(&format!("{seat:?}'s clock meets {other:?}'s plate"))
+                                );
+                            }
+                            for (other, quad) in &steps {
+                                assert!(
+                                    !attached::overlaps(clock, quad),
+                                    "{}",
+                                    at(&format!("{seat:?}'s clock meets {other:?}'s steps"))
+                                );
+                            }
+                            for (other, quad) in &clocks[i + 1..] {
+                                assert!(
+                                    !attached::overlaps(clock, quad),
+                                    "{}",
+                                    at(&format!("{seat:?}'s and {other:?}'s clocks meet"))
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            drawn > 500,
+            "the sweep drew only {drawn} clocks: it measured nothing"
+        );
     }
 
     /// The ink turns at the sound's thresholds and is the plate's own until

@@ -403,6 +403,62 @@ fn every_seat_is_told_every_deciding_seats_clock() {
     );
 }
 
+/// Clocks are public whoever sits with whom (owner, 08.10.2026: any side
+/// may be uneven). In 1v2, 2v3, 3v4 and a free-for-all of five, every
+/// seat — teammate or opponent — is told every deciding seat's clock, and
+/// once the opening hands are kept, the one asked seat's.
+#[test]
+fn every_seat_sees_every_clock_whatever_the_sides() {
+    for teams in [
+        vec![Some(1), Some(2), Some(2)],
+        vec![Some(1), Some(1), Some(2), Some(2), Some(2)],
+        vec![
+            Some(1),
+            Some(2),
+            Some(1),
+            Some(2),
+            Some(2),
+            Some(1),
+            Some(2),
+        ],
+        vec![None; 5],
+    ] {
+        let mut preset = two_humans();
+        let seat = preset.seats[1].clone();
+        preset.seats = teams
+            .iter()
+            .map(|team| baylee_core::preset::SeatSpec {
+                team: *team,
+                ..seat.clone()
+            })
+            .collect();
+        let n = u8::try_from(teams.len()).expect("a table");
+        let mut session = Session::new(&preset).expect("session builds");
+        let _ = session.pump();
+        let everyone: Vec<(u8, u32)> = (0..n).map(|seat| (seat, 30_000)).collect();
+        for seat in 0..n {
+            assert_eq!(
+                clocks_in(&seat_view(&session, PlayerId::new(seat))),
+                everyone,
+                "sides {teams:?}: seat {seat} was not told every deciding seat's clock"
+            );
+        }
+        for seat in 0..n {
+            session
+                .act(PlayerId::new(seat), PlayerAction::MulliganKeep)
+                .expect("keeps");
+        }
+        let asked = session.awaiting_seat().expect("the game goes on").get();
+        for seat in 0..n {
+            assert_eq!(
+                clocks_in(&seat_view(&session, PlayerId::new(seat))),
+                [(asked, 30_000)],
+                "sides {teams:?}: seat {seat} was not told seat {asked}'s clock"
+            );
+        }
+    }
+}
+
 /// From turn 1 on one seat is asked, and the seat that is not is told its
 /// clock in `clocks` as in `decision_remaining_ms`: one number, read in
 /// one place.
