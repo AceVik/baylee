@@ -276,9 +276,10 @@ fn name_key(name: &str) -> String {
 // ------------------------------------------------------------------ sessions
 
 /// A signed-in admin.
-struct Session {
+pub(crate) struct Session {
     token_hash: [u8; 32],
-    name: String,
+    /// The admin's name.
+    pub(crate) name: String,
 }
 
 fn cookie_token(headers: &HeaderMap) -> Option<String> {
@@ -298,7 +299,11 @@ fn signed_out() -> Refusal {
 
 /// The session the request's cookie names, if it is live; using it moves
 /// its idle clock.
-async fn session(state: &AppState, ui: &Ui, headers: &HeaderMap) -> Result<Session, Refusal> {
+pub(crate) async fn session(
+    state: &AppState,
+    ui: &Ui,
+    headers: &HeaderMap,
+) -> Result<Session, Refusal> {
     let token = cookie_token(headers).ok_or_else(signed_out)?;
     let token_hash = hash(&token);
     let db = &state.db;
@@ -373,7 +378,7 @@ fn cleared_cookie() -> HeaderValue {
 /// Whether a changing request comes from this UI: it carries
 /// [`CSRF_HEADER`], its `Origin` names the host it was sent to, and, where
 /// the browser says, it was sent from this origin.
-fn same_origin(headers: &HeaderMap) -> Result<(), Refusal> {
+pub(crate) fn same_origin(headers: &HeaderMap) -> Result<(), Refusal> {
     let cross = || refuse(StatusCode::FORBIDDEN, "cross-site request refused");
     let text = |name| {
         headers
@@ -414,6 +419,7 @@ pub(crate) fn routes() -> Router<Shared> {
         )
         .route("/ui/api/reports/{id}/record", get(record))
         .route("/ui/api/reports/{id}/audit", get(audit_trail))
+        .merge(crate::console::routes())
         .route("/ui/api/{*rest}", axum::routing::any(no_such_route))
 }
 
@@ -430,6 +436,9 @@ struct Credentials {
 #[derive(Serialize)]
 struct Me {
     name: String,
+    /// Whether a gateway's admin console is configured, so the UI shows
+    /// its admin pages (`/ui/api/admin/…`).
+    gateway_admin: bool,
 }
 
 async fn login(
@@ -514,6 +523,7 @@ async fn login(
     tracing::info!(admin = credentials.name, "an admin signed in");
     let mut response = Json(Me {
         name: credentials.name,
+        gateway_admin: state.config.gateway_admin().is_some(),
     })
     .into_response();
     response
@@ -555,6 +565,7 @@ async fn me(State(shared): State<Shared>, headers: HeaderMap) -> Result<Json<Me>
     let signed_in = session(&shared.state, &shared.ui, &headers).await?;
     Ok(Json(Me {
         name: signed_in.name,
+        gateway_admin: shared.state.config.gateway_admin().is_some(),
     }))
 }
 

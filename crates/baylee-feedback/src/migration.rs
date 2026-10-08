@@ -16,7 +16,12 @@ impl MigratorTrait for Migrator {
     }
 
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(Reports), Box::new(Admins), Box::new(Channels)]
+        vec![
+            Box::new(Reports),
+            Box::new(Admins),
+            Box::new(Channels),
+            Box::new(ConsoleAudit),
+        ]
     }
 }
 
@@ -181,6 +186,41 @@ impl MigrationTrait for Channels {
             "DROP INDEX IF EXISTS feedback_report_by_channel",
             "ALTER TABLE feedback_report DROP COLUMN IF EXISTS record_origin",
             "ALTER TABLE feedback_report DROP COLUMN IF EXISTS channel",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+}
+
+/// The fourth migration: the audit also holds changes made through the
+/// admin console (`crate::console`), which are about a gateway's keys and
+/// no report, so `report_id` may be empty. A report's history still reads
+/// only its own rows.
+struct ConsoleAudit;
+
+impl MigrationName for ConsoleAudit {
+    fn name(&self) -> &'static str {
+        "m0004_console_audit"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for ConsoleAudit {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared("ALTER TABLE feedback_audit ALTER COLUMN report_id DROP NOT NULL")
+            .await
+            .map(|_| ())
+    }
+
+    /// The console's rows go with the column's freedom.
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "DELETE FROM feedback_audit WHERE report_id IS NULL",
+            "ALTER TABLE feedback_audit ALTER COLUMN report_id SET NOT NULL",
         ] {
             db.execute_unprepared(statement).await?;
         }
