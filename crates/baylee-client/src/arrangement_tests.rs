@@ -351,13 +351,24 @@ fn a_layout_arrangement_follows_the_seat_of_interest_wherever_it_moved() {
     );
 }
 
+/// Lets `secs` pass on the follow switch's clock and runs its tick, as
+/// [`super::follow_after_the_dwell`] does once a frame.
+fn follow_wait(duel: &mut crate::Duel, secs: f32) {
+    duel.follow_now += secs;
+    if let Some(seat) = duel.follow_due() {
+        duel.follow_show(seat);
+    }
+}
+
 /// *Tisch folgt dem Zug*: off, another player's turn shows nothing; on, it
-/// shows the active seat — deferred while a question is open for me, shown
-/// at the first view without one — and my own turn brings the table home.
+/// shows the active seat once its turn has lasted [`crate::FOLLOW_DWELL`] —
+/// held while a decision of mine is open, shown once it is answered — and
+/// my own turn brings the table home at once.
 #[test]
 fn the_follow_switch_shows_the_active_seat_and_waits_out_my_question() {
     use baylee_client_core::test_support::ViewBuilder;
     use baylee_core::ids::PlayerId;
+    use baylee_engine::choice::Pending;
     let turn = |active: u8, awaiting: Option<u8>| {
         let mut view = ViewBuilder::new(4).with_awaiting(awaiting).build();
         view.active = PlayerId::new(active);
@@ -365,42 +376,59 @@ fn the_follow_switch_shows_the_active_seat_and_waits_out_my_question() {
     };
     let mut duel = seated_duel(Arrangement::Spotlight);
     duel.receive_view(turn(1, Some(1)));
-    assert_eq!(duel.visiting, None, "off by default");
+    follow_wait(&mut duel, 2.0);
+    assert_eq!(duel.visiting, None, "off: nothing moves");
 
     let mut duel = seated_duel(Arrangement::Spotlight);
     duel.follow = true;
     duel.receive_view(turn(1, Some(1)));
-    assert_eq!(duel.visiting, Some(PlayerId::new(1)));
+    follow_wait(&mut duel, 0.5);
+    assert_eq!(duel.visiting, None, "not before the dwell");
+    follow_wait(&mut duel, 0.6);
+    assert_eq!(duel.visiting, Some(PlayerId::new(1)), "a turn that lasts");
     assert!(
         duel.follow_settling,
         "a Space now is dropped until it settles"
     );
     duel.receive_view(turn(2, Some(0)));
+    duel.receive_choice(Pending::ChooseTargets {
+        player: PlayerId::new(0),
+        options: vec![],
+        player_options: vec![],
+        min: 0,
+        max: 1,
+        reason: baylee_engine::choice::TargetPrompt::Targets,
+    });
+    follow_wait(&mut duel, 3.0);
     assert_eq!(
         duel.visiting,
         Some(PlayerId::new(1)),
-        "my question holds the table"
+        "my decision holds the table"
     );
     assert_eq!(duel.follow_pending, Some(PlayerId::new(2)));
-    duel.receive_view(turn(2, Some(2)));
+    duel.receive_choice(Pending::Priority {
+        player: PlayerId::new(0),
+        legal: Box::default(),
+    });
+    follow_wait(&mut duel, 0.0);
     assert_eq!(duel.visiting, Some(PlayerId::new(2)), "shown once answered");
     duel.receive_view(turn(0, Some(0)));
-    assert_eq!(duel.visiting, None, "my turn is home");
+    assert_eq!(duel.visiting, None, "my turn is home at once");
 }
 
-/// The stream a networked seat is really sent at a table of house AIs: the
-/// AIs answer inside the engine, so every view of another player's turn
-/// already awaits me, and the question it brings is a bare priority grant on
-/// an empty stack. Deferring on that deferred forever (beta.6 QA: eight turn
-/// changes at six seats, the table never moved). A bare grant on an empty
-/// stack is not a decision the table must hold still for; a real one is.
+/// The owner's dwell (08.10.) on the stream a networked seat is really
+/// sent: the house answers inside the engine, so every view of another
+/// seat's turn already awaits me with a bare priority grant. Five house
+/// turns in two seconds move the camera at most once, to the seat that
+/// kept the turn, and only after it has lasted a second. The fix before
+/// this one moved five times (it showed every turn as it began).
 #[test]
-fn the_follow_switch_shows_the_active_seat_while_i_only_hold_priority() {
+fn quick_house_turns_move_the_camera_at_most_once() {
     use baylee_client_core::test_support::ViewBuilder;
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::Pending;
     let turn = |active: u8| {
-        let mut view = ViewBuilder::new(4).with_awaiting(Some(0)).build();
+        let mut view = ViewBuilder::new(6).with_awaiting(Some(0)).build();
         view.active = PlayerId::new(active);
         view
     };
@@ -412,31 +440,30 @@ fn the_follow_switch_shows_the_active_seat_while_i_only_hold_priority() {
     duel.follow = true;
     duel.receive_view(turn(0));
     duel.receive_choice(grant());
+    let mut moves = Vec::new();
+    let mut was = duel.visiting;
+    let mut look = |duel: &crate::Duel, moves: &mut Vec<_>| {
+        if duel.visiting != was {
+            moves.push(duel.visiting);
+            was = duel.visiting;
+        }
+    };
+    for active in 1..=5 {
+        duel.receive_view(turn(active));
+        duel.receive_choice(grant());
+        look(&duel, &mut moves);
+        follow_wait(&mut duel, 0.4);
+        look(&duel, &mut moves);
+    }
+    assert!(moves.is_empty(), "no turn lasted a second: {moves:?}");
+    follow_wait(&mut duel, 0.7);
+    look(&duel, &mut moves);
+    assert_eq!(moves, vec![Some(PlayerId::new(5))], "the seat that kept it");
+    // A bare grant is not a decision; something on the stack would be.
     duel.receive_view(turn(1));
-    assert_eq!(duel.follow_pending, Some(PlayerId::new(1)), "deferred");
     duel.receive_choice(grant());
-    assert_eq!(
-        duel.visiting,
-        Some(PlayerId::new(1)),
-        "a bare priority grant does not hold the table"
-    );
-    // A real decision still does: the seat waits until it is answered.
-    duel.receive_view(turn(2));
-    duel.receive_choice(Pending::ChooseTargets {
-        player: PlayerId::new(0),
-        options: vec![],
-        player_options: vec![],
-        min: 0,
-        max: 1,
-        reason: baylee_engine::choice::TargetPrompt::Targets,
-    });
-    assert_eq!(
-        duel.visiting,
-        Some(PlayerId::new(1)),
-        "held under a decision"
-    );
-    duel.receive_choice(grant());
-    assert_eq!(duel.visiting, Some(PlayerId::new(2)), "shown once answered");
+    follow_wait(&mut duel, 1.1);
+    assert_eq!(duel.visiting, Some(PlayerId::new(1)), "a turn that lasts");
 }
 
 /// The owner's tear, run in the client: a chip press on a Spotlight table
@@ -552,6 +579,7 @@ fn by_default_the_table_follows_the_turn() {
         let mut view = ViewBuilder::new(4).with_awaiting(Some(1)).build();
         view.active = PlayerId::new(1);
         app.world_mut().resource_mut::<Duel>().receive_view(view);
+        follow_wait(&mut app.world_mut().resource_mut::<Duel>(), 1.1);
         let visiting = app.world().resource::<Duel>().visiting;
         if on {
             assert_eq!(

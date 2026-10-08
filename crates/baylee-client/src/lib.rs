@@ -421,6 +421,11 @@ pub enum HoverSpot {
     Card(Rect),
 }
 
+/// How long another seat's turn must last before *Tisch folgt dem Zug*
+/// shows it, in seconds: the house's turns that pass in a blink are skipped
+/// and the camera lands where something happens (the owner, 08.10.2026).
+pub const FOLLOW_DWELL: f32 = 1.0;
+
 /// The client's own state for one duel.
 #[derive(Resource, Default)]
 // This is the client's bag of screen state, and each bool is a different
@@ -488,6 +493,13 @@ pub struct Duel {
     /// board shown; shown at the first view that allows it, dropped at the
     /// next turn's start.
     pub follow_pending: Option<PlayerId>,
+    /// When the seat in [`Self::follow_pending`] began its turn, on
+    /// [`Self::follow_now`]'s clock: the follow switch moves only to a turn
+    /// that has lasted [`FOLLOW_DWELL`] (the owner, 08.10.).
+    pub follow_since: f32,
+    /// The follow switch's clock, in seconds, told once a frame
+    /// ([`arrangement::follow_after_the_dwell`]).
+    pub follow_now: f32,
     /// The follow switch moved the table and it has not settled yet: a
     /// `Space` pressed now is dropped (DESIGN-v8 §1.1 — a card that moved
     /// under the finger is not the card the finger meant).
@@ -1256,7 +1268,6 @@ impl Duel {
                 None
             };
         }
-        self.follow_past_a_bare_grant();
         // The flank, not the state: `Cues` remembers whether the last
         // question was this seat's, so the acting seat being re-sent its own
         // question — which happens every time anybody at the table says
@@ -1365,56 +1376,55 @@ impl Duel {
             question_for_me,
             pointer_on_interest,
         };
-        let show = match baylee_client_core::tableview::follow(&edge) {
-            baylee_client_core::tableview::Follow::Show(seat) => Some(seat),
-            baylee_client_core::tableview::Follow::Defer(seat) => {
+        match baylee_client_core::tableview::follow(&edge) {
+            // A turn changed hands: the dwell starts again for its seat. A
+            // turn the house plays in a blink is never shown; the camera
+            // lands where a turn lasts (the owner, 08.10.).
+            baylee_client_core::tableview::Follow::Show(seat)
+            | baylee_client_core::tableview::Follow::Defer(seat) => {
                 self.follow_pending = Some(seat);
-                None
+                self.follow_since = self.follow_now;
             }
-            baylee_client_core::tableview::Follow::Stay => self
-                .follow_pending
-                .filter(|_| self.follow && !question_for_me && !pointer_on_interest),
-        };
-        if let Some(seat) = show {
-            self.follow_pending = None;
-            if self.visiting != Some(seat) {
-                self.visiting = Some(seat);
-                self.follow_settling = true;
-            }
+            baylee_client_core::tableview::Follow::Stay => {}
         }
     }
 
-    /// The deferred half of the follow switch, on a question arriving: a
-    /// bare priority grant on an empty stack is not a decision the table
-    /// must hold still for, so the seat waiting to be shown is shown.
+    /// Whether the seat waiting to be shown may be shown now: its turn has
+    /// lasted [`FOLLOW_DWELL`], no decision of mine is open, and the pointer
+    /// is not reading the board shown.
     ///
-    /// Without it the switch did nothing at a networked table: the house
+    /// A bare priority grant on an empty stack is not a decision: the house
     /// answers inside the engine, so every view of another seat's turn
-    /// already awaits this seat ([`Self::follow_the_turn`] defers on that),
-    /// and the view that would not await it never comes (beta.6 QA). A real
-    /// decision — a target, a choice, a block, something on the stack to
-    /// answer — still holds the table until it is answered.
-    fn follow_past_a_bare_grant(&mut self) {
-        let Some(seat) = self.follow_pending.filter(|_| self.follow) else {
-            return;
-        };
-        let bare = self
-            .interaction
-            .as_ref()
-            .is_some_and(|i| i.is_mine() && matches!(i.pending(), Pending::Priority { .. }))
-            && self.view.as_ref().is_some_and(|v| v.stack.is_empty());
+    /// already awaits this seat, and a switch that waited for a view not
+    /// awaiting it never moved (beta.6 QA). A target, a choice, a block or
+    /// something on the stack to answer holds the table until it is
+    /// answered.
+    #[must_use]
+    pub fn follow_due(&self) -> Option<PlayerId> {
+        let seat = self.follow_pending.filter(|_| self.follow)?;
+        if self.follow_now - self.follow_since < FOLLOW_DWELL {
+            return None;
+        }
+        let deciding = self.interaction.as_ref().is_some_and(|i| {
+            i.is_mine()
+                && !(matches!(i.pending(), Pending::Priority { .. })
+                    && self.view.as_ref().is_some_and(|v| v.stack.is_empty()))
+        });
         let pointer_on_interest = self.hovered.is_some_and(|id| {
             self.view
                 .as_ref()
                 .and_then(|v| v.object(id))
                 .is_some_and(|o| Some(o.controller) == self.visiting)
         });
-        if bare && !pointer_on_interest {
-            self.follow_pending = None;
-            if self.visiting != Some(seat) {
-                self.visiting = Some(seat);
-                self.follow_settling = true;
-            }
+        (!deciding && !pointer_on_interest).then_some(seat)
+    }
+
+    /// Shows the seat [`Self::follow_due`] names.
+    pub fn follow_show(&mut self, seat: PlayerId) {
+        self.follow_pending = None;
+        if self.visiting != Some(seat) {
+            self.visiting = Some(seat);
+            self.follow_settling = true;
         }
     }
 
