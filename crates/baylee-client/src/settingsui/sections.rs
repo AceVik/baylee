@@ -608,7 +608,7 @@ mod tests {
     use super::*;
 
     /// The row's first segment is a word, and words are `Phrase`s: it read
-    /// "Off" in a German Grafik section beside the VSync row's "aus"
+    /// "Off" in a German Grafik section beside the `VSync` row's "aus"
     /// (beta.6 QA).
     #[test]
     fn the_anti_aliasing_segments_speak_the_interface_language() {
