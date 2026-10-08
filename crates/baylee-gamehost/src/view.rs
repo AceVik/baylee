@@ -492,6 +492,7 @@ pub fn player_view(
         awaiting: ctx.awaiting,
         deciding: ctx.deciding,
         decision_remaining_ms: ctx.decision_remaining_ms,
+        clocks: Vec::new(),
         priority_held: ctx.held,
         policy_acts: ctx
             .policy_acts

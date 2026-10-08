@@ -736,6 +736,27 @@ countdown drawn against it on everybody else's screen would name the wrong
 thing happening. Zero would be a seat with no time left, which is why the
 field is an `Option` and not a sentinel.
 
+### Every seat's clock, at every seat (`PlayerView::clocks`, 08.10.2026)
+
+The owner: every player's plate shows, to every player, the time that player
+still has. `decision_remaining_ms` cannot carry that, because it names one
+seat — the one this view waits on, which during the opening mulligans is this
+seat or nobody — so a seat that had kept never saw who was still thinking.
+`PlayerView::clocks` is a list of `SeatClock { seat, remaining_ms }`, in seat
+order, one for every seat on a decision clock now: during the mulligans every
+seat still deciding, from turn 1 on the awaited seat. Same numbers, same
+rules, read in one place (`Session::running_clocks` →
+`Session::decision_remaining_ms` per awaited seat): relative milliseconds
+from the moment the view was built, and no entry wherever that seat's own
+number would be `None` (an AI chair, an untimed table, the stand-in window,
+the curtain still down). Public, as `decision_remaining_ms` is: who is
+deciding is already on the table (`awaiting`, `deciding`). Socket views only;
+an agent's view carries none (#87).
+
+Additive: `#[serde(default, skip_serializing_if = "Vec::is_empty")]`, so an
+older client ignores it, a newer client on an older engine reads it empty,
+and `VIEW_VERSION` stays 55 (the wire-shape pair is re-recorded).
+
 ### Why the number is handed in rather than read
 
 `baylee-gamehost` may not read a wall clock. The rules kernel is
@@ -2628,15 +2649,20 @@ whole preset to the engine as JSON, house rules included, and gamehost has
 always decoded them. What was missing was a way to say which one.
 
 `POST /lobby/games` takes `clock` (a name) and, overriding it,
-`decision_timeout_secs` and `reconnect_window_secs`. Nothing said is `casual`,
-which is exactly what every table played at before, so no existing caller
-changes behaviour. There is no `custom` sentinel: a name picks a row and a
+`decision_timeout_secs` and `reconnect_window_secs`. Nothing said is the
+first row, `classic`: three minutes a decision since 08.10.2026 (the owner;
+it was `casual`'s ten until then), the same number as `HouseRules::default`
+(`DEFAULT_DECISION_SECS`), so a table opened without a room plays it too.
+One allowance for every question a seat is asked — priority, attackers and
+blockers, a discard, the opening hand; the reconnect window is its own clock
+and did not move. There is no `custom` sentinel: a name picks a row and a
 number replaces one field of it, so "blitz but longer to come back" needs no
-fifth preset.
+sixth preset.
 
 | name | decide | reconnect | |
 | --- | --- | --- | --- |
-| `casual` | 600 | 60 | the default, and the old behaviour |
+| `classic` | 180 | 60 | the default |
+| `casual` | 600 | 60 | the default until 08.10.2026 |
 | `standard` | 120 | 60 | |
 | `blitz` | 30 | 30 | |
 | `untimed` | 0 | 60 | no decision clock at all |

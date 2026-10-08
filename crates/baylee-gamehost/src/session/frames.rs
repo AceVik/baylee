@@ -183,6 +183,7 @@ impl Session {
         );
         view.targeting = crate::view::targeting_context(&self.engine, seat);
         view.casting = self.engine.cancellable_cast(seat);
+        view.clocks = self.running_clocks();
         self.show_hands(&mut view, seat);
         let mut out = Vec::new();
         let tail = self.log_tail(seat);

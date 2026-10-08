@@ -244,7 +244,13 @@ impl LocalHost {
     /// malformed deck, or a seat count the engine refuses.
     #[must_use]
     pub fn new(preset: &GamePreset, seat: PlayerId, seat_names: &[&str]) -> Option<Self> {
-        let mut session = Session::new_recorded(preset, baylee_build::short())?;
+        // Untimed: nothing here runs a decision clock — that is the
+        // engine-server's attach loop — so a limit would only be drawn,
+        // counted down to nought in plain sight now that the client shows
+        // every clock in full, and then never enforced.
+        let mut preset = preset.clone();
+        preset.house_rules.decision_timeout_secs = 0;
+        let mut session = Session::new_recorded(&preset, baylee_build::short())?;
         session.describe(
             "local".to_string(),
             seat_names.iter().map(|n| (*n).to_string()).collect(),

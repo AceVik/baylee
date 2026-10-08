@@ -23,6 +23,8 @@ cd "$(dirname "$0")/../.."
 out=target/package
 
 fail() { echo "::error::$*" >&2; exit 1; }
+# make-art.py's LINUX_SIZES: the hicolor icons both Linux installers carry.
+linux_icon_sizes="16 24 32 48 64 128 256 512"
 need() { [ -e "$1" ] || [ -L "$1" ] || fail "missing: $1"; }
 
 case "$target" in
@@ -89,6 +91,16 @@ windows() {
     local setup="$out/Baylee-Setup-$version-$winarch.exe"
     need "$setup"
     echo "setup: present"
+    # Both programs carry the icon as a resource: Explorer, the Start menu's
+    # pin, the title bar and the taskbar show it (build.rs of baylee-client
+    # and baylee-update; owner, 08.10.2026). Read off the archive's tree, the
+    # files the setup installs.
+    local stage="$out/baylee-client-$version-$target"
+    # `python` on a Windows runner, as client-packages.yml calls it there.
+    local python=python
+    command -v python >/dev/null || python=python3
+    "$python" scripts/release/pe_icon.py "$stage/baylee-client.exe" "$stage/baylee-runtime.exe" ||
+        fail "an executable lacks the icon resource"
     $install || return 0
     local dir
     dir="$(cygpath -u "$LOCALAPPDATA")/Programs/Baylee"
@@ -129,6 +141,10 @@ linux() {
     done
     need "$root/baylee.desktop"
     need "$root/baylee.png"
+    for n in $linux_icon_sizes; do need "$root/usr/share/icons/hicolor/${n}x$n/apps/baylee.png"; done
+    # A Wayland dock pairs the window (app_id `baylee`, window_icon.rs) with
+    # the entry of that name; X11 by WM_CLASS.
+    grep -qx 'StartupWMClass=baylee' "$root/baylee.desktop" || fail "the AppImage's desktop entry names no WM class"
     rm -rf "$tmp"
     echo "AppImage: layout ok"
     dpkg-deb --info "$deb" >/dev/null
@@ -137,13 +153,16 @@ linux() {
     local contents
     contents=$(dpkg-deb --contents "$deb")
     grep -q '\./opt/baylee/baylee-runtime$' <<<"$contents" || fail ".deb has no runtime"
+    for n in $linux_icon_sizes; do
+        grep -q "\./usr/share/icons/hicolor/${n}x$n/apps/baylee\.png$" <<<"$contents" || fail ".deb has no ${n}px icon"
+    done
     echo ".deb: readable"
     $install || return 0
     sudo apt-get install -y --no-install-recommends "./$deb" desktop-file-utils
     [ "$(readlink -f /usr/bin/baylee)" = /opt/baylee/baylee-client ] || fail "/usr/bin/baylee does not lead to the launcher"
     need /opt/baylee/baylee-runtime
     need /usr/share/applications/baylee.desktop
-    need /usr/share/icons/hicolor/256x256/apps/baylee.png
+    for n in $linux_icon_sizes; do need "/usr/share/icons/hicolor/${n}x$n/apps/baylee.png"; done
     desktop-file-validate /usr/share/applications/baylee.desktop
     # Root-owned, so the launcher will not install updates here; the client
     # only links to the release (docs/releasing.md §"Installers").

@@ -40,8 +40,10 @@ pub(super) fn clock_placement(
 pub(super) enum Clock {
     /// No countdown is shown.
     None,
-    /// In its own cell left of the question: someone else's clock, or a
-    /// question the house answers when it runs out.
+    /// In its own cell left of the question: this seat's own clock where no
+    /// button carries it, as for a question the house answers when it runs
+    /// out. Another seat's clock stands beside its plate
+    /// (`seatbar::plateclock`), never here.
     Beside,
     /// In the text of the button the clock presses (#258).
     InButton,
@@ -52,9 +54,9 @@ pub(super) enum Clock {
 /// The same [`DecisionClockLabel`] the cell is, so
 /// [`count_down_the_decision`] writes whichever one was built, and the same
 /// ink as the button's words, because it is part of what the button says:
-/// "Pass 12" is what pressing nothing will do in twelve seconds.
-/// Its width is fixed at two digits for the cell's reason, so the button
-/// does not change size once a second.
+/// "Pass 0:12" is what pressing nothing will do in twelve seconds.
+/// Its width is fixed at the widest time for the cell's reason, so the
+/// button does not change size once a second.
 pub(super) fn button_clock(commands: &mut Commands, fonts: &UiFonts, ink: Color) -> Entity {
     commands
         .spawn((
@@ -72,11 +74,16 @@ pub(super) fn button_clock(commands: &mut Commands, fonts: &UiFonts, ink: Color)
         .id()
 }
 
-/// The room [`button_clock`] takes: the widest number it holds, at the
+/// The room [`button_clock`] takes: the widest time it holds, at the
 /// button's own size.
 pub(super) fn button_clock_width() -> f32 {
-    super::text_width("60", LABEL_PT, true)
+    super::text_width(WIDEST, LABEL_PT, true)
 }
+
+/// The widest time a clock can show: an hour, the gateway's ceiling
+/// (`clock::MAX_SECS`), as [`baylee_client_core::decisionclock::mmss`]
+/// writes it.
+const WIDEST: &str = "60:00";
 
 /// The countdown's cell, so the seconds can be written in place.
 ///
@@ -86,7 +93,8 @@ pub(super) fn button_clock_width() -> f32 {
 #[derive(Component)]
 pub struct DecisionClockLabel;
 
-/// Counts the awaited seat's clock down and writes it where it stands.
+/// Counts the awaited seat's clock down and writes it where it stands, as
+/// `m:ss` from the question's first second (owner, 08.10.2026).
 ///
 /// The whole of the per-frame work, and it touches no `Node`: the cell was
 /// given its width when it was spawned, and this only ever assigns a
@@ -102,7 +110,7 @@ pub struct DecisionClockLabel;
 pub fn count_down_the_decision(
     time: Res<Time>,
     mut duel: ResMut<crate::Duel>,
-    mut label: Query<&mut Text, With<DecisionClockLabel>>,
+    mut label: Query<ClockCell, With<DecisionClockLabel>>,
 ) {
     // Past change detection, as `sound::tell_the_cues_the_time` tells the
     // cue queue the time: a clock ticking is not the duel changing, and a
@@ -113,26 +121,72 @@ pub fn count_down_the_decision(
     if let Some(cue) = clock.claim() {
         duel.cues.push(cue);
     }
-    let Ok(mut text) = label.single_mut() else {
+    let Ok((mut text, colour, beside)) = label.single_mut() else {
         return;
     };
-    let says = duel
+    // Compared and copied through a stack buffer: this runs every frame, and
+    // a clock at rest must allocate nothing (`docs/perf-client.md`).
+    match duel
         .clock
         .shown()
-        .map_or_else(String::new, |left| left.to_string());
-    if text.0 != says {
-        text.0 = says;
+        .map(baylee_client_core::decisionclock::ClockText::of)
+    {
+        Some(says) => {
+            if text.0 != says.as_str() {
+                says.write_into(&mut text.0);
+            }
+        }
+        None => {
+            if !text.0.is_empty() {
+                text.0.clear();
+            }
+        }
+    }
+    // The cell beside the question turns with the clock's urgency; one in a
+    // button keeps the button's ink, because it is part of what the button
+    // says.
+    if let Some(mut colour) = colour.filter(|_| beside) {
+        let want = duel.clock.urgency().map_or(palette::LEDGE_SOFT, beside_ink);
+        if colour.0 != want {
+            colour.0 = want;
+        }
     }
 }
 
-/// The room the countdown takes, reserved for the widest number it holds.
+/// What [`count_down_the_decision`] writes: the digits, the ink where the
+/// cell has its own, and whether it is the cell beside the question.
+type ClockCell = (
+    &'static mut Text,
+    Option<&'static mut TextColor>,
+    Has<BesideTheQuestion>,
+);
+
+/// Marks the countdown's own cell beside the question, the one whose ink
+/// follows the clock's [`Urgency`](baylee_client_core::decisionclock::Urgency).
+#[derive(Component)]
+pub struct BesideTheQuestion;
+
+/// The cell's ink: the shelf's soft ink while the clock is calm, its candle
+/// in the last minute, danger in the last ten seconds — the moments
+/// `Cue::ClockLow` sounds at, now that the number is always on. The shelf's
+/// own register (a dialog: no `ACTIVE` brass, `shelf_tests`).
+pub(super) fn beside_ink(urgency: baylee_client_core::decisionclock::Urgency) -> Color {
+    use baylee_client_core::decisionclock::Urgency;
+    match urgency {
+        Urgency::Calm => palette::LEDGE_SOFT,
+        Urgency::Low => palette::CANDLE,
+        Urgency::Last => palette::DANGER,
+    }
+}
+
+/// The room the countdown takes, reserved for the widest time it holds.
 ///
-/// `shown()` never exceeds `SHOW_AT`, so the cell is two digits wide and is
+/// A table's clock is at most an hour, so the cell is `60:00` wide and is
 /// given that width **explicitly** rather than sized to its content. A cell
 /// that resized as the digits changed would shove the sentence beside it
 /// sideways once a second, which is the one thing a clock on a shelf must not
 /// do — and it would do it through `Node`, which is exactly what the writing
 /// system is kept away from.
 pub(super) fn clock_width() -> f32 {
-    super::text_width("60", SENTENCE_PT, true) + baylee_client_core::ledge::SENTENCE_GAP
+    super::text_width(WIDEST, SENTENCE_PT, true) + baylee_client_core::ledge::SENTENCE_GAP
 }

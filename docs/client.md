@@ -3637,13 +3637,39 @@ from it and takes the next view as the correction — an absolute deadline
 would make this machine's clock a rules question.
 
 The owner's question on #69 was not "how many seconds" but **"does the player
-ever see the clock, and from when"**: a countdown visible the whole time turns
-every decision into a timed test, one that appears at the end is a warning.
-This is the warning. `DecisionClock::SHOW_AT` is 60 s, flat rather than a
-fraction of the table's limit — which is what makes `blitz` (30 s to decide)
-right by construction rather than an edge, because at that table every
-question *is* the last minute and the number is on from the moment it
-arrives. `Cue::ClockLow` sounds at 60 s and again at 10 s.
+ever see the clock, and from when"**, and the answer then was the warning: the
+number appeared in a question's last minute. **On 08.10.2026 the owner
+reversed it**: the client always shows the time, `m:ss`
+(`decisionclock::mmss`: `3:00`, `0:09`, `60:00` at most), from a question's
+first second, beside the question or in the button the clock presses alike.
+The minute is still the first warning, flat rather than a fraction of the
+table's limit (`DecisionClock::LOW_AT` 60 s, so at `blitz` every question *is*
+the last minute): `Cue::ClockLow` sounds at 60 s and again at 10 s
+(`LAST_CALL`), and the cell beside the question turns with
+`decisionclock::Urgency` — the shelf's soft ink while calm, `CANDLE` in the
+last minute, `DANGER` in the last ten seconds — since its appearing no longer
+marks the minute. A number in a button keeps the button's ink: it is part of
+what the button says. Both cells are reserved `60:00` wide (an hour is the
+gateway's ceiling), so nothing beside them moves as the digits change.
+
+**Every player's plate carries its own clock** (owner, 08.10.2026), at every
+seat: a clock icon (Font Awesome's `clock`, `glyph::CLOCK`) and the time that
+seat has left, in a small pill beside the plate. It is fed by
+`PlayerView::clocks` (docs/protocol.md §"Every seat's clock, at every seat"),
+counted between views by `decisionclock::SeatClocks` (no sound: the sound is
+this seat's own, rung by `DecisionClock`), and drawn by
+`hud/seatbar/plateclock.rs`, which is **not part of the plate**: it reads the
+plates' anchor for what stands beside them (`hud::plate_beside` →
+`PlateBeside { quad, tilt, scale, along, away }`) and stands its own box at
+the plate's free side, along the mat's edge, turned and scaled with it
+(`plateclock::beside`, the one function that says where). One `PlateClock` per
+seat under its own `PlateClockRoot`, built when the seats change and never on
+a view; `tick_plate_clocks` counts, places and writes past change detection,
+each write guarded, so a clock costs a `Text` write once a second and a camera
+standing still moves nothing. Hidden for a seat on no clock and wherever the
+plate is not drawn (under the hand, a tear, off screen). Its ink follows
+`Urgency` too (`INK`, `ACTIVE`, `DANGER`). A local game is untimed
+(`LocalHost` runs no clock, so a limit there would only be drawn).
 
 Three decisions worth keeping.
 
@@ -3665,12 +3691,17 @@ the client. This one stays named: `decision_secs` is on the wire too, but a
 sound that fires at a fraction of the table's limit is a different decision
 from a sound that fires at a minute, and nobody has asked for it.
 
-**The number is drawn for every seat and rung only for this one.** The view
-publishes the awaited seat's remainder to the whole table deliberately, so
-that a long pause reads as a clock rather than as rudeness. A *sound* every
-time an opponent thinks for a minute would be a metronome, landing exactly
-when this player is reading the board — the same rule that makes
-`Cue::YourMove` a flank rather than a state.
+**Every seat's time is drawn, each in its own place, and only this one's is
+rung.** The view publishes the awaited seat's remainder to the whole table
+deliberately, so that a long pause reads as a clock rather than as rudeness.
+Since 08.10.2026 another seat's time stands beside that seat's plate, and the
+shelf counts **this seat's own clock only** (`Duel::receive_view` syncs
+`DecisionClock` with nothing while `awaiting` is another seat; in the
+mulligans `awaiting` is this seat while it still decides): a second copy
+mid-shelf read as a stray (`the_shelf_shows_no_clock_while_another_seat_decides`).
+A *sound* every time an opponent thinks for a minute would be a metronome,
+landing exactly when this player is reading the board — the same rule that
+makes `Cue::YourMove` a flank rather than a state.
 
 **The cell's presence is gated on the revision; its value never is.** A
 `LedgeRevision` field holding the seconds would rebuild the whole shelf once a
@@ -3696,8 +3727,8 @@ declaration is "None", keeping the hand is "Keep", and a declined "may" is
 after its words and in their ink, at `LABEL_PT` and two digits wide
 (`button_clock`), instead of the cell beside the question. It is still one
 label, so `count_down_the_decision` writes whichever was built. The cell
-remains for everything else: another seat's clock (no answers on this
-shelf), a question the house answers (a discard, targets), an armed deed,
+remains for everything else of this seat's own: a question the house
+answers (a discard, targets), an armed deed,
 and the client's own cast chooser, which takes the answers off the row.
 `clock_answer`'s test sends every such button through `Interaction`, so a
 number on a button is an answer that button really sends.
@@ -9512,6 +9543,17 @@ client also installs the bundled `brand/baylee.icns` into AppKit at startup,
 so Cargo/direct launches use the same Dock icon as the packaged `.app`.
 The setter runs on the main thread and accepts only a decoded, non-null image;
 the installed image is read back to verify the assignment.
+
+On Windows and Linux X11 the client sets its window's icon itself
+(`window_icon.rs`), since Bevy 0.19 has none: once winit has made the primary
+window, a main-thread system reaches it through `bevy::winit::WINIT_WINDOWS`.
+Windows loads the executable's own icon resource (ordinal 1, `build.rs`) at
+the title bar's and the taskbar's size; X11 takes `brand/baylee-window.png`.
+The window is named `baylee` (`Window::name`): Wayland's `app_id` and X11's
+`WM_CLASS`, matching `baylee.desktop`, from which a Wayland shell takes the
+icon. On Windows the process claims the `AppUserModelID` of the setup's
+shortcuts before its first window. Where each package puts the icon:
+`docs/releasing.md` §"Installers".
 
 ### Token abilities after their source disappears
 

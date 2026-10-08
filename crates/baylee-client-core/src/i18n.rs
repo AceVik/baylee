@@ -4477,6 +4477,8 @@ messages! {
     ClockMinutes { en: "{0} min", de: "{0} Min." },
     /// A clock's span in seconds. `{0}` seconds.
     ClockSeconds { en: "{0} s", de: "{0} s" },
+    /// The `classic` clock's name: three minutes, the default.
+    ClockClassic { en: "classic", de: "klassisch" },
     /// The `casual` clock's name.
     ClockCasual { en: "casual", de: "gemütlich" },
     /// The `standard` clock's name.
@@ -4486,7 +4488,9 @@ messages! {
     /// The `untimed` clock's name.
     ClockUntimed { en: "untimed", de: "ohne Uhr" },
     /// The `casual` clock's help line.
-    ClockCasualHelp { en: "Ten minutes a decision; the pace every table used to play at.", de: "Zehn Minuten pro Entscheidung; das Tempo, in dem jeder Tisch früher spielte." },
+    ClockCasualHelp { en: "Ten minutes a decision.", de: "Zehn Minuten pro Entscheidung." },
+    /// The `classic` clock's help line.
+    ClockClassicHelp { en: "Three minutes a decision; the default.", de: "Drei Minuten pro Entscheidung; die Voreinstellung." },
     /// The `standard` clock's help line.
     ClockStandardHelp { en: "Two minutes a decision.", de: "Zwei Minuten pro Entscheidung." },
     /// The `blitz` clock's help line.
