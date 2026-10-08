@@ -110,6 +110,11 @@ struct FeltParams {
     /// weld seam's heat (0 to 1). The whole slab holds zero: `w` is the gate
     /// every bit of this work stands behind.
     rift: vec4<f32>,
+    /// Where the baked slow fields lie (`baylee_client_core::feltwarp`):
+    /// `xy` the table point at the grid's top-left corner, `zw` one over its
+    /// size. All zero until the grid has been computed for this cut, and
+    /// then the fields are worked out here instead.
+    warp: vec4<f32>,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: FeltParams;
@@ -492,6 +497,28 @@ struct Veins {
     lava_d: f32,
     water: f32,
     lava: f32,
+    silt: f32,
+}
+
+/// The slow fields, baked once per cut on the CPU with this file's own
+/// arithmetic (`baylee_client_core::feltwarp`): the warp's two noises in
+/// `xy`, the heat in `z`, the silt in `w`.
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var warp_field: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var warp_sampler: sampler;
+
+/// The baked fields at table point `p`, or a negative `x` where there are
+/// none (before the grid arrives, or past its edge).
+fn baked_at(p: vec2<f32>) -> vec4<f32> {
+    if (params.warp.z <= 0.0) {
+        return vec4<f32>(-1.0);
+    }
+    let uv = vec2<f32>(p.x - params.warp.x, params.warp.y - p.y) * params.warp.zw;
+    if (any(uv < vec2<f32>(0.0)) || any(uv > vec2<f32>(1.0))) {
+        return vec4<f32>(-1.0);
+    }
+    // An explicit level: this is read inside branches, where implicit
+    // derivatives are undefined.
+    return textureSampleLevel(warp_field, warp_sampler, uv, 0.0);
 }
 
 fn veins_at(p: vec2<f32>) -> Veins {
@@ -499,18 +526,31 @@ fn veins_at(p: vec2<f32>) -> Veins {
     let axis = vec2<f32>(cos(angle), sin(angle));
     let domain = vec2<f32>(dot(p, axis), dot(p, vec2<f32>(-axis.y, axis.x)))
         * (0.85 + params.pattern.w * (0.30 / 256.0)) + params.pattern.xy;
-    let warp = domain + vec2<f32>(fbm(domain * 0.32), fbm(domain * 0.32 + 19.4)) * 3.4;
+    // The warp, the heat and the silt are smooth and still: read them off
+    // the baked grid where there is one, and work them out where not.
+    let baked = baked_at(p);
+    var warp: vec2<f32>;
+    var heat: f32;
+    var silt: f32;
+    if (baked.x >= 0.0) {
+        warp = domain + baked.xy * 3.4;
+        heat = baked.z;
+        silt = baked.w;
+    } else {
+        warp = domain + vec2<f32>(fbm(domain * 0.32), fbm(domain * 0.32 + 19.4)) * 3.4;
+        heat = vnoise(warp * 0.19 + 42.0);
+        silt = fbm(p * 0.34);
+    }
     let trunk = vein_distance(warp * 0.28, params.veins.xy);
     let capillary = vein_distance(warp * 0.73 + 8.3, params.veins.zw);
     // Fine branches fade between the larger vessels instead of filling every
     // cell with equally bright cracks. Water and molten rock share junctions.
     let branch = min(trunk, capillary * 3.2 + 0.012 + smoothstep(0.04, 0.20, trunk) * 0.065);
-    let heat = vnoise(warp * 0.19 + 42.0);
     let water_d = branch * 18.0 + smoothstep(0.44, 0.64, heat) * 1.05;
     let lava_d = branch * 24.0 + (1.0 - smoothstep(0.36, 0.56, heat)) * 0.95;
     let water = 1.0 - smoothstep(0.42, 1.25, water_d);
     let lava = 1.0 - smoothstep(0.30, 0.98, lava_d);
-    return Veins(warp, water_d, lava_d, water, lava);
+    return Veins(warp, water_d, lava_d, water, lava, silt);
 }
 
 fn glass_at(p: vec2<f32>) -> vec3<f32> {
@@ -521,7 +561,7 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
     let lava_d = field.lava_d;
     let water = field.water;
     let lava = field.lava;
-    let silt = fbm(p * 0.34);
+    let silt = field.silt;
     var colour = mix(vec3<f32>(0.012, 0.023, 0.029), vec3<f32>(0.035, 0.046, 0.050), silt);
 
     // Each moving layer is drawn only where its seam shows: away from the

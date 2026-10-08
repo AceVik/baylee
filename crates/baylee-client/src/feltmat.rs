@@ -102,6 +102,10 @@ pub struct FeltParams {
     /// molten seam's brightness, `w` the piece's side (-1 mine, 1 far). The
     /// whole slab holds zero.
     pub rift: Vec4,
+    /// Where the baked slow fields lie ([`FeltMaterial::warp`],
+    /// `baylee_client_core::feltwarp::WarpField::rect`); zero until the grid
+    /// for this cut has been computed, and the shader works them out itself.
+    pub warp: Vec4,
 }
 
 /// Random presentation seed, sampled once when a duel is created.
@@ -159,6 +163,96 @@ pub struct FeltMaterial {
     /// (`baylee_client_core::feltveins`, [`vein_points`]).
     #[texture(1)]
     pub veins: Handle<Image>,
+    /// The cloth's slow fields — the warp, the heat, the silt — baked once
+    /// per cut off the main thread ([`BakeWarp`]); a one-texel stand-in
+    /// until then, which the shader does not read ([`FeltParams::warp`]).
+    #[texture(2)]
+    #[sampler(3)]
+    pub warp: Handle<Image>,
+}
+
+/// The baked fields as the texture the felt samples: four half floats a
+/// texel, filtered linearly, clamped at the edges. `RENDER_WORLD` only, like
+/// the vein table.
+#[must_use]
+pub fn warp_image(field: &baylee_client_core::feltwarp::WarpField) -> Image {
+    use bevy::asset::RenderAssetUsages;
+    use bevy::image::ImageSampler;
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    let mut bytes = Vec::with_capacity(field.texels.len() * 8);
+    for texel in &field.texels {
+        for value in texel {
+            bytes.extend_from_slice(&half::f16::from_f32(*value).to_le_bytes());
+        }
+    }
+    let mut image = Image::new(
+        Extent3d {
+            width: field.width,
+            height: field.height,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        bytes,
+        TextureFormat::Rgba16Float,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+    image.sampler = ImageSampler::linear();
+    image
+}
+
+/// The stand-in a slab is cut with until its fields are baked: one texel,
+/// of the format the shader's binding expects, never read.
+#[must_use]
+pub fn no_warp() -> Image {
+    warp_image(&baylee_client_core::feltwarp::WarpField {
+        width: 1,
+        height: 1,
+        origin: [0.0, 0.0],
+        size: [1.0, 1.0],
+        texels: vec![[0.0; 4]],
+    })
+}
+
+/// The slow fields of a cut being baked off the main thread, on the slab
+/// they are for: the texture and the rect it covers.
+#[derive(Component)]
+pub struct BakeWarp(bevy::tasks::Task<(Image, Vec4)>);
+
+impl BakeWarp {
+    /// Starts baking the fields for a slab `span` across under `pattern`.
+    #[must_use]
+    pub fn start(span: Vec2, pattern: Vec4) -> Self {
+        let (span, pattern) = (span.to_array(), pattern.to_array());
+        Self(bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
+            let field = baylee_client_core::feltwarp::WarpField::for_table(span, pattern);
+            (warp_image(&field), Vec4::from_array(field.rect()))
+        }))
+    }
+}
+
+/// Puts a finished bake on its slab's material: the shader reads the grid
+/// from the next frame on. A slab cut again meanwhile has a new bake on it,
+/// and the old one was dropped with its component, unfinished.
+pub fn install_the_warp(
+    mut commands: Commands,
+    mut bakes: Query<(Entity, &mut BakeWarp, &MeshMaterial3d<FeltMaterial>)>,
+    mut materials: ResMut<Assets<FeltMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+) {
+    for (entity, mut bake, material) in &mut bakes {
+        let Some((image, rect)) =
+            bevy::tasks::block_on(bevy::tasks::futures_lite::future::poll_once(&mut bake.0))
+        else {
+            continue;
+        };
+        commands.entity(entity).remove::<BakeWarp>();
+        if let Some(mut material) = materials.get_mut(&material.0) {
+            // The old texture goes with its last handle, not before: a
+            // tearing table's pieces may still be drawn with a copy of it.
+            material.warp = images.add(image);
+            material.params.warp = rect;
+        }
+    }
 }
 
 /// The vein table for a slab `span` across under `pattern`: the image the
@@ -246,5 +340,83 @@ mod pattern_tests {
         assert!(b.cmpge(Vec4::ZERO).all() && b.cmplt(Vec4::splat(256.0)).all());
         assert_eq!(a, TablePattern::from_seed(0).0);
         assert_eq!(b, TablePattern::from_seed(u64::MAX).0);
+    }
+}
+
+#[cfg(test)]
+mod warp_tests {
+    use super::*;
+
+    /// A bake started on a slab ends on its material: the grid's texture in
+    /// place of the stand-in, and the rect that tells the shader to read it
+    /// — the same rect the grid itself names. Until then the material says
+    /// zero, and the shader computes.
+    #[test]
+    fn a_finished_bake_is_put_on_its_slab() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<Assets<Image>>()
+            .init_resource::<Assets<FeltMaterial>>()
+            .add_systems(Update, install_the_warp);
+        let (span, pattern) = (Vec2::new(6.0, 4.0), Vec4::new(3.0, 5.0, 64.0, 128.0));
+        let stand_in = app
+            .world_mut()
+            .resource_mut::<Assets<Image>>()
+            .add(no_warp());
+        let material = app
+            .world_mut()
+            .resource_mut::<Assets<FeltMaterial>>()
+            .add(FeltMaterial {
+                params: FeltParams::default(),
+                veins: Handle::default(),
+                warp: stand_in.clone(),
+            });
+        let slab = app
+            .world_mut()
+            .spawn((
+                MeshMaterial3d(material.clone()),
+                BakeWarp::start(span, pattern),
+            ))
+            .id();
+        for _ in 0..2000 {
+            app.update();
+            if app.world().get::<BakeWarp>(slab).is_none() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert!(
+            app.world().get::<BakeWarp>(slab).is_none(),
+            "the bake finished"
+        );
+        let materials = app.world().resource::<Assets<FeltMaterial>>();
+        let felt = materials.get(&material).expect("the material");
+        let field =
+            baylee_client_core::feltwarp::WarpField::for_table(span.to_array(), pattern.to_array());
+        assert_eq!(felt.params.warp, Vec4::from_array(field.rect()));
+        assert_ne!(felt.warp, stand_in, "the stand-in was replaced");
+        let image = app
+            .world()
+            .resource::<Assets<Image>>()
+            .get(&felt.warp)
+            .expect("the grid's texture");
+        assert_eq!((image.width(), image.height()), (field.width, field.height));
+    }
+
+    /// The texture holds the grid's numbers as half floats, texel for texel.
+    #[test]
+    fn the_texture_holds_the_grid() {
+        let field =
+            baylee_client_core::feltwarp::WarpField::for_table([3.0, 2.0], [0.0, 0.0, 0.0, 0.0]);
+        let image = warp_image(&field);
+        let bytes = image.data.as_ref().expect("bytes");
+        assert_eq!(bytes.len(), field.texels.len() * 8);
+        for (i, texel) in field.texels.iter().enumerate().step_by(7) {
+            for (c, value) in texel.iter().enumerate() {
+                let at = (i * 4 + c) * 2;
+                let read = half::f16::from_le_bytes([bytes[at], bytes[at + 1]]).to_f32();
+                assert!((read - value).abs() < 1e-3, "texel {i} channel {c}");
+            }
+        }
     }
 }

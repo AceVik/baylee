@@ -456,6 +456,7 @@ fn the_table_tears_into_pieces_and_is_one_slab_again_when_docked() {
                 ..FeltParams::default()
             },
             veins: Handle::default(),
+            warp: Handle::default(),
         });
     let rest = Transform::from_xyz(0.0, TABLE_Y, 0.0)
         .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2));

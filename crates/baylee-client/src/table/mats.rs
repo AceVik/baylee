@@ -148,7 +148,12 @@ pub fn sync_table(
     mut meshes: ResMut<Assets<Mesh>>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<FeltMaterial>>,
-    mut slabs: Query<(&mut Slab, &mut Mesh3d, &MeshMaterial3d<FeltMaterial>)>,
+    mut slabs: Query<(
+        Entity,
+        &mut Slab,
+        &mut Mesh3d,
+        &MeshMaterial3d<FeltMaterial>,
+    )>,
     quality: Option<Res<crate::quality::InUse>>,
 ) {
     // Cut to the table the tear ends on: a slab that followed its stages
@@ -203,7 +208,7 @@ pub fn sync_table(
         )
     };
 
-    let Ok((mut slab, mut mesh, handle)) = slabs.single_mut() else {
+    let Ok((entity, mut slab, mut mesh, handle)) = slabs.single_mut() else {
         // No slab yet. Cut one, and let the next frame light it.
         let (veins, vein_offsets) = crate::feltmat::vein_points(span, duel.table_pattern.0);
         commands.spawn((
@@ -224,6 +229,9 @@ pub fn sync_table(
             // The floor of the scene answers no clicks: a pointer on bare
             // cloth means the table, not the thing under it.
             Pickable::IGNORE,
+            // The cloth's slow fields, baked off the main thread; the shader
+            // works them out itself until they arrive.
+            crate::feltmat::BakeWarp::start(span, duel.table_pattern.0),
             Mesh3d(meshes.add(slab_mesh(span))),
             MeshMaterial3d(materials.add(FeltMaterial {
                 params: crate::feltmat::FeltParams {
@@ -253,8 +261,10 @@ pub fn sync_table(
                     tints: [Vec4::ZERO; 8],
                     teams: [Vec4::ZERO; 8],
                     rift: Vec4::ZERO,
+                    warp: Vec4::ZERO,
                 },
                 veins: images.add(veins),
+                warp: images.add(crate::feltmat::no_warp()),
             })),
             Transform::from_xyz(0.0, TABLE_Y, 0.0)
                 .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
@@ -301,6 +311,13 @@ pub fn sync_table(
             images.remove(&material.veins);
             material.veins = images.add(veins);
             material.params.veins = vein_offsets;
+            // The fields are a function of the table point and the pattern,
+            // not of the cut, so the grid already baked stays right where it
+            // reaches and the shader works out the rest until the larger one
+            // arrives.
+            commands
+                .entity(entity)
+                .insert(crate::feltmat::BakeWarp::start(span, duel.table_pattern.0));
         }
         material.params.wash = next;
         material.params.flames = next_flames;

@@ -1606,7 +1606,12 @@ fn add_present_systems(app: &mut App) {
                 .before(hud::sync_overlay),
             table::sync_scene,
             (table::sync_zones, table::sync_library_fan).chain(),
-            (table::sync_table, dial::turn_the_dial).chain(),
+            (
+                table::sync_table,
+                dial::turn_the_dial,
+                feltmat::install_the_warp,
+            )
+                .chain(),
             sky::hang_sky,
             sky::sync_sky,
             sky::light_the_table.after(sky::sync_sky),

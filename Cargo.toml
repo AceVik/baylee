@@ -104,6 +104,10 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # version bevy_text already resolves, so it adds no second copy, and it is
 # pure Rust, which is what makes it work in the browser build too.
 swash = "0.2"
+# Half floats for the felt's baked slow fields (`feltmat::warp_image`, an
+# `Rgba16Float` texture). The version bevy_image already resolves, so it adds
+# no second copy.
+half = "2.7"
 # Browser bindings for the client's localStorage settings. Version pinned to
 # the one bevy already resolves for wasm, so this adds no second copy.
 web-sys = "0.3"

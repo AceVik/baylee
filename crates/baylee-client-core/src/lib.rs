@@ -62,6 +62,7 @@ pub mod deckbuilder;
 pub mod depart;
 pub mod dial;
 pub mod feltveins;
+pub mod feltwarp;
 pub mod filterdialog;
 pub mod firewheel;
 pub mod gamelog;
