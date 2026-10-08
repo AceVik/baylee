@@ -43,7 +43,7 @@ use baylee_client_core::Prompt;
 use baylee_engine::choice::Pending;
 
 mod attack;
-mod sheet;
+pub(in crate::hud) mod sheet;
 
 pub use sheet::{SheetPill, SheetSource, SheetTitle};
 pub(crate) use sheet::{sheet_asked, sheet_up};
@@ -388,8 +388,14 @@ fn fill_panel(
     picture: Option<Handle<Image>>,
 ) {
     if let Some(head) = revision.head.as_ref() {
-        let written =
-            sheet::spawn_head(commands, fonts, head, picture, revision.fold_cap.as_deref());
+        let written = sheet::spawn_head(
+            commands,
+            fonts,
+            head,
+            picture,
+            (MenuAction::FoldDecision, revision.fold_cap.as_deref()),
+            None,
+        );
         commands.entity(panel).add_child(written);
     }
 
@@ -528,7 +534,14 @@ fn hang_the_pill(
     let Some(head) = revision.head.as_ref() else {
         return;
     };
-    let pill = sheet::spawn_pill(commands, fonts, head, picture, revision.fold_cap.as_deref());
+    let pill = sheet::spawn_pill(
+        commands,
+        fonts,
+        head,
+        picture,
+        (MenuAction::FoldDecision, revision.fold_cap.as_deref()),
+        UiRect::bottom(px(crate::hud::STRIPS_H + 4.0)),
+    );
     commands.entity(pill).insert((
         DrawerZoom::default(),
         UiTransform {

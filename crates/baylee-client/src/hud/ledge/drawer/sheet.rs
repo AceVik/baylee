@@ -27,6 +27,10 @@
 //!   source's picture, the question, the restore mark and its cap — and the
 //!   table under it is the table, every target on it pickable. The question
 //!   stands; the fold is the question's and the next one opens unfolded.
+//!
+//! The same head, fold, pill and footer button hold up another seat's
+//! reveal (`hud::revealed`, the owner's word of 08.10.2026): one sheet
+//! component, whichever sheet it is.
 
 #[allow(clippy::wildcard_imports)] // the drawer's shared vocabulary
 use super::*;
@@ -52,25 +56,25 @@ const FOLD: f32 = 24.0;
 
 /// What the sheet's head says.
 #[derive(Clone, PartialEq, Debug)]
-pub(super) struct Head {
+pub(in crate::hud) struct Head {
     /// What is being chosen: the question, as the shelf would say it.
-    pub(super) title: String,
+    pub(in crate::hud) title: String,
     /// The source's own words: whose question it is and the sentence that
     /// asks it.
-    pub(super) detail: Vec<String>,
+    pub(in crate::hud) detail: Vec<String>,
     /// The source whose picture the head shows and the pill keeps.
-    pub(super) source: Option<Source>,
+    pub(in crate::hud) source: Option<Source>,
     /// Whether the sheet is folded to its pill.
-    pub(super) folded: bool,
+    pub(in crate::hud) folded: bool,
 }
 
 /// The source of a question, as the view names it.
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub(super) struct Source {
+pub(in crate::hud) struct Source {
     /// The object the preview opens.
-    pub(super) object: ObjectId,
+    pub(in crate::hud) object: ObjectId,
     /// Its picture, when it has one.
-    pub(super) art: Option<ImageKey>,
+    pub(in crate::hud) art: Option<ImageKey>,
 }
 
 /// The head's picture, which opens the table's preview of the source.
@@ -178,13 +182,16 @@ pub(super) fn head_of(duel: &Duel, lang: Lang, texts: &crate::cardtext::CardText
     })
 }
 
-/// The head: picture, title and the source's words, the fold at the right.
-pub(super) fn spawn_head(
+/// The head: picture, title and the source's words, the fold at the right
+/// (`fold`: its action and key cap) and a close cross after it where the
+/// sheet can be put away (`close`).
+pub(in crate::hud) fn spawn_head(
     commands: &mut Commands,
     fonts: &UiFonts,
     head: &Head,
     picture: Option<Handle<Image>>,
-    cap: Option<&str>,
+    (fold, cap): (MenuAction, Option<&str>),
+    close: Option<MenuAction>,
 ) -> Entity {
     let row = commands
         .spawn((
@@ -238,10 +245,103 @@ pub(super) fn spawn_head(
         commands.entity(said).insert(Pickable::IGNORE);
         commands.entity(words).add_child(said);
     }
-    let fold = fold_button(commands, fonts, cap, false);
+    let fold = fold_button(commands, fonts, fold, cap, false);
     commands.entity(row).add_children(&[words, fold]);
+    if let Some(action) = close {
+        let cross = square_button(commands, fonts, action, glyph::CLOSE);
+        commands.entity(row).add_child(cross);
+    }
     row
 }
+
+/// A square control of the head's (the close cross): the fold's own frame.
+fn square_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    action: MenuAction,
+    mark: char,
+) -> Entity {
+    let (fill, edge, ink) = PANEL_KEY;
+    commands
+        .spawn((
+            MenuButton { action },
+            Node {
+                width: px(FOLD),
+                height: px(FOLD),
+                flex_shrink: 0.0,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(fill),
+            BorderColor::all(edge),
+            Feel::new(fill),
+            children![(
+                Text::new(mark.to_string()),
+                icon_tf(fonts, 11.0),
+                TextColor(ink),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id()
+}
+
+/// One answer in a sheet's own foot, with its key cap: what a sheet that
+/// grows out of no shelf (a reveal) stands its answers on.
+pub(in crate::hud) fn footer_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    action: MenuAction,
+    label: &str,
+    cap: Option<&str>,
+) -> Entity {
+    let (fill, edge, ink) = PANEL_KEY;
+    let button = commands
+        .spawn((
+            MenuButton { action },
+            Node {
+                height: px(FOOT_H),
+                flex_shrink: 0.0,
+                padding: UiRect::horizontal(px(10)),
+                column_gap: px(6),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(fill),
+            BorderColor::all(edge),
+            Feel::new(fill),
+        ))
+        .id();
+    if let Some(cap) = cap {
+        let legend = commands
+            .spawn((
+                Text::new(cap.to_string()),
+                tf(fonts, 10.0),
+                TextColor(crate::shellkit::tokens::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(button).add_child(legend);
+    }
+    let words = commands
+        .spawn((
+            Text::new(label.to_string()),
+            tf_bold(fonts, 12.5),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(button).add_child(words);
+    button
+}
+
+/// A sheet's foot button's height.
+pub(in crate::hud) const FOOT_H: f32 = 28.0;
 
 /// The sheet's title, for the tests and `/state`.
 #[derive(Component)]
@@ -297,15 +397,14 @@ fn thumbnail(
 fn fold_button(
     commands: &mut Commands,
     fonts: &UiFonts,
+    action: MenuAction,
     cap: Option<&str>,
     folded: bool,
 ) -> Entity {
     let (fill, edge, ink) = PANEL_KEY;
     let button = commands
         .spawn((
-            MenuButton {
-                action: MenuAction::FoldDecision,
-            },
+            MenuButton { action },
             Node {
                 height: px(FOLD),
                 min_width: px(FOLD),
@@ -354,21 +453,21 @@ fn fold_button(
 }
 
 /// The folded sheet: the source's picture, the question, the restore mark.
-/// The whole pill restores the sheet.
-pub(super) fn spawn_pill(
+/// The whole pill restores the sheet (`fold`: the action and its cap);
+/// `margin` places it where its sheet's pill stands.
+pub(in crate::hud) fn spawn_pill(
     commands: &mut Commands,
     fonts: &UiFonts,
     head: &Head,
     picture: Option<Handle<Image>>,
-    cap: Option<&str>,
+    (fold, cap): (MenuAction, Option<&str>),
+    margin: UiRect,
 ) -> Entity {
     let (_, _, ink) = PANEL_KEY;
     let pill = commands
         .spawn((
             SheetPill,
-            MenuButton {
-                action: MenuAction::FoldDecision,
-            },
+            MenuButton { action: fold },
             Node {
                 max_width: px(300),
                 height: px(PILL_THUMB_H + 10.0),
@@ -376,7 +475,7 @@ pub(super) fn spawn_pill(
                 align_items: AlignItems::Center,
                 column_gap: px(8),
                 padding: UiRect::axes(px(6), px(4)),
-                margin: UiRect::bottom(px(crate::hud::STRIPS_H + 4.0)),
+                margin,
                 border: UiRect::all(px(1)),
                 border_radius: BorderRadius::all(px(crate::shellkit::tokens::RADIUS_PILL)),
                 ..default()

@@ -534,6 +534,9 @@ pub struct Duel {
     /// Whether the question's sheet is folded to its pill (the owner,
     /// 08.10.2026): the fold belongs to the question it was made on.
     pub decision_fold: baylee_client_core::decisionfold::DecisionFold,
+    /// Whether another seat's reveal is folded to its pill, keyed on the
+    /// reveal's number: the next reveal stands up open.
+    pub reveal_fold: baylee_client_core::decisionfold::DecisionFold,
     /// Whether the drawer stands open as drawn — the player's choice and
     /// the question's, and open while the table is still being prepared —
     /// which is what the table's canvas is framed against

@@ -6294,6 +6294,11 @@ the card):
   card, so a cast-first run never taps the lands the engine just untapped.
   A cast an effect made, or a mana ability's colour asked in the window,
   names no cast and offers no cancel.
+- **A discard and the cards to the bottom** are sheets too (`is_sheet`:
+  `Prompt::Discard`, `Prompt::BottomCards`, and a discard asked as
+  `ChooseCards`): the same head with its fold, so the hand under a folded
+  sheet is all there is to pick from
+  (`a_discard_and_the_cards_to_the_bottom_fold_like_a_target_question`).
 - **Fold**: the control at the head's right, the `X` key
   (`Action::FoldDecision`) and a press on the pill. Folded, the sheet is a
   pill at the window's right edge over the strips — the source's picture,
@@ -8396,6 +8401,24 @@ queue, the clock, the fit), `log_feed_tests::another_seat_s_reveal_…` (the
 join through `poll_host`), `hud::revealed::tests` (the sheet), and
 `input::tests::menu` (`Esc`, and a question in front of a reveal answered
 by its own key).
+
+**In the decision sheet's style (08.10.2026).** The owner: *"the card reveal
+… in the same sheet style as discard/target selection … also minimisable,
+and closable by click or Esc."* The sheet is now the decision sheet's paper
+(the drawer's dock ground and edge) built from its own parts
+(`ledge::drawer::sheet`): the head (*"Bo reveals"*, *"N more to come"* under
+it, the fold and a close cross), the cards large, and a foot with *"Close"*
+and `Esc`'s cap (`sheet::footer_button`). Each card carries the log's own
+`LogLink` on a node over its picture, so the pointer on it opens the table's
+large preview of that printing (`hover_log_links`), as a [link] in the log
+does. The fold (`MenuAction::FoldReveal`, `Duel::reveal_fold` keyed on the
+reveal's number) folds it to the sheet's pill at the top centre; the pill
+opens it again, and the next reveal stands up open. Its rules are as
+before: news only, at `Z_LOG` under anything this seat answers, queued, and
+timed — folded or not. The whole paper is no longer a button: the cross,
+the foot's answer and `Esc` put it away, and a press on a card previews it.
+Tests: `a_reveal_is_the_sheet_with_its_fold_its_close_and_a_preview_on_every_card`,
+`a_folded_reveal_is_a_pill_and_the_next_one_opens`.
 
 ## Reporting a problem (#309, #310)
 

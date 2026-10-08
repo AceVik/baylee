@@ -5,23 +5,30 @@
 //! the log's own links preview them (#300): from the printing the line named
 //! ([`LogLink::art`]) and not from an object on the table, because a card
 //! revealed out of a library or a hand is no object this seat's view holds.
-//! The paper is the preview's slip, parchment with the slip's inks, since a
-//! reveal is something read rather than worked in.
+//!
+//! Since 08.10.2026 (the owner: *"the same sheet style as discard/target
+//! selection"*) it is the decision sheet's paper with the sheet's own parts
+//! (`ledge::drawer::sheet`): a head saying *"Bo reveals"* and how many more
+//! wait, with the fold and a close cross; the cards large, each carrying the
+//! log's own [`LogLink`] so the pointer on one opens the table's preview of
+//! that printing; and a foot with the close answer and `Esc`'s cap. The
+//! fold (`Duel::reveal_fold`, keyed on the reveal's number) folds it to the
+//! sheet's pill at the top, and the next reveal stands up open.
 //!
 //! It stands at the top of the window, centred, on the log's rung
 //! ([`Z_LOG`]): a sheet only showing the game. A zone dialog answering a
 //! question stands over it and the hover preview over that, so it never
-//! covers what this seat has to answer, and no key but `Esc` is its. A press
-//! on it puts it away, and so does `Esc` (`input::answering`'s ladder). It
-//! does not move, so `reduce_motion` has nothing to hold still; nothing is
-//! drawn on a print, and every card shows its own picture whole.
+//! covers what this seat has to answer, and no key but `Esc` is its. The
+//! cross, the foot's answer and `Esc` (`input::answering`'s ladder) put it
+//! away; folded or not, its time runs out as before. It does not move, so
+//! `reduce_motion` has nothing to hold still; nothing is drawn on a print,
+//! and every card shows its own picture whole.
 //!
 //! [`Reveals::current`]: baylee_client_core::reveals::Reveals::current
 
 use super::{
-    EDGE, HudRoot, LogLink, MenuAction, MenuButton, TOP_CLEAR, UiFonts, UiSheets, Z_LOG,
-    card_radius, glyph, icon_tf, palette, sheet_radius, sheet_shadow, sheet_surface,
-    spawn_card_art, tf, tf_bold,
+    EDGE, HudRoot, LogLink, MenuAction, TOP_CLEAR, UiFonts, Z_LOG, card_radius, palette,
+    sheet_radius, sheet_shadow, spawn_card_art,
 };
 use crate::Duel;
 use crate::cardmat::{CardLook, CardUiMaterial, UiCardMaterials, UiCards, finish_of};
@@ -44,11 +51,8 @@ const PAD: f32 = 12.0;
 /// Between two cards.
 const GAP: f32 = 10.0;
 
-/// The head's text size.
-const HEAD_PT: f32 = 13.0;
-
 /// The head's height, kept out of the cards' room.
-const HEAD_H: f32 = 26.0;
+const HEAD_H: f32 = 34.0;
 
 /// The rung is the claim, so it is checked where it is made: a sheet only
 /// showing the game stands under a dialog answering a question and under the
@@ -66,6 +70,10 @@ pub struct RevealSheet;
 #[derive(Component)]
 pub struct RevealCard;
 
+/// The folded reveal: a press opens it again.
+#[derive(Component)]
+pub struct RevealPill;
+
 /// What the sheet was last drawn from.
 #[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct RevealRevision {
@@ -73,6 +81,8 @@ pub struct RevealRevision {
     number: Option<u64>,
     /// How many wait behind it, which the head says.
     waiting: usize,
+    /// Folded to its pill.
+    folded: bool,
     lang: Option<Lang>,
     /// The window, in whole pixels.
     window: (i32, i32),
@@ -103,10 +113,10 @@ pub fn sync(
     assets: Res<AssetServer>,
     windows: Query<&Window>,
     fonts: Res<UiFonts>,
-    sheets: Option<Res<UiSheets>>,
     settings: Res<crate::settings::ClientSettings>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
 ) {
     // Nothing over the end screen: it shows the whole log, this line too.
     let shown = duel.reveals.current().filter(|_| duel.ending().is_none());
@@ -118,6 +128,7 @@ pub fn sync(
     let next = RevealRevision {
         number: shown.map(|r| r.number),
         waiting: duel.reveals.waiting(),
+        folded: shown.is_some_and(|r| duel.reveal_fold.is_folded(Some(r.number))),
         lang: Some(lang),
         window: (window.x as i32, window.y as i32),
         arrivals: if shown.is_some() { textures.epoch() } else { 0 },
@@ -149,9 +160,15 @@ pub fn sync(
             name: seat_name(lang, Some(statics), reveal.player),
             lang,
             window,
+            folded: next.folded,
+            cancel_cap: prefs.as_deref().and_then(|p| {
+                p.keymap()
+                    .chords(baylee_client_core::prefs::Action::Cancel)
+                    .first()
+                    .map(baylee_client_core::prefs::Chord::display)
+            }),
         },
         &fonts,
-        sheets.as_deref(),
         &mut |commands, link, width| {
             let height = width * 88.0 / 63.0;
             let Some(key) = link.art(ArtSize::Normal) else {
@@ -195,21 +212,23 @@ struct Paper<'a> {
     name: String,
     lang: Lang,
     window: Vec2,
+    /// Folded to its pill.
+    folded: bool,
+    /// `Esc`'s cap, for the foot's close.
+    cancel_cap: Option<String>,
 }
 
 /// The sheet: a full-width band at the top that the pointer passes through,
-/// and in it the paper, which is a button that puts it away.
+/// and in it the decision sheet's own paper — head ("Bo reveals", how many
+/// more wait, the fold and the close cross), the cards, and a foot with the
+/// close answer and `Esc`'s cap. Folded, the band holds the sheet's pill.
 fn spawn_sheet(
     commands: &mut Commands,
     paper: &Paper<'_>,
     fonts: &UiFonts,
-    sheets: Option<&UiSheets>,
     card: &mut dyn FnMut(&mut Commands, LogLink, f32) -> Entity,
 ) -> Entity {
-    let room = room(paper.window);
-    let (width, across) = fit(paper.reveal.cards.len(), room, GAP, WIDEST);
-    #[allow(clippy::cast_precision_loss)] // a handful of cards
-    let row_w = across as f32 * width + (across.saturating_sub(1)) as f32 * GAP;
+    use super::ledge::drawer::sheet;
     let band = commands
         .spawn((
             RevealSheet,
@@ -225,28 +244,72 @@ fn spawn_sheet(
             Pickable::IGNORE,
         ))
         .id();
+    let head = sheet::Head {
+        title: Phrase::RevealedBy.fill(paper.lang, &[&paper.name]),
+        detail: if paper.waiting > 0 {
+            vec![Phrase::RevealedWaiting.fill(paper.lang, &[&paper.waiting.to_string()])]
+        } else {
+            Vec::new()
+        },
+        source: None,
+        folded: paper.folded,
+    };
+    if paper.folded {
+        let pill = sheet::spawn_pill(
+            commands,
+            fonts,
+            &head,
+            None,
+            (MenuAction::FoldReveal, None),
+            UiRect::ZERO,
+        );
+        commands.entity(pill).insert(RevealPill);
+        commands.entity(band).add_child(pill);
+        return band;
+    }
+    let room = room(paper.window);
+    let (width, across) = fit(paper.reveal.cards.len(), room, GAP, WIDEST);
+    #[allow(clippy::cast_precision_loss)] // a handful of cards
+    let row_w = across as f32 * width + (across.saturating_sub(1)) as f32 * GAP;
     let page = commands
         .spawn((
-            Button,
-            MenuButton {
-                action: MenuAction::DismissReveal,
-            },
             Node {
+                width: px(row_w + 2.0 * PAD),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 padding: UiRect::all(px(PAD)),
                 row_gap: px(GAP),
+                border: UiRect::all(px(1)),
                 border_radius: sheet_radius(),
                 ..default()
             },
-            BackgroundColor(palette::PARCHMENT),
+            BackgroundColor(palette::DOCK_GROUND),
+            BorderColor::all(palette::DOCK_EDGE),
             sheet_shadow(),
         ))
         .id();
-    if let Some(sheets) = sheets {
-        commands.entity(page).with_child(sheet_surface(sheets));
-    }
-    let head = head(commands, paper, fonts, row_w);
+    let top = sheet::spawn_head(
+        commands,
+        fonts,
+        &head,
+        None,
+        (MenuAction::FoldReveal, None),
+        Some(MenuAction::DismissReveal),
+    );
+    let grid = spawn_grid(commands, paper, (width, row_w), card);
+    let foot = spawn_foot(commands, paper, fonts, row_w);
+    commands.entity(page).add_children(&[top, grid, foot]);
+    commands.entity(band).add_child(page);
+    band
+}
+
+/// The cards, large, each with the log's own link on it.
+fn spawn_grid(
+    commands: &mut Commands,
+    paper: &Paper<'_>,
+    (width, row_w): (f32, f32),
+    card: &mut dyn FnMut(&mut Commands, LogLink, f32) -> Entity,
+) -> Entity {
     let grid = commands
         .spawn((
             Node {
@@ -262,76 +325,57 @@ fn spawn_sheet(
         ))
         .id();
     for shown in &paper.reveal.cards {
-        let picture = card(
-            commands,
-            LogLink {
-                card: shown.card,
-                token: shown.token,
-            },
-            width,
-        );
+        let link = LogLink {
+            card: shown.card,
+            token: shown.token,
+        };
+        let picture = card(commands, link, width);
         commands.entity(picture).insert(RevealCard);
-        commands.entity(grid).add_child(picture);
-    }
-    commands.entity(page).add_children(&[head, grid]);
-    commands.entity(band).add_child(page);
-    band
-}
-
-/// "Bo reveals", how many more wait, and the cross.
-fn head(commands: &mut Commands, paper: &Paper<'_>, fonts: &UiFonts, width: f32) -> Entity {
-    let who = commands
-        .spawn((
-            Text::new(Phrase::RevealedBy.fill(paper.lang, &[&paper.name])),
-            tf_bold(fonts, HEAD_PT),
-            TextColor(palette::SLIP_INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let row = commands
-        .spawn((
-            Node {
-                width: px(width),
-                height: px(HEAD_H),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: px(GAP),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .add_child(who)
-        .id();
-    if paper.waiting > 0 {
-        let more = commands
+        // On top of the picture, the log's own link: the pointer on it
+        // opens the table's large preview of that printing, as a [link] in
+        // the log does (`hover_log_links`), and a press answers nothing.
+        let lens = commands
             .spawn((
-                Text::new(Phrase::RevealedWaiting.fill(paper.lang, &[&paper.waiting.to_string()])),
-                tf(fonts, HEAD_PT - 1.0),
-                TextColor(palette::SLIP_SOFT),
-                Pickable::IGNORE,
+                link,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0),
+                    top: px(0),
+                    width: percent(100),
+                    height: percent(100),
+                    ..default()
+                },
             ))
             .id();
-        commands.entity(row).add_child(more);
+        commands.entity(picture).add_child(lens);
+        commands.entity(grid).add_child(picture);
     }
-    let gap = commands
+    grid
+}
+
+/// The foot: the close answer with `Esc`'s cap.
+fn spawn_foot(commands: &mut Commands, paper: &Paper<'_>, fonts: &UiFonts, row_w: f32) -> Entity {
+    use super::ledge::drawer::sheet;
+    let foot = commands
         .spawn((
             Node {
-                flex_grow: 1.0,
+                width: px(row_w),
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::FlexEnd,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let cross = commands
-        .spawn((
-            Text::new(glyph::CLOSE.to_string()),
-            icon_tf(fonts, HEAD_PT - 2.0),
-            TextColor(palette::SLIP_SOFT),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(row).add_children(&[gap, cross]);
-    row
+    let close = sheet::footer_button(
+        commands,
+        fonts,
+        MenuAction::DismissReveal,
+        Phrase::ShellClose.text(paper.lang),
+        paper.cancel_cap.as_deref(),
+    );
+    commands.entity(foot).add_child(close);
+    foot
 }
 
 /// The room the cards have in a window this big: across, at most
@@ -339,7 +383,14 @@ fn head(commands: &mut Commands, paper: &Paper<'_>, fonts: &UiFonts, width: f32)
 /// button's corner to the hand zone, less the paper and its head.
 pub(crate) fn room(window: Vec2) -> (f32, f32) {
     let across = (window.x * MOST_ACROSS).min(window.x - 2.0 * EDGE) - 2.0 * PAD;
-    let down = window.y - TOP_CLEAR - super::HAND_ZONE_H - EDGE - 2.0 * PAD - HEAD_H - GAP;
+    let down = window.y
+        - TOP_CLEAR
+        - super::HAND_ZONE_H
+        - EDGE
+        - 2.0 * PAD
+        - HEAD_H
+        - super::ledge::drawer::sheet::FOOT_H
+        - 2.0 * GAP;
     (across.max(0.0), down.max(0.0))
 }
 

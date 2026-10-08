@@ -182,6 +182,63 @@ fn a_cast_first_target_question_is_one_sentence() {
     );
 }
 
+/// A discard from hand and the mulligan's cards to the bottom are the same
+/// sheet (the owner, 08.10.2026): a head with the fold, which folds to the
+/// pill and leaves the question — and the hand to pick from — standing.
+#[test]
+fn a_discard_and_the_cards_to_the_bottom_fold_like_a_target_question() {
+    for pending in [
+        Pending::DiscardChoice {
+            player: PlayerId::new(0),
+            count: 1,
+        },
+        Pending::MulliganBottom {
+            player: PlayerId::new(0),
+            count: 1,
+        },
+    ] {
+        let mut duel = Duel {
+            interaction: Some(baylee_client_core::Interaction::new(
+                pending.clone(),
+                PlayerId::new(0),
+            )),
+            ..Duel::default()
+        };
+        duel.view = Some(baylee_client_core::test_support::ViewBuilder::new(2).build());
+        crate::rebuild_board(&mut duel);
+        let mut app = bar_of(duel);
+        app.update();
+        assert_eq!(
+            count::<ledge::drawer::SheetTitle>(&mut app),
+            1,
+            "{pending:?}: a head"
+        );
+        let folds = app
+            .world_mut()
+            .query::<&MenuButton>()
+            .iter(app.world())
+            .filter(|b| b.action == MenuAction::FoldDecision)
+            .count();
+        assert_eq!(folds, 1, "{pending:?}: with its fold");
+        app.world_mut().resource_mut::<Duel>().fold_decision();
+        app.update();
+        app.update();
+        assert_eq!(
+            count::<ledge::drawer::SheetPill>(&mut app),
+            1,
+            "{pending:?}: folded to its pill"
+        );
+        let duel = app.world().resource::<Duel>();
+        assert!(
+            duel.interaction
+                .as_ref()
+                .is_some_and(|i| format!("{:?}", i.pending()) == format!("{pending:?}")),
+            "{pending:?}: the question stands"
+        );
+        assert!(duel.outbox().is_empty());
+    }
+}
+
 /// The fold is the question's: a new snapshot (the game moved on) opens the
 /// next sheet unfolded by itself.
 #[test]

@@ -610,9 +610,12 @@ pub enum MenuAction {
     HoldForStack,
     /// Send the armed deed (`crate::Armed`).
     SendArmed,
-    /// Put away the cards another seat revealed (`hud::revealed`): a press
-    /// on the sheet, as `Esc` does. The next waiting reveal stands up.
+    /// Put away the cards another seat revealed (`hud::revealed`): its
+    /// close cross or its foot's button, as `Esc` does. The next waiting
+    /// reveal stands up.
     DismissReveal,
+    /// Fold the reveal's sheet to its pill, or open it again.
+    FoldReveal,
     /// Put it back with nothing on the wire.
     ///
     /// Both of these are `MenuButton`s rather than a component of their own
