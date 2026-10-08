@@ -474,9 +474,10 @@ fn at_the_gentle_lean_every_seat_is_drawn_a_board_of_the_same_width() {
         // the far ones (19.7 % at five seats, measured). 1.25 since the
         // packed table (owner, 08.10.2026): from five seats this canvas lays
         // a frame, the camera comes closer again and every board is drawn
-        // wider — the narrowest 165 → 176 px at five seats, 125 → 133 at
-        // seven, 113 → 120 at eight — while the spread goes 19.3 → 20.7 %,
-        // 18.4 → 24.8 % and 19.5 → 21.7 %.
+        // wider — against the ellipse framed the same way (above the
+        // players' strip), the narrowest 159 → 163 px at five seats, 121 →
+        // 124 at seven, 108 → 112 at eight — while the spread goes 19.2 →
+        // 20.2 %, 18.0 → 23.8 % and 18.9 → 21.2 %.
         (Vec2::new(430.0, 932.0), 1.25),
     ] {
         let canvas = Canvas::hud(window);

@@ -834,14 +834,17 @@ accident, and arithmetic borrows nothing.
   an edge to itself — two sides a gap apart on one edge read as a team. At
   six seats the near edge holds two boards, mine and the one before me, so
   my board stands half a step off the middle. Measured at 1708 × 1028, home,
-  per seat against the ellipse: eight +26–36 % (eye 161.8 → 124.9), seven
-  +11–31 %, six +25–59 % (125.9 → 91.0), five +24–31 %, 3v3 +8–17 %, 4v4
-  +9–22 %; three and four unchanged. A **phone** keeps the ellipse
+  per seat against the ellipse (the model, the creature card; live, the
+  board's projected width): eight +28–36 % (eye 161.8 → 124.9; live
+  +27–35 %), seven +11–31 %, six +18–49 % (125.9 → 96.0; live +17–48 %),
+  five +17–23 %, 3v3 +8–17 %, 4v4 +9–22 %, three teams of two −3–+3 %;
+  three and four unchanged. A **phone** keeps the ellipse
   (`TableLayout::arranged_in`): its home frames my board and the dial and
   every other board is read by visiting, so the frame's gain is not what it
   draws. The arrangements that build their own geometry (pods, arc rail,
   Spotlight, Focus ring) take their template from the ellipse
-  (`TableLayout::on_ring`); the upright ring stands the frame's boards up.
+  (`TableLayout::on_ring`); the upright ring stands up the frame or the
+  ellipse, whichever it frames closer.
   A ring whose home would put a seat under the pill or the report button is
   framed below them (`camera::reaches_the_top`, DESIGN-v8 §2.2's fallback),
   and from five seats one whose depth binds is framed above the players'
