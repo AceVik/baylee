@@ -4111,8 +4111,13 @@ Accept). Accept waits until the end of the text has been in view (scroll,
 `End`, `Space`/`PageDown`, or a text that fits); Enter in the text accepts
 once it may; **Esc never signs out** — it moves focus to Not now (or
 answers a guest's question with Stay); Not now signs out with nothing
-stored, and a guest is asked first. `docs/protocol.md` §"Terms of use
-(WG-1)" has the wire.
+stored, and a guest is asked first. The text is asked for in the
+interface's language (`GET /terms?lang=`, `terms::url`), and asked again
+when the language is switched while the sheet is up (`Terms::relang`,
+`front::terms::follow_the_language`): the text on it stays until the new
+one comes, an answer to the language left behind is dropped, and the new
+text is read to its end again. `docs/protocol.md` §"Terms of use (WG-1)"
+has the wire.
 
 ### A language model in a chair
 

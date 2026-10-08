@@ -8,6 +8,7 @@ use super::*;
 
 use super::super::front::terms::TermsReply;
 use super::front_keys::{focused_id, press_key};
+use baylee_client_core::i18n::Lang;
 use baylee_client_core::lobby::KeptGuest;
 use baylee_client_core::terms::{Sheet, TermsDoc};
 use bevy::ecs::system::RunSystemOnce;
@@ -29,6 +30,7 @@ fn doc(markdown: &str) -> TermsDoc {
         version: "v1".into(),
         updated: Some("2026-10-07".into()),
         markdown: markdown.into(),
+        lang: None,
     }
 }
 
@@ -71,9 +73,59 @@ fn signed_in_stale(guest: bool, markdown: &str) -> App {
         app.world().resource::<LobbyState>().terms.up(),
         "a stale sign-in raises the sheet"
     );
-    post(&mut app, Reply::Terms(TermsReply::Doc(doc(markdown))));
+    post(
+        &mut app,
+        Reply::Terms(TermsReply::Doc {
+            asked: Lang::En,
+            doc: doc(markdown),
+        }),
+    );
     app.update();
     app
+}
+
+/// The owner's case (08.10.2026): switching the interface's language while
+/// the sheet is up asks for the text in the new one; the old text stays
+/// until it comes, an answer in the language left behind is dropped, and
+/// the new text must be read to its end again.
+#[test]
+fn switching_language_on_the_sheet_asks_for_the_text_again() {
+    let mut app = signed_in_stale(false, "# Terms\n\nPlay fair.");
+    assert_eq!(app.world().resource::<LobbyState>().terms.lang(), Lang::En);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_lang(Lang::De);
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.terms.lang(), Lang::De, "not asked again in German");
+    assert!(
+        matches!(sheet(&app), Sheet::Reading(_)),
+        "the old text stays"
+    );
+    post(
+        &mut app,
+        Reply::Terms(TermsReply::Doc {
+            asked: Lang::En,
+            doc: doc("# Terms, late"),
+        }),
+    );
+    assert!(
+        matches!(sheet(&app), Sheet::Reading(r) if r.doc.markdown == "# Terms\n\nPlay fair."),
+        "an answer in the language left behind replaced the text"
+    );
+    let german = TermsDoc {
+        lang: Some("de".into()),
+        ..doc("# Bedingungen\n\nSei fair.")
+    };
+    post(
+        &mut app,
+        Reply::Terms(TermsReply::Doc {
+            asked: Lang::De,
+            doc: german.clone(),
+        }),
+    );
+    assert!(matches!(sheet(&app), Sheet::Reading(r) if r.doc == german));
 }
 
 fn sheet(app: &App) -> Sheet {

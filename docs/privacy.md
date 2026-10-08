@@ -61,8 +61,9 @@ the pointers, because line numbers move.
   - `terms_version` and `terms_accepted_at`: on a gateway with terms of use
     (`BAYLEE_TERMS_PATH`, WG-1), which version the account last accepted
     and when (`POST /account/terms`); empty until it does, and on a gateway
-    without terms. Only the last acceptance is kept. It goes with the
-    account.
+    without terms. Only the last acceptance is kept, and not the language
+    the terms were read in (the version is one for all of them). It goes
+    with the account.
   - No IP address, user agent or last-login time is stored anywhere.
 - **Why:** the username signs in. The display name and tag are how other
   players see and find the account (`GET /players/{handle}`). The e-mail
