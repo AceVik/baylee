@@ -296,7 +296,7 @@ fn a_visit_frames_the_pod_and_what_its_rule_names() {
                 );
             } else {
                 assert!(
-                    rig.sees_the_dial(canvas),
+                    rig.sees_the_dial(canvas, baylee_client_core::dial::scale_for(&layout)),
                     "{n} seats: the dial is out of frame"
                 );
             }
@@ -308,7 +308,7 @@ fn a_visit_frames_the_pod_and_what_its_rule_names() {
                 CameraRig::visit(&layout, canvas, across.player, dial).expect("seat");
             assert_eq!(frame, VisitFrame::Dial);
             assert!(
-                rig.sees_the_dial(canvas),
+                rig.sees_the_dial(canvas, baylee_client_core::dial::scale_for(&layout)),
                 "{n} seats: dial frame without the dial"
             );
         }

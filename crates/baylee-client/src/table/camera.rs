@@ -213,8 +213,9 @@ impl CameraRig {
             // My own pod and the dial's near half, in my own (unturned)
             // frame: the local seat's facing is zero.
             let (lo, hi) = pod_box(local, air);
-            let lo = lo.min(Vec2::new(-DIAL_REACH, -DIAL_REACH));
-            let hi = hi.max(Vec2::new(DIAL_REACH, 0.0));
+            let reach = dial_reach(layout);
+            let lo = lo.min(Vec2::new(-reach, -reach));
+            let hi = hi.max(Vec2::new(reach, 0.0));
             let corners = box_corners(lo, hi);
             let fit = fit(lo, hi, &corners, tilt, canvas);
             return (fit.rig(0.0, tilt, |p| p), fit.binds);
@@ -357,14 +358,16 @@ impl CameraRig {
         Some((rig, frame, fit.binds))
     }
 
-    /// Whether the dial's whole disc is inside the band this rig shows.
+    /// Whether the dial is inside the band this rig shows, the dial drawn at
+    /// `scale` (`baylee_client_core::dial::scale_for`): its whole compass at
+    /// today's size, the hub of a grown one (`dial::framed_radius`).
     #[must_use]
-    pub fn sees_the_dial(self, canvas: Canvas) -> bool {
+    pub fn sees_the_dial(self, canvas: Canvas, scale: f32) -> bool {
         let lens = Lens::new(self, canvas.window);
+        let radius = baylee_client_core::dial::framed_radius(scale);
         (0..16).all(|k| {
             #[allow(clippy::cast_precision_loss)]
-            let at = Vec2::from_angle(std::f32::consts::TAU * k as f32 / 16.0)
-                * baylee_client_core::dial::COMPASS_R;
+            let at = Vec2::from_angle(std::f32::consts::TAU * k as f32 / 16.0) * radius;
             lens.project(at).is_some_and(|p| {
                 p.x >= canvas.left
                     && p.x <= canvas.window.x - canvas.right
@@ -460,8 +463,15 @@ pub fn behind(slot: &SeatSlot) -> f32 {
 }
 
 /// The dial's reach from the middle, its far rim plus half a unit: what a
-/// frame that keeps the dial in view runs to.
-const DIAL_REACH: f32 = baylee_client_core::firewheel::FLAME_REACH + 0.5;
+/// frame that keeps the dial in view runs to. The dial grows with the free
+/// middle of the table (`baylee_client_core::dial::scale_for`); of a grown
+/// one the frame holds the hub (`dial::framed_radius`), at today's size the
+/// firewheel's whole reach as before.
+fn dial_reach(layout: &TableLayout) -> f32 {
+    use baylee_client_core::dial;
+    let framed = dial::framed_radius(dial::scale_for(layout));
+    framed.max(baylee_client_core::firewheel::FLAME_REACH) + 0.5
+}
 
 /// A wide ring's air on a desktop: the mat's printed border and a little
 /// felt, not the three and a half units of bare cloth rings used to keep.
@@ -529,7 +539,7 @@ fn visit_reach(layout: &TableLayout, frame: VisitFrame, air: f32) -> Option<f32>
     let (lo, hi) = pod_box(across, air);
     let far = match frame {
         VisitFrame::Pod => hi.y - air + 0.5,
-        VisitFrame::Dial | VisitFrame::Across => DIAL_REACH,
+        VisitFrame::Dial | VisitFrame::Across => dial_reach(layout),
         VisitFrame::Lane => {
             // My lane nearest the middle, its far side: the lane's centre
             // less half its depth, away from the middle, in my frame; then
@@ -929,6 +939,7 @@ pub fn frame_table(
     let Some(layout) = duel.settled_layout() else {
         return;
     };
+    let dial_scale = baylee_client_core::dial::scale_for(layout);
     let Ok(window) = windows.single() else {
         return;
     };
@@ -981,7 +992,7 @@ pub fn frame_table(
             visiting: duel.visiting,
             frame,
             binds,
-            dial_in_frame: next.sees_the_dial(canvas),
+            dial_in_frame: next.sees_the_dial(canvas, dial_scale),
             rig: Some(next),
         };
     }

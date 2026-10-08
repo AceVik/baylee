@@ -13,9 +13,14 @@ use baylee_client_core::dial::{self, Dial, DialFacts, Pulse};
 use baylee_core::ids::PlayerId;
 use bevy::prelude::*;
 
-/// The dial's state, on the slab, so a new table starts settled.
+/// The dial's state, on the slab, so a new table starts settled, and the
+/// scale its table asks for (`dial::scale_for` of the settled layout,
+/// worked out again only when the duel changed).
 #[derive(Component, Default)]
-pub struct DialFace(Dial);
+pub struct DialFace(Dial, f32);
+
+/// How far back along its sweep a hand's trail reaches, in seconds.
+const TRAIL_LAG: f32 = 0.11;
 
 /// What the dial shows, for `/state.dial` (DESIGN-v7 §2.7).
 #[derive(Resource, Default, Clone, Debug)]
@@ -28,8 +33,18 @@ pub struct DialReport {
     pub deciding: Vec<PlayerId>,
     /// The hub's pulse, 0 to 1, at the last frame.
     pub hub_pulse: f32,
-    /// The dial's drawn diameter, logical pixels.
+    /// The dial's drawn diameter (its compass), logical pixels.
     pub dial_px: f32,
+    /// The dial's scale this frame (`dial::scale_for`, eased).
+    pub scale: f32,
+    /// Where its middle is drawn, logical pixels.
+    pub centre: Option<Vec2>,
+    /// Its rim's radius in table units (`dial::DIAL_OUTER` × scale): what
+    /// the sizing rule keeps off the boards.
+    pub radius: f32,
+    /// Whether the continuous lights run (the shimmer, the breathing tips,
+    /// the spark): off under reduced motion and still ambient effects.
+    pub effects: bool,
     /// The turn number's drawn size.
     pub number_px: f32,
     /// The turn number's drawn width.
@@ -38,13 +53,21 @@ pub struct DialReport {
     pub uploads: u64,
 }
 
-/// The dial's drawn diameter through `lens`: the compass's radius along the
-/// table's x axis, projected, twice (DESIGN-v7 §3.4).
+/// The dial's drawn diameter through `lens` at `scale`: the compass's
+/// radius along the table's x axis, projected, twice (DESIGN-v7 §3.4).
 #[must_use]
-pub fn dial_px(lens: &crate::table::Lens) -> Option<f32> {
+pub fn dial_px(lens: &crate::table::Lens, scale: f32) -> Option<f32> {
     let middle = lens.project(Vec2::ZERO)?;
-    let edge = lens.project(Vec2::X * dial::COMPASS_R)?;
+    let edge = lens.project(Vec2::X * (dial::COMPASS_R * scale))?;
     Some(middle.distance(edge) * 2.0)
+}
+
+/// The scale the dial stands at for `duel`'s table once it has settled:
+/// what the turn number is sized from.
+#[must_use]
+pub fn settled_scale(duel: &crate::Duel) -> f32 {
+    duel.settled_layout()
+        .map_or(dial::MIN_SCALE, dial::scale_for)
 }
 
 /// A colour as the shader reads it: display-referred `rgb`.
@@ -100,7 +123,7 @@ fn report_of(
     hands: &Dial,
     view: &baylee_view::PlayerView,
     lens: Option<&crate::table::Lens>,
-    (now, still): (f32, bool),
+    (now, still, effects): (f32, bool, bool),
     deciding: Vec<PlayerId>,
     uploads: u64,
 ) -> DialReport {
@@ -111,7 +134,9 @@ fn report_of(
         0.0
     };
     let prio = hands.priority.direction;
-    let across = lens.and_then(dial_px).unwrap_or(0.0);
+    let across = lens
+        .and_then(|lens| dial_px(lens, hands.scale))
+        .unwrap_or(0.0);
     let number = dial::number_px(across);
     let pulse = hands.pulse.map_or(0.0, |(_, at)| {
         let age = now - at;
@@ -127,10 +152,62 @@ fn report_of(
         deciding,
         hub_pulse: pulse,
         dial_px: across,
+        scale: hands.scale,
+        centre: lens.and_then(|lens| lens.project(Vec2::ZERO)),
+        radius: dial::DIAL_OUTER * hands.scale,
+        effects,
         number_px: number,
         number_w: dial::number_width(view.turn, number),
         uploads,
     }
+}
+
+impl DialReport {
+    /// Whether `next` says anything this report does not: what decides a
+    /// write, so a settled dial leaves the resource untouched.
+    fn differs(&self, next: &Self) -> bool {
+        self.turn_hand != next.turn_hand
+            || self.priority_hand != next.priority_hand
+            || self.deciding != next.deciding
+            || (self.hub_pulse - next.hub_pulse).abs() > 1e-4
+            || (self.dial_px - next.dial_px).abs() > 1e-3
+            || (self.scale - next.scale).abs() > 1e-4
+            || self.centre != next.centre
+            || self.effects != next.effects
+            || (self.number_w - next.number_w).abs() > 1e-3
+    }
+}
+
+/// The hands' uniforms: their vectors (`hands`), the priority hand's length,
+/// whether it points at me and both arrival times (`dial`), the hub's pulse
+/// and the face's scale (`pulse`), and where each hand pointed a moment ago
+/// (`trail`).
+fn hand_uniforms(hands: &Dial, at_me: bool) -> (Vec4, Vec4, Vec4, Vec4) {
+    let turn = hands.turn.direction * hands.turn.length;
+    let prio_len = if hands.priority_shown {
+        hands.priority.length
+    } else {
+        0.0
+    };
+    let prio = hands.priority.direction;
+    let arrived = |at: Option<f32>| at.unwrap_or(-100.0);
+    let (pulse_at, pulse_kind) = match hands.pulse {
+        Some((Pulse::Turn, at)) => (at, 1.0),
+        Some((Pulse::Priority, at)) => (at, 2.0),
+        None => (-100.0, 0.0),
+    };
+    let (t, p) = (hands.turn.trail(TRAIL_LAG), hands.priority.trail(TRAIL_LAG));
+    (
+        Vec4::new(turn.x, turn.y, prio.x, prio.y),
+        Vec4::new(
+            prio_len,
+            if at_me { 1.0 } else { 0.0 },
+            arrived(hands.turn_arrived_at),
+            arrived(hands.priority_arrived_at),
+        ),
+        Vec4::new(pulse_at, pulse_kind, hands.scale, 0.0),
+        Vec4::new(t.x, t.y, p.x, p.y),
+    )
 }
 
 /// Reads the table, moves the hands, and writes the felt's dial uniforms when
@@ -141,6 +218,7 @@ pub(crate) fn turn_the_dial(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
     shown: Res<crate::table::ShownRig>,
+    quality: Option<Res<crate::quality::InUse>>,
     windows: Query<&Window>,
     mut slabs: Query<(&mut DialFace, &MeshMaterial3d<crate::feltmat::FeltMaterial>)>,
     mut materials: ResMut<Assets<crate::feltmat::FeltMaterial>>,
@@ -165,6 +243,11 @@ pub(crate) fn turn_the_dial(
         .as_ref()
         .is_some_and(|i| matches!(i.pending(), baylee_engine::choice::Pending::GameOver(_)));
     let deciding: Vec<PlayerId> = view.deciding.iter().collect();
+    // The table's size, read again only when the duel changed: a settled
+    // table asks nothing per frame.
+    if duel.is_changed() || face.1 <= 0.0 {
+        face.1 = settled_scale(&duel);
+    }
     let facts = DialFacts {
         jewels: dial::bearings(&seats),
         active: Some(view.active),
@@ -172,50 +255,33 @@ pub(crate) fn turn_the_dial(
         deciding: deciding.clone(),
         me: Some(view.seat),
         over,
+        scale: face.1,
     };
     let still = prefs.all().reduce_motion;
+    let effects = !crate::quality::ambient_still(still, quality.as_deref());
     let now = time.elapsed_secs_wrapped();
     face.0.advance(&facts, now, time.delta_secs(), still);
     let hands = &face.0;
 
     let (jewels, tints, teams) = jewel_uniforms(&facts, view, layout, &team);
-    let turn = hands.turn.direction * hands.turn.length;
-    let prio_len = if hands.priority_shown {
-        hands.priority.length
-    } else {
-        0.0
-    };
-    let prio = hands.priority.direction;
-    let arrived = |at: Option<f32>| at.unwrap_or(-100.0);
-    let (pulse_at, pulse_kind) = match hands.pulse {
-        Some((Pulse::Turn, at)) => (at, 1.0),
-        Some((Pulse::Priority, at)) => (at, 2.0),
-        None => (-100.0, 0.0),
-    };
+    let (hand_vectors, dial_times, pulse, trail) =
+        hand_uniforms(hands, view.awaiting == Some(view.seat));
     #[allow(clippy::cast_precision_loss)] // eight seats at most
     let seat_count = facts.jewels.len().min(8) as f32;
     let want = (
-        Vec4::new(turn.x, turn.y, prio.x, prio.y),
-        Vec4::new(
-            prio_len,
-            if view.awaiting == Some(view.seat) {
-                1.0
-            } else {
-                0.0
-            },
-            arrived(hands.turn_arrived_at),
-            arrived(hands.priority_arrived_at),
-        ),
-        Vec4::new(pulse_at, pulse_kind, 0.0, 0.0),
+        hand_vectors,
+        dial_times,
+        pulse,
         jewels,
         tints,
         teams,
         seat_count,
+        trail,
     );
     let have = materials.get(&handle.0).map(|m| {
         let p = &m.params;
         (
-            p.hands, p.dial, p.pulse, p.jewels, p.tints, p.teams, p.seats,
+            p.hands, p.dial, p.pulse, p.jewels, p.tints, p.teams, p.seats, p.trail,
         )
     });
     if have.is_some_and(|have| have != want)
@@ -223,7 +289,7 @@ pub(crate) fn turn_the_dial(
     {
         let p = &mut material.params;
         (
-            p.hands, p.dial, p.pulse, p.jewels, p.tints, p.teams, p.seats,
+            p.hands, p.dial, p.pulse, p.jewels, p.tints, p.teams, p.seats, p.trail,
         ) = want;
         report.uploads += 1;
     }
@@ -236,17 +302,11 @@ pub(crate) fn turn_the_dial(
         &face.0,
         view,
         lens.as_ref(),
-        (now, still),
+        (now, still, effects),
         facts.deciding,
         report.uploads,
     );
-    if report.turn_hand != next.turn_hand
-        || report.priority_hand != next.priority_hand
-        || report.deciding != next.deciding
-        || (report.hub_pulse - next.hub_pulse).abs() > 1e-4
-        || (report.dial_px - next.dial_px).abs() > 1e-3
-        || (report.number_w - next.number_w).abs() > 1e-3
-    {
+    if report.differs(&next) {
         *report = next;
     }
 }
@@ -268,6 +328,7 @@ mod tests {
             ("STONE_R", dial::STONE_R),
             ("TURN_TIP", dial::TURN_TIP),
             ("PRIO_TIP", dial::PRIO_TIP),
+            ("BEZEL_R", dial::DIAL_OUTER),
         ] {
             let line = wgsl
                 .lines()
@@ -283,5 +344,143 @@ mod tests {
                 "{name}: the shader says {said}, the model {value}"
             );
         }
+    }
+
+    /// The hands' two colours are the model's (`dial::TURN_INK`,
+    /// `dial::PRIORITY_INK`), which the seat plates' top border lines are
+    /// drawn in too — one ivory and one teal on the whole table — and teal
+    /// is the HUD's accent.
+    #[test]
+    fn the_hands_are_drawn_in_the_table_s_turn_and_priority_colours() {
+        let wgsl = include_str!("shaders/felt.wgsl");
+        for (name, ink) in [("IVORY", dial::TURN_INK), ("TEAL", dial::PRIORITY_INK)] {
+            let line = wgsl
+                .lines()
+                .find(|l| l.starts_with(&format!("const {name}: vec3<f32> = vec3<f32>(")))
+                .unwrap_or_else(|| panic!("{name} is not in felt.wgsl"));
+            let said: Vec<f32> = line
+                .split_once("vec3<f32>(")
+                .and_then(|(_, rest)| rest.split_once(')'))
+                .map(|(inside, _)| {
+                    inside
+                        .split(',')
+                        .map(|v| v.trim().parse().expect("a number"))
+                        .collect()
+                })
+                .expect("three components");
+            assert_eq!(said, ink.to_vec(), "{name}");
+        }
+        // The plates' and chips' top border line (`hud::ledge::players`'
+        // `TURN_IVORY`, crate-private to the HUD): read off its source.
+        let players = include_str!("hud/ledge/players.rs");
+        let ivory = players
+            .lines()
+            .find(|l| l.contains("const TURN_IVORY: Color = Color::srgb("))
+            .expect("the turn line's ivory");
+        let said: Vec<f32> = ivory
+            .split_once("srgb(")
+            .and_then(|(_, rest)| rest.split_once(')'))
+            .map(|(inside, _)| {
+                inside
+                    .split(',')
+                    .map(|v| v.trim().parse().expect("a number"))
+                    .collect()
+            })
+            .expect("three components");
+        assert_eq!(said, dial::TURN_INK.to_vec(), "the plates' turn line");
+        let accent = crate::hud::palette::ACCENT.to_srgba();
+        for (a, b) in [accent.red, accent.green, accent.blue]
+            .into_iter()
+            .zip(dial::PRIORITY_INK)
+        {
+            assert!((a - b).abs() < 1e-6, "teal is the accent");
+        }
+    }
+
+    /// Every mark a hand makes is masked by `outside` (the hub plate's rim):
+    /// its shadow, outline and body, its trail (zero inside `HUB_R`) and its
+    /// arrival flare, so nothing of a hand is drawn under the turn number.
+    /// Measured live as well: the plate drawn with and without the hands is
+    /// byte-identical under reduced motion, and 1 506 of its 8 281 pixels
+    /// change with this mask taken off (`docs/client.md`, the dial).
+    #[test]
+    fn nothing_of_a_hand_is_drawn_on_the_hub_plate() {
+        let wgsl = include_str!("shaders/felt.wgsl");
+        let body = |name: &str| {
+            let start = wgsl
+                .find(&format!("fn {name}("))
+                .unwrap_or_else(|| panic!("{name}"));
+            let rest = &wgsl[start + 3..];
+            &rest[..rest.find("\nfn ").unwrap_or(rest.len())]
+        };
+        let paint = body("paint_hand");
+        for mark in ["let shade =", "let edge =", "let body ="] {
+            let line = paint
+                .lines()
+                .find(|l| l.contains(mark))
+                .unwrap_or_else(|| panic!("{mark}"));
+            assert!(line.contains("* outside"), "unmasked: {line}");
+        }
+        assert!(
+            body("trail").contains("r < HUB_R"),
+            "a trail starts at the plate's rim"
+        );
+        let face = body("clock_face");
+        for line in face.lines().filter(|l| l.contains("flare(")) {
+            assert!(line.contains("outside"), "unmasked flare: {line}");
+        }
+        assert_eq!(
+            face.matches("paint_hand(").count(),
+            2,
+            "both hands go through the one masked painter"
+        );
+    }
+
+    /// Reduced motion and still ambient effects hold the dial's every
+    /// continuous light: in `felt.wgsl` the dial's functions read the clock
+    /// only through the still-able `t` (`STILL_AT` when the table holds
+    /// still) or behind a `params.motion` gate — so a settled, still table
+    /// draws the same frame twice (DESIGN-v8: two screenshots byte-identical),
+    /// and the face's moving lights (shimmer, breathing, spark) are off, not
+    /// frozen mid-glint.
+    #[test]
+    fn the_dial_s_lights_stand_still_when_the_table_does() {
+        let wgsl = include_str!("shaders/felt.wgsl");
+        let start = wgsl.find("fn firewheel(").expect("the stones");
+        let face = wgsl.find("fn clock_face(").expect("the face");
+        let end = wgsl
+            .find("/// The tear's line at")
+            .expect("the end of the dial");
+        let dial = &wgsl[start..end];
+        let mut gated = false;
+        for line in dial.lines() {
+            if line.contains("params.motion") {
+                gated = true;
+            }
+            if line.starts_with("fn ") {
+                gated = false;
+            }
+            if line.contains("globals.time") {
+                assert!(gated, "an ungated clock in the dial: {line}");
+            }
+        }
+        // The face's continuous lights: each multiplied by `live`.
+        let face = &wgsl[face..end];
+        for light in ["shine", "breath", "spin"] {
+            let at = face
+                .lines()
+                .find(|l| l.contains(&format!("let {light} =")))
+                .unwrap_or_else(|| panic!("{light}"));
+            let follows = &face[face.find(at).expect("found")..];
+            let statement = &follows[..follows.find(';').expect("a statement")];
+            assert!(
+                statement.contains("live") || light == "spin",
+                "{light} is not gated: {statement}"
+            );
+        }
+        assert!(
+            dial.contains("if live > 0.5 && off < 0.16"),
+            "the spark runs only while the table moves"
+        );
     }
 }

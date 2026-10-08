@@ -260,6 +260,7 @@ pub fn sync_table(
                         teams: [Vec4::ZERO; 8],
                         rift: Vec4::ZERO,
                         warp: Vec4::ZERO,
+                        trail: Vec4::ZERO,
                     },
                     veins: images.add(veins),
                     warp: images.add(crate::feltmat::no_warp()),
