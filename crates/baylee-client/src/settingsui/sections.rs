@@ -10,7 +10,8 @@ use baylee_client_core::atmosphere::Atmosphere;
 use baylee_client_core::bugreport::{Category, CrashConsent};
 use baylee_client_core::cue::Loudness;
 use baylee_client_core::graphics::{
-    AntiAliasing, Backdrop, BackgroundLimit, DisplayMode, Effects, FrameLimit, Preset, VSync,
+    AntiAliasing, Backdrop, BackgroundLimit, DisplayMode, Effects, FrameLimit, Preset, RestLimit,
+    VSync,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::settings_map::{self, Row, Section};
@@ -155,6 +156,16 @@ pub(crate) fn graphics(out: &mut Out, view: &View) {
             |i| Press::Settings(SettingsPress::BackgroundLimit(BackgroundLimit::ALL[i])),
         );
         out.row(Row::BackgroundLimit, control);
+    }
+    if drawn(view, Row::RestLimit) {
+        let names = ["30", "60"];
+        let control = out.seg(
+            "rest-limit",
+            &names,
+            index(&RestLimit::ALL, &g.rest_limit),
+            |i| Press::Settings(SettingsPress::RestLimit(RestLimit::ALL[i])),
+        );
+        out.row(Row::RestLimit, control);
     }
     let control = out.toggle(
         "show-frame-rate",

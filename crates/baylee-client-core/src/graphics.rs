@@ -205,6 +205,36 @@ impl BackgroundLimit {
     }
 }
 
+/// How many frames a table at rest draws (`Bildrate in Ruhe`): two seconds
+/// after the last input and the last thing the game did, the table eases to
+/// this and stays there until either comes back. Never above the frame
+/// limit; at or above it the table does not ease at all, which at the 60
+/// frames of Medium is exactly how the table paced before the setting.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RestLimit {
+    /// Thirty: half the cost of sixty, and the slow drift of the cloth and
+    /// a flier's bob read the same (`docs/perf-baseline.md`, 08.10.2026).
+    #[default]
+    Fps30,
+    /// Sixty.
+    Fps60,
+}
+
+impl RestLimit {
+    /// Every choice, in the order a picker offers them.
+    pub const ALL: [Self; 2] = [Self::Fps30, Self::Fps60];
+
+    /// Frames per second.
+    #[must_use]
+    pub const fn fps(self) -> u32 {
+        match self {
+            Self::Fps30 => 30,
+            Self::Fps60 => 60,
+        }
+    }
+}
+
 /// How much the ambient surfaces do: the front door's painted world, the
 /// table's mineral cloth, the sky over it.
 ///
@@ -304,7 +334,7 @@ pub const DISPLAY_REVERT_SECS: f32 = 15.0;
 /// Seconds without any input after which the front door and the lobby draw
 /// at the background rate. Never at the table, where an opponent's move is
 /// worth watching whether or not the mouse moves: a table at rest holds
-/// [`TABLE_REST_FPS`], and its game moving brings the full rate back.
+/// its [`RestLimit`], and its game moving brings the full rate back.
 pub const IDLE_AFTER_SECS: f32 = 30.0;
 
 /// Seconds without input after which a menu (front door, lobby, settings)
@@ -317,18 +347,13 @@ pub const MENU_SETTLE_SECS: f32 = 2.0;
 pub const MENU_FPS: u32 = 30;
 
 /// Seconds without input **or anything happening in the game** after which
-/// the table eases from the frame limit to [`TABLE_REST_FPS`]. What moves
+/// the table eases from the frame limit to its [`RestLimit`]. What moves
 /// there on its own then is the cloth's slow drift, a flier's bob and the
 /// rim's eleven-second swell; a card dealt, a tear or a camera visit begins
 /// with an input or a new view, and those bring the full rate back on the
-/// frame they arrive.
+/// frame they arrive. An opponent's move arrives without waking the window,
+/// so the rest rate is also how late the first frame of it can be.
 pub const TABLE_SETTLE_SECS: f32 = 2.0;
-
-/// The most frames a table at rest draws per second. Half the cost of sixty
-/// (`docs/perf-baseline.md`, 08.10.2026) and never lower: an opponent's move
-/// arrives without waking the window, so the rest rate is also how late the
-/// first frame of it can be.
-pub const TABLE_REST_FPS: u32 = 30;
 
 /// Frames per second a hidden or minimised window still draws.
 pub const HIDDEN_FPS: u32 = 1;
@@ -352,6 +377,8 @@ pub struct Graphics {
     /// Frames per second in the background and on an untouched front door.
     #[serde(deserialize_with = "lenient")]
     pub background_limit: BackgroundLimit,
+    /// Frames per second at a table at rest.
+    pub rest_limit: RestLimit,
     /// How much the ambient surfaces do.
     #[serde(deserialize_with = "lenient")]
     pub effects: Effects,
@@ -387,6 +414,8 @@ struct Stored {
     frame_limit: FrameLimit,
     #[serde(deserialize_with = "lenient")]
     background_limit: BackgroundLimit,
+    #[serde(deserialize_with = "lenient_option")]
+    rest_limit: Option<RestLimit>,
     #[serde(deserialize_with = "lenient")]
     effects: Effects,
     #[serde(deserialize_with = "lenient_option")]
@@ -405,6 +434,7 @@ impl Default for Stored {
             vsync: g.vsync,
             frame_limit: g.frame_limit,
             background_limit: g.background_limit,
+            rest_limit: None,
             effects: g.effects,
             backdrop: None,
             display_mode: g.display_mode,
@@ -421,6 +451,7 @@ impl From<Stored> for Graphics {
             vsync: s.vsync,
             frame_limit: s.frame_limit,
             background_limit: s.background_limit,
+            rest_limit: s.rest_limit.unwrap_or(Self::of(s.preset).rest_limit),
             effects: s.effects,
             backdrop: s.backdrop.unwrap_or(Self::of(s.preset).backdrop),
             display_mode: s.display_mode,
@@ -480,6 +511,13 @@ impl Graphics {
             vsync: VSync::On,
             frame_limit,
             background_limit,
+            // The quiet presets rest at thirty; High and Ultra, which draw
+            // more than sixty in play, rest at sixty.
+            rest_limit: if matches!(preset, Preset::High | Preset::Ultra) {
+                RestLimit::Fps60
+            } else {
+                RestLimit::Fps30
+            },
             effects,
             backdrop: if matches!(preset, Preset::Low) {
                 Backdrop::Plain
@@ -520,6 +558,9 @@ impl Graphics {
         if self.background_limit != base.background_limit {
             out.push("background_limit");
         }
+        if self.rest_limit != base.rest_limit {
+            out.push("rest_limit");
+        }
         if self.effects != base.effects {
             out.push("effects");
         }
@@ -543,6 +584,7 @@ impl Graphics {
             && self.vsync == other.vsync
             && self.frame_limit == other.frame_limit
             && self.background_limit == other.background_limit
+            && self.rest_limit == other.rest_limit
             && self.effects == other.effects
             && self.backdrop == other.backdrop
     }
@@ -672,9 +714,9 @@ impl Graphics {
     /// ([`Self::rests`]), or at `High` draws at the background limit; behind
     /// other windows, the
     /// background limit; a menu settled for [`MENU_SETTLE_SECS`], at most
-    /// [`MENU_FPS`]; a table at rest for [`TABLE_SETTLE_SECS`], at most
-    /// [`TABLE_REST_FPS`]; otherwise the focused limit. A reduced pace is
-    /// never faster than the focused limit.
+    /// [`MENU_FPS`]; a table at rest for [`TABLE_SETTLE_SECS`], its
+    /// [`RestLimit`] where that is below the focused limit; otherwise the
+    /// focused limit. A reduced pace is never faster than the focused limit.
     #[must_use]
     pub fn pace(&self, showing: Showing) -> (Pace, bool) {
         if showing.hidden {
@@ -692,8 +734,12 @@ impl Graphics {
         if showing.menu && showing.untouched_secs >= MENU_SETTLE_SECS {
             return (held(MENU_FPS), true);
         }
-        if !showing.menu && showing.untouched_secs >= TABLE_SETTLE_SECS {
-            return (held(TABLE_REST_FPS), true);
+        let rest = self.rest_limit.fps();
+        if !showing.menu
+            && showing.untouched_secs >= TABLE_SETTLE_SECS
+            && focused.is_none_or(|cap| rest < cap)
+        {
+            return (Pace::Fps(rest), true);
         }
         (focused.map_or(Pace::Unlimited, Pace::Fps), false)
     }
@@ -768,6 +814,27 @@ mod tests {
         assert_eq!(back, g);
         let junk: Graphics = serde_json::from_str(r#"{"backdrop":7}"#).expect("reads");
         assert_eq!(junk, Graphics::default());
+    }
+
+    /// A file from before the rest rate takes its preset's (High rests at
+    /// sixty, the rest at thirty) and stays that preset; one that names it
+    /// keeps it, and one that names nonsense takes the preset's.
+    #[test]
+    fn a_file_without_a_rest_rate_takes_its_preset_s() {
+        for preset in Preset::NAMED {
+            let mut old = serde_json::to_value(Graphics::of(preset)).unwrap();
+            old.as_object_mut().unwrap().remove("rest_limit");
+            let g: Graphics = serde_json::from_value(old).expect("reads");
+            assert_eq!(g.rest_limit, Graphics::of(preset).rest_limit);
+            assert_eq!(g.matching_preset(), preset, "still {preset:?}");
+        }
+        let named: Graphics =
+            serde_json::from_str(r#"{"preset":"medium","rest_limit":"fps60"}"#).expect("reads");
+        assert_eq!(named.rest_limit, RestLimit::Fps60);
+        assert_eq!(named.matching_preset(), Preset::Custom);
+        let junk: Graphics =
+            serde_json::from_str(r#"{"preset":"high","rest_limit":7}"#).expect("reads");
+        assert_eq!(junk.rest_limit, RestLimit::Fps60);
     }
 
     /// *Custom* appears iff a device row differs from the preset's table
@@ -889,21 +956,30 @@ mod tests {
             untouched_secs: TABLE_SETTLE_SECS,
             ..AT_DESK
         };
-        assert_eq!(
-            medium.pace(table_resting),
-            (Pace::Fps(TABLE_REST_FPS), true)
-        );
+        assert_eq!(medium.pace(table_resting), (Pace::Fps(30), true));
         let table_untouched = Showing {
             untouched_secs: 600.0,
             ..AT_DESK
         };
         assert_eq!(
             medium.pace(table_untouched),
-            (Pace::Fps(TABLE_REST_FPS), true),
+            (Pace::Fps(30), true),
             "a table never idles below its rest rate: the game may move"
         );
+        // Resting at sixty under a cap of sixty is not resting at all: the
+        // table holds the cap, input does not wake it, as before the knob.
+        let mut sixty = medium;
+        sixty.rest_limit = RestLimit::Fps60;
+        assert_eq!(sixty.pace(table_untouched), (Pace::Fps(60), false));
+        assert_eq!(sixty.pace(table_untouched), sixty.pace(AT_DESK));
+        // Above sixty it rests at sixty: High's cap is 120.
+        let high = Graphics::of(Preset::High);
+        assert_eq!(high.rest_limit, RestLimit::Fps60);
+        assert_eq!(high.pace(table_untouched), (Pace::Fps(60), true));
+        assert_eq!(high.pace(AT_DESK), (Pace::Fps(120), false));
+        // Low's cap is thirty already: nothing to ease to.
         let low = Graphics::of(Preset::Low);
-        assert_eq!(low.pace(table_untouched), (Pace::Fps(30), true));
+        assert_eq!(low.pace(table_untouched), (Pace::Fps(30), false));
         let menu = Showing {
             menu: true,
             ..AT_DESK

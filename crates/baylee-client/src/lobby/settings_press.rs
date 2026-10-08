@@ -71,6 +71,8 @@ pub(crate) enum SettingsPress {
     FrameLimit(baylee_client_core::graphics::FrameLimit),
     /// Graphics: the background limit.
     BackgroundLimit(baylee_client_core::graphics::BackgroundLimit),
+    /// Graphics: the frame rate of a table at rest.
+    RestLimit(baylee_client_core::graphics::RestLimit),
     /// Graphics: the frame-rate counter.
     ShowFrameRate,
     /// Graphics: the backdrop.
@@ -181,6 +183,7 @@ impl SettingsPress {
             SettingsPress::BackgroundLimit(limit) => {
                 graphics(state, settings, |g| g.background_limit = limit)
             }
+            SettingsPress::RestLimit(limit) => graphics(state, settings, |g| g.rest_limit = limit),
             SettingsPress::ShowFrameRate => {
                 graphics(state, settings, |g| g.show_frame_rate = !g.show_frame_rate)
             }
@@ -438,6 +441,7 @@ impl SettingsPress {
             | SettingsPress::VSync(_)
             | SettingsPress::FrameLimit(_)
             | SettingsPress::BackgroundLimit(_)
+            | SettingsPress::RestLimit(_)
             | SettingsPress::ShowFrameRate
             | SettingsPress::Backdrop(_)
             | SettingsPress::Ambient(_)

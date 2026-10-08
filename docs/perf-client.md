@@ -117,6 +117,7 @@ or a discrete card → High; a software rasteriser → Low).
 | Preset | Low, Medium, High, Ultra, Custom | the rows below together |
 | Frame limit | 30, 60, 120, unlimited | the biggest: every frame pays every shader. Front door with its backdrop hidden at 118 frames: CPU 78 %, energy 74; with the backdrop at the 60 cap: CPU 36 %, energy 35 (not one clean A/B) |
 | Background limit | 5, 15, 30, 60 | front door at 15 frames: CPU 15 %, energy 14 |
+| Frame rate at rest ("Bildrate in Ruhe", 08.10.) | 30, 60; Low/Medium 30, High/Ultra 60; at or above the frame limit the table does not ease | six seats at rest 60 → 30: CPU 57 → 34 %, energy 54 → 33 (`docs/perf-baseline.md`) |
 | Ambient effects | Low (still), Medium, High | Medium vs High above; Low not measured separately |
 | Edge smoothing | off, FXAA, MSAA 2×, 4× | MSAA 4× vs none: 0.2 ms, within noise (Apple's tile memory resolves it); FXAA not measured |
 | VSync | on, adaptive, off | not measured |

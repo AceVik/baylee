@@ -466,6 +466,8 @@ messages! {
     /// The most frames per second behind other windows and on an idle
     /// front door.
     BackgroundFrames { en: "In the background", de: "Im Hintergrund" },
+    /// Graphics: how many frames a table at rest draws.
+    RowRestLimit { en: "Frame rate at rest", de: "Bildrate in Ruhe" },
     /// How much the ambient surfaces (the front door's world, the cloth,
     /// the sky) move and how finely.
     AmbientEffects { en: "Ambient effects", de: "Umgebungseffekte" },
@@ -4926,6 +4928,8 @@ messages! {
     HelpVSync { en: "Waits for the display: no tearing, one frame of delay \u{b7} power \u{2193}", de: "Wartet auf den Bildschirm: kein Zerrei\u{df}en, ein Bild Verz\u{f6}gerung \u{b7} Strom \u{2193}" },
     /// Graphics: the frame limit's effect.
     HelpFrameLimit { en: "Caps frames per second \u{b7} lower is cooler and quieter", de: "Begrenzt die Bilder pro Sekunde \u{b7} weniger ist k\u{fc}hler und leiser" },
+    /// Graphics: the rest limit's effect.
+    HelpRestLimit { en: "Frames per second at a table where nothing has happened for two seconds \u{b7} power \u{2193}\u{2193}", de: "Bilder pro Sekunde am Tisch, wenn zwei Sekunden lang nichts geschieht \u{b7} Strom \u{2193}\u{2193}" },
     /// Graphics: the background limit's effect.
     HelpBackgroundLimit { en: "Frames per second while another window has the focus \u{b7} power \u{2193}\u{2193}", de: "Bilder pro Sekunde, w\u{e4}hrend ein anderes Fenster vorn ist \u{b7} Strom \u{2193}\u{2193}" },
     /// Graphics: the frame-time counter.

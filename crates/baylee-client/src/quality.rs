@@ -586,13 +586,10 @@ mod tests {
         assert!((wait(&app).expect("capped") - 1.0).abs() < 1e-4);
     }
 
-    /// A table nobody touches and where nothing happens comes to rest at
-    /// thirty frames; the game moving — a new view, a tear — brings the full
-    /// rate back on the next frame, untouched as the window still is.
-    /// Proved both ways: without the new view the table stays at rest.
-    #[test]
-    fn a_table_rests_until_its_game_moves() {
-        use baylee_client_core::graphics::{TABLE_REST_FPS, TABLE_SETTLE_SECS};
+    /// A table under `settings`, a duel on it, its clock stepping a quarter
+    /// of the settle time a frame.
+    fn table_app(settings: ClientSettings) -> App {
+        use baylee_client_core::graphics::TABLE_SETTLE_SECS;
         use baylee_client_core::test_support::ViewBuilder;
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
@@ -606,7 +603,7 @@ mod tests {
                 Duration::from_secs_f32(TABLE_SETTLE_SECS / 4.0),
             ))
             .insert_resource(WinitSettings::game())
-            .insert_resource(ClientSettings::default())
+            .insert_resource(settings)
             .insert_resource(crate::Duel {
                 view: Some(ViewBuilder::new(2).build()),
                 ..default()
@@ -622,13 +619,59 @@ mod tests {
         app.world_mut()
             .resource_mut::<NextState<crate::DuelPhase>>()
             .set(crate::DuelPhase::Playing);
-        let wait = |app: &App| match app.world().resource::<WinitSettings>().focused_mode {
+        app
+    }
+
+    /// The focused update mode's wait, in seconds (0 for continuous).
+    fn focused_wait(app: &App) -> f32 {
+        match app.world().resource::<WinitSettings>().focused_mode {
             UpdateMode::Reactive { wait, .. } => wait.as_secs_f32(),
             UpdateMode::Continuous => 0.0,
-        };
+        }
+    }
+
+    /// At "Bildrate in Ruhe" 60 under Medium's cap of 60 the table never
+    /// eases down, untouched for as long as it likes, and input does not
+    /// wake it — the pacing from before the setting. Red if the setting is
+    /// ignored: the default rests at thirty.
+    #[test]
+    fn at_a_rest_rate_of_sixty_the_table_never_eases_down() {
+        use baylee_client_core::graphics::{Graphics, Preset, RestLimit};
+        let mut graphics = Graphics::of(Preset::Medium);
+        graphics.adjust(|g| g.rest_limit = RestLimit::Fps60);
+        let mut app = table_app(ClientSettings {
+            graphics: Some(graphics),
+            ..default()
+        });
+        for frame in 0..40 {
+            app.update();
+            assert!(
+                (focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4,
+                "frame {frame}: eased to {}",
+                focused_wait(&app)
+            );
+            assert!(matches!(
+                app.world().resource::<WinitSettings>().focused_mode,
+                UpdateMode::Reactive {
+                    react_to_window_events: false,
+                    ..
+                }
+            ));
+        }
+    }
+
+    /// A table nobody touches and where nothing happens comes to rest at
+    /// thirty frames; the game moving — a new view, a tear — brings the full
+    /// rate back on the next frame, untouched as the window still is.
+    /// Proved both ways: without the new view the table stays at rest.
+    #[test]
+    fn a_table_rests_until_its_game_moves() {
+        use baylee_client_core::graphics::RestLimit;
+        let mut app = table_app(ClientSettings::default());
+        let wait = focused_wait;
         let full = 1.0 / 60.0;
         #[allow(clippy::cast_precision_loss)]
-        let rest = 1.0 / TABLE_REST_FPS as f32;
+        let rest = 1.0 / RestLimit::Fps30.fps() as f32;
         app.update();
         assert!((wait(&app) - full).abs() < 1e-4, "a table just opened");
         for _ in 0..6 {

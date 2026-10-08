@@ -202,6 +202,8 @@ pub enum Row {
     FrameLimit,
     /// Frames per second without it.
     BackgroundLimit,
+    /// Frames per second at a table at rest.
+    RestLimit,
     /// The frame-time counter in a corner.
     ShowFrameRate,
     /// The painting behind the panels: Painting · Dimmed · Plain.
@@ -355,6 +357,13 @@ pub const ROWS: &[RowDef] = &[
         D,
         P::BackgroundFrames,
         P::HelpBackgroundLimit,
+    ),
+    def(
+        Row::RestLimit,
+        S::Graphics,
+        D,
+        P::RowRestLimit,
+        P::HelpRestLimit,
     ),
     def(
         Row::ShowFrameRate,
@@ -596,7 +605,7 @@ pub fn of(row: Row) -> &'static RowDef {
 pub fn offered(row: Row, builds: Builds, monitors: usize) -> bool {
     match row {
         // The browser presents frames and owns the window.
-        Row::DisplayMode | Row::VSync | Row::FrameLimit | Row::BackgroundLimit => {
+        Row::DisplayMode | Row::VSync | Row::FrameLimit | Row::BackgroundLimit | Row::RestLimit => {
             !builds.web && !builds.phone
         }
         Row::Monitor => builds.desktop && monitors > 1,
@@ -715,6 +724,7 @@ mod tests {
             Row::FrameLimit,
             Row::DisplayMode,
             Row::BackgroundLimit,
+            Row::RestLimit,
         ] {
             assert!(!offered(row, Builds::WEB, 1), "{row:?} on the web");
             assert!(offered(row, Builds::DESKTOP, 1), "{row:?} on a desktop");

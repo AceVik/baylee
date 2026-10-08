@@ -7706,7 +7706,13 @@ and *Custom* is derived, never stored. Display mode changes run a 15-s
 trial (`quality::DisplayTrial`): Keep, or the old mode comes back. The
 backdrop's share scales the painting behind the panels (Plain draws
 none). A settings file from before the backdrop takes its preset's.
-Show frame rate is a corner counter. Controls rebinds the shell's keys
+*Frame rate at rest* (Bildrate in Ruhe, 30 · 60; Low and Medium 30, High
+and Ultra 60) is what a table eases to two seconds after the last input
+and the last thing the game did; at or above the frame limit it does not
+ease at all, so 60 under Medium is the table as it paced before the row
+(`graphics::RestLimit`, `at_a_rest_rate_of_sixty_the_table_never_eases_down`);
+a file from before it takes its preset's, and it is drawn where the frame
+limit is. Show frame rate is a corner counter. Controls rebinds the shell's keys
 (`KEYBOARD.md` §5): a chord another live action holds is refused naming
 it, nothing written, and the same key again (or *Take it*) moves it
 (`a_rebind_conflict_is_refused_with_its_reason_and_then_taken`).

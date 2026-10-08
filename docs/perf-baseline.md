@@ -828,7 +828,8 @@ less busy clocks down, so the same work reads longer (`docs/perf-client.md`).
 What changed, and what each measured on its own (`perf2-measures.md` has the
 pairs):
 
-- **A table at rest draws 30 frames** (`graphics::TABLE_REST_FPS`): two seconds
+- **A table at rest draws 30 frames** (`graphics::RestLimit`, a per-device
+  setting since, "Bildrate in Ruhe" 30 or 60, 60 = no easing under a cap of 60): two seconds
   after the last input and the last thing the game did. The largest single
   item: every shader and every system at half the rate.
 - **The cloth's slow fields are baked** once per cut (`client-core::feltwarp`):
