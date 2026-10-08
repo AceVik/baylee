@@ -171,6 +171,15 @@ fn perform(
         playing.gain += (target - playing.gain) * (1.0 - (-dt / 0.10).exp());
         if let Some(mut sink) = sink {
             sink.set_volume(Volume::Linear(playing.gain));
+            // A silent orchestra stops being rendered: a paused sink stops
+            // pulling the score, where one at volume 0 still synthesised
+            // every voice on the audio thread (`docs/perf-baseline.md`,
+            // 08.10.2026). It resumes where it stood.
+            match (sounding(target, playing.gain), sink.is_paused()) {
+                (false, false) => sink.pause(),
+                (true, true) => sink.play(),
+                _ => {}
+            }
         }
     }
     if !any {
@@ -180,6 +189,16 @@ fn perform(
             Playing { gain: 0.0 },
         ));
     }
+}
+
+/// Below this gain the music is inaudible: a sink that has faded to it and
+/// is asked for nothing louder is paused.
+const SILENT_GAIN: f32 = 1e-4;
+
+/// Whether the orchestra has to be rendered: it is asked to be heard, or
+/// it is still fading out.
+fn sounding(target: f32, gain: f32) -> bool {
+    target > 0.0 || gain > SILENT_GAIN
 }
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -390,7 +409,12 @@ mod tests {
         for _ in 0..20 {
             app.update();
         }
-        assert!(app.world().get::<Playing>(entity).unwrap().gain < 0.0001);
+        let faded = app.world().get::<Playing>(entity).unwrap().gain;
+        assert!(faded < 0.0001);
+        assert!(
+            !sounding(0.0, faded),
+            "a muted orchestra that has faded out is paused, not rendered at volume 0"
+        );
         app.world_mut()
             .resource_mut::<ClientSettings>()
             .music
@@ -400,6 +424,17 @@ mod tests {
         }
         assert!(app.world().get::<Playing>(entity).unwrap().gain > 0.24);
     }
+    /// Muting fades out first and pauses once silent; any gain asked for,
+    /// however small, renders again.
+    #[test]
+    fn the_orchestra_is_rendered_only_while_it_can_be_heard() {
+        assert!(sounding(0.5, 0.0), "unmuted: rendered from the first frame");
+        assert!(sounding(0.0, 0.2), "muted but still fading out");
+        assert!(!sounding(0.0, SILENT_GAIN * 0.5), "faded out: paused");
+        assert!(!sounding(0.0, 0.0));
+        assert!(sounding(0.01, 0.0), "a quiet volume is still a volume");
+    }
+
     #[test]
     fn action_energy_decays_and_does_not_count_a_repeated_snapshot() {
         use baylee_client_core::test_support::ViewBuilder;

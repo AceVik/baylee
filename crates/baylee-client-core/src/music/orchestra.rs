@@ -1,5 +1,6 @@
-//! Sample playback and the shared concert room. The bank is decoded once;
-//! rendering allocates nothing. See art/music/samples.json for provenance.
+//! Sample playback and the shared concert room. The bank is read where it is
+//! shipped, as 16-bit PCM inside the binary; rendering allocates nothing.
+//! See art/music/samples.json for provenance.
 //!
 //! Two ways to render, one sound: [`Orchestra::frame`] is the reference, one
 //! stereo frame at a time, and [`Orchestra::render`] renders a run of frames
@@ -17,8 +18,35 @@ use super::RATE;
 use std::sync::OnceLock;
 
 pub(super) struct Instrument {
-    pcm: Vec<f32>,
+    /// The recording as shipped: 16-bit little-endian PCM, read in place.
+    /// Decoding it into `f32` up front held 17 MB of heap beside the 8.6 MB
+    /// already mapped with the binary, and the same numbers come out of a
+    /// read per sample (`a_sample_reads_as_the_decoded_bank_did`).
+    pcm: &'static [[u8; 2]],
     root: u8,
+}
+
+impl Instrument {
+    /// How many samples the recording holds.
+    fn len(&self) -> usize {
+        self.pcm.len()
+    }
+
+    /// One sample as a number from -1 to just under 1.
+    #[inline]
+    fn decode(sample: [u8; 2]) -> f32 {
+        f32::from(i16::from_le_bytes(sample)) / 32768.0
+    }
+
+    /// Samples `i` and `i + 1`, the two an interpolation reads, behind one
+    /// bounds check.
+    #[inline]
+    fn pair(&self, i: usize) -> (f32, f32) {
+        let [a, b] = self.pcm[i..i + 2] else {
+            unreachable!("a two-sample range is two samples")
+        };
+        (Self::decode(a), Self::decode(b))
+    }
 }
 
 pub(super) fn bank() -> &'static [Instrument] {
@@ -28,9 +56,8 @@ pub(super) fn bank() -> &'static [Instrument] {
             ($name:literal, $root:literal) => {
                 Instrument {
                     pcm: include_bytes!(concat!("../../assets/orchestra/", $name, ".pcm"))
-                        .chunks_exact(2)
-                        .map(|s| f32::from(i16::from_le_bytes([s[0], s[1]])) / 32768.0)
-                        .collect(),
+                        .as_chunks::<2>()
+                        .0,
                     root: $root,
                 }
             };
@@ -91,14 +118,15 @@ impl Voice {
     /// so they are only divided out where they are not: the same numbers,
     /// without three divisions per voice per frame.
     fn render(&mut self, bank: &[Instrument], dry: &mut [[f32; 2]], feed: &mut [f32]) -> bool {
-        let samples = &bank[self.instrument].pcm;
+        let samples = &bank[self.instrument];
         for (out, send) in dry.iter_mut().zip(feed.iter_mut()) {
             let i = self.position as usize;
             if i + 1 >= samples.len() || self.age >= self.hold + self.release {
                 return false;
             }
             let fraction = self.position.fract() as f32;
-            let wave = samples[i] + (samples[i + 1] - samples[i]) * fraction;
+            let (a, b) = samples.pair(i);
+            let wave = a + (b - a) * fraction;
             let steady =
                 self.age >= self.attack && self.age <= self.hold && samples.len() - i >= 1102;
             let frame = if steady {
@@ -124,13 +152,14 @@ impl Voice {
     }
 
     fn next(&mut self, bank: &[Instrument]) -> Option<[f32; 2]> {
-        let samples = &bank[self.instrument].pcm;
+        let samples = &bank[self.instrument];
         let i = self.position as usize;
         if i + 1 >= samples.len() || self.age >= self.hold + self.release {
             return None;
         }
         let fraction = self.position.fract() as f32;
-        let wave = samples[i] + (samples[i + 1] - samples[i]) * fraction;
+        let (a, b) = samples.pair(i);
+        let wave = a + (b - a) * fraction;
         let attack = (self.age as f32 / self.attack as f32).min(1.0);
         let release =
             (1.0 - self.age.saturating_sub(self.hold) as f32 / self.release as f32).max(0.0);
@@ -315,6 +344,33 @@ impl Orchestra {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Reading the shipped PCM in place gives every sample of every
+    /// instrument exactly as decoding the bank into `f32` up front did — the
+    /// old decode, written out here as the reference — so the score sounds
+    /// bit for bit as before.
+    #[test]
+    #[allow(clippy::float_cmp)] // bit-identity is the claim
+    #[allow(clippy::chunks_exact_to_as_chunks)] // the old decode, verbatim, is the reference
+    fn a_sample_reads_as_the_decoded_bank_did() {
+        let mut samples = 0usize;
+        for instrument in bank() {
+            let decoded: Vec<f32> = instrument
+                .pcm
+                .as_flattened()
+                .chunks_exact(2)
+                .map(|s| f32::from(i16::from_le_bytes([s[0], s[1]])) / 32768.0)
+                .collect();
+            assert_eq!(decoded.len(), instrument.len());
+            for (i, want) in decoded.windows(2).enumerate() {
+                let (a, b) = instrument.pair(i);
+                assert_eq!(a.to_bits(), want[0].to_bits(), "sample {i}");
+                assert_eq!(b.to_bits(), want[1].to_bits(), "sample {}", i + 1);
+            }
+            samples += decoded.len();
+        }
+        assert!(samples > 4_000_000, "the whole bank was read: {samples}");
+    }
 
     /// The block renderer is the frame renderer, bit for bit: the same notes
     /// started at the same frames, rendered both ways over many runs of
