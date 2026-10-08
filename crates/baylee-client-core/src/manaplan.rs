@@ -92,6 +92,24 @@ pub struct Source {
     /// Opportunity cost of tapping this permanent. Higher stays untapped
     /// when a cheaper source can pay; this never changes affordability.
     pub preserve: u32,
+    /// The permanent's other, priced way to make one mana, when it has one
+    /// that reaches colours this one does not: Adarkar Wastes' "`{T}`: Add
+    /// `{W}` or `{U}`. This land deals 1 damage to you." beside its free
+    /// `{C}`. [`plan`] reaches for it only when no plan exists without it,
+    /// and then only for a pip the free mode cannot pay.
+    pub dear: Option<Dear>,
+}
+
+/// A permanent's priced way to make **one** mana, kept beside its free one.
+///
+/// One tap per permanent still holds: a plan taps it once, in whichever of
+/// the two modes the pip it pays needs.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Dear {
+    /// Which action taps it this way.
+    pub tap: Tap,
+    /// What this mode may be asked for: one of them per tap.
+    pub colors: Vec<ManaColor>,
 }
 
 impl Source {
@@ -106,7 +124,17 @@ impl Source {
             bundle: false,
             priced: false,
             preserve: 0,
+            dear: None,
         }
+    }
+
+    /// The dear mode, when this permanent has one a plan may widen into:
+    /// a single unit beside a single unit, so widening trades one mana for
+    /// one mana and never loses an amount.
+    fn widened(&self) -> Option<&Dear> {
+        self.dear
+            .as_ref()
+            .filter(|_| !self.bundle && self.units() == 1)
     }
 
     /// How many independent mana this is worth to a plan.
@@ -126,6 +154,31 @@ impl Source {
             1
         }
     }
+}
+
+/// One source per permanent, out of a list sorted by permanent and then
+/// best mode first (free, more mana, more colours), with the best of
+/// its other modes kept as its [`Dear`] mode when that mode makes one mana
+/// of a colour the kept one cannot: a painland's coloured tap beside its
+/// free `{C}`. The client's `manasources::sources` and the house AI's
+/// `policy::usable` both keep their sources through this.
+pub fn keep_one_per_permanent(sources: &mut Vec<Source>) {
+    let mut kept: Vec<Source> = Vec::with_capacity(sources.len());
+    for source in sources.drain(..) {
+        match kept.last_mut() {
+            Some(first) if first.id == source.id => {
+                let reaches_more = source.colors.iter().any(|c| !first.colors.contains(c));
+                if first.dear.is_none() && !source.bundle && source.amount == 1 && reaches_more {
+                    first.dear = Some(Dear {
+                        tap: source.tap,
+                        colors: source.colors,
+                    });
+                }
+            }
+            _ => kept.push(source),
+        }
+    }
+    *sources = kept;
 }
 
 /// Rank taps by the board and colours still needed by cards in hand.
@@ -320,7 +373,25 @@ pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<
             .into_iter()
             .map(|need| permitted(need, pool))
             .collect::<Vec<_>>();
-        if let Some(found) = assign(&needs, pool, sources) {
+        if let Some(found) = assign(&needs, pool, sources, false) {
+            return Some(Plan {
+                cost: *cost,
+                ..found
+            });
+        }
+    }
+    // Only when nothing pays without it: a permanent's priced mode (a
+    // painland's coloured tap). Every board that planned before plans the
+    // same taps, so the damage is taken only where the colour needs it.
+    if !sources.iter().any(|s| s.widened().is_some()) {
+        return None;
+    }
+    for generic_twobrid in [false, true] {
+        let needs = needs(cost, generic_twobrid)?
+            .into_iter()
+            .map(|need| permitted(need, pool))
+            .collect::<Vec<_>>();
+        if let Some(found) = assign(&needs, pool, sources, true) {
             return Some(Plan {
                 cost: *cost,
                 ..found
@@ -457,7 +528,7 @@ fn push_needs(symbol: ManaSymbol, generic_twobrid: bool, out: &mut Vec<ColorMask
 ///
 /// Floating mana comes first so the preference order below reaches for it
 /// before it taps anything.
-fn units(pool: &ManaPoolView, sources: &[Source], limit: usize) -> Vec<Unit> {
+fn units(pool: &ManaPoolView, sources: &[Source], limit: usize, widen: bool) -> Vec<Unit> {
     let mut units = Vec::new();
     for (color, count) in [
         (ManaColor::White, pool.white),
@@ -475,7 +546,10 @@ fn units(pool: &ManaPoolView, sources: &[Source], limit: usize) -> Vec<Unit> {
         }
     }
     for (index, source) in sources.iter().enumerate() {
-        let colors = mask_of(&source.colors);
+        let mut colors = mask_of(&source.colors);
+        if widen && let Some(dear) = source.widened() {
+            colors = ColorMask(colors.0 | mask_of(&dear.colors).0);
+        }
         if colors == ColorMask::NONE {
             continue;
         }
@@ -527,8 +601,17 @@ fn units(pool: &ManaPoolView, sources: &[Source], limit: usize) -> Vec<Unit> {
 /// is followed by [`consolidate`]: price first would otherwise tap the Tower
 /// *and* the Tomb for `{2}`, where the Tomb alone pays it and costs the same
 /// two damage.
-fn assign(needs: &[ColorMask], pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
-    let units = units(pool, sources, needs.len());
+fn assign(
+    needs: &[ColorMask],
+    pool: &ManaPoolView,
+    sources: &[Source],
+    widen: bool,
+) -> Option<Plan> {
+    let units = units(pool, sources, needs.len(), widen);
+    // A widened permanent is priced for every pip: the matcher cannot price
+    // a unit per pip, and a clean land should pay ahead of it either way.
+    let priced =
+        |source: usize| sources[source].priced || (widen && sources[source].widened().is_some());
     if needs.len() > units.len() {
         return None;
     }
@@ -539,7 +622,7 @@ fn assign(needs: &[ColorMask], pool: &ManaPoolView, sources: &[Source]) -> Optio
         (
             // Floating first: it is free and it empties at end of step.
             usize::from(unit.from.is_some()),
-            unit.from.is_some_and(|source| sources[source].priced),
+            unit.from.is_some_and(priced),
             unit.from.map_or(0, |source| sources[source].preserve),
             unit.colors.count(),
             unit.from.unwrap_or(0),
@@ -558,8 +641,8 @@ fn assign(needs: &[ColorMask], pool: &ManaPoolView, sources: &[Source]) -> Optio
         }
     }
 
-    consolidate(needs, &units, &mut taken, sources);
-    Some(steps(needs, &units, &taken, sources))
+    consolidate(needs, &units, &mut taken, sources, &priced);
+    Some(steps(needs, &units, &taken, sources, widen))
 }
 
 /// Gives back every tap whose mana the rest of the plan already makes.
@@ -582,6 +665,7 @@ fn consolidate(
     units: &[Unit],
     taken: &mut [Option<usize>],
     sources: &[Source],
+    priced: &dyn Fn(usize) -> bool,
 ) {
     loop {
         let tapped: BTreeSet<usize> = units
@@ -592,7 +676,7 @@ fn consolidate(
         let mut candidates: Vec<usize> = tapped.iter().copied().collect();
         candidates.sort_by_key(|&source| {
             (
-                !sources[source].priced,
+                !priced(source),
                 std::cmp::Reverse(sources[source].preserve),
                 std::cmp::Reverse(mask_of(&sources[source].colors).count()),
                 source,
@@ -683,7 +767,22 @@ fn augment(
 }
 
 /// Turns a matching into the taps it calls for.
-fn steps(needs: &[ColorMask], units: &[Unit], taken: &[Option<usize>], sources: &[Source]) -> Plan {
+fn steps(
+    needs: &[ColorMask],
+    units: &[Unit],
+    taken: &[Option<usize>],
+    sources: &[Source],
+    widen: bool,
+) -> Plan {
+    // What only a widened permanent's priced mode makes. A pip is paid the
+    // free way wherever the free way can pay it.
+    let dear_only = |index: usize| {
+        let source = &sources[index];
+        match source.widened().filter(|_| widen) {
+            Some(dear) => ColorMask(mask_of(&dear.colors).0 & !mask_of(&source.colors).0),
+            None => ColorMask::NONE,
+        }
+    };
     // A source may back several units; it is tapped once, and the colour it
     // is asked for is the one its first assigned unit was matched on.
     let mut used: BTreeSet<usize> = BTreeSet::new();
@@ -696,10 +795,12 @@ fn steps(needs: &[ColorMask], units: &[Unit], taken: &[Option<usize>], sources: 
         if chosen[source].is_none() {
             // The demand narrows the choice; anything in the overlap pays it,
             // and the lowest is as good as any and keeps the plan stable.
+            let dear = dear_only(source);
             chosen[source] = unit
                 .colors
                 .colors()
-                .find(|c| needs[demand].holds(*c))
+                .filter(|c| needs[demand].holds(*c))
+                .min_by_key(|c| dear.holds(*c))
                 .or_else(|| unit.colors.colors().next());
         }
     }
@@ -712,6 +813,15 @@ fn steps(needs: &[ColorMask], units: &[Unit], taken: &[Option<usize>], sources: 
             .into_iter()
             .map(|index| {
                 let source = &sources[index];
+                if let (Some(dear), Some(color)) = (source.widened(), chosen[index])
+                    && dear_only(index).holds(color)
+                {
+                    return Step {
+                        source: source.id,
+                        tap: dear.tap,
+                        color: (dear.colors.len() > 1).then_some(color),
+                    };
+                }
                 Step {
                     source: source.id,
                     tap: source.tap,
@@ -781,7 +891,7 @@ mod large_pool_tests {
             colorless: u32::MAX,
             ..ManaPoolView::default()
         };
-        assert_eq!(units(&pool, &[], 2).len(), 12);
+        assert_eq!(units(&pool, &[], 2, false).len(), 12);
     }
 }
 
@@ -802,6 +912,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            dear: None,
         }
     }
 
@@ -1084,6 +1195,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            dear: None,
         }];
         assert!(plan(&cost("{2}"), &empty(), &coupled).is_none());
 
@@ -1095,6 +1207,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            dear: None,
         }];
         let found = plan(&cost("{2}"), &empty(), &sol_ring).expect("two colourless");
         assert_eq!(found.taps(), 1);
@@ -1121,6 +1234,7 @@ mod tests {
             bundle: true,
             priced: false,
             preserve: 0,
+            dear: None,
         }];
         let found = plan(&cost("{W}{U}"), &empty(), &chancery).expect("a Karoo pays {W}{U}");
         assert_eq!(found.taps(), 1, "one permanent is one tap");
@@ -1149,6 +1263,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            dear: None,
         }
     }
 
@@ -1157,6 +1272,7 @@ mod tests {
         Source {
             priced: true,
             preserve: 0,
+            dear: None,
             ..tower(id)
         }
     }
@@ -1168,6 +1284,7 @@ mod tests {
             amount: 2,
             priced: true,
             preserve: 0,
+            dear: None,
             ..tower(id)
         }
     }
@@ -1293,6 +1410,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            dear: None,
         }];
         assert!(plan(&cost("{1}"), &empty(), &five).is_some());
         assert!(plan(&cost("{C}"), &empty(), &five).is_none());

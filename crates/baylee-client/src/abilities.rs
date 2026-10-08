@@ -1398,6 +1398,7 @@ mod tests {
             bundle: true,
             priced: false,
             preserve: 0,
+            dear: None,
         };
 
         let karoo = bundle(vec![ManaColor::White, ManaColor::Blue]);
