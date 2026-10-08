@@ -106,7 +106,7 @@ pub struct ReportDesk {
     /// Ctrl/Cmd+Enter in the text, or Enter on the confirmation: the
     /// form's Send or the confirmation's, on the next run of
     /// [`send_by_key`] (`KEYBOARD.md` W9).
-    send_by_key: Option<DeskPress>,
+    send_by_key: Option<form::DeskPress>,
 }
 
 impl ReportDesk {
@@ -537,8 +537,8 @@ fn send_by_key(
     };
     let desk = desk.as_mut();
     match press {
-        DeskPress::Send => ask_to_send(desk, &holders, &mut settings, &answers),
-        DeskPress::ConfirmSend => send(desk, &holders, &mut settings, &answers),
+        form::DeskPress::Send => ask_to_send(desk, &holders, &mut settings, &answers),
+        form::DeskPress::ConfirmSend => send(desk, &holders, &mut settings, &answers),
         _ => {}
     }
 }
