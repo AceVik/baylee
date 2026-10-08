@@ -843,7 +843,13 @@ accident, and arithmetic borrows nothing.
   Spotlight, Focus ring) take their template from the ellipse
   (`TableLayout::on_ring`); the upright ring stands the frame's boards up.
   A ring whose home would put a seat under the pill or the report button is
-  framed below them (`camera::reaches_the_top`, DESIGN-v8 §2.2's fallback).
+  framed below them (`camera::reaches_the_top`, DESIGN-v8 §2.2's fallback),
+  and from five seats one whose depth binds is framed above the players'
+  strip (`camera::reaches_the_strips`: seen live, six seats stood my land
+  row under it). A phone's home holds the dial's hub — the turn number —
+  from four seats (`a_phone_s_home_holds_the_dial_s_hub`; at three only its
+  centre, where the hub's far half turns the circle's second seat under the
+  report button).
 - Lanes fan when crowded, and a row that cannot fan legibly with its merged
   cards' cells held whole scrolls (§"A row that does not fit scrolls").
 - A seat's tab carries a **second life total** when one applies. Twenty-one
