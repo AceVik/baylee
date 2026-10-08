@@ -340,6 +340,17 @@ pub enum GameEvent {
         /// The designation the game now has.
         now: crate::turn::DayNight,
     },
+    /// A player became the monarch (CR 724.3), and whoever was the monarch
+    /// ceased to be.
+    ///
+    /// Recorded only when the designation moves: a monarch told to become
+    /// the monarch again does not become it (CR 603.2e reads "becomes" as
+    /// the change, not the state). The game going on with no monarch after
+    /// the last heir left (CR 724.4) records nothing.
+    BecameMonarch {
+        /// The new monarch.
+        player: PlayerId,
+    },
     /// A permanent turned over (CR 701.27).
     ///
     /// Recorded by both doors that flip a face: the one a resolving effect

@@ -1067,7 +1067,10 @@ lost:
   source alone (`ability: None`).
 
 A triggered ability with no source, the monarch's two (CR 724.2), gets no
-line of its own; what it does has its lines.
+line of its own; what it does has its lines. The crown moving is one of
+them: `LogEvent::BecameMonarch { player }` (view version 55), told to every
+seat, once per change. Who holds it now is `PlayerView::monarch`, in every
+seat's view.
 
 Measured over self-play on 2026-09-25
 (`session::tests::the_log_measured_over_self_play`, release, one seat played

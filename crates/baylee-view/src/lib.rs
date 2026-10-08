@@ -172,9 +172,11 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 54 leaves a [`PublicObject`]'s fields out of the JSON while they
 /// are at their default (`None`, empty, `false`, zero) and reads a missing
 /// one as that default (`wire.rs`): a reader of 53 requires some of them.
+/// Version 55 adds the game log's [`LogEvent::BecameMonarch`], a variant a
+/// reader of 54 cannot parse.
 ///
 /// [`SubtypeSet`]: baylee_core::types::SubtypeSet
-pub const VIEW_VERSION: u32 = 54;
+pub const VIEW_VERSION: u32 = 55;
 
 // ------------------------------------------------------------------- targets
 

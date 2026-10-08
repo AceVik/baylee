@@ -150,6 +150,12 @@ impl HeuristicAgent {
     /// `defenders.first()` meant one player absorbed every attack in the game
     /// purely for sitting in the lowest seat.
     fn pick_defender(&self, view: &PlayerView, defenders: &[PlayerId]) -> PlayerId {
+        // The monarch, whatever the profile: any creature that connects takes
+        // the crown, a card every turn, for this seat (CR 724.2). No policy
+        // read it, so at a table of house seats the crown never moved.
+        if let Some(monarch) = view.monarch.filter(|m| defenders.contains(m)) {
+            return monarch;
+        }
         let life = |p: &PlayerId| view.seat(*p).map_or(0, |s| s.life);
         match self.profile.politics {
             // Spread the aggression around without breaking determinism: the

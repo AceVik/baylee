@@ -3627,6 +3627,10 @@ messages! {
     LogDay { en: "It became day", de: "Es wurde Tag" },
     /// It became night (CR 730).
     LogNight { en: "It became night", de: "Es wurde Nacht" },
+    /// The reading seat became the monarch (CR 724.3).
+    LogMonarchYou { en: "{7} became the monarch", de: "{7} bist der Monarch geworden" },
+    /// Another seat became the monarch.
+    LogMonarch { en: "{0} became the monarch", de: "{0} ist der Monarch geworden" },
 
     // ---- reports (#309, #310) ------------------------------------------
     /// The button, the form's title and the keymap row that opens it.
