@@ -40,8 +40,10 @@ pub(super) fn clock_placement(
 pub(super) enum Clock {
     /// No countdown is shown.
     None,
-    /// In its own cell left of the question: someone else's clock, or a
-    /// question the house answers when it runs out.
+    /// In its own cell left of the question: this seat's own clock where no
+    /// button carries it, as for a question the house answers when it runs
+    /// out. Another seat's clock stands beside its plate
+    /// (`seatbar::plateclock`), never here.
     Beside,
     /// In the text of the button the clock presses (#258).
     InButton,

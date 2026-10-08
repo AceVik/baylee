@@ -3631,12 +3631,17 @@ the client. This one stays named: `decision_secs` is on the wire too, but a
 sound that fires at a fraction of the table's limit is a different decision
 from a sound that fires at a minute, and nobody has asked for it.
 
-**The number is drawn for every seat and rung only for this one.** The view
-publishes the awaited seat's remainder to the whole table deliberately, so
-that a long pause reads as a clock rather than as rudeness. A *sound* every
-time an opponent thinks for a minute would be a metronome, landing exactly
-when this player is reading the board — the same rule that makes
-`Cue::YourMove` a flank rather than a state.
+**Every seat's time is drawn, each in its own place, and only this one's is
+rung.** The view publishes the awaited seat's remainder to the whole table
+deliberately, so that a long pause reads as a clock rather than as rudeness.
+Since 08.10.2026 another seat's time stands beside that seat's plate, and the
+shelf counts **this seat's own clock only** (`Duel::receive_view` syncs
+`DecisionClock` with nothing while `awaiting` is another seat; in the
+mulligans `awaiting` is this seat while it still decides): a second copy
+mid-shelf read as a stray (`the_shelf_shows_no_clock_while_another_seat_decides`).
+A *sound* every time an opponent thinks for a minute would be a metronome,
+landing exactly when this player is reading the board — the same rule that
+makes `Cue::YourMove` a flank rather than a state.
 
 **The cell's presence is gated on the revision; its value never is.** A
 `LedgeRevision` field holding the seconds would rebuild the whole shelf once a
@@ -3662,8 +3667,8 @@ declaration is "None", keeping the hand is "Keep", and a declined "may" is
 after its words and in their ink, at `LABEL_PT` and two digits wide
 (`button_clock`), instead of the cell beside the question. It is still one
 label, so `count_down_the_decision` writes whichever was built. The cell
-remains for everything else: another seat's clock (no answers on this
-shelf), a question the house answers (a discard, targets), an armed deed,
+remains for everything else of this seat's own: a question the house
+answers (a discard, targets), an armed deed,
 and the client's own cast chooser, which takes the answers off the row.
 `clock_answer`'s test sends every such button through `Interaction`, so a
 number on a button is an answer that button really sends.

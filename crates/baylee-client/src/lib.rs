@@ -1082,8 +1082,14 @@ impl Duel {
         // view says, and whether the sounds are re-armed is its own question
         // — see `DecisionClock::RESTART`, which tells a new question from a
         // correction by size, because the view carries no question identity.
+        // The shelf counts this seat's own clock only (owner via the PM,
+        // 08.10.2026): another seat's time stands beside its plate
+        // (`seat_clocks`), and a second copy mid-shelf read as a stray. In
+        // the mulligans `awaiting` is this seat while it still decides, so
+        // the rule is the same there.
+        let mine = view.awaiting == Some(view.seat);
         self.clock
-            .sync(view.decision_remaining_ms, view.awaiting == Some(view.seat));
+            .sync(view.decision_remaining_ms.filter(|_| mine), mine);
         self.seat_clocks.sync(&view.clocks);
         self.known_cards.extend(view.cards());
         // My turn beginning brings the camera home (DESIGN-v7 §2.4): an edge

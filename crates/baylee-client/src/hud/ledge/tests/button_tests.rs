@@ -368,3 +368,35 @@ fn the_way_out_of_a_hold_wears_a_key_and_the_way_out_of_the_pilot_does_not() {
         "no key ends the autopilot, so the same button wears no cap"
     );
 }
+
+/// The shelf carries this seat's own clock and nobody else's (owner via the
+/// PM, 08.10.2026): while the table waits on another seat its time stands
+/// beside that seat's plate, and the shelf draws no countdown at all.
+#[test]
+fn the_shelf_shows_no_clock_while_another_seat_decides() {
+    use baylee_client_core::test_support::ViewBuilder;
+    let mut duel = crate::Duel::default();
+    let mut theirs = ViewBuilder::new(2).with_awaiting(Some(1)).build();
+    theirs.decision_remaining_ms = Some(170_000);
+    theirs.clocks = vec![baylee_view::SeatClock {
+        seat: PlayerId::new(1),
+        remaining_ms: 170_000,
+    }];
+    duel.receive_view(theirs);
+    assert_eq!(
+        duel.clock.shown(),
+        None,
+        "the shelf counted another seat's clock"
+    );
+    assert_eq!(
+        duel.seat_clocks.shown(PlayerId::new(1)),
+        Some(170),
+        "and that seat's plate lost it"
+    );
+
+    let mut mine = ViewBuilder::new(2).with_awaiting(Some(0)).build();
+    mine.seq += 1;
+    mine.decision_remaining_ms = Some(170_000);
+    duel.receive_view(mine);
+    assert_eq!(duel.clock.shown(), Some(170), "my own clock left the shelf");
+}
