@@ -892,7 +892,7 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   eight hold it nowhere. Measured at 1708 × 1028 (creature card, projected,
   home/as interest): four seats, mine 47, across 43, side mats 25 (44 once
   across); three seats, across 44, the side mat 26.
-- **Turntable with rows** (WA5): a rule, not a geometry
+- **Turntable+** (`TurntableRows`, shown as "Turntable+" / "Drehteller+", WA5): a rule, not a geometry
   (`Arrangement::resolve`): Turntable up to four seats on a window that is
   not a phone's, Spotlight from five or on a phone, latched per table; the
   menu row says what it resolved to.
