@@ -56,12 +56,20 @@ pub fn run() {
         }
     };
 
+    // Before any window: Windows reads a process's AppUserModelID when its
+    // first window appears.
+    #[cfg(windows)]
+    crate::window_icon::claim_taskbar_identity();
+
     let assets = asset_root();
     let plugins = DefaultPlugins
         .set(WindowPlugin {
             primary_window: Some({
                 let mut window = Window {
                     title: "Baylee".to_string(),
+                    // Wayland's `app_id` and X11's `WM_CLASS`: the desktop
+                    // entry a Linux dock takes the icon from.
+                    name: Some(crate::window_icon::APP_ID.to_string()),
                     // A regular decorated window: the system close /
                     // minimize buttons stay available.
                     fit_canvas_to_parent: true,
@@ -143,6 +151,11 @@ pub fn run() {
     crate::unlit::install(&mut app);
     #[cfg(target_os = "macos")]
     app.add_systems(Startup, super::app_icon::install);
+    #[cfg(any(windows, target_os = "linux"))]
+    app.add_systems(
+        Update,
+        crate::window_icon::install.run_if(not(resource_exists::<crate::window_icon::IconSet>)),
+    );
     crate::arrival::start_login(&mut app);
     // After the plugins, because `LogPlugin` is what installs the logger.
     // The one line that tells a packaged build reading its own fonts from a

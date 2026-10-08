@@ -72,7 +72,7 @@ async fn the_clock_a_room_picks_is_the_clock_the_engine_is_given() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn saying_nothing_keeps_the_game_every_table_already_played() {
+async fn saying_nothing_plays_three_minutes_a_decision() {
     let gw = spawn_gateway("clock-default");
     let port = gw.port;
     let (agent, mut presets) = attach_agent_watching(&gw).await;
@@ -89,7 +89,8 @@ async fn saying_nothing_keeps_the_game_every_table_already_played() {
     // The counter-test for the one above: if this file could not tell the two
     // apart, the blitz assertion would pass against a gateway that ignored
     // the field entirely.
-    assert_eq!(preset.house_rules.decision_timeout_secs, 600);
+    // Three minutes since 08.10.2026 (the owner); ten before.
+    assert_eq!(preset.house_rules.decision_timeout_secs, 180);
     assert_eq!(preset.house_rules.reconnect_window_secs, 60);
 
     agent.abort();
@@ -185,14 +186,14 @@ async fn the_gateway_publishes_the_clocks_it_will_accept() {
     // room screen before anybody has signed in.
     let (status, body) = http(gw.port, "GET", "/auth/config", None, "");
     assert_eq!(status, 200, "config: {body}");
-    for name in ["casual", "standard", "blitz", "untimed"] {
+    for name in ["classic", "casual", "standard", "blitz", "untimed"] {
         assert!(body.contains(name), "{name} is not offered: {body}");
     }
     // Every published clock has to be one the validator accepts, or the menu
     // and the door disagree. `clock::tests` proves that over the table
     // itself; this proves the table is what is published.
     assert!(
-        body.contains("\"decide_secs\":600"),
+        body.contains("\"decide_secs\":180"),
         "the default clock is not in the menu: {body}"
     );
 }

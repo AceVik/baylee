@@ -200,7 +200,7 @@ fn pose_facing(
         // drawn diameter, floored at 16 px and capped at 40, so a turn past
         // 100 reads at eight seats and does not shout on a visit.
         let middle = lens.project(Vec2::ZERO)?;
-        let across = crate::dial::dial_px(lens)?;
+        let across = crate::dial::dial_px(lens, crate::dial::settled_scale(duel))?;
         return Some((
             middle - panel.size() * 0.5,
             0.0,

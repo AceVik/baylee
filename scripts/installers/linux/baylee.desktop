@@ -8,3 +8,4 @@ Icon=baylee
 Terminal=false
 Categories=Game;CardGame;
 StartupNotify=true
+StartupWMClass=baylee

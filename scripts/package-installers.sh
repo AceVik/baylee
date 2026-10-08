@@ -110,6 +110,10 @@ appimage() {
     sed 's/^Exec=baylee$/Exec=baylee-client/' "$art/linux/baylee.desktop" >"$appdir/baylee.desktop"
     cp "$art/linux/baylee.png" "$appdir/baylee.png"
     ln -s baylee.png "$appdir/.DirIcon"
+    # Every size, for a desktop that integrates the AppImage (appimaged,
+    # AppImageLauncher, Gear Lever): they copy these into the theme.
+    mkdir -p "$appdir/usr/share/icons"
+    cp -R "$art/linux/hicolor" "$appdir/usr/share/icons/"
     settle_modes "$appdir"
     local runtime=()
     if [ -n "${APPIMAGE_RUNTIME:-}" ]; then runtime=(--runtime-file "$APPIMAGE_RUNTIME"); fi
@@ -129,11 +133,13 @@ deb() {
     rm -rf "$root" "$file"
     opt_tree "$root"
     mkdir -p "$root/usr/bin" "$root/usr/share/applications" \
-        "$root/usr/share/icons/hicolor/256x256/apps" "$root/usr/share/doc/baylee" "$root/DEBIAN"
+        "$root/usr/share/icons" "$root/usr/share/doc/baylee" "$root/DEBIAN"
     # /proc/self/exe resolves the link, so the launcher still finds /opt/baylee.
     ln -s ../../opt/baylee/baylee-client "$root/usr/bin/baylee"
     cp "$art/linux/baylee.desktop" "$root/usr/share/applications/baylee.desktop"
-    cp "$art/linux/baylee.png" "$root/usr/share/icons/hicolor/256x256/apps/baylee.png"
+    # 16 to 512 px: a panel, a menu and a dock each take the size they draw
+    # rather than scaling the one 256 px picture (make-art.py's LINUX_SIZES).
+    cp -R "$art/linux/hicolor" "$root/usr/share/icons/"
     cp LICENSE NOTICE "$root/usr/share/doc/baylee/"
     # Debian sorts `~` before anything, so 0.1.0~beta.5 comes before 0.1.0;
     # with the `-` of semver it would come after.

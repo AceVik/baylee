@@ -197,6 +197,34 @@ which also works on a Mac. The pictures (dmg background, `.ico`, Linux icon)
 are our own, drawn by `scripts/installers/make-art.py` from the brand icon
 and Alegreya Sans, and committed.
 
+The app icon is one rounded square (quarter-superellipse corners,
+transparent outside) at every size, all written by that script: the
+bundle's `baylee.icns` on Apple's 824/1024 grid, the Windows `.ico`
+(16–256 px), the Linux hicolor PNGs (16–512 px) and the 128 px window icon.
+Where each platform finds it:
+
+- **macOS**: `CFBundleIconFile` in the bundle; a `cargo run` client sets the
+  same `.icns` on the Dock itself (`app_icon.rs`).
+- **Windows**: both executables carry the `.ico` as resource 1, embedded by
+  `build.rs` of `baylee-client` and `baylee-update` through `winresource`
+  and the SDK's `rc.exe` (a build-dependency on a Windows host only; a
+  cross-build from elsewhere warns and carries none). That is Explorer's,
+  the taskbar's and the title bar's icon: the running client loads it for
+  its window (`window_icon.rs`) and claims the AppUserModelID
+  `AceVik.Baylee`, which the setup also writes on its shortcuts, so the
+  window joins a pinned Baylee button rather than opening a second one
+  whose pin would bypass the launcher. The launcher starts the client with
+  `CREATE_NO_WINDOW`, so no console window opens beside it. The setup, its
+  uninstaller, the shortcuts and Settings → Apps use the `.ico` file.
+  `check-installers.sh` reads both executables' resource tables
+  (`scripts/release/pe_icon.py`) before it installs anything.
+- **Linux**: `baylee.desktop` (`Icon=baylee`, `StartupWMClass=baylee`) and
+  the hicolor sizes in the `.deb` and inside the AppImage (plus its
+  `.DirIcon`). The window's Wayland `app_id` and X11 `WM_CLASS` are
+  `baylee`, which is how a dock pairs it with the entry; on X11 the window
+  also sets the icon itself. An AppImage shows in a menu or dock only once
+  something integrates it (appimaged, AppImageLauncher, Gear Lever).
+
 What each installer does, and whether the client then updates itself
 (`launch::placement` decides, by trying to create a file beside the
 original package, or beside the AppImage file):

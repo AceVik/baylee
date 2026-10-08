@@ -321,11 +321,11 @@ pub fn void_mesh(outline: Outline, from: f32) -> Mesh {
 
 /// The dial lifted whole off the tearing table (the coordinator's of
 /// 07.10.2026: *the dial is cut by the tear — keep it whole*): a disc of
-/// [`DIAL_R`] with a thin wall, its top mapped like the slab's so
-/// `felt.wgsl` draws the firewheel and the clock face on it exactly as on
-/// the table.
+/// [`DIAL_R`] at the dial's `scale` (`baylee_client_core::dial::scale_for`)
+/// with a thin wall, its top mapped like the slab's so `felt.wgsl` draws the
+/// firewheel and the clock face on it exactly as on the table.
 #[must_use]
-pub fn dial_mesh(outline: Outline) -> Mesh {
+pub fn dial_mesh(outline: Outline, scale: f32) -> Mesh {
     const SEGMENTS: usize = 72;
     let mut out = Build::default();
     let up = [0.0, 0.0, 1.0];
@@ -340,7 +340,7 @@ pub fn dial_mesh(outline: Outline) -> Mesh {
     #[allow(clippy::cast_possible_truncation)]
     let first = out.positions.len() as u32;
     for d in &ring {
-        let p = *d * DIAL_R;
+        let p = *d * (DIAL_R * scale);
         out.vertex([p.x, p.y, 0.0], up, outline.uv(p));
     }
     #[allow(clippy::cast_possible_truncation)]
@@ -351,7 +351,7 @@ pub fn dial_mesh(outline: Outline) -> Mesh {
     }
     let mut wall = Vec::with_capacity(SEGMENTS);
     for d in &ring {
-        let p = *d * DIAL_R;
+        let p = *d * (DIAL_R * scale);
         let n = [d.x, d.y, 0.0];
         // The slab's own mapping: `felt.wgsl` shades the disc's edge as the
         // slab's apron, at the point of the table it stands over.

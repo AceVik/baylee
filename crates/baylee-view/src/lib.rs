@@ -56,7 +56,7 @@ pub use objects::{
     BoardMana, CardIdentity, DamageSourceView, GrantSource, GrantedMana, HandObject, NamedFace,
     ObjectSummaryKey, PublicObject, RulesFace, StackItem, StackText, TokenAbility,
 };
-pub use player_view::{PlayerView, TargetingContext, WordChange};
+pub use player_view::{PlayerView, SeatClock, TargetingContext, WordChange};
 pub use seats::{CommanderDamage, CommanderView, HouseAnswer, LossCause, ManaPoolView, SeatView};
 pub use shown_hands::{SeatSetting, SharedHand};
 pub use status::ObjectStatus;
@@ -176,6 +176,9 @@ pub use turn::{DayNight, Phase, Step};
 /// reader of 54 cannot parse.
 /// Compatible addition: [`PlayerView::casting`], the card this seat may take
 /// back with `PlayerAction::CancelCast`, absent when `None`; a reader of 55
+/// without it ignores it.
+/// Compatible addition: [`PlayerView::clocks`], every seat's running
+/// decision clock (owner, 08.10.2026), absent while empty; a reader of 55
 /// without it ignores it.
 ///
 /// [`SubtypeSet`]: baylee_core::types::SubtypeSet

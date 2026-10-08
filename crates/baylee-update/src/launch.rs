@@ -600,13 +600,23 @@ pub fn run(
     // launcher must check its token under this same admission lock.
     live.unlock()?;
     live.try_lock_shared().map_err(io::Error::from)?;
-    let mut child = Command::new(started)
-        .args(args)
-        .env(
-            ENV,
-            serde_json::to_string(&session).map_err(io::Error::other)?,
-        )
-        .spawn()?;
+    let mut command = Command::new(started);
+    command.args(args).env(
+        ENV,
+        serde_json::to_string(&session).map_err(io::Error::other)?,
+    );
+    // The runtime is a console program (its log goes to a terminal it is
+    // started from), and this launcher is not: started from here, Windows
+    // would open a console window of its own beside the game, with its own
+    // taskbar button. CREATE_NO_WINDOW opens none; handles the launcher was
+    // given (a redirected log) are still inherited.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    let mut child = command.spawn()?;
     drop(entry);
     child.wait()
 }

@@ -358,3 +358,190 @@ fn repeated_timeouts_keep_the_game_moving() {
     }
     assert!(answered > 5, "only {answered} timeouts were answered");
 }
+
+// ---- every seat's clock, at every seat (owner, 08.10.2026) ---------------
+
+/// `(seat, ms)` of every clock a view names.
+fn clocks_in(view: &baylee_view::PlayerView) -> Vec<(u8, u32)> {
+    view.clocks
+        .iter()
+        .map(|clock| (clock.seat.get(), clock.remaining_ms))
+        .collect()
+}
+
+/// While both seats decide their opening hands, each seat's view names
+/// both clocks, each with its own reading. `decision_remaining_ms` tells a
+/// seat only its own then, so without `clocks` neither saw the other's.
+/// And a seat that has kept still sees who is thinking, and for how long.
+#[test]
+fn every_seat_is_told_every_deciding_seats_clock() {
+    let (zero, one) = (PlayerId::new(0), PlayerId::new(1));
+    let mut session = Session::new(&two_humans()).expect("session builds");
+    let _ = session.pump();
+    let at_zero = session.asked_at(zero).expect("seat 0 is asked");
+    let at_one = session.asked_at(one).expect("seat 1 is asked");
+    session.set_decision_remaining(zero, at_zero, Some(9_000));
+    session.set_decision_remaining(one, at_one, Some(4_000));
+    for seat in [zero, one] {
+        assert_eq!(
+            clocks_in(&seat_view(&session, seat)),
+            [(0, 9_000), (1, 4_000)],
+            "seat {} was not told both clocks",
+            seat.get()
+        );
+    }
+
+    let routed = session
+        .act(zero, PlayerAction::MulliganKeep)
+        .expect("seat 0 keeps");
+    let kept = routed_view(&routed, zero);
+    assert_eq!(kept.awaiting, None, "seat 0 waits on nobody of its own");
+    assert_eq!(
+        clocks_in(&kept),
+        [(1, 4_000)],
+        "a seat that has kept no longer saw the seat still deciding"
+    );
+}
+
+/// Clocks are public whoever sits with whom (owner, 08.10.2026: any side
+/// may be uneven). In 1v2, 2v3, 3v4 and a free-for-all of five, every
+/// seat — teammate or opponent — is told every deciding seat's clock, and
+/// once the opening hands are kept, the one asked seat's.
+#[test]
+fn every_seat_sees_every_clock_whatever_the_sides() {
+    for teams in [
+        vec![Some(1), Some(2), Some(2)],
+        vec![Some(1), Some(1), Some(2), Some(2), Some(2)],
+        vec![
+            Some(1),
+            Some(2),
+            Some(1),
+            Some(2),
+            Some(2),
+            Some(1),
+            Some(2),
+        ],
+        vec![None; 5],
+    ] {
+        let mut preset = two_humans();
+        let seat = preset.seats[1].clone();
+        preset.seats = teams
+            .iter()
+            .map(|team| baylee_core::preset::SeatSpec {
+                team: *team,
+                ..seat.clone()
+            })
+            .collect();
+        let n = u8::try_from(teams.len()).expect("a table");
+        let mut session = Session::new(&preset).expect("session builds");
+        let _ = session.pump();
+        let everyone: Vec<(u8, u32)> = (0..n).map(|seat| (seat, 30_000)).collect();
+        for seat in 0..n {
+            assert_eq!(
+                clocks_in(&seat_view(&session, PlayerId::new(seat))),
+                everyone,
+                "sides {teams:?}: seat {seat} was not told every deciding seat's clock"
+            );
+        }
+        for seat in 0..n {
+            session
+                .act(PlayerId::new(seat), PlayerAction::MulliganKeep)
+                .expect("keeps");
+        }
+        let asked = session.awaiting_seat().expect("the game goes on").get();
+        for seat in 0..n {
+            assert_eq!(
+                clocks_in(&seat_view(&session, PlayerId::new(seat))),
+                [(asked, 30_000)],
+                "sides {teams:?}: seat {seat} was not told seat {asked}'s clock"
+            );
+        }
+    }
+}
+
+/// From turn 1 on one seat is asked, and the seat that is not is told its
+/// clock in `clocks` as in `decision_remaining_ms`: one number, read in
+/// one place.
+#[test]
+fn the_seat_not_asked_sees_the_asked_seats_clock() {
+    let mut session = Session::new(&two_humans()).expect("session builds");
+    let _ = session.pump();
+    for seat in 0..2 {
+        session
+            .act(PlayerId::new(seat), PlayerAction::MulliganKeep)
+            .expect("keeps");
+    }
+    let asked = session.awaiting_seat().expect("the game goes on");
+    let other = PlayerId::new(1 - asked.get());
+    let at = session.asked_at(asked).expect("asked");
+    session.set_decision_remaining(asked, at, Some(77_000));
+    let view = seat_view(&session, other);
+    assert_eq!(clocks_in(&view), [(asked.get(), 77_000)]);
+    assert_eq!(view.decision_remaining_ms, Some(77_000));
+}
+
+/// No entry where no decision clock runs: for an AI chair, at an untimed
+/// table, and for a seat whose clock's owner says none runs (a seat on
+/// the stand-in window, a table whose curtain is still down).
+#[test]
+fn a_seat_on_no_decision_clock_has_no_entry() {
+    // The house's chair, seat 1, is never on a clock, whoever looks.
+    let mut session = Session::new(&test_preset()).expect("session builds");
+    let _ = session.pump();
+    for _ in 0..60 {
+        let view = seat_view(&session, PlayerId::new(0));
+        assert!(
+            view.clocks.iter().all(|clock| clock.seat.get() == 0),
+            "an AI chair was drawn a clock: {:?}",
+            view.clocks
+        );
+        let Some((player, action)) = timeout(&session) else {
+            break;
+        };
+        session.act(player, action).expect("a legal answer");
+    }
+
+    let mut untimed = two_humans();
+    untimed.house_rules.decision_timeout_secs = 0;
+    let mut session = Session::new(&untimed).expect("session builds");
+    let _ = session.pump();
+    assert!(seat_view(&session, PlayerId::new(0)).clocks.is_empty());
+
+    let mut session = Session::new(&two_humans()).expect("session builds");
+    let _ = session.pump();
+    let zero = PlayerId::new(0);
+    let at = session.asked_at(zero).expect("asked");
+    session.set_decision_remaining(zero, at, None);
+    assert_eq!(
+        clocks_in(&seat_view(&session, PlayerId::new(1))),
+        [(1, 30_000)],
+        "a seat its clock's owner put on no clock was drawn one"
+    );
+}
+
+/// An agent answers from a view with no clock in it, any seat's included:
+/// elapsed machine time is not an input to a decision (#87).
+#[test]
+fn an_agents_view_carries_no_clock() {
+    let mut session = Session::new(&two_humans()).expect("session builds");
+    let _ = session.pump();
+    let zero = PlayerId::new(0);
+    let at = session.asked_at(zero).expect("asked");
+    session.set_decision_remaining(zero, at, Some(5_000));
+    assert!(
+        !seat_view(&session, PlayerId::new(1)).clocks.is_empty(),
+        "this test needs a clock a socket's view would carry"
+    );
+    let pending = session
+        .engine
+        .pending_for(zero)
+        .expect("seat 0 is asked")
+        .clone();
+    let view = session.agent_view(zero, &pending);
+    assert!(
+        view.clocks.is_empty(),
+        "an agent was handed {:?}",
+        view.clocks
+    );
+    assert_eq!(view.decision_remaining_ms, None);
+}

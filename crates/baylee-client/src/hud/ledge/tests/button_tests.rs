@@ -45,7 +45,7 @@ fn the_seconds_are_written_in_place_and_only_when_they_move() {
         .clock
         .sync(Some(12_000), true);
     advance(&mut app, 0.0);
-    assert_eq!(says(&app), "12", "the cell was never written");
+    assert_eq!(says(&app), "0:12", "the cell was never written");
     assert!(
         app.world().resource::<Wrote>().0,
         "and the write is a write"
@@ -54,7 +54,7 @@ fn the_seconds_are_written_in_place_and_only_when_they_move() {
     // Two frames inside the same second: the string does not move, so
     // nothing is assigned and no glyph is re-shaped.
     advance(&mut app, 0.1);
-    assert_eq!(says(&app), "12");
+    assert_eq!(says(&app), "0:12");
     assert!(
         !app.world().resource::<Wrote>().0,
         "an unchanged number was written again, which re-lays every glyph"
@@ -64,7 +64,7 @@ fn the_seconds_are_written_in_place_and_only_when_they_move() {
 
     // And over the boundary it does move.
     advance(&mut app, 0.5);
-    assert_eq!(says(&app), "11");
+    assert_eq!(says(&app), "0:11");
     assert!(app.world().resource::<Wrote>().0, "the second never turned");
 
     // A question that ends takes the number away rather than leaving the
@@ -367,4 +367,36 @@ fn the_way_out_of_a_hold_wears_a_key_and_the_way_out_of_the_pilot_does_not() {
         vec![None],
         "no key ends the autopilot, so the same button wears no cap"
     );
+}
+
+/// The shelf carries this seat's own clock and nobody else's (owner via the
+/// PM, 08.10.2026): while the table waits on another seat its time stands
+/// beside that seat's plate, and the shelf draws no countdown at all.
+#[test]
+fn the_shelf_shows_no_clock_while_another_seat_decides() {
+    use baylee_client_core::test_support::ViewBuilder;
+    let mut duel = crate::Duel::default();
+    let mut theirs = ViewBuilder::new(2).with_awaiting(Some(1)).build();
+    theirs.decision_remaining_ms = Some(170_000);
+    theirs.clocks = vec![baylee_view::SeatClock {
+        seat: PlayerId::new(1),
+        remaining_ms: 170_000,
+    }];
+    duel.receive_view(theirs);
+    assert_eq!(
+        duel.clock.shown(),
+        None,
+        "the shelf counted another seat's clock"
+    );
+    assert_eq!(
+        duel.seat_clocks.shown(PlayerId::new(1)),
+        Some(170),
+        "and that seat's plate lost it"
+    );
+
+    let mut mine = ViewBuilder::new(2).with_awaiting(Some(0)).build();
+    mine.seq += 1;
+    mine.decision_remaining_ms = Some(170_000);
+    duel.receive_view(mine);
+    assert_eq!(duel.clock.shown(), Some(170), "my own clock left the shelf");
 }

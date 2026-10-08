@@ -140,6 +140,7 @@ impl ViewBuilder {
                 awaiting: Some(PlayerId::new(0)),
                 deciding: SeatSet::new(),
                 decision_remaining_ms: None,
+                clocks: Vec::new(),
                 priority_held: false,
                 policy_acts: Vec::new(),
                 monarch: None,
