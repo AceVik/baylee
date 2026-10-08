@@ -112,6 +112,7 @@ pub(crate) mod transport;
 pub mod unlit;
 pub mod update;
 pub mod vista;
+mod window_icon;
 mod yes_batch;
 
 use baylee_client_core::automation::{self, AutoPilot, Situation};

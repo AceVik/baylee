@@ -186,6 +186,23 @@ bevy = { workspace = true, features = ["android-native-activity"] }
 [target.'cfg(any(windows, target_os = "macos", target_os = "linux"))'.dependencies]
 bevy = { workspace = true, features = ["system_clipboard"] }
 
+# The window icon a Windows or X11 client sets on itself (`window_icon.rs`).
+# Not macOS, whose Dock icon is the application's (`app_icon.rs`), nor a
+# phone or a browser, which have no window icon.
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+winit.workspace = true
+
+# One Win32 call: the process's AppUserModelID (`window_icon.rs`). The
+# version and feature winit already builds, so nothing new is compiled.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = ["Win32_UI_Shell"] }
+
+# The client's icon resource (`build.rs`), which Explorer, the title bar and
+# the taskbar show for `baylee-runtime.exe`. Gated on the *target*: a wasm,
+# Linux or macOS build never fetches it.
+[target.'cfg(windows)'.build-dependencies]
+winresource.workspace = true
+
 # Dock identity for direct/cargo launches as well as packaged .app launches.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"
