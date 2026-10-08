@@ -54,7 +54,8 @@ EOF
     *-windows-*) cat <<'EOF'
 
 Windows: the program is not signed. If SmartScreen stops it, choose
-"More info" and then "Run anyway".
+"More info" and then "Run anyway". It opens no console window; to see its
+log, start it as  baylee-client.exe --console
 EOF
         ;;
     *-linux-*) cat <<'EOF'

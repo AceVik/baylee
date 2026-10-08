@@ -605,11 +605,12 @@ pub fn run(
         ENV,
         serde_json::to_string(&session).map_err(io::Error::other)?,
     );
-    // The runtime is a console program (its log goes to a terminal it is
-    // started from), and this launcher is not: started from here, Windows
+    // A release runtime is a windows-subsystem program that opens a console
+    // only on `--console` (`baylee_client::console`); a debug one is a
+    // console program, and this launcher is not: started from here, Windows
     // would open a console window of its own beside the game, with its own
-    // taskbar button. CREATE_NO_WINDOW opens none; handles the launcher was
-    // given (a redirected log) are still inherited.
+    // taskbar button. CREATE_NO_WINDOW opens none for either; handles the
+    // launcher was given (a redirected log) are still inherited.
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;

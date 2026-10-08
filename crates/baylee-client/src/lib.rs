@@ -54,6 +54,8 @@ pub mod castmodes;
 pub mod choices;
 mod combatfx;
 pub mod combatlines;
+/// The console a Windows release build opens only on `--console`.
+pub mod console;
 pub mod depart;
 /// The dev-control harness. Native dev builds only; see the module docs for
 /// why it is a compile-time feature rather than a runtime switch.
