@@ -1083,3 +1083,43 @@ fn the_attachments_close_behind_their_count_and_stay_closed() {
             .report_attachments_closed
     );
 }
+
+/// `KEYBOARD.md` W9 step 3: Ctrl/Cmd+Enter in the text asks to send (the
+/// confirmation comes up) without typing a line break, and Enter on the
+/// confirmation sends. Every Enter was a line break, so the form could not
+/// be sent from the keyboard (beta.6 QA).
+#[test]
+fn command_enter_asks_to_send_and_enter_confirms() {
+    let command = if crate::shellkit::keys::mac() {
+        KeyCode::SuperLeft
+    } else {
+        KeyCode::ControlLeft
+    };
+    let mut app = with_settings();
+    service(&mut app, Some(SERVICE));
+    open_form(&mut app);
+    keys(&mut app, [typed('o'), typed('w')]);
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(command);
+    keys(&mut app, [pressed(KeyCode::Enter, Key::Enter)]);
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .release(command);
+    app.update();
+    assert_eq!(desk(&app).form().text.text(), "ow", "no line break typed");
+    assert!(desk(&app).form().confirming, "the confirmation is up");
+    keys(&mut app, [pressed(KeyCode::Enter, Key::Enter)]);
+    app.update();
+    assert!(
+        matches!(
+            desk(&app).form().status,
+            Status::Sending
+                | Status::Failed(baylee_client_core::i18n::Refusal::Said(
+                    Phrase::ReportDirectUnreachable
+                ))
+        ),
+        "{:?}",
+        desk(&app).form().status
+    );
+}
