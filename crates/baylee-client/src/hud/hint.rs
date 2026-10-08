@@ -8,6 +8,10 @@
 //! is told when it rests on the control, what `/state` reports as the
 //! control's name, and what a screen reader would be handed.
 //!
+//! A seat's hint ([`HintSeat`]) also says the two states its top-edge lines
+//! show — its turn, the table waiting on it — while they hold, read when the
+//! bubble opens, so the lines' meaning is never colour alone.
+//!
 //! One bubble serves every hint. It is placed once, when the hovered control
 //! changes, beside where the pointer entered it, and then left alone: a
 //! tooltip that chased the pointer would relayout the interface on every
@@ -42,7 +46,16 @@ pub fn show_hint(
     mut commands: Commands,
     fonts: Res<UiFonts>,
     windows: Query<&Window>,
-    hints: Query<(Entity, &Hint, &bevy::picking::hover::PickingInteraction)>,
+    hints: Query<(
+        Entity,
+        &Hint,
+        &bevy::picking::hover::PickingInteraction,
+        Option<&HintSeat>,
+    )>,
+    (duel, settings): (
+        Option<Res<Duel>>,
+        Option<Res<crate::settings::ClientSettings>>,
+    ),
     mut bubble: Query<(
         Entity,
         &mut HintBubble,
@@ -54,14 +67,14 @@ pub fn show_hint(
 ) {
     let hovered = hints
         .iter()
-        .find(|(_, _, i)| **i == bevy::picking::hover::PickingInteraction::Hovered);
+        .find(|(_, _, i, _)| **i == bevy::picking::hover::PickingInteraction::Hovered);
     let Ok((_, mut state, mut node, mut seen, children)) = bubble.single_mut() else {
         if hovered.is_some() {
             spawn_bubble(&mut commands, &fonts);
         }
         return;
     };
-    let Some((control, hint, _)) = hovered else {
+    let Some((control, hint, _, seat)) = hovered else {
         if state.shown.is_some() {
             state.shown = None;
             *seen = Visibility::Hidden;
@@ -74,6 +87,16 @@ pub fn show_hint(
     state.shown = Some(control);
     if let Some(mut text) = children.first().and_then(|c| texts.get_mut(*c).ok()) {
         text.0.clone_from(&hint.0);
+        let view = duel.as_ref().and_then(|d| d.view.as_ref());
+        if let (Some(HintSeat(player)), Some(view)) = (seat, view) {
+            let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
+            for kind in [TagKind::Turn, TagKind::Priority] {
+                if kind.shows(view, *player) {
+                    text.0.push_str(" · ");
+                    text.0.push_str(kind.words().text(lang));
+                }
+            }
+        }
     }
     let (window, pointer) = windows
         .single()

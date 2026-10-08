@@ -31,7 +31,7 @@
 //!
 //! # Three edges for three states
 //!
-//! Whose turn it is lights a candle line along the **top** edge, wiped in
+//! Whose turn it is lights an ivory line along the **top** edge, wiped in
 //! from the left; who the table is waiting on breathes in the **border**; and
 //! the seat the camera is on has a bar along the **bottom**, grown from the
 //! middle. Three edges on purpose, so the three can show at once on the one
@@ -39,15 +39,19 @@
 //! [`glow_the_players`] runs all three, and a player who asked for less
 //! motion gets each of them standing still at its end.
 //!
-//! # Two tags, for the two states a colour alone must not carry
+//! # Two lines on the top edge, for the two states a colour must not carry
 //!
-//! The seat whose turn it is also wears a **☀** on an ivory tag and the seat
-//! the table waits for an **⌛** on a teal-outlined one (DESIGN-v7 §3.6, v6
-//! §3: colour and glyph, never a hue alone), stacked at the chip's left end.
-//! Both can stand on one chip. They are spawned with the chip and shown or
-//! hidden by [`show_the_tags`], never rebuilt, and their room is always kept:
-//! priority moves several times a step, and a row that re-laid itself on each
-//! move would be a row that flickers and shifts.
+//! No icons (the owner, 08.10.2026: *"remove ☀ and ⌛ entirely … thin
+//! coloured lines along the top border"*). The turn is the ivory line the
+//! whole width of the top edge, three pixels; the table waiting on the seat
+//! is a teal line two pixels thin, set in from both ends, just under it —
+//! the dial's two hands' own colours (`felt.wgsl`'s `IVORY` and `TEAL`).
+//! So the two differ by place, length and weight as well as hue, and read
+//! apart without colour (DESIGN-v7 §3.6, v6 §3). Both stand on one chip at
+//! once, and the plate on the table wears the same pair. They are spawned
+//! with the chip and shown or hidden by [`show_the_tags`], never rebuilt:
+//! priority moves several times a step. The chip's [`Hint`] says both in
+//! words while they hold (`hud::hint`).
 //!
 //! # Narrow windows
 //!
@@ -156,8 +160,13 @@ const GROUND_HOT: Color = Color::srgb(0.14, 0.24, 0.33);
 /// The border at rest: the lobby field's high tone, quietly.
 const RIM: Color = Color::srgba(0.40, 0.54, 0.62, 0.45);
 
-/// The line along the top of the seat whose turn it is.
-const TURN_H: f32 = 2.0;
+/// The line along the top of the seat whose turn it is: the full width.
+pub(in crate::hud) const TURN_H: f32 = 3.0;
+
+/// The line under it for the seat the table waits on: thinner, and set in
+/// from both ends by this share of the width.
+pub(in crate::hud) const PRIORITY_H: f32 = 2.0;
+const PRIORITY_INSET: f32 = 22.0;
 
 /// The bar along the bottom of the seat the camera is on.
 const CAMERA_H: f32 = 2.0;
@@ -300,7 +309,7 @@ fn chip_width(facts: &SeatFacts, tier: Tier, step: f32) -> f32 {
         })
         .sum::<f32>()
         - GROUP_GAP;
-    TAGS_W + SPINE_W + SPINE_GAP + PAD_RIGHT + 2.0 + first.max(second)
+    SPINE_W + SPINE_GAP + PAD_RIGHT + 2.0 + first.max(second)
 }
 
 /// What one chip says. Compared whole, as every revision here is.
@@ -372,8 +381,9 @@ pub struct ChipCrown {
     pub player: PlayerId,
 }
 
-/// One of a seat's two tags: whose turn it is (☀) or who the table waits
-/// for (⌛), on its chip or on its plate. `/state.chips` reads the chips'.
+/// One of a seat's two top-edge lines: whose turn it is (ivory, the full
+/// width) or who the table waits for (teal, inset under it), on its chip or
+/// on its plate. `/state.chips` and `/state.plates` read them.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ChipTag {
     /// The seat the chip is.
@@ -384,13 +394,14 @@ pub struct ChipTag {
     pub plate: bool,
 }
 
-/// The two tags.
+/// The two lines.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TagKind {
-    /// ☀, ivory: this seat's turn.
+    /// Ivory, the full width: this seat's turn.
     Turn,
-    /// ⌛, teal: the table waits for this seat.
-    Wait,
+    /// Teal, inset: the table waits for this seat — priority, or any
+    /// question it alone or with others is deciding.
+    Priority,
 }
 
 impl TagKind {
@@ -399,23 +410,36 @@ impl TagKind {
     pub const fn name(self) -> &'static str {
         match self {
             Self::Turn => "turn",
-            Self::Wait => "wait",
+            Self::Priority => "priority",
         }
     }
 
-    /// Whether this tag shows on `player`'s chip in `view`.
+    /// The words a seat's hint adds while this line shows.
+    #[must_use]
+    pub const fn words(self) -> Phrase {
+        match self {
+            Self::Turn => Phrase::PlateTurn,
+            Self::Priority => Phrase::PlateWaiting,
+        }
+    }
+
+    /// Whether this line shows on `player`'s chip and plate in `view`.
     #[must_use]
     pub fn shows(self, view: &baylee_view::PlayerView, player: PlayerId) -> bool {
         match self {
             Self::Turn => view.active == player,
-            Self::Wait => view.awaiting == Some(player) || view.deciding.contains(player),
+            Self::Priority => view.awaiting == Some(player) || view.deciding.contains(player),
         }
     }
 }
 
-/// Shows each chip's and plate's ☀ and ⌛ while they are true and hides them
-/// after; a write only where one changed.
-pub fn show_the_tags(duel: Res<Duel>, mut tags: Query<(&ChipTag, &mut Visibility)>) {
+/// Shows each chip's and plate's two lines while they are true and hides
+/// them after; a write only where one changed. The chip's turn line is
+/// [`glow_the_players`]'s, which wipes it in and fades it out.
+pub fn show_the_tags(
+    duel: Res<Duel>,
+    mut tags: Query<(&ChipTag, &mut Visibility), Without<TurnLine>>,
+) {
     let Some(view) = duel.view.as_ref() else {
         return;
     };
@@ -431,15 +455,10 @@ pub fn show_the_tags(duel: Res<Duel>, mut tags: Query<(&ChipTag, &mut Visibility
     }
 }
 
-/// A tag's square, logical pixels.
-const TAG: f32 = 11.0;
-
-/// The room the two tags keep at a chip's left end, stacked, shown or not.
-const TAGS_W: f32 = TAG + 3.0;
-
-/// The turn tag's ivory (v6 §3's *am Zug*), and the dark glyph on it.
-const TAG_IVORY: Color = Color::srgb(0.95, 0.91, 0.80);
-const TAG_INK: Color = Color::srgb(0.10, 0.09, 0.07);
+/// The turn line's ivory (v6 §3's *am Zug*): the dial's turn hand
+/// (`felt.wgsl`'s `IVORY`). The priority line is `palette::ACCENT`, the
+/// dial's priority hand (`TEAL`).
+pub(in crate::hud) const TURN_IVORY: Color = Color::srgb(0.95, 0.91, 0.80);
 
 /// A life that has just changed, lit and easing back to its ink.
 #[derive(Component)]
@@ -695,7 +714,7 @@ pub fn sync_players(
                     GAP_IN_TEAM
                 };
                 last_side = facts.team;
-                let button = spawn_button(&mut commands, &fonts, facts, gap, step, lang);
+                let button = spawn_button(&mut commands, facts, gap, step, lang);
                 let words = write(&mut commands, &fonts, facts, tier, step, None);
                 commands.entity(button).add_child(words);
                 button
@@ -715,35 +734,15 @@ fn ground_of(facts: &SeatFacts) -> Color {
     }
 }
 
-/// A seat's chip, with its two edge lights and its two tags and nothing
-/// written on it yet.
+/// A seat's chip, with its edges' lights and nothing written on it yet.
 fn spawn_button(
     commands: &mut Commands,
-    fonts: &UiFonts,
     facts: &SeatFacts,
     gap: f32,
     step: f32,
     lang: Lang,
 ) -> Entity {
     let ground = ground_of(facts);
-    let tags = commands
-        .spawn((
-            Node {
-                width: px(TAGS_W),
-                height: percent(100),
-                flex_shrink: 0.0,
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::SpaceEvenly,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            Pickable::IGNORE,
-            children![
-                tag(fonts, facts.player, TagKind::Turn, false),
-                tag(fonts, facts.player, TagKind::Wait, false),
-            ],
-        ))
-        .id();
     let button = commands
         .spawn((
             PlayerButton {
@@ -754,6 +753,7 @@ fn spawn_button(
                 player: facts.player,
             },
             Hint(facts.plate.describe(lang, &facts.name)),
+            HintSeat(facts.player),
             SeatGlow {
                 colour: facts.colour,
                 ground,
@@ -779,6 +779,11 @@ fn spawn_button(
             children![
                 (
                     TurnLine,
+                    ChipTag {
+                        player: facts.player,
+                        kind: TagKind::Turn,
+                        plate: false,
+                    },
                     Node {
                         position_type: PositionType::Absolute,
                         top: px(0),
@@ -787,9 +792,10 @@ fn spawn_button(
                         height: px(TURN_H),
                         ..default()
                     },
-                    BackgroundColor(palette::CANDLE.with_alpha(0.0)),
+                    BackgroundColor(TURN_IVORY.with_alpha(0.0)),
                     Pickable::IGNORE,
                 ),
+                line(facts.player, TagKind::Priority, false),
                 (
                     CameraBar,
                     Node {
@@ -806,55 +812,49 @@ fn spawn_button(
             ],
         ))
         .id();
-    commands.entity(button).add_child(tags);
     button
 }
 
-/// One tag, hidden until [`show_the_tags`] shows it: ☀ on ivory, ⌛ in a
-/// teal outline. `plate` puts it on the seat's plate rather than its chip.
-pub(in crate::hud) fn tag(
-    fonts: &UiFonts,
-    player: PlayerId,
-    kind: TagKind,
-    plate: bool,
-) -> impl Bundle {
-    let (glyph, ground, rim, ink) = match kind {
-        TagKind::Turn => (glyph::SUN, TAG_IVORY, TAG_IVORY, TAG_INK),
-        TagKind::Wait => (
-            glyph::HOURGLASS,
-            Color::NONE,
-            palette::ACCENT,
-            palette::ACCENT,
-        ),
-    };
+/// One top-edge line, hidden until [`show_the_tags`] shows it: the turn's
+/// ivory the whole width, or the wait's teal set in under it. `plate` puts
+/// it on the seat's plate rather than its chip.
+pub(in crate::hud) fn line(player: PlayerId, kind: TagKind, plate: bool) -> impl Bundle {
     (
         ChipTag {
             player,
             kind,
             plate,
         },
-        Node {
-            width: px(TAG),
-            height: px(TAG),
-            flex_shrink: 0.0,
-            border: UiRect::all(px(1)),
-            border_radius: BorderRadius::all(px(3)),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        },
+        line_node(kind),
         Visibility::Hidden,
-        BackgroundColor(ground),
-        BorderColor::all(rim),
-        Pickable::IGNORE,
-        children![(
-            Text::new(glyph.to_string()),
-            icon_tf(fonts, 7.0),
-            TextColor(ink),
-            Pickable::IGNORE,
-        )],
     )
 }
+
+/// A top-edge line's own box and ink, for whatever control wears it (a
+/// chip, a plate, a peek): absolute, so it takes no room from the words.
+pub(in crate::hud) fn line_node(kind: TagKind) -> (Node, BackgroundColor, Pickable) {
+    let (top, inset, height, ink) = match kind {
+        TagKind::Turn => (0.0, 0.0, TURN_H, TURN_IVORY),
+        TagKind::Priority => (TURN_H + 1.0, PRIORITY_INSET, PRIORITY_H, palette::ACCENT),
+    };
+    (
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(top),
+            left: percent(inset),
+            right: percent(inset),
+            height: px(height),
+            ..default()
+        },
+        BackgroundColor(ink),
+        Pickable::IGNORE,
+    )
+}
+
+/// The seat a [`Hint`] names: the hint adds the turn's and the wait's words
+/// while their lines show.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct HintSeat(pub PlayerId);
 
 /// What is written on a chip: the spine, then two lines — the mark, the
 /// crown, the name and the life; the details the tier keeps.
@@ -1297,7 +1297,7 @@ pub fn glow_the_players(
                 if node.width != want {
                     node.width = want;
                 }
-                let want = palette::CANDLE.with_alpha(alpha);
+                let want = TURN_IVORY.with_alpha(alpha);
                 if ink.0 != want {
                     ink.0 = want;
                 }
@@ -1442,9 +1442,10 @@ mod tests {
                 .collect()
         };
         assert_eq!(shows(&view, TagKind::Turn), [1]);
-        assert_eq!(shows(&view, TagKind::Wait), [2]);
+        assert_eq!(shows(&view, TagKind::Priority), [2]);
+        assert_ne!(TagKind::Turn.words(), TagKind::Priority.words());
         view.awaiting = Some(PlayerId::new(1));
-        assert_eq!(shows(&view, TagKind::Wait), [1], "both on one seat");
+        assert_eq!(shows(&view, TagKind::Priority), [1], "both on one seat");
         assert_eq!(shows(&view, TagKind::Turn), [1]);
     }
 
@@ -1537,7 +1538,7 @@ mod tests {
                     let mut chips = Vec::new();
                     for (at, seat) in facts.iter().enumerate() {
                         let gap = if at == 0 { 0.0 } else { GAP_TEAMS };
-                        let chip = spawn_button(&mut commands, &fonts, seat, gap, step, Lang::De);
+                        let chip = spawn_button(&mut commands, seat, gap, step, Lang::De);
                         let words = write(&mut commands, &fonts, seat, tier, step, None);
                         commands.entity(chip).add_child(words);
                         commands.entity(root).add_child(chip);

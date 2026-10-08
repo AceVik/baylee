@@ -115,7 +115,8 @@ pub(super) fn place(
     node: &mut Mut<Node>,
     turn: &mut Mut<UiTransform>,
 ) {
-    let Some((corner, tilt, scale)) = pose(duel, lens, player, panel, step) else {
+    let Some((corner, tilt, scale, mat_above)) = pose_facing(duel, lens, player, panel, step)
+    else {
         if node.display != Display::None {
             node.display = Display::None;
         }
@@ -123,6 +124,20 @@ pub(super) fn place(
     };
     if node.display != Display::Flex {
         node.display = Display::Flex;
+    }
+    // The steps' names stand on the side away from the battlefield, the
+    // tiles on the side that meets it: below the names on my own band,
+    // above them on a band whose mat is above it on the screen (the owner,
+    // 08.10.2026: the opponent's labels under its bar, mirrored to mine).
+    if matches!(panel, Panel::Phases) {
+        let flow = if mat_above {
+            FlexDirection::ColumnReverse
+        } else {
+            FlexDirection::Column
+        };
+        if node.flex_direction != flow {
+            node.flex_direction = flow;
+        }
     }
     if node.left != px(corner.x) {
         node.left = px(corner.x);
@@ -161,6 +176,18 @@ pub(crate) fn pose(
     panel: Panel,
     step: f32,
 ) -> Option<(Vec2, f32, f32)> {
+    pose_facing(duel, lens, player, panel, step).map(|(at, tilt, scale, _)| (at, tilt, scale))
+}
+
+/// [`pose`], and whether the seat's battlefield lies above the panel as it
+/// is drawn (the steps turn their names to the other side).
+fn pose_facing(
+    duel: &Duel,
+    lens: Option<&crate::table::Lens>,
+    player: PlayerId,
+    panel: Panel,
+    step: f32,
+) -> Option<(Vec2, f32, f32, bool)> {
     // Ink pinned to a band of felt that is tearing would jump stage by
     // stage ahead of its mat: the bars stand down for the second it takes,
     // and come back on the docked table.
@@ -178,6 +205,7 @@ pub(crate) fn pose(
             middle - panel.size() * 0.5,
             0.0,
             baylee_client_core::dial::number_px(across) / TURN_EM,
+            false,
         ));
     }
     let layout = duel.layout.as_ref()?;
@@ -187,11 +215,13 @@ pub(crate) fn pose(
     // density probe and the tiny-overview fallback — describe one rectangle.
     if matches!(panel, Panel::Identity) {
         let top = hand_top(duel, lens);
-        return plate_on(layout, lens, player, |p| plate_lines(duel, p), (step, top));
+        return plate_on(layout, lens, player, |p| plate_lines(duel, p), (step, top))
+            .map(|(at, tilt, scale)| (at, tilt, scale, false));
     }
     let corners = lens.corners(slot.ledge_corners())?;
-    let pose = pose_on(corners, panel);
-    (!under_the_hand(pose.0, panel.size(), pose.1, pose.2, hand_top(duel, lens))).then_some(pose)
+    let (at, tilt, scale, mat_above) = steps_on(slot, lens, corners)?;
+    (!under_the_hand(at, panel.size(), tilt, scale, hand_top(duel, lens)))
+        .then_some((at, tilt, scale, mat_above))
 }
 
 /// Where the hand zone's top edge stands in the lens's window: the zone's
@@ -276,58 +306,144 @@ fn plate_at(
 ) -> Option<(Vec2, f32, f32, [Vec2; 4])> {
     let (_, _, band_scale) = pose_on(corners, Panel::Identity);
     let scale = band_scale * step;
-    let (corner, along, away) = mat_edge(slot, corners);
+    let MatEdge {
+        left: corner,
+        along,
+        away,
+        ..
+    } = mat_edge(slot, lens)?;
     // Turned with the edge itself, folded upright as every panel is.
     let tilt = upright(along.y.atan2(along.x));
     let window = lens.window();
     let half = size * scale * 0.5;
-    let [near_a, near_b, ..] = corners;
-    let room = near_a.distance(near_b) - size.x * scale;
+    let [.., far_b, far_a] = corners;
+    let room = far_a.distance(far_b) - size.x * scale;
+    // Every seat's steps: its own stand on the same shelf at its right end,
+    // and across a narrow hearth another seat's can reach this edge.
+    let mut steps = [[Vec2::ZERO; 4]; 8];
+    let mut count = 0;
+    for other in layout.on_felt() {
+        if let Some(corners) = lens.corners(other.ledge_corners())
+            && count < steps.len()
+        {
+            if let Some((at, tilt, scale, _)) = steps_on(other, lens, corners) {
+                steps[count] = drawn_quad(at, Panel::Phases.size(), tilt, scale);
+                count += 1;
+            }
+        }
+    }
+    let steps = &steps[..count];
     (0..=12u8)
         .map(|k| f32::from(k) * half.x * 0.5)
         .take_while(|slide| *slide <= room.max(0.0))
         .find_map(|slide| {
-            let middle = corner + along * (half.x + slide) + away * (half.y + PLATE_AIR);
+            let middle = corner + along * (half.x + slide) + away * (half.y + BAND_AIR);
             let at = middle - size * 0.5;
             let quad = drawn_quad(at, size, tilt, scale);
             (clear_of_the_hud(&quad, window, hand_top)
                 && !on_another_seat(&quad, layout, slot.player, lens)
-                && !placed.iter().any(|other| overlaps(&quad, other)))
+                && !placed.iter().any(|other| overlaps(&quad, other))
+                && !steps.iter().any(|other| overlaps(&quad, other)))
             .then_some((at, tilt, scale, quad))
         })
 }
 
-/// Between the mat's edge and the plate: a hairline, so the two read as
+/// Between the battlefield's drawn edge and what hangs on it — the plate's
+/// edge and the steps' tiles alike, one constant for both (the owner,
+/// 08.10.2026: *"the plate's bottom line and the phases bar's bottom line at
+/// the same distance from the battlefield"*): a hairline, so they read as
 /// touching and the mat's rim is not painted over.
-pub(crate) const PLATE_AIR: f32 = 1.0;
+pub(crate) const BAND_AIR: f32 = 1.0;
 
-/// The mat's drawn edge on the hearth side, as drawn: its corner on the
-/// seat's own left, the direction along the edge (towards the seat's right)
-/// and the one away from the mat (towards the hearth).
+/// The battlefield's edge on the hearth side, as [`mat_edge`] finds it.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct MatEdge {
+    /// The drawn corner on the seat's own left.
+    pub(crate) left: Vec2,
+    /// The drawn corner on the seat's own right.
+    pub(crate) right: Vec2,
+    /// Along the edge, towards the seat's right.
+    pub(crate) along: Vec2,
+    /// Square to the edge, away from the battlefield (towards the hearth).
+    pub(crate) away: Vec2,
+}
+
+/// The battlefield's edge on the hearth side, as drawn: its two corners,
+/// the direction along the edge (towards the seat's right) and the one away
+/// from the battlefield (towards the hearth).
 ///
-/// `corners` is the seat's band as [`crate::table::Lens`] projects it; its
-/// two near corners lie on that edge at the playing extent's ends, and the
-/// mat is drawn `MAT_MARGIN` past them.
+/// The battlefield is the framed field of lanes, which the shelf (the band
+/// the seat's ink is written on) borders on the hearth side. Its edge is
+/// taken where `mat.wgsl` draws it, not where the layout's shelf ends: the
+/// shader crops the field at `LEDGE_FRAC` of the mat's drawn depth, and a
+/// duel's mat is deeper than `MAT_DRAWN_DEPTH` (`layout`'s roomy boards),
+/// so its drawn shelf is deeper than `ledge_corners`' by a quarter of a
+/// unit — the ten pixels the owner still saw between plate and frame. The
+/// edge runs the drawn mat's whole width (`MAT_MARGIN` past the playing
+/// extent at each end), projected through `lens`; `None` if any of it is
+/// behind the eye.
 pub(crate) fn mat_edge(
     slot: &baylee_client_core::layout::SeatSlot,
-    corners: [Vec2; 4],
-) -> (Vec2, Vec2, Vec2) {
-    let [near_a, near_b, far_b, far_a] = corners;
-    let along = (near_b - near_a).normalize_or_zero();
-    // Square to the edge, on the side away from the mat: under perspective
-    // the band's own depth axis leans, and a plate set off along it would
-    // stand into the mat at one end.
-    let outwards = near_a.midpoint(near_b) - far_a.midpoint(far_b);
+    lens: &crate::table::Lens,
+) -> Option<MatEdge> {
+    use baylee_client_core::tabletop::{LEDGE_FRAC, MAT_MARGIN};
+    let towards = Vec2::new(slot.facing.sin(), slot.facing.cos());
+    let side = Vec2::new(slot.facing.cos(), -slot.facing.sin());
+    let reach = if baylee_client_core::layout::LEDGE_IS_OUTER {
+        -1.0
+    } else {
+        1.0
+    };
+    // The drawn mat's half depth, and its shelf as the shader cuts it.
+    let half_depth = slot.half_extent.y + MAT_MARGIN * slot.scale;
+    let shelf = LEDGE_FRAC * half_depth * 2.0;
+    let line = slot.center + towards * (reach * (half_depth - shelf));
+    let out = side * (slot.half_extent.x + MAT_MARGIN * slot.scale);
+    let left = lens.project(line - out)?;
+    let right = lens.project(line + out)?;
+    // A point on the shelf, to know which side of the line the hearth is.
+    let hearth = lens.project(line + towards * (reach * shelf * 0.5))?;
+    let along = (right - left).normalize_or_zero();
+    // Square to the edge, on the side away from the field: under
+    // perspective the mat's own depth axis leans, and a plate set off
+    // along it would stand into the field at one end.
     let normal = Vec2::new(-along.y, along.x);
-    let away = if normal.dot(outwards) < 0.0 {
+    let away = if normal.dot(hearth - left.midpoint(right)) < 0.0 {
         -normal
     } else {
         normal
     };
-    let per_unit = near_a.distance(near_b) / (2.0 * slot.half_extent.x).max(f32::EPSILON);
-    let corner =
-        near_a - along * (baylee_client_core::tabletop::MAT_MARGIN * slot.scale * per_unit);
-    (corner, along, away)
+    Some(MatEdge {
+        left,
+        right,
+        along,
+        away,
+    })
+}
+
+/// The steps' pose: the tiles' edge [`BAND_AIR`] off the battlefield's
+/// drawn edge, as the plate's is, and the panel's end on the seat's right
+/// at the battlefield's corner there (the owner, 08.10.2026: *"the phases
+/// bar's right edge on the same line as the battlefield's right edge"* —
+/// for a seat across the table that corner is on the screen's left). At the
+/// band's scale, turned with the edge and folded upright; and whether the
+/// battlefield lies above the panel as drawn, which turns its names to the
+/// other side ([`place`]).
+pub(crate) fn steps_on(
+    slot: &baylee_client_core::layout::SeatSlot,
+    lens: &crate::table::Lens,
+    corners: [Vec2; 4],
+) -> Option<(Vec2, f32, f32, bool)> {
+    let (_, _, scale) = pose_on(corners, Panel::Identity);
+    let edge = mat_edge(slot, lens)?;
+    let size = Panel::Phases.size();
+    let tilt = upright(edge.along.y.atan2(edge.along.x));
+    let half = size * scale * 0.5;
+    let middle = edge.right - edge.along * half.x + edge.away * (half.y + BAND_AIR);
+    // `away` as the turned panel sees it: pointing up its own box, the
+    // battlefield is below it.
+    let mat_above = (Rot2::radians(-tilt) * edge.away).y > 0.0;
+    Some((middle - size * 0.5, tilt, scale, mat_above))
 }
 
 /// The four corners a box posed like this is drawn at: `corner` is the
@@ -511,6 +627,46 @@ pub(crate) fn under_the_hand(
     corner.y + size.y * 0.5 + reach > hand_top
 }
 
+/// Where `player`'s plate is drawn this frame, for whatever stands beside
+/// it (the decision clock's lane, 08.10.2026): read it rather than
+/// repeating the plate's placement.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PlateBeside {
+    /// The plate's four drawn corners: its top-left, top-right,
+    /// bottom-right and bottom-left as it reads.
+    pub quad: [Vec2; 4],
+    /// Its turn, radians, as its `UiTransform` has it.
+    pub tilt: f32,
+    /// Its scale (the band's and the text step's), as its `UiTransform`
+    /// has it.
+    pub scale: f32,
+    /// Along the mat's edge towards the seat's right: the plate's free
+    /// side, since it hangs at the mat's left corner and slides right.
+    pub along: Vec2,
+    /// Square to the mat's edge, away from the battlefield.
+    pub away: Vec2,
+}
+
+/// [`PlateBeside`] for `player` in `duel` through `lens` at text step
+/// `step`, or `None` where the plate is not drawn.
+pub fn plate_beside(
+    duel: &Duel,
+    lens: &crate::table::Lens,
+    player: PlayerId,
+    step: f32,
+) -> Option<PlateBeside> {
+    let (corner, tilt, scale) = pose(duel, Some(lens), player, Panel::Identity, step)?;
+    let slot = duel.layout.as_ref()?.shown(player)?;
+    let edge = mat_edge(slot, lens)?;
+    Some(PlateBeside {
+        quad: drawn_quad(corner, plate_size(plate_lines(duel, player)), tilt, scale),
+        tilt,
+        scale,
+        along: edge.along,
+        away: edge.away,
+    })
+}
+
 /// Screen-space centre of the life value on `player`'s plate, wherever the
 /// plate stands: what an attack's arrow points at.
 pub(crate) fn life_anchor(
@@ -598,6 +754,7 @@ fn spawn_identity(
             player: seat.player,
         },
         crate::hud::Hint(plate.describe(lang, &called)),
+        crate::hud::HintSeat(seat.player),
         // The plate is the one thing here the pointer may land on.
         Pickable::default(),
         bevy::picking::hover::PickingInteraction::default(),
@@ -673,10 +830,27 @@ fn spawn_identity(
             commands.entity(column).add_child(third);
         }
     }
-    commands.entity(identity).add_children(&[spine, column]);
+    // The turn's and the wait's lines along the top edge, as on the chip.
+    let turn = commands
+        .spawn(crate::hud::ledge::players::line(
+            seat.player,
+            crate::hud::TagKind::Turn,
+            true,
+        ))
+        .id();
+    let waited = commands
+        .spawn(crate::hud::ledge::players::line(
+            seat.player,
+            crate::hud::TagKind::Priority,
+            true,
+        ))
+        .id();
+    commands
+        .entity(identity)
+        .add_children(&[spine, column, turn, waited]);
 }
 
-/// The plate's first line: crown, mark, name; then life and the two tags.
+/// The plate's first line: crown, mark, name; then life.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one line, one flat build
 fn plate_first_line(
     commands: &mut Commands,
@@ -762,7 +936,7 @@ fn plate_first_line(
             ))
             .id(),
     );
-    // Life and the two tags at the line's right end.
+    // Life at the line's right end.
     let spring = commands
         .spawn((
             Node {
@@ -776,26 +950,6 @@ fn plate_first_line(
     if !plate.lost {
         parts.push(plate_life(commands, fonts, plate, ink));
     }
-    parts.push(
-        commands
-            .spawn(crate::hud::ledge::players::tag(
-                fonts,
-                plate.player,
-                crate::hud::TagKind::Turn,
-                true,
-            ))
-            .id(),
-    );
-    parts.push(
-        commands
-            .spawn(crate::hud::ledge::players::tag(
-                fonts,
-                plate.player,
-                crate::hud::TagKind::Wait,
-                true,
-            ))
-            .id(),
-    );
     commands.entity(line).add_children(&parts);
     line
 }
@@ -997,7 +1151,9 @@ fn spawn_phases(
         height: px(TRACK_W),
         flex_direction: FlexDirection::Column,
         align_items: AlignItems::Center,
-        justify_content: JustifyContent::Center,
+        // The tiles at the end that meets the battlefield, whichever way
+        // `place` turns the column.
+        justify_content: JustifyContent::FlexEnd,
         row_gap: px(6),
         ..default()
     });

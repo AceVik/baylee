@@ -6139,8 +6139,8 @@ the left side."*
 - **The players' strip** (`ledge::players`) hangs off the left end: one chip
   per seat, the reader's first, then the table's order with each team
   together (4 px inside a team, 10 px between sides). A chip is two lines
-  since 08.10.2026 (§"Two lines, and a plate at the mat's end"): the ☀/⌛ tags
-  stacked at its left, its seat's spine in the colour the rim and the log
+  since 08.10.2026 (§"Two lines, and a plate at the mat's end"): its seat's
+  spine in the colour the rim and the log
   name it by (`seat_colour`), then a mark for a house chair, an away one or a
   lost one, the crown on the monarch, the name as the rim writes it
   (`seatbar::called`) and the life; under them the hand (∞ beside it where no
@@ -6148,11 +6148,23 @@ the left side."*
   energy and the largest single commander's damage when they are not zero.
   The design is Fable's, keyed to the lobby's blue hour.
 - **Three edges for three states**, so they can all show at once: whose turn
-  it is is a candle line along the top (wiped in from the left in 240 ms,
+  it is is an ivory line along the top (wiped in from the left in 240 ms,
   faded in 120), who the table is waiting on breathes in the border (1.6 s),
   and the seat the camera is on has a bar along the bottom (grown from the
   middle in 160 ms). `glow_the_players` runs them; under `reduce_motion` each
   stands at its end. A changed life is lit green or red for 300 ms.
+- **No ☀ or ⌛** (the owner, 08.10.2026): the two states a colour must not
+  carry alone are two lines along the **top** edge of chip, plate and peek.
+  The turn is ivory the whole width, 3 px (`players::TURN_H`); the table
+  waiting on the seat (priority, or any question it is deciding) is teal,
+  2 px (`PRIORITY_H`), set in by 22 % from both ends, just under it. The
+  colours are the dial's two hands' (`felt.wgsl`'s `IVORY` and `TEAL` =
+  `palette::ACCENT`); place, length and weight tell them apart without
+  colour, and both stand together on the seat that is both. They are
+  spawned once (`players::line`, `ChipTag`) and shown by `show_the_tags`;
+  the chip's and the plate's hint says *"Am Zug"* / *"Der Tisch wartet"*
+  while they hold (`HintSeat`). `/state.chips[].lines` and
+  `/state.plates[].lines` report `{"turn", "priority"}`.
 - **A press is the rim's press**: every button is a `PlayerTab`, so your own
   seat or the one the camera is on brings the camera home, any other glides to
   that seat (`navigate_to_player`, eased by `ShownRig`), and while a question
@@ -6184,14 +6196,16 @@ The owner's six requests for the table, and what each became:
 - **The plate** (`seatbar::attached`, `Panel::Identity`) is what the rim's
   identity panel was, cleaner and in the chips' blue hour: a seat-coloured
   spine, then the same lines (`client_core::seatplate::SeatPlate`, the one
-  reading both surfaces share) — crown, mark, name, life and the ☀/⌛ tags;
+  reading both surfaces share) — crown, mark, name and life, under the
+  turn's and the wait's lines along its top edge;
   the details; and a third line with the pool's pips (Mana font, a count
   each, restricted mana framed) only while mana floats, for every seat. The
   counts that stood beside the piles (`Panel::Zone`) are gone into it.
 - **Where it stands**: flush with the seat's battlefield (the owner's second
   word of 08.10.2026, after a first cut stood the plates out by the rim):
-  its edge on the mat's drawn edge on the hearth side, a hairline off
-  (`PLATE_AIR`), square to that edge under any perspective, its end at the
+  its edge on the mat's drawn edge on the hearth side (where `mat.wgsl`
+  crops the field at the shelf: the ledge band's far line), a hairline off
+  (`BAND_AIR`, the one constant the steps hang by too), square to that edge under any perspective, its end at the
   mat's corner on the seat's own left (`mat_edge`, `plate_on`). Outside the
   mat, so it covers no card and no badge. Plates are placed seat by seat in
   the table's order, each sliding along its edge (a quarter of its width at
@@ -6215,16 +6229,34 @@ The owner's six requests for the table, and what each became:
   and chip (`glyph::INFINITY`); never "7/∞", never the phrase.
 - **The monarch** wears a crown before the name on plate and chip
   (`glyph::CROWN`, `view.monarch`). Commander damage, which had the crown,
-  wears half a shield (`glyph::COMMANDER_DAMAGE`). The log writes no line
-  for becoming the monarch today, so there is none to crown.
-- **The steps** stand at the band's right end (`pose_on`'s `Phases` arm),
-  leaving the middle to the dial; the bands lie on the seats' places, which
-  no HUD corner reaches (`camera_tests`).
+  wears half a shield (`glyph::COMMANDER_DAMAGE`). The log's line for
+  becoming the monarch (`LogEvent::BecameMonarch`) wears it too
+  (`LogLine::crowned`).
+- **The steps** hang on the same edge as the plate, by the same
+  `BAND_AIR` (the owner's first alignment rule: plate and bar *"at the same
+  distance from the battlefield"*), with the panel's end on the seat's
+  right at the mat's drawn corner there (the second: *"the phases bar's
+  right edge on the same line as the battlefield's right edge"*, which for
+  a seat across the table is on the screen's left) — `attached::steps_on`,
+  from the projected mat edge, so it holds in every arrangement and frame.
+  Their tiles are the panel's end that meets the battlefield and the step's
+  name the end away from it (`JustifyContent::FlexEnd`, the column turned
+  round by `place` where the mat is above the panel): over the tiles on my
+  band, under them on the band across (the owner's third word). A plate
+  slides off every seat's steps. `every_plate_is_flush_with_its_battlefield_and_meets_no_other`
+  measures both gaps (1.5 px) and the corner (2 px) for every built
+  arrangement, two to eight seats, at 1708, 1280 and 844;
+  `the_steps_names_face_away_from_the_battlefield` the turn.
 - **The pool's old strip** says only what is owed now (above).
 
-`/state.plates` reports each plate's box, whether it is drawn, its crown, ∞
-and pool line and its hint; `/state.chips` adds each chip's crown, hint and
-box.
+Anything another lane stands beside a plate (the decision clock) reads
+`hud::plate_beside` → `PlateBeside`: the plate's drawn quad, turn and
+scale, `along` (towards its free end) and `away` (from the mat), so the
+two never place the same thing twice.
+
+`/state.plates` reports each plate's box, whether it is drawn, its lines,
+crown, ∞ and pool line and its hint; `/state.chips` each chip's lines,
+crown, hint and box.
 
 ### The question's sheet, and its fold (08.10.2026)
 

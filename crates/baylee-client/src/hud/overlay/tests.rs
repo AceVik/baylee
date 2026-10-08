@@ -117,6 +117,7 @@ fn bar_of(duel: Duel) -> App {
                 ledge::pool::grow_the_pool,
                 ledge::players::sync_players,
                 ledge::players::glow_the_players,
+                ledge::players::show_the_tags,
                 ledge::menu::sync_menu,
                 ledge::menu::grow_the_menu,
                 tray::sync_tray,

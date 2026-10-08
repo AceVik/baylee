@@ -359,11 +359,15 @@ fn no_ink_is_written_under_the_hand() {
     );
 }
 
-/// The owner's "flush" (08.10.2026): in every built arrangement, at two to
-/// eight seats, in a laptop's and a phone's window, every plate's edge lies
-/// on its mat's drawn edge (within a pixel and a half of the hairline it is
-/// set off by), it stays clear of the HUD's corners and strips, and no two
-/// plates overlap. At a laptop's home shot every seat's plate is drawn.
+/// The owner's "flush" and his two alignment rules (08.10.2026): in every
+/// built arrangement, at two to eight seats, in a laptop's and a phone's
+/// window, every plate's edge **and** every steps panel's edge lie
+/// [`BAND_AIR`] off their mat's drawn edge (within 1.5 px: one constant for
+/// both), every steps panel's end on the seat's right is on the mat's
+/// corner there (within 2 px; on the screen's left for a seat across the
+/// table), the plates stay clear of the HUD's corners and strips, and no
+/// plate meets another plate or any steps panel. At a laptop's home shot
+/// every seat's plate is drawn.
 #[test]
 fn every_plate_is_flush_with_its_battlefield_and_meets_no_other() {
     use crate::table::{CameraRig, Canvas, Shot};
@@ -389,19 +393,47 @@ fn every_plate_is_flush_with_its_battlefield_and_meets_no_other() {
                 let rig = CameraRig::home_shot(&layout, canvas, shot).0;
                 let lens = crate::table::Lens::new(rig, window);
                 let mut quads: Vec<(PlayerId, [Vec2; 4])> = Vec::new();
+                let mut steps: Vec<(PlayerId, [Vec2; 4])> = Vec::new();
                 let mut seen = 0;
                 for slot in layout.on_felt() {
                     seen += 1;
                     let Some(corners) = lens.corners(slot.ledge_corners()) else {
                         continue;
                     };
+                    let edge = mat_edge(slot, &lens).expect("the edge is in front");
+                    let (at, tilt, scale, _) =
+                        steps_on(slot, &lens, corners).expect("so are the steps");
+                    let quad = drawn_quad(at, Panel::Phases.size(), tilt, scale);
+                    let gap = quad
+                        .iter()
+                        .map(|p| (*p - edge.left).dot(edge.away))
+                        .fold(f32::INFINITY, f32::min);
+                    assert!(
+                        (gap - BAND_AIR).abs() <= 1.5,
+                        "{window}, {arrangement:?}, {n} seats, seat {:?}: the steps \
+                         stand {gap:.1} px off their mat's edge",
+                        slot.player
+                    );
+                    let reach = quad
+                        .iter()
+                        .map(|p| (*p - edge.right).dot(edge.along))
+                        .fold(f32::NEG_INFINITY, f32::max);
+                    assert!(
+                        reach.abs() <= 2.0,
+                        "{window}, {arrangement:?}, {n} seats, seat {:?}: the steps \
+                         end {reach:.1} px off the mat's corner on the seat's right",
+                        slot.player
+                    );
+                    steps.push((slot.player, quad));
                     let Some((at, tilt, scale)) =
                         plate_on(&layout, &lens, slot.player, |_| 2, (1.0, hand_top))
                     else {
                         continue;
                     };
                     let quad = drawn_quad(at, plate_size(2), tilt, scale);
-                    let (corner, _, away) = mat_edge(slot, corners);
+                    let MatEdge {
+                        left: corner, away, ..
+                    } = mat_edge(slot, &lens).expect("the edge is in front");
                     // How far the plate's nearest point stands off the
                     // mat's edge, measured away from the mat.
                     let gap = quad
@@ -409,7 +441,7 @@ fn every_plate_is_flush_with_its_battlefield_and_meets_no_other() {
                         .map(|p| (*p - corner).dot(away))
                         .fold(f32::INFINITY, f32::min);
                     assert!(
-                        (gap - PLATE_AIR).abs() <= 1.5,
+                        (gap - BAND_AIR).abs() <= 1.5,
                         "{window}, {arrangement:?}, {n} seats, seat {:?}: the plate \
                          stands {gap:.1} px off its mat's edge",
                         slot.player
@@ -423,6 +455,13 @@ fn every_plate_is_flush_with_its_battlefield_and_meets_no_other() {
                             !overlaps(qa, qb),
                             "{window}, {arrangement:?}, {n} seats: the plates of \
                              {a:?} and {b:?} overlap"
+                        );
+                    }
+                    for (b, qb) in &steps {
+                        assert!(
+                            !overlaps(qa, qb),
+                            "{window}, {arrangement:?}, {n} seats: {a:?}'s plate \
+                             meets {b:?}'s steps"
                         );
                     }
                 }
@@ -472,21 +511,77 @@ fn identity_and_phases_never_overlap() {
     }
 }
 
-/// The steps stand at the band's right end (the owner's "further to the
-/// right corner"): their far edge is the band's own inset from its end.
+/// The anchor another lane hangs things beside a plate by is the plate as
+/// it is placed: the same quad, turn and scale, and an `along` that points
+/// from the plate's corner end to its free one.
 #[test]
-fn the_steps_stand_at_the_bands_right_end() {
-    for flip in [false, true] {
-        let corners = band(2160.0, 110.0, 0.0, flip);
-        let (_, _, scale) = pose_on(corners, Panel::Phases);
-        let quad = drawn(corners, Panel::Phases);
-        let along = Vec2::X * if flip { -1.0 } else { 1.0 };
-        let right_end = corners[1].dot(along);
-        let reach = quad.iter().map(|p| p.dot(along)).fold(f32::MIN, f32::max);
+fn the_plates_anchor_is_where_the_plate_is_drawn() {
+    use crate::table::{CameraRig, Canvas};
+    use baylee_client_core::layout::TableLayout;
+    let window = Vec2::new(1708.0, 1032.0);
+    let canvas = Canvas::hud(window);
+    let seats = [PlayerId::new(0), PlayerId::new(1)];
+    let layout = TableLayout::new(&seats, canvas.aspect(), None);
+    let lens = crate::table::Lens::new(CameraRig::home(&layout, canvas), window);
+    let duel = Duel {
+        layout: Some(layout),
+        ..Duel::default()
+    };
+    for player in seats {
+        let (at, tilt, scale) =
+            pose(&duel, Some(&lens), player, Panel::Identity, 1.0).expect("the plate is drawn");
+        let beside = plate_beside(&duel, &lens, player, 1.0).expect("and so is its anchor");
+        assert_eq!(beside.quad, drawn_quad(at, plate_size(2), tilt, scale));
+        assert_eq!((beside.tilt, beside.scale), (tilt, scale));
+        assert!((beside.along.length() - 1.0).abs() < 1e-4);
         assert!(
-            (right_end - reach - BAND_GAP * scale).abs() < 0.5,
-            "flipped {flip}: the steps end {} short of the band's end",
-            right_end - reach
+            beside.along.dot(beside.away).abs() < 1e-4,
+            "square to each other"
+        );
+    }
+}
+
+/// The steps' names face away from the battlefield (the owner, 08.10.2026:
+/// the opponent's under its bar, mirrored to mine): in a duel at home my
+/// mat is under my steps and the column reads names then tiles; the seat
+/// across has its mat above its steps and the column turned round — red if
+/// both read the same way.
+#[test]
+fn the_steps_names_face_away_from_the_battlefield() {
+    use crate::table::{CameraRig, Canvas};
+    use baylee_client_core::layout::TableLayout;
+    for window in [Vec2::new(1708.0, 1032.0), Vec2::new(844.0, 390.0)] {
+        let canvas = Canvas::hud(window);
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let layout = TableLayout::new(&[me, them], canvas.aspect(), None);
+        let lens = crate::table::Lens::new(CameraRig::home(&layout, canvas), window);
+        let duel = Duel {
+            layout: Some(layout),
+            ..Duel::default()
+        };
+        let flow = |player| {
+            let mut world = World::new();
+            let panel = world.spawn((Node::default(), UiTransform::default())).id();
+            let mut parts = world.query::<(&mut Node, &mut UiTransform)>();
+            let (mut node, mut turn) = parts.get_mut(&mut world, panel).expect("the panel");
+            place(
+                &duel,
+                Some(&lens),
+                (player, Panel::Phases, 1.0),
+                &mut node,
+                &mut turn,
+            );
+            (node.display, node.flex_direction)
+        };
+        assert_eq!(
+            flow(me),
+            (Display::Flex, FlexDirection::Column),
+            "{window}: my steps' names stand over the tiles"
+        );
+        assert_eq!(
+            flow(them),
+            (Display::Flex, FlexDirection::ColumnReverse),
+            "{window}: the opponent's names stand under its tiles"
         );
     }
 }

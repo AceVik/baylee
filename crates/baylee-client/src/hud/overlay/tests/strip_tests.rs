@@ -288,6 +288,35 @@ fn the_players_strip_lists_every_seat_and_lights_the_three_edges() {
         was[1].2, was[0].2,
         "the awaited seat's border is not at rest"
     );
+    // The wait's teal line, set in under the turn's (the owner, 08.10.2026:
+    // lines, no ☀ or ⌛): on the awaited seat's chip and nowhere else, and
+    // no chip writes a glyph for either state.
+    let shown: Vec<(PlayerId, ledge::players::TagKind)> = app
+        .world_mut()
+        .query::<(&ledge::players::ChipTag, &Visibility, &BackgroundColor)>()
+        .iter(app.world())
+        .filter(|(tag, seen, ink)| {
+            !tag.plate && **seen != Visibility::Hidden && ink.0.alpha() >= 0.5
+        })
+        .map(|(tag, ..)| (tag.player, tag.kind))
+        .collect();
+    assert!(
+        shown.contains(&(PlayerId::new(1), ledge::players::TagKind::Priority)),
+        "the awaited seat wears the wait's line: {shown:?}"
+    );
+    assert!(
+        !shown
+            .iter()
+            .any(|(p, k)| *p == PlayerId::new(0) && *k == ledge::players::TagKind::Priority),
+        "and mine does not: {shown:?}"
+    );
+    let glyphs = app
+        .world_mut()
+        .query::<&Text>()
+        .iter(app.world())
+        .filter(|t| t.0.contains('\u{f185}') || t.0.contains('\u{f254}'))
+        .count();
+    assert_eq!(glyphs, 0, "no sun or hourglass on the strip");
 
     // A life changes: written again, on the same buttons.
     {

@@ -291,8 +291,6 @@ pub(crate) fn table_icon_tf(fonts: &UiFonts, glyph: char, size: f32) -> TextFont
 pub(crate) mod glyph {
     /// Hourglass from the shipped Font Awesome Free cmap (until end of turn).
     pub const HOURGLASS: char = '\u{f254}';
-    /// Sun, from the same cmap: the seat whose turn it is (DESIGN-v7 §3.6).
-    pub const SUN: char = '\u{f185}';
     /// Heart (life total).
     pub const HEART: char = '\u{f004}';
     /// Hand (cards in hand).
@@ -2260,7 +2258,8 @@ pub use ledge::log::{
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, show_priority_switch, sync_menu};
 pub(crate) use ledge::players::STRIPS_H;
 pub use ledge::players::{
-    ChipCrown, ChipTag, PlayersRevision, TagKind, glow_the_players, show_the_tags, sync_players,
+    ChipCrown, ChipTag, HintSeat, PlayersRevision, TagKind, glow_the_players, show_the_tags,
+    sync_players,
 };
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool};
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
@@ -2276,7 +2275,7 @@ pub(crate) use scroll::scrolled;
 pub use scroll::{
     HandScroll, PreviewScroll, Scrolls, follow_the_hover, keep_the_preview_scrolled, scrolls,
 };
-pub use seatbar::attached::{PlateMark, PlateMarkKind, PlateTab};
+pub use seatbar::attached::{PlateBeside, PlateMark, PlateMarkKind, PlateTab, plate_beside};
 pub use seatbar::{
     BarRevision, LifeCell, SeatBar, SeatBarRoot, SeatInk, SeatStep, SeatTile, Shelf, Shelves,
     measure_shelves, place_seat_bars, stretch_step_tiles, sync_seat_bars,

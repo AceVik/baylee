@@ -1010,7 +1010,10 @@ fn every_panel_stays_on_its_own_seats_band() {
                     })
                     .fold(f32::INFINITY, f32::min)
             };
-            for panel in [Panel::Identity, Panel::Phases] {
+            // The steps hang on the mat's corner rather than the band's
+            // (`attached::steps_on`, the owner's alignment of 08.10.2026),
+            // tested in `attached`'s own tests.
+            for panel in [Panel::Identity] {
                 let (corner, tilt, scale) = pose_on(corners, panel);
                 let middle = corner + panel.size() * 0.5;
                 let half = panel.size() * scale * 0.5;

@@ -3,8 +3,9 @@
 //! edge — the Turntable's flank rule (`layout::peeks`): the sides between
 //! mine and the one across, clockwise, on the left from the bottom up, the
 //! rest on the right from the top down. A peek is the strip's chip stood
-//! upright: the seat's name in its colour, its life and hand, and a sun on
-//! the seat whose turn it is, an hourglass on the one the table waits for.
+//! upright: the seat's name in its colour, its life and hand, and the
+//! strip's two top-edge lines: ivory the whole width on the seat whose turn
+//! it is, teal set in under it on the one the table waits for.
 //! A peek is a [`PlayerTab`](crate::hud::PlayerTab), so a press on it
 //! goes the strip's one road (`input::pointing`): it points at the player
 //! while a question can (a target, the defender of an attack), and brings
@@ -241,15 +242,6 @@ fn spawn_peek(commands: &mut Commands, fonts: &UiFonts, facts: &PeekFacts) -> En
     } else {
         palette::DIALOG_LINE
     };
-    // The strip's own marks, in the icon face: a sun on the seat whose
-    // turn it is, an hourglass on the one the table waits for.
-    let mut tags = String::new();
-    if facts.turn {
-        tags.push(crate::hud::glyph::SUN);
-    }
-    if facts.waited {
-        tags.push(crate::hud::glyph::HOURGLASS);
-    }
     let peek = commands
         .spawn((
             crate::hud::PlayerTab {
@@ -309,16 +301,18 @@ fn spawn_peek(commands: &mut Commands, fonts: &UiFonts, facts: &PeekFacts) -> En
     commands.entity(peek).add_child(hand);
     let chips = spawn_chips(commands, fonts, &facts.chips, ink);
     commands.entity(peek).add_child(chips);
-    if !tags.is_empty() {
-        let tags = commands
-            .spawn((
-                Text::new(tags),
-                crate::hud::icon_tf(fonts, 12.0),
-                TextColor(palette::ACCENT),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(peek).add_child(tags);
+    // The strip's own lines along the top edge (the owner, 08.10.2026: no
+    // ☀ or ⌛ any more).
+    for (shows, kind) in [
+        (facts.turn, crate::hud::TagKind::Turn),
+        (facts.waited, crate::hud::TagKind::Priority),
+    ] {
+        if shows {
+            let line = commands
+                .spawn(crate::hud::ledge::players::line_node(kind))
+                .id();
+            commands.entity(peek).add_child(line);
+        }
     }
     peek
 }
