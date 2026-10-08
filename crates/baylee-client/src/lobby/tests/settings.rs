@@ -924,3 +924,71 @@ fn a_settings_row_keeps_its_height_in_the_scrolling_column() {
     assert!(rows.len() > 10, "{} rows", rows.len());
     assert!(rows.iter().all(|s| *s == 0.0), "{rows:?}");
 }
+
+/// A segmented choice wider than its row wraps its segments instead of
+/// leaving the window: the camera row's four German choices ran 20 px past
+/// a 640 × 360 window (beta.6 QA, `scripts/shell/settings.py`, D12's
+/// remaining window fault). Headless tests lay nothing out, so this holds
+/// the rule.
+#[test]
+fn a_segmented_choice_wraps_inside_its_row() {
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Graphics);
+    let groups: Vec<Entity> = app
+        .world_mut()
+        .query::<(&crate::shellkit::role::Role, &ChildOf)>()
+        .iter(app.world())
+        .filter(|(role, _)| **role == crate::shellkit::role::Role::Segment)
+        .map(|(_, of)| of.parent())
+        .collect();
+    assert!(groups.len() > 10, "{} segments", groups.len());
+    for hit in groups {
+        // A segment stands in its 44-px hit wrapper, in the group.
+        let group = app.world().get::<ChildOf>(hit).unwrap().parent();
+        let node = app.world().get::<Node>(group).unwrap();
+        assert_eq!(node.flex_wrap, FlexWrap::Wrap, "{node:?}");
+        assert_eq!(node.max_width, Val::Percent(100.0), "{node:?}");
+    }
+}
+
+/// On a phone an Audio volume stands beside its row's words, not on a line
+/// of its own: with the rows at their real height (D6), a slider under
+/// every label left two whole rows in view at 844 × 390, where M4-6 wants
+/// three (beta.6 QA, `scripts/shell/settings.py`). Wider, it keeps its line.
+#[test]
+fn on_a_phone_a_volume_stands_beside_its_words() {
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Audio);
+    let sliders = |app: &mut App| -> Vec<Node> {
+        let parents: Vec<Entity> = app
+            .world_mut()
+            .query::<(&crate::shellkit::role::Role, &ChildOf)>()
+            .iter(app.world())
+            .filter(|(role, _)| **role == crate::shellkit::role::Role::Slider)
+            .map(|(_, of)| of.parent())
+            .collect();
+        parents
+            .into_iter()
+            .map(|e| app.world().get::<Node>(e).unwrap().clone())
+            .collect()
+    };
+    let wide = sliders(&mut app);
+    assert_eq!(wide.len(), 3, "the three volumes");
+    assert!(wide.iter().all(|n| n.width == Val::Percent(100.0)));
+    {
+        let mut windows = app.world_mut().query::<&mut Window>();
+        let mut window = windows.iter_mut(app.world_mut()).next().unwrap();
+        window.resolution.set(844.0, 390.0);
+    }
+    app.update();
+    app.update();
+    let phone = sliders(&mut app);
+    assert_eq!(phone.len(), 3);
+    for node in &phone {
+        assert_ne!(node.width, Val::Percent(100.0), "a line of its own");
+        assert!(
+            node.flex_grow > 0.0 && node.flex_basis != Val::Auto,
+            "{node:?}"
+        );
+    }
+}
