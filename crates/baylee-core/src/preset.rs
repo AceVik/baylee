@@ -90,7 +90,10 @@ pub struct HouseRules {
     pub starting_counters: Vec<StartingCounters>,
     /// Endless-loop policy.
     pub loop_policy: LoopPolicy,
-    /// Per-decision timeout in seconds (default 600 = 10 min).
+    /// Per-decision timeout in seconds, one allowance for every question a
+    /// seat is asked — priority, attackers, a discard, an opening hand
+    /// alike. Default 180, three minutes (owner, 08.10.2026; it was 600).
+    /// `0` = no decision clock.
     pub decision_timeout_secs: u32,
     /// Reconnect window before AI takes over a seat (default 60 s).
     pub reconnect_window_secs: u32,
@@ -102,6 +105,12 @@ pub struct HouseRules {
     pub time_extension_votes: bool,
 }
 
+/// Seconds a seat has to answer one question unless the table says
+/// otherwise: three minutes (owner, 08.10.2026). The gateway's default
+/// clock (`clock::PRESETS[0]`) is the same number, and a test there holds
+/// the two together.
+pub const DEFAULT_DECISION_SECS: u32 = 180;
+
 impl Default for HouseRules {
     fn default() -> Self {
         Self {
@@ -109,7 +118,7 @@ impl Default for HouseRules {
             free_mulligans: None,
             starting_counters: Vec::new(),
             loop_policy: LoopPolicy::default(),
-            decision_timeout_secs: 600,
+            decision_timeout_secs: DEFAULT_DECISION_SECS,
             reconnect_window_secs: 60,
             timing_normalization: true,
             takebacks: false,
@@ -671,6 +680,18 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    /// Three minutes a question unless the table says otherwise (owner,
+    /// 08.10.2026). It was ten.
+    #[test]
+    fn a_seat_has_three_minutes_a_decision_by_default() {
+        assert_eq!(HouseRules::default().decision_timeout_secs, 180);
+        assert_eq!(
+            HouseRules::default().reconnect_window_secs,
+            60,
+            "the reconnect window is its own clock and did not move"
+        );
     }
 
     #[test]

@@ -37,12 +37,14 @@ pub struct TableClock {
     pub reconnect_secs: u32,
 }
 
-/// The four clocks a client of this build knows by name, with their
+/// The five clocks a client of this build knows by name, with their
 /// labels, used when the gateway has not said (an older one) — the same
-/// four `GET /auth/config` lists today.
+/// five `GET /auth/config` lists today, the default (`classic`, three
+/// minutes) first.
 #[must_use]
 pub fn known_clocks() -> Vec<ClockPreset> {
     [
+        ("classic", 180, 60),
         ("casual", 600, 60),
         ("standard", 120, 60),
         ("blitz", 30, 30),
@@ -73,6 +75,7 @@ fn span(lang: Lang, secs: u32) -> String {
 #[must_use]
 pub fn clock_label(lang: Lang, clock: &ClockPreset) -> String {
     let name = match clock.name.as_str() {
+        "classic" => Phrase::ClockClassic.text(lang),
         "casual" => Phrase::ClockCasual.text(lang),
         "standard" => Phrase::ClockStandard.text(lang),
         "blitz" => Phrase::ClockBlitz.text(lang),
@@ -90,6 +93,7 @@ pub fn clock_label(lang: Lang, clock: &ClockPreset) -> String {
 #[must_use]
 pub fn clock_help(lang: Lang, clock: &ClockPreset) -> String {
     match clock.name.as_str() {
+        "classic" => Phrase::ClockClassicHelp.text(lang).to_string(),
         "casual" => Phrase::ClockCasualHelp.text(lang).to_string(),
         "standard" => Phrase::ClockStandardHelp.text(lang).to_string(),
         "blitz" => Phrase::ClockBlitzHelp.text(lang).to_string(),
@@ -725,10 +729,11 @@ mod tests {
     #[test]
     fn clock_labels_are_german_under_de_and_the_wire_s_for_an_unknown_one() {
         let clocks = known_clocks();
-        assert_eq!(clock_label(Lang::En, &clocks[0]), "casual · 10 min");
-        assert_eq!(clock_label(Lang::De, &clocks[0]), "gemütlich · 10 Min.");
-        assert_eq!(clock_label(Lang::De, &clocks[2]), "Blitz · 30 s");
-        assert_eq!(clock_label(Lang::De, &clocks[3]), "ohne Uhr");
+        assert_eq!(clock_label(Lang::En, &clocks[0]), "classic · 3 min");
+        assert_eq!(clock_label(Lang::De, &clocks[0]), "klassisch · 3 Min.");
+        assert_eq!(clock_label(Lang::De, &clocks[1]), "gemütlich · 10 Min.");
+        assert_eq!(clock_label(Lang::De, &clocks[3]), "Blitz · 30 s");
+        assert_eq!(clock_label(Lang::De, &clocks[4]), "ohne Uhr");
         let odd = ClockPreset {
             name: "glacial".into(),
             decide_secs: 1800,
@@ -752,6 +757,23 @@ mod tests {
             ),
             "standard · 2 min"
         );
+    }
+
+    /// The Create-table sheet opens on three minutes a decision (owner,
+    /// 08.10.2026), the clock a room naming none plays, and still offers
+    /// every pace it offered before.
+    #[test]
+    fn a_new_table_is_three_minutes_a_decision() {
+        let draft = TableDraft::default();
+        let clocks = known_clocks();
+        assert_eq!(clocks[draft.clock].name, "classic");
+        assert_eq!(
+            clocks[draft.clock].decide_secs,
+            baylee_core::preset::HouseRules::default().decision_timeout_secs
+        );
+        assert_eq!(clocks[draft.clock].decide_secs, 180);
+        let names: Vec<&str> = clocks.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["classic", "casual", "standard", "blitz", "untimed"]);
     }
 
     #[test]
