@@ -3599,8 +3599,9 @@ seat has left, in a small pill beside the plate. It is fed by
 counted between views by `decisionclock::SeatClocks` (no sound: the sound is
 this seat's own, rung by `DecisionClock`), and drawn by
 `hud/seatbar/plateclock.rs`, which is **not part of the plate**: it reads the
-plate's pose (`attached::pose(…, Panel::Identity)`, `Panel::size`) and stands
-its own box at the plate's right-hand side, turned and scaled with it
+plates' anchor for what stands beside them (`hud::plate_beside` →
+`PlateBeside { quad, tilt, scale, along, away }`) and stands its own box at
+the plate's free side, along the mat's edge, turned and scaled with it
 (`plateclock::beside`, the one function that says where). One `PlateClock` per
 seat under its own `PlateClockRoot`, built when the seats change and never on
 a view; `tick_plate_clocks` counts, places and writes past change detection,
