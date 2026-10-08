@@ -3634,3 +3634,56 @@ the client lane (#14, #205). The pool has two monarch cards, Palace Jailer and
 Throne of the High City; the DSL has no "if you're the monarch" condition and
 no "whenever you become the monarch" trigger, because no pool card prints
 either. The journal event is what such a trigger would read.
+
+### 64. A painland's colour was out of the planner's reach, and City of Brass stopped the cast it paid for — PART FIXED
+
+Owner, 08.10.2026: "whenever the player casts something and this land gets
+tapped, the cast is interrupted and the mana is auto-tapped" (painlands,
+City of Brass, Talismans, Ancient Tomb). Measured by clicking the card in
+`baylee-client/tests/mana/pain.rs` against a real `LocalHost`. Two failures
+with two signatures, and the engine is clean in both
+(`card_tests::lands::pain::adarkar_wastes::a_plains_and_adarkar_wastes_cast_a_white_and_blue_creature`:
+the coloured line resolves at once, CR 605.3b, nothing stacks):
+
+- **`CardCostsUnavailable`: the colour was out of reach.** A Plains and
+  Adarkar Wastes could not pay `{W}{U}`. One entry per permanent kept the
+  free `{C}` and threw the coloured tap away (the 18 faces whose priced mode
+  is a colour, of the 25 `manasources` named). The house AI never saw the
+  coloured tap at all: `mana_shape` refuses an ability with a second
+  sentence (#170), so it could not tap a painland, a Talisman, Ancient Tomb
+  or Trenzalore Clocktower for anything. **Fixed:** `manaplan::Source::dear`
+  keeps a permanent's priced one-mana mode beside its free one
+  (`manaplan::keep_one_per_permanent`, shared by the client and the AI), and
+  `manaplan::plan` reaches for it only when nothing plans without it, and
+  then only for a pip the free mode cannot pay. Every board that planned
+  before plans the same taps. The AI reads sources through
+  `mana_with_riders`, with the rider as a price, as the client does.
+- **`PlanSpellRefused`: a trigger stopped the cast.** City of Brass' damage
+  is a triggered ability. This client floats the mana first and casts
+  second, so the trigger goes on the stack the next time a player would
+  receive priority (CR 603.3), which is between the tap and the cast, and a
+  creature or sorcery is no longer castable; the run stops with the lands
+  tapped and the mana floating. Any painland does the same once something on
+  the board triggers on damage or life loss. **Mitigated:** a tap that sets
+  off the permanent's own trigger is priced, so a clean land pays first
+  (`city_of_brass_is_passed_over_when_a_clean_land_makes_the_colour`).
+  **Not fixed:** where the City is the only source of a colour,
+  `city_of_brass_as_the_only_colour_still_stops_a_creature_cast` pins it.
+
+The rules answer to the second is to tap inside the cast (CR 601.2g), where
+a trigger waits until the spell has been cast (CR 601.2i). The engine half
+exists for a commanded cast: `cast_options`' `defer_mana` and the payment
+window `cast_or_make_miracle_mana` opens. Generalised (`defer_mana` when the
+seat has a mana source, the window whenever the pool cannot pay), it is
+inert until a client casts first; the client half is `ManaRun`'s
+`RunEnd::Cast` in `baylee-client/src/lib.rs` casting first, surviving the
+wizard's questions and paying the window from `owed` as `pay_owed` does.
+The house AI floats first and is unaffected.
+
+Tests, red before: `pain::white_and_blue_from_a_plains_and_a_painland_casts_the_spell`
+(`CardCostsUnavailable`), `manasources::tests::a_painland_is_tapped_for_its_colour_only_when_the_colour_needs_it`,
+`city_of_brass_is_priced_by_its_own_tap_trigger`,
+`baylee-ai payment_tests::the_ai_taps_a_painland_for_its_colour_only_when_the_colour_needs_it`;
+`gamehost ai_decisions::a_mana_land_that_also_counts_pays_for_the_spell` was
+the pinned #170 limitation and now asserts the cast.
+

@@ -147,3 +147,55 @@ fn adarkar_wastes_enters_untapped_and_only_the_coloured_line_costs_a_life() {
         "and the copy that made it is tapped too"
     );
 }
+
+/// The owner's board (08.10.2026): a Plains and Adarkar Wastes pay a
+/// `{W}{U}` creature. The Wastes' coloured line is a mana ability with a
+/// rider (CR 605.1a), so it resolves at once (CR 605.3b) and hands priority
+/// straight back: nothing is put on the stack, nothing is asked beyond the
+/// colour, and the creature is cast with the damage already dealt.
+#[test]
+fn a_plains_and_adarkar_wastes_cast_a_white_and_blue_creature() {
+    let p0 = PlayerId::new(0);
+    let sliver = card_index("ba3aa1eb-722a-47d3-83be-96daddb50265");
+    let mut engine = Duel::new(1208, forest())
+        .battlefield(0, &[plains(), adarkar_wastes()])
+        .hand(0, &[sliver])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let wastes = on_battlefield(&engine, p0, adarkar_wastes()).expect("the Wastes");
+    let life = engine.state().players[0].life;
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: wastes,
+                ability_index: 1,
+            },
+        )
+        .expect("the coloured line");
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("blue was offered");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "priority comes straight back: {:?}",
+        engine.pending()
+    );
+    assert!(stack_is_empty(&engine), "a mana ability never stacks");
+    assert_eq!(engine.state().players[0].life, life - 1);
+
+    tap_mana_except(&mut engine, p0, wastes);
+    cast_with_floating(&mut engine, p0, sliver);
+    let stack = engine.state().zones.list(ZoneLocation::Stack).clone();
+    assert_eq!(stack.len(), 1, "the creature, and nothing else: {stack:?}");
+    assert_eq!(
+        engine
+            .state()
+            .object(stack[0])
+            .and_then(|o| o.card)
+            .map(|c| c.index),
+        Some(sliver)
+    );
+}

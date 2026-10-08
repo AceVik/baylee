@@ -1287,7 +1287,10 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                 else {
                     return None;
                 };
-                let (kind, amount, _) = baylee_cards_dsl::mana_shape(cost, effects)?;
+                // The planner's door, as the client's: a tap that also does
+                // something else (Adarkar Wastes' damage) is still a source,
+                // and `priced` keeps it behind every clean one.
+                let (kind, amount, _) = baylee_cards_dsl::mana_with_riders(cost, effects)?;
                 let colors = match kind {
                     ManaSource::Fixed(c) => vec![c],
                     ManaSource::Choice(c) => c.to_vec(),
@@ -1301,12 +1304,15 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                 Some((
                     colors,
                     amount?,
-                    priced(cost),
+                    priced(cost) || effects.iter().any(|e| !matches!(e, Effect::AddMana { .. })),
                     crate::restricted::only_for(effects),
                 ))
             })
         };
         if let Some((colors, amount, priced, only_for)) = source {
+            // A tap that sets off the permanent's own trigger (City of
+            // Brass) puts that trigger on the stack before the spell.
+            let priced = priced || taps_set_off_a_trigger(object);
             result.push(Offer {
                 source: Source {
                     id,
@@ -1321,6 +1327,7 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                     bundle: false,
                     priced,
                     preserve: 0,
+                    dear: None,
                 },
                 only_for,
             });
@@ -1339,7 +1346,21 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
     result
 }
 
-/// One source per permanent, the mode [`sources`] explains.
+/// Whether `object` prints "whenever this becomes tapped": City of Brass.
+fn taps_set_off_a_trigger(object: &baylee_view::PublicObject) -> bool {
+    crate::activate::printed_list(object).iter().any(|ability| {
+        matches!(
+            ability,
+            AbilityDef::Triggered {
+                trigger: baylee_cards_dsl::Trigger::BecomesTapped(filter),
+                ..
+            } if matches!(filter, Filter::This)
+        )
+    })
+}
+
+/// One source per permanent, the mode [`sources`] explains, with its priced
+/// alternative kept beside it (`manaplan::keep_one_per_permanent`).
 fn usable(offers: Vec<Offer>) -> Vec<Source> {
     let mut result: Vec<Source> = offers.into_iter().map(|o| o.source).collect();
     result.sort_by_key(|s| {
@@ -1351,7 +1372,7 @@ fn usable(offers: Vec<Offer>) -> Vec<Source> {
             matches!(s.tap, Tap::Ability(_)),
         )
     });
-    result.dedup_by_key(|s| s.id);
+    manaplan::keep_one_per_permanent(&mut result);
     result
 }
 
