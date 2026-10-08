@@ -359,10 +359,61 @@ fn solve(
     aspect: f32,
 ) -> Option<Framed> {
     let t = parties.len();
+    let placed = lay(seats.len(), parties, split, tilt, half)?;
+    let (a, b) = size(&placed, aspect)?;
+    let extent = span(&placed, a, b);
+
+    // The sides' bearings, for the dial and the ring order: the middle of
+    // each side's run, measured from the near edge clockwise.
+    let mut mid = vec![Vec2::ZERO; t];
+    let mut count = vec![0.0_f32; t];
+    for p in &placed {
+        mid[p.side] += p.centre(a, b);
+        count[p.side] += 1.0;
+    }
+    let mut slots: Vec<Option<SeatSlot>> = vec![None; seats.len()];
+    for p in &placed {
+        slots[p.seat] = Some(SeatSlot {
+            player: seats[p.seat].player,
+            ring_index: p.seat,
+            angle: bearing(mid[p.side] / count[p.side].max(1.0)),
+            center: p.centre(a, b),
+            facing: p.facing,
+            half_extent: half,
+            reclaimed: 0.0,
+            is_local: p.seat == 0,
+            scale: 1.0,
+            parked: false,
+        });
+    }
+    let slots: Vec<SeatSlot> = slots.into_iter().flatten().collect();
+    let price = price(extent, aspect, &slots);
+    // The ring's radii, read as the frame's: where its columns' and its
+    // rows' middles stand.
+    let radius = Vec2::new(a - half.y, b - half.y);
+    Some(Framed {
+        slots,
+        radius,
+        price,
+    })
+}
+
+/// The boards of one split laid along their edges, each run centred on its
+/// edge, before the frame's size is known: its sides in order from the
+/// edge's low end, a side's allies shoulder to shoulder as the ring lays
+/// them (the ring walks them along the lane axis, which on a far or a left
+/// edge points down the edge), [`POD_GAP`] between every two.
+fn lay(
+    count: usize,
+    parties: &[Vec<usize>],
+    split: Split,
+    tilt: f32,
+    half: Vec2,
+) -> Option<Vec<Placed>> {
     // A whole place's half extent in its own frame.
     let whole = Vec2::new(half.x + PILE_STRIP, half.y);
-    let mut placed: Vec<Placed> = Vec::with_capacity(seats.len());
-    for (edge, run) in runs(t, split)? {
+    let mut placed: Vec<Placed> = Vec::with_capacity(count);
+    for (edge, run) in runs(parties.len(), split)? {
         // Each run centred on its edge, its sides in order from the edge's
         // low end, a side's allies shoulder to shoulder as the ring lays
         // them: the ring walks them along the lane axis, which on a far or
@@ -390,6 +441,25 @@ fn solve(
             p.along -= at * 0.5;
         }
     }
+    Some(placed)
+}
+
+/// The frame's extent with its column edges `a` and its row edges `b` out.
+fn span(placed: &[Placed], a: f32, b: f32) -> Vec2 {
+    let (mut lo, mut hi) = (Vec2::splat(f32::INFINITY), Vec2::splat(f32::NEG_INFINITY));
+    for p in placed {
+        let centre = p.centre(a, b);
+        lo = lo.min(centre - p.foot);
+        hi = hi.max(centre + p.foot);
+    }
+    hi - lo
+}
+
+/// The smallest frame for boards laid as `placed` — its column edges' and
+/// row edges' distance from the middle — that keeps every board, band and
+/// the dial's circle apart, as the home shot on a canvas of `aspect` prices
+/// it; then pushed out to its own extent.
+fn size(placed: &[Placed], aspect: f32) -> Option<(f32, f32)> {
     let rows = placed.iter().any(|p| p.edge.is_row());
     let columns = placed.iter().any(|p| !p.edge.is_row());
 
@@ -398,7 +468,7 @@ fn solve(
     // dial's circle, and apart from the board opposite on its own axis.
     let mut a0: f32 = 0.0;
     let mut b0: f32 = 0.0;
-    for p in &placed {
+    for p in placed {
         let (lo, hi) = p.keeps_along();
         let off = (lo.max(0.0) - hi.min(0.0)).max(0.0);
         let clear = (DIAL_CLEAR * DIAL_CLEAR - off * off).max(0.0).sqrt();
@@ -434,17 +504,6 @@ fn solve(
         }
     }
 
-    // The frame's extent at a given `A` and `B`.
-    let span = |a: f32, b: f32| -> Vec2 {
-        let (mut lo, mut hi) = (Vec2::splat(f32::INFINITY), Vec2::splat(f32::NEG_INFINITY));
-        for p in &placed {
-            let centre = p.centre(a, b);
-            lo = lo.min(centre - p.foot);
-            hi = hi.max(centre + p.foot);
-        }
-        hi - lo
-    };
-
     // `A` only matters at the values where a pair changes its mind; at each,
     // `B` is the least every pair not yet apart across the table asks.
     let mut tries: Vec<f32> = vec![a0];
@@ -456,7 +515,7 @@ fn solve(
             .filter(|&&(need, _)| need > a + 1e-5)
             .map(|&(_, b)| b)
             .fold(b0, f32::max);
-        let c = cost(span(a, b), aspect);
+        let c = cost(span(placed, a, b), aspect);
         if best.is_none_or(|(k, _, _)| c < k - 1e-4) {
             best = Some((c, a, b));
         }
@@ -466,47 +525,14 @@ fn solve(
     // further stands flush with their ends, a row whose columns reach
     // further at theirs. Nothing comes closer to anything, and the box the
     // camera frames is the same one.
-    let extent = span(a, b);
+    let extent = span(placed, a, b);
     if columns {
         a = a.max(extent.x * 0.5);
     }
     if rows {
         b = b.max(extent.y * 0.5);
     }
-
-    // The sides' bearings, for the dial and the ring order: the middle of
-    // each side's run, measured from the near edge clockwise.
-    let mut mid = vec![Vec2::ZERO; t];
-    let mut count = vec![0.0_f32; t];
-    for p in &placed {
-        mid[p.side] += p.centre(a, b);
-        count[p.side] += 1.0;
-    }
-    let mut slots: Vec<Option<SeatSlot>> = vec![None; seats.len()];
-    for p in &placed {
-        slots[p.seat] = Some(SeatSlot {
-            player: seats[p.seat].player,
-            ring_index: p.seat,
-            angle: bearing(mid[p.side] / count[p.side].max(1.0)),
-            center: p.centre(a, b),
-            facing: p.facing,
-            half_extent: half,
-            reclaimed: 0.0,
-            is_local: p.seat == 0,
-            scale: 1.0,
-            parked: false,
-        });
-    }
-    let slots: Vec<SeatSlot> = slots.into_iter().flatten().collect();
-    let price = price(extent, aspect, &slots);
-    // The ring's radii, read as the frame's: where its columns' and its
-    // rows' middles stand.
-    let radius = Vec2::new(a - half.y, b - half.y);
-    Some(Framed {
-        slots,
-        radius,
-        price,
-    })
+    Some((a, b))
 }
 
 /// The ring's angle for a point: from the near edge, clockwise (to the

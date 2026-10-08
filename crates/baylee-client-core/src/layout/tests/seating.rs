@@ -12,7 +12,7 @@ fn the_local_seat_is_always_at_the_near_edge() {
         assert_eq!(local.ring_index, 0);
         // Centred, or — where a frame stands two to a long edge (six
         // seats) — half a board's step off the middle and no further.
-        let step = (local.footprint().x * 2.0 + POD_GAP) * 0.5;
+        let step = f32::midpoint(local.footprint().x * 2.0, POD_GAP);
         assert!(
             local.center.x.abs() < 1e-4 || (local.center.x.abs() - step).abs() < 1e-3,
             "local seat is centred horizontally for {n} seats: {}",

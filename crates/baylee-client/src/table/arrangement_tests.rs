@@ -806,6 +806,7 @@ fn the_frame_is_taken_only_where_the_camera_draws_it_larger() {
 /// -- --ignored --nocapture`.
 #[test]
 #[ignore = "prints numbers for the packing measurements"]
+#[allow(clippy::too_many_lines)] // one table of numbers: every arrangement, roster and window
 fn print_the_packing() {
     let rosters: Vec<(&str, Vec<Seat>)> = {
         let alone = |n: u8| roster(n);
@@ -858,7 +859,7 @@ fn print_the_packing() {
                 let rig = CameraRig::home_shot(&layout, canvas, shot).0;
                 let lens = Lens::new(rig, window);
                 let felt: Vec<&SeatSlot> = layout.on_felt().collect();
-                let mine = card_px(&lens, &felt[0]).unwrap_or(0.0);
+                let mine = card_px(&lens, felt[0]).unwrap_or(0.0);
                 let others: Vec<f32> = felt[1..]
                     .iter()
                     .map(|s| card_px(&lens, s).unwrap_or(0.0))
