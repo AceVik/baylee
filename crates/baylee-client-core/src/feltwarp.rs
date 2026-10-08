@@ -19,6 +19,9 @@
 //! smooth at this grid's spacing (the finest octave has about three cycles
 //! a table unit), and `a_sample_between_texels_is_the_field_there` bounds
 //! what the interpolation costs.
+//!
+//! The browser build does not bake (`feltmat::bake_the_warp`): it has one
+//! thread, and a grid computed on it would stall the table it is for.
 
 use crate::feltveins::vnoise;
 

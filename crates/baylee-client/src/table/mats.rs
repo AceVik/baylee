@@ -211,64 +211,66 @@ pub fn sync_table(
     let Ok((entity, mut slab, mut mesh, handle)) = slabs.single_mut() else {
         // No slab yet. Cut one, and let the next frame light it.
         let (veins, vein_offsets) = crate::feltmat::vein_points(span, duel.table_pattern.0);
-        commands.spawn((
-            DuelStage,
-            crate::dial::DialFace::default(),
-            Slab {
-                cut: span,
-                shown: Vec4::ZERO,
-                source,
-                // Cut dark and let the next frame light it, like the lamp
-                // above: five flames at the pilot light is what zero means,
-                // and a table cut before a board has arrived is simply the
-                // table with its wheel banked down.
-                flames: Vec4::ZERO,
-                tail: Vec4::new(0.0, up.x, up.y, 0.0),
-                motion,
-            },
-            // The floor of the scene answers no clicks: a pointer on bare
-            // cloth means the table, not the thing under it.
-            Pickable::IGNORE,
-            // The cloth's slow fields, baked off the main thread; the shader
-            // works them out itself until they arrive.
-            crate::feltmat::BakeWarp::start(span, duel.table_pattern.0),
-            Mesh3d(meshes.add(slab_mesh(span))),
-            MeshMaterial3d(materials.add(FeltMaterial {
-                params: crate::feltmat::FeltParams {
-                    wash: Vec4::ZERO,
+        let slab = commands
+            .spawn((
+                DuelStage,
+                crate::dial::DialFace::default(),
+                Slab {
+                    cut: span,
+                    shown: Vec4::ZERO,
                     source,
-                    // No light until the sky has read a clock. The cloth's
-                    // own colour is what `a = 0` means, so a table that is
-                    // cut before the first `sync_sky` is simply the table.
-                    ambient: Vec4::new(1.0, 1.0, 1.0, 0.0),
+                    // Cut dark and let the next frame light it, like the lamp
+                    // above: five flames at the pilot light is what zero means,
+                    // and a table cut before a board has arrived is simply the
+                    // table with its wheel banked down.
                     flames: Vec4::ZERO,
-                    flames_tail: Vec4::new(0.0, up.x, up.y, 0.0),
-                    span,
-                    corner: tabletop::table_corner(span),
-                    rail: tabletop::RAIL_WIDTH,
+                    tail: Vec4::new(0.0, up.x, up.y, 0.0),
                     motion,
-                    gain: crate::feltmat::WASH_GAIN,
-                    thickness: TABLE_THICKNESS,
-                    seats: 0.0,
-                    pattern: duel.table_pattern.0,
-                    veins: vein_offsets,
-                    // The dial is written by `dial::turn_the_dial` once a
-                    // table is there; until then no hand and no jewel.
-                    hands: Vec4::ZERO,
-                    dial: Vec4::new(0.0, 0.0, -100.0, -100.0),
-                    pulse: Vec4::new(-100.0, 0.0, 0.0, 0.0),
-                    jewels: [Vec4::ZERO; 4],
-                    tints: [Vec4::ZERO; 8],
-                    teams: [Vec4::ZERO; 8],
-                    rift: Vec4::ZERO,
-                    warp: Vec4::ZERO,
                 },
-                veins: images.add(veins),
-                warp: images.add(crate::feltmat::no_warp()),
-            })),
-            Transform::from_xyz(0.0, TABLE_Y, 0.0)
-                .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ));
+                // The floor of the scene answers no clicks: a pointer on bare
+                // cloth means the table, not the thing under it.
+                Pickable::IGNORE,
+                Mesh3d(meshes.add(slab_mesh(span))),
+                MeshMaterial3d(materials.add(FeltMaterial {
+                    params: crate::feltmat::FeltParams {
+                        wash: Vec4::ZERO,
+                        source,
+                        // No light until the sky has read a clock. The cloth's
+                        // own colour is what `a = 0` means, so a table that is
+                        // cut before the first `sync_sky` is simply the table.
+                        ambient: Vec4::new(1.0, 1.0, 1.0, 0.0),
+                        flames: Vec4::ZERO,
+                        flames_tail: Vec4::new(0.0, up.x, up.y, 0.0),
+                        span,
+                        corner: tabletop::table_corner(span),
+                        rail: tabletop::RAIL_WIDTH,
+                        motion,
+                        gain: crate::feltmat::WASH_GAIN,
+                        thickness: TABLE_THICKNESS,
+                        seats: 0.0,
+                        pattern: duel.table_pattern.0,
+                        veins: vein_offsets,
+                        // The dial is written by `dial::turn_the_dial` once a
+                        // table is there; until then no hand and no jewel.
+                        hands: Vec4::ZERO,
+                        dial: Vec4::new(0.0, 0.0, -100.0, -100.0),
+                        pulse: Vec4::new(-100.0, 0.0, 0.0, 0.0),
+                        jewels: [Vec4::ZERO; 4],
+                        tints: [Vec4::ZERO; 8],
+                        teams: [Vec4::ZERO; 8],
+                        rift: Vec4::ZERO,
+                        warp: Vec4::ZERO,
+                    },
+                    veins: images.add(veins),
+                    warp: images.add(crate::feltmat::no_warp()),
+                })),
+                Transform::from_xyz(0.0, TABLE_Y, 0.0)
+                    .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+            ))
+            .id();
+        // The cloth's slow fields, baked off the main thread; the shader
+        // works them out itself until they arrive.
+        crate::feltmat::bake_the_warp(&mut commands, slab, span, duel.table_pattern.0);
         return;
     };
 
@@ -315,9 +317,7 @@ pub fn sync_table(
             // not of the cut, so the grid already baked stays right where it
             // reaches and the shader works out the rest until the larger one
             // arrives.
-            commands
-                .entity(entity)
-                .insert(crate::feltmat::BakeWarp::start(span, duel.table_pattern.0));
+            crate::feltmat::bake_the_warp(&mut commands, entity, span, duel.table_pattern.0);
         }
         material.params.wash = next;
         material.params.flames = next_flames;

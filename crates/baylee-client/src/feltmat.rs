@@ -230,6 +230,22 @@ impl BakeWarp {
     }
 }
 
+/// Starts baking the slow fields of `slab`'s cut, where there is a thread to
+/// bake them on.
+///
+/// Not in a browser: a wasm build has one thread, and the task pool runs a
+/// future on it whole between two frames, so a six-seat grid there would be
+/// a stall of several hundred milliseconds at every cut. The shader works
+/// the fields out per pixel instead, as it always did there.
+pub fn bake_the_warp(commands: &mut Commands, slab: Entity, span: Vec2, pattern: Vec4) {
+    if BAKES {
+        commands.entity(slab).insert(BakeWarp::start(span, pattern));
+    }
+}
+
+/// Whether this build bakes the slow fields (`bake_the_warp`).
+pub const BAKES: bool = !cfg!(target_arch = "wasm32");
+
 /// Puts a finished bake on its slab's material: the shader reads the grid
 /// from the next frame on. A slab cut again meanwhile has a new bake on it,
 /// and the old one was dropped with its component, unfinished.
