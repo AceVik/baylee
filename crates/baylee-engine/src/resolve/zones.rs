@@ -136,6 +136,25 @@ pub(super) fn spec_objects(
     }
 }
 
+/// Whether an opponent of `you` became the monarch after the ability
+/// `on_stack` was put on the stack: the journal's record of the stacking,
+/// then a [`GameEvent::BecameMonarch`] after it.
+///
+/// The stacking stands in for the triggering (CR 610.3b), which it follows
+/// with nothing resolving in between. An object with no such record, a
+/// spell, finds nothing and exiles as before.
+fn an_opponent_was_crowned_since(state: &GameState, on_stack: ObjectId, you: PlayerId) -> bool {
+    let entries = state.journal.entries();
+    let Some(stacked) = entries.iter().rposition(
+        |e| matches!(e.event, GameEvent::AbilityTriggered { object, .. } if object == on_stack),
+    ) else {
+        return false;
+    };
+    entries[stacked + 1..].iter().any(|e| {
+        matches!(e.event, GameEvent::BecameMonarch { player } if state.is_opponent(player, you))
+    })
+}
+
 // Explicit movement instructions can use CR 400.7e's departure destination;
 // ordinary This readers retain the source incarnation instead.
 fn moving_objects(
@@ -597,6 +616,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     || state
                         .object(res.on_stack)
                         .is_some_and(|ability| ability.source_power_lki.is_some()))
+            {
+                return None;
+            }
+            // "Until an opponent becomes the monarch", and one already has
+            // since this was put on the stack: the card does not move either
+            // (CR 610.3a, 610.3b).
+            if until == Some(crate::object::LinkUntil::OpponentBecomesMonarch { of: you })
+                && an_opponent_was_crowned_since(state, res.on_stack, you)
             {
                 return None;
             }

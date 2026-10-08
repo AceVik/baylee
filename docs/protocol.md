@@ -618,6 +618,26 @@ the entry is all `None`, the same as a grant with no source at all.
 `None` whenever the grantor is hidden. The gamehost tests hold both
 (`a_grantor_this_seat_cannot_see_is_not_named`).
 
+## Casting before the mana is made (`LegalActions::payable`)
+
+`LegalActions::castable` keeps its meaning: the mana is already floating.
+Beside it, `payable` lists the cards in hand or the command zone that every
+other rule lets the seat cast now and its pool does not pay for, offered
+only while the seat has a mana ability to activate. `CastSpell` for one runs
+the cast's own questions (mode, X, targets) and then opens a payment window
+(the section below): the mana is made inside the cast (CR 601.2g), so a
+trigger that mana sets off (City of Brass, a painland beside "whenever
+you're dealt damage") waits until the spell is cast (CR 601.2i) and goes on
+the stack above it. Passing the window with the cost unpaid reverses the
+cast (CR 601.2h, 732.1): the card goes back, the taps made in the window are
+given back unless something else happened in it (damage dealt, life paid),
+and the player keeps priority (CR 732.2). Whether the seat's sources can
+make that mana is not checked; a client plans it (`manaplan`). The field is
+an additive JSON field defaulted when absent, and an old client never sends
+`CastSpell` for a card outside `castable`, so engine and clients may deploy
+in either order. During the window the card is still in its zone; the
+engine moves it to the stack as the cost is paid, not first (CR 601.2a).
+
 ## What a seat owes (view version 24)
 
 A player who agrees to pay ward's tax is handed a mana window (CR 605.3a) so
@@ -1067,7 +1087,10 @@ lost:
   source alone (`ability: None`).
 
 A triggered ability with no source, the monarch's two (CR 724.2), gets no
-line of its own; what it does has its lines.
+line of its own; what it does has its lines. The crown moving is one of
+them: `LogEvent::BecameMonarch { player }` (view version 55), told to every
+seat, once per change. Who holds it now is `PlayerView::monarch`, in every
+seat's view.
 
 Measured over self-play on 2026-09-25
 (`session::tests::the_log_measured_over_self_play`, release, one seat played

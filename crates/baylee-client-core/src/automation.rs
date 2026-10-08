@@ -826,6 +826,7 @@ mod tests {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                payable: vec![],
                 spell_increases: vec![],
                 activation_increases: vec![],
                 can_pass: true,
@@ -845,6 +846,7 @@ mod tests {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                payable: vec![],
                 spell_increases: vec![],
                 activation_increases: vec![],
                 can_pass: true,
@@ -1623,6 +1625,7 @@ mod tests {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                payable: vec![],
                 spell_increases: vec![],
                 activation_increases: vec![],
                 can_pass: true,
@@ -1659,6 +1662,7 @@ mod tests {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                payable: vec![],
                 spell_increases: vec![],
                 activation_increases: vec![],
                 can_pass: true,

@@ -26,21 +26,18 @@ use baylee_cards_dsl::{AbilityDef, Cost, CostPart, Effect};
 /// pay `{G}{G}` with one Forest, which is a plan the engine refuses after the
 /// land is already tapped.
 ///
-/// **The consequence is that the expensive mode of a permanent offering two
-/// is out of reach**, and that is a bargain rather than an oversight. One
-/// entry per permanent means the comparator picks a mode and the planner
-/// never sees the other, so a card printing a free tap beside a priced one is
-/// planned as the free one only: Havenwood Battleground is never planned for
-/// `{G}{G}`, and Vivid Crag is a red source and never a blue one. **Twenty-five
-/// faces in the pool are in that position**, 7 losing an amount and 18 a
-/// colour. Before #165 the same one-entry rule pointed the other way and was
-/// worse — all 25 *always* paid — and the two are not symmetric: a shy
-/// planner costs a player some clicks, an over-eager one strands a
-/// half-tapped board mid-cast with no way back. Choosing per cost instead of
-/// per permanent needs `Source` to carry modes and `manaplan::assign` to pick
-/// one of them, and
-/// `the_expensive_mode_is_out_of_reach_and_that_is_the_bargain` is the test
-/// that goes red the day it can.
+/// **The expensive mode is kept beside the cheap one** when it makes one
+/// mana of a colour the cheap one cannot (`manaplan::Dear`): Adarkar Wastes'
+/// coloured tap beside its `{C}`, Vivid Crag's any colour beside its red.
+/// The planner reaches for it only when no plan exists without it, and then
+/// only for the pip that needs it (owner, 08.10.2026: a `{W}{U}` spell
+/// beside a Plains and a painland could not be cast). A priced mode that
+/// makes **more** mana than the free one is still out of reach, Havenwood
+/// Battleground's `{G}{G}` for a sacrifice, and
+/// `the_expensive_mode_is_out_of_reach_and_that_is_the_bargain` pins it.
+/// Before #165 the one-entry rule pointed the other way and was worse: all
+/// such modes *always* paid, and an over-eager planner strands a half-tapped
+/// board mid-cast with no way back.
 #[must_use]
 pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     let mut sources = Vec::new();
@@ -102,7 +99,16 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
             .then_with(|| b.colors.len().cmp(&a.colors.len()))
             .then_with(|| matches!(a.tap, Tap::Ability(_)).cmp(&matches!(b.tap, Tap::Ability(_))))
     });
-    sources.dedup_by(|a, b| a.id == b.id);
+    // A tap that sets off a trigger of the permanent's own is priced, whatever
+    // its mana ability says: City of Brass' damage is a trigger, and a trigger
+    // on the stack before the spell is cast leaves a sorcery-speed spell
+    // uncastable with its mana floating.
+    for source in &mut sources {
+        if view.object(source.id).is_some_and(taps_set_off_a_trigger) {
+            source.priced = true;
+        }
+    }
+    baylee_client_core::manaplan::keep_one_per_permanent(&mut sources);
     let costs: Vec<_> = view
         .hand
         .iter()
@@ -116,6 +122,19 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
         .collect();
     baylee_client_core::manaplan::prioritize(&mut sources, view, &costs);
     sources
+}
+
+/// Whether `object` prints "whenever this becomes tapped": City of Brass.
+fn taps_set_off_a_trigger(object: &baylee_view::PublicObject) -> bool {
+    printed_abilities(object).iter().any(|ability| {
+        matches!(
+            ability,
+            AbilityDef::Triggered {
+                trigger: baylee_cards_dsl::Trigger::BecomesTapped(filter),
+                ..
+            } if matches!(filter, baylee_cards_dsl::Filter::This)
+        )
+    })
 }
 
 /// Whether tapping this source costs anything **beyond** the tap.
@@ -339,6 +358,7 @@ fn mana_ability(
             bundle: true,
             priced: priced(cost, effects),
             preserve: 0,
+            dear: None,
         });
     }
     // The planner's door rather than the strict one: an ability that also
@@ -367,6 +387,7 @@ fn mana_ability(
         bundle: false,
         priced: priced(cost, effects),
         preserve: 0,
+        dear: None,
     })
 }
 
@@ -579,6 +600,7 @@ pub fn granted_source(
         // leave the land making red only, the Lantern's whole point undone.
         priced: false,
         preserve: 0,
+        dear: None,
     })
 }
 
@@ -1151,13 +1173,13 @@ mod tests {
     /// success. A limitation test deleted when the limitation lifts was never
     /// a test.
     ///
-    /// **One sentence, two causes.** "Expensive" means a price in the cost —
-    /// Havenwood's sacrifice, a Vivid land's charge counter — and, since
-    /// #149, a rider in the effects as well: Adarkar Wastes is never planned
-    /// for white for exactly the reason Vivid Crag is never planned for blue,
-    /// and `priced` is the one function that weighs both. So whichever of the
-    /// two lifts first, this test moves for a reason a reader can name rather
-    /// than for a reason they have to reconstruct.
+    /// **Half of it lifted on 08.10.2026.** A priced mode that makes one
+    /// mana of a colour the free one cannot is kept as the permanent's
+    /// `Dear` mode, and the planner reaches for it when nothing else pays:
+    /// Adarkar Wastes is planned for white, Vivid Crag for blue
+    /// (`a_painland_is_tapped_for_its_colour_only_when_the_colour_needs_it`).
+    /// What is still out of reach is a priced mode that makes **more** mana
+    /// than the free one, which is Havenwood's, and that is what this pins.
     #[test]
     fn the_expensive_mode_is_out_of_reach_and_that_is_the_bargain() {
         let (view, legal) = both_modes("Havenwood Battleground");
@@ -1183,6 +1205,57 @@ mod tests {
             .is_some(),
             "the land pays no mana at all, so the test above proves nothing"
         );
+    }
+
+    /// The owner's report (08.10.2026): Adarkar Wastes' coloured tap was out
+    /// of reach, so a `{W}{U}` spell beside a Plains could not be cast at all.
+    /// Its free `{C}` still pays a generic pip, and its coloured mode is taken
+    /// only for the colour nothing clean makes.
+    #[test]
+    fn a_painland_is_tapped_for_its_colour_only_when_the_colour_needs_it() {
+        let (view, legal) = both_modes("Adarkar Wastes");
+        let sources = sources(&view, &legal);
+        assert_eq!(sources.len(), 1, "one permanent is one source");
+        assert_eq!(sources[0].tap, Tap::Ability(0), "the free {{C}} first");
+        assert!(!sources[0].priced, "and the free mode costs nothing");
+        let plan = |cost: &str| {
+            baylee_client_core::manaplan::plan(
+                &mana_cost(cost),
+                &baylee_view::ManaPoolView::default(),
+                &sources,
+            )
+            .map(|p| p.steps)
+        };
+        let id = sources[0].id;
+        assert_eq!(
+            plan("{1}"),
+            Some(vec![baylee_client_core::manaplan::Step {
+                source: id,
+                tap: Tap::Ability(0),
+                color: None,
+            }]),
+            "a generic pip is paid the painless way"
+        );
+        assert_eq!(
+            plan("{U}"),
+            Some(vec![baylee_client_core::manaplan::Step {
+                source: id,
+                tap: Tap::Ability(1),
+                color: Some(baylee_core::mana::ManaColor::Blue),
+            }]),
+            "blue only the coloured tap makes, for its damage"
+        );
+    }
+
+    /// City of Brass prints its damage as a trigger, not beside its mana:
+    /// "Whenever this land becomes tapped, it deals 1 damage to you". The tap
+    /// is priced all the same, so a clean land pays ahead of it.
+    #[test]
+    fn city_of_brass_is_priced_by_its_own_tap_trigger() {
+        let (view, legal) = offering("City of Brass", &[1]);
+        let sources = sources(&view, &legal);
+        assert_eq!(sources.len(), 1);
+        assert!(sources[0].priced, "its tap sets off its own damage");
     }
 
     /// A land offering the mana abilities named by index, as the engine

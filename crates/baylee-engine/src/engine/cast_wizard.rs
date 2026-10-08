@@ -123,6 +123,10 @@ pub(crate) struct CastWizard {
     /// An effect casting it as it resolves, paying its costs (CR 608.2g,
     /// Conduit of Worlds); `None` for every other cast.
     pub by_effect: Option<EffectCast>,
+    /// `DuringTheCast` for a card cast before its mana was made, from
+    /// `LegalActions::payable`: its choices are made first and its mana in a
+    /// payment window after them (CR 601.2g). `FromThePool` otherwise.
+    pub paying: casting::Paying,
     /// Where the payment window this cast was started from began, for a
     /// cast `Effect::MayCastTarget` said yes to: its mana was made for this
     /// cast, and is given back with the next window's if the cast is not
@@ -134,7 +138,10 @@ impl CastWizard {
     /// This cast makes mana after announcing X and targets (CR 601.2b, g).
     /// Effect casts currently make it before entering this wizard instead.
     fn makes_mana_after_choices(&self) -> bool {
-        self.option == Some(CastModeKind::Miracle) || self.masked || self.by_effect.is_some()
+        self.option == Some(CastModeKind::Miracle)
+            || self.masked
+            || self.by_effect.is_some()
+            || self.paying == casting::Paying::DuringTheCast
     }
 
     /// The answers held by a miracle payment window, for replay comparison.
@@ -150,7 +157,9 @@ impl CastWizard {
             .wrapping_mul(257)
             .wrapping_add(u64::from(self.replicated))
             .wrapping_mul(17)
-            .wrapping_add(self.chosen_player.map_or(0, |p| u64::from(p.get()) + 1));
+            .wrapping_add(self.chosen_player.map_or(0, |p| u64::from(p.get()) + 1))
+            .wrapping_mul(2)
+            .wrapping_add(u64::from(self.paying == casting::Paying::DuringTheCast));
         for targets in [
             self.targets.as_slice(),
             self.second_targets.as_slice(),
@@ -274,7 +283,12 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         card: ObjectId,
     ) -> Result<(), EngineError> {
-        let options = self.cast_options(player, card)?;
+        // A card the pool cannot pay for, cast to be paid for as it is cast
+        // (CR 601.2g): the offer said so (`LegalActions::payable`).
+        let pay_in_window = !self.commanded_card(card)
+            && casting::can_cast(&self.state, &self.lookup, player, card).is_err()
+            && self.compute_legal(player).payable.contains(&card);
+        let options = self.cast_options(player, card, pay_in_window)?;
         let mut wizard = CastWizard {
             card,
             player,
@@ -299,6 +313,11 @@ impl<L: CardLookup> Engine<L> {
             masked: false,
             by_effect: self.commanded_card(card).then_some(EffectCast::Plain),
             window_start: None,
+            paying: if pay_in_window {
+                casting::Paying::DuringTheCast
+            } else {
+                casting::Paying::FromThePool
+            },
         };
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
@@ -361,6 +380,7 @@ impl<L: CardLookup> Engine<L> {
             masked: true,
             by_effect: Some(EffectCast::Plain),
             window_start: None,
+            paying: casting::Paying::FromThePool,
         });
         self.advance_cast_wizard()
     }
@@ -470,6 +490,7 @@ impl<L: CardLookup> Engine<L> {
             masked: false,
             by_effect: None,
             window_start: None,
+            paying: casting::Paying::FromThePool,
         })
     }
 
@@ -603,6 +624,7 @@ impl<L: CardLookup> Engine<L> {
             masked: false,
             by_effect: None,
             window_start: None,
+            paying: casting::Paying::FromThePool,
         };
         let _ = &mut wizard;
         self.cast_wizard = Some(wizard);
@@ -676,6 +698,7 @@ impl<L: CardLookup> Engine<L> {
             masked: false,
             by_effect: None,
             window_start: None,
+            paying: casting::Paying::FromThePool,
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -743,6 +766,7 @@ impl<L: CardLookup> Engine<L> {
                 EffectCast::Plain
             }),
             window_start: Some(opened),
+            paying: casting::Paying::FromThePool,
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -856,6 +880,7 @@ impl<L: CardLookup> Engine<L> {
         &self,
         player: PlayerId,
         card: ObjectId,
+        pay_in_window: bool,
     ) -> Result<Vec<CastModeDesc>, EngineError> {
         let obj = self
             .state
@@ -876,7 +901,13 @@ impl<L: CardLookup> Engine<L> {
         {
             return Err(EngineError::IllegalAction("casting prohibited"));
         }
-        let defer_mana = commanded && self.compute_legal(player).has_mana_source();
+        let defer_mana =
+            pay_in_window || (commanded && self.compute_legal(player).has_mana_source());
+        let paying = if pay_in_window {
+            casting::Paying::DuringTheCast
+        } else {
+            casting::Paying::FromThePool
+        };
         // Restricted mana this spell may be paid with counts here for the
         // same reason the convoke count below does: this probe and
         // `casting::can_cast`'s have to be the same probe, or the Cavern's
@@ -1063,7 +1094,15 @@ impl<L: CardLookup> Engine<L> {
         if !modal_only
             && !face.types.contains(baylee_core::types::TypeSet::LAND)
             && (commanded
-                || casting::can_cast_form(&self.state, &self.lookup, player, card, None).is_ok())
+                || casting::can_cast_form_paying(
+                    &self.state,
+                    &self.lookup,
+                    player,
+                    card,
+                    None,
+                    paying,
+                )
+                .is_ok())
             && casting::has_a_printed_cost(&face.mana_cost)
             && afford(&normal_cost.with_x(0))
             && (face.kicked_targets.is_none()
@@ -1088,12 +1127,13 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         if let Some(prototype) = face.prototype
-            && casting::can_cast_form(
+            && casting::can_cast_form_paying(
                 &self.state,
                 &self.lookup,
                 player,
                 card,
                 Some(casting::SpellForm::Prototype(prototype)),
+                paying,
             )
             .is_ok()
         {
@@ -1112,12 +1152,13 @@ impl<L: CardLookup> Engine<L> {
         }
         if face.disguise.is_some() {
             let cost = const { ManaCost::parse("{3}") };
-            if casting::can_cast_form(
+            if casting::can_cast_form_paying(
                 &self.state,
                 &self.lookup,
                 player,
                 card,
                 Some(casting::SpellForm::Disguise),
+                paying,
             )
             .is_ok()
             {
@@ -1993,7 +2034,9 @@ impl<L: CardLookup> Engine<L> {
 
     /// Opens the mana opportunity after choices fix the price (CR 601.2g).
     /// A miracle cannot float mana before its offer; a per-target increase
-    /// likewise cannot be known until targets are chosen. Keep the wizard
+    /// likewise cannot be known until targets are chosen; and a card cast
+    /// from `LegalActions::payable` makes all its mana here, so the
+    /// triggers of that mana wait until the spell is cast (CR 601.2i). Keep the wizard
     /// outside the active choice slot while a mana ability asks its choices.
     fn cast_or_make_miracle_mana(&mut self, wizard: CastWizard) -> Result<(), EngineError> {
         let face = self.wizard_face(&wizard);
@@ -2086,7 +2129,11 @@ impl<L: CardLookup> Engine<L> {
             if let Some(card) = self.state.object_mut(wizard.card) {
                 card.x_value = 0;
             }
-            self.finish_nested_cast();
+            // A cast from priority that could not be paid is reversed, and
+            // the player who had priority keeps it (CR 732.2).
+            if !self.finish_nested_cast() && wizard.paying == casting::Paying::DuringTheCast {
+                self.after_action(wizard.player);
+            }
         }
         Ok(())
     }

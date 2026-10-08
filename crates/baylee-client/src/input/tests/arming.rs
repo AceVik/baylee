@@ -10,6 +10,7 @@ fn confirming_a_priority_choice_passes() {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                payable: vec![],
                 spell_increases: vec![],
                 activation_increases: vec![],
                 can_pass: true,
@@ -391,15 +392,26 @@ fn the_reported_window() -> (LocalHost, crate::Duel, ObjectId) {
 /// reading its own last frame. The engine gets its answer first, and the
 /// proof that it took the cast is that it turns round and asks this seat for
 /// the spell's target.
+///
+/// A card the pool cannot pay for is cast first (CR 601.2g): the target is
+/// asked before any mana is made (CR 601.2c), and the run stands waiting
+/// for the window that follows it. So the run is either finished or
+/// waiting on that question, never stopped on an error.
 fn the_gesture_lands_on_a_target(host: &mut LocalHost, duel: &mut crate::Duel) {
+    let asked = |duel: &crate::Duel| {
+        matches!(
+            duel.interaction.as_ref().map(Interaction::pending),
+            Some(Pending::ChooseTargets { .. })
+        )
+    };
     for _ in 0..40 {
         pump(host, duel);
-        if duel.mana_run.is_none() {
+        if duel.mana_run.is_none() || asked(duel) {
             break;
         }
     }
     assert!(
-        duel.mana_run.is_none(),
+        duel.mana_run.is_none() || asked(duel),
         "the run never finished: {:?}",
         duel.last_error
     );

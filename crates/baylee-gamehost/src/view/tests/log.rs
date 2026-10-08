@@ -888,3 +888,53 @@ fn a_trigger_with_no_source_gets_no_line() {
     log.consume(engine.state());
     assert_eq!(told_since(&log, me, from), []);
 }
+
+/// The monarch at a table of four (CR 724): every seat's view names who
+/// holds the crown, and every seat is told the line that says it moved,
+/// once per move. A monarch told to become the monarch again is no line.
+#[test]
+fn every_seat_sees_the_monarch_and_is_told_when_the_crown_moves() {
+    let mut preset = mixed_print_preset();
+    let extra = preset.seats[1].clone();
+    preset.seats.push(extra.clone());
+    preset.seats.push(extra);
+    let mut engine = Engine::new(&preset, Registry).expect("game starts");
+    while let Pending::Mulligan { player, .. } = engine.pending().clone() {
+        engine
+            .apply(player, baylee_engine::choice::PlayerAction::MulliganKeep)
+            .expect("keeps");
+    }
+    let mut log = GameLog::new(engine.state());
+    let seats: Vec<PlayerId> = (0..4).map(PlayerId::new).collect();
+    let views = |engine: &Engine<Registry>| -> Vec<Option<PlayerId>> {
+        seats
+            .iter()
+            .map(|&s| player_view(engine.state(), s, 0, None, &SeatContext::default(), &[]).monarch)
+            .collect()
+    };
+    assert_eq!(
+        views(&engine),
+        [None; 4],
+        "no monarch until an effect makes one (CR 724.1)"
+    );
+
+    let from = log.len();
+    for crowned in [2, 2, 3] {
+        engine
+            .dev_state_mut(seats[0])
+            .expect("dev commands")
+            .set_monarch(seats[crowned]);
+    }
+    log.consume(engine.state());
+    assert_eq!(views(&engine), [Some(seats[3]); 4]);
+    for &seat in &seats {
+        assert_eq!(
+            told_since(&log, seat, from),
+            [
+                LogEvent::BecameMonarch { player: seats[2] },
+                LogEvent::BecameMonarch { player: seats[3] },
+            ],
+            "seat {seat:?}"
+        );
+    }
+}

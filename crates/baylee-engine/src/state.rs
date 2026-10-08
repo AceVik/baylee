@@ -1043,7 +1043,7 @@ pub struct GameState {
     /// every card that asked got `false`. `ObjectId` outlives the zone
     /// change, so this list stays true wherever the card goes.
     pub commanders: Vec<Vec<Commander>>,
-    /// The monarch designation (CR 718), if any.
+    /// The monarch designation (CR 724), if any.
     pub monarch: Option<PlayerId>,
     /// The day/night designation (CR 731), if the game has one yet.
     pub day_night: Option<DayNight>,
@@ -2147,6 +2147,7 @@ impl GameState {
         if previous == Some(player) {
             return;
         }
+        self.journal.record(GameEvent::BecameMonarch { player });
         self.return_linked(|state, _, until| {
             matches!(
                 until,
@@ -2163,13 +2164,17 @@ impl GameState {
     /// on with no monarch.
     ///
     /// `sba::eliminate_player` calls this once `player` is marked as having
-    /// left, so the leaver is never the heir. Through [`Self::set_monarch`],
+    /// left, so the leaver is never the heir, and neither is anybody in
+    /// `leaving`, the players leaving at the same time who have yet to be
+    /// marked: players who lose in one state-based check leave together, and
+    /// the crown passed through one of them on its way to the heir, ending a
+    /// Palace Jailer's exile on the way. Through [`Self::set_monarch`],
     /// so an exile that waited for an opponent to become the monarch (Palace
     /// Jailer) ends if the heir is such an opponent. The rule's "if there is
     /// no active player" never arises here, because the engine always has one
     /// (`TurnInfo::active`), and nothing in the engine keeps a player still
     /// in the game from becoming the monarch.
-    pub(crate) fn monarch_leaves(&mut self, player: PlayerId) {
+    pub(crate) fn monarch_leaves(&mut self, player: PlayerId, leaving: &[PlayerId]) {
         if self.monarch != Some(player) {
             return;
         }
@@ -2177,7 +2182,7 @@ impl GameState {
         let active = usize::from(self.turn.active.get());
         let heir = (0..seats)
             .map(|offset| PlayerId::new(((active + offset) % seats) as u8))
-            .find(|&p| !self.has_left(p));
+            .find(|&p| !self.has_left(p) && !leaving.contains(&p));
         match heir {
             Some(heir) => self.set_monarch(heir),
             None => self.monarch = None,

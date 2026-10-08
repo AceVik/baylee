@@ -3455,7 +3455,7 @@ the active player, to the next player in turn order still in the game, and
 to nobody when nobody is left. It goes through `set_monarch`, so the
 Jailer's exile ends if the heir is an opponent of the player who exiled.
 
-Not done: CR 610.3b for Palace Jailer. If an opponent becomes the monarch
+Not done (both fixed in 63): CR 610.3b for Palace Jailer. If an opponent becomes the monarch
 between the trigger and its resolution, the creature is still exiled. Nothing
 records that the crown moved in between. And players who lose in the same
 state-based check leave one after the other (`sba::run` walks the seats), so
@@ -3585,3 +3585,123 @@ The tests:
 The other cards' own tests play them on a board where owner and controller
 are one seat, so a controller assertion there would pass on the old code.
 The lint is what checks their field.
+
+### 63. The crown moved without a word, and passed through players on their way out — FIXED
+
+Owner, 08.10.2026: "the monarch mechanic does not work properly", at
+multiplayer tables. The rules side was checked against CR 724 at a table of
+four (`engine::monarch_table_tests`): only the monarch draws, once, at their
+own end step; combat damage to the monarch takes the crown and damage to
+anybody else does not; two creatures trigger twice; first strike takes it in
+the first step and the second step finds no monarch to hit; a monarch who
+leaves crowns the active player, or the next player still in the game. All
+of that held. What did not:
+
+- **Nobody was told.** `GameState::set_monarch` changed a field and journaled
+  nothing, so the game log had no line for it and the client drew nothing
+  (`PlayerView::monarch` was in every view, and no client code read it).
+  A card drawn at an end step, and a creature coming back from exile, were
+  all a table saw. `GameEvent::BecameMonarch` is journaled when the crown
+  moves, and only then; the log tells every seat `LogEvent::BecameMonarch`
+  (view version 55), in English and German.
+- **CR 610.3b for Palace Jailer** (the "not done" of 61). An opponent crowned
+  while the exile trigger waited on the stack: the creature was exiled anyway,
+  until some later crowning. The exile now reads the journal: an opponent's
+  `BecameMonarch` after the ability's `AbilityTriggered` means the card does
+  not move.
+- **Players who lose together left one at a time** (the other "not done" of
+  61). `sba::run` eliminated each loser before checking the next, so the
+  crown passed to a loser still waiting to be eliminated and on from them:
+  two crownings, one of a player on their way out. Every loss is now found
+  first, and `monarch_leaves` skips everybody leaving in the same check.
+- **The house AI never attacked for the crown.** `HeuristicAgent::pick_defender`
+  read life and boards, never `view.monarch`, so at a table of house seats the
+  crown never moved. It now goes for the monarch under every profile.
+- The doc comment on `GameState::monarch` cited the wrong rule (718).
+
+Tests, each red with its fix injected away:
+`card_tests::creatures::mv_4::palace_jailer::palace_jailer_exiles_nothing_once_an_opponent_was_crowned_in_response`,
+`sba::tests::players_who_lose_together_pass_the_crown_over_each_other`,
+`baylee-ai attacks_tests::every_politics_goes_for_the_monarch`. The log line
+(`gamehost view::tests::log::every_seat_sees_the_monarch_and_is_told_when_the_crown_moves`,
+`engine::monarch_table_tests::becoming_the_monarch_is_journaled_once_per_change`)
+did not compile before the event existed. Also
+`palace_jailer_keeps_its_prisoner_when_a_teammate_is_crowned` (green before:
+it pins the "opponent" reading at a table of teams).
+
+Not done: a client indicator (a crown) for `PlayerView::monarch` belongs to
+the client lane (#14, #205). The pool has two monarch cards, Palace Jailer and
+Throne of the High City; the DSL has no "if you're the monarch" condition and
+no "whenever you become the monarch" trigger, because no pool card prints
+either. The journal event is what such a trigger would read.
+
+### 64. A painland's colour was out of the planner's reach, and City of Brass stopped the cast it paid for — FIXED
+
+Owner, 08.10.2026: "whenever the player casts something and this land gets
+tapped, the cast is interrupted and the mana is auto-tapped" (painlands,
+City of Brass, Talismans, Ancient Tomb). Measured by clicking the card in
+`baylee-client/tests/mana/pain.rs` against a real `LocalHost`. Two failures
+with two signatures, and the engine is clean in both
+(`card_tests::lands::pain::adarkar_wastes::a_plains_and_adarkar_wastes_cast_a_white_and_blue_creature`:
+the coloured line resolves at once, CR 605.3b, nothing stacks):
+
+- **`CardCostsUnavailable`: the colour was out of reach.** A Plains and
+  Adarkar Wastes could not pay `{W}{U}`. One entry per permanent kept the
+  free `{C}` and threw the coloured tap away (the 18 faces whose priced mode
+  is a colour, of the 25 `manasources` named). The house AI never saw the
+  coloured tap at all: `mana_shape` refuses an ability with a second
+  sentence (#170), so it could not tap a painland, a Talisman, Ancient Tomb
+  or Trenzalore Clocktower for anything. **Fixed:** `manaplan::Source::dear`
+  keeps a permanent's priced one-mana mode beside its free one
+  (`manaplan::keep_one_per_permanent`, shared by the client and the AI), and
+  `manaplan::plan` reaches for it only when nothing plans without it, and
+  then only for a pip the free mode cannot pay. Every board that planned
+  before plans the same taps. The AI reads sources through
+  `mana_with_riders`, with the rider as a price, as the client does.
+- **`PlanSpellRefused`: a trigger stopped the cast.** City of Brass' damage
+  is a triggered ability. This client floats the mana first and casts
+  second, so the trigger goes on the stack the next time a player would
+  receive priority (CR 603.3), which is between the tap and the cast, and a
+  creature or sorcery is no longer castable; the run stops with the lands
+  tapped and the mana floating. Any painland does the same once something on
+  the board triggers on damage or life loss. **Mitigated:** a tap that sets
+  off the permanent's own trigger is priced, so a clean land pays first
+  (`city_of_brass_is_passed_over_when_a_clean_land_makes_the_colour`).
+  Where the City is the only source of a colour, the cast now pays inside
+  itself (below; `pain::city_of_brass_as_the_only_colour_pays_for_a_creature_cast_first`).
+
+The rules answer to the second is to tap inside the cast (CR 601.2g), where
+a trigger waits until the spell has been cast (CR 601.2i). The engine half
+exists for a commanded cast: `cast_options`' `defer_mana` and the payment
+window `cast_or_make_miracle_mana` opens. Generalised (`defer_mana` when the
+seat has a mana source, the window whenever the pool cannot pay), it is
+inert until a client casts first; the client half is `ManaRun`'s
+`RunEnd::Cast` in `baylee-client/src/lib.rs` casting first, surviving the
+wizard's questions and paying the window from `owed` as `pay_owed` does.
+The house AI floats first and is unaffected.
+
+Tests, red before: `pain::white_and_blue_from_a_plains_and_a_painland_casts_the_spell`
+(`CardCostsUnavailable`), `manasources::tests::a_painland_is_tapped_for_its_colour_only_when_the_colour_needs_it`,
+`city_of_brass_is_priced_by_its_own_tap_trigger`,
+`baylee-ai payment_tests::the_ai_taps_a_painland_for_its_colour_only_when_the_colour_needs_it`;
+`gamehost ai_decisions::a_mana_land_that_also_counts_pays_for_the_spell` was
+the pinned #170 limitation and now asserts the cast.
+
+**The second half, fixed the same day** (owner: into beta.6). The client
+casts first and pays inside the cast (CR 601.2g). The engine offers it as
+`LegalActions::payable` (`casting::can_cast_paying_later`, every rule of
+`can_cast` but the pool), takes `CastSpell` for such a card
+(`priority_fault`), runs the wizard with `CastWizard::pay_in_window`, which
+`cast_options` reads as deferred mana and `makes_mana_after_choices` folds
+into the window `cast_or_make_miracle_mana` opens; triggers wait through the
+window (`advance_payment_window`) and go on the stack above the spell. A
+window passed short reverses the cast and the player keeps priority
+(CR 732.2: `finish_miracle_payment` now calls `after_action` for such a
+cast; it handed priority on before). The client is `ManaRun::cast_first`.
+`pain::city_of_brass_as_the_only_colour_still_stops_a_creature_cast` became
+`city_of_brass_as_the_only_colour_pays_for_a_creature_cast_first`. New:
+`engine::pay_in_cast_tests` (four tests),
+`pain::a_painland_beside_a_damage_trigger_pays_for_a_creature_cast_first`
+(Living Artifact on a Sol Ring), and the Khalni Ambush cast-mode test now
+follows the cast through its targets and window.
+
