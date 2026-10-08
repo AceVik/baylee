@@ -139,6 +139,8 @@ pub fn run() {
     // knobs (`crate::quality`). After the plugins: it writes `WinitSettings`,
     // which `WinitPlugin` installs.
     app.add_plugins(crate::quality::QualityPlugin);
+    // Bevy's light work for a client with no light in it (`crate::unlit`).
+    crate::unlit::install(&mut app);
     #[cfg(target_os = "macos")]
     app.add_systems(Startup, super::app_icon::install);
     crate::arrival::start_login(&mut app);

@@ -325,6 +325,9 @@ pub fn spawn_stage(
         // numbers as radiance would be wrong. Naming it here stops a future
         // default from quietly doing that.
         Tonemapping::None,
+        // And no clustering, for the same reason: nothing here is lit, so
+        // there is nothing to bin (`crate::unlit`).
+        crate::unlit::CAMERA_CLUSTERS,
         // The same answer the lobby's camera gets, from the same place:
         // `Msaa` is a component in bevy 0.19, so a driver workaround has to
         // be repeated on every camera rather than set once. Both need it

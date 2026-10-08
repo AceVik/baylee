@@ -109,6 +109,7 @@ pub mod textures;
 pub mod tokenart;
 pub mod touch;
 pub(crate) mod transport;
+pub mod unlit;
 pub mod update;
 pub mod vista;
 mod yes_batch;
