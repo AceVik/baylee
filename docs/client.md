@@ -754,6 +754,36 @@ accident, and arithmetic borrows nothing.
   eight, where it stood 59 and 81 when a ring seat was twelve units at most. The
   players' strip (§"The players' strip, and the bar's right end") is how a
   player gets close to one of them.
+- **The table packs** (owner, 08.10.2026: *"use the table space better"*).
+  Duel-wide boards on an ellipse leave its four corners and its flat runs
+  bare — eight seats on a laptop stood 5–8.5 units apart on a table of
+  131.8 × 65.6, the camera 161.8 off — so `TableLayout::seated` also lays
+  the sides on a **frame** (`layout/frame.rs`): mine on the near edge, then
+  clockwise up the left edge, along the far edge, down the right, every two
+  boards `layout::POD_GAP` (1.0, a card's width) apart, a flank of one board
+  turned up to an eighth of a turn into the corner (a square flank draws its
+  cards foreshortened by the lean), each board's `HEARTH_BAND` (1.25, where
+  its plate and steps hang) and the dial's circle `DIAL_CLEAR` (1.75, the
+  dial's `MIN_FREE_RADIUS`) kept clear. The frame is taken where it draws the
+  least favoured board larger (`frame::price`, the home shot's fit at the
+  default lean written in table units, held to the camera by
+  `arrangement_tests::the_frame_is_taken_only_where_the_camera_draws_it_larger`)
+  or where the ellipse brings two boards nearer than the gap
+  (`TableLayout::keeps_clear`). Not for a focus, not for three playing for
+  themselves (the circle), and with fewer than five sides every side keeps
+  an edge to itself — two sides a gap apart on one edge read as a team. At
+  six seats the near edge holds two boards, mine and the one before me, so
+  my board stands half a step off the middle. Measured at 1708 × 1028, home,
+  per seat against the ellipse: eight +26–36 % (eye 161.8 → 124.9), seven
+  +11–31 %, six +25–59 % (125.9 → 91.0), five +24–31 %, 3v3 +8–17 %, 4v4
+  +9–22 %; three and four unchanged. A **phone** keeps the ellipse
+  (`TableLayout::arranged_in`): its home frames my board and the dial and
+  every other board is read by visiting, so the frame's gain is not what it
+  draws. The arrangements that build their own geometry (pods, arc rail,
+  Spotlight, Focus ring) take their template from the ellipse
+  (`TableLayout::on_ring`); the upright ring stands the frame's boards up.
+  A ring whose home would put a seat under the pill or the report button is
+  framed below them (`camera::reaches_the_top`, DESIGN-v8 §2.2's fallback).
 - Lanes fan when crowded, and a row that cannot fan legibly with its merged
   cards' cells held whole scrolls (§"A row that does not fit scrolls").
 - A seat's tab carries a **second life total** when one applies. Twenty-one

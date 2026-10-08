@@ -198,8 +198,21 @@ fn the_upright_ring_stands_every_board_up_on_the_ring_s_bearings() {
     for n in 3..=8 {
         for aspect in ASPECTS {
             let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
-            let ring = TableLayout::seated(&roster, aspect, None);
             let up = TableLayout::arranged(&roster, aspect, Arrangement::UprightRing, None);
+            // Stood up from the table `seated` lays or from the ellipse,
+            // whichever frames closer: the one whose bearings it keeps.
+            let ring = [
+                TableLayout::seated(&roster, aspect, None),
+                TableLayout::on_ring(&roster, aspect, None),
+            ]
+            .into_iter()
+            .find(|ring| {
+                ring.slots
+                    .iter()
+                    .zip(&up.slots)
+                    .all(|(r, u)| (u.angle - r.angle).abs() < 1e-6)
+            })
+            .expect("the upright ring keeps a ring's bearings");
             let scale = up.radius / ring.radius;
             for (r, u) in ring.slots.iter().zip(&up.slots) {
                 let want = if u.is_local {
