@@ -23,20 +23,28 @@ jobs:
   package:
     name: package (${{ matrix.target }})
     runs-on: ${{ inputs.source-run != '' && 'ubuntu-latest' || matrix.os }}
+    # A build's p95 ×1.5 (06.–08.10.2026, before the build was narrowed to the
+    # two shipped binaries); a promotion takes minutes under the same bound.
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+            timeout: 50
           - os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
+            timeout: 40
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            timeout: 80
           - os: windows-11-arm
             target: aarch64-pc-windows-msvc
+            timeout: 60
           - os: macos-latest
             target: aarch64-apple-darwin
+            timeout: 105
     env:
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
@@ -86,14 +94,23 @@ jobs:
           shared-key: desktop-dist-${{ matrix.os }}-${{ matrix.target }}
           cache-on-failure: true
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      # All native binaries still link on every supported platform. The client
-      # and launcher from this exact invocation become the published package.
+      # The two binaries the package ships, the client and its launcher, and
+      # nothing else. This was `--workspace --bins`: fifteen binaries, each
+      # thin-LTO'd at one codegen unit, so on the three-core Mac the workspace
+      # crates were compiled two minutes in and the next 48 went to linking
+      # servers, trainers and xtask that no package contains (run
+      # 37787880265). `--workspace` stays as the *selection*, so features
+      # unify exactly as before: `-p baylee-client -p baylee-update` would
+      # resolve 18–20 of the client's dependencies with fewer features
+      # (`subtle`, `rand`, `tracing/log`, ...) and change the shipped binary.
+      # The other binaries' link on every platform is the nightly `build`
+      # matrix in `ci.yml`; their code is still checked here, below.
       - if: inputs.source-run == ''
         shell: bash
         env:
           BAYLEE_RELEASE_BUILD: '1'
           PACKAGE_TARGET: ${{ matrix.target }}
-        run: cargo build --locked --workspace --bins --profile dist --target "$PACKAGE_TARGET"
+        run: cargo build --locked --workspace --bin baylee-client --bin baylee-launch --profile dist --target "$PACKAGE_TARGET"
       - if: inputs.source-run == ''
         shell: bash
         env:

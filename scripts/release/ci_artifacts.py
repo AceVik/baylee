@@ -34,6 +34,29 @@ INSTALLERS = {
 }
 
 
+# The `ci.yml` jobs a promotable run must have run and passed. A run's
+# conclusion alone does not say this: a job skipped by its `if:` counts as a
+# success, and `ci.yml` skips jobs whose inputs did not change (a docs-only
+# push builds no packages and runs no optimized suite). A matrix job is named
+# `<job> (<row>)`; every row found must have passed, and at least one must
+# exist. The packages are checked by artifact below, not by name here.
+REQUIRED_JOBS = (
+    "fmt",
+    "clippy",
+    "test",
+    "test-release",
+    "features",
+    "validate",
+    "wasm",
+    "web-feedback",
+    "deny",
+    "audit",
+    "bench",
+    "msrv",
+    "macos-intel",
+)
+
+
 def api(path):
     return json.loads(subprocess.check_output(["gh", "api", path], text=True))
 
@@ -60,24 +83,50 @@ def verify_run(run_id):
         raise ValueError(
             "source must be a successful main push CI run for this repository and commit"
         )
+    jobs = pages(f"repos/{repo}/actions/runs/{run_id}/jobs?filter=latest", "jobs")
+    missing = unproven_jobs(jobs)
+    if missing:
+        raise ValueError(
+            "CI run did not run and pass every release job (missing or not green: "
+            + ", ".join(missing)
+            + "); a docs-only push runs fewer jobs, so tag a commit whose main CI ran in full"
+        )
     # This workflow has five packages (an archive and its installers each);
     # other CI artifacts may coexist.
-    artifacts = []
-    page = 1
-    while True:
-        batch = api(
-            f"repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100&page={page}"
-        )["artifacts"]
-        artifacts.extend(batch)
-        if len(batch) < 100:
-            break
-        page += 1
+    artifacts = pages(f"repos/{repo}/actions/runs/{run_id}/artifacts", "artifacts")
     for target in TARGETS:
         matches = [a for a in artifacts if a["name"] == f"client-{target}"]
         if len(matches) != 1 or matches[0].get("expired", True):
             raise ValueError(
                 f"missing/expired/ambiguous {target} package; rerun CI on main at this commit"
             )
+
+
+def pages(path, field):
+    """Every item of a paginated list endpoint."""
+    items, page = [], 1
+    while True:
+        batch = api(f"{path}{'&' if '?' in path else '?'}per_page=100&page={page}")[
+            field
+        ]
+        items.extend(batch)
+        if len(batch) < 100:
+            return items
+        page += 1
+
+
+def unproven_jobs(jobs):
+    """The REQUIRED_JOBS that did not run, or ran and did not succeed."""
+    missing = []
+    for name in REQUIRED_JOBS:
+        found = [
+            job
+            for job in jobs
+            if job.get("name") == name or job.get("name", "").startswith(name + " (")
+        ]
+        if not found or any(job.get("conclusion") != "success" for job in found):
+            missing.append(name)
+    return missing
 
 
 def resolve():

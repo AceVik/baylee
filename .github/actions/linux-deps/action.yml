@@ -30,8 +30,20 @@ runs:
           echo "not Linux ($RUNNER_OS) — nothing to install"
           exit 0
         fi
-        sudo apt-get update
-        sudo apt-get install --no-install-recommends -y \
-          libasound2-dev \
-          libudev-dev \
-          libwayland-dev
+        # apt has no deadline of its own. On 07.10.2026 the runners' azure
+        # mirror stopped answering mid-`apt-get update`, and three jobs (bench,
+        # msrv, features) sat in this step for 228, 361 and 360 minutes until
+        # GitHub's six-hour limit or a person ended them. So every network
+        # wait is bounded (30 s per connection, three retries) and the whole
+        # call is under `timeout`: a dead mirror now fails the step in
+        # minutes, and the job's own `timeout-minutes` is the backstop.
+        #
+        # The package lists the image ships are tried first, with no update
+        # at all; only when that install fails is the network asked.
+        apt=(sudo timeout 300 apt-get -o Acquire::Retries=3 \
+          -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+        pkgs=(libasound2-dev libudev-dev libwayland-dev)
+        if ! "${apt[@]}" install --no-install-recommends -y "${pkgs[@]}"; then
+          "${apt[@]}" update
+          "${apt[@]}" install --no-install-recommends -y "${pkgs[@]}"
+        fi
