@@ -4,7 +4,8 @@
 // intake route a gateway uses.
 
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { crc32, deflateSync } from "node:zlib";
 
@@ -15,17 +16,112 @@ export const PASSWORD = "an e2e password, long enough";
 export const GATEWAY_TOKEN = "e2e-gateway-token-000000000001";
 export const PORT = Number(process.env["E2E_PORT"] ?? "28791");
 export const BASE_URL = `http://localhost:${PORT}`;
+/** The gateway's `BAYLEE_ADMIN_TOKEN`, which the service is given too. */
+export const CONSOLE_TOKEN = "e2e-console-token-0123456789abcdef0123456789";
 
 const here = import.meta.dirname;
 const repo = resolve(here, "../../..");
 const dist = resolve(here, "../dist");
 
-function binary(): string {
-  const path = process.env["BAYLEE_FEEDBACK_BIN"] ?? resolve(repo, "target/debug/baylee-feedback");
+function binary(name = "baylee-feedback", variable = "BAYLEE_FEEDBACK_BIN"): string {
+  const path = process.env[variable] ?? resolve(repo, `target/debug/${name}`);
   if (!existsSync(path)) {
-    throw new Error(`${path} is not built: cargo build -p baylee-feedback`);
+    throw new Error(`${path} is not built: cargo build -p ${name}`);
   }
   return path;
+}
+
+/** The gateway the admin console talks to: its public port and its console's. */
+export interface GatewayPorts {
+  port: number;
+  admin: number;
+}
+
+let gatewayPorts: GatewayPorts | null = null;
+
+/** Where the e2e gateway listens; set by [`start`], read by the specs via a file. */
+export function gateway(): GatewayPorts {
+  if (gatewayPorts !== null) return gatewayPorts;
+  const file = resolve(tmpdir(), `baylee-feedback-e2e-gateway-${PORT}.json`);
+  gatewayPorts = JSON.parse(readFileSync(file, "utf8")) as GatewayPorts;
+  return gatewayPorts;
+}
+
+async function readPort(file: string, child: ChildProcess, what: string): Promise<number> {
+  for (let i = 0; i < 300; i += 1) {
+    if (child.exitCode !== null) throw new Error(`${what} exited with ${child.exitCode}`);
+    if (existsSync(file)) {
+      const port = Number(readFileSync(file, "utf8").trim());
+      if (port > 0) return port;
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(`${what} never wrote ${file}`);
+}
+
+/** Registers `username` on the gateway with `key`; the status. */
+export async function register(username: string, key: string): Promise<number> {
+  const response = await fetch(`http://127.0.0.1:${gateway().port}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username,
+      display_name: username,
+      password: "a-very-fine-password",
+      invite_key: key,
+    }),
+  });
+  return response.status;
+}
+
+/**
+ * A real baylee-gateway, a closed beta with its admin console on a loopback
+ * port of its own, in a schema of its own; two accounts let in with keys
+ * its own command made.
+ */
+async function startGateway(url: string, sql: postgres.Sql): Promise<{ child: ChildProcess; schema: string }> {
+  const bin = binary("baylee-gateway", "BAYLEE_GATEWAY_BIN");
+  const schema = `gwe2e_${Date.now()}_${process.pid}`;
+  await sql.unsafe(`CREATE SCHEMA "${schema}"`);
+  const scoped = `${url}${url.includes("?") ? "&" : "?"}options=-c%20search_path%3D${schema},public`;
+  const work = mkdtempSync(resolve(tmpdir(), "baylee-gateway-e2e-"));
+  const portFile = resolve(work, "port");
+  const adminFile = resolve(work, "admin-port");
+  const child = spawn(bin, [], {
+    cwd: work,
+    env: {
+      ...process.env,
+      DATABASE_URL: scoped,
+      PORT: "0",
+      BAYLEE_PORT_FILE: portFile,
+      BAYLEE_ADMIN_TOKEN: CONSOLE_TOKEN,
+      BAYLEE_ADMIN_BIND: "127.0.0.1:0",
+      BAYLEE_ADMIN_PORT_FILE: adminFile,
+      BAYLEE_REGISTRATION: "invite",
+      BAYLEE_DB_POOL: "2",
+      BAYLEE_ART_PATH: "off",
+      BAYLEE_DECK_IMAGE_PATH: "off",
+      STORE_PATH: resolve(work, "store.json"),
+      RUST_LOG: "warn",
+    },
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+  const port = await readPort(portFile, child, "baylee-gateway");
+  const admin = await readPort(adminFile, child, "baylee-gateway's console");
+  gatewayPorts = { port, admin };
+  writeFileSync(resolve(tmpdir(), `baylee-feedback-e2e-gateway-${PORT}.json`), JSON.stringify(gatewayPorts));
+
+  const keys = execFileSync(bin, ["invite", "create", "--count", "2", "--note", "seed"], {
+    env: { ...process.env, DATABASE_URL: scoped, RUST_LOG: "off" },
+  })
+    .toString()
+    .trim()
+    .split("\n");
+  for (const [n, key] of keys.entries()) {
+    const status = await register(`player${n}`, key);
+    if (status !== 200) throw new Error(`registering a seeded player answered ${status}`);
+  }
+  return { child, schema };
 }
 
 function databaseUrl(): string {
@@ -168,12 +264,15 @@ export async function start(): Promise<Running> {
   // The binary's migrator runs on connect, so `admin add` also makes the tables.
   execFileSync(bin, ["admin", "add", ADMIN], { env, input: `${PASSWORD}\n` });
 
+  const gw = await startGateway(url, sql);
   const child = spawn(bin, [], {
     env: {
       ...env,
       FEEDBACK_BIND: `127.0.0.1:${PORT}`,
       FEEDBACK_WEB_DIR: dist,
       FEEDBACK_GATEWAY_TOKENS: `eu=${GATEWAY_TOKEN}`,
+      FEEDBACK_GATEWAY_ADMIN_URL: `http://127.0.0.1:${gateway().admin}`,
+      FEEDBACK_GATEWAY_ADMIN_TOKEN: CONSOLE_TOKEN,
     },
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -200,8 +299,10 @@ export async function start(): Promise<Running> {
   return {
     stop: async () => {
       child.kill("SIGTERM");
-      await new Promise((r) => setTimeout(r, 200));
+      gw.child.kill("SIGTERM");
+      await new Promise((r) => setTimeout(r, 300));
       await sql.unsafe(`DROP SCHEMA "${schema}" CASCADE`);
+      await sql.unsafe(`DROP SCHEMA "${gw.schema}" CASCADE`);
       await sql.end();
     },
   };
