@@ -672,6 +672,7 @@ fn measure(path: &str, body: &str, measured: &mut Measured) -> String {
             None => r#"{"error":"no what"}"#.to_string(),
         },
         "/executor" => perf::set_executor(&mut measured.schedules, flag(body, "single")),
+        "/allocs" => perf::allocs(field(body, "every").and_then(|n| n.parse().ok())),
         "/msaa" => perf::set_msaa(
             &mut measured.cameras,
             field(body, "samples")

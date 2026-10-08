@@ -42,24 +42,94 @@ static ALLOCATED: AtomicU64 = AtomicU64::new(0);
 /// The system allocator, counting.
 ///
 /// Two relaxed atomic adds per call: cheap enough that the frame times it is
-/// read beside are not its own, and only ever in a `dev-control` build.
+/// read beside are not its own, and only ever in a `dev-control` build. While
+/// `/allocs` samples, every n-th allocation also keeps its call stack
+/// ([`sample`]).
 pub struct CountingAlloc;
 
+/// Every how many allocations `/allocs` keeps a call stack; `0` = not
+/// sampling.
+static SAMPLE_EVERY: AtomicU64 = AtomicU64::new(0);
+
+/// At most this many stacks are kept per sampling window: resolving them is
+/// what costs, and a few thousand already rank the sites.
+const MAX_SAMPLES: usize = 4000;
+
+/// The stacks kept, with the thread each came from.
+static SAMPLES: std::sync::Mutex<Vec<(String, std::backtrace::Backtrace)>> =
+    std::sync::Mutex::new(Vec::new());
+
+std::thread_local! {
+    /// This thread is inside [`sample`]: what it allocates there is the
+    /// sampler's own and is neither counted nor sampled.
+    static SAMPLING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// This thread's allocations since sampling began, for the every-n-th.
+    static TICK: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    /// This is the thread the main world's schedules run on (set by the
+    /// probe's first system), whose allocations `/perf` also counts alone.
+    static MAIN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Allocations made on the main world's thread since the process started.
+static MAIN_ALLOCATIONS: AtomicU64 = AtomicU64::new(0);
+
+/// Counts one allocation of `bytes`, and keeps its stack if it is the n-th
+/// while `/allocs` samples. The sampler's own allocations are not counted.
+fn count(bytes: usize) {
+    let every = SAMPLE_EVERY.load(Ordering::Relaxed);
+    if every != 0 {
+        let inside = SAMPLING.try_with(std::cell::Cell::get).unwrap_or(true);
+        if inside {
+            return;
+        }
+        let tick = TICK.try_with(|t| {
+            let n = t.get() + 1;
+            t.set(n);
+            n
+        });
+        if tick.is_ok_and(|n| n % every == 0) {
+            sample();
+        }
+    }
+    ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
+    ALLOCATED.fetch_add(bytes as u64, Ordering::Relaxed);
+    if MAIN.try_with(std::cell::Cell::get).unwrap_or(false) {
+        MAIN_ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// Keeps the current call stack, unresolved (resolving waits for `/allocs`).
+#[cold]
+fn sample() {
+    let _ = SAMPLING.try_with(|s| s.set(true));
+    if let Ok(mut kept) = SAMPLES.lock()
+        && kept.len() < MAX_SAMPLES
+    {
+        let thread = std::thread::current()
+            .name()
+            .unwrap_or("unnamed")
+            .to_string();
+        kept.push((thread, std::backtrace::Backtrace::force_capture()));
+    }
+    let _ = SAMPLING.try_with(|s| s.set(false));
+}
+
 // SAFETY: every method forwards its arguments unchanged to `System`, which
-// upholds `GlobalAlloc`'s contract; the counters touch no allocation and the
-// returned pointer is `System`'s own.
+// upholds `GlobalAlloc`'s contract; the counters and the sampler never touch
+// the allocation being made, and the returned pointer is `System`'s own. The
+// sampler allocates itself, which re-enters this allocator: the thread-local
+// `SAMPLING` flag makes that inner call a plain forward to `System`, so it
+// cannot recurse, and `try_with` keeps a thread being torn down out of it.
 #[allow(unsafe_code)]
 unsafe impl GlobalAlloc for CountingAlloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        ALLOCATED.fetch_add(layout.size() as u64, Ordering::Relaxed);
+        count(layout.size());
         // SAFETY: the caller's `layout` obligations pass through unchanged.
         unsafe { System.alloc(layout) }
     }
 
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-        ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        ALLOCATED.fetch_add(layout.size() as u64, Ordering::Relaxed);
+        count(layout.size());
         // SAFETY: as `alloc`.
         unsafe { System.alloc_zeroed(layout) }
     }
@@ -71,19 +141,20 @@ unsafe impl GlobalAlloc for CountingAlloc {
     }
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        ALLOCATED.fetch_add(new_size as u64, Ordering::Relaxed);
+        count(new_size);
         // SAFETY: as `dealloc` for `ptr` and `layout`; `new_size` is the
         // caller's to keep valid.
         unsafe { System.realloc(ptr, layout, new_size) }
     }
 }
 
-/// The counters as one reading.
-fn allocations() -> (u64, u64) {
+/// The counters as one reading: every thread's allocations and bytes, and
+/// the main world's thread's allocations.
+fn allocations() -> (u64, u64, u64) {
     (
         ALLOCATIONS.load(Ordering::Relaxed),
         ALLOCATED.load(Ordering::Relaxed),
+        MAIN_ALLOCATIONS.load(Ordering::Relaxed),
     )
 }
 
@@ -94,7 +165,7 @@ pub(super) struct Probe {
     frame_ms: Vec<f32>,
     update_ms: Vec<f32>,
     update_began: Option<Instant>,
-    allocations_at_reset: (u64, u64),
+    allocations_at_reset: (u64, u64, u64),
     /// System count per schedule, taken once every schedule exists.
     systems: usize,
 }
@@ -151,6 +222,7 @@ pub(super) fn install(app: &mut App) {
 }
 
 fn begin_update(mut probe: ResMut<Probe>) {
+    let _ = MAIN.try_with(|main| main.set(true));
     probe.update_began = Some(Instant::now());
 }
 
@@ -213,8 +285,8 @@ fn spread(sample: &[f32]) -> String {
 pub(super) fn answer(probe: &mut Probe, entities: &Entities, reset: bool) -> String {
     let secs = probe.since.elapsed().as_secs_f64();
     let frames = probe.frame_ms.len() as u64;
-    let (count, bytes) = allocations();
-    let (count0, bytes0) = probe.allocations_at_reset;
+    let (count, bytes, main) = allocations();
+    let (count0, bytes0, main0) = probe.allocations_at_reset;
     let per_frame = |total: u64| {
         #[allow(clippy::cast_precision_loss)]
         let per = if frames == 0 {
@@ -233,13 +305,15 @@ pub(super) fn answer(probe: &mut Probe, entities: &Entities, reset: bool) -> Str
     let body = format!(
         "{{\"ok\":true,\"secs\":{secs:.3},\"frames\":{frames},\"fps\":{fps:.2},\
          \"frame_ms\":{},\"update_ms\":{},\"entities\":{},\"systems\":{},\
-         \"allocs_per_frame\":{:.1},\"alloc_bytes_per_frame\":{:.0}}}",
+         \"allocs_per_frame\":{:.1},\"alloc_bytes_per_frame\":{:.0},\
+         \"main_allocs_per_frame\":{:.1}}}",
         spread(&probe.frame_ms),
         spread(&probe.update_ms),
         entities.count_spawned(),
         probe.systems,
         per_frame(count - count0),
         per_frame(bytes - bytes0),
+        per_frame(main - main0),
     );
     if reset {
         let systems = probe.systems;
@@ -249,6 +323,142 @@ pub(super) fn answer(probe: &mut Probe, entities: &Entities, reset: bool) -> Str
         };
     }
     body
+}
+
+/// `/allocs {"every":N}`: starts keeping the call stack of every N-th
+/// allocation on each thread (at most [`MAX_SAMPLES`]); `/allocs {}` stops
+/// and answers with where they came from, as plain text: per thread, the
+/// first frame in this workspace's code, and below each such site the first
+/// frame outside the allocator and the standard library. What allocates at
+/// rest is read here, then removed at its site.
+pub(super) fn allocs(every: Option<u64>) -> String {
+    use std::fmt::Write as _;
+    if let Some(every) = every.filter(|n| *n > 0) {
+        if let Ok(mut kept) = SAMPLES.lock() {
+            kept.clear();
+        }
+        SAMPLE_EVERY.store(every, Ordering::Relaxed);
+        return format!("{{\"ok\":true,\"every\":{every}}}");
+    }
+    SAMPLE_EVERY.store(0, Ordering::Relaxed);
+    let kept = SAMPLES
+        .lock()
+        .map(|mut kept| std::mem::take(&mut *kept))
+        .unwrap_or_default();
+    let mut sites: std::collections::BTreeMap<(String, String, String), (usize, String)> =
+        std::collections::BTreeMap::new();
+    let mut threads: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for (thread, trace) in &kept {
+        let text = format!("{trace:#}");
+        let (ours, first) = sites_of(&text);
+        *threads.entry(thread.clone()).or_default() += 1;
+        let entry = sites
+            .entry((thread.clone(), ours, first))
+            .or_insert_with(|| (0, text));
+        entry.0 += 1;
+    }
+    let mut ranked: Vec<_> = sites.into_iter().collect();
+    ranked.sort_by_key(|(_, (n, _))| std::cmp::Reverse(*n));
+    let mut out = format!("samples {}\n", kept.len());
+    for (thread, n) in &threads {
+        let _ = writeln!(out, "thread {n:6} {thread}");
+    }
+    for ((thread, ours, first), (n, _)) in ranked.iter().take(300) {
+        let _ = writeln!(out, "{n:6} [{thread}] {ours}  <=  {first}");
+    }
+    // One whole stack for each of the commonest sites on the main thread:
+    // the frame that names a site is often a library's, and the system that
+    // called it is further down.
+    for ((thread, ours, first), (n, text)) in ranked
+        .iter()
+        .filter(|((thread, _, _), _)| thread == "main")
+        .take(40)
+    {
+        let _ = writeln!(out, "--- {n} [{thread}] {ours} <= {first}");
+        for name in frame_names(text).take(60) {
+            out.push_str("    ");
+            out.push_str(&name[..name.len().min(160)]);
+            out.push('\n');
+        }
+    }
+    out
+}
+
+/// The function names of a resolved backtrace's text, innermost first, in
+/// either of its formats (`  3: name` or, full, `  3:   0x1f00 - name`), the
+/// `at file:line` lines left out.
+fn frame_names(trace: &str) -> impl Iterator<Item = String> {
+    trace
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.starts_with("at "))
+        .filter_map(|line| line.split_once(": ").map(|(_, name)| name.trim()))
+        .map(|name| {
+            let name = if name.starts_with("0x") {
+                name.split_once(" - ").map_or(name, |(_, name)| name)
+            } else {
+                name
+            };
+            // The full format names a crate with its hash, `std[15f5…]::`.
+            let mut plain = String::with_capacity(name.len());
+            let mut rest = name;
+            while let Some(open) = rest.find('[') {
+                let close = rest[open..].find(']').map(|c| open + c);
+                match close {
+                    Some(close) if rest[open + 1..close].chars().all(|c| c.is_ascii_hexdigit()) => {
+                        plain.push_str(&rest[..open]);
+                        rest = &rest[close + 1..];
+                    }
+                    _ => {
+                        plain.push_str(&rest[..=open]);
+                        rest = &rest[open + 1..];
+                    }
+                }
+            }
+            plain.push_str(rest);
+            plain
+        })
+}
+
+/// The first frame in this workspace's crates and the first frame outside
+/// the allocator, `std`, `core` and `alloc`, read off a resolved backtrace's
+/// text.
+fn sites_of(trace: &str) -> (String, String) {
+    let frames: Vec<String> = frame_names(trace).collect();
+    let plumbing = |name: &str| {
+        [
+            "std::",
+            "core::",
+            "alloc::",
+            "<alloc::",
+            "<core::",
+            "<std::",
+            "__rust",
+            "baylee_client::devctl::perf",
+            "<baylee_client::devctl::perf",
+            "hashbrown::",
+            "<hashbrown::",
+            "_malloc",
+            "malloc",
+            "realloc",
+        ]
+        .iter()
+        .any(|p| name.starts_with(p))
+    };
+    let ours = frames
+        .iter()
+        .find(|name| {
+            (name.starts_with("baylee") || name.starts_with("<baylee"))
+                && !name.contains("devctl::perf")
+                && !name.contains("standalone::run")
+                && !name.starts_with("baylee_client::main")
+        })
+        .map_or_else(|| "-".to_string(), Clone::clone);
+    let first = frames
+        .iter()
+        .find(|name| !plumbing(name))
+        .map_or_else(|| "-".to_string(), Clone::clone);
+    (ours, first)
 }
 
 /// `/hide {"what":"felt","hidden":true}`: takes a kind of drawing away (or
@@ -396,10 +606,10 @@ mod tests {
     /// difference of at least zero there and exactly nothing of it here.
     #[test]
     fn the_counters_never_run_backwards() {
-        let (count_before, bytes_before) = allocations();
+        let (count_before, bytes_before, _) = allocations();
         let buffer: Vec<u8> = Vec::with_capacity(64);
         drop(buffer);
-        let (count_after, bytes_after) = allocations();
+        let (count_after, bytes_after, _) = allocations();
         assert!(count_after >= count_before && bytes_after >= bytes_before);
     }
 }
