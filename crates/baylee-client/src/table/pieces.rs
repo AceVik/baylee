@@ -267,7 +267,7 @@ fn stand_in(
     commands.spawn((
         DuelStage,
         FloatingDial,
-        Mesh3d(meshes.add(dial_mesh(outline))),
+        Mesh3d(meshes.add(dial_mesh(outline, base.params.pulse.z.max(1.0)))),
         MeshMaterial3d(material_for(Vec4::new(0.0, tear.seed, 0.0, RIFT_DIAL))),
         slab_at,
         Motion {

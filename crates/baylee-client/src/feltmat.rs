@@ -88,7 +88,8 @@ pub struct FeltParams {
     /// shader's clock (the tip lights fade from there).
     pub dial: Vec4,
     /// `x` when the hub last pulsed, `y` which light: 1 ivory (the turn came
-    /// to me), 2 teal (priority did), 0 none.
+    /// to me), 2 teal (priority did), 0 none; `z` the dial's scale
+    /// (`baylee_client_core::dial::scale_for`, eased; 0 reads as 1).
     pub pulse: Vec4,
     /// Every seat's jewel direction, two per vector (`xy`, `zw`).
     pub jewels: [Vec4; 4],
@@ -106,6 +107,11 @@ pub struct FeltParams {
     /// `baylee_client_core::feltwarp::WarpField::rect`); zero until the grid
     /// for this cut has been computed, and the shader works them out itself.
     pub warp: Vec4,
+    /// Where each hand pointed a moment ago in its sweep
+    /// (`baylee_client_core::dial::Hand::trail`): the turn hand's in `xy`,
+    /// the priority hand's in `zw` — its own direction when still, so a
+    /// settled dial draws no trail and writes nothing.
+    pub trail: Vec4,
 }
 
 /// Random presentation seed, sampled once when a duel is created.

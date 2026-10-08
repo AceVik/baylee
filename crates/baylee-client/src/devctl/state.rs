@@ -1165,16 +1165,30 @@ fn dial_json(believed: &Believed) -> String {
             |v| format!("[{:.4},{:.4}]", v.x, v.y),
         )
     };
+    // A hand's bearing in degrees, counter-clockwise from the table's x axis
+    // (y away from me): what a screenshot's hand is checked against.
+    let angle = |v: Option<Vec2>| {
+        v.map_or_else(
+            || "null".to_string(),
+            |v| format!("{:.2}", v.y.atan2(v.x).to_degrees()),
+        )
+    };
     let deciding: Vec<String> = dial.deciding.iter().map(|p| p.get().to_string()).collect();
     format!(
-        "{{\"turn_hand\":{},\"priority_hand\":{},\"deciding\":[{}],\"hub_pulse\":{:.3},\"number_px\":{:.2},\"number_w\":{:.2},\"dial_px\":{:.2},\"uploads\":{}}}",
+        "{{\"turn_hand\":{},\"priority_hand\":{},\"turn_deg\":{},\"priority_deg\":{},\"deciding\":[{}],\"hub_pulse\":{:.3},\"number_px\":{:.2},\"number_w\":{:.2},\"dial_px\":{:.2},\"scale\":{:.4},\"centre\":{},\"radius\":{:.3},\"effects\":{},\"uploads\":{}}}",
         vector(dial.turn_hand),
         vector(dial.priority_hand),
+        angle(dial.turn_hand),
+        angle(dial.priority_hand),
         deciding.join(","),
         dial.hub_pulse,
         dial.number_px,
         dial.number_w,
         dial.dial_px,
+        dial.scale,
+        vector(dial.centre),
+        dial.radius,
+        dial.effects,
         dial.uploads,
     )
 }

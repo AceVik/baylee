@@ -123,20 +123,80 @@ keyboard stop toggles. Phase lighting is anchored to the game step, so a new
 snapshot cannot restart its transition. `tableicons` is the audited Mana /
 Font Awesome map; tests check it against the bundled font files.
 
-The centre of the table is a dial (DESIGN-v7 §3; `client-core::dial` decides,
-`dial.rs` packs the felt's uniforms, `felt.wgsl`'s `clock_face` draws). One
-jewel per seat stands on the compass at its pod's bearing (allies spread
-apart, a team ring, darkened when the seat has left, a teal arc while it
-chooses its opening hand). A long ivory turn hand points at the active seat,
-a short teal priority hand at the seat the table waits for; both sweep the
-shorter arc in 0.7 s, the priority hand retracts into the hub when nobody is
-awaited and both when the game ends. They are drawn beneath a dark hub plate
-holding the turn number (0.29 of the dial's drawn diameter, 16–40 px, fixed
-digit cells), whose gilt rim pulses once when a hand arrives at me. The five
-stones stand at 0.875. Uniforms are written only on change; the arrival
-lights fade on the shader's clock. Reduced motion puts the hands at their
-targets at once and stills every light. The turn's gear-and-catch sound is
-`Cue::TurnPassed`, played by the sink under the device's volumes.
+The centre of the table is a dial (DESIGN-v7 §3, dial-v2 of 08.10.2026;
+`client-core::dial` decides, `dial.rs` packs the felt's uniforms, `felt.wgsl`'s
+`bezel`, `firewheel` and `clock_face` draw). **Its size is the table's**
+(the owner: *"big, but overlapping the players' battlefields as little as
+possible"*): `dial::scale_for(layout)` puts its rim (`DIAL_OUTER` 1.40 at
+scale 1) `DIAL_AIR` 0.35 inside the largest circle round the middle that no
+drawn mat (footprint and printed border, `dial::free_radius`, seats on the
+felt only) enters, between `MIN_SCALE` 1 (today's) and `MAX_SCALE` 5; the
+shader draws the whole face in its own units (table ÷ scale, `pulse.z`), so
+compass, stones, hub, hands and lines grow together. Read again only when the
+duel changed, eased like a glide (`SCALE_RATE`), a cut under reduced motion.
+At a six-seat ring the face is 5× (180 px across at 1708 × 1028, was 36);
+a duel's gap, the pair arrangements', the pods' and the arc's middle are
+narrower than today's dial, which stays there at scale 1 with its rim on the
+mats' printed border. A grown dial is never on a board's ground; today's
+size is, where the boards themselves come in to the middle — the upright
+ring at four to six seats, the round ring at four on a canvas taller than
+wide and at eight in two sides of four
+(`the_dial_fills_the_middle_and_stays_off_the_boards`, asked at every seat
+count from two to eight, five canvases, every seat of interest, free-for-all
+and fourteen team layouts both seated together and dealt round: 1v2, 2v2,
+1v1v2, 2v3, 1v2v2, 3v3, 2v2v2, 1v2v3, 3v4, 1v3v3, 4v4, 2v2v2v2, 1v1v1v2,
+2v1v1v2). A layout that packs the boards inward keeps `dial::MIN_FREE_RADIUS`
+(1.75) free to keep today's dial off every mat. A table with a parked seat
+(one a tear brings across) stays at scale 1, the dial the tear's floating
+dial and its height over the rising pieces were measured with; the floating
+dial is cut at the slab's scale all the same. Jewels whose pods stand nearly
+in line from the middle (the arc rail's far boards stood 4° apart at seven
+seats) are eased apart to `dial::JEWEL_GAP` (7.4°) in order, by as little as
+that takes (`dial::spread`); a ring's stay exactly on their pods
+(`no_two_jewels_overlap_at_any_table`). A frame that
+keeps the dial in view holds the whole compass at scale 1 and the hub of a
+grown one (`dial::framed_radius`): a visit at six seats that took a grown
+dial whole drew the visited board at 0.70 of a duel's, under
+`a_visit_draws_the_board_larger_than_home`'s floor.
+
+One jewel per seat stands on the compass at its pod's bearing — a cut stone
+with a glint from screen-up in a dark setting (allies spread apart, a team
+ring, darkened when the seat has left, a teal arc while it chooses its
+opening hand), haloed in a hand's colour while that hand rests on it — in a
+darker chapter band with sixty engraved ticks, inside a gilt rim, the whole
+face a shade of smoked glass deeper than the cloth so the veins recede under
+it. The long ivory **turn hand** is a leaf blade with a lozenge at its tip and
+a gilt counterweight (a ring) past the far side of the hub; the shorter teal
+**priority hand** a bar with an arrowhead; both outlined in dark ink and
+bevelled along the spine, with a drop shadow toward screen-down. Both sweep
+the shorter arc in 0.7 s on a damped spring (≈ 3.5 % overshoot, landing
+exactly; `dial::OVERSHOOT` bounds it) and leave a fading fan behind them
+(`Hand::trail`, 0.11 s back, uniform `trail`); an arrival throws a ring of
+light off the tip and lifts the tip's pool, and the hub's gilt rim pulses and
+sends a ripple over the face when a hand arrives at me. The priority hand
+retracts into the hub when nobody is awaited and both when the game ends.
+They are drawn beneath a dark hub plate (`HUB_R` 0.64, a dome's light toward
+screen-up, an engraved inner ring) holding the turn number (0.26 of the
+dial's drawn diameter, 16–56 px, fixed digit cells). The five stones stand
+at 0.875, the nearest one found by bearing rather than a loop over five.
+While the table moves the hands live: a highlight runs out along each blade
+every 5 s, the tips' light breathes, a spark circles the arrowhead — all off,
+not frozen, under reduced motion or still ambient effects (`/state.dial.effects`;
+`the_dial_s_lights_stand_still_when_the_table_does`). Uniforms are written
+only on change; the arrival lights fade on the shader's clock. Reduced motion
+puts the hands at their targets at once. Measured at six seats at rest (30
+frames), the two shaders swapped in one process (`dev-reload`), interleaved:
+1708 × 938, GPU 275–279 ms/s with v7's, 271–275 with dial-v2's (the stones
+found by bearing pay for the rest); 844 × 390, 92–97 against 96–97 (+2 %).
+Process CPU at rest is unchanged (19.6–21.6 % against 19.8–24.8 %, two
+binaries interleaved). Under reduced motion two screenshots of a table at
+rest 2 s apart are byte-identical; an ungated clock injected into the tip's
+breathing changes 1 948 pixels of the face. `/state.dial` adds `scale`, `radius` (the rim, table
+units), `centre`, `turn_deg`/`priority_deg` and `effects`. The hands' two
+colours are `dial::TURN_INK`/`PRIORITY_INK`, also the seat plates' top
+border lines (one ivory, one teal on the whole table). The turn's
+gear-and-catch sound is `Cue::TurnPassed`, played by the sink under the
+device's volumes.
 
 The **drawer** shares the **ledge**'s material. Its bottom remains open, and
 its measured width removes the ledge rail's top tooling across the join. Both
