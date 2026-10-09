@@ -664,6 +664,10 @@ pub fn offered(row: Row, builds: Builds, monitors: usize) -> bool {
         }
         Row::Monitor => builds.desktop && monitors > 1,
         Row::CheckAutomatically | Row::InstallAutomatically | Row::CheckNow => builds.desktop,
+        // The tours are desktop-only for now (owner, 09.10.).
+        Row::TourLobby | Row::TourBuilder | Row::TourTable | Row::TourTips | Row::TourRestart => {
+            !builds.phone
+        }
         _ => of(row).section.offered(builds),
     }
 }

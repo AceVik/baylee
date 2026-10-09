@@ -218,6 +218,18 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
     let step = run.current();
     let chapter = run.current_chapter();
     let chapters = run.tour.chapters();
+    // The bubble's buttons are the kit's compact ones (owner, 09.10.):
+    // 32 high under a pointer, 44 under touch, their words at the small
+    // size.
+    let compact = Kit {
+        m: ShellMetrics {
+            control: 32.0,
+            hit: if kit.m.touch() { 44.0 } else { 32.0 },
+            text: kit.m.small,
+            ..kit.m
+        },
+        ..kit
+    };
     let card = commands
         .spawn((
             TourLayer,
@@ -272,7 +284,7 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
     let words = controls::label(commands, kit, &words, kit.m.small, tokens::MUTED);
     let fold = controls::button(
         commands,
-        kit,
+        compact,
         "\u{00d7}",
         Weight::Ghost,
         Live::Yes,
@@ -284,10 +296,7 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
     let title = commands
         .spawn((
             Text::new(step.title.text(lang)),
-            tf(
-                kit.fonts,
-                kit.m.scaled(if setting.phone { 18.0 } else { 22.0 }),
-            ),
+            tf(kit.fonts, kit.m.head),
             TextColor(tokens::INK),
             Pickable::IGNORE,
         ))
@@ -296,7 +305,9 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
     let body = commands
         .spawn((
             Text::new(step.body.text(lang)),
-            tf(kit.fonts, kit.m.text),
+            // One step under the shell's body text (owner, 09.10.): the
+            // bubble is a note beside the screen, not a page of it.
+            tf(kit.fonts, kit.m.small),
             TextColor(tokens::INK),
             Pickable::IGNORE,
         ))
@@ -354,61 +365,42 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
         commands.entity(dots).add_child(node);
     }
     commands.entity(card).add_child(dots);
-    // 5. The foot: the box, then the buttons.
-    let tick = never_again(commands, kit, lang);
-    commands.entity(card).add_child(tick);
-    let buttons = commands
-        .spawn(Node {
-            justify_content: JustifyContent::FlexEnd,
-            align_items: AlignItems::Center,
-            column_gap: px_fixed(8.0),
-            flex_wrap: FlexWrap::Wrap,
-            ..default()
-        })
-        .id();
-    let mut row = Vec::new();
-    if step.kind == Kind::Offer {
-        row.push(controls::button(
-            commands,
-            kit,
-            Phrase::TourLater.text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            None,
-            TourPress::Later,
-        ));
-        row.push(controls::button(
-            commands,
-            kit,
-            Phrase::TourStartPractice.text(lang),
-            Weight::Primary,
-            Live::Yes,
-            Some("Enter"),
-            TourPress::Practice,
-        ));
-    } else {
-        if run.has_back() {
-            row.push(controls::button(
+    // 5. The foot (owner, 09.10.): Back at the left and Next at the right
+    // on one line, Skip quiet and centred under them, the box on a line of
+    // its own at the very bottom — never squeezed between buttons.
+    let (left, right) = if step.kind == Kind::Offer {
+        (
+            Some(controls::button(
                 commands,
-                kit,
-                Phrase::TourBack.text(lang),
-                Weight::Ghost,
-                Live::Yes,
-                None,
-                TourPress::Back,
-            ));
-        }
-        if !run.last() || run.single {
-            row.push(controls::button(
-                commands,
-                kit,
-                Phrase::TourSkip.text(lang),
+                compact,
+                Phrase::TourLater.text(lang),
                 Weight::Secondary,
                 Live::Yes,
                 None,
-                TourPress::Skip,
-            ));
-        }
+                TourPress::Later,
+            )),
+            controls::button(
+                commands,
+                compact,
+                Phrase::TourStartPractice.text(lang),
+                Weight::Primary,
+                Live::Yes,
+                Some("Enter"),
+                TourPress::Practice,
+            ),
+        )
+    } else {
+        let back = run.has_back().then(|| {
+            controls::button(
+                commands,
+                compact,
+                Phrase::TourBack.text(lang),
+                Weight::Secondary,
+                Live::Yes,
+                None,
+                TourPress::Back,
+            )
+        });
         // Done only where the tour ends; a lobby chapter's end goes on to
         // the next chapter, on its screen.
         let done = run.last() && (run.single || run.chapter + 1 >= chapters.len());
@@ -423,18 +415,59 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
             Live::No(Phrase::TourTryFirst.text(lang))
         };
         let cap = (run.mode == Mode::Narrated).then_some("Enter");
-        row.push(controls::button(
+        let next = controls::button(
             commands,
-            kit,
+            compact,
             next.text(lang),
             Weight::Primary,
             live,
             cap,
             TourPress::Next,
-        ));
+        );
+        (back, next)
+    };
+    let pair = commands
+        .spawn(Node {
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Center,
+            column_gap: px_fixed(8.0),
+            margin: UiRect::top(px_fixed(4.0)),
+            ..default()
+        })
+        .id();
+    // An empty left keeps Next at the right on a chapter's first step.
+    let left = left.unwrap_or_else(|| commands.spawn((Node::default(), Pickable::IGNORE)).id());
+    commands.entity(pair).add_children(&[left, right]);
+    commands.entity(card).add_child(pair);
+    if step.kind != Kind::Offer && (!run.last() || run.single) {
+        let skip = controls::button(
+            commands,
+            compact,
+            Phrase::TourSkip.text(lang),
+            Weight::Ghost,
+            Live::Yes,
+            None,
+            TourPress::Skip,
+        );
+        commands
+            .entity(skip)
+            .entry::<Node>()
+            .and_modify(|mut node| node.align_self = AlignSelf::Center);
+        commands.entity(card).add_child(skip);
     }
-    commands.entity(buttons).add_children(&row);
-    commands.entity(card).add_child(buttons);
+    let rule = commands
+        .spawn((
+            Node {
+                height: px_fixed(1.0),
+                width: Val::Percent(100.0),
+                ..default()
+            },
+            BackgroundColor(tokens::BORDER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let tick = never_again(commands, kit, lang);
+    commands.entity(card).add_children(&[rule, tick]);
 }
 
 /// The box in the bubble's foot: *Don't show tours again* (one box, as World of Warcraft's).
