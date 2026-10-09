@@ -323,11 +323,12 @@ fn the_corner_tiles_stand_in_their_corners_and_open_what_they_show() {
                     }
                 }
             }
-            let images = app
+            let kids: Vec<Entity> = app
                 .world()
                 .get::<Children>(entity)
+                .map_or_else(Vec::new, |c| c.iter().collect());
+            let images = kids
                 .into_iter()
-                .flat_map(|c| c.iter())
                 .filter(|frame| {
                     app.world().get::<Children>(*frame).is_some_and(|c| {
                         c.iter().any(|p| app.world().get::<ImageNode>(p).is_some())
