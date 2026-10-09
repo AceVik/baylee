@@ -4,6 +4,7 @@
 use super::*;
 
 mod birthing_pod;
+mod bottle_of_suleiman;
 mod conduit_of_worlds;
 mod conservator;
 mod cyclopean_tomb;
