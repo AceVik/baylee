@@ -208,8 +208,21 @@ pub(super) fn keyboard(
     // arrows and its Esc ladder; nothing behind it hears a key.
     if state.library_open() && state.menu.is_none() && state.confirmation.is_none() {
         keys.clear();
-        let request = super::history::keys(&codes, &mut state);
-        dispatch(&mut state, &mailbox, request);
+        // Only a key the sheet answers borrows the state mutably: a borrow
+        // is a write, and one every frame redrew the whole sheet every frame,
+        // so no click or Tab could land on it (the live walk, windows-b6 C).
+        if codes.any_just_pressed([
+            KeyCode::Escape,
+            KeyCode::ArrowUp,
+            KeyCode::ArrowDown,
+            KeyCode::ArrowLeft,
+            KeyCode::ArrowRight,
+        ]) {
+            let request = super::history::keys(&codes, &mut state);
+            if request.is_some() {
+                dispatch(&mut state, &mailbox, request);
+            }
+        }
         return;
     }
     // The Decks and Play screens' menus and sheets (WP2, WP3): Esc closes
