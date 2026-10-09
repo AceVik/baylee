@@ -483,7 +483,7 @@ fn strip(commands: &mut Commands, env: &Env, picker: &Picker) -> Entity {
         let back = controls::button(
             commands,
             kit,
-            "\u{25c2}",
+            "\u{2039}",
             Weight::Ghost,
             Live::Yes,
             None,
@@ -500,7 +500,7 @@ fn strip(commands: &mut Commands, env: &Env, picker: &Picker) -> Entity {
         let forward = controls::button(
             commands,
             kit,
-            "\u{25b8}",
+            "\u{203a}",
             Weight::Ghost,
             Live::Yes,
             None,
@@ -809,7 +809,7 @@ fn foot(
         .text(lang),
         Weight::Primary,
         Live::Yes,
-        keys.then_some("\u{21b5}"),
+        keys.then_some("Enter"),
         (
             Press::Build(if apply {
                 BuildPress::PickerConfirm

@@ -288,7 +288,7 @@ pub(crate) fn deck_row(
             frame(kit, top, height),
             BackgroundColor(ROW_GROUND),
             crate::ambience::Feel::tinting_to(ROW_GROUND, ROW_HOT),
-            Press::Build(BuildPress::Inspect(entry.slot)),
+            Press::Build(BuildPress::InspectRow(at)),
             hover.clone(),
             DeckRowAt(order),
         ))

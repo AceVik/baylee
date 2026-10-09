@@ -102,6 +102,9 @@ pub(crate) enum BuildPress {
     /// Open the card window on a card, by its slot in the pool (the row's
     /// door, windows-b6 §A.3).
     Inspect(usize),
+    /// Open the card window on a row of the shown deck list (the row's
+    /// door): ← → then walk that list.
+    InspectRow(usize),
     /// The card window: one copy in the chosen printing into a zone.
     WindowAdd(Zone),
     /// The card window's stepper: one more (`true`) or one fewer in a zone.
@@ -562,6 +565,12 @@ impl BuildPress {
             BuildPress::Inspect(slot) => {
                 state.build.window_back = false;
                 let request = state.lobby.builder_mut().inspect(slot);
+                dispatch(state, mailbox, request);
+            }
+            BuildPress::InspectRow(at) => {
+                state.build.window_back = false;
+                let zone = state.lobby.builder().zone();
+                let request = state.lobby.builder_mut().inspect_row(at, zone);
                 dispatch(state, mailbox, request);
             }
             BuildPress::WindowAdd(zone) => {
