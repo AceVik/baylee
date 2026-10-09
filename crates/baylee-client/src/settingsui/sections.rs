@@ -266,6 +266,7 @@ pub(crate) fn graphics(out: &mut Out, view: &View) {
 /// The arrangement rows (DESIGN-v8 §2.4): the default as one button per
 /// arrangement (an arrangement not built yet is drawn dead), *Tisch folgt
 /// dem Zug*, and the per-count memory, a stepper per seat count.
+#[allow(clippy::too_many_lines)] // three rows of one setting, read top to bottom
 fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableView) {
     use baylee_client_core::tableview::{Arrangement, BySeats};
     let lang = out.lang;

@@ -10,7 +10,7 @@ use super::*;
 pub struct HoveredOffer(pub bool);
 
 /// Brings the scene in line with the board model.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)] // a system's injections, grouped under bevy's ceiling
 #[allow(clippy::too_many_lines)] // the diff loop is one coherent pass
 pub fn sync_scene(
     mut commands: Commands,

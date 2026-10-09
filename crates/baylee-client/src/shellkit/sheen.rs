@@ -40,7 +40,7 @@ pub struct SheenParams {
     pub hover: f32,
     /// The resting glow's strength.
     pub glow: f32,
-    /// 1 moves the band, 0 holds it (reduce_motion).
+    /// 1 moves the band, 0 holds it (`reduce_motion`).
     pub sweep: f32,
     /// Padding to the 16-byte boundary.
     pub pad: f32,
@@ -84,10 +84,13 @@ pub fn params(warmth: f32, still: bool) -> SheenParams {
     }
 }
 
+/// A [`Sheen`] button not yet wearing its light.
+type Undressed = (With<Sheen>, Without<SheenSurface>);
+
 /// Lays the light on every [`Sheen`] button that has none yet.
 pub(crate) fn dress(
     mut commands: Commands,
-    faces: Query<(Entity, &Feel), (With<Sheen>, Without<SheenSurface>)>,
+    faces: Query<(Entity, &Feel), Undressed>,
     materials: Option<ResMut<Assets<SheenMaterial>>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
 ) {
@@ -165,7 +168,7 @@ mod tests {
     use super::*;
 
     /// At rest the band is off and the glow is the resting one; the pointer
-    /// lights it, a press does not (it sinks); reduce_motion holds the band.
+    /// lights it, a press does not (it sinks); `reduce_motion` holds the band.
     #[test]
     fn the_light_follows_the_pointer_and_holds_still_when_asked() {
         let rest = params(0.0, false);

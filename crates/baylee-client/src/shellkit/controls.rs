@@ -1317,7 +1317,7 @@ mod tests {
         assert!(scale(&app, face) < 1.0, "and gives under a press");
     }
 
-    /// Under reduce_motion the states change at once: the first frame of a
+    /// Under `reduce_motion` the states change at once: the first frame of a
     /// hover is the whole of it.
     #[test]
     fn reduce_motion_changes_the_state_at_once() {
@@ -1397,7 +1397,7 @@ mod tests {
         assert_eq!(tick, again, "a toggle at rest writes nothing");
     }
 
-    /// Under reduce_motion a pressed toggle stands at its end at once.
+    /// Under `reduce_motion` a pressed toggle stands at its end at once.
     #[test]
     fn under_reduce_motion_a_toggle_jumps() {
         let stop = super::super::focus::Stop::new("settings", "text-face");

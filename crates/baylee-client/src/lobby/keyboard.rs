@@ -518,7 +518,6 @@ fn cycle_form_focus(state: &mut LobbyState, direction: Tab) {
     lobby.select_all();
 }
 
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // the clipboard rides along; one flat match
 /// Which form a field's keys are read for: Esc, Enter and the arrows mean
 /// something different on each.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -531,6 +530,7 @@ enum Form {
     Settings,
 }
 
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // the clipboard rides along; one flat match
 fn text_field_keys(
     keys: &mut MessageReader<KeyboardInput>,
     codes: &ButtonInput<KeyCode>,

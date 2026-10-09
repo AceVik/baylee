@@ -130,6 +130,7 @@ pub(crate) fn shape_under(
 }
 
 /// Sets the window's pointer from what lies under the mouse.
+#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 pub(crate) fn follow_the_pointer(
     mut commands: Commands,
     hovers: Option<Res<HoverMap>>,
@@ -173,6 +174,7 @@ mod tests {
     use super::*;
     use crate::lobby::{Press, SharedPress};
 
+    #[allow(clippy::type_complexity)] // the three queries `shape_under` reads
     fn shape_of(app: &mut App, entity: Entity) -> Shape {
         let mut state: bevy::ecs::system::SystemState<(
             Query<Marks>,

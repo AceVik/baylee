@@ -557,6 +557,7 @@ fn submit(commands: &mut Commands, state: &LobbyState, kit: Kit, text: &str) -> 
 
 /// The sign-in face: the gateway, username and password, Sign in; Create
 /// account and Play as guest under a rule, the key hint under them.
+#[allow(clippy::too_many_lines)] // one face, read top to bottom
 pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState, kit: Kit) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
