@@ -411,6 +411,10 @@ pub enum Storage {
     Account,
 }
 
+/// How many characters a help text runs to before a phone's row stands it
+/// over its control rather than beside it.
+const LONG_HELP: usize = 120;
+
 /// A settings row: label, help under it, the control, the storage tag.
 pub fn row(
     commands: &mut Commands,
@@ -441,13 +445,23 @@ pub fn row(
             Pickable::IGNORE,
         ))
         .id();
+    // On a phone a long help text takes the row's whole width and its
+    // control goes under it: squeezed beside a wide control (the music
+    // theme's five segments) it broke into five lines and pushed the third
+    // row out of the 390-px height (§12, M4-6).
+    let long_help = kit.m.frame == super::size::Frame::Phone
+        && help.is_some_and(|h| h.chars().count() > LONG_HELP);
     let words = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
                 flex_shrink: 1.0,
-                flex_basis: kit.m.px(160.0),
+                flex_basis: if long_help {
+                    Val::Percent(100.0)
+                } else {
+                    kit.m.px(160.0)
+                },
                 min_width: px_fixed(0.0),
                 row_gap: kit.m.px(2.0),
                 ..default()
@@ -464,6 +478,33 @@ pub fn row(
     };
     let name = prose(commands, kit, text, false);
     commands.entity(name).insert(full.clone());
+    // On a phone the storage tag stands on the name's line, so the words
+    // keep the row's width beside the control: in the tag's own place a
+    // help text broke into five lines and the third row left the 390-px
+    // height (§12, M4-6).
+    let phone = kit.m.frame == super::size::Frame::Phone;
+    let name = if phone && tag.is_some() {
+        commands.entity(name).insert(Node {
+            flex_shrink: 1.0,
+            ..default()
+        });
+        let head = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    column_gap: kit.m.px(8.0),
+                    flex_wrap: FlexWrap::Wrap,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(head).add_child(name);
+        head
+    } else {
+        name
+    };
     commands.entity(words).add_child(name);
     if let Some(help) = help {
         let help = prose(commands, kit, help, true);
@@ -491,7 +532,11 @@ pub fn row(
             .id();
         let words = label(commands, kit, said, kit.m.small, tokens::MUTED);
         commands.entity(chip).add_child(words);
-        commands.entity(line).add_child(chip);
+        if phone {
+            commands.entity(name).add_child(chip);
+        } else {
+            commands.entity(line).add_child(chip);
+        }
     }
     commands.entity(line).add_child(control);
     line

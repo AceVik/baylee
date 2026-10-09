@@ -449,7 +449,14 @@ fn section_panel(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(panel).add_children(&[head, rows, save]);
+    // A phone's height is the scarce axis: the line scrolls with the rows
+    // there, after the last, so three rows stand in the 390 px (§12, M4-6).
+    if kit.m.frame == Frame::Phone {
+        commands.entity(rows).add_child(save);
+        commands.entity(panel).add_children(&[head, rows]);
+    } else {
+        commands.entity(panel).add_children(&[head, rows, save]);
+    }
     panel
 }
 
