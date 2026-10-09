@@ -49,9 +49,10 @@
 //! POST /msaa     {"samples":1}   (every camera's multisampling)
 //! POST /executor {"single":true}   (every schedule on one thread, or back)
 //! POST /allocs   {"every":31}   (keep every 31st allocation's stack; `{}` stops and reports)
+//! POST /changed  {"frames":60}   (count what is marked changed over 60 frames; `{}` reports)
 //! ```
 //!
-//! The last five measure rather than drive: `docs/perf-client.md` has what
+//! The last six measure rather than drive: `docs/perf-client.md` has what
 //! they found and how a measurement is taken with them.
 //!
 //! The last three are one tool. Almost everything worth photographing here is
@@ -67,6 +68,7 @@
 //! Run it with `BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client
 //! --features dev-control`, then `curl -s localhost:28770/state`.
 
+mod changed;
 mod perf;
 mod state;
 
@@ -300,6 +302,8 @@ impl Plugin for DevControlPlugin {
             (pump, shell_knobs).chain().after(bevy::input::InputSystems),
         );
         perf::install(app);
+        app.init_resource::<changed::Tally>()
+            .add_systems(Last, changed::watch);
     }
 }
 
@@ -656,6 +660,7 @@ fn clock_answer(clock: &Time<Virtual>) -> String {
 #[derive(bevy::ecs::system::SystemParam)]
 struct Measured<'w, 's> {
     probe: ResMut<'w, perf::Probe>,
+    changed: ResMut<'w, changed::Tally>,
     hidden: ResMut<'w, perf::Hidden>,
     entities: &'w bevy::ecs::entity::Entities,
     cameras: Query<'w, 's, &'static mut bevy::render::view::Msaa, With<Camera>>,
@@ -676,6 +681,10 @@ fn measure(path: &str, body: &str, measured: &mut Measured) -> String {
             None => r#"{"error":"no what"}"#.to_string(),
         },
         "/executor" => perf::set_executor(&mut measured.schedules, flag(body, "single")),
+        "/changed" => changed::answer(
+            &mut measured.changed,
+            field(body, "frames").and_then(|n| n.parse().ok()),
+        ),
         "/allocs" => perf::allocs(field(body, "every").and_then(|n| n.parse().ok())),
         "/msaa" => perf::set_msaa(
             &mut measured.cameras,
