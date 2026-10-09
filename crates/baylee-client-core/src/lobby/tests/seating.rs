@@ -480,3 +480,74 @@ fn signing_out_forgets_a_table_we_were_waiting_at() {
     lobby.sign_out();
     assert_eq!(lobby.awaiting(), None);
 }
+
+/// A client restarted into an update knows which chair it left: it asks
+/// for that one first, even when the listing's page does not show it and
+/// another chair of the player's does, and goes to the table or the room
+/// as the restart says rather than as a listing without it would guess.
+#[test]
+fn a_restart_goes_back_to_the_chair_it_left_before_any_other() {
+    let other = |id: &str| GameSummary {
+        id: id.to_string(),
+        state: "playing".to_string(),
+        seats: vec![GameSeat {
+            seat: 0,
+            taken: true,
+            ready: true,
+            you: true,
+            ..GameSeat::default()
+        }],
+        ..GameSummary::default()
+    };
+    let seat = |id: &str| SeatHandover {
+        game_id: id.to_string(),
+        seat: 1,
+        seat_token: "fresh".to_string(),
+        local: false,
+    };
+
+    let mut lobby = seated_lobby();
+    lobby.resume_seat("left", true);
+    assert_eq!(
+        lobby.apply(LobbyEvent::Games(GameListing::of(vec![other("elsewhere")]))),
+        Some(LobbyRequest::TakeSeat {
+            game_id: "left".to_string()
+        }),
+        "the restart's chair, though the page lists only another"
+    );
+    assert_eq!(lobby.apply(LobbyEvent::Seated(seat("left"))), None);
+    assert_eq!(
+        *lobby.screen(),
+        Screen::Seated(seat("left")),
+        "at the table"
+    );
+
+    // A waiting room comes back as the room, not as a table.
+    let mut lobby = seated_lobby();
+    lobby.resume_seat("room", false);
+    assert_eq!(
+        lobby.apply(LobbyEvent::Games(GameListing::of(vec![]))),
+        Some(LobbyRequest::TakeSeat {
+            game_id: "room".to_string()
+        })
+    );
+    lobby.apply(LobbyEvent::Seated(seat("room")));
+    assert_eq!(*lobby.screen(), Screen::Table);
+    assert_eq!(lobby.awaiting(), Some(&seat("room")));
+}
+
+/// The house's table rebuilt after a restart is an offline seat, so its end
+/// comes back to the offline lobby.
+#[test]
+fn a_restarted_house_game_sits_down_offline() {
+    let mut lobby = Lobby::new();
+    let handover = SeatHandover {
+        game_id: "offline".to_string(),
+        seat: 0,
+        seat_token: String::new(),
+        local: true,
+    };
+    lobby.resume_offline_table(handover.clone());
+    assert!(lobby.offline());
+    assert_eq!(*lobby.screen(), Screen::Seated(handover));
+}

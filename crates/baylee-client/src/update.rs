@@ -27,6 +27,7 @@ use crate::lobby::Metrics;
 use crate::settings::ClientSettings;
 use crate::{DuelPhase, lobby};
 use baylee_client_core::i18n::{Lang, Phrase};
+use baylee_client_core::resume::RestartOffer;
 use bevy::picking::events::{Click, Pointer};
 use bevy::prelude::*;
 use bevy::ui::{percent, px};
@@ -245,6 +246,10 @@ pub enum UpdateRequest {
     TrashOld,
     /// The old copy after a move stays; stop asking.
     KeepOld,
+    /// "Restart now": the ready update is installed as this client quits,
+    /// and the client starts again where the player is
+    /// (`docs/client.md` §"Restarting into an update").
+    RestartNow,
 }
 
 /// A button of the updater's face, and what it does.
@@ -266,6 +271,10 @@ pub enum UpdateButton {
     TrashOld,
     /// [`UpdateRequest::KeepOld`].
     KeepOld,
+    /// [`UpdateRequest::RestartNow`].
+    RestartNow,
+    /// Not now: the restart offer goes away for the session.
+    Later,
 }
 
 /// The settings screen's place for [`UpdatePlace`], filled by `show_place`.
@@ -325,7 +334,10 @@ fn press(
         };
         match button {
             UpdateButton::Open(page) => open(page),
-            UpdateButton::Hide => notice.hidden = true,
+            UpdateButton::Hide | UpdateButton::Later => notice.hidden = true,
+            UpdateButton::RestartNow => {
+                requests.write(UpdateRequest::RestartNow);
+            }
             UpdateButton::ToggleCheck | UpdateButton::ToggleInstall => {
                 if *button == UpdateButton::ToggleCheck {
                     prefs.check = !prefs.check;
@@ -381,25 +393,42 @@ fn openable(page: &str) -> bool {
         .any(|prefix| page.starts_with(prefix))
 }
 
-/// Keeps the corner panel in step with the notice: shown in the lobby while
-/// there is something to say and it was not hidden, gone at a table (the
-/// menu says it there) and once hidden.
+/// What the notice's panel was last drawn from: the notice, the place, the
+/// language, and whether it stood over a table.
+type Drawn = Option<(Option<Shown>, UpdatePlace, Lang, bool)>;
+
+/// Keeps the notice's panel in step with the notice: shown in the lobby's
+/// corner while there is something to say and it was not hidden, and once
+/// hidden gone. At a table only a ready update's restart offer stands, at
+/// the top, and never appears in the middle of a question of this player's
+/// ([`RestartOffer`]): it waits for the answer and appears after it, and
+/// then stays. The menu's line says the rest there.
 #[allow(clippy::too_many_arguments)] // one panel, drawn from everything it depends on
 fn show_toast(
     mut commands: Commands,
     notice: Res<UpdateNotice>,
     place: Res<UpdatePlace>,
     phase: Option<Res<State<DuelPhase>>>,
+    duel: Option<Res<crate::Duel>>,
     fonts: Option<Res<UiFonts>>,
     settings: Option<Res<ClientSettings>>,
     windows: Query<&Window>,
     toasts: Query<Entity, With<UpdateToast>>,
-    mut drawn: Local<Option<(Option<Shown>, UpdatePlace, Lang)>>,
+    mut drawn: Local<Drawn>,
+    mut offer: Local<RestartOffer>,
 ) {
     let lang = settings.map_or(Lang::En, |s| Lang::of(&s.lang));
     let in_lobby = phase.is_none_or(|p| *p.get() == DuelPhase::Closed);
-    let wanted = (in_lobby && !notice.hidden && (notice.shown.is_some() || place.moved.is_some()))
-        .then(|| (notice.shown.clone(), place.clone(), lang));
+    let ready = matches!(notice.shown, Some(Shown::Ready { .. }));
+    let at_table = if in_lobby {
+        *offer = RestartOffer::default();
+        false
+    } else {
+        offer.step(ready, notice.hidden, duel.as_deref().and_then(asked))
+    };
+    let in_corner = in_lobby && !notice.hidden && (notice.shown.is_some() || place.moved.is_some());
+    let wanted =
+        (in_corner || at_table).then(|| (notice.shown.clone(), place.clone(), lang, at_table));
     if *drawn == wanted && (wanted.is_none() || !toasts.is_empty()) {
         return;
     }
@@ -407,11 +436,11 @@ fn show_toast(
         commands.entity(toast).despawn();
     }
     (*drawn).clone_from(&wanted);
-    let (Some((shown, place, lang)), Some(fonts)) = (wanted, fonts) else {
+    let (Some((shown, place, lang, at_table)), Some(fonts)) = (wanted, fonts) else {
         return;
     };
     let width = windows.iter().next().map_or(1280.0, Window::width);
-    spawn_toast(
+    let toast = spawn_toast(
         &mut commands,
         &fonts,
         Metrics::of(width),
@@ -419,6 +448,41 @@ fn show_toast(
         shown.as_ref(),
         &place,
     );
+    if at_table {
+        // Over the table's top edge, clear of the hand, the ledge and the
+        // corners' buttons.
+        commands.entity(toast).insert((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(64),
+                left: percent(50),
+                max_width: px(380),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                padding: UiRect::all(px(12)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(6)),
+                ..default()
+            },
+            UiTransform::from_translation(Val2::percent(-50.0, 0.0)),
+        ));
+    }
+}
+
+/// The question this player owes the table now, by its view's `seq`: the
+/// view says it is awaited, or a question of its own is open. `None` while
+/// nothing is asked of it.
+fn asked(duel: &crate::Duel) -> Option<u64> {
+    let seq = duel.view.as_ref().map_or(0, |view| view.seq);
+    let awaited = duel
+        .view
+        .as_ref()
+        .is_some_and(|view| view.awaiting == Some(view.seat))
+        || duel
+            .interaction
+            .as_ref()
+            .is_some_and(baylee_client_core::interaction::Interaction::is_mine);
+    awaited.then_some(seq)
 }
 
 /// The line under the headline: the exact folder and error where the
@@ -518,6 +582,49 @@ fn move_part(
     parts
 }
 
+/// A ready update's offer: restart now and come back here, or later, and
+/// what went wrong with a restart asked for already.
+fn restart_part(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+    shown: &Shown,
+    place: &UpdatePlace,
+) -> Vec<Entity> {
+    let mut parts: Vec<Entity> = std::iter::once(Phrase::UpdateRestartOffer.text(lang).to_owned())
+        .chain(place.failed.clone())
+        .map(|text| small_line(commands, fonts, metrics, text))
+        .collect();
+    let mut row = vec![
+        our_button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::UpdateRestartNow.text(lang),
+            UpdateButton::RestartNow,
+        ),
+        our_button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::UpdateLater.text(lang),
+            UpdateButton::Later,
+        ),
+    ];
+    if let Some(page) = shown.page() {
+        row.push(our_button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::ReleaseNotes.text(lang),
+            UpdateButton::Open(page.to_owned()),
+        ));
+    }
+    parts.push(button_row(commands, &row));
+    parts
+}
+
 fn spawn_toast(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -593,6 +700,12 @@ fn spawn_toast(
         if let Some(reason) = reason_of(shown, place, lang) {
             let line = small_line(commands, fonts, metrics, reason);
             commands.entity(toast).add_child(line);
+        }
+        if matches!(shown, Shown::Ready { .. }) {
+            for part in restart_part(commands, fonts, metrics, lang, shown, place) {
+                commands.entity(toast).add_child(part);
+            }
+            return toast;
         }
         if offers_move(shown, place) {
             for part in move_part(commands, fonts, metrics, lang, place) {
