@@ -400,6 +400,7 @@ pub(crate) fn install(app: &mut App) {
                 presses,
                 follow,
                 draw::draw,
+                draw::lift_tips,
             )
                 .chain()
                 .run_if(settled),

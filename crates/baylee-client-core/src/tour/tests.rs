@@ -311,3 +311,30 @@ fn no_tour_step_starts_on_a_phone_or_under_touch() {
         assert!(!offered_here(phone, touch), "{phone} {touch}");
     }
 }
+
+/// The table tour never asks for what the opening hand forbids (09.10.: T8
+/// asked for a cast during the mulligan and its Next did nothing): a start
+/// waits for the game to begin, a try-it step that needs a begun game parks
+/// while the hands are decided, and both go on once they are.
+#[test]
+fn the_table_tour_waits_for_the_opening_hands() {
+    let mut run = Run::chapter(Tour::Table, 0, false, 4).unwrap();
+    assert_eq!(table_gate(true, None, true), TableGate::WaitToStart);
+    assert_eq!(table_gate(true, None, false), TableGate::Open);
+    // A narrated step asks for no action: it stands.
+    assert_eq!(table_gate(false, Some(&run), true), TableGate::Open);
+    let mut tours = Tours::default();
+    while run.current().id != "T8" {
+        assert_eq!(run.next(&mut tours), Moved::Step);
+    }
+    assert_eq!(table_gate(false, Some(&run), true), TableGate::Park);
+    assert_eq!(table_gate(false, Some(&run), false), TableGate::Open);
+    // The log's try-it is possible during the mulligan: it is not parked.
+    while run.current().kind != Kind::Try(Check::LogOpened) {
+        assert_eq!(run.next(&mut tours), Moved::Step);
+    }
+    assert_eq!(table_gate(false, Some(&run), true), TableGate::Open);
+    // A lobby run is never the table's to park.
+    let lobby = Run::chapter(Tour::Lobby, 0, false, 0).unwrap();
+    assert_eq!(table_gate(false, Some(&lobby), true), TableGate::Open);
+}
