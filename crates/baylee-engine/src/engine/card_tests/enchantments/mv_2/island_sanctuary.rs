@@ -208,7 +208,7 @@ fn attack_p0_with(
                 attackers: vec![(attacker, Defender::Player(P0))],
             },
         )
-        .map(|_| ())
+        .map(drop)
 }
 
 // ---------------------------------------------------------------------------
