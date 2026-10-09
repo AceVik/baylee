@@ -93,6 +93,8 @@ pub(crate) enum DecksPress {
     Duplicate(usize),
     /// Its history, in a sheet.
     History(usize),
+    /// A house deck's history, read-only (`DESIGN` §C.3, Q-C4).
+    HouseHistory(usize),
     /// Star or unstar it.
     Favourite(usize),
     /// Off the shelf, with an Undo.
@@ -278,7 +280,8 @@ pub(super) fn draw(
 
     if ui.preview.is_some() && ui.tab == DecksTab::House {
         preview_sheet(commands, root, state, kit);
-    } else if matches!(lobby.library().page, Some(Page::History(_))) && ui.tab == DecksTab::Mine {
+    } else if matches!(lobby.library().page, Some(Page::History(_))) {
+        // Either tab: a house deck's history is read-only (Q-C4).
         super::history::sheet(commands, root, state, kit);
     }
 }
@@ -848,6 +851,11 @@ fn house(
                     Phrase::HouseAdd.text(lang),
                     Press::Decks(DecksPress::Add(index)),
                 ),
+                // Read-only: what the precon was before its latest build.
+                menus::item(
+                    Phrase::DecksHistory.text(lang),
+                    Press::Decks(DecksPress::HouseHistory(index)),
+                ),
                 menus::item(
                     Phrase::ShellAddAndUse.text(lang),
                     Press::Decks(DecksPress::AddAndUse(index)),
@@ -1184,6 +1192,15 @@ impl DecksPress {
             DecksPress::History(index) => {
                 if let Some(id) = state.lobby.decks().get(index).map(|d| d.id.clone()) {
                     state.decks.show_all = false;
+                    let request = state.lobby.browse_deck_history(&id);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            DecksPress::HouseHistory(index) => {
+                let id = state.lobby.library().house.get(index).map(|d| d.id.clone());
+                if let Some(id) = id {
+                    state.decks.show_all = false;
+                    state.menu = None;
                     let request = state.lobby.browse_deck_history(&id);
                     dispatch(state, mailbox, request);
                 }

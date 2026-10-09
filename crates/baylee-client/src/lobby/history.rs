@@ -160,7 +160,9 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
             orders::item(commands, row, &orders::HISTORY, "versions", walked);
             commands.entity(versions).add_child(row);
         }
-        if history.past.is_empty() {
+        // "Your next save…" is a promise only a deck of this player's can
+        // keep; a house deck is read-only.
+        if history.past.is_empty() && !house {
             let none = parts::line(
                 commands,
                 kit,
