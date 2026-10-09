@@ -1173,13 +1173,25 @@ impl TableLayout {
     #[must_use]
     pub fn seated(seats: &[Seat], aspect: f32, focus: Option<PlayerId>) -> Self {
         let ring = Self::on_ring(seats, aspect, focus);
+        // Never for a focus: it re-cuts the ring's widths.
+        if focus.is_some() {
+            return ring;
+        }
+        Self::framed_or(ring, seats, aspect)
+    }
+
+    /// [`Self::seated`] without a focus, over its ellipse already laid
+    /// ([`Self::on_ring`] of the same seats and aspect): that ring, or the
+    /// frame where one draws the least board larger. The upright ring asks
+    /// for both and lays the ellipse once.
+    pub(crate) fn framed_or(ring: Self, seats: &[Seat], aspect: f32) -> Self {
         let n = seats.len();
         let parties = sides_of(seats);
         let alone = parties.iter().all(|party| party.len() == 1);
-        // Never for a focus (it re-cuts the ring's widths), and not for
-        // three playing for themselves, who sit on a circle ([`ROUND_COST`])
-        // — wherever their ring keeps the gaps a frame keeps.
-        if focus.is_some() || n < 3 {
+        // Not for three playing for themselves, who sit on a circle
+        // ([`ROUND_COST`]) — wherever their ring keeps the gaps a frame
+        // keeps.
+        if n < 3 {
             return ring;
         }
         let holds = ring.keeps_clear();

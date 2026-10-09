@@ -1,5 +1,6 @@
 //! What the client spends outside the renderer, per call: one second of the
-//! score, a busy table's view decoded from the wire, a felt's vein table.
+//! score, a busy table's view decoded from the wire, a felt's vein table, a
+//! table laid out for an arrangement (what every rebuild of the board pays).
 //! `docs/perf-client.md` has the numbers.
 //!
 //! `cargo bench -p baylee-client-core --features test-support --bench client`
@@ -128,5 +129,31 @@ fn felt(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, music, view, felt);
+/// A table laid out as `rebuild_board` lays it, on a laptop's canvas: the
+/// ellipse-or-frame `seated` and the arrangements that search a shape.
+fn layout(c: &mut Criterion) {
+    use baylee_client_core::layout::{Arrangement, Seat, TableLayout};
+    use baylee_core::ids::PlayerId;
+    for n in [4_u8, 6, 8] {
+        let seats: Vec<Seat> = (0..n).map(|i| Seat::alone(PlayerId::new(i))).collect();
+        for (name, arrangement) in [
+            ("ring", Arrangement::Ring),
+            ("upright_ring", Arrangement::UprightRing),
+            ("spotlight", Arrangement::Spotlight),
+        ] {
+            c.bench_function(&format!("layout/{name}/{n}_seats"), |b| {
+                b.iter(|| {
+                    black_box(TableLayout::arranged(
+                        black_box(&seats),
+                        1708.0 / 860.0,
+                        arrangement,
+                        None,
+                    ))
+                });
+            });
+        }
+    }
+}
+
+criterion_group!(benches, music, view, felt, layout);
 criterion_main!(benches);

@@ -8,7 +8,9 @@ use glam::Vec2;
 /// Whether two upright pods stand apart: their whole places (ground and
 /// pile strips) separated by at least `gap` on one of the table's axes.
 /// Upright, every footprint is a box square to the table, so the two axes
-/// are the whole separating-axis test.
+/// are the whole separating-axis test. [`shape`]'s search does the same
+/// sums over [`Place`]s; the layout's tests ask this one.
+#[cfg(test)]
 pub(crate) fn apart(a: &SeatSlot, b: &SeatSlot, gap: f32) -> bool {
     let d = (b.footprint_center() - a.footprint_center()).abs();
     let reach = a.footprint() + b.footprint() + Vec2::splat(gap);
@@ -52,8 +54,8 @@ const MOST: f32 = 3.0;
 /// beside them (one, two and three) that cost the whole table a fifth.
 #[must_use]
 pub fn upright(seats: &[Seat], aspect: f32) -> TableLayout {
-    let laid = TableLayout::seated(seats, aspect, None);
     let ring = TableLayout::on_ring(seats, aspect, None);
+    let laid = TableLayout::framed_or(ring.clone(), seats, aspect);
     if laid == ring {
         return upright_of(ring, seats, aspect);
     }
@@ -93,40 +95,48 @@ pub fn upright_of(mut layout: TableLayout, seats: &[Seat], aspect: f32) -> Table
 /// ring is judged), among those holding every place a pile strip apart.
 #[must_use]
 pub fn shape(layout: &TableLayout, aspect: f32) -> Vec2 {
-    let scaled = |scale: Vec2| -> TableLayout {
-        TableLayout {
-            slots: layout
-                .slots
-                .iter()
-                .map(|slot| SeatSlot {
-                    center: slot.center * scale,
-                    ..*slot
-                })
-                .collect(),
-            radius: layout.radius * scale,
+    // What a candidate scale cannot change, read once: where each place's
+    // footprint stands off its centre, its half size, and its half extent
+    // once turned (`TableLayout::extent`'s). The search tries a few
+    // thousand scales, and a fresh table for each, with every pair's sines
+    // worked out again, was nearly all of its cost; the arithmetic per
+    // candidate is `apart`'s and `extent`'s, operand for operand.
+    let places: Vec<Place> = layout.slots.iter().map(Place::of).collect();
+    let mut centres: Vec<Vec2> = vec![Vec2::ZERO; places.len()];
+    let mut score = |scale: Vec2| -> Option<f32> {
+        for (centre, place) in centres.iter_mut().zip(&places) {
+            *centre = place.laid * scale + place.off;
         }
-    };
-    let holds = |table: &TableLayout| {
-        table
-            .slots
-            .iter()
-            .enumerate()
-            .all(|(i, a)| table.slots[i + 1..].iter().all(|b| apart(a, b, PILE_STRIP)))
-    };
-    let reach = |table: &TableLayout| {
-        table.extent().map_or(0.0, |(lo, hi)| {
+        let holds = places.iter().enumerate().all(|(i, a)| {
+            places[i + 1..].iter().enumerate().all(|(k, b)| {
+                let d = (centres[i + 1 + k] - centres[i]).abs();
+                let reach = a.foot + b.foot + Vec2::splat(PILE_STRIP);
+                d.x >= reach.x || d.y >= reach.y
+            })
+        });
+        if !holds {
+            return None;
+        }
+        let mut bounds: Option<(Vec2, Vec2)> = None;
+        for (centre, place) in centres.iter().zip(&places) {
+            if place.parked {
+                continue;
+            }
+            let (lo, hi) = (*centre - place.half, *centre + place.half);
+            bounds = Some(match bounds {
+                None => (lo, hi),
+                Some((min, max)) => (min.min(lo), max.max(hi)),
+            });
+        }
+        Some(bounds.map_or(0.0, |(lo, hi)| {
             let span = hi - lo;
             (span.x / aspect).max(span.y)
-        })
-    };
-    let score = |scale: Vec2| -> Option<f32> {
-        let table = scaled(scale);
-        holds(&table).then(|| reach(&table))
+        }))
     };
     #[allow(clippy::cast_precision_loss)] // forty-eight steps
     let at = |k: usize| LEAST + (MOST - LEAST) * k as f32 / STEPS as f32;
     let mut best: Option<(f32, Vec2)> = None;
-    let consider = |scale: Vec2, best: &mut Option<(f32, Vec2)>| {
+    let mut consider = |scale: Vec2, best: &mut Option<(f32, Vec2)>| {
         if let Some(r) = score(scale) {
             // Ties to the larger ring: the same frame with more felt
             // between the seats.
@@ -162,4 +172,38 @@ pub fn shape(layout: &TableLayout, aspect: f32) -> Vec2 {
         }
     }
     centre
+}
+
+/// A place's footprint, as far as no scale moves it: what [`shape`]'s
+/// search reads instead of the slot.
+struct Place {
+    /// The ring's centre, before scaling.
+    laid: Vec2,
+    /// `footprint_center() - center`.
+    off: Vec2,
+    /// `footprint()`.
+    foot: Vec2,
+    /// The footprint's half size turned by the facing (`extent`'s).
+    half: Vec2,
+    /// Not drawn on the felt: outside the extent.
+    parked: bool,
+}
+
+impl Place {
+    fn of(slot: &SeatSlot) -> Self {
+        let foot = slot.footprint();
+        let (sin, cos) = slot.facing.sin_cos();
+        let (sin, cos) = (sin.abs(), cos.abs());
+        Self {
+            laid: slot.center,
+            off: Vec2::new(slot.facing.cos(), -slot.facing.sin())
+                * (slot.reclaimed * 0.5 * slot.scale),
+            foot,
+            half: Vec2::new(
+                cos.mul_add(foot.x, sin * foot.y),
+                sin.mul_add(foot.x, cos * foot.y),
+            ),
+            parked: slot.parked,
+        }
+    }
 }
