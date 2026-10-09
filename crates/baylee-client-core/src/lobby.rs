@@ -980,6 +980,10 @@ pub struct Lobby {
     /// remembering only the last would let two of them ask about each other
     /// for ever.
     reclaimed: Vec<String>,
+    /// The chair a client restarted into an update goes back to
+    /// ([`Lobby::resume_seat`]), asked for before any other, and whether
+    /// its game was being played (a table) or not yet (a waiting room).
+    resuming: Option<(String, bool)>,
     /// What the seat now being granted was asked for.
     asked_for: Option<GameMode>,
     /// A game the player has asked to play again, not yet asked for.
@@ -2132,6 +2136,17 @@ impl Lobby {
         if !matches!(self.screen, Screen::Table) || self.awaiting.is_some() || self.offline() {
             return None;
         }
+        // A restart's own chair first, listed or not: the page the listing
+        // holds need not reach it, and the gateway answers for whether it
+        // is still this account's.
+        if let Some((game_id, _)) = &self.resuming
+            && !self.reclaimed.iter().any(|id| id == game_id)
+        {
+            let game_id = game_id.clone();
+            self.reclaimed.push(game_id.clone());
+            self.busy = true;
+            return Some(LobbyRequest::TakeSeat { game_id });
+        }
         let game_id = self
             .games
             .iter()
@@ -2751,6 +2766,26 @@ impl Lobby {
         })
     }
 
+    /// A client restarted into an update goes back to its chair at
+    /// `game_id`: a table being played (`playing`) or a waiting room. Asked
+    /// for at the first listing after signing in, before any other chair
+    /// ([`Lobby::reclaim_a_seat`]), with a ticket the gateway hands the
+    /// account afresh; the old one died with the old client.
+    pub fn resume_seat(&mut self, game_id: &str, playing: bool) {
+        self.resuming = Some((game_id.to_string(), playing));
+        self.reclaimed.retain(|id| id != game_id);
+    }
+
+    /// A client restarted into an update sits down again at the house's
+    /// table it rebuilt from its record: offline, at that seat, so that the
+    /// end of the game comes back to the offline lobby as it would have.
+    pub fn resume_offline_table(&mut self, handover: SeatHandover) {
+        self.performer = Performer::Offline;
+        self.busy = false;
+        self.note(Phrase::TakingTheSeat);
+        self.screen = Screen::Seated(handover);
+    }
+
     /// Forgets the account and everything it bought.
     fn forget_the_session(&mut self) {
         self.me = None;
@@ -3035,10 +3070,16 @@ impl Lobby {
                     // the difference, and it is fresh — asking for the ticket
                     // is what it answered.
                     None => {
-                        let live = self
-                            .games
-                            .iter()
-                            .any(|g| g.id == handover.game_id && g.state == "playing");
+                        // A restart knows which it left: a table or a room.
+                        let resumed = self
+                            .resuming
+                            .take_if(|(id, _)| *id == handover.game_id)
+                            .map(|(_, playing)| playing);
+                        let live = resumed.unwrap_or_else(|| {
+                            self.games
+                                .iter()
+                                .any(|g| g.id == handover.game_id && g.state == "playing")
+                        });
                         if live {
                             self.note(Phrase::TakingTheSeat);
                             self.screen = Screen::Seated(handover);

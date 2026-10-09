@@ -16,6 +16,13 @@
 static ALLOCATOR: baylee_client::devctl::CountingAlloc = baylee_client::devctl::CountingAlloc;
 
 fn main() {
+    // "Restart now" leaves this executable behind as a helper that starts
+    // the client again once this one has ended; that process is nothing
+    // else, so it returns before the client opens anything.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    if baylee_client::update::native::helper_if_asked() {
+        return;
+    }
     baylee_client::console::open_if_asked();
     baylee_client::standalone::run();
 }

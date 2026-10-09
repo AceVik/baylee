@@ -393,6 +393,14 @@ permanent in every package, so a runtime must read a session from every
 older launcher. A directly started runtime also cannot auto-install; use the
 normal packaged launch path.
 
+"Restart now" (`baylee_update::relaunch`, `docs/client.md` §"Restarting
+into an update") needs no launcher change: the runtime leaves its own
+executable behind as a helper that waits for the old runtime (the end of
+its stdin) and the old launcher (the lifetime lock) before it starts the
+package's launcher, which an older launcher would otherwise refuse as a
+second instance; the launcher hands its stdin to the runtime, as every
+shipped one does.
+
 The old rename journal code remains for explicit legacy recovery. Rollback
 has a persisted direction and progress; failed reverse renames retain the
 journal and required files, and neither staging nor a new legacy transaction

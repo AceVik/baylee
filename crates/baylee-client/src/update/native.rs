@@ -22,6 +22,7 @@ use baylee_update::apply::{self, Install, Recovery, Unplaceable};
 use baylee_update::check::{Context, GITHUB_RELEASES, Manual, Outcome};
 use baylee_update::launch::{self, Blocked};
 use baylee_update::plan::Os;
+use baylee_update::relaunch;
 use baylee_update::relocate::{self, Destination, Moved, SystemTrash, Trash};
 use baylee_update::service::{self, Command, Service, Settings};
 use baylee_update::{VerifyingKey, Version, sign};
@@ -112,6 +113,60 @@ impl Build {
 // release an orphaned runtime's lifetime lease while other destructors run.
 static CLIENT_LEASE: OnceLock<launch::ClientLease> = OnceLock::new();
 
+/// The installation the launcher started this runtime for, and where its
+/// original package is: what "Restart now" starts again. Unset for a
+/// runtime started without a launcher.
+static LAUNCHED: OnceLock<(Install, Option<PathBuf>)> = OnceLock::new();
+
+/// The relaunch helper's pipe, for the same reason as the lease: it must
+/// stay open until the process ends, after the update is installed on the
+/// way out ([`Updater`]'s `Drop`), and a resource would close it as the
+/// world is cleared, which may come first.
+static RELAUNCH: OnceLock<relaunch::Handoff> = OnceLock::new();
+
+/// When this process was started as the relaunch helper
+/// (`baylee_update::relaunch::FLAG`), does that and nothing else, and says
+/// so: `main` then returns before anything of the client is started — no
+/// settings, no window, no launcher session.
+#[must_use]
+pub fn helper_if_asked() -> bool {
+    let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    let Some(again) = relaunch::asked(&args) else {
+        return false;
+    };
+    if let Err(err) = relaunch::helper(std::io::stdin(), &again, relaunch::WAIT) {
+        baylee_client_core::say_err!("relaunch: {err}");
+    }
+    true
+}
+
+/// "Restart now": leaves the helper behind with `handoff` on its pipe, to
+/// start the client again once this one (and its launcher) has ended, with
+/// [`baylee_client_core::resume::RESUME_ARG`] when `resume`. The caller then
+/// quits; the staged update installs on the way out, as on any quit.
+///
+/// # Errors
+/// A restart already under way, or the helper not starting.
+pub(crate) fn restart(handoff: &[u8], resume: bool) -> std::io::Result<()> {
+    if RELAUNCH.get().is_some() {
+        return Err(std::io::Error::other("a restart is already under way"));
+    }
+    let args: Vec<std::ffi::OsString> = if resume {
+        vec![baylee_client_core::resume::RESUME_ARG.into()]
+    } else {
+        Vec::new()
+    };
+    let exe = std::env::current_exe()?;
+    let again = match LAUNCHED.get() {
+        Some((install, original)) => relaunch::Again::launcher(install, original.as_deref(), args),
+        None => relaunch::Again::direct(&exe, args),
+    };
+    let pipe = relaunch::leave_behind(std::process::Command::new(&exe), &again, handoff)?;
+    info!("updates: restarting through {}", again.program.display());
+    let _ = RELAUNCH.set(pipe);
+    Ok(())
+}
+
 /// The thread's door, and what the exit needs.
 #[derive(Resource)]
 struct Updater {
@@ -176,6 +231,10 @@ impl Plugin for NativeUpdatePlugin {
             .insert_resource(mover)
             .add_systems(Update, relocate_on_request);
         if let Some(lease) = lease {
+            if let Ok(install) = &build.install {
+                let original = lease.original().map(Path::to_path_buf);
+                let _ = LAUNCHED.set((install.clone(), original));
+            }
             let _ = CLIENT_LEASE.set(lease);
         }
         let prefs = *app.world().resource::<UpdatePrefs>();
@@ -296,7 +355,10 @@ fn forward(mut requests: MessageReader<UpdateRequest>, updater: Res<Updater>) {
             UpdateRequest::CheckNow => Command::CheckNow,
             UpdateRequest::Prefs(prefs) => Command::Settings(settings(*prefs)),
             // `relocate` answers these; the thread has no part in them.
-            UpdateRequest::Move(_) | UpdateRequest::TrashOld | UpdateRequest::KeepOld => continue,
+            UpdateRequest::Move(_)
+            | UpdateRequest::TrashOld
+            | UpdateRequest::KeepOld
+            | UpdateRequest::RestartNow => continue,
         });
     }
 }
@@ -605,7 +667,7 @@ fn relocate_on_request(
                 place.moved = None;
                 place.failed = None;
             }
-            UpdateRequest::CheckNow | UpdateRequest::Prefs(_) => {}
+            UpdateRequest::CheckNow | UpdateRequest::Prefs(_) | UpdateRequest::RestartNow => {}
         }
     }
 }

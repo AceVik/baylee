@@ -65,6 +65,25 @@ impl LiveRecord {
         }
     }
 
+    /// The kept record `name`, of which the first `written` bytes are on
+    /// disk already: a game picked up again after a restart
+    /// (`host::LocalHost::resume`) goes on in the file it was kept in.
+    pub(crate) fn continuing(name: &str, written: usize) -> Self {
+        Self::continuing_in(crate::settings::store::folder(FOLDER), name, written)
+    }
+
+    /// [`LiveRecord::continuing`] in `folder`.
+    pub(crate) fn continuing_in(
+        folder: Option<std::path::PathBuf>,
+        name: &str,
+        written: usize,
+    ) -> Self {
+        Self {
+            written,
+            ..Self::in_folder(folder, name)
+        }
+    }
+
     /// Appends what `record` gained since the last write, as one gzip
     /// member. Nothing until it is past its header: a game nobody played a
     /// step of is not worth a file.
@@ -166,6 +185,23 @@ fn records_in(folder: &std::path::Path) -> Vec<(String, u64)> {
         .collect()
 }
 
+/// The kept record `name` as the record it holds, every whole line of it;
+/// `None` for a name that is not a record's, or a file that is not there.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn read_kept(name: &str) -> Option<Vec<u8>> {
+    read_kept_in(crate::settings::store::folder(FOLDER)?.as_path(), name)
+}
+
+/// [`read_kept`] in `folder`.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn read_kept_in(folder: &std::path::Path, name: &str) -> Option<Vec<u8>> {
+    if !baylee_client_core::bugreport::is_record_file_name(name) {
+        return None;
+    }
+    let bytes = std::fs::read(folder.join(name)).ok()?;
+    baylee_client_core::bugreport::inflate(&bytes)
+}
+
 /// Repairs what a crash left of the kept records, once, at start.
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn recover() {
@@ -214,6 +250,10 @@ pub(crate) struct LiveRecord;
 #[cfg(target_arch = "wasm32")]
 impl LiveRecord {
     pub(crate) fn new(_name: &str) -> Self {
+        Self
+    }
+
+    pub(crate) fn continuing(_name: &str, _written: usize) -> Self {
         Self
     }
 
