@@ -276,15 +276,42 @@ fn button_down(app: &mut App, entity: Entity) {
     ));
 }
 
-/// The primary button coming up on whatever the pointer is over by then.
-fn button_up(app: &mut App, entity: Entity) {
+/// The primary button coming up with the pointer over `over`, as bevy
+/// delivers it: the pointer's own release ([`PointerInput`]), this frame's
+/// hover over `over`, and the `Release` sent to `last`, the entity hovered
+/// the frame *before* (bevy's rule), which is the pressed button itself on a
+/// release the very next frame.
+///
+/// [`PointerInput`]: bevy::picking::pointer::PointerInput
+fn button_up_after(app: &mut App, last: Entity, over: Entity) {
+    use bevy::picking::hover::HoverMap;
+    use bevy::picking::pointer::{PointerAction, PointerId, PointerInput};
+    let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
+    let mut hover = HoverMap::default();
+    hover
+        .entry(PointerId::Mouse)
+        .or_default()
+        .insert(over, hit.clone());
+    app.world_mut().insert_resource(hover);
+    let location = aimed(over, ()).pointer_location;
+    app.world_mut().write_message(PointerInput::new(
+        PointerId::Mouse,
+        location,
+        PointerAction::Release(PointerButton::Primary),
+    ));
     app.world_mut().write_message(aimed(
-        entity,
+        last,
         bevy::picking::events::Release {
             button: PointerButton::Primary,
-            hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+            hit,
         },
     ));
+}
+
+/// The primary button coming up on whatever the pointer is over by then,
+/// held long enough for the hover to have caught up with it.
+fn button_up(app: &mut App, entity: Entity) {
+    button_up_after(app, entity, entity);
 }
 
 /// The owner's "two clicks" (09.10.2026): with the username holding the
@@ -317,6 +344,56 @@ fn one_click_on_a_button_while_a_field_has_the_caret_is_enough() {
         app.world().resource::<LobbyState>().lobby.face(),
         Face::Create,
         "one click opened Create account"
+    );
+}
+
+/// The fast click (the Windows session, 09.10.2026): the press rebuilt the
+/// face and the button came up the very next frame, before the hover caught
+/// up, so bevy's `Release` went to the despawned button and the click was
+/// lost; dev-control's press, a touchpad tap and a quick mouse all did that.
+/// It is one click, answered once.
+#[test]
+fn a_fast_click_while_a_field_has_the_caret_is_answered_once() {
+    let mut app = at_the_door();
+    assert_eq!(focused_id(&app), Some("username"));
+    let create = Press::Front(FrontPress::ToggleRegistering);
+    let pressed = press_target(&mut app, create);
+    button_down(&mut app, pressed);
+    app.update();
+    app.update();
+    assert!(
+        app.world().get_entity(pressed).is_err(),
+        "the press rebuilt the face (the case this is about)"
+    );
+    let again = press_target(&mut app, create);
+    button_up_after(&mut app, pressed, again);
+    app.update();
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.face(),
+        Face::Create,
+        "one fast click opened Create account"
+    );
+}
+
+/// Press and release in one frame, before anything is rebuilt: bevy sends
+/// its `Click` to the button still standing, and that is the one answer —
+/// the release does not count a second time (twice would toggle back).
+#[test]
+fn a_press_and_release_in_one_frame_is_answered_once() {
+    let mut app = at_the_door();
+    let create = Press::Front(FrontPress::ToggleRegistering);
+    let pressed = press_target(&mut app, create);
+    button_down(&mut app, pressed);
+    button_up(&mut app, pressed);
+    tap(&mut app, pressed);
+    app.update();
+    app.update();
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.face(),
+        Face::Create,
+        "pressed once, answered once"
     );
 }
 

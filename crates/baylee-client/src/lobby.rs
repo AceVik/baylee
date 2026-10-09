@@ -312,6 +312,7 @@ impl Plugin for LobbyPlugin {
             .add_message::<Pointer<Out>>()
             .add_message::<Pointer<bevy::picking::events::Press>>()
             .add_message::<Pointer<Release>>()
+            .add_message::<bevy::picking::pointer::PointerInput>()
             .add_systems(
                 OnExit(DuelPhase::Closed),
                 (teardown, despawn_preview, hint::despawn_hint),
