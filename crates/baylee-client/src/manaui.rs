@@ -291,6 +291,48 @@ pub fn spawn_pip(commands: &mut Commands, fonts: &UiFonts, pip: Pip, size: f32) 
     disc
 }
 
+/// A line of rules **quoted** in running text as spans under `root`: the
+/// prose in `prose`, each symbol its Mana-font glyph in the same ink and a
+/// little smaller than the letters (`manapip::inline`), and every glyph a
+/// [`ManaInk`], so it falls back on its own.
+pub fn spawn_inline_spans(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    root: Entity,
+    text: &str,
+    prose: &TextFont,
+    ink: Color,
+) {
+    let size = match prose.font_size {
+        bevy::text::FontSize::Px(size) => size * INLINE_MARK,
+        _ => 14.0,
+    };
+    for piece in manapip::inline(text) {
+        match piece {
+            manapip::Inline::Text(words) => {
+                commands.spawn((
+                    TextSpan::new(words),
+                    prose.clone(),
+                    TextColor(ink),
+                    ChildOf(root),
+                ));
+            }
+            manapip::Inline::Mark(mark) => {
+                commands.spawn((
+                    TextSpan::new(mark.to_string()),
+                    mana_tf(fonts, size),
+                    TextColor(ink),
+                    ManaInk::in_line(mark, size),
+                    ChildOf(root),
+                ));
+            }
+        }
+    }
+}
+
+/// How big a symbol quoted in a sentence is, as a share of its letters' size.
+const INLINE_MARK: f32 = 0.9;
+
 /// The Mana font's glyph for a one-letter symbol (`W`, `G`, `C`, `T`), for
 /// places that name a colour by its letter.
 #[must_use]

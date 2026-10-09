@@ -199,10 +199,13 @@ pub(crate) fn window(
     let top = line(commands, kit, &top);
     commands.entity(right).add_child(top);
     let (text, english) = rules_text(card, lang);
+    // The rules with their symbols in the Mana font, each a span the door
+    // may fall back from (owner, beta.6): `{T}: Add {W}` was set as braces.
+    let serif = crate::hud::tf_serif(kit.fonts, if phone { 13.0 } else { 14.0 }, 400);
     let rules = commands
         .spawn((
-            Text::new(text),
-            crate::hud::tf_serif(kit.fonts, if phone { 13.0 } else { 14.0 }, 400),
+            Text::default(),
+            serif.clone(),
             TextColor(tokens::INK),
             Node {
                 width: Val::Percent(100.0),
@@ -211,6 +214,7 @@ pub(crate) fn window(
             Pickable::IGNORE,
         ))
         .id();
+    crate::manaui::spawn_inline_spans(commands, kit.fonts, rules, &text, &serif, tokens::INK);
     commands.entity(right).add_child(rules);
     if english {
         let tag = cell(
