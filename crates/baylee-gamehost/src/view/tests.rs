@@ -18,6 +18,7 @@ use baylee_view::{RulesFace, TargetRef};
 
 mod announced;
 mod casting;
+mod command_card;
 mod commanders;
 mod grants;
 mod hidden;
