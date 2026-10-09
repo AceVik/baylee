@@ -18,6 +18,21 @@
 use super::{DeckBuilder, Zone};
 use crate::i18n::{Lang, Phrase};
 use baylee_core::deckrow::Row;
+
+/// A saved version of a deck, as the export dialog writes it: its stored
+/// rows (`deckrow` strings), and the name the file and the document carry
+/// (the deck's, with the version: `Weltenbaum v7`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VersionRows {
+    /// What the document and the file are called.
+    pub name: String,
+    /// Main-deck rows.
+    pub cards: Vec<String>,
+    /// Sideboard rows.
+    pub sideboard: Vec<String>,
+    /// Commander names.
+    pub commanders: Vec<String>,
+}
 use baylee_deckio::document::CardError;
 use baylee_deckio::source::{Answer, Instruction, SourceId};
 use baylee_deckio::{Document, Import, LossKind, Read, ReadError};
@@ -199,6 +214,7 @@ impl DeckBuilder {
 
     /// Opens the import dialog, empty.
     pub fn open_import(&mut self) {
+        self.export_version = None;
         self.transfer = Some(Transfer::Import(Importing::default()));
     }
 
@@ -206,12 +222,28 @@ impl DeckBuilder {
     /// chosen this session.
     pub fn open_export(&mut self) {
         let format = self.export_format.unwrap_or(FormatId::Baylee);
+        self.export_version = None;
         self.transfer = Some(Transfer::Export(Exporting { format, said: None }));
+    }
+
+    /// Opens the export dialog on a saved version's rows (History's
+    /// Export…): "I want v7 as text to show someone". The deck in hand is
+    /// not touched; closing the dialog forgets the version.
+    pub fn open_version_export(&mut self, version: VersionRows) {
+        self.open_export();
+        self.export_version = Some(version);
+    }
+
+    /// The saved version the open export dialog writes, if it is one.
+    #[must_use]
+    pub fn export_version(&self) -> Option<&VersionRows> {
+        self.export_version.as_ref()
     }
 
     /// Closes whichever dialog is open.
     pub fn close_transfer(&mut self) {
         self.transfer = None;
+        self.export_version = None;
     }
 
     /// Takes a paste into the import dialog and reads it.
@@ -352,6 +384,28 @@ impl DeckBuilder {
     /// (Moxfield's `Front / Back`) needs to recognise it.
     #[must_use]
     pub fn export_document(&self, whole_faces: bool) -> Document {
+        if let Some(version) = &self.export_version {
+            let rows = |rows: &[String]| -> Vec<Row> {
+                rows.iter()
+                    .filter_map(|row| baylee_core::deckrow::parse(row).ok())
+                    .collect()
+            };
+            let mut document = Document::from_stored(
+                Some(version.name.as_str()),
+                (!version.commanders.is_empty()).then_some("commander"),
+                &rows(&version.cards),
+                &rows(&version.sideboard),
+                &version.commanders,
+            );
+            if whole_faces {
+                for card in &mut document.cards {
+                    if let Some(whole) = self.whole_name(&card.name) {
+                        card.name = whole;
+                    }
+                }
+            }
+            return document;
+        }
         let rows = |zone: Zone| -> Vec<Row> {
             self.entries(zone)
                 .iter()
@@ -409,9 +463,11 @@ impl DeckBuilder {
     /// system, and the format's extension.
     #[must_use]
     pub fn export_file_name(&self, format: FormatId) -> String {
-        let stem: String = self
-            .name
-            .text()
+        let named = self
+            .export_version
+            .as_ref()
+            .map_or_else(|| self.name.text().to_string(), |v| v.name.clone());
+        let stem: String = named
             .trim()
             .chars()
             .map(|c| {

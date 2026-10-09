@@ -78,7 +78,9 @@ pub(crate) const CREATE: TabOrder = TabOrder {
 /// The history sheet (§1.3 "History sheet").
 pub(crate) const HISTORY: TabOrder = TabOrder {
     name: "history",
-    stops: &["versions", "show-all", "close", "restore"],
+    stops: &[
+        "versions", "compare", "show-all", "diff", "export", "close", "restore",
+    ],
     modal: true,
 };
 

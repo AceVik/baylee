@@ -969,6 +969,9 @@ pub struct DeckBuilder {
     transfer: Option<transfer::Transfer>,
     /// The format the export dialog last showed, so it opens there again.
     export_format: Option<baylee_deckio::FormatId>,
+    /// A saved version the export dialog writes instead of the deck in hand
+    /// (History's Export…, windows-b6 §C.3).
+    export_version: Option<transfer::VersionRows>,
 }
 
 mod builder;

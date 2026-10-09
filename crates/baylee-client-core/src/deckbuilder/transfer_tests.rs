@@ -1,7 +1,7 @@
 //! Import and export through the builder, as a player drives them: paste,
 //! read, take, check the report; choose a format, read what it left out.
 
-use super::transfer::{Said, Stage, Tone, Transfer};
+use super::transfer::{Said, Stage, Tone, Transfer, VersionRows};
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use baylee_deckio::FormatId;
@@ -329,4 +329,44 @@ fn a_saved_export_never_replaces_a_file_that_is_there() {
     assert_eq!(std::fs::read_to_string(&first).unwrap(), "one");
     assert_eq!(std::fs::read_to_string(&second).unwrap(), "two");
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// History's Export… writes a saved version's rows, printings and all, and
+/// names the file after it; the deck in hand is untouched, and closing the
+/// dialog (or opening the deck's own export) forgets the version.
+#[test]
+fn a_saved_version_exports_its_own_rows_and_not_the_deck_in_hand() {
+    let mut b = builder();
+    import(&mut b, "# name: Weltenbaum\n1 Forest\n");
+    let in_hand = b.export(FormatId::Baylee).text;
+    b.open_version_export(VersionRows {
+        name: "Weltenbaum v7".into(),
+        cards: vec!["4 Lightning Bolt (M11) 149 *F*".into()],
+        sideboard: vec!["2 Forest".into()],
+        commanders: Vec::new(),
+    });
+    assert!(matches!(b.transfer(), Some(Transfer::Export(_))));
+    let written = b.export(FormatId::Baylee).text;
+    assert!(
+        written.contains("4 Lightning Bolt (M11) 149 *F*"),
+        "{written}"
+    );
+    assert!(written.contains("2 Forest"), "{written}");
+    assert!(written.contains("Weltenbaum v7"), "{written}");
+    assert!(!written.contains("1 Forest"), "{written}");
+    assert_eq!(b.export_file_name(FormatId::Baylee), "Weltenbaum v7.txt");
+    b.close_transfer();
+    assert!(b.export_version().is_none());
+    b.open_version_export(VersionRows {
+        name: "x".into(),
+        cards: Vec::new(),
+        sideboard: Vec::new(),
+        commanders: Vec::new(),
+    });
+    b.open_export();
+    assert_eq!(
+        b.export(FormatId::Baylee).text,
+        in_hand,
+        "the deck's own export"
+    );
 }

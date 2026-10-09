@@ -30,6 +30,11 @@ pub(super) fn keyboard(
     // The `?` overlay and the dev gallery stand over the lobby and type
     // into fields of their own.
     holds: Option<Res<crate::shellkit::KitHolds>>,
+    // Which stop has the ring: the history sheet's arrows are its stop's.
+    (focus, stops): (
+        Res<bevy::input_focus::InputFocus>,
+        Query<&crate::shellkit::focus::Stop>,
+    ),
 ) {
     if journey.as_ref().is_some_and(|j| j.active())
         || entrance.active()
@@ -183,6 +188,11 @@ pub(super) fn keyboard(
     // arrows and its Esc ladder; nothing behind it hears a key.
     if state.library_open() && state.menu.is_none() && state.confirmation.is_none() {
         keys.clear();
+        // Export… stands over the sheet: its keys first, Esc closing it.
+        if state.lobby.builder().export_version().is_some() {
+            super::editing::transfer_keys(&codes, &mut state, &mut scrolled);
+            return;
+        }
         // Only a key the sheet answers borrows the state mutably: a borrow
         // is a write, and one every frame redrew the whole sheet every frame,
         // so no click or Tab could land on it (the live walk, windows-b6 C).
@@ -193,7 +203,12 @@ pub(super) fn keyboard(
             KeyCode::ArrowLeft,
             KeyCode::ArrowRight,
         ]) {
-            let request = super::history::keys(&codes, &mut state);
+            let on = focus
+                .get()
+                .and_then(|f| stops.get(f).ok())
+                .filter(|s| s.table == super::orders::HISTORY.name)
+                .map(|s| s.id);
+            let request = super::history::keys(&codes, &mut state, on);
             if request.is_some() {
                 dispatch(&mut state, &mailbox, request);
             }

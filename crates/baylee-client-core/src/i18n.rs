@@ -4812,6 +4812,9 @@ messages! {
     HistoryNoteChanged { en: "{0} · note changed", de: "{0} · Notiz geändert" },
     /// The title's tag on a house deck's history.
     HistoryHouseTag { en: "House deck · read-only", de: "Hausdeck · nur lesen" },
+    /// The history sheet's footer: the selected version in the export
+    /// dialog.
+    HistoryExport { en: "Export\u{2026}", de: "Exportieren\u{2009}\u{2026}" },
     /// The builder, offline, where History would be.
     HistoryNeedsGateway { en: "History needs the gateway", de: "Der Verlauf braucht das Gateway" },
     // ---- the deck builder (WP4) ------------------------------------------

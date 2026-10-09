@@ -119,6 +119,10 @@ pub(crate) enum DecksPress {
     ShowAll,
     /// The history sheet: restore the version shown.
     Restore,
+    /// The history sheet: the version shown, in the builder's export dialog.
+    ExportVersion,
+    /// A diff row: a stop for the ring to walk, which does nothing.
+    DiffRow,
     /// Ask the library again after a failure.
     Retry,
     /// The history sheet's compare bar: `0` Previous, `1` Current, `2`
@@ -1282,6 +1286,12 @@ impl DecksPress {
                 }
             }
             DecksPress::ShowAll => state.decks.show_all = !state.decks.show_all,
+            DecksPress::DiffRow => {}
+            DecksPress::ExportVersion => {
+                if let Some(version) = super::history::version_rows(state) {
+                    state.lobby.builder_mut().open_version_export(version);
+                }
+            }
             DecksPress::Restore => {
                 // Over the builder, loading the restored deck replaces its
                 // unsaved edits: the builder's one question first (Q-C3).
