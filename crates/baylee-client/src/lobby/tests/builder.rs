@@ -395,6 +395,66 @@ fn a_card_can_be_read_in_the_builder() {
     );
 }
 
+/// IN THIS DECK keeps each label with its stepper: the row wraps between
+/// the pairs, never between "Sideboard" and its − n + (4K pass,
+/// 09.10.2026, where the sideboard's stepper wrapped under its label).
+#[test]
+fn the_card_window_keeps_each_count_label_with_its_stepper() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .builder_mut()
+        .inspect(0);
+    app.update();
+    for (zone, said) in [(Zone::Main, "Main"), (Zone::Side, "Sideboard")] {
+        let minus = {
+            let mut presses = app.world_mut().query::<(Entity, &Press)>();
+            presses
+                .iter(app.world())
+                .find(|(_, p)| **p == Press::Build(BuildPress::WindowStep(zone, false)))
+                .map(|(e, _)| e)
+                .expect("the stepper's minus")
+        };
+        // The nearest ancestor of the stepper that holds the label: it must
+        // not wrap.
+        let world = app.world();
+        let mut at = minus;
+        let holder = loop {
+            let parent = world
+                .get::<ChildOf>(at)
+                .map(ChildOf::parent)
+                .unwrap_or_else(|| panic!("no ancestor of {said}'s stepper holds its label"));
+            // The label is a clip around its words (`buildui::cell`).
+            let says = |e: Entity| world.get::<Text>(e).is_some_and(|t| t.0 == said);
+            let holds = world.get::<Children>(parent).is_some_and(|children| {
+                children.iter().any(|c| {
+                    says(c)
+                        || world
+                            .get::<Children>(c)
+                            .is_some_and(|inner| inner.iter().any(says))
+                })
+            });
+            if holds {
+                break parent;
+            }
+            at = parent;
+        };
+        let node = world.get::<Node>(holder).expect("a node");
+        assert_eq!(
+            node.flex_wrap,
+            FlexWrap::NoWrap,
+            "{said} and its stepper may wrap apart"
+        );
+    }
+}
+
 /// Offline, or with no catalog, the window says why there is one printing
 /// in a sentence, and its text is never blank: the compiled English Oracle
 /// stands in, tagged for a German reader (windows-b6 §A.3).
