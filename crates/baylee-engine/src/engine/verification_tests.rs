@@ -496,7 +496,7 @@ const TIME_VAULT: &str = "99d4d99d-cf56-45aa-aa39-a250695612f2";
 const ISLAND_SANCTUARY: &str = "7d1769d0-d942-45b3-a31c-2bbe45e68661";
 const LICH_TEST: &str = "engine::card_tests::enchantments::lich::lich_put_into_a_graveyard_loses_the_game_even_above_zero_life";
 const VAULT_TEST: &str = "engine::card_tests::artifacts::time_vault::skipping_a_turn_untaps_the_vault_as_the_next_turn_begins";
-const SANCTUARY_TEST: &str = "engine::card_tests::enchantments::island_sanctuary::island_sanctuary_skips_the_draw_and_lets_only_flyers_and_islandwalkers_attack";
+const SANCTUARY_TEST: &str = "engine::card_tests::enchantments::mv_2::island_sanctuary::island_sanctuary_yes_skips_the_turn_based_draw_and_makes_the_restriction";
 
 /// Three more doors the recorder missed (Alpha's L4 measurement): a trigger
 /// whose own effect ends its controller's game is taken off the stack as
