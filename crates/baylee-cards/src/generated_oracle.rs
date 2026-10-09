@@ -1581,10 +1581,7 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Fallen Angel
     &["Flying\nSacrifice a creature: This creature gets +2/+1 until end of turn."],
-    // Falling Star
-    &[
-        "Flip Falling Star onto the playing area from a height of at least one foot. Falling Star deals 3 damage to each creature it lands on. Tap all creatures dealt damage by Falling Star. If Falling Star doesn't turn completely over at least once during the flip, it has no effect.",
-    ],
+    &[],
     // Feint
     &[
         "Tap all creatures blocking target attacking creature. Prevent all combat damage that would be dealt this turn by that creature and each creature blocking it.",

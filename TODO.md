@@ -353,7 +353,6 @@ departure trigger find. Ramses Overdark can use the same filter.
 
 ## Issues
 
-||||||| 93ea6fc9
 
 ---
 
