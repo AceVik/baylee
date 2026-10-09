@@ -168,13 +168,19 @@ fn untapped(engine: &Engine<RegistryLookup>, card: CardIndex) -> Vec<ObjectId> {
         .collect()
 }
 
-/// The mana abilities the commanded payment offers right now.
+/// The sources whose mana the commanded payment offers right now: the basic
+/// lands' shortcut list and every other ability on offer (a Sol Ring, a
+/// filter land, are activated as ordinary abilities, not by the shortcut).
 #[track_caller]
 fn offered_mana_sources(engine: &Engine<RegistryLookup>) -> Vec<ObjectId> {
     let Pending::Priority { legal, .. } = engine.pending() else {
         panic!("a payment window expected, got {:?}", engine.pending())
     };
-    legal.mana_abilities.clone()
+    let mut sources = legal.mana_abilities.clone();
+    sources.extend(legal.abilities.iter().map(|&(source, _)| source));
+    sources.sort();
+    sources.dedup();
+    sources
 }
 
 /// Taps each of `sources` for `USER` (who decides for `OTHER`), then closes
@@ -674,7 +680,13 @@ fn a_sol_ring_cannot_be_tapped_to_pay_for_the_card() {
     let before = engine.fingerprint();
     assert!(
         engine
-            .apply(USER, PlayerAction::ActivateManaAbility { source: ring })
+            .apply(
+                USER,
+                PlayerAction::ActivateAbility {
+                    source: ring,
+                    ability_index: 0,
+                },
+            )
             .is_err(),
         "an artifact's mana is not allowed"
     );
