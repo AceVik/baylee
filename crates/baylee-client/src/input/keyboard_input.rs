@@ -10,6 +10,17 @@ pub struct KeyClaims<'w> {
     desk: Option<Res<'w, crate::report::ReportDesk>>,
     arrangements: Option<ResMut<'w, crate::arrangement::ArrangementFrame>>,
     stack_text: Option<ResMut<'w, crate::hud::StackTextScroll>>,
+    tour: Option<Res<'w, crate::tour::TourDesk>>,
+}
+
+impl KeyClaims<'_> {
+    /// The report form holds every key while it is up, and so does a
+    /// narrated tour bubble (TOURS.md §1.3) — on the frame it closes, the
+    /// key is swallowed.
+    fn held(&self) -> bool {
+        self.desk.as_ref().is_some_and(|desk| desk.holds_keyboard())
+            || self.tour.as_ref().is_some_and(|t| t.holds_keyboard())
+    }
 }
 
 /// Keyboard handling: every key comes from the account's keymap.
@@ -30,7 +41,7 @@ pub fn keyboard(
     mut claims: KeyClaims,
 ) {
     // The report form, when it is up, has every key (#309).
-    if claims.desk.is_some_and(|desk| desk.holds_keyboard()) {
+    if claims.held() {
         typed.clear();
         return;
     }

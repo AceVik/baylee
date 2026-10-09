@@ -189,6 +189,8 @@ pub struct MenuRevision {
     /// The arrangement in effect, from three seats: its row (DESIGN-v8
     /// §2.4).
     arrangement: Option<baylee_client_core::tableview::Arrangement>,
+    /// Whether this client hosts the game (a house game): the tour's row.
+    house: bool,
 }
 
 /// Where the panel stands.
@@ -294,7 +296,7 @@ pub(super) fn burger(commands: &mut Commands, fonts: &UiFonts, open: bool) -> En
 /// Nothing here shows or hides the panel — [`grow_the_menu`] does both, at
 /// the ends of the movement, for [`super::pool::sync_pool`]'s reason: a panel
 /// taken off the screen on the frame it was dismissed never folds.
-#[allow(clippy::too_many_lines)] // one panel, row by row
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)] // one panel, row by row
 pub fn sync_menu(
     mut commands: Commands,
     duel: Res<Duel>,
@@ -303,6 +305,7 @@ pub fn sync_menu(
     mut revision: ResMut<MenuRevision>,
     update: Option<Res<crate::update::UpdateNotice>>,
     mut panel: Query<(Entity, Option<&Children>, &Visibility, &mut MenuZoom), With<MenuPanel>>,
+    host: Option<Res<crate::InstalledHost>>,
 ) {
     let Ok((panel, standing, seen, mut fold)) = panel.single_mut() else {
         // No panel yet: the overlay has not built its root. The gate is left
@@ -325,6 +328,9 @@ pub fn sync_menu(
         lang: Some(lang),
         update: update.as_ref().and_then(|u| u.shown.clone()),
         arrangement: (crate::arrangement::seat_count(&duel) >= 3).then_some(duel.arrangement),
+        house: host
+            .as_deref()
+            .is_some_and(|h| h.0.link() == crate::host::LinkState::Local),
     };
     // Whether the panel is *showing*, which is not whether it is visible: one
     // in the middle of folding away is still on the screen and is already
@@ -420,6 +426,20 @@ pub fn sync_menu(
         action: MenuAction::Report,
     });
     commands.entity(panel).add_child(report);
+    // The guided tour (TOURS.md §1.7): live in a game this client hosts,
+    // dead at a networked table, where it says why.
+    let (words, weight) = if next.house {
+        (Phrase::TourMenuRow, Weight::Secondary)
+    } else {
+        (Phrase::TourMenuRowAway, Weight::Dead)
+    };
+    let tour = answer(&mut commands, &fonts, words.text(lang), weight, None);
+    if next.house {
+        commands.entity(tour).insert(MenuButton {
+            action: MenuAction::Tour,
+        });
+    }
+    commands.entity(panel).add_child(tour);
 
     let music = crate::music::controls(
         &mut commands,

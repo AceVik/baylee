@@ -15,6 +15,7 @@
 //! hollow (§3.3).
 
 mod draw;
+mod table;
 
 use baylee_client_core::tour::{Anchor, Mode, Moved, Run, Tours};
 use bevy::input::keyboard::KeyCode;
@@ -80,6 +81,12 @@ pub struct TourDesk {
     pub asked: Option<TourPress>,
     /// The tours before the box switched them off, for its Undo.
     pub before: Option<Tours>,
+    /// A practice game was just installed: the table tour starts at its
+    /// first view (`table::tours`).
+    pub practice: bool,
+    /// The scripted run a just-in-time step stepped in front of; it comes
+    /// back when that step is done.
+    pub stash: Option<Run>,
 }
 
 impl TourDesk {
@@ -112,6 +119,14 @@ impl TourDesk {
         let Some(run) = self.run.as_mut() else {
             return false;
         };
+        // The offer's primary is the practice game, by key as by press.
+        let press = if press == TourPress::Next
+            && run.current().kind == baylee_client_core::tour::Kind::Offer
+        {
+            TourPress::Practice
+        } else {
+            press
+        };
         let over = match press {
             TourPress::Next if run.primary_live() => run.next(tours) == Moved::Over,
             TourPress::Next => false,
@@ -142,11 +157,30 @@ impl TourDesk {
         };
         self.missing = 0.0;
         if over {
-            self.run = None;
-            self.parked = false;
+            self.end();
             self.swallow = true;
         }
         true
+    }
+
+    /// The run is over: the one a just-in-time step stood in front of, if
+    /// any, comes back.
+    pub fn end(&mut self) {
+        self.run = self.stash.take();
+        self.parked = false;
+        self.missing = 0.0;
+    }
+
+    /// A just-in-time step steps in front of whatever stands.
+    pub fn interject(&mut self, run: Run) {
+        if let Some(standing) = self.run.take()
+            && !standing.single
+        {
+            self.stash = Some(standing);
+        }
+        self.run = Some(run);
+        self.parked = false;
+        self.missing = 0.0;
     }
 }
 
@@ -259,7 +293,7 @@ fn presses(
 fn follow(
     time: Res<Time>,
     mut desk: ResMut<TourDesk>,
-    anchors: Query<(&TourAnchor, &InheritedVisibility)>,
+    anchors: Query<(&TourAnchor, &InheritedVisibility, &ComputedNode)>,
     settings: Option<ResMut<crate::settings::ClientSettings>>,
 ) {
     let pending = desk.setting.pending;
@@ -278,10 +312,7 @@ fn follow(
         desk.missing = 0.0;
         return;
     };
-    let there = anchors
-        .iter()
-        .any(|(a, shown)| a.0 == anchor && shown.get());
-    if there {
+    if present(anchor, &anchors) {
         if desk.missing != 0.0 {
             desk.missing = 0.0;
         }
@@ -303,12 +334,24 @@ fn follow(
         .as_mut()
         .is_some_and(|run| run.pass_over(&mut tours) == Moved::Over);
     if over {
-        desk.run = None;
+        desk.end();
     }
     if tours != settings.tours {
         settings.tours = tours;
         settings.save();
     }
+}
+
+/// Whether a node marked `anchor` is on screen: shown, and laid out with a
+/// size (a root kept empty while it has nothing to draw is not there).
+#[must_use]
+pub fn present(
+    anchor: Anchor,
+    anchors: &Query<(&TourAnchor, &InheritedVisibility, &ComputedNode)>,
+) -> bool {
+    anchors
+        .iter()
+        .any(|(a, shown, node)| a.0 == anchor && shown.get() && node.size() != Vec2::ZERO)
 }
 
 /// How long a step waits for its anchor before it is passed over.
@@ -328,8 +371,24 @@ pub(crate) fn install(app: &mut App) {
         .init_resource::<draw::Spotlight>()
         .add_systems(
             Update,
-            (keys, presses, follow, draw::draw).chain().run_if(settled),
+            (
+                (
+                    table::mark,
+                    table::mark_the_first_card,
+                    table::proxies,
+                    table::tours,
+                )
+                    .chain()
+                    .run_if(in_state(crate::DuelPhase::Playing)),
+                keys,
+                presses,
+                follow,
+                draw::draw,
+            )
+                .chain()
+                .run_if(settled),
         )
+        .add_systems(OnEnter(crate::DuelPhase::Closed), table::leave)
         .add_systems(
             PostUpdate,
             draw::place

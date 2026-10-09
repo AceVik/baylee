@@ -579,6 +579,9 @@ pub enum MenuAction {
     CancelCast,
     /// Open the report form (#309), from the game menu.
     Report,
+    /// The guided tour from its first chapter (TOURS.md §1.7), from the
+    /// game menu: a house game's; a networked table's row is dead.
+    Tour,
     /// Open the arrangement menu (DESIGN-v8 §2.4): the game menu's row, and
     /// on a phone the switcher's only door.
     ArrangementMenu,
@@ -2272,6 +2275,8 @@ pub use ledge::log::{
 };
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, show_priority_switch, sync_menu};
 pub(crate) use ledge::players::STRIPS_H;
+// The guided tour's anchors ride on these markers (`tour::table`).
+pub(crate) use ledge::players::PlayersStrip;
 pub use ledge::players::{
     ChipCrown, ChipTag, HintSeat, PlayersRevision, TagKind, glow_the_players, show_the_tags,
     sync_players,
@@ -2301,6 +2306,7 @@ pub use sheet::{
     place_ability_sheet, sync_ability_sheet, zoom_the_sheet,
 };
 pub use slip::{SlipWash, wash_the_slip_in};
+pub(crate) use stack::{StackControls, StackPanel};
 pub use stack::{
     StackFold, StackMotion, StackTextBar, StackTextBox, StackTextRow, StackTextScroll, TextNudge,
     ease_the_stack_in, fold_the_stack, stack_text, stack_text_keys,
