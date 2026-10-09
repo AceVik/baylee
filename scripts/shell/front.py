@@ -78,6 +78,10 @@ def choose(gateway):
 
 
 def to_face(face, gateway):
+    # A settings screen left open (a settings run before this one) stands
+    # over the door: close it first, or every face reads as settings.
+    if "Settings(CloseSettings)" in presses():
+        press_until("Settings(CloseSettings)", lambda: "Settings(CloseSettings)" not in presses())
     if "Front(About(false))" in presses():
         press_until("Front(About(false))", lambda: "Front(About(false))" not in presses())
     if face == "gateway":

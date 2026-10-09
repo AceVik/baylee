@@ -578,10 +578,13 @@ fn shell_nodes_json(believed: &Believed) -> String {
                     .map(|g| g.line_index + 1)
                     .max()
                     .unwrap_or(0);
-                row.push_str(&format!(
-                    ",\"tw\":{:.1},\"th\":{:.1},\"ln\":{lines}",
-                    extent.x, extent.y
-                ));
+                let _ = std::fmt::Write::write_fmt(
+                    &mut row,
+                    format_args!(
+                        ",\"tw\":{:.1},\"th\":{:.1},\"ln\":{lines}",
+                        extent.x, extent.y
+                    ),
+                );
             }
         }
         if shown.is_some_and(|v| !v.get()) {
