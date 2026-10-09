@@ -82,10 +82,15 @@ pub enum Filter {
     /// Controlled by a defending player (Blaze of Glory: "target creature
     /// defending player controls"). There are defending players only during
     /// the combat phase, and they are the active player's opponents: the
-    /// nonactive player of a two-player game (CR 506.2), and every opponent
-    /// where all of them are attacked at once (CR 802.2), of whom the
-    /// spell's controller picks one by picking the creature (CR 802.2a).
-    /// Outside combat nothing matches.
+    /// nonactive player of a two-player game (CR 506.2), and at a larger
+    /// table, which plays the attack multiple players option (CR 802.1),
+    /// every opponent, attacked or not: "all the attacking player's
+    /// opponents are defending players during the combat phase" (CR 802.2).
+    /// A sentence that names no attacking creature picks one of them by
+    /// picking the creature (CR 802.2a: "the controller of the spell or
+    /// ability chooses one"); one that names an attacking creature reads
+    /// that creature's defender instead, and says so where it is resolved
+    /// (False Orders' re-block). Outside combat nothing matches.
     ControlledByDefendingPlayer,
     /// Owned by `you`.
     OwnedByYou,

@@ -237,21 +237,131 @@ fn a_creature_that_did_not_block_may_be_made_to_block() {
     assert!(in_graveyard(&engine, P0, index::GRIZZLY_BEARS).is_some());
 }
 
-/// "Cast this spell only during the declare blockers step": in the main
-/// phase it is not offered and a cast is refused.
+/// "Cast this spell only during the declare blockers step", asked where the
+/// target alone would allow it: in the declare attackers step the Angel is
+/// already a creature a defending player controls (the combat phase has
+/// begun, CR 802.2), so only the timing refuses the cast. One step later it
+/// is cast.
 #[test]
 fn false_orders_is_cast_only_during_the_declare_blockers_step() {
     let mut engine = Duel::new(6104, index::MOUNTAIN)
-        .battlefield(0, &[index::MOUNTAIN])
+        .battlefield(0, &[index::GRIZZLY_BEARS, index::MOUNTAIN, index::MOUNTAIN])
         .hand(0, &[index::FALSE_ORDERS])
         .battlefield(1, &[index::SERRA_ANGEL])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
-    tap_all_mana(&mut engine, P0);
+    let bears = on_battlefield(&engine, P0, index::GRIZZLY_BEARS).unwrap();
+    let first = on_battlefield(&engine, P0, index::MOUNTAIN).unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bears, Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == P0),
+        "{:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine.state().turn.step,
+        crate::turn::Step::DeclareAttackers
+    );
+    tap_mana_where(&mut engine, P0, |id| id == first);
     let card = in_hand(&engine, P0, index::FALSE_ORDERS).unwrap();
     assert!(
         engine.apply(P0, PlayerAction::CastSpell { card }).is_err(),
-        "not in a main phase"
+        "not in the declare attackers step, a target or not"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == P0),
+        "{:?}",
+        engine.pending()
+    );
+    // The first Mountain's red emptied with the step (CR 500.4).
+    tap_all_mana(&mut engine, P0);
+    engine.apply(P0, PlayerAction::CastSpell { card }).unwrap();
+}
+
+/// Whose creature is "a creature defending player controls" at a table of
+/// three, P0 attacking P1 alone. This engine plays the attack multiple
+/// players option (CR 802.1; Free-for-All's and Team vs. Team's), under
+/// which "all the attacking player's opponents are defending players during
+/// the combat phase" (CR 802.2), attacked or not, and a spell that names no
+/// attacking creature picks one of them by picking the creature (802.2a:
+/// "the controller of the spell or ability chooses one"). So P2's creature
+/// is a target as well as P1's, and P0's own is not. Only the re-block reads
+/// the creature it moves against the attackers (CR 506.3e, 802.4a): nothing
+/// attacks P2, so P2's creature is offered nothing to block.
+#[test]
+fn every_opponent_of_the_attacker_is_a_defending_player_during_combat() {
+    let p2 = PlayerId::new(2);
+    let mut engine = Duel::table(6105, index::MOUNTAIN, 3)
+        .battlefield(
+            0,
+            &[index::GRIZZLY_BEARS, index::HILL_GIANT, index::MOUNTAIN],
+        )
+        .hand(0, &[index::FALSE_ORDERS])
+        .battlefield(1, &[index::SERRA_ANGEL])
+        .battlefield(2, &[index::SERRA_ANGEL])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+    let bears = on_battlefield(&engine, P0, index::GRIZZLY_BEARS).unwrap();
+    let giant = on_battlefield(&engine, P0, index::HILL_GIANT).unwrap();
+    let theirs = on_battlefield(&engine, P1, index::SERRA_ANGEL).unwrap();
+    let bystander = on_battlefield(&engine, p2, index::SERRA_ANGEL).unwrap();
+    to_blocks(&mut engine, &[bears], &[]);
+    // P2 is asked for blocks too, and declares none; `to_blocks` answers P1.
+    for _ in 0..10 {
+        match engine.pending().clone() {
+            Pending::ChooseBlockers { player, .. } => engine
+                .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                .unwrap(),
+            Pending::Priority { player, .. } if player == P0 => break,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+    cast_from_hand(&mut engine, P0, index::FALSE_ORDERS);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("a target is asked: {:?}", engine.pending());
+    };
+    assert!(options.contains(&theirs), "the attacked player's");
+    assert!(
+        options.contains(&bystander),
+        "and the other opponent's (CR 802.2)"
+    );
+    assert!(
+        !options.contains(&giant),
+        "never the attacking player's own"
+    );
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseTargets {
+                objects: vec![bystander],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !engine.state().combat.is_blocked(bears),
+        "nothing attacks P2, so its creature was offered nothing to block"
     );
 }
