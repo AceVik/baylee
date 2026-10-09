@@ -25,7 +25,7 @@ pub struct HandTab;
 
 /// How wide and tall the tab is, logical pixels: a 44-px target under the
 /// finger is its hit area (`Touch`), the drawn tab a little smaller.
-const TAB_W: f32 = 96.0;
+pub(crate) const TAB_W: f32 = 96.0;
 const TAB_H: f32 = 22.0;
 
 /// What the tab was last drawn from.
