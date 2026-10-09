@@ -10,6 +10,7 @@ mod angel_of_light;
 mod angel_of_mercy;
 mod archangel_avacyn;
 mod ardent_militia;
+mod argothian_treefolk;
 mod arrogant_vampire;
 mod ashaya_soul_of_the_wild;
 mod aven_flock;
