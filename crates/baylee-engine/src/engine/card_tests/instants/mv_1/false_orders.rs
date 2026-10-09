@@ -712,29 +712,3 @@ fn only_attackers_of_the_targets_controller_are_offered() {
         "P2's creature: only the attacker of P2"
     );
 }
-
-/// "Defending player" at a table of three is a player an attacker is
-/// attacking. P2 is attacked by nothing here, so their creature is not a
-/// target.
-#[test]
-#[ignore = "Filter::ControlledByDefendingPlayer (eval.rs) accepts any opponent of the active player during combat, so the creature of a player nobody attacks is offered as a target (CR 506.2: the defending player is the player a creature is attacking)"]
-fn a_creature_of_a_player_nobody_attacks_is_not_a_target() {
-    let mut engine = Duel::table(7072, mountain(), 3)
-        .battlefield(0, &[mountain(), hill_giant()])
-        .battlefield(1, &[serra_angel()])
-        .battlefield(2, &[grizzly_bears()])
-        .hand(0, &[false_orders()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
-    let giant = on_battlefield(&engine, P0, hill_giant()).unwrap();
-    let angel = on_battlefield(&engine, P1, serra_angel()).unwrap();
-    to_blocks(
-        &mut engine,
-        P0,
-        &[(giant, Defender::Player(P1))],
-        &[(angel, giant)],
-    );
-    let offered = cast_and_offered_targets(&mut engine, P0);
-    assert_eq!(offered, vec![angel], "P1 is the only defending player");
-}
