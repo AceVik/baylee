@@ -37,14 +37,15 @@ use crate::settings::ClientSettings;
 
 mod corner;
 mod form;
-mod shot;
-#[cfg(test)]
+// The guided tour points at both (`crate::tour::table`).
 pub(crate) use corner::ReportCorner;
+pub(crate) use form::DeskRoot;
+mod shot;
 /// The form's buttons: `devctl`'s `desk_controls` row, and the pointer's
 /// shape over them (`shellkit::pointer`).
 pub(crate) use form::DeskPress;
 #[cfg(test)]
-pub(crate) use form::{DeskBox, DeskCaret, DeskRoot, DeskScroll, DeskText};
+pub(crate) use form::{DeskBox, DeskCaret, DeskScroll, DeskText};
 #[cfg(test)]
 mod tests;
 

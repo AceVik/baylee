@@ -65,14 +65,14 @@ pub(super) fn tours(
     mut state: ResMut<LobbyState>,
     mut desk: ResMut<TourDesk>,
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
-    mailbox: Res<Mailbox>,
     windows: Query<&Window>,
     input: Option<Res<crate::shellkit::InputClass>>,
     entrance: Res<super::entrance::Entrance>,
     journey: Option<Res<crate::arrival::Journey>>,
     report: Option<Res<crate::report::ReportDesk>>,
     overlay: Option<Res<crate::shellkit::overlay::Overlay>>,
-    anchors: Query<(&TourAnchor, &InheritedVisibility)>,
+    anchors: Query<(&TourAnchor, &InheritedVisibility, &ComputedNode)>,
+    (mut commands, mut opens): (Commands, MessageWriter<crate::DuelCommand>),
 ) {
     let Some(settings) = settings.as_mut() else {
         return;
@@ -86,9 +86,21 @@ pub(super) fn tours(
                 left: super::decks::UNDO_SECS,
             });
         }
+        // The practice game (TOURS.md §1.4): four seats, three house AIs,
+        // hosted here, untimed; the table tour starts at its first view.
         Some(TourPress::Practice) => {
-            let request = state.lobby.play_house("steady");
-            dispatch(&mut state, &mailbox, request);
+            let lang = baylee_client_core::Lang::of(&settings.lang);
+            if let Some(host) =
+                crate::host::practice_game(crate::host::fresh_seed()).and_then(|preset| {
+                    let names = super::offline::seat_names(&preset, lang);
+                    let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+                    crate::host::LocalHost::new(&preset, baylee_core::ids::PlayerId::new(0), &refs)
+                })
+            {
+                commands.insert_resource(crate::InstalledHost(Box::new(host)));
+                opens.write(crate::DuelCommand::Open);
+                desk.practice = true;
+            }
         }
         _ => {}
     }
@@ -128,7 +140,7 @@ pub(super) fn tours(
         overlay.as_deref(),
     );
     let there = |anchor: Option<baylee_client_core::tour::Anchor>| {
-        anchor.is_none_or(|want| anchors.iter().any(|(a, shown)| a.0 == want && shown.get()))
+        anchor.is_none_or(|want| crate::tour::present(want, &anchors))
     };
     // A run standing: its check, and whether its screen is still up.
     if let Some(run) = desk.run.as_mut()

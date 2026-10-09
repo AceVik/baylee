@@ -407,6 +407,29 @@ pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
     Some(preset)
 }
 
+/// The practice game the table tour runs in (TOURS.md §1.4): four seats,
+/// the player at the first with the acceptance file's Allytifact and three
+/// house AIs at the middle difficulty on its decks, so the ring, the dial's
+/// jewels, visits and arrangements all have something to show.
+#[must_use]
+pub fn practice_game(seed: u64) -> Option<GamePreset> {
+    let text = acceptance_text();
+    let player = baylee_cards::decks::load_acceptance(&text, "Allytifact").ok()?;
+    let house = baylee_cards::decks::load_acceptance(&text, "Victory").ok()?;
+    let mut preset = baylee_cards::decks::preset_for_all(seed, &[&player, &house, &player, &house]);
+    for (at, seat) in preset.seats.iter_mut().enumerate() {
+        seat.controller = if at == 0 {
+            baylee_core::preset::SeatController::Open
+        } else {
+            baylee_core::preset::SeatController::Ai(
+                baylee_core::preset::AIProfile::named("steady").unwrap_or_default(),
+            )
+        };
+    }
+    preset.validate().ok()?;
+    Some(preset)
+}
+
 /// A board — and a hand — dealt by hand, for proving something about a card.
 ///
 /// `BAYLEE_DEV_SEAT_BOARD` is a **semicolon**-separated list of card names,

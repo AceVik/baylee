@@ -464,7 +464,7 @@ pub const TABLE: &[Chapter] = &[
         place: Place::Table,
         after: None,
         steps: &[
-            step("T6", Some(A::LitCard), N, P::TourT6Title, P::TourT6Body),
+            step("T6", Some(A::HandCard), N, P::TourT6Title, P::TourT6Body),
             step("T7", None, Text, P::TourT7Title, P::TourT7Body),
             step(
                 "T8",
@@ -520,7 +520,7 @@ pub const TABLE: &[Chapter] = &[
             ),
             step(
                 "T14",
-                Some(A::DecisionFold),
+                Some(A::DecisionSheet),
                 Jit,
                 P::TourT14Title,
                 P::TourT14Body,
@@ -534,7 +534,7 @@ pub const TABLE: &[Chapter] = &[
         place: Place::Table,
         after: None,
         steps: &[
-            step("T16", Some(A::MySteps), N, P::TourT16Title, P::TourT16Body),
+            step("T16", Some(A::MyPod), N, P::TourT16Title, P::TourT16Body),
             step("T17", Some(A::Shelf), N, P::TourT17Title, P::TourT17Body),
             step("T18", Some(A::MyPod), N, P::TourT18Title, P::TourT18Body),
         ],
