@@ -21,7 +21,7 @@
 //! | `triggered`   | a triggered, modal-triggered or chapter ability finished resolving, or a triggered mana ability produced its mana | `Engine::finish_resolution`, `resolve_triggered_mana_abilities` |
 //! | `mana`        | a mana ability's cost was paid and it produced its mana            | `start_activation`, the CR 305.6 taps |
 //! | `static`      | the projection (or, for "may choose not to untap", the untap step) applied a static ability's effect to an object | `layers::recompute_with`, `untap_optional` |
-//! | `replacement` | a replacement rule changed an event, or a clone entered as a copy  | `replacement.rs`, `trigger.rs`, `apply_copy_choice` |
+//! | `replacement` | a replacement rule changed an event, or a clone entered as a copy  | `replacement.rs`, `trigger.rs`, the skips' answers ([`replaced_by`]), `apply_copy_choice` |
 //!
 //! Only abilities printed on a card of the compiled pool are logged, under
 //! the card whose list the ability came from: a Clone that copied Llanowar
