@@ -2502,6 +2502,11 @@ already built and all of it hung on that one secret — the engine holds the
 chair open (`Deadline::StandIn`, `Session::stand_in`, `SeatAttached`) and the
 client re-dials on a schedule (`baylee-client-core/src/reconnect.rs`).
 
+A client restarted into an update (`docs/client.md` §"Restarting into an
+update") comes back through this route too: it carries the account's
+session across the restart and never the seat's token, and asks for the
+chair it left before any other (`gateway/tests/e2e_resume.rs`).
+
 Asking replaces the chair's secret rather than handing out a second one. That
 is the right way round: the seat's ticket is whatever was issued last, so a
 copy kept by some older client cannot go on answering for a seat its owner

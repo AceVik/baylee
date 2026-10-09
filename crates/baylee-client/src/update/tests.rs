@@ -111,7 +111,7 @@ fn no_notice_draws_nothing() {
 }
 
 #[test]
-fn a_staged_update_is_announced_in_the_lobby_and_not_over_a_table() {
+fn a_staged_update_is_announced_in_the_lobby_and_offered_at_a_table() {
     let mut app = headless();
     app.world_mut().resource_mut::<UpdateNotice>().shown = Some(ready());
     app.update();
@@ -127,11 +127,80 @@ fn a_staged_update_is_announced_in_the_lobby_and_not_over_a_table() {
 
     phase(&mut app, DuelPhase::Playing);
     app.update();
-    assert_eq!(toasts(&mut app), 0, "the table's menu says it there");
+    assert_eq!(toasts(&mut app), 1, "at a table, the restart is offered");
+    assert!(
+        texts(&mut app)
+            .iter()
+            .any(|t| t == Phrase::UpdateRestartOffer.text(Lang::En))
+    );
 
     phase(&mut app, DuelPhase::Closed);
     app.update();
     assert_eq!(toasts(&mut app), 1, "back in the lobby, it is back");
+}
+
+/// Only a ready update is offered at a table: a link waits for the lobby
+/// (the menu's line says it there).
+#[test]
+fn a_link_is_not_shown_over_a_table() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(Shown::Available {
+        version: "0.1.0-beta.3".into(),
+        page: "https://example.invalid/".into(),
+        why: Why::DevBuild,
+    });
+    phase(&mut app, DuelPhase::Playing);
+    app.update();
+    assert_eq!(toasts(&mut app), 0);
+}
+
+/// The table, with this seat owing the answer to question `seq`, or owing
+/// nothing.
+fn table(app: &mut App, asked: Option<u64>) {
+    let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+    view.awaiting = Some(if asked.is_some() {
+        view.seat
+    } else {
+        baylee_core::ids::PlayerId::new(1)
+    });
+    view.seq = asked.unwrap_or(view.seq);
+    app.world_mut()
+        .get_resource_or_insert_with(crate::Duel::default)
+        .view = Some(view);
+    app.update();
+}
+
+/// The restart offer never appears in the middle of a question of mine: an
+/// update that is ready while I decide waits for my answer and appears
+/// with what comes next, and then stays, a panel and no question. "Restart
+/// now" asks for the restart; "Later" puts the offer away for the session.
+#[test]
+fn the_restart_offer_never_interrupts_my_pending_decision() {
+    let mut app = headless();
+    phase(&mut app, DuelPhase::Playing);
+    table(&mut app, Some(5));
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(ready());
+    app.update();
+    assert_eq!(toasts(&mut app), 0, "I am deciding: no offer beside it");
+    table(&mut app, Some(5));
+    assert_eq!(toasts(&mut app), 0, "still the same question");
+    assert!(requests(&mut app).is_empty());
+
+    table(&mut app, Some(6));
+    assert_eq!(toasts(&mut app), 1, "answered: the offer appears now");
+    table(&mut app, None);
+    assert_eq!(toasts(&mut app), 1, "and stays");
+    let restart = button(&mut app, &UpdateButton::RestartNow);
+    click(&mut app, restart);
+    assert_eq!(requests(&mut app), [UpdateRequest::RestartNow]);
+
+    let later = button(&mut app, &UpdateButton::Later);
+    click(&mut app, later);
+    app.update();
+    assert_eq!(toasts(&mut app), 0, "put off");
+    assert!(requests(&mut app).is_empty(), "later asks for nothing");
+    table(&mut app, None);
+    assert_eq!(toasts(&mut app), 0, "for the session");
 }
 
 #[test]
@@ -153,7 +222,7 @@ fn a_link_says_why_it_is_only_a_link() {
 }
 
 #[test]
-fn hide_puts_the_notice_away_and_release_notes_open_the_page() {
+fn later_puts_the_notice_away_and_release_notes_open_the_page() {
     let mut app = headless();
     app.world_mut().resource_mut::<UpdateNotice>().shown = Some(ready());
     app.update();
@@ -168,7 +237,7 @@ fn hide_puts_the_notice_away_and_release_notes_open_the_page() {
         ["https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.3"]
     );
 
-    let hide = button(&mut app, &UpdateButton::Hide);
+    let hide = button(&mut app, &UpdateButton::Later);
     click(&mut app, hide);
     app.update();
     assert!(app.world().resource::<UpdateNotice>().hidden);
