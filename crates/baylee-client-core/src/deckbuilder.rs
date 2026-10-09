@@ -305,9 +305,12 @@ impl Printing {
     }
 
     /// What the carousel writes under the art: set, number, and whatever
-    /// makes this printing look different from the plain one.
+    /// makes this printing look different from the plain one. `None` for
+    /// the registry's own reference printing, which knows nothing but its
+    /// id: the picker names that one in the player's words
+    /// (`Phrase::ReferencePrinting`), which it once did in English only.
     #[must_use]
-    pub fn label(&self) -> String {
+    pub fn label(&self) -> Option<String> {
         let mut parts: Vec<String> = Vec::new();
         if !self.set.is_empty() {
             parts.push(self.set.to_uppercase());
@@ -324,11 +327,7 @@ impl Printing {
         if self.promo {
             parts.push("Promo".to_string());
         }
-        if parts.is_empty() {
-            // The registry's own reference printing knows nothing but its id.
-            return "This build's printing".to_string();
-        }
-        parts.join(" · ")
+        (!parts.is_empty()).then(|| parts.join(" · "))
     }
 }
 

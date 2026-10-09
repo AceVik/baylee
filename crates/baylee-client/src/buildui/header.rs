@@ -165,7 +165,7 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         }
         let history = env.state.lobby.token().is_some() && deck.editing().is_some();
         let why = if env.state.lobby.offline() {
-            Phrase::HistoryAccountHint
+            Phrase::HistoryNeedsGateway
         } else {
             Phrase::HistorySaveHint
         };

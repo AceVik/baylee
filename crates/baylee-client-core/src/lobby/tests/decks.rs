@@ -269,6 +269,8 @@ fn deleting_a_deck_re_reads_the_list() {
 fn issue_186_history_preview_preserves_edits_and_restore_is_explicit() {
     use crate::lobby::library::{History, Reply, Request, Revision, Snapshot};
     let mut lobby = seated_lobby();
+    // The builder's door: the sheet stands over `Screen::Build`.
+    lobby.build_deck();
     lobby.builder_mut().load(
         "d1",
         "test",
@@ -293,28 +295,30 @@ fn issue_186_history_preview_preserves_edits_and_restore_is_explicit() {
                     summary: Some("first".into()),
                     superseded_at: 90,
                     cards: 1,
-                    sideboard: 1
+                    sideboard: 1,
+                    delta: None,
+                    card_count: None,
                 }],
+                delta: None,
+                card_count: None,
             }
         ))),
         Some(LobbyRequest::Library(Request::Version("d1".into(), 3)))
     );
-    lobby.apply(LobbyEvent::Library(Reply::Version(
-        "d1".into(),
-        Snapshot {
-            version: 3,
-            cards: working_main.clone(),
-            sideboard: working_side.clone(),
-            commanders: vec![],
-        },
-    )));
+    // The head is selected and compared with the one before it, so that
+    // one is read next.
     assert_eq!(
-        lobby.restore_preview(),
-        None,
-        "current version cannot be restored"
+        lobby.apply(LobbyEvent::Library(Reply::Version(
+            "d1".into(),
+            Snapshot {
+                version: 3,
+                cards: working_main.clone(),
+                sideboard: working_side.clone(),
+                commanders: vec![],
+            },
+        ))),
+        Some(LobbyRequest::Library(Request::Version("d1".into(), 1)))
     );
-    assert_eq!(lobby.preview_version("another-account", 1), None);
-    assert!(lobby.preview_version("d1", 1).is_some());
     lobby.apply(LobbyEvent::Library(Reply::Version(
         "d1".into(),
         Snapshot {
@@ -324,15 +328,31 @@ fn issue_186_history_preview_preserves_edits_and_restore_is_explicit() {
             commanders: vec![],
         },
     )));
+    assert_eq!(lobby.compared(), Some((Some(1), 3)));
+    assert_eq!(
+        lobby.restore_version(),
+        None,
+        "current version cannot be restored"
+    );
+    assert_eq!(lobby.preview_version("another-account", 1), None);
+    assert_eq!(
+        lobby.preview_version("d1", 1),
+        None,
+        "both ends are read already"
+    );
+    assert_eq!(lobby.library().selected, Some(1));
+    assert_eq!(
+        lobby.compared(),
+        Some((None, 1)),
+        "the oldest has no before"
+    );
     assert_eq!(lobby.builder().rows(Zone::Main), working_main);
     assert_eq!(lobby.builder().rows(Zone::Side), working_side);
-    assert_eq!(lobby.restore_preview(), None, "first click only confirms");
-    assert!(lobby.library().confirm_restore);
     assert_eq!(
-        lobby.restore_preview(),
+        lobby.restore_version(),
         Some(LobbyRequest::Library(Request::Restore("d1".into(), 1)))
     );
-    assert_eq!(lobby.restore_preview(), None, "double submission refused");
+    assert_eq!(lobby.restore_version(), None, "double submission refused");
     assert_eq!(
         lobby.apply(LobbyEvent::Library(Reply::Restored("d1".into()))),
         Some(LobbyRequest::LoadDeck {
@@ -397,29 +417,112 @@ fn issue_186_house_copy_gets_its_own_identity_and_history_membership() {
 
 #[test]
 fn issue_186_diff_counts_quantities_and_preserves_print_and_sideboard_changes() {
-    use crate::lobby::library::row_changes;
-    assert_eq!(
-        row_changes(
-            &["4 Forest".into(), "1 Island".into()],
-            &["2 Forest".into(), "3 Island".into()]
-        ),
-        vec![("Forest".into(), -2), ("Island".into(), 2)]
+    use crate::lobby::library::{Change, Snapshot, compare_snapshots};
+    let snap = |cards: &[&str], side: &[&str]| Snapshot {
+        version: 1,
+        cards: cards.iter().map(|r| (*r).to_string()).collect(),
+        sideboard: side.iter().map(|r| (*r).to_string()).collect(),
+        commanders: vec![],
+    };
+    let [main, side, commanders] = compare_snapshots(
+        &snap(&["4 Forest", "1 Island"], &[]),
+        &snap(&["2 Forest", "3 Island"], &["2 Negate"]),
+    );
+    assert_eq!(main.changes.len(), 2);
+    assert!(
+        main.changes
+            .iter()
+            .all(|c| matches!(c, Change::Count { .. }))
+    );
+    assert!(matches!(
+        side.changes.as_slice(),
+        [Change::Added { count: 2, .. }]
+    ));
+    assert!(commanders.changes.is_empty());
+    // A foil change is one Finish row — never −4 and +4 of the same card,
+    // as the old `row_changes` drew it.
+    let [main, ..] = compare_snapshots(
+        &snap(&["4 Lightning Bolt (M11) 149"], &[]),
+        &snap(&["4 Lightning Bolt (M11) 149 *F*"], &[]),
     );
     assert!(
-        row_changes(
-            &["2 Forest".into(), "2 Forest".into()],
-            &["4 Forest".into()]
-        )
-        .is_empty()
+        matches!(main.changes.as_slice(), [Change::Finish { count: 4, .. }]),
+        "{:?}",
+        main.changes
     );
+    // Another printing is one Printing row.
+    let [main, ..] = compare_snapshots(
+        &snap(&["1 Forest (SET) 1"], &[]),
+        &snap(&["1 Forest (SET) 2"], &[]),
+    );
+    assert!(
+        matches!(main.changes.as_slice(), [Change::Printing { .. }]),
+        "{:?}",
+        main.changes
+    );
+}
+
+/// The compare bar (`DESIGN` §C.3): Previous by default, Current against
+/// the head, Pick… waits for a second version from the list, and Esc (or a
+/// second Pick…) leaves the mode for Previous again.
+#[test]
+fn the_history_compare_bar_follows_previous_current_and_pick() {
+    use crate::lobby::library::{Compare, History, Reply, Request, Revision};
+    let mut lobby = seated_lobby();
+    lobby.browse_deck_history("d1");
+    let past = |version| Revision {
+        version,
+        summary: None,
+        superseded_at: i64::from(version) * 10,
+        cards: 0,
+        sideboard: 0,
+        delta: None,
+        card_count: None,
+    };
+    lobby.apply(LobbyEvent::Library(Reply::History(
+        "d1".into(),
+        History {
+            version: 12,
+            updated_at: 200,
+            past: vec![past(11), past(10), past(9)],
+            delta: None,
+            card_count: None,
+        },
+    )));
+    assert_eq!(lobby.compared(), Some((Some(11), 12)));
+    // ↓ ×2 selects v10: compared with v9.
+    lobby.library.loading = false;
+    lobby.step_version(1);
+    lobby.library.loading = false;
+    lobby.step_version(1);
+    assert_eq!(lobby.library().selected, Some(10));
+    assert_eq!(lobby.compared(), Some((Some(9), 10)));
+    lobby.library.loading = false;
     assert_eq!(
-        row_changes(&["1 Forest [SET:1]".into()], &["1 Forest [SET:2]".into()]).len(),
-        2
+        lobby.compare_with(Compare::Current),
+        Some(LobbyRequest::Library(Request::Version("d1".into(), 12)))
     );
-    assert_eq!(
-        row_changes(&[], &["2 Negate".into()]),
-        vec![("Negate".into(), 2)]
-    );
+    assert_eq!(lobby.compared(), Some((Some(10), 12)));
+    lobby.library.loading = false;
+    lobby.compare_with(Compare::Pick(None));
+    assert_eq!(lobby.library().compare, Compare::Pick(None));
+    // While the list waits, a press picks the other end, not the selection.
+    lobby.library.loading = false;
+    lobby.preview_version("d1", 9);
+    assert_eq!(lobby.library().selected, Some(10));
+    assert_eq!(lobby.compared(), Some((Some(9), 10)));
+    assert!(lobby.leave_pick(), "Esc leaves the mode");
+    assert_eq!(lobby.library().compare, Compare::Previous);
+    assert!(!lobby.leave_pick(), "a second Esc is the sheet's");
+    // A second Pick… leaves the mode too.
+    lobby.compare_with(Compare::Pick(None));
+    lobby.compare_with(Compare::Pick(None));
+    assert_eq!(lobby.library().compare, Compare::Previous);
+    // The oldest version reads `first save`: nothing before it.
+    let history = lobby.library().history.clone().unwrap();
+    assert_eq!(history.started(9), None);
+    assert_eq!(history.started(10), Some(90));
+    assert_eq!(history.started(12), Some(110));
 }
 
 fn two_decks(lobby: &mut Lobby, first: &str, second: &str) {
@@ -524,7 +627,7 @@ fn a_duplicate_is_a_copy_that_stays_on_the_shelf() {
 /// the head it replaced for Undo.
 #[test]
 fn a_restore_from_the_shelf_stays_there_and_can_be_undone() {
-    use crate::lobby::library::{History, Reply, Request, Snapshot};
+    use crate::lobby::library::{History, Reply, Request, Revision, Snapshot};
     let mut lobby = seated_lobby();
     assert!(lobby.browse_deck_history("d1").is_some());
     let snapshot = |version| Snapshot {
@@ -538,17 +641,28 @@ fn a_restore_from_the_shelf_stays_there_and_can_be_undone() {
         History {
             version: 3,
             updated_at: 0,
-            past: vec![],
+            past: vec![Revision {
+                version: 2,
+                summary: None,
+                superseded_at: 0,
+                cards: 0,
+                sideboard: 0,
+                delta: None,
+                card_count: None,
+            }],
+            delta: None,
+            card_count: None,
         },
     )));
     lobby.apply(LobbyEvent::Library(Reply::Version(
         "d1".into(),
         snapshot(3),
     )));
-    lobby.library.preview = Some(("d1".into(), snapshot(2)));
-    if let Some(history) = lobby.library.history.as_mut() {
-        history.version = 3;
-    }
+    lobby.apply(LobbyEvent::Library(Reply::Version(
+        "d1".into(),
+        snapshot(2),
+    )));
+    assert_eq!(lobby.preview_version("d1", 2), None);
     assert_eq!(
         lobby.restore_version(),
         Some(LobbyRequest::Library(Request::Restore("d1".into(), 2)))
@@ -564,4 +678,45 @@ fn a_restore_from_the_shelf_stays_there_and_can_be_undone() {
         Some(LobbyRequest::Library(Request::Restore("d1".into(), 3)))
     );
     assert_eq!(lobby.library().restored, None, "an Undo is not undone");
+}
+
+/// The deck list's way into a deck opens the builder on the deck, never on
+/// a page the Decks screen left open (the owner's beta.6 review: "deck list
+/// → edit deck shows an old page"). The house list stays open behind its
+/// tab, and a first run with no decks asks for it unprompted; a deck's
+/// history is a sheet there. The shell draws the builder's own history
+/// page over `Screen::Build` whenever any page is open.
+#[test]
+fn the_builder_opens_on_the_deck_not_on_a_page_the_decks_screen_left_open() {
+    use crate::lobby::library::{HouseDeck, Page, Reply};
+    type Open = fn(&mut Lobby) -> Option<LobbyRequest>;
+    let doors: [(&str, Open); 2] = [
+        ("edit", |lobby| lobby.edit_deck(0)),
+        ("new", Lobby::build_deck),
+    ];
+    for (door, open) in doors {
+        for page in ["house", "history"] {
+            let mut lobby = seated_lobby();
+            if page == "house" {
+                assert!(lobby.browse_house().is_some());
+                lobby.apply(LobbyEvent::Library(Reply::House(vec![HouseDeck {
+                    id: "shared".into(),
+                    name: "House".into(),
+                    version: 1,
+                    ..Default::default()
+                }])));
+                assert_eq!(lobby.library().page, Some(Page::House));
+            } else {
+                assert!(lobby.browse_deck_history("d1").is_some());
+                assert!(lobby.library().page.is_some());
+            }
+            open(&mut lobby);
+            assert_eq!(lobby.screen(), &Screen::Build, "{door} from {page}");
+            assert_eq!(lobby.library().page, None, "{door} from {page}");
+            assert!(!lobby.library().loading, "{door} from {page}");
+            // And the house tab, come back to, asks again.
+            lobby.close_builder();
+            assert!(lobby.browse_house().is_some(), "{door} from {page}");
+        }
+    }
 }

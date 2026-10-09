@@ -1735,3 +1735,18 @@ fn the_card_window_follows_its_row_through_the_steppers() {
     assert!(rows[0].starts_with("3 Lightning Bolt"), "{rows:?}");
     assert!(rows[0].contains("*F*"), "{rows:?}");
 }
+
+/// The registry's reference printing knows nothing but its id, and says so
+/// in no words of its own: the picker names it in the player's language
+/// (`Phrase::ReferencePrinting`), where it once wrote English on every
+/// table (the beta.6 review, offline).
+#[test]
+fn a_printing_that_knows_only_its_id_has_no_label_of_its_own() {
+    assert_eq!(Printing::default().label(), None);
+    assert_eq!(
+        printing("lea", "161", "en", &["nonfoil"])
+            .label()
+            .as_deref(),
+        Some("LEA · #161")
+    );
+}
