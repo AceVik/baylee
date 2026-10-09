@@ -662,48 +662,10 @@ pub(crate) fn identity_colours(letter: char) -> (Color, Color) {
     }
 }
 
-/// The colour identity as discs, the colour's letter in each (S4-14): colour
-/// is never the only carrier. Discs stay 16 px at least, where a letter
-/// still reads.
+/// The colour identity as its Mana-font symbols (`manaui::spawn_identity`).
 fn identity_discs(commands: &mut Commands, kit: Kit, identity: &str) -> Entity {
-    let discs = commands
-        .spawn((
-            Node {
-                column_gap: kit.m.px(3.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
     let side = 16.0_f32.max(kit.m.scaled(16.0));
-    for letter in identity.chars() {
-        let (ground, ink) = identity_colours(letter);
-        let disc = commands
-            .spawn((
-                Node {
-                    width: px_fixed(side),
-                    height: px_fixed(side),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border_radius: BorderRadius::all(px_fixed(RADIUS_PILL)),
-                    ..default()
-                },
-                BackgroundColor(ground),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let mark = commands
-            .spawn((
-                Text::new(letter.to_string()),
-                tf_bold(kit.fonts, 9.0_f32.max(kit.m.scaled(9.0))),
-                TextColor(ink),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(disc).add_child(mark);
-        commands.entity(discs).add_child(disc);
-    }
-    discs
+    crate::manaui::spawn_identity(commands, kit.fonts, identity, side, kit.m.px(3.0))
 }
 
 /// A deck tile (§2.4): the art band — here only the identity gradient, since

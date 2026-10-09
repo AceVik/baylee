@@ -1949,6 +1949,7 @@ fn spawn_stack_entry(
     let name = name.id();
     if !full || compact {
         for piece in queued_heading_spans(&title, room, size) {
+            let mark = piece.mark.then(|| piece.text.clone());
             let font = if piece.mark {
                 crate::manaui::mana_tf(fonts, size * STACK_MARK)
             } else {
@@ -1963,6 +1964,9 @@ fn spawn_stack_entry(
                     Pickable::IGNORE,
                 ))
                 .id();
+            if let Some(mark) = mark {
+                crate::manaui::ink_span(commands, span, &mark, size * STACK_MARK);
+            }
             commands.entity(name).add_child(span);
         }
     }
@@ -2194,6 +2198,7 @@ fn spawn_stack_sentence(
         } else {
             palette::INK
         };
+        let mark = piece.mark.then(|| piece.text.clone());
         let span = commands
             .spawn((
                 TextSpan::new(piece.text),
@@ -2209,6 +2214,9 @@ fn spawn_stack_sentence(
                 Pickable::IGNORE,
             ))
             .id();
+        if let Some(mark) = mark {
+            crate::manaui::ink_span(commands, span, &mark, STACK_SENTENCE_PT * STACK_MARK);
+        }
         commands.entity(sentence).add_child(span);
     }
 

@@ -417,14 +417,7 @@ fn colour_toggles(commands: &mut Commands, env: &Env) -> Vec<Entity> {
             } else {
                 tokens::MUTED
             };
-            let said = commands
-                .spawn((
-                    Text::new(letter.to_string()),
-                    tf_bold(kit.fonts, m.small * 0.9),
-                    TextColor(letter_ink),
-                    Pickable::IGNORE,
-                ))
-                .id();
+            let said = crate::manaui::spawn_mark_on(commands, kit.fonts, *letter, side, letter_ink);
             commands.entity(disc).add_child(said);
             controls::hit(
                 commands,

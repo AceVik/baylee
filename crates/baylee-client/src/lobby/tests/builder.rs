@@ -376,10 +376,28 @@ fn a_card_can_be_read_in_the_builder() {
         .inspect(0);
     app.update();
     let shown = labels(&mut app);
-    assert!(
-        shown.iter().any(|l| l == "{T}: Add {G}."),
-        "the rules text is on screen: {shown:?}"
-    );
+    // The rules are spans, the symbols the Mana font's glyphs (beta.6).
+    let spans: Vec<String> = {
+        let world = app.world_mut();
+        world
+            .query::<&bevy::text::TextSpan>()
+            .iter(world)
+            .map(|span| span.0.clone())
+            .collect()
+    };
+    let glyph = |symbol: &str| match baylee_client_core::manapip::symbol(symbol) {
+        Some(baylee_client_core::manapip::Pip::Solid { glyph, .. }) => glyph.to_string(),
+        other => panic!("{other:?}"),
+    };
+    let said = spans.concat();
+    // The query's order is not the line's, so each piece on its own.
+    for piece in [glyph("T"), ": Add ".to_string(), glyph("G")] {
+        assert!(
+            spans.contains(&piece),
+            "the rules text is on screen in glyphs: {spans:?}"
+        );
+    }
+    assert!(!said.contains("{T}"), "no braces left: {said:?}");
     let found = presses(&mut app);
     assert!(
         found.contains(&Press::Build(BuildPress::PickerClose)),

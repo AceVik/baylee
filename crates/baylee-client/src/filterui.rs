@@ -529,10 +529,13 @@ fn pips(
             } else {
                 held.holds(Colors::of_letters(&letter.to_string()))
             };
+            // The colour's own symbol (owner, beta.6), its letter only as
+            // the fallback the door falls back to.
+            let label = crate::manaui::glyph_of(letter).unwrap_or(letter);
             word(
                 commands,
                 fonts,
-                &letter.to_string(),
+                &label.to_string(),
                 Act::Colour(at, letter),
                 on,
                 look,
@@ -805,6 +808,9 @@ fn word(
             Pickable::IGNORE,
         ))
         .id();
+    if text.chars().all(|c| ('\u{e600}'..='\u{e9ff}').contains(&c)) {
+        crate::manaui::ink_span(commands, words, text, LABEL * crate::hud::UI_SCALE);
+    }
     commands.entity(button).add_child(words);
     button
 }

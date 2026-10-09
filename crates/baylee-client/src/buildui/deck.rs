@@ -372,48 +372,10 @@ fn commander_slot(commands: &mut Commands, env: &Env, compact: bool) -> Entity {
     row
 }
 
-/// A colour identity as discs with their letters (colour is never the only
-/// carrier, §2.4), in `WUBRG` order.
+/// A colour identity as its Mana-font symbols (`manaui::spawn_identity`).
 fn identity_discs(commands: &mut Commands, kit: Kit, identity: &str) -> Entity {
-    let m = kit.m;
-    let row = commands
-        .spawn((
-            Node {
-                column_gap: m.px(3.0),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    for letter in "WUBRG".chars().filter(|c| identity.contains(*c)) {
-        let side = m.scaled(18.0).max(16.0);
-        let disc = commands
-            .spawn((
-                Node {
-                    width: px_fixed(side),
-                    height: px_fixed(side),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
-                    ..default()
-                },
-                BackgroundColor(mana_tone(letter)),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let said = commands
-            .spawn((
-                Text::new(letter.to_string()),
-                tf_bold(kit.fonts, m.small * 0.75),
-                TextColor(crate::shellkit::tokens::INK_ON_LIGHT),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(disc).add_child(said);
-        commands.entity(row).add_child(disc);
-    }
-    row
+    let side = kit.m.scaled(18.0).max(16.0);
+    crate::manaui::spawn_identity(commands, kit.fonts, identity, side, kit.m.px(3.0))
 }
 
 /// The deck body: the shown list in its sections, or the numbers.

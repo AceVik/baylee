@@ -140,7 +140,7 @@ const SMALL_TEXT: f32 = 14.0;
 /// this client puts a number: a life total, a mana value, a turn number, a
 /// power and toughness. `lnum` is therefore not a flourish — it is what keeps
 /// a 7 from looking like it fell out of the seat bar.
-fn lining() -> bevy::text::FontFeatures {
+pub(crate) fn lining() -> bevy::text::FontFeatures {
     bevy::text::FontFeatures::builder()
         .enable(bevy::text::FontFeatureTag::LINING_FIGURES)
         .build()
