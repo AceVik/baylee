@@ -49,9 +49,7 @@ pub(super) fn poll(
                 .iter()
                 .find(|c| c.index == *card)
                 .map(|c| c.oracle_id.as_str());
-            if let Some(oracle) =
-                oracle.filter(|id| !cfg!(test) && uuid::Uuid::parse_str(id).is_ok())
-            {
+            if let Some(oracle) = oracle.filter(|id| widens(id)) {
                 super::print_catalog::fetch(
                     *card,
                     oracle,
@@ -59,6 +57,16 @@ pub(super) fn poll(
                     state.gateway_epoch,
                     &mailbox,
                 );
+                // The gateway's one printing is shown at once, the row's own
+                // beside it, and the window says it is looking for more: a
+                // window that waited on Scryfall showed a spinner for as long
+                // as Scryfall took, which behind a rate limit was minutes.
+                let card = *card;
+                if let Reply::Event(event) = reply {
+                    let next = state.lobby.apply(event);
+                    dispatch(&mut state, &mailbox, next);
+                }
+                state.lobby.builder_mut().widen_printings(card);
                 continue;
             }
         }
@@ -712,4 +720,11 @@ pub(super) fn waiting(state: Res<LobbyState>, mut loading: ResMut<crate::loading
             None => loading.clear(),
         }
     }
+}
+
+/// Whether a one-printing answer for this oracle id sends the client to
+/// Scryfall for the rest (`print_catalog`). Never in a test: no test reaches
+/// the network.
+fn widens(oracle: &str) -> bool {
+    !cfg!(test) && uuid::Uuid::parse_str(oracle).is_ok()
 }

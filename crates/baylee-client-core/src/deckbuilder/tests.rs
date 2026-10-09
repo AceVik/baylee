@@ -1750,3 +1750,74 @@ fn a_printing_that_knows_only_its_id_has_no_label_of_its_own() {
         Some("LEA · #161")
     );
 }
+
+/// A gateway without a catalog answers the reference printing alone. A row
+/// that names another printing is still shown as itself — the window once
+/// showed the reference, and Apply would have rewritten the row to it.
+#[test]
+fn a_rows_own_printing_stands_when_the_gateway_knows_only_the_reference() {
+    let mut b = picking();
+    b.close_picker();
+    let own = PrintChoice {
+        set: Some("M11".into()),
+        collector_number: Some("149".into()),
+        finish: Some(Finish::Foil),
+        ..PrintChoice::default()
+    };
+    assert!(b.add_print(0, Zone::Main, own));
+    let before = b.rows(Zone::Main);
+    b.open_row_picker(0, Zone::Main);
+    let shown = |b: &DeckBuilder| {
+        let p = b.picker().unwrap();
+        let c = p.current().unwrap();
+        (c.set.clone(), c.collector_number.clone(), p.finish())
+    };
+    let m11 = ("M11".to_string(), "149".to_string(), Finish::Foil);
+    assert_eq!(shown(&b), m11, "before the answer");
+    let mut reference = printing("", "", "en", &["nonfoil"]);
+    reference.scryfall_id = "reference".into();
+    b.set_printings(7, vec![reference], false);
+    let p = b.picker().unwrap();
+    assert!(!p.loading() && !p.from_catalog());
+    assert_eq!(p.len(), 2, "the row's own printing and the reference");
+    assert_eq!(shown(&b), m11, "after it");
+    assert!(b.picker_confirm());
+    assert_eq!(
+        b.rows(Zone::Main),
+        before,
+        "Apply on the row's own printing changes nothing"
+    );
+}
+
+/// While the client asks Scryfall for more than the gateway's one printing,
+/// the window is not loading — it shows what it has — and says it is looking;
+/// the next answer, whatever it is, ends the looking.
+#[test]
+fn looking_for_more_printings_ends_with_the_next_answer() {
+    let mut b = picking();
+    let reference = printing("", "", "en", &["nonfoil"]);
+    b.set_printings(7, vec![reference.clone()], false);
+    b.widen_printings(8);
+    assert!(!b.picker().unwrap().widening(), "another card's door");
+    b.widen_printings(7);
+    let p = b.picker().unwrap();
+    assert!(p.widening() && !p.loading());
+    b.set_printings(7, vec![reference], false);
+    assert!(!b.picker().unwrap().widening(), "the door gave up");
+    b.widen_printings(7);
+    b.set_printings(
+        7,
+        vec![
+            printing("a", "1", "en", &["nonfoil"]),
+            printing("b", "2", "en", &["nonfoil"]),
+        ],
+        true,
+    );
+    let p = b.picker().unwrap();
+    assert!(!p.widening() && p.from_catalog());
+    b.widen_printings(7);
+    assert!(
+        !b.picker().unwrap().widening(),
+        "a catalog's answer is not widened"
+    );
+}

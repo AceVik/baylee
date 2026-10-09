@@ -25,12 +25,13 @@ pub enum MusicTheme {
     Ballad,
     /// B: the dance.
     Dance,
-    /// C: the epic (the default).
-    #[default]
+    /// C: the epic.
     Epic,
     /// D: the jig.
     Jig,
-    /// A different theme each game.
+    /// A different theme each game (the default, owner 09.10.2026: the
+    /// player hears all four before choosing one).
+    #[default]
     Rotating,
 }
 
@@ -198,8 +199,8 @@ mod tests {
             serde_json::from_str(r#"{"volume":0.3,"muted":false}"#).expect("reads");
         assert_eq!(
             older.theme(),
-            MusicTheme::Epic,
-            "a file from before the themes plays the epic"
+            MusicTheme::Rotating,
+            "a file from before the themes rotates through all four"
         );
     }
 

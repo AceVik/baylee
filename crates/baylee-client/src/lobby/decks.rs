@@ -100,6 +100,8 @@ pub(crate) enum DecksPress {
     Duplicate(usize),
     /// Its history, in a sheet.
     History(usize),
+    /// A house deck's history, read-only (`DESIGN` §C.3, Q-C4).
+    HouseHistory(usize),
     /// Star or unstar it.
     Favourite(usize),
     /// Off the shelf, with an Undo.
@@ -126,6 +128,10 @@ pub(crate) enum DecksPress {
     ShowAll,
     /// The history sheet: restore the version shown.
     Restore,
+    /// The history sheet: the version shown, in the builder's export dialog.
+    ExportVersion,
+    /// A diff row: a stop for the ring to walk, which does nothing.
+    DiffRow,
     /// Ask the library again after a failure.
     Retry,
     /// The history sheet's compare bar: `0` Previous, `1` Current, `2`
@@ -281,7 +287,8 @@ pub(super) fn draw(
 
     if ui.preview.is_some() && ui.tab == DecksTab::House {
         preview_sheet(commands, root, state, kit);
-    } else if matches!(lobby.library().page, Some(Page::History(_))) && ui.tab == DecksTab::Mine {
+    } else if matches!(lobby.library().page, Some(Page::History(_))) {
+        // Either tab: a house deck's history is read-only (Q-C4).
         super::history::sheet(commands, root, state, kit);
     }
 }
@@ -887,6 +894,11 @@ fn house(
                     Phrase::HouseAdd.text(lang),
                     Press::Decks(DecksPress::Add(index)),
                 ),
+                // Read-only: what the precon was before its latest build.
+                menus::item(
+                    Phrase::DecksHistory.text(lang),
+                    Press::Decks(DecksPress::HouseHistory(index)),
+                ),
                 menus::item(
                     Phrase::ShellAddAndUse.text(lang),
                     Press::Decks(DecksPress::AddAndUse(index)),
@@ -1227,6 +1239,15 @@ impl DecksPress {
                     dispatch(state, mailbox, request);
                 }
             }
+            DecksPress::HouseHistory(index) => {
+                let id = state.lobby.library().house.get(index).map(|d| d.id.clone());
+                if let Some(id) = id {
+                    state.decks.show_all = false;
+                    state.menu = None;
+                    let request = state.lobby.browse_deck_history(&id);
+                    dispatch(state, mailbox, request);
+                }
+            }
             DecksPress::Favourite(index) => {
                 if let Some(id) = state.lobby.decks().get(index).map(|d| d.id.clone()) {
                     let mut edit = prefs.edit();
@@ -1333,6 +1354,12 @@ impl DecksPress {
                 }
             }
             DecksPress::ShowAll => state.decks.show_all = !state.decks.show_all,
+            DecksPress::DiffRow => {}
+            DecksPress::ExportVersion => {
+                if let Some(version) = super::history::version_rows(state) {
+                    state.lobby.builder_mut().open_version_export(version);
+                }
+            }
             DecksPress::Restore => {
                 // Over the builder, loading the restored deck replaces its
                 // unsaved edits: the builder's one question first (Q-C3).

@@ -199,10 +199,13 @@ pub(crate) fn window(
     let top = line(commands, kit, &top);
     commands.entity(right).add_child(top);
     let (text, english) = rules_text(card, lang);
+    // The rules with their symbols in the Mana font, each a span the door
+    // may fall back from (owner, beta.6): `{T}: Add {W}` was set as braces.
+    let serif = crate::hud::tf_serif(kit.fonts, if phone { 13.0 } else { 14.0 }, 400);
     let rules = commands
         .spawn((
-            Text::new(text),
-            crate::hud::tf_serif(kit.fonts, if phone { 13.0 } else { 14.0 }, 400),
+            Text::default(),
+            serif.clone(),
             TextColor(tokens::INK),
             Node {
                 width: Val::Percent(100.0),
@@ -211,6 +214,7 @@ pub(crate) fn window(
             Pickable::IGNORE,
         ))
         .id();
+    crate::manaui::spawn_inline_spans(commands, kit.fonts, rules, &text, &serif, tokens::INK);
     commands.entity(right).add_child(rules);
     if english {
         let tag = cell(
@@ -509,13 +513,20 @@ fn strip(commands: &mut Commands, env: &Env, picker: &Picker) -> Entity {
         let row = line(commands, kit, &[back, said, forward]);
         commands.entity(column).add_child(row);
     }
-    if !picker.loading() && !picker.from_catalog() {
-        // Offline, or a gateway with no catalog: a sentence, not grey chips.
-        let more = surfaces::prose(commands, kit, Phrase::CardMorePrintings.text(lang), true);
-        commands.entity(column).add_child(more);
+    if picker.widening() {
+        // The gateway's one printing stands; Scryfall is asked for the rest,
+        // for a bounded time (`print_catalog::DEADLINE`), and the window says so.
+        let spin = crate::card_loading::spinner(commands, 18.0);
+        let said = surfaces::prose(commands, kit, Phrase::LookingForPrintings.text(lang), true);
+        let row = line(commands, kit, &[spin, said]);
+        commands.entity(column).add_child(row);
     } else if picker.loading() {
         let spin = crate::card_loading::spinner(commands, 18.0);
         commands.entity(column).add_child(spin);
+    } else if !picker.from_catalog() {
+        // Offline, or a gateway with no catalog: a sentence, not grey chips.
+        let more = surfaces::prose(commands, kit, Phrase::CardMorePrintings.text(lang), true);
+        commands.entity(column).add_child(more);
     }
     column
 }
@@ -789,7 +800,7 @@ fn foot(
         .text(lang),
         Weight::Secondary,
         Live::Yes,
-        None,
+        keys.then_some("Shift+Enter"),
         (
             Press::Build(BuildPress::WindowAdd(other)),
             stop("add-other"),

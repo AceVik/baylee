@@ -155,6 +155,9 @@ impl Plugin for LobbyPlugin {
                         ui,
                         retrace_runs,
                         front::pose_front,
+                        // After the rebuild, so a tile just stood up glows
+                        // as the round says on its first frame.
+                        front::door::beckon,
                     )
                         .chain(),
                     // After the rebuild, so a music switch it just stood up
@@ -391,6 +394,9 @@ pub struct LobbyState {
     /// (#299). `None` until one is made, and for an address that fails the
     /// check at the door.
     pub(crate) source_code: Option<source::Code>,
+    /// The Discord invitation as a QR code, for the front door's top-right
+    /// tile; made once, `None` until then.
+    pub(crate) discord_code: Option<source::Code>,
     /// Whether the chosen gateway mirrors card art, as its `/auth/config`
     /// said. Used only while signed in there (`systems::art_follows_the_session`).
     pub(crate) art_cache: bool,
@@ -700,6 +706,7 @@ impl LobbyState {
             gateway_cursor,
             front_menu: false,
             source_code: None,
+            discord_code: None,
             art_cache: false,
             gateway_selected: false,
             gateway_epoch: 0,

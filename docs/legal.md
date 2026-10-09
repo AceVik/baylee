@@ -755,11 +755,14 @@ where their *full* text stands on the smaller ones:
   the Fan Content notice **word for word**
   (`lobby::front::FAN_CONTENT_NOTICE`, pinned by
   `the_notice_is_the_policy_s_own_words`) and Scryfall's credit, set as a
-  short centred paragraph; and in the window's **top-right corner**, on a
-  mist plate, the source offer: its QR code and "Source code (AGPL-3.0):
-  <address>" as text and link. Moved there on 09.10.2026 at the owner's
-  request (the notices had been run into one squeezed line): the same
-  sentences, all on screen on every face, none a press away. The build
+  short centred paragraph; and in the window's **top-left corner**, on a
+  mist plate, the source offer: its QR code, "Source code (AGPL-3.0)" and
+  under it the address, the whole tile a link to it. Moved to a corner on
+  09.10.2026 at the owner's request (the notices had been run into one
+  squeezed line), and to the left the same day, when the owner put the
+  community's Discord invitation in the top-right corner as a tile of the
+  same shape (no notice the policies ask for; it is hidden below Wide):
+  the same sentences, all on screen on every face, none a press away. The build
   stands under the text row on every class (`door::version_line`); it is
   no notice the policies ask for.
 - **Narrow, Compact and Phone**: the **one-line colophon** on every face —

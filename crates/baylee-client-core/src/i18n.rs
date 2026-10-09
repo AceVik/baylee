@@ -283,6 +283,12 @@ messages! {
     /// Under the Fan Content notice: where the source is, the AGPL's §13
     /// offer (#270). `{0}` is the address, drawn as it came.
     SourceCode { en: "Source code (AGPL-3.0): {0}", de: "Quellcode (AGPL-3.0): {0}" },
+    /// The front door's source tile (Wide and Vast): its label, over the
+    /// address it opens.
+    TileSource { en: "Source code (AGPL-3.0)", de: "Quellcode (AGPL-3.0)" },
+    /// The front door's Discord tile (Wide and Vast): its label, over the
+    /// invitation it opens.
+    TileDiscord { en: "Community on Discord", de: "Community auf Discord" },
     /// Scryfall's attribution, which its terms ask of every client that
     /// shows its data or images (`docs/legal.md` §3, #325). Under the Fan
     /// Content notice, and under the version in the game menu, which a
@@ -5446,6 +5452,9 @@ messages! {
     HistoryNoteChanged { en: "{0} · note changed", de: "{0} · Notiz geändert" },
     /// The title's tag on a house deck's history.
     HistoryHouseTag { en: "House deck · read-only", de: "Hausdeck · nur lesen" },
+    /// The history sheet's footer: the selected version in the export
+    /// dialog.
+    HistoryExport { en: "Export\u{2026}", de: "Exportieren\u{2009}\u{2026}" },
     /// The builder, offline, where History would be.
     HistoryNeedsGateway { en: "History needs the gateway", de: "Der Verlauf braucht das Gateway" },
     // ---- the deck builder (WP4) ------------------------------------------

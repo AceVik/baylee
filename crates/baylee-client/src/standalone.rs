@@ -190,7 +190,10 @@ pub fn run() {
 /// The game's one window, as `run` opens it.
 fn primary_window() -> Window {
     let mut window = Window {
-        title: "Baylee".to_string(),
+        // "Baylee 0.1.0-beta.6" on every system's title bar and task
+        // switcher (owner, 09.10.2026); the build number stays in the
+        // front door's version line.
+        title: format!("Baylee {}", env!("CARGO_PKG_VERSION")),
         // Wayland's `app_id` and X11's `WM_CLASS`: the desktop
         // entry a Linux dock takes the icon from.
         name: Some(crate::window_icon::APP_ID.to_string()),

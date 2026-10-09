@@ -137,8 +137,17 @@ fn the_primary_action_submits_and_the_secondary_opens_the_other_form() {
 /// points at gave in `/info`, else this build's own repository.
 #[test]
 fn the_front_door_says_where_the_source_is() {
-    let line = |address: &str| Phrase::SourceCode.fill(Lang::En, &[address]);
     let fork = "https://git.example/fork/baylee";
+    // On a desktop the top-left tile says it as its label over the address
+    // (without its `https://`); elsewhere About says the sentence.
+    let says = |drawn: &[String], width: f32, address: &str| {
+        if width >= 1180.0 {
+            drawn.contains(&Phrase::TileSource.text(Lang::En).to_string())
+                && drawn.contains(&address.trim_start_matches("https://").to_string())
+        } else {
+            drawn.contains(&Phrase::SourceCode.fill(Lang::En, &[address]))
+        }
+    };
     // On a desktop it stands under the notice; on the smaller classes the
     // one-line colophon's Source opens About, which says it (WP1, §3).
     let open_about = |app: &mut App, width: f32| {
@@ -154,7 +163,7 @@ fn the_front_door_says_where_the_source_is() {
         open_about(&mut app, width);
         let drawn = labels(&mut app);
         assert!(
-            drawn.contains(&line(baylee_build::REPOSITORY)),
+            says(&drawn, width, baylee_build::REPOSITORY),
             "{width} px, no gateway has answered: {drawn:?}"
         );
 
@@ -175,9 +184,9 @@ fn the_front_door_says_where_the_source_is() {
         }
         app.update();
         let drawn = labels(&mut app);
-        assert!(drawn.contains(&line(fork)), "{width} px: {drawn:?}");
+        assert!(says(&drawn, width, fork), "{width} px: {drawn:?}");
         assert!(
-            !drawn.contains(&line(baylee_build::REPOSITORY)),
+            !says(&drawn, width, baylee_build::REPOSITORY),
             "{width} px: the gateway's own address, not this build's"
         );
     }
@@ -195,7 +204,7 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
             .filter(|press| *press == Press::Front(FrontPress::OpenSource))
             .count()
     };
-    for (width, codes) in [(1400.0, 1), (390.0, 0)] {
+    for width in [1400.0, 390.0] {
         let mut app = headless();
         app.init_resource::<Assets<Image>>();
         sized(&mut app, width);
@@ -203,8 +212,8 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
         app.update();
         assert_eq!(
             links(&mut app),
-            1 + codes,
-            "{width} px: the line, and the code where there is room for one"
+            1,
+            "{width} px: the tile (its code in it) or the colophon's line"
         );
         let code = app.world().resource::<LobbyState>().source_code.clone();
         assert_eq!(
@@ -238,6 +247,212 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
             app.world().resource::<LobbyState>().source_code.is_none(),
             "{width} px: a hostile address was drawn as a code"
         );
+        let discord = presses(&mut app)
+            .into_iter()
+            .filter(|press| *press == Press::Front(FrontPress::OpenDiscord))
+            .count();
+        assert_eq!(
+            discord,
+            usize::from(width > 1000.0),
+            "{width} px: the Discord tile stands on a desktop window whatever the gateway says"
+        );
+    }
+}
+
+/// The two corner tiles (owner, 09.10.2026): on a desktop window the source
+/// offer stands top left and the Discord invitation top right, each its
+/// code, its label and its address; the whole tile is the control, and its
+/// press opens the address it shows. Below Wide neither stands, and the
+/// one-line colophon keeps the source offer.
+#[test]
+fn the_corner_tiles_stand_in_their_corners_and_open_what_they_show() {
+    use super::super::front::door::{Corner, CornerTile};
+    use super::super::source::{DISCORD_URL, address_of};
+    for width in [1400.0, 1920.0, 2560.0] {
+        let mut app = headless();
+        app.init_resource::<Assets<Image>>();
+        sized(&mut app, width);
+        to_gateway_face(&mut app);
+        app.update();
+        let mut tiles = app
+            .world_mut()
+            .query::<(Entity, &CornerTile, &Node, Option<&Press>)>();
+        let found: Vec<(Entity, CornerTile, Node, Option<Press>)> = tiles
+            .iter(app.world())
+            .map(|(e, tile, node, press)| (e, *tile, node.clone(), press.copied()))
+            .collect();
+        assert_eq!(found.len(), 2, "{width} px: two tiles");
+        for (entity, tile, node, press) in found {
+            let (wanted, url) = match tile.corner {
+                Corner::Left => (FrontPress::OpenSource, baylee_build::REPOSITORY),
+                Corner::Right => (FrontPress::OpenDiscord, DISCORD_URL),
+            };
+            assert_eq!(tile.press, wanted, "{width} px: {:?}", tile.corner);
+            assert_eq!(node.position_type, PositionType::Absolute);
+            let (near, far) = match tile.corner {
+                Corner::Left => (node.left, node.right),
+                Corner::Right => (node.right, node.left),
+            };
+            assert!(
+                matches!(near, Val::Px(_)),
+                "{width} px: {:?} at its edge",
+                tile.corner
+            );
+            assert_eq!(
+                far,
+                Val::Auto,
+                "{width} px: {:?} only at its edge",
+                tile.corner
+            );
+            assert!(matches!(node.top, Val::Px(_)), "{width} px: at the top");
+            // The tile itself is the control, and its press opens its URL.
+            assert_eq!(press, Some(Press::Front(wanted)), "{width} px");
+            let state = app.world().resource::<LobbyState>();
+            assert_eq!(address_of(wanted, state).as_deref(), Some(url));
+            // Everything in it lets the click through to the tile: no child
+            // answers on its own, and none blocks the pointer.
+            let mut inside = vec![entity];
+            let mut texts = Vec::new();
+            while let Some(at) = inside.pop() {
+                if let Some(children) = app.world().get::<Children>(at) {
+                    for child in children.iter() {
+                        assert!(
+                            app.world().get::<Press>(child).is_none(),
+                            "{width} px: a press inside the tile"
+                        );
+                        assert_eq!(
+                            app.world().get::<Pickable>(child),
+                            Some(&Pickable::IGNORE),
+                            "{width} px: a child the pointer stops at"
+                        );
+                        if let Some(text) = app.world().get::<Text>(child) {
+                            texts.push(text.0.clone());
+                        }
+                        inside.push(child);
+                    }
+                }
+            }
+            let kids: Vec<Entity> = app
+                .world()
+                .get::<Children>(entity)
+                .map_or_else(Vec::new, |c| c.iter().collect());
+            let images = kids
+                .into_iter()
+                .filter(|frame| {
+                    app.world().get::<Children>(*frame).is_some_and(|c| {
+                        c.iter().any(|p| app.world().get::<ImageNode>(p).is_some())
+                    })
+                })
+                .count();
+            assert_eq!(images, 1, "{width} px: the code stands first in the tile");
+            // The words drop the `https://`; the press and the code keep it.
+            let shown = url.strip_prefix("https://").expect("an https address");
+            assert!(texts.contains(&shown.to_string()), "{width} px: {texts:?}");
+            assert!(
+                !texts.iter().any(|t| t.contains("https://")),
+                "{width} px: {texts:?}"
+            );
+            assert_eq!(
+                texts.len(),
+                2,
+                "{width} px: a label and the address: {texts:?}"
+            );
+        }
+    }
+    let mut app = headless();
+    app.init_resource::<Assets<Image>>();
+    sized(&mut app, 390.0);
+    to_gateway_face(&mut app);
+    app.update();
+    let mut tiles = app.world_mut().query::<&CornerTile>();
+    assert_eq!(tiles.iter(app.world()).count(), 0, "a phone draws no tile");
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::OpenSource)));
+}
+
+/// The Discord tile glows a second in every round, and between pulses
+/// nothing is written; `reduce_motion` keeps it dark.
+#[test]
+fn the_discord_tile_beckons_now_and_then_and_never_under_reduce_motion() {
+    use super::super::front::door::{
+        BECKON_AT, BECKON_PERIOD, BECKON_PULSE, Beckon, beckon, beckon_strength,
+    };
+    assert!(
+        beckon_strength(0.0, false).abs() < f32::EPSILON,
+        "dark at first"
+    );
+    assert!(beckon_strength(BECKON_AT - 0.1, false).abs() < f32::EPSILON);
+    assert!(
+        beckon_strength(BECKON_AT + BECKON_PULSE / 2.0, false) > 0.99,
+        "lit mid-pulse"
+    );
+    assert!(beckon_strength(BECKON_AT + BECKON_PULSE + 0.1, false).abs() < f32::EPSILON);
+    assert!(
+        beckon_strength(BECKON_PERIOD + BECKON_AT + 0.5, false) > 0.9,
+        "and again a round later"
+    );
+    assert!(
+        (20.0..=30.0).contains(&BECKON_PERIOD) && (BECKON_PULSE - 1.0).abs() < 0.3,
+        "every 20 to 30 s, about a second"
+    );
+    for since in [0.0, BECKON_AT + 0.5, BECKON_PERIOD + BECKON_AT + 0.5] {
+        assert!(
+            beckon_strength(since, true).abs() < f32::EPSILON,
+            "{since}: reduce_motion"
+        );
+    }
+
+    // The system: frames of a quarter second, and the shadow's change tick.
+    let run = |still: bool| {
+        let mut app = App::new();
+        app.add_plugins(bevy::time::TimePlugin);
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_millis(250),
+        ));
+        let mut prefs = crate::prefs::Prefs::default();
+        prefs.edit().reduce_motion = still;
+        app.insert_resource(prefs);
+        app.add_systems(Update, beckon);
+        let tile = app
+            .world_mut()
+            .spawn((Beckon, BoxShadow(vec![ShadowStyle::default()])))
+            .id();
+        app.update();
+        let mut ticks = Vec::new();
+        for _ in 0..40 {
+            app.update();
+            let shadow = app.world().entity(tile);
+            let changed = shadow
+                .get_change_ticks::<BoxShadow>()
+                .expect("a shadow")
+                .changed;
+            let alpha = shadow.get::<BoxShadow>().expect("a shadow").0[0]
+                .color
+                .alpha();
+            ticks.push((changed, alpha));
+        }
+        ticks
+    };
+    let lively = run(false);
+    // 10 s of frames: dark, a pulse about 4–5 s in, dark again.
+    let lit: Vec<usize> = (0..lively.len()).filter(|&i| lively[i].1 > 0.0).collect();
+    assert!(
+        !lit.is_empty() && lit.len() <= 5,
+        "one short pulse: {lit:?}"
+    );
+    let rest = lit.last().copied().unwrap_or_default() + 2;
+    for pair in lively[rest..].windows(2) {
+        assert_eq!(pair[0].0, pair[1].0, "a write at rest between pulses");
+    }
+    for pair in lively[..lit[0].saturating_sub(1)].windows(2) {
+        assert_eq!(pair[0].0, pair[1].0, "a write at rest before the pulse");
+    }
+    let still = run(true);
+    assert!(
+        still.iter().all(|(_, alpha)| *alpha == 0.0),
+        "reduce_motion glows"
+    );
+    for pair in still.windows(2) {
+        assert_eq!(pair[0].0, pair[1].0, "reduce_motion writes");
     }
 }
 

@@ -103,7 +103,9 @@ enum Cleanup {
     /// (CR 614.10) before it begins. A skipped turn leaves the order where
     /// that player's turn would have left it.
     Ended {
-        /// The player whose turn, taken or skipped, the next one follows.
+        /// The player whose normal turn, taken or skipped, the next normal
+        /// one follows; an extra turn in between does not move it
+        /// (CR 500.7, `GameState::resume_after`).
         after: PlayerId,
     },
 }
@@ -1790,6 +1792,8 @@ mod end_step_tests;
 mod enter_zone_tests;
 #[cfg(test)]
 mod event_player_tests;
+#[cfg(test)]
+mod extra_turn_tests;
 #[cfg(test)]
 mod granted_this_tests;
 #[cfg(test)]

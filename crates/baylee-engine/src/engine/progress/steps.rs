@@ -728,6 +728,6 @@ impl<L: CardLookup> Engine<L> {
         self.state.combat = crate::combat::CombatState::default();
         self.state.board_state_changed();
         self.combat_declared = CombatDeclared::None;
-        self.begin_next_turn(self.state.turn.active)
+        self.begin_next_turn(self.order_after())
     }
 }

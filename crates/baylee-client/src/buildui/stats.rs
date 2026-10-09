@@ -234,10 +234,22 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
                     Pickable::IGNORE,
                 ))
                 .id();
+            // The colour's own symbol, then its share (owner, beta.6: the
+            // real symbols wherever a colour is named).
+            let font = tf_bold(kit.fonts, m.small * 0.9);
+            let mark_size = match font.font_size {
+                bevy::text::FontSize::Px(size) => size,
+                _ => m.small,
+            };
+            let glyph = crate::manaui::glyph_of(letter);
             let said = commands
                 .spawn((
-                    Text::new(format!("{letter} {:.0}%", share * 100.0)),
-                    tf_bold(kit.fonts, m.small * 0.9),
+                    Text::new(if glyph.is_some() {
+                        String::new()
+                    } else {
+                        letter.to_string()
+                    }),
+                    font.clone(),
                     TextColor(crate::shellkit::tokens::INK_ON_LIGHT),
                     TextLayout::no_wrap(),
                     Node {
@@ -248,6 +260,23 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
                     Pickable::IGNORE,
                 ))
                 .id();
+            if let Some(glyph) = glyph {
+                let mark = commands
+                    .spawn((
+                        TextSpan::new(glyph.to_string()),
+                        crate::manaui::mana_tf(kit.fonts, mark_size),
+                        TextColor(crate::shellkit::tokens::INK_ON_LIGHT),
+                        ChildOf(said),
+                    ))
+                    .id();
+                crate::manaui::ink_span(commands, mark, &glyph.to_string(), mark_size);
+            }
+            commands.spawn((
+                TextSpan::new(format!(" {:.0}%", share * 100.0)),
+                font,
+                TextColor(crate::shellkit::tokens::INK_ON_LIGHT),
+                ChildOf(said),
+            ));
             commands.entity(part).add_child(said);
             commands.entity(strip).add_child(part);
         }

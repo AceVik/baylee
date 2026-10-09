@@ -34,7 +34,7 @@ use baylee_client_core::textface::{
     self, BAR_PAD, Fitted, LINE_BOX, Layout, Regions, Sizes, TEXT_INSET,
 };
 use baylee_core::color::{Color as MagicColor, ColorSet};
-use baylee_core::mana::{ManaSymbol, Variable};
+use baylee_core::mana::ManaSymbol;
 use bevy::prelude::*;
 
 use crate::hud::UiFonts;
@@ -423,43 +423,25 @@ pub fn table_color(colors: ColorSet) -> Color {
     PAPER.mix(&frame_color(colors), 0.30)
 }
 
-/// The label inside one mana pip.
-fn pip_label(symbol: ManaSymbol) -> String {
-    match symbol {
-        ManaSymbol::Generic(n) => n.to_string(),
-        ManaSymbol::Colorless => "C".to_string(),
-        ManaSymbol::White => "W".to_string(),
-        ManaSymbol::Blue => "U".to_string(),
-        ManaSymbol::Black => "B".to_string(),
-        ManaSymbol::Red => "R".to_string(),
-        ManaSymbol::Green => "G".to_string(),
-        ManaSymbol::Snow => "S".to_string(),
-        ManaSymbol::Hybrid(pair) | ManaSymbol::HybridPhyrexian(pair) => {
-            format!(
-                "{}{}",
-                color_letter(pair.first()),
-                color_letter(pair.second())
-            )
-        }
-        ManaSymbol::TwoOrColor(c) => format!("2{}", color_letter(c)),
-        ManaSymbol::Phyrexian(c) => format!("{}φ", color_letter(c)),
-        ManaSymbol::Variable(Variable::X) => "X".to_string(),
-        ManaSymbol::Variable(Variable::Y) => "Y".to_string(),
-        ManaSymbol::Variable(Variable::Z) => "Z".to_string(),
-        ManaSymbol::HalfGeneric => "½".to_string(),
-        ManaSymbol::Infinite => "∞".to_string(),
-    }
-}
-
-/// The one-letter code for a colour.
-const fn color_letter(color: MagicColor) -> &'static str {
-    match color {
-        MagicColor::White => "W",
-        MagicColor::Blue => "U",
-        MagicColor::Black => "B",
-        MagicColor::Red => "R",
-        MagicColor::Green => "G",
-    }
+/// A text face's cost as spans: each symbol's glyph in the Mana font (the
+/// glyph beside it, for the door to fall back from), a hybrid as its two
+/// halves' glyphs, and a generic past the font's range as digits.
+fn cost_spans(cost: &[ManaSymbol]) -> Vec<(String, Option<char>)> {
+    use baylee_client_core::manapip::{Pip, pip};
+    cost.iter()
+        .flat_map(|symbol| match pip(*symbol) {
+            Pip::Solid { glyph, .. } => vec![(glyph.to_string(), Some(glyph))],
+            Pip::Split {
+                left: (left, _),
+                right: (right, _),
+            } => vec![
+                (left.to_string(), Some(left)),
+                (right.to_string(), Some(right)),
+            ],
+            Pip::Number { value } => vec![(value.to_string(), None)],
+            Pip::Loyalty(loyalty) => vec![(loyalty.caption(), None)],
+        })
+        .collect()
 }
 
 // ----------------------------------------------------------------- UI nodes
@@ -1630,6 +1612,7 @@ pub fn spawn_world(
     let regions = Regions::table(fit.lines());
 
     let mut texts = Vec::with_capacity(4);
+    let mut cost_root = None;
     {
         let mut line = |text: String, em: f32, color: Color, at: Vec2, anchor: Anchor| {
             let entity = commands
@@ -1654,6 +1637,7 @@ pub fn spawn_world(
                 ))
                 .id();
             texts.push(entity);
+            entity
         };
 
         let [x0, y0, x1, _] = regions.name_bar;
@@ -1665,20 +1649,18 @@ pub fn spawn_world(
             Anchor::TOP_LEFT,
         );
         if !face.cost.is_empty() {
-            let cost: String = face
-                .cost
-                .iter()
-                .map(|s| pip_label(*s))
-                .collect::<Vec<_>>()
-                .join(" ");
             let [_, top, _, _] = regions.band;
-            line(
-                cost,
+            // The printed symbols in the Mana font, one span each so each
+            // falls back on its own (`manaui::ink_the_marks`); a hybrid is
+            // its two colours' glyphs, and a number past the font, digits.
+            let cost = line(
+                String::new(),
                 textface::SMALL_EM,
                 Color::srgb_from_array(textface::cost_ink(word).srgb()),
                 on_the_card(x1 - TEXT_INSET, top + BAR_PAD),
                 Anchor::TOP_RIGHT,
             );
+            cost_root = Some(cost);
         }
         // Centred down the bar, which is sized for the type line's own size:
         // one that had to shrink stands in the middle of it.
@@ -1706,6 +1688,10 @@ pub fn spawn_world(
             );
         }
     }
+    if let Some(cost) = cost_root {
+        let ink = TextColor(Color::srgb_from_array(textface::cost_ink(word).srgb()));
+        spawn_cost_spans(commands, cost, &face.cost, ink, fonts);
+    }
     texts.extend(spawn_discs(commands, card, word, &regions, fonts));
     texts.extend(spawn_sentence(
         commands,
@@ -1715,6 +1701,47 @@ pub fn spawn_world(
         fonts,
     ));
     texts
+}
+
+/// A text face's cost line as spans under `root`: each symbol's glyph in the
+/// Mana font, one span each so each falls back on its own
+/// (`manaui::ink_the_marks`), a thin space between them.
+fn spawn_cost_spans(
+    commands: &mut Commands,
+    root: Entity,
+    cost: &[ManaSymbol],
+    ink: TextColor,
+    fonts: &UiFonts,
+) {
+    let size = textface::SMALL_EM * PX_PER_UNIT;
+    let face = |font: &Handle<Font>| TextFont {
+        font: bevy::text::FontSource::Handle(font.clone()),
+        font_size: bevy::text::FontSize::Px(size),
+        ..default()
+    };
+    for (n, (text, mark)) in cost_spans(cost).into_iter().enumerate() {
+        if n > 0 {
+            commands.spawn((
+                TextSpan::new("\u{2009}"),
+                face(&fonts.text),
+                ink,
+                ChildOf(root),
+            ));
+        }
+        let font = if mark.is_some() {
+            &fonts.mana
+        } else {
+            &fonts.text
+        };
+        let span = commands
+            .spawn((TextSpan::new(text), face(font), ink, ChildOf(root)))
+            .id();
+        if let Some(mark) = mark {
+            commands
+                .entity(span)
+                .insert(crate::manaui::ManaInk::in_line(mark, size));
+        }
+    }
 }
 
 /// The symbol band (WP6): each disc the shader draws wears its colour's
@@ -1744,6 +1771,7 @@ fn spawn_discs(
                         ..default()
                     },
                     TextColor(FACE_INKS.0),
+                    crate::manaui::ManaInk::in_line(glyph, DISC_GLYPH_EM * PX_PER_UNIT),
                     Anchor::CENTER,
                     Transform::from_translation(on_the_card(x, y).extend(0.002))
                         .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
@@ -1797,16 +1825,22 @@ fn spawn_sentence(
         };
         for (text, mana) in sentence_spans(&words) {
             let font = if mana { &fonts.mana } else { &fonts.text };
-            commands.spawn((
-                TextSpan::new(text),
-                TextFont {
-                    font: bevy::text::FontSource::Handle(font.clone()),
-                    font_size: bevy::text::FontSize::Px(size),
-                    ..default()
-                },
-                TextColor(FACE_INKS.0),
-                ChildOf(root),
-            ));
+            let mark = mana.then(|| text.clone());
+            let span = commands
+                .spawn((
+                    TextSpan::new(text),
+                    TextFont {
+                        font: bevy::text::FontSource::Handle(font.clone()),
+                        font_size: bevy::text::FontSize::Px(size),
+                        ..default()
+                    },
+                    TextColor(FACE_INKS.0),
+                    ChildOf(root),
+                ))
+                .id();
+            if let Some(mark) = mark {
+                crate::manaui::ink_span(commands, span, &mark, size);
+            }
         }
     }
     Some(root)

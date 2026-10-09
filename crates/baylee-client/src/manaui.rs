@@ -14,7 +14,7 @@
 //! no GPU and carries the tests.
 
 use crate::hud::{UiFonts, palette};
-use baylee_client_core::manapip::{Disc, Pip};
+use baylee_client_core::manapip::{self, Coverage, Disc, Ink, Pip};
 use bevy::prelude::*;
 use bevy::ui::widget::Text;
 use bevy::ui::{
@@ -49,6 +49,149 @@ fn ink_color() -> Color {
     Color::srgb(0.12, 0.11, 0.13)
 }
 
+/// How big a glyph is on its disc, as a share of the disc.
+const GLYPH_SHARE: f32 = 0.72;
+
+/// How far a fallback letter is lowered on its disc, as a share of its size:
+/// `(capHeight - (ascent - descent)) / 2` over the em of `AlegreyaSans-Bold`
+/// (typographic metrics, which the file asks for), read off the shipped file
+/// by `the_fallback_drop_is_the_shipped_font_s_own`.
+///
+/// Flexbox centres a text node's *line box* on the disc, and the box's middle
+/// is not a capital's: the ink stands on the baseline and reaches the cap
+/// height (0.644 em) while the box is split round ascent 0.800 and descent
+/// 0.200, so a centred box leaves the letter 0.022 em high. Small, and it is
+/// the half pixel that makes a bold `G` look like it is floating.
+pub(crate) const FALLBACK_DROP: f32 = 0.022;
+
+/// A glyph of the `mana` font that stands in as letters while it cannot be
+/// drawn ([`manapip::ink`], the one door that decides).
+///
+/// Carried by every text entity set in the font through this module — a
+/// disc's mark, a span in running text, a symbol on a text-drawn face — and
+/// read by [`ink_the_marks`], which writes the glyph or the letters.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ManaInk {
+    /// The glyph the symbol is.
+    pub mark: char,
+    /// The glyph's font size, in the text's own pixels.
+    pub size: f32,
+    /// The disc's diameter when the mark is centred on one, else `None`.
+    pub disc: Option<f32>,
+}
+
+impl ManaInk {
+    /// A mark centred on a disc `size` pixels across.
+    #[must_use]
+    pub fn on_disc(mark: char, size: f32) -> Self {
+        Self {
+            mark,
+            size: size * GLYPH_SHARE,
+            disc: Some(size),
+        }
+    }
+
+    /// A mark set in a line of text at `size` pixels.
+    #[must_use]
+    pub fn in_line(mark: char, size: f32) -> Self {
+        Self {
+            mark,
+            size,
+            disc: None,
+        }
+    }
+
+    /// The text and font this mark is set in, given what the loaded font
+    /// covers (`None` while it loads).
+    #[must_use]
+    pub fn set(&self, fonts: &UiFonts, coverage: Option<&Coverage>) -> (String, TextFont, Val) {
+        match manapip::ink(self.mark, coverage) {
+            Ink::Glyph(mark) => (mark.to_string(), mana_tf(fonts, self.size), Val::Auto),
+            Ink::Fallback(letters) => {
+                let size = self
+                    .disc
+                    .map_or(self.size, |disc| disc * manapip::fallback_share(&letters));
+                let font = TextFont {
+                    font: bevy::text::FontSource::Handle(fonts.bold.clone()),
+                    font_size: bevy::text::FontSize::Px(size),
+                    font_features: crate::hud::lining(),
+                    ..default()
+                };
+                let lift = if self.disc.is_some() {
+                    px(FALLBACK_DROP * size)
+                } else {
+                    Val::Auto
+                };
+                (letters, font, lift)
+            }
+        }
+    }
+}
+
+/// Marks a span set in the `mana` font at `size` as a [`ManaInk`], so it
+/// falls back to letters with every other symbol. `text` is the span's one
+/// glyph; anything else is prose and is left alone.
+pub fn ink_span(commands: &mut Commands, span: Entity, text: &str, size: f32) {
+    let mut chars = text.chars();
+    if let (Some(mark), None) = (chars.next(), chars.next()) {
+        commands.entity(span).insert(ManaInk::in_line(mark, size));
+    }
+}
+
+/// What the loaded `mana` font can draw: `None` until it has loaded.
+#[derive(Resource, Default, Debug)]
+pub struct ManaCoverage(pub Option<Coverage>);
+
+/// Sets every [`ManaInk`] in its glyph or its fallback letters: a new one as
+/// it appears, and all of them again on the frame the font arrives.
+///
+/// Registered by the real plugin only, before UI layout, so a symbol spawned
+/// this frame is laid out in its final form and never flashes the other.
+#[allow(clippy::type_complexity)]
+pub fn ink_the_marks(
+    fonts: Option<Res<UiFonts>>,
+    loaded: Res<Assets<Font>>,
+    mut coverage: ResMut<ManaCoverage>,
+    mut marks: Query<(
+        Ref<ManaInk>,
+        &mut TextFont,
+        Option<&mut Text>,
+        Option<&mut TextSpan>,
+        Option<&mut Text2d>,
+        Option<&mut Node>,
+    )>,
+) {
+    let Some(fonts) = fonts else { return };
+    let mut arrived = false;
+    if coverage.0.is_none()
+        && let Some(font) = loaded.get(&fonts.mana)
+        && let Some(face) = swash::FontRef::from_index(font.data.as_ref(), 0)
+    {
+        let charmap = face.charmap();
+        coverage.0 = Some(Coverage::of(|c| charmap.map(c) != 0));
+        arrived = true;
+    }
+    for (ink, mut font, text, span, text2d, node) in &mut marks {
+        if !arrived && !ink.is_added() {
+            continue;
+        }
+        let (words, set, lift) = ink.set(&fonts, coverage.0.as_ref());
+        if let Some(mut text) = text {
+            text.0 = words;
+        } else if let Some(mut span) = span {
+            span.0 = words;
+        } else if let Some(mut text) = text2d {
+            text.0 = words;
+        }
+        *font = set;
+        if let Some(mut node) = node
+            && ink.disc.is_some()
+        {
+            node.top = lift;
+        }
+    }
+}
+
 /// Spawns one mana symbol, sized to `size` pixels across.
 pub fn spawn_pip(commands: &mut Commands, fonts: &UiFonts, pip: Pip, size: f32) -> Entity {
     let disc = commands
@@ -73,8 +216,9 @@ pub fn spawn_pip(commands: &mut Commands, fonts: &UiFonts, pip: Pip, size: f32) 
             let mark = commands
                 .spawn((
                     Text::new(glyph.to_string()),
-                    mana_tf(fonts, size * 0.72),
+                    mana_tf(fonts, size * GLYPH_SHARE),
                     TextColor(ink_color()),
+                    ManaInk::on_disc(glyph, size),
                     Pickable::IGNORE,
                 ))
                 .id();
@@ -120,8 +264,9 @@ pub fn spawn_pip(commands: &mut Commands, fonts: &UiFonts, pip: Pip, size: f32) 
                 let text = commands
                     .spawn((
                         Text::new(glyph.to_string()),
-                        mana_tf(fonts, size * 0.72),
+                        mana_tf(fonts, size * GLYPH_SHARE),
                         TextColor(ink_color()),
+                        ManaInk::on_disc(glyph, size),
                         Pickable::IGNORE,
                     ))
                     .id();
@@ -144,6 +289,121 @@ pub fn spawn_pip(commands: &mut Commands, fonts: &UiFonts, pip: Pip, size: f32) 
         }
     }
     disc
+}
+
+/// A line of rules **quoted** in running text as spans under `root`: the
+/// prose in `prose`, each symbol its Mana-font glyph in the same ink and a
+/// little smaller than the letters (`manapip::inline`), and every glyph a
+/// [`ManaInk`], so it falls back on its own.
+pub fn spawn_inline_spans(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    root: Entity,
+    text: &str,
+    prose: &TextFont,
+    ink: Color,
+) {
+    let size = match prose.font_size {
+        bevy::text::FontSize::Px(size) => size * INLINE_MARK,
+        _ => 14.0,
+    };
+    for piece in manapip::inline(text) {
+        match piece {
+            manapip::Inline::Text(words) => {
+                commands.spawn((
+                    TextSpan::new(words),
+                    prose.clone(),
+                    TextColor(ink),
+                    ChildOf(root),
+                ));
+            }
+            manapip::Inline::Mark(mark) => {
+                commands.spawn((
+                    TextSpan::new(mark.to_string()),
+                    mana_tf(fonts, size),
+                    TextColor(ink),
+                    ManaInk::in_line(mark, size),
+                    ChildOf(root),
+                ));
+            }
+        }
+    }
+}
+
+/// How big a symbol quoted in a sentence is, as a share of its letters' size.
+const INLINE_MARK: f32 = 0.9;
+
+/// The Mana font's glyph for a one-letter symbol (`W`, `G`, `C`, `T`), for
+/// places that name a colour by its letter.
+#[must_use]
+pub fn glyph_of(letter: char) -> Option<char> {
+    match manapip::symbol(&letter.to_string())? {
+        Pip::Solid { glyph, .. } => Some(glyph),
+        _ => None,
+    }
+}
+
+/// A one-letter symbol's glyph as a text node centred on a disc `side`
+/// pixels across (the disc is the caller's), in `ink`; the letter itself
+/// when there is no glyph.
+pub fn spawn_mark_on(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    letter: char,
+    side: f32,
+    ink: Color,
+) -> Entity {
+    let Some(glyph) = glyph_of(letter) else {
+        return commands
+            .spawn((
+                Text::new(letter.to_string()),
+                crate::hud::tf_bold(fonts, side * 0.4),
+                TextColor(ink),
+                Pickable::IGNORE,
+            ))
+            .id();
+    };
+    commands
+        .spawn((
+            Text::new(glyph.to_string()),
+            mana_tf(fonts, side * GLYPH_SHARE),
+            TextColor(ink),
+            ManaInk::on_disc(glyph, side),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+/// A colour identity as the Mana font's colour symbols on their discs, in
+/// `WUBRG` order and `C` for colourless: the one drawing every list row and
+/// deck window uses (owner, beta.6: the real symbols, letters only as the
+/// fallback). The symbol's shape carries the colour as well as its disc does,
+/// so colour is still never the only carrier (S4-14).
+pub fn spawn_identity(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    identity: &str,
+    side: f32,
+    gap: Val,
+) -> Entity {
+    let row = commands
+        .spawn((
+            Node {
+                column_gap: gap,
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for letter in "WUBRGC".chars().filter(|c| identity.contains(*c)) {
+        if let Some(pip) = manapip::symbol(&letter.to_string()) {
+            let disc = spawn_pip(commands, fonts, pip, side);
+            commands.entity(row).add_child(disc);
+        }
+    }
+    row
 }
 
 /// A generic cost the font has no glyph for, set as digits on a wider disc.
@@ -891,6 +1151,129 @@ mod tests {
         // ends rather than on the ground it was tuned against.
         assert_eq!(knockout(palette::INK), palette::PARCHMENT_INK);
         assert_eq!(knockout(palette::PARCHMENT_INK), palette::PARCHMENT);
+    }
+
+    fn shipped(name: &str) -> Vec<u8> {
+        std::fs::read(format!(
+            "{}/assets/fonts/{name}",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap_or_else(|_| panic!("the bundled {name}"))
+    }
+
+    /// Every symbol the door can hand out (the five colours, colourless,
+    /// generic 0..=20, X/Y/Z, snow, Phyrexian, half, infinity, tap, untap,
+    /// energy, chaos and the three loyalty badges) is a glyph the shipped
+    /// `mana` font has, read off its cmap.
+    #[test]
+    fn every_symbol_is_a_glyph_of_the_shipped_mana_font() {
+        let bytes = shipped("mana.ttf");
+        let font = swash::FontRef::from_index(&bytes, 0).expect("mana.ttf parses");
+        let map = font.charmap();
+        let missing: Vec<char> = manapip::every_glyph()
+            .into_iter()
+            .filter(|c| map.map(*c) == 0)
+            .collect();
+        assert_eq!(missing, Vec::<char>::new());
+        let coverage = Coverage::of(|c| map.map(c) != 0);
+        for mark in manapip::every_glyph() {
+            assert_eq!(manapip::ink(mark, Some(&coverage)), Ink::Glyph(mark));
+        }
+    }
+
+    /// The fallback's drop is the shipped bold's own metrics, not a guess.
+    #[test]
+    fn the_fallback_drop_is_the_shipped_font_s_own() {
+        let bytes = shipped("AlegreyaSans-Bold.ttf");
+        let font = swash::FontRef::from_index(&bytes, 0).expect("the bold parses");
+        let m = font.metrics(&[]);
+        let em = f32::from(m.units_per_em);
+        let drop = (m.cap_height - (m.ascent - m.descent.abs())) / 2.0 / em;
+        assert!(
+            (drop - FALLBACK_DROP).abs() < 0.002,
+            "measured {drop:.4}, pinned {FALLBACK_DROP}"
+        );
+    }
+
+    /// The fallback letter is centred in its circle: the node is centred both
+    /// ways on the disc, and with the drop its capital's ink (not its line
+    /// box) lands on the disc's middle, inside the circle with air round it.
+    #[test]
+    fn the_fallback_letter_is_centred_in_its_disc() {
+        let bytes = shipped("AlegreyaSans-Bold.ttf");
+        let font = swash::FontRef::from_index(&bytes, 0).expect("the bold parses");
+        let m = font.metrics(&[]);
+        let em = f32::from(m.units_per_em);
+        let (ascent, descent, cap) = (m.ascent / em, m.descent.abs() / em, m.cap_height / em);
+
+        let mut app = App::new();
+        let fonts = fonts();
+        app.init_resource::<Assets<Font>>()
+            .init_resource::<ManaCoverage>()
+            .insert_resource(fonts.clone())
+            .add_systems(Update, ink_the_marks);
+        let green = manapip::of_color(baylee_core::color::Color::Green);
+        let disc = {
+            let mut commands = app.world_mut().commands();
+            spawn_pip(&mut commands, &fonts, green, 20.0)
+        };
+        app.update();
+        let disc_node = app.world().get::<Node>(disc).expect("a disc").clone();
+        assert_eq!(disc_node.align_items, AlignItems::Center);
+        assert_eq!(disc_node.justify_content, JustifyContent::Center);
+        let letter = app.world().get::<Children>(disc).expect("a letter")[0];
+        assert_eq!(app.world().get::<Text>(letter).expect("text").0, "G");
+        let size = 20.0 * manapip::fallback_share("G");
+        let node = app.world().get::<Node>(letter).expect("a text node");
+        assert_eq!(node.top, px(FALLBACK_DROP * size));
+        // Flexbox puts the line box's middle on the disc's; the text engine
+        // stands the baseline half the leading plus the ascent below its top.
+        let line = 1.2 * size;
+        let top = (20.0 - line) / 2.0 + FALLBACK_DROP * size;
+        let baseline = top + (line - (ascent + descent) * size) / 2.0 + ascent * size;
+        let ink_middle = baseline - cap * size / 2.0;
+        assert!(
+            (ink_middle - 10.0).abs() < 0.25,
+            "the ink's middle is at {ink_middle}"
+        );
+        assert!(cap * size < 0.6 * 20.0, "smaller than the glyph, with air");
+    }
+
+    /// The client half of the door: a pip's mark is the fallback's bold
+    /// letters while the `mana` font has not loaded, and the glyph from the
+    /// frame it has.
+    #[test]
+    fn a_pip_falls_back_until_the_mana_font_loads() {
+        let mut app = App::new();
+        let fonts = fonts();
+        app.init_resource::<Assets<Font>>()
+            .init_resource::<ManaCoverage>()
+            .insert_resource(fonts.clone())
+            .add_systems(Update, ink_the_marks);
+        let pip = manapip::pip(baylee_core::mana::ManaSymbol::Generic(2));
+        let disc = {
+            let mut commands = app.world_mut().commands();
+            spawn_pip(&mut commands, &fonts, pip, 20.0)
+        };
+        app.update();
+        let letter = app.world().get::<Children>(disc).expect("a mark")[0];
+        assert_eq!(app.world().get::<Text>(letter).expect("text").0, "2");
+
+        let loaded = app
+            .world_mut()
+            .resource_mut::<Assets<Font>>()
+            .add(Font::from_bytes(shipped("mana.ttf")));
+        app.world_mut().resource_mut::<UiFonts>().mana = loaded.clone();
+        app.update();
+        let Pip::Solid { glyph, .. } = pip else {
+            panic!("{{2}} is one glyph")
+        };
+        assert_eq!(
+            app.world().get::<Text>(letter).expect("text").0,
+            glyph.to_string()
+        );
+        let font = app.world().get::<TextFont>(letter).expect("a font");
+        assert_eq!(font.font, bevy::text::FontSource::Handle(loaded));
     }
 
     fn fonts() -> UiFonts {

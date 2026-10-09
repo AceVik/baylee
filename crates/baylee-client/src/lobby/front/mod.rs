@@ -1128,9 +1128,10 @@ pub(super) fn front_door(
         commands.entity(page).add_child(composition);
     }
     let colophon = if door::full_colophon(kit, height) {
-        // The source offer stands in the top corner, its QR with it.
-        let corner = door::source_corner(commands, state, kit);
-        commands.entity(root).add_child(corner);
+        // The source offer stands in the top-left corner and the Discord
+        // tile in the top-right, each with its QR.
+        let tiles = door::corner_tiles(commands, state, kit);
+        commands.entity(root).add_children(&tiles);
         door::full(commands, state, kit)
     } else {
         let line = door::one_line(commands, state, kit);
@@ -1172,6 +1173,8 @@ pub(crate) enum FrontPress {
     PlayOffline,
     /// Open the source address in the browser (#299).
     OpenSource,
+    /// Open the community's Discord invitation in the browser.
+    OpenDiscord,
     /// Nothing (a control drawn while the form is busy).
     Nothing,
     /// `‹ Back` on the create-account and guest faces.
@@ -1267,7 +1270,9 @@ impl FrontPress {
                     terms::perform(ask, state, prefs, scrolled, mailbox, settings);
                 }
             }
-            FrontPress::OpenSource => super::source::open(state),
+            press @ (FrontPress::OpenSource | FrontPress::OpenDiscord) => {
+                super::source::open(press, state);
+            }
             FrontPress::ToggleRegistering => state.lobby.toggle_registering(),
             FrontPress::Submit => {
                 let request = state.lobby.submit();

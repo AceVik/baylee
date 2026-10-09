@@ -164,13 +164,20 @@ impl History {
             .and_then(|v| v.delta)
     }
 
-    /// The summary the store keeps on a version (a revert, a precon's
-    /// source build).
+    /// What made `version` (a revert, a precon's source build), as the
+    /// store says it.
+    ///
+    /// The store keeps that sentence on the row the save *replaced*
+    /// (`put_deck`: the old lists go to `deck_version` with the new save's
+    /// summary), so `version`'s words are on its predecessor's row. Read off
+    /// `version`'s own row, every restore was named one version early and
+    /// the head never named.
     #[must_use]
     pub fn summary(&self, version: i32) -> Option<&str> {
+        let before = self.before(version)?;
         self.past
             .iter()
-            .find(|v| v.version == version)
+            .find(|v| v.version == before)
             .and_then(|v| v.summary.as_deref())
     }
 }
@@ -319,12 +326,16 @@ impl Lobby {
             return None;
         }
         let id = id.to_string();
-        if !self.decks.iter().any(|deck| deck.id == id) {
+        // A house deck's history is read-only (Q-C4); its list is kept, so
+        // the sheet knows it for one and closing returns to it.
+        let house = self.library.house.iter().any(|deck| deck.id == id);
+        if !house && !self.decks.iter().any(|deck| deck.id == id) {
             return None;
         }
         self.library = Library {
             page: Some(Page::History(id.clone())),
             loading: true,
+            house: std::mem::take(&mut self.library.house),
             ..Library::default()
         };
         Some(self.library_request(Request::History(id)))
@@ -337,7 +348,16 @@ impl Lobby {
 
     /// Close the read-only page without touching the working deck.
     pub fn close_library(&mut self) {
+        // A house deck's history was opened over the House tab's list:
+        // closing it stands that list up again, as it was.
+        let back_to_house =
+            matches!(&self.library.page, Some(Page::History(id)) if self.house_deck(id));
+        let house = std::mem::take(&mut self.library.house);
         self.library = Library::default();
+        if back_to_house {
+            self.library.page = Some(Page::House);
+            self.library.house = house;
+        }
     }
 
     /// Closes whatever page the Decks screen left open as the builder
