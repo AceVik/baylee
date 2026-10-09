@@ -170,7 +170,8 @@ method gained:
   `--features bevy/track_location` and a system in `Last` printing
   `changed_by()` for the duel, the settings, the texts and every changed
   `Node`/`Text`/`UiTransform`/`Transform`; only the last writer is recorded,
-  so fix it and run again until nothing moves at rest.
+  so fix it and run again until nothing moves at rest. Since the third round
+  that system is kept as dev-control's `/changed` (§"The third round").
 - **Interleaved rounds.** Before and after alternate on fresh tables, twice,
   so neither has the quiet half of a shared machine.
 
@@ -204,6 +205,50 @@ costs more at the loud end: one second of music as the audio thread pulls
 it is lobby 6.5, calm table 10.7, tension 15.9, climax 20.5 ms (criterion,
 M1 Max): at most 2 % of one core at the climax, about 1 % at rest. Not
 sampled in the app this round. The bank is 19.6 MB (133 recordings).
+Sampled in the app in the third round (below): the audio thread is 4.3–5.1 %
+of a core at a duel at rest and 2.3–2.4 % at the resting front door with the
+music playing.
+
+## The third round (9 October 2026)
+
+Numbers: `docs/perf-baseline.md` §"The client's final round before beta.6";
+raw rows, `/changed` and `/allocs` before and after:
+`.claude/ux-table/mocks/real/perf3-measures.md`. The method is the second
+round's, with three tables (two, six and eight seats), arrangement switches
+and the music measured where it is heard. What it added:
+
+- **`/changed`.** `{"frames":N}` arms a system in `Last` that walks every
+  archetype's components by id for `N` frames and counts the entity-frames
+  each component (and resource, which bevy 0.19 keeps as a component) was
+  marked changed; `{}` answers. In a build with
+  `--features bevy/track_location,bevy/debug` it names every component and,
+  for the interface's paint and layout, the transforms, visibility and the
+  duel's resources, the last writer's source line; without them the types it
+  reads writers for are still named. Only the last writer of a frame is
+  recorded, so fix it and look again: this round took eight builds to empty
+  the list. What it should show at a table at rest: no `Duel`, `Node` or
+  material; a resource that one system writes every frame for itself and no
+  change gate reads is noise.
+- **A rest test per writer.** Each writer found has a test that runs its
+  system twice and asserts the duel (or node, or material) unchanged on the
+  second frame; all of them were run against the old code once and failed
+  there. `crates/baylee-client/src/rest_tests.rs` holds the crate root's.
+- **`/allocs` by source line.** A `dist` build names an inlined frame
+  without its path, so the old key lumped the main thread under the
+  allocator; a sample now keys on its innermost `crates/baylee-*` line.
+- **A binary is replaced, never overwritten in place.** `cp` over a
+  macOS binary another process has run leaves a stale code signature and the
+  next launch is killed (`Killed: 9`); the scripts remove it first.
+
+What it found besides the writers: at rest the process is the renderer.
+The main thread is about a quarter of the samples, the four compute-pool
+threads a third (bevy's multi-threaded render executor and wgpu creating a
+Metal staging buffer for every `queue.write_buffer`: binned mesh instances,
+UI nodes, globals), and none of that is this client's code. A shader's
+clock is `globals.time`, never a time written into its material: the
+hand's cloth (`frontal`) did that and was the one material re-uploaded at
+rest. `globals.time` wraps after an hour, so its 7 s and 11 s folds jump
+once an hour, as the felt's and the ambience's do.
 
 ## Windows (8 October 2026)
 

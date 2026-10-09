@@ -868,3 +868,92 @@ into it (bevy 0.19's `MainPassResolutionOverride` only shrinks the viewport
 and wants an upscaler). The vein distances are the felt's next cost (418 →
 349 GPU ms/s with them taken out), but they are the sharp part and stay per
 pixel.
+
+## The client's final round before beta.6 (2026-10-09)
+
+Everything that landed after the second round (arrangements and the
+Spotlight tear, the plates and their top-edge lines, the decision sheets,
+cancel-cast, dial v2, table packing, the clock pills, the phone's stack,
+the Windows startup, music v2) measured once more, and what crept back
+fixed. Same M1 Max, built-in display at 2× (1708×1028 logical and the phone
+frame 844×386), `dist` builds with `dev-control`; before is `9f7337609`
+(main with music v2), after is `7c1c5fed7` (`c41/client-final` before its
+file moves). Two interleaved passes on fresh tables against the house AI,
+the client on a copied config with the music muted unless said; other
+sessions held the machine at load 4–10 throughout. The 08.10 column is the
+second round's after (`perf2-measures.md`). Raw rows, the switches, tears,
+`/changed` and `/allocs` before and after:
+`.claude/ux-table/mocks/real/perf3-measures.md`.
+
+At rest (30 frames a second in every row; frame p50/p95/p99 ≈ 33.4/35–36/36–38 ms in both builds):
+
+| Table | Frame | 08.10 CPU / energy / GPU ms/s | Before CPU | After CPU | Energy before → after | GPU ms/s before → after | Main-thread allocations a frame | Main schedule p50 |
+|---|---|---|---|---|---|---|---|---|
+| 8 seats | 1708 | — | 31.2–32.7 % | 32.0–32.1 % | 31.0–32.4 → 31.7–31.9 | 258–260 → 254–262 | 700–734 → **548–601** | 2.16 → 2.12 ms |
+| 8 seats | 844 | — | 31.6–32.1 % | **30.9–31.0 %** | 31.7–32.0 → 30.7–30.9 | 88–94 → 90–94 | 851–853 → **537–615** | 2.35 → 2.03 ms |
+| 6 seats | 1708 | 34 % / 33 / 313–375 | 29.7–31.1 % | 30.1–31.3 % | 29.2–30.8 → 29.9–31.1 | 257–271 → 258–261 | 624–693 → 623–648 | 1.89 → 1.78 ms |
+| 6 seats | 844 | 33 % / 32 / 102–105 | 31.8–32.3 % | 31.7 % | 31.8–32.3 → 31.6–31.7 | 87–90 → 88 | 757–770 → **640–652** | 2.26 → 2.06 ms |
+| duel | 1708 | 32–34 % / 32–34 / 329–360 | 31.8–32.1 % | 31.7–32.0 % | 31.7–32.0 → 31.5–32.0 | 258–267 → 253–271 | 605–658 → 552–622 | 1.77 → 1.65 ms |
+| duel | 844 | 31–33 % / 31–32 / 131–145 | 30.4–31.3 % | 32.7–32.8 % | 29.9–31.2 → 32.5–32.8 | 102–109 → 95–108 | 652–729 → 621–637 | 2.01 → 1.91 ms |
+| front door, settled | 1708 | — | 25.4–25.5 % | 24.1–24.9 % | 25.5–25.6 → 24.0–24.9 | 263–274 → 276–277 | 357–359 both | — |
+| front door, resting (1 fps) | 1708 | — | 2.0–2.1 % | 2.0–2.1 % | 2.0 → 1.9–2.0 | 11–14 → 13 | 357–358 both | — |
+
+At rest a table's CPU is the renderer's (Metal, bevy's extraction and its
+per-frame bind groups and staging buffers, the compute pool's tasks), and it
+did not move beyond the noise between two passes: what this round removed is
+main-thread work, which reads as the main schedule's p50 (5–14 % lower) and
+its allocations (up to a third fewer at eight seats). Nothing regressed
+since 08.10: the GPU at a six-seat table at rest is 257–271 ms/s against
+313–375 then, so the dial v2, the tear and the packing added no idle shader
+cost. RSS 470–580 MB at a table and 340–390 MB at the front door in both
+builds. Startup to the harness answering: 0.60–0.73 s in both (1.2–1.4 s on
+08.10). Play rows are in the raw file and are two different games; they are
+not compared here.
+
+The music (v2, four themes), what it costs where it is heard, Time Profiler
+6 s on each build: the audio thread is 4.3–5.1 % of a core at a duel at rest
+with the music playing (0.6–1.1 % muted: the paused orchestra) and 2.3–2.4 %
+at the resting front door (0.7–0.8 % muted); the process at a duel at rest
+36–37 % of a core playing against 31–34 % muted, at the resting front door
+3.3–3.5 % against 1.8–2.1 %. Inside the audio thread the orchestra's inner
+loop (`render` 33 %, one interpolated PCM read per voice per sample `pair`
+27 %, rodio's resampler 3 %) is all there is, and it was left as designed.
+
+Arrangement switches (Ring → Upright ring and back, three each, at six and
+eight seats) and six Spotlight tears per table: a switch's worst frame is
+the rest pace's 35–37 ms and its worst main schedule 2.6–3.9 ms in both
+builds, one 47 ms frame in the after build's 24; a tear's worst frame is
+18.4–24.7 ms and its main schedule at most 4.1 ms in both. The upright
+ring's own layout, which every rebuild pays, went from 1.05 ms to 0.40 ms
+at eight seats (criterion, below), under the frame's noise.
+
+What changed, and what each measured:
+
+- **A table at rest is no longer written.** `/changed` (new, below) found
+  nine systems that marked the duel changed on every frame through a
+  mutable borrow (`mem::take`, `as_mut`, `&mut duel`, an assignment of the
+  value it held) and two that relaid the interface (a hand card's shade and
+  `Node.top`; a chosen-type label's `Node` handed to a helper as `&mut`).
+  With the duel changed every frame every `duel.is_changed()` guard ran as if
+  the game had moved. Each has a test that runs its system twice and is red
+  with the old code (eleven in all); at a six-seat table at rest `/changed`
+  now shows no `Duel`, no `Node` and no material written, only the waiting
+  chip's breath and the clocks' seconds.
+- **The hand's cloth is not re-uploaded every frame.** `frontal::hang` wrote
+  the virtual clock into every cloth material each frame — the only material
+  modified at rest, prepared again with a new bind group and uniform buffer
+  each time; the shader reads `globals.time` now, as the ambience does.
+- **The players' strip skips a resting table again.** It keyed on the
+  window's change tick, which bevy's winit glue bumps every frame, and rebuilt
+  every seat's facts, names and numbers: the main thread's largest site of
+  our own in `/allocs` before.
+- **The upright ring** lays its ellipse once and searches its shape on a
+  table of plain numbers: 254 → 87 µs at four seats, 760 → 258 µs at six,
+  1.05 → 0.40 ms at eight; 41,552 arranged tables printed before and after
+  are identical.
+- **`Prompt::Priority`** no longer copies the legal actions on every call.
+
+`/changed` is dev-control's: `{"frames":N}` arms it, `{}` answers what was
+marked changed per component and resource and, in a build with
+`bevy/track_location`, by which line; `/allocs` now ranks by our innermost
+source line, which a line-tables build could not name before.
