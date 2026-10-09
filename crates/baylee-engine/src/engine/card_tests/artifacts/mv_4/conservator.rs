@@ -80,7 +80,7 @@ fn conservator_taps_covers_only_its_controller_and_is_spent() {
     assert!(is_tapped(&engine, rod), "{{T}} is part of the cost");
 
     tap_all_mana(&mut engine, p0);
-    let mut bolt_at = |engine: &mut Engine<RegistryLookup>, target: PlayerId| {
+    let bolt_at = |engine: &mut Engine<RegistryLookup>, target: PlayerId| {
         cast_with_floating(engine, p0, lightning_bolt());
         engine
             .apply(
