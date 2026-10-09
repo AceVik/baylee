@@ -9189,6 +9189,13 @@ lobby's. `BAYLEE_DEV_SCALE=1` beside `BAYLEE_DEV_WINDOW` sets the window's
 scale factor, so a 2560 × 1440 logical window fits a Retina display and the
 layout under test is the one asked for (`/health` says what was granted), and
 `/window {"width":844,"height":390}` resizes it without a relaunch.
+`BAYLEE_DEV_PASSIVE=1` opens a window to be watched, not touched: no focus,
+and hit testing off, so the real pointer passes through to what lies beneath
+and a person watching an agent's run cannot hover or click into its checks
+(the injected input never came from the OS and is unaffected), and an
+injected move no longer warps the real mouse (bevy_winit warps the OS cursor to
+a changed `Window`'s cursor position; a passive window writes it without change
+detection). Agents start their dev-control clients with it.
 
 Seven things about it are load-bearing.
 
