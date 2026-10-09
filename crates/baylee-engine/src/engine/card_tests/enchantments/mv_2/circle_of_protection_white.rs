@@ -76,3 +76,26 @@ fn circle_of_protection_white_prevents_damage_from_a_chosen_white_attacker() {
         "the Cleric's combat damage was prevented"
     );
 }
+
+/// Circle of Protection: White: "The next time a white source of your choice would deal damage to
+/// you this turn, prevent that damage." Three attackers: the double striker chosen has its first blow prevented and its second dealt (1), the Cleric deals 1 and the red Ogre 2.
+/// The offer holds both white sources and not the Ogre, and the shield is
+/// spent by the one hit it was for.
+#[test]
+fn circle_of_protection_white_prevents_one_chosen_source_once_and_only_white_ones_are_offered() {
+    a_circle_prevents_the_next_damage_of_one_chosen_source(
+        circle_of_protection_white(),
+        skyhunter_skirmisher(),
+        ondu_cleric(),
+        gray_ogre(),
+        16,
+    );
+}
+
+/// Circle of Protection: White: "… this turn". Raised in its controller's own turn before anything
+/// is dealt, the shield is gone by the opponent's turn, and the white source
+/// it was raised against deals its damage in full.
+#[test]
+fn circle_of_protection_white_shield_ends_with_the_turn() {
+    a_circles_shield_ends_with_the_turn(circle_of_protection_white(), skyhunter_skirmisher(), 18);
+}

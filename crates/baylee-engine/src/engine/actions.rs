@@ -1384,7 +1384,9 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
-                // The draw step's draw, offered to a skip (Island Sanctuary).
+                // A draw in the draw step, offered to a skip outside any
+                // resolution (Island Sanctuary): the answer settles that
+                // card, and the next waiting draw may be asked in turn.
                 if matches!(self.pending_plan, Some(PlanKind::SkipDraw { .. })) {
                     let Some(PlanKind::SkipDraw {
                         source,
@@ -1393,18 +1395,11 @@ impl<L: CardLookup> Engine<L> {
                     else {
                         unreachable!()
                     };
-                    if answer {
-                        #[cfg(test)]
-                        crate::ability_log::replaced_by(
-                            source,
-                            baylee_cards_dsl::ReplacementRule::MaySkipDrawStepDraw,
-                        );
-                        self.restrict_attacks_after_skipped_draw(player, source);
-                        return Ok(());
-                    }
-                    declined.push(source);
-                    if !self.offer_draw_skip(player, declined) {
-                        self.state.draw_cards(player, 1);
+                    if let Some((next_player, next)) =
+                        self.state
+                            .draw_offer_answered(source, answer, &mut declined)
+                    {
+                        self.ask_draw_skip(next_player, next, declined);
                     }
                     return Ok(());
                 }

@@ -1412,3 +1412,109 @@ fn deathrite_shaman_exiles_an_instant_from_a_graveyard_and_drains_two() {
     assert_eq!(engine.state().players[0].life, 20, "and I do not");
     let _ = p1;
 }
+
+/// A copy does not target (CR 115.10a), so shroud and hexproof do not stop it:
+/// Humble Budoka (shroud) and Sylvan Caryatid (hexproof) are both on the
+/// opponent's side and both are on Clone's menu, while the same two are refused
+/// by a spell that does target (Unsummon). Clone copies the Caryatid and has
+/// its hexproof, its 0/3 and its name.
+#[test]
+fn clone_may_copy_a_creature_that_has_shroud_or_hexproof() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[clone()])
+        .battlefield(1, &[humble_budoka(), sylvan_caryatid()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let budoka = on_battlefield(&engine, p1, humble_budoka()).expect("shroud");
+    let caryatid = on_battlefield(&engine, p1, sylvan_caryatid()).expect("hexproof");
+    assert!(keywords(&engine, budoka).contains(KeywordSet::SHROUD));
+    assert!(keywords(&engine, caryatid).contains(KeywordSet::HEXPROOF));
+
+    cast_from_hand(&mut engine, p0, clone());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, min, .. } = engine.pending().clone() else {
+        panic!("expected the copy question, got {:?}", engine.pending())
+    };
+    assert_eq!(min, 0, "\"you may\"");
+    assert!(
+        options.contains(&budoka) && options.contains(&caryatid),
+        "a copy is not a targeting: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![caryatid],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, clone()).expect("Clone entered");
+    let c = engine.state().object(copy).unwrap().characteristics();
+    assert_eq!(
+        (c.power, c.toughness),
+        (Some(0), Some(3)),
+        "the Caryatid's body"
+    );
+    assert!(
+        c.keywords.contains(KeywordSet::HEXPROOF),
+        "and its hexproof"
+    );
+
+    // The control: a spell that does target cannot take either of them.
+    let mut control = Duel::new(SEED, island())
+        .battlefield(0, &[island(), llanowar_elves()])
+        .hand(0, &[unsummon()])
+        .battlefield(1, &[humble_budoka(), sylvan_caryatid()])
+        .start();
+    keep_mulligans(&mut control);
+    reach_main_phase(&mut control, p0);
+    let budoka = on_battlefield(&control, p1, humble_budoka()).expect("shroud");
+    let caryatid = on_battlefield(&control, p1, sylvan_caryatid()).expect("hexproof");
+    cast_from_hand(&mut control, p0, unsummon());
+    let Pending::ChooseTargets { options, .. } = control.pending().clone() else {
+        panic!("Unsummon asks for a target, got {:?}", control.pending())
+    };
+    assert!(
+        !options.contains(&budoka) && !options.contains(&caryatid),
+        "shroud and hexproof refuse a targeting spell: {options:?}"
+    );
+}
+
+/// The "may": answered with no creature, Clone stays what it prints, a 0/0
+/// that is put into the graveyard as a state-based action, with nothing copied.
+#[test]
+fn clone_declined_enters_as_a_zero_zero_and_dies() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[clone()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, clone());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .expect("declining the copy is a legal answer");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, clone()).is_none(),
+        "a 0/0 does not survive"
+    );
+    assert!(in_graveyard(&engine, p0, clone()).is_some());
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "and the Elves are as they were"
+    );
+}

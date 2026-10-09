@@ -79,6 +79,7 @@ mod ragavan_nimble_pilferer;
 mod raging_goblin;
 mod rogue_elephant;
 mod sandbar_merfolk;
+mod savannah_lions;
 mod scavenger_folk;
 mod scryb_sprites;
 mod serra_zealot;

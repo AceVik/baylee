@@ -4,6 +4,7 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 use baylee_cards_dsl::counters;
+use baylee_core::color::{Color, ColorSet};
 
 mod animate_artifact;
 mod aura_bindings;
@@ -1399,6 +1400,545 @@ fn trade_routes() -> CardIndex {
 // §E8). Each card gets its own `fn <name>() -> CardIndex` naming its oracle
 // id, immediately beside the test(s) that play it.
 // ---------------------------------------------------------------------------
+
+// oracle_id = "6452b6a6-6235-46a3-a712-a26592450438"
+fn thoughtlace() -> CardIndex {
+    card_index("6452b6a6-6235-46a3-a712-a26592450438")
+}
+
+// oracle_id = "fb80aaba-352a-4b58-8db2-1e02d542819c"
+fn deathlace() -> CardIndex {
+    card_index("fb80aaba-352a-4b58-8db2-1e02d542819c")
+}
+
+// oracle_id = "08842aa3-f923-46e9-a106-f542331e9cc1"
+fn chaoslace() -> CardIndex {
+    card_index("08842aa3-f923-46e9-a106-f542331e9cc1")
+}
+
+/// A vanilla {U} 1/1: the ground creature a blue ward is tested against.
+// oracle_id = "218d9277-c179-4de3-9c7f-79b5a6d4fa38"
+fn merfolk_of_the_pearl_trident() -> CardIndex {
+    card_index("218d9277-c179-4de3-9c7f-79b5a6d4fa38")
+}
+
+/// A {B} 1/1 whose only text is an activated ability nobody presses.
+// oracle_id = "7d406aa7-636a-45c1-903f-11c2ce2ef3e3"
+fn bile_urchin() -> CardIndex {
+    card_index("7d406aa7-636a-45c1-903f-11c2ce2ef3e3")
+}
+
+// oracle_id = "0c07d09e-e127-4573-b827-6c50246f7a31"
+fn skyhunter_skirmisher() -> CardIndex {
+    card_index("0c07d09e-e127-4573-b827-6c50246f7a31")
+}
+
+fn life_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
+    engine.state().players[seat.get() as usize].life
+}
+
+/// Casts `card` off the floating pool at `target` and lets it resolve.
+#[track_caller]
+fn cast_on(engine: &mut Engine<RegistryLookup>, card: CardIndex, target: ObjectId) {
+    cast_with_floating(engine, PlayerId::new(0), card);
+    aim_at(engine, PlayerId::new(0), target);
+    pass_until(engine, stack_is_empty);
+}
+
+/// What the target prompt in front of the engine offers.
+#[track_caller]
+fn target_menu(engine: &Engine<RegistryLookup>) -> Vec<ObjectId> {
+    match engine.pending() {
+        Pending::ChooseTargets { options, .. } => options.clone(),
+        other => panic!("expected a target choice, got {other:?}"),
+    }
+}
+
+/// The "ward" Auras print "This effect doesn't remove this Aura": an Aura
+/// that is itself the color it protects from stays on. All three Wards are
+/// white, so the sentence only matters once a lace has turned the Ward into
+/// the color it guards against; then a second Aura of that color on the same
+/// creature must still fall off, which is the control: it is the Ward's own
+/// exception that kept the Ward there, not a protection that does nothing.
+#[track_caller]
+fn a_ward_outlasts_its_own_color(ward: CardIndex, lace: CardIndex, land: CardIndex, color: Color) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), land, land, quiet_creature()])
+        .hand(0, &[ward, holy_armor(), lace, lace])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("the creature");
+    tap_mana_where(&mut engine, p0, |id| id != creature);
+
+    cast_on(&mut engine, ward, creature);
+    cast_on(&mut engine, holy_armor(), creature);
+    let ward_id = on_battlefield(&engine, p0, ward).expect("the Ward resolved");
+    let armor = on_battlefield(&engine, p0, holy_armor()).expect("the Armor resolved");
+    assert_eq!(pt(&engine, creature), (1, 3), "Holy Armor's +0/+2 is on");
+    assert_eq!(
+        engine
+            .state()
+            .object(ward_id)
+            .unwrap()
+            .characteristics()
+            .colors,
+        ColorSet::of(Color::White),
+        "a Ward is white as printed"
+    );
+
+    cast_on(&mut engine, lace, ward_id);
+    assert_eq!(
+        engine
+            .state()
+            .object(ward_id)
+            .unwrap()
+            .characteristics()
+            .colors,
+        ColorSet::of(color),
+        "the lace made the Ward the color it guards against"
+    );
+    assert_eq!(
+        engine.state().object(ward_id).unwrap().attached_to,
+        Some(creature),
+        "\"This effect doesn't remove this Aura\": the Ward stays on"
+    );
+    assert!(
+        on_battlefield(&engine, p0, ward).is_some(),
+        "and on the battlefield"
+    );
+    assert_eq!(pt(&engine, creature), (1, 3), "the other Aura is untouched");
+
+    cast_on(&mut engine, lace, armor);
+    assert!(
+        in_graveyard(&engine, p0, holy_armor()).is_some(),
+        "an Aura that is not the Ward is removed by the same protection"
+    );
+    assert_eq!(pt(&engine, creature), (1, 1), "its +0/+2 went with it");
+    assert_eq!(
+        engine.state().object(ward_id).unwrap().attached_to,
+        Some(creature),
+        "while the Ward is still there"
+    );
+}
+
+/// Protection from a color also means "can't be enchanted by Auras of that
+/// color": with the Ward on the creature, an Aura of that color is offered
+/// the bystander and not the creature, while a white Aura (the control) is
+/// still offered both.
+#[track_caller]
+fn a_ward_keeps_auras_of_its_color_off(ward: CardIndex, aura: CardIndex, land: CardIndex) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                land,
+                quiet_creature(),
+                festering_goblin(),
+            ],
+        )
+        .hand(0, &[ward, holy_armor(), aura])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("the creature");
+    let bystander = on_battlefield(&engine, p0, festering_goblin()).expect("the bystander");
+    tap_mana_where(&mut engine, p0, |id| id != creature && id != bystander);
+
+    cast_on(&mut engine, ward, creature);
+    cast_with_floating(&mut engine, p0, holy_armor());
+    let menu = target_menu(&engine);
+    assert!(
+        menu.contains(&creature) && menu.contains(&bystander),
+        "a white Aura may enchant either: {menu:?}"
+    );
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+
+    cast_with_floating(&mut engine, p0, aura);
+    let menu = target_menu(&engine);
+    assert!(menu.contains(&bystander), "{menu:?}");
+    assert!(
+        !menu.contains(&creature),
+        "the warded creature can't be enchanted by an Aura of that color: {menu:?}"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![creature],
+                    players: vec![],
+                },
+            )
+            .is_err(),
+        "and naming it anyway is refused"
+    );
+    aim_at(&mut engine, p0, bystander);
+    pass_until(&mut engine, stack_is_empty);
+    let aura_id = on_battlefield(&engine, p0, aura).expect("the Aura resolved");
+    assert_eq!(
+        engine.state().object(aura_id).unwrap().attached_to,
+        Some(bystander)
+    );
+}
+
+/// Protection from a color also prevents the damage a source of that color
+/// would deal to the creature. The same block, without the Ward, kills the
+/// 1/1 Elf; with it, the Elf walks away.
+#[track_caller]
+fn a_ward_prevents_damage_from_its_color(ward: CardIndex, attacker: CardIndex, warded: bool) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), quiet_creature()])
+        .hand(0, &[ward])
+        .battlefield(1, &[attacker])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf");
+    if warded {
+        tap_mana_where(&mut engine, p0, |id| id != elf);
+        cast_on(&mut engine, ward, elf);
+    }
+    reach_their_main_phase(&mut engine, p1);
+    let foe = on_battlefield(&engine, p1, attacker).expect("their attacker");
+    let blocks = attack_and_collect_blocks(&mut engine, foe, p0);
+    assert!(
+        blocks
+            .iter()
+            .any(|b| b.blocker == elf && b.attackers.contains(&foe)),
+        "the Elf may block: {blocks:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(elf, foe)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain) && e.state().turn.active == p1
+    });
+    if warded {
+        assert!(
+            on_battlefield(&engine, p0, quiet_creature()).is_some(),
+            "the damage was prevented: the Elf lives"
+        );
+    } else {
+        assert!(
+            in_graveyard(&engine, p0, quiet_creature()).is_some(),
+            "control: with no Ward the same block kills the Elf"
+        );
+    }
+}
+
+/// Protection from a color also means it can't be blocked by creatures of
+/// that color: the Elf attacking offers the other creature as a blocker and
+/// not the one of the Ward's color; without the Ward both are offered.
+#[track_caller]
+fn a_warded_creature_slips_past_its_color(ward: CardIndex, blocker: CardIndex, warded: bool) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), quiet_creature()])
+        .hand(0, &[ward])
+        .battlefield(1, &[blocker, quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf");
+    let colored = on_battlefield(&engine, p1, blocker).expect("their colored creature");
+    let bystander = on_battlefield(&engine, p1, quiet_creature()).expect("their bystander");
+    if warded {
+        tap_mana_where(&mut engine, p0, |id| id != elf);
+        cast_on(&mut engine, ward, elf);
+    }
+    let blocks = attack_and_collect_blocks(&mut engine, elf, p1);
+    assert!(
+        blocks.iter().any(|b| b.blocker == bystander),
+        "a creature of another color may block: {blocks:?}"
+    );
+    assert_eq!(
+        blocks.iter().any(|b| b.blocker == colored),
+        !warded,
+        "the creature of the Ward's color may block only the unwarded Elf: {blocks:?}"
+    );
+}
+
+/// Declares every one of `attackers` against `defender` and stops at the
+/// declare-blockers question, which the caller answers.
+#[track_caller]
+fn attack_with_all(
+    engine: &mut Engine<RegistryLookup>,
+    attackers: &[ObjectId],
+    defender: PlayerId,
+) {
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { player, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: attackers
+                    .iter()
+                    .map(|a| (*a, Defender::Player(defender)))
+                    .collect(),
+            },
+        )
+        .expect("every attacker came out of the offer");
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::ChooseBlockers { .. } => return,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to the blockers: {other:?}"),
+        }
+    }
+    panic!("never reached the declare-blockers question");
+}
+
+/// p0 pays for the Circle's `{1}` ability, activates it, and names `pick`
+/// from the sources it is offered. Returns the objects of the whole offer.
+#[track_caller]
+fn raise_a_circle(
+    engine: &mut Engine<RegistryLookup>,
+    circle: CardIndex,
+    pick: ObjectId,
+) -> Vec<ObjectId> {
+    let p0 = PlayerId::new(0);
+    tap_all_mana(engine, p0);
+    activate(engine, p0, circle, 0);
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
+    });
+    let Pending::ChooseDamageSource {
+        player,
+        options,
+        choice,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0, "its controller chooses");
+    let source = baylee_core::ids::DamageSourceRef {
+        object: pick,
+        version: engine.state().object(pick).expect("source exists").version,
+    };
+    assert!(options.contains(&source), "the pick is on the offer");
+    engine
+        .apply(p0, PlayerAction::ChooseDamageSource { choice, source })
+        .expect("off the list");
+    options.iter().map(|o| o.object).collect()
+}
+
+/// Both Circles' "the next time a source of your choice would deal damage
+/// to you this turn" read through a combat in which the opponent attacks
+/// with `chosen`, `other_of_color` (a second source of the Circle's color)
+/// and `off_color` (a source of another color). The offer names the two
+/// sources of the color and not the third; the one picked is prevented once;
+/// everything else is dealt. `expected_life` is what is left of 20.
+/// would deal in all; `expected_life` is what is left of 20.
+#[track_caller]
+#[allow(clippy::too_many_arguments)] // one board, the way it was declared
+fn a_circle_prevents_the_next_damage_of_one_chosen_source(
+    circle: CardIndex,
+    chosen: CardIndex,
+    other_of_color: CardIndex,
+    off_color: CardIndex,
+    expected_life: i32,
+) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[circle, forest()])
+        .battlefield(1, &[chosen, other_of_color, off_color])
+        .start();
+    keep_mulligans(&mut engine);
+    let picked = on_battlefield(&engine, p1, chosen).expect("the chosen source");
+    let other = on_battlefield(&engine, p1, other_of_color).expect("the second source");
+    let off = on_battlefield(&engine, p1, off_color).expect("the off-color source");
+    reach_their_main_phase(&mut engine, p1);
+
+    attack_with_all(&mut engine, &[picked, other, off], p0);
+    engine
+        .apply(p0, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    let offered = raise_a_circle(&mut engine, circle, picked);
+    assert!(
+        offered.contains(&picked) && offered.contains(&other),
+        "both sources of the color are on the offer: {offered:?}"
+    );
+    assert!(
+        !offered.contains(&off),
+        "and a source of another color is not: {offered:?}"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(life_of(&engine, p0), expected_life);
+    assert!(
+        engine.state().shields.is_empty(),
+        "\"the next time\": the shield was used up"
+    );
+}
+
+/// "… this turn": a shield raised in its controller's own main phase, with
+/// nothing yet dealt, does not last into the opponent's turn, when the same
+/// source attacks and deals its damage in full.
+#[track_caller]
+fn a_circles_shield_ends_with_the_turn(circle: CardIndex, source: CardIndex, expected_life: i32) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[circle, forest()])
+        .battlefield(1, &[source])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let foe = on_battlefield(&engine, p1, source).expect("their source");
+    raise_a_circle(&mut engine, circle, foe);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !engine.state().shields.is_empty(),
+        "the shield is standing in the turn that made it"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        engine.state().shields.is_empty(),
+        "and gone when that turn ended"
+    );
+    let blocks = attack_and_collect_blocks(&mut engine, foe, p0);
+    assert!(blocks.is_empty(), "p0 has nothing to block with");
+    engine
+        .apply(p0, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(
+        life_of(&engine, p0),
+        expected_life,
+        "the source dealt its damage in full"
+    );
+}
+
+/// The three pump Auras print "until end of turn": two activations stack,
+/// still stand through the rest of the turn (second main, not only combat),
+/// and are gone when the next turn begins, leaving what attaching alone gave
+/// (`attached`). `ability` is the index of the activated ability.
+#[track_caller]
+fn a_pump_aura_ends_with_the_turn(
+    aura: CardIndex,
+    land: CardIndex,
+    ability: u32,
+    attached: (i16, i16),
+    once: (i16, i16),
+    twice: (i16, i16),
+) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[land, land, land, land, quiet_creature()])
+        .hand(0, &[aura])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf");
+    tap_mana_where(&mut engine, p0, |id| id != elf);
+    cast_on(&mut engine, aura, elf);
+    assert_eq!(pt(&engine, elf), attached, "attached, before any pump");
+
+    activate(&mut engine, p0, aura, ability);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, elf), once, "one activation");
+    activate(&mut engine, p0, aura, ability);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, elf), twice, "two activations stack");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain) && e.state().turn.active == p0
+    });
+    assert_eq!(
+        pt(&engine, elf),
+        twice,
+        "still pumped later in the same turn: \"until end of turn\", not end of combat"
+    );
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        pt(&engine, elf),
+        attached,
+        "the pump is gone after the cleanup step"
+    );
+    assert!(
+        on_battlefield(&engine, p0, aura).is_some(),
+        "and the Aura stays"
+    );
+}
+
+/// "Enchant creature": the Aura is offered every creature (the opponent's
+/// too) and nothing else: not a land, not an artifact.
+#[track_caller]
+fn an_aura_enchants_only_creatures(aura: CardIndex, land: CardIndex) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[land, land, land, quiet_creature()])
+        .hand(0, &[aura])
+        .battlefield(1, &[quiet_creature(), quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mine = on_battlefield(&engine, p0, quiet_creature()).expect("my Elf");
+    let theirs = on_battlefield(&engine, PlayerId::new(1), quiet_creature()).expect("their Elf");
+    let ring = on_battlefield(&engine, PlayerId::new(1), quiet_artifact()).expect("their Ring");
+    let lands = all_on_battlefield(&engine, p0, land);
+    tap_mana_where(&mut engine, p0, |id| id != mine);
+    cast_with_floating(&mut engine, p0, aura);
+    let menu = target_menu(&engine);
+    assert!(
+        menu.contains(&mine) && menu.contains(&theirs),
+        "any creature: {menu:?}"
+    );
+    assert!(!menu.contains(&ring), "not an artifact: {menu:?}");
+    assert!(
+        lands.iter().all(|l| !menu.contains(l)),
+        "not a land: {menu:?}"
+    );
+    for wrong in [ring, lands[0]] {
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![wrong],
+                        players: vec![],
+                    },
+                )
+                .is_err(),
+            "naming a noncreature anyway is refused"
+        );
+    }
+    aim_at(&mut engine, p0, theirs);
+    pass_until(&mut engine, stack_is_empty);
+    let id = on_battlefield(&engine, p0, aura).expect("it resolved");
+    assert_eq!(
+        engine.state().object(id).unwrap().attached_to,
+        Some(theirs),
+        "it may enchant the opponent's creature"
+    );
+}
 
 fn black_ward() -> CardIndex {
     card_index("7861ac9b-3024-4935-804c-2ca4c5a46bf4")

@@ -50,3 +50,62 @@ fn howling_mine_doubles_the_draw_only_while_untapped() {
         "p0's own first draw, single — the Mine is tapped"
     );
 }
+
+/// "That player draws": whichever player's draw step it is, whoever owns the
+/// Mine. With the Mine on p1's side, p1's own draw and p0's turn-3 draw are
+/// both doubled (p0 goes first and skips the turn-1 draw, CR 103.8a).
+#[test]
+fn howling_mine_doubles_both_players_draws_whoever_controls_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(1, &[howling_mine()])
+        .start();
+    keep_mulligans(&mut engine);
+    let baseline0 = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let baseline1 = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        baseline1 + 2,
+        "its controller's own draw is doubled"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p0
+    });
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        baseline0 + 2,
+        "the opponent's draw is doubled by a Mine they do not control"
+    );
+}
+
+/// The other half of "if this artifact is untapped": a tapped Mine gives the
+/// *opponent's* draw nothing extra either. The Mine on p0's side is tapped
+/// before p1's draw step (p1's untap step does not untap p0's permanents), so
+/// p1 draws the single card.
+#[test]
+fn howling_mine_tapped_denies_the_opponents_extra_card() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[howling_mine()])
+        .start();
+    keep_mulligans(&mut engine);
+    let baseline1 = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+    let mine = on_battlefield(&engine, p0, howling_mine()).expect("seated");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .object_mut(mine)
+        .expect("seated")
+        .status
+        .insert(Status::TAPPED);
+    engine.refresh_offer();
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        baseline1 + 1,
+        "p1 draws once: the Mine is tapped"
+    );
+}

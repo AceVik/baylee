@@ -18,6 +18,7 @@ use baylee_core::mana::{ManaColor, ManaPool, ManaSymbol};
 use baylee_core::preset::{FormatId, GamePreset, PresetError};
 use rustc_hash::FxHashMap;
 
+mod draw_offer;
 mod hash;
 mod moves;
 mod projection;
@@ -780,6 +781,15 @@ pub struct GameState {
     pub(crate) damage_deaths: Vec<crate::damage_history::DamageDeath>,
     /// First-of-turn drawn cards awaiting a miracle offer (CR 702.94).
     pub pending_miracle: std::collections::VecDeque<(PlayerId, ObjectId)>,
+    /// Draws Island Sanctuary may replace, waiting to be offered the skip
+    /// (`ReplacementRule::MaySkipDrawStepDraw`): each entry is a player and
+    /// how many cards an instruction told them to draw, in the order the
+    /// draws would be made (CR 121.2, 121.2c). `draw_cards` puts a draw
+    /// here instead of making it when the drawing player could skip it,
+    /// and behind one already waiting so the order holds; the resolution
+    /// (`resolve::run`) or, outside one, the machine asks each draw on its
+    /// own (CR 121.2, 614.11a). Empty whenever nobody is being asked.
+    pub draws_to_offer: std::collections::VecDeque<(PlayerId, u32)>,
     /// Queued extra turns (CR 500.7); the front player takes the next
     /// turn instead of the normal successor.
     pub extra_turns: std::collections::VecDeque<PlayerId>,
@@ -1192,6 +1202,7 @@ impl GameState {
             ltb_versions,
             damage_deaths,
             pending_miracle,
+            draws_to_offer,
             extra_turns,
             skip_followups,
             reanimated_auras,
@@ -1273,6 +1284,7 @@ impl GameState {
             ("state.ltb_versions", format!("{ltb_versions:?}")),
             ("state.damage_deaths", format!("{damage_deaths:?}")),
             ("state.pending_miracle", format!("{pending_miracle:?}")),
+            ("state.draws_to_offer", format!("{draws_to_offer:?}")),
             ("state.extra_turns", format!("{extra_turns:?}")),
             ("state.skip_followups", format!("{skip_followups:?}")),
             ("state.reanimated_auras", format!("{reanimated_auras:?}")),

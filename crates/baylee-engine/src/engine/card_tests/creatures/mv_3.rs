@@ -130,6 +130,7 @@ mod noble_panther;
 mod opposition_agent;
 mod orcish_mechanics;
 mod overeager_apprentice;
+mod pearled_unicorn;
 mod pegasus_charger;
 mod phyrexian_broodlings;
 mod phyrexian_rager;

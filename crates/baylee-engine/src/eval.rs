@@ -1175,11 +1175,11 @@ fn objects_of_a_player(
         // The object half of "target opponent or [filter]"; the opponents
         // come from `target_player_options`, offered beside it.
         TargetSpec::OpponentOrObject(filter) => {
-            target_options_with_context(&TargetSpec::Object(filter), state, you, context)
+            choice_options_with_context(&TargetSpec::Object(filter), state, you, context)
         }
         TargetSpec::ObjectControlledBy(filter, player) => {
             let mut all =
-                target_options_with_context(&TargetSpec::Object(filter), state, you, context);
+                choice_options_with_context(&TargetSpec::Object(filter), state, you, context);
             all.retain(|id| state.object(*id).is_some_and(|o| o.controller == player));
             all
         }
@@ -1197,7 +1197,7 @@ fn opponents_objects(
     you: PlayerId,
     context: RuleContext,
 ) -> Vec<ObjectId> {
-    let mut all = target_options_with_context(&TargetSpec::Object(filter), state, you, context);
+    let mut all = choice_options_with_context(&TargetSpec::Object(filter), state, you, context);
     all.retain(|id| {
         state
             .object(*id)
@@ -1283,7 +1283,48 @@ pub fn target_options_with_context(
     context: RuleContext,
 ) -> Vec<ObjectId> {
     let this = context.source;
-    let options = match spec {
+    // Protection (CR 702.16b) keeps out matching sources, and so does a
+    // printed "can't be the target of" sentence; hexproof and shroud
+    // (CR 702.11b/702.18b) keep out whole classes of chooser.
+    choice_options_with_context(spec, state, you, context)
+        .into_iter()
+        .filter(|id| {
+            !protected_from(state, *id, this)
+                && !untargetable_by_source(state, *id, this)
+                && !untargetable_by(state, *id, you)
+        })
+        .collect()
+}
+
+/// The objects `spec` describes, for a choice that does **not** target.
+///
+/// "Unless that object or player is identified by the word 'target' in the
+/// text of that spell or ability, or the rule for that keyword ability,
+/// it's not a target" (CR 115.10a). Protection, hexproof and shroud are
+/// all about being targeted, so they keep nothing off this list: a Clone
+/// may enter as a copy of a creature with shroud, since entering as a copy
+/// is how it enters (CR 707.5) and not an ability that targets. The same
+/// enumeration as [`target_options`], without its last filter.
+#[must_use]
+pub fn choice_options(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    choice_options_with_context(spec, state, you, live_context(state, this))
+}
+
+/// [`choice_options`] with frozen ability text or a grant's original words.
+#[must_use]
+pub fn choice_options_with_context(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> Vec<ObjectId> {
+    let this = context.source;
+    match spec {
         TargetSpec::Object(filter) => state
             .battlefield_view()
             .iter()
@@ -1387,18 +1428,7 @@ pub fn target_options_with_context(
         | TargetSpec::Player(_)
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent => vec![],
-    };
-    // Protection (CR 702.16b) keeps out matching sources, and so does a
-    // printed "can't be the target of" sentence; hexproof and shroud
-    // (CR 702.11b/702.18b) keep out whole classes of chooser.
-    options
-        .into_iter()
-        .filter(|id| {
-            !protected_from(state, *id, this)
-                && !untargetable_by_source(state, *id, this)
-                && !untargetable_by(state, *id, you)
-        })
-        .collect()
+    }
 }
 
 /// The players a spell or ability on the stack chose for its first instance
@@ -1848,6 +1878,35 @@ mod tests {
             !protected_from(&state, other, theirs),
             "protection from artifacts is not protection from a creature"
         );
+    }
+
+    /// A choice that does not target (CR 115.10a), such as what a Clone
+    /// enters as a copy of (CR 707.5), is offered what targeting refuses:
+    /// an opponent's hexproof creature, a creature with shroud and one with
+    /// protection from creatures are all off `target_options` for a
+    /// creature source, and all on `choice_options` (the copy question's
+    /// list, `copy_on_enter_question`). Red when the choice borrows the
+    /// targeting filter, as the copy question did.
+    #[test]
+    fn a_choice_that_does_not_target_ignores_hexproof_shroud_and_protection() {
+        let mut state = empty_state();
+        let clone = creature(&mut state, P0, KeywordSet::EMPTY);
+        let plain = creature(&mut state, P1, KeywordSet::EMPTY);
+        let hexproof = creature(&mut state, P1, KeywordSet::HEXPROOF);
+        let shroud = creature(&mut state, P1, KeywordSet::SHROUD);
+        let protected = creature(&mut state, P1, KeywordSet::EMPTY);
+        protect(&mut state, P1, protected, &ANY_CREATURE);
+        let spec = TargetSpec::Object(&ANY_CREATURE);
+
+        let targeted = targets(&state, P0, clone);
+        assert!(targeted.contains(&plain));
+        for refused in [hexproof, shroud, protected] {
+            assert!(!targeted.contains(&refused), "a target: {refused:?}");
+        }
+        let chosen = choice_options(&spec, &state, P0, clone);
+        for offered in [plain, hexproof, shroud, protected] {
+            assert!(chosen.contains(&offered), "not a target: {offered:?}");
+        }
     }
 
     /// **Whose opponent** is read off the seat that controls the protection

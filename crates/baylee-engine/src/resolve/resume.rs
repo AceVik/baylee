@@ -727,6 +727,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::CascadeCast { .. }
         | AwaitingOp::CastTarget { .. }
         | AwaitingOp::TopOrBottom { .. }
+        | AwaitingOp::SkipDraw { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }

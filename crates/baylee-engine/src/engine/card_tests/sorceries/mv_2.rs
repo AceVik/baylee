@@ -5,8 +5,10 @@ use super::*;
 
 mod balance;
 mod braingeyser;
+mod channel;
 mod damn;
 mod death_stroke;
+mod demonic_tutor;
 mod drain_life;
 mod drain_power;
 mod expressive_iteration;

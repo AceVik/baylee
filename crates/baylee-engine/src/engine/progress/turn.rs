@@ -171,81 +171,29 @@ impl<L: CardLookup> Engine<L> {
         true
     }
 
-    /// Asks `player` about the first draw-step skip they control and have
-    /// not declined for this draw (Island Sanctuary,
-    /// `ReplacementRule::MaySkipDrawStepDraw`). The draw is made by the
-    /// answer, so a `true` here means nothing has been drawn yet.
-    pub(crate) fn offer_draw_skip(&mut self, player: PlayerId, declined: Vec<ObjectId>) -> bool {
-        use baylee_cards_dsl::{AbilityDef, ReplacementRule};
-        let state = &self.state;
-        let Some(source) = state
-            .replacement_rules
-            .iter()
-            .filter(|r| r.rule == ReplacementRule::MaySkipDrawStepDraw && r.controller == player)
-            .map(|r| r.source)
-            .filter(|s| !declined.contains(s))
-            .find(|s| {
-                state.object(*s).is_some_and(|o| {
-                    o.zone == Zone::Battlefield
-                        && o.controller == player
-                        && !o.status.contains(Status::PHASED_OUT)
-                })
-            })
-        else {
+    /// Asks about the first waiting draw Island Sanctuary could replace
+    /// (`GameState::draws_to_offer`), after making every draw ahead of it
+    /// that nobody may skip. The turn-based draw (CR 504.1) comes here, and
+    /// so does anything queued outside a resolution. Returns `true` when a
+    /// question was asked.
+    pub(crate) fn offer_queued_draw(&mut self) -> bool {
+        let Some((player, source)) = self.state.next_draw_offer() else {
             return false;
         };
-        let ability = state.printed_ability_list(source).and_then(|list| {
-            let index = list.abilities.iter().position(|a| {
-                matches!(
-                    a,
-                    AbilityDef::Replacement(ReplacementRule::MaySkipDrawStepDraw)
-                )
-            })?;
-            list.entry(index)?.provenance.ability_ref()
-        });
-        self.pending_plan = Some(PlanKind::SkipDraw { source, declined });
-        self.pending = Pending::YesNo {
-            player,
-            prompt: YesNoPrompt::MayDo,
-            source: ability,
-        };
-        self.awaiting_answer = true;
+        self.ask_draw_skip(player, source, Vec::new());
         true
     }
 
-    /// "If you do, until your next turn, you can't be attacked except by
-    /// creatures with flying and/or islandwalk." Created by the skip and not
-    /// by the permanent, so it holds once the source has left (the card's
-    /// ruling); `Duration::UntilYourNextTurn` ends it as `player`'s next
-    /// turn begins.
-    pub(crate) fn restrict_attacks_after_skipped_draw(
+    /// Puts the question about the front waiting draw on the table.
+    pub(crate) fn ask_draw_skip(
         &mut self,
         player: PlayerId,
         source: ObjectId,
+        declined: Vec<ObjectId>,
     ) {
-        static FLYING_OR_ISLANDWALK: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::Or(&[
-            baylee_cards_dsl::Filter::HasKeyword(baylee_cards_dsl::KeywordSet::FLYING),
-            baylee_cards_dsl::Filter::HasKeyword(baylee_cards_dsl::KeywordSet::ISLANDWALK),
-        ]);
-        let modifier = baylee_cards_dsl::Modifier::CantBeAttackedExceptBy {
-            who: baylee_cards_dsl::PlayerRel::You,
-            by: &FLYING_OR_ISLANDWALK,
-        };
-        let timestamp = self.state.next_timestamp();
-        self.state
-            .effects
-            .register(crate::effects::ContinuousEffect {
-                // `register` assigns the real one.
-                id: baylee_core::ids::EffectId::new(0),
-                source: Some(source),
-                controller: player,
-                origin: crate::effects::EffectOrigin::Resolution,
-                layer: modifier.layer(),
-                timestamp,
-                duration: baylee_cards_dsl::Duration::UntilYourNextTurn,
-                filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
-                modifier,
-            });
+        self.pending_plan = Some(PlanKind::SkipDraw { source, declined });
+        self.pending = self.state.draw_offer_question(player, source);
+        self.awaiting_answer = true;
     }
 
     /// Queues delayed actions (suspend finishes, pact payments) when the

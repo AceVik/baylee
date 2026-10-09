@@ -70,3 +70,26 @@ fn circle_of_protection_green_prevents_damage_from_a_chosen_green_attacker() {
         "the Elves' combat damage was prevented"
     );
 }
+
+/// Circle of Protection: Green: "The next time a green source of your choice would deal damage to
+/// you this turn, prevent that damage." Three attackers: the 3/3 Elephant chosen is prevented; the Elf deals 1 and the red Ogre 2.
+/// The offer holds both green sources and not the Ogre, and the shield is
+/// spent by the one hit it was for.
+#[test]
+fn circle_of_protection_green_prevents_one_chosen_source_once_and_only_green_ones_are_offered() {
+    a_circle_prevents_the_next_damage_of_one_chosen_source(
+        circle_of_protection_green(),
+        wild_elephant(),
+        llanowar_elves(),
+        gray_ogre(),
+        17,
+    );
+}
+
+/// Circle of Protection: Green: "… this turn". Raised in its controller's own turn before anything
+/// is dealt, the shield is gone by the opponent's turn, and the green source
+/// it was raised against deals its damage in full.
+#[test]
+fn circle_of_protection_green_shield_ends_with_the_turn() {
+    a_circles_shield_ends_with_the_turn(circle_of_protection_green(), wild_elephant(), 17);
+}

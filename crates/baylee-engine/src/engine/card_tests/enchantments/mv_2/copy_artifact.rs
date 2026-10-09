@@ -73,3 +73,177 @@ fn copy_artifact_enters_as_an_artifact_and_enchantment_copy_of_sol_ring() {
         "Sol Ring's copied {{T}}: Add {{C}}{{C}}"
     );
 }
+
+/// The "may": answering the copy question with no object leaves Copy
+/// Artifact as what it prints, an enchantment and nothing else. It is no
+/// artifact, it has none of Sol Ring's mana ability, and Sol Ring is as it
+/// was.
+#[test]
+fn copy_artifact_declined_enters_as_a_plain_enchantment() {
+    let p0 = PlayerId::new(0);
+    let copy_artifact = copy_artifact();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), sol_ring()])
+        .hand(0, &[copy_artifact])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ring = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring seated");
+
+    let islands = all_on_battlefield(&engine, p0, island());
+    tap_mana_where(&mut engine, p0, |id| islands.contains(&id));
+    cast_with_floating(&mut engine, p0, copy_artifact);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { min, options, .. } = engine.pending().clone() else {
+        panic!("expected the copy question, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        min, 0,
+        "\"you may\": the question can be answered with nothing"
+    );
+    assert!(options.contains(&ring));
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .expect("declining the copy is a legal answer");
+    pass_until(&mut engine, stack_is_empty);
+
+    let it = on_battlefield(&engine, p0, copy_artifact).expect("Copy Artifact resolved");
+    let chars = engine.state().object(it).unwrap().characteristics();
+    assert_eq!(
+        chars.types,
+        TypeSet::ENCHANTMENT,
+        "an enchantment, nothing more"
+    );
+    assert!(
+        !chars.types.contains(TypeSet::ARTIFACT),
+        "not a copy of Sol Ring"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|&(id, _)| id == it),
+        "no copied ability: {:?}",
+        legal.abilities
+    );
+    assert!(
+        on_battlefield(&engine, p0, sol_ring()).is_some(),
+        "Sol Ring is untouched"
+    );
+}
+
+/// "Any artifact on the battlefield": the menu is every artifact of either
+/// player, not a creature or a land; the opponent's artifact is copyable, and
+/// the copy comes in under our control.
+#[test]
+fn copy_artifact_offers_every_artifact_and_copies_the_opponents() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let copy_artifact = copy_artifact();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), llanowar_elves()])
+        .hand(0, &[copy_artifact])
+        .battlefield(1, &[sol_ring(), quiet_artifact(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let their_ring = on_battlefield(&engine, p1, sol_ring()).expect("their artifact");
+    let their_other = on_battlefield(&engine, p1, quiet_artifact()).expect("their other");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("a creature");
+    let land = on_battlefield(&engine, p1, forest()).expect("a land");
+
+    let islands = all_on_battlefield(&engine, p0, island());
+    tap_mana_where(&mut engine, p0, |id| islands.contains(&id));
+    cast_with_floating(&mut engine, p0, copy_artifact);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the copy question, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&their_ring) && options.contains(&their_other));
+    assert!(
+        !options.contains(&elf) && !options.contains(&land),
+        "a creature and a land are no artifacts: {options:?}"
+    );
+    assert_eq!(options.len(), 2, "{options:?}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_ring],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, copy_artifact).expect("it came in under our control");
+    let chars = engine.state().object(copy).unwrap().characteristics();
+    assert!(chars.types.contains(TypeSet::ARTIFACT) && chars.types.contains(TypeSet::ENCHANTMENT));
+    assert!(
+        on_battlefield(&engine, p1, sol_ring()).is_some(),
+        "their Sol Ring stays theirs"
+    );
+}
+
+/// Copying does not target (CR 115.10a): Padeem gives the opponent's artifacts
+/// hexproof, and their Sol Ring is still on Copy Artifact's menu and can be
+/// copied, ability and all. Padeem is no artifact, so it is not on the menu.
+#[test]
+fn copy_artifact_may_copy_an_artifact_that_has_hexproof() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let padeem = card_index("0c7ba712-6a99-4d2f-9242-a2163a11f69c");
+    let copy_artifact = copy_artifact();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island()])
+        .hand(0, &[copy_artifact])
+        .battlefield(1, &[padeem, sol_ring()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let their_ring = on_battlefield(&engine, p1, sol_ring()).expect("their Sol Ring");
+    let their_padeem = on_battlefield(&engine, p1, padeem).expect("Padeem");
+    assert!(
+        engine
+            .state()
+            .object(their_ring)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(KeywordSet::HEXPROOF),
+        "Padeem's artifacts have hexproof"
+    );
+
+    cast_from_hand(&mut engine, p0, copy_artifact);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the copy question, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![their_ring],
+        "the hexproof Sol Ring is the whole menu (Padeem is no artifact): {options:?}"
+    );
+    assert!(!options.contains(&their_padeem));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_ring],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, copy_artifact).expect("it entered");
+    activate(&mut engine, p0, copy_artifact, 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        2,
+        "the copy of a hexproof Sol Ring taps for {{C}}{{C}}"
+    );
+    assert!(engine.state().object(copy).is_some());
+}
