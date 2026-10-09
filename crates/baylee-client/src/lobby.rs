@@ -87,6 +87,9 @@ impl Plugin for LobbyPlugin {
         crate::shellkit::install(app);
         header::install(app);
         install_builder(app);
+        // Restarting into an update, and coming back to where the player was.
+        #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+        resume::install(app);
         crate::flip::install(app);
         app.init_resource::<thumbnails::Cache>()
             .init_resource::<thumbnails::ArtCache>()
@@ -835,6 +838,8 @@ pub(crate) mod offline;
 mod press;
 mod preview;
 mod print_catalog;
+#[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+mod resume;
 mod room;
 mod scrolling;
 pub(crate) use scrolling::WHEEL_LINE;

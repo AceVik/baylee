@@ -8939,11 +8939,124 @@ automatically", "Check for updates automatically" (off: no request at all,
 until "Check for updates" is pressed) and that button, kept per device in
 `update.json`.
 
+A ready update (staged and verified) also offers "Restart now" and "Later"
+on that panel, and at a table (§"Restarting into an update").
+
 **macOS quarantine.** Files the client writes are not quarantined: macOS
 marks a download with `com.apple.quarantine` only when the program that
 wrote it opted in (browsers do), so the new `Baylee.app` starts without the
 first-start warning the downloaded archive gave. What the live check of
 27.09.2026 showed is in #326.
+
+## Restarting into an update
+
+The owner, 09.10.2026 (beta.6): when an update is ready, the client
+suggests a restart, and after it the player goes on at exactly the same
+point, in a game too.
+
+**The offer.** `Shown::Ready` (staged and verified) draws "Update ready –
+restart now and continue where you are" with **Restart now**, **Later**
+and the release notes: in the lobby's corner panel, and at a table at the
+top of the window. At a table it never appears in the middle of a question
+of this player's (`client-core::resume::RestartOffer`): an update that
+becomes ready while the player owes an answer is held until that question
+is answered, and appears then, between that answer and whatever comes
+next, or at once while nothing is asked. Against the house the player is
+asked almost every frame, so "only while nothing is asked" would never show
+it. Once it stands it stays (a panel, never a question, and it takes no
+key) until "Later", which puts it away for the session. The table's menu
+line is unchanged.
+
+**Leaving** (`lobby/resume.rs`, `restart_on_request`). "Restart now"
+writes where the player is to `resume.json` beside the settings (`0600`,
+atomically), leaves the relaunch helper behind with the handoff on its
+pipe (`update::native::restart`, `baylee_update::relaunch`), and quits; the
+staged update installs on the way out exactly as on any quit (`Updater`'s
+`Drop`). The helper is the client's own executable run with
+`--baylee-relaunch` (`main` returns before anything else for it): it reads
+its stdin to the end, which is the old client ending, waits for the
+installation's lifetime lock (the old launcher gone too; the launcher is
+permanent in every package and refuses a second launch, so an older one
+cannot be taught to wait), then starts the package's launcher with
+`--resume` and the handoff on its stdin, and exits. The launcher passes
+both to the runtime it starts, every launcher ever shipped included. A
+client the launcher did not start (a development build) is started again
+directly. `crates/baylee-update/tests/launcher.rs` runs the whole chain
+through the real launcher, installed update included.
+
+**What crosses** (`client-core::resume`). The file holds no secret: the
+gateway, the username or that it was a guest, the lobby's screen, the
+hub's tab, the open settings section, the deck open in the builder (its
+unsaved rows are the builder's own draft, restored when the same deck
+opens), a waiting room, the game (hosted: its id and seat; the house's:
+its record file, the seat, the seat names and the engine's hash), and how
+the table was being looked at (this game's arrangement, the visited seat,
+the hand drawer, the question's fold, the zone browser). The handoff holds
+the file's nonce and the session, and travels only through pipes; never a
+file, an argument, the environment or a log. A hosted seat's own token
+does not travel at all.
+
+**Coming back** (`take_resume`, `drive`, `restore_the_look`). Only with
+`--resume` is the file read; it is deleted as it is read, taken or not, and
+a leftover file of a start without `--resume` is removed. It is taken only
+with a handoff carrying its nonce and while it is ten minutes old at most
+(`resume::accept`); anything else is a normal start with "Could not
+continue where you left off". Then:
+
+- **The house's game** is rebuilt from its kept record
+  (`records::read_kept`, `host::LocalHost::resume`,
+  `Session::resume_recorded`): every recorded input applied through the
+  live answer path (log, counters, policy windows), every hash the record
+  wrote checked, and the end compared with the hash the restart wrote
+  down; a difference refuses it ("The game could not be rebuilt exactly as
+  it was"), and the offline lobby opens instead. The record goes on in the
+  same file. The house's answers are replayed, not asked again; what it
+  plays from there on is its own. Local games are untimed, so no clock
+  crosses.
+- **A hosted game**: the gateway is chosen again, the session taken up
+  again (a guest's from the settings, as ever), and the first listing asks
+  for the chair (`Lobby::resume_seat`, before any other chair, listed or
+  not): `POST /lobby/games/{id}/seat`, which hands the signed-in account a
+  fresh ticket for its own chair and only to it (`docs/protocol.md`; no new
+  route). The engine held the chair meanwhile (`Deadline::StandIn`, the
+  reconnect window, 60 s by default; the house stands in only after it),
+  and the table says "Back at your table – your seat was held while you
+  restarted" for eight seconds, or, where the seat's own view says the
+  house stood in (the window had run out), that the house played for the
+  player meanwhile. The lobby's screen is not put back under a game. A
+  waiting room comes back as the room.
+- **The lobby**: the hub's tab, the settings section and the builder with
+  its deck, once the lobby has settled (at most 30 s).
+- **The table**: once it has a view, its arrangement switch, the visit,
+  the drawer, the fold and the zone browser, written once and only where
+  they differ.
+
+**What it does not do.** A browser or phone build has no updater and so
+no restart. A restart the player starts by hand (not through "Restart
+now") comes back to the normal start; a hosted chair is then still found
+by the listing as before (`reclaim_a_seat`). Windows hands the pipe through
+a launcher started with `CREATE_NO_WINDOW` by inheritance, which is
+untested on a Windows desktop as of this writing; a lost handoff is only a
+normal start.
+
+**Tests.** `client-core::resume` (the file's round trip, stale and foreign
+files, the offer's timing), `gamehost::session::resume` (a record resumes
+to the same game and goes on as one record; a lost line refuses),
+`host::tests::a_house_game_restarted_in_process_resumes_to_the_same_hash`
+(through the kept file, a lost step refuses), `lobby::tests::seating`
+(the restart's chair first, a room as a room, the house's table offline),
+`update::tests::the_restart_offer_never_interrupts_my_pending_decision`,
+the launcher chain above, and the gateway's
+`e2e_resume::a_restarted_client_takes_its_chair_back_with_its_session`
+(socket closed mid-game, the chair handed back to the session, a stranger
+refused, the old token dead, the same table). Live check, 09.10.2026, own
+gateway, agent and database, dev-control (`/shell {"update_ready":…}`
+fakes a ready update in a `dev-control` build, whose restart starts the
+same build again): a hosted game against the house, the offer held through
+the player's question and shown after the answer, Restart now, and the new
+process back at the same table, seat, `seq` and hand, the zone browser
+open as it was, with the held-seat note; an offline game at turn 5 back at
+the same `seq`, hand and visit, and played on.
 
 ## Where a packaged desktop build finds its fonts
 

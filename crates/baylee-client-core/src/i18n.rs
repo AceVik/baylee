@@ -570,6 +570,43 @@ messages! {
     ReleaseNotes { en: "Release notes", de: "Versionshinweise" },
     /// Puts the notice away for this session.
     UpdateHide { en: "Hide", de: "Ausblenden" },
+    /// The ready update's offer, under its headline (beta.6): a restart
+    /// installs it and comes back to where the player is.
+    UpdateRestartOffer {
+        en: "Update ready – restart now and continue where you are.",
+        de: "Update bereit – jetzt neu starten und genau hier weitermachen.",
+    },
+    /// The ready update's button: restart into it now.
+    UpdateRestartNow { en: "Restart now", de: "Jetzt neu starten" },
+    /// The ready update's other button: not now, for this session.
+    UpdateLater { en: "Later", de: "Später" },
+    /// The restart could not be started. `{0}` what the system said.
+    UpdateRestartFailed {
+        en: "Could not restart: {0}",
+        de: "Neustart nicht möglich: {0}",
+    },
+    /// After a restart, the place could not be taken up again.
+    ResumeFailed {
+        en: "Could not continue where you left off – started fresh.",
+        de: "Konnte nicht dort weitermachen, wo du warst – normaler Start.",
+    },
+    /// After a restart, the house game rebuilt from its record is not the
+    /// game that was left (its hash differs), so it is not played on.
+    ResumeGameDiffers {
+        en: "The game could not be rebuilt exactly as it was, so it was not resumed.",
+        de: "Die Partie ließ sich nicht genau so wiederherstellen und wurde nicht fortgesetzt.",
+    },
+    /// After a restart, back in a hosted game whose chair the house played
+    /// meanwhile (the reconnect window had run out).
+    ResumeHousePlayed {
+        en: "Back at your table – the house played for you while you restarted.",
+        de: "Zurück am Tisch – das Haus hat während des Neustarts für dich gespielt.",
+    },
+    /// After a restart, back in a hosted game whose chair the house held.
+    ResumeSeatHeld {
+        en: "Back at your table – your seat was held while you restarted.",
+        de: "Zurück am Tisch – dein Platz wurde während des Neustarts gehalten.",
+    },
     /// Settings: the per-device switch for asking GitHub.
     UpdateAutoCheck {
         en: "Check for updates automatically",

@@ -39,6 +39,7 @@ the pointers, because line numbers move.
 | Crash file | the player's device, `crash-report.json` | until the next start sends or discards it | the client |
 | Update check (#326) | leaves a desktop client for `api.github.com` and GitHub's download hosts | GitHub's own terms | switching "Check for updates automatically" off |
 | Update choice and payloads | the player's device: `update.json`; per-user updater state (paths below) | choices until changed; active and previous payload retained; older payloads removed on a safe next launch | the player; the launcher when no runtime is using them |
+| Where the player was, across "Restart now" (no secret) | the player's device, `resume.json` beside the settings (desktop only) | until the next start reads it; ignored after ten minutes | the client, at the next start |
 
 ## Accounts
 
@@ -416,6 +417,21 @@ decks and settings as JSON.
     version against this one and asks again only when they differ. The
     account's own record (version and time) is the gateway's, above; the
     terms sheet's note says both;
+  - `resume.json`, only between "Restart now" (a ready update, desktop
+    only) and the next start, which reads and deletes it whatever it
+    holds; ignored when older than ten minutes or not handed over by that
+    restart (`client-core::resume`, `docs/client.md` §"Restarting into an
+    update"). It says where the player was: the chosen gateway's address,
+    the username (or that it was a guest), the lobby's screen, the hub tab,
+    the open settings section, the id of the deck open in the builder, a
+    waiting room's game id, a hosted game's id and seat number, or a house
+    game's record file name, seat names and engine hash, and how the table
+    was being looked at (arrangement, visited seat, drawer, fold, zone
+    browser). **No secret**: no session, seat token or password. The
+    session crosses the restart only through pipes (relaunch helper,
+    launcher, new client's stdin), never a file, an argument, the
+    environment or a log, and a hosted chair's new ticket is asked of the
+    gateway by that session;
   - `preferences.json`;
   - `offline-decks.json`;
   - a card-text cache per language.

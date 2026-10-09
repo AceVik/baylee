@@ -32,6 +32,16 @@ use bevy::input_focus::{FocusCause, InputFocus, InputFocusVisible};
 #[derive(Resource, Default)]
 pub(crate) struct Kept(Option<Stop>);
 
+impl Kept {
+    /// The ring was moved to `stop` by a system that is not the walker (the
+    /// terms sheet's Esc): kept at once, for the same reason.
+    pub(super) fn keep(&mut self, stop: Stop) {
+        if self.0 != Some(stop) {
+            self.0 = Some(stop);
+        }
+    }
+}
+
 /// What Enter or Space means on a focused control that is not itself a
 /// button: a tile, a table row.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]

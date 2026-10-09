@@ -13,6 +13,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - The banner turns at `Retry::brief` (`PATIENCE` 8 s or the window, earlier; never if unknown or forever), in future tense (the handover is unobservable; §"What the banner may claim…").
 - Give-up is `DuelReport::Unreachable`, never `Failed(String)` (single-action refusals; never ejects).
 - `PlayerView::decision_remaining_ms` is relative; `DecisionClock` (`baylee-client-core/src/decisionclock.rs`) counts down between views, each correcting it. Always shown as `m:ss` (owner 08.10.2026; was: from 60 s); `Cue::ClockLow` and `Urgency` ink at 60 and 10 s, the sound latched per question, own seat only. `LedgeRevision` holds its presence, never its value (else rebuilds every second).
+- "Restart now" on a ready update (`lobby/resume.rs`, `client-core::resume`, `baylee_update::relaunch`): `resume.json` holds where the player was and no secret; the session crosses only on the relaunch helper's pipe; a hosted chair comes back via `POST …/seat`, a house game via its record (`LocalHost::resume`, hash checked). The offer never appears mid-question (`RestartOffer`). §"Restarting into an update".
 - Every seat's clock beside its plate: `PlayerView::clocks` → `SeatClocks` → `hud/seatbar/plateclock.rs`, its own root, reading `hud::plate_beside` and never writing the plate (`plateclock::beside` is where it attaches); writes guarded, about once a second. `LocalHost` games are untimed.
 
 ## Frames and graphics settings

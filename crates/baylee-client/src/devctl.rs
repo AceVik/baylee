@@ -109,7 +109,7 @@ pub(crate) fn window_size() -> Option<(f32, f32)> {
         .then_some((f32::from(width), f32::from(height)))
 }
 
-/// `/shell {"text_size":"xl","lang":"de","input":"touch","gallery":"true"}`:
+/// `/shell {"text_size":"xl","lang":"de","input":"touch","gallery":"true","update_ready":"9.9.9"}`:
 /// the shell's knobs, for its checks (every field optional).
 ///
 /// `text_size` is the device's step (`xs s m l xl`); `lang` the interface's
@@ -122,11 +122,12 @@ fn shell_knobs(
     settings: Option<ResMut<ClientSettings>>,
     gallery: Option<ResMut<crate::shellkit::gallery::Gallery>>,
     lobby: Option<ResMut<crate::lobby::LobbyState>>,
+    notice: Option<ResMut<crate::update::UpdateNotice>>,
 ) {
     if control.shell_jobs.is_empty() {
         return;
     }
-    let (mut settings, mut gallery, mut lobby) = (settings, gallery, lobby);
+    let (mut settings, mut gallery, mut lobby, mut notice) = (settings, gallery, lobby, notice);
     for job in std::mem::take(&mut control.shell_jobs) {
         let body = job.body.as_str();
         let mut said = Vec::new();
@@ -175,6 +176,18 @@ fn shell_knobs(
         if let (Some(open), Some(gallery)) = (field(body, "gallery"), gallery.as_mut()) {
             gallery.open = open == "true";
             said.push(format!("\"gallery\":{}", gallery.open));
+        }
+        // A ready update, faked for the restart's live check: the notice
+        // offers "Restart now" as a verified, staged release would. A
+        // development build installs nothing on the way out, so the restart
+        // starts this same build again.
+        if let (Some(version), Some(notice)) = (field(body, "update_ready"), notice.as_mut()) {
+            notice.shown = Some(crate::update::Shown::Ready {
+                version: version.to_string(),
+                page: "http://127.0.0.1/".to_string(),
+            });
+            notice.hidden = false;
+            said.push(format!("\"update_ready\":{}", quoted(version)));
         }
         let _ = job
             .reply
