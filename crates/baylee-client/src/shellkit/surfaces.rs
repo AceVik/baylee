@@ -71,6 +71,12 @@ pub fn prose(commands: &mut Commands, kit: Kit, text: &str, muted: bool) -> Enti
             Text::new(text),
             tf(kit.fonts, whole_pixels(size)),
             TextColor(if muted { tokens::MUTED } else { tokens::INK }),
+            // Laid out in the box it was measured for: rounded to whole
+            // pixels, a box measured to hold a line exactly lost a fraction
+            // of a pixel and the line broke into two, over the next row.
+            bevy::ui::LayoutConfig {
+                use_rounding: false,
+            },
             Pickable::IGNORE,
         ))
         .id()

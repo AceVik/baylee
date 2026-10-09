@@ -563,8 +563,16 @@ pub(crate) fn about(
             Pickable::default(),
         ))
         .id();
+    // Each paragraph as wide as the sheet's column, a definite width: at
+    // another, a long one was given the height of fewer lines than it
+    // broke into (the `fit` check, a phone at XL).
     let para = |commands: &mut Commands, words: &str, muted: bool| {
-        surfaces::prose(commands, kit, words, muted)
+        let text = surfaces::prose(commands, kit, words, muted);
+        commands.entity(text).insert(Node {
+            width: Val::Percent(100.0),
+            ..default()
+        });
+        text
     };
     let mut body = vec![
         para(commands, &format!("Baylee {}", baylee_build::short()), true),
