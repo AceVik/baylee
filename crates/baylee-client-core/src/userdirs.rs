@@ -96,7 +96,7 @@ pub fn user_dir(kind: Kind, os: Os, env: &dyn Fn(&str) -> Option<OsString>) -> O
             }
         }
         Kind::Cache => {
-            if let Some(xdg) = set("XDG_CACHE_HOME").filter(|dir| dir.is_absolute()) {
+            if let Some(xdg) = set("XDG_CACHE_HOME").filter(|dir| absolute(os, dir)) {
                 return Some(xdg.join("baylee"));
             }
             let base = match os {
@@ -112,7 +112,7 @@ pub fn user_dir(kind: Kind, os: Os, env: &dyn Fn(&str) -> Option<OsString>) -> O
             // environment; when somebody did export it, it is what they
             // meant, and it is how a live check keeps its files in a
             // scratch folder.
-            if let Some(xdg) = set("XDG_DOWNLOAD_DIR").filter(|dir| dir.is_absolute()) {
+            if let Some(xdg) = set("XDG_DOWNLOAD_DIR").filter(|dir| absolute(os, dir)) {
                 return Some(xdg);
             }
             match os {
@@ -122,6 +122,25 @@ pub fn user_dir(kind: Kind, os: Os, env: &dyn Fn(&str) -> Option<OsString>) -> O
                 Os::Android => None,
             }
         }
+    }
+}
+
+/// Whether `dir` is absolute as `os` writes paths: a drive or a share on
+/// Windows, a leading `/` everywhere else. Not `Path::is_absolute`, which
+/// asks the system computing the answer: a Windows machine read `/x/dl` as
+/// relative and checked the Linux answer wrong.
+fn absolute(os: Os, dir: &std::path::Path) -> bool {
+    let text = dir.to_string_lossy();
+    match os {
+        Os::Windows => {
+            let bytes = text.as_bytes();
+            let drive = bytes.len() >= 3
+                && bytes[0].is_ascii_alphabetic()
+                && bytes[1] == b':'
+                && matches!(bytes[2], b'\\' | b'/');
+            drive || text.starts_with(r"\\")
+        }
+        Os::Apple | Os::Android | Os::Other => text.starts_with('/'),
     }
 }
 
@@ -298,6 +317,29 @@ mod tests {
                 &[("HOME", "/home/ada"), ("XDG_CACHE_HOME", "cache")]
             ),
             Some(PathBuf::from("/home/ada/.cache/baylee"))
+        );
+        // Absolute as each system writes it, whichever system computes it:
+        // a drive or a share on Windows, where `/x/cache` names no place.
+        assert_eq!(
+            cache(
+                Os::Windows,
+                &[("LOCALAPPDATA", r"C:\L"), ("XDG_CACHE_HOME", r"D:\c")]
+            ),
+            Some(PathBuf::from(r"D:\c").join("baylee"))
+        );
+        assert_eq!(
+            cache(
+                Os::Windows,
+                &[("LOCALAPPDATA", r"C:\L"), ("XDG_CACHE_HOME", r"\\s\c")]
+            ),
+            Some(PathBuf::from(r"\\s\c").join("baylee"))
+        );
+        assert_eq!(
+            cache(
+                Os::Windows,
+                &[("LOCALAPPDATA", r"C:\L"), ("XDG_CACHE_HOME", "/x/cache")]
+            ),
+            Some(PathBuf::from(r"C:\L").join("baylee"))
         );
     }
 

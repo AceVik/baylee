@@ -116,7 +116,12 @@ impl LiveRecord {
         let folder = path.parent()?;
         let _ = std::fs::create_dir_all(folder);
         let mut options = std::fs::OpenOptions::new();
-        options.append(true).create(true);
+        // Read as well: Windows locks only through a handle with read or
+        // write access, and an append-only one has neither (no
+        // `FILE_WRITE_DATA`), so `try_lock` failed there in silence and
+        // another client's `recover` cut this game's record back while it
+        // was being played (`what_a_crash_left_is_repaired_at_start`).
+        options.read(true).append(true).create(true);
         #[cfg(unix)]
         std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
         let file = options.open(path).ok()?;
@@ -270,16 +275,26 @@ mod tests {
         live.write(&record);
         assert!(!path.exists(), "a header alone is not worth a file");
 
+        // Read through the writer's own handle while it holds the file:
+        // Windows' locks are mandatory, and refuse any other handle a read.
+        let on_disk = |live: &mut LiveRecord| {
+            use std::io::{Read as _, Seek as _};
+            let file = live.file.as_mut().expect("open");
+            file.seek(std::io::SeekFrom::Start(0)).expect("seek");
+            let mut bytes = Vec::new();
+            file.read_to_end(&mut bytes).expect("written as it goes");
+            bytes
+        };
         let mut members = 0;
         for n in 0..5 {
             record.extend(input(n).as_bytes());
             live.write(&record);
             members += 1;
-            let on_disk = std::fs::read(&path).expect("written as it goes");
+            let on_disk = on_disk(&mut live);
             assert_eq!(read_back(&on_disk), ReadBack::Whole);
             assert_eq!(unzip(&on_disk).as_bytes(), &record[..], "after step {n}");
         }
-        let appended = std::fs::read(&path).expect("the file").len();
+        let appended = on_disk(&mut live).len();
 
         live.finish(&record);
         let finished = std::fs::read(&path).expect("the file");
@@ -319,20 +334,25 @@ mod tests {
 
         // The live one: locked by a writer of its own, and torn on purpose
         // so that a repair would be seen.
+        // The tear goes through the writer's own handle, as a crash in the
+        // middle of its append would leave it: Windows' locks are mandatory,
+        // so no other handle may write or read the file while it is held,
+        // which is also why it is read back only once the writer is gone.
         let live_name = record_file_name(2_000, 9);
         let mut live = LiveRecord::in_folder(Some(scratch.0.clone()), &live_name);
         live.write(&record);
         let live_path = scratch.0.join(&live_name);
+        let tail = gzip(input(1).as_bytes())[..4].to_vec();
         {
             use std::io::Write as _;
-            let mut raw = std::fs::OpenOptions::new()
-                .append(true)
-                .open(&live_path)
-                .expect("open");
-            raw.write_all(&gzip(input(1).as_bytes())[..4])
+            live.file
+                .as_mut()
+                .expect("open")
+                .write_all(&tail)
                 .expect("append");
         }
-        let live_before = std::fs::read(&live_path).expect("live");
+        let mut live_before = gzip(&record);
+        live_before.extend(&tail);
 
         recover_in(&scratch.0);
 
@@ -344,11 +364,11 @@ mod tests {
         assert!(!at(1).exists(), "nothing past the header: removed");
         assert_eq!(std::fs::read(at(2)).expect("whole"), one, "left alone");
         assert!(scratch.0.join("notes.txt").exists(), "not a record");
+        drop(live);
         assert_eq!(
             std::fs::read(&live_path).expect("live"),
             live_before,
             "a game another client is playing is not touched"
         );
-        drop(live);
     }
 }

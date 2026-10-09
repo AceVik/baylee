@@ -115,6 +115,7 @@ fn set_mode(path: &Path, mode: u32) -> io::Result<()> {
 }
 
 #[cfg(not(unix))]
+#[allow(clippy::unnecessary_wraps)] // the unix twin's signature: the caller is shared
 fn set_mode(_: &Path, _: u32) -> io::Result<()> {
     Ok(())
 }
@@ -258,6 +259,9 @@ mod tests {
         zip.finish().unwrap();
     }
 
+    // Unix only: its archive holds a link, which a system without them
+    // refuses (`make_link`).
+    #[cfg(unix)]
     #[test]
     fn a_zip_keeps_its_tree_its_program_bit_and_its_link() {
         let dir = scratch("zip");
@@ -268,10 +272,10 @@ mod tests {
         unpack(&archive, Format::Zip, &dest).unwrap();
         let program = dest.join("pkg/Baylee.app/Contents/MacOS/baylee-client");
         assert_eq!(fs::read(&program).unwrap(), b"#!new program");
-        let link = dest.join("pkg/Baylee.app/Contents/MacOS/assets");
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt as _;
+            let link = dest.join("pkg/Baylee.app/Contents/MacOS/assets");
             assert_eq!(
                 fs::metadata(&program).unwrap().permissions().mode() & 0o777,
                 0o755

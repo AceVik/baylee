@@ -764,6 +764,7 @@ mod tether {
 /// never answered, as before. SIGHUP keeps its own meaning (a bridge under
 /// `nohup` plays on), and SIGKILL can never be answered: a bridge stopped
 /// by either counts its reservation in full.
+#[cfg_attr(windows, allow(clippy::struct_field_names))] // Windows names them all `Ctrl…`
 struct Stoppers {
     #[cfg(unix)]
     interrupt: Option<tokio::signal::unix::Signal>,

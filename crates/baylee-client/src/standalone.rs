@@ -78,6 +78,13 @@ pub fn run() {
                 // Starts maximized (decorations kept). A phone has no
                 // window manager to ask, and ignores it.
                 window.set_maximized(true);
+                // Hidden until it has frames to show (`show_the_window`):
+                // bevy shows a window at its default size and maximizes it
+                // on the first frame, so a slow first frame stood as a white,
+                // small window on Windows (3.7 s, `docs/perf-client.md`
+                // §"Windows"). A browser's canvas and a phone's surface are
+                // the page's and the system's to show.
+                window.visible = !HIDDEN_UNTIL_DRAWN;
                 // Reproducible viewport captures without desktop automation.
                 // Only a dev-control build reads this test-only override.
                 // The scale first: the size is logical, and is turned into
@@ -151,6 +158,9 @@ pub fn run() {
     crate::unlit::install(&mut app);
     #[cfg(target_os = "macos")]
     app.add_systems(Startup, super::app_icon::install);
+    if HIDDEN_UNTIL_DRAWN {
+        app.add_systems(Update, show_the_window);
+    }
     #[cfg(any(windows, target_os = "linux"))]
     app.add_systems(
         Update,
@@ -216,6 +226,34 @@ fn seated_host() -> Result<Option<Box<dyn DuelHost>>, String> {
 
 fn open_duel(mut commands: MessageWriter<DuelCommand>) {
     commands.write(DuelCommand::Open);
+}
+
+/// Whether this build opens its window hidden and shows it once frames are
+/// drawn (`show_the_window`): a desktop's, which owns its window.
+const HIDDEN_UNTIL_DRAWN: bool = crate::quality::DESKTOP_WINDOW;
+
+/// Frames run before the window is shown. Rendering is pipelined, so the
+/// first frame is presented while the second runs; the third is bevy's own
+/// choice in its `window_settings` example for the same flash.
+const FRAMES_BEFORE_SHOWN: u32 = 3;
+
+/// Shows the primary window once it has frames to show. It was created
+/// hidden, and maximized meanwhile, so it appears at its size with the front
+/// door in it rather than as a white box that grows.
+fn show_the_window(
+    frames: Res<bevy::diagnostic::FrameCount>,
+    mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
+) {
+    if frames.0 < FRAMES_BEFORE_SHOWN {
+        return;
+    }
+    for mut window in &mut windows {
+        // Read before writing: a write marks the window changed, and bevy
+        // then compares every field of it against the OS window again.
+        if !window.visible {
+            window.visible = true;
+        }
+    }
 }
 
 /// Where the asset server looks.
@@ -293,4 +331,41 @@ fn watching_from_the_workspace_root() -> Result<(), String> {
         root.display(),
         asked
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The window stays hidden for the frames before the first is drawn and
+    /// is shown after them, once. Red if it were never shown: the frame
+    /// count is what shows it.
+    #[test]
+    fn the_window_is_shown_once_frames_are_drawn() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Update, show_the_window);
+        app.world_mut().spawn((
+            Window {
+                visible: false,
+                ..default()
+            },
+            bevy::window::PrimaryWindow,
+        ));
+        let visible = |app: &mut App| {
+            app.world_mut()
+                .query::<&Window>()
+                .single(app.world())
+                .expect("one window")
+                .visible
+        };
+        // `FrameCount` counts in `Last`, so `Update` reads the frames
+        // finished before it: 0, 1, 2 on the first three updates.
+        for _ in 0..FRAMES_BEFORE_SHOWN {
+            app.update();
+            assert!(!visible(&mut app), "shown before a frame was drawn");
+        }
+        app.update();
+        assert!(visible(&mut app), "never shown");
+    }
 }

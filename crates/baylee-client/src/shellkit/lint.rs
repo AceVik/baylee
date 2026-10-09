@@ -100,7 +100,10 @@ mod tests {
         for module in SHELL_MODULES {
             for path in module_files(module) {
                 files += 1;
-                let source = std::fs::read_to_string(&path).expect("a source file");
+                // As LF whatever the checkout wrote (Windows' `autocrlf`).
+                let source = std::fs::read_to_string(&path)
+                    .expect("a source file")
+                    .replace("\r\n", "\n");
                 // A file's own tests may spell the forbidden shape on purpose
                 // (this one does, to prove the lint bites).
                 // A test-only item inside the code (`#[cfg(test)] fn`) is

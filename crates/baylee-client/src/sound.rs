@@ -1408,49 +1408,130 @@ impl Voices {
     }
 }
 
-/// Synthesises every cue once, at startup.
-///
-/// About fifteen seconds of audio in total, computed on the frame the app
-/// opens and then never again. A system rather than a `LazyLock` because what
-/// comes out is an `Asset`, and the only place to put one of those is a
-/// `World`.
-///
-/// The asset store is `Option` for the same reason [`play_the_cues`]'s
-/// resources are: this plugin is embeddable, and an application that
-/// installed no `AudioPlugin` has no `Assets<AudioSource>` at all. A `ResMut`
-/// there would panic on the app's first frame — in the one case the rest of
-/// this module is written to survive.
-pub fn voice_the_cues(mut commands: Commands, sources: Option<ResMut<Assets<AudioSource>>>) {
-    let Some(mut sources) = sources else {
-        return;
-    };
-    let mut voices = Vec::with_capacity(Cue::ALL.len());
-    voices.push((
-        Beat::once(Cue::TurnPassed),
-        vec![sources.add(compass_voice())],
-    ));
-    for (cue, recipe) in &RECIPES {
-        let bytes = wav(&render(recipe));
-        voices.push((Beat::once(*cue), vec![sources.add(source(bytes))]));
+/// One buffer to synthesise.
+enum Take {
+    /// [`compass_voice`].
+    Compass,
+    /// [`RECIPES`]' entry at this index.
+    Listed(usize),
+    /// A recipe built for this buffer (a tap variant, a burst).
+    Built(Recipe),
+}
+
+impl Take {
+    fn voice(&self) -> AudioSource {
+        match self {
+            Self::Compass => compass_voice(),
+            Self::Listed(index) => source(wav(&render(&RECIPES[*index].1))),
+            Self::Built(recipe) => source(wav(&render(recipe))),
+        }
+    }
+}
+
+/// Every buffer the cues are played from, in the order [`Voices`] keeps
+/// them: what to synthesise, not yet the arithmetic.
+fn takes() -> Vec<(Beat, Vec<Take>)> {
+    let mut takes = Vec::with_capacity(Cue::ALL.len());
+    takes.push((Beat::once(Cue::TurnPassed), vec![Take::Compass]));
+    for (index, (cue, _)) in RECIPES.iter().enumerate() {
+        takes.push((Beat::once(*cue), vec![Take::Listed(index)]));
     }
     let taps = VARIANTS
         .iter()
-        .map(|&(cents, spot)| sources.add(source(wav(&render(&tap(detuned(cents), spot))))))
+        .map(|&(cents, spot)| Take::Built(tap(detuned(cents), spot)))
         .collect();
-    voices.push((Beat::once(Cue::YourMove), taps));
+    takes.push((Beat::once(Cue::YourMove), taps));
     // The counted three, one buffer per count. Built from `Cue::counts` and
     // not from a number written down here, so a ceiling that moves in the
     // model moves the buffers with it rather than leaving the top of a burst
     // silent.
     for cue in Cue::ALL.into_iter().filter(|cue| cue.most() > 1) {
         for count in cue.counts() {
-            let takes = burst(cue, count)
-                .iter()
-                .map(|recipe| sources.add(source(wav(&render(recipe)))))
-                .collect();
-            voices.push((Beat::of(cue, count), takes));
+            let built = burst(cue, count).into_iter().map(Take::Built).collect();
+            takes.push((Beat::of(cue, count), built));
         }
     }
+    takes
+}
+
+/// The cues being synthesised: each buffer a task of its own on the compute
+/// pool, or already done.
+#[derive(Resource)]
+pub struct Voicing(Vec<(Beat, Vec<Voiced>)>);
+
+enum Voiced {
+    Pending(bevy::tasks::Task<AudioSource>),
+    Done(AudioSource),
+}
+
+/// Starts synthesising every cue, off the main thread.
+///
+/// About fifteen seconds of audio in total, computed once per run. It used
+/// to be computed on the frame the app opens, and that frame took 3.7 s on
+/// a Windows desktop (`docs/perf-client.md` §"Windows"): the window stood
+/// white and unmaximised until it returned. Now the first frame only asks
+/// for the buffers, one task each, and [`collect_the_voices`] puts them in
+/// [`Voices`] when the last is done; a cue decided before that is reported
+/// and not heard, which only a table opened in the first second could meet.
+///
+/// The asset store is `Option` for the same reason [`play_the_cues`]'s
+/// resources are: this plugin is embeddable, and an application that
+/// installed no `AudioPlugin` has no `Assets<AudioSource>` at all, and so
+/// nothing to synthesise for.
+pub fn voice_the_cues(mut commands: Commands, sources: Option<Res<Assets<AudioSource>>>) {
+    if sources.is_none() {
+        return;
+    }
+    // `get_or_init`: a headless test's app has no `TaskPoolPlugin`.
+    let pool = bevy::tasks::AsyncComputeTaskPool::get_or_init(bevy::tasks::TaskPool::new);
+    let voicing = takes()
+        .into_iter()
+        .map(|(beat, takes)| {
+            let tasks = takes
+                .into_iter()
+                .map(|take| Voiced::Pending(pool.spawn(async move { take.voice() })))
+                .collect();
+            (beat, tasks)
+        })
+        .collect();
+    commands.insert_resource(Voicing(voicing));
+}
+
+/// Puts the cues' buffers in [`Voices`] once every one is synthesised.
+pub fn collect_the_voices(
+    mut commands: Commands,
+    voicing: Option<ResMut<Voicing>>,
+    sources: Option<ResMut<Assets<AudioSource>>>,
+) {
+    let (Some(mut voicing), Some(mut sources)) = (voicing, sources) else {
+        return;
+    };
+    let mut pending = false;
+    for voiced in voicing.0.iter_mut().flat_map(|(_, takes)| takes.iter_mut()) {
+        if let Voiced::Pending(task) = voiced {
+            match bevy::tasks::block_on(bevy::tasks::futures_lite::future::poll_once(task)) {
+                Some(done) => *voiced = Voiced::Done(done),
+                None => pending = true,
+            }
+        }
+    }
+    if pending {
+        return;
+    }
+    commands.remove_resource::<Voicing>();
+    let voices = std::mem::take(&mut voicing.0)
+        .into_iter()
+        .map(|(beat, takes)| {
+            let handles = takes
+                .into_iter()
+                .filter_map(|voiced| match voiced {
+                    Voiced::Done(source) => Some(sources.add(source)),
+                    Voiced::Pending(_) => None,
+                })
+                .collect();
+            (beat, handles)
+        })
+        .collect();
     commands.insert_resource(Voices { voices, played: 0 });
 }
 
@@ -1626,6 +1707,53 @@ mod tests {
     use super::*;
     use baylee_client_core::interaction::Outcome;
 
+    /// Runs frames until the cues' buffers have arrived in [`Voices`].
+    fn voiced(app: &mut App) {
+        let start = std::time::Instant::now();
+        while !app.world().contains_resource::<Voices>() {
+            assert!(
+                start.elapsed() < std::time::Duration::from_secs(60),
+                "the cues were never voiced"
+            );
+            app.update();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    /// The frame the app opens on does not synthesise the cues: it only
+    /// starts them. Red on the old `voice_the_cues`, which put a finished
+    /// [`Voices`] in that frame — 3.7 s of a Windows desktop's first frame,
+    /// with the window standing white meanwhile. Without the collector the
+    /// buffers never arrive; with it they do, and they are every one.
+    #[test]
+    fn the_first_frame_does_not_wait_for_the_cues() {
+        let mut app = App::new();
+        app.add_plugins(bevy::asset::AssetPlugin::default())
+            .init_asset::<AudioSource>()
+            .add_systems(Startup, voice_the_cues);
+        app.update();
+        assert!(
+            !app.world().contains_resource::<Voices>(),
+            "the first frame synthesised the cues itself"
+        );
+        assert!(
+            app.world().contains_resource::<Voicing>(),
+            "nor started them"
+        );
+        app.add_systems(Update, collect_the_voices);
+        voiced(&mut app);
+        assert!(
+            !app.world().contains_resource::<Voicing>(),
+            "collected once"
+        );
+        let wanted: usize = takes().iter().map(|(_, takes)| takes.len()).sum();
+        let got: usize = {
+            let voices = app.world().resource::<Voices>();
+            voices.voices.iter().map(|(_, handles)| handles.len()).sum()
+        };
+        assert_eq!(got, wanted, "a buffer went missing on the way");
+    }
+
     /// What [`watch`] saw on the frame that just ran.
     ///
     /// "Did this frame mark the duel dirty" can only be asked from *inside*
@@ -1733,8 +1861,9 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(bevy::asset::AssetPlugin::default())
             .init_asset::<AudioSource>()
-            .add_systems(Startup, voice_the_cues);
-        app.update();
+            .add_systems(Startup, voice_the_cues)
+            .add_systems(Update, collect_the_voices);
+        voiced(&mut app);
         let voices = app.world().resource::<Voices>();
         let wanted: usize = Cue::ALL.iter().map(|cue| cue.counts().count()).sum();
         assert_eq!(voices.len(), wanted, "a cue with no sound");
@@ -1761,8 +1890,9 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(bevy::asset::AssetPlugin::default())
             .init_asset::<AudioSource>()
-            .add_systems(Startup, voice_the_cues);
-        app.update();
+            .add_systems(Startup, voice_the_cues)
+            .add_systems(Update, collect_the_voices);
+        voiced(&mut app);
         let voices = app.world().resource::<Voices>();
         let most = Beat::of(Cue::CardDrawn, Cue::CardDrawn.most());
         assert_eq!(Beat::of(Cue::CardDrawn, 60), most, "a Windfall is a hand");
@@ -2197,8 +2327,9 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(bevy::asset::AssetPlugin::default())
             .init_asset::<AudioSource>()
-            .add_systems(Startup, voice_the_cues);
-        app.update();
+            .add_systems(Startup, voice_the_cues)
+            .add_systems(Update, collect_the_voices);
+        voiced(&mut app);
         let mut voices = app.world_mut().resource_mut::<Voices>();
         let mut seen = Vec::new();
         for _ in 0..VARIANTS.len() * 2 {
@@ -2324,8 +2455,8 @@ mod tests {
             .init_resource::<Prefs>()
             .insert_resource(settings)
             .add_systems(Startup, voice_the_cues)
-            .add_systems(Update, play_the_cues);
-        app.update();
+            .add_systems(Update, (collect_the_voices, play_the_cues).chain());
+        voiced(&mut app);
         app
     }
 
@@ -2423,8 +2554,8 @@ mod tests {
             .init_resource::<Duel>()
             .insert_resource(muted())
             .add_systems(Startup, voice_the_cues)
-            .add_systems(Update, play_the_cues);
-        app.update();
+            .add_systems(Update, (collect_the_voices, play_the_cues).chain());
+        voiced(&mut app);
         app.world_mut().resource_mut::<Duel>().cues.note_refusal();
         app.update();
         assert_eq!(
