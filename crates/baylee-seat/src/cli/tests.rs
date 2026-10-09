@@ -306,7 +306,9 @@ fn the_environment_passes_by_name_and_never_a_key() {
         "PATH" => Some("/nowhere".to_string()),
         _ => None,
     };
-    let refused = Launch::new(&settings(), Some("/bin/sh"), &env).unwrap_err();
+    // A program this host has (this test binary), so the refusal is the
+    // key's and not a missing `/bin/sh` (Windows has none).
+    let refused = Launch::new(&settings(), Some(tool), &env).unwrap_err();
     assert!(refused.contains("HOME looks like a key"), "{refused}");
     assert!(!refused.contains("0123456789"), "{refused}");
 }
@@ -913,6 +915,10 @@ fn a_key_is_a_marker_at_a_words_start_with_enough_key_characters() {
 /// value exactly where it says key.
 #[test]
 fn the_seat_and_the_client_agree_on_what_a_key_looks_like() {
+    // A program this host has (this test binary), so a refusal is the
+    // key's and not a missing `/bin/sh` (Windows has none).
+    let tool = std::env::current_exe().unwrap();
+    let tool = tool.to_str().unwrap();
     let run = "a".repeat(24);
     for (value, key) in [
         (format!("sk-ant-api03-{run}"), true),
@@ -930,7 +936,7 @@ fn the_seat_and_the_client_agree_on_what_a_key_looks_like() {
             "PATH" => Some("/nowhere".to_string()),
             _ => None,
         };
-        let refused = Launch::new(&settings(), Some("/bin/sh"), &env)
+        let refused = Launch::new(&settings(), Some(tool), &env)
             .err()
             .is_some_and(|why| why.contains("HOME looks like a key"));
         assert_eq!(refused, key, "seat: {value}");

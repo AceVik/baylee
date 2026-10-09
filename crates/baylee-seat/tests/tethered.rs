@@ -17,6 +17,21 @@ use std::time::{Duration, Instant};
 
 const ROOM: &str = "01a0ef91-74c7-7712-8cf4-b3a82c245612";
 
+/// What a child keeps of this process's environment besides what a test
+/// sets: nothing on unix; on Windows `SystemRoot`, without which a process
+/// cannot open a socket (`Winsock` reads it) and the bridge never reaches
+/// the gateway.
+fn kept() -> Vec<(&'static str, std::ffi::OsString)> {
+    if cfg!(windows) {
+        std::env::var_os("SystemRoot")
+            .map(|root| ("SystemRoot", root))
+            .into_iter()
+            .collect()
+    } else {
+        Vec::new()
+    }
+}
+
 /// What the stand-in was asked.
 #[derive(Clone, Default)]
 struct Stage {
@@ -94,6 +109,7 @@ fn a_tethered_bridge_let_go_before_its_game_gives_its_chair_up() {
         .args(["--gateway", &address])
         // Nothing of the machine's own: no config directory, no key.
         .env_clear()
+        .envs(kept())
         .env("HOME", &dir)
         // Never the player's credential store.
         .env("BAYLEE_KEY_STORE", "off")
@@ -268,6 +284,7 @@ fn start_on_ticket(address: &str, ticket: &str, mind: &[&str], env: &[(&str, &st
     let mut bridge = Command::new(env!("CARGO_BIN_EXE_baylee-seat"))
         .args(&args)
         .env_clear()
+        .envs(kept())
         .env("HOME", &dir)
         .env("BAYLEE_KEY_STORE", "off")
         // Every line the bridge would log.
@@ -463,6 +480,7 @@ fn closed_pipes_neither_panic_the_bridge_nor_stop_it_giving_the_chair_back() {
             &address,
         ])
         .env_clear()
+        .envs(kept())
         .env("HOME", &dir)
         .env("BAYLEE_KEY_STORE", "off")
         .env("BAYLEE_LLM_API_KEY", "TEST-not-a-key-0123456789abcdef")

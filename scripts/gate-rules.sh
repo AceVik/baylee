@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # The rules half of the gate: everything except the client and wasm.
 #
 # `baylee-client` is a Bevy crate and dominates a full `--workspace` run. An

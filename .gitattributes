@@ -1,0 +1,7 @@
+# Every text file is LF in the repository and in every checkout, Windows'
+# included. Tests compare generated text with committed text (golden files,
+# byte-for-byte samples, the source a lint reads), and the gate scripts run
+# under Git Bash; a CRLF checkout (`core.autocrlf=true`, Git for Windows'
+# default) failed them for the checkout and not for the code. Git decides
+# what is text; binaries are left alone.
+* text=auto eol=lf

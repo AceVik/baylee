@@ -57,7 +57,23 @@ impl SessionDir {
 
 impl Drop for SessionDir {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.root);
+        remove_once_let_go(&self.root);
+    }
+}
+
+/// Removes `dir`, giving a process that was just killed in it a moment to
+/// let go of it. Windows refuses to delete a directory another process
+/// still holds (its working directory), and a killed child is gone a few
+/// milliseconds after the kill, not at it: the seat's session directories
+/// were left in the temp directory about half the time there
+/// (`cli_mind::the_cli_runs_locked_down_with_only_what_it_needs`). At most
+/// half a second; elsewhere the first try is the only one.
+fn remove_once_let_go(dir: &Path) {
+    for _ in 0..20 {
+        if std::fs::remove_dir_all(dir).is_ok() || !dir.exists() || !cfg!(windows) {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(25));
     }
 }
 
@@ -194,7 +210,7 @@ pub(super) fn forget_recorded(store: &Path) {
 
 impl Drop for Store {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.root);
+        remove_once_let_go(&self.root);
     }
 }
 

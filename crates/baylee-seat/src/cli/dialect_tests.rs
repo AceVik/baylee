@@ -7,12 +7,15 @@
 
 use super::agy::Agy;
 use super::claude::Claude;
-use super::codex::{Codex, DISABLED_FEATURES};
+use super::codex::Codex;
+#[cfg(unix)]
+use super::codex::DISABLED_FEATURES;
 use super::dialect::{Dialect, Event, Outcome, Started, Wire};
 use super::junie::Junie;
 use super::opencode::Opencode;
 use super::*;
 use crate::llm::Spec;
+#[cfg(unix)]
 use baylee_client_core::llmseat::clis;
 
 fn settings_for(model: &str, effort: Option<&str>) -> Settings {
@@ -122,6 +125,9 @@ fn no_dialect_approves_anything_or_passes_a_credential() {
 /// One that resumes keeps its sessions either in the seat's store or in a
 /// place of its own it names, never neither; one that does not leaves its
 /// arguments as they are.
+// Unix only: unix paths and a home found by HOME, as the CLI seat has
+// them (Windows sets no HOME and joins with \; not yet supported there).
+#[cfg(unix)]
 #[test]
 fn every_tool_has_a_dialect_that_agrees_with_the_panel() {
     let home = |name: &str| (name == "HOME").then(|| OsString::from("/home/t"));
@@ -177,6 +183,9 @@ fn a_conversation_id_cannot_make_an_argument_of_its_own() {
 /// Each tool's own variables pass where the parent has them, its fixed
 /// and session variables are set whatever the parent has, and none of them
 /// is a name no CLI is given.
+// Unix only: unix paths and a home found by HOME, as the CLI seat has
+// them (Windows sets no HOME and joins with \; not yet supported there).
+#[cfg(unix)]
 #[test]
 fn each_tools_environment_is_its_login_and_its_own_files() {
     for dialect in the_dialects() {
@@ -255,6 +264,9 @@ fn each_tools_environment_is_its_login_and_its_own_files() {
 /// `codex exec`, locked down: user config, rules and project docs off,
 /// our instructions and schema by file, every tool feature off, read-only,
 /// no prompt history, the prompt from stdin; model and effort where named.
+// Unix only: unix paths and a home found by HOME, as the CLI seat has
+// them (Windows sets no HOME and joins with \; not yet supported there).
+#[cfg(unix)]
 #[test]
 fn codex_runs_exec_with_our_instructions_and_no_tools() {
     let args = args_of(&Codex, Some("gpt-6.1-sol"), Some("low"));
@@ -526,6 +538,9 @@ fn opencodes_configuration_denies_every_tool_and_carries_ours() {
 /// explicit `--session <id>` (never `--continue`), from a database in the
 /// seat's store, an absolute path. An id that could be read as a flag is
 /// no id.
+// Unix only: unix paths and a home found by HOME, as the CLI seat has
+// them (Windows sets no HOME and joins with \; not yet supported there).
+#[cfg(unix)]
 #[test]
 fn opencode_resumes_by_the_id_its_lines_name() {
     assert!(Opencode.resumes());
@@ -644,6 +659,9 @@ fn opencode_is_signed_in_by_an_oauth_credential() {
 /// default location off, the session's own empty guidelines, extensions
 /// and caches, chat mode, ours added to its prompt; model and effort
 /// where named.
+// Unix only: unix paths and a home found by HOME, as the CLI seat has
+// them (Windows sets no HOME and joins with \; not yet supported there).
+#[cfg(unix)]
 #[test]
 fn junie_runs_with_every_default_location_off() {
     assert_eq!(
