@@ -4,6 +4,9 @@
 #[allow(clippy::wildcard_imports)] // the harness's own vocabulary
 use super::*;
 
+/// Where the table camera stands, read off its transform.
+type TableEye<'w, 's> = Query<'w, 's, &'static Transform, With<crate::table::TableCamera>>;
+
 /// Everything `/state` reads, in one parameter.
 ///
 /// A bundle rather than six more arguments on [`pump`], which is already at
@@ -136,7 +139,7 @@ pub(super) struct Believed<'w, 's> {
     camera: (
         Option<Res<'w, crate::table::CameraRig>>,
         Option<Res<'w, crate::table::CameraPose>>,
-        Query<'w, 's, &'static Transform, With<crate::table::TableCamera>>,
+        TableEye<'w, 's>,
     ),
     /// What the dial shows (DESIGN-v7 §2.7): the two hands, the arcs, the
     /// hub's pulse and the turn number's drawn size.
