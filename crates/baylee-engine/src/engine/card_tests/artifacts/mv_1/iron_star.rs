@@ -65,3 +65,18 @@ fn iron_star_offers_to_pay_and_gain_life_off_a_red_spell_and_not_a_blue_one() {
         "gained 1 from the tax, then took 3 from its own Bolt"
     );
 }
+
+/// Iron Star: "you may pay {1}" is a choice. Declined, it gains no life and
+/// spends nothing of the mana floating in the pool.
+#[test]
+fn iron_star_declined_gains_nothing_and_spends_nothing() {
+    a_rock_declined(iron_star(), mountain(), lightning_bolt());
+}
+
+/// Iron Star: "Whenever *a player* casts a red spell, *you* may pay {1}":
+/// the opponent's red spell asks the controller of the Iron Star, who pays
+/// and gains the life.
+#[test]
+fn iron_star_pays_its_controller_off_an_opponents_red_spell() {
+    a_rock_pays_off_an_opponents_spell(iron_star(), mountain(), mountain(), lightning_bolt());
+}

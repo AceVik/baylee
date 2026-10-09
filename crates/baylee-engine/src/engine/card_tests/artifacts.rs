@@ -1497,6 +1497,167 @@ fn pays_the_tax_and_gains_a_life(engine: &mut Engine<RegistryLookup>, p0: Player
     );
 }
 
+/// A one-mana white creature that does nothing when cast, for a rock that
+/// wants a white spell with no target.
+// oracle_id = "d33b3591-c01f-4ac4-8626-7cbfdabaf90d"
+fn camel() -> CardIndex {
+    card_index("d33b3591-c01f-4ac4-8626-7cbfdabaf90d")
+}
+
+/// A two-mana blue creature that does nothing when cast.
+// oracle_id = "b5666c68-059d-4e32-9b04-548b3058430d"
+fn flying_men() -> CardIndex {
+    card_index("b5666c68-059d-4e32-9b04-548b3058430d")
+}
+
+/// Casts `spell` off the floating pool and, if it asks for a target, aims it
+/// at `face`'s owner (Lightning Bolt is the only targeted spell the rocks
+/// use; every other one asks nothing).
+#[track_caller]
+fn cast_a_rock_spell(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    spell: CardIndex,
+    face: PlayerId,
+) {
+    cast_with_floating(engine, seat, spell);
+    if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+        engine
+            .apply(
+                seat,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![face],
+                },
+            )
+            .expect("a player is any target");
+    }
+}
+
+/// The tax question, stopped at: whose it is, and what is in the pool.
+#[track_caller]
+fn the_tax_is_asked_of(engine: &mut Engine<RegistryLookup>) -> PlayerId {
+    pass_until(engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { mana: 1 },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    player
+}
+
+/// "Whenever a player casts a `color` spell, you may pay {1}. If you do, you
+/// gain 1 life", declined. The question is asked of the rock's controller,
+/// "no" is a legal answer, and it moves nothing: not the life total, not the
+/// mana floating in the pool, which a "no" must not spend.
+#[track_caller]
+fn a_rock_declined(rock: CardIndex, land: CardIndex, spell: CardIndex) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[rock, land, land, land])
+        .hand(0, &[spell])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_a_rock_spell(&mut engine, p0, spell, p1);
+    assert_eq!(the_tax_is_asked_of(&mut engine), p0, "its controller's");
+    let life = life_of(&engine, p0);
+    let floating = engine.state().players[0].mana_pool.total();
+    assert!(floating >= 1, "something is floating to pay with");
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    assert_eq!(life_of(&engine, p0), life, "declined: no life");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        floating,
+        "declined: the {{1}} is not spent"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life_of(&engine, p0), life, "and nothing came of it later");
+}
+
+/// The same rock against a spell of another color: no question is asked at
+/// all (`pass_until` has no arm for the tax and panics on it) and the life
+/// total stands.
+#[track_caller]
+fn a_rock_ignores_another_color(rock: CardIndex, off_land: CardIndex, off_spell: CardIndex) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[rock, off_land, off_land])
+        .hand(0, &[off_spell])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let life = life_of(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_a_rock_spell(&mut engine, p0, off_spell, p1);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_stack(&engine, off_spell).is_none(),
+        "the spell resolved without a question"
+    );
+    assert_eq!(life_of(&engine, p0), life, "the wrong color gains nothing");
+}
+
+/// "Whenever *a player* casts …, *you* may pay": an opponent's matching
+/// spell, cast on their own turn, asks the rock's controller (never the
+/// caster), who taps in response and pays out of what is floating.
+#[track_caller]
+fn a_rock_pays_off_an_opponents_spell(
+    rock: CardIndex,
+    land: CardIndex,
+    their_land: CardIndex,
+    their_spell: CardIndex,
+) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[rock, land, land])
+        .battlefield(1, &[their_land, their_land, their_land])
+        .hand(1, &[their_spell])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+
+    let (mine, theirs) = (life_of(&engine, p0), life_of(&engine, p1));
+    tap_all_mana(&mut engine, p1);
+    cast_a_rock_spell(&mut engine, p1, their_spell, p1);
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the rock's controller holds priority with the trigger on the stack: {:?}",
+        engine.pending()
+    );
+    tap_all_mana(&mut engine, p0);
+    let floating = engine.state().players[0].mana_pool.total();
+
+    assert_eq!(
+        the_tax_is_asked_of(&mut engine),
+        p0,
+        "asked of the rock's controller, not of the player who cast"
+    );
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert_eq!(life_of(&engine, p0), mine + 1, "gained 1 life");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        floating - 1,
+        "and paid {{1}} of the mana it had floating"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life_of(&engine, p0), mine + 1, "only the one");
+    assert!(
+        life_of(&engine, p1) <= theirs,
+        "the caster gains nothing from the rock"
+    );
+}
+
 fn crystal_rod() -> CardIndex {
     card_index("e68bc048-1009-46a5-97d6-ec77a18067da")
 }
