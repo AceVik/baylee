@@ -256,18 +256,25 @@ fn fired_ability(
 
 // --- spells, activated and triggered abilities --------------------------------
 
+/// What a resolution logs: the printed face it credits, the ability's
+/// index on that face's list, and how it fired.
+type Line = (PrintedFace, u32, Kind);
+
 thread_local! {
-    /// Spells that began to resolve, with the line each would log, read as
-    /// it began: a spell whose own effect moves it off the stack (Temporal
-    /// Mastery's "Exile Temporal Mastery") is no longer there to be read
-    /// when its resolution finishes.
-    static RESOLVING: RefCell<Vec<(ObjectId, Option<PrintedFace>)>> = const { RefCell::new(Vec::new()) };
+    /// Spells and abilities that began to resolve, with the line each would
+    /// log, read as it began: a spell whose own effect moves it off the
+    /// stack (Temporal Mastery's "Exile Temporal Mastery") is no longer
+    /// there to be read when its resolution finishes, and neither is an
+    /// ability whose controller its own effect took out of the game (Lich's
+    /// "you lose the game": CR 800.4a makes the abilities they control on
+    /// the stack cease to exist).
+    static RESOLVING: RefCell<Vec<(ObjectId, Option<Line>)>> = const { RefCell::new(Vec::new()) };
 }
 
-/// A spell on top of the stack begins to resolve: what it would log is
-/// read now, for [`resolved`] to log if the spell has left the stack by the
-/// time it finishes. Only a resolution that finishes logs it; one CR 608.2b
-/// removes never reaches here.
+/// A spell or an ability on top of the stack begins to resolve: what it
+/// would log is read now, for [`resolved`] to log if it has left the stack
+/// by the time it finishes. Only a resolution that finishes logs it; one CR
+/// 608.2b removes never reaches here.
 pub(crate) fn resolving(state: &GameState, lookup: &impl CardLookup, on_stack: ObjectId) {
     if !enabled() {
         return;
@@ -275,13 +282,13 @@ pub(crate) fn resolving(state: &GameState, lookup: &impl CardLookup, on_stack: O
     let Some(obj) = state.object(on_stack) else {
         return;
     };
-    if obj.zone != Zone::Stack || obj.ability.is_some() {
+    if obj.zone != Zone::Stack {
         return;
     }
-    let face = spell_face(obj, lookup);
+    let line = line_of(state, lookup, obj);
     RESOLVING.with_borrow_mut(|resolving| {
         resolving.retain(|(id, _)| *id != on_stack);
-        resolving.push((on_stack, face));
+        resolving.push((on_stack, line));
     });
 }
 
@@ -295,6 +302,34 @@ fn spell_face(obj: &GameObject, lookup: &impl CardLookup) -> Option<PrintedFace>
         .flatten()
 }
 
+/// The line `obj`, on the stack, logs when it resolves, if any.
+fn line_of(state: &GameState, lookup: &impl CardLookup, obj: &GameObject) -> Option<Line> {
+    let Some(loc) = obj.ability else {
+        return spell_face(obj, lookup).map(|face| (face, AbilityRef::SPELL, Kind::Spell));
+    };
+    // Reserved indices are synthesised abilities (prowess, ward, a granted
+    // one, a reflexive trigger): no entry of any list.
+    if !AbilityRef::new(CardIndex::new(0), loc.index).is_listed_ability() {
+        return None;
+    }
+    // The list captured as it was put on the stack, else its source's.
+    let list = if obj.own_abilities.is_some() {
+        printed(obj, lookup)
+    } else {
+        printed(state.object(loc.source)?, lookup)
+    };
+    let kind = list
+        .abilities
+        .get(loc.index as usize)
+        .and_then(Kind::of)
+        .filter(|kind| *kind != Kind::Spell)?;
+    let origin = list.origin(loc.index as usize);
+    let face = origin
+        .origin
+        .and_then(crate::object::AbilityOrigin::printed)?;
+    Some((face, origin.index, kind))
+}
+
 /// A spell or an ability on the stack has finished resolving: the first line
 /// of `Engine::finish_resolution`, and the door a spell with no spell
 /// effects of its own (an Aura) leaves the stack by.
@@ -306,41 +341,16 @@ pub(crate) fn resolved(state: &GameState, lookup: &impl CardLookup, on_stack: Ob
         let at = resolving.iter().position(|(id, _)| *id == on_stack)?;
         Some(resolving.remove(at).1)
     });
-    let on_the_stack = state.object(on_stack).filter(|obj| obj.zone == Zone::Stack);
-    let Some(obj) = on_the_stack else {
+    let line = match state.object(on_stack).filter(|obj| obj.zone == Zone::Stack) {
+        Some(obj) => line_of(state, lookup, obj),
         // Gone during its own resolution: the line read as it began.
-        if let Some(face) = began {
-            fired_from(lookup, face, AbilityRef::SPELL, Kind::Spell);
-        }
-        return;
+        None => began.flatten(),
     };
-    if let Some(loc) = obj.ability {
-        // Reserved indices are synthesised abilities (prowess, ward, a
-        // granted one, a reflexive trigger): no entry of any list.
-        if !AbilityRef::new(CardIndex::new(0), loc.index).is_listed_ability() {
-            return;
-        }
-        // The list captured as it was put on the stack, else its source's.
-        let list = if obj.own_abilities.is_some() {
-            printed(obj, lookup)
-        } else if let Some(source) = state.object(loc.source) {
-            printed(source, lookup)
-        } else {
-            return;
-        };
-        if let Some(kind) = list.abilities.get(loc.index as usize).and_then(Kind::of)
-            && kind != Kind::Spell
-        {
-            fired_ability(lookup, &list, loc.index, kind);
-        }
-        return;
+    if let Some((face, index, kind)) = line
+        && from_pool(lookup, face.card())
+    {
+        fired(face.card(), index, kind);
     }
-    fired_from(
-        lookup,
-        spell_face(obj, lookup),
-        AbilityRef::SPELL,
-        Kind::Spell,
-    );
 }
 
 // --- mana abilities ------------------------------------------------------------
@@ -575,6 +585,14 @@ pub(crate) fn static_applied(fx: &ContinuousEffect) {
 
 /// `entry` changed an event.
 pub(crate) fn replaced(entry: &ReplacementEntry) {
+    replaced_by(entry.source, entry.rule);
+}
+
+/// `source`'s `rule` changed an event: the door for a replacement applied
+/// outside the funnel, such as a skip offered as a turn or a draw would
+/// begin (`progress/turn.rs`, CR 614.10), which holds the source and not
+/// the entry.
+pub(crate) fn replaced_by(source: ObjectId, rule: ReplacementRule) {
     if !enabled() {
         return;
     }
@@ -582,7 +600,7 @@ pub(crate) fn replaced(entry: &ReplacementEntry) {
         sources
             .rules
             .iter()
-            .find(|(s, r, ..)| *s == entry.source && *r == entry.rule)
+            .find(|(s, r, ..)| *s == source && *r == rule)
             .map(|&(.., card, at)| (card, at))
     });
     if let Some((card, at)) = noted {

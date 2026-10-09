@@ -490,3 +490,66 @@ fn the_recorder_logs_a_self_exiling_spell_an_attached_grant_and_an_untap_static(
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+const LICH: &str = "5b7515f2-7a5a-4e2a-9784-6cbacd768172";
+const TIME_VAULT: &str = "99d4d99d-cf56-45aa-aa39-a250695612f2";
+const ISLAND_SANCTUARY: &str = "7d1769d0-d942-45b3-a31c-2bbe45e68661";
+const LICH_TEST: &str = "engine::card_tests::enchantments::lich::lich_put_into_a_graveyard_loses_the_game_even_above_zero_life";
+const VAULT_TEST: &str = "engine::card_tests::artifacts::time_vault::skipping_a_turn_untaps_the_vault_as_the_next_turn_begins";
+const SANCTUARY_TEST: &str = "engine::card_tests::enchantments::island_sanctuary::island_sanctuary_skips_the_draw_and_lets_only_flyers_and_islandwalkers_attack";
+
+/// Three more doors the recorder missed (Alpha's L4 measurement): a trigger
+/// whose own effect ends its controller's game is taken off the stack as
+/// they leave (CR 800.4a), before `resolved` looked for it there (Lich's
+/// "you lose the game"); and the two skips offered as a turn or a draw
+/// would begin (CR 614.10) are applied by the answer to a question, never
+/// through the replacement funnel (Time Vault, Island Sanctuary).
+#[test]
+fn the_recorder_logs_a_game_ending_trigger_and_the_skips_a_question_applies() {
+    let dir = scratch("ability-log-skips");
+    let dir_text = dir.to_str().expect("a UTF-8 temp dir");
+    let tests = [LICH_TEST, VAULT_TEST, SANCTUARY_TEST];
+    let (code, out) = run_child(&tests, &[(ability_log::VAR, Some(dir_text))]);
+    assert_eq!(
+        code,
+        Some(0),
+        "the three tests pass with the recorder on:\n{out}"
+    );
+    assert!(out.contains("3 passed"), "and all three ran:\n{out}");
+    let pool = |id| baylee_cards::by_index(card_index(id)).expect("in the pool");
+    let dies = position_of(pool(LICH), |a| {
+        matches!(a, AbilityDef::Triggered { effects, .. }
+            if effects.contains(&baylee_cards_dsl::Effect::LoseGame))
+    });
+    let skip_turn = position_of(pool(TIME_VAULT), |a| {
+        *a == AbilityDef::Replacement(ReplacementRule::SkipTurnToUntapSelf)
+    });
+    let skip_draw = position_of(pool(ISLAND_SANCTUARY), |a| {
+        *a == AbilityDef::Replacement(ReplacementRule::MaySkipDrawStepDraw)
+    });
+    let expected = [
+        (LICH_TEST, line(LICH_TEST, LICH, dies, Kind::Triggered)),
+        (
+            VAULT_TEST,
+            line(VAULT_TEST, TIME_VAULT, skip_turn, Kind::Replacement),
+        ),
+        (
+            SANCTUARY_TEST,
+            line(
+                SANCTUARY_TEST,
+                ISLAND_SANCTUARY,
+                skip_draw,
+                Kind::Replacement,
+            ),
+        ),
+    ];
+    for (test, want) in &expected {
+        let lines = read_lines(&dir, test);
+        assert!(
+            lines.contains(want),
+            "{test} fired {want}, and its file says:\n{}",
+            lines.join("\n")
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

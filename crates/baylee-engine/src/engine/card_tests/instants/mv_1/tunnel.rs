@@ -4,8 +4,9 @@
 use super::*;
 
 /// Tunnel prints one sentence — "Destroy target Wall. It can't be
-/// regenerated." — and the pool implements no regeneration anywhere, so the
-/// whole card is the destroy plus the word *Wall*. The board therefore puts a
+/// regenerated." The Wall here carries no regeneration shield, so this test
+/// plays the destroy and the word *Wall*, not the second sentence (the
+/// engine's regeneration is in `regenerate_tests`). The board therefore puts a
 /// Wall and a creature that is not one under the same opponent: the offer has
 /// to hold exactly the first, and the Elf beside it is the control that says
 /// the subtype filter was read rather than that a lone creature turned out to

@@ -7,8 +7,8 @@ use super::*;
 /// target." Cast twice with two different X: two damage marks a vanilla
 /// 2/3 without killing it, and five reaches the opponent's life total by
 /// exactly five. "Any target" (CR 115.4) is the one menu a creature and
-/// both players share. The life-gain half of the card, and the
-/// black-mana-only rule on X, are not implemented and are not asked here.
+/// both players share. The capped life gain is played in
+/// `alpha_completion_review::sorceries`; this test asks only the damage.
 #[allow(clippy::too_many_lines)] // One printed card, played end to end.
 #[test]
 fn drain_life_deals_the_x_its_controller_names_to_a_creature_and_then_to_a_player() {
