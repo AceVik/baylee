@@ -94,6 +94,17 @@ pub fn resume_pile(state: &mut GameState, res: &mut Resolution, index: usize) ->
 }
 
 pub(super) fn resume_pile_inner(state: &mut GameState, res: &mut Resolution, index: usize) -> Flow {
+    if let Some(AwaitingOp::LabelAttacker {
+        attacker,
+        rest,
+        left,
+        right,
+    }) = res
+        .awaiting
+        .take_if(|op| matches!(op, AwaitingOp::LabelAttacker { .. }))
+    {
+        return super::river::resume_label(state, res, (attacker, rest, left, right), index);
+    }
     let since = state.journal.last_seq();
     let Some(AwaitingOp::TakePile { piles }) = res.awaiting.take() else {
         panic!("pile choice not suspended");

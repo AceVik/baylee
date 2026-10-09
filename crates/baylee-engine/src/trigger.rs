@@ -2174,6 +2174,25 @@ fn matches(
         (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        // "Whenever one or more … attack": on the first matching attacker of
+        // the declaration and on no other (CR 603.2c), which is one batch.
+        (Trigger::OneOrMoreAttack(filter), GameEvent::BecameAttacker { object, .. }) => {
+            let hit = |id: ObjectId| {
+                state
+                    .object(id)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+            };
+            let Some(at) = batch
+                .iter()
+                .position(|entry| std::ptr::eq(&raw const entry.event, event))
+            else {
+                return false;
+            };
+            hit(*object)
+                && !batch[..at].iter().any(|entry| {
+                    matches!(entry.event, GameEvent::BecameAttacker { object, .. } if hit(object))
+                })
+        }
         // CR 509.3b and 509.3d: one event per blocker–attacker pair, so the
         // ability triggers once for each creature this one blocks and once
         // for each creature that blocks it. The filter is asked of the other

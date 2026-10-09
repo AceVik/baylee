@@ -492,6 +492,10 @@ impl HeuristicAgent {
                     | ChoicePrompt::Band { .. }
                     | ChoicePrompt::BlockWith { .. } => min,
                     ChoicePrompt::FirstPile => max.min(1),
+                    // Raging River: the attacker labels each creature with
+                    // the weaker side, so the even split is the one that
+                    // leaves both sides as strong as they can be.
+                    ChoicePrompt::LeftPile => max / 2,
                     _ if max <= 2 => max,
                     _ => min,
                 };
@@ -657,6 +661,24 @@ impl HeuristicAgent {
             Pending::ChooseCastMode {
                 object, options, ..
             } => PlayerAction::ChooseMode(self.cast_mode(view, object, &options)),
+            // Raging River's label: the side that may block this attacker,
+            // so the one with less power in it.
+            Pending::ChoosePile {
+                piles,
+                label: Some(_),
+                ..
+            } => {
+                let power = |pile: &Vec<ObjectId>| -> i32 {
+                    pile.iter()
+                        .filter_map(|&id| view.object(id))
+                        .map(|o| i32::from(o.power.unwrap_or(0)))
+                        .sum()
+                };
+                let weakest = (0..piles.len())
+                    .min_by_key(|&i| power(&piles[i]))
+                    .unwrap_or(0);
+                PlayerAction::ChooseMode(weakest)
+            }
             Pending::ChoosePile { piles, .. } => PlayerAction::ChooseMode(self.pile(view, &piles)),
             // An order the AI has no opinion on yet: the cards as they were
             // offered, every pile filled to its minimum first. It is always

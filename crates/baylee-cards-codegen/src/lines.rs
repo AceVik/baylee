@@ -637,7 +637,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
         // Fastbond, "Whenever you play a land".
         T::PlaysLand(_) => &["play a land"],
-        T::Attacks(_) => &["attack"],
+        T::Attacks(_) | T::OneOrMoreAttack(_) => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
         // Cockatrice, "Whenever this creature blocks or becomes blocked by
         // a non-Wall creature". Its filter is the *other* creature, so it
@@ -740,6 +740,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::Dies(filter)
         | Trigger::Attacks(filter)
         | Trigger::AttacksAlone(filter)
+        | Trigger::OneOrMoreAttack(filter)
         | Trigger::BecomesTapped(filter)
         | Trigger::TappedForMana { filter, .. }
         | Trigger::ExiledFromBattlefield(filter)

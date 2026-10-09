@@ -127,6 +127,11 @@ pub struct CombatState {
     /// blocker leaves combat: what "had become blocked by only that
     /// creature this combat" asks (False Orders). Cleared with the combat.
     block_history: Vec<(ObjectId, ObjectId)>,
+    /// "That creature can't be blocked this combat except by creatures with
+    /// flying and creatures in a pile with the chosen label" (Raging River):
+    /// for an attacker, the creatures its chosen pile holds. Several limits
+    /// on one attacker all bind (CR 509.1b). Cleared with the combat.
+    pile_limits: Vec<(ObjectId, Vec<ObjectId>)>,
     /// The divisions players have chosen for the damage step about to be
     /// dealt, emptied once it is (`deal_combat_damage`).
     divisions: Vec<Division>,
@@ -140,6 +145,7 @@ impl std::hash::Hash for CombatState {
         self.attackers.hash(state);
         self.blockers.hash(state);
         self.block_history.hash(state);
+        self.pile_limits.hash(state);
         self.divisions.hash(state);
         self.participants.hash(state);
         self.first_strikers.hash(state);
@@ -338,6 +344,24 @@ impl CombatState {
             .map(|(b, _)| *b)
             .peekable();
         by.peek().is_some() && by.all(|b| b == blocker)
+    }
+
+    /// Raging River's restriction on `attacker`: from now on this combat,
+    /// only a creature with flying or one of `allowed` may block it.
+    pub fn limit_blockers_to_pile(&mut self, attacker: ObjectId, allowed: Vec<ObjectId>) {
+        self.pile_limits.push((attacker, allowed));
+    }
+
+    /// Whether every pile limit on `attacker` lets `blocker` block it: it
+    /// has flying, or it is in the pile each limit names.
+    #[must_use]
+    pub fn pile_limits_allow(&self, attacker: ObjectId, blocker: ObjectId, flying: bool) -> bool {
+        flying
+            || self
+                .pile_limits
+                .iter()
+                .filter(|(a, _)| *a == attacker)
+                .all(|(_, allowed)| allowed.contains(&blocker))
     }
 
     /// An effect says `attacker` becomes unblocked (CR 509.1h: the flag
@@ -738,6 +762,14 @@ pub fn can_block(
     }
     // Flying can only be blocked by flying/reach (CR 702.9).
     if kw(a, K::FLYING) && !kw(b, K::FLYING) && !kw(b, K::REACH) {
+        return false;
+    }
+    // Raging River's piles (a restriction, CR 509.1b): only a creature with
+    // flying or one in the pile chosen for this attacker.
+    if !state
+        .combat
+        .pile_limits_allow(attacker, blocker, kw(b, K::FLYING))
+    {
         return false;
     }
     // Fear (CR 702.36b): only artifact creatures and/or black creatures.

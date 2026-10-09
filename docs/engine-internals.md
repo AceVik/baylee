@@ -538,6 +538,24 @@ effect in the pool that makes a creature become blocked, and it spreads its
 block through the band as 702.22h and 702.22i say
 (`AwaitingOp::BlockAttacker`).
 
+### Piles that restrict blocks (Raging River)
+`Trigger::OneOrMoreAttack` fires once for a declaration that holds a
+matching attacker (CR 603.2c). `Effect::LeftRightPilesRestrictBlocks`
+(`resolve/river.rs`) then asks each defending player, every opponent of the
+attacking player during combat (CR 802.2) in turn order from the active
+player (CR 101.4), to name their "left" pile among their creatures without
+flying (`ChoicePrompt::LeftPile`; the rest are "right"). The piles are
+public, since the creatures are on the battlefield. The controller then
+labels each attacking creature they control, in declaration order, with
+`Pending::ChoosePile { label: Some(attacker) }`: first pile "left", second
+"right". Two empty piles are not asked about. A label is a blocking
+restriction (CR 509.1b) the combat holds (`CombatState::pile_limits`, hashed,
+cleared with the combat) and `combat::can_block` asks, so the offer,
+`declare_blockers` and the clock agree. Only a creature with flying, or one
+in the chosen pile, may block that attacker. A creature in no pile (one
+that entered since) may not, and two Rivers' limits on one attacker both
+bind.
+
 ### Removed from combat, and blocked again (False Orders)
 `Effect::RemoveTargetFromCombat` is CR 506.4's "an effect specifically
 removes it from combat" (`CombatState::remove_from_combat`, the door a

@@ -269,6 +269,10 @@ pub enum Prompt {
     ChoosePile {
         /// The piles, in the engine's order; one may be empty.
         piles: Vec<Vec<ObjectId>>,
+        /// Raging River: the attacker the chosen pile is a label for (only
+        /// that pile and fliers may block it); `None` for a pile taken into
+        /// the hand.
+        label: Option<ObjectId>,
     },
     /// Put cards into places, each in an order.
     Arrange {
@@ -529,7 +533,12 @@ impl Prompt {
             }
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
-            Self::ChoosePile { .. } => Phrase::ChoosePileForHand.text(lang).to_string(),
+            Self::ChoosePile { label: None, .. } => {
+                Phrase::ChoosePileForHand.text(lang).to_string()
+            }
+            Self::ChoosePile { label: Some(_), .. } => {
+                Phrase::ChooseRiverLabel.text(lang).to_string()
+            }
             Self::Arrange { reason, onto } => arrange_line(lang, *reason, *onto),
             Self::YesNo { question } => yes_no_line(lang, *question, statics),
             Self::GameOver => Phrase::TheGameIsOver.text(lang).to_string(),
@@ -828,6 +837,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::BlockWith { .. } => {
             (Phrase::NounAttackerToBlock, Phrase::NounAttackersToBlock)
         }
+        ChoicePrompt::LeftPile => (Phrase::NounCreatureForLeft, Phrase::NounCreaturesForLeft),
         ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
         ChoicePrompt::PutIntoHand => (Phrase::NounCardToHand, Phrase::NounCardsToHand),
         ChoicePrompt::PutOnBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
@@ -1603,8 +1613,9 @@ impl Interaction {
                 object: *object,
                 options: options.clone(),
             },
-            Pending::ChoosePile { piles, .. } => Prompt::ChoosePile {
+            Pending::ChoosePile { piles, label, .. } => Prompt::ChoosePile {
                 piles: piles.clone(),
+                label: *label,
             },
             Pending::Arrange { piles, prompt, .. } => Prompt::Arrange {
                 reason: *prompt,

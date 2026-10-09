@@ -638,6 +638,15 @@ pub enum Effect {
     /// restrictions are not asked: they bind a declaration (CR 509.1b), and
     /// this is an effect. Choosing does not target.
     TargetMayBlockAttackerOfChoice,
+    /// Raging River: "each defending player divides all creatures without
+    /// flying they control into a 'left' pile and a 'right' pile. Then, for
+    /// each attacking creature you control, choose 'left' or 'right.' That
+    /// creature can't be blocked this combat except by creatures with
+    /// flying and creatures in a pile with the chosen label." Each defending
+    /// player, in turn order from the active player (CR 101.4), names their
+    /// left pile; the controller then picks a label per attacker; the
+    /// restriction is the combat's (`CombatState::limit_blockers_to_pile`).
+    LeftRightPilesRestrictBlocks,
     /// Tap each target.
     TapTarget,
     /// Untap each target.

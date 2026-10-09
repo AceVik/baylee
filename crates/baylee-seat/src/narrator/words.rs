@@ -228,6 +228,9 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         ChoicePrompt::Band { .. } => {
             "Choose the attackers to join the band (choose none and it attacks alone)".into()
         }
+        ChoicePrompt::LeftPile => {
+            "Choose the creatures for the \"left\" pile; the rest form the \"right\" pile".into()
+        }
         ChoicePrompt::BlockWith { .. } => {
             "Choose the attacking creature it blocks (choose none and it stays out of combat)"
                 .into()

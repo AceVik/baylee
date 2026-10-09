@@ -486,6 +486,10 @@ pub enum Trigger {
     DrawsExceptFirst(crate::effect::PlayerRel),
     /// An object matching the filter attacks (Sun Titan).
     Attacks(&'static Filter),
+    /// "Whenever one or more [creatures matching the filter] attack"
+    /// (Raging River): once for a declaration of attackers that holds at
+    /// least one, however many (CR 508.3a, 603.2c).
+    OneOrMoreAttack(&'static Filter),
     /// This creature blocks a creature matching the filter (CR 509.3b) or
     /// becomes blocked by one (CR 509.3d): once for each such pair, each
     /// time a blocker is declared, so a creature blocked by two of them

@@ -569,6 +569,12 @@ pub enum Pending {
         player: PlayerId,
         /// The piles, in the order the separation gave them.
         piles: Vec<Vec<ObjectId>>,
+        /// `None`: the chosen pile goes into the hand (Fact or Fiction).
+        /// `Some(attacker)`: a label for that attacking creature, which the
+        /// chosen pile's creatures (and fliers) alone may block this combat
+        /// (Raging River: "left" is the first pile, "right" the second).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        label: Option<ObjectId>,
     },
     /// The game is over.
     GameOver(GameResult),
@@ -799,6 +805,11 @@ pub enum ChoicePrompt {
         /// The creature that will block what is chosen.
         blocker: ObjectId,
     },
+    /// Raging River: "divides all creatures without flying they control
+    /// into a 'left' pile and a 'right' pile". The menu holds the defending
+    /// player's creatures without flying; the ones chosen are the left
+    /// pile, the rest the right.
+    LeftPile,
     /// Revealed cards of one card type, one of which may be put into the
     /// hand (Atraxa, Grand Unifier: "for each card type, you may put a card
     /// of that type … into your hand"). Asked once per type, and the type
@@ -2556,6 +2567,7 @@ mod choice_tests {
                 Pending::ChoosePile {
                     player: p,
                     piles: vec![vec![object()], vec![]],
+                    label: None,
                 },
                 None,
             ),

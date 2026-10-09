@@ -38,6 +38,7 @@ mod answers;
 mod awaiting;
 mod choices;
 mod discard;
+mod river;
 pub use discard::DiscardThen;
 use discard::{discard_or_ask, resume_discard_destination};
 mod immediate;

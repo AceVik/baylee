@@ -466,6 +466,30 @@ pub enum AwaitingOp {
         /// Life to pay.
         amount: u16,
     },
+    /// A defending player divides their creatures without flying for
+    /// Raging River (`resolve::river`): the answer is their left pile.
+    DivideLeftRight {
+        /// The player dividing now.
+        asked: PlayerId,
+        /// The defending players still to divide, in turn order.
+        rest: Vec<PlayerId>,
+        /// The left piles so far, every defending player's together.
+        left: Vec<ObjectId>,
+        /// The right piles so far.
+        right: Vec<ObjectId>,
+    },
+    /// The controller labels an attacking creature "left" or "right" for
+    /// Raging River: the chosen pile alone (with fliers) may block it.
+    LabelAttacker {
+        /// The attacker labelled now.
+        attacker: ObjectId,
+        /// The attackers still to label, in declaration order.
+        rest: Vec<ObjectId>,
+        /// Every left pile.
+        left: Vec<ObjectId>,
+        /// Every right pile.
+        right: Vec<ObjectId>,
+    },
     /// The attacking creature `blocker` will block, or none
     /// ([`Effect::TargetMayBlockAttackerOfChoice`]).
     BlockAttacker {
