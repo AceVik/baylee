@@ -99,6 +99,7 @@ fn hold_the_keyboard(
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))] gallery: Option<
         Res<gallery::Gallery>,
     >,
+    tour: Option<Res<crate::tour::TourDesk>>,
     mut holds: ResMut<KitHolds>,
 ) {
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
@@ -109,7 +110,10 @@ fn hold_the_keyboard(
         .as_deref()
         .and_then(bevy::input_focus::InputFocus::get)
         .is_some_and(|f| fields.contains(f));
-    let now = overlay::holds(&overlay) || gallery || typing;
+    // A narrated tour bubble holds the keys as the overlay does (TOURS.md
+    // §1.3), so the lobby's handlers that ask this stand aside for it.
+    let tour = tour.is_some_and(|t| t.holds_keyboard());
+    let now = overlay::holds(&overlay) || gallery || typing || tour;
     if holds.0 != now {
         holds.0 = now;
     }

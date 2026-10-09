@@ -110,6 +110,7 @@ pub mod targeting;
 pub mod textures;
 pub mod tokenart;
 pub mod touch;
+pub mod tour;
 pub(crate) mod transport;
 pub mod unlit;
 pub mod update;

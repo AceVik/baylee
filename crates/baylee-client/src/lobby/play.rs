@@ -22,6 +22,8 @@ use super::*;
 use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::surfaces::{self, SheetWidth};
 use crate::shellkit::{Frame as ShellFrame, Role, px_fixed, tokens};
+use crate::tour::TourAnchor;
+use baylee_client_core::tour::Anchor;
 use client_core::lobby::play::{
     self as model, Chip, Outcome, TableDraft, TableFilter, TableSort, Template,
 };
@@ -266,6 +268,7 @@ fn hero(
     let mut anchors = HeroAnchors::default();
     let panel = commands
         .spawn((
+            TourAnchor(Anchor::PlayHero),
             Role::Panel,
             Node {
                 width: percent(100),
@@ -526,6 +529,7 @@ fn hero(
         .entity(house)
         .entry::<Node>()
         .and_modify(|mut n| n.flex_grow = 1.0);
+    commands.entity(pair).insert(TourAnchor(Anchor::PlayHouse));
     commands.entity(pair).add_children(&[house, caret]);
     let create_live = if off.is_some() {
         Live::No("")
@@ -544,6 +548,9 @@ fn hero(
         Press::Play(PlayPress::CreateTable),
     );
     orders::stop(commands, create, &orders::PLAY, "create");
+    commands
+        .entity(create)
+        .insert(TourAnchor(Anchor::PlayCreate));
     commands.entity(buttons).add_children(&[pair, create]);
     // The reason stands once, under the pair (S4-3).
     if let Some(reason) = &off {
@@ -742,6 +749,7 @@ fn tables(
     let wide = matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast);
     let panel = commands
         .spawn((
+            TourAnchor(Anchor::PlayTables),
             Role::Panel,
             Node {
                 flex_grow: 1.0,
@@ -1757,6 +1765,9 @@ fn create_sheet(
         &[cancel, open],
     );
     let scrim = surfaces::sheet(commands, surface);
+    commands
+        .entity(surface)
+        .insert(TourAnchor(Anchor::CreateSheet));
     commands
         .entity(scrim)
         .insert(Press::Play(PlayPress::CloseSheet));

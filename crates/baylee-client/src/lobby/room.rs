@@ -7,7 +7,9 @@ use super::{FieldLook, Masked, button, heading, note, row, text_field};
 use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::surfaces::MenuItem;
 use crate::shellkit::{Frame as ShellFrame, Role, px_fixed, tokens};
+use crate::tour::TourAnchor;
 use baylee_client_core::lobby::room::Adjustment;
+use baylee_client_core::tour::Anchor;
 mod cards;
 mod llm;
 
@@ -171,6 +173,9 @@ pub(super) fn draw(
             Press::Room(RoomPress::CopyInvite(index)),
         );
         super::orders::stop(commands, invite, &super::orders::ROOM, "copy-invite");
+        commands
+            .entity(invite)
+            .insert(TourAnchor(Anchor::RoomInvite));
         commands.entity(title).add_child(invite);
     }
     if game.yours {
@@ -191,6 +196,7 @@ pub(super) fn draw(
             Press::Room(RoomPress::StartRoom(index)),
         );
         super::orders::stop(commands, start, &super::orders::ROOM, "start");
+        commands.entity(start).insert(TourAnchor(Anchor::RoomStart));
         commands.entity(title).add_child(start);
     }
 
@@ -245,6 +251,7 @@ pub(super) fn draw(
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
             super::dock::Dock(3),
+            TourAnchor(Anchor::RoomRules),
         ))
         .id();
     commands.entity(columns).add_child(rail);
@@ -365,6 +372,7 @@ pub(super) fn draw(
                 ..default()
             },
             Pickable::IGNORE,
+            TourAnchor(Anchor::RoomSeats),
         ))
         .id();
     commands.entity(columns).add_child(seats);
@@ -822,6 +830,11 @@ fn seat_card(
             Press::Shared(SharedPress::OpenMenu(ShellMenu::Seat(at))),
         );
         walk(commands, more);
+        if seat.you {
+            commands
+                .entity(more)
+                .insert(TourAnchor(Anchor::RoomMySeatMenu));
+        }
         anchor = Some((at, more, false));
         commands.entity(line).add_child(more);
     }

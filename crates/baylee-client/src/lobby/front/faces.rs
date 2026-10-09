@@ -17,6 +17,8 @@ use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::metrics::px_fixed;
 use crate::shellkit::role::Role;
 use crate::shellkit::{surfaces, tokens};
+use crate::tour::TourAnchor;
+use baylee_client_core::tour::Anchor;
 
 /// The lobby's own field metrics, read off the kit's (the text step and
 /// the size class): the fields are the lobby's editor, sized by the shell.
@@ -297,6 +299,7 @@ fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity
                 ..default()
             },
             Pickable::IGNORE,
+            TourAnchor(Anchor::FrontGatewayRow),
         ))
         .id();
     let busy = state.lobby.busy();
@@ -616,6 +619,7 @@ pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState,
     if !doors.is_empty() {
         let line = rule(commands);
         let row = pair(commands, kit, doors[0], doors.get(1).copied());
+        commands.entity(row).insert(TourAnchor(Anchor::FrontGuest));
         commands.entity(card).add_children(&[line, row]);
         let new_one =
             lobby.registration_enabled() || (lobby.guest_offered() && lobby.kept_guest().is_none());

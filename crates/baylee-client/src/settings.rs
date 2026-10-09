@@ -177,6 +177,12 @@ pub struct ClientSettings {
     /// device, §12; open until it is).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub report_attachments_closed: bool,
+    /// The guided tours' switches and what this device has seen of them
+    /// (TOURS.md §1.7). Per device: a phone's tour is not a desk's, and
+    /// guests and offline players have no account. A file from before it
+    /// reads every tour on and nothing seen.
+    #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
+    pub tours: baylee_client_core::tour::Tours,
 }
 
 impl Default for ClientSettings {
@@ -201,6 +207,7 @@ impl Default for ClientSettings {
             report_device: None,
             terms: std::collections::BTreeMap::new(),
             report_attachments_closed: false,
+            tours: baylee_client_core::tour::Tours::default(),
         }
     }
 }
@@ -654,6 +661,16 @@ mod tests {
             baylee_client_core::music::MusicLevel::default(),
             "a store from before the music opens with it playing"
         );
+        assert_eq!(
+            settings.tours,
+            baylee_client_core::tour::Tours::default(),
+            "a store from before the tours has every tour on and nothing seen"
+        );
+        // A tours entry this build cannot read costs the tours, not the file.
+        let odd: ClientSettings =
+            serde_json::from_str(r#"{"lang":"de","tours":{"lobby":"yes"}}"#).expect("decodes");
+        assert_eq!(odd.lang, "de");
+        assert!(odd.tours.lobby);
     }
 
     #[test]
@@ -722,6 +739,14 @@ mod tests {
             report_device: Some("0123456789abcdef0123456789abcdef".into()),
             text_size: crate::shellkit::TextSize::Xl,
             report_attachments_closed: true,
+            tours: baylee_client_core::tour::Tours {
+                table: false,
+                tips: false,
+                seen: ["lobby/door".to_string(), "table/T10".to_string()]
+                    .into_iter()
+                    .collect(),
+                ..baylee_client_core::tour::Tours::default()
+            },
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
@@ -731,6 +756,7 @@ mod tests {
         assert_eq!(read.feedback_url, written.feedback_url);
         assert_eq!(read.report_device, written.report_device);
         assert_eq!(read.text_size, crate::shellkit::TextSize::Xl);
+        assert_eq!(read.tours, written.tours, "the tours' switches and marks");
         let unknown: ClientSettings =
             serde_json::from_str(r#"{"text_size":"huge"}"#).expect("a step it does not know reads");
         assert_eq!(unknown.text_size, crate::shellkit::TextSize::L);

@@ -96,6 +96,7 @@ fn builder_modal(state: &LobbyState) -> bool {
 
 /// Writes [`ShellStack`] from the lobby every frame, and stands it down
 /// while the arrival, the entrance or the report form holds the keyboard.
+#[allow(clippy::too_many_arguments)] // a Bevy system: the stack and everything that may hold the keys
 pub(super) fn write_stack(
     mut yields: ResMut<crate::shellkit::focus::WalkerYields>,
     focus: Res<crate::shellkit::focus::FocusReport>,
@@ -103,11 +104,13 @@ pub(super) fn write_stack(
     entrance: Res<super::entrance::Entrance>,
     journey: Option<Res<crate::arrival::Journey>>,
     desk: Option<Res<crate::report::ReportDesk>>,
+    tour: Option<Res<crate::tour::TourDesk>>,
     mut shell: ResMut<ShellStack>,
 ) {
     let held = journey.as_ref().is_some_and(|j| j.active())
         || entrance.active()
-        || desk.is_some_and(|d| d.holds_keyboard());
+        || desk.is_some_and(|d| d.holds_keyboard())
+        || tour.is_some_and(|t| t.holds_keyboard());
     // The seat panel's boxes walk with Tab themselves.
     // So does the account deletion's confirmation over the terms sheet
     // (its Decline): its password box is a lobby field with no stop, and

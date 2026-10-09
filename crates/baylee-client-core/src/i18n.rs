@@ -4289,6 +4289,562 @@ messages! {
     ShellRetry { en: "Retry", de: "Erneut versuchen" },
     /// A toast's action after a deletion.
     ShellUndo { en: "Undo", de: "Rückgängig" },
+    // The guided tours (TOURS.md v3): the bubble's own words, the settings
+    // rows, the chapters' names, then every step's title and words.
+    /// The tour bubble's chapter line: chapter number, how many, its name.
+    TourChapterLine { en: "Chapter {0} of {1} · {2}", de: "Kapitel {0} von {1} · {2}" },
+    /// The tour bubble's primary.
+    TourNext { en: "Next", de: "Weiter" },
+    /// The tour bubble's primary on a tour's last step.
+    TourDone { en: "Done", de: "Fertig" },
+    /// The tour bubble's way back one step.
+    TourBack { en: "Back", de: "Zurück" },
+    /// The tour bubble's way past the chapter (the button says less than it
+    /// does: "Kapitel überspringen" is over the button budget).
+    TourSkip { en: "Skip", de: "Überspringen" },
+    /// The reason line under Skip: what it skips.
+    TourSkipReason { en: "Skips the chapter", de: "Überspringt das Kapitel" },
+    /// The reason a try-it step's primary is off until the player did it.
+    TourTryFirst { en: "Try it first — or skip", de: "Probier es erst — oder überspring" },
+    /// The try-it step's line saying the keys are the screen's now.
+    TourKeysFree { en: "Esc belongs to the screen now", de: "Esc gehört jetzt dem Bildschirm" },
+    /// The try-it step's line at the table.
+    TourKeysTable { en: "Esc belongs to the table now", de: "Esc gehört jetzt dem Tisch" },
+    /// The bubble's checkbox: every tour and tip off (one box, as World of Warcraft's).
+    TourNeverAgain { en: "Don't show tours again", de: "Touren nicht mehr zeigen" },
+    /// The bubble's fold control (its tooltip).
+    TourFold { en: "Fold", de: "Falten" },
+    /// The folded pill's line while a question waits for this seat.
+    TourTableWaits { en: "The table is waiting for you", de: "Der Tisch wartet auf dich" },
+    /// The toast after the bubble's checkbox, with Undo.
+    TourOffToast { en: "Tours off · Settings › Display", de: "Touren aus · Einstellungen › Anzeige" },
+    /// The toast after Settings › Restart tours, with Undo.
+    TourRestartedToast { en: "Tours restarted", de: "Touren neu gestartet" },
+    /// L14's primary: the practice game.
+    TourStartPractice { en: "Start practice game", de: "Übungsspiel starten" },
+    /// L14's secondary.
+    TourLater { en: "Later", de: "Später" },
+    /// The game menu's row that opens the table tour's chapters.
+    TourMenuRow { en: "Tour", de: "Tour" },
+    /// The game menu's row at a networked table, where it is off.
+    TourMenuRowAway { en: "Tour (in a practice game)", de: "Tour (im Übungsspiel)" },
+    /// Settings › Display: the lobby & room tour.
+    RowTourLobby { en: "Lobby & room", de: "Lobby & Raum" },
+    /// Its help line.
+    HelpTourLobby {
+        en: "The tour of the front door, the Play screen and a room, once per screen.",
+        de: "Die Tour durch Eingang, Spielen und den Raum, einmal je Bildschirm.",
+    },
+    /// Settings › Display: the deck builder tour.
+    RowTourBuilder { en: "Deck builder", de: "Deckbauer" },
+    /// Its help line.
+    HelpTourBuilder {
+        en: "The tour of the shelf, the builder, import, export and history.",
+        de: "Die Tour durch Regal, Deckbauer, Import, Export und Verlauf.",
+    },
+    /// Settings › Display: the table tour.
+    RowTourTable { en: "Table", de: "Tisch" },
+    /// Its help line.
+    HelpTourTable {
+        en: "The table tour, in a practice game against the house.",
+        de: "Die Tisch-Tour, in einem Übungsspiel gegen das Haus.",
+    },
+    /// Settings › Display: the just-in-time tips.
+    RowTourTips { en: "In-game tips", de: "Hinweise im Spiel" },
+    /// Its help line.
+    HelpTourTips {
+        en: "A tip the first time a sheet or panel appears, once on this device.",
+        de: "Ein Hinweis, wenn ein Bogen oder Panel zum ersten Mal erscheint, einmal auf diesem Gerät.",
+    },
+    /// Settings › Display: every tour from the start again.
+    RowTourRestart { en: "Restart tours", de: "Touren neu starten" },
+    /// Its help line.
+    HelpTourRestart {
+        en: "Forgets which chapters and tips you have seen here.",
+        de: "Vergisst, welche Kapitel und Hinweise du hier gesehen hast.",
+    },
+    /// The lobby tour's chapters.
+    TourChapterDoor { en: "The door", de: "Der Eingang" },
+    /// The lobby tour's chapters.
+    TourChapterPlay { en: "Play", de: "Spielen" },
+    /// The lobby tour's chapters.
+    TourChapterCreate { en: "Create", de: "Erstellen" },
+    /// The lobby tour's chapters.
+    TourChapterRoom { en: "The room", de: "Der Raum" },
+    /// The lobby tour's chapters.
+    TourChapterClosing { en: "Closing", de: "Abschluss" },
+    /// The builder tour's chapters.
+    TourChapterShelf { en: "The shelf", de: "Das Regal" },
+    /// The builder tour's chapters.
+    TourChapterEditing { en: "Editing", de: "Bearbeiten" },
+    /// The builder tour's chapters.
+    TourChapterLists { en: "Lists", de: "Listen" },
+    /// The builder tour's chapters.
+    TourChapterHistory { en: "History", de: "Verlauf" },
+    /// The table tour's chapters (TOURS.md §2.3).
+    TourChapterArrival { en: "Arrival", de: "Ankunft" },
+    /// The table tour's chapters.
+    TourChapterPlace { en: "Your place", de: "Dein Platz" },
+    /// The table tour's chapters.
+    TourChapterCasting { en: "Casting and paying", de: "Zaubern und bezahlen" },
+    /// The table tour's chapters.
+    TourChapterStack { en: "The stack and standing answers", de: "Der Stapel und stehende Antworten" },
+    /// The table tour's chapters.
+    TourChapterDecisions { en: "Decisions", de: "Entscheidungen" },
+    /// The table tour's chapters.
+    TourChapterPhases { en: "Phases and passing", de: "Phasen und Passen" },
+    /// The table tour's chapters.
+    TourChapterDial { en: "The dial", de: "Die Uhr in der Mitte" },
+    /// The table tour's chapters.
+    TourChapterSeeing { en: "Seeing the table", de: "Den Tisch sehen" },
+    /// The table tour's chapters.
+    TourChapterReveals { en: "Reveals, log, zones", de: "Aufdecken, Log, Zonen" },
+    /// The table tour's chapters.
+    TourChapterKeys { en: "Keys, menu, conceding", de: "Tasten, Menü, Aufgeben" },
+    /// The table tour's chapters.
+    TourChapterReporting { en: "Reporting a problem", de: "Ein Problem melden" },
+    /// Tour step L1's title (TOURS.md §2).
+    TourL1Title { en: "The gateway", de: "Das Gateway" },
+    /// Tour step L1's words (TOURS.md §2).
+    TourL1Body {
+        en: "A gateway is the server that holds your tables and decks. The dot says whether it answers; the version line whether this client matches it (green). ‹ goes back to the list of gateways, or type an address.",
+        de: "Ein Gateway ist der Server, der deine Tische und Decks hält. Der Punkt sagt, ob es antwortet; die Versionszeile, ob dieser Client dazu passt (grün). ‹ führt zur Liste der Gateways, oder du trägst eine Adresse ein.",
+    },
+    /// Tour step L2's title (TOURS.md §2).
+    TourL2Title { en: "Account or guest", de: "Konto oder Gast" },
+    /// Tour step L2's words (TOURS.md §2).
+    TourL2Body {
+        en: "A guest needs a display name only, cannot upload images, and is deleted with its decks about 30 days after its last visit. An account keeps decks, settings and keys on the gateway. In a closed beta the key box opens under the button you choose.",
+        de: "Ein Gast braucht nur einen Anzeigenamen, kann keine Bilder hochladen und wird rund 30 Tage nach dem letzten Besuch samt Decks gelöscht. Ein Konto behält Decks, Einstellungen und Tasten auf dem Gateway. In einer geschlossenen Beta öffnet sich das Schlüsselfeld unter dem Button, den du wählst.",
+    },
+    /// Tour step L3's title (TOURS.md §2).
+    TourL3Title { en: "Play offline", de: "Offline spielen" },
+    /// Tour step L3's words (TOURS.md §2).
+    TourL3Body {
+        en: "Play offline needs no gateway: this client hosts a game against the house AI itself. Settings and About (licences, source) stand in the same row.",
+        de: "Offline spielen braucht kein Gateway: dieser Client hostet das Spiel gegen die Haus-KI selbst. Einstellungen und Über (Lizenzen, Quelle) stehen in derselben Zeile.",
+    },
+    /// Tour step L4's title (TOURS.md §2).
+    TourL4Title { en: "Three places", de: "Drei Orte" },
+    /// Tour step L4's words (TOURS.md §2).
+    TourL4Body {
+        en: "Play, Decks, Settings — keys 1, 2, 3. At the right: the gateway with its tables and players online, the bell for what you missed, your account. ? lists the keys live on any screen.",
+        de: "Spielen, Decks, Einstellungen — Tasten 1, 2, 3. Rechts das Gateway mit Tischen und Spielern online, die Glocke für Verpasstes, dein Konto. ? zeigt auf jedem Bildschirm alle Tasten, die gerade gelten.",
+    },
+    /// Tour step L5's title (TOURS.md §2).
+    TourL5Title { en: "Your next game", de: "Dein nächstes Spiel" },
+    /// Tour step L5's words (TOURS.md §2).
+    TourL5Body {
+        en: "The deck you bring. Change deck opens the picker, Edit the builder. With no deck of your own yet, three house decks stand here: Add and use copies one into your account and selects it.",
+        de: "Das Deck, das du mitbringst. Deck wechseln öffnet die Auswahl, Bearbeiten den Deckbauer. Ohne eigenes Deck stehen hier drei Hausdecks: Hinzufügen & nutzen kopiert eins in dein Konto und wählt es.",
+    },
+    /// Tour step L6's title (TOURS.md §2).
+    TourL6Title { en: "Play the house", de: "Gegen das Haus" },
+    /// Tour step L6's words (TOURS.md §2).
+    TourL6Body {
+        en: "A game against the house AI, run locally in this client, no clock. The caret picks the difficulty. It is also the practice game the table tour runs in.",
+        de: "Ein Spiel gegen die Haus-KI, lokal in diesem Client, ohne Uhr. Der Pfeil wählt die Stärke. Das ist auch das Übungsspiel, in dem die Tisch-Tour läuft.",
+    },
+    /// Tour step L7's title (TOURS.md §2).
+    TourL7Title { en: "The tables", de: "Die Tische" },
+    /// Tour step L7's words (TOURS.md §2).
+    TourL7Body {
+        en: "The gateway's tables, live. A row: name, host, format, life, seats, lock, AI count. Join sits you down; a locked row takes its password inline. / searches, the chips filter. Your own running table shows Return to your game.",
+        de: "Die Tische des Gateways, live. Eine Zeile: Name, Gastgeber, Format, Leben, Sitze, Schloss, KI-Zahl. Mitspielen setzt dich hin; bei einem Schloss steht das Passwort in der Zeile. / sucht, die Chips filtern. Dein eigener laufender Tisch zeigt Zurück zum Spiel.",
+    },
+    /// Tour step L8's title (TOURS.md §2).
+    TourL8Title { en: "Create table", de: "Tisch erstellen" },
+    /// Tour step L8's words (TOURS.md §2).
+    TourL8Body {
+        en: "Create table (C) opens the sheet for a table of your own. Try it: open it now.",
+        de: "Tisch erstellen (C) öffnet das Blatt für einen eigenen Tisch. Probier es: öffne es jetzt.",
+    },
+    /// Tour step L9's title (TOURS.md §2).
+    TourL9Title { en: "The sheet", de: "Das Blatt" },
+    /// Tour step L9's words (TOURS.md §2).
+    TourL9Body {
+        en: "Players 2–8. Template: Commander, Duel 20, Five lands; Adjust changes life, mulligan, hand size. Password optional. Clock: time per decision — classic 3 min (the default), casual 10, standard 2, blitz 30 s, untimed. Open table (Enter) takes you to the room.",
+        de: "Spieler 2–8. Vorlage: Commander, Duell 20, Fünf Länder; Anpassen ändert Leben, Mulligan, Handgröße. Passwort optional. Uhr: Zeit pro Entscheidung — klassisch 3 Min. (Voreinstellung), gemütlich 10, normal 2, Blitz 30 s, ohne Uhr. Tisch öffnen (Enter) bringt dich in den Raum.",
+    },
+    /// Tour step L10's title (TOURS.md §2).
+    TourL10Title { en: "The seats", de: "Die Sitze" },
+    /// Tour step L10's words (TOURS.md §2).
+    TourL10Body {
+        en: "One row per seat. Yours: the deck dropdown and Ready. Empty seats: AI ▾ seats the house AI at a difficulty; Language model ▾ (desktop only) a model on your own key and spending caps. Other players' rows are read-only.",
+        de: "Jeder Sitz eine Zeile. Deine: Deck-Auswahl und Bereit. Leere Sitze: KI ▾ setzt die Haus-KI mit Stärke; Sprachmodell ▾ (nur Desktop) ein Modell mit deinem eigenen Schlüssel und Kostendeckel. Die Zeilen anderer Spieler sind nur zu lesen.",
+    },
+    /// Tour step L11's title (TOURS.md §2).
+    TourL11Title { en: "Seat menu and teams", de: "Sitzmenü und Teams" },
+    /// Tour step L11's words (TOURS.md §2).
+    TourL11Body {
+        en: "⋯ on a seat, as host: hand over hosting, team, life override, starting position (for testing), make an AI seat open. Set teams in the rules rail turns teams on; the team chips then show on the seats.",
+        de: "⋯ am Sitz, als Gastgeber: Gastgeber übergeben, Team, Leben überschreiben, Startaufstellung (zum Testen), KI-Sitz freigeben. Teams festlegen in der Regelleiste schaltet Teams ein; die Team-Chips erscheinen an den Sitzen.",
+    },
+    /// Tour step L12's title (TOURS.md §2).
+    TourL12Title { en: "Rules and invite", de: "Regeln und Einladung" },
+    /// Tour step L12's words (TOURS.md §2).
+    TourL12Body {
+        en: "The rules at the left; Edit rules reopens the sheet. Copy invite puts table name, gateway and password hint on the clipboard. Leave is a button — Esc never leaves. Navigating away keeps your seat; the strip at the top and R bring you back.",
+        de: "Links die Regeln; Regeln ändern öffnet das Blatt erneut. Einladung kopieren legt Tischname, Gateway und Passwort-Hinweis in die Zwischenablage. Verlassen ist ein Button — Esc verlässt nie. Wechselst du den Bildschirm, bleibt dein Sitz; die Leiste oben und R bringen dich zurück.",
+    },
+    /// Tour step L13's title (TOURS.md §2).
+    TourL13Title { en: "Ready and Start", de: "Bereit und Starten" },
+    /// Tour step L13's words (TOURS.md §2).
+    TourL13Body {
+        en: "Ready is each player's own. Start is the host's (Ctrl/Cmd+Enter) and stays grey until everyone is ready; the reason stands beside it. The table opens once every client has drawn it — only then do the clocks run.",
+        de: "Bereit sagt jeder für sich. Starten gehört dem Gastgeber (Strg/Cmd+Enter) und bleibt grau, bis alle bereit sind; der Grund steht daneben. Der Tisch öffnet, sobald jeder Client ihn gezeichnet hat — erst dann laufen die Uhren.",
+    },
+    /// Tour step L14's title (TOURS.md §2).
+    TourL14Title { en: "Practice game?", de: "Übungsspiel?" },
+    /// Tour step L14's words (TOURS.md §2).
+    TourL14Body {
+        en: "That was the lobby. The table tour runs in a practice game against three house AIs, no clock, with your next-game deck. Start it now? Later: Play › Play the house, then menu › Tour.",
+        de: "Das war die Lobby. Die Tisch-Tour läuft in einem Übungsspiel gegen drei Haus-KIs, ohne Uhr, mit deinem nächsten Deck. Jetzt starten? Später: Spielen › Gegen das Haus, dann Menü › Tour.",
+    },
+    /// Tour step D1's title (TOURS.md §2).
+    TourD1Title { en: "Your shelf", de: "Dein Regal" },
+    /// Tour step D1's words (TOURS.md §2).
+    TourD1Body {
+        en: "My decks and House decks. A tile: the picture is the commander, else the most expensive nonland — a Scryfall crop with its artist, nothing drawn on it. Under it format, count, sideboard, last save; the badges: next game, unplayable cards.",
+        de: "Meine Decks und Hausdecks. Eine Kachel: das Bild ist der Commander, sonst die teuerste Nichtland-Karte — ein Scryfall-Ausschnitt mit Künstlernennung, nichts wird daraufgezeichnet. Darunter Format, Karten, Sideboard, letzter Stand; die Abzeichen: nächstes Spiel, nicht spielbare Karten.",
+    },
+    /// Tour step D2's title (TOURS.md §2).
+    TourD2Title { en: "Tile actions", de: "Kachel-Aktionen" },
+    /// Tour step D2's words (TOURS.md §2).
+    TourD2Body {
+        en: "Use for next game selects it. Edit opens the builder. ⋯: Duplicate, Rename, Export, History, Favourite, Delete — Delete does not ask; the toast has six seconds of Undo (Ctrl/Cmd+Z).",
+        de: "Fürs nächste Spiel wählt das Deck. Bearbeiten öffnet den Deckbauer. ⋯: Duplizieren, Umbenennen, Exportieren, Verlauf, Favorit, Löschen — Löschen fragt nicht, der Toast hat sechs Sekunden Rückgängig (Strg/Cmd+Z).",
+    },
+    /// Tour step D3's title (TOURS.md §2).
+    TourD3Title { en: "House decks", de: "Hausdecks" },
+    /// Tour step D3's words (TOURS.md §2).
+    TourD3Body {
+        en: "Ready-made decks from the gateway, every card playable. Add copies one to you; Add and use also selects it. Preview shows the list; cards enlarge on hover, long-press or Space.",
+        de: "Fertige Decks des Gateways, jede Karte spielbar. Hinzufügen kopiert eins zu dir, Hinzufügen & nutzen wählt es auch gleich. Vorschau zeigt die Liste; Karten per Hover, langem Druck oder Leertaste groß.",
+    },
+    /// Tour step D4's title (TOURS.md §2).
+    TourD4Title { en: "New or imported", de: "Neu oder importiert" },
+    /// Tour step D4's words (TOURS.md §2).
+    TourD4Body {
+        en: "New deck opens an empty builder. Import takes Baylee text, JSON, YAML and Moxfield text; the format is detected. On a desktop Ctrl/Cmd+V with a list on the clipboard or a dropped file does the same. A Moxfield link is never fetched — the dialog says what to copy.",
+        de: "Neues Deck öffnet einen leeren Deckbauer. Import nimmt Baylee-Text, JSON, YAML und Moxfield-Text; das Format wird erkannt. Am Desktop reicht Strg/Cmd+V mit einer Liste in der Zwischenablage oder eine abgelegte Datei. Ein Moxfield-Link wird nicht geladen — der Dialog sagt, was zu kopieren ist.",
+    },
+    /// Tour step D5's title (TOURS.md §2).
+    TourD5Title { en: "The header", de: "Der Kopf" },
+    /// Tour step D5's words (TOURS.md §2).
+    TourD5Body {
+        en: "‹ Decks goes back and asks when unsaved. The pencil renames. Save (Ctrl/Cmd+S) carries the dot while something is unsaved. Esc never leaves the builder — it only closes the innermost thing.",
+        de: "‹ Decks geht zurück und fragt bei ungespeicherten Änderungen. Der Stift benennt um. Speichern (Strg/Cmd+S) trägt den Punkt, solange etwas offen ist. Esc verlässt den Deckbauer nie — es schließt nur das Innerste.",
+    },
+    /// Tour step D6's title (TOURS.md §2).
+    TourD6Title { en: "The pool", de: "Der Pool" },
+    /// Tour step D6's words (TOURS.md §2).
+    TourD6Body {
+        en: "The pool is what this build can play — not the whole catalog. Playable only is on and hides placeholders; partially implemented cards stay, marked partial, with the reason in the card view. The line under the count says what else is narrowing the list.",
+        de: "Der Pool ist, was diese Version spielen kann — nicht der ganze Katalog. Nur spielbar ist an und versteckt Platzhalter; teilweise umgesetzte Karten bleiben und sind als teilweise markiert, mit dem Grund in der Kartenansicht. Die Zeile darunter sagt, was gerade sonst noch filtert.",
+    },
+    /// Tour step D7's title (TOURS.md §2).
+    TourD7Title { en: "Searching", de: "Suchen" },
+    /// Tour step D7's words (TOURS.md §2).
+    TourD7Body {
+        en: "Scryfall syntax: t:creature, o:draw, c:rg, id<=wug, mv<=3, is:commander, or, brackets, minus. A German name finds the English row; both faces of a DFC count. The gear builds the filter as a form. Try it: type something.",
+        de: "Scryfall-Syntax: t:creature, o:draw, c:rg, id<=wug, mv<=3, is:commander, or, Klammern, Minus. Ein deutscher Name findet die englische Zeile; beide Seiten einer DFC zählen. Das Zahnrad baut den Filter als Formular. Probier es: tipp etwas ein.",
+    },
+    /// Tour step D8's title (TOURS.md §2).
+    TourD8Title { en: "Adding", de: "Hinzufügen" },
+    /// Tour step D8's words (TOURS.md §2).
+    TourD8Body {
+        en: "+ puts one copy into the active tab, with Shift into the other; Enter and Shift+Enter do the same. ⋯: Sideboard, Choose printing (set, language, finish), Open card. Hover shows the card large; with no picture, or the text view on, as its text face. Try it: add a card.",
+        de: "+ legt eine Kopie in den aktiven Tab, mit Shift in den anderen; Enter und Shift+Enter ebenso. ⋯: Sideboard, Druck wählen (Set, Sprache, Finish), Karte öffnen. Hover zeigt die Karte groß; ohne Bild oder mit Textansicht als Textseite. Probier es: füge eine Karte hinzu.",
+    },
+    /// Tour step D9's title (TOURS.md §2).
+    TourD9Title { en: "The deck side", de: "Die Deckseite" },
+    /// Tour step D9's words (TOURS.md §2).
+    TourD9Body {
+        en: "The commander slot at the top. Main, Sideboard, Stats as tabs; grouped by type, mana value or colour. Each row − n +; ⋯ moves it, picks the printing or removes all. Stats: curve, colour shares, Draw seven.",
+        de: "Oben der Commander-Platz. Haupt, Sideboard, Statistik als Tabs; gruppiert nach Typ, Manawert oder Farbe. Jede Zeile − n +; ⋯ verschiebt, wählt den Druck oder entfernt alle. Statistik: Kurve, Farbanteile, Ziehe sieben.",
+    },
+    /// Tour step D10's title (TOURS.md §2).
+    TourD10Title { en: "Blocking or advisory", de: "Blockiert oder Hinweis" },
+    /// Tour step D10's words (TOURS.md §2).
+    TourD10Body {
+        en: "Two kinds of notes. What the gateway refuses — no name, an empty deck, over 250 lines, cards the pool has lost — greys Save. Everything else is only a sentence: 60 cards, 15 in the sideboard, partially implemented cards. If the button is lit, it saves.",
+        de: "Zwei Sorten Hinweise. Was das Gateway ablehnt — kein Name, leeres Deck, über 250 Zeilen, Karten, die der Pool verloren hat — macht Speichern grau. Alles andere ist nur ein Satz: 60 Karten, 15 im Sideboard, teilweise umgesetzte Karten. Leuchtet der Button, speichert er.",
+    },
+    /// Tour step D11's title (TOURS.md §2).
+    TourD11Title { en: "Saving", de: "Speichern" },
+    /// Tour step D11's words (TOURS.md §2).
+    TourD11Body {
+        en: "Every save is a version and stays in History. A printing choice that changes nothing writes nothing: old decks stay byte for byte. Try it: Ctrl/Cmd+S.",
+        de: "Jedes Speichern ist eine Version und bleibt im Verlauf. Ein Druck, der nichts ändert, schreibt nichts: alte Decks bleiben zeichengleich. Probier es: Strg/Cmd+S.",
+    },
+    /// Tour step D11b's title (TOURS.md §2).
+    TourD11bTitle { en: "Phone: one pane", de: "Telefon: eine Spalte" },
+    /// Tour step D11b's words (TOURS.md §2).
+    TourD11bBody {
+        en: "On a phone you see the pool or the deck; the switch at the top names the count in the other. Filters folds the chips behind one button; Sort and Clear stay out. Enter in the search adds the first hit.",
+        de: "Auf dem Telefon siehst du Pool oder Deck, der Schalter oben nennt die Zahl im anderen. Filter faltet die Chips hinter einen Button; Sortieren und Löschen bleiben draußen. Enter im Suchfeld fügt den ersten Treffer hinzu.",
+    },
+    /// Tour step D12's title (TOURS.md §2).
+    TourD12Title { en: "Import", de: "Import" },
+    /// Tour step D12's words (TOURS.md §2).
+    TourD12Body {
+        en: "Paste (Ctrl/Cmd+V); the format is detected, and ← → picks it when ambiguous. Enter imports; afterwards Enter closes. Lines not found stay listed and are named — nothing is dropped silently.",
+        de: "Einfügen (Strg/Cmd+V), Format wird erkannt; bei Zweifel wählst du es mit ← →. Enter importiert; danach schließt Enter. Nicht gefundene Zeilen bleiben stehen und werden genannt — nichts wird stillschweigend verworfen.",
+    },
+    /// Tour step D13's title (TOURS.md §2).
+    TourD13Title { en: "Export", de: "Export" },
+    /// Tour step D13's words (TOURS.md §2).
+    TourD13Body {
+        en: "← → picks the format, Ctrl/Cmd+C copies, Ctrl/Cmd+S saves a file (not in the browser). The Baylee form carries printing and finish per line; Moxfield text only count and name.",
+        de: "← → wählt das Format, Strg/Cmd+C kopiert, Strg/Cmd+S speichert eine Datei (nicht im Browser). Die Baylee-Form trägt Druck und Finish je Zeile; Moxfield-Text nur Zahl und Name.",
+    },
+    /// Tour step D14's title (TOURS.md §2).
+    TourD14Title { en: "History", de: "Verlauf" },
+    /// Tour step D14's words (TOURS.md §2).
+    TourD14Body {
+        en: "Every saved version at the left; at the right the diff against the previous or the current one, by zone. Restore creates a new version — nothing is lost; the toast undoes it for six seconds.",
+        de: "Links jede gespeicherte Version, rechts der Unterschied zur vorigen oder zur aktuellen, nach Zone. Wiederherstellen legt eine neue Version an — nichts geht verloren; der Toast macht es sechs Sekunden lang rückgängig.",
+    },
+    /// Tour step T1's title (TOURS.md §2).
+    TourT1Title { en: "The practice game", de: "Das Übungsspiel" },
+    /// Tour step T1's words (TOURS.md §2).
+    TourT1Body {
+        en: "A practice game: three house AIs, no clock, nothing counts. Every bubble has Next, Back, Skip; Esc folds it to the pill at the top; the chapter line jumps. When the table waits on you the bubble folds by itself. ? lists the keys at any time.",
+        de: "Ein Übungsspiel: drei Haus-KIs, keine Uhr, nichts zählt. Jede Blase hat Weiter, Zurück, Überspringen; Esc faltet sie zur Pille oben; die Kapitelzeile springt. Wartet der Tisch auf dich, faltet sich die Blase von selbst. Tasten zeigt ? jederzeit.",
+    },
+    /// Tour step T2's title (TOURS.md §2).
+    TourT2Title { en: "Your mat", de: "Deine Matte" },
+    /// Tour step T2's words (TOURS.md §2).
+    TourT2Body {
+        en: "Your mat, three lanes: creatures towards the middle, then the rest, lands at the back. At the mat's end the piles: library, graveyard, exile, command zone, each with its count. Identical cards stack as ×N and split on a click. A row fans until a third of each card shows, then it scrolls.",
+        de: "Deine Matte, drei Bahnen: Kreaturen zur Tischmitte hin, dann der Rest, Länder hinten. Am Mattenende die Stapel: Bibliothek, Friedhof, Exil, Kommandozone, mit Zahl. Gleiche Karten liegen als ×N gestapelt und trennen sich auf einen Klick. Eine Reihe fächert, bis ein Drittel jeder Karte zu sehen ist, dann scrollt sie.",
+    },
+    /// Tour step T3's title (TOURS.md §2).
+    TourT3Title { en: "The hand", de: "Die Hand" },
+    /// Tour step T3's words (TOURS.md §2).
+    TourT3Body {
+        en: "Your hand lies at the bottom, sortable by draw order, mana, A–Z, type, colour; the wheel scrolls it. On a phone it is a drawer: the tab on the bar names the cards and the castable ones; a tap, a swipe or I opens and shuts it.",
+        de: "Deine Hand liegt unten, sortierbar nach Zugfolge, Mana, A–Z, Typ, Farbe; das Rad scrollt sie. Auf dem Telefon ist sie eine Schublade: die Lasche an der Leiste nennt Karten und spielbare, ein Tipp, ein Wisch oder I öffnet und schließt sie.",
+    },
+    /// Tour step T4's title (TOURS.md §2).
+    TourT4Title { en: "Reading a card", de: "Eine Karte lesen" },
+    /// Tour step T4's words (TOURS.md §2).
+    TourT4Body {
+        en: "Hover lifts a card and shows it large; Cmd or Alt held shows its text face, T latches that, V opens the preview from the keyboard. It shows the text the object has now — a copy carries the copied card's text. Nothing is drawn on the print; everything we say stands on plates of our own.",
+        de: "Hover hebt die Karte und zeigt sie groß; Cmd oder Alt gehalten zeigt die Textseite, T lässt sie an, V öffnet die Vorschau per Tastatur. Sie zeigt den Text, den das Objekt gerade hat — eine Kopie trägt den Text des Kopierten. Auf das Kartenbild wird nichts gemalt; alles von uns steht auf eigenen Plättchen.",
+    },
+    /// Tour step T5's title (TOURS.md §2).
+    TourT5Title { en: "The actions bar", de: "Die Aktionsleiste" },
+    /// Tour step T5's words (TOURS.md §2).
+    TourT5Body {
+        en: "The bar says what the table wants from you, with the answers and their keys: Space passes, Enter is the click, Tab runs to the next phase, Shift+Tab to the next turn — every decision stays yours. At the right: log, zones, menu. Where a clock runs, it stands as a number in the button it will press.",
+        de: "Die Leiste sagt, was der Tisch von dir will, mit den Antworten und ihren Tasten: Leertaste passt, Enter ist der Klick, Tab springt zur nächsten Phase, Shift+Tab zum nächsten Zug — jede Entscheidung bleibt deine. Rechts: Log, Zonen, Menü. Läuft eine Uhr, steht sie als Zahl im Button, den sie drücken wird.",
+    },
+    /// Tour step T6's title (TOURS.md §2).
+    TourT6Title { en: "Lit cards", de: "Leuchtende Karten" },
+    /// Tour step T6's words (TOURS.md §2).
+    TourT6Body {
+        en: "Gold lights what the mana in your pool casts now; indigo what the client would tap lands for. The first click arms the card (a ring), the second, Enter or E sends; Esc disarms. Mana abilities are one click. Lands are matched by colour and price — Phyrexian never pays life, X is never guessed.",
+        de: "Gold leuchtet, was das Mana im Pool jetzt wirkt; Indigo, wofür der Client Länder tippen würde. Erster Klick spannt die Karte (Ring), der zweite, Enter oder E sendet; Esc löst. Mana-Fähigkeiten sind ein Klick. Getippt wird nach Farbe und Preis — Phyrexianisches zahlt nie Leben, X wird nie geraten.",
+    },
+    /// Tour step T7's title (TOURS.md §2).
+    TourT7Title { en: "Cast first, pay after", de: "Wirken, dann zahlen" },
+    /// Tour step T7's words (TOURS.md §2).
+    TourT7Body {
+        en: "Unlike Arena: a click casts first and pays after. The card goes on the stack, its questions come (mode, X, targets), then the payment window — the client taps the planned lands; you can tap any land yourself. The pool shows what is left: Owed {2}.",
+        de: "Anders als auf Arena: ein Klick wirkt erst, bezahlt danach. Die Karte geht auf den Stapel, ihre Fragen kommen (Modus, X, Ziele), dann das Zahlfenster — der Client tippt die geplanten Länder, du kannst jedes auch selbst tippen. Der Pool zeigt den Rest: Geschuldet {2}.",
+    },
+    /// Tour step T8's title (TOURS.md §2).
+    TourT8Title { en: "Cancel cast", de: "Abbrechen" },
+    /// Tour step T8's words (TOURS.md §2).
+    TourT8Body {
+        en: "While your cast's questions or its payment window are open, the bar's last answer is Cancel cast (Esc): the spell comes back, tapped lands untap. Try it: cast something and cancel.",
+        de: "Solange deine Fragen oder das Zahlfenster offen sind, ist die letzte Antwort der Leiste Abbrechen (Esc): der Zauber kommt zurück, getippte Länder stehen wieder. Probier es: wirke etwas und brich ab.",
+    },
+    /// Tour step T9's title (TOURS.md §2).
+    TourT9Title { en: "The ability sheet", de: "Der Fähigkeitsbogen" },
+    /// Tour step T9's words (TOURS.md §2).
+    TourT9Body {
+        en: "Several abilities, or several ways to cast, open a sheet beside the card: cost, the printed sentence, a key 1–9, 0 turns the page. A mana row goes through at once; every other arms and takes a second press. Alternative costs are asked here, before any land is tapped.",
+        de: "Mehrere Fähigkeiten oder Wege zu wirken öffnen ein Blatt neben der Karte: Kosten, der gedruckte Satz, eine Taste 1–9, 0 blättert. Eine Mana-Zeile geht sofort; jede andere spannt und braucht den zweiten Druck. Alternative Kosten werden hier gefragt, bevor ein Land getippt wird.",
+    },
+    /// Tour step T10's title (TOURS.md §2).
+    TourT10Title { en: "The stack panel", de: "Das Stapel-Panel" },
+    /// Tour step T10's words (TOURS.md §2).
+    TourT10Body {
+        en: "The stack stands top-right, every entry as a card; the next one large with its targets, the rest smaller under it. The head's line says whom the table waits for. A long sentence scrolls in its box. The button folds the panel. On a phone only the top entry shows.",
+        de: "Der Stapel steht oben rechts, jeder Eintrag als Karte; der nächste groß mit seinen Zielen, der Rest kleiner darunter. Die Zeile im Kopf sagt, auf wen der Tisch wartet. Ein langer Satz scrollt in seinem Kasten. Der Knopf klappt das Panel ein. Auf dem Telefon steht nur der oberste Eintrag.",
+    },
+    /// Tour step T11's title (TOURS.md §2).
+    TourT11Title { en: "Standing answers", de: "Stehende Antworten" },
+    /// Tour step T11's words (TOURS.md §2).
+    TourT11Body {
+        en: "Picking an entry sets a stop: Resolve to selection passes until it is on top and stops before it. For the chosen ability: Always pass, Ask, Always yes, Always no — for every copy of that card, kept on your account, cleared under Settings › Gameplay. Targets and costs are always asked.",
+        de: "Einen Eintrag wählen setzt einen Halt: Bis hierher abarbeiten passt, bis er oben liegt, und hält davor. Für die gewählte Fähigkeit: Immer passen, Fragen, Immer Ja, Immer Nein — gilt für jede Kopie der Karte, folgt deinem Konto, rückgängig unter Einstellungen › Spiel. Ziele und Kosten fragt er immer.",
+    },
+    /// Tour step T12's title (TOURS.md §2).
+    TourT12Title { en: "Holds and automation", de: "Halten und Automatik" },
+    /// Tour step T12's words (TOURS.md §2).
+    TourT12Body {
+        en: "F6 lets the stack resolve, F7 stops asking this turn. Both cancel themselves as soon as something new happens, and stand visibly in the bar with their way out: the same key again. Only what you switch on under Settings › Gameplay stays automatic — none of it is on by default.",
+        de: "F6 lässt den Stapel abarbeiten, F7 fragt diesen Zug nicht mehr. Beides hebt sich selbst auf, sobald etwas Neues passiert, und steht sichtbar in der Leiste mit seinem Ausweg: dieselbe Taste noch einmal. Dauerhaft automatisch ist nur, was du unter Einstellungen › Spiel einschaltest — nichts davon ist ab Werk an.",
+    },
+    /// Tour step T13's title (TOURS.md §2).
+    TourT13Title { en: "The decision sheet", de: "Der Entscheidungsbogen" },
+    /// Tour step T13's words (TOURS.md §2).
+    TourT13Body {
+        en: "A question with choices opens the sheet out of the bar: the question and the source's picture at the top (hover shows it large), the bar's answers with their keys at the bottom. What may be chosen lights up on the table. It never closes by itself.",
+        de: "Eine Frage mit Auswahl öffnet den Bogen aus der Leiste heraus: oben die Frage und das Bild der Quelle (Hover zeigt es groß), unten die Antworten der Leiste mit ihren Tasten. Was gewählt werden darf, leuchtet auf dem Tisch. Er schließt nie von selbst.",
+    },
+    /// Tour step T14's title (TOURS.md §2).
+    TourT14Title { en: "Folding", de: "Falten" },
+    /// Tour step T14's words (TOURS.md §2).
+    TourT14Body {
+        en: "The sheet covers the table: X or the control in its head folds it to the pill at the right edge. The table under it is then whole and every target clickable; the pill or X brings it back; the question stands. Try it: fold and restore.",
+        de: "Der Bogen verdeckt den Tisch: X oder der Knopf im Kopf faltet ihn zur Pille am rechten Rand. Der Tisch darunter ist dann ganz da und jedes Ziel klickbar; Pille oder X holt ihn zurück, die Frage bleibt. Probier es: falten und zurück.",
+    },
+    /// Tour step T15's title (TOURS.md §2).
+    TourT15Title { en: "Other questions", de: "Andere Fragen" },
+    /// Tour step T15's words (TOURS.md §2).
+    TourT15Body {
+        en: "A colour is a pip, not a word. A number is typed or stepped: digits, arrows, Backspace. A creature type shows your deck's types first, then letter groups, then everything; typing filters. A card name is the same box over the whole pool.",
+        de: "Eine Farbe ist ein Pip, kein Wort. Eine Zahl tippst du oder steppst sie: Ziffern, Pfeile, Rücktaste. Ein Kreaturentyp zeigt zuerst die Typen deines Decks, dann Buchstabengruppen, dann alles; tippen filtert. Ein Kartenname ist dieselbe Box über dem ganzen Pool.",
+    },
+    /// Tour step T16's title (TOURS.md §2).
+    TourT16Title { en: "The phases bar", de: "Die Phasenleiste" },
+    /// Tour step T16's words (TOURS.md §2).
+    TourT16Body {
+        en: "The twelve steps stand on each mat's edge; the current one is lit. Green: ask me here; red: pass here. Nothing is red by default. A click toggles, Shift+W/S walk them; two presets under Settings › Gameplay — Stop everywhere, Competitive stops. Your own attack and block steps can never go red.",
+        de: "Die zwölf Schritte stehen an der Kante jeder Matte, der aktuelle leuchtet. Grün: hier fragen; Rot: hier passen — ab Werk ist nichts rot. Klick schaltet, Shift+W/S wandern; Vorlagen unter Einstellungen › Spiel: Überall anhalten, Turnier-Stops. Deine eigenen Angriffs- und Blockschritte werden nie rot.",
+    },
+    /// Tour step T17's title (TOURS.md §2).
+    TourT17Title { en: "Passing", de: "Passen" },
+    /// Tour step T17's words (TOURS.md §2).
+    TourT17Body {
+        en: "Space passes; Tab runs to the next phase, Shift+Tab to the next turn — every question in between stays yours. With a possible attacker, Space does not say \"no attackers\": that is O. At a gateway your clock stands in the button: red and sounding from 60 s; when it runs out, it presses it.",
+        de: "Leertaste passt; Tab läuft bis zur nächsten Phase, Shift+Tab bis zum nächsten Zug — jede Frage dazwischen bleibt deine. Mit einem möglichen Angreifer sagt Leertaste nicht „keine Angreifer\": das ist O. Am Gateway steht deine Uhr im Button: ab 60 s rot und mit Ton; läuft sie aus, drückt sie ihn.",
+    },
+    /// Tour step T18's title (TOURS.md §2).
+    TourT18Title { en: "Attacking and blocking", de: "Angreifen und blocken" },
+    /// Tour step T18's words (TOURS.md §2).
+    TourT18Body {
+        en: "A click on a creature declares it against the focused defender; another click takes it back; C and Shift+C pick the defender where there are several. Attack, Block or None sends. For your combat questions the camera comes home by itself.",
+        de: "Ein Klick auf eine Kreatur erklärt sie gegen das Ziel im Fokus, noch ein Klick nimmt es zurück; C und Shift+C wählen das Ziel, wo es mehrere gibt. Angriff, Block oder Keine senden. Bei deinen Kampffragen kommt die Kamera von selbst nach Hause.",
+    },
+    /// Tour step T19's title (TOURS.md §2).
+    TourT19Title { en: "The dial", de: "Das Zifferblatt" },
+    /// Tour step T19's words (TOURS.md §2).
+    TourT19Body {
+        en: "The turn number in the middle; one jewel per seat on the rim, in its colour. The long pale hand: whose turn; the short blue one: whom the table waits for. Before turn 1 everyone still deciding wears an arc. When the blue hand reaches you the hub pulses and you hear it — menu › Priority sound.",
+        de: "In der Mitte die Zugzahl; am Rand ein Juwel je Sitz in dessen Farbe. Der lange helle Zeiger: wer am Zug ist; der kurze blaue: auf wen der Tisch wartet. Vor Zug 1 tragen stattdessen alle noch Entscheidenden einen Bogen. Kommt der blaue Zeiger zu dir, pulst die Nabe und du hörst es — Menü › Prioritätston.",
+    },
+    /// Tour step T20's title (TOURS.md §2).
+    TourT20Title { en: "Plates and chips", de: "Schilder und Chips" },
+    /// Tour step T20's words (TOURS.md §2).
+    TourT20Body {
+        en: "Every mat carries its plate: a crown for the monarch, a mark for house or away, name, life; hand, library, poison, commander damage; mana pips while mana floats. Its top-edge line: pale on turn, blue waited for. Bottom-left the same as chips with ☀ and ⌛; at a gateway the clock sits beside it.",
+        de: "Jede Matte trägt ihr Schild: Krone für den Monarchen, Marke für Haus oder abwesend, Name, Leben; Hand, Bibliothek, Gift, Commander-Schaden; Mana-Pips, solange Mana schwimmt. Linie an der Oberkante: hell am Zug, blau gewartet. Unten links dasselbe als Chips mit ☀ und ⌛; am Gateway die Uhr neben dem Schild.",
+    },
+    /// Tour step T21's title (TOURS.md §2).
+    TourT21Title { en: "The arrangement", de: "Die Anordnung" },
+    /// Tour step T21's words (TOURS.md §2).
+    TourT21Body {
+        en: "Top-left, the arrangement: Ring (default), Upright ring, Turntable, Arc rail, Pods, Spotlight, Turntable with rows, Focus ring. P opens the list, Shift+P takes the next; the tick remembers it for this seat count on this device. A duel has only one. Try it: Shift+P, then again.",
+        de: "Oben links die Anordnung: Ring (Standard), Aufrechter Ring, Drehteller, Bogen, Pods, Spotlight, Drehteller mit Reihen, Fokusring. P öffnet die Liste, Shift+P nimmt die nächste; das Häkchen merkt sie für diese Sitzzahl auf diesem Gerät. Im Duell gibt es nur eine. Probier es: Shift+P, dann wieder.",
+    },
+    /// Tour step T22's title (TOURS.md §2).
+    TourT22Title { en: "Visiting a seat", de: "Einen Sitz besuchen" },
+    /// Tour step T22's words (TOURS.md §2).
+    TourT22Body {
+        en: "A chip bottom-left or F swings the camera behind that seat: its board stands upright at duel size; nothing on the table moves. Shift+F the previous one; H, Esc or your own chip goes home. Targeting works while visiting. Try it: F, then H.",
+        de: "Ein Chip unten links oder F schwenkt die Kamera hinter diesen Sitz: sein Brett steht aufrecht in Duellgröße, nichts bewegt sich auf dem Tisch. Shift+F der vorige, H, Esc oder dein eigener Chip nach Hause. Zielen geht auch im Besuch. Probier es: F, dann H.",
+    },
+    /// Tour step T23's title (TOURS.md §2).
+    TourT23Title { en: "Following the turn", de: "Dem Zug folgen" },
+    /// Tour step T23's words (TOURS.md §2).
+    TourT23Body {
+        en: "The camera follows only your turn and your combat questions by itself. Table follows the turn under Settings › Graphics makes it follow the active seat — never while a question is open for you, and never under your pointer.",
+        de: "Die Kamera folgt von allein nur deinem Zug und deinen Kampffragen. Tisch folgt dem Zug unter Einstellungen › Grafik lässt sie dem aktiven Sitz nachgehen — nie, solange eine Frage an dich offen ist, und nie unter deinem Zeiger.",
+    },
+    /// Tour step T24's title (TOURS.md §2).
+    TourT24Title { en: "On a phone", de: "Auf dem Telefon" },
+    /// Tour step T24's words (TOURS.md §2).
+    TourT24Body {
+        en: "At home a phone shows your mat and the dial's hub; the other seats are reached by visiting through the chips — there the board stands alone and the chips carry ☀ and ⌛. The arrangement is in the menu.",
+        de: "Das Telefon zeigt zu Hause deine Matte und die Nabe der Uhr; die anderen Sitze erreichst du per Besuch über die Chips — dort ist das Brett allein im Bild und die Chips tragen ☀ und ⌛. Die Anordnung steht im Menü.",
+    },
+    /// Tour step T25's title (TOURS.md §2).
+    TourT25Title { en: "Reveals", de: "Aufdecken" },
+    /// Tour step T25's words (TOURS.md §2).
+    TourT25Body {
+        en: "When another seat reveals, the cards stand large in a sheet: \"Bo reveals\", the cards, Close. Hover shows each large; folding goes to the pill at the top; Esc or a click closes it. It stays a few seconds and does not leave because you pass.",
+        de: "Deckt ein anderer Sitz Karten auf, stehen sie groß in einem Bogen: „Bo deckt auf\", die Karten, Schließen. Hover zeigt jede groß; falten geht zur Pille oben; Esc oder ein Klick schließt. Er bleibt einige Sekunden und geht nicht, weil du passt.",
+    },
+    /// Tour step T26's title (TOURS.md §2).
+    TourT26Title { en: "The game log", de: "Das Spiel-Log" },
+    /// Tour step T26's words (TOURS.md §2).
+    TourT26Body {
+        en: "L or the scroll opens the log at the right: time, players in bold, a card as a [link] that opens the preview — a card you were not shown is never a link. It follows the newest line until you scroll up. At the end the whole log stands on the verdict sheet. Try it: L.",
+        de: "L oder die Schriftrolle öffnet das Log rechts: Zeit, Spieler fett, eine Karte als [Link], der die Vorschau öffnet — eine Karte, die du nicht sehen durftest, ist nie ein Link. Es folgt der neuesten Zeile, bis du hochscrollst. Am Ende steht das ganze Log auf dem Ergebnisbogen. Probier es: L.",
+    },
+    /// Tour step T27's title (TOURS.md §2).
+    TourT27Title { en: "The zones", de: "Die Zonen" },
+    /// Tour step T27's words (TOURS.md §2).
+    TourT27Body {
+        en: "G, the zones door or a tap on a pile opens the zone dialog: graveyards, exile, the stack; its search field understands the builder's syntax. Its place and size are remembered. A question about a pile opens it centred as a sheet — Space ticks, Enter sends.",
+        de: "G, die Zonen-Tür oder ein Tipp auf einen Stapel öffnet den Zonen-Dialog: Friedhöfe, Exil, der Stapel; das Suchfeld versteht dieselbe Syntax wie der Deckbauer. Ziehen und Größe bleiben gemerkt. Eine Frage über einen Stapel öffnet ihn mittig als Blatt — Leertaste hakt, Enter sendet.",
+    },
+    /// Tour step T28's title (TOURS.md §2).
+    TourT28Title { en: "Every key", de: "Alle Tasten" },
+    /// Tour step T28's words (TOURS.md §2).
+    TourT28Body {
+        en: "? lists every key live at the table, read-only; F8 reports, Ctrl/Cmd with = − 0 steps the text size. Every key is rebindable under Settings › Controls and follows your account. With WASD and E you play without a mouse at all.",
+        de: "? listet am Tisch jede Taste, die gerade gilt, nur zum Lesen; F8 meldet, Strg/Cmd mit = − 0 stuft die Schrift. Jede Taste ist unter Einstellungen › Steuerung neu belegbar und folgt deinem Konto. Mit WASD und E spielst du ganz ohne Maus.",
+    },
+    /// Tour step T29's title (TOURS.md §2).
+    TourT29Title { en: "The menu", de: "Das Menü" },
+    /// Tour step T29's words (TOURS.md §2).
+    TourT29Body {
+        en: "The menu bottom-right: Offer a draw, Concede, Arrangement, Priority sound, Music, Report a problem, Tour. There are no further settings at the table — the rest waits in the lobby.",
+        de: "Das Menü rechts unten: Remis anbieten, Aufgeben, Anordnung, Prioritätston, Musik, Problem melden, Tour. Mehr Einstellungen gibt es am Tisch nicht — der Rest wartet in der Lobby.",
+    },
+    /// Tour step T30's title (TOURS.md §2).
+    TourT30Title { en: "Conceding and the end", de: "Aufgeben und Ende" },
+    /// Tour step T30's words (TOURS.md §2).
+    TourT30Body {
+        en: "Concede opens a sheet: Enter is Back; Concede takes → and Enter, or a click. The end is a sheet with the verdict, each seat's reason and the whole log; Play again at a gateway, Back to the lobby offline, Esc always to the lobby.",
+        de: "Aufgeben öffnet einen Bogen: Enter ist Zurück, Aufgeben braucht → und Enter oder den Klick. Das Ende ist ein Bogen mit Urteil, dem Grund je Sitz und dem ganzen Log; Nochmal spielen am Gateway, Zurück zur Lobby offline, Esc immer zur Lobby.",
+    },
+    /// Tour step T31's title (TOURS.md §2).
+    TourT31Title { en: "The corner", de: "Die Ecke" },
+    /// Tour step T31's words (TOURS.md §2).
+    TourT31Body {
+        en: "The corner top-right, F8 or menu › Report a problem: a form over the table. The kind — Bug, Improvement, Feedback, Other — and your text. Always sent: your text and this client's version. Everything else only when ticked. Try it: open it.",
+        de: "Oben rechts die Ecke, F8 oder Menü › Problem melden: ein Formular über dem Tisch. Art — Fehler, Vorschlag, Feedback, Sonstiges — und dein Text. Immer gesendet: dein Text und die Version. Alles andere nur mit Haken. Probier es: öffne es.",
+    },
+    /// Tour step T32's title (TOURS.md §2).
+    TourT32Title { en: "Attachments, replay", de: "Anhänge, Aufzeichnung" },
+    /// Tour step T32's words (TOURS.md §2).
+    TourT32Body {
+        en: "Every row is a consent, remembered on this device: system, the table as you see it (nothing hidden from you), your log (other names replaced), settings (no keys), screenshot (can show names). The house game's record is offered unticked every time. Show what is sent shows the exact body.",
+        de: "Jede Zeile ist eine Einwilligung, auf diesem Gerät gemerkt: System, der Tisch wie du ihn siehst (nichts Verborgenes), dein Log (fremde Namen ersetzt), Einstellungen (keine Schlüssel), Screenshot (kann Namen zeigen). Die Aufzeichnung des Hausspiels wird jedes Mal unangehakt angeboten. Was gesendet wird zeigt alles.",
+    },
+    /// Tour step T33's title (TOURS.md §2).
+    TourT33Title { en: "Where it goes", de: "Wohin" },
+    /// Tour step T33's words (TOURS.md §2).
+    TourT33Body {
+        en: "It goes to the gateway you are signed in to; signed in nowhere, to the build's feedback service; otherwise there is no Send, only Copy. With a record a confirmation sheet asks once more. At a gateway your clock keeps running meanwhile — report after the question.",
+        de: "Es geht an das Gateway, bei dem du angemeldet bist; ohne Anmeldung an den Feedback-Dienst des Builds; sonst gibt es kein Senden, nur Kopieren. Mit Aufzeichnung fragt ein Bestätigungsblatt noch einmal. Am Gateway läuft deine Uhr derweil weiter — melde nach der Frage.",
+    },
+    /// Tour step T34's title (TOURS.md §2).
+    TourT34Title { en: "Done", de: "Fertig" },
+    /// Tour step T34's words (TOURS.md §2).
+    TourT34Body {
+        en: "That was the table. Repeat a chapter: menu › Tour, in any house game. Tours off or on again: Settings › Display & Interface › Tours. Have fun.",
+        de: "Das war der Tisch. Kapitel wiederholen: Menü › Tour, in jedem Hausspiel. Touren aus- oder wieder einschalten: Einstellungen › Anzeige › Touren. Viel Spaß.",
+    },
+
     /// A toast's action that opens more.
     ShellDetails { en: "Details", de: "Details" },
     /// A deck tile's primary.

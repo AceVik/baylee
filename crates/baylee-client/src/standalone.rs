@@ -26,6 +26,7 @@ use crate::{
 use bevy::prelude::*;
 
 /// Builds the app and runs it. Returns when the window closes.
+#[allow(clippy::too_many_lines)] // the app's assembly, in start-up order
 pub fn run() {
     // First, before anything reads a setting: this is a player's client and
     // may use their files. A test never comes through here, so a test never
