@@ -89,18 +89,38 @@ export interface Since {
   last_30d: number;
 }
 
+/** One UTC day of the overview's series. */
+export interface Day {
+  day: string;
+  registered: number;
+  guests: number;
+  started: number;
+  finished: number;
+  players: number;
+}
+
 /** `GET /ui/api/admin/stats`: a gateway's numbers, counts only. */
 export interface Stats {
   at: string;
-  gateway: { name: string | null; version: string; registration: string };
+  gateway: {
+    name: string | null;
+    version: string;
+    registration: string;
+    commit?: string;
+    built_at?: string;
+    uptime_secs?: number;
+    terms?: boolean;
+    mail?: boolean;
+  };
   accounts: {
     registered: number;
     with_email: number;
     confirmed_email: number;
     admitted_by_key: number;
     created: Since;
+    decks?: number;
   };
-  guests: { enabled: boolean; live: number; cap: number | null };
+  guests: { enabled: boolean; live: number; cap: number | null; created?: Since };
   online: {
     players: number;
     in_lobby: number;
@@ -117,6 +137,8 @@ export interface Stats {
     started: Since;
     finished: number;
     finished_since: Since;
+    record_bytes?: number;
+    avg_secs_30d?: number;
   };
   agents: { connected: number; local: number; capacity: number | null; games: number };
   invites: {
@@ -128,6 +150,165 @@ export interface Stats {
     uses_left: number;
     admitted: number;
   };
+  daily?: Day[];
+}
+
+/** Someone online now, as the gateway's memory says. */
+export interface OnlinePlayer {
+  id: string;
+  handle: string | null;
+  guest: boolean | null;
+  in_lobby: boolean;
+  /** The running game they sit in. */
+  playing: string | null;
+  /** The waiting room they sit in. */
+  waiting: string | null;
+}
+
+export interface LiveSeat {
+  seat: number;
+  kind: "human" | "ai";
+  ai: string | null;
+  account_id: string | null;
+  player: string | null;
+  guest: boolean | null;
+  bridge: string | null;
+  bridged_by: string | null;
+  deck: string;
+  format: string | null;
+  ready: boolean;
+  team: number | null;
+}
+
+export interface LiveTable {
+  id: string;
+  name: string;
+  state: "waiting" | "playing";
+  host: string | null;
+  host_id: string | null;
+  created_at: string;
+  locked: boolean;
+  rematch: boolean;
+  decide_secs: number;
+  engine: boolean;
+  engine_local: boolean;
+  agent: string | null;
+  seats: LiveSeat[];
+}
+
+export interface LiveAgent {
+  id: string;
+  name: string;
+  local: boolean;
+  capacity: number;
+  games: number;
+}
+
+/** `GET /ui/api/admin/live`. */
+export interface Live {
+  at: string;
+  players: OnlinePlayer[];
+  tables: LiveTable[];
+  agents: LiveAgent[];
+}
+
+export const ACCOUNT_KINDS = ["all", "registered", "guest"] as const;
+export type AccountKind = (typeof ACCOUNT_KINDS)[number];
+export const ACCOUNT_SORTS = ["newest", "oldest", "name", "games", "active"] as const;
+export type AccountSort = (typeof ACCOUNT_SORTS)[number];
+
+/** One account as the console lists it: never a secret or an address. */
+export interface AccountRow {
+  id: string;
+  username: string | null;
+  display_name: string;
+  tag: number;
+  handle: string;
+  guest: boolean;
+  created_at: string;
+  has_email: boolean;
+  confirmed: boolean;
+  lang: string;
+  by_key: boolean;
+  key_note: string | null;
+  terms_version: string | null;
+  decks: number;
+  games: number;
+  sessions: number;
+  active_at: string | null;
+  in_lobby: boolean;
+  playing: boolean;
+  online: boolean;
+}
+
+export interface AccountPage {
+  total: number;
+  online: number;
+  accounts: AccountRow[];
+}
+
+export interface AccountFilter {
+  q?: string;
+  kind?: AccountKind;
+  sort?: AccountSort;
+  online?: boolean;
+  offset?: number;
+}
+
+export const ACCOUNT_PAGE = 50;
+
+export interface AccountDeck {
+  id: string;
+  name: string;
+  format: string;
+  cards: number;
+  version: number;
+  updated_at: string;
+}
+
+export interface AccountGame {
+  game_id: string;
+  started_at: string;
+  ended_at: string | null;
+  complete: boolean;
+  seat: number;
+  chairs: { seat: number; player: string | null; guest: boolean | null }[];
+}
+
+export interface AccountDetail extends Omit<AccountRow, "playing"> {
+  terms_accepted_at: string | null;
+  confirmed_at: string | null;
+  deck_list: AccountDeck[];
+  recent_games: AccountGame[];
+  table: { id: string; name: string; state: "waiting" | "playing" } | null;
+}
+
+/** An account search as the query string carries it. */
+export function accountQuery(filter: AccountFilter): string {
+  const params = new URLSearchParams();
+  const q = filter.q?.trim();
+  if (q) params.set("q", q);
+  if (filter.kind && filter.kind !== "all") params.set("kind", filter.kind);
+  if (filter.sort && filter.sort !== "newest") params.set("sort", filter.sort);
+  if (filter.online) params.set("online", "true");
+  if (filter.offset !== undefined && filter.offset > 0) params.set("offset", String(filter.offset));
+  return params.toString();
+}
+
+/** An account search read back from a query string. */
+export function parseAccountFilter(search: string): AccountFilter {
+  const params = new URLSearchParams(search);
+  const filter: AccountFilter = {};
+  const q = params.get("q");
+  if (q) filter.q = q;
+  const kind = oneOf(ACCOUNT_KINDS, params.get("kind"));
+  if (kind) filter.kind = kind;
+  const sort = oneOf(ACCOUNT_SORTS, params.get("sort"));
+  if (sort) filter.sort = sort;
+  if (params.get("online") === "true") filter.online = true;
+  const offset = Number(params.get("offset"));
+  if (Number.isInteger(offset) && offset > 0) filter.offset = offset;
+  return filter;
 }
 
 export const INVITE_STATES = ["active", "used_up", "expired", "revoked"] as const;
@@ -324,6 +505,15 @@ export const api = {
   recordUrl: (id: string) => `/ui/api/reports/${encodeURIComponent(id)}/record`,
   admin: {
     stats: () => json<Stats>("GET", "/ui/api/admin/stats"),
+    live: () => json<Live>("GET", "/ui/api/admin/live"),
+    accounts: (filter: AccountFilter) => {
+      const query = accountQuery(filter);
+      return json<AccountPage>(
+        "GET",
+        `/ui/api/admin/accounts?limit=${ACCOUNT_PAGE}${query ? `&${query}` : ""}`,
+      );
+    },
+    account: (id: string) => json<AccountDetail>("GET", `/ui/api/admin/accounts/${encodeURIComponent(id)}`),
     invites: () => json<Invite[]>("GET", "/ui/api/admin/invites"),
     create: (order: InviteOrder) => json<MadeKeys>("POST", "/ui/api/admin/invites", order),
     revoke: async (id: string) => {

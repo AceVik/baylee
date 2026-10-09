@@ -103,11 +103,27 @@ reaches the built page.
   details, and no link back to the report (owner, 08.10.2026). The server
   holds no GitHub token. Deleting asks once more. Every change is in the
   report's history, under the admin's name.
-- Overview (`/admin`, shown when the service has a gateway's console,
-  `docs/feedback.md` §"The admin console"): the gateway's numbers, asked
-  again every 15 seconds while the page is visible and not while it is
-  hidden; closed-beta keys made (each shown once, with Copy, Copy all and,
-  where the browser can, Share), listed (never the key, which is kept only
-  as a hash) and revoked after a second question; the latest console
-  changes. In German when the browser asks for German, else English; the
-  rest of the UI is English only.
+- Admin (`/admin/…`, shown when the service has a gateway's console,
+  `docs/feedback.md` §"The admin console"), a sidebar on a wide screen and
+  a tab bar under the thumb on a phone:
+  - Overview (`/admin`): headline tiles (online, games running, accounts,
+    new today, games today, new reports), three 30-day bar charts (games,
+    players, new accounts and guests; hover, touch or arrow keys for a
+    day, and a table view), the open tables, and every count the gateway
+    keeps; asked again every 15 seconds while the page is visible and not
+    while it is hidden.
+  - Live (`/admin/live`): who is online and where, every waiting and
+    running table with its chairs, decks and readiness, and the agents;
+    every 5 seconds.
+  - Accounts (`/admin/accounts`): search by name, username or `#tag`,
+    registered or guests, online only, five orders, 50 a page, all in the
+    query string; a table on a desktop, cards on a phone. One account
+    (`/admin/accounts/{id}`): its facts, where it is now, its decks and
+    latest games.
+  - Beta keys (`/admin/keys`): made (each shown once, with Copy, Copy all
+    and, where the browser can, Share), listed and filtered by state
+    (never the key, which is kept only as a hash), revoked after a second
+    question; the latest console changes.
+
+  In German when the browser asks for German, else English; the rest of
+  the UI is English only.

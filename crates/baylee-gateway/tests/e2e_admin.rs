@@ -364,8 +364,8 @@ async fn accounts_and_tables_are_listed_by_handle_and_nothing_secret() {
         r#"{"display_name":"Visitor"}"#,
     );
     assert_eq!(status, 200, "{guest}");
-    let deck = format!(r#"{{"name":"Woods","cards":["40 Forest","20 Swamp"]}}"#);
-    let (status, body) = http(port, "POST", "/decks", Some(&alice), &deck);
+    let deck = r#"{"name":"Woods","cards":["40 Forest","20 Swamp"]}"#;
+    let (status, body) = http(port, "POST", "/decks", Some(&alice), deck);
     assert_eq!(status, 200, "{body}");
     let deck_id = common::json_field(&body, "deck_id").to_owned();
     let room = format!(r#"{{"deck_id":"{deck_id}","seats":2,"name":"Kitchen table"}}"#);
@@ -425,7 +425,7 @@ async fn accounts_and_tables_are_listed_by_handle_and_nothing_secret() {
     assert_eq!(status, 200, "{body}");
     let detail = json(&body);
     assert_eq!(detail["deck_list"][0]["name"], "Woods", "{detail}");
-    assert_eq!(detail["deck_list"][0]["cards"], 2, "{detail}");
+    assert_eq!(detail["deck_list"][0]["cards"], 60, "{detail}");
     assert_eq!(detail["table"]["id"], game_id.as_str(), "{detail}");
     assert_eq!(detail["table"]["state"], "waiting", "{detail}");
     assert!(!body.contains("Forest"), "no deck's cards: {body}");
@@ -439,7 +439,12 @@ async fn accounts_and_tables_are_listed_by_handle_and_nothing_secret() {
     let (status, _) = admin(&c, "GET", "/admin/accounts/nobody", "");
     assert_eq!(status, 400);
 
-    let (status, body) = admin(&c, "GET", "/admin/live", "");
+    live_and_days(&c, &game_id);
+}
+
+/// The live view and the days, with Alice's room open at `game_id`.
+fn live_and_days(c: &Console, game_id: &str) {
+    let (status, body) = admin(c, "GET", "/admin/live", "");
     assert_eq!(status, 200, "{body}");
     let live = json(&body);
     let table = &live["tables"][0];
@@ -452,10 +457,10 @@ async fn accounts_and_tables_are_listed_by_handle_and_nothing_secret() {
         "{live}"
     );
     assert_eq!(table["seats"].as_array().unwrap().len(), 2, "{live}");
-    assert_eq!(live["players"][0]["waiting"], game_id.as_str(), "{live}");
+    assert_eq!(live["players"][0]["waiting"], game_id, "{live}");
     assert_eq!(live["agents"].as_array().unwrap().len(), 1, "{live}");
 
-    let (_, body) = admin(&c, "GET", "/admin/stats", "");
+    let (_, body) = admin(c, "GET", "/admin/stats", "");
     let stats = json(&body);
     assert_eq!(stats["accounts"]["decks"], 1, "{stats}");
     assert_eq!(stats["guests"]["created"]["today_utc"], 1, "{stats}");

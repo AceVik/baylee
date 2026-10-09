@@ -186,7 +186,8 @@ pub struct Deck {
     pub name: String,
     /// Its format.
     pub format: String,
-    /// How many cards its main deck lists.
+    /// How many cards its main deck holds: each line's count (`40 Forest`),
+    /// a line without one counting once.
     pub cards: i64,
     /// How many versions it has had.
     pub version: i32,
@@ -456,7 +457,9 @@ pub async fn account(
         .query_all_raw(Statement::from_sql_and_values(
             backend,
             concat!(
-                "SELECT id, name, format, cardinality(cards)::bigint AS cards, version, ",
+                "SELECT id, name, format, \
+                 (SELECT coalesce(sum(coalesce(substring(c FROM '^\\s*(\\d+)')::bigint, 1)), 0) \
+                    FROM unnest(cards) AS c)::bigint AS cards, version, ",
                 iso!("updated_at"),
                 " AS updated_at FROM deck WHERE account_id = $1 \
                  ORDER BY updated_at DESC, id DESC"
