@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1322">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#eef2f8">
+<meta name="description" content="Baylee is a free, open-source rules engine and 3D table for playing Magic: The Gathering with friends or against the house AI. Closed beta. Unofficial fan content.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Baylee – a table that knows the rules">
+<meta property="og:description" content="A free, open-source rules engine and 3D table for playing Magic: The Gathering with friends or against the house AI. Closed beta.">
+<meta property="og:url" content="https://baylee.acevik.de/">
+<meta property="og:image" content="https://baylee.acevik.de/site/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<title>Baylee – a table that knows the rules</title>
+<link rel="icon" href="/site/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="preload" href="/site/fonts/Faustina.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/site/fonts/AlegreyaSans-Medium.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site/site.css">
+<script src="/site/site.js" defer></script>
+</head>
+<body>
+
+<a class="skip" href="#main"><span class="en">Skip to content</span><span class="de" lang="de">Zum Inhalt springen</span></a>
+
+<header class="top">
+  <div class="top-inner">
+    <a class="brand" href="#top" aria-label="Baylee">
+      <img src="/site/img/baylee-logo.webp" width="800" height="336" alt="Baylee" fetchpriority="high">
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#about"><span class="en">What it is</span><span class="de" lang="de">Was es ist</span></a>
+      <a href="#cards"><span class="en">Cards</span><span class="de" lang="de">Karten</span></a>
+      <a href="#download"><span class="en">Download</span><span class="de" lang="de">Download</span></a>
+      <a href="#beta"><span class="en">Beta</span><span class="de" lang="de">Beta</span></a>
+      <a href="#selfhost"><span class="en">Self-hosting</span><span class="de" lang="de">Selbst hosten</span></a>
+      <a href="#source"><span class="en">Source</span><span class="de" lang="de">Quellcode</span></a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language / Sprache">
+      <button type="button" class="lang-btn" data-lang="en" lang="en" aria-pressed="false">English</button>
+      <button type="button" class="lang-btn" data-lang="de" lang="de" aria-pressed="false">Deutsch</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============================================================ hero -->
+<section class="hero" id="top">
+  <div class="sky" aria-hidden="true">
+    <div class="sky-painting"></div>
+    <div class="sky-veil"></div>
+    <div class="sky-light"></div>
+  </div>
+  <div class="hero-inner">
+    <p class="kicker">
+      <span class="en">Closed beta · free · open source · unofficial fan content</span>
+      <span class="de" lang="de">Geschlossene Beta · kostenlos · quelloffen · inoffizieller Fan-Content</span>
+    </p>
+    <h1 class="en">A table that knows the rules.</h1>
+    <h1 class="de" lang="de">Ein Tisch, der die Regeln kennt.</h1>
+    <p class="lead en">Baylee is a rules engine and a 3D table for playing Magic: The Gathering with friends or against the house AI. The engine enforces the Comprehensive Rules, so nobody has to. Free, open source under the AGPL, and it stays that way.</p>
+    <p class="lead de" lang="de">Baylee ist eine Regel-Engine und ein 3D-Spieltisch für Magic: The Gathering – mit Freunden oder gegen die Haus-KI. Die Engine setzt die Comprehensive Rules durch, damit es niemand am Tisch tun muss. Kostenlos, quelloffen unter der AGPL, und das bleibt so.</p>
+
+    <div class="dl" id="dl-primary" aria-live="polite">
+      <!-- site.js fills this from the GitHub release; what stands here is the no-JS and no-API fallback -->
+      <a class="button button-big" href="https://github.com/AceVik/baylee/releases/latest" rel="noopener">
+        <svg class="button-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M12 3v11.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4 3.6 3.6V3h2zM4 19h16v2H4z" fill="currentColor"/></svg>
+        <span class="en">Download Baylee</span><span class="de" lang="de">Baylee herunterladen</span>
+      </a>
+      <p class="dl-meta">
+        <span class="en">Windows · macOS (Apple silicon) · Linux. The latest release is on GitHub.</span>
+        <span class="de" lang="de">Windows · macOS (Apple Silicon) · Linux. Die neueste Version liegt auf GitHub.</span>
+      </p>
+    </div>
+    <p class="hero-note">
+      <span class="en">Plays offline against the house AI without an account. Online play on the Sanctuary gateway is a closed beta and needs a key.</span>
+      <span class="de" lang="de">Offline gegen die Haus-KI geht ohne Konto. Online auf dem Sanctuary-Gateway ist eine geschlossene Beta und braucht einen Schlüssel.</span>
+    </p>
+  </div>
+</section>
+
+<!-- ============================================================ status strip -->
+<section class="strip" aria-label="Project status">
+  <div class="strip-inner">
+    <div class="stat" id="stat-release">
+      <span class="stat-label"><span class="en">Latest build</span><span class="de" lang="de">Neueste Version</span></span>
+      <span class="stat-value"><a href="https://github.com/AceVik/baylee/releases" rel="noopener"><span class="en">see releases</span><span class="de" lang="de">siehe Releases</span></a></span>
+    </div>
+    <div class="stat" id="stat-ci">
+      <span class="stat-label"><span class="en">CI on main</span><span class="de" lang="de">CI auf main</span></span>
+      <span class="stat-value"><a href="https://github.com/AceVik/baylee/actions/workflows/ci.yml" rel="noopener"><span class="en">see on GitHub</span><span class="de" lang="de">auf GitHub ansehen</span></a></span>
+    </div>
+    <div class="stat" id="stat-commit">
+      <span class="stat-label"><span class="en">Last commit</span><span class="de" lang="de">Letzter Commit</span></span>
+      <span class="stat-value"><a href="https://github.com/AceVik/baylee/commits/main" rel="noopener"><span class="en">see on GitHub</span><span class="de" lang="de">auf GitHub ansehen</span></a></span>
+    </div>
+    <div class="stat" id="stat-gateway">
+      <span class="stat-label"><span class="en">Sanctuary gateway</span><span class="de" lang="de">Sanctuary-Gateway</span></span>
+      <span class="stat-value"><span class="en">closed beta</span><span class="de" lang="de">geschlossene Beta</span></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ about -->
+<section class="section" id="about">
+  <div class="section-inner">
+    <h2 class="en">Two halves, one game</h2>
+    <h2 class="de" lang="de">Zwei Hälften, ein Spiel</h2>
+    <div class="two-col">
+      <div>
+        <h3 class="en">An engine that enforces the game</h3>
+        <h3 class="de" lang="de">Eine Engine, die das Spiel durchsetzt</h3>
+        <p class="en">Priority and the stack, the layer system, replacement effects, triggers, state-based actions and combat: the engine applies the Comprehensive Rules and lists, at every step, exactly the choices a player has. The client offers those and nothing else. It never decides what is legal.</p>
+        <p class="de" lang="de">Priorität und Stapel, das Schichtensystem, Ersetzungseffekte, Trigger, zustandsbasierte Aktionen und Kampf: Die Engine wendet die Comprehensive Rules an und zählt bei jedem Schritt genau die Entscheidungen auf, die ein Spieler hat. Der Client bietet genau diese an und sonst nichts. Er entscheidet nie, was erlaubt ist.</p>
+        <p class="en">It is deterministic: a seeded random-number generator, no clock and no hash-map order in the rules, so the same game with the same answers always ends the same way. Every hosted game is recorded move by move and can be replayed to the same state, which is also what a bug report carries.</p>
+        <p class="de" lang="de">Sie ist deterministisch: ein geseedeter Zufallsgenerator, keine Uhr und keine Hash-Map-Reihenfolge in den Regeln. Dasselbe Spiel mit denselben Antworten endet immer gleich. Jedes gehostete Spiel wird Zug für Zug aufgezeichnet und lässt sich auf denselben Zustand zurückspielen – das ist auch, was eine Fehlermeldung mitbringt.</p>
+      </div>
+      <div>
+        <h3 class="en">A 3D table built with Bevy</h3>
+        <h3 class="de" lang="de">Ein 3D-Tisch auf Bevy</h3>
+        <p class="en">Battlefield, hands, stack and graveyards on a table you can read at a glance, plus a lobby for accounts, decks and rooms. Card images come from Scryfall while you play; a text view draws every card from its rules text instead, and <kbd>T</kbd> switches between the two.</p>
+        <p class="de" lang="de">Schlachtfeld, Hände, Stapel und Friedhöfe auf einem Tisch, den man auf einen Blick lesen kann, dazu eine Lobby für Konten, Decks und Räume. Die Kartenbilder kommen beim Spielen von Scryfall; eine Textansicht zeichnet jede Karte stattdessen aus ihrem Regeltext, und <kbd>T</kbd> schaltet um.</p>
+        <p class="en">You can play with the mouse or entirely from the keyboard: <kbd>Space</kbd> passes, <kbd>Tab</kbd> fast-forwards to the next phase while every decision stays yours, <kbd>L</kbd> opens a game log that reads like a chat. Every key can be rebound.</p>
+        <p class="de" lang="de">Mit der Maus oder ganz über die Tastatur: <kbd>Leertaste</kbd> passt, <kbd>Tab</kbd> spult zur nächsten Phase vor, wobei jede Entscheidung bei dir bleibt, <kbd>L</kbd> öffnet ein Spielprotokoll, das sich wie ein Chat liest. Jede Taste lässt sich umbelegen.</p>
+      </div>
+    </div>
+
+    <ul class="features">
+      <li>
+        <h3 class="en">Hidden information stays hidden</h3>
+        <h3 class="de" lang="de">Verdeckte Information bleibt verdeckt</h3>
+        <p class="en">Your client is sent only what you may see. Libraries and other hands arrive as counts, a face-down card carries no identity. A modified client cannot peek, because the data never reaches it.</p>
+        <p class="de" lang="de">Dein Client bekommt nur, was du sehen darfst. Bibliotheken und fremde Hände kommen als Zahlen an, eine verdeckte Karte trägt keine Identität. Ein manipulierter Client kann nicht spicken, weil die Daten ihn nie erreichen.</p>
+      </li>
+      <li>
+        <h3 class="en">Two to eight seats</h3>
+        <h3 class="de" lang="de">Zwei bis acht Plätze</h3>
+        <p class="en">Duels, free-for-all and team tables. The host puts chairs on sides, and the sides need not be even. Teams keep separate turns and life totals; teammates can choose to show each other their hands.</p>
+        <p class="de" lang="de">Duelle, Jeder-gegen-jeden und Teamtische. Der Gastgeber verteilt die Stühle auf Seiten, und die Seiten müssen nicht gleich groß sein. Teams haben eigene Züge und Lebenspunkte; Teamkollegen können sich gegenseitig die Hand zeigen.</p>
+      </li>
+      <li>
+        <h3 class="en">Commander and freeform</h3>
+        <h3 class="de" lang="de">Commander und Freiform</h3>
+        <p class="en">A deck that names a commander plays Commander; any other deck plays freeform. Banlists and format-legality checks do not exist yet. That is a gap, not a feature.</p>
+        <p class="de" lang="de">Ein Deck mit Commander spielt Commander, jedes andere spielt frei. Banlisten und Formatprüfungen gibt es noch nicht. Das ist eine Lücke, kein Feature.</p>
+      </li>
+      <li>
+        <h3 class="en">A house AI at five levels</h3>
+        <h3 class="de" lang="de">Eine Haus-KI in fünf Stufen</h3>
+        <p class="en">Novice, casual, steady, sharp and expert. It plays from the same view a human gets, so it cannot see your hand either.</p>
+        <p class="de" lang="de">Novice, casual, steady, sharp und expert. Sie spielt aus derselben Sicht wie ein Mensch und sieht deine Hand genauso wenig.</p>
+      </li>
+      <li>
+        <h3 class="en">One process per game</h3>
+        <h3 class="de" lang="de">Ein Prozess pro Spiel</h3>
+        <p class="en">Each game runs in its own engine process. The gateway that handles accounts and rooms runs no rules at all, so one broken game is one broken game.</p>
+        <p class="de" lang="de">Jedes Spiel läuft in einem eigenen Engine-Prozess. Das Gateway für Konten und Räume kennt keine Regeln, also ist ein kaputtes Spiel genau ein kaputtes Spiel.</p>
+      </li>
+      <li>
+        <h3 class="en">Card text in 19 languages</h3>
+        <h3 class="de" lang="de">Kartentext in 19 Sprachen</h3>
+        <p class="en">When the gateway carries the card catalog, cards read in your language with English as the fallback. The interface itself is in English and German.</p>
+        <p class="de" lang="de">Hat das Gateway den Kartenkatalog, lesen sich Karten in deiner Sprache, Englisch als Rückfall. Die Oberfläche selbst gibt es auf Englisch und Deutsch.</p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ screenshots -->
+<section class="section section-alt" id="screens">
+  <div class="section-inner">
+    <h2 class="en">What it looks like</h2>
+    <h2 class="de" lang="de">So sieht es aus</h2>
+    <p class="section-lead en">These pictures show the text view, which draws each card from its rules text rather than the printed card image, because we do not redistribute Scryfall's scans. In the game you see the real card images. The screenshots were taken with 0.1.0-beta.2 on a local test gateway with made-up players; the current build looks a little different.</p>
+    <p class="section-lead de" lang="de">Die Bilder zeigen die Textansicht, die jede Karte aus ihrem Regeltext zeichnet statt aus dem gedruckten Kartenbild, weil wir Scryfalls Scans nicht weiterverbreiten. Im Spiel siehst du die echten Kartenbilder. Die Aufnahmen entstanden mit 0.1.0-beta.2 auf einem lokalen Test-Gateway mit erfundenen Spielern; die aktuelle Version sieht etwas anders aus.</p>
+    <ul class="shots">
+      <li><figure>
+        <img src="/site/img/shot-table-duel.webp" width="1200" height="703" loading="lazy" alt="A duel against the house AI; a hovered card is shown large in the text view">
+        <figcaption><span class="en"><b>A duel</b> against the house AI. Hovering a card shows it large.</span><span class="de" lang="de"><b>Ein Duell</b> gegen die Haus-KI. Eine Karte unter dem Zeiger wird groß gezeigt.</span></figcaption></figure>
+      </li>
+      <li><figure>
+        <img src="/site/img/shot-game-log.webp" width="1200" height="703" loading="lazy" alt="The game log beside the table, each card name a link">
+        <figcaption><span class="en"><b>The game log</b> (<kbd>L</kbd>) reads like a chat; every card name opens its preview.</span><span class="de" lang="de"><b>Das Spielprotokoll</b> (<kbd>L</kbd>) liest sich wie ein Chat; jeder Kartenname öffnet die Vorschau.</span></figcaption></figure>
+      </li>
+      <li><figure>
+        <img src="/site/img/shot-table-ring.webp" width="1200" height="703" loading="lazy" alt="A four-seat table, the seats in a ring around the felt">
+        <figcaption><span class="en"><b>Four seats.</b> Larger tables sit in a ring around the felt.</span><span class="de" lang="de"><b>Vier Plätze.</b> Größere Tische sitzen im Ring um den Filz.</span></figcaption></figure>
+      </li>
+      <li><figure>
+        <img src="/site/img/shot-lobby.webp" width="1200" height="703" loading="lazy" alt="The lobby: decks on the left, open tables on the right">
+        <figcaption><span class="en"><b>The lobby.</b> Your decks, the open tables, and <i>Play the house</i> for a quick game.</span><span class="de" lang="de"><b>Die Lobby.</b> Deine Decks, die offenen Tische und <i>Play the house</i> für ein schnelles Spiel.</span></figcaption></figure>
+      </li>
+      <li><figure>
+        <img src="/site/img/shot-room.webp" width="1200" height="703" loading="lazy" alt="A room being arranged: seats, AI levels, starting life">
+        <figcaption><span class="en"><b>Arranging a table.</b> Chairs, starting life, mulligans, and a level for each AI chair.</span><span class="de" lang="de"><b>Einen Tisch einrichten.</b> Stühle, Startleben, Mulligans und eine Stufe für jeden KI-Stuhl.</span></figcaption></figure>
+      </li>
+      <li><figure>
+        <img src="/site/img/shot-deck-builder.webp" width="1200" height="703" loading="lazy" alt="The deck builder with statistics and a search over the pool">
+        <figcaption><span class="en"><b>The deck builder.</b> Mana curve, land statistics, a search over the whole pool, and a warning for cards that will not play as printed.</span><span class="de" lang="de"><b>Der Deckbauer.</b> Manakurve, Länderstatistik, eine Suche über den ganzen Pool und eine Warnung für Karten, die nicht wie gedruckt spielen.</span></figcaption></figure>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ cards -->
+<section class="section" id="cards">
+  <div class="section-inner">
+    <h2 class="en">The cards, honestly</h2>
+    <h2 class="de" lang="de">Die Karten, ehrlich</h2>
+    <div class="two-col">
+      <div>
+        <p class="en">Every card in Baylee is code: one file per card, written in a small rules language and played in a test. There is no "close enough" interpreter guessing at card text. That is why the pool grows batch by batch instead of all at once.</p>
+        <p class="de" lang="de">Jede Karte in Baylee ist Code: eine Datei pro Karte, in einer kleinen Regelsprache geschrieben und in einem Test gespielt. Es gibt keinen Interpreter, der Kartentext ungefähr errät. Deshalb wächst der Pool Stapel für Stapel statt auf einmal.</p>
+        <dl class="numbers">
+          <div><dt><span class="en">2,698</span><span class="de" lang="de">2.698</span></dt><dd><span class="en">cards that play exactly as printed</span><span class="de" lang="de">Karten, die genau wie gedruckt spielen</span></dd></div>
+          <div><dt>575</dt><dd><span class="en">more that are partly implemented and marked as such</span><span class="de" lang="de">weitere, teilweise umgesetzt und so markiert</span></dd></div>
+          <div><dt><span class="en">≈32,600</span><span class="de" lang="de">≈32.600</span></dt><dd><span class="en">cards in the whole corpus we are working towards</span><span class="de" lang="de">Karten im gesamten Korpus, auf den wir hinarbeiten</span></dd></div>
+        </dl>
+        <p class="small en">Counted in the repository on 9 October 2026 at 0.1.0-beta.5 (<a href="https://github.com/AceVik/baylee/blob/main/data/card-pool.txt" rel="noopener">the pool list</a>, <a href="https://github.com/AceVik/baylee#what-baylee-is" rel="noopener">the README</a>). The deck builder can show only playable cards, and it warns when a deck holds cards that will not play as printed.</p>
+        <p class="small de" lang="de">Gezählt im Repository am 9. Oktober 2026 bei 0.1.0-beta.5 (<a href="https://github.com/AceVik/baylee/blob/main/data/card-pool.txt" rel="noopener">die Pool-Liste</a>, <a href="https://github.com/AceVik/baylee/blob/main/README.de.md#was-baylee-ist" rel="noopener">die README</a>). Der Deckbauer kann nur spielbare Karten zeigen und warnt, wenn ein Deck Karten enthält, die nicht wie gedruckt spielen.</p>
+      </div>
+      <div>
+        <h3 class="en">The plan</h3>
+        <h3 class="de" lang="de">Der Plan</h3>
+        <p class="en">Sets go in release order, starting with Alpha, because every set introduces its mechanics on top of the older ones. Finishing Alpha completely is the next step after the current beta; the rest follows set by set. Bugs found at the table come before new cards, every time.</p>
+        <p class="de" lang="de">Die Sets kommen in Erscheinungsreihenfolge, beginnend mit Alpha, weil jedes Set seine Mechaniken auf die älteren setzt. Alpha vollständig fertigzustellen ist der nächste Schritt nach der aktuellen Beta; der Rest folgt Set für Set. Fehler, die am Tisch auffallen, gehen immer vor neuen Karten.</p>
+        <p class="en">That means a modern deck will often hold cards Baylee does not know yet. We would rather tell you that in the deck builder than let a card resolve wrongly. Cards that cannot be played at all (ante, dexterity, subgames) are on a named skip list and never silently dropped.</p>
+        <p class="de" lang="de">Das heißt: Ein modernes Deck enthält oft Karten, die Baylee noch nicht kennt. Wir sagen dir das lieber im Deckbauer, als eine Karte falsch verrechnen zu lassen. Karten, die gar nicht spielbar sind (Ante, Geschicklichkeit, Teilspiele), stehen auf einer benannten Auslassungsliste und fallen nie stillschweigend weg.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ opponents -->
+<section class="section section-alt" id="ai">
+  <div class="section-inner">
+    <h2 class="en">Opponents: the house, or a language model</h2>
+    <h2 class="de" lang="de">Gegner: das Haus, oder ein Sprachmodell</h2>
+    <div class="two-col">
+      <div>
+        <h3 class="en">The house AI</h3>
+        <h3 class="de" lang="de">Die Haus-KI</h3>
+        <p class="en">Five levels from novice to expert, available offline and at any online table. It plays from the same view a human gets, so hidden information stays hidden from it too. It is a heuristic player, not a trained one: good enough to learn a deck against, not a tournament opponent.</p>
+        <p class="de" lang="de">Fünf Stufen von novice bis expert, offline und an jedem Online-Tisch. Sie spielt aus derselben Sicht wie ein Mensch, verdeckte Information bleibt also auch vor ihr verdeckt. Sie spielt heuristisch, nicht trainiert: gut genug, um ein Deck dagegen zu lernen, kein Turniergegner.</p>
+      </div>
+      <div>
+        <h3 class="en">A chair for a language model</h3>
+        <h3 class="de" lang="de">Ein Stuhl für ein Sprachmodell</h3>
+        <p class="en">A seat bridge lets a model sit at the table as an ordinary player: a local model in LM Studio, one behind an OpenAI-compatible or Anthropic API, or an agent CLI on your own login. API keys never go in a file; a settings file names the environment variable they come from, and daily and monthly spending caps hold across games. When the model times out or answers something illegal, the house answers that question and the transcript says so.</p>
+        <p class="de" lang="de">Eine Sitzbrücke lässt ein Modell als gewöhnlichen Spieler am Tisch sitzen: ein lokales Modell in LM Studio, eines hinter einer OpenAI-kompatiblen oder Anthropic-API oder ein Agent-CLI mit deinem eigenen Login. API-Schlüssel stehen nie in einer Datei; die Einstellungsdatei nennt die Umgebungsvariable, aus der sie kommen, und Tages- und Monatslimits gelten über alle Spiele. Wenn das Modell nicht antwortet oder etwas Unerlaubtes versucht, antwortet das Haus für diese Frage, und das Protokoll sagt es.</p>
+        <p class="small en">Today this is a developer feature: you start it from a terminal on a local table. <a href="https://github.com/AceVik/baylee#playing-against-a-language-model" rel="noopener">How to set it up</a>.</p>
+        <p class="small de" lang="de">Heute ist das eine Entwicklerfunktion: Du startest sie aus einem Terminal an einem lokalen Tisch. <a href="https://github.com/AceVik/baylee#playing-against-a-language-model" rel="noopener">So richtest du es ein</a> (englisch).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ download -->
+<section class="section" id="download">
+  <div class="section-inner">
+    <h2 class="en">Download</h2>
+    <h2 class="de" lang="de">Herunterladen</h2>
+    <p class="section-lead en">Every download goes straight to the file on GitHub, nothing in between. Where a release has installers, they are the easy way; the archives hold the same game to unpack anywhere. An installed Baylee updates itself from the signed archives wherever it may write its own folder.</p>
+    <p class="section-lead de" lang="de">Jeder Download geht direkt zur Datei auf GitHub, nichts dazwischen. Wo eine Version Installer hat, sind sie der einfache Weg; die Archive enthalten dasselbe Spiel zum Entpacken an beliebiger Stelle. Ein installiertes Baylee aktualisiert sich selbst aus den signierten Archiven, wo es seinen eigenen Ordner beschreiben darf.</p>
+
+    <div class="release-head" id="release-head">
+      <!-- site.js: version, date, notes link -->
+      <span class="en">Loading the latest release from GitHub …</span><span class="de" lang="de">Lade die neueste Version von GitHub …</span>
+    </div>
+
+    <div class="platforms" id="platforms">
+      <!-- site.js renders one row per platform; without it, the table below says where the files are -->
+      <p class="en">Without JavaScript this page cannot list the files. They are on the <a href="https://github.com/AceVik/baylee/releases" rel="noopener">releases page</a>: an installer and an archive for Windows (x64 and ARM64), macOS (Apple silicon) and Linux (x86-64 and ARM64), each with a <code>.sha256</code> beside it.</p>
+      <p class="de" lang="de">Ohne JavaScript kann diese Seite die Dateien nicht auflisten. Sie liegen auf der <a href="https://github.com/AceVik/baylee/releases" rel="noopener">Releases-Seite</a>: ein Installer und ein Archiv für Windows (x64 und ARM64), macOS (Apple Silicon) und Linux (x86-64 und ARM64), jeweils mit einer <code>.sha256</code> daneben.</p>
+    </div>
+
+    <div class="two-col install-notes">
+      <div>
+        <h3 class="en">First start</h3>
+        <h3 class="de" lang="de">Erster Start</h3>
+        <p class="en">The builds are not code-signed, because signing costs money. Windows and macOS therefore warn the first time. On Windows, click <i>More info</i> and <i>Run anyway</i>. On macOS, open <i>System Settings → Privacy &amp; Security</i> and click <i>Open Anyway</i>. The <a href="https://github.com/AceVik/baylee#installing" rel="noopener">install notes</a> have every step and the Linux packages.</p>
+        <p class="de" lang="de">Die Builds sind nicht signiert, weil Signieren Geld kostet. Windows und macOS warnen deshalb beim ersten Mal. Unter Windows: <i>Weitere Informationen</i> und <i>Trotzdem ausführen</i>. Unter macOS: <i>Systemeinstellungen → Datenschutz &amp; Sicherheit</i> und <i>Dennoch öffnen</i>. Die <a href="https://github.com/AceVik/baylee/blob/main/README.de.md#installation" rel="noopener">Installationshinweise</a> haben jeden Schritt und die Linux-Pakete.</p>
+        <h3 class="en">Checking a download</h3>
+        <h3 class="de" lang="de">Einen Download prüfen</h3>
+        <p class="en">Beside each file there is a <code>.sha256</code>; the archives also carry a <code>.sig</code>, the Ed25519 signature the client checks before it installs an update by itself. <code>sha256sum -c</code> on Linux, <code>shasum -a 256 -c</code> on macOS, <code>certutil -hashfile … SHA256</code> on Windows.</p>
+        <p class="de" lang="de">Neben jeder Datei liegt eine <code>.sha256</code>; die Archive tragen zusätzlich eine <code>.sig</code>, die Ed25519-Signatur, die der Client prüft, bevor er ein Update selbst installiert. <code>sha256sum -c</code> unter Linux, <code>shasum -a 256 -c</code> unter macOS, <code>certutil -hashfile … SHA256</code> unter Windows.</p>
+      </div>
+      <div>
+        <h3 class="en">What it needs</h3>
+        <h3 class="de" lang="de">Was es braucht</h3>
+        <ul class="plain">
+          <li><span class="en"><b>Windows</b> 10 or 11, x64 or ARM64. The x64 build needs a CPU with x86-64-v2 (SSE4.2), as Windows 11 24H2 does.</span><span class="de" lang="de"><b>Windows</b> 10 oder 11, x64 oder ARM64. Der x64-Build braucht eine CPU mit x86-64-v2 (SSE4.2), wie Windows 11 24H2 auch.</span></li>
+          <li><span class="en"><b>macOS</b> 11 or later on Apple silicon (M1 and later). There is no Intel build yet.</span><span class="de" lang="de"><b>macOS</b> 11 oder neuer auf Apple Silicon (M1 und neuer). Einen Intel-Build gibt es noch nicht.</span></li>
+          <li><span class="en"><b>Linux</b> with glibc 2.35 or newer (Ubuntu 22.04 and up), a Vulkan driver, and ALSA, udev, X11/Wayland and xkbcommon; the <code>.deb</code> pulls them in.</span><span class="de" lang="de"><b>Linux</b> mit glibc 2.35 oder neuer (ab Ubuntu 22.04), einem Vulkan-Treiber sowie ALSA, udev, X11/Wayland und xkbcommon; das <code>.deb</code> zieht sie mit.</span></li>
+          <li><span class="en"><b>Browser:</b> <a href="/play/">baylee.acevik.de/play/</a> runs the same client on WebGPU (Chrome or Edge 113+, Safari 26+, Firefox 141+ on Windows and 145+ on macOS), on the Sanctuary gateway only.</span><span class="de" lang="de"><b>Browser:</b> <a href="/play/">baylee.acevik.de/play/</a> führt denselben Client über WebGPU aus (Chrome oder Edge ab 113, Safari ab 26, Firefox ab 141 unter Windows und ab 145 unter macOS), nur auf dem Sanctuary-Gateway.</span></li>
+          <li><span class="en"><b>Phones and tablets:</b> no builds to download yet. Android runs but cannot be used by touch; iOS runs only in the simulator.</span><span class="de" lang="de"><b>Handy und Tablet:</b> noch keine Builds zum Herunterladen. Android läuft, ist aber per Touch nicht bedienbar; iOS läuft nur im Simulator.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ beta -->
+<section class="section section-alt" id="beta">
+  <div class="section-inner">
+    <h2 class="en">The closed beta</h2>
+    <h2 class="de" lang="de">Die geschlossene Beta</h2>
+    <div class="two-col">
+      <div>
+        <p class="en">The public gateway, <b>Baylee Sanctuary</b>, is where online tables live. It is a closed beta: a new account and a new guest each need a key of the form <code>BAYLEE-XXXX-XXXX-XXXX-XXXX</code>, handed out by the project owner. There is no public sign-up form, and we are not pretending otherwise.</p>
+        <p class="de" lang="de">Das öffentliche Gateway <b>Baylee Sanctuary</b> ist der Ort für Online-Tische. Es ist eine geschlossene Beta: Ein neues Konto und ein neuer Gast brauchen je einen Schlüssel der Form <code>BAYLEE-XXXX-XXXX-XXXX-XXXX</code>, den der Projektinhaber vergibt. Ein öffentliches Anmeldeformular gibt es nicht, und wir tun auch nicht so.</p>
+        <p class="en">Signing up asks for no e-mail address: an account is a username and a password. Other players see only your display name and a short tag. A guest needs just a display name and is deleted when it signs out or after 30 days without use. You can delete your account from the client at any time.</p>
+        <p class="de" lang="de">Die Anmeldung fragt nach keiner E-Mail-Adresse: Ein Konto ist ein Benutzername und ein Passwort. Andere Spieler sehen nur deinen Anzeigenamen und ein kurzes Kürzel. Ein Gast braucht nur einen Anzeigenamen und wird beim Abmelden oder nach 30 Tagen ohne Nutzung gelöscht. Dein Konto kannst du jederzeit aus dem Client löschen.</p>
+        <p class="en">Keys come from the project owner, <a href="https://github.com/AceVik" rel="noopener">@AceVik</a> on GitHub. Without one, Baylee still plays offline against the house AI, with the deck builder and your own decks, and you can run a gateway of your own for your group.</p>
+        <p class="de" lang="de">Schlüssel kommen vom Projektinhaber, <a href="https://github.com/AceVik" rel="noopener">@AceVik</a> auf GitHub. Ohne Schlüssel spielt Baylee trotzdem offline gegen die Haus-KI, mit Deckbauer und eigenen Decks, und du kannst für deine Runde ein eigenes Gateway betreiben.</p>
+      </div>
+      <div class="gateway-card" id="gateway-card">
+        <h3 class="en">The gateway right now</h3>
+        <h3 class="de" lang="de">Das Gateway gerade jetzt</h3>
+        <dl class="kv" id="gateway-kv">
+          <div><dt><span class="en">Name</span><span class="de" lang="de">Name</span></dt><dd data-k="name">[CLOSED BETA] Baylee Sanctuary</dd></div>
+          <div><dt><span class="en">Address</span><span class="de" lang="de">Adresse</span></dt><dd><code>https://baylee.acevik.de</code></dd></div>
+          <div><dt><span class="en">Version</span><span class="de" lang="de">Version</span></dt><dd data-k="version">–</dd></div>
+          <div><dt><span class="en">Sign-up</span><span class="de" lang="de">Anmeldung</span></dt><dd data-k="registration"><span class="en">with a key</span><span class="de" lang="de">mit Schlüssel</span></dd></div>
+          <div><dt><span class="en">Games</span><span class="de" lang="de">Spiele</span></dt><dd data-k="games">–</dd></div>
+        </dl>
+        <p class="small" id="gateway-note">
+          <span class="en">Read live from the gateway's own <code>/info</code> and <code>/health</code> when this page is served by it.</span>
+          <span class="de" lang="de">Live gelesen aus <code>/info</code> und <code>/health</code> des Gateways, wenn diese Seite von ihm ausgeliefert wird.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ self-hosting -->
+<section class="section" id="selfhost">
+  <div class="section-inner">
+    <h2 class="en">Run your own gateway</h2>
+    <h2 class="de" lang="de">Ein eigenes Gateway betreiben</h2>
+    <div class="two-col">
+      <div>
+        <p class="en">You do not need our server. A gateway is three kinds of process: <code>baylee-gateway</code> handles accounts, decks, rooms and routing and needs PostgreSQL; <code>baylee-agent</code> starts one engine process per game; <code>baylee-engine-server</code> is one game. The first two run no rules at all.</p>
+        <p class="de" lang="de">Du brauchst unseren Server nicht. Ein Gateway sind drei Arten von Prozessen: <code>baylee-gateway</code> verwaltet Konten, Decks, Räume und das Routing und braucht PostgreSQL; <code>baylee-agent</code> startet pro Spiel einen Engine-Prozess; <code>baylee-engine-server</code> ist ein Spiel. Die ersten beiden kennen keine Regeln.</p>
+        <p class="en">Put a TLS proxy in front, set <code>BAYLEE_REGISTRATION=invite</code> if you want your own closed circle, create keys with <code>baylee-gateway invite create</code>, and the client's front door takes your address like any other. Card text in 19 languages is an optional ingest of Scryfall's bulk data into the same database.</p>
+        <p class="de" lang="de">Setz einen TLS-Proxy davor, setz <code>BAYLEE_REGISTRATION=invite</code>, wenn du einen eigenen geschlossenen Kreis willst, erzeuge Schlüssel mit <code>baylee-gateway invite create</code>, und die Eingangstür des Clients nimmt deine Adresse wie jede andere. Kartentext in 19 Sprachen ist ein optionaler Import von Scryfalls Bulk-Daten in dieselbe Datenbank.</p>
+        <p class="en"><a href="https://github.com/AceVik/baylee#running-your-own-gateway" rel="noopener">The self-hosting guide</a> walks through it; <a href="https://github.com/AceVik/baylee/blob/main/docs/protocol.md" rel="noopener">docs/protocol.md</a> is the reference.</p>
+        <p class="de" lang="de"><a href="https://github.com/AceVik/baylee/blob/main/README.de.md#ein-eigenes-gateway-betreiben" rel="noopener">Die Anleitung</a> geht alles durch; <a href="https://github.com/AceVik/baylee/blob/main/docs/protocol.md" rel="noopener">docs/protocol.md</a> ist die Referenz.</p>
+      </div>
+      <div>
+<pre class="code" aria-label="Shell"><code>docker compose up -d
+export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee
+cargo build --release -p baylee-gateway -p baylee-agent -p baylee-engine-server
+
+export BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32)
+RUST_LOG=info BAYLEE_GATEWAY_NAME="My table" ./target/release/baylee-gateway
+RUST_LOG=info ./target/release/baylee-agent</code></pre>
+        <p class="small en">Every gateway answers <code>GET /source</code> with its licence, version and commit, without sign-in. The AGPL asks you to offer your source to the people who use your server; that route does it for you.</p>
+        <p class="small de" lang="de">Jedes Gateway beantwortet <code>GET /source</code> mit Lizenz, Version und Commit, ohne Anmeldung. Die AGPL verlangt, dass du den Leuten, die deinen Server nutzen, den Quellcode anbietest; diese Route erledigt das für dich.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ source -->
+<section class="section section-alt" id="source">
+  <div class="section-inner">
+    <h2 class="en">Open source, and it stays that way</h2>
+    <h2 class="de" lang="de">Quelloffen, und das bleibt so</h2>
+    <div class="two-col">
+      <div>
+        <p class="promise en">Baylee will always be open source and free. No paywall, no paid features, no ads. Not now, not later. The code is under the GNU Affero General Public License, which means anyone who runs a modified gateway for other people must offer them its source too.</p>
+        <p class="promise de" lang="de">Baylee bleibt immer quelloffen und kostenlos. Keine Bezahlschranke, keine kostenpflichtigen Funktionen, keine Werbung. Nicht jetzt, nicht später. Der Code steht unter der GNU Affero General Public License: Wer ein verändertes Gateway für andere betreibt, muss auch ihnen den Quellcode anbieten.</p>
+        <p class="en">It is written in Rust, one person's project with a lot of help from coding agents, and every change goes through the same gate: formatting, lints, the test suite, and a validation of every card against its printed text. Issues and pull requests are welcome; <a href="https://github.com/AceVik/baylee/blob/main/AGENTS.md" rel="noopener">AGENTS.md</a> and <a href="https://github.com/AceVik/baylee/blob/main/CLAUDE.md" rel="noopener">CLAUDE.md</a> are the working rules for people and agents alike.</p>
+        <p class="de" lang="de">Geschrieben in Rust, das Projekt einer Person mit viel Hilfe von Coding-Agenten, und jede Änderung geht durch dasselbe Gate: Formatierung, Lints, die Testsuite und eine Prüfung jeder Karte gegen ihren gedruckten Text. Issues und Pull Requests sind willkommen; <a href="https://github.com/AceVik/baylee/blob/main/AGENTS.md" rel="noopener">AGENTS.md</a> und <a href="https://github.com/AceVik/baylee/blob/main/CLAUDE.md" rel="noopener">CLAUDE.md</a> sind die Arbeitsregeln für Menschen und Agenten.</p>
+        <p class="links-row">
+          <a class="button button-ghost" href="https://github.com/AceVik/baylee" rel="noopener">github.com/AceVik/baylee</a>
+          <a class="button button-ghost" href="https://github.com/AceVik/baylee/blob/main/LICENSE" rel="noopener">AGPL-3.0</a>
+          <a class="button button-ghost" href="https://github.com/AceVik/baylee/blob/main/docs/architecture.md" rel="noopener"><span class="en">Architecture</span><span class="de" lang="de">Architektur</span></a>
+        </p>
+      </div>
+      <div class="repo-card" id="repo-card">
+        <h3 class="en">The repository right now</h3>
+        <h3 class="de" lang="de">Das Repository gerade jetzt</h3>
+        <dl class="kv">
+          <div><dt><span class="en">CI on main</span><span class="de" lang="de">CI auf main</span></dt><dd data-k="ci">–</dd></div>
+          <div><dt><span class="en">Last commit</span><span class="de" lang="de">Letzter Commit</span></dt><dd data-k="commit">–</dd></div>
+          <div><dt><span class="en">Stars</span><span class="de" lang="de">Sterne</span></dt><dd data-k="stars">–</dd></div>
+          <div><dt><span class="en">Open issues and pull requests</span><span class="de" lang="de">Offene Issues und Pull Requests</span></dt><dd data-k="issues">–</dd></div>
+        </dl>
+        <p class="small" id="repo-note">
+          <span class="en">Read from GitHub's public API when the page loads, cached in this tab for a while. Nothing about you is sent anywhere but to GitHub.</span>
+          <span class="de" lang="de">Beim Laden aus GitHubs öffentlicher API gelesen und in diesem Tab eine Weile gemerkt. Über dich geht nichts irgendwohin außer zu GitHub.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ feedback -->
+<section class="section" id="feedback">
+  <div class="section-inner">
+    <h2 class="en">Found something wrong? Tell us</h2>
+    <h2 class="de" lang="de">Etwas gefunden? Sag es uns</h2>
+    <div class="two-col">
+      <div>
+        <p class="en">Press <kbd>F8</kbd> at the table or in the lobby. A report carries its kind, your text, the client version and, at a table, the game's id; the gateway adds its own record of that game, in which seats are numbers and no player is named. Everything more is opt-in, one checkbox each, and every checkbox starts unticked: system and hardware, the table as you see it, your log, your settings, a screenshot. Session tokens are never sent.</p>
+        <p class="de" lang="de">Drück <kbd>F8</kbd> am Tisch oder in der Lobby. Eine Meldung enthält ihre Art, deinen Text, die Client-Version und am Tisch die Spiel-ID; das Gateway legt seine eigene Aufzeichnung des Spiels dazu, in der Plätze Nummern sind und kein Spieler genannt wird. Alles Weitere ist freiwillig, je ein Kästchen, und jedes Kästchen ist anfangs leer: System und Hardware, der Tisch wie du ihn siehst, dein Protokoll, deine Einstellungen, ein Screenshot. Sitzungs-Tokens werden nie gesendet.</p>
+      </div>
+      <div>
+        <p class="en">Rules questions, wrong card behaviour, ideas: <a href="https://github.com/AceVik/baylee/issues" rel="noopener">open an issue on GitHub</a>. A card that resolved wrongly is the most useful report we can get, because every card has a test and yours becomes one.</p>
+        <p class="de" lang="de">Regelfragen, falsches Kartenverhalten, Ideen: <a href="https://github.com/AceVik/baylee/issues" rel="noopener">eröffne ein Issue auf GitHub</a>. Eine Karte, die falsch verrechnet wurde, ist die nützlichste Meldung, die wir bekommen können, denn jede Karte hat einen Test, und deine wird einer.</p>
+        <p class="en"><a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a> lists everything the client, the gateway and the feedback service keep. This page keeps nothing: no cookies, no analytics, no fonts from anyone else's server. It asks GitHub for the release list and the CI status, and that is the only other host it talks to.</p>
+        <p class="de" lang="de"><a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a> listet alles, was Client, Gateway und Feedback-Dienst speichern. Diese Seite speichert nichts: keine Cookies, keine Analyse, keine Schriften von fremden Servern. Sie fragt GitHub nach der Release-Liste und dem CI-Status, und das ist der einzige andere Host, mit dem sie spricht.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <p class="notice">baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</p>
+    <p class="notice de" lang="de">Baylee ist inoffizieller Fan-Content im Rahmen der Fan Content Policy, von Wizards weder genehmigt noch unterstützt. Baylee ist nicht mit Wizards of the Coast verbunden.</p>
+    <p class="notice"><span class="en">Card data and images provided by Scryfall. Baylee is not affiliated with Scryfall.</span><span class="de" lang="de">Kartendaten und -bilder bereitgestellt von Scryfall. Baylee ist nicht mit Scryfall verbunden.</span></p>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="https://github.com/AceVik/baylee" rel="noopener"><span class="en">Source code (AGPL-3.0)</span><span class="de" lang="de">Quellcode (AGPL-3.0)</span></a>
+      <a href="https://github.com/AceVik/baylee/releases" rel="noopener">Releases</a>
+      <a href="https://github.com/AceVik/baylee/issues" rel="noopener">Issues</a>
+      <a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener"><span class="en">Privacy</span><span class="de" lang="de">Datenschutz</span></a>
+      <a href="https://github.com/AceVik/baylee/blob/main/docs/legal.md" rel="noopener"><span class="en">Legal</span><span class="de" lang="de">Rechtliches</span></a>
+      <a href="https://github.com/AceVik/baylee/blob/main/NOTICE" rel="noopener">NOTICE</a>
+    </nav>
+    <p class="colophon"><span class="en">Fonts: Faustina and Alegreya Sans, SIL Open Font License 1.1, served from this site. The painting and the logo are our own.</span><span class="de" lang="de">Schriften: Faustina und Alegreya Sans, SIL Open Font License 1.1, von dieser Seite ausgeliefert. Das Gemälde und das Logo sind unsere eigenen.</span></p>
+  </div>
+</footer>
+
+</body>
+</html>
