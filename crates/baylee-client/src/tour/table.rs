@@ -11,7 +11,9 @@
 //! existing one is there from the frame the node is. The two 3D things —
 //! my mat and the dial — get a proxy node standing where they are drawn.
 
-use baylee_client_core::tour::{Anchor, Check, Kind, Mode, Moved, Run, Tour, offered_here};
+use baylee_client_core::tour::{
+    Anchor, Check, Kind, Mode, Moved, Run, TableGate, Tour, offered_here, table_gate,
+};
 use bevy::picking::events::{Click, Pointer};
 use bevy::prelude::*;
 use bevy::ui::UiGlobalTransform;
@@ -31,6 +33,9 @@ pub(super) struct Watch {
     /// The step the last frame stood at, to close the report form when the
     /// tour leaves T33, whose Next closes it (TOURS.md §2.3).
     last: Option<&'static str>,
+    /// The menu's Tour row was pressed while the opening hands were being
+    /// decided: the tour starts once the game has begun.
+    deferred: bool,
 }
 
 /// A node standing where a thing drawn in 3D is, for the hole to find.
@@ -129,7 +134,22 @@ pub(super) fn tours(
         return;
     };
     let seats = view.seats.len();
-    let start = (desk.practice && settings.tours.table && desk.run.is_none()) || pressed_tour;
+    // The opening hands are still being decided: nothing can be cast and
+    // no question but theirs is asked, so the tour waits to start, and a
+    // try-it step that asks for what cannot be done yet is set aside until
+    // it can (09.10.: T8 asked for a cast over the mulligan, stuck).
+    let opening = !view.deciding.is_empty();
+    let park = table_gate(false, desk.run.as_ref(), opening) == TableGate::Park;
+    if desk.run.as_ref().is_some_and(|r| r.tour == Tour::Table) && desk.parked != park {
+        desk.parked = park;
+    }
+    let start = (desk.practice && settings.tours.table && desk.run.is_none())
+        || pressed_tour
+        || watch.deferred;
+    if start && table_gate(true, None, opening) == TableGate::WaitToStart {
+        watch.deferred |= pressed_tour;
+        return;
+    }
     if start && let Some(run) = Run::chapter(Tour::Table, 0, phone, seats) {
         desk.practice = false;
         desk.stash = None;
@@ -143,6 +163,7 @@ pub(super) fn tours(
     if let Some(run) = desk.run.as_mut()
         && run.tour == Tour::Table
         && run.mode != Mode::Folded
+        && !park
         && let Kind::Try(check) = run.current().kind
     {
         let here = Some((run.chapter, run.step));

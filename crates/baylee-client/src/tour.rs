@@ -16,6 +16,8 @@
 
 mod draw;
 mod table;
+#[cfg(test)]
+mod table_tests;
 
 use baylee_client_core::tour::{Anchor, Mode, Moved, Run, Tours};
 use bevy::input::keyboard::KeyCode;
@@ -400,6 +402,7 @@ pub(crate) fn install(app: &mut App) {
                 presses,
                 follow,
                 draw::draw,
+                draw::lift_tips,
             )
                 .chain()
                 .run_if(settled),

@@ -173,6 +173,54 @@ pub enum Check {
     ReportOpened,
 }
 
+impl Check {
+    /// Whether what the check asks for is possible only once the game has
+    /// begun: nothing can be cast, and no question but the opening hand's
+    /// is asked, while the opening hands are still being decided (09.10.:
+    /// T8 asked for a cast during the mulligan and could never be met).
+    #[must_use]
+    pub const fn needs_a_begun_game(self) -> bool {
+        matches!(self, Self::CastCancelled | Self::DecisionFolded)
+    }
+}
+
+/// What the table tour does this frame, given whether the opening hands are
+/// still being decided.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TableGate {
+    /// Nothing stands in the way.
+    Open,
+    /// The tour asked to start waits: the game has not begun (09.10.: it ran
+    /// its casting chapter over the mulligan).
+    WaitToStart,
+    /// The standing try-it step asks for what cannot be done yet: it is set
+    /// aside (parked) and comes back when it can.
+    Park,
+}
+
+/// The table tour's gate: a tour that would start during the opening-hand
+/// decision waits for the game to begin, and a try-it step whose action is
+/// impossible during it is parked until it is over. A step never waits on
+/// an action the player cannot take.
+#[must_use]
+pub fn table_gate(starting: bool, run: Option<&Run>, opening: bool) -> TableGate {
+    if !opening {
+        return TableGate::Open;
+    }
+    if starting {
+        return TableGate::WaitToStart;
+    }
+    match run {
+        Some(run)
+            if run.tour == Tour::Table
+                && matches!(run.current().kind, Kind::Try(c) if c.needs_a_begun_game()) =>
+        {
+            TableGate::Park
+        }
+        _ => TableGate::Open,
+    }
+}
+
 /// A step's kind (TOURS.md §1.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {

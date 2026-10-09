@@ -587,6 +587,29 @@ fn pill(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang: L
     }
 }
 
+/// A dead primary's reason (a try-it step's Next: "Try it first, or skip")
+/// is the kit's tooltip, which stands on the popover rung from the button's
+/// left edge. Under the bubble's rung it was drawn behind the bubble, only
+/// its tail showing past the bubble's right edge (09.10., de at 150 %): it
+/// now stands over the bubble and ends at the button's right edge, inside
+/// the bubble.
+pub(super) fn lift_tips(
+    owners: Query<&controls::Tooltip, (With<TourPress>, Added<controls::Tooltip>)>,
+    bubbles: Query<&GlobalZIndex, With<Bubble>>,
+    mut tips: Query<(&mut Node, &mut GlobalZIndex), Without<Bubble>>,
+) {
+    let over = bubbles.iter().map(|z| z.0).max().unwrap_or(0) + 1;
+    for tip in &owners {
+        if let Ok((mut node, mut z)) = tips.get_mut(tip.0) {
+            node.left = Val::Auto;
+            node.right = px_fixed(0.0);
+            if z.0 < over {
+                z.0 = over;
+            }
+        }
+    }
+}
+
 fn logical(node: &ComputedNode, at: &UiGlobalTransform) -> Rect {
     let scale = node.inverse_scale_factor;
     let centre = at.translation * scale;
