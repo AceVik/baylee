@@ -1648,6 +1648,43 @@ impl Browser {
                 });
             }
         }
+        // A question about cards still in this seat's own hand — Library of
+        // Leng's (`ArrangePrompt::DiscardToLibrary`: the cards an effect is
+        // making it discard) — deals them from a zone no tab lists. They are
+        // drawn here, whatever the tabs, as the cards the question is about:
+        // otherwise its piles count cards nobody can see, and with two
+        // different cards nobody can tell which went on top.
+        if let Some(it) = mine
+            && let Some(arrangement) = it.arrangement()
+        {
+            let drawn: Vec<ObjectId> = out.iter().map(|row| row.id).collect();
+            for card in view
+                .hand
+                .iter()
+                .filter(|h| arrangement.dealt().contains(&h.id) && !drawn.contains(&h.id))
+            {
+                out.push(BrowseRow {
+                    id: card.id,
+                    name: card.name.clone(),
+                    art: Some(ImageKey::new(
+                        card.card.print,
+                        card.card.face,
+                        ArtSize::Small,
+                    )),
+                    zone: BrowseZone::Looking,
+                    standing: RowStanding {
+                        selectable: it.selectable().contains(&card.id),
+                        selected: it.is_selected(card.id),
+                        focused: it.aim() == Some(crate::interaction::Pick::Object(card.id)),
+                    },
+                    place: it.arrange_place(card.id),
+                    pile: arrangement.slot(card.id).map(|(row, _)| row),
+                    mana_value: card.mana_value,
+                    types: card.types,
+                    token: false,
+                });
+            }
+        }
         // An arrangement is read in its own order and in no other: the
         // number on a card and where the card stands have to agree, or a
         // player moving one card watches the numbers shuffle under tiles

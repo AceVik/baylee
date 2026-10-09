@@ -359,3 +359,60 @@ fn a_browse_with_no_question_focuses_no_row() {
     assert_eq!(rows.len(), 1);
     assert!(!rows[0].standing.focused);
 }
+
+/// Library of Leng asks about cards still in the hand (`DiscardToLibrary`):
+/// a graveyard pile, first and filled, and a library pile. The hand is no
+/// tab, so the sheet drew its piles' counts and not one card, and a player
+/// with two different cards could not see which went on top. They are
+/// drawn as the question's cards: all in the graveyard pile as dealt, the
+/// one moved standing in the library pile.
+#[test]
+fn a_discard_to_the_library_draws_the_hand_cards_it_asks_about() {
+    let view = ViewBuilder::new(2)
+        .with_hand(vec![
+            ("Forest", 0, 7),
+            ("Giant Growth", 1, 8),
+            ("Opt", 1, 9),
+        ])
+        .build();
+    let mut it = Interaction::new(
+        Pending::Arrange {
+            player: me(),
+            cards: vec![obj(7), obj(8)],
+            piles: vec![
+                ArrangePile::up_to(ArrangePlace::Graveyard, 2),
+                ArrangePile::up_to(ArrangePlace::LibraryTop, 2),
+            ],
+            prompt: ArrangePrompt::DiscardToLibrary,
+        },
+        me(),
+    );
+    let (graveyard, library) = (
+        Some(crate::arrange::Row::Pile(0)),
+        Some(crate::arrange::Row::Pile(1)),
+    );
+    let read = |it: &Interaction| -> Vec<_> {
+        Browser::new()
+            .rows(&view, Some(it), Names::projected())
+            .iter()
+            .map(|r| (r.id, r.name.clone(), r.pile))
+            .collect()
+    };
+    assert_eq!(
+        read(&it),
+        vec![
+            (obj(7), "Forest".to_string(), graveyard),
+            (obj(8), "Giant Growth".to_string(), graveyard),
+        ],
+        "both asked-about cards, dealt to the graveyard as printed; the hand's third is not asked about"
+    );
+    it.toggle(obj(8));
+    assert!(it.place_held(crate::arrange::Row::Pile(1)));
+    assert_eq!(
+        read(&it),
+        vec![
+            (obj(7), "Forest".to_string(), graveyard),
+            (obj(8), "Giant Growth".to_string(), library),
+        ]
+    );
+}
