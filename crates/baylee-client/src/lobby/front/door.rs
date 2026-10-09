@@ -276,7 +276,7 @@ pub(super) fn one_line(commands: &mut Commands, state: &LobbyState, kit: Kit) ->
 /// Scryfall's credit, set as a short centred paragraph on a mist plate
 /// rather than run into one long line (owner, 09.10.2026). The build stands
 /// under the text row ([`version_line`]) and the source with its QR in the
-/// top corner ([`source_corner`]).
+/// top-left corner ([`corner_tiles`]).
 pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
     let lang = state.lobby.lang();
     let holder = commands
@@ -333,92 +333,237 @@ pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
 /// notice in two lines at 1920 px.
 const COLOPHON_MEASURE: f32 = 760.0;
 
-/// The source offer in the window's top corner on Wide and Vast (owner,
-/// 09.10.2026; `docs/legal.md` §"The front door's notices"): its QR, and
-/// under it "Source code (AGPL-3.0): <address>" as text and link, on a
-/// mist plate. The AGPL §13
-/// offer stays on screen; it no longer stretches the colophon.
-pub(super) fn source_corner(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+/// The window's two top corners on Wide and Vast (owner, 09.10.2026;
+/// `docs/legal.md` §"The front door's notices"): top left the source offer,
+/// top right the community's Discord. Each is one tile, stacked the same
+/// way: its QR code, its label, its address; a click anywhere on it opens
+/// the address. The AGPL §13 offer stays on screen; it no longer stretches
+/// the colophon.
+pub(super) fn corner_tiles(commands: &mut Commands, state: &LobbyState, kit: Kit) -> [Entity; 2] {
     let lang = state.lobby.lang();
     let table = keys::table_of(state).name;
-    let corner = commands
+    let source = tile(
+        commands,
+        kit,
+        table,
+        &Tile {
+            corner: Corner::Left,
+            press: FrontPress::OpenSource,
+            stop: "source",
+            label: Phrase::TileSource.text(lang),
+            address: source_address(state),
+            code: state.source_code.as_ref(),
+            // A link where the gateway's address passed the check at the
+            // door; else text, as About says it.
+            opens: state.source_code.is_some(),
+        },
+    );
+    let discord = tile(
+        commands,
+        kit,
+        table,
+        &Tile {
+            corner: Corner::Right,
+            press: FrontPress::OpenDiscord,
+            stop: "discord",
+            label: Phrase::TileDiscord.text(lang),
+            address: super::super::source::DISCORD_URL,
+            code: state.discord_code.as_ref(),
+            opens: true,
+        },
+    );
+    commands
+        .entity(discord)
+        .insert((Beckon, BoxShadow(vec![glow(0.0)])));
+    [source, discord]
+}
+
+/// The window corner a tile stands in.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Corner {
+    Left,
+    Right,
+}
+
+/// A corner tile, for the tests and the eye: which press it is.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct CornerTile {
+    /// The corner it stands in.
+    pub(crate) corner: Corner,
+    /// What a click on it does.
+    pub(crate) press: FrontPress,
+}
+
+/// What one corner tile says and opens.
+struct Tile<'a> {
+    corner: Corner,
+    press: FrontPress,
+    stop: &'static str,
+    label: &'a str,
+    address: &'a str,
+    code: Option<&'a super::super::source::Code>,
+    opens: bool,
+}
+
+/// One corner tile: the code, the label and the address stacked on a mist
+/// plate, the whole plate the control. Hover and press come from the kit's
+/// [`Feel`](crate::ambience::Feel), the hand from the [`Press`]; every
+/// child is `Pickable::IGNORE`, so a click anywhere on it is the tile's.
+fn tile(commands: &mut Commands, kit: Kit, table: &'static str, tile: &Tile) -> Entity {
+    let edge = px_fixed(kit.m.body);
+    let root = commands
         .spawn((
             Role::Mist,
             Node {
                 position_type: PositionType::Absolute,
-                top: px_fixed(kit.m.body),
-                right: px_fixed(kit.m.body),
+                top: edge,
+                left: if tile.corner == Corner::Left {
+                    edge
+                } else {
+                    Val::Auto
+                },
+                right: if tile.corner == Corner::Right {
+                    edge
+                } else {
+                    Val::Auto
+                },
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
-                max_width: kit.m.px(SOURCE_MEASURE),
-                padding: UiRect::all(kit.m.px(8.0)),
+                max_width: kit.m.px(TILE_MEASURE),
+                padding: UiRect::all(kit.m.px(10.0)),
                 row_gap: kit.m.px(4.0),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
             BackgroundColor(tokens::MIST),
-            Pickable::IGNORE,
+            CornerTile {
+                corner: tile.corner,
+                press: tile.press,
+            },
         ))
         .id();
-    if let Some(code) = state.source_code.as_ref() {
-        let picture = qr(commands, code);
-        commands.entity(corner).add_child(picture);
+    if tile.opens {
+        commands.entity(root).insert((
+            Press::Front(tile.press),
+            Stop::new(table, tile.stop),
+            bevy::picking::hover::PickingInteraction::default(),
+            crate::ambience::Feel::tinting_to(tokens::MIST, TILE_HOT),
+        ));
+    } else {
+        commands.entity(root).insert(Pickable::IGNORE);
     }
-    // "Source code (AGPL-3.0): <address>", the sentence About says too.
-    let address = Phrase::SourceCode.fill(lang, &[source_address(state)]);
-    let shown = commands
+    if let Some(code) = tile.code {
+        let picture = qr_picture(commands, code);
+        let frame = qr_frame(commands, picture);
+        commands.entity(frame).insert(Pickable::IGNORE);
+        commands.entity(root).add_child(frame);
+    }
+    let label = commands
         .spawn((
-            Text::new(address),
+            Text::new(tile.label),
             crate::hud::tf(kit.fonts, kit.m.small),
             TextColor(tokens::INK),
-            TextLayout::new(Justify::Center, LineBreak::WordOrCharacter),
-            Underline,
-            UnderlineColor(tokens::INK),
+            TextLayout::new(Justify::Center, LineBreak::WordBoundary),
             Pickable::IGNORE,
         ))
         .id();
-    // The address is the link where the gateway's passed the check at the
-    // door; else it is text, as About says it.
-    let source = if state.source_code.is_some() {
-        let face = commands
-            .spawn((
-                Node {
-                    padding: UiRect::axes(kit.m.px(6.0), px_fixed(2.0)),
-                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
-                    max_width: Val::Percent(100.0),
-                    ..default()
-                },
-                BackgroundColor(Color::NONE),
-                crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
-            ))
-            .id();
-        commands.entity(face).add_child(shown);
-        let wrapper = controls::hit(
-            commands,
-            kit,
-            face,
-            (
-                Press::Front(FrontPress::OpenSource),
-                Stop::new(table, "source"),
-            ),
-        );
+    let address = commands
+        .spawn((
+            Text::new(shown_address(tile.address)),
+            crate::hud::tf(kit.fonts, kit.m.small),
+            TextColor(tokens::MUTED),
+            TextLayout::new(Justify::Center, LineBreak::WordOrCharacter),
+            Pickable::IGNORE,
+        ))
+        .id();
+    if tile.opens {
         commands
-            .entity(wrapper)
-            .entry::<Node>()
-            .and_modify(|mut node| node.max_width = Val::Percent(100.0));
-        wrapper
-    } else {
-        commands
-            .entity(shown)
-            .remove::<(Underline, UnderlineColor)>();
-        shown
-    };
-    commands.entity(corner).add_child(source);
-    corner
+            .entity(address)
+            .insert((Underline, UnderlineColor(tokens::MUTED)));
+    }
+    commands.entity(root).add_children(&[label, address]);
+    root
 }
 
-/// How wide the source corner may grow at the default step.
-const SOURCE_MEASURE: f32 = 280.0;
+/// The address as a tile shows it: without its `https://` (owner,
+/// 09.10.2026), which said nothing a reader needs and was where the line
+/// broke. Only the words change; the press and the code keep the whole
+/// address, and an `http://` one keeps its scheme, which says something.
+pub(crate) fn shown_address(address: &str) -> &str {
+    address.strip_prefix("https://").unwrap_or(address)
+}
+
+/// How wide a corner tile may grow at the default step.
+const TILE_MEASURE: f32 = 280.0;
+
+/// A tile under the pointer: the mist, a shade lighter and no clearer.
+const TILE_HOT: Color = Color::srgba(0.10, 0.17, 0.22, 0.97);
+
+/// The Discord tile's now-and-then glow (owner, 09.10.2026: it draws the
+/// eye, and must not nag).
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) struct Beckon;
+
+/// One round of the glow: a pulse, then a long rest.
+pub(crate) const BECKON_PERIOD: f32 = 24.0;
+/// When in a round the pulse starts: a few seconds after the door opens,
+/// then once a round.
+pub(crate) const BECKON_AT: f32 = 4.0;
+/// How long a pulse lasts.
+pub(crate) const BECKON_PULSE: f32 = 1.0;
+/// The glow's strongest alpha.
+const BECKON_ALPHA: f32 = 0.55;
+
+/// How strongly the tile glows, 0 to 1, `since` seconds after the door
+/// first stood: a sine's hump through the pulse, nothing between, and
+/// nothing at all under `reduce_motion`.
+///
+/// A phase rather than a toggle, as the caret's blink is, so a rebuilt
+/// tile is right on its first frame.
+pub(crate) fn beckon_strength(since: f32, still: bool) -> f32 {
+    if still {
+        return 0.0;
+    }
+    let into = since.rem_euclid(BECKON_PERIOD) - BECKON_AT;
+    if (0.0..BECKON_PULSE).contains(&into) {
+        (std::f32::consts::PI * into / BECKON_PULSE).sin()
+    } else {
+        0.0
+    }
+}
+
+/// The glow round a tile at `strength`: the accent, spread past its edge.
+fn glow(strength: f32) -> ShadowStyle {
+    ShadowStyle {
+        color: tokens::ACCENT.with_alpha(BECKON_ALPHA * strength),
+        x_offset: px_fixed(0.0),
+        y_offset: px_fixed(0.0),
+        spread_radius: px_fixed(2.0 * strength),
+        blur_radius: px_fixed(16.0),
+    }
+}
+
+/// Runs the Discord tile's glow. Writes its [`BoxShadow`] only while a
+/// pulse changes it, so at rest between pulses nothing is written; the
+/// clock counts only while the tile stands.
+pub(crate) fn beckon(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut tiles: Query<&mut BoxShadow, With<Beckon>>,
+    mut since: Local<f32>,
+) {
+    if tiles.is_empty() {
+        return;
+    }
+    *since = (*since + time.delta_secs()).rem_euclid(BECKON_PERIOD);
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let want = glow(beckon_strength(*since, still));
+    for mut shadow in &mut tiles {
+        if shadow.0.first() != Some(&want) {
+            shadow.0 = vec![want];
+        }
+    }
+}
 
 /// The build this client is, on its own line under the text row, on every
 /// face (owner, 09.10.2026: "below the bar below the form"): the whole
@@ -463,9 +608,20 @@ pub(super) fn version_line(commands: &mut Commands, state: &LobbyState, kit: Kit
 
 /// The source address as a QR code on a framed plate; a press opens it.
 fn qr(commands: &mut Commands, code: &super::super::source::Code) -> Entity {
+    let picture = qr_picture(commands, code);
+    let frame = qr_frame(commands, picture);
+    commands
+        .entity(frame)
+        .insert((Button, Press::Front(FrontPress::OpenSource)));
+    frame
+}
+
+/// A code's picture, a module [`MODULE_PX`](super::super::source::MODULE_PX)
+/// on a side.
+fn qr_picture(commands: &mut Commands, code: &super::super::source::Code) -> Entity {
     #[allow(clippy::cast_precision_loss)] // a code is at most 177 modules a side
     let side = px_fixed(code.side as f32 * super::super::source::MODULE_PX);
-    let picture = commands
+    commands
         .spawn((
             ImageNode::new(code.image.clone()),
             Node {
@@ -475,7 +631,11 @@ fn qr(commands: &mut Commands, code: &super::super::source::Code) -> Entity {
             },
             Pickable::IGNORE,
         ))
-        .id();
+        .id()
+}
+
+/// The thin dark frame a code stands in.
+fn qr_frame(commands: &mut Commands, picture: Entity) -> Entity {
     commands
         .spawn((
             Node {
@@ -486,8 +646,6 @@ fn qr(commands: &mut Commands, code: &super::super::source::Code) -> Entity {
             },
             BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::BORDER),
-            Button,
-            Press::Front(FrontPress::OpenSource),
         ))
         .add_child(picture)
         .id()
