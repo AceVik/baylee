@@ -802,10 +802,28 @@ impl GameState {
         });
     }
 
+    /// `player` draws `n` cards: the one door every draw goes through.
+    ///
+    /// A draw Island Sanctuary may replace is not made here: it waits in
+    /// [`GameState::draws_to_offer`] to be asked about, one card at a time,
+    /// and so does every draw behind one already waiting, so that the order
+    /// the instructions gave holds (CR 121.2c). Nothing is returned for a
+    /// draw that waits.
+    pub fn draw_cards(&mut self, player: PlayerId, n: usize) -> Vec<ObjectId> {
+        if n > 0
+            && (!self.draws_to_offer.is_empty() || self.draw_skip_source(player, &[]).is_some())
+        {
+            self.draws_to_offer
+                .push_back((player, u32::try_from(n).unwrap_or(u32::MAX)));
+            return Vec::new();
+        }
+        self.draw_now(player, n)
+    }
+
     /// Moves the top `n` cards of a player's library to their hand.
     /// Drawing from an empty library flags [`Player::tried_empty_draw`] —
     /// the loss is a state-based action (CR 704.5b).
-    pub fn draw_cards(&mut self, player: PlayerId, n: usize) -> Vec<ObjectId> {
+    pub(crate) fn draw_now(&mut self, player: PlayerId, n: usize) -> Vec<ObjectId> {
         let mut drawn = Vec::with_capacity(n);
         let first_of_turn = self
             .per_turn

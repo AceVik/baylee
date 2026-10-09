@@ -56,3 +56,16 @@ fn blessing_pumps_the_enchanted_creature_when_activated() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(pt(&engine, creature), (2, 2), "+1/+1 until end of turn");
 }
+
+/// Blessing: "until end of turn". Two activations stack, last through the
+/// turn, and are gone once the next turn begins.
+#[test]
+fn blessing_pump_ends_with_the_turn() {
+    a_pump_aura_ends_with_the_turn(blessing(), plains(), 1, (1, 1), (2, 2), (3, 3));
+}
+
+/// Blessing: "Enchant creature". Offered every creature and nothing else.
+#[test]
+fn blessing_enchants_only_creatures() {
+    an_aura_enchants_only_creatures(blessing(), plains());
+}

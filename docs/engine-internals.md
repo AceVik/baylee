@@ -940,6 +940,66 @@ so closing it means giving that one chain a way to ask before it moves
 anything. Nothing reaches it today: the only filter the pool writes for that
 effect is `Land.YouCtrl`.
 
+### A draw that waits to be asked (CR 121.2, 614.11a)
+Island Sanctuary replaces "a card" its controller "would draw during
+[their] draw step", which is not only the turn-based draw (CR 504.1): a
+Howling Mine's additional card, an Ancestral Recall cast in that step and a
+Lich's draws for a gain there are draws too, and each card of "draw three
+cards" is a draw of its own (CR 121.2). `GameState::draw_cards` cannot ask,
+so it does not make such a draw: it puts `(player, n)` on
+`GameState::draws_to_offer`, and every draw behind one already waiting goes
+there as well, so the order the instructions gave holds (CR 121.2c). The
+queue is hashed by `snapshot_hash`; `loop_signature` leaves it out because
+it is empty whenever priority is granted.
+
+Two drainers ask about it, card by card, through one pair of functions
+(`state/draw_offer.rs`: `next_draw_offer`, `draw_offer_answered`):
+
+- **A resolution**, at the top of each turn of `resolve::run`'s loop and
+  before it completes, asks about the first waiting draw before the next
+  instruction runs (CR 614.11a), suspending on `AwaitingOp::SkipDraw`. The
+  instruction that drew has already run, so the answer advances nothing. A
+  mana ability does not ask; nor does an instruction whose own question is
+  out, which keeps its question and has the draw asked after it.
+- **The machine** asks about the turn-based draw (`offer_queued_draw`, called
+  by the draw step) and, at the top of `run_machine`, about anything queued
+  where no resolution could ask, with `PlanKind::SkipDraw`.
+
+Either way the question is the Sanctuary's own `YesNo { MayDo }` keyed by its
+printed ability, so a standing answer covers every draw. Yes skips one card
+and makes the restriction (once: a second skip before the controller's next
+turn adds nothing); no leaves the card to the controller's next Sanctuary
+not yet asked about it (CR 614.5) and draws it when none is left. The skip
+is offered with an empty library too (CR 614.11), and nobody draws for a
+player who has left (CR 800.4a: what they own has left with them).
+
+### A discard asked about before it is made (Library of Leng)
+"If an effect causes you to discard a card, discard it, but you may put it
+on top of your library instead of into your graveyard." It replaces where a
+discarded card goes and nothing else: the card is still discarded (CR
+701.9a, `GameEvent::Discarded` is journalled), and one put into the library
+is not revealed, so its characteristics are undefined to whatever reads the
+discard (CR 701.9c) and the log names it to its discarder only.
+
+The question comes before anything moves, as CR 903.9b's does
+(`resolve/discard.rs`, modelled on `ask_commander_replace`): a card that
+reached the graveyard and was then put back would be a different game. Every
+door an effect's discard goes through names its cards first —
+`DiscardRandom` (after the random draw, which is never repeated),
+`DiscardHand`, Balance's hands (`equalize`), and the two choices whose
+answers discard, `DiscardChain` (`DiscardForPlayers`, `RevealHandDiscard`)
+and `DiscardThenDraw`. Each discarding player who controls a Library of
+Leng is asked one `Pending::Arrange` (`ArrangePrompt::DiscardToLibrary`):
+a graveyard pile first, so the answer with no preference is the discard as
+printed, and a library pile in any order. The answers wait in
+`GameState::discard_answers`, and `GameState::discard_card`, the effect
+discards' one door, spends them, placing the library pile as it was listed
+(`discards_on_top`). What runs after the answer is `DiscardThen::Cards` (the
+named cards, then the next instruction) or `DiscardThen::Choice` (the choice
+answered again with the same cards; its second visit finds them answered).
+A cost's discard and the cleanup step's (CR 514.1) are no effect's and are
+never asked.
+
 ### The replacements that multiply, and their three doors
 Doubling Season and its kin do not rewrite an event; they multiply what an
 effect produces (CR 614.16 for tokens, CR 614.16 for counters), so they live

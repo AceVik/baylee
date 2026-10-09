@@ -50,3 +50,16 @@ fn holy_armor_grants_a_static_boost_and_can_be_pumped_further() {
         "plus +0/+1 until end of turn"
     );
 }
+
+/// Holy Armor: "until end of turn". Two activations stack, last through the
+/// turn, and are gone once the next turn begins.
+#[test]
+fn holy_armor_pump_ends_with_the_turn() {
+    a_pump_aura_ends_with_the_turn(holy_armor(), plains(), 2, (1, 3), (1, 4), (1, 5));
+}
+
+/// Holy Armor: "Enchant creature". Offered every creature and nothing else.
+#[test]
+fn holy_armor_enchants_only_creatures() {
+    an_aura_enchants_only_creatures(holy_armor(), plains());
+}

@@ -69,3 +69,19 @@ fn a_spell_or_permanent_instant_never_offers_an_ability_on_the_stack() {
         );
     }
 }
+
+/// Chaoslace: "Target spell or permanent becomes red." Aimed at a
+/// creature spell on the stack, which the opponent answers it with: the
+/// spell turns red while it waits, keeps its mana cost, and the creature
+/// it resolves into is still red.
+#[test]
+fn chaoslace_turns_a_spell_on_the_stack_red_and_the_permanent_stays_red() {
+    a_lace_recolours_a_spell(
+        chaoslace(),
+        mountain(),
+        llanowar_elves(),
+        forest(),
+        Color::Green,
+        Color::Red,
+    );
+}

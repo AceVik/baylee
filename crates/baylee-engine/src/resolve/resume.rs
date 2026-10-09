@@ -212,21 +212,27 @@ pub(super) fn resume_inner(
             // "If you do, draw that many": what was discarded, counted as it
             // happens — a card that is no longer in the hand is not.
             let you = res.controller;
+            let held: Vec<(ObjectId, PlayerId)> = chosen
+                .iter()
+                .filter(|&&card| state.zones.list(ZoneLocation::Hand(you)).contains(&card))
+                .map(|&card| (card, you))
+                .collect();
+            // Library of Leng, before anything moves; the answer comes back
+            // here with the same cards.
+            if let Some(question) = super::discard::ask_discard_destination(
+                state,
+                res,
+                &held,
+                DiscardThen::Choice {
+                    op: Box::new(AwaitingOp::DiscardThenDraw),
+                    chosen: chosen.to_vec(),
+                },
+            ) {
+                return next_choice(state, res, since, question);
+            }
             let mut discarded = 0;
-            for &card in chosen {
-                if !state.zones.list(ZoneLocation::Hand(you)).contains(&card) {
-                    continue;
-                }
-                state.journal.record(GameEvent::Discarded {
-                    object: card,
-                    player: you,
-                });
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Graveyard(you),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
+            for &(card, _) in &held {
+                state.discard_card(card, you, Cause::Effect);
                 discarded += 1;
             }
             if discarded > 0 {
@@ -518,17 +524,27 @@ pub(super) fn resume_inner(
             count,
             remaining,
         } => {
-            for &card in chosen {
-                state.journal.record(GameEvent::Discarded {
-                    object: card,
-                    player,
-                });
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Graveyard(player),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
+            let discards: Vec<(ObjectId, PlayerId)> =
+                chosen.iter().map(|&card| (card, player)).collect();
+            // Library of Leng, before anything moves; the answer comes back
+            // here with the same cards.
+            if let Some(question) = super::discard::ask_discard_destination(
+                state,
+                res,
+                &discards,
+                DiscardThen::Choice {
+                    op: Box::new(AwaitingOp::DiscardChain {
+                        player,
+                        count,
+                        remaining: remaining.clone(),
+                    }),
+                    chosen: chosen.to_vec(),
+                },
+            ) {
+                return next_choice(state, res, since, question);
+            }
+            for &(card, player) in &discards {
+                state.discard_card(card, player, Cause::Effect);
             }
             let mut remaining = remaining;
             while let Some(player) = remaining.first().copied() {
@@ -706,6 +722,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ReorderTopLibrary { .. }
         | AwaitingOp::DigBottom
         | AwaitingOp::Scry { .. }
+        | AwaitingOp::DiscardDestination { .. }
         | AwaitingOp::Surveil => {
             unreachable!("arrangements resume via resume_arranged")
         }
@@ -727,6 +744,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::CascadeCast { .. }
         | AwaitingOp::CastTarget { .. }
         | AwaitingOp::TopOrBottom { .. }
+        | AwaitingOp::SkipDraw { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }

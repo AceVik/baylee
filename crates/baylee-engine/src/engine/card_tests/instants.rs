@@ -2318,6 +2318,78 @@ fn chaoslace() -> CardIndex {
     card_index("08842aa3-f923-46e9-a106-f542331e9cc1")
 }
 
+/// The opponent answers `spell` (cast by seat 0 off `spell_land`) with `lace`
+/// (cast by seat 1 off `lace_land`): "Target spell or permanent becomes
+/// <color>. (Its mana symbols remain unchanged.)" aimed at the *spell*.
+/// Asserts the spell is its printed color on the stack first, the lace's
+/// color once the lace has resolved, the mana cost untouched, and the
+/// permanent it becomes still that color afterwards: the change has no end,
+/// so it is not the stack's alone.
+#[track_caller]
+fn a_lace_recolours_a_spell(
+    lace: CardIndex,
+    lace_land: CardIndex,
+    spell: CardIndex,
+    spell_land: CardIndex,
+    printed: Color,
+    becomes: Color,
+) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(1002, forest())
+        .battlefield(0, &[spell_land])
+        .battlefield(1, &[lace_land])
+        .hand(0, &[spell])
+        .hand(1, &[lace])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0));
+    cast_from_hand(&mut engine, p0, spell);
+    let on_the_stack = on_stack(&engine, spell).expect("the creature spell is on the stack");
+    let before = engine
+        .state()
+        .object(on_the_stack)
+        .unwrap()
+        .characteristics()
+        .clone();
+    assert_eq!(
+        before.colors,
+        ColorSet::of(printed),
+        "its printed color before the lace"
+    );
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    cast_from_hand(&mut engine, p1, lace);
+    let offered = aim_at(&mut engine, p1, on_the_stack);
+    assert!(
+        offered.contains(&on_the_stack),
+        "a spell on the stack is a legal target: {offered:?}"
+    );
+    pass_until(&mut engine, |e| on_stack(e, lace).is_none());
+    let after = engine
+        .state()
+        .object(on_the_stack)
+        .expect("the creature spell is still on the stack")
+        .characteristics()
+        .clone();
+    assert_eq!(after.colors, ColorSet::of(becomes), "\"becomes\"");
+    assert_eq!(
+        after.mana_cost, before.mana_cost,
+        "\"its mana symbols remain unchanged\""
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    let permanent = on_battlefield(&engine, p0, spell).expect("the spell resolved");
+    assert_eq!(
+        engine
+            .state()
+            .object(permanent)
+            .unwrap()
+            .characteristics()
+            .colors,
+        ColorSet::of(becomes),
+        "the permanent it became keeps the color"
+    );
+}
+
 fn red_elemental_blast() -> CardIndex {
     card_index("bb329a5c-b9f9-4973-a53f-090024146325")
 }

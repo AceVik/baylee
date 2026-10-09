@@ -236,3 +236,161 @@ fn simulacrum_s_damage_to_its_target_can_be_prevented_without_touching_the_life_
         "the shield on the creature absorbed all 3 before any could be marked"
     );
 }
+
+/// Casts Healing Salve's second mode off the Plains, aimed at a player
+/// (`Some(player)`) or a creature (`None`, `object`), and lets it resolve.
+#[track_caller]
+fn salve_shield(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    player: Option<PlayerId>,
+    object: Option<ObjectId>,
+) {
+    let white = on_battlefield(engine, seat, plains()).expect("the Plains is out");
+    tap_mana_where(engine, seat, |id| id == white);
+    cast_with_floating(engine, seat, healing_salve());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
+        .expect("mode 1 is offered");
+    engine.apply(seat, PlayerAction::ChooseMode(slot)).unwrap();
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: object.into_iter().collect(),
+                players: player.into_iter().collect(),
+            },
+        )
+        .expect("any target");
+    pass_until(engine, stack_is_empty);
+}
+
+/// A Lightning Bolt out of the floating pool.
+#[track_caller]
+fn bolt(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    player: Option<PlayerId>,
+    object: Option<ObjectId>,
+) {
+    cast_with_floating(engine, seat, lightning_bolt());
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: object.into_iter().collect(),
+                players: player.into_iter().collect(),
+            },
+        )
+        .expect("any target");
+    pass_until(engine, stack_is_empty);
+}
+
+/// Healing Salve, mode two: "Prevent the next 3 damage". Three, not
+/// "all of it": the first Bolt is prevented entirely and uses the shield up,
+/// so the second one is dealt in full.
+#[test]
+fn healing_salve_shield_is_spent_by_the_first_three_damage() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), mountain(), mountain()])
+        .hand(0, &[healing_salve(), lightning_bolt(), lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    salve_shield(&mut engine, p0, Some(p0), None);
+    assert!(!engine.state().shields.is_empty());
+
+    tap_all_mana(&mut engine, p0);
+    bolt(&mut engine, p0, Some(p0), None);
+    assert_eq!(life_of(&engine, p0), 20, "the first 3 were prevented");
+    assert!(engine.state().shields.is_empty(), "and the shield is gone");
+    bolt(&mut engine, p0, Some(p0), None);
+    assert_eq!(life_of(&engine, p0), 17, "the second 3 are dealt");
+}
+
+/// Healing Salve, mode two: "any target" includes a creature. A shielded
+/// Elf survives a Bolt that would kill it, and the next one kills it.
+#[test]
+fn healing_salve_shields_a_creature_too() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), mountain(), mountain(), quiet_creature()])
+        .hand(0, &[healing_salve(), lightning_bolt(), lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf");
+    salve_shield(&mut engine, p0, None, Some(elf));
+
+    tap_all_mana(&mut engine, p0);
+    bolt(&mut engine, p0, None, Some(elf));
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "the Bolt's damage to the Elf was prevented"
+    );
+    assert_eq!(life_of(&engine, p0), 20);
+    bolt(&mut engine, p0, None, Some(elf));
+    assert!(
+        in_graveyard(&engine, p0, quiet_creature()).is_some(),
+        "the shield is spent: the second Bolt kills it"
+    );
+}
+
+/// Healing Salve, mode two: "… this turn". A shield on its caster, with
+/// nothing dealt in the turn, is gone in the opponent's turn and their Bolt
+/// is dealt in full.
+#[test]
+fn healing_salves_shield_ends_with_the_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains()])
+        .hand(0, &[healing_salve()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    salve_shield(&mut engine, p0, Some(p0), None);
+    assert!(!engine.state().shields.is_empty());
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(engine.state().shields.is_empty(), "gone with that turn");
+    tap_all_mana(&mut engine, p1);
+    bolt(&mut engine, p1, Some(p0), None);
+    assert_eq!(life_of(&engine, p0), 17, "dealt in full");
+}
+
+/// Healing Salve, mode one: "Target player gains 3 life" may name the
+/// opponent as well as the caster.
+#[test]
+fn healing_salve_mode_0_may_name_the_opponent() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains()])
+        .hand(0, &[healing_salve()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, healing_salve());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(0)))
+        .expect("mode 0 is offered");
+    engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+    engine
+        .apply(p0, PlayerAction::ChoosePlayer(p1))
+        .expect("the opponent is a legal target player");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life_of(&engine, p1), 23, "\"gains 3 life\"");
+    assert_eq!(life_of(&engine, p0), 20, "and the caster gains nothing");
+}

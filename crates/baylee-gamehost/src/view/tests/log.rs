@@ -938,3 +938,60 @@ fn every_seat_sees_the_monarch_and_is_told_when_the_crown_moves() {
         );
     }
 }
+
+/// Library of Leng: a discarded card put on top of its owner's library
+/// instead of into the graveyard is not revealed (CR 701.9c). The discard
+/// line names it to its discarder and to nobody else, while a card the same
+/// discard sent to the graveyard is named to every seat.
+#[test]
+fn a_discard_put_on_top_of_a_library_is_named_to_its_discarder_only() {
+    let (mut engine, mut log) = a_logged_table();
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let hand = engine.state().zones.list(ZoneLocation::Hand(me)).clone();
+    let (to_top, to_graveyard) = (hand[0], hand[1]);
+    let from = log.len();
+    let state = engine.dev_state_mut(me).expect("dev commands");
+    // The engine's own order (`GameState::discard_card`): the discard,
+    // then the move.
+    state.journal.record(GameEvent::Discarded {
+        object: to_top,
+        player: me,
+    });
+    state
+        .move_object(
+            to_top,
+            ZoneLocation::Library(me),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .expect("on top");
+    state.journal.record(GameEvent::Discarded {
+        object: to_graveyard,
+        player: me,
+    });
+    state
+        .move_object(
+            to_graveyard,
+            ZoneLocation::Graveyard(me),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .expect("discarded");
+    log.consume(engine.state());
+
+    let discards = |seat: PlayerId| -> Vec<Option<ObjectId>> {
+        told_since(&log, seat, from)
+            .iter()
+            .filter_map(|event| match event {
+                LogEvent::Discarded { card, .. } => Some(handle(card)),
+                _ => None,
+            })
+            .collect()
+    };
+    assert_eq!(discards(me), vec![Some(to_top), Some(to_graveyard)]);
+    assert_eq!(
+        discards(them),
+        vec![None, Some(to_graveyard)],
+        "the card on top of the library is a card, and only that"
+    );
+}

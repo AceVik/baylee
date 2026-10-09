@@ -466,6 +466,26 @@ pub enum AwaitingOp {
         /// Life to pay.
         amount: u16,
     },
+    /// A player with a Library of Leng arranges cards an effect is about to
+    /// make them discard (`resolve::discard`): what is discarded, by whom,
+    /// and what runs once every such player has answered.
+    DiscardDestination {
+        /// Every card the instruction discards, with its discarding player.
+        discards: Vec<(ObjectId, PlayerId)>,
+        /// What the instruction does once answered.
+        then: super::DiscardThen,
+    },
+    /// The drawing player decides whether Island Sanctuary replaces the
+    /// first waiting draw (`GameState::draws_to_offer`). The instruction
+    /// that drew has already run, so the answer advances nothing: it
+    /// settles that card and the resolution goes on where it was.
+    SkipDraw {
+        /// The Sanctuary asking.
+        source: ObjectId,
+        /// The player's other Sanctuaries already declined for this draw
+        /// (CR 614.5: one opportunity each).
+        declined: Vec<ObjectId>,
+    },
     /// Commanders whose owners have still to answer CR 903.9b for the
     /// operation at `res.pc`, which has not run yet.
     ///

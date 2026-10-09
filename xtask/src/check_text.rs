@@ -311,6 +311,14 @@ pub(crate) fn check_player_targets_match_the_printing(
 /// - "until end of turn, you may cast that card" (Ragavan, Nimble Pilferer)
 ///   — `ExileTopMayCast`, which leaves a cast-only permission: the
 ///   `ChooseExiledToPlay` argument, the card is cast or it is not.
+/// - "instead you may skip that draw" (Island Sanctuary) and "you may skip
+///   your next turn" (Time Vault) — `MaySkipDrawStepDraw` and
+///   `SkipTurnToUntapSelf`, replacements whose `YesNo` the engine asks
+///   where the draw or the turn would happen (`state/draw_offer.rs`,
+///   `offer_turn_skip`).
+/// - "you may put it on top of your library instead of into your
+///   graveyard" (Library of Leng) — `MayDiscardToLibraryTop`, the
+///   arrangement asked before an effect's discard (`state/discard.rs`).
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -367,6 +375,9 @@ pub(crate) fn check_optional_clauses_are_offered(
         "MillMayTakeOne",
         "RevealTopOnePerType",
         "ExileTopMayCast",
+        "MaySkipDrawStepDraw",
+        "SkipTurnToUntapSelf",
+        "MayDiscardToLibraryTop",
     ];
     if !def.is_implemented() {
         return;

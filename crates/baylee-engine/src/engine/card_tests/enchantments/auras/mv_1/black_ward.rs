@@ -59,3 +59,35 @@ fn black_ward_protects_the_creature_it_enchants_from_black_spells() {
         "a black spell cannot target the warded creature: {offered:?}"
     );
 }
+
+/// Black Ward: "This effect doesn't remove this Aura." A Deathlace turns the Ward
+/// black while it guards against black, and it stays on; a second Aura on the
+/// same creature that a Deathlace turns black falls off.
+#[test]
+fn black_ward_stays_on_when_it_is_itself_black() {
+    a_ward_outlasts_its_own_color(black_ward(), deathlace(), swamp(), Color::Black);
+}
+
+/// Black Ward: protection from black includes "can't be enchanted by black
+/// Auras": Unholy Strength is not offered the warded creature, and White's Holy
+/// Armor still is.
+#[test]
+fn black_ward_keeps_black_auras_off_the_creature() {
+    a_ward_keeps_auras_of_its_color_off(black_ward(), unholy_strength(), swamp());
+}
+
+/// Black Ward: protection from black includes damage from black sources, read off
+/// a block with and without the Ward.
+#[test]
+fn black_ward_prevents_damage_from_a_black_source() {
+    a_ward_prevents_damage_from_its_color(black_ward(), bile_urchin(), false);
+    a_ward_prevents_damage_from_its_color(black_ward(), bile_urchin(), true);
+}
+
+/// Black Ward: protection from black includes "can't be blocked by black
+/// creatures", read with and without the Ward.
+#[test]
+fn black_ward_cannot_be_blocked_by_a_black_creature() {
+    a_warded_creature_slips_past_its_color(black_ward(), bile_urchin(), false);
+    a_warded_creature_slips_past_its_color(black_ward(), bile_urchin(), true);
+}

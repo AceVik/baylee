@@ -37,6 +37,9 @@ mod zones;
 mod answers;
 mod awaiting;
 mod choices;
+mod discard;
+pub use discard::DiscardThen;
+use discard::{discard_or_ask, resume_discard_destination};
 mod immediate;
 mod piles;
 mod resume;
@@ -755,7 +758,16 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
                 .collect(),
         );
     }
-    while res.pc < res.effects.len() {
+    loop {
+        // A draw Island Sanctuary may replace, queued by the instruction
+        // before (or by an answer this resolution just took), is asked
+        // about before the next one runs (CR 614.11a).
+        if let Some(pending) = ask_offered_draw(state, res) {
+            return Flow::Wait(pending);
+        }
+        if res.pc >= res.effects.len() {
+            break;
+        }
         if state.numeric_failure.is_some() {
             return Flow::Complete;
         }
@@ -800,6 +812,24 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
 
 /// Preserve an instruction's own choice while CR 404.3 is answered. The
 /// program counter already names the next instruction when `next` is absent.
+/// The question about the first waiting draw Island Sanctuary could replace
+/// (`GameState::draws_to_offer`), once every draw ahead of it is made.
+///
+/// Never while another question of this resolution is out, which would be
+/// overwritten, and never inside a mana ability, which asks nothing it does
+/// not print: the machine asks those (`Engine::offer_queued_draw`).
+fn ask_offered_draw(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
+    if res.awaiting.is_some() || res.mana_ability || state.draws_to_offer.is_empty() {
+        return None;
+    }
+    let (player, source) = state.next_draw_offer()?;
+    res.awaiting = Some(AwaitingOp::SkipDraw {
+        source,
+        declined: Vec::new(),
+    });
+    Some(state.draw_offer_question(player, source))
+}
+
 fn order_before_continuing(
     state: &mut GameState,
     res: &mut Resolution,

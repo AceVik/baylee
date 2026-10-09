@@ -296,6 +296,12 @@ impl<L: CardLookup> Engine<L> {
                 self.awaiting_answer = true;
                 return;
             }
+            // A draw Island Sanctuary may replace that was queued where no
+            // resolution could ask (Lich's draws for a gain outside one):
+            // asked before anything else happens.
+            if self.offer_queued_draw() {
+                return;
+            }
             let signature = watch.wants_sample().then(|| self.state.loop_signature());
             if let Some(period) = watch.step(signature)
                 && self.on_loop_detected(period)

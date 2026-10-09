@@ -40,3 +40,25 @@ fn ivory_cup_offers_to_pay_and_gain_life_off_a_white_spell() {
         "Swords' own life gain still happened, to the Elf's controller"
     );
 }
+
+/// Ivory Cup: "you may pay {1}" is a choice. Declined, it gains no life and
+/// spends nothing of the mana floating in the pool.
+#[test]
+fn ivory_cup_declined_gains_nothing_and_spends_nothing() {
+    a_rock_declined(ivory_cup(), plains(), camel());
+}
+
+/// Ivory Cup: "Whenever *a player* casts a white spell, *you* may pay {1}":
+/// the opponent's white spell asks the controller of the Ivory Cup, who pays
+/// and gains the life.
+#[test]
+fn ivory_cup_pays_its_controller_off_an_opponents_white_spell() {
+    a_rock_pays_off_an_opponents_spell(ivory_cup(), plains(), plains(), camel());
+}
+
+/// Ivory Cup: only a white spell is asked about. A spell of another color
+/// resolves without a question and the life total stands.
+#[test]
+fn ivory_cup_ignores_a_spell_of_another_color() {
+    a_rock_ignores_another_color(ivory_cup(), mountain(), lightning_bolt());
+}

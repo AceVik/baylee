@@ -48,3 +48,16 @@ fn firebreathing_pumps_power_when_activated() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(pt(&engine, creature), (2, 1), "+1/+0 until end of turn");
 }
+
+/// Firebreathing: "until end of turn". Two activations stack, last through the
+/// turn, and are gone once the next turn begins.
+#[test]
+fn firebreathing_pump_ends_with_the_turn() {
+    a_pump_aura_ends_with_the_turn(firebreathing(), mountain(), 1, (1, 1), (2, 1), (3, 1));
+}
+
+/// Firebreathing: "Enchant creature". Offered every creature and nothing else.
+#[test]
+fn firebreathing_enchants_only_creatures() {
+    an_aura_enchants_only_creatures(firebreathing(), mountain());
+}
