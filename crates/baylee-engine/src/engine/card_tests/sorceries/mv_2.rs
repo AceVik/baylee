@@ -5,6 +5,7 @@ use super::*;
 
 mod balance;
 mod braingeyser;
+mod channel;
 mod damn;
 mod death_stroke;
 mod drain_life;

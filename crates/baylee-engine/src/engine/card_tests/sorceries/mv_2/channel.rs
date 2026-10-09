@@ -1,4 +1,4 @@
-//! Independent Channel card behavior: CR 116.2c, 117.1d, 119.4,
+//! `cards/sorceries/mv_2/channel.rs`, played: CR 116.2c, 117.1d, 119.4,
 //! 601.2g, 605.3a, and cleanup expiration.
 #[allow(clippy::wildcard_imports)]
 use super::*;
@@ -7,8 +7,22 @@ use baylee_core::generated::index;
 use baylee_core::ids::GrantedActionId;
 use baylee_core::mana::ManaColor;
 
+// oracle_id = "d1b815d1-2848-40d4-a555-66822d1becbc"
+fn channel() -> CardIndex {
+    card_index("d1b815d1-2848-40d4-a555-66822d1becbc")
+}
+
 const USER: PlayerId = PlayerId::new(0);
 const OTHER: PlayerId = PlayerId::new(1);
+
+fn aim(engine: &mut Engine<RegistryLookup>, objects: Vec<ObjectId>, players: Vec<PlayerId>) {
+    let Pending::ChooseTargets { player, .. } = engine.pending().clone() else {
+        panic!("target choice expected: {:?}", engine.pending());
+    };
+    engine
+        .apply(player, PlayerAction::ChooseTargets { objects, players })
+        .unwrap();
+}
 
 fn priority(engine: &mut Engine<RegistryLookup>) {
     pass_until(
@@ -20,7 +34,7 @@ fn priority(engine: &mut Engine<RegistryLookup>) {
 fn setup(extra_board: &[CardIndex], extra_hand: &[CardIndex], life: i32) -> Engine<RegistryLookup> {
     let mut board = vec![forest(), forest()];
     board.extend_from_slice(extra_board);
-    let mut hand = vec![index::CHANNEL];
+    let mut hand = vec![channel()];
     hand.extend_from_slice(extra_hand);
     let mut engine = Duel::new(SEED, forest())
         .life(0, life)
@@ -37,10 +51,10 @@ fn setup(extra_board: &[CardIndex], extra_hand: &[CardIndex], life: i32) -> Engi
             .apply(USER, PlayerAction::ActivateManaAbility { source })
             .unwrap();
     }
-    cast_with_floating(&mut engine, USER, index::CHANNEL);
+    cast_with_floating(&mut engine, USER, channel());
     pass_until(&mut engine, stack_is_empty);
     priority(&mut engine);
-    assert!(in_graveyard(&engine, USER, index::CHANNEL).is_some());
+    assert!(in_graveyard(&engine, USER, channel()).is_some());
     engine
 }
 
