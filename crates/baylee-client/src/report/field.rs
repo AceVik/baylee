@@ -55,6 +55,11 @@ pub(crate) struct DeskCaret {
 #[derive(Component)]
 pub(crate) struct DeskSuggest;
 
+/// A popover row's second column (where the card is, or its type line):
+/// it gives way to the name and wraps inside the popover.
+#[derive(Component)]
+pub(crate) struct DeskSuggestMeta;
+
 /// A finished card reference's span in the text: hovering it previews the
 /// card ([`super::refs`]).
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
@@ -372,7 +377,29 @@ fn popover(
             ))
             .id();
         let name = controls::label(commands, kit, &name, kit.m.text, tokens::INK);
-        let meta = controls::label(commands, kit, &meta, kit.m.small, tokens::MUTED);
+        commands.entity(name).insert(Node {
+            flex_shrink: 0.0,
+            ..default()
+        });
+        // The second column gives way to the name and wraps inside the
+        // popover: a long type line ("Legendary Artifact Creature — Human")
+        // never runs over its edge.
+        let meta = commands
+            .spawn((
+                Text::new(meta),
+                tf(kit.fonts, kit.m.small),
+                TextColor(tokens::MUTED),
+                TextLayout::justify(Justify::Right),
+                Node {
+                    flex_shrink: 1.0,
+                    min_width: px_fixed(0.0),
+                    padding: UiRect::axes(px_fixed(0.0), kit.m.px(4.0)),
+                    ..default()
+                },
+                DeskSuggestMeta,
+                Pickable::IGNORE,
+            ))
+            .id();
         commands.entity(row).add_children(&[name, meta]);
         commands.entity(surface).add_child(row);
     }

@@ -1,7 +1,10 @@
 //! Reuse the catalog's checked-in vocabulary when a printing lacks translated types.
 use crate::i18n::Lang;
 
-pub(super) fn translated(line: &str, lang: Lang) -> String {
+/// `line` (an English type line) in `lang`, through the catalog's
+/// checked-in vocabulary; a line it cannot read stays as it is.
+#[must_use]
+pub fn translated(line: &str, lang: Lang) -> String {
     if lang == Lang::En {
         return line.into();
     }
