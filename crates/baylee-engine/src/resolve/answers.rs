@@ -396,6 +396,26 @@ pub(super) fn resume_yes_no_inner(
         res.pc += 1;
         return run(state, res);
     }
+    // Island Sanctuary's skip for one waiting draw: the answer settles that
+    // card, and the next waiting draw may be asked in turn. The
+    // instruction that drew has run, so nothing advances here.
+    if matches!(res.awaiting, Some(AwaitingOp::SkipDraw { .. })) {
+        let Some(AwaitingOp::SkipDraw {
+            source,
+            mut declined,
+        }) = res.awaiting.take()
+        else {
+            unreachable!("just matched")
+        };
+        if let Some((player, next)) = state.draw_offer_answered(source, answer, &mut declined) {
+            res.awaiting = Some(AwaitingOp::SkipDraw {
+                source: next,
+                declined,
+            });
+            return Flow::Wait(state.draw_offer_question(player, next));
+        }
+        return run(state, res);
+    }
     // CR 903.9b: record what this owner said, then either ask the next one
     // or run the operation that has been waiting for all of them.
     if matches!(res.awaiting, Some(AwaitingOp::CommanderReplace { .. })) {

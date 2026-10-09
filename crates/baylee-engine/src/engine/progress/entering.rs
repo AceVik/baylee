@@ -647,8 +647,10 @@ impl<L: CardLookup> Engine<L> {
     fn copy_on_enter_question(&self, id: ObjectId) -> Option<(Vec<ObjectId>, PlayerId)> {
         let (spec, _) = self.copy_on_enter(id)?;
         let controller = self.state.object(id)?.controller;
+        // Choosing what to copy does not target (CR 115.10a): shroud,
+        // hexproof and protection leave a permanent on this list.
         Some((
-            eval::target_options(&spec, &self.state, controller, id),
+            eval::choice_options(&spec, &self.state, controller, id),
             controller,
         ))
     }

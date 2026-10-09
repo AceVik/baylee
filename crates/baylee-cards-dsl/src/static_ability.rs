@@ -944,9 +944,10 @@ pub enum ReplacementRule {
     /// "If you would draw a card during your draw step, instead you may skip
     /// that draw. If you do, until your next turn, you can't be attacked
     /// except by creatures with flying and/or islandwalk" (Island
-    /// Sanctuary). Offered to the source's controller as the draw step's
-    /// draw would be made (CR 504.1, CR 614.10); one skip is the whole
-    /// effect, and the restriction outlives the source.
+    /// Sanctuary). Offered to the source's controller for every draw they
+    /// would make during their own draw step, the turn-based one (CR 504.1)
+    /// and any an effect makes there, each card of a multiple draw on its
+    /// own (CR 121.2, 614.10, 614.11a); the restriction outlives the source.
     MaySkipDrawStepDraw,
 }
 

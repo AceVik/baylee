@@ -940,6 +940,39 @@ so closing it means giving that one chain a way to ask before it moves
 anything. Nothing reaches it today: the only filter the pool writes for that
 effect is `Land.YouCtrl`.
 
+### A draw that waits to be asked (CR 121.2, 614.11a)
+Island Sanctuary replaces "a card" its controller "would draw during
+[their] draw step", which is not only the turn-based draw (CR 504.1): a
+Howling Mine's additional card, an Ancestral Recall cast in that step and a
+Lich's draws for a gain there are draws too, and each card of "draw three
+cards" is a draw of its own (CR 121.2). `GameState::draw_cards` cannot ask,
+so it does not make such a draw: it puts `(player, n)` on
+`GameState::draws_to_offer`, and every draw behind one already waiting goes
+there as well, so the order the instructions gave holds (CR 121.2c). The
+queue is hashed by `snapshot_hash`; `loop_signature` leaves it out because
+it is empty whenever priority is granted.
+
+Two drainers ask about it, card by card, through one pair of functions
+(`state/draw_offer.rs`: `next_draw_offer`, `draw_offer_answered`):
+
+- **A resolution**, at the top of each turn of `resolve::run`'s loop and
+  before it completes, asks about the first waiting draw before the next
+  instruction runs (CR 614.11a), suspending on `AwaitingOp::SkipDraw`. The
+  instruction that drew has already run, so the answer advances nothing. A
+  mana ability does not ask; nor does an instruction whose own question is
+  out, which keeps its question and has the draw asked after it.
+- **The machine** asks about the turn-based draw (`offer_queued_draw`, called
+  by the draw step) and, at the top of `run_machine`, about anything queued
+  where no resolution could ask, with `PlanKind::SkipDraw`.
+
+Either way the question is the Sanctuary's own `YesNo { MayDo }` keyed by its
+printed ability, so a standing answer covers every draw. Yes skips one card
+and makes the restriction (once: a second skip before the controller's next
+turn adds nothing); no leaves the card to the controller's next Sanctuary
+not yet asked about it (CR 614.5) and draws it when none is left. The skip
+is offered with an empty library too (CR 614.11), and nobody draws for a
+player who has left (CR 800.4a: what they own has left with them).
+
 ### The replacements that multiply, and their three doors
 Doubling Season and its kin do not rewrite an event; they multiply what an
 effect produces (CR 614.16 for tokens, CR 614.16 for counters), so they live

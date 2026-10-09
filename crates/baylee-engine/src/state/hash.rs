@@ -34,6 +34,7 @@ impl GameState {
             ltb_versions,
             damage_deaths,
             pending_miracle,
+            draws_to_offer,
             extra_turns,
             skip_followups,
             reanimated_auras,
@@ -160,6 +161,7 @@ impl GameState {
             }
         }
         pending_miracle.hash(&mut h);
+        draws_to_offer.hash(&mut h);
         extra_turns.hash(&mut h);
         skip_followups.hash(&mut h);
         reanimated_auras.hash(&mut h);

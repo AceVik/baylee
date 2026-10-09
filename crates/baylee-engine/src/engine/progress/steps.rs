@@ -113,10 +113,11 @@ impl<L: CardLookup> Engine<L> {
                     // Nobody draws for an active player who has left
                     // (CR 800.4j).
                     if !self.active_has_left() {
+                        // A draw Island Sanctuary may replace waits to be
+                        // asked about (`offer_queued_draw`).
                         let active = self.state.turn.active;
-                        if !self.offer_draw_skip(active, Vec::new()) {
-                            self.state.draw_cards(active, 1);
-                        }
+                        self.state.draw_cards(active, 1);
+                        self.offer_queued_draw();
                     }
                     (Phase::Beginning, Step::Draw)
                 }
