@@ -3,6 +3,7 @@
 //! own [`Nav`] (moved by `/`, the arrows, F2) kept as one; the cursor's row
 //! lit and scrolled into view; a menu placed under its opener.
 
+use super::cardwindow::{CARD, first_stop};
 use super::rows::{DeckRowAt, PoolRowAt, ROW_GROUND};
 use super::sheets::PlacedMenu;
 use super::virtual_rows::{VirtualList, is_pool, place_of};
@@ -10,7 +11,7 @@ use super::{BUILDER, BUILDER_SHEET, BuildMenu, Nav};
 use crate::lobby::LobbyState;
 use crate::shellkit::focus::Stop;
 use crate::shellkit::tokens;
-use baylee_client_core::deckbuilder::BuildField;
+use baylee_client_core::deckbuilder::{BuildField, Picker};
 use baylee_client_core::lobby::Screen;
 use bevy::input_focus::{FocusCause, InputFocus, InputFocusVisible};
 use bevy::prelude::*;
@@ -91,6 +92,39 @@ pub(crate) fn follow(
             seen.stop = Some(Stop::new(BUILDER_SHEET, "keep"));
         }
         return;
+    }
+    // The card window is modal: it opens on its door's stop (§1.7), keeps
+    // the stop a redraw replaced, and says whether the strip has the focus
+    // (← → step the printings there, the cards elsewhere).
+    if let Some(door) = state.lobby.builder().picker().map(Picker::door) {
+        let on_window = focus
+            .get()
+            .and_then(|e| stops.get(e).ok())
+            .filter(|(_, s)| s.table == CARD)
+            .map(|(_, s)| *s);
+        let strip = on_window.is_some_and(|s| s.id == "printings");
+        if state.build.on_strip != strip {
+            state.bypass_change_detection().build.on_strip = strip;
+        }
+        if let Some(stop) = on_window {
+            seen.focus = focus.get();
+            seen.stop = Some(stop);
+        } else {
+            let again = seen
+                .stop
+                .filter(|s| s.table == CARD)
+                .and_then(|s| find(s.id, CARD, Some(s.item)));
+            let target = again.or_else(|| find(first_stop(door), CARD, None));
+            if let Some(entity) = target {
+                focus.set(entity, FocusCause::Navigated);
+                seen.focus = Some(entity);
+                seen.stop = stops.get(entity).ok().map(|(_, s)| *s);
+            }
+        }
+        return;
+    }
+    if state.build.on_strip {
+        state.bypass_change_detection().build.on_strip = false;
     }
     // The keyboard model moved: the focus follows it.
     if state.build.nav_epoch != seen.epoch {

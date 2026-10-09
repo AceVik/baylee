@@ -4790,6 +4790,50 @@ messages! {
     HistoryRestoreCurrent { en: "This is the current version", de: "Das ist die aktuelle Version" },
     /// The toast after a restore, with Undo.
     HistoryRestored { en: "Version restored", de: "Version wiederhergestellt" },
+    /// The compare bar: the selected version against the one before it.
+    HistoryPrevious { en: "Previous", de: "Vorige" },
+    /// The compare bar: against the deck as it is now.
+    HistoryCurrent { en: "Current", de: "Aktuell" },
+    /// The compare bar: against a second version picked from the list.
+    HistoryPick { en: "Pick\u{2026}", de: "Wählen\u{2009}\u{2026}" },
+    /// Under the compare bar while the list waits for the pick.
+    HistoryPicking { en: "Pick the other version in the list.", de: "Wähle die andere Version in der Liste." },
+    /// The oldest version kept: its start is not known.
+    HistoryFirstSave { en: "first save", de: "erster Stand" },
+    /// A version's day: today (its time follows).
+    HistoryToday { en: "today", de: "heute" },
+    /// A version's day: yesterday (its time follows).
+    HistoryYesterday { en: "yesterday", de: "gestern" },
+    /// A version's change line: copies added and removed. `{0}` `{1}`.
+    HistoryDeltaCopies { en: "+{0} \u{2212}{1}", de: "+{0} \u{2212}{1}" },
+    /// A version's change line: printings changed. `{0}` how many.
+    HistoryDeltaPrinting { en: "{0}\u{d7} printing", de: "{0}\u{d7} Druck" },
+    /// A version's change line: finishes changed. `{0}` how many.
+    HistoryDeltaFinish { en: "{0} foil", de: "{0} Foil" },
+    /// A version's change line: languages changed. `{0}` how many.
+    HistoryDeltaLanguage { en: "{0}\u{d7} language", de: "{0}\u{d7} Sprache" },
+    /// A version's change line: notes changed. `{0}` how many.
+    HistoryDeltaNote { en: "{0}\u{d7} note", de: "{0}\u{d7} Notiz" },
+    /// A diff row's tag: only on the newer side.
+    HistoryTagAdded { en: "added", de: "hinzugefügt" },
+    /// A diff row's tag: only on the older side.
+    HistoryTagRemoved { en: "removed", de: "entfernt" },
+    /// A diff row's tag: another count of the same printing.
+    HistoryTagCount { en: "count", de: "Anzahl" },
+    /// A diff row's tag: another printing.
+    HistoryTagPrinting { en: "printing", de: "Druck" },
+    /// A diff row's tag: another finish.
+    HistoryTagFinish { en: "finish", de: "Finish" },
+    /// A diff row's tag: another language.
+    HistoryTagLanguage { en: "language", de: "Sprache" },
+    /// A diff row's tag: another note.
+    HistoryTagNote { en: "note", de: "Notiz" },
+    /// A diff row: the note changed. `{0}` the card.
+    HistoryNoteChanged { en: "{0} · note changed", de: "{0} · Notiz geändert" },
+    /// The title's tag on a house deck's history.
+    HistoryHouseTag { en: "House deck · read-only", de: "Hausdeck · nur lesen" },
+    /// The builder, offline, where History would be.
+    HistoryNeedsGateway { en: "History needs the gateway", de: "Der Verlauf braucht das Gateway" },
     // ---- the deck builder (WP4) ------------------------------------------
     /// The builder's title while the deck has no name yet.
     BuildUntitled { en: "New deck", de: "Neues Deck" },
@@ -4871,6 +4915,34 @@ messages! {
     BuildChoosePrinting { en: "Choose printing\u{2026}", de: "Druck wählen\u{2009}\u{2026}" },
     /// A pool row's menu: open the card sheet.
     BuildOpenCard { en: "Open card", de: "Karte öffnen" },
+    /// The card window's primary through a row door (windows-b6 §A.3).
+    CardAddToDeck { en: "Add to deck", de: "Ins Deck" },
+    /// The card window's primary through a picture door on a deck row.
+    CardApplyPrinting { en: "Apply printing", de: "Druck übernehmen" },
+    /// The card window: set this card as the commander.
+    CardSetCommander { en: "Set as commander", de: "Als Commander" },
+    /// The card window: this card is the commander.
+    CardIsCommander { en: "Is commander", de: "Ist Commander" },
+    /// The card window: turn a two-faced printing over.
+    CardFlip { en: "Flip", de: "Wenden" },
+    /// The card window: unlock the finishes this printing was not sold in.
+    CardAnyFinish { en: "any finish", de: "jedes Finish" },
+    /// The card window: the rules text shown is the compiled English Oracle.
+    CardEnglishText { en: "English text", de: "Englischer Text" },
+    /// The card window offline, or with no catalog: one printing only.
+    CardMorePrintings { en: "More printings need the gateway", de: "Weitere Drucke brauchen das Gateway" },
+    /// The card window's printing section heading.
+    CardHeadPrinting { en: "PRINTING", de: "DRUCK" },
+    /// The card window's count section heading.
+    CardHeadInDeck { en: "IN THIS DECK", de: "IN DIESEM DECK" },
+    /// The card window's main-deck stepper.
+    CardMain { en: "Main", de: "Hauptdeck" },
+    /// The card window's sideboard stepper.
+    CardSide { en: "Sideboard", de: "Sideboard" },
+    /// The card window's language chips' label.
+    CardLanguage { en: "Language", de: "Sprache" },
+    /// The card window's finish chips' label.
+    CardFinish { en: "Finish", de: "Finish" },
     /// A pool row's menu, or the card sheet: add to the main deck.
     BuildAddToMain { en: "Add to main", de: "Ins Hauptdeck" },
     /// A pool row's menu, or the card sheet: add to the sideboard.

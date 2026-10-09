@@ -99,8 +99,18 @@ pub(crate) enum BuildPress {
     KeepEditing,
     /// "Discard changes?": leave without saving, the draft forgotten.
     DiscardAndLeave,
-    /// Read a card in full, by its slot in the pool.
+    /// Open the card window on a card, by its slot in the pool (the row's
+    /// door, windows-b6 §A.3).
     Inspect(usize),
+    /// Open the card window on a row of the shown deck list (the row's
+    /// door): ← → then walk that list.
+    InspectRow(usize),
+    /// The card window: one copy in the chosen printing into a zone.
+    WindowAdd(Zone),
+    /// The card window's stepper: one more (`true`) or one fewer in a zone.
+    WindowStep(Zone, bool),
+    /// The card window: turn a two-faced printing over.
+    WindowFlip,
     /// Open the printing picker on a pool card, by its slot.
     PickPrint(usize),
     PickRowPrint(usize),
@@ -131,8 +141,6 @@ pub(crate) enum BuildPress {
     /// Move one copy of a named row to the other list — deck to sideboard,
     /// or back. The row keeps the printing it was chosen with.
     MoveRow(usize),
-    /// Add one copy of a pool card to a named list, whichever one is open.
-    AddCardTo(usize, Zone),
     /// Make a pool card the deck's commander.
     SetCommander(usize),
     ChooseCommander(bool),
@@ -141,8 +149,6 @@ pub(crate) enum BuildPress {
     RemoveCommander(usize),
     /// Take the commander mark off, leaving the card in the deck.
     ClearCommander,
-    /// Put it away again.
-    CloseCard,
     /// Open the filter-string builder on what the search box holds, or shut
     /// it. The cogwheel inside the box.
     ToggleFilterPanel,
@@ -259,6 +265,7 @@ impl BuildPress {
             }
             BuildPress::PickRowPrint(at) => {
                 scrolled.set(List::PickerPanel, 0.0);
+                state.build.window_back = false;
                 let zone = state.lobby.builder().zone();
                 let request = state.lobby.builder_mut().open_row_picker(at, zone);
                 dispatch(state, mailbox, request);
@@ -268,11 +275,13 @@ impl BuildPress {
                     return;
                 };
                 scrolled.set(List::PickerPanel, 0.0);
+                state.build.window_back = false;
                 let request = state.lobby.builder_mut().open_row_picker(at, Zone::Main);
                 dispatch(state, mailbox, request);
             }
             BuildPress::PickPrint(slot) => {
                 scrolled.set(List::PickerPanel, 0.0);
+                state.build.window_back = false;
                 let zone = state.lobby.builder().zone();
                 let request = state.lobby.builder_mut().open_picker(slot, zone);
                 dispatch(state, mailbox, request);
@@ -332,7 +341,10 @@ impl BuildPress {
                     state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
                 }
             }
-            BuildPress::PickerClose => state.lobby.room_close_print(),
+            BuildPress::PickerClose => {
+                state.build.window_back = false;
+                state.lobby.room_close_print();
+            }
             BuildPress::AddRow(at) => {
                 let zone = state.lobby.builder().zone();
                 if let Some(entry) = state.lobby.builder().entries(zone).get(at).cloned()
@@ -355,9 +367,6 @@ impl BuildPress {
                     Zone::Side => Zone::Main,
                 };
                 state.lobby.builder_mut().move_entry(at, from, to);
-            }
-            BuildPress::AddCardTo(slot, zone) => {
-                state.lobby.builder_mut().add(slot, zone);
             }
             BuildPress::ChooseCommander(partner) => {
                 state.commander_pick = Some(partner);
@@ -553,8 +562,28 @@ impl BuildPress {
                     state.build.stats_sheet = false;
                 }
             }
-            BuildPress::Inspect(slot) => state.lobby.builder_mut().inspect(slot),
-            BuildPress::CloseCard => state.lobby.builder_mut().stop_inspecting(),
+            BuildPress::Inspect(slot) => {
+                state.build.window_back = false;
+                let request = state.lobby.builder_mut().inspect(slot);
+                dispatch(state, mailbox, request);
+            }
+            BuildPress::InspectRow(at) => {
+                state.build.window_back = false;
+                let zone = state.lobby.builder().zone();
+                let request = state.lobby.builder_mut().inspect_row(at, zone);
+                dispatch(state, mailbox, request);
+            }
+            BuildPress::WindowAdd(zone) => {
+                if !state.lobby.builder_mut().window_add(zone) {
+                    state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
+                }
+            }
+            BuildPress::WindowStep(zone, more) => {
+                if !state.lobby.builder_mut().window_step(zone, more) && more {
+                    state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
+                }
+            }
+            BuildPress::WindowFlip => state.build.window_back = !state.build.window_back,
             BuildPress::ToggleFilterPanel => state.lobby.builder_mut().toggle_panel(),
         }
     }

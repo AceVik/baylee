@@ -51,6 +51,7 @@ pub(super) fn builder_keys(
     scrolled: &mut Scrolled,
     mut clipboard: Option<&mut bevy::clipboard::Clipboard>,
     paste: &mut Option<Paste>,
+    mailbox: &super::Mailbox,
 ) {
     let picking = state.lobby.builder().picker().is_some();
     if picking {
@@ -84,13 +85,7 @@ pub(super) fn builder_keys(
             return;
         }
         if !searching {
-            if codes.just_pressed(KeyCode::ArrowLeft) {
-                state.lobby.builder_mut().picker_step(-1);
-            }
-            if codes.just_pressed(KeyCode::ArrowRight) {
-                state.lobby.builder_mut().picker_step(1);
-            }
-            keys.clear();
+            window_keys(keys, codes, state, mailbox);
             return;
         }
     }
@@ -146,12 +141,6 @@ pub(super) fn builder_keys(
             crate::buildui::move_nav(state, Nav::Field);
             continue;
         }
-        // The card sheet answers its own keys (KEYBOARD §7.7: ←→ the list it
-        // came from, Enter Add, ⇧Enter Add to the other).
-        if let Some(slot) = state.lobby.builder().inspecting() {
-            sheet_key(state, codes, &key, slot);
-            continue;
-        }
         if state.build.covered() || state.confirm_leave {
             continue;
         }
@@ -164,8 +153,8 @@ pub(super) fn builder_keys(
                 paste,
                 &key,
             ),
-            Nav::Pool(at) => pool_key(state, codes, &key, at),
-            Nav::Deck(at) => deck_key(state, codes, &key, at),
+            Nav::Pool(at) => pool_key(state, codes, &key, at, mailbox),
+            Nav::Deck(at) => deck_key(state, codes, &key, at, mailbox),
             Nav::Idle => {}
         }
     }
@@ -244,6 +233,7 @@ fn pool_key(
     codes: &ButtonInput<KeyCode>,
     key: &KeyboardInput,
     at: usize,
+    mailbox: &super::Mailbox,
 ) {
     let shown: Vec<usize> = {
         let deck = state.lobby.builder();
@@ -282,7 +272,11 @@ fn pool_key(
             let zone = target(state, shifted(codes));
             added(state, zone);
         }
-        Key::Space => state.lobby.builder_mut().inspect(slot),
+        Key::Space => {
+            state.build.window_back = false;
+            let request = state.lobby.builder_mut().inspect(slot);
+            super::http::dispatch(state, mailbox, request);
+        }
         _ if menu_key(key, codes) => {
             state.build.menu = Some(crate::buildui::BuildMenu::Pool(slot));
         }
@@ -304,6 +298,7 @@ fn deck_key(
     codes: &ButtonInput<KeyCode>,
     key: &KeyboardInput,
     at: usize,
+    mailbox: &super::Mailbox,
 ) {
     let order = crate::buildui::deck_order(state);
     if order.is_empty() {
@@ -330,10 +325,9 @@ fn deck_key(
             state.lobby.builder_mut().remove_at(row, zone);
         }
         Key::Space => {
-            if let Some(entry) = state.lobby.builder().entries(zone).get(row) {
-                let slot = entry.slot;
-                state.lobby.builder_mut().inspect(slot);
-            }
+            state.build.window_back = false;
+            let request = state.lobby.builder_mut().inspect_row(row, zone);
+            super::http::dispatch(state, mailbox, request);
         }
         _ if menu_key(key, codes) => {
             state.build.menu = Some(crate::buildui::BuildMenu::Deck(row));
@@ -356,40 +350,6 @@ fn add_row(state: &mut ResMut<LobbyState>, row: usize, zone: Zone) {
             .add_print(entry.slot, zone, entry.print)
     {
         state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
-    }
-}
-
-/// A key on the card sheet.
-fn sheet_key(
-    state: &mut ResMut<LobbyState>,
-    codes: &ButtonInput<KeyCode>,
-    key: &KeyboardInput,
-    slot: usize,
-) {
-    match &key.logical_key {
-        Key::Enter => {
-            let zone = target(state, shifted(codes));
-            if !state.lobby.builder_mut().add(slot, zone) {
-                state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
-            }
-        }
-        Key::ArrowLeft | Key::ArrowRight => {
-            let results = state.lobby.builder().results().to_vec();
-            if let Some(at) = results.iter().position(|s| *s == slot) {
-                let to = if key.logical_key == Key::ArrowLeft {
-                    at.checked_sub(1)
-                } else {
-                    (at + 1 < results.len()).then_some(at + 1)
-                };
-                if let Some(to) = to {
-                    state.lobby.builder_mut().inspect(results[to]);
-                    if matches!(state.build.nav, Nav::Pool(_)) {
-                        crate::buildui::move_nav(state, Nav::Pool(to));
-                    }
-                }
-            }
-        }
-        _ => {}
     }
 }
 
@@ -571,4 +531,95 @@ pub(super) fn transfer_keys(
         state.lobby.builder_mut().export_step(true);
     }
     true
+}
+
+/// The card window's keys (windows-b6 §A.3): ← → the previous or next card
+/// of the list it came from, or the printings while the strip has the
+/// focus; `Home End PageUp PageDown` there too; `+ −` the main stepper,
+/// with Shift the sideboard's; `f` Flip; `c` the commander. Enter is the
+/// focused control's (the kit's), so it is never answered twice; nothing
+/// bare leaves the window.
+fn window_keys(
+    keys: &mut MessageReader<KeyboardInput>,
+    codes: &ButtonInput<KeyCode>,
+    state: &mut ResMut<LobbyState>,
+    mailbox: &super::Mailbox,
+) {
+    let pressed: Vec<KeyboardInput> = keys
+        .read()
+        .filter(|k| k.state.is_pressed())
+        .cloned()
+        .collect();
+    let strip = state.build.on_strip;
+    let shift = shifted(codes);
+    for key in pressed {
+        let builder = state.lobby.builder_mut();
+        match &key.logical_key {
+            Key::ArrowLeft | Key::ArrowRight if strip => {
+                builder.picker_step(if key.logical_key == Key::ArrowLeft {
+                    -1
+                } else {
+                    1
+                });
+            }
+            Key::Home if strip => builder.picker_go(0),
+            Key::End if strip => {
+                let last = builder.picker().map_or(0, |p| p.len().saturating_sub(1));
+                builder.picker_go(last);
+            }
+            Key::PageUp | Key::PageDown if strip => {
+                builder.picker_step(if key.logical_key == Key::PageUp {
+                    -5
+                } else {
+                    5
+                });
+            }
+            Key::ArrowLeft | Key::ArrowRight => {
+                let by = if key.logical_key == Key::ArrowLeft {
+                    -1
+                } else {
+                    1
+                };
+                let (moved, request) = builder.window_neighbour(by);
+                if moved {
+                    state.build.window_back = false;
+                }
+                super::http::dispatch(state, mailbox, request);
+            }
+            Key::Character(ch) if ch == "+" || ch == "-" => {
+                let more = ch == "+";
+                let side =
+                    shift && matches!(key.key_code, KeyCode::NumpadAdd | KeyCode::NumpadSubtract);
+                let zone = if side { Zone::Side } else { Zone::Main };
+                if !builder.window_step(zone, more) && more {
+                    state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
+                }
+            }
+            Key::Character(ch) if ch.eq_ignore_ascii_case("f") && !key.repeat => {
+                let two_faced = builder
+                    .picker()
+                    .and_then(baylee_client_core::deckbuilder::Picker::current)
+                    .is_some_and(baylee_client_core::deckbuilder::Printing::has_back_image);
+                if two_faced {
+                    state.build.window_back = !state.build.window_back;
+                }
+            }
+            Key::Character(ch) if ch.eq_ignore_ascii_case("c") && !key.repeat => {
+                let Some(slot) = builder
+                    .picker()
+                    .map(baylee_client_core::deckbuilder::Picker::slot)
+                else {
+                    continue;
+                };
+                if builder.card(slot).is_some_and(|c| c.commander) {
+                    if builder.is_commander(slot) {
+                        builder.clear_commander();
+                    } else {
+                        builder.set_commander(slot);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
 }

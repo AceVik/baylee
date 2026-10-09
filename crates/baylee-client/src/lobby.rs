@@ -393,6 +393,9 @@ pub struct LobbyState {
     /// unsaved changes. Leaving is one tap away from the busiest corner of
     /// the screen, and a deck is half an hour of work.
     pub(crate) confirm_leave: bool,
+    /// The history sheet over the builder asked "Discard changes?" before a
+    /// restore would replace the unsaved edits (`DESIGN` §C.3, Q-C3).
+    pub(crate) confirm_restore: bool,
     pub(super) confirmation: Option<confirm::Destructive>,
     /// The deck builder's own view state: its tabs, panes, menus, the
     /// keyboard's place and the save state (`crate::buildui::BuildUi`).
@@ -689,6 +692,7 @@ impl LobbyState {
             lang,
             connected: false,
             confirm_leave: false,
+            confirm_restore: false,
             confirmation: None,
             build: crate::buildui::BuildUi::default(),
             transfer_asks: Vec::new(),
@@ -834,6 +838,7 @@ pub(crate) fn diagnostics(state: &LobbyState) -> String {
 }
 mod gateway;
 mod hint;
+mod history;
 mod http;
 mod hub;
 mod keyboard;

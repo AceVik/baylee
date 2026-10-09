@@ -380,9 +380,49 @@ fn a_card_can_be_read_in_the_builder() {
         shown.iter().any(|l| l == "{T}: Add {G}."),
         "the rules text is on screen: {shown:?}"
     );
+    let found = presses(&mut app);
     assert!(
-        presses(&mut app).contains(&Press::Build(BuildPress::CloseCard)),
+        found.contains(&Press::Build(BuildPress::PickerClose)),
         "and closes"
+    );
+    // One window (windows-b6 §A.3): the row's door has the primary Add to
+    // deck and the counts' steppers, and the printing's section.
+    assert!(found.contains(&Press::Build(BuildPress::WindowAdd(Zone::Main))));
+    assert!(found.contains(&Press::Build(BuildPress::WindowStep(Zone::Side, true))));
+    assert!(
+        shown.iter().any(|l| l == "PRINTING"),
+        "the printing section: {shown:?}"
+    );
+}
+
+/// Offline, or with no catalog, the window says why there is one printing
+/// in a sentence, and its text is never blank: the compiled English Oracle
+/// stands in, tagged for a German reader (windows-b6 §A.3).
+#[test]
+fn the_card_window_offline_says_why_and_is_never_blank() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        let _ = state.lobby.builder_mut().inspect(0);
+        let index = state
+            .lobby
+            .builder()
+            .card(0)
+            .map(|c| c.index)
+            .unwrap_or_default();
+        state
+            .lobby
+            .builder_mut()
+            .set_printings(index, Vec::new(), false);
+    }
+    app.update();
+    let shown = labels(&mut app);
+    assert!(
+        shown.iter().any(|l| l == "More printings need the gateway"),
+        "the one-printing sentence: {shown:?}"
     );
 }
 
@@ -1224,4 +1264,100 @@ fn the_way_from_the_deck_list_into_a_deck_passes_through_no_library_page() {
         presses(&mut app).contains(&Press::Build(BuildPress::CloseBuilder)),
         "the builder is what opened"
     );
+}
+
+/// One history sheet from both doors (`DESIGN` §C.3): over the builder it
+/// stands on top of the builder (no page of its own any more), shows the
+/// classified changes — a foil change as one `finish` row — and Esc leaves
+/// the player in the builder.
+#[test]
+fn the_builders_history_is_the_one_sheet_over_the_builder_and_esc_stays_there() {
+    use baylee_client_core::lobby::library::{History, Reply, Revision, Snapshot};
+    let mut app = headless();
+    stocked(&mut app);
+    app.update();
+    to_decks(&mut app);
+    press(&mut app, Press::Decks(DecksPress::Edit(0)));
+    let revision = |version| Revision {
+        version,
+        summary: None,
+        superseded_at: 100,
+        cards: 1,
+        sideboard: 0,
+        delta: None,
+        card_count: None,
+    };
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        assert_eq!(state.lobby.screen(), &Screen::Build);
+        state.lobby.apply(LobbyEvent::DeckLoaded {
+            id: "d1".to_string(),
+            name: "Allytifact".to_string(),
+            cards: vec!["4 Lightning Bolt (M11) 149 *F*".to_string()],
+            sideboard: Vec::new(),
+            commanders: Vec::new(),
+        });
+        assert!(state.lobby.browse_history().is_some());
+        state.lobby.apply(LobbyEvent::Library(Reply::History(
+            "d1".into(),
+            History {
+                version: 2,
+                updated_at: 200,
+                past: vec![revision(1)],
+                delta: None,
+                card_count: None,
+            },
+        )));
+        for (version, row) in [
+            (2, "4 Lightning Bolt (M11) 149 *F*"),
+            (1, "4 Lightning Bolt (M11) 149"),
+        ] {
+            state.lobby.apply(LobbyEvent::Library(Reply::Version(
+                "d1".into(),
+                Snapshot {
+                    version,
+                    cards: vec![row.into()],
+                    sideboard: vec![],
+                    commanders: vec![],
+                },
+            )));
+        }
+    }
+    app.update();
+    let sheets = app
+        .world_mut()
+        .query::<&super::history::HistorySheet>()
+        .iter(app.world())
+        .count();
+    assert_eq!(sheets, 1, "one history sheet");
+    let rows = app
+        .world_mut()
+        .query::<&super::history::HistoryChange>()
+        .iter(app.world())
+        .count();
+    assert_eq!(rows, 1, "a foil change is one row, never −4 and +4");
+    let said = labels(&mut app);
+    assert!(said.contains(&"v1 \u{2192} v2".to_string()), "{said:?}");
+    assert!(said.contains(&"finish".to_string()), "{said:?}");
+    assert!(
+        presses(&mut app).contains(&Press::Build(BuildPress::CloseBuilder)),
+        "the builder stands under the sheet"
+    );
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::Escape);
+    app.update();
+    {
+        let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+        keys.release(KeyCode::Escape);
+        keys.clear();
+    }
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(
+        state.lobby.screen(),
+        &Screen::Build,
+        "Esc stays in the builder"
+    );
+    assert!(state.lobby.library().page.is_none());
 }

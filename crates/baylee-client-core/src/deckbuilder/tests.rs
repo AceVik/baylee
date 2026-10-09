@@ -1649,6 +1649,93 @@ fn opening_artwork_invalidates_pending_paste_but_closing_does_not_raise_keyboard
     assert_eq!(b.focus_epoch(), epoch);
 }
 
+/// The card window (windows-b6 §A.3) has two doors and one state: the row
+/// opens it on the card with the primary in reach, the picture on the
+/// printings; both are the same window.
+#[test]
+fn the_card_window_remembers_its_door() {
+    let mut b = picking();
+    assert_eq!(b.picker().map(Picker::door), Some(Door::Picture));
+    assert_eq!(
+        b.inspecting(),
+        Some(0),
+        "the picture's door is the window too"
+    );
+    b.stop_inspecting();
+    assert!(b.picker().is_none());
+    let _ = b.inspect(0);
+    assert_eq!(b.picker().map(Picker::door), Some(Door::Row));
+    assert_eq!(
+        b.picker().and_then(Picker::list),
+        None,
+        "a pool card walks the results"
+    );
+}
+
+/// Opened on a deck row, the window walks that zone's rows, whichever
+/// door; the door is kept as it moves.
+#[test]
+fn the_card_window_walks_the_list_it_came_from() {
+    let mut b = builder();
+    assert!(b.add(0, Zone::Main));
+    assert!(b.add(1, Zone::Main));
+    let _ = b.inspect_row(0, Zone::Main);
+    let picker = b.picker().expect("open");
+    assert_eq!(picker.door(), Door::Row);
+    assert_eq!(picker.list(), Some(Zone::Main));
+    let first = b.inspecting();
+    let (moved, _) = b.window_neighbour(1);
+    assert!(moved);
+    assert_ne!(b.inspecting(), first);
+    assert_eq!(
+        b.picker().map(Picker::door),
+        Some(Door::Row),
+        "the door is kept"
+    );
+    let (moved, _) = b.window_neighbour(1);
+    assert!(!moved, "nothing past the last row");
+}
+
+/// The steppers write the deck at once and respect the copy limit; a
+/// choice that changes nothing writes a row byte for byte as before.
+#[test]
+fn the_card_window_steppers_respect_the_copy_limit() {
+    let mut b = picking();
+    for _ in 0..4 {
+        assert!(b.window_step(Zone::Main, true));
+    }
+    assert!(!b.window_step(Zone::Main, true), "a fifth copy is refused");
+    assert_eq!(b.count_of(0, Zone::Main), 4);
+    assert_eq!(b.rows(Zone::Main), vec!["4 Lightning Bolt".to_string()]);
+    assert!(b.window_step(Zone::Main, false));
+    assert_eq!(b.count_of(0, Zone::Main), 3);
+    assert!(b.picker().is_some(), "the steppers never close the window");
+}
+
+/// Opened on a deck row, − and + move that row, and the row the window
+/// holds follows, so Apply printing still finds it.
+#[test]
+fn the_card_window_follows_its_row_through_the_steppers() {
+    let mut b = picking();
+    b.close_picker();
+    assert!(b.add(0, Zone::Main));
+    assert!(b.add(0, Zone::Main));
+    let _ = b.open_row_picker(0, Zone::Main);
+    assert!(b.window_step(Zone::Main, true));
+    assert_eq!(b.count_of(0, Zone::Main), 3);
+    b.set_printings(
+        7,
+        vec![printing("m11", "149", "en", &["nonfoil", "foil"])],
+        true,
+    );
+    b.picker_set_finish(Finish::Foil);
+    assert!(b.picker_confirm(), "Apply printing finds the row it holds");
+    assert_eq!(b.count_of(0, Zone::Main), 3);
+    let rows = b.rows(Zone::Main);
+    assert!(rows[0].starts_with("3 Lightning Bolt"), "{rows:?}");
+    assert!(rows[0].contains("*F*"), "{rows:?}");
+}
+
 /// The registry's reference printing knows nothing but its id, and says so
 /// in no words of its own: the picker names it in the player's language
 /// (`Phrase::ReferencePrinting`), where it once wrote English on every

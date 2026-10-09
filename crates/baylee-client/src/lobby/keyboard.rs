@@ -204,19 +204,19 @@ pub(super) fn keyboard(
         crate::seatpanel::keys(&mut keys, &codes, &mut state, clipboard.as_deref_mut());
         return;
     }
+    // A deck's history, over Decks or the builder (`DESIGN` §C.3): its
+    // arrows and its Esc ladder; nothing behind it hears a key.
+    if state.library_open() && state.menu.is_none() && state.confirmation.is_none() {
+        keys.clear();
+        let request = super::history::keys(&codes, &mut state);
+        dispatch(&mut state, &mailbox, request);
+        return;
+    }
     // The Decks and Play screens' menus and sheets (WP2, WP3): Esc closes
     // the innermost one and nothing behind it hears the key (`KEYBOARD.md`
     // §2.5); a room is never left by Esc.
     if matches!(state.lobby.screen(), Screen::Table) && shell_layer_keys(&codes, &mut state) {
         keys.clear();
-        return;
-    }
-    // The builder's own history page (WP4).
-    if matches!(state.lobby.screen(), Screen::Build) && state.lobby.library().page.is_some() {
-        keys.clear();
-        if codes.just_pressed(KeyCode::Escape) && !state.lobby.library().loading {
-            state.lobby.close_library();
-        }
         return;
     }
     // Before the platform's typing: the import and export dialogs take no
@@ -309,6 +309,7 @@ pub(super) fn keyboard(
             &mut scrolled,
             clipboard.as_deref_mut(),
             &mut paste,
+            &mailbox,
         );
         return;
     }
