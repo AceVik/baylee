@@ -536,9 +536,10 @@ pub(super) fn transfer_keys(
 /// The card window's keys (windows-b6 §A.3): ← → the previous or next card
 /// of the list it came from, or the printings while the strip has the
 /// focus; `Home End PageUp PageDown` there too; `+ −` the main stepper,
-/// with Shift the sideboard's; `f` Flip; `c` the commander. Enter is the
-/// focused control's (the kit's), so it is never answered twice; nothing
-/// bare leaves the window.
+/// with Shift the sideboard's; `f` Flip; `c` the commander; `⇧Enter` adds
+/// to the other zone, from any stop (the kit leaves `⇧Enter` alone). Enter
+/// is the focused control's (the kit's), so it is never answered twice;
+/// nothing bare leaves the window.
 fn window_keys(
     keys: &mut MessageReader<KeyboardInput>,
     codes: &ButtonInput<KeyCode>,
@@ -561,6 +562,18 @@ fn window_keys(
                 } else {
                     1
                 });
+            }
+            Key::Enter if shift && !key.repeat => {
+                let other = match builder
+                    .picker()
+                    .map(baylee_client_core::deckbuilder::Picker::zone)
+                {
+                    Some(Zone::Side) => Zone::Main,
+                    _ => Zone::Side,
+                };
+                if !builder.window_add(other) {
+                    state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
+                }
             }
             Key::Home if strip => builder.picker_go(0),
             Key::End if strip => {

@@ -522,11 +522,19 @@ fn activate(
             KeyCode::AltRight,
         ])
     });
+    let shift = codes
+        .as_deref()
+        .is_some_and(|c| c.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]));
     for key in keys.read() {
         if key.state != ButtonState::Pressed || key.repeat || chord {
             continue;
         }
         if !matches!(key.logical_key, Key::Enter | Key::Space) {
+            continue;
+        }
+        // `⇧Enter` is a sheet's second action (the card window's other
+        // zone, the builder rows' other list), never the focused stop's.
+        if key.logical_key == Key::Enter && shift {
             continue;
         }
         let Some(entity) = focus.get() else { continue };

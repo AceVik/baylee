@@ -796,7 +796,7 @@ fn foot(
         .text(lang),
         Weight::Secondary,
         Live::Yes,
-        None,
+        keys.then_some("Shift+Enter"),
         (
             Press::Build(BuildPress::WindowAdd(other)),
             stop("add-other"),
