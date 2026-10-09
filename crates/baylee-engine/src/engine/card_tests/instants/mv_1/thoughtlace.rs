@@ -40,3 +40,19 @@ fn thoughtlace_turns_its_target_blue() {
         "\"becomes blue\" — the target, not the spell's own source"
     );
 }
+
+/// Thoughtlace: "Target spell or permanent becomes blue." Aimed at a
+/// creature spell on the stack, which the opponent answers it with: the
+/// spell turns blue while it waits, keeps its mana cost, and the creature
+/// it resolves into is still blue.
+#[test]
+fn thoughtlace_turns_a_spell_on_the_stack_blue_and_the_permanent_stays_blue() {
+    a_lace_recolours_a_spell(
+        thoughtlace(),
+        island(),
+        llanowar_elves(),
+        forest(),
+        Color::Green,
+        Color::Blue,
+    );
+}

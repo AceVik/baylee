@@ -33,3 +33,19 @@ fn deathlace_turns_its_target_black() {
         "\"becomes black\""
     );
 }
+
+/// Deathlace: "Target spell or permanent becomes black." Aimed at a
+/// creature spell on the stack, which the opponent answers it with: the
+/// spell turns black while it waits, keeps its mana cost, and the creature
+/// it resolves into is still black.
+#[test]
+fn deathlace_turns_a_spell_on_the_stack_black_and_the_permanent_stays_black() {
+    a_lace_recolours_a_spell(
+        deathlace(),
+        swamp(),
+        llanowar_elves(),
+        forest(),
+        Color::Green,
+        Color::Black,
+    );
+}
