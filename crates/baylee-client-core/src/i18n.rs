@@ -326,14 +326,6 @@ messages! {
     /// Library and front-door interface.
     LobbyGuide { en: "Choose your deck, then join or open a table.", de: "Wähle dein Deck und tritt einem Tisch bei oder eröffne einen." },
     /// Library and front-door interface.
-    HouseDecks { en: "House decks", de: "Hausdecks" },
-    /// Library and front-door interface.
-    HouseHint { en: "Ready to play. Copy a deck to make it your own.", de: "Bereit zum Spielen. Übernimm ein Deck als eigene Kopie." },
-    /// Library and front-door interface.
-    CopyToDecks { en: "Add to my decks", de: "Zu meinen Decks hinzufügen" },
-    /// Library and front-door interface.
-    InspectDeck { en: "View cards", de: "Karten ansehen" },
-    /// Library and front-door interface.
     DeckHistory { en: "History", de: "Historie" },
     /// Library and front-door interface.
     HistoryHint { en: "Every save is kept. Restoring creates a new version; later saves remain available.", de: "Jeder Stand bleibt erhalten. Wiederherstellen erzeugt eine neue Version; spätere Stände bleiben verfügbar." },
@@ -381,8 +373,6 @@ messages! {
     LibraryCommanders { en: "Commanders", de: "Kommandeure" },
     /// Library and front-door interface.
     NoChanges { en: "No changes in this section.", de: "Keine Änderungen in diesem Bereich." },
-    /// Library and front-door interface.
-    DeckRows { en: "{0} main rows · {1} sideboard rows", de: "{0} Hauptdeck-Zeilen · {1} Sideboard-Zeilen" },
     /// Library and front-door interface.
     LibraryCounts { en: "{0} cards · {1} sideboard", de: "{0} Karten · {1} Sideboard" },
     /// Library and front-door interface.
@@ -1634,6 +1624,8 @@ messages! {
         en: "Other printings could not be loaded. Showing the reference printing.",
         de: "Weitere Drucke konnten nicht geladen werden. Referenzdruck wird angezeigt.",
     },
+    /// The printing the build itself carries, where no other is known.
+    ReferencePrinting { en: "Reference printing", de: "Referenzdruck" },
     /// All
     AllSets { en: "All", de: "Alle" },
     /// Plain

@@ -318,3 +318,84 @@ fn a_visit_orbits_in_its_time_and_cuts_under_reduced_motion() {
         }
     }
 }
+
+/// The table camera as `spawn_stage` stands it before the rig has spoken:
+/// nearer than any home, so a camera left there is the "broken zoom" the
+/// owner saw open a table (beta.6 review).
+fn a_fresh_table_camera(app: &mut App) -> Entity {
+    app.world_mut()
+        .spawn((
+            TableCamera,
+            Transform::from_xyz(0.0, 15.0, 13.2).looking_at(Vec3::ZERO, Vec3::Y),
+        ))
+        .id()
+}
+
+/// A second table at the same window and seat count frames the same rig as
+/// the first, and its new camera is still put on it.
+///
+/// The camera is despawned with its stage and spawned again for the next
+/// table, while the rig the last one settled on lived on in [`ShownRig`]:
+/// with nothing having moved, `apply_camera_rig` saw "already there" and
+/// never wrote the new camera, which stayed at its spawn pose for the whole
+/// game — whenever the new table's first layout came out exactly as the
+/// last one ended (a networked seat's view arrives after the window was
+/// measured, so it does).
+#[test]
+fn a_camera_spawned_for_the_next_table_stands_where_the_rig_says() {
+    let mut app = app(WINDOW);
+    app.init_resource::<ShownRig>()
+        .init_resource::<Time>()
+        .init_resource::<crate::prefs::Prefs>()
+        .add_systems(Update, apply_camera_rig.after(frame_table));
+    let first = a_fresh_table_camera(&mut app);
+    for _ in 0..3 {
+        app.update();
+    }
+    let home = *app.world().resource::<CameraRig>();
+    assert_eq!(app.world().get::<Transform>(first), Some(&home.eye()));
+
+    // Leaving the table: its stage goes, the duel is new. The same window
+    // and the same two seats lay the same table.
+    app.world_mut().despawn(first);
+    let layout = app.world().resource::<Duel>().layout.clone();
+    *app.world_mut().resource_mut::<Duel>() = Duel {
+        layout,
+        ..Duel::default()
+    };
+    app.update();
+    let second = a_fresh_table_camera(&mut app);
+    app.update();
+    assert_eq!(*app.world().resource::<CameraRig>(), home, "the same table");
+    assert_eq!(
+        app.world().get::<Transform>(second),
+        Some(&home.eye()),
+        "the next table's camera was left at its spawn pose"
+    );
+}
+
+/// A new table's first frame is a cut to its own home, as a session's first
+/// table always was: what the last table framed, and where its eye stood,
+/// is forgotten as the next one opens (`OnEnter(DuelPhase::Opening)`).
+#[test]
+fn a_new_table_forgets_the_last_tables_camera() {
+    use bevy::ecs::system::RunSystemOnce;
+    let mut app = app(WINDOW);
+    app.init_resource::<ShownRig>()
+        .init_resource::<Time>()
+        .init_resource::<crate::prefs::Prefs>()
+        .add_systems(Update, apply_camera_rig.after(frame_table));
+    a_fresh_table_camera(&mut app);
+    look_at_a_seat(&mut app);
+    for _ in 0..3 {
+        app.update();
+    }
+    assert!(app.world().resource::<ShownRig>().rig().is_some());
+    assert!(app.world().resource::<CameraPose>().rig.is_some());
+    app.world_mut()
+        .run_system_once(forget_the_last_table)
+        .expect("runs");
+    assert_eq!(app.world().resource::<ShownRig>().rig(), None);
+    assert_eq!(*app.world().resource::<CameraPose>(), CameraPose::default());
+    assert_eq!(*app.world().resource::<CameraRig>(), CameraRig::default());
+}

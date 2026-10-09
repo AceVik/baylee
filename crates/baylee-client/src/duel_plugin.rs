@@ -558,7 +558,10 @@ impl Plugin for DuelPlugin {
                     .chain()
                     .in_set(DuelSet::Sync),
             )
-            .add_systems(OnEnter(DuelPhase::Opening), table::spawn_stage)
+            .add_systems(
+                OnEnter(DuelPhase::Opening),
+                (table::forget_the_last_table, table::spawn_stage),
+            )
             // The end screen. Built on the edge because a result never
             // changes, and taken down on the way out of `Finished` — which
             // covers the way to `Closed` too, so it needs no line in the

@@ -1648,3 +1648,18 @@ fn opening_artwork_invalidates_pending_paste_but_closing_does_not_raise_keyboard
     assert_eq!(b.focus(), BuildField::Search);
     assert_eq!(b.focus_epoch(), epoch);
 }
+
+/// The registry's reference printing knows nothing but its id, and says so
+/// in no words of its own: the picker names it in the player's language
+/// (`Phrase::ReferencePrinting`), where it once wrote English on every
+/// table (the beta.6 review, offline).
+#[test]
+fn a_printing_that_knows_only_its_id_has_no_label_of_its_own() {
+    assert_eq!(Printing::default().label(), None);
+    assert_eq!(
+        printing("lea", "161", "en", &["nonfoil"])
+            .label()
+            .as_deref(),
+        Some("LEA · #161")
+    );
+}

@@ -1174,3 +1174,54 @@ fn a_text_face_in_the_builder_shows_its_scrollbar() {
         Display::Flex
     );
 }
+
+/// The owner's beta.6 review: "deck list → edit deck shows an old page".
+/// The house list a player looked at on the Decks screen stayed open
+/// behind its tab, and the builder's own full-screen library page stood
+/// where the deck should have opened ("Hausdecks", with Back). The way from
+/// the list into a deck passes through no library page on any frame.
+#[test]
+fn the_way_from_the_deck_list_into_a_deck_passes_through_no_library_page() {
+    use baylee_client_core::lobby::library::{HouseDeck, Reply};
+    let mut app = headless();
+    stocked(&mut app);
+    app.update();
+    to_decks(&mut app);
+    press(
+        &mut app,
+        Press::Decks(DecksPress::Tab(super::decks::DecksTab::House)),
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .apply(LobbyEvent::Library(Reply::House(vec![HouseDeck {
+            id: "shared".into(),
+            name: "House".into(),
+            version: 1,
+            ..Default::default()
+        }])));
+    app.update();
+    press(
+        &mut app,
+        Press::Decks(DecksPress::Tab(super::decks::DecksTab::Mine)),
+    );
+    press(&mut app, Press::Decks(DecksPress::Edit(0)));
+    // The old page's title, as it read before it went.
+    let house = "House decks".to_string();
+    for frame in 0..4 {
+        let library: Vec<Press> = presses(&mut app)
+            .into_iter()
+            .filter(|p| matches!(p, Press::Library(l) if *l != super::LibraryPress::BrowseHistory))
+            .collect();
+        assert!(library.is_empty(), "frame {frame}: {library:?}");
+        assert!(
+            !labels(&mut app).contains(&house),
+            "frame {frame}: the house page"
+        );
+        app.update();
+    }
+    assert!(
+        presses(&mut app).contains(&Press::Build(BuildPress::CloseBuilder)),
+        "the builder is what opened"
+    );
+}
