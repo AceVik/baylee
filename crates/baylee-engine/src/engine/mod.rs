@@ -1745,6 +1745,8 @@ mod day_night_tests;
 #[cfg(test)]
 mod departed_control_tests;
 #[cfg(test)]
+mod discard_top_tests;
+#[cfg(test)]
 mod draw_skip_tests;
 #[cfg(test)]
 mod draw_tests;

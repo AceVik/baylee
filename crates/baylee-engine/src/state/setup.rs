@@ -63,6 +63,8 @@ impl GameState {
             damage_deaths: Vec::new(),
             pending_miracle: std::collections::VecDeque::new(),
             draws_to_offer: std::collections::VecDeque::new(),
+            discard_answers: Vec::new(),
+            discards_on_top: Vec::new(),
             extra_turns: std::collections::VecDeque::new(),
             skip_followups: Vec::new(),
             reanimated_auras: Vec::new(),
