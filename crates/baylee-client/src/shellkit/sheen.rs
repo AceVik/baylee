@@ -62,7 +62,7 @@ impl UiMaterial for SheenMaterial {
 
 /// The resting glow: enough to read as light on the blue face, not as a
 /// second colour.
-pub const GLOW: f32 = 0.10;
+pub const GLOW: f32 = 0.06;
 
 /// The light's colour: the primary face's rim, lifted towards white.
 fn light() -> Vec4 {

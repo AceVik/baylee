@@ -53,7 +53,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         let phase = fract(globals.time / PERIOD) * params.sweep + 0.5 * (1.0 - params.sweep);
         let at = phase * travel - 0.8;
         let band = exp(-pow((u - at) / 0.32, 2.0));
-        light += params.hover * (0.05 + 0.20 * band);
+        light += params.hover * (0.02 + 0.11 * band);
     }
     return vec4<f32>(params.light.rgb, clamp(light * inside, 0.0, 1.0));
 }

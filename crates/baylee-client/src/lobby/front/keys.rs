@@ -162,6 +162,16 @@ fn at_the_door(state: &LobbyState) -> bool {
         && state.confirmation.is_none()
 }
 
+/// Where the kit's focus and the lobby's caret are one: the front door, and
+/// the settings screen (its search is a lobby field, owner 09.10.2026),
+/// unless a confirmation stands over it.
+fn bridged(state: &LobbyState) -> bool {
+    at_the_door(state)
+        || (state.settings.is_open()
+            && state.confirmation.is_none()
+            && state.lobby.deleting_account().is_none())
+}
+
 /// The stop the two notions of focus last agreed on. [`kit_to_lobby`]
 /// acts only when the kit's focus stands on another stop: not when the
 /// lobby moved it there itself ([`lobby_to_kit`]), and not when a rebuild
@@ -179,7 +189,7 @@ pub(crate) fn kit_to_lobby(
     stops: Query<&Stop>,
     mut state: ResMut<LobbyState>,
 ) {
-    if !focus.is_changed() || !at_the_door(&state) {
+    if !focus.is_changed() || !bridged(&state) {
         return;
     }
     let Some(entity) = focus.get() else {
@@ -197,7 +207,10 @@ pub(crate) fn kit_to_lobby(
             state.lobby.focus_on(*field);
             state.lobby.select_all();
         }
-    } else if stop.table.starts_with("front-") && !state.lobby.caret_parked() {
+    } else if (stop.table.starts_with("front-")
+        || stop.table == crate::settingsui::keys::SETTINGS.name)
+        && !state.lobby.caret_parked()
+    {
         state.lobby.park_caret();
     }
 }
@@ -211,7 +224,7 @@ pub(crate) fn lobby_to_kit(
     mut moved: ResMut<MovedByTheLobby>,
 ) {
     // A parked caret is the walker's business (focus stands on a control).
-    if !at_the_door(&state) || state.terms.up() || state.lobby.caret_parked() {
+    if !bridged(&state) || state.terms.up() || state.lobby.caret_parked() {
         return;
     }
     let want = state.lobby.focus();

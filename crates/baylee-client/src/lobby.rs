@@ -184,6 +184,7 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 Update,
                 (
+                    crate::settingsui::keys::settings_over,
                     front::keys::activate_by_key,
                     front::keys::kit_to_lobby,
                     front::keys::unpark_on_placement,
@@ -205,7 +206,6 @@ impl Plugin for LobbyPlugin {
                 Update,
                 (
                     crate::settingsui::keys::mirror_in_use,
-                    crate::settingsui::keys::sync_search,
                     crate::settingsui::keys::slider_keys,
                     crate::settingsui::keys::apply_sliders,
                     crate::settingsui::keys::follow_nav,
@@ -458,8 +458,6 @@ pub struct LobbyState {
 pub(crate) struct SettingsView {
     /// The section shown.
     pub(crate) section: baylee_client_core::settings_map::Section,
-    /// What the search field holds.
-    pub(crate) query: String,
     /// A shortcut's rebind refused: the action, the chord and why.
     pub(crate) refused: Option<(
         baylee_client_core::shellkeys::ShellAction,
@@ -580,12 +578,14 @@ impl LobbyState {
     /// What the settings search holds.
     #[must_use]
     pub(crate) fn settings_query(&self) -> &str {
-        &self.settings_view.query
+        self.lobby.field(Field::SettingsSearch)
     }
 
     /// Sets the settings search.
     pub(crate) fn set_settings_query(&mut self, query: String) {
-        self.settings_view.query = query;
+        if self.settings_query() != query {
+            self.lobby.set_field(Field::SettingsSearch, &query);
+        }
     }
 
     /// The display trial's answer, taken once.

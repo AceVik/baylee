@@ -146,7 +146,7 @@ pub(super) fn keyboard(
                 &mut state,
                 &mut prefs,
                 &mailbox,
-                false,
+                Form::Door,
                 clipboard.as_deref_mut(),
                 &mut form_paste,
             );
@@ -163,6 +163,31 @@ pub(super) fn keyboard(
             keys.clear();
             state.settings_view.profile_sheet = false;
             return;
+        }
+        // The search, a lobby field like the username (owner, 09.10.2026):
+        // its keys, and Esc empties it before it closes anything.
+        if state.lobby.typing_here() && state.lobby.focus() == Field::SettingsSearch {
+            if codes.just_pressed(KeyCode::Escape) && !state.settings_query().is_empty() {
+                keys.clear();
+                state.set_settings_query(String::new());
+                return;
+            }
+            if !codes.just_pressed(KeyCode::Escape) {
+                if !keys.is_empty() && !SoftKeyboard::owns_typing() {
+                    text_field_keys(
+                        &mut keys,
+                        &codes,
+                        &mut state,
+                        &mut prefs,
+                        &mailbox,
+                        Form::Settings,
+                        clipboard.as_deref_mut(),
+                        &mut form_paste,
+                    );
+                }
+                keys.clear();
+                return;
+            }
         }
         // Opened from the front door, no header stands over it: Esc is its
         // way back (signed in, the nav is).
@@ -312,7 +337,7 @@ pub(super) fn keyboard(
         &mut state,
         &mut prefs,
         &mailbox,
-        table,
+        if table { Form::Table } else { Form::Door },
         clipboard.as_deref_mut(),
         &mut form_paste,
     );
@@ -494,13 +519,25 @@ fn cycle_form_focus(state: &mut LobbyState, direction: Tab) {
 }
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // the clipboard rides along; one flat match
+/// Which form a field's keys are read for: Esc, Enter and the arrows mean
+/// something different on each.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Form {
+    /// The front door (and the account deletion's box).
+    Door,
+    /// The table screen: Play, Decks, the room.
+    Table,
+    /// The settings screen's search, which filters as it is typed.
+    Settings,
+}
+
 fn text_field_keys(
     keys: &mut MessageReader<KeyboardInput>,
     codes: &ButtonInput<KeyCode>,
     state: &mut ResMut<LobbyState>,
     prefs: &mut ResMut<crate::prefs::Prefs>,
     mailbox: &Mailbox,
-    table: bool,
+    form: Form,
     mut clipboard: Option<&mut bevy::clipboard::Clipboard>,
     paste: &mut Option<super::editing::FormPaste>,
 ) {
@@ -517,6 +554,8 @@ fn text_field_keys(
         KeyCode::ControlRight,
     ]);
     let line = codes.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+    let table = form == Form::Table;
+    let door = form == Form::Door;
     // ⌘A and Ctrl+A. The same chord has to keep its "a" out of the field,
     // which is why it is answered before the text arm below ever sees it.
     let command = line || codes.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
@@ -534,7 +573,7 @@ fn text_field_keys(
         // The front door's Esc goes back a face whatever has the focus
         // (`KEYBOARD.md` §7.2): the create and guest faces to sign in, sign
         // in to the gateways.
-        if !table && key.logical_key == Key::Escape && state.lobby.deleting_account().is_none() {
+        if door && key.logical_key == Key::Escape && state.lobby.deleting_account().is_none() {
             if state.front_menu {
                 state.front_menu = false;
             } else if !state.lobby.back_to_sign_in() {
@@ -588,13 +627,15 @@ fn text_field_keys(
             }
             // Up and down walk the saved gateways, which the one-line address
             // field has no use for.
-            Key::ArrowUp | Key::ArrowDown if !table && !state.lobby.gateway_chosen() => {
+            Key::ArrowUp | Key::ArrowDown if door && !state.lobby.gateway_chosen() => {
                 state.move_gateway_cursor(matches!(key.logical_key, Key::ArrowDown));
             }
             // In the gateway form Enter chooses the row the arrows are on,
             // and otherwise is the Save button beside the address: that face
             // has no sign-in form to submit.
-            Key::Enter if !table && !state.lobby.gateway_chosen() => {
+            // The settings search filters as it is typed: Enter asks nothing.
+            Key::Enter | Key::ArrowUp | Key::ArrowDown | Key::Escape if form == Form::Settings => {}
+            Key::Enter if door && !state.lobby.gateway_chosen() => {
                 if let Some(index) = state.gateway_cursor {
                     choose_gateway(state, prefs, mailbox, index);
                 } else if let Some(url) = state.check_gateway() {

@@ -12,7 +12,7 @@ use bevy::prelude::*;
 
 use crate::lobby::LobbyState;
 use crate::shellkit::controls::Slider;
-use crate::shellkit::focus::{Remembered, ShellField, Stop, TabOrder};
+use crate::shellkit::focus::{Remembered, Stop, TabOrder};
 
 use super::rows::Volume;
 
@@ -104,18 +104,17 @@ pub(crate) struct TrialLine;
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct NavSection(pub(crate) Section);
 
-/// The search field: its value is the lobby's query.
-pub(crate) fn sync_search(
-    fields: Query<(&ShellField, &Stop), Changed<ShellField>>,
-    mut state: ResMut<LobbyState>,
-) {
-    for (field, stop) in &fields {
-        if stop.table == SETTINGS.name
-            && stop.id == "search"
-            && state.settings_query() != field.value
-        {
-            state.set_settings_query(field.value.clone());
-        }
+/// Tells the lobby whether the settings screen stands over its screen: its
+/// search is then the one box a key types into (`Lobby::typing_here`), and
+/// a search left holding the caret when the screen closes lets it go.
+pub(crate) fn settings_over(mut state: ResMut<LobbyState>) {
+    let open = state.settings_open();
+    if state.lobby.settings_open() == open {
+        return;
+    }
+    state.lobby.set_settings_open(open);
+    if !open && state.lobby.focus() == baylee_client_core::lobby::Field::SettingsSearch {
+        state.lobby.park_caret();
     }
 }
 

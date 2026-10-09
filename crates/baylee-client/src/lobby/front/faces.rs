@@ -20,7 +20,7 @@ use crate::shellkit::{surfaces, tokens};
 
 /// The lobby's own field metrics, read off the kit's (the text step and
 /// the size class): the fields are the lobby's editor, sized by the shell.
-pub(super) fn field_metrics(kit: Kit) -> Metrics {
+pub(crate) fn field_metrics(kit: Kit) -> Metrics {
     Metrics {
         frame: kit.m.frame,
         text: kit.m.text,

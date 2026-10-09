@@ -99,6 +99,11 @@ pub enum Field {
     /// confirmation's own box and never the sign-in form's, so a password
     /// half-typed on one is not sent from the other.
     AccountPassword,
+    /// What the settings screen is searched for: the same box, caret,
+    /// selection and keys as every other field here (owner, 09.10.2026: the
+    /// search did not behave like the username). Typed into only while the
+    /// settings screen is open ([`Lobby::set_settings_open`]).
+    SettingsSearch,
 }
 
 /// How the line under the form should read.
@@ -921,6 +926,11 @@ pub struct Lobby {
     room_saving: bool,
     search: TextBuffer,
     deck_search: TextBuffer,
+    /// The settings screen's search ([`Field::SettingsSearch`]).
+    settings_search: TextBuffer,
+    /// The settings screen stands over whatever screen this is: its search
+    /// is then the one box typed into.
+    settings_open: bool,
     performer: Performer,
     decks: Vec<DeckSummary>,
     games: Vec<GameSummary>,
@@ -1137,6 +1147,7 @@ impl Lobby {
             | Field::InviteKey
             | Field::Search
             | Field::DeckSearch
+            | Field::SettingsSearch
             | Field::RoomName
             | Field::RoomBoard(_)
             | Field::RoomCounter => FieldKind::Name,
@@ -1170,6 +1181,7 @@ impl Lobby {
             Field::RoomBoard(at) => &self.room_boards[usize::from(at).min(7)],
             Field::Search => &self.search,
             Field::DeckSearch => &self.deck_search,
+            Field::SettingsSearch => &self.settings_search,
             Field::AccountPassword => &self.account_password,
         }
     }
@@ -1676,6 +1688,19 @@ impl Lobby {
         self.focus_epoch += 1;
     }
 
+    /// Says whether the settings screen stands over this one: while it does,
+    /// its search ([`Field::SettingsSearch`]) is the one box a key types
+    /// into, and when it goes the search's caret goes with it.
+    pub fn set_settings_open(&mut self, open: bool) {
+        self.settings_open = open;
+    }
+
+    /// Whether the settings screen stands over this one.
+    #[must_use]
+    pub fn settings_open(&self) -> bool {
+        self.settings_open
+    }
+
     /// Whether the caret is in a field the screen on show actually draws.
     ///
     /// A shell asks this before typing: the caret survives a change of
@@ -1688,6 +1713,13 @@ impl Lobby {
             return self.focus == Field::AccountPassword;
         }
         if self.caret_parked {
+            return false;
+        }
+        // The settings screen stands over every screen and has one box.
+        if self.settings_open {
+            return self.focus == Field::SettingsSearch;
+        }
+        if self.focus == Field::SettingsSearch {
             return false;
         }
         match self.screen {
@@ -1707,6 +1739,7 @@ impl Lobby {
                 | Field::RoomCounter
                 | Field::Search
                 | Field::DeckSearch
+                | Field::SettingsSearch
                 | Field::AccountPassword => false,
             },
             Screen::Table => match self.focus {
@@ -3102,6 +3135,7 @@ impl Lobby {
             Field::RoomBoard(at) => &mut self.room_boards[usize::from(at).min(7)],
             Field::Search => &mut self.search,
             Field::DeckSearch => &mut self.deck_search,
+            Field::SettingsSearch => &mut self.settings_search,
             Field::AccountPassword => &mut self.account_password,
         }
     }

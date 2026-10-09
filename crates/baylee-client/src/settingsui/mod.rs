@@ -28,7 +28,7 @@ use bevy::prelude::*;
 use crate::lobby::{List, LobbyState, Metrics, Press, Scrollable, SettingsPress};
 use crate::shellkit::Frame;
 use crate::shellkit::controls::{self, Kit};
-use crate::shellkit::focus::{Current, ShellField};
+use crate::shellkit::focus::Current;
 use crate::shellkit::metrics::px_fixed;
 use crate::shellkit::role::Role;
 use crate::shellkit::{surfaces, tokens};
@@ -136,6 +136,48 @@ pub(crate) fn screen(commands: &mut Commands, root: Entity, view: &View, kit: Ki
     }
 }
 
+/// The settings search: a lobby field ([`Field::SettingsSearch`]) carrying
+/// the screen's `search` stop.
+fn search_field(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    use baylee_client_core::lobby::Field;
+    let lobby = &state.lobby;
+    let lang = lobby.lang();
+    let typed = !lobby.field(Field::SettingsSearch).is_empty();
+    let look = crate::lobby::FieldLook {
+        buffer: lobby.buffer(Field::SettingsSearch),
+        focused: lobby.focus() == Field::SettingsSearch && lobby.typing_here(),
+        mask: None,
+        press: Press::Shared(crate::lobby::SharedPress::Focus(Field::SettingsSearch)),
+        lead: Some(crate::hud::glyph::MAGNIFIER),
+        hint: Some(Phrase::SettingsSearch.text(lang)),
+        tail: typed.then_some(crate::lobby::FieldTail {
+            glyph: crate::hud::glyph::CLOSE,
+            press: Press::Settings(SettingsPress::ClearSearch),
+            lit: false,
+        }),
+    };
+    let field = crate::lobby::text_field_with(
+        commands,
+        kit.fonts,
+        crate::lobby::front::faces::field_metrics(kit),
+        "",
+        &look,
+        Some(crate::lobby::FieldStops {
+            field: stop("search"),
+            typed: Some(Field::SettingsSearch),
+            eye: None,
+        }),
+    );
+    commands
+        .entity(field)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.width = Val::Percent(100.0);
+            node.flex_shrink = 0.0;
+        });
+    field
+}
+
 /// The sections: a sidebar with the search at its top and the build at its
 /// foot, or (Narrow, Compact) the search and a chip row.
 fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
@@ -159,24 +201,10 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
         );
         commands.entity(holder).add_child(back);
     }
-    let search = controls::search(
-        commands,
-        kit,
-        state.settings_query(),
-        Phrase::SettingsSearch.text(lang),
-        (
-            ShellField::new(state.settings_query(), Phrase::SettingsSearch.text(lang)),
-            stop("search"),
-        ),
-    );
-    if !side {
-        commands
-            .entity(search)
-            .entry::<Node>()
-            .and_modify(|mut node| {
-                node.width = Val::Percent(100.0);
-            });
-    }
+    // The lobby's own field, as the username is (owner, 09.10.2026): its
+    // caret, selection, keys and clipboard, the magnifier before the text
+    // and a `×` that empties it once anything is typed.
+    let search = search_field(commands, state, kit);
     commands.entity(holder).add_child(search);
     let shown = state.settings_section();
     let offered: Vec<Section> = Section::ALL
