@@ -1206,7 +1206,8 @@ fn the_way_from_the_deck_list_into_a_deck_passes_through_no_library_page() {
         Press::Decks(DecksPress::Tab(super::decks::DecksTab::Mine)),
     );
     press(&mut app, Press::Decks(DecksPress::Edit(0)));
-    let house = Phrase::HouseDecks.text(Lang::En).to_string();
+    // The old page's title, as it read before it went.
+    let house = "House decks".to_string();
     for frame in 0..4 {
         let library: Vec<Press> = presses(&mut app)
             .into_iter()

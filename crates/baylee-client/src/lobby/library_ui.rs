@@ -1,4 +1,7 @@
-//! The library reads snapshots without borrowing the builder's editable state.
+//! The builder's history page: a deck's saved versions, read as snapshots
+//! without borrowing the builder's editable state. The house decks are the
+//! Decks screen's House tab (WP3); this page drew them too once, and stood
+//! over the builder when that tab was left open (the beta.6 review).
 use super::press::Cx;
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
@@ -16,7 +19,6 @@ pub(super) fn screen(
     let lobby = &state.lobby;
     let lib = lobby.library();
     let lang = lobby.lang();
-    let house = lib.page == Some(Page::House);
     let bar = row(commands, metrics, true);
     commands.entity(bar).insert(Node {
         width: percent(100),
@@ -36,17 +38,7 @@ pub(super) fn screen(
         palette::PANEL_LIT,
         !lib.loading,
     );
-    let title = heading(
-        commands,
-        fonts,
-        metrics,
-        if house {
-            Phrase::HouseDecks
-        } else {
-            Phrase::DeckHistory
-        }
-        .text(lang),
-    );
+    let title = heading(commands, fonts, metrics, Phrase::DeckHistory.text(lang));
     commands.entity(bar).add_children(&[back, title]);
     commands.entity(root).add_child(bar);
     let body = scroller(
@@ -67,17 +59,7 @@ pub(super) fn screen(
     });
     commands.entity(body).insert(super::dock::Dock(7));
     commands.entity(root).add_child(body);
-    let hint = note(
-        commands,
-        fonts,
-        metrics,
-        if house {
-            Phrase::HouseHint
-        } else {
-            Phrase::HistoryHint
-        }
-        .text(lang),
-    );
+    let hint = note(commands, fonts, metrics, Phrase::HistoryHint.text(lang));
     commands.entity(body).add_child(hint);
     if lib.loading {
         let loading = note(commands, fonts, metrics, Phrase::LibraryLoading.text(lang));
@@ -97,84 +79,7 @@ pub(super) fn screen(
         );
         commands.entity(body).add_children(&[error, retry]);
     }
-    if house {
-        let grid = row(commands, metrics, true);
-        commands.entity(grid).insert(Node {
-            width: percent(100),
-            flex_shrink: 0.0,
-            flex_wrap: FlexWrap::Wrap,
-            align_items: AlignItems::Start,
-            column_gap: px(metrics.gap),
-            row_gap: px(metrics.gap),
-            ..default()
-        });
-        commands.entity(body).add_child(grid);
-        for (index, deck) in lib.house.iter().enumerate() {
-            let card = super::surface(commands, metrics);
-            commands
-                .entity(card)
-                .entry::<Node>()
-                .and_modify(move |mut node| {
-                    node.width = if metrics.frame == Frame::Wide {
-                        percent(49)
-                    } else {
-                        percent(100)
-                    };
-                    node.flex_grow = 1.0;
-                });
-            let title = heading(commands, fonts, metrics, &deck.name);
-            let metadata = note(
-                commands,
-                fonts,
-                metrics,
-                &format!(
-                    "{} · {}\n{}",
-                    deck.format,
-                    deck.commanders.join(" / "),
-                    Phrase::DeckRows.fill(
-                        lang,
-                        &[&deck.cards.to_string(), &deck.sideboard.to_string()]
-                    )
-                ),
-            );
-            commands.entity(card).add_children(&[title, metadata]);
-            if !deck.description.is_empty() {
-                let desc = note(commands, fonts, metrics, &deck.description);
-                commands.entity(card).add_child(desc);
-            }
-            let actions = row(commands, metrics, true);
-            let inspect = button(
-                commands,
-                fonts,
-                metrics,
-                Phrase::InspectDeck.text(lang),
-                Press::Library(LibraryPress::PreviewHouse(index)),
-                palette::PANEL_LIT,
-                !lib.loading,
-            );
-            let copy = button(
-                commands,
-                fonts,
-                metrics,
-                Phrase::CopyToDecks.text(lang),
-                Press::Library(LibraryPress::CopyHouse(index)),
-                palette::ACCENT,
-                !lib.loading,
-            );
-            commands.entity(actions).add_children(&[inspect, copy]);
-            commands.entity(card).add_child(actions);
-            if let Some((id, snapshot)) = &lib.preview
-                && *id == deck.id
-            {
-                contents(commands, card, fonts, metrics, lang, snapshot);
-            }
-            commands.entity(grid).add_child(card);
-        }
-        if lib.house.is_empty() && !lib.loading && lib.error.is_none() {
-            let empty = note(commands, fonts, metrics, Phrase::LibraryEmpty.text(lang));
-            commands.entity(body).add_child(empty);
-        }
-    } else if let Some(history) = &lib.history {
+    if let Some(history) = &lib.history {
         let versions = row(commands, metrics, true);
         for version in
             std::iter::once(history.version).chain(history.past.iter().map(|v| v.version))
@@ -358,15 +263,13 @@ fn contents(
     }
 }
 
-/// A control of the deck library: the house decks and a deck's history.
+/// A control of the builder's history page: a deck's saved versions.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum LibraryPress {
     BrowseHistory,
     CloseLibrary,
     RetryLibrary,
-    PreviewHouse(usize),
     PreviewVersion(i32),
-    CopyHouse(usize),
     RestoreVersion,
 }
 
@@ -382,49 +285,21 @@ impl LibraryPress {
         match self {
             LibraryPress::BrowseHistory | LibraryPress::RetryLibrary => {
                 scrolled.set(List::Library, 0.0);
-                let history = self == LibraryPress::BrowseHistory
-                    || (self == LibraryPress::RetryLibrary
-                        && matches!(
-                            state.lobby.library().page,
-                            Some(client_core::lobby::library::Page::History(_))
-                        ));
-                let request = if history {
-                    if let Some(client_core::lobby::library::Page::History(id)) =
-                        state.lobby.library().page.clone()
-                    {
-                        state.lobby.browse_deck_history(&id)
-                    } else {
-                        state.lobby.browse_history()
-                    }
+                // The builder's page is a deck's history and nothing else:
+                // the house list is the Decks screen's own tab (WP3).
+                let request = if let Some(Page::History(id)) = state.lobby.library().page.clone() {
+                    state.lobby.browse_deck_history(&id)
                 } else {
-                    state.lobby.browse_house()
+                    state.lobby.browse_history()
                 };
                 dispatch(state, mailbox, request);
             }
             LibraryPress::CloseLibrary => state.lobby.close_library(),
-            LibraryPress::PreviewHouse(index) => {
-                let choice = state
-                    .lobby
-                    .library()
-                    .house
-                    .get(index)
-                    .map(|d| (d.id.clone(), d.version));
-                if let Some((id, version)) = choice {
-                    let request = state.lobby.preview_version(&id, version);
-                    dispatch(state, mailbox, request);
-                }
-            }
             LibraryPress::PreviewVersion(version) => {
-                if let Some(client_core::lobby::library::Page::History(id)) =
-                    state.lobby.library().page.clone()
-                {
+                if let Some(Page::History(id)) = state.lobby.library().page.clone() {
                     let request = state.lobby.preview_version(&id, version);
                     dispatch(state, mailbox, request);
                 }
-            }
-            LibraryPress::CopyHouse(index) => {
-                let request = state.lobby.copy_house(index);
-                dispatch(state, mailbox, request);
             }
             LibraryPress::RestoreVersion => {
                 let request = state.lobby.restore_preview();
