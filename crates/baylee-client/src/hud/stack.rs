@@ -64,16 +64,19 @@ impl Default for StackFold {
 pub struct StackBody {
     top: Option<ObjectId>,
     rows: usize,
+    /// The least a top row is: [`STACK_FULL_HEIGHT`], or on a phone
+    /// [`STACK_PHONE_FULL_HEIGHT`].
+    floor: f32,
 }
 impl StackBody {
     /// Recover the measured full-row height, including when it is a spacer.
     pub(super) fn full_height(&self, node: &ComputedNode, top: Option<ObjectId>) -> f32 {
         if self.top != top {
-            return STACK_FULL_HEIGHT;
+            return self.floor;
         }
         (node.content_size().y * node.inverse_scale_factor()
             - self.rows.saturating_sub(1) as f32 * STACK_ROW_HEIGHT)
-            .max(STACK_FULL_HEIGHT)
+            .max(self.floor)
     }
 }
 #[derive(Component)]
@@ -82,6 +85,13 @@ pub struct StackViewport;
 pub struct StackPanel;
 #[derive(Component)]
 pub struct StackToggle;
+/// What a stack entry points at: the row of its targets' thumbnails.
+#[derive(Component)]
+pub struct StackTargets;
+/// On a phone, the standing answers under the list: shown only while they
+/// fit whole beside a top row ([`fold_the_stack`]), never cut in half.
+#[derive(Component)]
+pub struct StackControls;
 
 /// The box a full row's sentence stands in (the owner, 08.10.2026: *"the
 /// effect text area should then be scrollable, including a (visible)
@@ -306,44 +316,263 @@ type StackViewportQuery<'w, 's> = Query<
     (With<StackViewport>, Without<StackPanel>),
 >;
 
-/// Animate clipping instead of scaling text, so the stack remains readable.
+/// Where the stack panel stands and how tall it may grow.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct PanelRoom {
+    /// Its top edge, from the window's top.
+    pub top: f32,
+    /// Its right edge, from the window's right.
+    pub right: f32,
+    /// Its width.
+    pub width: f32,
+    /// The most it may grow to.
+    pub max_height: f32,
+    /// Whether the window is a phone's: the panel's
+    /// compact shape, [`STACK_PHONE_FULL_HEIGHT`]'s top row. See
+    /// [`baylee_client_core::tableview::TableFrame::Phone`].
+    pub phone: bool,
+}
+
+impl PanelRoom {
+    /// The body's ceiling under the panel's own chrome — its padding, its
+    /// head and, off a phone, the controls above the list.
+    pub(super) fn body_cap(self) -> f32 {
+        let chrome = if self.phone {
+            2.0 * STACK_PHONE_PAD + STACK_PHONE_HEAD
+        } else {
+            58.0
+        };
+        (self.max_height - chrome).max(0.0)
+    }
+}
+
+/// The stack panel's place in a window `window` logical pixels big, whose
+/// hand drawer is drawn `shown` open (0 shut, 1 open; off a phone it is
+/// always open) and whose players' strip ends `strip_right` logical pixels
+/// from the window's left edge (0 where none stands).
+///
+/// Off a phone: under the report button, down to the hand zone, as it has
+/// always stood. **On a phone** (08./09.10.2026: at 844 × 390 the panel had
+/// room for its head and its controls and showed no entry at all — its cap
+/// was 103 px, measured against the whole hand zone, which a phone's drawer
+/// keeps shut) it stands at the window's top, left of the drawer's tab and
+/// of the corner buttons, so it never covers the tab and the corner's top
+/// is its own, and it reaches down to the bar where the drawer has it now.
+/// The players' strip stands on that bar at its left: the panel narrows to
+/// end beside it, and where that would leave too narrow a panel (a narrow
+/// phone, many seats) it keeps its width and stops above the strip instead.
+#[must_use]
+pub(super) fn panel_room(window: Vec2, shown: f32, strip_right: f32) -> PanelRoom {
+    use baylee_client_core::tableview::TableFrame;
+    if TableFrame::of(window.x, window.y) == TableFrame::Phone {
+        let zone_top = window.y - hand::HAND_ZONE_H + super::hand_drawer::drop_at(shown);
+        let right = STACK_PHONE_RIGHT;
+        let wide = STACK_PANEL_W.min(window.x - right - EDGE).max(0.0);
+        let beside = window.x - right - strip_right - 2.0 * STACK_PHONE_GAP;
+        let (width, foot) = if beside >= STACK_PHONE_MIN_W {
+            (wide.min(beside), zone_top)
+        } else {
+            (wide, zone_top - super::ledge::players::STRIPS_H)
+        };
+        PanelRoom {
+            top: EDGE,
+            right,
+            width,
+            max_height: (foot - EDGE - STACK_PHONE_AIR).max(0.0),
+            phone: true,
+        }
+    } else {
+        PanelRoom {
+            top: TOP_CLEAR,
+            right: EDGE,
+            width: STACK_PANEL_W,
+            max_height: (window.y - hand::HAND_ZONE_H - TOP_CLEAR - 36.0)
+                .min(window.y * 0.76)
+                .max(80.0),
+            phone: false,
+        }
+    }
+}
+
+/// On a phone, how far the panel stands from the window's right edge: clear
+/// of the hand drawer's tab, which stands at the bar's right end at every
+/// drawer position, and so of the report button and the square beside it.
+const STACK_PHONE_RIGHT: f32 = EDGE + super::hand_drawer::TAB_W + 8.0;
+/// Where the players' strip ends, in logical pixels from the window's left
+/// edge, as `bevy_ui` laid it out (a frame old, which a strip standing still
+/// does not mind); 0 while none stands.
+pub(super) fn strip_right<'a>(
+    strips: impl Iterator<
+        Item = (
+            &'a ComputedNode,
+            &'a UiGlobalTransform,
+            &'a InheritedVisibility,
+        ),
+    >,
+) -> f32 {
+    strips
+        .filter(|(computed, _, seen)| seen.get() && computed.size().x > 0.0)
+        .map(|(computed, place, _)| {
+            (place.translation.x + computed.size().x / 2.0) * computed.inverse_scale_factor
+        })
+        .fold(0.0, f32::max)
+}
+
+/// The players' strip, as [`strip_right`] reads it.
+pub(crate) type StripQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static ComputedNode,
+        &'static UiGlobalTransform,
+        &'static InheritedVisibility,
+    ),
+    With<super::ledge::players::PlayersStrip>,
+>;
+
+/// On a phone, the narrowest the panel is made to end beside the players'
+/// strip: a queued card, a name and a target's thumbnail.
+const STACK_PHONE_MIN_W: f32 = 240.0;
+/// On a phone, the air between the panel's foot and the bar.
+const STACK_PHONE_AIR: f32 = 6.0;
+/// On a phone, the panel's padding.
+const STACK_PHONE_PAD: f32 = 6.0;
+/// On a phone, the gap between the panel's parts.
+const STACK_PHONE_GAP: f32 = 4.0;
+/// On a phone, the panel's head and the gap under it: the toggle's 26 px
+/// and the panel's row gap.
+const STACK_PHONE_HEAD: f32 = 26.0 + STACK_PHONE_GAP;
+
+/// Writes `value` into `slot` only when it differs: a changed `Node` lays
+/// the whole interface out again.
+fn set_px(slot: &mut Val, value: f32) -> bool {
+    if matches!(*slot, Val::Px(now) if (now - value).abs() <= 0.01) {
+        return false;
+    }
+    *slot = px(value);
+    true
+}
+
+/// A phone's standing answers, as [`fold_the_stack`] stands or folds them.
+type StackControlsQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static mut Node,
+        &'static mut Visibility,
+        &'static ComputedNode,
+    ),
+    (
+        With<StackControls>,
+        Without<StackPanel>,
+        Without<StackViewport>,
+    ),
+>;
+
+/// Animate clipping instead of scaling text, so the stack remains readable;
+/// and keep the panel where [`panel_room`] puts it, which on a phone follows
+/// the hand drawer.
+#[allow(clippy::too_many_arguments)] // a Bevy system: the panel's parts
 pub fn fold_the_stack(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
     mut fold: ResMut<StackFold>,
     windows: Query<&Window>,
+    duel: Option<Res<Duel>>,
     mut bodies: StackViewportQuery,
     mut panels: Query<&mut Node, (With<StackPanel>, Without<StackViewport>)>,
+    mut controls: StackControlsQuery,
+    strips: StripQuery,
     mut toggles: Query<&mut Text, With<StackToggle>>,
 ) {
     let target = if fold.collapsed { 0.0 } else { 1.0 };
-    fold.open = if prefs.all().reduce_motion {
-        target
-    } else {
-        fold.open + (target - fold.open) * (1.0 - (-16.0 * time.delta_secs()).exp())
-    };
-    if (fold.open - target).abs() < 0.001 {
-        fold.open = target;
+    if (fold.open - target).abs() > f32::EPSILON {
+        let open = if prefs.all().reduce_motion {
+            target
+        } else {
+            fold.open + (target - fold.open) * (1.0 - (-16.0 * time.delta_secs()).exp())
+        };
+        fold.open = if (open - target).abs() < 0.001 {
+            target
+        } else {
+            open
+        };
     }
-    let panel_cap = windows.single().map_or(618.0, |w| {
-        (w.height() - hand::HAND_ZONE_H - TOP_CLEAR - 36.0)
-            .min(w.height() * 0.76)
-            .max(80.0)
-    });
+    let room = windows.single().map_or(
+        PanelRoom {
+            top: TOP_CLEAR,
+            right: EDGE,
+            width: STACK_PANEL_W,
+            max_height: 618.0,
+            phone: false,
+        },
+        |w| {
+            panel_room(
+                Vec2::new(w.width(), w.height()),
+                // No table, no drawer to follow: drawn open.
+                duel.as_ref().map_or(1.0, |duel| duel.hand_shown),
+                strip_right(strips.iter()),
+            )
+        },
+    );
     for mut node in &mut panels {
-        node.max_height = px(panel_cap);
+        // Through `bypass_change_detection` and marked changed only on a
+        // real move: every frame used to write all of these.
+        let node_ref = node.bypass_change_detection();
+        let moved = set_px(&mut node_ref.max_height, room.max_height)
+            | set_px(&mut node_ref.top, room.top)
+            | set_px(&mut node_ref.right, room.right)
+            | set_px(&mut node_ref.width, room.width);
+        if moved {
+            node.set_changed();
+        }
     }
-    let cap = (panel_cap - 58.0).max(0.0);
+    let cap = room.body_cap() * fold.open;
+    // On a phone the body keeps one top row's height whatever stands
+    // beside it in the panel: the entry is what the panel is for.
+    let floor = if room.phone {
+        STACK_PHONE_FULL_HEIGHT.min(cap)
+    } else {
+        0.0
+    };
     for (mut node, mut visibility) in &mut bodies {
-        node.max_height = px(cap * fold.open);
-        *visibility = if fold.open == 0.0 {
+        let node_ref = node.bypass_change_detection();
+        if set_px(&mut node_ref.max_height, cap) | set_px(&mut node_ref.min_height, floor) {
+            node.set_changed();
+        }
+        visibility.set_if_neq(if fold.open == 0.0 {
             Visibility::Hidden
         } else {
             Visibility::Inherited
-        };
+        });
     }
+    // A phone's standing answers stand while they fit whole under one top
+    // row, and fold away (no height, not drawn) where they would be cut —
+    // the drawer open on a short phone. What fits is read off what they
+    // hold, which a folded node still lays out.
+    for (mut node, mut visibility, computed) in &mut controls {
+        let wants = computed.content_size().y * computed.inverse_scale_factor();
+        // Nothing measured yet (a node spawned this frame) is not a fit.
+        let fits = wants > 0.0
+            && fold.open > 0.0
+            && room.body_cap() - STACK_PHONE_FULL_HEIGHT - STACK_PHONE_GAP >= wants;
+        let node_ref = node.bypass_change_detection();
+        let ceiling = if fits { Val::Auto } else { px(0) };
+        if node_ref.max_height != ceiling {
+            node_ref.max_height = ceiling;
+            node.set_changed();
+        }
+        visibility.set_if_neq(if fits {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+    }
+    let mark = if fold.collapsed { "+" } else { "−" };
     for mut text in &mut toggles {
-        **text = if fold.collapsed { "+" } else { "−" }.into();
+        if text.0 != mark {
+            **text = mark.into();
+        }
     }
 }
 
@@ -390,6 +619,15 @@ const STACK_PANEL_W: f32 = 352.0;
 /// Bounded visible rows, including overscan for smooth scrolling.
 const STACK_COMPACT_ROWS: usize = 16;
 pub(super) const STACK_FULL_HEIGHT: f32 = 164.0;
+/// The top row on a phone: a queued row's card, and beside it the name with
+/// its targets on one line and the sentence's two lines under them — no
+/// subtitle (the head says whose answer is awaited). Its padding either side
+/// and the taller of the card and that column.
+pub(super) const STACK_PHONE_FULL_HEIGHT: f32 = 2.0 * STACK_PHONE_ROW_PAD
+    + STACK_QUEUED_H
+        .max(STACK_QUEUED_TARGET_H + 3.0 + STACK_SENTENCE_LINES_PHONE * STACK_SENTENCE_LINE);
+/// The top row's padding on a phone, as on a desktop's.
+const STACK_PHONE_ROW_PAD: f32 = 6.0;
 const STACK_ROW_HEIGHT: f32 = 82.0;
 
 /// First rendered queued row, including a small overscan above the viewport.
@@ -979,7 +1217,7 @@ pub(super) fn spawn_stack_panel(
     selected: Option<ObjectId>,
     orders: &[baylee_client_core::automation::AbilityOrder],
     scroll: ScrollPosition,
-    (full_height, text_lines): (f32, f32),
+    (full_height, text_lines, room): (f32, f32, PanelRoom),
     lang: Lang,
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
@@ -997,16 +1235,17 @@ pub(super) fn spawn_stack_panel(
             StackPanel,
             Node {
                 position_type: PositionType::Absolute,
-                right: px(EDGE),
                 // Under the report button (#309), which has the corner: the
                 // draw offer and the concession that used to sit above it
-                // are on the shelf (AX §4.3).
-                top: px(TOP_CLEAR),
-                width: px(STACK_PANEL_W),
-                max_height: percent(76),
+                // are on the shelf (AX §4.3). On a phone at the top, left of
+                // the corner and the hand's tab (`panel_room`).
+                right: px(room.right),
+                top: px(room.top),
+                width: px(room.width),
+                max_height: px(room.max_height),
                 flex_direction: FlexDirection::Column,
-                row_gap: px(6),
-                padding: UiRect::all(px(10)),
+                row_gap: px(if room.phone { STACK_PHONE_GAP } else { 6.0 }),
+                padding: UiRect::all(px(if room.phone { STACK_PHONE_PAD } else { 10.0 })),
                 overflow: Overflow::clip(),
                 border_radius: BorderRadius::all(px(5)),
                 border: UiRect::all(px(1)),
@@ -1135,7 +1374,11 @@ pub(super) fn spawn_stack_panel(
         )
         .id();
     commands.entity(head).add_child(toggle);
-    spawn_controls(commands, panel, selected, orders, lang, view, fonts);
+    // Above the list, except on a phone, where the list comes first and the
+    // controls give way to it (`spawn_controls`).
+    if !room.phone {
+        spawn_controls(commands, panel, selected, orders, lang, view, fonts, false);
+    }
     let start = window_start(scroll.y, full_height).min(board.stack.len().saturating_sub(1));
     let end = (start + STACK_COMPACT_ROWS).min(board.stack.len());
     let body = commands
@@ -1143,6 +1386,11 @@ pub(super) fn spawn_stack_panel(
             StackBody {
                 top: board.stack.first().map(|item| item.id),
                 rows: board.stack.len(),
+                floor: if room.phone {
+                    STACK_PHONE_FULL_HEIGHT
+                } else {
+                    STACK_FULL_HEIGHT
+                },
             },
             Scrolls,
             Node {
@@ -1192,7 +1440,7 @@ pub(super) fn spawn_stack_panel(
             fonts,
             faces,
             cards.as_deref_mut(),
-            text_lines,
+            (text_lines, room),
         );
         commands.entity(body).add_child(entry);
     }
@@ -1200,6 +1448,9 @@ pub(super) fn spawn_stack_panel(
     if end < board.stack.len() {
         let gap = spacer(commands, rows_height(end, board.stack.len(), full_height));
         commands.entity(body).add_child(gap);
+    }
+    if room.phone {
+        spawn_controls(commands, panel, selected, orders, lang, view, fonts, true);
     }
     panel
 }
@@ -1284,59 +1535,84 @@ fn spawn_controls(
     lang: Lang,
     view: &PlayerView,
     fonts: &UiFonts,
+    phone: bool,
 ) {
     use baylee_client_core::automation::{ability_order, set_ability_order};
     use baylee_engine::choice::StandingAnswer;
     let marked = selected.and_then(|id| view.stack.iter().find(|item| item.id == id));
-    let controls = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                row_gap: px(5),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(panel).add_child(controls);
-    let hint = if marked.is_some() {
-        Phrase::StackStopHint
-    } else {
-        Phrase::StackSelectHint
-    };
-    let text = commands
-        .spawn((
-            Text::new(hint.text(lang)),
-            tf(fonts, 10.0),
-            TextColor(palette::MUTED),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(controls).add_child(text);
-    let running = view.priority_held;
-    let label = if running {
-        Phrase::HoldRelease
-    } else if marked.is_some() {
-        Phrase::StackRunTo
-    } else {
-        Phrase::StackRun
-    };
-    let button = control_button(commands, controls, label.text(lang), running, fonts);
-    commands
-        .entity(button)
-        .observe(|mut click: On<Pointer<Click>>, mut duel: ResMut<Duel>| {
-            click.propagate(false);
-            if let Some(action) = duel.hold_action(false) {
-                duel.submit(action);
-            }
-        });
     let ability = marked
         .or_else(|| view.stack.last())
         .and_then(|item| match item.stack_item {
             Some(baylee_view::StackItem::Ability { ability, .. }) => ability,
             _ => None,
         });
+    // On a phone only the standing answers: the shelf already carries
+    // "resolve the stack" (with the marked stop: `Duel::hold_action`), and
+    // the hints are a desktop's room. Nothing left, nothing drawn.
+    if phone && ability.is_none() && orders.is_empty() {
+        return;
+    }
+    let controls = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(5),
+                // Under the list on a phone, and the first to give way: the
+                // entry is what the panel is for (`fold_the_stack` keeps the
+                // list a top row tall).
+                flex_shrink: if phone { 1.0 } else { 0.0 },
+                min_height: if phone { px(0) } else { Val::Auto },
+                max_height: if phone { px(0) } else { Val::Auto },
+                overflow: if phone {
+                    Overflow::clip()
+                } else {
+                    Overflow::visible()
+                },
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    if phone {
+        // Folded until `fold_the_stack` has measured that they fit.
+        commands
+            .entity(controls)
+            .insert((StackControls, Visibility::Hidden));
+    }
+    commands.entity(panel).add_child(controls);
+    if !phone {
+        let hint = if marked.is_some() {
+            Phrase::StackStopHint
+        } else {
+            Phrase::StackSelectHint
+        };
+        let text = commands
+            .spawn((
+                Text::new(hint.text(lang)),
+                tf(fonts, 10.0),
+                TextColor(palette::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(controls).add_child(text);
+        let running = view.priority_held;
+        let label = if running {
+            Phrase::HoldRelease
+        } else if marked.is_some() {
+            Phrase::StackRunTo
+        } else {
+            Phrase::StackRun
+        };
+        let button = control_button(commands, controls, label.text(lang), running, fonts);
+        commands
+            .entity(button)
+            .observe(|mut click: On<Pointer<Click>>, mut duel: ResMut<Duel>| {
+                click.propagate(false);
+                if let Some(action) = duel.hold_action(false) {
+                    duel.submit(action);
+                }
+            });
+    }
     if let Some(ability) = ability {
         let order = ability_order(orders, ability);
         let title = commands
@@ -1399,15 +1675,17 @@ fn spawn_controls(
                 },
             );
         }
-        let hint = commands
-            .spawn((
-                Text::new(Phrase::StackPolicyHint.text(lang)),
-                tf(fonts, 10.0),
-                TextColor(palette::MUTED),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(controls).add_child(hint);
+        if !phone {
+            let hint = commands
+                .spawn((
+                    Text::new(Phrase::StackPolicyHint.text(lang)),
+                    tf(fonts, 10.0),
+                    TextColor(palette::MUTED),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(controls).add_child(hint);
+        }
     }
     if !orders.is_empty() {
         let reset = control_button(
@@ -1464,9 +1742,13 @@ fn spawn_stack_entry(
     fonts: &UiFonts,
     faces: &FaceCtx<'_>,
     mut cards: Option<&mut UiCards<'_>>,
-    text_lines: f32,
+    (text_lines, panel): (f32, PanelRoom),
 ) -> Entity {
+    let phone = panel.phone;
     let key = StackKey::Entry(item.id, full);
+    // The top row on a phone (`panel_room`): a queued row's card, the name
+    // and its targets on one line, the sentence's box under them.
+    let compact = full && phone;
     // The next thing to resolve is lit and railed; the one behind it carries
     // a hint of the same fill so "this resolves second" is visible, and
     // everything under *that* is flat. Depth is the only ordering a player
@@ -1508,7 +1790,9 @@ fn spawn_stack_entry(
             Node {
                 flex_direction: FlexDirection::Row,
                 height: stack_entry_height(full),
-                min_height: px(if full {
+                min_height: px(if compact {
+                    STACK_PHONE_FULL_HEIGHT
+                } else if full {
                     STACK_FULL_HEIGHT
                 } else {
                     STACK_ROW_HEIGHT
@@ -1516,7 +1800,7 @@ fn spawn_stack_entry(
                 flex_shrink: 0.0,
                 overflow: Overflow::clip(),
                 column_gap: px(8),
-                padding: UiRect::all(px(if full { 6.0 } else { 4.0 })),
+                padding: UiRect::all(px(if full { STACK_PHONE_ROW_PAD } else { 4.0 })),
                 border: UiRect::left(px(3)),
                 align_items: AlignItems::FlexStart,
                 border_radius: BorderRadius::all(px(5)),
@@ -1547,7 +1831,7 @@ fn spawn_stack_entry(
         ))
         .id();
 
-    let (width, height) = if full {
+    let (width, height) = if full && !compact {
         (STACK_CARD_W, STACK_CARD_H)
     } else {
         (STACK_QUEUED_W, STACK_QUEUED_H)
@@ -1606,7 +1890,22 @@ fn spawn_stack_entry(
     } else {
         STACK_QUEUED_NAME_PT
     };
-    let room = STACK_PANEL_W - 20.0 - if full { 12.0 } else { 8.0 } - 3.0 - width - 8.0;
+    let room = panel.width
+        - if phone {
+            2.0 * STACK_PHONE_PAD
+        } else {
+            20.0
+        }
+        - if full { 12.0 } else { 8.0 }
+        - 3.0
+        - width
+        - 8.0
+        // On a phone's top row the targets share the name's line.
+        - if compact {
+            phone_targets_width(item.targets.len())
+        } else {
+            0.0
+        };
     // The name a player reads rather than the one the engine projects. It has
     // to be looked up here and not taken from `item.name`, because
     // `BoardModel` is built in a crate that links neither the catalog nor a
@@ -1628,7 +1927,7 @@ fn spawn_stack_entry(
         // it would never light.
         Pickable::IGNORE,
     ));
-    if full {
+    if full && !compact {
         name.insert((
             Text::new(title.clone()),
             bevy::text::LineHeight::Px(STACK_NAME_LINE),
@@ -1648,7 +1947,7 @@ fn spawn_stack_entry(
         ));
     }
     let name = name.id();
-    if !full {
+    if !full || compact {
         for piece in queued_heading_spans(&title, room, size) {
             let font = if piece.mark {
                 crate::manaui::mana_tf(fonts, size * STACK_MARK)
@@ -1667,13 +1966,76 @@ fn spawn_stack_entry(
             commands.entity(name).add_child(span);
         }
     }
-    commands.entity(body).add_child(name);
+    if compact {
+        // The name and what it points at on one line: the name takes what
+        // the targets leave, cut to fit, and the targets never move off it.
+        let line = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: px(6),
+                    min_width: px(0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(name).insert(Node {
+            flex_shrink: 1.0,
+            min_width: px(0),
+            overflow: Overflow::clip_x(),
+            ..default()
+        });
+        commands.entity(line).add_child(name);
+        if !item.targets.is_empty() {
+            let arrow = commands
+                .spawn((
+                    Text::new("→"),
+                    tf(fonts, 14.0),
+                    TextColor(palette::CANDLE),
+                    Arriving::ink(key, palette::CANDLE.alpha()),
+                    Node {
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let targets = spawn_stack_targets(
+                commands,
+                lang,
+                item,
+                key,
+                false,
+                view,
+                statics,
+                textures,
+                assets,
+                fonts,
+                faces,
+                cards.as_deref_mut(),
+            );
+            commands.entity(targets).insert(Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: px(4),
+                align_items: AlignItems::Center,
+                flex_shrink: 0.0,
+                ..default()
+            });
+            commands.entity(line).add_children(&[arrow, targets]);
+        }
+        commands.entity(body).add_child(line);
+    } else {
+        commands.entity(body).add_child(name);
+    }
 
     // What kind of thing this is, and whose — on the top row only. An ability
     // names its source even when the source has left: the picture above may
     // be missing, the sentence must not be. A *spell* names nothing, because
-    // the picture already said it.
-    if full {
+    // the picture already said it. Not on a phone: its head says whose
+    // answer the table waits for, and the row has two lines of room.
+    if full && !compact {
         let kind = match item.kind {
             baylee_client_core::board::StackKind::Spell => None,
             baylee_client_core::board::StackKind::Ability { source, .. } => {
@@ -1731,7 +2093,7 @@ fn spawn_stack_entry(
     // sentence, so a long sentence can never push its targets out of sight
     // (the owner, 08.10.2026: *"you can't see the target"*). The sentence
     // scrolls in its own box under them; the targets never scroll.
-    if !item.targets.is_empty() {
+    if !item.targets.is_empty() && !compact {
         let targets = spawn_stack_targets(
             commands, lang, item, key, full, view, statics, textures, assets, fonts, faces, cards,
         );
@@ -1754,6 +2116,17 @@ fn spawn_stack_entry(
     }
 
     row
+}
+
+/// How much of a phone's top row `count` targets take on the name's line:
+/// the arrow and a queued row's thumbnails, with their gaps.
+fn phone_targets_width(count: usize) -> f32 {
+    if count == 0 {
+        return 0.0;
+    }
+    #[allow(clippy::cast_precision_loss)] // a handful of targets
+    let count = count as f32;
+    6.0 + 14.0 + 6.0 + count * STACK_QUEUED_TARGET_W + (count - 1.0) * 4.0
 }
 
 /// A scrollbar's track and thumb on this panel: the list's and an entry's
@@ -1991,6 +2364,7 @@ fn spawn_stack_targets(
 ) -> Entity {
     let row = commands
         .spawn((
+            StackTargets,
             Node {
                 flex_direction: FlexDirection::Row,
                 column_gap: px(4),
@@ -2913,7 +3287,11 @@ mod tests {
     #[test]
     fn expanded_oracle_height_keeps_virtual_queue_offsets_correct() {
         let top = Some(ObjectId::new(30, 0));
-        let body = StackBody { top, rows: 20 };
+        let body = StackBody {
+            top,
+            rows: 20,
+            floor: STACK_FULL_HEIGHT,
+        };
         let node = ComputedNode {
             content_size: Vec2::new(704.0, (900.0 + 19.0 * STACK_ROW_HEIGHT) * 2.0),
             inverse_scale_factor: 0.5,

@@ -251,6 +251,7 @@ fn duel_choosing_a_colour() -> Duel {
 mod answer_tests;
 mod decision_tests;
 mod menu_tests;
+mod phone_stack_tests;
 mod preview_tests;
 mod sheet_tests;
 mod shelf_tests;

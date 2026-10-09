@@ -2105,6 +2105,10 @@ pub struct OverlayTree<'w, 's> {
         ),
     >,
 
+    /// The players' strip, which a phone's stack panel ends beside
+    /// ([`stack::panel_room`]).
+    pub(crate) players_strip: stack::StripQuery<'w, 's>,
+
     /// The root, and whatever hangs off it.
     pub(crate) root: Query<'w, 's, (Entity, Option<&'static Children>), With<HudRoot>>,
     /// The shelf, so a child can be recognised as the one to keep.

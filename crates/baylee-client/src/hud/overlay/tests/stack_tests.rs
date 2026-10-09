@@ -14,7 +14,7 @@ const ONDU_CLERIC: &str = "Immer wenn der Ondu-Kleriker oder ein anderer Verbün
 
 /// A duel with one ability on the stack, its source on the battlefield,
 /// and the pointer on the stack entry.
-fn hovering_the_stack(hovered: bool) -> (Duel, crate::cardtext::CardTexts) {
+pub(super) fn hovering_the_stack(hovered: bool) -> (Duel, crate::cardtext::CardTexts) {
     use baylee_client_core::test_support::{ViewBuilder, printed, statics, token};
 
     let texts = crate::cardtext::CardTexts::filed(crate::cardtext::fixture::german(

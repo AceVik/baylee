@@ -1880,6 +1880,25 @@ queued rows are a fixed 82 px, and the next entry is as tall as what it
 draws, at least 164 px, measured from the body (`StackBody::full_height`).
 Scroll position survives hover, selection and language changes.
 
+**On a phone the panel is shaped for the height it has** (08./09.10.2026:
+at 844 × 390 it showed its head and its controls and no entry at all — its
+cap was 103 px, measured against the whole hand zone, which a phone's drawer
+keeps shut). `stack::panel_room` decides where it stands: on a phone
+(`TableFrame::Phone`) at the window's top, left of the hand drawer's tab and
+of the corner's buttons (`right` = `EDGE` + the tab's width + 8), down to the
+bar where the drawer has it this frame (`fold_the_stack` follows
+`Duel::hand_shown`), ending beside the players' strip on the bar (measured off
+its laid-out node) — or, where that would leave it narrower than 240 px,
+stopping above the strip instead. The top row takes a queued row's card, its
+name cut to one line with the arrow and the targets' thumbnails on that line,
+and the sentence's two-line box under them; no subtitle, since the head says
+whose answer is awaited (`STACK_PHONE_FULL_HEIGHT`, 83 px). The run button and
+the hints are left off (the bar already offers "resolve the stack", with the
+marked stop), and the standing answers stand under the list, shown only while
+they fit whole beside a top row (`StackControls`), never cut in half. So at
+640 × 360 with the drawer open the top entry is whole: name, targets, the
+sentence and its bar (`phone_stack_tests`).
+
 **The next entry's sentence scrolls; its targets never do** (the owner,
 08.10.2026: *"Sometimes the effects on the stack are quite long and you
 can't see the target"*). The row reads name, subtitle, the arrow and the
@@ -9573,6 +9592,18 @@ throughout preparation. The ordinary short-request veil remains debounced.
 The `dev-control` `/state` response includes `loading` with destination,
 milestone, ready/total, monotonic departure, progress and error, allowing
 screenshots to be matched to actual preparation rather than a guessed delay.
+
+**A pin does not hold an image in its store** (09.10.2026). The cover pins
+every image and mesh it waits on with a strong handle, and that stops a drop,
+not `Assets::remove`. A table opened at a phone's size sat on *"Der letzte
+Feinschliff"* for ever (3 of 4 starts at 844 × 390, either scale factor):
+its slab widens from 40.2 to 46.2 once the phone's layout settles, the felt
+was recut under the cover, and the recut *removed* its old vein image. The
+render world dropped the `GpuImage` with it, and the acknowledgement waited
+for an image that no longer existed — resizing could not help. The recut now
+only replaces the handle (the old points go with their last handle), and
+`prepare` stops waiting on an image the store no longer holds
+(`Prepared::forget_the_gone`), so no later removal can hold a cover up.
 
 ### Dedicated waiting room (2026-09-26)
 
