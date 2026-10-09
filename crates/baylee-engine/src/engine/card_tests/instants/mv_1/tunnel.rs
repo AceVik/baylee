@@ -86,3 +86,43 @@ fn tunnel_destroys_a_wall_and_declines_a_creature_that_is_not_one() {
         "an instant that resolved is in the graveyard of the seat that cast it"
     );
 }
+
+fn wall_of_brambles() -> CardIndex {
+    card_index("f8d82a00-c10e-4b9e-9642-d05706900a97")
+}
+
+/// "It can't be regenerated": a Wall that has bought a regeneration shield
+/// with its own `{G}` ability dies anyway, to its owner's graveyard. The shield
+/// is bought off the card, not written in by the harness, and the Wall is the
+/// caster's own, because "target Wall" does not care whose it is. The comment
+/// on the other Tunnel test, that the pool has no regeneration, is out of date.
+#[test]
+fn tunnel_destroys_a_wall_through_a_regeneration_shield() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), forest(), wall_of_brambles()])
+        .hand(0, &[tunnel()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wall = on_battlefield(&engine, p0, wall_of_brambles()).expect("the Wall");
+
+    tap_all_mana(&mut engine, p0);
+    raise_a_shield(&mut engine, p0, wall, 0);
+    cast_with_floating(&mut engine, p0, tunnel());
+    let menu = aim_at(&mut engine, p0, wall);
+    assert!(
+        menu.contains(&wall),
+        "a shielded Wall is a legal target like any other: {menu:?}"
+    );
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        on_battlefield(&engine, p0, wall_of_brambles()).is_none(),
+        "the shield did not save it"
+    );
+    assert!(
+        in_graveyard(&engine, p0, wall_of_brambles()).is_some(),
+        "and it is in its owner's graveyard"
+    );
+}
