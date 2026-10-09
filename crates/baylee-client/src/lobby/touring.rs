@@ -145,10 +145,24 @@ pub(super) fn tours(
             return;
         }
         let parked = !home || covered;
-        if desk.parked != parked {
-            desk.parked = parked;
+        // Away from its screen, a chapter waits to be resumed there — unless
+        // the screen the player is on has a chapter of its own, which opens
+        // instead; the one set aside starts over on its next visit.
+        let elsewhere = !home
+            && !covered
+            && here.is_some_and(|p| {
+                [Tour::Lobby, Tour::Builder]
+                    .into_iter()
+                    .any(|t| settings.tours.due(t, p).is_some())
+            });
+        if !elsewhere {
+            if desk.parked != parked {
+                desk.parked = parked;
+            }
+            return;
         }
-        return;
+        desk.run = None;
+        desk.parked = false;
     }
     if desk.run.is_some() || covered {
         return;

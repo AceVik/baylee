@@ -409,7 +409,10 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
                 TourPress::Skip,
             ));
         }
-        let next = if run.last() {
+        // Done only where the tour ends; a lobby chapter's end goes on to
+        // the next chapter, on its screen.
+        let done = run.last() && (run.single || run.chapter + 1 >= chapters.len());
+        let next = if done {
             Phrase::TourDone
         } else {
             Phrase::TourNext
@@ -492,11 +495,11 @@ fn pill(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang: L
             Pickable::IGNORE,
         ))
         .id();
-    let words = format!("\u{2691} {}  \u{25be}", run.current().title.text(lang));
+    let words = run.current().title.text(lang);
     let button = controls::button(
         commands,
         kit,
-        &words,
+        words,
         Weight::Secondary,
         Live::Yes,
         None,
