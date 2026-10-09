@@ -98,7 +98,22 @@ pub fn run() {
                     window.set_maximized(false);
                     window.resolution.set(width, height);
                 }
+                // A watched agent run (`BAYLEE_DEV_PASSIVE=1`): opens
+                // without the focus, see `primary_cursor_options` below.
+                #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+                if crate::devctl::passive() {
+                    window.focused = false;
+                }
                 window
+            }),
+            // A watched agent run takes no real pointer: the window lets
+            // clicks and hovers through to whatever lies under it, so a
+            // person watching cannot nudge a check by moving the mouse
+            // across it. Only dev-control's own input reaches the client.
+            #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+            primary_cursor_options: Some(bevy::window::CursorOptions {
+                hit_test: !crate::devctl::passive(),
+                ..default()
             }),
             ..default()
         })
