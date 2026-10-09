@@ -65,7 +65,9 @@ fn score(
     }
     // Preserve finite shields when a reusable or event-only effect does the same job.
     result.saturating_mul(4).saturating_add(match effect.kind {
-        DamageEffectKind::PreventCombat | DamageEffectKind::Protection => 3,
+        DamageEffectKind::PreventCombat
+        | DamageEffectKind::PreventAll
+        | DamageEffectKind::Protection => 3,
         DamageEffectKind::PreventThisEvent { .. } => 2,
         DamageEffectKind::RemoveCounter { .. } => -1,
         _ => 0,

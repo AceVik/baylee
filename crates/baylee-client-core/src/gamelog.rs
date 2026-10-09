@@ -1008,6 +1008,20 @@ impl Writer<'_> {
                 Phrase::LogRolled,
                 vec![Self::count(sides), Self::count(result)],
             ),
+            LogEvent::CoinFlipped { player, won } => self.about(
+                *player,
+                if *won {
+                    Phrase::LogFlipWonYou
+                } else {
+                    Phrase::LogFlipLostYou
+                },
+                if *won {
+                    Phrase::LogFlipWon
+                } else {
+                    Phrase::LogFlipLost
+                },
+                Vec::new(),
+            ),
             LogEvent::Lost { player, cause } => {
                 let (you, other) = loss_phrases(*cause);
                 self.about(*player, log_loss(*cause).unwrap_or(you), other, Vec::new())
@@ -1917,6 +1931,7 @@ mod tests {
             LogEvent::LoopDetected { .. } => 27,
             LogEvent::DayNight { .. } => 28,
             LogEvent::Banded { .. } => 30,
+            LogEvent::CoinFlipped { .. } => 31,
             LogEvent::CardsKept { .. } => 31,
             LogEvent::BecameMonarch { .. } => 32,
             LogEvent::ConnectionLost { .. } => 33,
@@ -2040,6 +2055,8 @@ mod tests {
                 sides: 20,
                 result: 17,
             },
+            LogEvent::CoinFlipped { player, won: true },
+            LogEvent::CoinFlipped { player, won: false },
             LogEvent::GameOver {
                 winners: SeatSet::new(),
             },
@@ -2259,6 +2276,7 @@ mod tests {
             | LogEvent::Shuffled { player }
             | LogEvent::BecameMonarch { player }
             | LogEvent::DiceRolled { player, .. }
+            | LogEvent::CoinFlipped { player, .. }
             | LogEvent::Lost { player, .. } => Some(*player),
             LogEvent::Countered { .. }
             | LogEvent::DidNotResolve { .. }

@@ -16,7 +16,8 @@ pub mod seathost;
 /// Version 24 carries Camouflage's piles (`ChoicePrompt::CamouflagePile`).
 /// Version 26 adds spectators (`SpectatorsChanged`, `SpectatorFrame`,
 /// `Spectators`, `/games/{id}/watch`); 25 is another branch's.
-pub const PROTOCOL_VERSION: u32 = 26;
+/// Version 27 carries a damage decision's `DamageEffectKind::PreventAll`.
+pub const PROTOCOL_VERSION: u32 = 27;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;

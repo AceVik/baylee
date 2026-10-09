@@ -190,9 +190,11 @@ pub use turn::{DayNight, Phase, Step};
 /// Compatible addition: [`PlayerView::lost`], every player whose connection
 /// is lost and how long the table still waits for them, absent while empty;
 /// a reader of 56 without it ignores it.
+/// Version 57 adds the game log's [`LogEvent::CoinFlipped`] (CR 705), a
+/// variant a reader of 56 cannot parse.
 ///
 /// [`SubtypeSet`]: baylee_core::types::SubtypeSet
-pub const VIEW_VERSION: u32 = 56;
+pub const VIEW_VERSION: u32 = 57;
 
 // ------------------------------------------------------------------- targets
 

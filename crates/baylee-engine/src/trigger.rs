@@ -2216,6 +2216,21 @@ fn matches(
                 .object(other)
                 .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
+        // CR 509.3a: once per blocker, on the first of its pairs in the
+        // declaration, however many attackers it blocks.
+        (Trigger::Blocks(filter), GameEvent::BecameBlocker { object, .. }) => {
+            let Some(at) = batch
+                .iter()
+                .position(|entry| std::ptr::eq(&raw const entry.event, event))
+            else {
+                return false;
+            };
+            !batch[..at].iter().any(|entry| {
+                matches!(entry.event, GameEvent::BecameBlocker { object: earlier, .. } if earlier == *object)
+            }) && state
+                .object(*object)
+                .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
         (Trigger::AttacksAlone(filter), GameEvent::BecameAttacker { object, .. }) => {
             batch
                 .iter()

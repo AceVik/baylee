@@ -54,6 +54,9 @@ pub enum DamageEffectKind {
     PreventCombat,
     /// Protection prevents damage from this source.
     Protection,
+    /// Prevent all of the indicated damage, combat or not, without
+    /// spending the effect (Argothian Treefolk's "by artifacts").
+    PreventAll,
     /// A chosen-source shield is consumed by the next matching instance.
     PreventFromSource {
         /// Damage source the shield names.
