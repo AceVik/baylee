@@ -142,8 +142,30 @@ fn line(test: &str, card: &str, index: u32, kind: Kind) -> String {
     )
 }
 
+/// Every name the recorder makes can be created on this system: a test's
+/// path holds `::`, which Windows refuses in a file name, and there the
+/// recorder writes `_` (`docs/verification-hooks.md`); everywhere else the
+/// name is the test's own. Red on Windows when a name keeps a `:`.
+#[test]
+fn the_recorders_file_names_can_be_created_here() {
+    let dir = scratch("ability-log-names");
+    std::fs::create_dir_all(&dir).expect("a scratch directory");
+    for test in [BOLT_TEST, SEASON_TEST, ability_log::UNNAMED] {
+        let name = ability_log::file_name(test);
+        if cfg!(windows) {
+            assert!(!name.contains(':'), "{name}");
+        } else {
+            assert_eq!(name, format!("{test}.jsonl"));
+        }
+        std::fs::write(dir.join(&name), b"{}").unwrap_or_else(|e| panic!("{name}: {e}"));
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 fn read_lines(dir: &Path, test: &str) -> Vec<String> {
-    let path = dir.join(format!("{test}.jsonl"));
+    // The recorder's own name for it: on Windows `:` is `_`
+    // (`docs/verification-hooks.md`).
+    let path = dir.join(ability_log::file_name(test));
     std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("{} was not written: {e}", path.display()))
         .lines()

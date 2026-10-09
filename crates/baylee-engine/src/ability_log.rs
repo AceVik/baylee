@@ -148,7 +148,8 @@ fn written() -> &'static Mutex<Written> {
 
 /// The file a test's lines go to: the test's name, which is a Rust path and
 /// so safe on every file system but one — Windows refuses `:` in a name.
-fn file_name(test: &str) -> String {
+/// The one place a name is made: a reader asks here too.
+pub(crate) fn file_name(test: &str) -> String {
     let stem: String = if cfg!(windows) {
         test.replace(':', "_")
     } else {
