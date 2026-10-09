@@ -255,9 +255,11 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
     commands
         .entity(scrim)
         .insert(Press::Decks(DecksPress::CloseSheet));
-    commands
-        .entity(surface)
-        .insert((Press::Shared(SharedPress::PickerNothing), HistorySheet));
+    commands.entity(surface).insert((
+        Press::Shared(SharedPress::PickerNothing),
+        HistorySheet,
+        crate::tour::TourAnchor(baylee_client_core::tour::Anchor::HistorySheet),
+    ));
     commands.entity(root).add_child(scrim);
 }
 

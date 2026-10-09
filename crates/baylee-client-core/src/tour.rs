@@ -428,9 +428,113 @@ pub const LOBBY: &[Chapter] = &[
     },
 ];
 
-/// The deck builder tour (TOURS.md §2.2). Its chapters are written beside
-/// the builder's anchors.
-pub const BUILDER: &[Chapter] = &[];
+/// The deck builder tour: 14 steps in 4 chapters (TOURS.md §2.2 less D11b,
+/// the phone's: the tours are desktop-only for now). The shelf's and the
+/// builder's chapters open on their
+/// screens; import, export and history are just-in-time, each the first
+/// time its sheet stands.
+pub const BUILDER: &[Chapter] = &[
+    Chapter {
+        id: "shelf",
+        name: P::TourChapterShelf,
+        place: Place::Shelf,
+        after: None,
+        steps: &[
+            step("D1", Some(A::DecksTabs), N, P::TourD1Title, P::TourD1Body),
+            step(
+                "D2",
+                Some(A::DecksTileActions),
+                N,
+                P::TourD2Title,
+                P::TourD2Body,
+            ),
+            step(
+                "D3",
+                Some(A::DecksHouseTab),
+                N,
+                P::TourD3Title,
+                P::TourD3Body,
+            ),
+            step("D4", Some(A::DecksNew), N, P::TourD4Title, P::TourD4Body),
+        ],
+    },
+    Chapter {
+        id: "editing",
+        name: P::TourChapterEditing,
+        place: Place::Builder,
+        after: None,
+        steps: &[
+            step("D5", Some(A::BuildHeader), N, P::TourD5Title, P::TourD5Body),
+            step("D6", Some(A::BuildCount), N, P::TourD6Title, P::TourD6Body),
+            step(
+                "D7",
+                Some(A::BuildSearch),
+                Try(Check::QueryTyped),
+                P::TourD7Title,
+                P::TourD7Body,
+            ),
+            step(
+                "D8",
+                Some(A::BuildFirstRow),
+                Try(Check::DeckChanged),
+                P::TourD8Title,
+                P::TourD8Body,
+            ),
+            step("D9", Some(A::BuildDeck), N, P::TourD9Title, P::TourD9Body),
+            step(
+                "D10",
+                Some(A::BuildFooter),
+                N,
+                P::TourD10Title,
+                P::TourD10Body,
+            ),
+            step(
+                "D11",
+                Some(A::BuildSave),
+                Try(Check::Saved),
+                P::TourD11Title,
+                P::TourD11Body,
+            ),
+            // D11b, the phone's one pane, is not here: the tours are
+            // desktop-only for now (the owner, 09.10.2026).
+        ],
+    },
+    Chapter {
+        id: "lists",
+        name: P::TourChapterLists,
+        place: Place::Jit,
+        after: None,
+        steps: &[
+            step(
+                "D12",
+                Some(A::ImportSheet),
+                Jit,
+                P::TourD12Title,
+                P::TourD12Body,
+            ),
+            step(
+                "D13",
+                Some(A::ExportSheet),
+                Jit,
+                P::TourD13Title,
+                P::TourD13Body,
+            ),
+        ],
+    },
+    Chapter {
+        id: "history",
+        name: P::TourChapterHistory,
+        place: Place::Jit,
+        after: None,
+        steps: &[step(
+            "D14",
+            Some(A::HistorySheet),
+            Jit,
+            P::TourD14Title,
+            P::TourD14Body,
+        )],
+    },
+];
 
 /// The table tour: 34 steps in 11 chapters plus the closing, in the run
 /// order (TOURS.md §2.3: Reporting before Keys, so conceding is the last

@@ -83,6 +83,10 @@ pub(crate) fn transfer_dialog(
             BorderColor::all(palette::DOCK_EDGE),
             crate::hud::soft_shadow(),
             Press::Build(BuildPress::TransferNothing),
+            crate::tour::TourAnchor(match transfer {
+                Transfer::Import(_) => baylee_client_core::tour::Anchor::ImportSheet,
+                Transfer::Export(_) => baylee_client_core::tour::Anchor::ExportSheet,
+            }),
             crate::lobby::Scrollable(List::Transfer),
             ScrollPosition(Vec2::new(0.0, scrolled.get(List::Transfer))),
         ))

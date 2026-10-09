@@ -86,6 +86,12 @@ fn the_scripts_count_what_the_spec_counts() {
     let count = |tour: Tour| -> usize { tour.chapters().iter().map(|c| c.steps.len()).sum() };
     assert_eq!(count(Tour::Lobby), 14);
     assert_eq!(LOBBY.len(), 5);
+    assert_eq!(
+        count(Tour::Builder),
+        14,
+        "D1–D14; the phone's D11b waits for tours on phones"
+    );
+    assert_eq!(BUILDER.len(), 4);
     assert_eq!(count(Tour::Table), 34);
     assert_eq!(TABLE.len(), 12, "11 chapters and the closing");
     let mut ids: Vec<&str> = every_step().iter().map(|(_, s)| s.id).collect();

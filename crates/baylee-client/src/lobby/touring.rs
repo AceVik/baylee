@@ -28,12 +28,66 @@ pub(super) fn place(state: &LobbyState) -> Option<Place> {
     }
 }
 
+/// What the builder stood at when a try-it step opened: its checks compare
+/// against it (TOURS.md §3.4), so a deck that already held cards, or a save
+/// made before the step, does not light Next by itself.
+#[derive(Default)]
+pub(super) struct Opened {
+    /// The step these were read for: its tour and id.
+    step: Option<(Tour, &'static str)>,
+    /// Main and sideboard copies.
+    copies: u32,
+    /// When the builder last saved, if it has this visit.
+    saved: Option<f64>,
+}
+
+impl Opened {
+    fn read(step: (Tour, &'static str), state: &LobbyState) -> Self {
+        Self {
+            step: Some(step),
+            copies: copies(state),
+            saved: saved_at(state),
+        }
+    }
+}
+
+/// Every copy in the deck, main and sideboard.
+fn copies(state: &LobbyState) -> u32 {
+    use baylee_client_core::deckbuilder::Zone;
+    let deck = state.lobby.builder();
+    [Zone::Main, Zone::Side]
+        .into_iter()
+        .flat_map(|zone| deck.entries(zone))
+        .map(|entry| u32::from(entry.count))
+        .sum()
+}
+
+/// When the builder's save state last said Saved.
+fn saved_at(state: &LobbyState) -> Option<f64> {
+    match state.build.save {
+        crate::buildui::SaveState::Saved { at, .. } => Some(at),
+        _ => None,
+    }
+}
+
 /// Whether a try-it check holds now.
-fn holds(check: Check, state: &LobbyState) -> bool {
+fn holds(check: Check, state: &LobbyState, opened: &Opened) -> bool {
     match check {
         Check::CreateSheetOpen => state.play.sheet.is_some(),
         Check::InRoom => place(state) == Some(Place::Room),
-        // The builder's and the table's are answered where those are.
+        // D7: something typed into the pool's search.
+        Check::QueryTyped => !state
+            .lobby
+            .builder()
+            .buffer(baylee_client_core::deckbuilder::BuildField::Search)
+            .text()
+            .trim()
+            .is_empty(),
+        // D8: a card added (or moved out) since the step opened.
+        Check::DeckChanged => copies(state) != opened.copies,
+        // D11: saved since the step opened.
+        Check::Saved => saved_at(state).is_some_and(|at| opened.saved != Some(at)),
+        // The table's are answered where the table is.
         _ => false,
     }
 }
@@ -73,6 +127,7 @@ pub(super) fn tours(
     report: Option<Res<crate::report::ReportDesk>>,
     overlay: Option<Res<crate::shellkit::overlay::Overlay>>,
     anchors: Query<(&TourAnchor, &InheritedVisibility)>,
+    mut opened: Local<Opened>,
 ) {
     let Some(settings) = settings.as_mut() else {
         return;
@@ -126,9 +181,13 @@ pub(super) fn tours(
     if let Some(run) = desk.run.as_mut()
         && run.tour != Tour::Table
     {
+        let step = (run.tour, run.current().id);
+        if opened.step != Some(step) {
+            *opened = Opened::read(step, &state);
+        }
         if let Kind::Try(check) = run.current().kind
             && !run.held
-            && holds(check, &state)
+            && holds(check, &state, &opened)
         {
             run.hold();
         }
@@ -185,5 +244,62 @@ pub(super) fn tours(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::deckbuilder::{BuildField, Zone};
+
+    /// A builder holding one card of a one-card pool.
+    fn building() -> LobbyState {
+        let mut state = LobbyState::new();
+        let card: baylee_client_core::PoolCard = serde_json::from_value(serde_json::json!({
+            "index": 1, "name": "Llanowar Elves", "english_name": "Llanowar Elves",
+            "mana_cost": "{G}", "cmc": 1, "colors": "G", "identity": "G",
+            "type_line": "Creature — Elf Druid", "kinds": ["Creature"], "stats": "1/1",
+            "oracle_text": "{T}: Add {G}.", "coverage": "implemented", "note": null,
+            "commander": false, "basic_land": false
+        }))
+        .expect("a pool row");
+        let deck = state.lobby.builder_mut();
+        deck.set_pool(vec![card], true);
+        deck.add(0, Zone::Main);
+        state
+    }
+
+    /// D7, D8 and D11 (TOURS.md §3.4) read the builder against what it held
+    /// when the step opened: a deck that held a card, or a save made before,
+    /// lights nothing; typing, adding and saving do.
+    #[test]
+    fn the_builders_checks_compare_against_the_step_they_opened_with() {
+        let mut state = building();
+        let opened = Opened::read((Tour::Builder, "D8"), &state);
+        assert!(!holds(Check::QueryTyped, &state, &opened));
+        assert!(
+            !holds(Check::DeckChanged, &state, &opened),
+            "a card held before"
+        );
+        assert!(!holds(Check::Saved, &state, &opened));
+
+        let deck = state.lobby.builder_mut();
+        deck.focus_on(BuildField::Search);
+        deck.type_char('e');
+        assert!(holds(Check::QueryTyped, &state, &opened));
+
+        state.lobby.builder_mut().add(0, Zone::Main);
+        assert!(holds(Check::DeckChanged, &state, &opened), "a copy added");
+
+        state.build.save = crate::buildui::SaveState::Saved {
+            at: 5.0,
+            minutes: 0,
+        };
+        assert!(holds(Check::Saved, &state, &opened), "saved since");
+        let later = Opened::read((Tour::Builder, "D11"), &state);
+        assert!(
+            !holds(Check::Saved, &state, &later),
+            "a save from before the step"
+        );
     }
 }

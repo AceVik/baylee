@@ -54,6 +54,7 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
                 ..default()
             },
             BackgroundColor(tokens::PANEL),
+            crate::tour::TourAnchor(baylee_client_core::tour::Anchor::BuildHeader),
         ))
         .id();
     commands.entity(holder).add_child(bar);
@@ -132,6 +133,9 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
                 )
             },
         );
+        commands.entity(switch).insert(crate::tour::TourAnchor(
+            baylee_client_core::tour::Anchor::BuildPaneSwitch,
+        ));
         kids.push(switch);
     }
 
@@ -378,14 +382,23 @@ fn save_button(commands: &mut Commands, env: &Env) -> Entity {
             commands,
             kit,
             face,
-            (Press::Build(BuildPress::SaveDeck), stop("save")),
+            (
+                Press::Build(BuildPress::SaveDeck),
+                stop("save"),
+                crate::tour::TourAnchor(baylee_client_core::tour::Anchor::BuildSave),
+            ),
         )
     } else {
         controls::hit(
             commands,
             kit,
             face,
-            (Press::Build(BuildPress::SaveDeck), stop("save"), Disabled),
+            (
+                Press::Build(BuildPress::SaveDeck),
+                stop("save"),
+                Disabled,
+                crate::tour::TourAnchor(baylee_client_core::tour::Anchor::BuildSave),
+            ),
         )
     }
 }
