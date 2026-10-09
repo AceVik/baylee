@@ -606,6 +606,12 @@ messages! {
         en: "The game could not be rebuilt exactly as it was, so it was not resumed.",
         de: "Die Partie ließ sich nicht genau so wiederherstellen und wurde nicht fortgesetzt.",
     },
+    /// After a restart, back in a hosted game whose chair the house played
+    /// meanwhile (the reconnect window had run out).
+    ResumeHousePlayed {
+        en: "Back at your table – the house played for you while you restarted.",
+        de: "Zurück am Tisch – das Haus hat während des Neustarts für dich gespielt.",
+    },
     /// After a restart, back in a hosted game whose chair the house held.
     ResumeSeatHeld {
         en: "Back at your table – your seat was held while you restarted.",

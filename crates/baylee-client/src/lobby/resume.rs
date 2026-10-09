@@ -152,6 +152,17 @@ fn drive(
         }
         Stage::Front => {
             resuming.waited += time.delta_secs();
+            // A game being returned to takes the screen itself: the lobby's
+            // own screen is not put back under it, and the walk ends once
+            // the chair is the player's again.
+            if matches!(resuming.state.game, Some(Game::Hosted { .. })) {
+                if matches!(state.lobby.screen(), Screen::Seated(_))
+                    || resuming.waited > SETTLE_SECS
+                {
+                    commands.remove_resource::<Resuming>();
+                }
+                return;
+            }
             let settled = matches!(state.lobby.screen(), Screen::Table) && !state.lobby.busy();
             if resuming.waited > SETTLE_SECS {
                 commands.remove_resource::<Resuming>();
@@ -320,11 +331,13 @@ fn restore_the_look(
     let (Some(pending), Some(mut duel)) = (pending, duel) else {
         return;
     };
-    let Some((seq, seat, seats)) = duel
-        .view
-        .as_ref()
-        .map(|view| (view.seq, view.seat, view.seats.len()))
-    else {
+    let Some((seq, seat, seats, stood_in)) = duel.view.as_ref().map(|view| {
+        let stood_in = view
+            .seats
+            .get(usize::from(view.seat.get()))
+            .is_some_and(|own| own.house_answered == Some(baylee_view::HouseAnswer::StandIn));
+        (view.seq, view.seat, view.seats.len(), stood_in)
+    }) else {
         return;
     };
     let look = &pending.look;
@@ -348,9 +361,16 @@ fn restore_the_look(
         duel.browser.toggle_by_hand();
     }
     if pending.held {
+        // Held, or (past the reconnect window) played by the house: the
+        // note says which, as the seat's own view does.
         let lang = settings.map_or(Lang::En, |s| Lang::of(&s.lang));
+        let phrase = if stood_in {
+            Phrase::ResumeHousePlayed
+        } else {
+            Phrase::ResumeSeatHeld
+        };
         commands.insert_resource(TableNote {
-            text: Phrase::ResumeSeatHeld.text(lang).to_owned(),
+            text: phrase.text(lang).to_owned(),
             left: NOTE_SECS,
         });
     }

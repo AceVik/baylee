@@ -9011,7 +9011,10 @@ continue where you left off". Then:
   route). The engine held the chair meanwhile (`Deadline::StandIn`, the
   reconnect window, 60 s by default; the house stands in only after it),
   and the table says "Back at your table – your seat was held while you
-  restarted" for eight seconds. A waiting room comes back as the room.
+  restarted" for eight seconds, or, where the seat's own view says the
+  house stood in (the window had run out), that the house played for the
+  player meanwhile. The lobby's screen is not put back under a game. A
+  waiting room comes back as the room.
 - **The lobby**: the hub's tab, the settings section and the builder with
   its deck, once the lobby has settled (at most 30 s).
 - **The table**: once it has a view, its arrangement switch, the visit,
