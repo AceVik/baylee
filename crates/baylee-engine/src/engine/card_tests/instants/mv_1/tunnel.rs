@@ -4,8 +4,9 @@
 use super::*;
 
 /// Tunnel prints one sentence — "Destroy target Wall. It can't be
-/// regenerated." — and the pool implements no regeneration anywhere, so the
-/// whole card is the destroy plus the word *Wall*. The board therefore puts a
+/// regenerated." — and this test reads the first half: the destroy plus the
+/// word *Wall* (the second half, against a standing regeneration shield, is
+/// `tunnel_destroys_a_wall_through_a_regeneration_shield`). The board puts a
 /// Wall and a creature that is not one under the same opponent: the offer has
 /// to hold exactly the first, and the Elf beside it is the control that says
 /// the subtype filter was read rather than that a lone creature turned out to
@@ -94,8 +95,7 @@ fn wall_of_brambles() -> CardIndex {
 /// "It can't be regenerated": a Wall that has bought a regeneration shield
 /// with its own `{G}` ability dies anyway, to its owner's graveyard. The shield
 /// is bought off the card, not written in by the harness, and the Wall is the
-/// caster's own, because "target Wall" does not care whose it is. The comment
-/// on the other Tunnel test, that the pool has no regeneration, is out of date.
+/// caster's own, because "target Wall" does not care whose it is.
 #[test]
 fn tunnel_destroys_a_wall_through_a_regeneration_shield() {
     let p0 = PlayerId::new(0);

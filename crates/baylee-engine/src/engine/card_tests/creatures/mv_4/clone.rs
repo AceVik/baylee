@@ -1413,13 +1413,13 @@ fn deathrite_shaman_exiles_an_instant_from_a_graveyard_and_drains_two() {
     let _ = p1;
 }
 
-/// A copy does not target (CR 707.5), so shroud and hexproof do not stop it:
+/// A copy does not target (CR 115.1a), so shroud and hexproof do not stop it:
 /// Humble Budoka (shroud) and Sylvan Caryatid (hexproof) are both on the
 /// opponent's side and both are on Clone's menu, while the same two are refused
 /// by a spell that does target (Unsummon). Clone copies the Caryatid and has
 /// its hexproof, its 0/3 and its name.
 #[test]
-#[ignore = "engine bug: copy_on_enter_question asks eval::target_options, which drops shroud, hexproof and protected permanents; a copy does not target (CR 707.5). Remove the ignore with the fix."]
+#[ignore = "engine bug: copy_on_enter_question asks eval::target_options, which drops shroud, hexproof and protected permanents; a copy does not target (CR 115.1a). Remove the ignore with the fix."]
 fn clone_may_copy_a_creature_that_has_shroud_or_hexproof() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, island())
