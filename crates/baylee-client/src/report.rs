@@ -49,7 +49,7 @@ mod shot;
 // The guided tour points at both (`crate::tour::table`).
 pub(crate) use corner::ReportCorner;
 #[cfg(test)]
-pub(crate) use field::{DeskBox, DeskCaret, DeskSuggest, DeskText, ReportLink};
+pub(crate) use field::{DeskBox, DeskCaret, DeskSuggest, DeskSuggestMeta, DeskText, ReportLink};
 /// The form's buttons: `devctl`'s `desk_controls` row, and the pointer's
 /// shape over them (`shellkit::pointer`).
 pub(crate) use form::DeskPress;

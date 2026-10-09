@@ -271,51 +271,23 @@ pub(crate) fn graphics(out: &mut Out, view: &View) {
 fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableView) {
     use baylee_client_core::tableview::{Arrangement, BySeats};
     let lang = out.lang;
-    let mut buttons = Vec::new();
-    let coming: Vec<String> = Arrangement::ALL
+    // The kit's segmented control, as every other one-of-n row (4K pass,
+    // 09.10.2026: eight buttons in a button's larger, bolder face stood
+    // out of the section). Every arrangement is built now; the menu still
+    // greys one that is not ([`Arrangement::built`]).
+    debug_assert!(Arrangement::ALL.iter().all(|a| a.built()));
+    let texts: Vec<String> = Arrangement::ALL
         .iter()
-        .map(|a| Phrase::ArrComing.fill(lang, &[a.package()]))
+        .map(|a| format!("{} {}", a.letter(), a.name().text(lang)))
         .collect();
-    for (i, arrangement) in Arrangement::ALL.into_iter().enumerate() {
-        let live = if arrangement.built() {
-            crate::shellkit::controls::Live::Yes
-        } else {
-            crate::shellkit::controls::Live::No(&coming[i])
-        };
-        let text = format!("{} {}", arrangement.letter(), arrangement.name().text(lang));
-        buttons.push(crate::shellkit::controls::button(
-            out.commands,
-            out.kit,
-            &text,
-            // The default stands apart, as a segmented control's choice does.
-            if arrangement == table.arrangement {
-                crate::shellkit::controls::Weight::Primary
-            } else {
-                crate::shellkit::controls::Weight::Secondary
-            },
-            live,
-            None,
-            (
-                Press::Settings(SettingsPress::Arrangement(arrangement)),
-                super::rows::item("arrangement", i),
-                crate::shellkit::focus::Current(arrangement == table.arrangement),
-            ),
-        ));
-    }
-    let wrap = out
-        .commands
-        .spawn((
-            Node {
-                flex_wrap: FlexWrap::Wrap,
-                column_gap: out.kit.m.px(6.0),
-                row_gap: out.kit.m.px(6.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .add_children(&buttons)
-        .id();
-    out.block(Row::Arrangement, &[wrap]);
+    let names: Vec<&str> = texts.iter().map(String::as_str).collect();
+    let chosen = Arrangement::ALL
+        .iter()
+        .position(|a| *a == table.arrangement);
+    let control = out.seg("arrangement", &names, chosen, |i| {
+        Press::Settings(SettingsPress::Arrangement(Arrangement::ALL[i]))
+    });
+    out.block(Row::Arrangement, &[control]);
     let control = out.toggle(
         "follow-turn",
         table.follow,

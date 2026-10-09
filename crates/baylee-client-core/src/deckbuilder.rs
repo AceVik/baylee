@@ -986,3 +986,4 @@ mod tests;
 mod transfer_tests;
 
 mod types;
+pub use types::translated as translated_type_line;

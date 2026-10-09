@@ -699,14 +699,7 @@ fn counts(commands: &mut Commands, env: &Env, slot: usize) -> Entity {
         (Zone::Main, Phrase::CardMain, "main"),
         (Zone::Side, Phrase::CardSide, "side"),
     ] {
-        parts.push(cell(
-            commands,
-            kit,
-            label.text(lang),
-            m.small,
-            tokens::INK,
-            false,
-        ));
+        let label = cell(commands, kit, label.text(lang), m.small, tokens::INK, false);
         let stepper = controls::stepper(
             commands,
             kit,
@@ -720,7 +713,23 @@ fn counts(commands: &mut Commands, env: &Env, slot: usize) -> Entity {
                 Stop::item(CARD, id, 1),
             ),
         );
-        parts.push(stepper);
+        // A label and its stepper are one piece: the row wraps between
+        // the pairs, never between "Sideboard" and its − n + (4K pass,
+        // 09.10.2026).
+        let pair = commands
+            .spawn((
+                Node {
+                    flex_wrap: FlexWrap::NoWrap,
+                    align_items: AlignItems::Center,
+                    column_gap: m.px(6.0),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(pair).add_children(&[label, stepper]);
+        parts.push(pair);
     }
     let row = wrap(commands, kit, &parts);
     commands.entity(row).insert((

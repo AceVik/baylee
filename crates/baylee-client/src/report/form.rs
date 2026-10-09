@@ -542,7 +542,11 @@ fn checkbox(
 /// its type line.
 pub(super) fn meta_of(card: &CardRef, desk: &ReportDesk, lang: Lang) -> String {
     let Some(zone) = card.zone else {
-        return card.kind.clone().unwrap_or_default();
+        // The pool's type line is English; the player reads it in the
+        // language the rest of the sheet is in.
+        return card.kind.as_deref().map_or_else(String::new, |line| {
+            baylee_client_core::deckbuilder::translated_type_line(line, lang)
+        });
     };
     let (phrase, whose) = match zone {
         RefZone::Hand => (Phrase::ReportRefHand, true),

@@ -1244,6 +1244,47 @@ fn esc_puts_the_suggestions_away_before_it_closes_the_sheet() {
     assert_eq!(desk(&app).form().text.text(), "#Wrath", "the draft stays");
 }
 
+/// Away from a table a card's second column is its type line in the
+/// sheet's language, and it wraps inside the popover instead of running
+/// over its right edge (4K pass, 09.10.2026: "Legendary Artifact Creature —
+/// Human" ran out of the box, in English under a German sheet).
+#[test]
+fn the_hash_popover_s_type_line_is_localized_and_stays_inside() {
+    let mut app = headless();
+    app.insert_resource(ClientSettings {
+        lang: "de".to_string(),
+        ..ClientSettings::default()
+    });
+    app.update();
+    app.add_message::<Pointer<Over>>()
+        .add_message::<Pointer<Out>>()
+        .add_message::<Pointer<bevy::picking::events::Press>>()
+        .add_message::<Pointer<Release>>();
+    open_form(&mut app);
+    keys(&mut app, "#Lightning Bol".chars().map(typed));
+    app.update();
+    let mut metas = app
+        .world_mut()
+        .query_filtered::<(&Text, &Node, &TextLayout), With<crate::report::DeskSuggestMeta>>();
+    let rows: Vec<(String, Node, TextLayout)> = metas
+        .iter(app.world())
+        .map(|(t, n, l)| (t.0.clone(), n.clone(), *l))
+        .collect();
+    assert!(!rows.is_empty(), "the popover has rows");
+    let instant = baylee_client_core::deckbuilder::translated_type_line("Instant", Lang::De);
+    assert_ne!(instant, "Instant", "the dictionary knows the word");
+    assert!(
+        rows.iter().any(|(text, _, _)| *text == instant),
+        "no row said {instant}: {:?}",
+        rows.iter().map(|r| &r.0).collect::<Vec<_>>()
+    );
+    for (text, node, layout) in &rows {
+        assert!(node.flex_shrink > 0.0, "{text} does not give way");
+        assert_eq!(node.min_width, Val::Px(0.0), "{text} keeps its width");
+        assert_ne!(layout.linebreak, LineBreak::NoWrap, "{text} cannot wrap");
+    }
+}
+
 /// At a table `#` offers the seat's own view and never the pool: a card in
 /// the hand is offered as the seat's, and a card no zone of the view holds
 /// is not offered at all, however well it is known to this build.
