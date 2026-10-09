@@ -872,7 +872,7 @@ mod keyboard;
 mod library_ui;
 pub(crate) mod offline;
 mod press;
-mod preview;
+pub(crate) mod preview;
 mod print_catalog;
 #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
 mod resume;

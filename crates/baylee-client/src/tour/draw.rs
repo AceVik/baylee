@@ -132,7 +132,7 @@ pub(super) fn draw(
         return;
     }
     scrim(&mut commands, run, &desk.setting);
-    bubble(&mut commands, kit, run, &desk.setting, lang);
+    bubble(&mut commands, kit, run, &desk.setting, lang, width);
 }
 
 fn scrim(commands: &mut Commands, run: &Run, setting: &Setting) {
@@ -221,8 +221,19 @@ fn bubble_width(kit: Kit) -> f32 {
     }
 }
 
+/// The bubble's band: over the report form for the steps read while it is
+/// up (TOURS.md §3.3), and always over the hover preview (Windows 4K pass,
+/// 09.10.: a preview opened under a resting pointer hid half of D7's words).
+fn bubble_z(anchor: Option<baylee_client_core::tour::Anchor>, z: i32) -> i32 {
+    if anchor == Some(baylee_client_core::tour::Anchor::ReportForm) {
+        REPORT_FORM_Z + 10
+    } else {
+        (z + 6).max(crate::lobby::preview::PREVIEW_Z + 1)
+    }
+}
+
 #[allow(clippy::too_many_lines)] // one card, top to bottom as §1.2 lists it
-fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang: Lang) {
+fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang: Lang, width: f32) {
     let step = run.current();
     let chapter = run.current_chapter();
     let chapters = run.tour.chapters();
@@ -244,7 +255,9 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
             Bubble,
             Node {
                 position_type: PositionType::Absolute,
-                width: px_fixed(bubble_width(kit)),
+                // Never wider than the window less its inset on each side,
+                // so the placement can keep all of it inside.
+                width: px_fixed(bubble_width(kit).min((width - 2.0 * INSET).max(0.0))),
                 max_height: Val::Percent(if setting.phone { 60.0 } else { 80.0 }),
                 padding: UiRect::all(px_fixed(16.0)),
                 flex_direction: FlexDirection::Column,
@@ -259,13 +272,7 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
             // (TOURS.md §3.3): the form spans the window and holds every
             // key, so the bubble's buttons are reached by the pointer only,
             // beside it.
-            GlobalZIndex(
-                if step.anchor == Some(baylee_client_core::tour::Anchor::ReportForm) {
-                    REPORT_FORM_Z + 10
-                } else {
-                    setting.z + 6
-                },
-            ),
+            GlobalZIndex(bubble_z(step.anchor, setting.z)),
             Visibility::Hidden,
         ))
         .id();
@@ -560,7 +567,7 @@ fn pill(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang: L
                 row_gap: px_fixed(4.0),
                 ..default()
             },
-            GlobalZIndex(setting.z + 6),
+            GlobalZIndex(bubble_z(None, setting.z)),
             Pickable::IGNORE,
         ))
         .id();
@@ -856,6 +863,52 @@ mod tests {
         }
         assert!(bubble.min.x >= INSET && bubble.max.x <= window.0 - INSET + 0.01);
         assert!(bubble.min.y >= INSET && bubble.max.y <= window.1 - INSET + 0.01);
+    }
+
+    /// D11 on a 4K screen at 150 % (Windows pass, 09.10.): the Save button
+    /// stands at the window's right edge; the whole bubble stays inside the
+    /// window with its inset, whichever side it takes, at both live sizes.
+    #[test]
+    fn a_bubble_anchored_at_the_right_edge_stays_inside_the_window() {
+        for window in [(1708.0, 1032.0), (2560.0, 1440.0), (1280.0, 720.0)] {
+            for size in [Vec2::new(360.0, 260.0), Vec2::new(540.0, 300.0)] {
+                for anchor in [
+                    Rect::new(window.0 - 120.0, 8.0, window.0 - 4.0, 52.0),
+                    Rect::new(
+                        window.0 - 60.0,
+                        window.1 / 2.0,
+                        window.0,
+                        window.1 / 2.0 + 44.0,
+                    ),
+                    Rect::new(window.0 - 200.0, window.1 - 60.0, window.0, window.1),
+                ] {
+                    let at = spot_for(Some(anchor), size, window, 64.0, &[anchor]);
+                    let bubble = card(at, size);
+                    assert!(
+                        bubble.min.x >= INSET - 0.01 && bubble.max.x <= window.0 - INSET + 0.01,
+                        "{window:?} {anchor:?}: {bubble:?}"
+                    );
+                    assert!(
+                        bubble.min.y >= INSET - 0.01 && bubble.max.y <= window.1 - INSET + 0.01,
+                        "{window:?} {anchor:?}: {bubble:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// D7 (Windows pass, 09.10.): the card preview a resting pointer opens
+    /// over the pool never stands over the bubble, in the lobby's band or
+    /// the table's; the report form's steps stay over the form.
+    #[test]
+    fn the_bubble_stands_over_the_card_preview() {
+        use baylee_client_core::tour::Anchor;
+        let preview = crate::lobby::preview::PREVIEW_Z;
+        for z in [tokens::z::SHEET - 1, 950] {
+            assert!(bubble_z(None, z) > preview, "{z}");
+            assert!(bubble_z(Some(Anchor::DecksNew), z) > preview, "{z}");
+        }
+        assert!(bubble_z(Some(Anchor::ReportForm), 19) > REPORT_FORM_Z);
     }
 
     /// Where a side has room the bubble never touches the anchor at all.
