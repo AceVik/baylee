@@ -308,9 +308,9 @@ impl TableSeats {
         None
     }
 
-    /// Does what a press on chair `chair` asks, `seat_is_ai` whether the
-    /// gateway has the house in it now (a language model needs it open
-    /// first: the caller makes it so when this says `true`).
+    /// Does what a press on chair `chair` asks; `true` when the chair must be
+    /// opened first (a language model needs it open: the caller makes it
+    /// so).
     pub(crate) fn press(&mut self, chair: u32, press: LlmPress, phase: Phase, level: &str) -> bool {
         self.said.remove(&chair);
         self.revision += 1;

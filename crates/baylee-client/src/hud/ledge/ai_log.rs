@@ -14,8 +14,7 @@
 use super::*;
 use baylee_client_core::aisaid::{self, Kind};
 
-const LOG_PAD: f32 = 10.0;
-const LOG_H: f32 = 420.0;
+use super::log::{LOG_H, LOG_PAD};
 const LINE_PT: f32 = 13.0;
 
 /// The panel.

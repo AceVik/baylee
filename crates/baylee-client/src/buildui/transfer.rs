@@ -176,7 +176,6 @@ pub(crate) fn transfer_dialog(
 
 /// The import dialog's body: the paste box, what it was read as, and the
 /// way to take it.
-#[allow(clippy::too_many_arguments)] // one face of the dialog, drawn into its panel
 fn import_face(
     commands: &mut Commands,
     fonts: &UiFonts,

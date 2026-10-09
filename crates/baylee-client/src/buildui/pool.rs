@@ -409,7 +409,7 @@ fn colour_toggles(commands: &mut Commands, env: &Env) -> Vec<Entity> {
                 ))
                 .id();
             let letter_ink = if on {
-                Color::srgb(0.06, 0.05, 0.04)
+                crate::shellkit::tokens::INK_ON_LIGHT
             } else {
                 tokens::MUTED
             };

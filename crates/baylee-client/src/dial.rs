@@ -349,7 +349,8 @@ mod tests {
     /// The hands' two colours are the model's (`dial::TURN_INK`,
     /// `dial::PRIORITY_INK`), which the seat plates' top border lines are
     /// drawn in too — one ivory and one teal on the whole table — and teal
-    /// is the HUD's accent.
+    /// is the HUD's accent. The HUD takes both from the model's constants;
+    /// the shader repeats them, so it is read here.
     #[test]
     fn the_hands_are_drawn_in_the_table_s_turn_and_priority_colours() {
         let wgsl = include_str!("shaders/felt.wgsl");
@@ -370,24 +371,6 @@ mod tests {
                 .expect("three components");
             assert_eq!(said, ink.to_vec(), "{name}");
         }
-        // The plates' and chips' top border line (`hud::ledge::players`'
-        // `TURN_IVORY`, crate-private to the HUD): read off its source.
-        let players = include_str!("hud/ledge/players.rs");
-        let ivory = players
-            .lines()
-            .find(|l| l.contains("const TURN_IVORY: Color = Color::srgb("))
-            .expect("the turn line's ivory");
-        let said: Vec<f32> = ivory
-            .split_once("srgb(")
-            .and_then(|(_, rest)| rest.split_once(')'))
-            .map(|(inside, _)| {
-                inside
-                    .split(',')
-                    .map(|v| v.trim().parse().expect("a number"))
-                    .collect()
-            })
-            .expect("three components");
-        assert_eq!(said, dial::TURN_INK.to_vec(), "the plates' turn line");
         let accent = crate::hud::palette::ACCENT.to_srgba();
         for (a, b) in [accent.red, accent.green, accent.blue]
             .into_iter()

@@ -686,7 +686,6 @@ pub fn sync_tray(
     // Rounded to whole pixels for `HudRevision`'s reason: a window being
     // dragged reports fractional sizes, and a gate keyed on an `f32` would
     // rebuild on a sub-pixel wobble.
-    #[allow(clippy::cast_possible_truncation)]
     let canvas = windows
         .single()
         .map_or((1200, 800), |w| (w.width() as i32, w.height() as i32));
@@ -2466,7 +2465,6 @@ fn spawn_control<C: Component>(
 /// One row of the list: a checkbox, a thumbnail, the name, the cost in pips,
 /// the type line and the pile it is in.
 #[allow(clippy::too_many_arguments)] // the row, the view, and the stores
-#[allow(clippy::too_many_lines)] // six columns in one build
 fn spawn_row(
     commands: &mut Commands,
     lang: Lang,

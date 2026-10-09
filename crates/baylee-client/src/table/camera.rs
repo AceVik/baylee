@@ -1171,7 +1171,7 @@ pub struct CameraPose {
 ///
 /// What it costs, measured rather than argued: at 0.36 the widest board on an
 /// eight-seat ring is 10.6% wider than the narrowest, against 6.3% at 0.27.
-/// The bound in `every_seat_is_drawn_a_board_of_the_same_width` moved from
+/// The bound in `at_the_gentle_lean_every_seat_is_drawn_a_board_of_the_same_width` moved from
 /// 1.08 to 1.12 to allow exactly that and no more. The number that matters is
 /// still the one the complaint was about — 18.9%, where a player reads their
 /// own board as a different format — and 10.6% is well under half of it.

@@ -20,7 +20,6 @@
 /// order, so the same bits on every GPU and here.
 #[must_use]
 pub fn hash_cell(x: i32, y: i32) -> f32 {
-    #[allow(clippy::cast_sign_loss)]
     let (cx, cy) = (x as u32, y as u32);
     let mut h = cx.wrapping_mul(0x27d4_eb2d) ^ cy.wrapping_mul(0x1656_67b1);
     h ^= h >> 15;
@@ -39,7 +38,6 @@ pub fn vnoise(px: f32, py: f32) -> f32 {
     let (ix, iy) = (px.floor(), py.floor());
     let (fx, fy) = (px - ix, py - iy);
     let (ux, uy) = (fx * fx * (3.0 - 2.0 * fx), fy * fy * (3.0 - 2.0 * fy));
-    #[allow(clippy::cast_possible_truncation)]
     let (cx, cy) = (ix as i32, iy as i32);
     let a = hash_cell(cx, cy);
     let b = hash_cell(cx.wrapping_add(1), cy);
@@ -64,9 +62,9 @@ pub fn cell_point(x: i32, y: i32) -> [f32; 2] {
 /// table point, as `glass_at` passes them to `vein_distance`.
 pub const FIELDS: [(f32, f32); 2] = [(0.28, 0.0), (0.73, 8.3)];
 
-/// How far `glass_at`'s domain warp can push a point (`fbm(…) * 3.4`, fbm in
-/// 0..1).
-const WARP_REACH: f32 = 3.4;
+// How far `glass_at`'s domain warp can push a point (`fbm(…) * 3.4`, fbm in
+// 0..1): the baked warp's own.
+use crate::feltwarp::WARP_REACH;
 
 /// The largest field one region holds. A table at eight seats needs under
 /// 180 cells; anything past this reads the region's edge instead of failing.
@@ -104,9 +102,7 @@ impl VeinTable {
             // visits the cells one either side of its own.
             let lo = |c: f32| ((c - radius) * k + b).floor() - 1.0;
             let hi = |c: f32| ((c + radius + WARP_REACH) * k + b).floor() + 1.0;
-            #[allow(clippy::cast_possible_truncation)]
             let (x0, y0) = (lo(pattern[0]) as i32, lo(pattern[1]) as i32);
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let (w, h) = (
                 ((hi(pattern[0]) as i32 - x0 + 1) as u32).min(MAX_REGION),
                 ((hi(pattern[1]) as i32 - y0 + 1) as u32).min(MAX_REGION),
@@ -119,13 +115,11 @@ impl VeinTable {
         let mut left = 0u32;
         let mut offsets = [[0i32; 2]; 2];
         for (i, &(x0, y0, w, h)) in regions.iter().enumerate() {
-            #[allow(clippy::cast_possible_wrap)]
             {
                 offsets[i] = [left as i32 - x0, -y0];
             }
             for row in 0..h {
                 for col in 0..w {
-                    #[allow(clippy::cast_possible_wrap)]
                     let point = cell_point(x0 + col as i32, y0 + row as i32);
                     let at = ((row * width + left + col) * 2) as usize;
                     texels[at] = quantise(point[0]);
@@ -146,11 +140,8 @@ impl VeinTable {
     /// the texture's edge as `textureLoad` is fed.
     #[must_use]
     pub fn point(&self, field: usize, cell: [i32; 2]) -> [f32; 2] {
-        #[allow(clippy::cast_possible_wrap)]
         let x = (cell[0] + self.offsets[field][0]).clamp(0, self.width as i32 - 1);
-        #[allow(clippy::cast_possible_wrap)]
         let y = (cell[1] + self.offsets[field][1]).clamp(0, self.height as i32 - 1);
-        #[allow(clippy::cast_sign_loss)]
         let at = ((y as u32 * self.width + x as u32) * 2) as usize;
         [
             f32::from(self.texels[at]) / 255.0,
@@ -160,9 +151,7 @@ impl VeinTable {
 }
 
 fn quantise(value: f32) -> u8 {
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let byte = (value.clamp(0.0, 1.0) * 255.0).round() as u8;
-    byte
+    (value.clamp(0.0, 1.0) * 255.0).round() as u8
 }
 
 #[cfg(test)]
@@ -229,16 +218,12 @@ mod tests {
                 for (field, (k, b)) in FIELDS.into_iter().enumerate() {
                     // The extreme warped points, and the neighbours of their cells.
                     for (dx, dy) in [(-reach, -reach), (reach + 3.4, reach + 3.4)] {
-                        #[allow(clippy::cast_possible_truncation)]
                         let cx = ((pattern[0] + dx) * k + b).floor() as i32;
-                        #[allow(clippy::cast_possible_truncation)]
                         let cy = ((pattern[1] + dy) * k + b).floor() as i32;
                         for (ox, oy) in [(-1, -1), (1, 1), (0, 0)] {
                             let cell = [cx + ox, cy + oy];
-                            #[allow(clippy::cast_possible_wrap)]
                             let x = cell[0] + table.offsets[field][0];
                             let y = cell[1] + table.offsets[field][1];
-                            #[allow(clippy::cast_possible_wrap)]
                             let inside = x >= 0
                                 && y >= 0
                                 && x < table.width as i32

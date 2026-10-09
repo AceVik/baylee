@@ -4,7 +4,7 @@
 use super::*;
 
 /// What one line of wheel travel moves a list, in logical pixels.
-pub(super) const WHEEL_LINE: f32 = 32.0;
+pub(crate) const WHEEL_LINE: f32 = 32.0;
 
 /// A list that scrolls its own contents, and which one it is.
 ///

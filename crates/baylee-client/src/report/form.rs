@@ -598,7 +598,6 @@ fn row(commands: &mut Commands, metrics: Metrics, end: bool) -> Entity {
 }
 
 /// The form itself.
-#[allow(clippy::too_many_lines)] // the form, top to bottom
 fn form(
     commands: &mut Commands,
     desk: &ReportDesk,

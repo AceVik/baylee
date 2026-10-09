@@ -389,7 +389,6 @@ pub fn grid_across(measure: f32, min: f32, max: f32, gap: f32) -> (usize, f32, f
     // `+ gap` on both sides is the fencepost: n tiles have n-1 gaps, so
     // measuring in "tile plus gap" units over-counts by exactly one gap and
     // the numerator has to carry it too.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let across = (((measure + gap) / (min + gap)).floor() as usize).max(1);
     #[allow(clippy::cast_precision_loss)]
     let n = across as f32;

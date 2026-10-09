@@ -825,6 +825,7 @@ mod preview;
 mod print_catalog;
 mod room;
 mod scrolling;
+pub(crate) use scrolling::WHEEL_LINE;
 pub(crate) mod settings_press;
 mod shell;
 mod shortcuts;

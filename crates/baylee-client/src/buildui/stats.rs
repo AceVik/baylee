@@ -238,7 +238,7 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
                 .spawn((
                     Text::new(format!("{letter} {:.0}%", share * 100.0)),
                     tf_bold(kit.fonts, m.small * 0.9),
-                    TextColor(Color::srgb(0.06, 0.05, 0.04)),
+                    TextColor(crate::shellkit::tokens::INK_ON_LIGHT),
                     TextLayout::no_wrap(),
                     Node {
                         min_width: px_fixed(0.0),
@@ -306,7 +306,6 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
     // ---- the land share
     let share = f64::from(counts.lands) / f64::from(counts.main.max(1));
     let label = caption(commands, kit, Phrase::GroupLands.text(lang));
-    #[allow(clippy::cast_possible_truncation)] // a share in 0..=1
     let percent = (share * 100.0).round() as u32;
     let big = words(commands, kit, &format!("{percent} %"), m.head, tokens::INK);
     let of = words(
@@ -329,7 +328,6 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
             Pickable::IGNORE,
         ))
         .id();
-    #[allow(clippy::cast_possible_truncation)] // a share in 0..=1
     let fill = commands
         .spawn((
             Node {

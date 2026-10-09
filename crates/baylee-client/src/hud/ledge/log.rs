@@ -66,10 +66,10 @@ use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 pub(in crate::hud) const LOG_W: f32 = 360.0;
 
 /// How tall the panel is, at most.
-const LOG_H: f32 = 420.0;
+pub(super) const LOG_H: f32 = 420.0;
 
 /// The air inside the panel's border, and round the list.
-const LOG_PAD: f32 = 10.0;
+pub(super) const LOG_PAD: f32 = 10.0;
 
 /// The head's height: the zone dialog's title bar.
 const LOG_HEAD_H: f32 = 24.0;

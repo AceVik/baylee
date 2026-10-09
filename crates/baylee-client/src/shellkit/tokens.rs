@@ -36,6 +36,9 @@ pub const MUTED: Color = palette::MUTED;
 pub const DISABLED: Color = Color::srgba(0.90, 0.93, 0.94, 0.40);
 /// Focus and selection.
 pub const ACCENT: Color = palette::ACCENT;
+/// Ink on a light face: a gold or danger button's words, a light colour's
+/// disc, a count on a pale bar.
+pub const INK_ON_LIGHT: Color = Color::srgb(0.06, 0.05, 0.04);
 /// The favourite star, and the one gold face: Return to your game.
 pub const GOLD: Color = palette::ACTIVE;
 /// Delete, and Leave while hosting.

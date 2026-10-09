@@ -362,9 +362,7 @@ fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableV
 /// A volume, 0 to 1, as a slider's 0 to 100.
 fn percent(volume: f32) -> u8 {
     // Clamped into 0..=100 first.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let value = (volume.clamp(0.0, 1.0) * 100.0).round() as u8;
-    value
+    (volume.clamp(0.0, 1.0) * 100.0).round() as u8
 }
 
 /// Audio: one loudness per cue, one rule (S4-4).

@@ -40,7 +40,7 @@ const SEAM_RISE: f32 = 0.004;
 
 /// The radius of the floating dial: everything the firewheel and the clock
 /// face draw (`felt.wgsl`'s `FLAME_REACH`).
-pub const DIAL_R: f32 = 1.6;
+pub const DIAL_R: f32 = baylee_client_core::firewheel::FLAME_REACH;
 
 /// A mesh under construction.
 #[derive(Default)]
@@ -53,7 +53,6 @@ struct Build {
 
 impl Build {
     fn vertex(&mut self, at: [f32; 3], normal: [f32; 3], uv: [f32; 2]) -> u32 {
-        #[allow(clippy::cast_possible_truncation)] // tens of thousands at most
         let index = self.positions.len() as u32;
         self.positions.push(at);
         self.normals.push(normal);
@@ -137,7 +136,6 @@ impl Outline {
         for i in (1..=ARC_STEPS).rev() {
             xs.push(-straight - r * arc(i));
         }
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let steps = ((2.0 * straight / CUT_STEP).ceil() as usize).max(1);
         for i in 0..=steps {
             #[allow(clippy::cast_precision_loss)]
@@ -337,13 +335,11 @@ pub fn dial_mesh(outline: Outline, scale: f32) -> Mesh {
             Vec2::new(a.cos(), a.sin())
         })
         .collect();
-    #[allow(clippy::cast_possible_truncation)]
     let first = out.positions.len() as u32;
     for d in &ring {
         let p = *d * (DIAL_R * scale);
         out.vertex([p.x, p.y, 0.0], up, outline.uv(p));
     }
-    #[allow(clippy::cast_possible_truncation)]
     for i in 0..SEGMENTS as u32 {
         let next = (i + 1) % SEGMENTS as u32;
         out.indices
@@ -463,7 +459,6 @@ mod tests {
                 panic!("positions");
             };
             let uv = uvs(&mesh);
-            #[allow(clippy::cast_possible_truncation)]
             let mut points: Vec<(i32, i32)> = p
                 .iter()
                 .zip(&uv)

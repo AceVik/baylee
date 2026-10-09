@@ -467,7 +467,7 @@ fn toolbar(
 
 /// The player's own decks: tiles, then the New deck tile; or the empty
 /// shelf.
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // the screen's inputs; one shelf, read in order
+#[allow(clippy::too_many_lines)] // one shelf, read in order
 fn mine(
     commands: &mut Commands,
     root: Entity,

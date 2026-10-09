@@ -129,7 +129,6 @@ pub(crate) struct GrantedScroll;
 pub(crate) struct FocusedOffer;
 
 /// Reuses ability rows, full Oracle blocks, fonts and sheet controls.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn sync_granted_sheet(
     mut commands: Commands,
     mut duel: ResMut<Duel>,

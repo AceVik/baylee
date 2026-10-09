@@ -44,7 +44,6 @@ pub(super) fn sign_out(
 /// What every press passes through is here; what one press does is in its
 /// screen's handler (`FrontPress::handle`, `HubPress::handle`, …).
 #[allow(clippy::too_many_arguments)] // two pointer streams, then the usual
-#[allow(clippy::too_many_lines)] // the guards every press passes, read top to bottom
 pub(super) fn clicks(
     mut pointer: MessageReader<Pointer<Click>>,
     mut ends: MessageReader<Pointer<DragEnd>>,

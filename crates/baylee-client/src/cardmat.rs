@@ -2305,7 +2305,6 @@ struct Globals { time: f32 };
             ("PLATE_KIND_SHIFT", plate::KIND_SHIFT),
             ("PLATE_SLOT_BITS", plate::SLOT_BITS),
             ("PLATE_SLOT_MASK", plate::SLOT_MASK),
-            #[allow(clippy::cast_sign_loss)] // the bias is positive by construction
             ("PLATE_BIAS", plate::BIAS as u32),
             ("PLATE_NONE", plate::KIND_NONE),
             ("PLATE_FIGHT", plate::KIND_FIGHT),

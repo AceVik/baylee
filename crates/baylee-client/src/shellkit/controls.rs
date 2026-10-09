@@ -67,7 +67,7 @@ impl Weight {
     fn ink(self) -> Color {
         match self {
             // Dark ink on the two light faces.
-            Self::Gold | Self::Danger => Color::srgb(0.06, 0.05, 0.04),
+            Self::Gold | Self::Danger => tokens::INK_ON_LIGHT,
             Self::Primary | Self::Secondary | Self::Ghost => tokens::INK,
         }
     }
@@ -805,9 +805,7 @@ pub fn slider_value_at(x: f32, left: f32, width: f32) -> u8 {
     }
     let share = ((x - left) / width).clamp(0.0, 1.0);
     // In 0..=100 by the clamp above.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let value = (share * 100.0).round() as u8;
-    value
+    (share * 100.0).round() as u8
 }
 
 fn slide_to(

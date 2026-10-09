@@ -251,11 +251,7 @@ fn percentile(sorted: &[f32], p: f32) -> f32 {
     if sorted.is_empty() {
         return 0.0;
     }
-    #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        clippy::cast_precision_loss
-    )]
+    #[allow(clippy::cast_precision_loss)]
     let at = ((sorted.len() - 1) as f32 * p).round() as usize;
     sorted[at.min(sorted.len() - 1)]
 }

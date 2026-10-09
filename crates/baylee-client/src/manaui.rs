@@ -707,7 +707,6 @@ pub(crate) fn marks_span(text: &str, size: f32, marks: f32) -> Option<f32> {
 }
 
 /// All three of the above, with what they differ in passed in.
-#[allow(clippy::too_many_arguments)] // two sizes, a colour and a face
 fn rich(
     commands: &mut Commands,
     fonts: &UiFonts,

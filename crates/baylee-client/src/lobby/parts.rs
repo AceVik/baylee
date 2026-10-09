@@ -242,18 +242,7 @@ pub(super) fn grow(commands: &mut Commands) -> Entity {
         .id()
 }
 
-/// The ground of a colour's disc and the ink of its letter.
-pub(super) fn identity_colour(letter: char) -> (Color, Color) {
-    let dark = Color::srgb(0.06, 0.05, 0.04);
-    match letter {
-        'W' => (Color::srgb(0.95, 0.92, 0.80), dark),
-        'U' => (Color::srgb(0.45, 0.66, 0.90), dark),
-        'B' => (Color::srgb(0.42, 0.38, 0.40), tokens::INK),
-        'R' => (Color::srgb(0.90, 0.48, 0.38), dark),
-        'G' => (Color::srgb(0.45, 0.72, 0.48), dark),
-        _ => (Color::srgb(0.66, 0.64, 0.60), dark),
-    }
-}
+use crate::shellkit::surfaces::identity_colours as identity_colour;
 
 /// The colour identity as discs with the colour's letter in each (S4-14):
 /// colour is never the only carrier. Discs stay 16 px or more.

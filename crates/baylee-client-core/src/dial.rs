@@ -726,10 +726,7 @@ mod tests {
             if sizes.iter().map(|&k| u32::from(k)).sum::<u32>() != u32::from(n) {
                 continue;
             }
-            let team = |side: usize| {
-                #[allow(clippy::cast_possible_truncation)]
-                (sizes[side] > 1).then_some(side as u8)
-            };
+            let team = |side: usize| (sizes[side] > 1).then_some(side as u8);
             // Together: side 0's seats first, then side 1's.
             let mut together = Vec::new();
             for (side, &k) in sizes.iter().enumerate() {

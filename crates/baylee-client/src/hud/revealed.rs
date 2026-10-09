@@ -124,7 +124,6 @@ pub fn sync(
         Vec2::new(w.width(), w.height())
     });
     let lang = Lang::of(&settings.lang);
-    #[allow(clippy::cast_possible_truncation)] // a window's size in pixels
     let next = RevealRevision {
         number: shown.map(|r| r.number),
         waiting: duel.reveals.waiting(),

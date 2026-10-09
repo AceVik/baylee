@@ -1417,7 +1417,6 @@ pub fn usd(amount: f64, lang: Lang) -> String {
 #[must_use]
 pub fn rate(amount: f64, lang: Lang) -> String {
     if amount.fract() == 0.0 && amount.abs() < 1e15 {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // whole, and in range
         let whole = grouped(amount.max(0.0) as u64, lang);
         match lang {
             Lang::En => format!("${whole}"),

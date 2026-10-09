@@ -40,12 +40,11 @@ use bevy::input::mouse::MouseScrollUnit;
 use bevy::picking::events::{Pointer, Scroll};
 use bevy::ui::ScrollPosition;
 
-/// What one line of wheel travel moves a panel, in logical pixels.
-///
-/// The lobby's number, because the two are the same gesture on the same
-/// mouse and a player who scrolls a deck list and then a graveyard should
-/// not meet two speeds.
-const WHEEL_LINE: f32 = 32.0;
+// What one line of wheel travel moves a panel, in logical pixels: the
+// lobby's number, because the two are the same gesture on the same
+// mouse and a player who scrolls a deck list and then a graveyard should
+// not meet two speeds.
+use crate::lobby::WHEEL_LINE;
 
 /// What one line of wheel travel moves the hand, in logical pixels.
 ///

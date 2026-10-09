@@ -140,8 +140,8 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
         return Answer::Took;
     }
     if let Some(action) = duel.interaction.as_ref().and_then(|i| i.play_card(object)) {
-        // A land plays on the click. See `one_click_land` below for the line
-        // that lets it and for what stays on the far side of that line.
+        // A land plays on the click (`Interaction::plays_only_as_a_land`
+        // draws the line: a modal card with a spell side opens a chooser).
         if duel
             .interaction
             .as_ref()

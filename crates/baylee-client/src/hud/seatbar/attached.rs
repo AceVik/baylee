@@ -70,8 +70,8 @@ const BAND_GAP: f32 = 32.0;
 /// The plate's ground: the players' strip's blue hour, so a seat's chip and
 /// its plate read as one thing in two places.
 const PLATE_GROUND: Color = Color::srgba(0.075, 0.115, 0.165, 0.90);
-/// Its rim at rest.
-const PLATE_RIM: Color = Color::srgba(0.40, 0.54, 0.62, 0.45);
+/// Its rim at rest: the chip's.
+const PLATE_RIM: Color = crate::hud::ledge::players::RIM;
 
 /// Which part of the seat's band carries this piece of its information.
 #[derive(Component, Clone, Copy, Debug)]
@@ -1396,13 +1396,7 @@ impl PlateLight {
 
 /// `a` to `b` by `t`, keeping `a`'s alpha.
 fn mix(a: Color, b: Color, t: f32) -> Color {
-    let (a, b) = (a.to_srgba(), b.to_srgba());
-    Color::srgba(
-        a.red + (b.red - a.red) * t,
-        a.green + (b.green - a.green) * t,
-        a.blue + (b.blue - a.blue) * t,
-        a.alpha,
-    )
+    crate::ambience::blend(a, b, t).with_alpha(a.alpha())
 }
 
 /// Lights each plate for the target question in hand; a write only where

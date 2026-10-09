@@ -177,7 +177,7 @@ pub(in crate::hud) fn spawn_ledge(
             .insert((MaterialNode(handle), crate::frontal::Hanging));
     }
     // The two casts, as children outside the shelf's own box rather than as a
-    // `BoxShadow` on it. See `LIFT_UP_Y` for why they had to stop being one.
+    // `BoxShadow` on it. See `LIFT_UP_H` for why they had to stop being one.
     for cast in [lift_up(commands), lift_down(commands)] {
         commands.entity(shelf).add_child(cast);
     }
@@ -377,8 +377,7 @@ const _: () = assert!(LEDGE_PAD_Y * 2.0 + BUTTON_H == hand::LEDGE_H);
 /// arithmetically: a [`BUTTON_H`] button loses the four pixels the shelf
 /// spends on breathing room above and below its own row, and the strip is
 /// that button plus a pixel of padding on each side. It comes out shorter
-/// than [`hand::LEDGE_H`], which is the assertion
-/// `the_tray_is_shorter_than_the_shelf_it_hangs_on` holds.
+/// than [`hand::LEDGE_H`].
 pub(super) const STRIP_H: f32 = BUTTON_H - 4.0 + 2.0 * STRIP_PAD;
 
 /// A strip's own padding, inside its border.

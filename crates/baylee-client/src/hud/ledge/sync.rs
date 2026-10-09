@@ -46,7 +46,6 @@ pub fn sync_ledge(
     } else {
         shelf_headline(&duel, lang, &texts)
     };
-    #[allow(clippy::cast_possible_truncation)]
     let window_w = windows.single().map_or(1200, |w| w.width() as i32);
     let next = LedgeRevision {
         chosen_index: duel

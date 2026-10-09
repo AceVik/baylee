@@ -87,8 +87,7 @@ const WIDEST: &str = "60:00";
 
 /// The countdown's cell, so the seconds can be written in place.
 ///
-/// The same reason [`pool::PoolCount`] exists one file over: a
-/// number that changes is read, not watched, and a tree rebuilt to carry it
+/// A number that changes is read, not watched: a tree rebuilt to carry it
 /// would take every `Feel` on the shelf back to rest once a second.
 #[derive(Component)]
 pub struct DecisionClockLabel;

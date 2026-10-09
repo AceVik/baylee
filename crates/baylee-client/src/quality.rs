@@ -156,9 +156,7 @@ impl DisplayTrial {
     #[must_use]
     pub fn seconds(&self) -> u32 {
         // In 0..=15 by construction.
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let whole = self.left.max(0.0).ceil() as u32;
-        whole
+        self.left.max(0.0).ceil() as u32
     }
 }
 
@@ -502,7 +500,6 @@ fn pace(
     winit: Option<ResMut<WinitSettings>>,
     mut resting: ResMut<Resting>,
 ) {
-    #[allow(clippy::cast_possible_truncation)] // seconds, far inside f32
     let untouched_secs = (time.elapsed_secs_f64() - watch.last_input) as f32;
     let showing = Showing {
         focused: focused(&windows),

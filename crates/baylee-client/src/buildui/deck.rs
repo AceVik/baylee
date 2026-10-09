@@ -399,7 +399,7 @@ fn identity_discs(commands: &mut Commands, kit: Kit, identity: &str) -> Entity {
             .spawn((
                 Text::new(letter.to_string()),
                 tf_bold(kit.fonts, m.small * 0.75),
-                TextColor(Color::srgb(0.06, 0.05, 0.04)),
+                TextColor(crate::shellkit::tokens::INK_ON_LIGHT),
                 Pickable::IGNORE,
             ))
             .id();

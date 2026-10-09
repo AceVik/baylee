@@ -64,7 +64,6 @@ impl RowScroll {
             return false;
         }
         let before = packing.window(self.first(row)).shown.start;
-        #[allow(clippy::cast_possible_truncation)] // a handful of cards
         let moved = before
             .saturating_add_signed(cards as isize)
             .min(packing.last_first());

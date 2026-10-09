@@ -171,7 +171,6 @@ pub(crate) fn follow_the_save(mut state: ResMut<LobbyState>, time: Option<Res<Ti
             }
         }
         SaveState::Saved { at: since, minutes } => {
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             // minutes of a session
             let now_minutes = ((at - since).max(0.0) / 60.0) as u32;
             if now_minutes != minutes {

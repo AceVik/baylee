@@ -157,8 +157,9 @@ const GROUND: Color = Color::srgba(0.075, 0.115, 0.165, 0.92);
 /// The ground under the pointer: the lobby button's own fill.
 const GROUND_HOT: Color = Color::srgb(0.14, 0.24, 0.33);
 
-/// The border at rest: the lobby field's high tone, quietly.
-const RIM: Color = Color::srgba(0.40, 0.54, 0.62, 0.45);
+/// The border at rest: the lobby field's high tone, quietly. A seat's plate
+/// wears it too.
+pub(in crate::hud) const RIM: Color = Color::srgba(0.40, 0.54, 0.62, 0.45);
 
 /// The line along the top of the seat whose turn it is: the full width.
 pub(in crate::hud) const TURN_H: f32 = 3.0;
@@ -456,9 +457,12 @@ pub fn show_the_tags(
 }
 
 /// The turn line's ivory (v6 §3's *am Zug*): the dial's turn hand
-/// (`felt.wgsl`'s `IVORY`). The priority line is `palette::ACCENT`, the
-/// dial's priority hand (`TEAL`).
-pub(in crate::hud) const TURN_IVORY: Color = Color::srgb(0.95, 0.91, 0.80);
+/// (`dial::TURN_INK`, `felt.wgsl`'s `IVORY`). The priority line is
+/// `palette::ACCENT`, the dial's priority hand (`TEAL`).
+pub(in crate::hud) const TURN_IVORY: Color = {
+    let [r, g, b] = baylee_client_core::dial::TURN_INK;
+    Color::srgb(r, g, b)
+};
 
 /// A life that has just changed, lit and easing back to its ink.
 #[derive(Component)]
@@ -1353,16 +1357,8 @@ fn ease_out_cubic(t: f32) -> f32 {
     1.0 - (1.0 - t).powi(3)
 }
 
-/// `a` to `b` by `t`, in all four channels.
-fn mix(a: Color, b: Color, t: f32) -> Color {
-    let (a, b) = (a.to_srgba(), b.to_srgba());
-    Color::srgba(
-        a.red + (b.red - a.red) * t,
-        a.green + (b.green - a.green) * t,
-        a.blue + (b.blue - a.blue) * t,
-        a.alpha + (b.alpha - a.alpha) * t,
-    )
-}
+// `a` to `b` by `t`, in all four channels.
+use crate::ambience::blend as mix;
 
 #[cfg(test)]
 mod tests {

@@ -107,7 +107,6 @@ pub fn sync_overlay(
     // Rounded to whole pixels: a window being dragged reports fractional
     // sizes, and a revision keyed on an `f32` would rebuild the whole tree on
     // a sub-pixel wobble.
-    #[allow(clippy::cast_possible_truncation)]
     let canvas = windows
         .single()
         .map_or((1200, 800), |w| (w.width() as i32, w.height() as i32));

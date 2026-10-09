@@ -119,7 +119,6 @@ impl WarpField {
     #[must_use]
     pub fn at_density(span: [f32; 2], pattern: [f32; 4], density: f32) -> Self {
         let size = [span[0] + 2.0 * MARGIN, span[1] + 2.0 * MARGIN];
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let side = |units: f32| ((units * density).ceil() as u32).clamp(2, MAX_TEXELS);
         let (width, height) = (side(size[0]), side(size[1]));
         let origin = [-size[0] * 0.5, size[1] * 0.5];
@@ -168,11 +167,9 @@ impl WarpField {
         let row = (self.origin[1] - point[1]) / self.size[1] * down - 0.5;
         let (col0, row0) = (col.floor(), row.floor());
         let (frac_col, frac_row) = (col - col0, row - row0);
-        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         let texel = |x: f32, y: f32| {
             let col = (x as i32).clamp(0, self.width as i32 - 1);
             let row = (y as i32).clamp(0, self.height as i32 - 1);
-            #[allow(clippy::cast_sign_loss)]
             self.texels[(row as u32 * self.width + col as u32) as usize]
         };
         let (top_left, top_right, bottom_left, bottom_right) = (

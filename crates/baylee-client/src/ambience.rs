@@ -333,7 +333,7 @@ fn shade(base: Color, by: f32) -> Color {
 /// The one difference from [`shade`] that matters: a control resting at
 /// `Color::NONE` has to be able to rise out of nothing, and an interpolation
 /// that kept the alpha could never do it.
-fn blend(from: Color, to: Color, t: f32) -> Color {
+pub(crate) fn blend(from: Color, to: Color, t: f32) -> Color {
     let (a, b) = (from.to_srgba(), to.to_srgba());
     Srgba {
         red: a.red + (b.red - a.red) * t,

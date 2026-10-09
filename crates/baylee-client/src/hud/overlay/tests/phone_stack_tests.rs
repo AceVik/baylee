@@ -163,7 +163,6 @@ fn laid_out_on_a_phone(window: Vec2, shown: f32) -> App {
     app.world_mut().flush();
     let mut prefs = crate::prefs::Prefs::default();
     prefs.edit().reduce_motion = true;
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // whole pixels
     let (width, height) = (window.x as u32, window.y as u32);
     app.world_mut().spawn(Window {
         resolution: bevy::window::WindowResolution::new(width, height)

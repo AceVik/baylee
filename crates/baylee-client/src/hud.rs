@@ -1322,8 +1322,12 @@ pub(crate) mod palette {
     pub const SANCTUARY_PANEL: Color = Color::srgba(0.035, 0.075, 0.105, 0.88);
     /// A seat that has lost.
     pub const DEAD: Color = Color::srgb(0.30, 0.32, 0.34);
-    /// The accent used for anything asking for a decision.
-    pub const ACCENT: Color = Color::srgb(0.33, 0.75, 0.71);
+    /// The accent used for anything asking for a decision: the dial's
+    /// priority hand (`dial::PRIORITY_INK`, `felt.wgsl`'s `TEAL`).
+    pub const ACCENT: Color = {
+        let [r, g, b] = baylee_client_core::dial::PRIORITY_INK;
+        Color::srgb(r, g, b)
+    };
     /// Danger: lethal damage, a seat about to lose.
     pub const DANGER: Color = Color::srgb(0.91, 0.47, 0.42);
     /// Life gained — [`DANGER`]'s answer, and the only green on this

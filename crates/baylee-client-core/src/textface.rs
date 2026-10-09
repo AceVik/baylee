@@ -311,7 +311,6 @@ impl Depths {
     /// Bars this deep, in card widths, each rounded up to the step.
     #[must_use]
     pub fn of(name_bar: f32, type_bar: f32) -> Self {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // clamped
         let steps = |depth: f32| (depth / DEPTH_STEP).ceil().clamp(0.0, 255.0) as u8;
         Self {
             name: steps(name_bar),
@@ -1260,9 +1259,7 @@ mod tests {
 
     /// How many characters a line of the table holds at `em`, by [`mono`].
     fn holds(em: f32) -> usize {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let n = (line_width() / (UNIT * em)).floor() as usize;
-        n
+        (line_width() / (UNIT * em)).floor() as usize
     }
 
     fn inside(inner: [f32; 4], outer: [f32; 4]) -> bool {

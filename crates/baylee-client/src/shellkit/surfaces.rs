@@ -554,9 +554,10 @@ pub struct TileLook<'a> {
     pub badges: &'a str,
 }
 
-/// The ground of a colour's disc and the ink of its letter.
-fn identity_colours(letter: char) -> (Color, Color) {
-    let dark = Color::srgb(0.06, 0.05, 0.04);
+/// The ground of a colour's disc and the ink of its letter: one palette for
+/// every disc the lobby and the builder draw.
+pub(crate) fn identity_colours(letter: char) -> (Color, Color) {
+    let dark = tokens::INK_ON_LIGHT;
     match letter {
         'W' => (Color::srgb(0.95, 0.92, 0.80), dark),
         'U' => (Color::srgb(0.45, 0.66, 0.90), dark),

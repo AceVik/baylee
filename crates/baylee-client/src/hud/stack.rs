@@ -2952,7 +2952,6 @@ fn fit(name: &str, room: f32, size: f32) -> String {
 /// spans — rules text and its reminder are two — and each span cutting itself
 /// to the full budget would let the pair run twice as long as the room they
 /// share.
-#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
 pub(super) fn budget(room: f32, size: f32) -> usize {
     (room / (size * CHAR_WIDTH)).max(4.0) as usize
 }
@@ -3093,7 +3092,6 @@ mod tests {
         let size = 15.0;
         let cut = fit("Asmoranomardicadaistinaculdacar", room, size);
         assert!(cut.ends_with('…'), "cut without saying so: {cut}");
-        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
         let budget = (room / (size * CHAR_WIDTH)) as usize;
         assert!(
             cut.chars().count() <= budget,

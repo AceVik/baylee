@@ -1,8 +1,4 @@
-#![allow(
-    clippy::cast_precision_loss,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss
-)] // Bounded UI pixel coordinates and row indices.
+#![allow(clippy::cast_precision_loss)] // Bounded UI pixel coordinates and row indices.
 //! The builder's lists as virtual lists (§10 #6): one node as tall as the
 //! whole list, and rows mounted only within a viewport of what is shown —
 //! one viewport above and one below, so scrolling a row a frame never shows
