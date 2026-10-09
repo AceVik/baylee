@@ -49,12 +49,24 @@ pub(super) fn sign_out(
 /// release on the *entity* that was pressed, and that entity is gone by then,
 /// so the first click after a field was focused did nothing and the second
 /// one worked (the owner's "two clicks", 09.10.2026). A control is its
-/// `Press`, not its entity: a release on the control drawn again in its
+/// `Press`, not its entity: a release over the control drawn again in its
 /// place, with the same `Press`, is the click the rebuild ate.
+///
+/// "Over" is read off this frame's [`HoverMap`], at the release as the
+/// pointer reports it ([`PointerInput`]), and never off bevy's
+/// `Pointer<Release>`: that one goes to the entity hovered the frame
+/// *before*, which for a release on the very next frame (a fast click, a
+/// touchpad tap, dev-control's press) is still the despawned button. Such a
+/// click was lost, and only a press held until the hover caught up counted
+/// (the Windows session, 09.10.2026).
+///
+/// [`HoverMap`]: bevy::picking::hover::HoverMap
+/// [`PointerInput`]: bevy::picking::pointer::PointerInput
 #[derive(bevy::ecs::system::SystemParam)]
 pub(super) struct Pressing<'w, 's> {
     downs: MessageReader<'w, 's, Pointer<bevy::picking::events::Press>>,
-    ups: MessageReader<'w, 's, Pointer<Release>>,
+    inputs: MessageReader<'w, 's, bevy::picking::pointer::PointerInput>,
+    hover: Option<Res<'w, bevy::picking::hover::HoverMap>>,
     /// The control the primary button went down on, and what it presses.
     held: Local<'s, Option<(Entity, Press)>>,
 }
@@ -63,14 +75,15 @@ impl Pressing<'_, '_> {
     /// Forgets this frame's presses and releases (a panel in motion).
     fn clear(&mut self) {
         self.downs.clear();
-        self.ups.clear();
+        self.inputs.clear();
         *self.held = None;
     }
 
-    /// The controls whose click a rebuild ate this frame: released on a
-    /// control drawn in place of the one pressed, which no longer exists,
-    /// with the same `Press`.
+    /// The controls whose click a rebuild ate this frame: the button came up
+    /// over a control drawn in place of the one pressed, which no longer
+    /// exists, with the same `Press`.
     fn eaten(&mut self, presses: &Query<&Press>, parents: &Query<&ChildOf>) -> Vec<Entity> {
+        use bevy::picking::pointer::PointerAction;
         for down in self.downs.read() {
             if down.button != PointerButton::Primary {
                 continue;
@@ -79,8 +92,8 @@ impl Pressing<'_, '_> {
                 .and_then(|e| presses.get(e).ok().map(|p| (e, *p)));
         }
         let mut eaten = Vec::new();
-        for up in self.ups.read() {
-            if up.button != PointerButton::Primary {
+        for input in self.inputs.read() {
+            if !matches!(input.action, PointerAction::Release(PointerButton::Primary)) {
                 continue;
             }
             let Some((was, press)) = self.held.take() else {
@@ -90,8 +103,15 @@ impl Pressing<'_, '_> {
             if presses.contains(was) {
                 continue;
             }
-            if let Some(now) = in_lineage_entity(up.entity, presses, parents)
-                && presses.get(now).is_ok_and(|p| *p == press)
+            let over = self
+                .hover
+                .as_deref()
+                .and_then(|hover| hover.get(&input.pointer_id))
+                .into_iter()
+                .flat_map(|hits| hits.keys().copied());
+            if let Some(now) = over
+                .filter_map(|e| in_lineage_entity(e, presses, parents))
+                .find(|now| presses.get(*now).is_ok_and(|p| *p == press))
             {
                 eaten.push(now);
             }

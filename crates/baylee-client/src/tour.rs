@@ -76,6 +76,9 @@ pub struct TourDesk {
     swallow: bool,
     /// How long the current step's anchor has been missing.
     missing: f32,
+    /// And for how many frames: a window drawing one frame a second (in the
+    /// background) must not pass a step over before its tree is rebuilt.
+    missing_frames: u32,
     /// A press or a key's act for the glue to carry out (the box, the
     /// practice game), taken by it.
     pub asked: Option<TourPress>,
@@ -110,6 +113,7 @@ impl TourDesk {
             self.run = Some(run);
             self.parked = false;
             self.missing = 0.0;
+            self.missing_frames = 0;
         }
     }
 
@@ -156,6 +160,7 @@ impl TourDesk {
             }
         };
         self.missing = 0.0;
+        self.missing_frames = 0;
         if over {
             self.end();
             self.swallow = true;
@@ -169,6 +174,7 @@ impl TourDesk {
         self.run = self.stash.take();
         self.parked = false;
         self.missing = 0.0;
+        self.missing_frames = 0;
     }
 
     /// A just-in-time step steps in front of whatever stands.
@@ -181,6 +187,7 @@ impl TourDesk {
         self.run = Some(run);
         self.parked = false;
         self.missing = 0.0;
+        self.missing_frames = 0;
     }
 }
 
@@ -313,18 +320,22 @@ fn follow(
         return;
     };
     if present(anchor, &anchors) {
-        if desk.missing != 0.0 {
+        if desk.missing != 0.0 || desk.missing_frames != 0 {
             desk.missing = 0.0;
+            desk.missing_frames = 0;
         }
         return;
     }
     desk.missing += time.delta_secs();
-    // A rebuilt tree lands a frame or two after its screen: a grace, then
-    // the step is passed over, never pointed at nothing.
-    if desk.missing < MISSING_GRACE {
+    desk.missing_frames += 1;
+    // A rebuilt tree lands a frame or two after its screen: a grace, in
+    // time and in frames, then the step is passed over, never pointed at
+    // nothing.
+    if desk.missing < MISSING_GRACE || desk.missing_frames < MISSING_FRAMES {
         return;
     }
     desk.missing = 0.0;
+    desk.missing_frames = 0;
     let Some(mut settings) = settings else {
         return;
     };
@@ -356,6 +367,8 @@ pub fn present(
 
 /// How long a step waits for its anchor before it is passed over.
 const MISSING_GRACE: f32 = 0.6;
+/// And how many frames, at the least.
+const MISSING_FRAMES: u32 = 12;
 
 /// Whether the tour's systems may run: a settings file to keep marks in.
 fn settled(settings: Option<Res<crate::settings::ClientSettings>>) -> bool {

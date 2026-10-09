@@ -28,6 +28,9 @@ pub(super) struct Watch {
     cast_seen: bool,
     visit_seen: bool,
     arrangement: Option<baylee_client_core::tableview::Arrangement>,
+    /// The step the last frame stood at, to close the report form when the
+    /// tour leaves T33, whose Next closes it (TOURS.md §2.3).
+    last: Option<&'static str>,
 }
 
 /// A node standing where a thing drawn in 3D is, for the hole to find.
@@ -55,7 +58,7 @@ pub(super) fn tours(
     mut settings: ResMut<crate::settings::ClientSettings>,
     input: Option<Res<crate::shellkit::InputClass>>,
     windows: Query<&Window>,
-    report: Option<Res<crate::report::ReportDesk>>,
+    mut report: Option<ResMut<crate::report::ReportDesk>>,
     anchors: Query<(&TourAnchor, &InheritedVisibility, &ComputedNode)>,
     (mut clicks, buttons, parents): (
         MessageReader<Pointer<Click>>,
@@ -112,6 +115,16 @@ pub(super) fn tours(
         desk.practice = false;
         return;
     }
+    // Leaving T33 closes the form it was read beside.
+    let now = desk.run.as_ref().map(|r| r.current().id);
+    if watch.last == Some("T33")
+        && now != Some("T33")
+        && let Some(report) = report.as_deref_mut()
+        && report.open
+    {
+        report.open = false;
+    }
+    watch.last = now;
     let Some(view) = duel.view.as_ref() else {
         return;
     };
@@ -137,6 +150,7 @@ pub(super) fn tours(
             *watch = Watch {
                 step: here,
                 arrangement: Some(duel.arrangement),
+                last: watch.last,
                 ..Watch::default()
             };
         }
