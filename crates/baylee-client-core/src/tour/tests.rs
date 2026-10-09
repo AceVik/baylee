@@ -273,6 +273,36 @@ fn a_satisfied_try_it_step_moves_on_without_a_press() {
     }
 }
 
+/// The room chapter's last step, and only it, offers to leave the table
+/// the tour's try-it opened: a real table, which stayed behind (09.10.).
+#[test]
+fn only_the_room_chapters_last_step_offers_to_leave_the_table() {
+    let mut tours = Tours::default();
+    for chapter in ["door", "play", "create"] {
+        tours.seen.insert(mark(Tour::Lobby, chapter));
+    }
+    let at = tours
+        .due(Tour::Lobby, Place::Room)
+        .expect("the room's chapter is due");
+    let mut run = Run::chapter(Tour::Lobby, at, false, 2).unwrap();
+    assert_eq!(run.current_chapter().place, Place::Room);
+    let mut offered = Vec::new();
+    loop {
+        offered.push((run.current().id, run.offers_leave()));
+        if run.next(&mut tours) == Moved::Over {
+            break;
+        }
+    }
+    let last = offered.pop().expect("the chapter has steps");
+    assert!(last.1, "the last room step {} offers no Leave", last.0);
+    assert!(
+        offered.iter().all(|(_, leave)| !leave),
+        "an earlier room step offers Leave: {offered:?}"
+    );
+    let door = Run::chapter(Tour::Lobby, 0, false, 0).unwrap();
+    assert!(!door.offers_leave(), "the door offers to leave a table");
+}
+
 /// Desktop only (owner, 09.10.): under touch or on a phone nothing starts.
 #[test]
 fn no_tour_step_starts_on_a_phone_or_under_touch() {

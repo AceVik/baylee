@@ -1178,6 +1178,19 @@ pub(crate) enum RoomPress {
     LifeOverride(u8),
 }
 
+/// Leaves the listed table at `index`, as the room's Leave does: the host's
+/// Leave hands the table on or closes it, so it is asked first. The tour's
+/// bubble asks the same (`touring`).
+pub(super) fn leave_table(state: &mut LobbyState, mailbox: &Mailbox, index: usize) {
+    let game = state.lobby.games().get(index);
+    if let Some(game) = game.filter(|g| g.yours) {
+        state.confirmation = Some(super::confirm::Destructive::LeaveHosting(game.id.clone()));
+    } else if let Some(game) = game.map(|g| g.id.clone()) {
+        let request = state.lobby.leave_table(&game);
+        dispatch(state, mailbox, request);
+    }
+}
+
 impl RoomPress {
     /// What a click on this control does.
     #[allow(clippy::too_many_lines)] // one flat match, read top to bottom
@@ -1245,17 +1258,7 @@ impl RoomPress {
                     dispatch(state, mailbox, request);
                 }
             }
-            RoomPress::LeaveTable(index) => {
-                let game = state.lobby.games().get(index);
-                // The host's Leave hands the table on or closes it: asked.
-                if let Some(game) = game.filter(|g| g.yours) {
-                    state.confirmation =
-                        Some(super::confirm::Destructive::LeaveHosting(game.id.clone()));
-                } else if let Some(game) = game.map(|g| g.id.clone()) {
-                    let request = state.lobby.leave_table(&game);
-                    dispatch(state, mailbox, request);
-                }
-            }
+            RoomPress::LeaveTable(index) => leave_table(state, mailbox, index),
             RoomPress::Ready(index, ready) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {

@@ -153,7 +153,7 @@ impl TourDesk {
                 self.asked = Some(press);
                 true
             }
-            TourPress::Practice | TourPress::Later => {
+            TourPress::Practice | TourPress::Later | TourPress::LeaveTable => {
                 run.next(tours);
                 self.asked = Some(press);
                 true
@@ -210,6 +210,9 @@ pub enum TourPress {
     Practice,
     /// L14: later.
     Later,
+    /// The room chapter's last step: leave the table the tour opened (the
+    /// glue asks it as the room's own Leave does).
+    LeaveTable,
 }
 
 /// The tour's keys while a narrated bubble stands (TOURS.md §1.3): `→`,

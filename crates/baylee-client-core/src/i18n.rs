@@ -4598,6 +4598,9 @@ messages! {
         en: "Everyone clicks Ready for themselves. Start belongs to the host (also Ctrl/Cmd+Enter) and stays grey until everyone is ready; the reason stands next to it. The table opens once everyone has loaded it; only then do the clocks run.",
         de: "Bereit klickt jeder für sich. Starten gehört dem Gastgeber (auch Strg/Cmd+Enter) und bleibt grau, bis alle bereit sind; warum, steht daneben. Der Tisch geht auf, sobald alle ihn geladen haben, und erst dann laufen die Uhren.",
     },
+    /// The room chapter's last bubble: leave the table the tour had the
+    /// player open, a real one on the gateway (09.10.).
+    TourLeaveTable { en: "Leave table", de: "Tisch verlassen" },
     /// Tour step L14's title (TOURS.md §2).
     TourL14Title { en: "Practice game?", de: "Übungsspiel?" },
     /// Tour step L14's words (TOURS.md §2).

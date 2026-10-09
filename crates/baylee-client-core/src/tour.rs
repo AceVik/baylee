@@ -1026,6 +1026,14 @@ impl Run {
         probe.step_on().is_none()
     }
 
+    /// Whether the bubble offers to leave the table: the room chapter's last
+    /// step. The tour's try-it opened a real table on the gateway, and
+    /// without the offer it stayed behind after the tour (09.10.).
+    #[must_use]
+    pub fn offers_leave(&self) -> bool {
+        self.tour == Tour::Lobby && self.current_chapter().place == Place::Room && self.last()
+    }
+
     /// Whether a step before this one stands in the chapter (Back shows).
     #[must_use]
     pub fn has_back(&self) -> bool {

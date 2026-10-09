@@ -457,6 +457,24 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
     let left = left.unwrap_or_else(|| commands.spawn((Node::default(), Pickable::IGNORE)).id());
     commands.entity(pair).add_children(&[left, right]);
     commands.entity(card).add_child(pair);
+    // The room chapter's end: the table the tour opened is a real one, so
+    // the way out of it stands in the bubble (09.10.).
+    if run.offers_leave() {
+        let leave = controls::button(
+            commands,
+            compact,
+            Phrase::TourLeaveTable.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            TourPress::LeaveTable,
+        );
+        commands
+            .entity(leave)
+            .entry::<Node>()
+            .and_modify(|mut node| node.align_self = AlignSelf::Center);
+        commands.entity(card).add_child(leave);
+    }
     if step.kind != Kind::Offer && (!run.last() || run.single) {
         let skip = controls::button(
             commands,

@@ -566,3 +566,91 @@ fn the_room_opens_on_its_first_seat() {
     let stop = focused.and_then(|e| app.world().get::<crate::shellkit::focus::Stop>(e).copied());
     assert_eq!(stop.map(|s| (s.table, s.id)), Some(("room", "seats")));
 }
+
+/// Into a room of a table opened offline, with the device's settings the
+/// tour's glue reads.
+fn seated_in_a_room() -> App {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    app.world_mut().resource_mut::<LobbyState>().offline =
+        Some(super::offline::Offline::without_a_file());
+    to_gateway_face(&mut app);
+    tap_control(&mut app, "play offline", |p| {
+        *p == Press::Front(FrontPress::PlayOffline)
+    });
+    open_a_table(&mut app);
+    for _ in 0..4 {
+        app.update();
+    }
+    app
+}
+
+/// The room chapter's last bubble leaves the table the tour opened, as the
+/// room's own Leave does: the host is asked first (09.10.: a real table
+/// stayed behind after the tour).
+#[test]
+fn the_tours_leave_leaves_the_room_as_the_rooms_own_leave_does() {
+    let mut app = seated_in_a_room();
+    let (game, yours) = {
+        let state = app.world().resource::<LobbyState>();
+        let seat = state.lobby.awaiting().expect("seated in the room");
+        let game = state
+            .lobby
+            .games()
+            .iter()
+            .find(|g| g.id == seat.game_id)
+            .expect("the room's table is listed");
+        (game.id.clone(), game.yours)
+    };
+    app.world_mut()
+        .resource_mut::<crate::tour::TourDesk>()
+        .asked = Some(crate::tour::TourPress::LeaveTable);
+    for _ in 0..4 {
+        app.update();
+    }
+    let state = app.world().resource::<LobbyState>();
+    if yours {
+        assert!(
+            matches!(
+                &state.confirmation,
+                Some(super::confirm::Destructive::LeaveHosting(id)) if *id == game
+            ),
+            "the host's Leave is not asked"
+        );
+    } else {
+        assert!(state.lobby.awaiting().is_none(), "still in the room");
+    }
+}
+
+/// A tour set aside (here: a lobby chapter waiting for Play while the player
+/// sits in a room) shows nothing, so it holds neither the keys nor the
+/// stack's modal (09.10.: a client that looked frozen at a table).
+#[test]
+fn a_parked_tour_holds_neither_the_keys_nor_the_modal() {
+    let mut app = seated_in_a_room();
+    // The room's own chapter seen, so the Play chapter waits rather than
+    // giving way to it.
+    app.world_mut()
+        .resource_mut::<crate::settings::ClientSettings>()
+        .tours
+        .seen
+        .insert(baylee_client_core::tour::mark(
+            baylee_client_core::tour::Tour::Lobby,
+            "room",
+        ));
+    app.world_mut().resource_mut::<crate::tour::TourDesk>().run =
+        baylee_client_core::tour::Run::chapter(baylee_client_core::tour::Tour::Lobby, 1, false, 0);
+    for _ in 0..4 {
+        app.update();
+    }
+    let desk = app.world().resource::<crate::tour::TourDesk>();
+    assert!(desk.parked, "a Play chapter stood up in the room");
+    assert!(!desk.holds_keyboard(), "a parked tour holds the keys");
+    let stack = app.world().resource::<crate::shellkit::keys::ShellStack>();
+    assert!(!stack.stack.modal, "a parked tour left the room modal");
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(
+        crate::lobby::shortcuts::modal_by(state, baylee_client_core::shellkeys::Context::Room),
+        Vec::<&str>::new()
+    );
+}

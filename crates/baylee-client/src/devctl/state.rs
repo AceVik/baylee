@@ -494,8 +494,17 @@ fn shell_keys_json(believed: &Believed) -> String {
         .stack
         .screen
         .map_or_else(|| "null".to_string(), |c| format!("\"{c:?}\""));
+    // Which of the lobby's sheets holds the stack modal, by name.
+    let modal_by = match (believed.lobby.as_deref(), stack.stack.screen) {
+        (Some(lobby), Some(screen)) => crate::lobby::shortcuts::modal_by(lobby, screen)
+            .into_iter()
+            .map(quoted)
+            .collect::<Vec<_>>()
+            .join(","),
+        _ => String::new(),
+    };
     format!(
-        "{{\"table\":{},\"focus\":{stop},\"focus_visible\":{},\"field\":{},         \"overlay\":{},\"live\":{},\"screen\":{screen},\"modal\":{},\"menu\":{},         \"typing\":{},\"resolved\":{resolved},\"fired\":[{fired}],\"text_size\":{}}}",
+        "{{\"table\":{},\"focus\":{stop},\"focus_visible\":{},\"field\":{},         \"overlay\":{},\"live\":{},\"screen\":{screen},\"modal\":{},\"modal_by\":[{modal_by}],\"menu\":{},         \"typing\":{},\"resolved\":{resolved},\"fired\":[{fired}],\"text_size\":{}}}",
         focus
             .table
             .map_or_else(|| "null".to_string(), |t| format!("\"{t}\"")),
