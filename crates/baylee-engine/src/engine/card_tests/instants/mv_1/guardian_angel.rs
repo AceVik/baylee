@@ -4,7 +4,8 @@
 use super::*;
 
 /// Guardian Angel — "Prevent the next X damage that would be dealt to any
-/// target this turn." (Its "pay {1} any time" half is not written.) X = 2
+/// target this turn." (Its "pay {1} any time" half is played in
+/// `alpha_completion_review::guardian_angel_review`.) X = 2
 /// on p0 itself, then a Lightning Bolt at p0: 2 of the 3 are prevented.
 #[test]
 fn guardian_angel_prevents_the_next_x_damage_to_its_target() {

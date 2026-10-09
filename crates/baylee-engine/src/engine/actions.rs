@@ -1357,6 +1357,11 @@ impl<L: CardLookup> Engine<L> {
                         unreachable!("a skip is offered only between two turns")
                     };
                     if answer {
+                        #[cfg(test)]
+                        crate::ability_log::replaced_by(
+                            source,
+                            baylee_cards_dsl::ReplacementRule::SkipTurnToUntapSelf,
+                        );
                         // "Instead of doing [something], do nothing": the
                         // turn is gone, an extra one spent like any other,
                         // and the order goes on from where it would have
@@ -1389,6 +1394,11 @@ impl<L: CardLookup> Engine<L> {
                         unreachable!()
                     };
                     if answer {
+                        #[cfg(test)]
+                        crate::ability_log::replaced_by(
+                            source,
+                            baylee_cards_dsl::ReplacementRule::MaySkipDrawStepDraw,
+                        );
                         self.restrict_attacks_after_skipped_draw(player, source);
                         return Ok(());
                     }

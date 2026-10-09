@@ -1809,8 +1809,6 @@ pub mod faerie_conclave;
 pub mod faithless_looting;
 #[path = "creatures/mv_5/fallen_angel.rs"]
 pub mod fallen_angel;
-#[path = "sorceries/mv_3/falling_star.rs"]
-pub mod falling_star;
 #[path = "creatures/mv_3/fallow_wurm.rs"]
 pub mod fallow_wurm;
 #[path = "instants/mv_1/false_orders.rs"]
