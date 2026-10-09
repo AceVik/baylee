@@ -1624,6 +1624,8 @@ messages! {
         en: "Other printings could not be loaded. Showing the reference printing.",
         de: "Weitere Drucke konnten nicht geladen werden. Referenzdruck wird angezeigt.",
     },
+    /// The printing the build itself carries, where no other is known.
+    ReferencePrinting { en: "Reference printing", de: "Referenzdruck" },
     /// All
     AllSets { en: "All", de: "Alle" },
     /// Plain
