@@ -88,6 +88,15 @@ pub fn params(warmth: f32, still: bool) -> SheenParams {
 type Undressed = (With<Sheen>, Without<SheenSurface>);
 
 /// Lays the light on every [`Sheen`] button that has none yet.
+///
+/// The button may be gone by the time the light is laid: this runs beside
+/// the screens' rebuilds, unordered, and a rebuild that despawns the tree in
+/// the same frame (likely the lobby's, drawn twice in a row as a sign-in
+/// is followed at once by the account's preferences) can have its despawn
+/// applied before this insert. A plain `insert` on the dead button was a panic (Bevy's default error handler),
+/// so the surface is stood up inside one entity command that runs only if
+/// the button still lives: a light for a button nobody sees is no loss, and
+/// no orphaned surface is left at the window's root either.
 pub(crate) fn dress(
     mut commands: Commands,
     faces: Query<(Entity, &Feel), Undressed>,
@@ -102,25 +111,31 @@ pub(crate) fn dress(
         let handle = materials.add(SheenMaterial {
             params: params(feel.warmth, still),
         });
-        let surface = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px_fixed(0.0),
-                    right: px_fixed(0.0),
-                    top: px_fixed(0.0),
-                    bottom: px_fixed(0.0),
-                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL - 1.0)),
-                    ..default()
-                },
-                MaterialNode(handle.clone()),
-                Pickable::IGNORE,
-            ))
-            .id();
         commands
             .entity(face)
-            .insert(SheenSurface(handle))
-            .insert_children(0, &[surface]);
+            .queue_silenced(move |mut face: EntityWorldMut| {
+                let surface = face.world_scope(|world| {
+                    world
+                        .spawn((
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: px_fixed(0.0),
+                                right: px_fixed(0.0),
+                                top: px_fixed(0.0),
+                                bottom: px_fixed(0.0),
+                                border_radius: BorderRadius::all(px_fixed(
+                                    tokens::RADIUS_CONTROL - 1.0,
+                                )),
+                                ..default()
+                            },
+                            MaterialNode(handle.clone()),
+                            Pickable::IGNORE,
+                        ))
+                        .id()
+                });
+                face.insert(SheenSurface(handle))
+                    .insert_children(0, &[surface]);
+            });
     }
 }
 
@@ -230,5 +245,67 @@ mod tests {
             .get(&handle)
             .map(|m| m.params.hover);
         assert_eq!(hover, Some(0.5));
+    }
+
+    /// A rebuild that despawns a button in the frame the light is laid on it
+    /// is no panic, and leaves no surface behind (the release blocker of
+    /// 09.10.: a returning guest's preferences arrived a frame after the
+    /// sign-in's rebuild, the lobby was drawn again, and the light's insert
+    /// landed on a button the second rebuild had despawned).
+    ///
+    /// The race laid out: the rebuild's despawn is queued first, the light
+    /// still sees the button, and both buffers are applied together in that
+    /// order, as two unordered systems' are at one sync point.
+    #[test]
+    fn a_button_despawned_while_its_light_is_laid_is_no_panic() {
+        #[derive(Component)]
+        struct Tree;
+        let rebuild = |mut commands: Commands, tree: Query<Entity, With<Tree>>| {
+            for entity in &tree {
+                commands.entity(entity).despawn();
+            }
+        };
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<SheenMaterial>()
+            .add_systems(Update, (rebuild, dress).chain_ignore_deferred());
+        let root = app.world_mut().spawn((Tree, Node::default())).id();
+        let face = app
+            .world_mut()
+            .spawn((
+                Sheen,
+                Feel::new(tokens::PRIMARY),
+                Node::default(),
+                ChildOf(root),
+            ))
+            .id();
+        app.update();
+        assert!(
+            app.world().get_entity(face).is_err(),
+            "the rebuild took the button"
+        );
+        let mut nodes = app.world_mut().query::<&Node>();
+        assert_eq!(
+            nodes.iter(app.world()).count(),
+            0,
+            "a surface was left standing without its button"
+        );
+        // And a button that lives is still dressed.
+        let kept = app
+            .world_mut()
+            .spawn((Sheen, Feel::new(tokens::PRIMARY), Node::default()))
+            .id();
+        app.update();
+        assert!(
+            app.world().get::<SheenSurface>(kept).is_some(),
+            "the light was not laid"
+        );
+        assert_eq!(
+            app.world()
+                .get::<Children>(kept)
+                .map(bevy::ecs::relationship::RelationshipTarget::len),
+            Some(1),
+            "the surface stands inside its button"
+        );
     }
 }

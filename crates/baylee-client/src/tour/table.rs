@@ -235,8 +235,10 @@ pub(super) fn mark(
         Query<Entity, (With<crate::hud::TrayZones>, Without<TourAnchor>)>,
     ),
 ) {
+    // `try_`: the HUD rebuilds beside this, unordered, and a node it
+    // despawns in this frame is no node to mark (a plain insert panicked).
     let mut put = |entity: Entity, anchor: Anchor| {
-        commands.entity(entity).insert(TourAnchor(anchor));
+        commands.entity(entity).try_insert(TourAnchor(anchor));
     };
     let marked = shelf
         .iter()
@@ -286,9 +288,11 @@ pub(super) fn mark_the_first_card(
         let wants = Some(entity) == first;
         let has = anchor.is_some_and(|a| a.0 == Anchor::HandCard);
         if wants && !has {
-            commands.entity(entity).insert(TourAnchor(Anchor::HandCard));
+            commands
+                .entity(entity)
+                .try_insert(TourAnchor(Anchor::HandCard));
         } else if !wants && has {
-            commands.entity(entity).remove::<TourAnchor>();
+            commands.entity(entity).try_remove::<TourAnchor>();
         }
     }
 }
