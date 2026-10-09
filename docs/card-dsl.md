@@ -3196,12 +3196,19 @@ activation costs. Alternative costs still use the subject's resources. A later
 spell-resolution segment restores the controller; intervening ordinary priority
 does not.
 
-**Open Word of Command integration limit:** the current offer checker proves
-some impossible generated-mana paths without rejecting unknown filter/sink
-paths. It is not a complete reachability solver for arbitrary chains of land
-mana abilities. Completion with an unconsumed obligation is refused atomically,
-so it cannot silently become free floating mana. Complete handling of those
-unknown chains and reversal of an entire invalid mana sequence remains required
-before marking this card complete. A rollback across published decisions must
-also preserve journal delivery and concessions; a card-only rollback is not
-sufficient.
+**Word of Command's "if able" (`Engine::commanded_cost_feasible`):** an
+exact reachability search over the subject's land mana abilities — each land
+once, in every order, every way of paying an activation's generic mana, a
+mana ability that costs mana (a filter land's `{1}, {T}`) and one granted to
+the land included — decides whether the commanded card can be paid with
+every obligated unit consumed. It is asked as the ways of casting are offered
+(a way the lands cannot pay is not offered, so no mode is chosen and then
+reversed while another would have played; none left and the card is not
+played) and between activations in the payment window (an unpayable price is
+reversed before anything is tapped; a payable one cannot be abandoned).
+Where a land's mana is beyond it — a cost other than mana and `{T}`, an
+amount or colour only the board knows, a combination or restricted output,
+more than sixteen lands or more than 50 000 states — it answers `None`, and
+the older necessary-condition proof stands in: lenient, never refusing a
+legal payment. Completion with an unconsumed obligation is refused
+atomically, so it cannot silently become free floating mana.

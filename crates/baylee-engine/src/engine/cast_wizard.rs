@@ -1340,6 +1340,23 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
+        // "The player plays that card if able" (Word of Command): a way of
+        // casting it whose price the commanded player's lands cannot pay is
+        // no way they are able to play it. Taken off before it is offered,
+        // so the controller cannot choose a mode that is then reversed while
+        // another would have been played, and a card no mode pays is not
+        // played at all. The exact reader only: where it cannot tell, the
+        // mode stays.
+        if commanded {
+            options.retain(|o| {
+                matches!(o.kind, CastModeKind::PlayLandFace(_))
+                    || self.commanded_cost_feasible(
+                        player,
+                        card,
+                        &o.cost.with_x(0).with_less_generic(reduction),
+                    ) != Some(false)
+            });
+        }
         for (i, option) in options.iter_mut().enumerate() {
             option.index = u8::try_from(i).unwrap_or(u8::MAX);
         }

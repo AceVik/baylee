@@ -42,7 +42,6 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Sleight of Mind](../crates/baylee-cards/src/cards/instants/mv_1/sleight_of_mind.rs) | semantic text changes are implemented and independently tested; final batch acceptance is pending |
 | [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | turn-skip untapping and the extra-turn ability are implemented and regression-tested; Client/AI/Seat consumers are integrated, final live acceptance is pending |
 | [Vesuvan Doppelganger](../crates/baylee-cards/src/cards/creatures/mv_5/vesuvan_doppelganger.rs) | copiable upkeep behavior and the full Oracle stack-dialog fallback are implemented and regression-tested; final live acceptance is pending |
-| [Word of Command](../crates/baylee-cards/src/cards/instants/mv_2/word_of_command.rs) | player-control segments and constrained cast feasibility/reversal have regression coverage; final batch acceptance is pending |
 
 ### Interrupted-session takeover — 2026-10-04
 

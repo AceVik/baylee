@@ -231,3 +231,98 @@ fn a_second_island_that_the_price_cannot_use_is_refused() {
         "one Island never tapped"
     );
 }
+
+/// {1}{R}{R} from a Mountain, two Islands and an Unknown Shores ("{1}, {T}:
+/// Add one mana of any color"): the Mountain's red, an Island's blue paying
+/// the Shores for a second red, the other Island's blue for the {1}. The
+/// Shores' mana ability costs mana, which the exact reader used to give up
+/// on; it now finds the payment, so the player is able to play the card and
+/// passing the window is refused (it used to be allowed, and the card was
+/// lost).
+#[test]
+fn a_land_whose_mana_ability_costs_mana_is_read_exactly_when_it_pays() {
+    let mut engine = fixture(&[mountain(), island(), island(), index::UNKNOWN_SHORES]);
+    command_minotaur(&mut engine);
+    assert!(in_commanded_window(&engine));
+    assert!(
+        engine.apply(USER, PlayerAction::PassPriority).is_err(),
+        "the Shores make the price payable, so the card cannot be given up"
+    );
+}
+
+/// {1}{R}{R} from a Mountain, an Island and an Unknown Shores: two reds at
+/// most (the Island paying the Shores), and nothing left for the {1}. The
+/// card is not played and nothing is tapped; before, the costed Shores sent
+/// the check to the optimistic proof, which opened the payment.
+#[test]
+fn a_land_whose_mana_ability_costs_mana_is_read_exactly_when_it_cannot_pay() {
+    let mut engine = fixture(&[mountain(), island(), index::UNKNOWN_SHORES]);
+    let minotaur = command_minotaur(&mut engine);
+    assert!(
+        !in_commanded_window(&engine),
+        "no payment is opened for a price the lands cannot pay"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().object(minotaur).unwrap().zone, Zone::Hand);
+    assert_eq!(untapped(&engine, mountain()).len(), 1);
+    assert_eq!(untapped(&engine, island()).len(), 1);
+    assert_eq!(untapped(&engine, index::UNKNOWN_SHORES).len(), 1);
+}
+
+/// "Plays that card if able": Brazen Borrower ({1}{U}{U}) cannot be paid
+/// from an Island and a Mountain, its adventure Petty Theft ({1}{U}) can. The
+/// way of casting the lands cannot pay is not offered, so the controller is
+/// never asked to choose a mode that would then be reversed while the other
+/// would have been played: only Petty Theft is cast, at the controller's
+/// creature.
+#[test]
+fn a_way_of_casting_the_lands_cannot_pay_is_not_offered() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), index::GRIZZLY_BEARS])
+        .hand(0, &[index::WORD_OF_COMMAND])
+        .battlefield(1, &[island(), mountain()])
+        .hand(1, &[index::BRAZEN_BORROWER])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, USER);
+    for source in all_on_battlefield(&engine, USER, swamp()) {
+        engine
+            .apply(USER, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    cast_with_floating(&mut engine, USER, index::WORD_OF_COMMAND);
+    match engine.pending() {
+        Pending::ChoosePlayer { .. } => {
+            engine
+                .apply(USER, PlayerAction::ChoosePlayer(OTHER))
+                .unwrap();
+        }
+        _ => aim(&mut engine, vec![], vec![OTHER]),
+    }
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let borrower = in_hand(&engine, OTHER, index::BRAZEN_BORROWER).unwrap();
+    engine
+        .apply(
+            USER,
+            PlayerAction::ChooseObjects {
+                objects: vec![borrower],
+            },
+        )
+        .unwrap();
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        assert!(
+            options
+                .iter()
+                .all(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1))),
+            "the creature's price is beyond the lands: {options:?}"
+        );
+        engine.apply(USER, PlayerAction::ChooseMode(0)).unwrap();
+    }
+    let bears = on_battlefield(&engine, USER, index::GRIZZLY_BEARS).unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Petty Theft asks its target, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&bears));
+}
