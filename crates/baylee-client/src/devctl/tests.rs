@@ -294,6 +294,7 @@ fn harness() -> (App, Sender<Job>) {
         })
         .init_resource::<perf::Probe>()
         .init_resource::<perf::Hidden>()
+        .init_resource::<changed::Tally>()
         .add_systems(Update, pump);
     app.world_mut().spawn((Window::default(), PrimaryWindow));
     (app, tx)
@@ -618,6 +619,7 @@ fn the_measuring_routes_answer_and_an_unknown_path_is_refused() {
     let perf = ask(&tx, "/perf", r#"{"reset":true}"#);
     let hide = ask(&tx, "/hide", r#"{"what":"felt"}"#);
     let executor = ask(&tx, "/executor", r#"{"single":true}"#);
+    let changed = ask(&tx, "/changed", r#"{"frames":3}"#);
     let nowhere = ask(&tx, "/nowhere", "{}");
     app.update();
     let perf = perf.try_recv().expect("answered");
@@ -635,12 +637,52 @@ fn the_measuring_routes_answer_and_an_unknown_path_is_refused() {
             .expect("answered")
             .contains("\"single\":true")
     );
+    assert_eq!(
+        changed.try_recv().expect("answered"),
+        r#"{"ok":true,"armed":3}"#
+    );
     assert!(
         nowhere
             .try_recv()
             .expect("answered")
             .contains("no such endpoint: /nowhere")
     );
+}
+
+/// `/changed` counts what is written while it is armed, and stops: a
+/// component written on every frame is counted once a frame for as many
+/// frames as were asked for, and one nobody writes is not in the answer.
+#[test]
+fn changed_counts_a_write_on_every_armed_frame_and_then_stops() {
+    // Two of the types `/changed` names without bevy's `debug` feature: one
+    // written every frame, one left alone after its spawn.
+    let mut app = App::new();
+    app.init_resource::<changed::Tally>()
+        .add_systems(Update, |mut moved: Query<&mut Transform>| {
+            for mut at in &mut moved {
+                at.translation.x += 1.0;
+            }
+        })
+        .add_systems(Last, changed::watch);
+    app.world_mut().spawn(Transform::default());
+    app.world_mut().spawn(Visibility::Hidden);
+    app.update();
+    let armed = changed::answer(
+        &mut app.world_mut().resource_mut::<changed::Tally>(),
+        Some(3),
+    );
+    assert_eq!(armed, r#"{"ok":true,"armed":3}"#);
+    for _ in 0..5 {
+        app.update();
+    }
+    let said = changed::answer(&mut app.world_mut().resource_mut::<changed::Tally>(), None);
+    assert!(said.starts_with("frames watched 3 "), "{said}");
+    let moved = said
+        .lines()
+        .find(|line| line.trim_end().ends_with("::Transform"))
+        .unwrap_or_else(|| panic!("the written transform is counted: {said}"));
+    assert_eq!(moved.split_whitespace().next(), Some("3"), "{said}");
+    assert!(!said.contains("::Visibility"), "{said}");
 }
 
 /// A tenth speed is a tenth of the picture, not a flag saying so.
