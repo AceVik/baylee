@@ -22,3 +22,25 @@ fn wooden_sphere_offers_to_pay_and_gain_life_off_a_green_spell() {
     pass_until(&mut engine, stack_is_empty);
     assert!(on_battlefield(&engine, p0, quiet_creature()).is_some());
 }
+
+/// Wooden Sphere: "you may pay {1}" is a choice. Declined, it gains no life and
+/// spends nothing of the mana floating in the pool.
+#[test]
+fn wooden_sphere_declined_gains_nothing_and_spends_nothing() {
+    a_rock_declined(wooden_sphere(), forest(), quiet_creature());
+}
+
+/// Wooden Sphere: "Whenever *a player* casts a green spell, *you* may pay {1}":
+/// the opponent's green spell asks the controller of the Wooden Sphere, who pays
+/// and gains the life.
+#[test]
+fn wooden_sphere_pays_its_controller_off_an_opponents_green_spell() {
+    a_rock_pays_off_an_opponents_spell(wooden_sphere(), forest(), forest(), quiet_creature());
+}
+
+/// Wooden Sphere: only a green spell is asked about. A spell of another color
+/// resolves without a question and the life total stands.
+#[test]
+fn wooden_sphere_ignores_a_spell_of_another_color() {
+    a_rock_ignores_another_color(wooden_sphere(), mountain(), lightning_bolt());
+}

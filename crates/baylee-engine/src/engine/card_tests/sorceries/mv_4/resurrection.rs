@@ -33,3 +33,47 @@ fn resurrection_returns_a_creature_from_the_graveyard_to_the_battlefield() {
     );
     assert!(in_graveyard(&engine, p0, quiet_creature()).is_none());
 }
+
+/// "Target creature card from **your** graveyard": an instant of ours and a
+/// creature card in the opponent's graveyard are refused (with only those
+/// around the spell is withheld); the creature of ours is the whole menu and
+/// comes back under our control.
+#[test]
+fn resurrection_refuses_a_non_creature_card_and_the_opponents_graveyard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), forest(), forest()])
+        .hand(0, &[resurrection(), lightning_bolt(), quiet_creature()])
+        .hand(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    hand_to_graveyard(&mut engine, p0, lightning_bolt());
+    hand_to_graveyard(&mut engine, p1, llanowar_elves());
+    tap_all_mana(&mut engine, p0);
+    let spell = in_hand(&engine, p0, resurrection()).expect("in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&spell),
+        "no creature card in our graveyard: nothing to return"
+    );
+
+    let ours = hand_to_graveyard(&mut engine, p0, quiet_creature());
+    cast_with_floating(&mut engine, p0, resurrection());
+    let menu = aim_at(&mut engine, p0, ours);
+    assert_eq!(menu, vec![ours], "only our creature card: {menu:?}");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "under our control, on the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some()
+            && in_hand(&engine, p1, llanowar_elves()).is_none(),
+        "the opponent's creature card stays where it was"
+    );
+    assert!(in_graveyard(&engine, p0, lightning_bolt()).is_some());
+}

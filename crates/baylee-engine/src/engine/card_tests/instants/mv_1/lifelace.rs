@@ -48,3 +48,19 @@ fn lifelace_turns_its_target_green() {
         "\"becomes green\""
     );
 }
+
+/// Lifelace: "Target spell or permanent becomes green." Aimed at a
+/// creature spell on the stack, which the opponent answers it with: the
+/// spell turns green while it waits, keeps its mana cost, and the creature
+/// it resolves into is still green.
+#[test]
+fn lifelace_turns_a_spell_on_the_stack_green_and_the_permanent_stays_green() {
+    a_lace_recolours_a_spell(
+        lifelace(),
+        forest(),
+        festering_goblin(),
+        swamp(),
+        Color::Black,
+        Color::Green,
+    );
+}

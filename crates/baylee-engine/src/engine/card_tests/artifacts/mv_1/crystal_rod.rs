@@ -37,3 +37,25 @@ fn crystal_rod_offers_to_pay_and_gain_life_off_a_blue_spell() {
         "Unsummon still resolved and bounced the Elf"
     );
 }
+
+/// Crystal Rod: "you may pay {1}" is a choice. Declined, it gains no life and
+/// spends nothing of the mana floating in the pool.
+#[test]
+fn crystal_rod_declined_gains_nothing_and_spends_nothing() {
+    a_rock_declined(crystal_rod(), island(), flying_men());
+}
+
+/// Crystal Rod: "Whenever *a player* casts a blue spell, *you* may pay {1}":
+/// the opponent's blue spell asks the controller of the Crystal Rod, who pays
+/// and gains the life.
+#[test]
+fn crystal_rod_pays_its_controller_off_an_opponents_blue_spell() {
+    a_rock_pays_off_an_opponents_spell(crystal_rod(), island(), island(), flying_men());
+}
+
+/// Crystal Rod: only a blue spell is asked about. A spell of another color
+/// resolves without a question and the life total stands.
+#[test]
+fn crystal_rod_ignores_a_spell_of_another_color() {
+    a_rock_ignores_another_color(crystal_rod(), forest(), quiet_creature());
+}
