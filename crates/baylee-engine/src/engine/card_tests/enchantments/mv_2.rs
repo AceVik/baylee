@@ -20,6 +20,7 @@ mod deathgrip;
 mod flowstone_surge;
 mod gate_to_phyrexia;
 mod goblin_bombardment;
+mod island_sanctuary;
 mod lifeforce;
 mod lifetap;
 mod luminarch_ascension;
