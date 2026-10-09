@@ -121,6 +121,17 @@ pub(super) struct Believed<'w, 's> {
             &'static bevy::ui::UiGlobalTransform,
         ),
     >,
+    /// The updater's buttons (the notice's "Restart now" among them), which
+    /// answer clicks of their own rather than a lobby `Press`.
+    update_buttons: Query<
+        'w,
+        's,
+        (
+            &'static crate::update::UpdateButton,
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+    >,
     /// Cards playing their way off the table; only the count is reported.
     leaving: Query<'w, 's, &'static crate::table::Departing>,
     shelves: Option<Res<'w, crate::hud::Shelves>>,
@@ -591,6 +602,29 @@ fn shell_nodes_json(believed: &Believed) -> String {
 }
 
 /// All front-door controls in logical pixels, without field values or credentials.
+/// The updater's buttons where they are drawn, as `lobby_controls` lists
+/// the lobby's.
+fn update_buttons_json(believed: &Believed) -> String {
+    let rows: Vec<String> = believed
+        .update_buttons
+        .iter()
+        .map(|(button, node, place)| {
+            let scale = node.inverse_scale_factor;
+            let size = node.size() * scale;
+            let mid = place.translation * scale;
+            format!(
+                "{{\"button\":{button},\"at_x\":{x:.1},\"at_y\":{y:.1},\"w\":{w:.1},\"h\":{h:.1}}}",
+                button = quoted(&format!("{button:?}")),
+                x = mid.x,
+                y = mid.y,
+                w = size.x,
+                h = size.y,
+            )
+        })
+        .collect();
+    format!("[{}]", rows.join(","))
+}
+
 fn lobby_controls_json(believed: &Believed) -> String {
     let rows: Vec<String> = believed
         .exits
@@ -797,7 +831,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\"cues_suppressed\":{cues_suppressed},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
-         \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits},\"face_builds\":{face_builds},\
+         \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\
          \"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates}}}",
         shell = shell_keys_json(believed),
@@ -822,6 +856,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
         loading = loading_json(believed),
         exits = exits_json(believed),
         lobby_controls = lobby_controls_json(believed),
+        update_buttons = update_buttons_json(believed),
         cards = cards_json(believed, duel, window),
         buttons = buttons_json(believed),
         browser = browser_json(duel),

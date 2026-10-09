@@ -64,6 +64,7 @@ pub(crate) struct SheetFocus(pub(crate) Option<&'static str>);
 
 /// Moves focus where [`SheetFocus`] asks, once that stop is drawn, and
 /// gives a sheet that has just opened its first focus (the text).
+#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 pub(crate) fn place_sheet_focus(
     state: Res<LobbyState>,
     stops: Query<(Entity, &Stop)>,
@@ -71,6 +72,7 @@ pub(crate) fn place_sheet_focus(
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
     mut remembered: ResMut<crate::shellkit::focus::Remembered>,
+    mut kept: ResMut<crate::lobby::focusing::Kept>,
     mut was: Local<(bool, bool, bool)>,
 ) {
     // Decline's confirmation stands over the sheet and takes the keyboard
@@ -131,6 +133,11 @@ pub(crate) fn place_sheet_focus(
     // Esc shows the ring (a key moved focus); opening does not.
     visible.0 = id != "text";
     remembered.0 = Some(*stop);
+    // And the lobby's own memory of the ring, at once (`focusing::Kept`): a
+    // rebuild in this frame would otherwise give the ring back to the stop
+    // that had it before (Esc landed on the text again, depending on how
+    // the schedule happened to order the systems).
+    kept.keep(*stop);
     wanted.0 = None;
 }
 

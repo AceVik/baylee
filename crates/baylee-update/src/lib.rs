@@ -21,6 +21,8 @@
 //!   mount really is.
 //! - [`relocate`]: "Move Baylee to Applications", copying the running app
 //!   where updates may be installed.
+//! - [`relaunch`]: "Restart now": a helper that starts the client again
+//!   once the old one and its launcher have ended.
 //! - [`check`]: the HTTP half: asking GitHub, downloading, verifying,
 //!   staging.
 //! - [`service`]: the thread that checks at start and every six hours, and
@@ -41,6 +43,7 @@ pub mod archive;
 pub mod check;
 pub mod launch;
 pub mod plan;
+pub mod relaunch;
 pub mod release;
 pub mod relocate;
 pub mod service;
