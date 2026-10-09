@@ -63,6 +63,10 @@ pub enum BrowseZone {
     Exile(PlayerId),
     /// A seat's command zone.
     Command(PlayerId),
+    /// This seat's own hand, for a question about cards still in it
+    /// (Library of Leng's discard): never a tab, since the hand is on the
+    /// table already, only the zone its rows name.
+    Hand,
 }
 
 impl BrowseZone {
@@ -70,7 +74,7 @@ impl BrowseZone {
     #[must_use]
     pub fn seat(self) -> Option<PlayerId> {
         match self {
-            Self::Looking | Self::Battlefield | Self::Stack => None,
+            Self::Looking | Self::Battlefield | Self::Stack | Self::Hand => None,
             Self::Graveyard(p) | Self::Exile(p) | Self::Command(p) => Some(p),
         }
     }
@@ -109,6 +113,7 @@ impl BrowseZone {
             Self::Graveyard(p) => pile(&view.graveyards, p),
             Self::Exile(p) => pile(&view.exile, p),
             Self::Command(p) => pile(&view.command, p),
+            Self::Hand => view.hand.len(),
         }
     }
 
@@ -122,6 +127,7 @@ impl BrowseZone {
             Self::Graveyard(_) => Phrase::BrowseGraveyard,
             Self::Exile(_) => Phrase::BrowseExile,
             Self::Command(_) => Phrase::BrowseCommand,
+            Self::Hand => Phrase::BrowseHand,
         }
     }
 }
@@ -1671,7 +1677,7 @@ impl Browser {
                         card.card.face,
                         ArtSize::Small,
                     )),
-                    zone: BrowseZone::Looking,
+                    zone: BrowseZone::Hand,
                     standing: RowStanding {
                         selectable: it.selectable().contains(&card.id),
                         selected: it.is_selected(card.id),
@@ -1853,6 +1859,9 @@ fn objects_in(view: &PlayerView, zone: BrowseZone) -> &[PublicObject] {
         BrowseZone::Graveyard(p) => pile(&view.graveyards, p),
         BrowseZone::Exile(p) => pile(&view.exile, p),
         BrowseZone::Command(p) => pile(&view.command, p),
+        // A hand holds `HandObject`s, not public objects: `Browser::rows`
+        // draws the hand cards an arrangement asks about by itself.
+        BrowseZone::Hand => &[],
     }
 }
 

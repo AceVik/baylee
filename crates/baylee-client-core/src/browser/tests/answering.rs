@@ -406,6 +406,16 @@ fn a_discard_to_the_library_draws_the_hand_cards_it_asks_about() {
         ],
         "both asked-about cards, dealt to the graveyard as printed; the hand's third is not asked about"
     );
+    let rows = Browser::new().rows(&view, Some(&it), Names::projected());
+    assert!(
+        rows.iter().all(|r| r.zone == BrowseZone::Hand),
+        "named for the hand they are in, not as cards being shown"
+    );
+    assert_eq!(BrowseZone::Hand.label(), Phrase::BrowseHand);
+    assert!(
+        !Browser::new().zones(&view).contains(&BrowseZone::Hand),
+        "and never a tab: the hand is on the table already"
+    );
     it.toggle(obj(8));
     assert!(it.place_held(crate::arrange::Row::Pile(1)));
     assert_eq!(
