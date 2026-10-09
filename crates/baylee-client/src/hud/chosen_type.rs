@@ -180,7 +180,12 @@ pub(crate) fn sync(
             if *visibility != visible {
                 *visibility = visible;
             }
-            if let Some(at) = at {
+            // Compared here, not only inside `place`: handing it `&mut node`
+            // dereferences the `Mut` and marks the node changed, and a
+            // changed `Node` lays the whole interface out again, every frame.
+            if let Some(at) = at
+                && (node.left != px(at.x) || node.top != px(at.y))
+            {
                 place(&mut node, at);
             }
         } else {

@@ -2401,11 +2401,17 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
             return;
         }
     }
+    // Each write below is asked for first: this runs every frame, and a
+    // `&mut duel` through the `ResMut` marks the whole duel changed.
     if duel.stack_stop_requested {
-        duel.yes_batch = yes_batch::YesBatch::default();
+        if !duel.yes_batch.is_idle() {
+            duel.yes_batch = yes_batch::YesBatch::default();
+        }
         return;
     }
-    if let Some(answer) = requested_batch_answer(&mut duel) {
+    if (duel.combat_auto.is_some() || !duel.yes_batch.is_idle())
+        && let Some(answer) = requested_batch_answer(&mut duel)
+    {
         duel.submit(answer);
         return;
     }
@@ -2583,8 +2589,14 @@ impl ManaRun {
 /// That is the honest failure — mana in the pool is a thing the player can
 /// see and spend — and it is much better than the alternative of pushing an
 /// action the engine will refuse.
+///
+/// Asked before the duel is borrowed: `&mut duel` through the `ResMut` is a
+/// write, and with no run under way this would mark the duel changed on
+/// every frame.
 fn run_mana_plan(mut duel: ResMut<Duel>) {
-    advance_mana_run(&mut duel);
+    if duel.mana_run.is_some() {
+        advance_mana_run(&mut duel);
+    }
 }
 
 /// One step of a run, against whatever the engine is asking right now.
@@ -2801,8 +2813,12 @@ fn tap_action(
 
 /// Answers the engine's `ChooseCastMode` with the way the player already
 /// chose, when they chose one.
+///
+/// Asked before the duel is borrowed, as [`run_mana_plan`] is.
 fn answer_the_chosen_cast_mode(mut duel: ResMut<Duel>) {
-    take_the_chosen_cast_mode(&mut duel);
+    if duel.cast_answer.is_some() {
+        take_the_chosen_cast_mode(&mut duel);
+    }
 }
 
 /// The decision behind that system, `pub` for the same reason
@@ -2967,10 +2983,17 @@ fn keep_the_table_connected(
         // `Local` is a host with no socket to lose, and the schedule must
         // never start on one: an in-process engine would otherwise be
         // "reconnected" to twelve times and then declared unreachable.
+        // Every frame of a live table comes here, so the notes are cleared
+        // only where they stand: an assignment through the `ResMut` marks
+        // the whole duel changed.
         LinkState::Local | LinkState::Up => {
             retry.schedule.settle();
-            retry.told = false;
-            duel.link_note = None;
+            if retry.told {
+                retry.told = false;
+            }
+            if duel.link_note.is_some() {
+                duel.link_note = None;
+            }
         }
         // A dial is in flight. Saying the same thing as `Down` is deliberate:
         // the player is told the connection dropped and that something is
@@ -3634,6 +3657,9 @@ fn commander_cost(c: &baylee_view::CommanderView) -> Option<baylee_core::mana::M
 
 #[cfg(test)]
 mod reconnect_tests;
+
+#[cfg(test)]
+mod rest_tests;
 
 #[cfg(test)]
 mod commander_reach_tests;

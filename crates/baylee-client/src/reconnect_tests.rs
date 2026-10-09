@@ -375,3 +375,21 @@ fn a_five_second_table_turns_the_wording_at_five_and_not_at_eight() {
         "six seconds is past it, whatever PATIENCE says"
     );
 }
+
+/// A table whose link is up is not written by the system that watches it:
+/// the duel stays unchanged from one frame to the next. Red while the
+/// connection note was cleared by assignment on every frame.
+#[test]
+fn a_live_link_leaves_the_duel_unchanged() {
+    let (mut app, _link, _dials) = app_with(LinkState::Up, Window::Unknown);
+    app.update();
+    let tick = app.world().read_change_tick();
+    app.update();
+    let duel = app.world().resource_ref::<Duel>();
+    assert!(
+        !duel
+            .last_changed()
+            .is_newer_than(tick, app.world().read_change_tick()),
+        "a live link wrote the duel"
+    );
+}

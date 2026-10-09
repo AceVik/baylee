@@ -52,6 +52,13 @@ impl YesBatch {
         })
     }
 
+    /// Whether no object is approved: [`Self::answer`] then answers nothing
+    /// and changes nothing that matters (an empty list cleared).
+    #[must_use]
+    pub fn is_idle(&self) -> bool {
+        self.remaining.is_empty()
+    }
+
     /// Answer once per snapshot and stop at any unrelated decision.
     pub fn answer(&mut self, view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
         if self.sent_at == Some(view.seq) {
