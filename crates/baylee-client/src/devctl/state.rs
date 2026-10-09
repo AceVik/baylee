@@ -4,6 +4,21 @@
 #[allow(clippy::wildcard_imports)] // the harness's own vocabulary
 use super::*;
 
+/// The report sheet's roots, its tour anchors' rects, and its preview.
+type ReportParts<'w, 's> = (
+    Query<'w, 's, Entity, With<crate::report::DeskRoot>>,
+    Query<
+        'w,
+        's,
+        (
+            &'static crate::report::ReportAnchor,
+            &'static ComputedNode,
+            &'static UiGlobalTransform,
+        ),
+    >,
+    Query<'w, 's, &'static crate::report::ReportPreview>,
+);
+
 /// Everything `/state` reads, in one parameter.
 ///
 /// A bundle rather than six more arguments on [`pump`], which is already at
@@ -38,19 +53,7 @@ pub(super) struct Believed<'w, 's> {
     gallery_roots: Query<'w, 's, Entity, With<crate::shellkit::gallery::GalleryRoot>>,
     /// The report sheet (window B), dumped after them with `"r":"report"`,
     /// its tour anchors, and its reference preview.
-    report_parts: (
-        Query<'w, 's, Entity, With<crate::report::DeskRoot>>,
-        Query<
-            'w,
-            's,
-            (
-                &'static crate::report::ReportAnchor,
-                &'static ComputedNode,
-                &'static UiGlobalTransform,
-            ),
-        >,
-        Query<'w, 's, &'static crate::report::ReportPreview>,
-    ),
+    report_parts: ReportParts<'w, 's>,
     #[allow(clippy::type_complexity)] // one row of a tree walk
     shell_nodes: Query<
         'w,
