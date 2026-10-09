@@ -393,6 +393,7 @@ async fn a_report_goes_from_the_client_through_the_gateway_to_the_service() {
             png_base64: bugreport::base64_encode(b"\x89PNG\r\n\x1a\nnot really"),
         }),
         local_record: None,
+        ..Gathered::default()
     };
     let secrets = [
         Secret {

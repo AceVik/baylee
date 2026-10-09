@@ -40,6 +40,7 @@ mod log;
 mod objects;
 mod player_view;
 mod seats;
+mod seen;
 mod shown_hands;
 mod status;
 mod turn;
@@ -58,6 +59,7 @@ pub use objects::{
 };
 pub use player_view::{PlayerView, SeatClock, TargetingContext, WordChange};
 pub use seats::{CommanderDamage, CommanderView, HouseAnswer, LossCause, ManaPoolView, SeatView};
+pub use seen::{Seen, SeenIn};
 pub use shown_hands::{SeatSetting, SharedHand};
 pub use status::ObjectStatus;
 pub use turn::{DayNight, Phase, Step};

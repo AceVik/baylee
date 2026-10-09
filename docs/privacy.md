@@ -567,7 +567,14 @@ report once it has it is theirs to describe.
 - **What, always:** the kind, the text the player wrote, this client's
   version and commit, and the game's id at the gateway when the report is
   written at a networked table. The gateway adds its own record of that
-  game (#315).
+  game (#315). When the text names cards or players in brackets
+  (`[Lightning Bolt]`, `[@steady 1]`), `client.refs` says which: positions
+  in the text, the card's registry index and printing, at a table the
+  object, zone and owner's seat number, and a player's seat number. Never
+  an account; it is derived from the text, so it is as consented as the
+  text, and a name the player typed goes as typed. `#` offers only cards
+  the seat's own view shows face up outside other players' hands
+  (`bugreport::refs`), so no reference can name a hidden card.
 - **What, if ticked** (one box each, `bugreport::Category`, all off until
   the player ticks them):
   - *System and hardware:* platform (OS/architecture), logical CPU count,

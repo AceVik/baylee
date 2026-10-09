@@ -827,7 +827,8 @@ fn service(app: &mut App, url: Option<&str>) {
 }
 
 /// Signed in nowhere and knowing no service, the form says so and Send is
-/// no button at all; knowing one, it says the report goes there.
+/// off (the kit's disabled button: focusable, saying why, answering
+/// nothing); knowing one, it says the report goes there.
 #[test]
 fn signed_in_nowhere_the_form_says_where_a_report_would_go() {
     let mut app = with_settings();
@@ -839,11 +840,34 @@ fn signed_in_nowhere_the_form_says_where_a_report_would_go() {
         words.contains(Phrase::ReportNeedsSession.text(Lang::En)),
         "{words}"
     );
+    let sends: Vec<Entity> = desk_presses(&mut app)
+        .into_iter()
+        .filter(|(_, p)| matches!(p, DeskPress::Send))
+        .map(|(e, _)| e)
+        .collect();
     assert!(
-        !desk_presses(&mut app)
-            .iter()
-            .any(|(_, p)| matches!(p, DeskPress::Send)),
+        !sends.is_empty()
+            && sends.iter().all(|e| app
+                .world()
+                .get::<crate::shellkit::controls::Disabled>(*e)
+                .is_some()),
         "nowhere to send it, nothing to press"
+    );
+    let before = desk(&app).form().status.clone();
+    app.world_mut().trigger(aimed(
+        sends[0],
+        Click {
+            button: PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+            duration: std::time::Duration::ZERO,
+            count: 1,
+        },
+    ));
+    app.update();
+    assert_eq!(
+        desk(&app).form().status,
+        before,
+        "a dead Send did something"
     );
 
     service(&mut app, Some(SERVICE));
@@ -1028,6 +1052,10 @@ fn a_local_game_s_form_does_not_promise_a_gateway_s_record() {
     let host = crate::host::house_duel().expect("the house duel builds");
     app.insert_resource(crate::InstalledHost(Box::new(host)));
     open_form(&mut app);
+    // What always goes is said in What is sent (window B), beside the body.
+    click_desk(&mut app, "what is sent", |p| {
+        matches!(p, DeskPress::Preview)
+    });
     let words = form_words(&mut app);
     assert!(
         words.contains(Phrase::ReportAlwaysLocal.text(Lang::En)),
@@ -1121,5 +1149,175 @@ fn command_enter_asks_to_send_and_enter_confirms() {
         ),
         "{:?}",
         desk(&app).form().status
+    );
+}
+
+/// The report's suggestions as `/state.report` names them.
+fn suggested(app: &App) -> Vec<String> {
+    desk(app).state_json(Lang::En)["suggestions"]
+        .as_array()
+        .map(|rows| {
+            rows.iter()
+                .map(|r| r["name"].as_str().unwrap_or_default().to_string())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Window B, away from a table: the first `#` loads the compiled pool,
+/// `#` and a name's start offers it, `Enter` writes it in brackets, the
+/// written name is a span that previews its printing when hovered, and the
+/// report carries it as a reference.
+#[test]
+fn a_hash_away_from_a_table_offers_the_pool_and_writes_the_name() {
+    let mut app = with_settings();
+    // What the picking plugin registers in a running client.
+    app.add_message::<Pointer<Over>>()
+        .add_message::<Pointer<Out>>()
+        .add_message::<Pointer<bevy::picking::events::Press>>()
+        .add_message::<Pointer<Release>>();
+    open_form(&mut app);
+    assert_eq!(desk(&app).gathered_refs_len(), 0, "the pool waits for a #");
+    keys(&mut app, "cast #Lightning Bol".chars().map(typed));
+    assert!(desk(&app).gathered_refs_len() > 100, "the pool arrived");
+    let offered = suggested(&app);
+    assert_eq!(
+        offered.first().map(String::as_str),
+        Some("Lightning Bolt"),
+        "{offered:?}"
+    );
+    // A suggestion stands under the caret, a pointer's popover.
+    let mut popovers = app
+        .world_mut()
+        .query_filtered::<Entity, With<crate::report::DeskSuggest>>();
+    assert_eq!(popovers.iter(app.world()).count(), 1);
+
+    keys(&mut app, [pressed(KeyCode::Enter, Key::Enter)]);
+    assert_eq!(desk(&app).form().text.text(), "cast [Lightning Bolt] ");
+    assert!(suggested(&app).is_empty(), "taken, the list closed");
+    app.update();
+    let span = {
+        let mut links = app
+            .world_mut()
+            .query::<(Entity, &crate::report::ReportLink)>();
+        let found: Vec<Entity> = links.iter(app.world()).map(|(e, _)| e).collect();
+        assert_eq!(found.len(), 1, "the name is one reference span");
+        found[0]
+    };
+    app.world_mut().write_message(aimed(
+        span,
+        Over {
+            hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+        },
+    ));
+    app.update();
+    app.update();
+    let mut previews = app.world_mut().query::<&crate::report::ReportPreview>();
+    let keys_shown: Vec<String> = previews.iter(app.world()).map(|p| p.key.clone()).collect();
+    assert_eq!(keys_shown.len(), 1, "one preview");
+    let bolt = baylee_cards::pool::rows()
+        .iter()
+        .find(|r| r.english_name == "Lightning Bolt")
+        .expect("Bolt is in the pool");
+    assert_eq!(keys_shown[0], format!("{}#0", bolt.scryfall_id));
+
+    let refs = desk(&app).state_json(Lang::En)["refs"].clone();
+    assert_eq!(refs["cards"][0]["text"], "Lightning Bolt");
+    assert_eq!(refs["cards"][0]["card"], bolt.index);
+    assert_eq!(refs["cards"][0]["at"], serde_json::json!([5, 21]));
+}
+
+/// `Esc` with suggestions up puts them away and keeps what was typed; the
+/// next `Esc` closes the sheet, the draft kept.
+#[test]
+fn esc_puts_the_suggestions_away_before_it_closes_the_sheet() {
+    let mut app = with_settings();
+    open_form(&mut app);
+    keys(&mut app, "#Wrath".chars().map(typed));
+    assert!(!suggested(&app).is_empty());
+    keys(&mut app, [pressed(KeyCode::Escape, Key::Escape)]);
+    assert!(desk(&app).open, "the first Esc is the list's");
+    assert!(suggested(&app).is_empty());
+    assert_eq!(desk(&app).form().text.text(), "#Wrath");
+    keys(&mut app, [pressed(KeyCode::Escape, Key::Escape)]);
+    assert!(!desk(&app).open, "the second closes the sheet");
+    assert_eq!(desk(&app).form().text.text(), "#Wrath", "the draft stays");
+}
+
+/// At a table `#` offers the seat's own view and never the pool: a card in
+/// the hand is offered as the seat's, and a card no zone of the view holds
+/// is not offered at all, however well it is known to this build.
+#[test]
+fn at_a_table_the_hash_offers_the_view_and_never_the_pool() {
+    use baylee_client_core::test_support::{ViewBuilder, printed, statics};
+    let mut app = with_settings();
+    app.init_resource::<crate::Duel>();
+    let mut view = ViewBuilder::new(2)
+        .with_hand(vec![("Lightning Bolt", 1, 7)])
+        .with_battlefield(1, [printed(8, 1, "Island", 8)])
+        .build();
+    view.seats[1].hand_count = 7;
+    {
+        let mut duel = app.world_mut().resource_mut::<crate::Duel>();
+        duel.view = Some(view);
+        let mut table = statics(10);
+        table.seats.push(baylee_view::SeatIdentity {
+            player: baylee_core::ids::PlayerId::new(1),
+            display_name: "steady 1".into(),
+            is_ai: true,
+            away: false,
+            team: None,
+        });
+        duel.statics = Some(table);
+    }
+    phase(&mut app, DuelPhase::Playing);
+    open_form(&mut app);
+    keys(&mut app, "#Li".chars().map(typed));
+    let state = desk(&app).state_json(Lang::En);
+    assert_eq!(state["at_table"], true);
+    assert_eq!(state["suggestions"][0]["name"], "Lightning Bolt");
+    assert_eq!(state["suggestions"][0]["meta"], "Hand \u{b7} yours");
+    keys(&mut app, " #Isl".chars().map(typed));
+    let state = desk(&app).state_json(Lang::En);
+    assert_eq!(
+        state["suggestions"][0]["meta"],
+        "Battlefield \u{b7} steady 1"
+    );
+    keys(&mut app, " #Wrath".chars().map(typed));
+    assert!(
+        suggested(&app).is_empty(),
+        "a card in no zone of the view was offered"
+    );
+    assert_eq!(desk(&app).gathered_refs_len(), 2, "the view's two, no pool");
+    keys(&mut app, " @st".chars().map(typed));
+    assert_eq!(suggested(&app), ["steady 1"]);
+    keys(&mut app, [pressed(KeyCode::Enter, Key::Enter)]);
+    assert!(desk(&app).form().text.text().ends_with("[@steady 1] "));
+}
+
+/// The tours' anchors on the sheet (`TOURS.md` §3.1, T31–T33): the sheet,
+/// the Attachments disclosure, the route line, and the record's row where a
+/// local game's record is offered.
+#[test]
+fn the_sheet_keeps_the_tours_anchors() {
+    let anchors = |app: &mut App| {
+        let mut q = app.world_mut().query::<&crate::report::ReportAnchor>();
+        let mut ids: Vec<&str> = q.iter(app.world()).map(|a| a.id()).collect();
+        ids.sort_unstable();
+        ids
+    };
+    let mut app = with_settings();
+    service(&mut app, Some(SERVICE));
+    let host = crate::host::house_duel().expect("the house duel builds");
+    app.insert_resource(crate::InstalledHost(Box::new(host)));
+    open_form(&mut app);
+    assert_eq!(
+        anchors(&mut app),
+        [
+            "report_attachments",
+            "report_form",
+            "report_record_row",
+            "report_route"
+        ]
     );
 }

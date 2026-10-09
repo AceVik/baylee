@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { readBuild, readCrash, readLog, readScreenshot, readSystem } from "./dump";
+import { readBuild, readCrash, readLog, readRefs, readScreenshot, readSystem } from "./dump";
 import { formatBytes, formatClock, formatTime, isBase64 } from "./format";
 import { fullReport } from "./test-utils";
 
@@ -116,5 +116,38 @@ describe("format", () => {
     expect(isBase64("iVBO")).toBe(true);
     expect(isBase64("iVB")).toBe(false);
     expect(isBase64("iV O")).toBe(false);
+  });
+});
+
+describe("the text's references", () => {
+  test("cards and players read as the client wrote them; an odd id links nowhere", () => {
+    const refs = readRefs({
+      refs: {
+        cards: [
+          { text: "Island", card: 7, zone: "battlefield", owner: 0, print: { scryfall_id: "not-an-id" } },
+          { text: "Opt", card: 9, print: { scryfall_id: "e3285e6b-3e79-4d7c-bf96-d920f973b80b" } },
+        ],
+        players: [{ text: "Ada#00a1", seat: 2 }],
+      },
+    });
+    expect(refs).toEqual({
+      cards: [
+        { text: "Island", card: 7, zone: "battlefield", owner: 0, scryfall: null },
+        {
+          text: "Opt",
+          card: 9,
+          zone: null,
+          owner: null,
+          scryfall: "https://scryfall.com/card/e3285e6b-3e79-4d7c-bf96-d920f973b80b",
+        },
+      ],
+      players: [{ text: "Ada#00a1", seat: 2 }],
+    });
+  });
+
+  test("none, or empty lists, read as none", () => {
+    expect(readRefs({})).toBeNull();
+    expect(readRefs({ refs: { cards: [], players: [] } })).toBeNull();
+    expect(readRefs({ refs: "nonsense" })).toBeNull();
   });
 });

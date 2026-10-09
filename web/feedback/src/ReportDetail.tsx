@@ -12,7 +12,7 @@ import {
   type Report,
   type Status,
 } from "./api";
-import { part, readBuild, readCrash, readLog, readScreenshot, readSystem } from "./dump";
+import { part, readBuild, readCrash, readLog, readRefs, readScreenshot, readSystem } from "./dump";
 import { formatBytes, formatTime } from "./format";
 import { CATEGORY_TITLES, newIssueUrl, parseIssue } from "./github";
 import { JsonTree } from "./JsonTree";
@@ -146,6 +146,7 @@ export function ReportDetail({ id }: { id: string }) {
   const screenshot = readScreenshot(client);
   const log = readLog(client);
   const crash = readCrash(client);
+  const refs = readRefs(client);
   const game = part(client, "game");
   const settings = part(client, "settings");
   // Only the admin's words, the category and the build: nothing of the
@@ -213,6 +214,35 @@ export function ReportDetail({ id }: { id: string }) {
               <p className="report-text">{report.text}</p>
             )}
           </Section>
+
+          {refs !== null && (
+            <Section title="References" id="s-refs">
+              <ul className="refs">
+                {refs.cards.map((card, i) => (
+                  <li key={`c${i}`}>
+                    <span>{card.text}</span>
+                    {card.zone !== null && <span className="muted"> · {card.zone.replace("_", " ")}</span>}
+                    {card.owner !== null && <span className="muted"> · seat {card.owner}</span>}
+                    {card.card !== null && <span className="muted mono"> · card {card.card}</span>}
+                    {card.scryfall !== null && (
+                      <>
+                        {" · "}
+                        <a href={card.scryfall} target="_blank" rel="noopener noreferrer">
+                          Scryfall
+                        </a>
+                      </>
+                    )}
+                  </li>
+                ))}
+                {refs.players.map((player, i) => (
+                  <li key={`p${i}`}>
+                    <span>{player.text}</span>
+                    {player.seat !== null && <span className="muted"> · seat {player.seat}</span>}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
 
           {crash !== null && (
             <Section title="Crash" id="s-crash">

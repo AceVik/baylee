@@ -186,6 +186,37 @@ The client confirms first: a direct report, and any report carrying a
 record, goes only after a page listing where it goes and every part it
 carries (`client-core::bugreport::ReportForm::parts`).
 
+### References in the text
+
+`text` stays plain printable text and reads on its own: a card the player
+named is written `[Lightning Bolt]` (the brackets the game log uses), a
+player `[@steady 1]`, the name as the player saw it. What the text cannot
+say rides in the free-form `client` object, so neither body changes and the
+service checks nothing new:
+
+```json
+"refs": {
+  "cards":   [{"text": "Lightning Bolt", "at": [5, 21], "card": 1234,
+               "print": {"scryfall_id": "…", "lang": "en", "finish": "normal"},
+               "face": 0, "object": 17, "zone": "stack", "owner": 1}],
+  "players": [{"text": "steady 1", "at": [25, 36], "seat": 1}]
+}
+```
+
+`at` is `[start, end)` in characters of `text`, brackets included; `card`
+the registry index (the append-only ledger's, stable across builds);
+`print` the printing; `object`, `zone` and `owner` only for a report
+written at a table, `owner` and `seat` seat numbers as the view counts
+them, never an account. A bracket naming nothing the client offered is not
+a reference and has no entry; a report whose text names nothing has no
+`refs` key, and its body is the bytes it was before references existed.
+The client builds it (`client-core::bugreport::refs::refs_for`) from the
+candidates the form offered: at a table only the seat's own view
+(`refs::candidates`, never a library, another hand or a face-down card),
+elsewhere the compiled pool. The admin UI lists them under the text, each
+card with a link to its Scryfall page; the text itself is shown as
+written.
+
 `scripts/server/feedback-direct.caddy` is the proxy's part: the route
 alone on the public site, its body bounded before the service reads it, no
 access log.

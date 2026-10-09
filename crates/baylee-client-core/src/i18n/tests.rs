@@ -95,6 +95,11 @@ fn both_forms_of_a_counted_phrase_carry_the_same_values() {
         (Phrase::PutCardOnBottom, Phrase::PutOnBottom),
         (Phrase::DiscardCard, Phrase::DiscardCards),
         (Phrase::NounCard, Phrase::NounCards),
+        (Phrase::ReportConfirmCardRef, Phrase::ReportConfirmCardRefs),
+        (
+            Phrase::ReportConfirmPlayerName,
+            Phrase::ReportConfirmPlayerNames,
+        ),
         (Phrase::NounTarget, Phrase::NounTargets),
         (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
         (Phrase::NounCardToTop, Phrase::NounCardsToTop),

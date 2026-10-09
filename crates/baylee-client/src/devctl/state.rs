@@ -36,6 +36,21 @@ pub(super) struct Believed<'w, 's> {
     /// The kit's gallery, dumped after the lobby with `"r":"gallery"` on
     /// its root.
     gallery_roots: Query<'w, 's, Entity, With<crate::shellkit::gallery::GalleryRoot>>,
+    /// The report sheet (window B), dumped after them with `"r":"report"`,
+    /// its tour anchors, and its reference preview.
+    report_parts: (
+        Query<'w, 's, Entity, With<crate::report::DeskRoot>>,
+        Query<
+            'w,
+            's,
+            (
+                &'static crate::report::ReportAnchor,
+                &'static ComputedNode,
+                &'static UiGlobalTransform,
+            ),
+        >,
+        Query<'w, 's, &'static crate::report::ReportPreview>,
+    ),
     #[allow(clippy::type_complexity)] // one row of a tree walk
     shell_nodes: Query<
         'w,
@@ -587,7 +602,51 @@ fn shell_nodes_json(believed: &Believed) -> String {
     for root in &believed.gallery_roots {
         walk(believed, root, 0, Some("gallery"), &mut out);
     }
+    for root in &believed.report_parts.0 {
+        walk(believed, root, 0, Some("report"), &mut out);
+    }
     format!("[{}]", out.join(","))
+}
+
+/// The report sheet (window B): what its desk says (`ReportDesk::
+/// state_json`), where its tour anchors stand in logical pixels, and the
+/// printing its reference preview shows (`"<scryfall id>#<face>"`).
+fn report_json(believed: &Believed) -> String {
+    let lang = believed
+        .settings
+        .as_deref()
+        .map_or(Lang::En, |s| Lang::of(&s.lang));
+    let Some(desk) = believed.report.as_deref() else {
+        return "null".to_string();
+    };
+    let mut value = desk.state_json(lang);
+    let anchors: Vec<serde_json::Value> = believed
+        .report_parts
+        .1
+        .iter()
+        .map(|(anchor, node, place)| {
+            let scale = node.inverse_scale_factor;
+            let size = node.size() * scale;
+            let mid = place.translation * scale;
+            serde_json::json!({
+                "id": anchor.id(),
+                "x": mid.x - size.x / 2.0,
+                "y": mid.y - size.y / 2.0,
+                "w": size.x,
+                "h": size.y,
+            })
+        })
+        .collect();
+    value["anchors"] = serde_json::Value::Array(anchors);
+    value["preview"] = believed
+        .report_parts
+        .2
+        .iter()
+        .next()
+        .map_or(serde_json::Value::Null, |p| {
+            serde_json::Value::String(p.key.clone())
+        });
+    value.to_string()
 }
 
 /// All front-door controls in logical pixels, without field values or credentials.
@@ -798,7 +857,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"last_cue\":{last_cue},\"last_count\":{last_count},\"cues_suppressed\":{cues_suppressed},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits},\"face_builds\":{face_builds},\
-         \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\
+         \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\
          \"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates}}}",
         shell = shell_keys_json(believed),
         camera = camera_json(believed, duel),
@@ -808,6 +867,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
         arrangement = arrangement_json(believed, duel),
         ui_rebuilds = rebuilds_json(believed),
         desk_controls = desk_controls_json(believed),
+        report = report_json(believed),
         shell_nodes = shell_nodes_json(believed),
         // Which screen this is, and — on the end screen only — the ways off
         // it with `duel_exit` saying which the keyboard can see. See

@@ -69,6 +69,9 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::lobby::orders::MENU,
     &crate::buildui::BUILDER_ORDER,
     &crate::buildui::BUILDER_SHEET_ORDER,
+    // The report sheet, over the lobby or the table (window B).
+    &crate::report::REPORT,
+    &crate::report::REPORT_CONFIRM,
     #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
     &super::gallery::GALLERY_ORDER,
 ];

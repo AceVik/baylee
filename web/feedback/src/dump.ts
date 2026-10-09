@@ -121,3 +121,56 @@ export function readCrash(client: Record<string, unknown>): Crash | null {
     thread: text(crash["thread"]),
   };
 }
+
+/** One card the player's text names in brackets (`client.refs.cards`). */
+export interface CardRef {
+  text: string;
+  card: number | null;
+  zone: string | null;
+  owner: number | null;
+  /** Scryfall's page for the printing; only for an id shaped like one. */
+  scryfall: string | null;
+}
+
+/** One player the text names (`client.refs.players`): a seat, never an account. */
+export interface PlayerRef {
+  text: string;
+  seat: number | null;
+}
+
+export interface Refs {
+  cards: CardRef[];
+  players: PlayerRef[];
+}
+
+const SCRYFALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * The references the client derived from the text (window B): what each
+ * `[Name]` and `[@Name]` is, which the text alone cannot say. `null` when
+ * the text names nothing.
+ */
+export function readRefs(client: Record<string, unknown>): Refs | null {
+  const refs = part(client, "refs");
+  if (!refs) return null;
+  const cards = Array.isArray(refs["cards"]) ? refs["cards"] : [];
+  const players = Array.isArray(refs["players"]) ? refs["players"] : [];
+  const read: Refs = {
+    cards: cards.filter(isRecord).map((c) => {
+      const print = isRecord(c["print"]) ? c["print"] : null;
+      const id = print ? text(print["scryfall_id"]) : null;
+      return {
+        text: text(c["text"]) ?? "?",
+        card: num(c["card"]),
+        zone: text(c["zone"]),
+        owner: num(c["owner"]),
+        scryfall: id !== null && SCRYFALL_ID.test(id) ? `https://scryfall.com/card/${id}` : null,
+      };
+    }),
+    players: players.filter(isRecord).map((p) => ({
+      text: text(p["text"]) ?? "?",
+      seat: num(p["seat"]),
+    })),
+  };
+  return read.cards.length + read.players.length > 0 ? read : null;
+}

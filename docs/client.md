@@ -8798,6 +8798,50 @@ never rebuilds the form. Signed in, a line says where it goes ("Goes to
 exact body. None of this touches the payload: the builder and its tests
 in client-core are unchanged.
 
+### The report sheet on the kit, and its references (window B)
+
+The form is a kit sheet now (`report/form.rs`, `windows-b6/DESIGN.md`
+§B.3): `shellkit::surfaces::sheet_box_with(Medium)` over the scrim at
+`GlobalZIndex(1000)`, the kind a segmented control, the text field
+(`report/field.rs`: six lines growing to twelve, two to four on a phone),
+one small line under it (`n / 20000 characters · # a card · @ a player`),
+the route line, the Attachments disclosure with its consent rows, and a
+sticky footer: **What is sent** (the body, with the "Always sent" sentence
+it replaced in the form), **Copy as text** where a report can go nowhere,
+Close and Send (disabled with its reason). The confirmation replaces the
+body in the same sheet and gains one line, "2 card references · 1 player
+name". It is the one kit sheet sized at the fixed step (`TextSize::L`, the
+lobby's `Metrics::of` values) rather than the text step, because it stands
+over the table too (Q-B5). Its focus order is `report::REPORT` and
+`REPORT_CONFIRM` (`KEYBOARD.md` §7.11): the text first; a click on a
+control leaves typing in the text, Tab moves the ring and then Enter and
+Space are the control's (`report::keys`, the kit's `Activated`); a press is
+answered by one observer on every entity (`keys::pressed`). The tour's
+anchors stand on the sheet, the disclosure, the record's row and the route
+line (`ReportAnchor`; `/state.report.anchors`).
+
+**References.** A run `#` + a letter (or `@` + a character) with the caret
+at its end, read off the text after each change and never off a key,
+offers suggestions (`client-core::bugreport::refs::trigger`, `best`):
+under a pointer a popover under the caret, under a finger a row of chips
+under the field. `↑ ↓` move, `Enter` or `Tab` take (`[Name] ` over the
+run), `Esc` puts them away and leaves what was typed; the next `Esc` closes
+the sheet with the draft kept. At a table `#` offers only the seat's own
+view through `PlayerView::identities`, the walk the print table is built
+from, never a shared or controlled hand and never a face-down card, its
+controller's own included (`refs::zone_of`; the hidden-information test is
+`baylee-gamehost`'s `view/tests/report_refs.rs`); away from a table the
+compiled pool, loaded on the first `#`, the deck's cards first in the
+builder (`report::refs::fill_the_pool`). `@` offers the other seats by
+their roster name, or in a room the room's players as the room shows them
+(`Name#tag`). A finished reference is a span of the paragraph — a card's
+in the accent carrying a `ReportLink`, a player's bold — and hovering a
+card's span (a finger holds it 400 ms) shows its printing beside the
+pointer (`report::refs::show_the_preview`, at `GlobalZIndex(1002)`: the
+table's own preview stands under the sheet). On Send the brackets that
+name a candidate become `client.refs` (`docs/feedback.md` §"References in
+the text").
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds
