@@ -144,7 +144,9 @@ def check_fit(nodes):
             continue
         if in_kind(nodes, n, ("field",)):
             continue
-        if n["tw"] > n["w"] + 1.5 or n["th"] > n["h"] + 1.5:
+        # Four pixels of slack in width: a wrapped line's last glyph may
+        # overhang its box by its side bearing, which nobody reads as cut.
+        if n["tw"] > n["w"] + 4.0 or n["th"] > n["h"] + 1.5:
             faults.append(
                 f"fit: {n['t'][:40]!r} needs {n['tw']:.0f}x{n['th']:.0f} in {box(n)}"
             )
@@ -176,7 +178,21 @@ def layer(nodes, n):
 def check_text_overlap(nodes):
     """No two visible texts on one layer intersect: a title running into the
     chip beside it, a caption over its value."""
-    texts = [n for n in nodes if n.get("t", "").strip() and not hidden(nodes, n)]
+    texts = []
+    for n in nodes:
+        if not n.get("t", "").strip() or hidden(nodes, n):
+            continue
+        # What a scroll container holds is cut at its edges: only the part
+        # in view can lie over anything.
+        seen = dict(n)
+        for up in ancestors(nodes, n["index"], None):
+            if up.get("k") == "scroll":
+                x0, y0 = max(seen["x"], up["x"]), max(seen["y"], up["y"])
+                x1 = min(seen["x"] + seen["w"], up["x"] + up["w"])
+                y1 = min(seen["y"] + seen["h"], up["y"] + up["h"])
+                seen.update(x=x0, y=y0, w=max(x1 - x0, 0), h=max(y1 - y0, 0))
+        if seen["w"] > 0 and seen["h"] > 0:
+            texts.append(seen)
     faults = []
     for i, a in enumerate(texts):
         la = layer(nodes, a)
