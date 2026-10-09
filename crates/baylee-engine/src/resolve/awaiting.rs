@@ -466,6 +466,12 @@ pub enum AwaitingOp {
         /// Life to pay.
         amount: u16,
     },
+    /// The attacking creature `blocker` will block, or none
+    /// ([`Effect::TargetMayBlockAttackerOfChoice`]).
+    BlockAttacker {
+        /// The creature that will block.
+        blocker: ObjectId,
+    },
     /// A player with a Library of Leng arranges cards an effect is about to
     /// make them discard (`resolve::discard`): what is discarded, by whom,
     /// and what runs once every such player has answered.

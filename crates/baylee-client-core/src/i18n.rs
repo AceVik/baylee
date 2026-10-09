@@ -2188,6 +2188,26 @@ messages! {
         en: "attackers to join the band",
         de: "Angreifer, die sich der Gruppe anschließen",
     },
+    /// attacker to block (False Orders' re-block, its blocker unnamed)
+    NounAttackerToBlock {
+        en: "attacker to block",
+        de: "Angreifer, der geblockt wird",
+    },
+    /// attackers to block
+    NounAttackersToBlock {
+        en: "attackers to block",
+        de: "Angreifer, die geblockt werden",
+    },
+    /// attacker for {0} to block
+    NounAttackerForBlocker {
+        en: "attacker for {0} to block",
+        de: "Angreifer, den {0} blockt",
+    },
+    /// attackers for {0} to block
+    NounAttackersForBlocker {
+        en: "attackers for {0} to block",
+        de: "Angreifer, die {0} blockt",
+    },
     /// attacker to band with {0} (banding, CR 702.22c): the leader named
     NounAttackerToBandWith {
         en: "attacker to band with {0}",

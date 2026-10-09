@@ -208,6 +208,34 @@ pub(super) fn resume_inner(
                 }
             }
         }
+        AwaitingOp::BlockAttacker { blocker } => {
+            // The answer names an attacker still attacking, and the blocker
+            // is still on the battlefield, or nothing happens.
+            if let Some(&attacker) = chosen.first()
+                && state.combat.is_attacking(attacker)
+                && state
+                    .object(blocker)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                && !state.combat.is_blocking(blocker, attacker)
+            {
+                state.combat.declare_block(blocker, attacker);
+                state.journal.record(GameEvent::BecameBlocker {
+                    object: blocker,
+                    attacker,
+                });
+                // A block on one member of a band blocks the band
+                // (CR 702.22h).
+                for mate in state.combat.band_mates(attacker) {
+                    if !state.combat.is_blocking(blocker, mate) {
+                        state.combat.declare_block(blocker, mate);
+                        state.journal.record(GameEvent::BecameBlocker {
+                            object: blocker,
+                            attacker: mate,
+                        });
+                    }
+                }
+            }
+        }
         AwaitingOp::DiscardThenDraw => {
             // "If you do, draw that many": what was discarded, counted as it
             // happens — a card that is no longer in the hand is not.

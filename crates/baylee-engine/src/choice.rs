@@ -792,6 +792,13 @@ pub enum ChoicePrompt {
         /// The attacker with banding the band forms around.
         with: ObjectId,
     },
+    /// "You may have it block an attacking creature of your choice" (False
+    /// Orders): the menu holds the attackers `blocker` could be blocking,
+    /// and naming none leaves it out of combat.
+    BlockWith {
+        /// The creature that will block what is chosen.
+        blocker: ObjectId,
+    },
     /// Revealed cards of one card type, one of which may be put into the
     /// hand (Atraxa, Grand Unifier: "for each card type, you may put a card
     /// of that type … into your hand"). Asked once per type, and the type

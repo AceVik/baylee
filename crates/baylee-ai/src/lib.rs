@@ -483,7 +483,14 @@ impl HeuristicAgent {
                     // can cost a flier its evasion, and the menu may hold
                     // two creatures without banding, which one band cannot.
                     // Attacking unbanded is always legal.
-                    ChoicePrompt::LeaveTapped | ChoicePrompt::Band { .. } => min,
+                    // False Orders' re-block: the spell is an attacker's
+                    // trick (a blocker out of the way), and handing the
+                    // creature it moved a new attacker to block undoes it.
+                    // Which block would serve a defender is the combat
+                    // judgement this heuristic leaves to the declaration.
+                    ChoicePrompt::LeaveTapped
+                    | ChoicePrompt::Band { .. }
+                    | ChoicePrompt::BlockWith { .. } => min,
                     ChoicePrompt::FirstPile => max.min(1),
                     _ if max <= 2 => max,
                     _ => min,

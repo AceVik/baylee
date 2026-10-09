@@ -621,6 +621,23 @@ pub enum Effect {
     TakeExtraTurn,
     /// Exile the source object (Temporal Mastery's self-exile rider).
     ExileSource,
+    /// Remove each target from combat (CR 506.4): it stops being an
+    /// attacking or blocking creature. With `unblock`, "creatures it was
+    /// blocking that had become blocked by only that creature this combat
+    /// become unblocked" (False Orders); without it, an attacker it blocked
+    /// stays blocked (CR 509.1h).
+    RemoveTargetFromCombat {
+        /// Whether the attackers it alone had blocked become unblocked.
+        unblock: bool,
+    },
+    /// "You may have it block an attacking creature of your choice" (False
+    /// Orders): the controller picks one attacking creature, or none, and
+    /// the first target becomes a creature blocking it. Only an attacker
+    /// of the target's controller (or of a planeswalker they control) is
+    /// offered, as CR 506.3e and 802.4a say a creature may block. Blocking
+    /// restrictions are not asked: they bind a declaration (CR 509.1b), and
+    /// this is an effect. Choosing does not target.
+    TargetMayBlockAttackerOfChoice,
     /// Tap each target.
     TapTarget,
     /// Untap each target.

@@ -228,6 +228,10 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         ChoicePrompt::Band { .. } => {
             "Choose the attackers to join the band (choose none and it attacks alone)".into()
         }
+        ChoicePrompt::BlockWith { .. } => {
+            "Choose the attacking creature it blocks (choose none and it stays out of combat)"
+                .into()
+        }
         ChoicePrompt::OneOfType { card_type } => {
             format!("Choose one {}", types(card_type, SupertypeSet::EMPTY))
         }

@@ -12,8 +12,8 @@ pub mod mind;
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 21 carries Library of Leng's arrangement (`ArrangePrompt::DiscardToLibrary`).
-pub const PROTOCOL_VERSION: u32 = 21;
+/// Version 22 carries False Orders' re-block (`ChoicePrompt::BlockWith`).
+pub const PROTOCOL_VERSION: u32 = 22;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -267,7 +267,8 @@ mod tests {
         // `seat_frame`'s `_` arm, as with `AiLog`.
         // 21: Library of Leng's arrangement, an `ArrangePrompt` variant an
         // older client cannot decode.
-        assert_eq!(PROTOCOL_VERSION, 21);
+        // 22: False Orders' re-block, a `ChoicePrompt` variant likewise.
+        assert_eq!(PROTOCOL_VERSION, 22);
     }
 
     #[test]

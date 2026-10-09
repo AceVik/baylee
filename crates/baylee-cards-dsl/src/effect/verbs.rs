@@ -626,6 +626,8 @@ impl Effect {
             | Effect::TakeExtraTurn
             | Effect::ExileSource
             | Effect::TapTarget
+            | Effect::RemoveTargetFromCombat { .. }
+            | Effect::TargetMayBlockAttackerOfChoice
             | Effect::ToggleTapTarget
             | Effect::TapAll { .. }
             | Effect::TapAllOf { .. }
