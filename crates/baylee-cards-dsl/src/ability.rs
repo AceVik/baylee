@@ -499,6 +499,10 @@ pub enum Trigger {
     /// — Cockatrice's "whenever this creature blocks or becomes blocked by a
     /// non-Wall creature, destroy that creature at end of combat".
     BlocksOrBecomesBlockedBy(&'static Filter),
+    /// "Whenever [a creature matching the filter] blocks" (Ydwen Efreet):
+    /// once when it is declared as a blocker, however many attackers it
+    /// blocks (CR 509.3a). The blocker is the trigger's event object.
+    Blocks(&'static Filter),
     /// A matching creature is the sole declared attacker (exalted).
     /// This is checked when attacking, not again when the trigger resolves.
     AttacksAlone(&'static Filter),

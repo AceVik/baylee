@@ -148,6 +148,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::OpponentsCantCast(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
+        | Modifier::CantBeTargetedByAbilitiesFrom(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife { .. }
@@ -156,6 +157,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBeAttackedExceptBy { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+        | Modifier::PreventDamageFrom(_)
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBeBlockedBy(_)
         | Modifier::CantAttackUnlessDefenderControls(_)
@@ -963,6 +965,7 @@ mod tests {
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
             Modifier::CantBeEnchantedExceptSource,
             Modifier::CantBeTargetedBy(&Filter::CREATURE),
+            Modifier::CantBeTargetedByAbilitiesFrom(&Filter::ARTIFACT),
             Modifier::DrawLimitPerTurn {
                 who: PlayerRel::EachPlayer,
                 limit: 1,
@@ -983,6 +986,7 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),

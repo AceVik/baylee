@@ -625,7 +625,8 @@ pub enum Effect {
     /// attacking or blocking creature. With `unblock`, "creatures it was
     /// blocking that had become blocked by only that creature this combat
     /// become unblocked" (False Orders); without it, an attacker it blocked
-    /// stays blocked (CR 509.1h).
+    /// stays blocked (CR 509.1h). An ability with no target removes its own
+    /// source: "remove this creature from combat" (Mijae Djinn).
     RemoveTargetFromCombat {
         /// Whether the attackers it alone had blocked become unblocked.
         unblock: bool,
@@ -1147,6 +1148,17 @@ pub enum Effect {
         then: &'static [Effect],
         /// Effects when it does not.
         otherwise: &'static [Effect],
+    },
+    /// "Flip a coin. If you win the flip, … If you lose the flip, …"
+    /// (CR 705): the ability's controller flips once, from the game's
+    /// seeded generator, and the one branch the flip names runs (CR 705.2:
+    /// the flip is won or lost only by the player who flipped). Either list
+    /// may be empty: Mijae Djinn does nothing when it wins.
+    FlipCoin {
+        /// Effects when the controller wins the flip.
+        won: &'static [Effect],
+        /// Effects when the controller loses it.
+        lost: &'static [Effect],
     },
     /// "…if this is the first time this ability has resolved this turn. If
     /// it's the second time, …. If it's the third time, …." (Omnath, Locus

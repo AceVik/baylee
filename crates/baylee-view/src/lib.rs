@@ -182,9 +182,11 @@ pub use turn::{DayNight, Phase, Step};
 /// Compatible addition: [`PlayerView::clocks`], every seat's running
 /// decision clock (owner, 08.10.2026), absent while empty; a reader of 55
 /// without it ignores it.
+/// Version 56 adds the game log's [`LogEvent::CoinFlipped`] (CR 705), a
+/// variant a reader of 55 cannot parse.
 ///
 /// [`SubtypeSet`]: baylee_core::types::SubtypeSet
-pub const VIEW_VERSION: u32 = 55;
+pub const VIEW_VERSION: u32 = 56;
 
 // ------------------------------------------------------------------- targets
 

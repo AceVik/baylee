@@ -695,6 +695,17 @@ pub(super) fn exec_immediate(
             };
             run_nested(state, res, branch)
         }
+        // CR 705.1, 705.2: one flip, from the seeded stream, won or lost
+        // by the player who flipped; the journal says which, so the log
+        // and a replay agree on it.
+        Effect::FlipCoin { won, lost } => {
+            let heads = state.rng.below(2) == 0;
+            state.journal.record(crate::event::GameEvent::CoinFlipped {
+                player: you,
+                won: heads,
+            });
+            run_nested(state, res, if heads { won } else { lost })
+        }
         Effect::IfEventPowerAtLeast { n, then, otherwise } => {
             let power = res
                 .event_object
@@ -1330,7 +1341,12 @@ pub(super) fn exec_immediate(
         }
         // CR 506.4: "an effect specifically removes it from combat".
         Effect::RemoveTargetFromCombat { unblock } => {
-            for &target in &res.targets.clone() {
+            let removed: SmallVec<[ObjectId; 2]> = if res.targets.is_empty() && !res.targeted {
+                this_to_affect(state, res).into_iter().collect()
+            } else {
+                res.targets.iter().copied().collect()
+            };
+            for target in removed {
                 let was_blocking = state.combat.blocked_by(target);
                 state.combat.remove_from_combat(target);
                 if unblock {

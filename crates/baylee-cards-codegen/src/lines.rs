@@ -643,6 +643,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // a non-Wall creature". Its filter is the *other* creature, so it
         // stays out of `whose_trigger_fits`, where a filter is the subject.
         T::BlocksOrBecomesBlockedBy(_) => &["block"],
+        // Ydwen Efreet, "Whenever this creature blocks".
+        T::Blocks(_) => &["blocks"],
         // The step, not the word "beginning" — every one of these sentences
         // opens with it, so on its own it says nothing and a card printing
         // two of them was a coin toss. Mana Vault prints an upkeep sentence
@@ -741,6 +743,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::Attacks(filter)
         | Trigger::AttacksAlone(filter)
         | Trigger::OneOrMoreAttack(filter)
+        | Trigger::Blocks(filter)
         | Trigger::BecomesTapped(filter)
         | Trigger::TappedForMana { filter, .. }
         | Trigger::ExiledFromBattlefield(filter)

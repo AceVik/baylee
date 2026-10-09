@@ -146,6 +146,7 @@ pub fn effect_label(
         }
         DamageEffectKind::TurnFaceUp { .. } => Phrase::DamageTurnFaceUp.text(lang).to_string(),
         DamageEffectKind::PreventCombat => Phrase::DamagePreventCombat.text(lang).to_string(),
+        DamageEffectKind::PreventAll => Phrase::DamagePreventAll.text(lang).to_string(),
         DamageEffectKind::Protection => Phrase::DamageProtection.text(lang).to_string(),
         DamageEffectKind::Redirect { to } => Phrase::DamageRedirect.fill(lang, &[&name(to)]),
         DamageEffectKind::RedirectNext { remaining, to } => {

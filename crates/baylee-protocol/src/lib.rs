@@ -13,7 +13,8 @@ pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
 /// Version 24 carries Camouflage's piles (`ChoicePrompt::CamouflagePile`).
-pub const PROTOCOL_VERSION: u32 = 24;
+/// Version 25 carries a damage decision's `DamageEffectKind::PreventAll`.
+pub const PROTOCOL_VERSION: u32 = 25;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;

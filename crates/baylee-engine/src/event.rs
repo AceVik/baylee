@@ -98,6 +98,13 @@ pub enum GameEvent {
         /// The kept permanents.
         cards: Vec<ObjectId>,
     },
+    /// A player flipped a coin and won or lost the flip (CR 705).
+    CoinFlipped {
+        /// Who flipped.
+        player: PlayerId,
+        /// Whether they won.
+        won: bool,
+    },
     /// A zone was shuffled.
     Shuffled {
         /// Whose zone.
