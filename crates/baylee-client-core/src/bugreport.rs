@@ -85,7 +85,7 @@ pub use crash::{
 };
 pub use form::{Outcome, Part, ReportForm, Status, Via, outcome, outcome_via};
 pub use localrecord::{
-    KEEP_RECORD_BYTES, KEEP_RECORDS, LocalRecord, MAX_RECORD_BYTES, ReadBack, gzip,
+    KEEP_RECORD_BYTES, KEEP_RECORDS, LocalRecord, MAX_RECORD_BYTES, ReadBack, gzip, inflate,
     is_record_file_name, read_back, record_file_name, retention,
 };
 pub use route::{

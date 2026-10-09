@@ -5,6 +5,7 @@ mod support;
 use baylee_update::apply::{self, Install, Staged};
 use baylee_update::launch::{self, Activation};
 use baylee_update::plan::{NEW, Os};
+use baylee_update::relaunch;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -140,8 +141,18 @@ fn runtime_helper() {
         .unwrap();
         return;
     }
-    let (_, lease) = launch::join().unwrap().expect("launcher lease");
+    let (install, lease) = launch::join().unwrap().expect("launcher lease");
     let exe = std::env::current_exe().unwrap();
+    if let Some(second) = std::env::var_os("BAYLEE_TEST_RELAUNCH") {
+        relaunched(
+            &install,
+            &lease,
+            &exe,
+            Path::new(&result),
+            Path::new(&second),
+        );
+        return;
+    }
     let value = serde_json::json!({
         "version": fs::read_to_string(exe.with_file_name("version.txt")).unwrap(),
         "writable": lease.writable(), "exe": exe,
@@ -150,6 +161,89 @@ fn runtime_helper() {
     if let Some(stop) = std::env::var_os("BAYLEE_TEST_STOP") {
         wait_file(Path::new(&stop));
     }
+}
+
+/// "Restart now", as the client does it: the first run installs the staged
+/// update as it ends and leaves the helper behind with a handoff; the run
+/// the helper starts writes what it is and what it was handed.
+fn relaunched(
+    install: &Install,
+    lease: &launch::ClientLease,
+    exe: &Path,
+    result: &Path,
+    second: &Path,
+) {
+    let version = fs::read_to_string(exe.with_file_name("version.txt")).unwrap();
+    if result.exists() {
+        let handoff = relaunch::handoff_from_stdin(Duration::from_secs(10)).unwrap_or_default();
+        let value = serde_json::json!({
+            "version": version,
+            "handoff": String::from_utf8(handoff).unwrap(),
+        });
+        let tmp = second.with_extension("tmp");
+        fs::write(&tmp, value.to_string()).unwrap();
+        fs::rename(tmp, second).unwrap();
+        return;
+    }
+    fs::write(
+        result,
+        serde_json::json!({ "version": version }).to_string(),
+    )
+    .unwrap();
+    let again = relaunch::Again::launcher(
+        install,
+        lease.original(),
+        ["--ignored", "--exact", "runtime_helper", "--nocapture"]
+            .map(std::ffi::OsString::from)
+            .to_vec(),
+    );
+    let mut helper = Command::new(exe);
+    helper.args([
+        "--ignored",
+        "--exact",
+        "--nocapture",
+        "relaunch_helper",
+        "--",
+    ]);
+    let handoff = relaunch::leave_behind(helper, &again, b"handed over").unwrap();
+    launch::activate(install, "original").unwrap();
+    // Held to the end of the process, as the client holds it.
+    std::mem::forget(handoff);
+}
+
+#[test]
+#[ignore = "subprocess helper"]
+fn relaunch_helper() {
+    let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    let Some(again) = relaunch::asked(&args) else {
+        return;
+    };
+    relaunch::helper(std::io::stdin(), &again, relaunch::WAIT).unwrap();
+}
+
+/// The whole of "Restart now" through the packaged launcher: the helper
+/// waits for the old runtime and its launcher, the launcher it starts
+/// selects the update the old runtime installed on its way out, and the new
+/// runtime finds the handoff on its stdin.
+#[test]
+fn restart_now_starts_the_installed_update_with_the_handoff() {
+    let fixture = Fixture::new("relaunch");
+    fixture.stage("1.0.0-beta.6");
+    let second = fixture.root.join("second.json");
+    let status = fixture
+        .command()
+        .env("BAYLEE_TEST_RELAUNCH", &second)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(fixture.result()["version"], "original");
+    wait_file(&second);
+    let value: serde_json::Value = serde_json::from_slice(&fs::read(&second).unwrap()).unwrap();
+    assert_eq!(
+        value["version"], "1.0.0-beta.6",
+        "the update, started again"
+    );
+    assert_eq!(value["handoff"], "handed over");
 }
 
 #[test]

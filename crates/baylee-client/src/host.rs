@@ -153,6 +153,27 @@ pub trait DuelHost: Send + Sync + 'static {
     fn local_record(&self) -> Option<&[u8]> {
         None
     }
+
+    /// Where a restart picks this game up again, for the game this client
+    /// hosts itself ([`ResumePoint`]); `None` for a networked host, whose
+    /// chair the gateway hands back.
+    fn resume_point(&self) -> Option<ResumePoint> {
+        None
+    }
+}
+
+/// What a restart needs to rebuild a game this client hosts
+/// (`baylee_client_core::resume::Game::Local`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResumePoint {
+    /// The record's file among the kept records.
+    pub record: String,
+    /// The local seat.
+    pub seat: PlayerId,
+    /// What each seat is called.
+    pub names: Vec<String>,
+    /// The engine's hash now, as the record writes it.
+    pub hash: String,
 }
 
 /// Decodes one server envelope into the message a client acts on.
@@ -235,6 +256,10 @@ pub struct LocalHost {
     live: crate::records::LiveRecord,
     /// The local seat's decklist, for the creature-type chooser's quick list.
     deck: Vec<baylee_core::ids::CardIndex>,
+    /// The record's file name, and what each seat is called: what a restart
+    /// needs to rebuild this game ([`DuelHost::resume_point`]).
+    record_name: String,
+    names: Vec<String>,
 }
 
 impl LocalHost {
@@ -256,25 +281,80 @@ impl LocalHost {
             seat_names.iter().map(|n| (*n).to_string()).collect(),
         );
         let statics = session.game_static_envelope(seat);
+        let record_name = baylee_client_core::bugreport::record_file_name(wall_ms(), preset.seed);
         let mut host = Self {
             session,
             seat,
             statics: Some(statics),
             pending_out: Vec::new(),
             record: Vec::new(),
-            live: crate::records::LiveRecord::new(
-                &baylee_client_core::bugreport::record_file_name(wall_ms(), preset.seed),
-            ),
-            deck: preset
-                .seats
-                .get(seat.get() as usize)
-                .map(|spec| spec.deck.iter().map(|entry| entry.card).collect())
-                .unwrap_or_default(),
+            live: crate::records::LiveRecord::new(&record_name),
+            deck: own_deck(&preset, seat),
+            record_name,
+            names: seat_names.iter().map(|n| (*n).to_string()).collect(),
         };
         host.take_the_record();
         Some(host)
     }
 
+    /// The game kept as `record` (the file `record_name` among the kept
+    /// records) picked up where it stops, the local player on `seat`: what
+    /// a restart into an update comes back to (`docs/client.md`
+    /// §"Restarting into an update"). The record goes on in the same file.
+    ///
+    /// # Errors
+    /// Why the record did not rebuild the game, in words for the log.
+    pub fn resume(
+        record: Vec<u8>,
+        record_name: &str,
+        seat: PlayerId,
+        seat_names: &[String],
+    ) -> Result<Self, String> {
+        let mut session = Session::resume_recorded(&record).map_err(|why| format!("{why:?}"))?;
+        session.describe("local".to_string(), seat_names.to_vec());
+        let preset = record
+            .split(|b| *b == b'\n')
+            .next()
+            .and_then(|header| serde_json::from_slice(header).ok())
+            .and_then(|line| match line {
+                baylee_gamehost::record::Line::Header { preset, .. } => Some(preset),
+                _ => None,
+            })
+            .ok_or("the record has no header")?;
+        if seat.get() as usize >= preset.seats.len() {
+            return Err("no such seat".to_string());
+        }
+        let statics = session.game_static_envelope(seat);
+        Ok(Self {
+            session,
+            seat,
+            statics: Some(statics),
+            pending_out: Vec::new(),
+            live: crate::records::LiveRecord::continuing(record_name, record.len()),
+            record,
+            deck: own_deck(&preset, seat),
+            record_name: record_name.to_string(),
+            names: seat_names.to_vec(),
+        })
+    }
+
+    /// The engine's hash, as a record writes it.
+    #[must_use]
+    pub fn hash(&self) -> String {
+        format!("{:016x}", self.session.snapshot_hash())
+    }
+}
+
+/// The seat's decklist in `preset`.
+fn own_deck(preset: &GamePreset, seat: PlayerId) -> Vec<baylee_core::ids::CardIndex> {
+    preset
+        .seats
+        .get(seat.get() as usize)
+        .map(|spec| spec.deck.iter().map(|entry| entry.card).collect())
+        .unwrap_or_default()
+}
+
+impl LocalHost {
     /// Takes what the session recorded since the last step and puts it on
     /// disk at once, so a crash loses at most the step it happened in; the
     /// moment the game is over the file is finished.
@@ -377,6 +457,15 @@ impl DuelHost for LocalHost {
 
     fn local_record(&self) -> Option<&[u8]> {
         Some(&self.record)
+    }
+
+    fn resume_point(&self) -> Option<ResumePoint> {
+        Some(ResumePoint {
+            record: self.record_name.clone(),
+            seat: self.seat,
+            names: self.names.clone(),
+            hash: self.hash(),
+        })
     }
 }
 
@@ -849,6 +938,84 @@ pub(crate) mod tests {
         let out = host.poll();
         assert!(out.iter().any(|m| matches!(m, HostMessage::View(..))));
         assert!(!out.iter().any(|m| matches!(m, HostMessage::Failed(_))));
+    }
+
+    /// "Restart now" in a game against the house: the game is played, its
+    /// record goes to the kept records' folder as the client keeps it (one
+    /// gzip member per step), the process "ends" (the host is dropped), and
+    /// a new host rebuilt from that file is the same game — the same hash,
+    /// the same question — and plays on in the same file. A record that
+    /// lost a step on the way does not rebuild (red if a step is lost).
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn a_house_game_restarted_in_process_resumes_to_the_same_hash() {
+        let me = PlayerId::new(0);
+        let folder = std::env::temp_dir().join(format!("baylee-resume-{}", uuid::Uuid::now_v7()));
+        std::fs::create_dir_all(&folder).expect("scratch");
+        let name = baylee_client_core::bugreport::record_file_name(1_000, 7);
+        let names = vec!["You".to_string(), "Steady 1".to_string()];
+        let mut host = LocalHost::new(&duel_preset(), me, &["You", "Steady 1"]).expect("host");
+        host.live = crate::records::LiveRecord::in_folder(Some(folder.clone()), &name);
+        host.record_name.clone_from(&name);
+        host.poll();
+        for _ in 0..12 {
+            let Some(action) = host.session.house_action(me) else {
+                break;
+            };
+            host.submit(action);
+            host.poll();
+        }
+        let point = host.resume_point().expect("a local game resumes");
+        assert_eq!(point.record, name);
+        assert_eq!(point.names, names);
+        let inputs = host
+            .local_record()
+            .expect("kept")
+            .split(|b| *b == b'\n')
+            .count();
+        assert!(inputs > 10, "the game was played: {inputs} lines");
+        let asked = format!("{:?}", host.session.pending());
+        drop(host); // the old client ends; its record is finished on disk
+
+        let record = crate::records::read_kept_in(&folder, &name).expect("the kept record");
+        let mut again = LocalHost::resume(record.clone(), &name, me, &names).expect("resumes");
+        again.live =
+            crate::records::LiveRecord::continuing_in(Some(folder.clone()), &name, record.len());
+        assert_eq!(again.hash(), point.hash, "the same game");
+        assert_eq!(format!("{:?}", again.session.pending()), asked);
+        let opening = again.poll();
+        assert!(matches!(opening.first(), Some(HostMessage::Static(_))));
+        assert!(opening.iter().any(|m| matches!(m, HostMessage::View(..))));
+        assert!(opening.iter().any(|m| matches!(m, HostMessage::Curtain)));
+
+        // It plays on, in the same file, which is still one record.
+        for _ in 0..3 {
+            let Some(action) = again.session.house_action(me) else {
+                break;
+            };
+            again.submit(action);
+            again.poll();
+        }
+        let later = again.hash();
+        drop(again);
+        let whole = crate::records::read_kept_in(&folder, &name).expect("still kept");
+        assert_eq!(
+            LocalHost::resume(whole, &name, me, &names)
+                .expect("one record")
+                .hash(),
+            later
+        );
+
+        // A step lost on the way is no resume.
+        let lines: Vec<&[u8]> = record.split_inclusive(|b| *b == b'\n').collect();
+        let torn: Vec<u8> = lines
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i != lines.len() / 2)
+            .flat_map(|(_, l)| l.iter().copied())
+            .collect();
+        assert!(LocalHost::resume(torn, &name, me, &names).is_err());
+        let _ = std::fs::remove_dir_all(folder);
     }
 
     /// A game hosted here keeps its record as a hosted game's engine

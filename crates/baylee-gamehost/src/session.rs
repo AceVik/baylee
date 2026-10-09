@@ -22,6 +22,7 @@ mod chairs;
 mod clocks;
 mod frames;
 mod pump;
+mod resume;
 
 /// How many of its policies' answers a seat's view carries (#234): the
 /// latest, so a seat yielding to a long loop is not sent the loop. Their
