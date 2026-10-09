@@ -168,6 +168,10 @@ fn transform_of(slot: &SeatSlot, part: Part, laid: Laid) -> Transform {
 }
 
 /// Brings the card the card cursor walks onto into view, once per card.
+///
+/// Through `bypass_change_detection`, the duel marked changed only when the
+/// rows moved: this runs every frame, and a write each time made the whole
+/// duel read as changed at rest (`/changed`).
 pub fn follow_the_rows(mut duel: ResMut<Duel>) {
     let Duel {
         rows,
@@ -175,9 +179,13 @@ pub fn follow_the_rows(mut duel: ResMut<Duel>) {
         layout,
         hovered,
         ..
-    } = &mut *duel;
-    if let (Some(board), Some(layout)) = (board.as_ref(), layout.as_ref()) {
-        rows.follow(board, layout, *hovered);
+    } = duel.bypass_change_detection();
+    let moved = match (board.as_ref(), layout.as_ref()) {
+        (Some(board), Some(layout)) => rows.follow(board, layout, *hovered),
+        _ => false,
+    };
+    if moved {
+        duel.set_changed();
     }
 }
 

@@ -617,6 +617,45 @@ fn a_table_at_rest_is_not_written_by_the_chooser() {
     );
 }
 
+/// With no tear under way the tear's runner writes nothing. Red while it
+/// borrowed `duel.tear` mutably before asking.
+#[test]
+fn no_tear_no_write() {
+    let mut app = App::new();
+    app.init_resource::<Time>()
+        .insert_resource(seated_duel(Arrangement::Ring))
+        .add_systems(Update, run_the_tear);
+    app.update();
+    let tick = app.world().read_change_tick();
+    app.update();
+    let duel = app.world().resource_ref::<Duel>();
+    assert!(
+        !duel
+            .last_changed()
+            .is_newer_than(tick, app.world().read_change_tick()),
+        "the tear's runner wrote the duel with no tear"
+    );
+}
+
+/// With no card hovered the rows' follower writes nothing. Red while it
+/// destructured the duel through `DerefMut` every frame.
+#[test]
+fn rows_that_follow_nothing_leave_the_duel_unchanged() {
+    let mut app = App::new();
+    app.insert_resource(seated_duel(Arrangement::Ring))
+        .add_systems(Update, crate::rowbar::follow_the_rows);
+    app.update();
+    let tick = app.world().read_change_tick();
+    app.update();
+    let duel = app.world().resource_ref::<Duel>();
+    assert!(
+        !duel
+            .last_changed()
+            .is_newer_than(tick, app.world().read_change_tick()),
+        "the rows' follower wrote the duel at rest"
+    );
+}
+
 /// The Turntable's change of seat of interest is two slides, not a tear
 /// (DESIGN-v8 §1 row 3): every seat stands on the felt, so the cards glide
 /// straight to the instant layout — the side mat brought across at the

@@ -233,14 +233,20 @@ pub fn settle(
         touch.rests_at(rest);
         touch.advance(dt, still);
     }
+    // Written only where the value moved: a changed `Node` lays the whole
+    // interface out again, and a shade at rest is every hand card's, every
+    // frame.
     for (card, mut node) in &mut nodes {
         if let Some(touch) = touched.cards.get(&card.object) {
-            node.top = Val::Px(touch.lift());
+            let top = Val::Px(touch.lift());
+            if node.top != top {
+                node.top = top;
+            }
         }
     }
     for (shade, mut colour) in &mut shades {
         let alpha = touched.cards.get(&shade.object).map_or(0.0, Touch::shade);
-        colour.0 = Color::srgba(0.0, 0.0, 0.0, alpha);
+        colour.set_if_neq(BackgroundColor(Color::srgba(0.0, 0.0, 0.0, alpha)));
     }
 
     // A card that has come to rest is forgotten, and two are never: the one
@@ -386,6 +392,32 @@ mod running {
             .expect("a background")
             .0
             .alpha()
+    }
+
+    /// A hand nobody touches is not written: neither the card's node nor its
+    /// shade is marked changed once it rests. Red while every shade was
+    /// written every frame (`/changed`: seven a frame at a six-seat table).
+    #[test]
+    fn a_hand_at_rest_writes_neither_node_nor_shade() {
+        let (mut app, _, card, shade) = harness();
+        tick(&mut app, 1.0 / 60.0);
+        tick(&mut app, 1.0 / 60.0);
+        let tick_before = app.world().read_change_tick();
+        tick(&mut app, 1.0 / 60.0);
+        let now = app.world().read_change_tick();
+        let changed = |entity: Entity, id| {
+            app.world()
+                .entity(entity)
+                .get_change_ticks_by_id(id)
+                .is_some_and(|ticks| ticks.is_changed(tick_before, now))
+        };
+        let node = app.world().component_id::<Node>().expect("nodes");
+        let ground = app
+            .world()
+            .component_id::<BackgroundColor>()
+            .expect("grounds");
+        assert!(!changed(card, node), "the resting card's node was written");
+        assert!(!changed(shade, ground), "the resting shade was written");
     }
 
     #[test]

@@ -205,6 +205,11 @@ pub fn run_the_tear(
     prefs: Option<Res<crate::prefs::Prefs>>,
 ) {
     use baylee_client_core::layout::transition::{ENDS, Phase};
+    // Asked before it is borrowed: `as_mut` through the `ResMut` is a write,
+    // and with no tear this would mark the duel changed on every frame.
+    if duel.tear.is_none() {
+        return;
+    }
     let Some(tear) = duel.tear.as_mut() else {
         return;
     };

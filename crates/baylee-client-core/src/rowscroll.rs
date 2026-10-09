@@ -77,27 +77,38 @@ impl RowScroll {
     /// Called once a frame, before the table is placed. The pointer can only
     /// hover what is drawn, so a hidden hovered card is the card cursor's,
     /// and the cursor walks the whole row, hidden cards and all.
-    pub fn follow(&mut self, board: &BoardModel, layout: &TableLayout, hovered: Option<ObjectId>) {
+    ///
+    /// Whether anything changed, so a caller holding these in a resource
+    /// writes it only then.
+    pub fn follow(
+        &mut self,
+        board: &BoardModel,
+        layout: &TableLayout,
+        hovered: Option<ObjectId>,
+    ) -> bool {
+        let scrolled = self.first.len();
         self.first.retain(|&row, _| {
             packing_of(board, layout, row).is_some_and(|packing| packing.overflowing)
         });
+        let forgot = self.first.len() != scrolled;
         if hovered == self.followed {
-            return;
+            return forgot;
         }
         self.followed = hovered;
         let Some(object) = hovered else {
-            return;
+            return true;
         };
         let Some((row, index)) = row_of(board, object) else {
-            return;
+            return true;
         };
         let Some(packing) = packing_of(board, layout, row) else {
-            return;
+            return true;
         };
         if packing.overflowing {
             let first = packing.reveal(self.first(row), index);
             self.first.insert(row, first);
         }
+        true
     }
 }
 
