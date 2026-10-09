@@ -17,6 +17,7 @@ mod living_plane;
 mod manabarbs;
 mod night_of_souls_betrayal;
 mod opposition;
+mod orcish_oriflamme;
 mod pegasus_refuge;
 mod pestilence;
 mod reckless_assault;
