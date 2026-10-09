@@ -218,6 +218,15 @@ fn resize(body: &str, win: &mut Window) -> String {
     }
 }
 
+/// `BAYLEE_DEV_PASSIVE=1`: a window to be watched, not touched. It opens
+/// without the focus and lets the real pointer through (hit testing off),
+/// so the owner can watch an agent's checks while using the machine without
+/// a stray hover or click landing in them. Dev-control's injected input is
+/// unaffected: it never came from the OS.
+pub(crate) fn passive() -> bool {
+    std::env::var("BAYLEE_DEV_PASSIVE").is_ok_and(|v| v == "1")
+}
+
 /// Optional scale-factor override (`BAYLEE_DEV_SCALE=1`) for captures at a
 /// logical size the display could not otherwise hold: a 2560 × 1440 window
 /// at the Retina factor 2 is wider than the screen and the OS shrinks it,
@@ -1135,12 +1144,24 @@ fn move_pointer(
 fn aim_cursor(
     at: Vec2,
     entity: Entity,
-    window: &mut Window,
+    window: &mut Mut<Window>,
     moves: &mut MessageWriter<CursorMoved>,
     window_events: &mut MessageWriter<WindowEvent>,
 ) {
     let previous = window.cursor_position();
-    window.set_cursor_position(Some(at));
+    // `bevy_winit` warps the OS cursor to a changed `Window`'s cursor
+    // position, which moved the real mouse under a person watching an
+    // agent's run. A passive window (`BAYLEE_DEV_PASSIVE=1`) takes the
+    // position without change detection, so nothing is warped; the client's
+    // hit tests read it all the same, and the picking backend reads the
+    // `CursorMoved` written below.
+    if passive() {
+        window
+            .bypass_change_detection()
+            .set_cursor_position(Some(at));
+    } else {
+        window.set_cursor_position(Some(at));
+    }
     let moved = CursorMoved {
         window: entity,
         position: at,
@@ -1215,7 +1236,7 @@ struct ButtonDeed {
 fn advance_clicks(
     control: &mut DevControl,
     window: Entity,
-    win: &mut Window,
+    win: &mut Mut<Window>,
     buttons: &mut ButtonInput<MouseButton>,
     clicks: &mut MessageWriter<MouseButtonInput>,
     moves: &mut MessageWriter<CursorMoved>,
