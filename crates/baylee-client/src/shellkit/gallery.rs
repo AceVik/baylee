@@ -188,7 +188,9 @@ fn draw(
     let now = Drawn {
         width,
         height,
-        step: settings.as_deref().map_or_else(TextSize::default, |s| s.text_size),
+        step: settings
+            .as_deref()
+            .map_or_else(TextSize::default, |s| s.text_size),
         input: *input,
         german: lang == Lang::De,
         caps: Caps {

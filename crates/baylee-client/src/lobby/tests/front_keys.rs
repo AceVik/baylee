@@ -295,7 +295,11 @@ fn button_up(app: &mut App, entity: Entity) {
 #[test]
 fn one_click_on_a_button_while_a_field_has_the_caret_is_enough() {
     let mut app = at_the_door();
-    assert_eq!(focused_id(&app), Some("username"), "the form focused a field");
+    assert_eq!(
+        focused_id(&app),
+        Some("username"),
+        "the form focused a field"
+    );
     let create = Press::Front(FrontPress::ToggleRegistering);
     let pressed = press_target(&mut app, create);
     button_down(&mut app, pressed);

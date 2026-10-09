@@ -198,6 +198,8 @@ impl Plugin for AmbiencePlugin {
             return;
         }
         embedded_asset!(app, "shaders/ambience.wgsl");
+        // The shell kit's primary-button light (`shellkit::sheen`).
+        embedded_asset!(app, "shaders/kit_sheen.wgsl");
         app.add_plugins(UiMaterialPlugin::<AmbienceMaterial>::default());
     }
 }
@@ -259,15 +261,25 @@ fn breathe(
 /// [`PickingInteraction`] — which bevy maintains for anything the pointer can
 /// hit, so a button gets this by carrying [`Feel`] and nothing else. Doing it
 /// per screen would mean every new screen forgetting it once.
-fn feel(
+///
+/// A face the pointer cannot hit itself (`Pickable::IGNORE`: the kit's
+/// controls put the press on a hit area around the face, `shellkit::controls::hit`)
+/// answers its parent's interaction: the hit area is what the pointer is
+/// over, and the face is what moves. Before this the kit's buttons, chips
+/// and segments carried a `Feel` that never felt anything (owner, 09.10.).
+#[allow(clippy::type_complexity)] // one row per button, and the parent's state
+pub(crate) fn feel(
     time: Res<Time>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut buttons: Query<(
         &mut Feel,
         Option<&PickingInteraction>,
+        Option<&Pickable>,
+        Option<&ChildOf>,
         &mut BackgroundColor,
         &mut UiTransform,
     )>,
+    held: Query<&PickingInteraction>,
 ) {
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
     let step = if still {
@@ -275,7 +287,13 @@ fn feel(
     } else {
         1.0 - (-FEEL_RATE * time.delta_secs()).exp()
     };
-    for (mut feel, interaction, mut colour, mut transform) in &mut buttons {
+    for (mut feel, own, pickable, parent, mut colour, mut transform) in &mut buttons {
+        let ignored = pickable.is_some_and(|p| !p.is_hoverable && !p.should_block_lower);
+        let interaction = if ignored {
+            parent.and_then(|p| held.get(p.parent()).ok())
+        } else {
+            own
+        };
         let target = match interaction {
             Some(PickingInteraction::Pressed) => -1.0,
             Some(PickingInteraction::Hovered) => 1.0,
@@ -326,6 +344,13 @@ fn shade(base: Color, by: f32) -> Color {
     rgba.green += (towards - rgba.green) * amount;
     rgba.blue += (towards - rgba.blue) * amount;
     rgba.into()
+}
+
+/// `base` lightened by `by` towards white, alpha kept: the hover a stated
+/// hot end names when [`Feel::new`]'s own lift is not the one wanted.
+#[must_use]
+pub(crate) fn lighter(base: Color, by: f32) -> Color {
+    shade(base, by)
 }
 
 /// `from` at `t` of the way to `to`, **alpha included**.

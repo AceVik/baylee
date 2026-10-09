@@ -402,7 +402,6 @@ mod tests {
         assert_eq!(Frame::of(5000.0), Frame::Wide);
     }
 
-    #[test]
     /// The rename of 09.10.2026: a step a file stored before it keeps its
     /// size (old `l` 1.000 is the new `M`, old `xl` the new `L`, …), the old
     /// smallest step reads the new smallest, and this build stores numbers,
@@ -429,15 +428,23 @@ mod tests {
             let back: TextSize = serde_json::from_str(&text).expect("reads back");
             assert_eq!(back, step);
         }
-        for junk in [serde_json::json!("huge"), serde_json::json!(9), serde_json::json!(null)] {
+        for junk in [
+            serde_json::json!("huge"),
+            serde_json::json!(9),
+            serde_json::json!(null),
+        ] {
             let read: TextSize = serde_json::from_value(junk).expect("anything reads");
             assert_eq!(read, TextSize::M);
         }
         assert!((TextSize::M.factor() - 1.0).abs() < f32::EPSILON);
         assert_eq!(TextSize::default(), TextSize::M);
-        assert!(TextSize::Xl.factor() > 1.125, "a step above the old largest");
+        assert!(
+            TextSize::Xl.factor() > 1.125,
+            "a step above the old largest"
+        );
     }
 
+    #[test]
     fn the_factors_are_the_ratio_the_design_tabulates() {
         for pair in TextSize::ALL.windows(2) {
             let ratio = pair[1].factor() / pair[0].factor();

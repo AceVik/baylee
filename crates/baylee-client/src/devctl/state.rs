@@ -460,7 +460,9 @@ fn shell_keys_json(believed: &Believed) -> String {
         believed
             .settings
             .as_deref()
-            .map_or(crate::shellkit::TextSize::default().step(), |s| s.text_size.step()),
+            .map_or(crate::shellkit::TextSize::default().step(), |s| s
+                .text_size
+                .step()),
     )
 }
 
@@ -570,7 +572,12 @@ fn shell_nodes_json(believed: &Believed) -> String {
             // it broke into (`lines`: one inside a control).
             if let Some(laid) = laid {
                 let extent = laid.size * scale;
-                let lines = laid.glyphs.iter().map(|g| g.line_index + 1).max().unwrap_or(0);
+                let lines = laid
+                    .glyphs
+                    .iter()
+                    .map(|g| g.line_index + 1)
+                    .max()
+                    .unwrap_or(0);
                 row.push_str(&format!(
                     ",\"tw\":{:.1},\"th\":{:.1},\"ln\":{lines}",
                     extent.x, extent.y

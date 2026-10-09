@@ -3,6 +3,12 @@
 #[allow(clippy::wildcard_imports)] // the table's shared vocabulary
 use super::*;
 
+/// Whether the card under the pointer on the felt has an offer on it (the
+/// light the table draws round a card this client can act on): the pointer
+/// is a hand over it. Written only when it changes.
+#[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct HoveredOffer(pub bool);
+
 /// Brings the scene in line with the board model.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)] // the diff loop is one coherent pass
@@ -27,11 +33,12 @@ pub fn sync_scene(
     texts: Res<crate::cardtext::CardTexts>,
     // How the player asked to see the table, and where from: the plate and
     // the badge read upright to the camera as it stands this frame.
-    (mode, settings, prefs, shown): (
+    (mode, settings, prefs, shown, mut offered): (
         Res<crate::face::FaceMode>,
         Res<crate::settings::ClientSettings>,
         Res<crate::prefs::Prefs>,
         Res<ShownRig>,
+        Option<ResMut<crate::table::HoveredOffer>>,
     ),
     sheen: Res<crate::sheen::Sheen>,
     // The fonts, and what has arrived of them: a face is measured in one.
@@ -148,6 +155,7 @@ pub fn sync_scene(
             .and_then(|(fonts, assets)| assets.get(&fonts.text)),
     );
 
+    let mut hovered_offer = false;
     for placement in &wanted {
         live.insert(placement.object);
 
@@ -169,6 +177,9 @@ pub fn sync_scene(
         // becomes tappable is lit, and stops being lit the moment priority
         // moves on.
         let glow = crate::cardmat::glow_of(object, placement.offer);
+        if hovered == Some(placement.object) {
+            hovered_offer = glow & crate::cardmat::glow::OFFERS != 0;
+        }
 
         // The face is fitted before the material is chosen: its name's lines
         // are the name bar's depth, which the material draws (#259), so the
@@ -461,6 +472,11 @@ pub fn sync_scene(
                 texts: spawned,
             },
         );
+    }
+    // The pointer is a hand over a card this client offers something for
+    // (the pointer's shape); written only when that changes.
+    if let Some(offered) = offered.as_mut() {
+        offered.set_if_neq(crate::table::HoveredOffer(hovered_offer));
     }
 
     // Anything no longer on the board leaves the scene.

@@ -49,6 +49,12 @@ pub const PRIMARY: Color = Color::srgb(0.14, 0.24, 0.33);
 pub const PRIMARY_EDGE: Color = Color::srgb(0.40, 0.54, 0.62);
 /// A secondary control's ground.
 pub const CONTROL: Color = palette::DOCK_GROUND;
+/// What a control with no ground of its own (a ghost button, a tab, an
+/// unchosen segment) lights to under the pointer.
+pub const HOVER: Color = Color::srgba(0.90, 0.93, 0.94, 0.10);
+/// A toggle's track while off: visible on a panel, where the control ground
+/// was not (a white knob floating on nothing, owner 09.10.2026).
+pub const TRACK_OFF: Color = Color::srgba(0.90, 0.93, 0.94, 0.22);
 /// A skeleton row's bars.
 pub const SKELETON: Color = Color::srgba(0.90, 0.93, 0.94, 0.08);
 

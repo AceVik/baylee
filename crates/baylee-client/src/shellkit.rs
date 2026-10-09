@@ -37,7 +37,9 @@ pub mod keys;
 pub mod lint;
 pub mod metrics;
 pub mod overlay;
+pub mod pointer;
 pub mod role;
+pub mod sheen;
 pub mod size;
 pub mod states;
 pub mod surfaces;
@@ -79,6 +81,8 @@ impl Plugin for ShellKitPlugin {
         focus::install(app);
         keys::install(app);
         overlay::install(app);
+        pointer::install(app);
+        sheen::install(app);
         #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
         gallery::install(app);
     }

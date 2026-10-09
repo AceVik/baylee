@@ -308,6 +308,14 @@ pub(super) fn spawn_hand_zone(
                 shadow,
             ))
             .id();
+        // The pointer is a hand over a card a click does something with
+        // (`shellkit::pointer`): one the engine would take, one this client
+        // can pay for, one a question asks for, the armed one.
+        if card.playable || card.reachable || is_offered || offer.armed || is_selected {
+            commands
+                .entity(entity)
+                .insert(crate::shellkit::pointer::Clickable);
+        }
         commands.entity(entity).add_child(visual);
         // The pane the press is darkened with, over the art and under
         // nothing. `Pickable::IGNORE` because a node in front of the card is

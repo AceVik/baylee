@@ -244,7 +244,9 @@ fn draw(
         .single()
         .map_or((1280.0, 800.0), |w| (w.width(), w.height()));
     let lang = settings.as_deref().map_or(Lang::En, |s| Lang::of(&s.lang));
-    let step = settings.as_deref().map_or_else(TextSize::default, |s| s.text_size);
+    let step = settings
+        .as_deref()
+        .map_or_else(TextSize::default, |s| s.text_size);
     let kit = Kit {
         fonts: &fonts,
         m: ShellMetrics::of(
@@ -369,7 +371,9 @@ fn draw_rows(
         .single()
         .map_or((1280.0, 800.0), |w| (w.width(), w.height()));
     let lang = settings.as_deref().map_or(Lang::En, |s| Lang::of(&s.lang));
-    let step = settings.as_deref().map_or_else(TextSize::default, |s| s.text_size);
+    let step = settings
+        .as_deref()
+        .map_or_else(TextSize::default, |s| s.text_size);
     let kit = Kit {
         fonts: &fonts,
         m: ShellMetrics::of(

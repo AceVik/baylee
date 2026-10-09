@@ -98,9 +98,13 @@ fn link(commands: &mut Commands, kit: Kit, text: &str, look: Look, action: impl 
     let words = words.id();
     commands.entity(face).add_child(words);
     let wrapper = controls::hit(commands, kit, face, action);
-    commands
-        .entity(face)
-        .insert((Pickable::default(), crate::ambience::Feel::new(Color::NONE)));
+    // A word lights under the pointer as a ghost button does (the face is
+    // its hit area's: `ambience::feel` reads the wrapper).
+    commands.entity(face).insert(if look == Look::Current {
+        crate::ambience::Feel::new(tokens::SELECTED)
+    } else {
+        crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER)
+    });
     wrapper
 }
 

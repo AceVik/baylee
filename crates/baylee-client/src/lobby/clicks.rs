@@ -165,8 +165,7 @@ pub(super) fn clicks(
         }
         // A kit control that is drawn but off keeps its press so it can take
         // focus and say why; a click on it does nothing (§2.4).
-        if in_lineage_entity(target, &presses, &parents).is_some_and(|e| disabled.contains(e))
-        {
+        if in_lineage_entity(target, &presses, &parents).is_some_and(|e| disabled.contains(e)) {
             continue;
         }
         let Some(&press) = in_lineage(target, &presses, &parents) else {
