@@ -515,6 +515,13 @@ impl Plugin for DuelPlugin {
             .init_resource::<softkeys::SoftKeyboard>()
             .add_message::<DuelCommand>()
             .add_message::<DuelReport>()
+            .init_resource::<crate::manaui::ManaCoverage>()
+            // The one door between a symbol's glyph and its fallback letters,
+            // before UI and text layout so nothing flashes the other form.
+            .add_systems(
+                PostUpdate,
+                crate::manaui::ink_the_marks.before(bevy::ui::UiSystems::Prepare),
+            )
             .configure_sets(
                 Update,
                 (DuelSet::Sync, DuelSet::Input, DuelSet::Present).chain(),

@@ -64,8 +64,136 @@ mod glyph {
     pub const TAP: char = '\u{e61a}';
     /// `{Q}`, untap: the same arrow the other way round.
     pub const UNTAP: char = '\u{e61b}';
+    /// `{E}`, energy: a bolt in a shield. Identified by rasterising the
+    /// shipped font (09.10.2026); not a mana symbol, printed in the same ink.
+    pub const ENERGY: char = '\u{e907}';
+    /// `{CHAOS}`, the planar die's chaos face: the swirl. Identified the
+    /// same way. The planeswalker mark at `\u{e623}` is the one glyph of this
+    /// block `docs/legal.md` §2a forbids, and no door here names it.
+    pub const CHAOS: char = '\u{e61d}';
     /// The largest generic cost the font spells with one glyph.
     pub const LARGEST_GENERIC: u32 = 20;
+}
+
+/// Every glyph this door can hand out, loyalty badges included.
+///
+/// The list a coverage check walks: the shipped font must have each of them,
+/// and a loaded font is asked about these and no others.
+#[must_use]
+pub fn every_glyph() -> Vec<char> {
+    let mut all = vec![
+        glyph::WHITE,
+        glyph::BLUE,
+        glyph::BLACK,
+        glyph::RED,
+        glyph::GREEN,
+        glyph::COLORLESS,
+        glyph::SNOW,
+        glyph::X,
+        glyph::Y,
+        glyph::Z,
+        glyph::PHYREXIAN,
+        glyph::INFINITY,
+        glyph::HALF,
+        glyph::TAP,
+        glyph::UNTAP,
+        glyph::ENERGY,
+        glyph::CHAOS,
+        loyalty_glyph(Tick::Up),
+        loyalty_glyph(Tick::Down),
+        loyalty_glyph(Tick::Flat),
+    ];
+    all.extend((0..=glyph::LARGEST_GENERIC).filter_map(generic_glyph));
+    all
+}
+
+/// What a disc says when its glyph cannot be drawn: the letters a rules
+/// document writes the symbol with (`G`, `2`, `C`, `T`).
+///
+/// Keyed on the *glyph*, so each half of a hybrid gets its own letter, and
+/// `None` for a codepoint no door here hands out. A loyalty badge has no
+/// letter: its number is drawn beside the shape and needs none.
+#[must_use]
+pub fn fallback(mark: char) -> Option<String> {
+    let letter = match mark {
+        glyph::WHITE => "W",
+        glyph::BLUE => "U",
+        glyph::BLACK => "B",
+        glyph::RED => "R",
+        glyph::GREEN => "G",
+        glyph::COLORLESS => "C",
+        glyph::SNOW => "S",
+        glyph::X => "X",
+        glyph::Y => "Y",
+        glyph::Z => "Z",
+        glyph::PHYREXIAN => "P",
+        glyph::INFINITY => "\u{221e}",
+        glyph::HALF => "\u{bd}",
+        glyph::TAP => "T",
+        glyph::UNTAP => "Q",
+        glyph::ENERGY => "E",
+        glyph::CHAOS => "CH",
+        other => {
+            return (0..=glyph::LARGEST_GENERIC)
+                .find(|n| generic_glyph(*n) == Some(other))
+                .map(|n| n.to_string());
+        }
+    };
+    Some(letter.to_string())
+}
+
+/// Which glyphs a loaded `mana` font can draw, out of [`every_glyph`].
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct Coverage(Vec<char>);
+
+impl Coverage {
+    /// Asks `has` about every glyph this door hands out.
+    #[must_use]
+    pub fn of(has: impl Fn(char) -> bool) -> Self {
+        let mut held: Vec<char> = every_glyph().into_iter().filter(|c| has(*c)).collect();
+        held.sort_unstable();
+        Self(held)
+    }
+
+    /// Whether the font draws `mark`.
+    #[must_use]
+    pub fn has(&self, mark: char) -> bool {
+        self.0.binary_search(&mark).is_ok()
+    }
+}
+
+/// How one glyph is set: in the `mana` font, or as its fallback letters.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Ink {
+    /// The font's own drawing, which is what a player should see.
+    Glyph(char),
+    /// The letters on our disc, while the font cannot draw the glyph.
+    Fallback(String),
+}
+
+/// **The one door between a glyph and its fallback.** `font` is `None` while
+/// the `mana` font is still loading.
+///
+/// The glyph wins whenever the loaded font has it; the letters stand in only
+/// before the font is ready or for a codepoint it lacks, and a codepoint with
+/// no letters keeps the glyph (an empty box beats a wrong letter).
+#[must_use]
+pub fn ink(mark: char, font: Option<&Coverage>) -> Ink {
+    if font.is_some_and(|c| c.has(mark)) {
+        return Ink::Glyph(mark);
+    }
+    fallback(mark).map_or(Ink::Glyph(mark), Ink::Fallback)
+}
+
+/// How big a fallback disc's letters are, as a share of the disc: smaller
+/// than the glyph (0.72), so the bold letters sit inside the circle with air
+/// round them, and smaller again for two characters.
+#[must_use]
+pub fn fallback_share(letters: &str) -> f32 {
+    match letters.chars().count() {
+        0 | 1 => 0.50,
+        _ => 0.40,
+    }
 }
 
 /// The disc a glyph sits on.
@@ -493,6 +621,18 @@ pub fn symbol(body: &str) -> Option<Pip> {
         "Q" | "q" => {
             return Some(Pip::Solid {
                 glyph: glyph::UNTAP,
+                disc,
+            });
+        }
+        "E" | "e" => {
+            return Some(Pip::Solid {
+                glyph: glyph::ENERGY,
+                disc,
+            });
+        }
+        "CHAOS" => {
+            return Some(Pip::Solid {
+                glyph: glyph::CHAOS,
                 disc,
             });
         }
@@ -1033,5 +1173,82 @@ mod tests {
             inline("{L0}: Draw three cards."),
             vec![Inline::Text("0: Draw three cards.".into())]
         );
+    }
+
+    /// The owner's rule (beta.6): the font's glyph is what a player sees, and
+    /// the letters stand in only while the font is loading or lacks the
+    /// codepoint.
+    #[test]
+    fn the_fallback_stands_in_only_while_the_glyph_cannot_be_drawn() {
+        use super::{Coverage, Ink, every_glyph, ink};
+        let full = Coverage::of(|_| true);
+        let none = Coverage::of(|_| false);
+        let green = super::glyph::GREEN;
+        for mark in every_glyph() {
+            assert_eq!(ink(mark, Some(&full)), Ink::Glyph(mark), "{mark:?} loaded");
+        }
+        assert_eq!(ink(green, None), Ink::Fallback("G".into()), "loading");
+        assert_eq!(
+            ink(green, Some(&none)),
+            Ink::Fallback("G".into()),
+            "missing"
+        );
+        let two = super::generic_glyph(2).expect("{2}");
+        assert_eq!(ink(two, None), Ink::Fallback("2".into()));
+        let lacks_green = Coverage::of(|c| c != green);
+        assert_eq!(ink(green, Some(&lacks_green)), Ink::Fallback("G".into()));
+        assert_eq!(
+            ink(super::glyph::BLUE, Some(&lacks_green)),
+            Ink::Glyph(super::glyph::BLUE),
+            "one missing codepoint takes nothing else with it"
+        );
+    }
+
+    /// Every glyph but a loyalty badge's has letters to fall back to, and no
+    /// two symbols share them.
+    #[test]
+    fn every_glyph_has_its_own_fallback_letters() {
+        use super::{Tick, every_glyph, fallback, loyalty_glyph};
+        let badges = [Tick::Up, Tick::Down, Tick::Flat].map(loyalty_glyph);
+        let mut seen = std::collections::BTreeSet::new();
+        for mark in every_glyph() {
+            match fallback(mark) {
+                Some(letters) => assert!(seen.insert(letters.clone()), "{letters} twice"),
+                None => assert!(badges.contains(&mark), "{mark:?} has no letters"),
+            }
+        }
+        assert!(
+            !every_glyph().contains(&'\u{e623}'),
+            "never the planeswalker mark"
+        );
+    }
+
+    /// Generic, colourless and coloured symbols in running text are glyphs,
+    /// and so are tap, untap, energy and chaos.
+    #[test]
+    fn inline_symbols_come_out_as_glyph_runs() {
+        use super::{Disc, Pip, Segment, glyph, segments};
+        let solid = |g| {
+            Segment::Symbol(Pip::Solid {
+                glyph: g,
+                disc: Disc::Generic,
+            })
+        };
+        let drawn = segments("Pay {G}{1}{C}, {T}, {Q}: get {E}{CHAOS}.");
+        assert_eq!(drawn[0], Segment::Text("Pay ".into()));
+        assert_eq!(
+            drawn[1],
+            Segment::Symbol(Pip::Solid {
+                glyph: glyph::GREEN,
+                disc: Disc::Green
+            })
+        );
+        assert_eq!(drawn[2], solid(super::generic_glyph(1).expect("{1}")));
+        assert_eq!(drawn[3], solid(glyph::COLORLESS));
+        assert_eq!(drawn[5], solid(glyph::TAP));
+        assert_eq!(drawn[7], solid(glyph::UNTAP));
+        assert_eq!(drawn[9], solid(glyph::ENERGY));
+        assert_eq!(drawn[10], solid(glyph::CHAOS));
+        assert_eq!(drawn.last(), Some(&Segment::Text(".".into())));
     }
 }

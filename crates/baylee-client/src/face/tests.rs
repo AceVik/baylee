@@ -89,6 +89,52 @@ fn the_average_and_the_font_can_disagree_about_a_name_s_lines() {
     assert_eq!(measured.lines.len(), 2, "{measured:?}");
 }
 
+/// The root of a text face's first sentence: the empty `Text2d` whose spans
+/// say "Draw".
+fn sentence_root(world: &World, texts: &[Entity]) -> Entity {
+    texts
+        .iter()
+        .copied()
+        .find(|&e| {
+            let entity = world.entity(e);
+            entity.get::<Text2d>().is_some_and(|t| t.0.is_empty())
+                && entity.get::<Children>().is_some_and(|spans| {
+                    spans.iter().any(|span| {
+                        world
+                            .entity(span)
+                            .get::<TextSpan>()
+                            .is_some_and(|t| t.0.contains("Draw"))
+                    })
+                })
+        })
+        .expect("the sentence's root")
+}
+
+/// What a face's text says: its `Text2d`, or for a line of spans (the cost's
+/// glyphs) the spans' words.
+fn words_of(world: &World, text: Entity) -> String {
+    let entity = world.entity(text);
+    let mut words = entity.get::<Text2d>().expect("a Text2d").0.clone();
+    if words.is_empty()
+        && let Some(spans) = entity.get::<Children>()
+    {
+        for span in spans.iter() {
+            if let Some(span) = world.entity(span).get::<TextSpan>() {
+                words.push_str(&span.0);
+            }
+        }
+    }
+    words
+}
+
+/// The Mana font's glyph for a one-glyph symbol, as text.
+fn glyph_of(symbol: ManaSymbol) -> String {
+    match baylee_client_core::manapip::pip(symbol) {
+        baylee_client_core::manapip::Pip::Solid { glyph, .. } => glyph.to_string(),
+        other => panic!("{other:?}"),
+    }
+}
+
 /// The table's face writes the first sentence of its rules in its text
 /// box (WP6): at most two lines, the second cut at a word, its symbols
 /// in the Mana font, standing where the text box begins and ending
@@ -151,16 +197,7 @@ fn the_table_face_writes_its_first_sentence_in_its_text_box() {
     };
     let texts = spawn_world(&mut commands, card, &face, &fit, word, plate, &test_fonts());
     queue.apply(&mut world);
-    let root = texts
-        .iter()
-        .copied()
-        .find(|&e| {
-            world
-                .entity(e)
-                .get::<Text2d>()
-                .is_some_and(|t| t.0.is_empty())
-        })
-        .expect("the sentence's root");
+    let root = sentence_root(&world, &texts);
     let spans: Vec<String> = world
         .entity(root)
         .get::<Children>()
@@ -252,7 +289,7 @@ fn the_table_face_stands_in_its_bars() {
             .iter()
             .map(|&text| {
                 let entity = world.entity(text);
-                let words = entity.get::<Text2d>().expect("a Text2d").0.clone();
+                let words = words_of(&world, text);
                 let em = match entity.get::<TextFont>().expect("a font").font_size {
                     bevy::text::FontSize::Px(px) => px / PX_PER_UNIT,
                     other => panic!("{other:?}"),
@@ -288,7 +325,8 @@ fn the_table_face_stands_in_its_bars() {
             );
         };
         within(name.split(' ').next().expect("a word"), regions.name_bar);
-        within("1 G", regions.band);
+        // The cost in the Mana font's glyphs (owner, beta.6), not letters.
+        within(&glyph_of(ManaSymbol::Generic(1)), regions.band);
         // Whatever the type line was fitted to — here its subtypes alone.
         within(&fit.kind.lines[0], regions.type_bar);
         // The colour's symbol on its disc, in the art box (WP6).
@@ -307,7 +345,8 @@ fn the_table_face_stands_in_its_bars() {
             let entity = world.entity(text);
             let words = &entity.get::<Text2d>().expect("a Text2d").0;
             let ink = entity.get::<TextColor>().expect("an ink").0;
-            let want = if words.contains("1 G") {
+            // The cost is the one line whose words are all in its spans.
+            let want = if words.is_empty() && entity.get::<Children>().is_some() {
                 Color::srgb_from_array(cost_ink)
             } else {
                 FACE_INKS.0
@@ -1203,12 +1242,26 @@ fn the_face_leaves_the_body_to_the_plate() {
     );
 }
 
+/// A text face's cost is the Mana font's glyphs, generic and colourless
+/// included (owner, beta.6): every symbol a cost can contain is a glyph span,
+/// and a hybrid is its two halves.
 #[test]
-fn pips_label_every_symbol_a_cost_can_contain() {
+fn a_text_face_s_cost_is_set_in_glyphs() {
     let cost = ManaCost::parse("{2}{W}{U/B}{2/R}{G/P}{X}{S}{C}");
-    for symbol in cost.symbols() {
-        let label = pip_label(symbol);
-        assert!(!label.is_empty(), "{symbol:?} has no label");
+    let symbols: Vec<_> = cost.symbols().collect();
+    let spans = cost_spans(&symbols);
+    assert_eq!(
+        spans.len(),
+        symbols.len() + 2,
+        "two hybrids, two halves each"
+    );
+    for (text, mark) in &spans {
+        let mark = mark.unwrap_or_else(|| panic!("{text} is not a glyph"));
+        assert_eq!(text, &mark.to_string());
+        assert!(
+            ('\u{e600}'..='\u{e9ff}').contains(&mark),
+            "{mark:?} is a Mana-font codepoint"
+        );
     }
 }
 

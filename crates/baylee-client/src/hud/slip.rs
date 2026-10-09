@@ -666,6 +666,7 @@ fn page(commands: &mut Commands, runs: Vec<Vec<Piece>>, pen: Pen, fonts: &UiFont
             } else {
                 palette::SLIP_INK
             };
+            let mark = piece.mark.then(|| piece.text.clone());
             let span = commands
                 .spawn((
                     TextSpan::new(piece.text),
@@ -681,6 +682,9 @@ fn page(commands: &mut Commands, runs: Vec<Vec<Piece>>, pen: Pen, fonts: &UiFont
                     Pickable::IGNORE,
                 ))
                 .id();
+            if let Some(mark) = mark {
+                crate::manaui::ink_span(commands, span, &mark, SLIP_PT * SLIP_MARK);
+            }
             commands.entity(sentence).add_child(span);
         }
         commands.entity(page).add_child(sentence);
