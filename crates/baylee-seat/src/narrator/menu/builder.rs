@@ -1062,6 +1062,11 @@ impl Builder<'_, '_> {
                  graveyard and the rest on top of your library, in any order."
             ),
             ArrangePrompt::Order => "QUESTION: Put these cards in order.".into(),
+            ArrangePrompt::DiscardToLibrary => format!(
+                "QUESTION: You are discarding {n} card(s). Library of Leng lets you put any \
+                 of them on top of your library instead of into your graveyard, in any order; \
+                 each is still discarded."
+            ),
         };
         self.line(intro);
         let named: Vec<String> = cards.iter().map(|&c| table.named(c)).collect();

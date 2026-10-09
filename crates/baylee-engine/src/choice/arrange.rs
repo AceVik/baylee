@@ -85,6 +85,12 @@ pub enum ArrangePrompt {
     /// is still in the library and a card in a graveyard is in a zone every
     /// player reads.
     Surveil,
+    /// Cards an effect is about to make their holder discard, under
+    /// Library of Leng ("discard it, but you may put it on top of your
+    /// library instead of into your graveyard"): a graveyard pile, first so
+    /// that the answer with no preference is the discard as printed, and a
+    /// library pile in any order. Every card is still discarded.
+    DiscardToLibrary,
 }
 
 /// The arrangement a player with no preference gives: the cards in the order

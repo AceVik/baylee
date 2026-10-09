@@ -12,8 +12,8 @@ pub mod mind;
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 20 carries semantic text choices, constrained mana and controlled decisions.
-pub const PROTOCOL_VERSION: u32 = 20;
+/// Version 21 carries Library of Leng's arrangement (`ArrangePrompt::DiscardToLibrary`).
+pub const PROTOCOL_VERSION: u32 = 21;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -265,7 +265,9 @@ mod tests {
         // Not 21 for `SeatMind` (a seat's declared mind, for the record):
         // seat to engine only, and an engine from before it drops it in
         // `seat_frame`'s `_` arm, as with `AiLog`.
-        assert_eq!(PROTOCOL_VERSION, 20);
+        // 21: Library of Leng's arrangement, an `ArrangePrompt` variant an
+        // older client cannot decode.
+        assert_eq!(PROTOCOL_VERSION, 21);
     }
 
     #[test]
