@@ -101,7 +101,9 @@ pub(super) fn hovers(
 ) {
     if state.confirmation.is_some()
         || state.lobby.builder().picker().is_some()
-        || state.lobby.library().page.is_some()
+        // A deck's history sheet previews its own diff rows; its scrim
+        // keeps the pointer off whatever stands under it.
+        || state.lobby.library().page == Some(client_core::lobby::library::Page::House)
     {
         overs.clear();
         outs.clear();

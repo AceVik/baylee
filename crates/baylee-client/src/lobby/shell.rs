@@ -393,13 +393,6 @@ pub(super) fn ui(
         return;
     }
 
-    // The builder's own history page (WP4); on the Decks screen a
-    // deck's history is a sheet, and the house list is a tab (WP3).
-    if state.lobby.library().page.is_some() && state.lobby.screen() == &Screen::Build {
-        super::header::draw(&mut commands, root, &state, kit, metrics);
-        super::library_ui::screen(&mut commands, root, &state, &fonts, metrics, &scrolled_to);
-        return;
-    }
     match state.lobby.screen() {
         Screen::SignIn { .. } => {
             commands.entity(root).insert((
@@ -441,6 +434,9 @@ pub(super) fn ui(
                 assets.as_deref(),
                 cards.as_mut(),
             ));
+            // A deck's history: the one sheet the Decks screen draws too,
+            // over the builder (DESIGN §C.3; the builder's page is retired).
+            super::history::sheet(&mut commands, root, &state, kit);
         }
         // The persistent preparation cover takes over in the same frame.
         Screen::Seated(_) => {}

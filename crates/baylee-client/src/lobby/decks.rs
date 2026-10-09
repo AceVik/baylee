@@ -23,7 +23,7 @@ use super::*;
 use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::surfaces::{self, SheetWidth};
 use crate::shellkit::{Frame as ShellFrame, Role, px_fixed, tokens};
-use client_core::lobby::library::{AfterCopy, Page, Snapshot, row_changes};
+use client_core::lobby::library::{AfterCopy, Compare, Page};
 use client_core::lobby::shelf::{self, Sort};
 
 /// The screen's two tabs.
@@ -121,6 +121,13 @@ pub(crate) enum DecksPress {
     Restore,
     /// Ask the library again after a failure.
     Retry,
+    /// The history sheet's compare bar: `0` Previous, `1` Current, `2`
+    /// Pick….
+    Compare(u8),
+    /// Over the builder: keep the unsaved edits, restore nothing.
+    KeepEdits,
+    /// Over the builder: discard the unsaved edits and restore.
+    DiscardAndRestore,
 }
 
 /// The house formats the chips filter by, in their order.
@@ -268,7 +275,7 @@ pub(super) fn draw(
     if ui.preview.is_some() && ui.tab == DecksTab::House {
         preview_sheet(commands, root, state, kit);
     } else if matches!(lobby.library().page, Some(Page::History(_))) && ui.tab == DecksTab::Mine {
-        history_sheet(commands, root, state, kit);
+        super::history::sheet(commands, root, state, kit);
     }
 }
 
@@ -583,15 +590,18 @@ fn mine(
                     Press::Decks(DecksPress::Edit(index)),
                 ));
             }
-            items.extend([
-                menus::item(
-                    Phrase::DecksDuplicate.text(lang),
-                    Press::Decks(DecksPress::Duplicate(index)),
-                ),
-                menus::item(
+            items.push(menus::item(
+                Phrase::DecksDuplicate.text(lang),
+                Press::Decks(DecksPress::Duplicate(index)),
+            ));
+            // Local decks have no history: offline the door is not drawn.
+            if !lobby.offline() {
+                items.push(menus::item(
                     Phrase::DecksHistory.text(lang),
                     Press::Decks(DecksPress::History(index)),
-                ),
+                ));
+            }
+            items.extend([
                 menus::item(
                     if favourite {
                         Phrase::DecksUnfavourite
@@ -1030,283 +1040,6 @@ fn shortened(text: &str, most: usize) -> String {
     )
 }
 
-/// The history sheet (960 × factor): versions left, the changes right.
-#[allow(clippy::too_many_lines)] // a sheet, read top to bottom
-fn history_sheet(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
-    let lobby = &state.lobby;
-    let lang = lobby.lang();
-    let lib = lobby.library();
-    let ui = &state.decks;
-    let name = match &lib.page {
-        Some(Page::History(id)) => lobby
-            .decks()
-            .iter()
-            .find(|d| &d.id == id)
-            .map_or_else(String::new, |d| d.name.clone()),
-        _ => String::new(),
-    };
-    let mut body = Vec::new();
-    let columns = commands
-        .spawn((
-            Node {
-                column_gap: px_fixed(kit.m.gap * 1.5),
-                row_gap: px_fixed(kit.m.gap),
-                flex_direction: if kit.m.frame == ShellFrame::Phone {
-                    FlexDirection::Column
-                } else {
-                    FlexDirection::Row
-                },
-                align_items: AlignItems::Start,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    body.push(columns);
-    let versions = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                row_gap: kit.m.px(4.0),
-                width: kit.m.px(240.0),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let detail = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                row_gap: kit.m.px(6.0),
-                flex_grow: 1.0,
-                min_width: px(0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(columns).add_children(&[versions, detail]);
-    let shown = lib.preview.as_ref().map(|(_, s)| s.version);
-    if lib.loading && lib.history.is_none() {
-        let skeleton = crate::shellkit::states::skeleton(commands, kit, 4);
-        commands.entity(versions).add_child(skeleton);
-    }
-    if let Some(history) = &lib.history {
-        let rows = std::iter::once((history.version, history.updated_at))
-            .chain(history.past.iter().map(|v| (v.version, v.superseded_at)));
-        for (walked, (version, at)) in rows.enumerate() {
-            let when = when(at);
-            let label = if version == history.version {
-                Phrase::HistoryCurrentRow.fill(lang, &[&version.to_string()])
-            } else {
-                Phrase::HistoryRow.fill(lang, &[&version.to_string()])
-            };
-            let on = shown == Some(version);
-            let row = surfaces::list_row(
-                commands,
-                kit,
-                &label,
-                &when,
-                &[],
-                Press::Decks(DecksPress::Version(version)),
-            );
-            commands.entity(row).insert(BackgroundColor(if on {
-                tokens::SELECTED
-            } else {
-                Color::NONE
-            }));
-            orders::item(commands, row, &orders::HISTORY, "versions", walked);
-            commands.entity(versions).add_child(row);
-        }
-        if history.past.is_empty() {
-            let none = parts::line(
-                commands,
-                kit,
-                Phrase::NoPastVersions.text(lang),
-                kit.m.small,
-                tokens::MUTED,
-            );
-            commands.entity(versions).add_child(none);
-        }
-    }
-    if let (Some((_, snapshot)), Some(history)) = (&lib.preview, &lib.history) {
-        // What this version holds against the deck as it is now: the one
-        // comparison the history answers without another request (a
-        // version's own changes need the one before it, which is not read;
-        // principle 5 — no control that would not work).
-        let compare = commands
-            .spawn((
-                Node {
-                    align_items: AlignItems::Center,
-                    column_gap: kit.m.px(8.0),
-                    flex_wrap: FlexWrap::Wrap,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        let label = parts::line(
-            commands,
-            kit,
-            if snapshot.version == history.version {
-                Phrase::HistoryIsCurrent.text(lang)
-            } else {
-                Phrase::HistoryAgainstCurrent.text(lang)
-            },
-            kit.m.small,
-            tokens::MUTED,
-        );
-        let gap = parts::grow(commands);
-        let all = controls::chip(
-            commands,
-            kit,
-            Phrase::HistoryShowAll.text(lang),
-            ui.show_all,
-            None,
-            false,
-            Press::Decks(DecksPress::ShowAll),
-        );
-        orders::stop(commands, all, &orders::HISTORY, "show-all");
-        commands.entity(compare).add_children(&[label, gap, all]);
-        commands.entity(detail).add_child(compare);
-        let base: &Snapshot = lib.current.as_ref().unwrap_or(snapshot);
-        diff(commands, detail, kit, lang, base, snapshot);
-        if ui.show_all {
-            for (label, rows) in [
-                (Phrase::LibraryCommanders, &snapshot.commanders),
-                (Phrase::LibraryMain, &snapshot.cards),
-                (Phrase::LibrarySide, &snapshot.sideboard),
-            ] {
-                if rows.is_empty() {
-                    continue;
-                }
-                let title = parts::caption(commands, kit, label.text(lang));
-                let text = parts::line(commands, kit, &rows.join("\n"), kit.m.small, tokens::INK);
-                commands.entity(detail).add_children(&[title, text]);
-            }
-        }
-    }
-    let close = controls::button(
-        commands,
-        kit,
-        Phrase::ShellClose.text(lang),
-        Weight::Secondary,
-        Live::Yes,
-        None,
-        Press::Decks(DecksPress::CloseSheet),
-    );
-    let current = lib
-        .preview
-        .as_ref()
-        .zip(lib.history.as_ref())
-        .is_none_or(|((_, s), h)| s.version == h.version);
-    let restore = controls::button(
-        commands,
-        kit,
-        Phrase::HistoryRestore.text(lang),
-        Weight::Primary,
-        if current {
-            Live::No(Phrase::HistoryRestoreCurrent.text(lang))
-        } else if lib.loading {
-            Live::No(Phrase::LibraryLoading.text(lang))
-        } else {
-            Live::Yes
-        },
-        None,
-        Press::Decks(DecksPress::Restore),
-    );
-    orders::stop(commands, close, &orders::HISTORY, "close");
-    orders::stop(commands, restore, &orders::HISTORY, "restore");
-    let title = Phrase::HistoryTitle.fill(lang, &[&name]);
-    let surface = surfaces::sheet_box(
-        commands,
-        kit,
-        SheetWidth::Large,
-        &title,
-        &body,
-        &[close, restore],
-    );
-    let scrim = surfaces::sheet(commands, surface);
-    commands
-        .entity(scrim)
-        .insert(Press::Decks(DecksPress::CloseSheet));
-    commands
-        .entity(surface)
-        .insert(Press::Shared(SharedPress::PickerNothing));
-    commands.entity(root).add_child(scrim);
-}
-
-/// A unix time as "2026-10-07 14:02" on the device's clock.
-fn when(at: i64) -> String {
-    let Ok(utc) = time::OffsetDateTime::from_unix_timestamp(at) else {
-        return String::new();
-    };
-    let at = time::UtcOffset::local_offset_at(utc).map_or(utc, |o| utc.to_offset(o));
-    format!(
-        "{:04}-{:02}-{:02} {:02}:{:02}",
-        at.year(),
-        u8::from(at.month()),
-        at.day(),
-        at.hour(),
-        at.minute()
-    )
-}
-
-/// The changes from `before` to `after`, by zone: `+3 Island` in accent,
-/// `−2 Forest` in danger ink; "No changes" where a zone has none.
-fn diff(
-    commands: &mut Commands,
-    parent: Entity,
-    kit: Kit,
-    lang: Lang,
-    before: &Snapshot,
-    after: &Snapshot,
-) {
-    for (label, from, to) in [
-        (Phrase::LibraryMain, &before.cards, &after.cards),
-        (Phrase::LibrarySide, &before.sideboard, &after.sideboard),
-        (
-            Phrase::LibraryCommanders,
-            &before.commanders,
-            &after.commanders,
-        ),
-    ] {
-        let changes = row_changes(from, to);
-        if changes.is_empty() && label != Phrase::LibraryMain {
-            continue;
-        }
-        let title = parts::caption(commands, kit, label.text(lang));
-        commands.entity(parent).add_child(title);
-        if changes.is_empty() {
-            let same = parts::line(
-                commands,
-                kit,
-                Phrase::NoChanges.text(lang),
-                kit.m.small,
-                tokens::MUTED,
-            );
-            commands.entity(parent).add_child(same);
-        }
-        for (name, delta) in changes {
-            let sign = if delta > 0 { "+" } else { "\u{2212}" };
-            let change = parts::line(
-                commands,
-                kit,
-                &format!("{sign}{}  {name}", delta.unsigned_abs()),
-                kit.m.small,
-                if delta > 0 {
-                    tokens::ACCENT
-                } else {
-                    tokens::DANGER
-                },
-            );
-            commands.entity(parent).add_child(change);
-        }
-    }
-}
-
 /// The preview sheet: a house deck's cards, Add and Add and use in the foot.
 fn preview_sheet(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
     let lobby = &state.lobby;
@@ -1522,9 +1255,25 @@ impl DecksPress {
             }
             DecksPress::CloseSheet => {
                 state.decks.preview = None;
+                state.confirm_restore = false;
                 if matches!(state.lobby.library().page, Some(Page::History(_))) {
                     state.lobby.close_library();
                 }
+            }
+            DecksPress::Compare(at) => {
+                let compare = match at {
+                    0 => Compare::Previous,
+                    1 => Compare::Current,
+                    _ => Compare::Pick(None),
+                };
+                let request = state.lobby.compare_with(compare);
+                dispatch(state, mailbox, request);
+            }
+            DecksPress::KeepEdits => state.confirm_restore = false,
+            DecksPress::DiscardAndRestore => {
+                state.confirm_restore = false;
+                let request = state.lobby.restore_version();
+                dispatch(state, mailbox, request);
             }
             DecksPress::Version(version) => {
                 if let Some(Page::History(id)) = state.lobby.library().page.clone() {
@@ -1534,6 +1283,12 @@ impl DecksPress {
             }
             DecksPress::ShowAll => state.decks.show_all = !state.decks.show_all,
             DecksPress::Restore => {
+                // Over the builder, loading the restored deck replaces its
+                // unsaved edits: the builder's one question first (Q-C3).
+                if matches!(state.lobby.screen(), Screen::Build) && state.lobby.builder().dirty() {
+                    state.confirm_restore = true;
+                    return;
+                }
                 let request = state.lobby.restore_version();
                 dispatch(state, mailbox, request);
             }
