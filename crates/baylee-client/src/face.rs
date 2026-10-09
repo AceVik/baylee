@@ -772,6 +772,52 @@ fn placed(width: f32, x: f32, y: f32) -> Node {
     }
 }
 
+/// A pool card drawn whole as its text face, filling `frame` as the front
+/// side of a card that can turn (`crate::flip`): the card's ground in its
+/// colours and the printing's finish, its face over that, `width` logical
+/// pixels wide. No plate: a card in the pool is on no battlefield, so its
+/// face writes its own numbers.
+///
+/// The deck builder's two windows draw a card this way where they have no
+/// picture to show: the hover preview (#259), and the printing picker,
+/// whose art does not load with no way out to Scryfall (the beta.6 review).
+#[allow(clippy::too_many_arguments)] // one card: where, what, in which words and fonts
+pub fn spawn_ui_card(
+    commands: &mut Commands,
+    cards: &mut crate::cardmat::UiCards,
+    frame: Entity,
+    lang: Lang,
+    face: &CardFace,
+    fonts: &UiFonts,
+    widths: &Widths<'_>,
+    finish: baylee_client_core::images::FinishTreatment,
+    width: f32,
+) -> Entity {
+    use bevy::ui::{percent, px};
+    let laid = UiFace::lay(face, lang, width, Detail::Full, widths, 0);
+    let look = crate::cardmat::CardLook::back(finish).faced(table_color(face.colors), laid.word);
+    let node = commands
+        .spawn((
+            MaterialNode(cards.get(look, None)),
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                top: px(0),
+                width: percent(100),
+                height: percent(100),
+                border_radius: BorderRadius::all(px(12)),
+                ..default()
+            },
+            crate::flip::Side::Front,
+            Visibility::Inherited,
+            Pickable::IGNORE,
+        ))
+        .id();
+    spawn_ui(commands, node, lang, face, &laid, fonts);
+    commands.entity(frame).add_child(node);
+    node
+}
+
 /// Puts `laid`'s face on `card`, a node the size of the card whose material
 /// draws the bars under it (or, with no material store, whose colour stands
 /// in for them).
@@ -798,6 +844,9 @@ fn placed(width: f32, x: f32, y: f32) -> Node {
 ///
 /// Counted ([`FaceBuilds`]), so a test and the dev harness can hold the face
 /// to being built on a change and never per frame.
+///
+/// A whole card in a window is [`spawn_ui_card`]: this face over a ground of
+/// its own.
 pub fn spawn_ui(
     commands: &mut Commands,
     card: Entity,

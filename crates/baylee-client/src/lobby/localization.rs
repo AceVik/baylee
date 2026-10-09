@@ -23,7 +23,13 @@ pub(super) fn update(
     rows: Query<&Press>,
     time: Res<Time>,
     mut local: Local<Localized>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
 ) {
+    // The card window reads the device's text-face setting as it is drawn.
+    let reads_text = settings.is_some_and(|s| s.prefer_text_view);
+    if state.build.reads_text != reads_text {
+        state.build.reads_text = reads_text;
+    }
     let lang = state.lobby.lang().code();
     if local.lang != lang {
         *local = Localized {
@@ -74,12 +80,19 @@ pub(super) fn update(
     {
         return;
     }
-    let card = rows
-        .iter()
-        .filter_map(|p| match p {
+    // The card window's card is asked first (windows-b6 §A.3, the text
+    // chain's second link), then the rows on screen.
+    let inspected = state
+        .lobby
+        .builder()
+        .inspecting()
+        .and_then(|slot| state.lobby.builder().card(slot));
+    let card = inspected
+        .into_iter()
+        .chain(rows.iter().filter_map(|p| match p {
             Press::Build(BuildPress::Inspect(slot)) => state.lobby.builder().card(*slot),
             _ => None,
-        })
+        }))
         .find(|c| {
             !local.tried.contains(&c.scryfall_id) && uuid::Uuid::parse_str(&c.oracle_id).is_ok()
         });

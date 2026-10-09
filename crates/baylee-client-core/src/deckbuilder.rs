@@ -305,9 +305,12 @@ impl Printing {
     }
 
     /// What the carousel writes under the art: set, number, and whatever
-    /// makes this printing look different from the plain one.
+    /// makes this printing look different from the plain one. `None` for
+    /// the registry's own reference printing, which knows nothing but its
+    /// id: the picker names that one in the player's words
+    /// (`Phrase::ReferencePrinting`), which it once did in English only.
     #[must_use]
-    pub fn label(&self) -> String {
+    pub fn label(&self) -> Option<String> {
         let mut parts: Vec<String> = Vec::new();
         if !self.set.is_empty() {
             parts.push(self.set.to_uppercase());
@@ -324,11 +327,7 @@ impl Printing {
         if self.promo {
             parts.push("Promo".to_string());
         }
-        if parts.is_empty() {
-            // The registry's own reference printing knows nothing but its id.
-            return "This build's printing".to_string();
-        }
-        parts.join(" · ")
+        (!parts.is_empty()).then(|| parts.join(" · "))
     }
 }
 
@@ -475,7 +474,22 @@ struct Held {
     note: Option<String>,
 }
 
-/// The printing picker: one card, every printing of it, and the choice.
+/// Which door opened the card window (`DESIGN.md` windows-b6 §A.3): the
+/// row body, Space or ⋯ › Open card is a reader's door and focuses the
+/// primary; the row's picture or ⋯ › Choose printing… is a chooser's door
+/// and focuses the printing strip. One window either way.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Door {
+    /// The picture, or Choose printing…: focus on the printings.
+    #[default]
+    Picture,
+    /// The row, Space, or Open card: focus on Add to deck.
+    Row,
+}
+
+/// The card window's state: one card, every printing of it, and the choice.
+/// The printing picker and the card sheet were two surfaces; they are one
+/// window now, opened through two [`Door`]s.
 ///
 /// The pool shows one row per *card* — a player asking "do I own this" wants
 /// one answer, not one per set it appeared in. The picker is where the other
@@ -485,6 +499,11 @@ struct Held {
 pub struct Picker {
     /// The pool slot being picked for.
     slot: usize,
+    /// Which door opened the window.
+    door: Door,
+    /// The deck list the window walks with ← →, when it was opened on a
+    /// deck row; `None` walks the pool's results.
+    list: Option<Zone>,
     /// Existing row to restyle; absent when adding from the catalog.
     replacing: Option<Entry>,
     reference_id: String,
@@ -528,6 +547,18 @@ impl Picker {
     #[must_use]
     pub fn slot(&self) -> usize {
         self.slot
+    }
+
+    /// Which door opened the window.
+    #[must_use]
+    pub fn door(&self) -> Door {
+        self.door
+    }
+
+    /// The deck list ← → walks, or `None` for the pool's results.
+    #[must_use]
+    pub fn list(&self) -> Option<Zone> {
+        self.list
     }
 
     /// Which list the pick lands in.
@@ -857,8 +888,6 @@ pub struct DeckBuilder {
     /// The newest additions, newest first ([`DeckBuilder::last_added`]).
     last_added: Vec<usize>,
     has_text: bool,
-    /// The card whose full text is on screen, as a slot in the pool.
-    inspecting: Option<usize>,
     /// The deck's commanders, as slots in the pool.
     ///
     /// Slots rather than names so they survive a language change: the row a

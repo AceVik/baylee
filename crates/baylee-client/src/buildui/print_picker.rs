@@ -3,7 +3,7 @@
 use super::*;
 use crate::hud::{btn_radius, palette};
 use crate::lobby::{FieldLook, List, SharedPress, button, chip, note, row, spacer, text_field};
-use baylee_client_core::deckbuilder::{BuildField, Picker};
+use baylee_client_core::deckbuilder::{BuildField, Picker, PoolCard};
 
 /// The printing picker: the carousel, the language, the finish.
 ///
@@ -137,7 +137,16 @@ pub(crate) fn printing_picker(
         border_radius: btn_radius(),
         ..default()
     });
-    let art = picker_art(commands, fonts, metrics, lang, picker, assets, cards);
+    let art = picker_art(
+        commands,
+        fonts,
+        metrics,
+        lang,
+        picker,
+        deck.card(picker.slot()),
+        assets,
+        cards,
+    );
     let forward = icon_button(
         commands,
         fonts,
@@ -164,7 +173,11 @@ pub(crate) fn printing_picker(
     let current = picker.current();
     let caption = match current {
         Some(printing) => {
-            let mut line = printing.label();
+            // The registry's own reference printing knows nothing but its
+            // id: offline, and wherever the printings could not be read.
+            let mut line = printing
+                .label()
+                .unwrap_or_else(|| Phrase::ReferencePrinting.text(lang).to_string());
             if !printing.set_name.is_empty() {
                 line = format!("{} \u{2014} {line}", printing.set_name);
             }
@@ -441,18 +454,25 @@ pub(crate) fn printing_picker(
     shade
 }
 
-/// The art for the printing the carousel is on.
+/// The art for the printing the carousel is on, or the card's text face
+/// where there is none to show.
 ///
 /// The URL is built the same way the duel builds one, so a printing that
-/// renders on the table renders here. A printing whose id is not a plausible
-/// Scryfall id — the registry's own reference row, in a build with no catalog
-/// — gets a plain panel instead of a guaranteed 404.
+/// renders on the table renders here. Where there is no picture — no
+/// plausible Scryfall id, a load that already failed, or one that fails
+/// later ([`face_lost_art`]) — the card is drawn as its text face, from the
+/// compiled card and the English Oracle where the pool has no text: a client
+/// with no way out to Scryfall (offline, signed in nowhere) has nothing else
+/// to show, and an empty frame with a cross was what it showed (the owner's
+/// beta.6 review).
+#[allow(clippy::too_many_arguments)] // one window part: the card, its printing, the stores
 fn picker_art(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
     lang: Lang,
     picker: &Picker,
+    card: Option<&PoolCard>,
     assets: Option<&AssetServer>,
     cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
@@ -476,6 +496,33 @@ fn picker_art(
             Pickable::IGNORE,
         ))
         .id();
+    let Some(cards) = cards else {
+        let empty = note(
+            commands,
+            fonts,
+            metrics,
+            Phrase::NoArtForPrinting.text(lang),
+        );
+        commands.entity(holder).add_child(empty);
+        return holder;
+    };
+    let frame = commands
+        .spawn((
+            crate::flip::Flip::default(),
+            Node {
+                height: percent(100),
+                aspect_ratio: Some(baylee_client_core::layout::CARD_ASPECT),
+                flex_shrink: 0.0,
+                border_radius: BorderRadius::all(px(12)),
+                ..default()
+            },
+            crate::hud::soft_shadow(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(holder).add_child(frame);
+    let width = height * baylee_client_core::layout::CARD_ASPECT;
+    let finish = treatment(picker.finish());
 
     let url = picker.current().and_then(|printing| {
         baylee_client_core::images::image_url(
@@ -488,72 +535,192 @@ fn picker_art(
             baylee_client_core::images::ArtSize::Normal,
         )
     });
-    if let (Some(url), Some(assets), Some(cards)) = (url, assets, cards) {
-        let frame = commands
-            .spawn((
-                crate::flip::Flip::default(),
-                Node {
-                    height: percent(100),
-                    aspect_ratio: Some(baylee_client_core::layout::CARD_ASPECT),
-                    flex_shrink: 0.0,
-                    border_radius: BorderRadius::all(px(12)),
-                    ..default()
-                },
-                crate::hud::soft_shadow(),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let back = picker
-            .current()
-            .filter(|p| p.has_back_image())
-            .and_then(|p| {
-                baylee_client_core::images::image_url(
-                    &baylee_view::PrintEntry {
-                        scryfall_id: p.scryfall_id.clone(),
-                        lang: p.lang.clone(),
-                        finish: baylee_view::Finish::Normal,
-                    },
-                    baylee_client_core::images::Face::Back,
-                    baylee_client_core::images::ArtSize::Normal,
-                )
-            })
-            .unwrap_or_else(|| {
-                baylee_client_core::images::back_url(baylee_client_core::images::ArtSize::Normal)
-            });
-        for (url, side) in [
-            (url, crate::flip::Side::Front),
-            (back, crate::flip::Side::Back),
-        ] {
-            let material =
-                cards.preview(&url, treatment(picker.finish()), assets.load(url.clone()));
-            commands.entity(frame).with_child((
-                MaterialNode(material),
-                side,
-                Node {
-                    position_type: PositionType::Absolute,
-                    width: percent(100),
-                    height: percent(100),
-                    ..default()
-                },
-                if side == crate::flip::Side::Back {
-                    Visibility::Hidden
-                } else {
-                    Visibility::Inherited
-                },
-                Pickable::IGNORE,
-            ));
+    let art = url
+        .zip(assets)
+        .map(|(url, assets)| (assets.load::<Image>(url.clone()), url, assets))
+        .filter(|(handle, _, assets)| !lost(assets, handle));
+    let Some((handle, url, assets)) = art else {
+        if let Some(card) = card {
+            let face = crate::face::of_pool(card);
+            let widths = crate::face::Widths::of(None);
+            crate::face::spawn_ui_card(
+                commands, cards, frame, lang, &face, fonts, &widths, finish, width,
+            );
+        } else {
+            commands.entity(frame).despawn();
+            let empty = note(
+                commands,
+                fonts,
+                metrics,
+                Phrase::NoArtForPrinting.text(lang),
+            );
+            commands.entity(holder).add_child(empty);
         }
-        commands.entity(holder).add_child(frame);
-    } else {
-        let empty = note(
-            commands,
-            fonts,
-            metrics,
-            Phrase::NoArtForPrinting.text(lang),
-        );
-        commands.entity(holder).add_child(empty);
+        return holder;
+    };
+    sides(
+        commands,
+        cards,
+        assets,
+        frame,
+        picker,
+        (url, handle.clone()),
+        finish,
+    );
+    if let Some(card) = card {
+        commands.entity(frame).insert(AwaitingArt {
+            art: handle,
+            card: card.index,
+            finish,
+            width,
+        });
     }
     holder
+}
+
+/// The picture's two sides in `frame`: the printing's front, and its back
+/// or the card back, turned by holding Shift.
+fn sides(
+    commands: &mut Commands,
+    cards: &mut UiCards<'_>,
+    assets: &AssetServer,
+    frame: Entity,
+    picker: &Picker,
+    (url, handle): (String, Handle<Image>),
+    finish: FinishTreatment,
+) {
+    let back = picker
+        .current()
+        .filter(|p| p.has_back_image())
+        .and_then(|p| {
+            baylee_client_core::images::image_url(
+                &baylee_view::PrintEntry {
+                    scryfall_id: p.scryfall_id.clone(),
+                    lang: p.lang.clone(),
+                    finish: baylee_view::Finish::Normal,
+                },
+                baylee_client_core::images::Face::Back,
+                baylee_client_core::images::ArtSize::Normal,
+            )
+        })
+        .unwrap_or_else(|| {
+            baylee_client_core::images::back_url(baylee_client_core::images::ArtSize::Normal)
+        });
+    for (url, side) in [
+        (url, crate::flip::Side::Front),
+        (back, crate::flip::Side::Back),
+    ] {
+        let art = if side == crate::flip::Side::Front {
+            handle.clone()
+        } else {
+            assets.load(url.clone())
+        };
+        let material = cards.preview(&url, finish, art);
+        commands.entity(frame).with_child((
+            MaterialNode(material),
+            side,
+            Node {
+                position_type: PositionType::Absolute,
+                width: percent(100),
+                height: percent(100),
+                ..default()
+            },
+            if side == crate::flip::Side::Back {
+                Visibility::Hidden
+            } else {
+                Visibility::Inherited
+            },
+            Pickable::IGNORE,
+        ));
+    }
+}
+
+/// Whether a picture's load has failed: with no way out to Scryfall, every
+/// one does.
+fn lost(assets: &AssetServer, art: &Handle<Image>) -> bool {
+    matches!(
+        assets.get_load_state(art.id()),
+        Some(bevy::asset::LoadState::Failed(_))
+    )
+}
+
+/// A picker's art still on its way, and the card to draw as its text face
+/// if it never arrives.
+#[derive(Component)]
+pub(crate) struct AwaitingArt {
+    art: Handle<Image>,
+    /// The pool card's registry index.
+    card: u32,
+    finish: FinishTreatment,
+    /// The card's width, in logical pixels.
+    width: f32,
+}
+
+/// Turns a picker's card whose picture failed to load into its text face
+/// ([`picker_art`]), in place: the window stays as it is drawn, only the
+/// card in it changes. A picture that arrives is left alone.
+#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
+pub(crate) fn face_lost_art(
+    mut commands: Commands,
+    waiting: Query<(Entity, &AwaitingArt)>,
+    server: Option<Res<AssetServer>>,
+    images: Option<Res<Assets<Image>>>,
+    state: Res<LobbyState>,
+    fonts: Option<Res<UiFonts>>,
+    font_assets: Option<Res<Assets<Font>>>,
+    (mut cache, mut store): (
+        Option<ResMut<crate::cardmat::UiCardMaterials>>,
+        Option<ResMut<Assets<crate::cardmat::CardUiMaterial>>>,
+    ),
+) {
+    // A headless lobby has no asset server, and draws no picture to lose.
+    let (Some(server), Some(images), Some(fonts)) = (server, images, fonts) else {
+        return;
+    };
+    for (frame, awaiting) in &waiting {
+        if images.contains(awaiting.art.id()) {
+            commands.entity(frame).remove::<AwaitingArt>();
+            continue;
+        }
+        if !lost(&server, &awaiting.art) {
+            continue;
+        }
+        let (Some(cache), Some(store)) = (cache.as_deref_mut(), store.as_deref_mut()) else {
+            return;
+        };
+        let lobby = &state.lobby;
+        let Some(card) = lobby
+            .builder()
+            .pool()
+            .iter()
+            .find(|c| c.index == awaiting.card)
+        else {
+            commands.entity(frame).remove::<AwaitingArt>();
+            continue;
+        };
+        let face = crate::face::of_pool(card);
+        let widths =
+            crate::face::Widths::of(font_assets.as_deref().and_then(|a| a.get(&fonts.text)));
+        commands
+            .entity(frame)
+            .remove::<AwaitingArt>()
+            .despawn_related::<Children>();
+        let mut cards = UiCards {
+            cache,
+            assets: store,
+        };
+        crate::face::spawn_ui_card(
+            &mut commands,
+            &mut cards,
+            frame,
+            lobby.lang(),
+            &face,
+            &fonts,
+            &widths,
+            awaiting.finish,
+            awaiting.width,
+        );
+    }
 }
 
 fn icon_button(
@@ -592,7 +759,7 @@ fn icon_button(
     root
 }
 
-fn set_search(
+pub(super) fn set_search(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
@@ -688,4 +855,162 @@ fn set_search(
     }
     commands.entity(root).add_child(popup);
     root
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cardmat::{CardUiMaterial, UiCardMaterials};
+    use baylee_client_core::deckbuilder::Zone;
+
+    /// Birds of Paradise as the pool knows it with no catalog (offline):
+    /// no rules text of its own, so its face reads the compiled English
+    /// Oracle. `scryfall_id` decides whether there is a picture to ask for.
+    fn birds(scryfall_id: &str) -> PoolCard {
+        PoolCard {
+            index: baylee_cards::decks::by_name("Birds of Paradise")
+                .expect("in the pool")
+                .get(),
+            name: "Birds of Paradise".to_string(),
+            english_name: "Birds of Paradise".to_string(),
+            colors: "G".to_string(),
+            scryfall_id: scryfall_id.to_string(),
+            ..PoolCard::default()
+        }
+    }
+
+    /// Draws the picker's card for `card`, open on it, as the builder does,
+    /// and lets `frames` frames pass: what stands in the window then.
+    fn window(card: PoolCard, frames: usize) -> App {
+        let mut app = App::new();
+        // An asset server with no `https` source: every picture fails, as
+        // it does on a machine with no way out to Scryfall.
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<Image>()
+            .init_asset::<Font>()
+            .init_asset::<CardUiMaterial>()
+            .init_resource::<UiCardMaterials>()
+            .init_resource::<LobbyState>()
+            .insert_resource(UiFonts {
+                text: Handle::default(),
+                medium: Handle::default(),
+                bold: Handle::default(),
+                italic: Handle::default(),
+                medium_italic: Handle::default(),
+                serif: Handle::default(),
+                serif_italic: Handle::default(),
+                icons: Handle::default(),
+                mana: Handle::default(),
+            })
+            .add_systems(Update, (draw, face_lost_art).chain());
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            let builder = state.lobby.builder_mut();
+            builder.set_pool(vec![card], false);
+            builder.open_picker(0, Zone::Main);
+        }
+        for _ in 0..frames {
+            app.update();
+        }
+        app
+    }
+
+    /// The picker's card, drawn once.
+    fn draw(
+        mut commands: Commands,
+        state: Res<LobbyState>,
+        assets: Res<AssetServer>,
+        fonts: Res<UiFonts>,
+        (mut cache, mut store): (ResMut<UiCardMaterials>, ResMut<Assets<CardUiMaterial>>),
+        mut drawn: Local<bool>,
+    ) {
+        if std::mem::replace(&mut *drawn, true) {
+            return;
+        }
+        let deck = state.lobby.builder();
+        let picker = deck.picker().expect("open");
+        let mut cards = UiCards {
+            cache: &mut cache,
+            assets: &mut store,
+        };
+        picker_art(
+            &mut commands,
+            &fonts,
+            Metrics::of(1400.0),
+            Lang::En,
+            picker,
+            deck.card(picker.slot()),
+            Some(&assets),
+            Some(&mut cards),
+        );
+    }
+
+    /// Whether the card in the window is its text face, with its rules
+    /// text, and whether a picture is still asked to stand there.
+    fn shown(app: &mut App) -> (bool, bool) {
+        let world = app.world_mut();
+        let mut texts: Vec<String> = world
+            .query::<&Text>()
+            .iter(world)
+            .map(|t| t.0.clone())
+            .collect();
+        texts.extend(world.query::<&TextSpan>().iter(world).map(|t| t.0.clone()));
+        let faced = world
+            .query_filtered::<(), With<crate::face::FaceTextBox>>()
+            .iter(world)
+            .count()
+            == 1
+            && texts.iter().any(|t| t.contains("one mana of any color"));
+        let fronts: Vec<_> = world
+            .query::<(&crate::flip::Side, &MaterialNode<CardUiMaterial>)>()
+            .iter(world)
+            .filter(|(side, _)| **side == crate::flip::Side::Front)
+            .map(|(_, node)| node.0.clone())
+            .collect();
+        let materials = world.resource::<Assets<CardUiMaterial>>();
+        let pictured = fronts
+            .iter()
+            .any(|handle| materials.get(handle).is_some_and(|m| m.art.is_some()));
+        (faced, pictured)
+    }
+
+    /// The owner's beta.6 review: offline, the card window a picture opens
+    /// in the deck builder showed an empty frame with a cross. With no way
+    /// out to Scryfall the picture never comes, and the card is drawn as
+    /// its text face in its place, from the compiled card and the English
+    /// Oracle.
+    #[test]
+    fn a_picture_that_never_comes_leaves_the_card_as_its_text_face() {
+        let mut app = window(birds("2f40613b-1bde-4939-86ad-6bd40f9db0d6"), 1);
+        assert_eq!(
+            shown(&mut app),
+            (false, true),
+            "the picture is asked for first"
+        );
+        for _ in 0..20 {
+            app.update();
+        }
+        assert_eq!(
+            shown(&mut app),
+            (true, false),
+            "the failed picture gives way to the text face"
+        );
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .query_filtered::<(), With<AwaitingArt>>()
+                .iter(world)
+                .count(),
+            0,
+            "and nothing waits for it any more"
+        );
+    }
+
+    /// A printing with no picture to ask for (the registry's reference row,
+    /// a nil id) is its text face from the first frame.
+    #[test]
+    fn a_printing_with_no_picture_is_its_text_face_at_once() {
+        let mut app = window(birds("00000000-0000-0000-0000-000000000000"), 1);
+        assert_eq!(shown(&mut app), (true, false));
+    }
 }

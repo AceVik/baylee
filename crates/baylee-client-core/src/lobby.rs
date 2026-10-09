@@ -2048,6 +2048,7 @@ impl Lobby {
             return None;
         }
         self.builder.start_new();
+        self.close_library_for_the_builder();
         self.screen = Screen::Build;
         self.needs_pool()
     }
@@ -2058,6 +2059,7 @@ impl Lobby {
             return None;
         }
         let deck_id = self.decks.get(index)?.id.clone();
+        self.close_library_for_the_builder();
         self.screen = Screen::Build;
         self.busy = true;
         self.note(Phrase::OpeningDeck);

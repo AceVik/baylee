@@ -143,13 +143,12 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
 }
 
 /// The open sheet, if any: leaving with unsaved changes first, then the
-/// card, the phone's Filters and Stats.
+/// phone's Filters and Stats. The card window has its own slot
+/// (`cardwindow`).
 pub(super) fn sheet(commands: &mut Commands, holder: Entity, env: &Env) {
     let ui = env.ui();
     let surface = if env.state.confirm_leave {
         Some(leave(commands, env))
-    } else if let Some(slot) = env.deck().inspecting() {
-        card(commands, env, slot)
     } else if ui.rail && matches!(env.layout, Layout::Rail | Layout::PhoneSingle) {
         Some(filters(commands, env))
     } else if ui.stats_sheet {
@@ -198,178 +197,6 @@ fn leave(commands: &mut Commands, env: &Env) -> Entity {
         &[body],
         &[discard, keep],
     )
-}
-
-/// The card: what is printed on it, what this build does with it, and
-/// where it can go.
-#[allow(clippy::too_many_lines)] // one sheet, read top to bottom
-fn card(commands: &mut Commands, env: &Env, slot: usize) -> Option<Entity> {
-    let kit = env.kit;
-    let m = kit.m;
-    let lang = env.lang();
-    let deck = env.deck();
-    let card = deck.card(slot)?;
-    let mut body = Vec::new();
-    let mut top = vec![cell(
-        commands,
-        kit,
-        &match &card.stats {
-            Some(stats) if !stats.is_empty() => format!("{} \u{b7} {stats}", card.type_line),
-            _ => card.type_line.clone(),
-        },
-        m.small,
-        tokens::MUTED,
-        false,
-    )];
-    top.push(spring(commands));
-    if let Some(cost) =
-        crate::manaui::spawn_cost_or_text(commands, kit.fonts, &card.mana_cost, m.small * 1.2)
-    {
-        top.push(cost);
-    }
-    body.push(line(commands, kit, &top));
-    // The gateway serves rules text only with a catalog; without one the
-    // compiled English Oracle stands in, never an empty box.
-    let text = if card.oracle_text.is_empty() {
-        baylee_cards::generated_oracle::ORACLE
-            .get(card.index as usize)
-            .map(|faces| faces.join("\n\n"))
-            .unwrap_or_default()
-    } else {
-        card.oracle_text.clone()
-    };
-    if text.is_empty() {
-        body.push(surfaces::prose(
-            commands,
-            kit,
-            Phrase::NoRulesText.text(lang),
-            true,
-        ));
-    } else {
-        body.push(surfaces::prose(commands, kit, &text, false));
-    }
-    if let Some((mark, ink)) = coverage_mark(card.coverage) {
-        let said = mark.text(lang);
-        let why = match &card.note {
-            Some(note) => format!("{said}: {note}"),
-            None => Phrase::NotAsPrinted.fill(lang, &[said]),
-        };
-        let line = commands
-            .spawn((
-                Text::new(why),
-                tf(kit.fonts, m.small),
-                TextColor(ink),
-                Pickable::IGNORE,
-            ))
-            .id();
-        body.push(line);
-    }
-    let (main, side) = (
-        deck.count_of(slot, Zone::Main),
-        deck.count_of(slot, Zone::Side),
-    );
-    let held = match (main, side) {
-        (0, 0) => String::new(),
-        (m, 0) => Phrase::HeldInDeck.fill(lang, &[&m.to_string()]),
-        (0, s) => Phrase::HeldInSideboard.fill(lang, &[&s.to_string()]),
-        (m, s) => Phrase::HeldInBoth.fill(lang, &[&m.to_string(), &s.to_string()]),
-    };
-    if !held.is_empty() {
-        body.push(surfaces::prose(commands, kit, &held, true));
-    }
-    let mut actions = vec![
-        controls::button(
-            commands,
-            kit,
-            Phrase::BuildAddToMain.text(lang),
-            Weight::Primary,
-            Live::Yes,
-            Some("Enter"),
-            (
-                Press::Build(BuildPress::AddCardTo(slot, Zone::Main)),
-                sheet_stop("add"),
-            ),
-        ),
-        controls::button(
-            commands,
-            kit,
-            Phrase::BuildAddToSide.text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            None,
-            (
-                Press::Build(BuildPress::AddCardTo(slot, Zone::Side)),
-                sheet_stop("other"),
-            ),
-        ),
-        controls::button(
-            commands,
-            kit,
-            Phrase::BuildChoosePrinting.text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            None,
-            (
-                Press::Build(BuildPress::PickPrint(slot)),
-                sheet_stop("printing"),
-            ),
-        ),
-    ];
-    if card.commander {
-        let leading = deck.is_commander(slot);
-        actions.push(controls::button(
-            commands,
-            kit,
-            if leading {
-                Phrase::IsCommander
-            } else {
-                Phrase::SetCommander
-            }
-            .text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            None,
-            (
-                Press::Build(if leading {
-                    BuildPress::ClearCommander
-                } else {
-                    BuildPress::SetCommander(slot)
-                }),
-                sheet_stop("commander"),
-            ),
-        ));
-    }
-    let wrap = commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                flex_wrap: FlexWrap::Wrap,
-                column_gap: m.px(8.0),
-                row_gap: m.px(8.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(wrap).add_children(&actions);
-    body.push(wrap);
-    let close = controls::button(
-        commands,
-        kit,
-        Phrase::ShellClose.text(lang),
-        Weight::Secondary,
-        Live::Yes,
-        Some("Esc"),
-        (Press::Build(BuildPress::CloseCard), sheet_stop("close")),
-    );
-    Some(surfaces::sheet_box(
-        commands,
-        kit,
-        SheetWidth::Medium,
-        &card.name,
-        &body,
-        &[close],
-    ))
 }
 
 /// The phone's Filters, as a sheet.
