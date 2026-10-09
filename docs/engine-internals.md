@@ -973,6 +973,33 @@ not yet asked about it (CR 614.5) and draws it when none is left. The skip
 is offered with an empty library too (CR 614.11), and nobody draws for a
 player who has left (CR 800.4a: what they own has left with them).
 
+### A discard asked about before it is made (Library of Leng)
+"If an effect causes you to discard a card, discard it, but you may put it
+on top of your library instead of into your graveyard." It replaces where a
+discarded card goes and nothing else: the card is still discarded (CR
+701.9a, `GameEvent::Discarded` is journalled), and one put into the library
+is not revealed, so its characteristics are undefined to whatever reads the
+discard (CR 701.9c) and the log names it to its discarder only.
+
+The question comes before anything moves, as CR 903.9b's does
+(`resolve/discard.rs`, modelled on `ask_commander_replace`): a card that
+reached the graveyard and was then put back would be a different game. Every
+door an effect's discard goes through names its cards first —
+`DiscardRandom` (after the random draw, which is never repeated),
+`DiscardHand`, Balance's hands (`equalize`), and the two choices whose
+answers discard, `DiscardChain` (`DiscardForPlayers`, `RevealHandDiscard`)
+and `DiscardThenDraw`. Each discarding player who controls a Library of
+Leng is asked one `Pending::Arrange` (`ArrangePrompt::DiscardToLibrary`):
+a graveyard pile first, so the answer with no preference is the discard as
+printed, and a library pile in any order. The answers wait in
+`GameState::discard_answers`, and `GameState::discard_card`, the effect
+discards' one door, spends them, placing the library pile as it was listed
+(`discards_on_top`). What runs after the answer is `DiscardThen::Cards` (the
+named cards, then the next instruction) or `DiscardThen::Choice` (the choice
+answered again with the same cards; its second visit finds them answered).
+A cost's discard and the cleanup step's (CR 514.1) are no effect's and are
+never asked.
+
 ### The replacements that multiply, and their three doors
 Doubling Season and its kin do not rewrite an event; they multiply what an
 effect produces (CR 614.16 for tokens, CR 614.16 for counters), so they live

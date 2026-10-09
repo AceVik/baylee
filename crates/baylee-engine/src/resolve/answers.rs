@@ -550,6 +550,11 @@ pub(super) fn resume_arranged_inner(
     }
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
+    // Library of Leng's arrangement: answered before the discard is made,
+    // which the instruction then makes itself.
+    if let AwaitingOp::DiscardDestination { discards, then } = awaiting {
+        return resume_discard_destination(state, res, &discards, then, piles);
+    }
     let library = ZoneLocation::Library(res.controller);
     match (awaiting, piles) {
         (AwaitingOp::ReorderTopLibrary { player }, [top]) => {

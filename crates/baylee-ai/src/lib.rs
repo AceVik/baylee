@@ -677,6 +677,19 @@ impl HeuristicAgent {
                     piles: vec![top, away],
                 }
             }
+            // Library of Leng: a card on top of the library comes back as
+            // the next draw, and one in the graveyard is gone for the game,
+            // so every card this seat is losing goes on top, as it was
+            // offered. A card worth throwing away needs the card reader
+            // this agent does not have.
+            Pending::Arrange {
+                cards,
+                piles,
+                prompt: ArrangePrompt::DiscardToLibrary,
+                ..
+            } if piles.len() == 2 => PlayerAction::Arrange {
+                piles: vec![Vec::new(), cards],
+            },
             Pending::Arrange { cards, piles, .. } => PlayerAction::Arrange {
                 piles: default_arrangement(&cards, &piles).unwrap_or_else(|| vec![cards.clone()]),
             },
