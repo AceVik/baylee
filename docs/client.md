@@ -4317,9 +4317,17 @@ version_line`; the whole build on Wide and Vast, the version below; it was
 in the sign-in face's head and at the start of the colophon until
 09.10.2026), and the **colophon**: on Wide and Vast the Fan Content notice
 word for word and Scryfall's credit set as a short centred paragraph
-(`door::full`, about two lines of the notice at 1920), with the source
-offer — its QR and "Source code (AGPL-3.0): <address>" as text and link —
-in the window's top-right corner (`door::source_corner`); on the smaller
+(`door::full`, about two lines of the notice at 1920), with two **corner
+tiles** (`door::corner_tiles`, owner, 09.10.2026), each one control
+stacked the same way — its QR code, its label, its address — whose press
+anywhere opens the address in the system browser (kit hover and press,
+the hand; `source::address_of` is the one hook both go through): top left
+the source offer ("Source code (AGPL-3.0)" over the address), top right
+the community's Discord ("Community on Discord" over
+`source::DISCORD_URL`). Only the Discord tile beckons: a one-second glow
+of the accent (`BoxShadow`, `door::beckon`) about four seconds after the
+door stands and every 24 s after, writing nothing between pulses and
+nothing at all under `reduce_motion`; on the smaller
 classes the one-line colophon, whose notice and Source open the **About**
 sheet (every colophon sentence in full, the licence, the source as text,
 link and code, the third-party licences). `docs/legal.md` §"The front
