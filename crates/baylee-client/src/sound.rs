@@ -1716,17 +1716,32 @@ mod tests {
     use super::*;
     use baylee_client_core::interaction::Outcome;
 
-    /// Runs frames until the cues' buffers have arrived in [`Voices`].
+    /// Runs the frame that starts the cues' synthesis (unless it ran), waits
+    /// for every take, then the frame that collects them into [`Voices`].
+    ///
+    /// It waits on the tasks themselves, as long as they take, and never on
+    /// the wall clock: the pool is the process's, every test here starts its
+    /// own synthesis on it, and under a loaded run (the whole client suite
+    /// beside a gate) a 60-s deadline ran out while the takes were still
+    /// being computed — two of these tests failed that way and passed alone.
     fn voiced(app: &mut App) {
-        let start = std::time::Instant::now();
-        while !app.world().contains_resource::<Voices>() {
-            assert!(
-                start.elapsed() < std::time::Duration::from_secs(60),
-                "the cues were never voiced"
-            );
+        if !app.world().contains_resource::<Voicing>() && !app.world().contains_resource::<Voices>()
+        {
             app.update();
-            std::thread::sleep(std::time::Duration::from_millis(5));
         }
+        if let Some(mut voicing) = app.world_mut().get_resource_mut::<Voicing>() {
+            for voiced in voicing.0.iter_mut().flat_map(|(_, takes)| takes.iter_mut()) {
+                if let Voiced::Pending(task) = voiced {
+                    let done = bevy::tasks::block_on(task);
+                    *voiced = Voiced::Done(done);
+                }
+            }
+        }
+        app.update();
+        assert!(
+            app.world().contains_resource::<Voices>(),
+            "the cues were never voiced"
+        );
     }
 
     /// The frame the app opens on does not synthesise the cues: it only
