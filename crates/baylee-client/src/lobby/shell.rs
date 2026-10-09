@@ -232,7 +232,9 @@ pub(super) fn ui(
     // And the settings screen's graphics rows (WP5): what is in force,
     // the display mode's trial, how many monitors there are.
     kit_inputs: KitInputs,
-    mut drawn: Local<Option<Frame>>,
+    // The frame drawn, and what the history sheet over the builder was
+    // drawn from (see below).
+    mut drawn: Local<(Option<Frame>, Option<String>)>,
     mut kit_drawn: Local<Option<KitDrawn>>,
     mut builder_drawn: Local<Option<crate::buildui::Retained>>,
     mut rebuilds: ResMut<UiRebuilds>,
@@ -260,7 +262,33 @@ pub(super) fn ui(
         && !prefs.is_changed()
         && !cast.is_changed()
         && !root.is_empty()
-        && *drawn == Some(metrics.frame)
+        && drawn.0 == Some(metrics.frame)
+        && kit_same
+    {
+        return;
+    }
+    // A deck's history over the builder is drawn whole (the builder's patch
+    // path draws only the builder), so it is drawn again only when what it
+    // shows changed: a builder system that writes the lobby every frame
+    // otherwise respawned the sheet every frame, and no click or Tab could
+    // land on it (found on the live walk).
+    let history_now = (state.lobby.screen() == &Screen::Build
+        && state.lobby.library().page.is_some())
+    .then(|| {
+        format!(
+            "{:?}|{}|{}|{:?}",
+            state.lobby.library(),
+            state.confirm_restore,
+            state.decks.show_all,
+            state.lobby.lang()
+        )
+    });
+    if history_now.is_some()
+        && history_now == drawn.1
+        && !prefs.is_changed()
+        && !cast.is_changed()
+        && !root.is_empty()
+        && drawn.0 == Some(metrics.frame)
         && kit_same
     {
         return;
@@ -302,7 +330,7 @@ pub(super) fn ui(
         && state.lobby.library().page.is_none()
         && state.confirmation.is_none()
         && !prefs.is_changed()
-        && *drawn == Some(metrics.frame)
+        && drawn.0 == Some(metrics.frame)
         && kit_same
         && !root.is_empty()
         && let Some(cached) = builder_drawn.as_mut()
@@ -317,12 +345,13 @@ pub(super) fn ui(
     rebuilds.state += u64::from(state.is_changed());
     rebuilds.prefs += u64::from(prefs.is_changed());
     rebuilds.cast += u64::from(cast.is_changed());
-    rebuilds.frame += u64::from(root.is_empty() || *drawn != Some(metrics.frame) || !kit_same);
+    rebuilds.frame += u64::from(root.is_empty() || drawn.0 != Some(metrics.frame) || !kit_same);
     *builder_drawn = None;
     for entity in &root {
         commands.entity(entity).despawn();
     }
-    *drawn = Some(metrics.frame);
+    drawn.0 = Some(metrics.frame);
+    drawn.1.clone_from(&history_now);
     *kit_drawn = Some(kit_now);
 
     let full_bleed = true;
@@ -437,6 +466,13 @@ pub(super) fn ui(
             // A deck's history: the one sheet the Decks screen draws too,
             // over the builder (DESIGN §C.3; the builder's page is retired).
             super::history::sheet(&mut commands, root, &state, kit);
+            // The builder's patch path draws only the builder: with the
+            // sheet up, the next frame draws whole again, or the sheet
+            // would outlive its page (found on the live walk: Esc closed
+            // the history and its sheet stayed on screen).
+            if state.lobby.library().page.is_some() {
+                *builder_drawn = None;
+            }
         }
         // The persistent preparation cover takes over in the same frame.
         Screen::Seated(_) => {}
