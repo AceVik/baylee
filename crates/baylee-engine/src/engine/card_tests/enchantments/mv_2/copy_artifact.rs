@@ -186,11 +186,10 @@ fn copy_artifact_offers_every_artifact_and_copies_the_opponents() {
     );
 }
 
-/// Copying does not target (CR 115.1a): Padeem gives the opponent's artifacts
+/// Copying does not target (CR 115.10a): Padeem gives the opponent's artifacts
 /// hexproof, and their Sol Ring is still on Copy Artifact's menu and can be
 /// copied, ability and all. Padeem is no artifact, so it is not on the menu.
 #[test]
-#[ignore = "engine bug: copy_on_enter_question asks eval::target_options, which drops shroud, hexproof and protected permanents; a copy does not target (CR 115.1a). Remove the ignore with the fix."]
 fn copy_artifact_may_copy_an_artifact_that_has_hexproof() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let padeem = card_index("0c7ba712-6a99-4d2f-9242-a2163a11f69c");
