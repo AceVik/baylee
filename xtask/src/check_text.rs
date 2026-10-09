@@ -657,6 +657,10 @@ pub(crate) fn check_search_tapped_matches_text(slug: &str, content: &str, proble
 pub(crate) const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
     ("Bleachbone Verge", "an Condition, not a filter"),
     ("Mox Opal", "metalcraft is an Condition"),
+    (
+        "Word of Command",
+        "\"you control that player\" is control of a player (ControlPlayerPlayCard), not a permanent's controller",
+    ),
     ("Fierce Guardianship", "an AlternativeCost condition"),
     (
         "Deadly Rollick",

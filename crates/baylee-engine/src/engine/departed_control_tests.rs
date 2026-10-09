@@ -675,14 +675,24 @@ fn every_card_that_controls_a_player_does_it_by_taking_over_a_search() {
             if !controls_a_player(text) {
                 continue;
             }
-            // Word of Command's "you control that player" is the sentence
-            // its `Coverage::Partial` note leaves out: the card does nothing
-            // at all yet, so there is no control for a leaving player to
-            // end. Held to being Partial, so writing it moves this line.
+            // Word of Command controls a player some other way: for the
+            // length of one instructed play and its spell's resolution
+            // (`Effect::ControlPlayerPlayCard`, `engine/player_control.rs`).
+            // That control is no effect a leaving player has to end: it is
+            // read off the play under way at every decision
+            // (`Engine::controlled_actor`), which passes over a controller
+            // who has left the game, and it is gone when the play is.
             if def.faces[face].name == "Word of Command" {
                 assert!(
-                    matches!(def.coverage, baylee_cards_dsl::Coverage::Partial(_)),
-                    "Word of Command is written now: say how it controls a player"
+                    def.abilities.iter().any(|a| matches!(
+                        a,
+                        baylee_cards_dsl::AbilityDef::Spell { effects, .. }
+                            if effects.iter().any(|e| matches!(
+                                e,
+                                baylee_cards_dsl::Effect::ControlPlayerPlayCard { .. }
+                            ))
+                    )),
+                    "Word of Command controls its player through ControlPlayerPlayCard"
                 );
                 continue;
             }
