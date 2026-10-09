@@ -178,11 +178,11 @@ pub enum Prompt {
         /// How many.
         count: u8,
     },
-    /// The seat holds priority.
-    Priority {
-        /// Everything the engine says is legal right now.
-        legal: Box<LegalActions>,
-    },
+    /// The seat holds priority. What it may do is
+    /// [`Interaction::legal_actions`]: a prompt is asked for several times a
+    /// frame, and the copy of the legal actions it used to carry was made
+    /// for each and read by nobody (`/allocs`, 08.10.2026).
+    Priority,
     /// Declare attackers.
     DeclareAttackers,
     /// Declare blockers.
@@ -1543,9 +1543,7 @@ impl Interaction {
                 free: *next_is_free,
             },
             Pending::MulliganBottom { count, .. } => Prompt::BottomCards { count: *count },
-            Pending::Priority { legal, .. } => Prompt::Priority {
-                legal: legal.clone(),
-            },
+            Pending::Priority { .. } => Prompt::Priority,
             Pending::ChooseAttackers { .. } => Prompt::DeclareAttackers,
             Pending::ChooseBlockers { attacker, .. } => Prompt::DeclareBlockers {
                 attacker: *attacker,
