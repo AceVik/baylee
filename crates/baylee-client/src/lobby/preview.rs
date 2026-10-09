@@ -9,6 +9,10 @@ use super::*;
 
 // ------------------------------------------------------------ hover preview
 
+/// The hover preview's band: over the lobby's sheets and menus, under a
+/// tour's bubble (`tour::draw`), which must never be hidden by it.
+pub const PREVIEW_Z: i32 = 600;
+
 /// A row that has a card behind it, and what that card looks like.
 ///
 /// The URL is worked out when the row is spawned rather than when it is
@@ -390,7 +394,7 @@ pub(super) fn preview(
                 px(3),
                 px(28),
             ),
-            GlobalZIndex(600),
+            GlobalZIndex(PREVIEW_Z),
             // A picture is passed over by the pointer. A text face takes it
             // (#289), so its rules text can be scrolled; it stands beside
             // the pointer and never over the row it previews, so it never
