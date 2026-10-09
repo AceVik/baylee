@@ -597,8 +597,9 @@ fn step_key(step: f32) -> u32 {
 /// row, and is built again whole.
 ///
 /// It reads the roster only when something it is drawn from could have
-/// changed — the duel, the settings, the window — so a table at rest builds
-/// no names or facts at all.
+/// changed — the duel, the settings, the window's width — so a table at rest
+/// builds no names or facts at all. The width is compared, not the window's
+/// change tick: bevy's winit glue writes the window on every frame.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one retained row, like the pool's
 pub fn sync_players(
     mut commands: Commands,
@@ -606,17 +607,18 @@ pub fn sync_players(
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     prefs: Res<crate::prefs::Prefs>,
-    windows: Query<Ref<Window>>,
+    windows: Query<&Window>,
+    mut width_seen: Local<Option<u32>>,
     mut revision: ResMut<PlayersRevision>,
     mut strip: Query<(Entity, Option<&Children>, &mut Visibility, &mut Node), With<PlayersStrip>>,
     mut buttons: Query<(&PlayerButton, &mut SeatGlow, &mut Hint, &Children)>,
     writing: Query<Entity, With<Writing>>,
 ) {
     let window = windows.single().ok();
-    let moved = duel.is_changed()
-        || settings.is_changed()
-        || window.as_ref().is_some_and(Ref::is_changed)
-        || revision.tier.is_none();
+    let width = window.map(|w| w.width().to_bits());
+    let resized = *width_seen != width;
+    *width_seen = width;
+    let moved = duel.is_changed() || settings.is_changed() || resized || revision.tier.is_none();
     if !moved {
         return;
     }
@@ -632,7 +634,7 @@ pub fn sync_players(
             sides.push(seat.team);
         }
     }
-    let window_w = window.map_or(1280.0, |w| w.width());
+    let window_w = window.map_or(1280.0, Window::width);
     let next = PlayersRevision {
         tier: (!seats.is_empty()).then(|| Tier::fitting(window_w, &seats, sides.len(), step)),
         seats,
