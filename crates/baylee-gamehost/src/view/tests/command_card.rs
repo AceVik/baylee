@@ -415,3 +415,30 @@ fn word_of_commands_printing_reaches_only_its_caster() {
         "nothing re-sent the bystander its table at the choice"
     );
 }
+
+/// The engine already withholds the question from a seat it is not
+/// addressed to (`information_pending_for`), and the view does not lean on
+/// that alone: handed the caster's question by mistake, as
+/// `controlled_choice_projection_keeps_private_zones_separate` does for a
+/// face-down cast, the target and the bystander are still shown nothing,
+/// while the caster, the one it is addressed to, is shown the hand.
+#[test]
+fn word_of_commands_question_shown_by_mistake_still_shows_the_wrong_seat_nothing() {
+    let table = at_the_choice();
+    let pending = table.session.pending().clone();
+    let state = table.session.state();
+    let ctx = SeatContext {
+        awaiting: Some(CASTER),
+        decision_player: Some(CASTER),
+        ..SeatContext::default()
+    };
+    for seat in [TARGET, BYSTANDER] {
+        let view = player_view(state, seat, 0, Some(&pending), &ctx, &[]);
+        assert!(
+            view.looking_at.is_empty(),
+            "{seat:?} was handed the caster's question and is shown the hand"
+        );
+    }
+    let view = player_view(state, CASTER, 0, Some(&pending), &ctx, &[]);
+    assert_eq!(view.looking_at.len(), table.hand.len());
+}
