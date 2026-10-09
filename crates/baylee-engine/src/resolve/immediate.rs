@@ -1321,6 +1321,56 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        // CR 506.4: "an effect specifically removes it from combat".
+        Effect::RemoveTargetFromCombat { unblock } => {
+            for &target in &res.targets.clone() {
+                let was_blocking = state.combat.blocked_by(target);
+                state.combat.remove_from_combat(target);
+                if unblock {
+                    // "Creatures it was blocking that had become blocked by
+                    // only that creature this combat become unblocked."
+                    for attacker in was_blocking {
+                        if state.combat.blocked_only_by(attacker, target) {
+                            state.combat.unblock(attacker);
+                        }
+                    }
+                }
+            }
+            None
+        }
+        Effect::TargetMayBlockAttackerOfChoice => {
+            let blocker = *res.targets.first()?;
+            let controller = state
+                .object(blocker)
+                .filter(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                })?
+                .controller;
+            // Only an attacker it could be blocking: one attacking its
+            // controller or a planeswalker they control (CR 506.3e, 802.4a).
+            let options: Vec<ObjectId> = state
+                .combat
+                .attackers()
+                .iter()
+                .filter(|a| crate::combat::blocking_player(state, a.defending) == Some(controller))
+                .map(|a| a.creature)
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::BlockAttacker { blocker });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::BlockWith { blocker },
+                total: None,
+            })
+        }
         Effect::TapSelf => {
             if let Some(id) = this_to_affect(state, res)
                 && state

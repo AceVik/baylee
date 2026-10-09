@@ -533,8 +533,25 @@ all those blocking creatures are assigned lethal damage, any excess damage
 is assigned as its controller chooses"); a share question whose last
 recipient takes the rest cannot say that bound
 (`banding_tests::an_attacker_blocked_by_two_is_divided_by_its_controller`
-pins the question without trample). No effect in the pool makes a creature
-become blocked, so 702.22i has no door yet.
+pins the question without trample). False Orders' re-block is the one
+effect in the pool that makes a creature become blocked, and it spreads its
+block through the band as 702.22h and 702.22i say
+(`AwaitingOp::BlockAttacker`).
+
+### Removed from combat, and blocked again (False Orders)
+`Effect::RemoveTargetFromCombat` is CR 506.4's "an effect specifically
+removes it from combat" (`CombatState::remove_from_combat`, the door a
+departure uses too). An attacker it was blocking stays blocked (CR 509.1h),
+except with `unblock`: "creatures it was blocking that had become blocked by
+only that creature this combat become unblocked". "This combat" is a
+history, not the blocks left, so `CombatState` keeps every block made
+(`block_history`, hashed, cleared with the combat), and `blocked_only_by`
+asks it. `Effect::TargetMayBlockAttackerOfChoice` then offers the caster the
+attackers the creature could be blocking (those attacking its controller or
+a planeswalker they control, CR 506.3e, 802.4a) as `ChoicePrompt::BlockWith`,
+none allowed. The block is made and journalled as `BecameBlocker`, so block
+triggers fire. Blocking restrictions are not asked: they bind a declaration
+(CR 509.1b), and this is an effect.
 
 ## Teams: an opponent is a side
 A seat carries a `team` from the preset. `GameState::side_of` answers which

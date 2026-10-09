@@ -2,8 +2,9 @@
 //! Oracle: Cast this spell only during the declare blockers step.
 //! Oracle: Remove target creature defending player controls from combat. Creatures it was blocking that had become blocked by only that creature this combat become unblocked. You may have it block an attacking creature of your choice.
 //! Set: 2ED #148 — Unlimited Edition | Scryfall ID: a59c24d9-804b-45d0-b60c-cfc7a6af7ef5 | Oracle ID: 38c5c952-8153-4d98-89b5-a75260383345
-// PARTIAL — removing a blocker from combat and having it block again is not
-// in the engine.
+// IMPLEMENTED — cast in the declare blockers step only; the target leaves
+// combat, the attackers only it had blocked become unblocked, and its
+// caster may have it block an attacker of their choice.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -12,16 +13,21 @@ card!(
     oracle_id = "38c5c952-8153-4d98-89b5-a75260383345",
     scryfall_id = "a59c24d9-804b-45d0-b60c-cfc7a6af7ef5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Partial(
-        "removing a blocker from combat and having it block again is not in the engine"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "False Orders",
         mana_cost = mana!("{R}"),
         types = TypeSet::INSTANT,
     ),],
-    // NOT SUPPORTED: Cast this spell only during the declare blockers step.
-    // NOT SUPPORTED: Remove target creature defending player controls from combat.
-    // Creatures it was blocking that had become blocked by only that creature this combat
-    // become unblocked. You may have it block an attacking creature of your choice.
+    abilities = &[spell!(
+        &[
+            Effect::RemoveTargetFromCombat { unblock: true },
+            Effect::TargetMayBlockAttackerOfChoice,
+        ],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::And(&[
+            Filter::CREATURE,
+            Filter::ControlledByDefendingPlayer,
+        ])))),
+        condition = Some(Condition::DuringStep(StepKind::DeclareBlockers))
+    )],
 );

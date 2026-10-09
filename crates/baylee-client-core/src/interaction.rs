@@ -825,6 +825,9 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ),
         ChoicePrompt::Untap => (Phrase::NounPermanentToUntap, Phrase::NounPermanentsToUntap),
         ChoicePrompt::Band { .. } => (Phrase::NounAttackerToBand, Phrase::NounAttackersToBand),
+        ChoicePrompt::BlockWith { .. } => {
+            (Phrase::NounAttackerToBlock, Phrase::NounAttackersToBlock)
+        }
         ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
         ChoicePrompt::PutIntoHand => (Phrase::NounCardToHand, Phrase::NounCardsToHand),
         ChoicePrompt::PutOnBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
@@ -874,6 +877,17 @@ fn cards_line(
             Phrase::NounAttackersToBandWith,
         )
         .fill(lang, &[&leader]);
+        return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
+    }
+    if let ChoicePrompt::BlockWith { blocker } = reason
+        && let Some(blocker) = name(blocker)
+    {
+        let noun = Phrase::counted(
+            usize::from(max),
+            Phrase::NounAttackerForBlocker,
+            Phrase::NounAttackersForBlocker,
+        )
+        .fill(lang, &[&blocker]);
         return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
     }
     let (one, many) = choice_noun(reason);

@@ -319,6 +319,9 @@ pub(crate) fn check_player_targets_match_the_printing(
 /// - "you may put it on top of your library instead of into your
 ///   graveyard" (Library of Leng) — `MayDiscardToLibraryTop`, the
 ///   arrangement asked before an effect's discard (`state/discard.rs`).
+/// - "you may have it block an attacking creature of your choice" (False
+///   Orders) — `TargetMayBlockAttackerOfChoice`, a `min: 0` choice of
+///   attacker asked as it resolves.
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -378,6 +381,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "MaySkipDrawStepDraw",
         "SkipTurnToUntapSelf",
         "MayDiscardToLibraryTop",
+        "TargetMayBlockAttackerOfChoice",
     ];
     if !def.is_implemented() {
         return;

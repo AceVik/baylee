@@ -123,6 +123,10 @@ pub struct CombatState {
     attacking: Vec<(ObjectId, Defender)>,
     /// Declared blockers.
     pub blockers: Vec<BlockerInfo>,
+    /// Every block made this combat, `(blocker, attacker)`, kept when the
+    /// blocker leaves combat: what "had become blocked by only that
+    /// creature this combat" asks (False Orders). Cleared with the combat.
+    block_history: Vec<(ObjectId, ObjectId)>,
     /// The divisions players have chosen for the damage step about to be
     /// dealt, emptied once it is (`deal_combat_damage`).
     divisions: Vec<Division>,
@@ -135,6 +139,7 @@ impl std::hash::Hash for CombatState {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.attackers.hash(state);
         self.blockers.hash(state);
+        self.block_history.hash(state);
         self.divisions.hash(state);
         self.participants.hash(state);
         self.first_strikers.hash(state);
@@ -318,6 +323,32 @@ impl CombatState {
             }
         }
         self.blockers.push(BlockerInfo { blocker, attacker });
+        self.block_history.push((blocker, attacker));
+    }
+
+    /// Whether every block `attacker` has met this combat was `blocker`'s:
+    /// "had become blocked by only that creature this combat" (False
+    /// Orders). A blocker that came and went still counts.
+    #[must_use]
+    pub fn blocked_only_by(&self, attacker: ObjectId, blocker: ObjectId) -> bool {
+        let mut by = self
+            .block_history
+            .iter()
+            .filter(|(_, a)| *a == attacker)
+            .map(|(b, _)| *b)
+            .peekable();
+        by.peek().is_some() && by.all(|b| b == blocker)
+    }
+
+    /// An effect says `attacker` becomes unblocked (CR 509.1h: the flag
+    /// changes only by removal from combat, the combat's end, or an effect
+    /// that says so).
+    pub fn unblock(&mut self, attacker: ObjectId) {
+        for info in &mut self.attackers {
+            if info.creature == attacker {
+                info.blocked = false;
+            }
+        }
     }
 
     /// Takes a permanent out of combat (CR 506.4).
@@ -1810,6 +1841,40 @@ mod tests {
         assert_eq!(damage(&state, wall), 0, "it dealt no damage");
         assert_eq!(damage(&state, titan), 0, "and took none");
         assert_eq!(state.players[1].life, 20, "nor did anything get through");
+    }
+
+    /// "Had become blocked by only that creature this combat" reads every
+    /// block made, not the blocks left: a second blocker that has since left
+    /// combat still counts, an attacker nothing blocked was blocked by
+    /// nobody, and `unblock` clears the flag only of the attacker it names.
+    #[test]
+    fn blocked_only_by_reads_the_combats_blocks_and_not_the_blocks_left() {
+        let mut state = empty_state();
+        let attacker = creature(&mut state, P0, 3, 3, KeywordSet::EMPTY);
+        let other = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let first = creature(&mut state, P1, 1, 1, KeywordSet::EMPTY);
+        let second = creature(&mut state, P1, 1, 1, KeywordSet::EMPTY);
+        state
+            .combat
+            .declare_attackers([attacker, other].map(|creature| AttackerInfo {
+                creature,
+                defending: Defender::Player(P1),
+                blocked: false,
+                band: None,
+            }));
+        state.combat.declare_block(first, attacker);
+        assert!(state.combat.blocked_only_by(attacker, first));
+        assert!(!state.combat.blocked_only_by(other, first), "never blocked");
+        state.combat.declare_block(second, attacker);
+        state.combat.remove_from_combat(second);
+        assert!(
+            !state.combat.blocked_only_by(attacker, first),
+            "the second blocker left, and still blocked it this combat"
+        );
+        state.combat.declare_block(first, other);
+        state.combat.unblock(other);
+        assert!(!state.combat.is_blocked(other));
+        assert!(state.combat.is_blocked(attacker));
     }
 
     /// `is_attacking` answers from a sorted index kept beside the attacker
