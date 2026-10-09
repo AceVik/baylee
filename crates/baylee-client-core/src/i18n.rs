@@ -4639,8 +4639,8 @@ messages! {
     TourD4Title { en: "New or imported", de: "Neu oder importiert" },
     /// Tour step D4's words (TOURS.md §2).
     TourD4Body {
-        en: "New deck opens an empty deck builder. Import takes a deck list as Baylee text, JSON, YAML or Moxfield text and recognises the format itself. You can also just paste a list with Ctrl/Cmd+V or drop a file here. Baylee doesn't load a Moxfield link; the dialog tells you what to copy instead.",
-        de: "Neues Deck öffnet einen leeren Deckbauer. Import nimmt eine Deckliste als Baylee-Text, JSON, YAML oder Moxfield-Text und erkennt das Format selbst. Eine Liste kannst du auch mit Strg/Cmd+V einfügen oder als Datei hierher ziehen. Einen Moxfield-Link lädt Baylee nicht; der Dialog sagt dir, was du stattdessen kopierst.",
+        en: "New deck opens an empty deck builder. Import reads Baylee text, JSON, YAML or Moxfield text and spots the format itself; Ctrl/Cmd+V or a dropped file works too. A Moxfield link doesn't load; the dialog says what to copy. Open a deck to continue in the builder.",
+        de: "Neues Deck öffnet einen leeren Deckbauer. Import liest Baylee-Text, JSON, YAML oder Moxfield-Text und erkennt das Format selbst; Strg/Cmd+V oder eine hierher gezogene Datei geht auch. Einen Moxfield-Link lädt Baylee nicht; der Dialog sagt dir, was du kopierst. Öffne ein Deck, dann geht's im Deckbauer weiter.",
     },
     /// Tour step D5's title (TOURS.md §2).
     TourD5Title { en: "The header", de: "Die Kopfzeile" },
