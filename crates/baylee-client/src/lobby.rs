@@ -881,7 +881,7 @@ mod scrolling;
 pub(crate) use scrolling::WHEEL_LINE;
 pub(crate) mod settings_press;
 mod shell;
-mod shortcuts;
+pub(crate) mod shortcuts;
 mod source;
 mod systems;
 pub(crate) mod thumbnails;

@@ -38,20 +38,7 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
     // The house list is the Decks screen's data, not a sheet (WP3); a
     // deck's history, a house deck's cards, the Create-table sheet and the
     // deck picker are.
-    let modal = state.confirmation.is_some()
-        || state.terms.up()
-        || state.about_open
-        || (state.settings_open() && state.settings_view.profile_sheet)
-        || state.lobby.deleting_account().is_some()
-        || matches!(
-            state.lobby.library().page,
-            Some(client_core::lobby::library::Page::History(_))
-        )
-        || state.decks.preview.is_some()
-        || state.play.sheet.is_some()
-        || state.play.picker
-        || state.chair_sheet.is_some()
-        || (screen == Context::Builder && builder_modal(state));
+    let modal = !modal_by(state, screen).is_empty();
     let menu = state.front_menu
         || state.header_menu.is_some()
         || state.menu.is_some()
@@ -80,6 +67,40 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
         },
         live: true,
     }
+}
+
+/// What stands over the screen as a sheet and so makes the stack modal, by
+/// name: the one list `stack_of` reads, which `/state` reports beside the
+/// flag (a modal nothing draws looked like a frozen client, 09.10.).
+pub(crate) fn modal_by(state: &LobbyState, screen: Context) -> Vec<&'static str> {
+    [
+        ("confirmation", state.confirmation.is_some()),
+        ("terms", state.terms.up()),
+        ("about", state.about_open),
+        (
+            "profile_sheet",
+            state.settings_open() && state.settings_view.profile_sheet,
+        ),
+        ("deleting_account", state.lobby.deleting_account().is_some()),
+        (
+            "history",
+            matches!(
+                state.lobby.library().page,
+                Some(client_core::lobby::library::Page::History(_))
+            ),
+        ),
+        ("deck_preview", state.decks.preview.is_some()),
+        ("create_sheet", state.play.sheet.is_some()),
+        ("deck_picker", state.play.picker),
+        ("chair_sheet", state.chair_sheet.is_some()),
+        (
+            "builder",
+            screen == Context::Builder && builder_modal(state),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(name, holds)| holds.then_some(name))
+    .collect()
 }
 
 /// Whether something of the builder's stands over it as a sheet: the

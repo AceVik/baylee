@@ -126,7 +126,7 @@ pub(super) fn tours(
     report: Option<Res<crate::report::ReportDesk>>,
     overlay: Option<Res<crate::shellkit::overlay::Overlay>>,
     anchors: Query<(&TourAnchor, &InheritedVisibility, &ComputedNode)>,
-    (mut commands, mut opens): (Commands, MessageWriter<crate::DuelCommand>),
+    (mut commands, mut opens, mailbox): (Commands, MessageWriter<crate::DuelCommand>, Res<Mailbox>),
     mut opened: Local<Opened>,
 ) {
     let Some(settings) = settings.as_mut() else {
@@ -155,6 +155,20 @@ pub(super) fn tours(
                 commands.insert_resource(crate::InstalledHost(Box::new(host)));
                 opens.write(crate::DuelCommand::Open);
                 desk.practice = true;
+            }
+        }
+        // The room chapter's end: the table the tour opened, left as the
+        // room's own Leave leaves it.
+        Some(TourPress::LeaveTable) => {
+            let index = state.lobby.awaiting().and_then(|seat| {
+                state
+                    .lobby
+                    .games()
+                    .iter()
+                    .position(|g| g.id == seat.game_id)
+            });
+            if let Some(index) = index {
+                super::room::leave_table(&mut state, &mailbox, index);
             }
         }
         _ => {}
