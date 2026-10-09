@@ -616,7 +616,9 @@ impl<L: CardLookup> Engine<L> {
                     }
                 };
                 self.ask_blockers(defending);
-                true
+                // Camouflage's piles may need no answer at all (no creature
+                // to divide), and then the blocks are already made.
+                self.awaiting_answer
             }
             _ => self.priority_round(),
         }
@@ -661,6 +663,11 @@ impl<L: CardLookup> Engine<L> {
     /// (509.1a), one declaration obeying the requirements (509.1c) and the
     /// counts the declaration as a whole is held to (509.1b).
     pub(crate) fn ask_blockers(&mut self, defending: PlayerId) {
+        // Camouflage: "instead of declaring blockers", piles.
+        if self.state.per_turn.camouflage {
+            self.ask_camouflage(defending);
+            return;
+        }
         let active = self.state.turn.active;
         let blockers = combat::block_options(&self.state, defending);
         let rules = combat::BlockRules::new(&self.state);

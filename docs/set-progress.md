@@ -32,7 +32,6 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | Card | Remaining implementation or acceptance work |
 | --- | --- |
 | [Animate Dead](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/animate_dead.rs) | Aura reanimation, restricted attachment and the leave sacrifice are implemented and regression-tested; final live acceptance is pending |
-| [Camouflage](../crates/baylee-cards/src/cards/instants/mv_1/camouflage.rs) | defending players putting their creatures into piles assigned to attackers at random, instead of declaring blockers, is not in the engine |
 | [Drain Power](../crates/baylee-cards/src/cards/sorceries/mv_2/drain_power.rs) | forced land activations and exact mana transfer are implemented; final live acceptance is pending |
 | [Illusionary Mask](../crates/baylee-cards/src/cards/artifacts/mv_2/illusionary_mask.rs) | spent-mana casting and face-up replacement events are implemented; final selector and live acceptance are pending |
 | [Kudzu](../crates/baylee-cards/src/cards/enchantments/auras/mv_3/kudzu.rs) | tap-triggered destruction and controller-selected Aura relocation are implemented and regression-tested; final live acceptance is pending |

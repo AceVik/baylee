@@ -838,6 +838,9 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             (Phrase::NounAttackerToBlock, Phrase::NounAttackersToBlock)
         }
         ChoicePrompt::LeftPile => (Phrase::NounCreatureForLeft, Phrase::NounCreaturesForLeft),
+        ChoicePrompt::CamouflagePile { .. } => {
+            (Phrase::NounCreatureForPile, Phrase::NounCreaturesForPile)
+        }
         ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
         ChoicePrompt::PutIntoHand => (Phrase::NounCardToHand, Phrase::NounCardsToHand),
         ChoicePrompt::PutOnBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
@@ -887,6 +890,15 @@ fn cards_line(
             Phrase::NounAttackersToBandWith,
         )
         .fill(lang, &[&leader]);
+        return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
+    }
+    if let ChoicePrompt::CamouflagePile { pile, of } = reason {
+        let noun = Phrase::counted(
+            usize::from(max),
+            Phrase::NounCreatureForPileOf,
+            Phrase::NounCreaturesForPileOf,
+        )
+        .fill(lang, &[&pile.to_string(), &of.to_string()]);
         return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
     }
     if let ChoicePrompt::BlockWith { blocker } = reason

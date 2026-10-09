@@ -628,6 +628,7 @@ impl Effect {
             | Effect::TapTarget
             | Effect::RemoveTargetFromCombat { .. }
             | Effect::LeftRightPilesRestrictBlocks
+            | Effect::BlockInPilesAtRandomThisTurn
             | Effect::TargetMayBlockAttackerOfChoice
             | Effect::ToggleTapTarget
             | Effect::TapAll { .. }

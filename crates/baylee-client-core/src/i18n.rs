@@ -2217,6 +2217,26 @@ messages! {
         en: "attackers to join the band",
         de: "Angreifer, die sich der Gruppe anschließen",
     },
+    /// creature for a pile (Camouflage, the pile unnamed)
+    NounCreatureForPile {
+        en: "creature for this pile",
+        de: "Kreatur für diesen Stapel",
+    },
+    /// creatures for a pile
+    NounCreaturesForPile {
+        en: "creatures for this pile",
+        de: "Kreaturen für diesen Stapel",
+    },
+    /// creature for pile {0} of {1} (Camouflage: piles go to attackers at random)
+    NounCreatureForPileOf {
+        en: "creature for pile {0} of {1} (each pile blocks an attacker chosen at random)",
+        de: "Kreatur für Stapel {0} von {1} (jeder Stapel blockt einen zufälligen Angreifer)",
+    },
+    /// creatures for pile {0} of {1}
+    NounCreaturesForPileOf {
+        en: "creatures for pile {0} of {1} (each pile blocks an attacker chosen at random)",
+        de: "Kreaturen für Stapel {0} von {1} (jeder Stapel blockt einen zufälligen Angreifer)",
+    },
     /// creature for the "left" pile (Raging River; the rest go right)
     NounCreatureForLeft {
         en: "creature for the \"left\" pile (the rest go right)",

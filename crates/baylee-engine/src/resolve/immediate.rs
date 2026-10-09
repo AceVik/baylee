@@ -1322,6 +1322,10 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::LeftRightPilesRestrictBlocks => super::river::begin(state, res),
+        Effect::BlockInPilesAtRandomThisTurn => {
+            state.per_turn.camouflage = true;
+            None
+        }
         // CR 506.4: "an effect specifically removes it from combat".
         Effect::RemoveTargetFromCombat { unblock } => {
             for &target in &res.targets.clone() {

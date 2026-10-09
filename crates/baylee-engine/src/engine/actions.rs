@@ -997,10 +997,12 @@ impl<L: CardLookup> Engine<L> {
                     // where nobody holds priority, and neither is targeting
                     // (CR 115.1): refused with the plan put back, as the
                     // untap determination's are.
-                    PlanKind::Band { .. } | PlanKind::CombatDamage { .. } => {
+                    PlanKind::Band { .. }
+                    | PlanKind::CombatDamage { .. }
+                    | PlanKind::CamouflagePiles { .. } => {
                         self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
-                            "a band or a damage division is not a target choice",
+                            "a band, a pile or a damage division is not a target choice",
                         ));
                     }
                 }
@@ -1607,6 +1609,15 @@ impl<L: CardLookup> Engine<L> {
                     Some(PlanKind::Band { leader }) => {
                         return self.answer_band(player, leader, objects);
                     }
+                    // Camouflage's piles, instead of declaring blockers.
+                    Some(PlanKind::CamouflagePiles {
+                        defending,
+                        piles,
+                        of,
+                    }) => {
+                        self.answer_camouflage(defending, piles, of, objects);
+                        return Ok(());
+                    }
                     // A reveal land's entry clause. CR 701.20a shows the
                     // card to every player and CR 701.20b leaves it in hand,
                     // so nothing moves: the journal entry *is* the reveal,
@@ -1993,6 +2004,15 @@ impl<L: CardLookup> Engine<L> {
                 return Err(crate::choice::AnswerFault::MustBlock.into());
             }
         }
+        self.make_blocks(defending, blockers);
+        Ok(())
+    }
+
+    /// Makes `defending`'s blocks (CR 509.1h), spreads them through bands
+    /// (CR 702.22h), and asks the next defending player or ends the
+    /// declarations: the half of declaring blockers after the legality
+    /// checks, which Camouflage's piles share (`answer_camouflage`).
+    pub(crate) fn make_blocks(&mut self, defending: PlayerId, blockers: &[(ObjectId, ObjectId)]) {
         for &(blocker, attacker) in blockers {
             if let Some(version) = self.state.object(blocker).map(|o| o.version) {
                 self.state.combat.participants.push((blocker, version));
@@ -2022,10 +2042,9 @@ impl<L: CardLookup> Engine<L> {
             self.sync_static_effects();
             self.state.refresh_characteristics();
             self.ask_blockers(next);
-            return Ok(());
+            return;
         }
         self.combat_declared = CombatDeclared::Blockers;
-        Ok(())
     }
 
     // --------------------------------------------------------- turn steps

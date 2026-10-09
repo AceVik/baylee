@@ -741,6 +741,16 @@ enum PlanKind {
         /// The attacker with banding asked about.
         leader: ObjectId,
     },
+    /// Camouflage's piles, filled one question at a time by a defending
+    /// player instead of declaring blockers.
+    CamouflagePiles {
+        /// The defending player dividing.
+        defending: PlayerId,
+        /// The piles named so far.
+        piles: Vec<Vec<ObjectId>>,
+        /// How many piles there are.
+        of: u8,
+    },
     /// A player dividing one creature's combat damage
     /// (`NumberPrompt::CombatDamage`), share by share.
     CombatDamage {
@@ -1661,6 +1671,7 @@ impl<L: CardLookup> Engine<L> {
 mod abilities;
 mod ascend;
 mod banding;
+mod camouflage;
 mod decision;
 pub(crate) mod disguise;
 mod room;
@@ -1708,6 +1719,8 @@ mod banding_tests;
 mod base_sharing_tests;
 #[cfg(test)]
 mod block_requirement_tests;
+#[cfg(test)]
+mod camouflage_tests;
 #[cfg(test)]
 mod capability_tests;
 #[cfg(test)]

@@ -647,6 +647,16 @@ pub enum Effect {
     /// left pile; the controller then picks a label per attacker; the
     /// restriction is the combat's (`CombatState::limit_blockers_to_pile`).
     LeftRightPilesRestrictBlocks,
+    /// Camouflage: "This turn, instead of declaring blockers, each
+    /// defending player chooses any number of creatures they control and
+    /// divides them into a number of piles equal to the number of attacking
+    /// creatures for whom that player is defending. Then each defending
+    /// player assigns each of their piles to a different one of those
+    /// attacking creatures at random. Each creature in a pile that can
+    /// block the creature that pile is assigned to does so." A replacement
+    /// of the declare-blockers turn-based action for the rest of the turn
+    /// (`PerTurn::camouflage`, `Engine::ask_camouflage`).
+    BlockInPilesAtRandomThisTurn,
     /// Tap each target.
     TapTarget,
     /// Untap each target.

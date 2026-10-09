@@ -12,8 +12,8 @@ pub mod mind;
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 23 carries Raging River's piles (`ChoicePrompt::LeftPile`, `ChoosePile::label`).
-pub const PROTOCOL_VERSION: u32 = 23;
+/// Version 24 carries Camouflage's piles (`ChoicePrompt::CamouflagePile`).
+pub const PROTOCOL_VERSION: u32 = 24;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -269,7 +269,8 @@ mod tests {
         // older client cannot decode.
         // 22: False Orders' re-block, a `ChoicePrompt` variant likewise.
         // 23: Raging River's division prompt, a variant likewise.
-        assert_eq!(PROTOCOL_VERSION, 23);
+        // 24: Camouflage's pile prompt, likewise.
+        assert_eq!(PROTOCOL_VERSION, 24);
     }
 
     #[test]
