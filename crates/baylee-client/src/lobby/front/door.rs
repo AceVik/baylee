@@ -469,7 +469,7 @@ fn tile(commands: &mut Commands, kit: Kit, table: &'static str, tile: &Tile) -> 
         .id();
     let address = commands
         .spawn((
-            Text::new(tile.address),
+            Text::new(shown_address(tile.address)),
             crate::hud::tf(kit.fonts, kit.m.small),
             TextColor(tokens::MUTED),
             TextLayout::new(Justify::Center, LineBreak::WordOrCharacter),
@@ -483,6 +483,14 @@ fn tile(commands: &mut Commands, kit: Kit, table: &'static str, tile: &Tile) -> 
     }
     commands.entity(root).add_children(&[label, address]);
     root
+}
+
+/// The address as a tile shows it: without its `https://` (owner,
+/// 09.10.2026), which said nothing a reader needs and was where the line
+/// broke. Only the words change; the press and the code keep the whole
+/// address, and an `http://` one keeps its scheme, which says something.
+pub(crate) fn shown_address(address: &str) -> &str {
+    address.strip_prefix("https://").unwrap_or(address)
 }
 
 /// How wide a corner tile may grow at the default step.

@@ -335,7 +335,13 @@ fn the_corner_tiles_stand_in_their_corners_and_open_what_they_show() {
                 })
                 .count();
             assert_eq!(images, 1, "{width} px: the code stands first in the tile");
-            assert!(texts.contains(&url.to_string()), "{width} px: {texts:?}");
+            // The words drop the `https://`; the press and the code keep it.
+            let shown = url.strip_prefix("https://").expect("an https address");
+            assert!(texts.contains(&shown.to_string()), "{width} px: {texts:?}");
+            assert!(
+                !texts.iter().any(|t| t.contains("https://")),
+                "{width} px: {texts:?}"
+            );
             assert_eq!(
                 texts.len(),
                 2,
