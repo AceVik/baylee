@@ -1483,8 +1483,9 @@ mod tests {
     /// stricter would be a test about how the prose is punctuated.
     #[test]
     fn the_authoring_contract_names_every_cost_part() {
-        let costs = include_str!("cost.rs");
-        let contract = include_str!("../../../docs/card-dsl.md");
+        // As LF whatever the checkout wrote (Windows' `autocrlf`).
+        let costs = include_str!("cost.rs").replace("\r\n", "\n");
+        let contract = include_str!("../../../docs/card-dsl.md").replace("\r\n", "\n");
 
         let body = costs
             .split_once("pub enum CostPart {")

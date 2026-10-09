@@ -377,6 +377,17 @@ fn table_motion(duel: &crate::Duel) -> TableMotion {
     }
 }
 
+/// Whether the primary window has no pixels: minimised on Windows, which
+/// sends no `WindowOccluded` (winit reports occlusion on macOS, iOS, the web
+/// and Wayland), but resizes a minimised window to nothing. Measured on a
+/// Windows desktop before this: minimised, the client drew thirty frames a
+/// second at a fifth of a core (`docs/perf-client.md` §"Windows").
+fn minimised(windows: &Query<&Window, With<PrimaryWindow>>) -> bool {
+    windows
+        .single()
+        .is_ok_and(|w| w.resolution.physical_width() == 0 || w.resolution.physical_height() == 0)
+}
+
 fn note_hidden(mut watch: ResMut<Watch>, mut occluded: MessageReader<WindowOccluded>) {
     if let Some(last) = occluded.read().last() {
         watch.hidden = last.occluded;
@@ -495,7 +506,7 @@ fn pace(
     let untouched_secs = (time.elapsed_secs_f64() - watch.last_input) as f32;
     let showing = Showing {
         focused: focused(&windows),
-        hidden: watch.hidden,
+        hidden: watch.hidden || minimised(&windows),
         menu: phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed),
         untouched_secs,
         still: ambient_still(prefs.is_some_and(|p| p.all().reduce_motion), Some(&in_use)),
@@ -584,6 +595,47 @@ mod tests {
         });
         app.update();
         assert!((wait(&app).expect("capped") - 1.0).abs() < 1e-4);
+    }
+
+    /// A window with no pixels is hidden though nothing said occluded:
+    /// Windows minimises that way and sends no `WindowOccluded`. Proved both
+    /// ways: back at its size it is paced as a window in front again.
+    #[test]
+    fn a_minimised_window_draws_a_frame_a_second() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::input::InputPlugin)
+            .add_message::<CursorMoved>()
+            .add_message::<WindowOccluded>()
+            .add_message::<TouchInput>()
+            .insert_resource(WinitSettings::game())
+            .insert_resource(ClientSettings::default())
+            .add_plugins(QualityPlugin);
+        app.world_mut().spawn((Window::default(), PrimaryWindow));
+        let wait = |app: &App| match app.world().resource::<WinitSettings>().focused_mode {
+            UpdateMode::Reactive { wait, .. } => wait.as_secs_f32(),
+            UpdateMode::Continuous => 0.0,
+        };
+        let resize = |app: &mut App, width: u32, height: u32| {
+            let mut windows = app.world_mut().query::<&mut Window>();
+            windows
+                .single_mut(app.world_mut())
+                .expect("one")
+                .resolution
+                .set_physical_resolution(width, height);
+        };
+        resize(&mut app, 0, 0);
+        app.update();
+        assert!((wait(&app) - 1.0).abs() < 1e-4, "minimised: {}", wait(&app));
+        // Back at its size and in front (`Window::default` is focused): the
+        // cap again, Medium's sixty for a device that never chose.
+        resize(&mut app, 1280, 720);
+        app.update();
+        assert!(
+            (wait(&app) - 1.0 / 60.0).abs() < 1e-4,
+            "restored: {}",
+            wait(&app)
+        );
     }
 
     /// A table under `settings`, a duel on it, its clock stepping a quarter

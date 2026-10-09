@@ -377,7 +377,9 @@ mod tests {
     /// `MacOS`, resources, and `MacOS/assets` a relative link into them.
     /// On macOS with real programs (`/usr/bin/true`), signed ad hoc as
     /// `package-client.sh` signs the release: runtime first, then the
-    /// bundle, so `verify` has a seal to check.
+    /// bundle, so `verify` has a seal to check. Unix only, as its tests
+    /// are: a bundle holds a link.
+    #[cfg(unix)]
     fn bundle(at: &Path) -> PathBuf {
         let app = at.join("Baylee.app");
         let contents = app.join("Contents");

@@ -54,6 +54,8 @@ pub mod castmodes;
 pub mod choices;
 mod combatfx;
 pub mod combatlines;
+/// The console a Windows release build opens only on `--console`.
+pub mod console;
 pub mod depart;
 /// The dev-control harness. Native dev builds only; see the module docs for
 /// why it is a compile-time feature rather than a runtime switch.
@@ -574,6 +576,11 @@ pub struct Duel {
     /// is no window to ask, and `None` means "assume a wide screen", which is
     /// the hard-coded `16.0 / 9.0` this replaces.
     pub canvas_aspect: Option<f32>,
+    /// The window's class, measured with [`Self::canvas_aspect`]: a phone's
+    /// ring is laid on the ellipse, every other window's may be packed on a
+    /// frame (`TableLayout::arranged_in`). `None` until measured, read as
+    /// a wide window.
+    pub canvas_frame: Option<baylee_client_core::tableview::TableFrame>,
     /// The engaged autopilot, if any ("next phase" / "end turn").
     pub autopilot: Option<AutoPilot>,
     /// Stack entry chosen as the next manual response boundary.
@@ -1962,6 +1969,12 @@ fn add_present_systems(app: &mut App) {
             .in_set(DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),
     );
+    // The cues' buffers, synthesised off the main thread since startup,
+    // arrive whenever the last is done: the lobby is open by then.
+    app.add_systems(
+        Update,
+        sound::collect_the_voices.run_if(resource_exists::<sound::Voicing>),
+    );
 }
 
 /// Everything a hand does, in the order the frame has to read it in.
@@ -2152,9 +2165,10 @@ impl Plugin for DuelPlugin {
                     hud::setup_fonts,
                     hud::setup_sheets,
                     // Once, on the frame the app opens: thirty-seven
-                    // buffers of arithmetic, and thereafter thirty-seven
-                    // handles. See `sound`'s header for why they are
-                    // computed and not shipped, and what the count buys.
+                    // buffers of arithmetic, started on the compute pool
+                    // and collected by `sound::collect_the_voices`. See
+                    // `sound`'s header for why they are computed and not
+                    // shipped, and what the count buys.
                     sound::voice_the_cues,
                 ),
             )
@@ -3239,11 +3253,13 @@ pub fn rebuild_board(duel: &mut Duel) {
         .chain(view.opponents_in_turn_order())
         .map(|player| Seat::on(player, team_of(player)))
         .collect();
-    let mut layout = TableLayout::arranged(
+    let mut layout = TableLayout::arranged_in(
         &seats,
         duel.canvas_aspect.unwrap_or(16.0 / 9.0),
         duel.arrangement,
         duel.visiting,
+        duel.canvas_frame
+            .unwrap_or(baylee_client_core::tableview::TableFrame::Wide),
     );
     duel.interest_laid = duel.visiting;
     for slot in &mut layout.slots {

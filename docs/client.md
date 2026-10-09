@@ -814,6 +814,45 @@ accident, and arithmetic borrows nothing.
   eight, where it stood 59 and 81 when a ring seat was twelve units at most. The
   players' strip (§"The players' strip, and the bar's right end") is how a
   player gets close to one of them.
+- **The table packs** (owner, 08.10.2026: *"use the table space better"*).
+  Duel-wide boards on an ellipse leave its four corners and its flat runs
+  bare — eight seats on a laptop stood 5–8.5 units apart on a table of
+  131.8 × 65.6, the camera 161.8 off — so `TableLayout::seated` also lays
+  the sides on a **frame** (`layout/frame.rs`): mine on the near edge, then
+  clockwise up the left edge, along the far edge, down the right, every two
+  boards `layout::POD_GAP` (1.0, a card's width) apart, a flank of one board
+  turned up to an eighth of a turn into the corner (a square flank draws its
+  cards foreshortened by the lean), each board's `HEARTH_BAND` (1.25, where
+  its plate and steps hang) and the dial's circle `DIAL_CLEAR` (1.75, the
+  dial's `MIN_FREE_RADIUS`) kept clear. The frame is taken where it draws the
+  least favoured board larger (`frame::price`, the home shot's fit at the
+  default lean written in table units, held to the camera by
+  `arrangement_tests::the_frame_is_taken_only_where_the_camera_draws_it_larger`)
+  or where the ellipse brings two boards nearer than the gap
+  (`TableLayout::keeps_clear`). Not for a focus, not for three playing for
+  themselves (the circle), and with fewer than five sides every side keeps
+  an edge to itself — two sides a gap apart on one edge read as a team. At
+  six seats the near edge holds two boards, mine and the one before me, so
+  my board stands half a step off the middle. Measured at 1708 × 1028, home,
+  per seat against the ellipse (the model, the creature card; live, the
+  board's projected width): eight +28–36 % (eye 161.8 → 124.9; live
+  +27–35 %), seven +11–31 %, six +18–49 % (125.9 → 96.0; live +17–48 %),
+  five +17–23 %, 3v3 +8–17 %, 4v4 +9–22 %, three teams of two −3–+3 %;
+  three and four unchanged. A **phone** keeps the ellipse
+  (`TableLayout::arranged_in`): its home frames my board and the dial and
+  every other board is read by visiting, so the frame's gain is not what it
+  draws. The arrangements that build their own geometry (pods, arc rail,
+  Spotlight, Focus ring) take their template from the ellipse
+  (`TableLayout::on_ring`); the upright ring stands up the frame or the
+  ellipse, whichever it frames closer.
+  A ring whose home would put a seat under the pill or the report button is
+  framed below them (`camera::reaches_the_top`, DESIGN-v8 §2.2's fallback),
+  and from five seats one whose depth binds is framed above the players'
+  strip (`camera::reaches_the_strips`: seen live, six seats stood my land
+  row under it). A phone's home holds the dial's hub — the turn number —
+  from four seats (`a_phone_s_home_holds_the_dial_s_hub`; at three only its
+  centre, where the hub's far half turns the circle's second seat under the
+  report button).
 - Lanes fan when crowded, and a row that cannot fan legibly with its merged
   cards' cells held whole scrolls (§"A row that does not fit scrolls").
 - A seat's tab carries a **second life total** when one applies. Twenty-one
@@ -6979,9 +7018,16 @@ is nothing for a player to tune. `Off` stops the device and nothing else:
 cues are still decided, drained and reported, which keeps "is it silent" and
 "is it deciding" two separate questions.
 
-Everything is computed once, on the frame the app opens, from a xorshift32
-seeded with a constant — so the table sounds the same on every machine, and
-`a_cue_renders_the_same_bytes_twice` is what says so. The one thing a
+Everything is computed once per run, from a xorshift32 seeded with a
+constant — so the table sounds the same on every machine, and
+`a_cue_renders_the_same_bytes_twice` is what says so. The frame the app opens
+on only starts it: `sound::voice_the_cues` spawns one task per buffer on the
+compute pool and `sound::collect_the_voices` fills `Voices` when the last is
+done (well inside a second on a desktop; a browser's one thread runs the
+tasks between frames instead). Computed inside that first frame it took
+3.7 s on a Windows desktop, with the window standing white meanwhile
+(`docs/perf-client.md` §"Windows"); a cue decided before the buffers arrive
+is reported and not heard. The one thing a
 generated sound has no other audit surface for is what it *sounds like*:
 `every_cue_written_out` is `#[ignore]`d and writes all thirty-seven to a
 directory for somebody to listen to — which is where the counted three have
@@ -9456,6 +9502,15 @@ console carries no gesture refusal, and `Window::set_maximized` — which the
 native build calls — is an explicit no-op in winit's web backend. So a
 browser window that fills the screen is Chrome's own window doing it. Framing
 the canvas is a change to that stylesheet and to nothing in Rust.
+
+**The desktop window opens hidden and is shown on its third frame**
+(`standalone::show_the_window`). Bevy shows a window at its default size and
+maximizes it on the first frame, so whatever that frame costs used to stand on
+screen as a small white window; created hidden, it appears maximized with the
+front door in it. A browser's canvas and a phone's surface are the page's and
+the system's to show, and keep `visible` as bevy sets it. A minimised window
+draws a frame a second: Windows sends no occlusion for it but resizes it to
+nothing, which `quality::minimised` reads (`docs/perf-client.md` §"Windows").
 
 ## Verification
 

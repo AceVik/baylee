@@ -1929,8 +1929,8 @@ pub(crate) const CORNER_BUTTON: f32 = ledge::BUTTON_H;
 pub(crate) const TOP_CLEAR: f32 = EDGE + CORNER_BUTTON + 8.0;
 
 /// Where the report button stands in a window `window` logical pixels big,
-/// for the tests that hold every panel clear of it.
-#[cfg(test)]
+/// for the tests that hold every panel clear of it, and for the ring's home
+/// shot, which keeps below it (`camera::reaches_the_top`).
 #[must_use]
 pub(crate) fn report_corner(window: Vec2) -> Rect {
     Rect::new(
@@ -1949,7 +1949,6 @@ pub(crate) fn report_corner(window: Vec2) -> Rect {
 pub(crate) const BESIDE_CORNER: f32 = EDGE + CORNER_BUTTON + 6.0;
 
 /// The square beside the report button in a window `window` big.
-#[cfg(test)]
 #[must_use]
 pub(crate) fn beside_corner(window: Vec2) -> Rect {
     Rect::new(

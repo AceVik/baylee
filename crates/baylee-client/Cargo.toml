@@ -192,10 +192,15 @@ bevy = { workspace = true, features = ["system_clipboard"] }
 [target.'cfg(any(windows, target_os = "linux"))'.dependencies]
 winit.workspace = true
 
-# One Win32 call: the process's AppUserModelID (`window_icon.rs`). The
-# version and feature winit already builds, so nothing new is compiled.
+# Win32 calls: the process's AppUserModelID (`window_icon.rs`) and the
+# console a release build opens on `--console` (`console.rs`). The version
+# winit already builds, so nothing new is compiled but those modules.
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.52", features = ["Win32_UI_Shell"] }
+windows-sys = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_System_Console",
+    "Win32_UI_Shell",
+] }
 
 # The client's icon resource (`build.rs`), which Explorer, the title bar and
 # the taskbar show for `baylee-runtime.exe`. Gated on the *target*: a wasm,

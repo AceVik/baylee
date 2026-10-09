@@ -2,6 +2,7 @@ mod arrangements;
 mod extent;
 mod facing;
 mod fan;
+mod packed;
 mod packing;
 mod piles;
 mod plates;

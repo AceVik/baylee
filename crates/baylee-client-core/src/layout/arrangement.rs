@@ -49,7 +49,7 @@ pub use turntable::peeks;
 #[cfg(test)]
 pub(super) use turntable::side_scale;
 pub(super) use turntable::turntable;
-pub(super) use upright::upright;
+pub(super) use upright::{upright, upright_of};
 
 /// Whether two upright places stand a pile strip apart (the rule the
 /// upright ring is grown by), for the layout's tests.

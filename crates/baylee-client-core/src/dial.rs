@@ -248,6 +248,11 @@ pub fn spread(mut jewels: Vec<(PlayerId, Vec2)>, gap: f32) -> Vec<(PlayerId, Vec
         .iter()
         .map(|&i| jewels[i].1.y.atan2(jewels[i].1.x))
         .collect();
+    // Which angles were eased: only those are written back. A bearing
+    // through `atan2` and `from_angle` again is not always the same bits
+    // (Windows' libm differs from Apple's in the last place), and a ring's
+    // bearings are its pods' exactly.
+    let mut eased = vec![false; n];
     for _ in 0..64 {
         let mut moved = false;
         for k in 0..n {
@@ -260,6 +265,8 @@ pub fn spread(mut jewels: Vec<(PlayerId, Vec2)>, gap: f32) -> Vec<(PlayerId, Vec
                 let half = (gap - between) * 0.5;
                 angles[k] -= half;
                 angles[next] += half;
+                eased[k] = true;
+                eased[next] = true;
                 moved = true;
             }
         }
@@ -268,7 +275,9 @@ pub fn spread(mut jewels: Vec<(PlayerId, Vec2)>, gap: f32) -> Vec<(PlayerId, Vec
         }
     }
     for (k, &i) in order.iter().enumerate() {
-        jewels[i].1 = Vec2::from_angle(angles[k]);
+        if eased[k] {
+            jewels[i].1 = Vec2::from_angle(angles[k]);
+        }
     }
     jewels
 }

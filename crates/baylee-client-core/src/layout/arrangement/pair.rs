@@ -42,8 +42,8 @@ pub fn pair(seats: &[Seat], aspect: f32, across: &[usize]) -> TableLayout {
     let mine = sides.first().cloned().unwrap_or_default();
     let members: Vec<usize> = mine.iter().chain(across).copied().collect();
     let pair_seats: Vec<Seat> = members.iter().map(|&i| seats[i]).collect();
-    let duel = TableLayout::seated(&pair_seats, aspect, None);
-    let ring = TableLayout::seated(seats, aspect, None);
+    let duel = TableLayout::on_ring(&pair_seats, aspect, None);
+    let ring = TableLayout::on_ring(seats, aspect, None);
     let reach = duel
         .extent()
         .map_or(0.0, |(lo, hi)| lo.abs().max(hi.abs()).max_element());

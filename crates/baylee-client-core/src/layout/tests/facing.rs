@@ -106,7 +106,8 @@ fn nothing_at_any_table_sits_in_the_tolerance_the_flanks_need() {
     for n in [4, 8] {
         for aspect in [1.4_f32, 1.78, 2.25] {
             for focus in lookers {
-                let layout = TableLayout::new(&seats(n), aspect, focus);
+                let alone: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+                let layout = TableLayout::on_ring(&alone, aspect, focus);
                 let flanks = layout
                     .slots
                     .iter()
@@ -114,9 +115,31 @@ fn nothing_at_any_table_sits_in_the_tolerance_the_flanks_need() {
                     .count();
                 assert_eq!(
                     flanks, 2,
-                    "{n} seats at {aspect} with {focus:?} inspected: a table has \
+                    "{n} seats at {aspect} with {focus:?} inspected: a ring has \
                      two flanks"
                 );
+                // A frame's flanks may turn their far ends out into the
+                // corners; what has to hold is that they answer alike —
+                // each one has a mirror twin across the table, and the
+                // camera lies the same side of both.
+                let table = TableLayout::new(&seats(n), aspect, focus);
+                let tau = std::f32::consts::TAU;
+                let same = |a: f32, b: f32| {
+                    let d = (a - b).rem_euclid(tau);
+                    d.min(tau - d) < 1e-4
+                };
+                for slot in &table.slots {
+                    let mirror = tau - slot.facing;
+                    let twin = table.slots.iter().find(|other| same(other.facing, mirror));
+                    let twin = twin.unwrap_or_else(|| {
+                        panic!(
+                            "{n} seats at {aspect} with {focus:?} inspected: seat {} \
+                             faces {} and has no mirror twin",
+                            slot.ring_index, slot.facing
+                        )
+                    });
+                    assert_eq!(slot.camera_lies(), twin.camera_lies());
+                }
             }
         }
     }

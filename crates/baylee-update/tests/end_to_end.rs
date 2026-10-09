@@ -125,7 +125,13 @@ fn api(stub: &Stub) -> String {
 /// client closes, announced once at the next start.
 #[test]
 fn a_signed_update_is_downloaded_verified_staged_and_installed_on_exit() {
-    for os in [Os::Linux, Os::MacOs, Os::Windows] {
+    // The macOS bundle holds a symlink, which a Windows host makes only in
+    // developer mode: there the bundle is left to the Mac and CI.
+    let systems = [Os::Linux, Os::MacOs, Os::Windows];
+    for os in systems
+        .into_iter()
+        .filter(|os| cfg!(unix) || *os != Os::MacOs)
+    {
         let stub = Stub::start();
         publish(&stub, os, Publish::Signed);
         let (base, install, _) = installed(os, OLD, "e2e");

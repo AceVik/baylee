@@ -63,6 +63,7 @@ impl Drop for SessionDir {
 
 /// Makes `path`, which must not exist, readable by this user alone.
 pub(super) fn private_dir(path: &Path) -> std::io::Result<()> {
+    #[cfg_attr(not(unix), allow(unused_mut))] // the mode is set on unix only
     let mut builder = std::fs::DirBuilder::new();
     #[cfg(unix)]
     {
