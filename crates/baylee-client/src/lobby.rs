@@ -316,6 +316,13 @@ fn install_builder(app: &mut App) {
                 .after(keyboard)
                 .before(ui)
                 .run_if(in_state(DuelPhase::Closed)),
+        )
+        // The printing picker's card, where its picture never comes: after
+        // the frame's tree is drawn, and in a schedule of its own so that it
+        // moves no system in `Update`.
+        .add_systems(
+            PostUpdate,
+            crate::buildui::print_picker::face_lost_art.run_if(in_state(DuelPhase::Closed)),
         );
 }
 

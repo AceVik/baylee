@@ -1272,7 +1272,7 @@ pub fn apply_camera_rig(
     duel: Option<Res<Duel>>,
     prefs: Res<crate::prefs::Prefs>,
     mut shown: ResMut<ShownRig>,
-    mut cams: Query<&mut Transform, With<TableCamera>>,
+    mut cams: Query<(&mut Transform, Ref<TableCamera>)>,
 ) {
     let target = *rig;
     let still = prefs.all().reduce_motion;
@@ -1320,8 +1320,16 @@ pub fn apply_camera_rig(
         orbit = None;
     }
     // Nothing moved and nothing was asked for: the camera stands still most
-    // of the time and should cost nothing then.
-    if shown.rig == Some(current) && shown.pose == pose && shown.orbit == orbit && !rig.is_changed()
+    // of the time and should cost nothing then. A camera spawned since the
+    // last frame has never been told where it stands, though: each table
+    // spawns its own, and the rig it is to stand at may be the very one the
+    // last table's camera settled on.
+    let fresh = cams.iter().any(|(_, camera)| camera.is_added());
+    if shown.rig == Some(current)
+        && shown.pose == pose
+        && shown.orbit == orbit
+        && !rig.is_changed()
+        && !fresh
     {
         return;
     }
@@ -1333,9 +1341,23 @@ pub fn apply_camera_rig(
     };
 
     let eye = current.eye();
-    for mut transform in &mut cams {
-        *transform = eye;
+    for (mut transform, _) in &mut cams {
+        transform.set_if_neq(eye);
     }
+}
+
+/// Forgets the last table's camera as a new one opens: its framing, its
+/// pose and where its eye stood, so the new table's first frame is a cut
+/// to its own home, as the first table of a session always was, rather than
+/// a settle out of the last table's shot.
+pub fn forget_the_last_table(
+    mut rig: ResMut<CameraRig>,
+    mut shown: ResMut<ShownRig>,
+    mut pose: ResMut<CameraPose>,
+) {
+    *rig = CameraRig::default();
+    *shown = ShownRig::default();
+    *pose = CameraPose::default();
 }
 
 impl ShownRig {

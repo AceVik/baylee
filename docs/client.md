@@ -3552,6 +3552,16 @@ three-quarters of the way to reach it. `ShownRig` is a second copy rather than
 smoothing `CameraRig` in place, because the rig is *input* and everything that
 writes it wants to be able to say "there".
 
+Both outlive a table and the camera does not: each table spawns its own at a
+fixed pose. So a new table forgets the last one's rig, shot and pose
+(`forget_the_last_table`, on entering `Opening`) and opens with a cut, and
+`apply_camera_rig` writes a camera spawned since the last frame even when the
+rig has not moved. Without both, a second table framed exactly as the first
+ended (same window, same seats, a networked seat whose view arrives after the
+window was measured) kept its spawn pose for the whole game while
+`/state.camera` reported the right rig; `/state.camera.eye` is the camera's
+real position, beside `shown_eye` (the beta.6 review's broken zoom).
+
 `Preferences::reduce_motion` turns all of it off, and it travels with the
 account for the same reason the keys do: a player who cannot read a moving
 board cannot read one on any machine.

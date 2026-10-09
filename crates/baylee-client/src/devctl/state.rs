@@ -4,6 +4,9 @@
 #[allow(clippy::wildcard_imports)] // the harness's own vocabulary
 use super::*;
 
+/// Where the table camera stands, read off its transform.
+type TableEye<'w, 's> = Query<'w, 's, &'static Transform, With<crate::table::TableCamera>>;
+
 /// Everything `/state` reads, in one parameter.
 ///
 /// A bundle rather than six more arguments on [`pump`], which is already at
@@ -130,9 +133,13 @@ pub(super) struct Believed<'w, 's> {
     rig: Option<Res<'w, crate::table::ShownRig>>,
     /// The camera's target rig and its pose (DESIGN-v7 §2.7): what
     /// `/state.camera` reports beside the shown rig above.
+    /// And where the table camera actually stands, which is the picture's
+    /// and not always the rig's: a camera nothing has written sits at its
+    /// spawn pose whatever the rig says (the beta.6 review's broken zoom).
     camera: (
         Option<Res<'w, crate::table::CameraRig>>,
         Option<Res<'w, crate::table::CameraPose>>,
+        TableEye<'w, 's>,
     ),
     /// What the dial shows (DESIGN-v7 §2.7): the two hands, the arcs, the
     /// hub's pulse and the turn number's drawn size.
@@ -1005,8 +1012,20 @@ fn camera_json(believed: &Believed, duel: &Duel) -> String {
     };
     let shown = believed.rig.as_deref().copied();
     let pose = believed.camera.1.as_deref().copied().unwrap_or_default();
+    // Where the picture is drawn from, beside where the shown rig puts the
+    // eye: the two differ only on a camera nothing wrote.
+    let at = |v: Vec3| format!("[{:.3},{:.3},{:.3}]", v.x, v.y, v.z);
+    let eye = believed
+        .camera
+        .2
+        .iter()
+        .next()
+        .map_or_else(|| "null".to_string(), |t| at(t.translation));
+    let shown_eye = shown
+        .and_then(crate::table::ShownRig::rig)
+        .map_or_else(|| "null".to_string(), |r| at(r.eye().translation));
     format!(
-        "{{\"rig\":{},\"shown\":{},\"visiting\":{},\"moving\":{},\"binds\":{},\"pose\":{},\"frame\":{},\"dial_in_frame\":{}}}",
+        "{{\"rig\":{},\"shown\":{},\"eye\":{eye},\"shown_eye\":{shown_eye},\"visiting\":{},\"moving\":{},\"binds\":{},\"pose\":{},\"frame\":{},\"dial_in_frame\":{}}}",
         rig_json(rig),
         shown
             .and_then(crate::table::ShownRig::rig)

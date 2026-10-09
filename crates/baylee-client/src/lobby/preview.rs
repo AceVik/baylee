@@ -308,31 +308,9 @@ impl Reading<'_> {
         let lang = self.state.as_deref().map_or(Lang::En, |s| s.lobby.lang());
         let widths =
             crate::face::Widths::of(self.font_assets.as_deref().and_then(|a| a.get(&fonts.text)));
-        // No plate: a card in the pool is on no battlefield, so its face
-        // writes its own numbers.
-        let laid =
-            crate::face::UiFace::lay(face, lang, width, crate::face::Detail::Full, &widths, 0);
-        let look = crate::cardmat::CardLook::back(finish)
-            .faced(crate::face::table_color(face.colors), laid.word);
-        let node = commands
-            .spawn((
-                MaterialNode(cards.get(look, None)),
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(0),
-                    top: px(0),
-                    width: percent(100),
-                    height: percent(100),
-                    border_radius: BorderRadius::all(px(12)),
-                    ..default()
-                },
-                crate::flip::Side::Front,
-                Visibility::Inherited,
-                Pickable::IGNORE,
-            ))
-            .id();
-        crate::face::spawn_ui(commands, node, lang, face, &laid, fonts);
-        commands.entity(frame).add_child(node);
+        crate::face::spawn_ui_card(
+            commands, cards, frame, lang, face, fonts, &widths, finish, width,
+        );
     }
 }
 

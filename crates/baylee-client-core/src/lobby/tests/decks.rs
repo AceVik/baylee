@@ -565,3 +565,44 @@ fn a_restore_from_the_shelf_stays_there_and_can_be_undone() {
     );
     assert_eq!(lobby.library().restored, None, "an Undo is not undone");
 }
+
+/// The deck list's way into a deck opens the builder on the deck, never on
+/// a page the Decks screen left open (the owner's beta.6 review: "deck list
+/// → edit deck shows an old page"). The house list stays open behind its
+/// tab, and a first run with no decks asks for it unprompted; a deck's
+/// history is a sheet there. The shell draws the builder's own history
+/// page over `Screen::Build` whenever any page is open.
+#[test]
+fn the_builder_opens_on_the_deck_not_on_a_page_the_decks_screen_left_open() {
+    use crate::lobby::library::{HouseDeck, Page, Reply};
+    type Open = fn(&mut Lobby) -> Option<LobbyRequest>;
+    let doors: [(&str, Open); 2] = [
+        ("edit", |lobby| lobby.edit_deck(0)),
+        ("new", Lobby::build_deck),
+    ];
+    for (door, open) in doors {
+        for page in ["house", "history"] {
+            let mut lobby = seated_lobby();
+            if page == "house" {
+                assert!(lobby.browse_house().is_some());
+                lobby.apply(LobbyEvent::Library(Reply::House(vec![HouseDeck {
+                    id: "shared".into(),
+                    name: "House".into(),
+                    version: 1,
+                    ..Default::default()
+                }])));
+                assert_eq!(lobby.library().page, Some(Page::House));
+            } else {
+                assert!(lobby.browse_deck_history("d1").is_some());
+                assert!(lobby.library().page.is_some());
+            }
+            open(&mut lobby);
+            assert_eq!(lobby.screen(), &Screen::Build, "{door} from {page}");
+            assert_eq!(lobby.library().page, None, "{door} from {page}");
+            assert!(!lobby.library().loading, "{door} from {page}");
+            // And the house tab, come back to, asks again.
+            lobby.close_builder();
+            assert!(lobby.browse_house().is_some(), "{door} from {page}");
+        }
+    }
+}
