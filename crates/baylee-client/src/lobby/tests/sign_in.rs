@@ -137,8 +137,17 @@ fn the_primary_action_submits_and_the_secondary_opens_the_other_form() {
 /// points at gave in `/info`, else this build's own repository.
 #[test]
 fn the_front_door_says_where_the_source_is() {
-    let line = |address: &str| Phrase::SourceCode.fill(Lang::En, &[address]);
     let fork = "https://git.example/fork/baylee";
+    // On a desktop the top-left tile says it as its label over the address
+    // (without its `https://`); elsewhere About says the sentence.
+    let says = |drawn: &[String], width: f32, address: &str| {
+        if width >= 1180.0 {
+            drawn.contains(&Phrase::TileSource.text(Lang::En).to_string())
+                && drawn.contains(&address.trim_start_matches("https://").to_string())
+        } else {
+            drawn.contains(&Phrase::SourceCode.fill(Lang::En, &[address]))
+        }
+    };
     // On a desktop it stands under the notice; on the smaller classes the
     // one-line colophon's Source opens About, which says it (WP1, §3).
     let open_about = |app: &mut App, width: f32| {
@@ -154,7 +163,7 @@ fn the_front_door_says_where_the_source_is() {
         open_about(&mut app, width);
         let drawn = labels(&mut app);
         assert!(
-            drawn.contains(&line(baylee_build::REPOSITORY)),
+            says(&drawn, width, baylee_build::REPOSITORY),
             "{width} px, no gateway has answered: {drawn:?}"
         );
 
@@ -175,9 +184,9 @@ fn the_front_door_says_where_the_source_is() {
         }
         app.update();
         let drawn = labels(&mut app);
-        assert!(drawn.contains(&line(fork)), "{width} px: {drawn:?}");
+        assert!(says(&drawn, width, fork), "{width} px: {drawn:?}");
         assert!(
-            !drawn.contains(&line(baylee_build::REPOSITORY)),
+            !says(&drawn, width, baylee_build::REPOSITORY),
             "{width} px: the gateway's own address, not this build's"
         );
     }
