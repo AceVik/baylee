@@ -235,6 +235,22 @@ impl Lobby {
         self.library = Library::default();
     }
 
+    /// Closes whatever page the Decks screen left open as the builder
+    /// opens on a deck: the house list (its House tab, or the first-run
+    /// ask with no decks) or a deck's history sheet. The shell draws the
+    /// builder's own history page over `Screen::Build` whenever a page is
+    /// open, so a page left standing was the "old page" the owner saw on
+    /// the way from the deck list into a deck (beta.6 review). The Undo of
+    /// a restore made from the sheet survives it.
+    pub(super) fn close_library_for_the_builder(&mut self) {
+        if self.library.page.is_none() {
+            return;
+        }
+        let restored = self.library.restored.take();
+        self.close_library();
+        self.library.restored = restored;
+    }
+
     /// Inspect a house deck or a historical version without editing it.
     pub fn preview_version(&mut self, id: &str, version: i32) -> Option<LobbyRequest> {
         if self.library.loading || !self.has_a_performer() {
