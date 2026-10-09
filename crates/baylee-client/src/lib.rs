@@ -1281,6 +1281,29 @@ impl Duel {
         }
     }
 
+    /// A Raging River label is a question about one attacker, and the
+    /// table's way of pointing at a card is the cursor: it goes onto the
+    /// attacker as each label is asked, so the card is lifted on the table,
+    /// stands in the preview, and the keyboard cursor starts from it. Played
+    /// live, the two attackers looked alike and the preview showed whichever
+    /// card the pointer had last crossed. Only when the label is new: a view
+    /// re-sending the same question leaves a player's own hover alone.
+    fn hover_the_river_label(&mut self, before: Option<ObjectId>) {
+        let Some(attacker) = self
+            .interaction
+            .as_ref()
+            .filter(|i| i.is_mine())
+            .and_then(river_label)
+        else {
+            return;
+        };
+        if before != Some(attacker) {
+            self.hovered = Some(attacker);
+            self.hovered_at = None;
+            self.hovered_log = None;
+        }
+    }
+
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
         self.clear_hover_for_source_choice(&pending);
         self.target_page = 0;
@@ -1294,6 +1317,7 @@ impl Duel {
             self.subtype_group = 0;
         }
         let combat_before = self.interaction.as_ref().is_some_and(my_combat_question);
+        let label_before = self.interaction.as_ref().and_then(river_label);
         self.interaction = Some(Interaction::new_keeping(
             pending,
             self.view
@@ -1346,6 +1370,7 @@ impl Duel {
             self.browser.follow(v, self.interaction.as_ref());
         }
         self.clear_hover_for_new_browser(was_choosing);
+        self.hover_the_river_label(label_before);
         // A chooser belongs to the choice it was opened under. It
         // would heal itself anyway — the options are rebuilt from the
         // current `LegalActions` — but a menu that outlives its
@@ -2822,4 +2847,12 @@ fn my_combat_question(interaction: &Interaction) -> bool {
             interaction.pending(),
             Pending::ChooseAttackers { .. } | Pending::ChooseBlockers { .. }
         )
+}
+
+/// The attacker a Raging River label is asked about, if that is the question.
+fn river_label(interaction: &Interaction) -> Option<ObjectId> {
+    match interaction.pending() {
+        Pending::ChoosePile { label, .. } => *label,
+        _ => None,
+    }
 }

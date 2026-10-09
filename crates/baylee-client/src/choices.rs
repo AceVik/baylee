@@ -695,7 +695,11 @@ pub fn options(
         // A pile is its cards: the row names them, in the order the
         // separation gave them, and an empty pile says so rather than
         // drawing a blank row, because it is a pile that may be taken.
-        Prompt::ChoosePile { piles, .. } => Some(
+        //
+        // A Raging River label is the same question about the defender's
+        // two piles, and the headline calls them "left" and "right": rows
+        // numbered 1 and 2 left the player to work out which was which.
+        Prompt::ChoosePile { piles, label } => Some(
             piles
                 .iter()
                 .enumerate()
@@ -708,10 +712,12 @@ pub fn options(
                             .collect::<Vec<_>>()
                             .join(", ")
                     };
-                    ChoiceOption::text(
-                        i,
-                        Phrase::PileRow.fill(lang, &[&(i + 1).to_string(), &cards]),
-                    )
+                    let row = match (label, i) {
+                        (Some(_), 0) => Phrase::RiverLeftRow.fill(lang, &[&cards]),
+                        (Some(_), 1) => Phrase::RiverRightRow.fill(lang, &[&cards]),
+                        _ => Phrase::PileRow.fill(lang, &[&(i + 1).to_string(), &cards]),
+                    };
+                    ChoiceOption::text(i, row)
                 })
                 .collect(),
         ),
@@ -1235,6 +1241,36 @@ mod tests {
                 )
             );
         }
+    }
+
+    /// Raging River's label is a choice between the defender's "left" and
+    /// "right" piles, and the rows say so; Fact or Fiction's keep numbers.
+    #[test]
+    fn a_river_label_s_rows_are_left_and_right() {
+        let piles = vec![vec![], vec![ObjectId::new(7, 0)]];
+        let rows = |label, lang| {
+            options(
+                &Prompt::ChoosePile {
+                    piles: piles.clone(),
+                    label,
+                },
+                lang,
+                None,
+                "",
+                FaceNames::default(),
+            )
+            .expect("a pile choice has rows")
+            .into_iter()
+            .map(|row| row.label)
+            .collect::<Vec<_>>()
+        };
+        let attacker = Some(ObjectId::new(2, 0));
+        assert_eq!(rows(attacker, Lang::En), ["Left: no cards", "Right: ?"]);
+        assert_eq!(
+            rows(attacker, Lang::De),
+            ["Links: keine Karten", "Rechts: ?"]
+        );
+        assert_eq!(rows(None, Lang::En), ["Pile 1: no cards", "Pile 2: ?"]);
     }
 
     #[test]

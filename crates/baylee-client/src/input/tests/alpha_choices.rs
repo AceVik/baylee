@@ -278,3 +278,49 @@ fn private_cast_offer_opens_receipt_even_for_own_hand_and_empty_offer() {
         assert!(!duel.browser.is_open());
     }
 }
+
+/// A Raging River label puts the cursor on its attacker and is answered from
+/// the keyboard: the confirm key lights the first row before it sends
+/// anything, the cursor keys walk the rows, and the confirm key sends the lit
+/// one. Played live, Space and Enter did nothing on this sheet.
+#[test]
+fn a_river_label_is_pointed_at_and_answered_from_the_keyboard() {
+    let mut duel = Duel::default();
+    let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+    let seat = view.seat;
+    duel.view = Some(view);
+    let attacker = ObjectId::new(2, 0);
+    duel.receive_choice(Pending::ChoosePile {
+        player: seat,
+        piles: vec![vec![ObjectId::new(5, 0)], vec![ObjectId::new(6, 0)]],
+        label: Some(attacker),
+    });
+    assert_eq!(
+        duel.hovered,
+        Some(attacker),
+        "the cursor is on the attacker"
+    );
+    let keymap = baylee_client_core::prefs::Keymap::standard();
+    let key = |duel: &mut Duel, code| {
+        let keys = press(code);
+        crate::input::pile_keys(crate::keys::Fired::of(&keys, &keymap), duel)
+    };
+    assert!(key(&mut duel, bevy::prelude::KeyCode::Space));
+    assert!(
+        duel.outbox().is_empty(),
+        "the first press only lights a row"
+    );
+    assert_eq!(duel.interaction.as_ref().unwrap().chosen_index(), Some(0));
+    assert!(key(&mut duel, bevy::prelude::KeyCode::KeyD));
+    assert_eq!(duel.interaction.as_ref().unwrap().chosen_index(), Some(1));
+    assert!(key(&mut duel, bevy::prelude::KeyCode::Space));
+    assert_eq!(duel.outbox(), [PlayerAction::ChooseMode(1)]);
+    // The next label moves the cursor to its own attacker.
+    let next = ObjectId::new(3, 0);
+    duel.receive_choice(Pending::ChoosePile {
+        player: seat,
+        piles: vec![vec![ObjectId::new(5, 0)], vec![ObjectId::new(6, 0)]],
+        label: Some(next),
+    });
+    assert_eq!(duel.hovered, Some(next));
+}
