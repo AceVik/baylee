@@ -38,6 +38,7 @@ impl GameState {
             discard_answers,
             discards_on_top,
             extra_turns,
+            resume_after,
             skip_followups,
             reanimated_auras,
             reanimation_finishes,
@@ -167,6 +168,7 @@ impl GameState {
         discard_answers.hash(&mut h);
         discards_on_top.hash(&mut h);
         extra_turns.hash(&mut h);
+        resume_after.hash(&mut h);
         skip_followups.hash(&mut h);
         reanimated_auras.hash(&mut h);
         reanimation_finishes.hash(&mut h);

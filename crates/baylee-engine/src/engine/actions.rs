@@ -1367,17 +1367,18 @@ impl<L: CardLookup> Engine<L> {
                         // "Instead of doing [something], do nothing": the
                         // turn is gone, an extra one spent like any other,
                         // and the order goes on from where it would have
-                        // left it. The untap waits for the next turn that
-                        // actually occurs (CR 614.10b).
-                        let skipped = self
-                            .state
-                            .extra_turns
-                            .pop_front()
-                            .unwrap_or_else(|| self.next_alive_after(after));
+                        // left it: a skipped normal turn moves it on, a
+                        // skipped extra turn leaves it with the normal turn
+                        // it was added after (CR 500.7). The untap waits for
+                        // the next turn that actually occurs (CR 614.10b).
+                        let after = match self.state.extra_turns.pop_front() {
+                            Some(_) => after,
+                            None => self.next_alive_after(after),
+                        };
                         if let Some(version) = self.state.object(source).map(|o| o.version) {
                             self.state.skip_followups.push((source, version));
                         }
-                        self.cleanup = super::Cleanup::Ended { after: skipped };
+                        self.cleanup = super::Cleanup::Ended { after };
                         return Ok(());
                     }
                     declined.push(source);

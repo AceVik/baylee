@@ -925,6 +925,9 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
         ("extra_turns", |s, _| {
             s.extra_turns.push_back(PlayerId::new(1));
         }),
+        ("resume_after", |s, _| {
+            s.resume_after = Some(PlayerId::new(1));
+        }),
         ("skip_followups", |s, id| s.skip_followups.push((id, 0))),
         ("reanimated_auras", |s, id| {
             s.reanimated_auras
