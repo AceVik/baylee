@@ -16,6 +16,8 @@
 
 mod draw;
 mod table;
+#[cfg(test)]
+mod table_tests;
 
 use baylee_client_core::tour::{Anchor, Mode, Moved, Run, Tours};
 use bevy::input::keyboard::KeyCode;
