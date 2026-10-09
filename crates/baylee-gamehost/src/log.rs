@@ -549,15 +549,26 @@ impl GameLog {
             }
             GameEvent::Discarded { object, player } => {
                 // Into a graveyard, where everyone sees it (the move that
-                // follows is this same line, and is not written twice).
+                // follows is this same line, and is not written twice). A
+                // card Library of Leng put on top of a library instead was
+                // not revealed (CR 701.9c): only its discarder is told what
+                // it was.
                 discarded.insert(*object);
                 let (card, _) = self.refer(state, *object);
+                let in_library = state
+                    .object(*object)
+                    .is_some_and(|o| o.zone == Zone::Library);
+                let sees = if in_library {
+                    Sees::Only(std::iter::once(*player).collect())
+                } else {
+                    Sees::Everyone
+                };
                 self.push(
                     LogEvent::Discarded {
                         player: *player,
                         card,
                     },
-                    vec![Sees::Everyone],
+                    vec![sees],
                 );
             }
             GameEvent::BecameAttacker { object, defending } => {

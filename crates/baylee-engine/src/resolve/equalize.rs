@@ -163,16 +163,21 @@ fn advance(
         selection.kept.clear();
         selection.current += 1;
     }
+    // Hands are discarded (Balance): Library of Leng is asked first, and its
+    // answer discards exactly these cards.
+    if selection.hands {
+        let discards: Vec<(ObjectId, PlayerId)> = selection
+            .removals
+            .iter()
+            .map(|&(player, card)| (card, player))
+            .collect();
+        return super::discard_or_ask(state, res, &discards);
+    }
     // No refresh, trigger placement, state-based action or priority between
     // these moves. The resolver refreshes once the entire instruction ends.
     for (player, card) in selection.removals {
         let owner = state.object(card).map_or(player, |object| object.owner);
-        if selection.hands {
-            state.journal.record(GameEvent::Discarded {
-                object: card,
-                player,
-            });
-        } else if let Some(object) = state.object_mut(card) {
+        if let Some(object) = state.object_mut(card) {
             object.kind = ObjectKind::Card;
         }
         let _ = state.move_object(

@@ -530,24 +530,26 @@ impl Prompt {
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
             Self::ChoosePile { .. } => Phrase::ChoosePileForHand.text(lang).to_string(),
-            Self::Arrange { reason, onto } => match (reason, onto) {
-                (ArrangePrompt::Order, Some(ArrangePlace::LibraryTop)) => {
-                    Phrase::OrderOnTop.text(lang).to_string()
-                }
-                (ArrangePrompt::Order, Some(ArrangePlace::LibraryBottom)) => {
-                    Phrase::OrderOnBottom.text(lang).to_string()
-                }
-                (ArrangePrompt::Order, Some(ArrangePlace::Graveyard)) => {
-                    Phrase::OrderGraveyard.text(lang).to_string()
-                }
-                (ArrangePrompt::Order, _) => Phrase::PutInOrder.text(lang).to_string(),
-                (ArrangePrompt::Scry, _) => Phrase::ScryPrompt.text(lang).to_string(),
-                (ArrangePrompt::Surveil, _) => Phrase::SurveilPrompt.text(lang).to_string(),
-            },
+            Self::Arrange { reason, onto } => arrange_line(lang, *reason, *onto),
             Self::YesNo { question } => yes_no_line(lang, *question, statics),
             Self::GameOver => Phrase::TheGameIsOver.text(lang).to_string(),
         }
     }
+}
+
+/// The headline of an arrangement: why the cards are being placed, and for
+/// a plain order, where.
+fn arrange_line(lang: Lang, reason: ArrangePrompt, onto: Option<ArrangePlace>) -> String {
+    let phrase = match (reason, onto) {
+        (ArrangePrompt::Order, Some(ArrangePlace::LibraryTop)) => Phrase::OrderOnTop,
+        (ArrangePrompt::Order, Some(ArrangePlace::LibraryBottom)) => Phrase::OrderOnBottom,
+        (ArrangePrompt::Order, Some(ArrangePlace::Graveyard)) => Phrase::OrderGraveyard,
+        (ArrangePrompt::Order, None) => Phrase::PutInOrder,
+        (ArrangePrompt::Scry, _) => Phrase::ScryPrompt,
+        (ArrangePrompt::Surveil, _) => Phrase::SurveilPrompt,
+        (ArrangePrompt::DiscardToLibrary, _) => Phrase::DiscardToLibraryPrompt,
+    };
+    phrase.text(lang).to_string()
 }
 
 /// The line a finished game gets, as this seat reads it.
