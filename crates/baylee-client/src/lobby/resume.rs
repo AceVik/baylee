@@ -70,14 +70,13 @@ pub(crate) struct TableNotePanel;
 pub(super) fn install(app: &mut App) {
     app.add_message::<crate::update::UpdateRequest>()
         .add_systems(Startup, take_resume)
+        // After the frame's Update: a walk that is not under way touches
+        // nothing, and in Update its access alone reordered the front door's
+        // unordered systems (the terms sheet's Esc focus test went red).
+        .add_systems(Last, drive.run_if(resource_exists::<Resuming>))
         .add_systems(
             Update,
-            (
-                drive.after(poll),
-                restore_the_look,
-                show_the_note,
-                restart_on_request,
-            ),
+            (restore_the_look, show_the_note, restart_on_request),
         );
 }
 
