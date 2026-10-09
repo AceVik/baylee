@@ -372,6 +372,16 @@
     var a = el("a", { href: RELEASES_PAGE, rel: "noopener" });
     a.appendChild(t("The releases page has every file.", "Die Releases-Seite hat jede Datei."));
     head.appendChild(a);
+    // the static text under it speaks of a page without JavaScript, which this is not
+    var box = document.getElementById("platforms");
+    clear(box);
+    var p = el("p", { class: "dl-fallback" });
+    p.appendChild(t("An installer and an archive for Windows (x64 and ARM64), macOS (Apple silicon) and Linux (x86-64 and ARM64), each with a .sha256 beside it, on the ", "Ein Installer und ein Archiv für Windows (x64 und ARM64), macOS (Apple Silicon) und Linux (x86-64 und ARM64), jeweils mit einer .sha256 daneben, auf der "));
+    var b = el("a", { href: RELEASES_PAGE, rel: "noopener" });
+    b.appendChild(t("releases page", "Releases-Seite"));
+    p.appendChild(b);
+    p.appendChild(document.createTextNode("."));
+    box.appendChild(p);
   }
 
   function stat(id, children) {
