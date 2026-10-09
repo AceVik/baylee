@@ -65,14 +65,33 @@ pub fn heading(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
 
 /// A paragraph: wraps, muted or not.
 pub fn prose(commands: &mut Commands, kit: Kit, text: &str, muted: bool) -> Entity {
+    let size = if muted { kit.m.small } else { kit.m.text };
     commands
         .spawn((
             Text::new(text),
-            tf(kit.fonts, if muted { kit.m.small } else { kit.m.text }),
+            tf(kit.fonts, whole_pixels(size)),
             TextColor(if muted { tokens::MUTED } else { tokens::INK }),
+            // Laid out in the box it was measured for: rounded to whole
+            // pixels, a box measured to hold a line exactly lost a fraction
+            // of a pixel and the line broke into two, over the next row.
+            bevy::ui::LayoutConfig {
+                use_rounding: false,
+            },
             Pickable::IGNORE,
         ))
         .id()
+}
+
+/// A nominal size whose drawn size (`× UI_SCALE`) is a whole pixel.
+///
+/// Bevy measures a text for layout at the size it is given and draws it at
+/// that size rounded to a whole pixel: at a text step's fractional sizes a
+/// paragraph measured into four lines was drawn into five, and its last line
+/// lay over the next row (German Privacy at XL, the `fit` check, 09.10.2026).
+/// Rounded here, the two agree.
+#[must_use]
+pub fn whole_pixels(size: f32) -> f32 {
+    (size * crate::hud::UI_SCALE).round() / crate::hud::UI_SCALE
 }
 
 /// How wide a sheet is (§2.4): 560, 720 or 960 × factor; a phone's is the
@@ -432,6 +451,10 @@ pub enum Storage {
     Account,
 }
 
+/// How many characters a help text runs to before a phone's row stands it
+/// over its control rather than beside it.
+const LONG_HELP: usize = 120;
+
 /// A settings row: label, help under it, the control, the storage tag.
 pub fn row(
     commands: &mut Commands,
@@ -462,13 +485,23 @@ pub fn row(
             Pickable::IGNORE,
         ))
         .id();
+    // On a phone a long help text takes the row's whole width and its
+    // control goes under it: squeezed beside a wide control (the music
+    // theme's five segments) it broke into five lines and pushed the third
+    // row out of the 390-px height (§12, M4-6).
+    let long_help = kit.m.frame == super::size::Frame::Phone
+        && help.is_some_and(|h| h.chars().count() > LONG_HELP);
     let words = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
                 flex_shrink: 1.0,
-                flex_basis: kit.m.px(160.0),
+                flex_basis: if long_help {
+                    Val::Percent(100.0)
+                } else {
+                    kit.m.px(160.0)
+                },
                 min_width: px_fixed(0.0),
                 row_gap: kit.m.px(2.0),
                 ..default()
@@ -476,10 +509,46 @@ pub fn row(
             Pickable::IGNORE,
         ))
         .id();
+    // The words as wide as their column, a definite width: measured at any
+    // other, a help text was given the height of fewer lines than it broke
+    // into on a narrow row and ran out of its box (the `fit` check).
+    let full = Node {
+        width: Val::Percent(100.0),
+        ..default()
+    };
     let name = prose(commands, kit, text, false);
+    commands.entity(name).insert(full.clone());
+    // On a phone the storage tag stands on the name's line, so the words
+    // keep the row's width beside the control: in the tag's own place a
+    // help text broke into five lines and the third row left the 390-px
+    // height (§12, M4-6).
+    let phone = kit.m.frame == super::size::Frame::Phone;
+    let name = if phone && tag.is_some() {
+        commands.entity(name).insert(Node {
+            flex_shrink: 1.0,
+            ..default()
+        });
+        let head = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    column_gap: kit.m.px(8.0),
+                    flex_wrap: FlexWrap::Wrap,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(head).add_child(name);
+        head
+    } else {
+        name
+    };
     commands.entity(words).add_child(name);
     if let Some(help) = help {
         let help = prose(commands, kit, help, true);
+        commands.entity(help).insert(full);
         commands.entity(words).add_child(help);
     }
     commands.entity(line).add_child(words);
@@ -503,7 +572,11 @@ pub fn row(
             .id();
         let words = label(commands, kit, said, kit.m.small, tokens::MUTED);
         commands.entity(chip).add_child(words);
-        commands.entity(line).add_child(chip);
+        if phone {
+            commands.entity(name).add_child(chip);
+        } else {
+            commands.entity(line).add_child(chip);
+        }
     }
     commands.entity(line).add_child(control);
     line

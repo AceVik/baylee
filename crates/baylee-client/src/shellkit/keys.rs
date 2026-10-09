@@ -272,7 +272,7 @@ mod tests {
             Key::Character("=".into()),
             &[command()],
         );
-        assert_eq!(size(&app), TextSize::Xl);
+        assert_eq!(size(&app), TextSize::L);
         send(
             &mut app,
             KeyCode::Minus,
@@ -285,14 +285,14 @@ mod tests {
             Key::Character("-".into()),
             &[command()],
         );
-        assert_eq!(size(&app), TextSize::M);
+        assert_eq!(size(&app), TextSize::S);
         send(
             &mut app,
             KeyCode::Digit0,
             Key::Character("=".into()),
             &[command(), KeyCode::ShiftLeft],
         );
-        assert_eq!(size(&app), TextSize::L, "German Shift+0 is = and steps up");
+        assert_eq!(size(&app), TextSize::M, "German Shift+0 is = and steps up");
         send(
             &mut app,
             KeyCode::Minus,
@@ -305,10 +305,10 @@ mod tests {
             Key::Character("0".into()),
             &[command()],
         );
-        assert_eq!(size(&app), TextSize::L);
+        assert_eq!(size(&app), TextSize::M);
         // A bare `=` is nobody's.
         send(&mut app, KeyCode::Equal, Key::Character("=".into()), &[]);
-        assert_eq!(size(&app), TextSize::L);
+        assert_eq!(size(&app), TextSize::M);
     }
 
     /// At the table the resolver does not run at all: the table's keymap is
@@ -334,7 +334,7 @@ mod tests {
             app.world()
                 .resource::<crate::settings::ClientSettings>()
                 .text_size,
-            TextSize::L
+            TextSize::M
         );
     }
 

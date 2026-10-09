@@ -44,7 +44,7 @@ def ring_pixels(png, n):
                 if g > 150 and b > 140 and r < 130: hits += 1
     return hits
 for w, h in [(1920, 1080), (844, 390)]:
-    devctl.resize(w, h); devctl.shell(gallery=True, text_size="l", lang="en", input="pointer"); time.sleep(1.0)
+    devctl.resize(w, h); devctl.shell(gallery=True, text_size="m", lang="en", input="pointer"); time.sleep(1.0)
     walked = []
     for _ in ORDER:
         press("Tab"); walked.append((shell()["focus"] or {}).get("id"))
@@ -88,6 +88,6 @@ for w, h in [(1920, 1080), (844, 390)]:
     chord(CMD, "Digit0", "0")
     step2 = shell()["text_size"]
     say((step0, step1, step2) == (4, 5, 4), f"{w}x{h} Ctrl/Cmd+= then Ctrl/Cmd+0: steps {step0} -> {step1} -> {step2}")
-devctl.shell(gallery=False, text_size="l", lang="en", input="auto")
+devctl.shell(gallery=False, text_size="m", lang="en", input="auto")
 print("RESULT", "PASS" if ok else "FAIL")
 sys.exit(0 if ok else 1)

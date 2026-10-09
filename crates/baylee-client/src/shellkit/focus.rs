@@ -84,7 +84,7 @@ pub fn table(name: &str) -> Option<&'static TabOrder> {
 
 /// A focusable control: its table, its name in the table, and — for a
 /// composite — which of its items this is.
-#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Component, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Stop {
     /// The [`TabOrder`] it belongs to.
     pub table: &'static str,

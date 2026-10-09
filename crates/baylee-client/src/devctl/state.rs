@@ -68,6 +68,8 @@ pub(super) struct Believed<'w, 's> {
             Option<&'static Children>,
             bevy::ecs::query::Has<crate::lobby::Press>,
             Option<&'static crate::shellkit::Role>,
+            Option<&'static bevy::text::TextLayoutInfo>,
+            Option<&'static InheritedVisibility>,
         ),
     >,
     legal_text: Query<
@@ -493,7 +495,9 @@ fn shell_keys_json(believed: &Believed) -> String {
         believed
             .settings
             .as_deref()
-            .map_or(4, |s| s.text_size.step()),
+            .map_or(crate::shellkit::TextSize::default().step(), |s| s
+                .text_size
+                .step()),
     )
 }
 
@@ -570,7 +574,7 @@ fn shell_nodes_json(believed: &Believed) -> String {
         root: Option<&str>,
         out: &mut Vec<String>,
     ) {
-        let Ok((text, _, node, place, children, pressable, role)) =
+        let Ok((text, _, node, place, children, pressable, role, laid, shown)) =
             believed.shell_nodes.get(entity)
         else {
             return;
@@ -597,6 +601,29 @@ fn shell_nodes_json(believed: &Believed) -> String {
             }
             row.push_str(",\"t\":");
             row.push_str(&quoted(&said));
+            // What the glyphs measure, beside the box they were given: a
+            // label wider than its box spills or is cut, which the box's
+            // own rect cannot show (`check.py`'s `fit`), and how many lines
+            // it broke into (`lines`: one inside a control).
+            if let Some(laid) = laid {
+                let extent = laid.size * scale;
+                let lines = laid
+                    .glyphs
+                    .iter()
+                    .map(|g| g.line_index + 1)
+                    .max()
+                    .unwrap_or(0);
+                let _ = std::fmt::Write::write_fmt(
+                    &mut row,
+                    format_args!(
+                        ",\"tw\":{:.1},\"th\":{:.1},\"ln\":{lines}",
+                        extent.x, extent.y
+                    ),
+                );
+            }
+        }
+        if shown.is_some_and(|v| !v.get()) {
+            row.push_str(",\"hid\":true");
         }
         if pressable {
             row.push_str(",\"i\":true");

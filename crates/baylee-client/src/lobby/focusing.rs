@@ -184,7 +184,15 @@ pub(super) fn follow_focus(
     // Decline) holds the keyboard and no stop: nothing under it gets the
     // ring back while it stands, and the stop kept is Decline's again once
     // it is cancelled (`front::terms::place_sheet_focus`).
-    if state.terms.up() && state.lobby.deleting_account().is_some() {
+    //
+    // The terms sheet over the screen keeps its own focus
+    // (`front::terms::place_sheet_focus` and the kit's walker): this screen's
+    // memory stands aside while it is up, and does not learn its stops. It
+    // did, and then gave "text" back over the Not now an Esc had just put
+    // the ring on, whenever it ran after the rebuild that Esc made (a
+    // schedule order no system pinned; found when the front-polish round
+    // added systems, 09.10.2026).
+    if state.terms.up() {
         return;
     }
     let drawn = |stop: &Stop| stops.iter().find(|(_, s)| *s == stop).map(|(e, _)| e);

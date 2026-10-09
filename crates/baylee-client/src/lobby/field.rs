@@ -525,6 +525,9 @@ pub(super) fn retrace_runs(
     }
 }
 
+/// How much larger a password's bullets are set than its letters would be.
+const MASK_SCALE: f32 = 1.5;
+
 /// One run of a field's text, masked where the field is a password.
 fn spawn_run(
     commands: &mut Commands,
@@ -546,6 +549,15 @@ fn spawn_run(
         TextColor(palette::INK),
         Pickable::IGNORE,
     ));
+    if mask {
+        // The bullets a size up (owner, 09.10.2026: "bigger bullets"), on
+        // the line the letters would stand on, so the box and the caret keep
+        // their height whether the password is shown or not.
+        run.insert((
+            tf(fonts, metrics.text * MASK_SCALE),
+            bevy::text::LineHeight::Px(metrics.text * crate::hud::UI_SCALE * 1.2),
+        ));
+    }
     if selected {
         run.insert(BackgroundColor(palette::SELECTION));
     }

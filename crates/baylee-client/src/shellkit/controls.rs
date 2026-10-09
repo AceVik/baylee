@@ -127,6 +127,14 @@ pub fn label(commands: &mut Commands, kit: Kit, text: &str, size: f32, ink: Colo
         .id()
 }
 
+/// The air between a label and the key cap after it: ten pixels at the
+/// default step, never under eight (owner, 09.10.2026: a cap that touches
+/// its word reads as part of the word).
+#[must_use]
+pub fn cap_gap(kit: Kit) -> f32 {
+    kit.m.scaled(10.0).max(8.0)
+}
+
 /// A key cap, drawn only under a pointer (`KEYBOARD.md` §4.2: no key caps
 /// under Touch). `None` under Touch.
 pub fn key_cap(commands: &mut Commands, kit: Kit, keys: &str) -> Option<Entity> {
@@ -141,7 +149,7 @@ pub fn key_cap(commands: &mut Commands, kit: Kit, keys: &str) -> Option<Entity> 
                 padding: UiRect::axes(kit.m.px(5.0), px_fixed(1.0)),
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(4.0)),
-                margin: UiRect::left(kit.m.px(8.0)),
+                margin: UiRect::left(px_fixed(cap_gap(kit))),
                 ..default()
             },
             BorderColor::all(tokens::BORDER),
@@ -248,9 +256,17 @@ fn shaped(
         wrapper
     };
     if !dead {
-        commands
-            .entity(face)
-            .insert(crate::ambience::Feel::new(ground));
+        // A ghost has no ground to lighten: it rises out of nothing to the
+        // hover ground, as a tab does.
+        let feel = if ground.alpha() < 0.01 {
+            crate::ambience::Feel::rising_to(ground, tokens::HOVER)
+        } else {
+            crate::ambience::Feel::new(ground)
+        };
+        commands.entity(face).insert(feel);
+        if weight == Weight::Primary {
+            commands.entity(face).insert(super::sheen::Sheen);
+        }
         let wrapper = hit(commands, kit, face, action);
         return widen(commands, wrapper);
     }
@@ -354,6 +370,7 @@ pub fn pill(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            crate::ambience::Feel::new(tokens::CONTROL),
         ))
         .id();
     if let Some(colour) = dot {
@@ -410,6 +427,11 @@ pub fn nav(
             } else {
                 Color::NONE
             }),
+            if active {
+                crate::ambience::Feel::new(tokens::SELECTED)
+            } else {
+                crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER)
+            },
         ))
         .id();
     let words = label(
@@ -458,6 +480,11 @@ pub fn chip(
                 tokens::CONTROL
             }),
             BorderColor::all(if on { tokens::ACCENT } else { tokens::BORDER }),
+            crate::ambience::Feel::new(if on {
+                tokens::SELECTED
+            } else {
+                tokens::CONTROL
+            }),
         ))
         .id();
     let words = label(commands, kit, text, kit.m.small, tokens::INK);
@@ -514,6 +541,8 @@ pub fn tabs<B: Bundle>(
                     ..default()
                 },
                 BorderColor::all(if on { tokens::ACCENT } else { Color::NONE }),
+                BackgroundColor(Color::NONE),
+                crate::ambience::Feel::tinting_to(Color::NONE, tokens::HOVER),
             ))
             .id();
         let words = label(
@@ -534,6 +563,10 @@ pub fn tabs<B: Bundle>(
     }
     bar
 }
+
+/// How much a segment grows under the pointer and gives under a press:
+/// less than a button's, as it stands shoulder to shoulder with others.
+const SEGMENT_LIFT: f32 = 0.03;
 
 /// A segmented control of two to eight options; the chosen one filled.
 pub fn segmented<B: Bundle>(
@@ -575,10 +608,22 @@ pub fn segmented<B: Bundle>(
                     }),
                     padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
                     align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL - 2.0)),
                     ..default()
                 },
                 BackgroundColor(if on { tokens::SELECTED } else { Color::NONE }),
+                // A segment answers the pointer as a button does: it lights,
+                // and gives a little under a press (owner, 09.10.2026).
+                if on {
+                    crate::ambience::Feel::lifting(
+                        tokens::SELECTED,
+                        crate::ambience::lighter(tokens::SELECTED, 0.12),
+                        SEGMENT_LIFT,
+                    )
+                } else {
+                    crate::ambience::Feel::lifting(Color::NONE, tokens::HOVER, SEGMENT_LIFT)
+                },
             ))
             .id();
         let words = label(
@@ -595,41 +640,169 @@ pub fn segmented<B: Bundle>(
     group
 }
 
-/// A toggle, 44 × 24 (§2.4).
+/// A toggle's size: the track, the knob, and the air round the knob.
+const TRACK_W: f32 = 44.0;
+const TRACK_H: f32 = 24.0;
+const KNOB: f32 = 18.0;
+const KNOB_AIR: f32 = 3.0;
+
+/// How fast a toggle's knob crosses and its track changes colour: about
+/// 180 ms to settle, eased out (owner, 09.10.2026: "a nice on/off switching
+/// animation").
+pub(crate) const TOGGLE_RATE: f32 = 22.0;
+
+/// A toggle on its way between off and on.
+///
+/// The screen is rebuilt from the setting, so a press draws a **new**
+/// toggle already standing at its end. What the toggle showed is therefore
+/// kept by its focus stop ([`ToggleShown`]), and a toggle drawn again under
+/// the same stop starts where the last one stood and slides on from there.
+#[derive(Component, Clone, Copy, PartialEq, Debug)]
+pub struct ToggleMotion {
+    /// What the setting says.
+    pub on: bool,
+    /// Where the knob stands, 0 (off) to 1 (on); `None` until the first frame
+    /// has read the stop's memory.
+    pub shown: Option<f32>,
+    /// How far the pointer warms the track, -1 (pressed) to 1 (hovered).
+    pub warmth: f32,
+    knob: Entity,
+}
+
+/// Where each stop's toggle last stood, so a rebuilt one carries on.
+#[derive(Resource, Default, Debug)]
+pub struct ToggleShown(pub std::collections::HashMap<super::focus::Stop, f32>);
+
+/// The knob's left edge at `shown` (0 off, 1 on), inside the track's border.
+fn knob_left(shown: f32) -> f32 {
+    KNOB_AIR + (TRACK_W - 2.0 - KNOB - 2.0 * KNOB_AIR) * shown
+}
+
+/// The track's ground at `shown`, warmed by the pointer.
+fn track_ground(shown: f32, warmth: f32) -> Color {
+    let ground = crate::ambience::blend(tokens::TRACK_OFF, tokens::ACCENT, shown);
+    if warmth >= 0.0 {
+        crate::ambience::lighter(ground, 0.14 * warmth)
+    } else {
+        crate::ambience::lighter(ground, 0.08 * warmth)
+    }
+}
+
+/// A toggle, 44 × 24 (§2.4): a knob that slides and a track whose colour
+/// eases between off and on, both at once ([`animate_toggles`]).
 pub fn toggle(commands: &mut Commands, kit: Kit, on: bool, action: impl Bundle) -> Entity {
+    let at = f32::from(u8::from(on));
     let track = commands
         .spawn((
             Role::Toggle,
             Node {
-                width: px_fixed(44.0),
-                height: px_fixed(24.0),
-                padding: UiRect::all(px_fixed(3.0)),
-                justify_content: if on {
-                    JustifyContent::FlexEnd
-                } else {
-                    JustifyContent::FlexStart
-                },
+                width: px_fixed(TRACK_W),
+                height: px_fixed(TRACK_H),
+                border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_PILL)),
                 ..default()
             },
-            BackgroundColor(if on { tokens::ACCENT } else { tokens::CONTROL }),
+            BackgroundColor(track_ground(at, 0.0)),
             BorderColor::all(tokens::BORDER),
         ))
         .id();
     let knob = commands
         .spawn((
             Node {
-                width: px_fixed(18.0),
-                height: px_fixed(18.0),
+                position_type: PositionType::Absolute,
+                left: px_fixed(knob_left(at)),
+                top: px_fixed(KNOB_AIR - 1.0),
+                width: px_fixed(KNOB),
+                height: px_fixed(KNOB),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_PILL)),
                 ..default()
             },
             BackgroundColor(tokens::INK),
+            BoxShadow(vec![ShadowStyle {
+                color: Color::srgba(0.0, 0.0, 0.0, 0.35),
+                x_offset: px_fixed(0.0),
+                y_offset: px_fixed(1.0),
+                spread_radius: px_fixed(0.0),
+                blur_radius: px_fixed(2.0),
+            }]),
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(track).add_child(knob);
+    commands.entity(track).add_child(knob).insert(ToggleMotion {
+        on,
+        shown: None,
+        warmth: 0.0,
+        knob,
+    });
     hit(commands, kit, track, action)
+}
+
+/// Slides each toggle's knob towards its setting and eases its track's
+/// colour, from where the toggle under the same stop last stood; warms the
+/// track under the pointer. Writes nothing once a toggle is at rest.
+#[allow(clippy::type_complexity)] // one toggle, its hit area's stop and interaction
+pub(crate) fn animate_toggles(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut kept: ResMut<ToggleShown>,
+    mut toggles: Query<(&mut ToggleMotion, &mut BackgroundColor, Option<&ChildOf>)>,
+    wrappers: Query<(Option<&super::focus::Stop>, Option<&PickingInteraction>)>,
+    mut nodes: Query<&mut Node>,
+) {
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let step = if still {
+        1.0
+    } else {
+        1.0 - (-TOGGLE_RATE * time.delta_secs()).exp()
+    };
+    for (mut motion, mut ground, parent) in &mut toggles {
+        let (stop, interaction) = parent
+            .and_then(|p| wrappers.get(p.parent()).ok())
+            .unwrap_or((None, None));
+        let target = f32::from(u8::from(motion.on));
+        let warm_to = match interaction {
+            Some(PickingInteraction::Pressed) => -1.0,
+            Some(PickingInteraction::Hovered) => 1.0,
+            _ => 0.0,
+        };
+        let from = motion
+            .shown
+            .unwrap_or_else(|| stop.and_then(|s| kept.0.get(s).copied()).unwrap_or(target));
+        if motion.shown.is_some()
+            && (from - target).abs() < f32::EPSILON
+            && (motion.warmth - warm_to).abs() < f32::EPSILON
+        {
+            continue;
+        }
+        let mut shown = from + (target - from) * step;
+        if (shown - target).abs() < 0.002 {
+            shown = target;
+        }
+        let mut warmth = motion.warmth + (warm_to - motion.warmth) * step;
+        if (warmth - warm_to).abs() < 0.002 {
+            warmth = warm_to;
+        }
+        motion.shown = Some(shown);
+        motion.warmth = warmth;
+        if let Some(stop) = stop
+            && kept
+                .0
+                .get(stop)
+                .is_none_or(|was| (was - shown).abs() > f32::EPSILON)
+        {
+            kept.0.insert(*stop, shown);
+        }
+        let colour = track_ground(shown, warmth);
+        if ground.0 != colour {
+            ground.0 = colour;
+        }
+        if let Ok(mut knob) = nodes.get_mut(motion.knob) {
+            let left = px_fixed(knob_left(shown));
+            if knob.left != left {
+                knob.left = left;
+            }
+        }
+    }
 }
 
 /// A stepper: `− n +`. On a phone it stands in for an eight-way segmented
@@ -638,6 +811,29 @@ pub fn stepper(
     commands: &mut Commands,
     kit: Kit,
     value: &str,
+    less: impl Bundle,
+    more: impl Bundle,
+) -> Entity {
+    stepper_room(commands, kit, value, value, less, more)
+}
+
+/// The width a bold value of `chars` characters takes at the body size,
+/// roughly (Alegreya Sans Bold averages about half an em): what a stepper
+/// keeps for its value so the `+` does not move as the value changes.
+fn value_room(kit: Kit, chars: usize) -> f32 {
+    #[allow(clippy::cast_precision_loss)] // a value is a few characters
+    let chars = chars as f32;
+    (chars * kit.m.text * crate::hud::UI_SCALE * 0.52).max(kit.m.scaled(32.0))
+}
+
+/// A [`stepper`] that keeps room for its widest value, `widest`, whatever
+/// value it shows (an arrangement's name, "Default"): the value never wraps
+/// or is cut, and the `+` stands still (owner, 09.10.2026: "Defa").
+pub fn stepper_room(
+    commands: &mut Commands,
+    kit: Kit,
+    value: &str,
+    widest: &str,
     less: impl Bundle,
     more: impl Bundle,
 ) -> Entity {
@@ -661,19 +857,30 @@ pub fn stepper(
         None,
         less,
     );
+    let room = value_room(kit, widest.chars().count().max(value.chars().count()));
+    // The value centred in the room kept for the widest: a box of that width
+    // round words that never wrap.
     let shown = commands
+        .spawn((
+            Node {
+                min_width: px_fixed(room),
+                flex_shrink: 0.0,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let words = commands
         .spawn((
             Text::new(value),
             tf_bold(kit.fonts, kit.m.text),
             TextColor(tokens::INK),
-            Node {
-                min_width: kit.m.px(32.0),
-                ..default()
-            },
-            TextLayout::justify(Justify::Center),
+            TextLayout::new(Justify::Center, LineBreak::NoWrap),
             Pickable::IGNORE,
         ))
         .id();
+    commands.entity(shown).add_child(words);
     let plus = button(commands, kit, "+", Weight::Secondary, Live::Yes, None, more);
     commands.entity(group).add_children(&[minus, shown, plus]);
     group
@@ -935,7 +1142,8 @@ pub fn search(
 
 /// The controls' own systems.
 pub(super) fn install(app: &mut App) {
-    app.add_systems(Update, (show_tooltips, draw_sliders));
+    app.init_resource::<ToggleShown>()
+        .add_systems(Update, (show_tooltips, draw_sliders, animate_toggles));
 }
 
 #[cfg(test)]
@@ -950,5 +1158,256 @@ mod tests {
         assert_eq!(slider_value_at(-50.0, 100.0, 200.0), 0);
         assert_eq!(slider_value_at(999.0, 100.0, 200.0), 100);
         assert_eq!(slider_value_at(5.0, 0.0, 0.0), 0);
+    }
+
+    fn fonts() -> UiFonts {
+        UiFonts {
+            text: Handle::default(),
+            medium: Handle::default(),
+            bold: Handle::default(),
+            italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
+            icons: Handle::default(),
+            mana: Handle::default(),
+        }
+    }
+
+    /// An app running what moves the kit's controls: the pointer's feel and
+    /// the toggles, with motion allowed or not.
+    fn moving(still: bool) -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            // Sixty frames a second, whatever the machine running the test.
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_micros(16_667),
+            ))
+            .init_resource::<ToggleShown>()
+            .add_systems(Update, (crate::ambience::feel, animate_toggles));
+        if still {
+            let mut prefs = crate::prefs::Prefs::default();
+            prefs.edit().reduce_motion = true;
+            app.insert_resource(prefs);
+        }
+        app
+    }
+
+    /// Makes something with the kit, at the default step on a desktop.
+    fn make<T>(app: &mut App, build: impl FnOnce(&mut Commands, Kit) -> T) -> T {
+        let fonts = fonts();
+        let kit = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(
+                super::super::size::Viewport::desktop(1920.0, 1080.0),
+                super::super::size::TextSize::M,
+            ),
+            german: false,
+        };
+        let made = {
+            let mut commands = app.world_mut().commands();
+            build(&mut commands, kit)
+        };
+        app.world_mut().flush();
+        made
+    }
+
+    fn face_of(app: &App, wrapper: Entity) -> Entity {
+        app.world().get::<Children>(wrapper).expect("a face")[0]
+    }
+
+    fn point(app: &mut App, wrapper: Entity, how: PickingInteraction) {
+        app.world_mut().entity_mut(wrapper).insert(how);
+    }
+
+    fn scale(app: &App, face: Entity) -> f32 {
+        app.world()
+            .get::<UiTransform>(face)
+            .expect("a transform")
+            .scale
+            .x
+    }
+
+    fn ground(app: &App, face: Entity) -> Color {
+        app.world()
+            .get::<BackgroundColor>(face)
+            .expect("a ground")
+            .0
+    }
+
+    /// Every pressable control the kit draws answers the pointer on its face
+    /// though the pointer is over its hit area: it lightens and grows under a
+    /// hover, gives and darkens under a press, and gets there over frames,
+    /// not at once (owner, 09.10.2026: "no hover and click animations").
+    #[test]
+    fn the_kit_s_controls_answer_the_pointer_over_frames() {
+        type Maker = fn(&mut Commands, Kit) -> Entity;
+        let makers: [(&str, Maker); 6] = [
+            ("primary", |c, k| {
+                button(c, k, "Go", Weight::Primary, Live::Yes, Some("Enter"), ())
+            }),
+            ("secondary", |c, k| {
+                button(c, k, "Back", Weight::Secondary, Live::Yes, None, ())
+            }),
+            ("ghost", |c, k| {
+                button(c, k, "Later", Weight::Ghost, Live::Yes, None, ())
+            }),
+            ("chip", |c, k| chip(c, k, "Red", false, None, false, ())),
+            ("pill", |c, k| pill(c, k, None, "Gateway", true, ())),
+            ("nav", |c, k| nav(c, k, "Play", false, ())),
+        ];
+        for (what, maker) in makers {
+            let mut app = moving(false);
+            let wrapper = make(&mut app, maker);
+            let face = face_of(&app, wrapper);
+            app.update();
+            let rest = ground(&app, face);
+            assert!((scale(&app, face) - 1.0).abs() < 1e-6, "{what} at rest");
+            point(&mut app, wrapper, PickingInteraction::Hovered);
+            app.update();
+            app.update();
+            let early = scale(&app, face);
+            for _ in 0..40 {
+                app.update();
+            }
+            let lit = ground(&app, face);
+            assert_ne!(lit, rest, "{what} lights under a hover");
+            assert!(
+                lit.to_srgba().red > rest.to_srgba().red || lit.alpha() > rest.alpha(),
+                "{what}"
+            );
+            let hovered = scale(&app, face);
+            assert!(hovered > 1.0, "{what} lifts under a hover");
+            assert!(
+                early < hovered,
+                "{what} eases into the hover, it does not jump"
+            );
+            point(&mut app, wrapper, PickingInteraction::Pressed);
+            for _ in 0..40 {
+                app.update();
+            }
+            assert!(scale(&app, face) < 1.0, "{what} gives under a press");
+            point(&mut app, wrapper, PickingInteraction::None);
+            for _ in 0..60 {
+                app.update();
+            }
+            assert!((scale(&app, face) - 1.0).abs() < 1e-3, "{what} comes back");
+        }
+    }
+
+    /// The segments of a segmented control answer the pointer as buttons do.
+    #[test]
+    fn a_segment_lights_and_gives() {
+        let mut app = moving(false);
+        let group = make(&mut app, |c, k| segmented(c, k, &["One", "Two"], 0, |_| ()));
+        let wrapper = app.world().get::<Children>(group).expect("segments")[1];
+        let face = face_of(&app, wrapper);
+        app.update();
+        let rest = ground(&app, face);
+        point(&mut app, wrapper, PickingInteraction::Hovered);
+        for _ in 0..40 {
+            app.update();
+        }
+        assert_ne!(ground(&app, face), rest, "an unchosen segment lights");
+        assert!(scale(&app, face) > 1.0);
+        point(&mut app, wrapper, PickingInteraction::Pressed);
+        for _ in 0..40 {
+            app.update();
+        }
+        assert!(scale(&app, face) < 1.0, "and gives under a press");
+    }
+
+    /// Under `reduce_motion` the states change at once: the first frame of a
+    /// hover is the whole of it.
+    #[test]
+    fn reduce_motion_changes_the_state_at_once() {
+        let mut app = moving(true);
+        let wrapper = make(&mut app, |c, k| {
+            button(c, k, "Go", Weight::Primary, Live::Yes, None, ())
+        });
+        let face = face_of(&app, wrapper);
+        app.update();
+        point(&mut app, wrapper, PickingInteraction::Hovered);
+        app.update();
+        let first = scale(&app, face);
+        app.update();
+        assert!(first > 1.0 && (scale(&app, face) - first).abs() < 1e-6);
+    }
+
+    fn knob_left_of(app: &App, track: Entity) -> f32 {
+        let knob = app.world().get::<Children>(track).expect("a knob")[0];
+        match app.world().get::<Node>(knob).expect("a node").left {
+            Val::Px(px) => px,
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// A toggle pressed on is drawn again by the screen already on; the new
+    /// one starts where the old one stood (its stop's memory) and slides
+    /// over frames to the end, its track easing to the accent, and then
+    /// writes nothing.
+    #[test]
+    fn a_toggle_slides_to_its_end_state_through_a_rebuild() {
+        let stop = super::super::focus::Stop::new("settings", "text-face");
+        let mut app = moving(false);
+        let off = make(&mut app, |c, k| toggle(c, k, false, stop));
+        for _ in 0..3 {
+            app.update();
+        }
+        let track = face_of(&app, off);
+        let at_off = knob_left_of(&app, track);
+        // The press: the screen rebuilds with the toggle on.
+        app.world_mut().entity_mut(off).despawn();
+        let on = make(&mut app, |c, k| toggle(c, k, true, stop));
+        let track = face_of(&app, on);
+        app.update();
+        let first = knob_left_of(&app, track);
+        assert!(
+            first < knob_left(1.0) - 1.0,
+            "it starts from where it was, not at the end"
+        );
+        assert!(first >= at_off, "and moves on from there");
+        for _ in 0..80 {
+            app.update();
+        }
+        assert!(
+            (knob_left_of(&app, track) - knob_left(1.0)).abs() < 1e-3,
+            "it reaches the end"
+        );
+        assert_eq!(
+            app.world()
+                .get::<BackgroundColor>(track)
+                .expect("a track")
+                .0,
+            track_ground(1.0, 0.0),
+            "the track is the accent"
+        );
+        let tick = app
+            .world()
+            .entity(track)
+            .get_ref::<BackgroundColor>()
+            .map(|r| r.last_changed());
+        app.update();
+        app.update();
+        let again = app
+            .world()
+            .entity(track)
+            .get_ref::<BackgroundColor>()
+            .map(|r| r.last_changed());
+        assert_eq!(tick, again, "a toggle at rest writes nothing");
+    }
+
+    /// Under `reduce_motion` a pressed toggle stands at its end at once.
+    #[test]
+    fn under_reduce_motion_a_toggle_jumps() {
+        let stop = super::super::focus::Stop::new("settings", "text-face");
+        let mut app = moving(true);
+        let off = make(&mut app, |c, k| toggle(c, k, false, stop));
+        app.update();
+        app.world_mut().entity_mut(off).despawn();
+        let on = make(&mut app, |c, k| toggle(c, k, true, stop));
+        let track = face_of(&app, on);
+        app.update();
+        assert!((knob_left_of(&app, track) - knob_left(1.0)).abs() < 1e-3);
     }
 }

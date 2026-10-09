@@ -177,6 +177,13 @@ impl Plugin for LobbyPlugin {
                 (front::fade_front, front::fade_primary_surfaces)
                     .run_if(in_state(DuelPhase::Closed)),
             )
+            // After layout, which is what says whether a page runs over.
+            .add_systems(
+                PostUpdate,
+                scrollbars::show_when_needed
+                    .after(bevy::ui::UiSystems::Layout)
+                    .run_if(in_state(DuelPhase::Closed)),
+            )
             .add_systems(
                 Update,
                 (leave_clicks, leave_keys).run_if(in_state(DuelPhase::Finished)),
@@ -187,6 +194,7 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 Update,
                 (
+                    crate::settingsui::keys::settings_over,
                     front::keys::activate_by_key,
                     front::keys::kit_to_lobby,
                     front::keys::unpark_on_placement,
@@ -208,7 +216,6 @@ impl Plugin for LobbyPlugin {
                 Update,
                 (
                     crate::settingsui::keys::mirror_in_use,
-                    crate::settingsui::keys::sync_search,
                     crate::settingsui::keys::slider_keys,
                     crate::settingsui::keys::apply_sliders,
                     crate::settingsui::keys::follow_nav,
@@ -288,6 +295,8 @@ impl Plugin for LobbyPlugin {
             .init_resource::<Hovered>()
             .add_message::<Pointer<Over>>()
             .add_message::<Pointer<Out>>()
+            .add_message::<Pointer<bevy::picking::events::Press>>()
+            .add_message::<Pointer<Release>>()
             .add_systems(
                 OnExit(DuelPhase::Closed),
                 (teardown, despawn_preview, hint::despawn_hint),
@@ -466,8 +475,6 @@ pub struct LobbyState {
 pub(crate) struct SettingsView {
     /// The section shown.
     pub(crate) section: baylee_client_core::settings_map::Section,
-    /// What the search field holds.
-    pub(crate) query: String,
     /// A shortcut's rebind refused: the action, the chord and why.
     pub(crate) refused: Option<(
         baylee_client_core::shellkeys::ShellAction,
@@ -588,12 +595,14 @@ impl LobbyState {
     /// What the settings search holds.
     #[must_use]
     pub(crate) fn settings_query(&self) -> &str {
-        &self.settings_view.query
+        self.lobby.field(Field::SettingsSearch)
     }
 
     /// Sets the settings search.
     pub(crate) fn set_settings_query(&mut self, query: String) {
-        self.settings_view.query = query;
+        if self.settings_query() != query {
+            self.lobby.set_field(Field::SettingsSearch, &query);
+        }
     }
 
     /// The display trial's answer, taken once.

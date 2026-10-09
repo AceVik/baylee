@@ -319,7 +319,7 @@ pub(super) fn list(
             Pickable::IGNORE,
         ))
         .id();
-    super::scrollbars::attach(commands, frame, list, metrics);
+    let _ = super::scrollbars::attach(commands, frame, list, metrics);
     frame
 }
 
@@ -598,9 +598,11 @@ fn mark_cell(
     let warning = words.warning?;
     let cell = commands
         .spawn((
+            // At least the glyph's own size: at the largest step the mark
+            // stood out of a fixed 20-pixel cell.
             Node {
-                width: px(20),
-                height: px(20),
+                min_width: px(20),
+                min_height: px(20),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()

@@ -905,6 +905,80 @@ fn slash_and_command_f_focus_the_settings_search() {
     }
 }
 
+/// The settings search behaves as the username does (owner, 09.10.2026):
+/// a press puts the caret in it, typing goes in at the caret, the arrows move
+/// it and Shift selects, a selection is typed over, ⌘/Ctrl+A takes all,
+/// Backspace deletes what is selected; its `×` empties it and keeps the
+/// caret there; Esc empties it before it closes anything.
+#[test]
+fn the_settings_search_is_a_field_like_the_username() {
+    use super::front_keys::press_key;
+    use baylee_client_core::lobby::Field;
+    let query = |app: &App| {
+        app.world()
+            .resource::<LobbyState>()
+            .settings_query()
+            .to_string()
+    };
+    let mut app = settings_at(baylee_client_core::settings_map::Section::Graphics);
+    press(
+        &mut app,
+        Press::Shared(SharedPress::Focus(Field::SettingsSearch)),
+    );
+    for ch in ["v", "o", "l"] {
+        press_key(&mut app, KeyCode::KeyV, Key::Character(ch.into()), &[]);
+    }
+    assert_eq!(query(&app), "vol", "typed at the caret");
+    assert!(
+        app.world().resource::<LobbyState>().lobby.typing_here(),
+        "the caret is in the search"
+    );
+    // Shift+← twice selects "ol"; a letter types over it.
+    for _ in 0..2 {
+        press_key(
+            &mut app,
+            KeyCode::ArrowLeft,
+            Key::ArrowLeft,
+            &[KeyCode::ShiftLeft],
+        );
+    }
+    press_key(&mut app, KeyCode::KeyI, Key::Character("i".into()), &[]);
+    assert_eq!(query(&app), "vi", "a selection is typed over");
+    // ← then Backspace deletes before the caret.
+    press_key(&mut app, KeyCode::ArrowLeft, Key::ArrowLeft, &[]);
+    press_key(&mut app, KeyCode::Backspace, Key::Backspace, &[]);
+    assert_eq!(query(&app), "i");
+    let command = if crate::shellkit::keys::mac() {
+        KeyCode::SuperLeft
+    } else {
+        KeyCode::ControlLeft
+    };
+    press_key(&mut app, KeyCode::End, Key::End, &[]);
+    press_key(&mut app, KeyCode::KeyS, Key::Character("s".into()), &[]);
+    press_key(
+        &mut app,
+        KeyCode::KeyA,
+        Key::Character("a".into()),
+        &[command],
+    );
+    press_key(&mut app, KeyCode::Backspace, Key::Backspace, &[]);
+    assert_eq!(query(&app), "", "select all, then Backspace");
+    press_key(&mut app, KeyCode::KeyM, Key::Character("m".into()), &[]);
+    // The `×` stands while something is typed; it empties the box and the
+    // caret stays.
+    press(&mut app, Press::Settings(SettingsPress::ClearSearch));
+    assert_eq!(query(&app), "");
+    assert!(app.world().resource::<LobbyState>().lobby.typing_here());
+    press_key(&mut app, KeyCode::KeyA, Key::Character("a".into()), &[]);
+    assert_eq!(query(&app), "a");
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert_eq!(query(&app), "", "Esc empties it");
+    assert!(
+        app.world().resource::<LobbyState>().settings.is_open(),
+        "and closes nothing"
+    );
+}
+
 /// A settings row never shrinks in its scrolling column. Shrunk, the row
 /// kept the height its controls asked for while a five-line help text ran
 /// on into the next row (German Grafik, *Sitz ansehen* over

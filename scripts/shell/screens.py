@@ -203,7 +203,7 @@ def sweep(out, screens):
                         devctl.settle()
                         failures += measure(screen, out, width, height, lang, step, touch, summary)
                         leave(screen)
-    devctl.shell(text_size="l", lang="en", input="auto")
+    devctl.shell(text_size="m", lang="en", input="auto")
     with open(os.path.join(out, "screens-summary.txt"), "a") as f:
         f.write("\n".join(summary) + f"\nfailures: {failures}\n")
     print(f"failures: {failures}")

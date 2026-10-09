@@ -70,7 +70,7 @@ impl ShellMetrics {
         let frame = Frame::classify(view, step);
         let f = step.factor();
         let touch = view.input == InputClass::Touch;
-        // Today's three rows (`lobby::Metrics::of`), as the step-4 values.
+        // Today's three rows (`lobby::Metrics::of`), as the default step's (M) values.
         let (h1, head, text, small) = match frame {
             Frame::Phone => (22.0, 18.0, 15.0, 12.5),
             Frame::Compact | Frame::Narrow => (22.0, 18.0, 15.0, 11.5),
@@ -126,7 +126,7 @@ impl ShellMetrics {
         }
     }
 
-    /// `n` logical pixels at step 4, at this step.
+    /// `n` logical pixels at the default step (M), at this step.
     #[must_use]
     pub fn px(self, n: f32) -> Val {
         Val::Px(self.scaled(n))
@@ -165,23 +165,23 @@ mod tests {
         )
     }
 
-    /// §8's table at step 4 is today's desktop: 16 / 22 / 12.5, row 72.
+    /// §8's table at the default step (M, 3) is today's desktop: 16 / 22 / 12.5, row 72.
     #[test]
-    fn step_four_is_today_and_the_rest_scale_with_floors() {
-        let wide = at(1920.0, 1080.0, TextSize::L, InputClass::Pointer);
+    fn the_default_step_is_today_and_the_rest_scale_with_floors() {
+        let wide = at(1920.0, 1080.0, TextSize::M, InputClass::Pointer);
         assert_eq!((wide.text, wide.head, wide.small), (16.0, 22.0, 12.5));
         assert!((wide.row - 72.0).abs() < 1e-3 && (wide.body_max - 1480.0).abs() < 1e-3);
         let small = at(1920.0, 1080.0, TextSize::Xs, InputClass::Pointer);
-        assert!((small.text - 11.232).abs() < 0.01, "{}", small.text);
-        assert!((small.small - 9.0).abs() < 1e-3, "the small floor is 9");
-        assert!((small.row - 50.544).abs() < 0.01);
+        assert!((small.text - 12.64).abs() < 0.01, "{}", small.text);
+        assert!((small.small - 9.875).abs() < 1e-3, "{}", small.small);
+        assert!((small.row - 56.88).abs() < 0.01);
         let large = at(1920.0, 1080.0, TextSize::Xl, InputClass::Pointer);
-        assert!((large.text - 18.0).abs() < 1e-3 && (large.head - 24.75).abs() < 1e-3);
+        assert!((large.text - 20.256).abs() < 1e-3 && (large.head - 27.852).abs() < 1e-3);
         // A phone keeps body 13 and small 12 at the smallest step.
         let phone = at(844.0, 390.0, TextSize::Xs, InputClass::Touch);
         assert_eq!(phone.frame, Frame::Phone);
         assert!((phone.text - 13.0).abs() < 1e-3 && (phone.small - 12.0).abs() < 1e-3);
-        assert!((at(844.0, 390.0, TextSize::L, InputClass::Touch).text - 15.0).abs() < 1e-3);
+        assert!((at(844.0, 390.0, TextSize::M, InputClass::Touch).text - 15.0).abs() < 1e-3);
     }
 
     /// A finger's target never shrinks below 44 (§2.4, S4-2); a pointer's
@@ -198,7 +198,7 @@ mod tests {
             (at(1920.0, 1080.0, TextSize::Xs, InputClass::Pointer).control - 36.0).abs() < 1e-3
         );
         assert!(
-            (at(1920.0, 1080.0, TextSize::Xl, InputClass::Pointer).control - 49.5).abs() < 1e-3
+            (at(1920.0, 1080.0, TextSize::Xl, InputClass::Pointer).control - 55.704).abs() < 1e-3
         );
     }
 }
