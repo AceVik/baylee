@@ -497,6 +497,85 @@ fn a_deck_remembers_every_state_it_has_been_in() {
     // What going back does with all of this is the next test.
 }
 
+/// Each version says what changed against the one before it (WG-6), in the
+/// words the history sheet uses: a finish change is a finish change, not a
+/// card out and a card in; and how many cards it holds, counted by copies.
+#[test]
+fn a_deck_history_says_what_each_save_changed() {
+    let gateway = spawn_gateway("history_delta");
+    let token = login(gateway.port, "deltas", "Deltas");
+    let save = |cards: &str| {
+        format!(
+            r#"{{"name":"Deltas","cards":[{cards}],"sideboard":["2 Counterspell"],"commander":null}}"#
+        )
+    };
+
+    let (status, saved) = http(
+        gateway.port,
+        "POST",
+        "/decks",
+        Some(&token),
+        &save(r#""4 Baleful Strix (2X2) 155","20 Forest""#),
+    );
+    assert_eq!(status, 200, "{saved}");
+    let id = json_field(&saved, "deck_id").to_string();
+    let saves = [
+        // v2: a card added.
+        r#""4 Baleful Strix (2X2) 155","20 Forest","4 Counterspell""#,
+        // v3: only a finish.
+        r#""4 Baleful Strix (2X2) 155 *F*","20 Forest","4 Counterspell""#,
+        // v4: only a printing.
+        r#""4 Baleful Strix (PLC) 132 *F*","20 Forest","4 Counterspell""#,
+    ];
+    for cards in saves {
+        let (status, body) = http(
+            gateway.port,
+            "PUT",
+            &format!("/decks/{id}"),
+            Some(&token),
+            &save(cards),
+        );
+        assert_eq!(status, 204, "{body}");
+    }
+
+    let (status, history) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}/history"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{history}");
+    let history: serde_json::Value = serde_json::from_str(&history).expect("json");
+    let delta = |value: &serde_json::Value| {
+        let d = &value["delta"];
+        [
+            "added", "removed", "count", "printing", "finish", "language", "note",
+        ]
+        .map(|k| d[k].as_u64().unwrap_or_else(|| panic!("{k} in {value}")))
+    };
+    // The head (v4) against v3: one printing change, nothing else.
+    assert_eq!(history["version"], 4, "{history}");
+    assert_eq!(delta(&history), [0, 0, 0, 1, 0, 0, 0], "{history}");
+    assert_eq!(history["card_count"]["main"], 28, "{history}");
+    assert_eq!(history["card_count"]["side"], 2, "{history}");
+
+    let past = history["past"].as_array().expect("past");
+    let versions: Vec<_> = past.iter().map(|v| v["version"].as_i64()).collect();
+    assert_eq!(versions, [Some(3), Some(2), Some(1)], "{history}");
+    // v3 against v2: only the finish, never four out and four in.
+    assert_eq!(delta(&past[0]), [0, 0, 0, 0, 1, 0, 0], "{history}");
+    // v2 against v1: four cards added.
+    assert_eq!(delta(&past[1]), [4, 0, 0, 0, 0, 0, 0], "{history}");
+    assert_eq!(past[1]["card_count"]["main"], 28, "{history}");
+    // v1 has nothing before it.
+    assert!(past[2]["delta"].is_null(), "{history}");
+    assert_eq!(
+        past[2]["card_count"]["main"], 24,
+        "counts are copies, not rows: {history}"
+    );
+}
+
 /// Putting an earlier state back is a change like any other.
 ///
 /// Not a rewind: the deck's present is archived exactly as any save archives

@@ -2363,7 +2363,7 @@ from a curl recipe into a contract:
 | throw one away | `DELETE /decks/{id}` | `204` |
 | what anybody may play | `GET /decks/shared` | `[{id, kind, name, format, description, cards, sideboard, commanders, version, copies, identity, leaders, signature, unplayable}]` |
 | take a copy | `POST /decks/{id}/copy` | `{deck_id}` |
-| what it used to be | `GET /decks/{id}/history` | `{version, updated_at, past:[{version, cards, sideboard, commanders, summary, superseded_at}]}` |
+| what it used to be | `GET /decks/{id}/history` | `{version, updated_at, delta, card_count, past:[{version, cards, sideboard, commanders, summary, superseded_at, delta, card_count}]}` |
 | one earlier state | `GET /decks/{id}/versions/{v}` | that state's rows in full, plus `current` |
 | put one back | `POST /decks/{id}/versions/{v}/revert` | `{version}` — the **new** number |
 | upload a sleeve or mat | `POST /images?kind=sleeve\|playmat`, the image as the raw body | `{id, kind}`; `403` for a guest |
@@ -2444,6 +2444,18 @@ any other save does, and answers the new number. So a revert is revertible
 and nothing in a history is ever removed or rewritten — which is also why
 `(deck_id, version)` is a primary key with no `ON CONFLICT`: a racing save
 fails loudly rather than quietly writing a second past.
+
+**What each save changed (WG-6).** Every `past` row, and the head, carries
+`delta: {added, removed, count, printing, finish, language, note}` against
+the state before it (`null` on the oldest, which has none) and
+`card_count: {main, side}`. Both are computed from the stored rows on each
+read by `baylee_core::deckdiff`, the classifier the client's history sheet
+draws its rows with, so the line on a version and the rows under it agree:
+rows are keyed on the card name per zone, so a foil change is `finish: 1`,
+never a card removed and one added. `added` / `removed` count copies (a
+count change counts its difference), the other five count changed rows;
+`card_count` sums copies, not rows (`cards` / `sideboard` stay row counts).
+Additive: a client that predates them ignores both.
 
 `commanders` is a list because of the partner rule (CR 702.124), and the
 gateway checks it: at most two, each one a card the rules may seat, and the

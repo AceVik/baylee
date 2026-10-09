@@ -4,6 +4,7 @@ use crate::{
     Deck, DeckBody, ErrorBody, HeaderMap, Json, Path, Router, Shared, State, StatusCode, auth,
     authed, check_pictures, db_down, err, get, post, store, validate_deck,
 };
+use baylee_core::deckdiff;
 
 /// `GET /decks`: the account's decks, newest save first, each with what the
 /// list says about it beyond its name.
@@ -266,6 +267,13 @@ pub(crate) async fn list_shared_decks(
 /// The current cards are **not** in the list — they are the deck, and
 /// `version` says which number they carry. A caller drawing a timeline puts
 /// the deck at the top and these underneath it.
+///
+/// Every row, and the head, also says what changed against the state before
+/// it (`delta`, by [`baylee_core::deckdiff`]: copies added and removed, rows
+/// whose count, printing, finish, language or note changed; `null` on the
+/// oldest, which has nothing before it) and how many cards it holds
+/// (`card_count`, sums of counts, not rows). Computed from the stored rows on
+/// every read (WG-6): no column, no migration.
 pub(crate) async fn deck_history(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -273,11 +281,23 @@ pub(crate) async fn deck_history(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     let deck = readable_deck(&state, &id, &account_id).await?;
-    let past: Vec<_> = store::deck_history(&state.db, &id)
+    let versions = store::deck_history(&state.db, &id)
         .await
-        .map_err(|e| db_down(&e))?
+        .map_err(|e| db_down(&e))?;
+    // Newest first, so a row's predecessor is the one after it.
+    let delta = |after: [&[String]; 3], before: Option<&store::DeckVersion>| {
+        before.map(|b| deckdiff::deck_delta([&b.cards, &b.sideboard, &b.commanders], after))
+    };
+    let card_count = |cards: &[String], sideboard: &[String]| {
+        serde_json::json!({
+            "main": deckdiff::card_count(cards),
+            "side": deckdiff::card_count(sideboard),
+        })
+    };
+    let past: Vec<_> = versions
         .iter()
-        .map(|v| {
+        .enumerate()
+        .map(|(at, v)| {
             serde_json::json!({
                 "version": v.version,
                 "cards": v.cards.len(),
@@ -285,6 +305,8 @@ pub(crate) async fn deck_history(
                 "commanders": v.commanders,
                 "summary": v.summary,
                 "superseded_at": v.superseded_at,
+                "delta": delta([&v.cards, &v.sideboard, &v.commanders], versions.get(at + 1)),
+                "card_count": card_count(&v.cards, &v.sideboard),
             })
         })
         .collect();
@@ -292,6 +314,8 @@ pub(crate) async fn deck_history(
         "version": deck.version,
         "updated_at": deck.updated_at,
         "past": past,
+        "delta": delta([&deck.cards, &deck.sideboard, &deck.commanders], versions.first()),
+        "card_count": card_count(&deck.cards, &deck.sideboard),
     })))
 }
 
