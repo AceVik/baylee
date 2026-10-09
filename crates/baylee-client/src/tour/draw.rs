@@ -612,9 +612,27 @@ pub(super) fn anchor_rect(
         .reduce(|a, b| a.union(b))
 }
 
+/// Every pressable node on screen but the tour's own: a kit hit area or a
+/// table button.
+type Controls<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static ComputedNode,
+        &'static UiGlobalTransform,
+        &'static InheritedVisibility,
+        Option<&'static crate::shellkit::Role>,
+        Has<Button>,
+    ),
+    (
+        Or<(With<crate::shellkit::Role>, With<Button>)>,
+        Without<TourPress>,
+    ),
+>;
+
 /// Moves the scrim, the hairline and the bubble to the anchor, after
 /// layout; writes a node only when its rectangle moved.
-#[allow(clippy::type_complexity)] // three queries of one layer
+#[allow(clippy::type_complexity, clippy::too_many_arguments)] // a Bevy system: the layer, the anchor, the controls
 pub(super) fn place(
     desk: Res<TourDesk>,
     mut spot: ResMut<Spotlight>,
@@ -631,6 +649,7 @@ pub(super) fn place(
         (&mut Node, &ComputedNode, &mut Visibility),
         (With<Bubble>, Without<Scrim>, Without<Ring>),
     >,
+    controls: Controls,
 ) {
     let Some(run) = desk.shown() else {
         return;
@@ -674,7 +693,19 @@ pub(super) fn place(
         if size == Vec2::ZERO {
             continue;
         }
-        let at = spot_for(hole, size, w, h, desk.setting.top);
+        // The anchor's own buttons, which the bubble must not cover.
+        let pressable: Vec<Rect> = hole.map_or_else(Vec::new, |hole| {
+            controls
+                .iter()
+                .filter(|(_, _, shown, role, button)| {
+                    shown.get()
+                        && (*button || role.is_some_and(|r| *r == crate::shellkit::Role::Hit))
+                })
+                .map(|(node, at, ..)| logical(node, at))
+                .filter(|r| !r.intersect(hole).is_empty())
+                .collect()
+        });
+        let at = spot_for(hole, size, (w, h), desk.setting.top, &pressable);
         if node.left != Val::Px(at.x) || node.top != Val::Px(at.y) {
             node.left = Val::Px(at.x);
             node.top = Val::Px(at.y);
@@ -685,9 +716,18 @@ pub(super) fn place(
 
 /// Where the bubble stands (§1.2): below the anchor, centred on it; above
 /// it when the anchor is in the lower half; beside it when neither fits;
-/// clamped inside the window; centred with no anchor.
+/// clamped inside the window; centred with no anchor. When no side has the
+/// room (a sheet nearly the window's size), it stands where it covers none
+/// of `controls` — the anchor's buttons — and as little of the anchor as it
+/// can.
 #[must_use]
-pub fn spot_for(hole: Option<Rect>, size: Vec2, w: f32, h: f32, top: f32) -> Vec2 {
+pub fn spot_for(
+    hole: Option<Rect>,
+    size: Vec2,
+    (w, h): (f32, f32),
+    top: f32,
+    controls: &[Rect],
+) -> Vec2 {
     let clamp = |p: Vec2| {
         Vec2::new(
             p.x.clamp(INSET, (w - size.x - INSET).max(INSET)),
@@ -729,17 +769,90 @@ pub fn spot_for(hole: Option<Rect>, size: Vec2, w: f32, h: f32, top: f32) -> Vec
             return clamp(at);
         }
     }
-    // Nothing fits beside a very large anchor: the bubble stands in the
-    // corner of the window farthest from the anchor's centre.
-    let x = if hole.center().x > w / 2.0 {
-        INSET
-    } else {
-        w - size.x - INSET
+    // Nothing fits beside a very large anchor: of the window's corners
+    // and the four sides pressed into the window, the place that covers no
+    // button of the anchor and the least of the anchor itself.
+    let area = |a: Rect, b: Rect| {
+        let both = a.intersect(b);
+        if both.is_empty() {
+            0.0
+        } else {
+            both.width() * both.height()
+        }
     };
-    let y = if lower_half {
-        INSET.max(top)
-    } else {
-        h - size.y - INSET
-    };
-    clamp(Vec2::new(x, y))
+    let low = h - size.y - INSET;
+    let far = w - size.x - INSET;
+    let high = INSET.max(top);
+    let candidates = [
+        Vec2::new(INSET, high),
+        Vec2::new(far, high),
+        Vec2::new(INSET, low),
+        Vec2::new(far, low),
+        clamp(below),
+        clamp(above),
+        clamp(right),
+        clamp(left),
+    ];
+    candidates
+        .into_iter()
+        .map(clamp)
+        .min_by(|a, b| {
+            let cost = |at: Vec2| {
+                let card = Rect::from_corners(at, at + size);
+                let covered: f32 = controls.iter().map(|c| area(card, *c)).sum();
+                (covered, area(card, hole))
+            };
+            let (ca, ha) = cost(*a);
+            let (cb, hb) = cost(*b);
+            ca.total_cmp(&cb).then(ha.total_cmp(&hb))
+        })
+        .unwrap_or_else(|| clamp(below))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn card(at: Vec2, size: Vec2) -> Rect {
+        Rect::from_corners(at, at + size)
+    }
+
+    /// The builder's history sheet at 1600 x 938 (D14, live): no side of it
+    /// has room for the bubble, and its buttons (Restore in its foot, the
+    /// close cross in its head) must stay uncovered.
+    #[test]
+    fn a_bubble_beside_a_sheet_with_no_room_covers_none_of_its_buttons() {
+        let window = (1600.0, 938.0);
+        let sheet = Rect::new(312.0, 269.0, 1288.0, 669.0);
+        let size = Vec2::new(360.0, 350.0);
+        let buttons = [
+            Rect::new(1120.0, 610.0, 1270.0, 654.0),
+            Rect::new(980.0, 610.0, 1110.0, 654.0),
+            Rect::new(1236.0, 280.0, 1280.0, 324.0),
+            Rect::new(330.0, 330.0, 700.0, 374.0),
+        ];
+        let at = spot_for(Some(sheet), size, window, 64.0, &buttons);
+        let bubble = card(at, size);
+        for b in buttons {
+            assert!(bubble.intersect(b).is_empty(), "{bubble:?} covers {b:?}");
+        }
+        assert!(bubble.min.x >= INSET && bubble.max.x <= window.0 - INSET + 0.01);
+        assert!(bubble.min.y >= INSET && bubble.max.y <= window.1 - INSET + 0.01);
+    }
+
+    /// Where a side has room the bubble never touches the anchor at all.
+    #[test]
+    fn a_bubble_with_room_stands_clear_of_its_anchor() {
+        let window = (1708.0, 1032.0);
+        let size = Vec2::new(360.0, 300.0);
+        for anchor in [
+            Rect::new(192.0, 0.0, 540.0, 58.0),
+            Rect::new(127.0, 404.0, 561.0, 464.0),
+            Rect::new(0.0, 728.0, 1600.0, 784.0),
+            Rect::new(1478.0, 65.0, 1674.0, 125.0),
+        ] {
+            let at = spot_for(Some(anchor), size, window, 64.0, &[anchor]);
+            assert!(card(at, size).intersect(anchor).is_empty(), "{anchor:?}");
+        }
+    }
 }
