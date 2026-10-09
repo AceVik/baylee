@@ -64,48 +64,7 @@ pub fn run() {
     let assets = asset_root();
     let plugins = DefaultPlugins
         .set(WindowPlugin {
-            primary_window: Some({
-                let mut window = Window {
-                    title: "Baylee".to_string(),
-                    // Wayland's `app_id` and X11's `WM_CLASS`: the desktop
-                    // entry a Linux dock takes the icon from.
-                    name: Some(crate::window_icon::APP_ID.to_string()),
-                    // A regular decorated window: the system close /
-                    // minimize buttons stay available.
-                    fit_canvas_to_parent: true,
-                    ..default()
-                };
-                // Starts maximized (decorations kept). A phone has no
-                // window manager to ask, and ignores it.
-                window.set_maximized(true);
-                // Hidden until it has frames to show (`show_the_window`):
-                // bevy shows a window at its default size and maximizes it
-                // on the first frame, so a slow first frame stood as a white,
-                // small window on Windows (3.7 s, `docs/perf-client.md`
-                // §"Windows"). A browser's canvas and a phone's surface are
-                // the page's and the system's to show.
-                window.visible = !HIDDEN_UNTIL_DRAWN;
-                // Reproducible viewport captures without desktop automation.
-                // Only a dev-control build reads this test-only override.
-                // The scale first: the size is logical, and is turned into
-                // physical pixels at whatever factor stands when it is set.
-                #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-                if let Some(scale) = crate::devctl::window_scale() {
-                    window.resolution.set_scale_factor_override(Some(scale));
-                }
-                #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-                if let Some((width, height)) = crate::devctl::window_size() {
-                    window.set_maximized(false);
-                    window.resolution.set(width, height);
-                }
-                // A watched agent run (`BAYLEE_DEV_PASSIVE=1`): opens
-                // without the focus, see `primary_cursor_options` below.
-                #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-                if crate::devctl::passive() {
-                    window.focused = false;
-                }
-                window
-            }),
+            primary_window: Some(primary_window()),
             // A watched agent run takes no real pointer: the window lets
             // clicks and hovers through to whatever lies under it, so a
             // person watching cannot nudge a check by moving the mouse
@@ -219,6 +178,50 @@ pub fn run() {
     #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
     app.add_plugins(crate::update::native::NativeUpdatePlugin);
     app.run();
+}
+
+/// The game's one window, as `run` opens it.
+fn primary_window() -> Window {
+    let mut window = Window {
+        title: "Baylee".to_string(),
+        // Wayland's `app_id` and X11's `WM_CLASS`: the desktop
+        // entry a Linux dock takes the icon from.
+        name: Some(crate::window_icon::APP_ID.to_string()),
+        // A regular decorated window: the system close /
+        // minimize buttons stay available.
+        fit_canvas_to_parent: true,
+        ..default()
+    };
+    // Starts maximized (decorations kept). A phone has no
+    // window manager to ask, and ignores it.
+    window.set_maximized(true);
+    // Hidden until it has frames to show (`show_the_window`):
+    // bevy shows a window at its default size and maximizes it
+    // on the first frame, so a slow first frame stood as a white,
+    // small window on Windows (3.7 s, `docs/perf-client.md`
+    // §"Windows"). A browser's canvas and a phone's surface are
+    // the page's and the system's to show.
+    window.visible = !HIDDEN_UNTIL_DRAWN;
+    // Reproducible viewport captures without desktop automation.
+    // Only a dev-control build reads this test-only override.
+    // The scale first: the size is logical, and is turned into
+    // physical pixels at whatever factor stands when it is set.
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    if let Some(scale) = crate::devctl::window_scale() {
+        window.resolution.set_scale_factor_override(Some(scale));
+    }
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    if let Some((width, height)) = crate::devctl::window_size() {
+        window.set_maximized(false);
+        window.resolution.set(width, height);
+    }
+    // A watched agent run (`BAYLEE_DEV_PASSIVE=1`): opens
+    // without the focus, see `primary_cursor_options` below.
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    if crate::devctl::passive() {
+        window.focused = false;
+    }
+    window
 }
 
 /// The host for a launch that was handed a seat, if it was handed one.
