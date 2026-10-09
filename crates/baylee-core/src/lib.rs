@@ -5,14 +5,15 @@
 //! - [`types`]: card types, supertypes, subtype identifiers
 //! - [`mana`]: mana symbols, costs, pools (see `docs/mana-notation.md`)
 //! - [`preset`]: reproducible game start definitions incl. the print table
-//! - [`deckrow`], [`deckdigest`]: a deck list's rows, and what a lobby says
-//!   about a deck
+//! - [`deckrow`], [`deckdigest`], [`deckdiff`]: a deck list's rows, what a
+//!   lobby says about a deck, and what changed between two versions of one
 //! - [`oracle`]: how a printed oracle text is cut into sentences
 
 #![warn(missing_docs)]
 
 pub mod acceptance;
 pub mod color;
+pub mod deckdiff;
 pub mod deckdigest;
 pub mod deckrow;
 pub mod generated {
