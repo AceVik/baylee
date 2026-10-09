@@ -29,7 +29,7 @@ Two consequences worth knowing before changing anything here:
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
 | Activate the card under the cursor (play / select); on a merged card, one more of it — or one fewer, on a card of ones already chosen | `E` | implemented |
 | The whole merged card at once: declare, block or pick every permanent it stands for, as far as the choice takes (the pointer's `⇧`-click) | `⇧E` | implemented |
-| Visit the next seat in ring order — the camera stands behind it, no card moves (past the last: home) | `F` | implemented |
+| Visit the next seat in ring order — the camera stands behind a teammate's seat and across from an opponent's (`VisitCamera::Auto`), no card moves (past the last: home) | `F` | implemented |
 | Visit the previous seat in ring order | `⇧F` | implemented |
 | Back to my seat (also `Esc` when nothing else is open, my own chip, the visited chip again) | `H` | implemented |
 | Choose the table's arrangement (DESIGN-v8): the menu under the top-left pill; while it is up every key is the menu's — `↑` `↓` (or `W` `S`) walk the rows, `Enter`/`Space` choose, `1`–`8` choose a row, `Esc` or `P` shut it | `P`, the pill, or the game menu's row | implemented |
@@ -67,7 +67,8 @@ keyboard. The camera has one job — framing the table against the part of the
 window the table is seen through — and `table::frame_table` does it on every
 seat count, visit and resize. The viewpoints that remain are in the table
 above and in the keymap like everything else: `F` and `⇧F` visit the seats in
-ring order (DESIGN-v7: the camera orbits behind the seat, no card moves) and
+ring order (the camera orbits behind a teammate's seat and across from an
+opponent's, `VisitCamera::Auto`; no card moves) and
 `H` comes home.
 
 That is also why the arrows have no exception written into them any more. They

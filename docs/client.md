@@ -1874,7 +1874,7 @@ wrapped, smaller thumbnails, no arrow and no subtitle. The size ramp **is**
 the depth cue, which is why there is no numeral beside the rows — position
 already carries the order and the badge already carries the count.
 
-The panel is capped at 62% of the window height. Its body scrolls through
+On a desktop the panel is capped at 76% of the window height (`stack::panel_room`). Its body scrolls through
 all entries using a bounded rendering window and height-preserving spacers:
 queued rows are a fixed 82 px, and the next entry is as tall as what it
 draws, at least 164 px, measured from the body (`StackBody::full_height`).
@@ -1892,7 +1892,7 @@ its laid-out node) — or, where that would leave it narrower than 240 px,
 stopping above the strip instead. The top row takes a queued row's card, its
 name cut to one line with the arrow and the targets' thumbnails on that line,
 and the sentence's two-line box under them; no subtitle, since the head says
-whose answer is awaited (`STACK_PHONE_FULL_HEIGHT`, 83 px). The run button and
+whose answer is awaited (`STACK_PHONE_FULL_HEIGHT`, about 86 px). The run button and
 the hints are left off (the bar already offers "resolve the stack", with the
 marked stop), and the standing answers stand under the list, shown only while
 they fit whole beside a top row (`StackControls`), never cut in half. So at
@@ -3808,11 +3808,11 @@ clock answers a timed-out seat with the answer that does nothing where the
 question has one (`baylee_engine::choice::timeout_answer`,
 docs/protocol.md §"What the clock answers"), and the client reads the same
 function: `ledge::clock_answer` turns it into the button that sends it.
-Pass priority is the priority row's Confirm ("Pass 12"), an empty
+Pass priority is the priority row's Confirm ("Pass 0:12"), an empty
 declaration is "None", keeping the hand is "Keep", and a declined "may" is
 "No". The ledge then builds its `DecisionClockLabel` inside that button,
-after its words and in their ink, at `LABEL_PT` and two digits wide
-(`button_clock`), instead of the cell beside the question. It is still one
+after its words and in their ink, at `LABEL_PT` and as wide as `60:00`
+(`button_clock_width`), instead of the cell beside the question. It is still one
 label, so `count_down_the_decision` writes whichever was built. The cell
 remains for everything else of this seat's own: a question the house
 answers (a discard, targets), an armed deed,
@@ -6613,10 +6613,11 @@ Two scales carry the whole change, and the reason they are scales is the
 reason they exist at all. Every size in this client was chosen against
 Inter's x-height of 0.546 em. Alegreya Sans is authored at 0.458 and Faustina
 at 0.494, so at the same nominal number the interface would read about two
-steps smaller — `hud::UI_SCALE` (1.2) and `hud::SERIF_SCALE` (1.1) multiply a
+steps smaller — `hud::UI_SCALE` and `hud::SERIF_SCALE` multiply a
 caller's nominal size on the way into `TextFont`, and three hundred call
-sites keep the numbers they had. 0.494 × 1.1 is 0.543, which is Inter's own
-to three places.
+sites keep the numbers they had. They were 1.2 and 1.1 (0.494 × 1.1 is
+0.543, which is Inter's own to three places); the readability pass added a
+tenth to each, 1.32 and 1.21.
 
 The second effect is what makes it safe. `stack::CHAR_WIDTH` budgets a
 character at 0.52 of the nominal size, measured on Inter's 0.531 mean
