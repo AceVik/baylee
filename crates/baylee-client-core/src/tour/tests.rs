@@ -225,3 +225,59 @@ fn the_table_runs_on_through_its_chapters_and_skips_what_is_not_here() {
     assert_eq!(run.skip(&mut Tours::default()), Moved::Step);
     assert_eq!(run.current().id, "T2");
 }
+
+/// A try-it step whose check comes true moves on by itself: no press
+/// between doing the thing and the next step, for every check the lobby
+/// tour waits on.
+#[test]
+fn a_satisfied_try_it_step_moves_on_without_a_press() {
+    let mut tours = Tours::default();
+    tours.seen.insert(mark(Tour::Lobby, "play"));
+    let at = tours.due(Tour::Lobby, Place::Play).unwrap();
+    let mut run = Run::chapter(Tour::Lobby, at, false, 0).unwrap();
+    assert_eq!(run.current().kind, Kind::Try(Check::CreateSheetOpen));
+    assert_eq!(run.satisfied(&mut tours), Moved::Step);
+    assert_eq!(run.current().id, "L9", "the sheet open is L9 at once");
+    assert_eq!(run.current().kind, Kind::Try(Check::InRoom));
+    assert_eq!(run.satisfied(&mut tours), Moved::Over);
+    assert!(
+        tours.seen.contains("lobby/create"),
+        "the room is the chapter's end"
+    );
+    // Every try-it step of every tour behaves alike.
+    for (tour, step) in every_step() {
+        if !matches!(step.kind, Kind::Try(_)) {
+            continue;
+        }
+        let (c, s) = tour
+            .chapters()
+            .iter()
+            .enumerate()
+            .find_map(|(c, ch)| {
+                ch.steps
+                    .iter()
+                    .position(|x| x.id == step.id)
+                    .map(|s| (c, s))
+            })
+            .unwrap();
+        let mut run = Run::jit(tour, c, s, false);
+        run.single = false;
+        run.mode = Mode::Try;
+        let before = (run.chapter, run.step);
+        let moved = run.satisfied(&mut Tours::default());
+        assert!(
+            moved == Moved::Over || (run.chapter, run.step) != before,
+            "{} stays after its check came true",
+            step.id
+        );
+    }
+}
+
+/// Desktop only (owner, 09.10.): under touch or on a phone nothing starts.
+#[test]
+fn no_tour_step_starts_on_a_phone_or_under_touch() {
+    assert!(offered_here(false, false));
+    for (phone, touch) in [(true, false), (false, true), (true, true)] {
+        assert!(!offered_here(phone, touch), "{phone} {touch}");
+    }
+}
