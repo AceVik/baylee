@@ -6,7 +6,7 @@
 //! turn belongs to, and a player arranging stops wants the whole
 //! arrangement in front of them.
 
-use baylee_client_core::automation::{RAIL_ROWS, RailPreset, RailSide};
+use baylee_client_core::automation::{RAIL_PHASES, RAIL_ROWS, RailPreset, RailSide};
 use baylee_client_core::i18n::Phrase;
 use baylee_client_core::prefs::AutoRule;
 use baylee_client_core::settings_map::Row;
@@ -86,7 +86,7 @@ pub(crate) fn gameplay(out: &mut Out, view: &View) {
                 ),
             ));
         }
-        lines.push(out.wrap(&chips));
+        lines.push(by_phase(out, &chips));
     }
     out.block(Row::Stops, &lines);
 
@@ -117,4 +117,36 @@ pub(crate) fn gameplay(out: &mut Out, view: &View) {
         }
     }
     out.block(Row::AbilityAnswers, &lines);
+}
+
+/// The stops' chips (one per [`RAIL_ROWS`] entry, in its order) stood in
+/// the turn's five phases (CR 500.1), the run wrapping between phases: a
+/// row never leaves "Cleanup" alone under the rest (4K pass, 09.10.2026).
+/// A phase wider than the whole run (a phone's combat) still wraps inside
+/// itself.
+fn by_phase(out: &mut Out, chips: &[Entity]) -> Entity {
+    let mut at = 0;
+    let mut groups = Vec::new();
+    for phase in RAIL_PHASES {
+        let count = phase.rows().len();
+        let group = out
+            .commands
+            .spawn((
+                Node {
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: out.kit.m.px(8.0),
+                    row_gap: out.kit.m.px(6.0),
+                    align_items: AlignItems::Center,
+                    max_width: Val::Percent(100.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .add_children(&chips[at..at + count])
+            .id();
+        at += count;
+        groups.push(group);
+    }
+    debug_assert_eq!(at, chips.len(), "the phases hold every row");
+    out.wrap(&groups)
 }

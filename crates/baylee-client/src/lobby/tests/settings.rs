@@ -879,6 +879,44 @@ fn the_default_arrangement_is_drawn_as_chosen() {
     assert_eq!(segments, Arrangement::ALL.len(), "not the kit's segments");
 }
 
+/// The stops' chips stand in the turn's phases and the run wraps between
+/// them: Cleanup never stands alone on a line (4K pass, 09.10.2026, where
+/// "Aufräumen" wrapped under the other eleven).
+#[test]
+fn the_stop_chips_wrap_between_phases() {
+    use baylee_client_core::automation::{RAIL_PHASES, RailRow, RailSide};
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Gameplay);
+    let world = app.world_mut();
+    let mut query = world.query::<(Entity, &Press)>();
+    let presses: Vec<(Entity, Press)> = query.iter(world).map(|(e, p)| (e, *p)).collect();
+    let chip_of = |row: RailRow| {
+        presses
+            .iter()
+            .find(|(_, p)| *p == Press::Settings(SettingsPress::ToggleRail(RailSide::Mine, row)))
+            .map(|(e, _)| *e)
+            .expect("the chip is drawn")
+    };
+    for phase in RAIL_PHASES {
+        let parents: Vec<Entity> = phase
+            .rows()
+            .iter()
+            .map(|row| {
+                let chip = chip_of(*row);
+                world.get::<ChildOf>(chip).expect("a parent").parent()
+            })
+            .collect();
+        assert!(
+            parents.iter().all(|p| *p == parents[0]),
+            "{phase:?}'s chips are not one group"
+        );
+        let held = world
+            .get::<Children>(parents[0])
+            .map_or(0, |c| c.iter().count());
+        assert_eq!(held, phase.rows().len(), "{phase:?}'s group holds others");
+    }
+}
+
 /// Updates draws each of its switches once. Its first row was a settings
 /// row with an empty control — the label and help of "check automatically"
 /// over nothing — standing above the updater's own switch saying the same
