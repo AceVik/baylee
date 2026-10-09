@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # The full gate before a push, as CI runs it: fmt, clippy, every test through
 # nextest, and `validate`. Every phase runs even when an earlier one failed, so
 # one run reports every red, and each prints its seconds.

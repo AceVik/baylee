@@ -30,8 +30,9 @@
 # this runs instead is, per feature, the *shape* of check that feature earns,
 # and each one says below why it is that shape.
 #
-# bash rather than zsh, unlike `gate-rules.sh`: this file is also CI's
-# `features` job, and the runner image is not this laptop.
+# bash, as every gate script is: this file is also CI's `features` job, and
+# the runner image is not this laptop (nor is Git Bash on Windows, which has
+# no zsh).
 #
 # Usage:  DATABASE_URL=… scripts/gate-features.sh
 set -u
@@ -64,8 +65,8 @@ trap 'rm -f "$log"' EXIT
 # The status is read off the command and never off a pipeline. `cmd | tail`
 # reports **tail's** exit code, so the obvious spelling of this helper prints
 # ok for every failure it was built to catch; `${PIPESTATUS[0]}` would answer
-# that in bash and not in the zsh the sibling scripts use. No pipe, no
-# question.
+# that in bash and not in zsh, which the sibling scripts were once written
+# for. No pipe, no question.
 step() {
     local label="$1"; shift
     local t0=$SECONDS
