@@ -1,6 +1,6 @@
 """WP1 (the shell design §3, §2.7, §17): the front door's faces at the seven
-sizes, text steps 1, 4 and 5, English and German — shots, and the kit's
-overflow, window, sibling, label-budget, 44-px hit and contrast checks over
+sizes, text steps XS, M and XL, English and German — shots, and the kit's
+overflow, fit, lines, text-overlap, window, sibling, label-budget, 44-px hit and contrast checks over
 the whole tree; plus principle 8: the colophon (the Fan Content notice,
 Scryfall's credit, the AGPL source) present on every face at every size.
 

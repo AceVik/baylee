@@ -1,7 +1,7 @@
 """WP5 (the shell design §12, §17): the settings screen's ten sections at
-the seven sizes, English and German — shots, and the kit's overflow,
-window, sibling, label-budget, 44-px hit and contrast checks over each
-section; every section reached by its press name and the presses each one
+the seven sizes, text steps XS, M and XL, English and German — shots (at
+M), and the kit's overflow, fit, lines, text-overlap, window, sibling,
+label-budget, 44-px hit and contrast checks over each section; every section reached by its press name and the presses each one
 draws listed; the language models' sheet opened and closed; and the
 phone's measure (§12, M4-6): the section list and at least three rows in
 view at 844 x 390.
@@ -127,90 +127,89 @@ def main(out):
             devctl.resize(width, height)
             time.sleep(1.0)
         touch = (width, height) in TOUCH
-        if True:
-            devctl.shell(text_size=step, lang=lang, input="touch" if touch else "pointer")
-            time.sleep(0.6)
-            open_settings()
-            for section in SECTIONS:
-                name = f"Settings(Section({section}))"
-                if name not in presses():
-                    # Not offered on this build (Updates off a desktop).
-                    summary.append(f"{section}-{width}x{height}-{lang}: not offered")
-                    continue
-                into_view(name)
-                if not press_until(name, lambda: shown(section, lang)):
-                    failures += 1
-                    summary.append(f"{section}-{width}x{height}-{lang}: never shown")
-                    print(summary[-1], flush=True)
-                    continue
+        devctl.shell(text_size=step, lang=lang, input="touch" if touch else "pointer")
+        time.sleep(0.6)
+        open_settings()
+        for section in SECTIONS:
+            name = f"Settings(Section({section}))"
+            if name not in presses():
+                # Not offered on this build (Updates off a desktop).
+                summary.append(f"{section}-{width}x{height}-{lang}: not offered")
+                continue
+            into_view(name)
+            if not press_until(name, lambda: shown(section, lang)):
+                failures += 1
+                summary.append(f"{section}-{width}x{height}-{lang}: never shown")
+                print(summary[-1], flush=True)
+                continue
+            devctl.settle(4)
+            st = devctl.state()
+            nodes = check.tree(st["shell_nodes"])
+            drawn = sorted({c["press"] for c in st["lobby_controls"]
+                            if c["press"].startswith("Settings(")
+                            and "Section(" not in c["press"]})
+            reached.setdefault(section, set()).update(drawn)
+            faults = section_faults(nodes, width, height, touch, lang == "de")
+            tag = f"{section}-{width}x{height}-{step}-{lang}"
+            if (width, height) == (844, 390) and step == "m":
+                rows = rows_in_view(nodes, height)
+                navs = [n for n in nodes if n.get("k") == "menu_item"]
+                if len(navs) < 8:
+                    faults.append(f"phone: the section list shows {len(navs)} items")
+                if section in ("Graphics", "Audio", "Display") and len(rows) < 3:
+                    faults.append(f"phone: {len(rows)} rows in view, 3 wanted")
+                summary.append(f"    phone: {len(navs)} sections, {len(rows)} rows in view")
+            contrast = []
+            if step == "m" and (lang == "en" or (width, height) in ((960, 700), (844, 390))):
+                png = os.path.join(out, f"settings-{tag}.png")
+                devctl.screenshot(png)
+                if lang == "en":
+                    size = devctl.health()
+                    more, contrast = check.check_contrast(
+                        nodes, png, size["width"], size["height"]
+                    )
+                    faults += more
+            failures += len(faults)
+            worst = min((c[1] for c in contrast), default=None)
+            summary.append(
+                f"{tag}: {len(nodes)} nodes, {len(drawn)} presses, {len(faults)} faults"
+                + (f", ink >= {worst}" if contrast else "")
+            )
+            for fault in faults[:6]:
+                summary.append("    " + fault)
+            print("\n".join(summary[-1 - min(len(faults), 6):]), flush=True)
+        # The language models' sheet: a new profile opens it, Esc puts
+        # it away.
+        if step == "m" and "Settings(Section(LanguageModels))" in presses():
+            press_until("Settings(Section(LanguageModels))", lambda: True, tries=1)
+            devctl.settle(4)
+            if "Settings(Seat(Add))" in presses():
+                into_view("Settings(Seat(Add))")
+                press_until(
+                    "Settings(Seat(Add))",
+                    lambda: "Settings(CloseProfile)" in presses(),
+                )
                 devctl.settle(4)
                 st = devctl.state()
                 nodes = check.tree(st["shell_nodes"])
-                drawn = sorted({c["press"] for c in st["lobby_controls"]
-                                if c["press"].startswith("Settings(")
-                                and "Section(" not in c["press"]})
-                reached.setdefault(section, set()).update(drawn)
-                faults = section_faults(nodes, width, height, touch, lang == "de")
-                tag = f"{section}-{width}x{height}-{step}-{lang}"
-                if (width, height) == (844, 390) and step == "m":
-                    rows = rows_in_view(nodes, height)
-                    navs = [n for n in nodes if n.get("k") == "menu_item"]
-                    if len(navs) < 8:
-                        faults.append(f"phone: the section list shows {len(navs)} items")
-                    if section in ("Graphics", "Audio", "Display") and len(rows) < 3:
-                        faults.append(f"phone: {len(rows)} rows in view, 3 wanted")
-                    summary.append(f"    phone: {len(navs)} sections, {len(rows)} rows in view")
-                contrast = []
-                if step == "m" and (lang == "en" or (width, height) in ((960, 700), (844, 390))):
-                    png = os.path.join(out, f"settings-{tag}.png")
-                    devctl.screenshot(png)
-                    if lang == "en":
-                        size = devctl.health()
-                        more, contrast = check.check_contrast(
-                            nodes, png, size["width"], size["height"]
-                        )
-                        faults += more
+                faults = check.check_window(nodes, width, height)
+                if "Settings(CloseProfile)" not in presses():
+                    faults.append("the profile sheet did not open")
+                tag = f"llm-sheet-{width}x{height}-{lang}"
+                devctl.screenshot(os.path.join(out, f"settings-{tag}.png"))
+                devctl.key("Escape")  # leaves the name box
+                devctl.key("Escape")  # puts the sheet away
+                time.sleep(0.5)
+                if "Settings(CloseProfile)" in presses():
+                    faults.append("Esc did not put the sheet away")
+                # Leave nothing behind: drop the unsaved profile.
+                if "Settings(Seat(Revert))" in presses():
+                    devctl.press("Settings(Seat(Revert))")
                 failures += len(faults)
-                worst = min((c[1] for c in contrast), default=None)
-                summary.append(
-                    f"{tag}: {len(nodes)} nodes, {len(drawn)} presses, {len(faults)} faults"
-                    + (f", ink >= {worst}" if contrast else "")
-                )
+                summary.append(f"{tag}: {len(faults)} faults")
                 for fault in faults[:6]:
                     summary.append("    " + fault)
                 print("\n".join(summary[-1 - min(len(faults), 6):]), flush=True)
-            # The language models' sheet: a new profile opens it, Esc puts
-            # it away.
-            if step == "m" and "Settings(Section(LanguageModels))" in presses():
-                press_until("Settings(Section(LanguageModels))", lambda: True, tries=1)
-                devctl.settle(4)
-                if "Settings(Seat(Add))" in presses():
-                    into_view("Settings(Seat(Add))")
-                    press_until(
-                        "Settings(Seat(Add))",
-                        lambda: "Settings(CloseProfile)" in presses(),
-                    )
-                    devctl.settle(4)
-                    st = devctl.state()
-                    nodes = check.tree(st["shell_nodes"])
-                    faults = check.check_window(nodes, width, height)
-                    if "Settings(CloseProfile)" not in presses():
-                        faults.append("the profile sheet did not open")
-                    tag = f"llm-sheet-{width}x{height}-{lang}"
-                    devctl.screenshot(os.path.join(out, f"settings-{tag}.png"))
-                    devctl.key("Escape")  # leaves the name box
-                    devctl.key("Escape")  # puts the sheet away
-                    time.sleep(0.5)
-                    if "Settings(CloseProfile)" in presses():
-                        faults.append("Esc did not put the sheet away")
-                    # Leave nothing behind: drop the unsaved profile.
-                    if "Settings(Seat(Revert))" in presses():
-                        devctl.press("Settings(Seat(Revert))")
-                    failures += len(faults)
-                    summary.append(f"{tag}: {len(faults)} faults")
-                    for fault in faults[:6]:
-                        summary.append("    " + fault)
-                    print("\n".join(summary[-1 - min(len(faults), 6):]), flush=True)
     for section, drawn in sorted(reached.items()):
         summary.append(f"reached {section}: {len(drawn)} presses: " + ", ".join(sorted(drawn)))
         if not drawn:
