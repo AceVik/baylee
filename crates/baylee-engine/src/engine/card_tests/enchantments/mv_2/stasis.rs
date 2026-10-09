@@ -145,3 +145,45 @@ fn stasis_upkeep_trigger_pays_u_or_sacrifices_itself() {
         "sacrificed means the graveyard, not gone from the game"
     );
 }
+
+/// "Players skip their untap steps" — the opponent's too — and the upkeep
+/// payment is "your upkeep" only. Stasis cast by p0 leaves p1's tapped Forest
+/// and tapped creature tapped through p1's own untap step, while p1's upkeep
+/// asks nobody for {U}: the walk to p1's main phase would stop on the
+/// payment question otherwise.
+#[test]
+fn stasis_keeps_the_opponents_permanents_tapped_and_asks_only_its_controller_to_pay() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), forest()])
+        .battlefield(1, &[forest(), quiet_creature()])
+        .hand(0, &[stasis()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, stasis());
+    pass_until(&mut engine, |e| on_battlefield(e, p0, stasis()).is_some());
+
+    let land = on_battlefield(&engine, p1, forest()).expect("their Forest");
+    let creature = on_battlefield(&engine, p1, quiet_creature()).expect("their creature");
+    for id in [land, creature] {
+        engine
+            .dev_state_mut(p1)
+            .expect("the harness may set boards up")
+            .object_mut(id)
+            .expect("seated")
+            .status
+            .insert(Status::TAPPED);
+    }
+    engine.refresh_offer();
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        is_tapped(&engine, land) && is_tapped(&engine, creature),
+        "p1's untap step was skipped: both are still tapped in p1's main phase"
+    );
+    assert!(
+        on_battlefield(&engine, p0, stasis()).is_some(),
+        "no payment was asked of anyone during p1's upkeep"
+    );
+}

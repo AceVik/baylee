@@ -4,8 +4,9 @@
 use super::*;
 
 /// Tunnel prints one sentence — "Destroy target Wall. It can't be
-/// regenerated." — and the pool implements no regeneration anywhere, so the
-/// whole card is the destroy plus the word *Wall*. The board therefore puts a
+/// regenerated." — and this test reads the first half: the destroy plus the
+/// word *Wall* (the second half, against a standing regeneration shield, is
+/// `tunnel_destroys_a_wall_through_a_regeneration_shield`). The board puts a
 /// Wall and a creature that is not one under the same opponent: the offer has
 /// to hold exactly the first, and the Elf beside it is the control that says
 /// the subtype filter was read rather than that a lone creature turned out to
@@ -84,5 +85,44 @@ fn tunnel_destroys_a_wall_and_declines_a_creature_that_is_not_one() {
     assert!(
         in_graveyard(&engine, p0, tunnel()).is_some(),
         "an instant that resolved is in the graveyard of the seat that cast it"
+    );
+}
+
+fn wall_of_brambles() -> CardIndex {
+    card_index("f8d82a00-c10e-4b9e-9642-d05706900a97")
+}
+
+/// "It can't be regenerated": a Wall that has bought a regeneration shield
+/// with its own `{G}` ability dies anyway, to its owner's graveyard. The shield
+/// is bought off the card, not written in by the harness, and the Wall is the
+/// caster's own, because "target Wall" does not care whose it is.
+#[test]
+fn tunnel_destroys_a_wall_through_a_regeneration_shield() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), forest(), wall_of_brambles()])
+        .hand(0, &[tunnel()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wall = on_battlefield(&engine, p0, wall_of_brambles()).expect("the Wall");
+
+    tap_all_mana(&mut engine, p0);
+    raise_a_shield(&mut engine, p0, wall, 0);
+    cast_with_floating(&mut engine, p0, tunnel());
+    let menu = aim_at(&mut engine, p0, wall);
+    assert!(
+        menu.contains(&wall),
+        "a shielded Wall is a legal target like any other: {menu:?}"
+    );
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        on_battlefield(&engine, p0, wall_of_brambles()).is_none(),
+        "the shield did not save it"
+    );
+    assert!(
+        in_graveyard(&engine, p0, wall_of_brambles()).is_some(),
+        "and it is in its owner's graveyard"
     );
 }

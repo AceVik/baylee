@@ -536,6 +536,8 @@ impl<L: CardLookup> Engine<L> {
                 event_mana: None,
                 retarget_left: None,
             };
+            #[cfg(test)]
+            crate::ability_log::resolving(&self.state, &self.lookup, top);
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
                 resolve::Flow::Wait(pending) => {
