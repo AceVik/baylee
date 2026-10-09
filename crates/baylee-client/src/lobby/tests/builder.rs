@@ -427,10 +427,10 @@ fn the_card_window_keeps_each_count_label_with_its_stepper() {
         let world = app.world();
         let mut at = minus;
         let holder = loop {
-            let parent = world
-                .get::<ChildOf>(at)
-                .map(ChildOf::parent)
-                .unwrap_or_else(|| panic!("no ancestor of {said}'s stepper holds its label"));
+            let parent = world.get::<ChildOf>(at).map_or_else(
+                || panic!("no ancestor of {said}'s stepper holds its label"),
+                ChildOf::parent,
+            );
             // The label is a clip around its words (`buildui::cell`).
             let says = |e: Entity| world.get::<Text>(e).is_some_and(|t| t.0 == said);
             let holds = world.get::<Children>(parent).is_some_and(|children| {
