@@ -121,6 +121,12 @@ pub fn run() {
     });
 
     let mut app = App::new();
+    // A queued command whose entity a rebuild despawned in the same frame
+    // panics under bevy's default handler. A test or debug build keeps that,
+    // so the race is found; a player's release build logs a warning and
+    // plays on (09.10.2026: a kept guest's sign-in crashed a release build).
+    #[cfg(not(debug_assertions))]
+    app.set_error_handler(bevy::ecs::error::warn);
     app.insert_resource(ClearColor(Color::srgb(0.009, 0.013, 0.029)));
     app.add_plugins(plugins).add_plugins(DuelPlugin {
         config: DuelConfig::default(),
