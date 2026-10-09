@@ -2327,6 +2327,12 @@ messages! {
         en: "Surveil: keep cards on top or put them into your graveyard",
         de: "Überwachen: Karten oben lassen oder auf deinen Friedhof legen",
     },
+    /// Library of Leng: cards an effect makes you discard go into the
+    /// graveyard, or on top of your library in an order.
+    DiscardToLibraryPrompt {
+        en: "Discard: into your graveyard, or on top of your library instead",
+        de: "Abwerfen: auf deinen Friedhof oder stattdessen oben auf deine Bibliothek",
+    },
     /// The game is over
     TheGameIsOver { en: "The game is over", de: "Das Spiel ist vorbei" },
     /// Pay {0} life? Otherwise it enters tapped

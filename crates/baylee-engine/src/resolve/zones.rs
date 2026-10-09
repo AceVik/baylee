@@ -1076,22 +1076,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             })
         }
         Effect::DiscardHand { who } => {
+            let mut discards: Vec<(ObjectId, PlayerId)> = Vec::new();
             for player in players_of(who, state, you, res) {
-                let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
-                for card in hand {
-                    state.journal.record(GameEvent::Discarded {
-                        object: card,
-                        player,
-                    });
-                    let _ = state.move_object(
-                        card,
-                        ZoneLocation::Graveyard(player),
-                        ZonePosition::Top,
-                        Cause::Effect,
-                    );
-                }
+                discards.extend(
+                    state
+                        .zones
+                        .list(ZoneLocation::Hand(player))
+                        .iter()
+                        .map(|&card| (card, player)),
+                );
             }
-            None
+            super::discard_or_ask(state, res, &discards)
         }
         Effect::ShuffleIntoLibrary {
             who,
@@ -1139,23 +1134,16 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if count == 0 {
                 return None;
             }
+            // Every card is drawn at random first: Library of Leng's
+            // question names them, and the answer discards exactly these
+            // rather than drawing again.
+            let mut discards: Vec<(ObjectId, PlayerId)> = Vec::new();
             for player in players_of(who, state, you, res) {
                 let mut hand = state.zones.list(ZoneLocation::Hand(player)).clone();
                 state.rng.shuffle(&mut hand);
-                for card in hand.into_iter().take(count) {
-                    state.journal.record(GameEvent::Discarded {
-                        object: card,
-                        player,
-                    });
-                    let _ = state.move_object(
-                        card,
-                        ZoneLocation::Graveyard(player),
-                        ZonePosition::Top,
-                        Cause::Effect,
-                    );
-                }
+                discards.extend(hand.into_iter().take(count).map(|card| (card, player)));
             }
-            None
+            super::discard_or_ask(state, res, &discards)
         }
         Effect::AllGraveyardCreaturesToBattlefield => {
             // Under `you`'s control, so nowhere once they have left
