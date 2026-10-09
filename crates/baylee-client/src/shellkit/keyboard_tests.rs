@@ -436,6 +436,12 @@ fn a_command_chord_does_not_activate_the_focused_stop() {
     assert_eq!(app.world().resource::<Activations>().0, 1, "plain Enter");
     key(&mut app, KeyCode::Space, Key::Space, &[]);
     assert_eq!(app.world().resource::<Activations>().0, 2, "plain Space");
+    key(&mut app, KeyCode::Enter, Key::Enter, &[KeyCode::ShiftLeft]);
+    assert_eq!(
+        app.world().resource::<Activations>().0,
+        2,
+        "Shift+Enter is a sheet's second action, not the focused stop's"
+    );
 }
 
 #[derive(Resource, Default)]

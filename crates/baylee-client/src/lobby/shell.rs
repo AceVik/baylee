@@ -276,11 +276,17 @@ pub(super) fn ui(
         && state.lobby.library().page.is_some())
     .then(|| {
         format!(
-            "{:?}|{}|{}|{:?}",
+            "{:?}|{}|{}|{:?}|{:?}",
             state.lobby.library(),
             state.confirm_restore,
             state.decks.show_all,
-            state.lobby.lang()
+            state.lobby.lang(),
+            // Export… over the sheet: the dialog is part of what it shows.
+            state
+                .lobby
+                .builder()
+                .export_version()
+                .and(state.lobby.builder().transfer()),
         )
     });
     if history_now.is_some()

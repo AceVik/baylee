@@ -720,3 +720,68 @@ fn the_builder_opens_on_the_deck_not_on_a_page_the_decks_screen_left_open() {
         }
     }
 }
+
+/// The store writes a save's summary onto the row it replaced (`put_deck`),
+/// so "restored v1" for v3 stands on v2's row. Each version reads its words
+/// off its predecessor's row: the live walk found every restore named one
+/// row early and the head (v4, an Undo) never named.
+#[test]
+fn a_versions_summary_is_the_one_its_predecessors_row_keeps() {
+    use crate::lobby::library::{History, Revision};
+    let row = |version, summary: Option<&str>| Revision {
+        version,
+        summary: summary.map(str::to_string),
+        superseded_at: i64::from(version) * 10,
+        cards: 0,
+        sideboard: 0,
+        delta: None,
+        card_count: None,
+    };
+    // v1 saved; v2 saved; v3 restored v1; v4 restored v2 (an Undo).
+    let history = History {
+        version: 4,
+        updated_at: 40,
+        past: vec![
+            row(3, Some("back to version 2")),
+            row(2, Some("back to version 1")),
+            row(1, None),
+        ],
+        delta: None,
+        card_count: None,
+    };
+    assert_eq!(history.summary(4), Some("back to version 2"), "the head");
+    assert_eq!(history.summary(3), Some("back to version 1"));
+    assert_eq!(history.summary(2), None, "an ordinary save");
+    assert_eq!(history.summary(1), None, "the oldest kept");
+}
+
+/// A house deck's history opens from the House tab, read-only (Q-C4): the
+/// list is kept under the sheet, restore is refused, and closing the sheet
+/// stands the list up again rather than an empty tab.
+#[test]
+fn a_house_decks_history_is_read_only_and_closes_back_to_the_list() {
+    use crate::lobby::library::{HouseDeck, Page, Reply, Request};
+    let mut lobby = seated_lobby();
+    lobby.browse_house();
+    lobby.apply(LobbyEvent::Library(Reply::House(vec![HouseDeck {
+        id: "shared".into(),
+        name: "House".into(),
+        version: 2,
+        ..Default::default()
+    }])));
+    assert_eq!(
+        lobby.browse_deck_history("shared"),
+        Some(LobbyRequest::Library(Request::History("shared".into())))
+    );
+    assert!(
+        lobby.house_deck("shared"),
+        "the sheet knows it for a house deck"
+    );
+    assert_eq!(lobby.library().house.len(), 1);
+    assert_eq!(lobby.restore_version(), None, "read-only");
+    lobby.close_library();
+    assert_eq!(lobby.library().page, Some(Page::House));
+    assert_eq!(lobby.library().house.len(), 1, "the list stands again");
+    // Nobody's deck and no house deck: no history.
+    assert_eq!(lobby.browse_deck_history("elsewhere"), None);
+}

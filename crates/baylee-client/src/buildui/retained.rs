@@ -402,7 +402,7 @@ impl Retained {
             &mut k.transfer,
             transfer_key(env),
             |c, at| {
-                if let Some(open) = deck.transfer() {
+                if let Some(open) = deck.transfer().filter(|_| deck.export_version().is_none()) {
                     let dialog = super::transfer::transfer_dialog(
                         c,
                         env.kit.fonts,
@@ -640,6 +640,10 @@ fn sheet_key(env: &Env) -> SheetKey {
 
 fn transfer_key(env: &Env) -> Option<TransferKey> {
     let deck = env.deck();
+    // A saved version's export stands over the history sheet, which draws it.
+    if deck.export_version().is_some() {
+        return None;
+    }
     deck.transfer().map(|transfer| TransferKey {
         transfer: transfer.clone(),
         missing: deck.missing().to_vec(),

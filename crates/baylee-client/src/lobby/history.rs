@@ -160,7 +160,9 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
             orders::item(commands, row, &orders::HISTORY, "versions", walked);
             commands.entity(versions).add_child(row);
         }
-        if history.past.is_empty() {
+        // "Your next save…" is a promise only a deck of this player's can
+        // keep; a house deck is read-only.
+        if history.past.is_empty() && !house {
             let none = parts::line(
                 commands,
                 kit,
@@ -215,8 +217,22 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
             None,
             Press::Decks(DecksPress::CloseSheet),
         );
+        let export = controls::button(
+            commands,
+            kit,
+            Phrase::HistoryExport.text(lang),
+            Weight::Secondary,
+            if lib.selected.is_some_and(|s| lib.snapshots.contains_key(&s)) {
+                Live::Yes
+            } else {
+                Live::No(Phrase::LibraryLoading.text(lang))
+            },
+            None,
+            Press::Decks(DecksPress::ExportVersion),
+        );
+        orders::stop(commands, export, &orders::HISTORY, "export");
         orders::stop(commands, close, &orders::HISTORY, "close");
-        foot.push(close);
+        foot.extend([export, close]);
         if !house {
             let current = lib
                 .selected
@@ -261,6 +277,59 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
         crate::tour::TourAnchor(baylee_client_core::tour::Anchor::HistorySheet),
     ));
     commands.entity(root).add_child(scrim);
+    // Export…: the builder's own dialog, over the sheet, on the version's
+    // rows (`DeckBuilder::open_version_export`), from either door.
+    let deck = lobby.builder();
+    if deck.export_version().is_some()
+        && let Some(open) = deck.transfer()
+    {
+        let dialog = crate::buildui::transfer::transfer_dialog(
+            commands,
+            kit.fonts,
+            crate::buildui::lobby_metrics_of(kit.m),
+            lang,
+            deck,
+            open,
+            &Scrolled::default(),
+        );
+        // Above the sheet it stands over (a sheet's own layer, plus one).
+        commands
+            .entity(dialog)
+            .insert(GlobalZIndex(crate::shellkit::tokens::z::SHEET + 1));
+        commands.entity(root).add_child(dialog);
+    }
+}
+
+/// The version the sheet shows, as the export dialog writes it: its stored
+/// rows, named after the deck and the version (`Weltenbaum v7`).
+pub(super) fn version_rows(
+    state: &LobbyState,
+) -> Option<baylee_client_core::deckbuilder::transfer::VersionRows> {
+    let lobby = &state.lobby;
+    let lib = lobby.library();
+    let Some(Page::History(id)) = &lib.page else {
+        return None;
+    };
+    let selected = lib.selected?;
+    let snapshot = lib.snapshots.get(&selected)?;
+    let name = lobby
+        .decks()
+        .iter()
+        .find(|d| &d.id == id)
+        .map(|d| d.name.clone())
+        .or_else(|| {
+            lib.house
+                .iter()
+                .find(|d| &d.id == id)
+                .map(|d| d.name.clone())
+        })
+        .unwrap_or_default();
+    Some(baylee_client_core::deckbuilder::transfer::VersionRows {
+        name: format!("{name} v{selected}").trim().to_string(),
+        cards: snapshot.cards.clone(),
+        sideboard: snapshot.sideboard.clone(),
+        commanders: snapshot.commanders.clone(),
+    })
 }
 
 /// The history sheet's surface: the one sheet both doors open, where the
@@ -307,6 +376,8 @@ fn compare_bar(commands: &mut Commands, parent: Entity, state: &LobbyState, kit:
     let segmented = controls::segmented(commands, kit, &names, at, |i| {
         Press::Decks(DecksPress::Compare(u8::try_from(i).unwrap_or(0)))
     });
+    // One Tab stop; ← → walk its three and choose (`keys`).
+    orders::items_of(commands, segmented, &orders::HISTORY, "compare");
     let gap = parts::grow(commands);
     let all = controls::chip(
         commands,
@@ -420,6 +491,8 @@ fn changes(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit
         Phrase::LibrarySide,
         Phrase::LibraryCommanders,
     ];
+    // The diff is one Tab stop whose rows ↑ ↓ walk, across the zones.
+    let mut walked = 0usize;
     for (zone, (label, diff)) in labels.iter().zip(diff.iter()).enumerate() {
         let empty_both = [before, after].iter().flatten().all(|s| match zone {
             0 => s.cards.is_empty(),
@@ -443,6 +516,8 @@ fn changes(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit
         }
         for change in &diff.changes {
             let row = change_row(commands, kit, state, change);
+            orders::item(commands, row, &orders::HISTORY, "diff", walked);
+            walked += 1;
             commands.entity(parent).add_child(row);
         }
     }
@@ -468,6 +543,7 @@ fn change_row(commands: &mut Commands, kit: Kit, state: &LobbyState, change: &Ch
                 ..default()
             },
             HistoryChange,
+            Press::Decks(DecksPress::DiffRow),
         ))
         .id();
     let thumb = super::thumbnails::spawn(commands, &hover);
@@ -559,8 +635,15 @@ fn finish_name(finish: Finish, lang: Lang) -> &'static str {
 /// The picture a diff row shows and previews: the row's printing, else the
 /// pool's reference printing for the bare name, else none (a text face).
 fn hover_of(state: &LobbyState, name: &str, print: &PrintChoice) -> HoverCard {
+    // A stored row names the card in English; the pool's `name` is the
+    // player's language once the catalog or the Scryfall door has spoken
+    // (a German walk lost every localized card's picture).
     let pool = state.lobby.builder().pool();
-    if let Some(card) = pool.iter().find(|c| c.name == name) {
+    if let Some(card) = pool
+        .iter()
+        .find(|c| c.english_name == name)
+        .or_else(|| pool.iter().find(|c| c.name == name))
+    {
         return super::preview::hover_of_entry(card, print);
     }
     let url = print.scryfall_id.as_ref().and_then(|id| {
@@ -689,12 +772,14 @@ pub(super) fn when(at: i64, lang: Lang) -> String {
     }
 }
 
-/// The history's keys (`DESIGN` §C.3 Keyboard): `↑↓` move the selection
-/// and the diff follows, `←→` the compare bar, `Esc` leaves the Pick…
-/// mode, then the discard question, then the sheet. Returns what to send.
+/// The history's keys (`DESIGN` §C.3 Keyboard): `↑↓` on the versions move
+/// the selection and the diff follows, `←→` on the compare bar choose,
+/// `Esc` leaves the Pick… mode, then the discard question, then the sheet.
+/// `on` is the focused stop of the sheet's order. Returns what to send.
 pub(super) fn keys(
     codes: &ButtonInput<KeyCode>,
     state: &mut LobbyState,
+    on: Option<&str>,
 ) -> Option<client_core::lobby::LobbyRequest> {
     if codes.just_pressed(KeyCode::Escape) {
         if state.confirm_restore {
@@ -704,11 +789,18 @@ pub(super) fn keys(
         }
         return None;
     }
-    if codes.just_pressed(KeyCode::ArrowDown) {
+    // Each composite owns its arrows: ↑ ↓ the versions (also with no ring
+    // up, as a pointer leaves it), ← → the compare bar; the diff's rows are
+    // the walker's alone.
+    let versions = on.is_none_or(|id| id == "versions");
+    if versions && codes.just_pressed(KeyCode::ArrowDown) {
         return state.lobby.step_version(1);
     }
-    if codes.just_pressed(KeyCode::ArrowUp) {
+    if versions && codes.just_pressed(KeyCode::ArrowUp) {
         return state.lobby.step_version(-1);
+    }
+    if on != Some("compare") {
+        return None;
     }
     let by = if codes.just_pressed(KeyCode::ArrowRight) {
         1

@@ -534,6 +534,10 @@ pub struct Picker {
     /// records. A picker that did not say so would imply a card was printed
     /// exactly once.
     from_catalog: bool,
+    /// The gateway answered with the one printing it knows and the client
+    /// is asking Scryfall itself for the rest. The window is usable
+    /// meanwhile: it is not [`Picker::loading`], which is "nothing to show".
+    widening: bool,
 }
 
 impl Picker {
@@ -577,6 +581,12 @@ impl Picker {
     #[must_use]
     pub fn from_catalog(&self) -> bool {
         self.from_catalog
+    }
+
+    /// Whether more printings are being looked for beyond the gateway's one.
+    #[must_use]
+    pub fn widening(&self) -> bool {
+        self.widening
     }
 
     /// Every language these printings exist in, in first-seen order.
@@ -711,33 +721,72 @@ impl Picker {
         self.current().map(Printing::offered).unwrap_or_default()
     }
 
+    /// Whether `p` is the printing a row's choice names.
+    fn names(print: &PrintChoice, reference_id: &str, p: &Printing) -> bool {
+        print.scryfall_id.as_ref().map_or_else(
+            || {
+                if print.set.is_none() {
+                    return p.scryfall_id == reference_id;
+                }
+                print
+                    .set
+                    .as_ref()
+                    .is_some_and(|set| set.eq_ignore_ascii_case(&p.set))
+                    && print
+                        .collector_number
+                        .as_ref()
+                        .is_none_or(|n| *n == p.collector_number)
+            },
+            |id| *id == p.scryfall_id,
+        )
+    }
+
+    /// Keeps the row's own printing in the list when it names one the answer
+    /// does not hold: a gateway without a catalog knows only the reference
+    /// printing, and a window that then showed that one would say the row is
+    /// something it is not — and Apply would rewrite it.
+    fn keep_own(&mut self) {
+        let Some(entry) = &self.replacing else {
+            return;
+        };
+        let print = &entry.print;
+        if print.scryfall_id.is_none() && print.set.is_none() {
+            return;
+        }
+        if self
+            .printings
+            .iter()
+            .any(|p| Self::names(print, &self.reference_id, p))
+        {
+            return;
+        }
+        let like = self.printings.first();
+        let own = Printing {
+            scryfall_id: print.scryfall_id.clone().unwrap_or_default(),
+            oracle_id: like.map(|p| p.oracle_id.clone()).unwrap_or_default(),
+            lang: print.lang.clone().unwrap_or_else(|| "en".to_string()),
+            set: print.set.clone().unwrap_or_default(),
+            collector_number: print.collector_number.clone().unwrap_or_default(),
+            name: like.map(|p| p.name.clone()).unwrap_or_default(),
+            layout: like.map(|p| p.layout.clone()).unwrap_or_default(),
+            finishes: vec!["nonfoil".to_string()],
+            ..Printing::default()
+        };
+        if !own.lang.is_empty() && !self.langs.contains(&own.lang) {
+            self.langs.insert(0, own.lang.clone());
+        }
+        self.printings.insert(0, own);
+    }
+
     fn select_original(&mut self) {
+        self.keep_own();
         let Some(entry) = &self.replacing else {
             return;
         };
         self.at = self
             .visible()
             .iter()
-            .position(|p| {
-                entry.print.scryfall_id.as_ref().map_or_else(
-                    || {
-                        if entry.print.set.is_none() {
-                            return p.scryfall_id == self.reference_id;
-                        }
-                        entry
-                            .print
-                            .set
-                            .as_ref()
-                            .is_some_and(|set| set.eq_ignore_ascii_case(&p.set))
-                            && entry
-                                .print
-                                .collector_number
-                                .as_ref()
-                                .is_none_or(|n| *n == p.collector_number)
-                    },
-                    |id| *id == p.scryfall_id,
-                )
-            })
+            .position(|p| Self::names(&entry.print, &self.reference_id, p))
             .unwrap_or(0);
         self.finish = entry.print.finish_or_default();
         self.force_finish = self.current().is_some_and(|p| !p.has(self.finish));
@@ -920,6 +969,9 @@ pub struct DeckBuilder {
     transfer: Option<transfer::Transfer>,
     /// The format the export dialog last showed, so it opens there again.
     export_format: Option<baylee_deckio::FormatId>,
+    /// A saved version the export dialog writes instead of the deck in hand
+    /// (History's Export…, windows-b6 §C.3).
+    export_version: Option<transfer::VersionRows>,
 }
 
 mod builder;

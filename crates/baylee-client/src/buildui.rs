@@ -345,6 +345,24 @@ pub(crate) struct Env<'a> {
     pub(crate) save_keys: Option<&'a str>,
 }
 
+/// The lobby's older sizes at a kit's values (the builder's dialogs, and
+/// the export dialog over the history sheet).
+pub(crate) fn lobby_metrics_of(m: crate::shellkit::metrics::ShellMetrics) -> Metrics {
+    Metrics {
+        frame: match m.frame {
+            Frame::Phone | Frame::Compact => Frame::Compact,
+            Frame::Narrow => Frame::Narrow,
+            Frame::Wide | Frame::Vast => Frame::Wide,
+        },
+        text: m.text,
+        head: m.head,
+        small: m.small,
+        tap: m.control,
+        pad: m.pad,
+        gap: m.gap,
+    }
+}
+
 impl Env<'_> {
     /// The deck builder.
     pub(crate) fn deck(&self) -> &DeckBuilder {
@@ -364,20 +382,7 @@ impl Env<'_> {
     /// The lobby's older sizes, for the makers the builder still borrows
     /// from it (the text field, the scrollbar), at the kit's values.
     pub(crate) fn lobby_metrics(&self) -> Metrics {
-        let m = self.kit.m;
-        Metrics {
-            frame: match m.frame {
-                Frame::Phone | Frame::Compact => Frame::Compact,
-                Frame::Narrow => Frame::Narrow,
-                Frame::Wide | Frame::Vast => Frame::Wide,
-            },
-            text: m.text,
-            head: m.head,
-            small: m.small,
-            tap: m.control,
-            pad: m.pad,
-            gap: m.gap,
-        }
+        lobby_metrics_of(self.kit.m)
     }
 
     /// A pool row's pitch: the kit's row, never under a finger's target.
