@@ -54,6 +54,8 @@ pub(super) struct Bubble;
 /// The anchor's padding inside the hole, and the hairline's offset.
 const PAD: f32 = 8.0;
 const RING: f32 = 2.0;
+/// The report form's band (`report::form`), over every HUD rung.
+const REPORT_FORM_Z: i32 = 1000;
 /// How far inside the window the bubble keeps.
 const INSET: f32 = 12.0;
 
@@ -166,6 +168,12 @@ fn scrim(commands: &mut Commands, run: &Run, setting: &Setting) {
         let child = commands
             .spawn((Scrim(side), node, BackgroundColor(dark)))
             .id();
+        // A try-it step asks the player to act, often on something beside
+        // its anchor (the hand for a cast, the table for a visit): the scrim
+        // only dims then, and every press goes through it.
+        if run.mode == Mode::Try {
+            commands.entity(child).insert(Pickable::IGNORE);
+        }
         commands.entity(layer).add_child(child);
     }
     if text_step {
@@ -247,7 +255,17 @@ fn bubble(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang:
             },
             BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::BORDER),
-            GlobalZIndex(setting.z + 6),
+            // Over the report form for the steps read while it is up
+            // (TOURS.md §3.3): the form spans the window and holds every
+            // key, so the bubble's buttons are reached by the pointer only,
+            // beside it.
+            GlobalZIndex(
+                if step.anchor == Some(baylee_client_core::tour::Anchor::ReportForm) {
+                    REPORT_FORM_Z + 10
+                } else {
+                    setting.z + 6
+                },
+            ),
             Visibility::Hidden,
         ))
         .id();
