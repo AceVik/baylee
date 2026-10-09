@@ -1836,6 +1836,110 @@ fn a_circles_shield_ends_with_the_turn(circle: CardIndex, source: CardIndex, exp
     );
 }
 
+/// The three pump Auras print "until end of turn": two activations stack,
+/// still stand through the rest of the turn (second main, not only combat),
+/// and are gone when the next turn begins, leaving what attaching alone gave
+/// (`attached`). `ability` is the index of the activated ability.
+#[track_caller]
+fn a_pump_aura_ends_with_the_turn(
+    aura: CardIndex,
+    land: CardIndex,
+    ability: u32,
+    attached: (i16, i16),
+    once: (i16, i16),
+    twice: (i16, i16),
+) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[land, land, land, land, quiet_creature()])
+        .hand(0, &[aura])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf");
+    tap_mana_where(&mut engine, p0, |id| id != elf);
+    cast_on(&mut engine, aura, elf);
+    assert_eq!(pt(&engine, elf), attached, "attached, before any pump");
+
+    activate(&mut engine, p0, aura, ability);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, elf), once, "one activation");
+    activate(&mut engine, p0, aura, ability);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, elf), twice, "two activations stack");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain) && e.state().turn.active == p0
+    });
+    assert_eq!(
+        pt(&engine, elf),
+        twice,
+        "still pumped later in the same turn: \"until end of turn\", not end of combat"
+    );
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        pt(&engine, elf),
+        attached,
+        "the pump is gone after the cleanup step"
+    );
+    assert!(
+        on_battlefield(&engine, p0, aura).is_some(),
+        "and the Aura stays"
+    );
+}
+
+/// "Enchant creature": the Aura is offered every creature (the opponent's
+/// too) and nothing else: not a land, not an artifact.
+#[track_caller]
+fn an_aura_enchants_only_creatures(aura: CardIndex, land: CardIndex) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[land, land, land, quiet_creature()])
+        .hand(0, &[aura])
+        .battlefield(1, &[quiet_creature(), quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mine = on_battlefield(&engine, p0, quiet_creature()).expect("my Elf");
+    let theirs = on_battlefield(&engine, PlayerId::new(1), quiet_creature()).expect("their Elf");
+    let ring = on_battlefield(&engine, PlayerId::new(1), quiet_artifact()).expect("their Ring");
+    let lands = all_on_battlefield(&engine, p0, land);
+    tap_mana_where(&mut engine, p0, |id| id != mine);
+    cast_with_floating(&mut engine, p0, aura);
+    let menu = target_menu(&engine);
+    assert!(
+        menu.contains(&mine) && menu.contains(&theirs),
+        "any creature: {menu:?}"
+    );
+    assert!(!menu.contains(&ring), "not an artifact: {menu:?}");
+    assert!(
+        lands.iter().all(|l| !menu.contains(l)),
+        "not a land: {menu:?}"
+    );
+    for wrong in [ring, lands[0]] {
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![wrong],
+                        players: vec![],
+                    },
+                )
+                .is_err(),
+            "naming a noncreature anyway is refused"
+        );
+    }
+    aim_at(&mut engine, p0, theirs);
+    pass_until(&mut engine, stack_is_empty);
+    let id = on_battlefield(&engine, p0, aura).expect("it resolved");
+    assert_eq!(
+        engine.state().object(id).unwrap().attached_to,
+        Some(theirs),
+        "it may enchant the opponent's creature"
+    );
+}
+
 fn black_ward() -> CardIndex {
     card_index("7861ac9b-3024-4935-804c-2ca4c5a46bf4")
 }
