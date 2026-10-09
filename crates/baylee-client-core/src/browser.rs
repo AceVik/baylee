@@ -63,6 +63,10 @@ pub enum BrowseZone {
     Exile(PlayerId),
     /// A seat's command zone.
     Command(PlayerId),
+    /// This seat's own hand, for a question about cards still in it
+    /// (Library of Leng's discard): never a tab, since the hand is on the
+    /// table already, only the zone its rows name.
+    Hand,
 }
 
 impl BrowseZone {
@@ -70,7 +74,7 @@ impl BrowseZone {
     #[must_use]
     pub fn seat(self) -> Option<PlayerId> {
         match self {
-            Self::Looking | Self::Battlefield | Self::Stack => None,
+            Self::Looking | Self::Battlefield | Self::Stack | Self::Hand => None,
             Self::Graveyard(p) | Self::Exile(p) | Self::Command(p) => Some(p),
         }
     }
@@ -109,6 +113,7 @@ impl BrowseZone {
             Self::Graveyard(p) => pile(&view.graveyards, p),
             Self::Exile(p) => pile(&view.exile, p),
             Self::Command(p) => pile(&view.command, p),
+            Self::Hand => view.hand.len(),
         }
     }
 
@@ -122,6 +127,7 @@ impl BrowseZone {
             Self::Graveyard(_) => Phrase::BrowseGraveyard,
             Self::Exile(_) => Phrase::BrowseExile,
             Self::Command(_) => Phrase::BrowseCommand,
+            Self::Hand => Phrase::BrowseHand,
         }
     }
 }
@@ -1648,6 +1654,43 @@ impl Browser {
                 });
             }
         }
+        // A question about cards still in this seat's own hand — Library of
+        // Leng's (`ArrangePrompt::DiscardToLibrary`: the cards an effect is
+        // making it discard) — deals them from a zone no tab lists. They are
+        // drawn here, whatever the tabs, as the cards the question is about:
+        // otherwise its piles count cards nobody can see, and with two
+        // different cards nobody can tell which went on top.
+        if let Some(it) = mine
+            && let Some(arrangement) = it.arrangement()
+        {
+            let drawn: Vec<ObjectId> = out.iter().map(|row| row.id).collect();
+            for card in view
+                .hand
+                .iter()
+                .filter(|h| arrangement.dealt().contains(&h.id) && !drawn.contains(&h.id))
+            {
+                out.push(BrowseRow {
+                    id: card.id,
+                    name: card.name.clone(),
+                    art: Some(ImageKey::new(
+                        card.card.print,
+                        card.card.face,
+                        ArtSize::Small,
+                    )),
+                    zone: BrowseZone::Hand,
+                    standing: RowStanding {
+                        selectable: it.selectable().contains(&card.id),
+                        selected: it.is_selected(card.id),
+                        focused: it.aim() == Some(crate::interaction::Pick::Object(card.id)),
+                    },
+                    place: it.arrange_place(card.id),
+                    pile: arrangement.slot(card.id).map(|(row, _)| row),
+                    mana_value: card.mana_value,
+                    types: card.types,
+                    token: false,
+                });
+            }
+        }
         // An arrangement is read in its own order and in no other: the
         // number on a card and where the card stands have to agree, or a
         // player moving one card watches the numbers shuffle under tiles
@@ -1816,6 +1859,9 @@ fn objects_in(view: &PlayerView, zone: BrowseZone) -> &[PublicObject] {
         BrowseZone::Graveyard(p) => pile(&view.graveyards, p),
         BrowseZone::Exile(p) => pile(&view.exile, p),
         BrowseZone::Command(p) => pile(&view.command, p),
+        // A hand holds `HandObject`s, not public objects: `Browser::rows`
+        // draws the hand cards an arrangement asks about by itself.
+        BrowseZone::Hand => &[],
     }
 }
 

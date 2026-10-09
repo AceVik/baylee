@@ -3166,6 +3166,8 @@ messages! {
     // ---- the zone browser
     /// Cards the engine is showing this seat — a search, a scry, a reveal.
     BrowseLooking { en: "Shown", de: "Gezeigt" },
+    /// The zone sheet's name for a card still in this seat's own hand.
+    BrowseHand { en: "Hand", de: "Hand" },
     /// Offered battlefield cards inside a mixed-zone question.
     BrowseBattlefield { en: "Battlefield", de: "Spielfeld" },
     /// A graveyard.

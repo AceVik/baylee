@@ -1300,7 +1300,20 @@ pub(super) fn spawn_tray(
     // and the texts and so has nowhere to live but the call.
     let shown =
         |object: &baylee_view::PublicObject| Some(crate::face::name_of(object, view, faces.texts));
-    let rows = browser.rows(view, interaction, Names { shown: &shown });
+    let mut rows = browser.rows(view, interaction, Names { shown: &shown });
+    // A card still in the hand (Library of Leng's discard) is named as the
+    // hand names it: in the player's language where the text is in, else
+    // the printed name.
+    for row in rows
+        .iter_mut()
+        .filter(|row| row.zone == baylee_client_core::BrowseZone::Hand)
+    {
+        if let Some(card) = view.hand.iter().find(|h| h.id == row.id) {
+            let text = faces.texts.face(card.card.index, card.card.face);
+            row.name =
+                baylee_client_core::card_face::shown_name(&card.name, text.as_ref()).to_string();
+        }
+    }
     // The sheet's own cards are on no table and in no board model — a library
     // search lists a hundred that nothing else is drawing — so the texture
     // cache is told about them here or by nobody. Before this, the rows a
