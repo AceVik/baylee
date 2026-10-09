@@ -56,3 +56,36 @@ fn lord_of_the_pit_eats_another_creature_or_deals_seven_to_you() {
         "it can't, so 7 to you"
     );
 }
+
+/// The Lord's body, which its upkeep test never reads: a black 7/7 Demon with
+/// flying and trample (and nothing else), standing on the battlefield.
+#[test]
+fn lord_of_the_pit_is_a_seven_seven_flying_trampling_demon() {
+    let p0 = PlayerId::new(0);
+    let lord = card_index("ea152809-85a2-4fde-8251-3b1f267e4443");
+    let mut engine = Duel::new(96, basic_forest())
+        .battlefield(0, &[lord])
+        .start();
+    keep_mulligans(&mut engine);
+    let demon = on_battlefield(&engine, p0, lord).expect("the Lord is out");
+
+    let c = engine.state().object(demon).unwrap().characteristics();
+    assert_eq!((c.power, c.toughness), (Some(7), Some(7)));
+    assert_eq!(
+        c.keywords,
+        KeywordSet::FLYING.union(KeywordSet::TRAMPLE),
+        "flying and trample, no more"
+    );
+    assert_eq!(c.types, TypeSet::CREATURE);
+    assert!(
+        c.subtypes
+            .contains(baylee_core::generated::subtypes::creature::DEMON)
+            && c.subtypes.iter().count() == 1,
+        "a Demon"
+    );
+    assert_eq!(
+        c.colors,
+        baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Black]),
+        "black, from its {{4}}{{B}}{{B}}{{B}}"
+    );
+}

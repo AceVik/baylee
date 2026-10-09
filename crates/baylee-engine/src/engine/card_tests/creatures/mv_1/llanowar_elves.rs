@@ -1180,3 +1180,80 @@ fn trumpeting_carnosaur_declined_puts_the_card_into_the_hand() {
     assert_eq!(in_hand(&engine, p0, llanowar_elves()), Some(ids[0]));
     assert!(on_battlefield(&engine, p0, llanowar_elves()).is_none());
 }
+
+/// Llanowar Elves' own "{T}: Add {G}": one tap, one green, and the Elves stay
+/// tapped so there is no second one.
+#[test]
+fn llanowar_elves_tap_themselves_for_one_green_once() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("seated");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        0
+    );
+
+    assert_eq!(tap_all_mana(&mut engine, p0), 1, "one mana ability pressed");
+    assert!(is_tapped(&engine, elf), "{{T}} is part of the cost");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "one {{G}}"
+    );
+    assert_eq!(
+        tap_all_mana(&mut engine, p0),
+        0,
+        "tapped: the ability is not offered again"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "still the one"
+    );
+}
+
+/// The cost is {T}, so a Llanowar Elves cast this turn cannot pay it (CR
+/// 302.6): no mana route comes from it in the turn it arrived, and on the
+/// controller's next turn it is offered and makes its {G} alongside the Forest.
+#[test]
+fn a_freshly_cast_llanowar_elves_cannot_tap_until_the_next_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("it resolved");
+
+    assert_eq!(
+        tap_all_mana(&mut engine, p0),
+        0,
+        "summoning sick: nothing to tap, the Forest paid for the Elves"
+    );
+    assert!(!is_tapped(&engine, elf));
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && e.state().turn.active == p0
+    });
+    assert_eq!(
+        tap_all_mana(&mut engine, p0),
+        2,
+        "the Forest and, now that it has been under control since the turn began, the Elves"
+    );
+    assert!(is_tapped(&engine, elf));
+}

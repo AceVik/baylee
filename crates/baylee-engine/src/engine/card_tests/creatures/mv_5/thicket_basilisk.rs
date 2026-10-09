@@ -89,3 +89,49 @@ fn thicket_basilisk_does_not_destroy_a_wall_that_blocks_it() {
         "a Wall is the one exception the trigger names"
     );
 }
+
+/// The other direction: "Whenever this creature **blocks** … a non-Wall
+/// creature". The Basilisk is the blocker; the attacking Minotaur (2/3)
+/// survives its 2 combat damage, so only the delayed trigger can destroy it.
+#[test]
+fn thicket_basilisk_destroys_a_non_wall_creature_it_blocks() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[thicket_basilisk()])
+        .battlefield(1, &[hurloon_minotaur()])
+        .start();
+    keep_mulligans(&mut engine);
+    let basilisk = on_battlefield(&engine, p0, thicket_basilisk()).expect("seated");
+    reach_their_main_phase(&mut engine, p1);
+    let attacker = on_battlefield(&engine, p1, hurloon_minotaur()).expect("seated");
+
+    let blocks = attack_and_collect_blocks(&mut engine, attacker, p0);
+    assert!(
+        blocks.iter().any(|b| b.blocker == basilisk),
+        "the Basilisk may block a ground creature: {blocks:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(basilisk, attacker)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd
+    });
+    assert_eq!(
+        engine.state().object(attacker).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "2 damage to a 2/3: the fight itself did not kill it"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert!(
+        in_graveyard(&engine, p1, hurloon_minotaur()).is_some(),
+        "destroyed at end of combat for having been blocked by the Basilisk"
+    );
+    assert!(on_battlefield(&engine, p0, thicket_basilisk()).is_some());
+}

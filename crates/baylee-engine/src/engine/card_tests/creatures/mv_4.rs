@@ -66,6 +66,7 @@ mod harmattan_efreet;
 mod hawkeater_moth;
 mod herd_gnarr;
 mod highway_robber;
+mod hill_giant;
 mod hoar_shade;
 mod huntmaster_of_the_fells;
 mod jeska_warrior_adept;

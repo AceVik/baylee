@@ -185,3 +185,66 @@ fn copy_artifact_offers_every_artifact_and_copies_the_opponents() {
         "their Sol Ring stays theirs"
     );
 }
+
+/// Copying does not target (CR 707.5): Padeem gives the opponent's artifacts
+/// hexproof, and their Sol Ring is still on Copy Artifact's menu and can be
+/// copied, ability and all. Padeem is no artifact, so it is not on the menu.
+#[test]
+#[ignore = "engine bug: copy_on_enter_question asks eval::target_options, which drops shroud, hexproof and protected permanents; a copy does not target (CR 707.5). Remove the ignore with the fix."]
+fn copy_artifact_may_copy_an_artifact_that_has_hexproof() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let padeem = card_index("0c7ba712-6a99-4d2f-9242-a2163a11f69c");
+    let copy_artifact = copy_artifact();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island()])
+        .hand(0, &[copy_artifact])
+        .battlefield(1, &[padeem, sol_ring()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let their_ring = on_battlefield(&engine, p1, sol_ring()).expect("their Sol Ring");
+    let their_padeem = on_battlefield(&engine, p1, padeem).expect("Padeem");
+    assert!(
+        engine
+            .state()
+            .object(their_ring)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(KeywordSet::HEXPROOF),
+        "Padeem's artifacts have hexproof"
+    );
+
+    cast_from_hand(&mut engine, p0, copy_artifact);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the copy question, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![their_ring],
+        "the hexproof Sol Ring is the whole menu (Padeem is no artifact): {options:?}"
+    );
+    assert!(!options.contains(&their_padeem));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_ring],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, copy_artifact).expect("it entered");
+    activate(&mut engine, p0, copy_artifact, 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        2,
+        "the copy of a hexproof Sol Ring taps for {{C}}{{C}}"
+    );
+    assert!(engine.state().object(copy).is_some());
+}

@@ -66,3 +66,56 @@ fn jade_statue_animates_only_during_combat() {
         "a noncreature artifact carries no power or toughness"
     );
 }
+
+/// The animation's other three words: "Golem". In combat the Statue is a
+/// Golem and no other creature type, and it is an artifact creature; before
+/// and after combat it has no creature type at all.
+#[test]
+fn jade_statue_is_a_golem_artifact_creature_for_the_combat_only() {
+    let p0 = PlayerId::new(0);
+    let golem = baylee_core::generated::subtypes::creature::GOLEM;
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[jade_statue(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let statue = on_battlefield(&engine, p0, jade_statue()).expect("seated");
+    let subtypes = |engine: &Engine<RegistryLookup>| {
+        engine
+            .state()
+            .object(statue)
+            .unwrap()
+            .characteristics()
+            .subtypes
+    };
+    assert_eq!(subtypes(&engine).iter().count(), 0, "no subtype at home");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Combat)
+    });
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, jade_statue(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    let animated = subtypes(&engine);
+    assert!(animated.contains(golem), "a Golem");
+    assert_eq!(animated.iter().count(), 1, "and nothing but a Golem");
+    let types = engine
+        .state()
+        .object(statue)
+        .unwrap()
+        .characteristics()
+        .types;
+    assert!(
+        types.contains(TypeSet::ARTIFACT) && types.contains(TypeSet::CREATURE),
+        "an artifact creature"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(
+        subtypes(&engine).iter().count(),
+        0,
+        "until end of combat: no longer a Golem"
+    );
+}
