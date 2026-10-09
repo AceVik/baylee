@@ -3,6 +3,17 @@ use super::{LobbyEvent, Mailbox, Reply};
 use baylee_client_core::deckbuilder::Printing;
 use baylee_client_core::images::SCRYFALL_API;
 use std::sync::Arc;
+use std::time::Duration;
+use web_time::Instant;
+
+/// How long the whole walk may take, pages and rate-limit waits together.
+/// Past it the window keeps what has arrived (or the gateway's one printing)
+/// and stops saying it is looking: Scryfall's 429 asks for a minute, and a
+/// basic land runs to dozens of pages.
+const DEADLINE: Duration = Duration::from_secs(20);
+
+/// One page's answer may take this long before it counts as failed.
+const PAGE_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(serde::Deserialize)]
 struct Page {
@@ -29,7 +40,7 @@ pub(super) fn fetch(
         fallback,
         epoch,
         mailbox.clone(),
-        0,
+        (Instant::now(), 0),
         0,
     );
 }
@@ -42,10 +53,10 @@ fn page(
     fallback: Vec<Printing>,
     epoch: u64,
     mailbox: Mailbox,
-    pages: u8,
+    (started, pages): (Instant, u8),
     retries: u8,
 ) {
-    let mut request = ehttp::Request::get(url.clone());
+    let mut request = ehttp::Request::get(url.clone()).with_timeout(Some(PAGE_TIMEOUT));
     request.headers.insert("Accept", "application/json");
     #[cfg(not(target_arch = "wasm32"))]
     request.headers.insert("Cache-Control", "no-cache");
@@ -60,7 +71,7 @@ fn page(
         {
             // Scryfall's rate limit lasts longer than an ordinary retry delay.
             // Honor its Retry-After header instead of extending the ban.
-            let delay = response.as_ref().ok().map_or(1000, |r| {
+            let delay: u32 = response.as_ref().ok().map_or(1000, |r| {
                 r.headers
                     .get("retry-after")
                     .and_then(|v| v.parse::<u32>().ok())
@@ -72,19 +83,21 @@ fn page(
                     .max(1)
                     .saturating_mul(1000)
             });
-            later(delay, move || {
-                page(
-                    card,
-                    url,
-                    prints,
-                    fallback,
-                    epoch,
-                    mailbox,
-                    pages,
-                    retries + 1,
-                );
-            });
-            return;
+            if started.elapsed() + Duration::from_millis(u64::from(delay)) < DEADLINE {
+                later(delay, move || {
+                    page(
+                        card,
+                        url,
+                        prints,
+                        fallback,
+                        epoch,
+                        mailbox,
+                        (started, pages),
+                        retries + 1,
+                    );
+                });
+                return;
+            }
         }
         let parsed = response
             .and_then(|r| {
@@ -108,11 +121,21 @@ fn page(
                 })
                 // Basic lands have thousands of multilingual editions.
                 && pages < 127
+                && started.elapsed() < DEADLINE
             {
                 // Leave breathing room between pages; basic lands can take
                 // dozens of pages and otherwise trigger HTTP 429 mid-catalog.
                 later(150, move || {
-                    page(card, url, prints, fallback, epoch, mailbox, pages + 1, 0);
+                    page(
+                        card,
+                        url,
+                        prints,
+                        fallback,
+                        epoch,
+                        mailbox,
+                        (started, pages + 1),
+                        0,
+                    );
                 });
                 return;
             }

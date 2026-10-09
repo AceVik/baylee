@@ -729,6 +729,7 @@ impl DeckBuilder {
             return;
         }
         picker.loading = false;
+        picker.widening = false;
         picker.from_catalog = from_catalog;
         if printings.is_empty() {
             return;
@@ -774,6 +775,18 @@ impl DeckBuilder {
             picker.force_finish = force;
         }
         picker.settle();
+    }
+
+    /// The gateway's one-printing answer is shown, and the client has gone
+    /// to Scryfall for the rest ([`Picker::widening`]). Matched on the card
+    /// as [`Self::set_printings`] is.
+    pub fn widen_printings(&mut self, card: u32) {
+        if let Some(picker) = self.picker.as_mut()
+            && picker.card == card
+            && !picker.from_catalog
+        {
+            picker.widening = true;
+        }
     }
 
     /// Moves the carousel, wrapping at both ends.

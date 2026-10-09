@@ -509,13 +509,20 @@ fn strip(commands: &mut Commands, env: &Env, picker: &Picker) -> Entity {
         let row = line(commands, kit, &[back, said, forward]);
         commands.entity(column).add_child(row);
     }
-    if !picker.loading() && !picker.from_catalog() {
-        // Offline, or a gateway with no catalog: a sentence, not grey chips.
-        let more = surfaces::prose(commands, kit, Phrase::CardMorePrintings.text(lang), true);
-        commands.entity(column).add_child(more);
+    if picker.widening() {
+        // The gateway's one printing stands; Scryfall is asked for the rest,
+        // for a bounded time (`print_catalog::DEADLINE`), and the window says so.
+        let spin = crate::card_loading::spinner(commands, 18.0);
+        let said = surfaces::prose(commands, kit, Phrase::LookingForPrintings.text(lang), true);
+        let row = line(commands, kit, &[spin, said]);
+        commands.entity(column).add_child(row);
     } else if picker.loading() {
         let spin = crate::card_loading::spinner(commands, 18.0);
         commands.entity(column).add_child(spin);
+    } else if !picker.from_catalog() {
+        // Offline, or a gateway with no catalog: a sentence, not grey chips.
+        let more = surfaces::prose(commands, kit, Phrase::CardMorePrintings.text(lang), true);
+        commands.entity(column).add_child(more);
     }
     column
 }
