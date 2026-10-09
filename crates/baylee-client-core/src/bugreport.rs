@@ -74,6 +74,7 @@ mod consent;
 mod crash;
 mod form;
 mod localrecord;
+pub mod refs;
 mod route;
 mod seatlog;
 
@@ -83,11 +84,14 @@ pub use crash::{
     BACKTRACE_CHARS, CrashFile, CrashRecord, CrashStep, bounded_backtrace, crash_step,
     crash_submission, scrub_home,
 };
-pub use form::{Outcome, Part, ReportForm, Status, Via, outcome, outcome_via};
+pub use form::{
+    Outcome, Part, ReportForm, Status, Suggestion, Suggestions, Via, outcome, outcome_via,
+};
 pub use localrecord::{
     KEEP_RECORD_BYTES, KEEP_RECORDS, LocalRecord, MAX_RECORD_BYTES, ReadBack, gzip,
     is_record_file_name, read_back, record_file_name, retention,
 };
+pub use refs::{Candidates, CardRef, PlayerRef, Refs};
 pub use route::{
     DEVICE_ID_CHARS, DIRECT_PATH, DirectSubmission, MAX_DIRECT_CLIENT_BYTES, Route, device_id,
     feedback_service, is_device_id, kept_device_id, route,
@@ -400,6 +404,12 @@ pub struct BugReport {
     /// What stopped the client, in a crash report.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub crash: Option<CrashRecord>,
+    /// The cards and players the text names in brackets ([`refs`]): derived
+    /// from the text, so as consented as the text, and absent when it names
+    /// none. Positions, registry indexes, printings and seat numbers; never
+    /// an account.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refs: Option<Refs>,
 }
 
 /// Everything the client could attach, before the player has chosen.
@@ -425,6 +435,9 @@ pub struct Gathered {
     pub screenshot: Option<Screenshot>,
     /// The record of the game this device hosted, packed once.
     pub local_record: Option<LocalRecord>,
+    /// What the text may name ([`refs`]): the seat's own view at a table,
+    /// the compiled pool elsewhere. Kept here, never sent as it stands.
+    pub refs: Candidates,
 }
 
 impl Gathered {
@@ -467,6 +480,7 @@ impl Gathered {
                 .clone()
                 .filter(|_| take(Category::Screenshot)),
             crash: None,
+            refs: None,
         }
     }
 
@@ -794,6 +808,7 @@ mod tests {
                 png_base64: "iVBORw0KGgo=".into(),
             }),
             local_record: None,
+            refs: Candidates::default(),
         }
     }
 

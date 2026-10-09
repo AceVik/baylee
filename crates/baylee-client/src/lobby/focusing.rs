@@ -164,6 +164,7 @@ pub(super) fn follow_focus(
     mut ring_was: Local<Option<Entity>>,
     mut caret_was: Local<Option<(Field, u64)>>,
     mut opener: Local<Option<Stop>>,
+    remembered: Res<crate::shellkit::focus::Remembered>,
 ) {
     if !matches!(state.lobby.screen(), Screen::Table) || state.settings_open() {
         kept.0 = None;
@@ -187,9 +188,17 @@ pub(super) fn follow_focus(
     } else if !in_menu && opener.is_none() {
         *opener = kept.0;
     }
-    // A rebuilt screen: the stop that had the ring has a new entity.
+    // A rebuilt screen: the stop that had the ring has a new entity. The
+    // kit's own memory first: a screen that moved focus this frame after
+    // the walker (the terms sheet's Esc onto Not now) wrote it there, and
+    // `kept` still names the stop before; a closed menu's opener is
+    // `kept`'s alone.
+    let restored = remembered
+        .0
+        .filter(|s| !in_menu && drawn(s).is_some())
+        .or(kept.0);
     if focus.get().is_none_or(|f| !stops.contains(f))
-        && let Some(stop) = kept.0
+        && let Some(stop) = restored
         && let Some(entity) = drawn(&stop)
     {
         focus.set(entity, FocusCause::Navigated);

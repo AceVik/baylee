@@ -59,6 +59,7 @@ Two consequences worth knowing before changing anything here:
 | Nothing more this turn (stop asking me) | `F7` | implemented |
 | Ask me again (cancel a hold) | `F6` / `F7`, or the way out on the shelf | implemented |
 | Report a problem: the report form, over the lobby or the table (#309); while it is up every key is the form's, `Esc` shuts it, `Ctrl`/`Cmd`+`V` pastes | `F8`, the table's corner button or game menu row, or the lobby's button | implemented |
+| Report sheet (window B): Tab walks kind → text → Attachments (and its rows while open) → What is sent → Copy as text (nowhere only) → Close → Send; the confirmation Back → Send now. `Ctrl`/`Cmd`+`Enter` sends from the text, `Enter` is a line break. `#` + a letter or `@` + a character opens suggestions (field behaviour, a text change, so `AltGr`+`Q` typing `@` fires nothing): `↑`/`↓` move, `Enter`/`Tab` take, `Esc` puts them away, a second `Esc` closes the sheet (draft kept) | in the report sheet | implemented |
 | Deck builder: import a deck / export this one (`docs/deck-format.md`). In the import dialog `Ctrl`/`Cmd`+`V` pastes and `Enter` imports (or closes a finished import); in the export dialog `←` `→` choose the format, `Ctrl`/`Cmd`+`C` copies, `Ctrl`/`Cmd`+`S` saves; `Esc` closes either | `Ctrl`/`Cmd`+`I` / `Ctrl`/`Cmd`+`E`, or the builder bar's buttons | implemented |
 | Automation menu for selection | `M` | planned |
 

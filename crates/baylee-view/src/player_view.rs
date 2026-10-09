@@ -1,9 +1,8 @@
 use crate::combat::CombatView;
 use crate::log::PolicyAct;
-use crate::objects::{
-    CardIdentity, DamageSourceView, HandObject, PublicObject, StackItem, StackText,
-};
+use crate::objects::{DamageSourceView, HandObject, PublicObject, StackItem, StackText};
 use crate::seats::SeatView;
+use crate::seen::{Seen, SeenIn, from_described, from_hand, from_public};
 use crate::shown_hands::SharedHand;
 use crate::turn::{DayNight, Phase, Step};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId, PrintRef, SeatSet};
@@ -351,7 +350,7 @@ impl PlayerView {
     /// follow what the view actually says, or a seat is handed a card
     /// identity it has no printing for and draws a hole.
     pub fn prints(&self) -> impl Iterator<Item = PrintRef> + '_ {
-        self.identities().map(|card| card.print)
+        self.identities().map(|seen| seen.card.print)
     }
 
     /// Every card this view names, as the card rather than a printing of it.
@@ -384,7 +383,7 @@ impl PlayerView {
                 .map(|r| r.card)
         });
         self.identities()
-            .map(|card| card.index)
+            .map(|seen| seen.card.index)
             .chain(printed_on)
             .chain(
                 self.damage_sources
@@ -395,31 +394,91 @@ impl PlayerView {
             )
     }
 
-    /// Every card identity this view shows, zone by zone: the walk
-    /// [`Self::prints`] and [`Self::cards`] share.
-    fn identities(&self) -> impl Iterator<Item = CardIdentity> + '_ {
-        let commanders = self
-            .seats
-            .iter()
-            .flat_map(|s| s.commanders.iter())
-            .filter_map(|c| c.card);
-        let public = self.public_objects().filter_map(|o| o.card);
-        let shown = self
+    /// Every card identity this view shows, zone by zone, each with where
+    /// it was seen: the one walk [`Self::prints`], [`Self::cards`] and a
+    /// report's card references (`client-core::bugreport::refs`) share, so a
+    /// zone added to the view later is in all of them or in none.
+    ///
+    /// An object with no card behind it (a token, an emblem, a face-down
+    /// permanent the seat may not look at) is not in it: there is no identity
+    /// to yield.
+    pub fn identities(&self) -> impl Iterator<Item = Seen<'_>> + '_ {
+        let shared = self
             .shared_hands
             .iter()
-            .chain(&self.controlled_hands)
-            .flat_map(|h| &h.cards);
+            .flat_map(move |h| h.cards.iter().map(from_hand(SeenIn::SharedHand, h.player)));
+        let controlled = self.controlled_hands.iter().flat_map(move |h| {
+            h.cards
+                .iter()
+                .map(from_hand(SeenIn::ControlledHand, h.player))
+        });
+        let commanders = self.seats.iter().flat_map(|s| {
+            s.commanders.iter().filter_map(move |c| {
+                c.card.map(|card| Seen {
+                    zone: SeenIn::Commander,
+                    card,
+                    object: Some(c.object),
+                    name: c.name.as_str(),
+                    owner: Some(s.player),
+                    face_down: false,
+                })
+            })
+        });
         self.hand
             .iter()
-            .chain(shown)
-            .map(|o| o.card)
-            .chain(public)
+            .map(from_hand(SeenIn::Hand, self.seat))
+            .chain(shared)
+            .chain(controlled)
+            .chain(
+                self.battlefield
+                    .iter()
+                    .filter_map(from_public(SeenIn::Battlefield)),
+            )
+            .chain(self.stack.iter().filter_map(from_public(SeenIn::Stack)))
+            .chain(
+                self.graveyards
+                    .iter()
+                    .flatten()
+                    .filter_map(from_public(SeenIn::Graveyard)),
+            )
+            .chain(
+                self.exile
+                    .iter()
+                    .flatten()
+                    .filter_map(from_public(SeenIn::Exile)),
+            )
+            .chain(
+                self.command
+                    .iter()
+                    .flatten()
+                    .filter_map(from_public(SeenIn::Command)),
+            )
+            .chain(
+                self.looking_at
+                    .iter()
+                    .filter_map(from_public(SeenIn::LookingAt)),
+            )
+            .chain(
+                self.library_tops
+                    .iter()
+                    .filter_map(from_public(SeenIn::LibraryTop)),
+            )
+            .chain(
+                self.targeting
+                    .iter()
+                    .map(|t| &t.source)
+                    .filter_map(from_public(SeenIn::TargetingSource)),
+            )
             .chain(commanders)
             .chain(
                 self.damage_sources
                     .iter()
-                    .chain(&self.target_objects)
-                    .filter_map(|source| source.card),
+                    .filter_map(from_described(SeenIn::DamageSource)),
+            )
+            .chain(
+                self.target_objects
+                    .iter()
+                    .filter_map(from_described(SeenIn::TargetObject)),
             )
     }
 

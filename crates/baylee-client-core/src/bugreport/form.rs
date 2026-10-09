@@ -15,6 +15,7 @@
 use crate::i18n::{Lang, Phrase, Refusal};
 use crate::textbuf::TextBuffer;
 
+use super::refs::{self, Candidates, CardRef, Sigil, Trigger};
 use super::{
     Category, Consent, Gathered, Kind, MAX_TEXT_CHARS, Secret, Submission, Trimmed, Unsendable,
 };
@@ -37,6 +38,14 @@ pub enum Via<'a> {
 pub enum Part {
     /// The player's words, this many characters, and the build's version.
     Text(usize),
+    /// What the words name in brackets: this many cards and players
+    /// ([`super::refs`]). Only when they name any.
+    Refs {
+        /// Card references.
+        cards: usize,
+        /// Player names.
+        players: usize,
+    },
     /// One ticked box's contents.
     Category(Category),
     /// A local game's whole record, this many kilobytes; whether the game
@@ -164,6 +173,33 @@ pub struct ReportForm {
     /// Whether the report on its way went straight to the service, for
     /// reading its answer.
     pub(crate) direct: bool,
+    /// The cards the player took from the suggestions, so a name two
+    /// candidates share names the one that was picked.
+    pub picked: Vec<CardRef>,
+    /// The sigil (its byte) whose suggestions `Esc` put away: they stay
+    /// away until the reference being typed is another.
+    pub dismissed: Option<usize>,
+    /// The suggestion the keys are on.
+    pub chosen: usize,
+}
+
+/// One suggestion: a card or a player, by its index in the candidates.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Suggestion {
+    /// `candidates.cards[i]`.
+    Card(usize),
+    /// `candidates.players[i]`.
+    Player(usize),
+}
+
+/// The suggestions standing under the caret: the reference being typed and
+/// the best candidates for it, never empty.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Suggestions {
+    /// What is being typed.
+    pub trigger: Trigger,
+    /// The rows, best first.
+    pub rows: Vec<Suggestion>,
 }
 
 impl ReportForm {
@@ -198,9 +234,88 @@ impl ReportForm {
             && !self.over_limit()
     }
 
-    /// What this report would send, as built from `gathered`.
+    /// What this report would send, as built from `gathered`: the text's
+    /// references with it ([`refs::refs_for`]).
     fn submission(&self, gathered: &Gathered, consent: &Consent) -> Submission {
-        gathered.submission_with(self.kind, self.text.text(), consent, self.send_record)
+        let mut submission =
+            gathered.submission_with(self.kind, self.text.text(), consent, self.send_record);
+        submission.client.refs = refs::refs_for(self.text.text(), &gathered.refs, &self.picked);
+        submission
+    }
+
+    /// The suggestions under the caret, if a reference is being typed, it
+    /// was not put away, and anything matches. Nothing while text is
+    /// selected: the caret is not at the end of a run then.
+    #[must_use]
+    pub fn suggestions(&self, candidates: &Candidates) -> Option<Suggestions> {
+        if self.text.selection().is_some() {
+            return None;
+        }
+        let trigger = refs::trigger(self.text.text(), self.text.cursor())?;
+        if self.dismissed == Some(trigger.at.start) {
+            return None;
+        }
+        let rows: Vec<Suggestion> = match trigger.sigil {
+            Sigil::Card => refs::best(&candidates.cards, &trigger.query)
+                .into_iter()
+                .map(Suggestion::Card)
+                .collect(),
+            Sigil::Player => refs::best_players(&candidates.players, &trigger.query)
+                .into_iter()
+                .map(Suggestion::Player)
+                .collect(),
+        };
+        (!rows.is_empty()).then_some(Suggestions { trigger, rows })
+    }
+
+    /// The row the keys are on, kept inside the list.
+    #[must_use]
+    pub fn chosen_in(&self, suggestions: &Suggestions) -> usize {
+        self.chosen.min(suggestions.rows.len().saturating_sub(1))
+    }
+
+    /// `↑` (`-1`) or `↓` (`+1`) in the list, stopping at both ends.
+    pub fn choose(&mut self, suggestions: &Suggestions, by: isize) {
+        let last = suggestions.rows.len().saturating_sub(1);
+        self.chosen = self
+            .chosen_in(suggestions)
+            .saturating_add_signed(by)
+            .min(last);
+    }
+
+    /// Takes suggestion `row` (`None`: the one the keys are on): its name in
+    /// brackets and a space over the typed run, the caret after them.
+    pub fn take(&mut self, candidates: &Candidates, row: Option<usize>) {
+        let Some(suggestions) = self.suggestions(candidates) else {
+            return;
+        };
+        let row = row.unwrap_or_else(|| self.chosen_in(&suggestions));
+        let Some(&suggestion) = suggestions.rows.get(row) else {
+            return;
+        };
+        let written = match suggestion {
+            Suggestion::Card(i) => {
+                let card = candidates.cards[i].clone();
+                let written = refs::taken(Sigil::Card, &card.name);
+                self.picked.retain(|p| p.name != card.name);
+                self.picked.push(card);
+                written
+            }
+            Suggestion::Player(i) => refs::taken(Sigil::Player, &candidates.players[i].name),
+        };
+        let at = suggestions.trigger.at;
+        self.text.place(at.end, Some(at.start));
+        self.text.replace_selection(&written);
+        self.chosen = 0;
+        self.dismissed = None;
+        self.edited();
+    }
+
+    /// `Esc` with suggestions up: they go, the typed run stays.
+    pub fn dismiss(&mut self, candidates: &Candidates) {
+        if let Some(suggestions) = self.suggestions(candidates) {
+            self.dismissed = Some(suggestions.trigger.at.start);
+        }
     }
 
     /// Whether Send asks first: always straight to the service, where the
@@ -217,6 +332,12 @@ impl ReportForm {
     #[must_use]
     pub fn parts(&self, gathered: &Gathered, consent: &Consent, via: Via<'_>) -> Vec<Part> {
         let mut parts = vec![Part::Text(self.chars())];
+        if let Some(refs) = refs::refs_for(self.text.text(), &gathered.refs, &self.picked) {
+            parts.push(Part::Refs {
+                cards: refs.cards.len(),
+                players: refs.players.len(),
+            });
+        }
         parts.extend(
             Category::ALL
                 .into_iter()
@@ -290,6 +411,7 @@ impl ReportForm {
         match outcome_via(status, body, self.direct) {
             Outcome::Sent(id) => {
                 self.text.clear();
+                self.picked.clear();
                 self.preview = false;
                 self.send_record = false;
                 self.status = Status::Sent(id);
@@ -576,6 +698,129 @@ mod tests {
         assert_eq!(full.paste("abcdefgh"), 5);
         assert_eq!(full.chars(), MAX_TEXT_CHARS);
         assert!(full.text.text().starts_with("abcdex"));
+    }
+
+    fn named() -> Gathered {
+        use super::super::refs::{PlayerRef, RefZone};
+        let card = |name: &str, zone| super::super::CardRef {
+            name: name.into(),
+            english: name.into(),
+            card: baylee_core::ids::CardIndex::new(7),
+            face: 0,
+            art: None,
+            print: None,
+            object: None,
+            zone: Some(zone),
+            owner: None,
+            kind: None,
+        };
+        Gathered {
+            refs: Candidates {
+                cards: vec![
+                    card("Wrath of God", RefZone::Graveyard),
+                    card("Wrenn and Six", RefZone::Battlefield),
+                    card("Lightning Bolt", RefZone::Stack),
+                ],
+                players: vec![PlayerRef {
+                    name: "steady 1".into(),
+                    seat: Some(1),
+                }],
+            },
+            ..Gathered::default()
+        }
+    }
+
+    fn typed(text: &str) -> ReportForm {
+        let mut form = form(text);
+        form.text.place(text.len(), None);
+        form
+    }
+
+    /// `#Wr` offers both Wr… cards, `↓` and taking writes the second in
+    /// brackets with a space; `@st` writes the player.
+    #[test]
+    fn a_suggestion_is_taken_into_the_text() {
+        let gathered = named();
+        let mut form = typed("cast #Wr");
+        let list = form.suggestions(&gathered.refs).expect("open");
+        assert_eq!(list.rows.len(), 2);
+        form.choose(&list, 1);
+        form.choose(&list, 1);
+        assert_eq!(form.chosen_in(&list), 1, "stops at the last row");
+        form.take(&gathered.refs, None);
+        assert_eq!(form.text.text(), "cast [Wrenn and Six] ");
+        assert_eq!(form.text.cursor(), form.text.text().len());
+        assert!(form.suggestions(&gathered.refs).is_none(), "taken, closed");
+
+        let mut player = typed("blocked by @st");
+        player.take(&gathered.refs, Some(0));
+        assert_eq!(player.text.text(), "blocked by [@steady 1] ");
+    }
+
+    /// `Esc` puts the list away and leaves the run; typing on keeps it
+    /// away, and the next reference opens again.
+    #[test]
+    fn esc_puts_the_list_away_and_keeps_the_typing() {
+        let gathered = named();
+        let mut form = typed("#Wr");
+        form.dismiss(&gathered.refs);
+        assert!(form.suggestions(&gathered.refs).is_none());
+        assert_eq!(form.text.text(), "#Wr");
+        form.text.insert("a");
+        assert!(form.suggestions(&gathered.refs).is_none(), "still away");
+        form.text.insert(" and #Li");
+        assert!(form.suggestions(&gathered.refs).is_some(), "another one");
+    }
+
+    /// The confirmation names the references only when the text makes
+    /// some, and the body carries them under `client.refs`.
+    #[test]
+    fn the_references_ride_in_the_body_and_on_the_confirmation() {
+        let gathered = named();
+        let consent = Consent::default();
+        let plain = form("no references [here]");
+        assert_eq!(
+            plain.parts(&gathered, &consent, Via::Gateway),
+            [Part::Text(20)]
+        );
+        assert!(
+            !plain
+                .preview_text(&gathered, &consent, Via::Gateway)
+                .contains("refs")
+        );
+        let mut both = form("[Lightning Bolt] at [@steady 1] and [Wrath of God]");
+        assert_eq!(
+            both.parts(&gathered, &consent, Via::Gateway)[1],
+            Part::Refs {
+                cards: 2,
+                players: 1
+            }
+        );
+        let body = both
+            .prepare(&gathered, &consent, &[], Via::Gateway)
+            .expect("sent");
+        let json: serde_json::Value = serde_json::from_str(&body).expect("json");
+        let refs = &json["client"]["refs"];
+        assert_eq!(refs["cards"][0]["text"], "Lightning Bolt");
+        assert_eq!(refs["cards"][0]["zone"], "stack");
+        assert_eq!(refs["players"][0]["seat"], 1);
+        assert_eq!(refs["players"][0]["at"], serde_json::json!([20, 31]));
+    }
+
+    /// A report naming nothing is the body it was before references: the
+    /// same bytes.
+    #[test]
+    fn a_report_naming_nothing_is_the_body_it_was() {
+        let consent = Consent::default();
+        let mut without = form("it broke [badly] #3");
+        let mut with = form("it broke [badly] #3");
+        let before = without
+            .prepare(&Gathered::default(), &consent, &[], Via::Gateway)
+            .expect("sent");
+        let after = with
+            .prepare(&named(), &consent, &[], Via::Gateway)
+            .expect("sent");
+        assert_eq!(before, after);
     }
 
     fn form_with_room(room: usize) -> ReportForm {

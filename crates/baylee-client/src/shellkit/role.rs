@@ -111,10 +111,30 @@ impl Role {
     pub const fn budget(self) -> Option<Budget> {
         match self {
             Self::Button => Some(BUTTON_BUDGET),
-            Self::Chip => Some(CHIP_BUDGET),
+            // A segment is a chip's words in a row of its own (window B).
+            Self::Chip | Self::Segment => Some(CHIP_BUDGET),
             Self::Tab => Some(TAB_BUDGET),
             Self::Nav => Some(NAV_BUDGET),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A segmented control's words are held to a chip's budget (window B):
+    /// the report's kinds and the history's compare bar were linted by
+    /// nothing before, and `scripts/shell/check.py` reads the same number.
+    #[test]
+    fn a_segment_has_the_chip_s_budget() {
+        assert_eq!(Role::Segment.budget(), Some(CHIP_BUDGET));
+        let script = include_str!("../../../../scripts/shell/check.py");
+        assert!(
+            script.contains("\"segment\": (14, 14)"),
+            "check.py budgets segments as the kit does"
+        );
+        assert_eq!((CHIP_BUDGET.en, CHIP_BUDGET.de), (14, 14));
     }
 }

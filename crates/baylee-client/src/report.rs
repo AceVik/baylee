@@ -20,6 +20,11 @@
 //! A report about a game this client hosted (against the house) may carry
 //! that game's record, taken from the host when the form opens: a box
 //! ticked for that one report, never remembered, confirmed before it goes.
+//!
+//! The text may name cards and players in brackets (window B): `#` offers
+//! the seat's own view at a table and the compiled pool elsewhere, `@` the
+//! other seats or the room's players ([`gather`], `refs`), and a finished
+//! reference previews its card.
 
 use std::sync::{Arc, Mutex};
 
@@ -36,16 +41,29 @@ use crate::lobby::LobbyState;
 use crate::settings::ClientSettings;
 
 mod corner;
+mod field;
 mod form;
+mod keys;
+mod refs;
 mod shot;
 #[cfg(test)]
 pub(crate) use corner::ReportCorner;
+#[cfg(test)]
+pub(crate) use field::{DeskBox, DeskCaret, DeskSuggest, DeskText, ReportLink};
 /// The form's buttons, for `devctl`'s `desk_controls` row (a test build
 /// has them from the line below).
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32"), not(test)))]
 pub(crate) use form::DeskPress;
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32"), not(test)))]
+pub(crate) use form::DeskRoot;
 #[cfg(test)]
-pub(crate) use form::{DeskBox, DeskCaret, DeskPress, DeskRoot, DeskScroll, DeskText};
+pub(crate) use form::{DeskPress, DeskRoot, DeskScroll};
+#[cfg(not(any(test, all(feature = "dev-control", not(target_arch = "wasm32")))))]
+pub(crate) use form::{REPORT, REPORT_CONFIRM};
+#[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
+pub(crate) use form::{REPORT, REPORT_CONFIRM, ReportAnchor};
+#[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
+pub(crate) use refs::ReportPreview;
 #[cfg(test)]
 mod tests;
 
@@ -107,6 +125,20 @@ pub struct ReportDesk {
     /// form's Send or the confirmation's, on the next run of
     /// [`send_by_key`] (`KEYBOARD.md` W9).
     send_by_key: Option<form::DeskPress>,
+    /// Whether the form was opened over a table: `#` offers that seat's
+    /// view, never the pool.
+    at_table: bool,
+    /// The reading seat at that table.
+    me: Option<baylee_core::ids::PlayerId>,
+    /// The table's seats by number, as its roster names them, for the
+    /// suggestions' "whose".
+    seat_names: std::collections::BTreeMap<u8, String>,
+    /// The reference the pointer is on (or a finger holds), for its preview.
+    hover: Option<refs::ReportHover>,
+    /// A suggestion was taken: the keyboard goes back to the text.
+    refocus: bool,
+    /// Whether Copy as text reached the clipboard, once pressed.
+    copied: Option<bool>,
 }
 
 impl ReportDesk {
@@ -118,11 +150,60 @@ impl ReportDesk {
     }
 }
 
+/// What `/state.report` says of the sheet (window B): open or confirming,
+/// the text, the suggestions standing (name and second column) and the row
+/// the keys are on, and what the text names.
+#[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
+impl ReportDesk {
+    pub(crate) fn state_json(&self, lang: Lang) -> serde_json::Value {
+        let suggestions = self.form.suggestions(&self.gathered.refs);
+        let rows: Vec<serde_json::Value> = suggestions
+            .as_ref()
+            .map(|list| {
+                list.rows
+                    .iter()
+                    .map(|row| match *row {
+                        bugreport::Suggestion::Card(i) => {
+                            let card = &self.gathered.refs.cards[i];
+                            serde_json::json!({
+                                "name": card.name,
+                                "meta": form::meta_of(card, self, lang),
+                                "card": card.card.get(),
+                            })
+                        }
+                        bugreport::Suggestion::Player(i) => {
+                            serde_json::json!({ "name": self.gathered.refs.players[i].name })
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let refs = bugreport::refs::refs_for(
+            self.form.text.text(),
+            &self.gathered.refs,
+            &self.form.picked,
+        )
+        .and_then(|r| serde_json::to_value(r).ok());
+        serde_json::json!({
+            "open": self.open,
+            "confirming": self.form.confirming,
+            "at_table": self.at_table,
+            "text": self.form.text.text(),
+            "candidates": self.gathered.refs.cards.len(),
+            "players": self.gathered.refs.players.iter().map(|p| p.name.clone()).collect::<Vec<_>>(),
+            "suggestions": rows,
+            "chosen": suggestions.as_ref().map(|list| self.form.chosen_in(list)),
+            "refs": refs,
+            "hover": self.hover.as_ref().map(|h| h.card.name.clone()),
+        })
+    }
+}
+
 /// What the tests in `report::tests` and elsewhere read and set of a desk
 /// whose fields are this module's.
 #[cfg(test)]
 impl ReportDesk {
-    /// Scrolls the text box, as `form::place_the_caret` does once the text
+    /// Scrolls the text box, as `field::place_the_caret` does once the text
     /// is laid out — which a headless test never does.
     pub(crate) fn set_box_scroll(&mut self, y: f32) {
         self.box_scroll = y;
@@ -136,6 +217,9 @@ impl ReportDesk {
     }
     pub(crate) fn gathered_mut(&mut self) -> &mut Gathered {
         &mut self.gathered
+    }
+    pub(crate) fn gathered_refs_len(&self) -> usize {
+        self.gathered.refs.cards.len()
     }
     pub(crate) fn asking(&self) -> bool {
         self.asking
@@ -185,7 +269,9 @@ pub(crate) fn install(app: &mut App) {
     let settled = resource_exists::<ClientSettings>;
     // And one without the input plugin: the form reads keys and the wheel.
     app.add_message::<bevy::input::keyboard::KeyboardInput>()
-        .add_message::<bevy::input::mouse::MouseWheel>();
+        .add_message::<bevy::input::mouse::MouseWheel>()
+        .add_message::<crate::shellkit::focus::Activated>()
+        .add_observer(keys::pressed);
     app.init_resource::<ReportDesk>()
         .init_resource::<Answers>()
         .add_systems(Startup, find_a_crash.run_if(settled))
@@ -202,19 +288,39 @@ pub(crate) fn install(app: &mut App) {
                 open_when_asked,
                 remember_the_gateway,
                 answers,
+                activate_by_key,
                 send_by_key,
                 send_the_crash,
+                refs::fill_the_pool,
                 form::draw,
                 form::retick,
-                form::scroll,
-                form::blink,
+                keys::scroll,
+                field::blink,
             )
                 .chain()
                 .run_if(settled),
         )
+        // The references' preview follows the pointer's messages, which the
+        // picking plugin registers. Registered here instead, a headless
+        // lobby's other readers of them woke up and moved its focus (the
+        // terms sheet's Esc, `front_terms`), so here they are only read.
+        .add_systems(
+            Update,
+            (refs::follow_the_links, refs::show_the_preview)
+                .chain()
+                .after(field::blink)
+                .run_if(settled.and_then(refs::pointer_messages)),
+        )
+        .add_systems(
+            Update,
+            hold_the_focus
+                .after(crate::shellkit::focus::FocusSystems)
+                .after(form::draw)
+                .run_if(settled),
+        )
         .add_systems(
             PostUpdate,
-            form::place_the_caret
+            field::place_the_caret
                 .after(bevy::ui::UiSystems::PostLayout)
                 .run_if(settled),
         );
@@ -222,15 +328,19 @@ pub(crate) fn install(app: &mut App) {
 
 /// Opens the form on `F8` (or whatever the player bound it to), and hands
 /// every key to it while it is up.
+#[allow(clippy::too_many_arguments)] // a Bevy system: the keys and where focus stands
 fn keys(
     codes: Res<ButtonInput<KeyCode>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut typed: MessageReader<bevy::input::keyboard::KeyboardInput>,
     mut desk: ResMut<ReportDesk>,
     mut clipboard: Option<ResMut<bevy::clipboard::Clipboard>>,
+    focus: Option<Res<bevy::input_focus::InputFocus>>,
+    visible: Option<Res<bevy::input_focus::InputFocusVisible>>,
+    stops: Query<&crate::shellkit::focus::Stop>,
 ) {
     desk.swallow = false;
-    form::take_the_paste(&mut desk);
+    keys::take_the_paste(&mut desk);
     if desk.asking {
         typed.clear();
         return;
@@ -245,9 +355,26 @@ fn keys(
         typed.clear();
         return;
     }
-    let closed = form::typing(&mut desk, &codes, &mut typed, clipboard.as_deref_mut());
+    // The keyboard stands on another of the sheet's controls when Tab put
+    // it there (the ring shows): then Enter and Space are that control's.
+    let elsewhere = visible.is_some_and(|v| v.0)
+        && focus
+            .as_deref()
+            .and_then(bevy::input_focus::InputFocus::get)
+            .and_then(|f| stops.get(f).ok())
+            .is_some_and(|s| {
+                (s.table == form::REPORT.name && s.id != "text")
+                    || (s.table == form::REPORT_CONFIRM.name && s.id != "send-now")
+            });
+    let closed = keys::typing(
+        &mut desk,
+        &codes,
+        &mut typed,
+        clipboard.as_deref_mut(),
+        elsewhere,
+    );
     // Natively the clipboard has answered already: land it this frame.
-    form::take_the_paste(&mut desk);
+    keys::take_the_paste(&mut desk);
     if closed {
         desk.open = false;
         desk.swallow = true;
@@ -267,6 +394,8 @@ fn open_when_asked(
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
+    texts: Option<Res<crate::cardtext::CardTexts>>,
+    lobby: Option<Res<LobbyState>>,
 ) {
     let mut duel = duel;
     let from_menu = duel.as_ref().is_some_and(|d| d.report_asked);
@@ -284,6 +413,9 @@ fn open_when_asked(
     desk.form.preview = false;
     desk.form.opened();
     desk.panel_scroll = 0.0;
+    desk.hover = None;
+    desk.copied = None;
+    desk.refocus = true;
     let at_table = phase.is_some_and(|phase| *phase.get() != crate::DuelPhase::Closed);
     let duel = duel.as_deref().filter(|_| at_table);
     desk.gathered = gather(
@@ -294,10 +426,68 @@ fn open_when_asked(
         windows.single().ok(),
         adapter.as_deref(),
     );
+    desk.at_table = at_table;
+    desk.me = duel.and_then(|d| d.view.as_ref()).map(|v| v.seat);
+    desk.seat_names = duel
+        .and_then(|d| d.statics.as_ref())
+        .map(|s| {
+            s.seats
+                .iter()
+                .map(|seat| (seat.player.get(), seat.display_name.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+    desk.gathered.refs = references(duel, texts.as_deref(), lobby.as_deref());
     // Taken before the form is drawn over it, and whether or not the box is
     // ticked: it stays on this machine unless it is.
     desk.shooting = shot::take(&mut commands);
     desk.waited = 0;
+}
+
+/// What the report's text may name, read when the form opens: at a table
+/// the seat's own view (`bugreport::refs::candidates`, the hidden-
+/// information rule) and the other seats; elsewhere the players of the room
+/// the player sits in, and no card until the first `#` loads the pool
+/// (`refs::fill_the_pool`).
+fn references(
+    duel: Option<&crate::Duel>,
+    texts: Option<&crate::cardtext::CardTexts>,
+    lobby: Option<&LobbyState>,
+) -> bugreport::Candidates {
+    if let Some(duel) = duel {
+        let Some(view) = duel.view.as_ref() else {
+            return bugreport::Candidates::default();
+        };
+        let statics = duel.statics.as_ref();
+        let lookup = |card: baylee_core::ids::CardIndex, face: u8| {
+            texts.and_then(|texts| texts.face(card, face))
+        };
+        return bugreport::Candidates {
+            cards: bugreport::refs::candidates(view, statics, &lookup),
+            players: statics
+                .map(|s| bugreport::refs::table_players(s, view.seat))
+                .unwrap_or_default(),
+        };
+    }
+    let players = lobby
+        .and_then(|l| baylee_client_core::lobby::strips::my_waiting_table(&l.lobby))
+        .map(|room| {
+            room.seats
+                .iter()
+                .filter(|seat| !seat.you)
+                .filter_map(|seat| {
+                    seat.player.clone().map(|name| bugreport::PlayerRef {
+                        name,
+                        seat: u8::try_from(seat.seat).ok(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    bugreport::Candidates {
+        cards: Vec::new(),
+        players,
+    }
 }
 
 /// Everything the form may offer, read now.
@@ -364,6 +554,77 @@ fn gather(
         local_record: host
             .and_then(|h| h.0.local_record())
             .and_then(LocalRecord::pack),
+        refs: bugreport::Candidates::default(),
+    }
+}
+
+/// Enter or Space on one of the sheet's controls the keyboard stands on
+/// (the kit's walker says which): the same press a click is.
+#[allow(clippy::too_many_arguments)] // a Bevy system: one reader per thing a press may change
+fn activate_by_key(
+    mut activated: MessageReader<crate::shellkit::focus::Activated>,
+    presses: Query<&form::DeskPress>,
+    mut desk: ResMut<ReportDesk>,
+    mut settings: ResMut<ClientSettings>,
+    holders: Holders,
+    answers: Res<Answers>,
+    lobby: Option<Res<LobbyState>>,
+    mut clipboard: Option<ResMut<bevy::clipboard::Clipboard>>,
+) {
+    for event in activated.read() {
+        let ours =
+            event.stop.table == form::REPORT.name || event.stop.table == form::REPORT_CONFIRM.name;
+        if !(event.by_key && ours) {
+            continue;
+        }
+        if let Ok(&press) = presses.get(event.entity) {
+            keys::act(
+                press,
+                &mut desk,
+                &mut settings,
+                &holders,
+                &answers,
+                lobby.as_deref(),
+                clipboard.as_deref_mut(),
+            );
+        }
+    }
+}
+
+/// Keeps the keyboard on the sheet: on the text when the form opens or a
+/// suggestion was taken, and on one of the sheet's stops while it is up (a
+/// click elsewhere on the screen under it does not take it away); on Send
+/// now while the confirmation is up.
+fn hold_the_focus(
+    mut desk: ResMut<ReportDesk>,
+    focus: Option<ResMut<bevy::input_focus::InputFocus>>,
+    stops: Query<(Entity, &crate::shellkit::focus::Stop)>,
+) {
+    let Some(mut focus) = focus else {
+        return;
+    };
+    if !desk.open {
+        return;
+    }
+    let (table, home) = if desk.form.confirming {
+        (form::REPORT_CONFIRM.name, "send-now")
+    } else {
+        (form::REPORT.name, "text")
+    };
+    let here = focus.get().and_then(|f| stops.get(f).ok()).map(|(_, s)| *s);
+    let held = here.is_some_and(|s| s.table == table);
+    if held && !desk.refocus {
+        return;
+    }
+    let Some((entity, _)) = stops.iter().find(|(_, s)| s.table == table && s.id == home) else {
+        // Not drawn yet (the form waits for its picture): ask again.
+        return;
+    };
+    if focus.get() != Some(entity) {
+        focus.set(entity, bevy::input_focus::FocusCause::Navigated);
+    }
+    if desk.refocus {
+        desk.refocus = false;
     }
 }
 

@@ -29,6 +29,49 @@ function start(report: Report, audit: AuditEntry[] = []): Call[] {
 
 const section = (name: string) => within(screen.getByRole("region", { name }));
 
+describe("references in the text", () => {
+  const id = "0199aaaa-0000-7000-8000-000000000001";
+  const bolt = "e3285e6b-3e79-4d7c-bf96-d920f973b80b";
+
+  test("are listed under it, a card with its Scryfall page, and the text stays as written", async () => {
+    const report = fullReport({ text: "cast [Lightning Bolt] at [@steady 1], not [x]" });
+    report.client["refs"] = {
+      cards: [
+        {
+          text: "Lightning Bolt",
+          at: [5, 21],
+          card: 1234,
+          print: { scryfall_id: bolt, lang: "en", finish: "normal" },
+          face: 0,
+          object: 17,
+          zone: "stack",
+          owner: 1,
+        },
+      ],
+      players: [{ text: "steady 1", at: [25, 36], seat: 1 }],
+    };
+    start(report);
+    render(<ReportDetail id={id} />);
+    expect(await screen.findByText("cast [Lightning Bolt] at [@steady 1], not [x]")).toBeTruthy();
+    const refs = section("References");
+    expect(refs.getByText("Lightning Bolt")).toBeTruthy();
+    expect(refs.getByText(/stack/)).toBeTruthy();
+    const link = refs.getByRole("link", { name: "Scryfall" });
+    expect(link.getAttribute("href")).toBe(`https://scryfall.com/card/${bolt}`);
+    expect(refs.getByText("steady 1")).toBeTruthy();
+    // A bracket the player typed stays a bracket: nothing in the text is a link.
+    const text = section("What the player wrote");
+    expect(text.queryAllByRole("link")).toHaveLength(0);
+  });
+
+  test("a report naming nothing has no such section, and an odd id makes no link", async () => {
+    start(fullReport({ text: "plain [x]" }));
+    render(<ReportDetail id={id} />);
+    expect(await screen.findByText("plain [x]")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "References" })).toBeNull();
+  });
+});
+
 describe("a full report", () => {
   test("shows every part of the dump", async () => {
     start(fullReport(), [{ at: "2026-09-27T12:05:00Z", actor: "viktor", action: "status", detail: "triaged" }]);

@@ -99,6 +99,21 @@ pub fn sheet_box(
     body: &[Entity],
     footer: &[Entity],
 ) -> Entity {
+    sheet_box_with(commands, kit, width, title, body, footer, ())
+}
+
+/// A [`sheet_box`] whose scrolling body also carries `marker`: a screen
+/// that keeps the body's scroll across its rebuilds marks it, and sets its
+/// `ScrollPosition`, here (the report sheet).
+pub fn sheet_box_with(
+    commands: &mut Commands,
+    kit: Kit,
+    width: SheetWidth,
+    title: &str,
+    body: &[Entity],
+    footer: &[Entity],
+    marker: impl Bundle,
+) -> Entity {
     let phone = kit.m.frame == super::Frame::Phone;
     let wide = match width {
         SheetWidth::Small => 560.0,
@@ -149,6 +164,7 @@ pub fn sheet_box(
             },
             ScrollPosition::default(),
         ))
+        .insert(marker)
         .id();
     commands.entity(scroller).add_children(body);
     let foot = commands
@@ -156,6 +172,11 @@ pub fn sheet_box(
             Node {
                 padding: UiRect::all(px_fixed(kit.m.pad)),
                 column_gap: px_fixed(kit.m.gap),
+                // More actions than a narrow sheet holds in a row (the report's
+                // four in German, window B) go onto a second row, never out of
+                // the sheet.
+                flex_wrap: FlexWrap::Wrap,
+                row_gap: px_fixed(kit.m.gap),
                 justify_content: JustifyContent::FlexEnd,
                 flex_shrink: 0.0,
                 border: UiRect::top(px_fixed(1.0)),

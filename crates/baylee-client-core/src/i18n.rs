@@ -5121,6 +5121,40 @@ messages! {
     ReportAttachments { en: "Attachments", de: "Anh\u{e4}nge" },
     /// Beside it: how many are ticked of how many this report has.
     ReportAttachmentsCount { en: "{0} of {1}", de: "{0} von {1}" },
+    /// Under the report's text: `{0}` characters of `{1}`, and how to name
+    /// a card or a player (window B).
+    ReportSmallLine { en: "{0} / {1} characters \u{b7} # a card \u{b7} @ a player", de: "{0} / {1} Zeichen \u{b7} # eine Karte \u{b7} @ ein Spieler" },
+    /// Why the report's Send is off when no gateway or service is known: the
+    /// route line above it says the rest.
+    ReportNowhere { en: "Nowhere to send it", de: "Kein Ziel bekannt" },
+    /// The report's footer: shows the body as it goes.
+    ReportWhatIsSent { en: "What is sent", de: "Was gesendet wird" },
+    /// A `#` suggestion's zone: the seat's own hand.
+    ReportRefHand { en: "Hand", de: "Hand" },
+    /// A `#` suggestion's zone.
+    ReportRefBattlefield { en: "Battlefield", de: "Schlachtfeld" },
+    /// A `#` suggestion's zone.
+    ReportRefStack { en: "Stack", de: "Stapel" },
+    /// A `#` suggestion's zone.
+    ReportRefGraveyard { en: "Graveyard", de: "Friedhof" },
+    /// A `#` suggestion's zone.
+    ReportRefExile { en: "Exile", de: "Exil" },
+    /// A `#` suggestion's zone.
+    ReportRefCommand { en: "Command", de: "Kommandozone" },
+    /// A `#` suggestion's zone: shown for the question being answered.
+    ReportRefShown { en: "Shown", de: "Gezeigt" },
+    /// A `#` suggestion's zone: a revealed library top.
+    ReportRefLibraryTop { en: "Library top", de: "Bibliothek oben" },
+    /// Whose a `#` suggestion is, when it is the reader's.
+    ReportRefYours { en: "yours", de: "deine" },
+    /// The confirmation: how many cards the text names, one.
+    ReportConfirmCardRef { en: "{0} card reference", de: "{0} Kartenverweis" },
+    /// The same, several.
+    ReportConfirmCardRefs { en: "{0} card references", de: "{0} Kartenverweise" },
+    /// The confirmation: how many players the text names, one.
+    ReportConfirmPlayerName { en: "{0} player name", de: "{0} Spielername" },
+    /// The same, several.
+    ReportConfirmPlayerNames { en: "{0} player names", de: "{0} Spielernamen" },
     /// Where a report goes, signed in: the gateway, by name or address.
     ReportGoesGateway { en: "Goes to {0} with your session", de: "Geht mit deiner Sitzung an {0}" },
     /// Updates: checking on its own.

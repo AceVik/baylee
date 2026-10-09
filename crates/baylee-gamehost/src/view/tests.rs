@@ -26,6 +26,7 @@ mod log;
 mod mana;
 mod objects;
 mod printings;
+mod report_refs;
 mod revealed;
 mod seats;
 mod shared_hand;

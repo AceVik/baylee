@@ -19,3 +19,9 @@ baylee-view.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+# A report's card references (`bugreport::refs`) are held to the hidden-
+# information rule here, beside every other guarantee a view makes
+# (`view/tests/report_refs.rs`). Already linked through `baylee-ai`.
+baylee-client-core.workspace = true
