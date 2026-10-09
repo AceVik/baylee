@@ -144,9 +144,13 @@ def check_fit(nodes):
             continue
         if in_kind(nodes, n, ("field",)):
             continue
-        # Four pixels of slack in width: a wrapped line's last glyph may
-        # overhang its box by its side bearing, which nobody reads as cut.
-        if n["tw"] > n["w"] + 4.0 or n["th"] > n["h"] + 1.5:
+        # Four pixels of slack in width: a line's last glyph may overhang
+        # its box by its side bearing, which nobody reads as cut. A wrapped
+        # paragraph's measured width also counts the space a line broke at
+        # (a third of an em), so it gets that much more; its height is what
+        # says a line spilled.
+        slack = 4.0 if n.get("ln", 1) <= 1 else 10.0
+        if n["tw"] > n["w"] + slack or n["th"] > n["h"] + 1.5:
             faults.append(
                 f"fit: {n['t'][:40]!r} needs {n['tw']:.0f}x{n['th']:.0f} in {box(n)}"
             )
