@@ -39,13 +39,74 @@ pub(super) fn sign_out(
     dispatch(state, mailbox, ending);
 }
 
+/// A press that outlives the control it landed on.
+///
+/// The tree is rebuilt from the state, and a press can be what changes the
+/// state: a press on a button while a field holds the caret moves the kit's
+/// focus onto the button (`shellkit::focus::pointer_focus`), which parks the
+/// lobby's caret (`front::keys::kit_to_lobby`), which rebuilds the face —
+/// all between the button going down and coming up. Bevy's `Click` is a
+/// release on the *entity* that was pressed, and that entity is gone by then,
+/// so the first click after a field was focused did nothing and the second
+/// one worked (the owner's "two clicks", 09.10.2026). A control is its
+/// `Press`, not its entity: a release on the control drawn again in its
+/// place, with the same `Press`, is the click the rebuild ate.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(super) struct Pressing<'w, 's> {
+    downs: MessageReader<'w, 's, Pointer<bevy::picking::events::Press>>,
+    ups: MessageReader<'w, 's, Pointer<Release>>,
+    /// The control the primary button went down on, and what it presses.
+    held: Local<'s, Option<(Entity, Press)>>,
+}
+
+impl Pressing<'_, '_> {
+    /// Forgets this frame's presses and releases (a panel in motion).
+    fn clear(&mut self) {
+        self.downs.clear();
+        self.ups.clear();
+        *self.held = None;
+    }
+
+    /// The controls whose click a rebuild ate this frame: released on a
+    /// control drawn in place of the one pressed, which no longer exists,
+    /// with the same `Press`.
+    fn eaten(&mut self, presses: &Query<&Press>, parents: &Query<&ChildOf>) -> Vec<Entity> {
+        for down in self.downs.read() {
+            if down.button != PointerButton::Primary {
+                continue;
+            }
+            *self.held = in_lineage_entity(down.entity, presses, parents)
+                .and_then(|e| presses.get(e).ok().map(|p| (e, *p)));
+        }
+        let mut eaten = Vec::new();
+        for up in self.ups.read() {
+            if up.button != PointerButton::Primary {
+                continue;
+            }
+            let Some((was, press)) = self.held.take() else {
+                continue;
+            };
+            // Still there: bevy's own click answers it.
+            if presses.contains(was) {
+                continue;
+            }
+            if let Some(now) = in_lineage_entity(up.entity, presses, parents)
+                && presses.get(now).is_ok_and(|p| *p == press)
+            {
+                eaten.push(now);
+            }
+        }
+        eaten
+    }
+}
+
 /// Turns a click on a lobby control into an intent.
 ///
 /// What every press passes through is here; what one press does is in its
 /// screen's handler (`FrontPress::handle`, `HubPress::handle`, …).
 #[allow(clippy::too_many_arguments)] // two pointer streams, then the usual
 pub(super) fn clicks(
-    mut pointer: MessageReader<Pointer<Click>>,
+    (mut pointer, mut pressing): (MessageReader<Pointer<Click>>, Pressing),
     mut ends: MessageReader<Pointer<DragEnd>>,
     mut scrolled: ResMut<Scrolled>,
     presses: Query<&Press>,
@@ -75,8 +136,10 @@ pub(super) fn clicks(
     if journey.as_ref().is_some_and(|j| j.active()) || motion.moving() || entrance.active() {
         pointer.clear();
         ends.clear();
+        pressing.clear();
         return;
     }
+    let eaten = pressing.eaten(&presses, &parents);
     // A release always fires a click, drag or no drag, so a swipe down the
     // card list would add whichever card it started on. The scroll it already
     // performed is what the gesture meant.
@@ -85,27 +148,28 @@ pub(super) fn clicks(
         pointer.clear();
         return;
     }
-    for click in pointer.read() {
+    let clicked: Vec<Entity> = pointer.read().map(|click| click.entity).collect();
+    for target in clicked.into_iter().chain(eaten) {
         // The builder's buttons first: its rows sit inside the deck builder's
         // own panel, so a `Press` above them would otherwise swallow a click
         // meant for a row.
-        if let Some(act) = crate::input::find_in_lineage(click.entity, &acts, &parents) {
+        if let Some(act) = crate::input::find_in_lineage(target, &acts, &parents) {
             let act = act.0;
             state.lobby.builder_mut().filter_act(act);
             // *Done* is both: the act hands the row's caret back and the
             // marker beside it shuts the panel.
-            if crate::input::find_in_lineage(click.entity, &dones, &parents).is_some() {
+            if crate::input::find_in_lineage(target, &dones, &parents).is_some() {
                 state.lobby.builder_mut().close_panel();
             }
             continue;
         }
         // A kit control that is drawn but off keeps its press so it can take
         // focus and say why; a click on it does nothing (§2.4).
-        if in_lineage_entity(click.entity, &presses, &parents).is_some_and(|e| disabled.contains(e))
+        if in_lineage_entity(target, &presses, &parents).is_some_and(|e| disabled.contains(e))
         {
             continue;
         }
-        let Some(&press) = in_lineage(click.entity, &presses, &parents) else {
+        let Some(&press) = in_lineage(target, &presses, &parents) else {
             continue;
         };
         let shift = codes

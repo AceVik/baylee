@@ -285,6 +285,8 @@ impl Plugin for LobbyPlugin {
             .init_resource::<Hovered>()
             .add_message::<Pointer<Over>>()
             .add_message::<Pointer<Out>>()
+            .add_message::<Pointer<bevy::picking::events::Press>>()
+            .add_message::<Pointer<Release>>()
             .add_systems(
                 OnExit(DuelPhase::Closed),
                 (teardown, despawn_preview, hint::despawn_hint),
