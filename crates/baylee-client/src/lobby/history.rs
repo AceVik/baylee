@@ -631,8 +631,15 @@ fn finish_name(finish: Finish, lang: Lang) -> &'static str {
 /// The picture a diff row shows and previews: the row's printing, else the
 /// pool's reference printing for the bare name, else none (a text face).
 fn hover_of(state: &LobbyState, name: &str, print: &PrintChoice) -> HoverCard {
+    // A stored row names the card in English; the pool's `name` is the
+    // player's language once the catalog or the Scryfall door has spoken
+    // (a German walk lost every localized card's picture).
     let pool = state.lobby.builder().pool();
-    if let Some(card) = pool.iter().find(|c| c.name == name) {
+    if let Some(card) = pool
+        .iter()
+        .find(|c| c.english_name == name)
+        .or_else(|| pool.iter().find(|c| c.name == name))
+    {
         return super::preview::hover_of_entry(card, print);
     }
     let url = print.scryfall_id.as_ref().and_then(|id| {
