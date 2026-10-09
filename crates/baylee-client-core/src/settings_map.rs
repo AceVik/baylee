@@ -251,6 +251,16 @@ pub enum Row {
     PreviewSize,
     /// The text face instead of the print.
     TextFace,
+    /// The lobby & room tour (TOURS.md §1.7).
+    TourLobby,
+    /// The deck builder tour.
+    TourBuilder,
+    /// The table tour.
+    TourTable,
+    /// The just-in-time tips.
+    TourTips,
+    /// Every tour from the start again.
+    TourRestart,
     // Controls
     /// The shell's shortcuts.
     ShellKeys,
@@ -490,6 +500,41 @@ pub const ROWS: &[RowDef] = &[
         D,
         P::RowTextFace,
         P::HelpTextFace,
+    ),
+    def(
+        Row::TourLobby,
+        S::Display,
+        D,
+        P::RowTourLobby,
+        P::HelpTourLobby,
+    ),
+    def(
+        Row::TourBuilder,
+        S::Display,
+        D,
+        P::RowTourBuilder,
+        P::HelpTourBuilder,
+    ),
+    def(
+        Row::TourTable,
+        S::Display,
+        D,
+        P::RowTourTable,
+        P::HelpTourTable,
+    ),
+    def(
+        Row::TourTips,
+        S::Display,
+        D,
+        P::RowTourTips,
+        P::HelpTourTips,
+    ),
+    def(
+        Row::TourRestart,
+        S::Display,
+        D,
+        P::RowTourRestart,
+        P::HelpTourRestart,
     ),
     def(
         Row::ShellKeys,

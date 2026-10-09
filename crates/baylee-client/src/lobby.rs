@@ -85,6 +85,20 @@ impl Plugin for LobbyPlugin {
         crate::report::install(app);
         crate::loading::install(app);
         crate::shellkit::install(app);
+        crate::tour::install(app);
+        // A shell chapter is set aside while a table stands.
+        app.add_systems(
+            OnExit(DuelPhase::Closed),
+            |mut desk: ResMut<crate::tour::TourDesk>| {
+                if desk
+                    .run
+                    .as_ref()
+                    .is_some_and(|r| r.tour != baylee_client_core::tour::Tour::Table)
+                {
+                    desk.parked = true;
+                }
+            },
+        );
         header::install(app);
         install_builder(app);
         // Restarting into an update, and coming back to where the player was.
@@ -253,6 +267,7 @@ impl Plugin for LobbyPlugin {
                 Update,
                 (
                     decks::undo_clock,
+                    touring::tours,
                     decks::write_clipboard,
                     #[cfg(not(target_arch = "wasm32"))]
                     decks::paste_or_drop,
@@ -457,6 +472,9 @@ pub struct LobbyState {
     pub(crate) play: play::PlayUi,
     /// The Undo the toast lane offers (S-10).
     pub(crate) undo: Option<decks::Undo>,
+    /// The tours as they were before the bubble's box or Restart tours,
+    /// for the toast's Undo (TOURS.md §1.7).
+    pub(crate) tours_before: Option<baylee_client_core::tour::Tours>,
     /// The player holds a chair at a waiting room and has stepped away
     /// from it to another screen (M-7): the seated strip shows, and Return
     /// brings the room back.
@@ -719,6 +737,7 @@ impl LobbyState {
             decks: decks::DecksUi::default(),
             play: play::PlayUi::default(),
             undo: None,
+            tours_before: None,
             room_away: false,
             chair_sheet: None,
             teams_edit: false,
@@ -858,6 +877,7 @@ mod shortcuts;
 mod source;
 mod systems;
 pub(crate) mod thumbnails;
+mod touring;
 mod widgets;
 
 // The shell and the makers every screen builds from, under one roof for the

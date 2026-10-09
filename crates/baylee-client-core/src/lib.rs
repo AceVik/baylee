@@ -103,6 +103,7 @@ pub mod textbuf;
 pub mod textface;
 pub mod timing;
 pub mod touch;
+pub mod tour;
 pub mod type_names;
 pub mod typechooser;
 pub mod userdirs;

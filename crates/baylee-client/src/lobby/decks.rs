@@ -71,10 +71,15 @@ pub(crate) enum UndoKind {
     Delete,
     /// A version restored from the history sheet (`Library::restored`).
     Restore,
+    /// The tours switched off by the bubble's box
+    /// (`LobbyState::tours_before`, TOURS.md §1.7).
+    ToursOff,
+    /// Settings › Restart tours.
+    ToursRestarted,
 }
 
 /// How long an Undo is offered (§2.4: a toast's 6 s).
-pub(super) const UNDO_SECS: f32 = 6.0;
+pub(crate) const UNDO_SECS: f32 = 6.0;
 
 /// A control of the Decks screen.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -1140,7 +1145,7 @@ impl DecksPress {
             prefs,
             scrolled,
             mailbox,
-            ..
+            settings,
         } = cx;
         match self {
             DecksPress::Tab(tab) => {
@@ -1207,6 +1212,14 @@ impl DecksPress {
                 Some(UndoKind::Restore) => {
                     let request = state.lobby.undo_restore();
                     dispatch(state, mailbox, request);
+                }
+                Some(UndoKind::ToursOff | UndoKind::ToursRestarted) => {
+                    if let (Some(before), Some(settings)) =
+                        (state.tours_before.take(), settings.as_mut())
+                    {
+                        settings.tours = before;
+                        settings.save();
+                    }
                 }
                 None => {}
             },
@@ -1455,6 +1468,7 @@ pub(super) fn undo_clock(time: Res<Time>, mut state: ResMut<LobbyState>, mailbox
             dispatch(&mut state, &mailbox, request);
         }
         UndoKind::Restore => state.lobby.forget_restore(),
+        UndoKind::ToursOff | UndoKind::ToursRestarted => state.tours_before = None,
     }
 }
 

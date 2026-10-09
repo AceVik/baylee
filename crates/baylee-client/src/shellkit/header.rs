@@ -142,6 +142,9 @@ where
             look.active == Some(i),
             (actions.nav)(i),
         );
+        commands.entity(pill).insert(crate::tour::TourAnchor(
+            baylee_client_core::tour::Anchor::ShellNav,
+        ));
         commands.entity(bar).add_child(pill);
     }
     let gap = commands

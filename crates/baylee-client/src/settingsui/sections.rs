@@ -17,6 +17,7 @@ use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::settings_map::{self, Row, Section};
 use baylee_client_core::sky::SkyMode;
 use baylee_client_core::tableview::{RingLean, VisitCamera};
+use baylee_client_core::tour::Tour;
 use bevy::prelude::*;
 
 use crate::lobby::{Press, SettingsPress, SharedPress};
@@ -489,6 +490,27 @@ pub(crate) fn display(out: &mut Out, view: &View) {
     let on = view.settings.is_some_and(|s| s.prefer_text_view);
     let control = out.toggle("text-face", on, Press::Settings(SettingsPress::TextFace));
     out.row(Row::TextFace, control);
+    // Tours (TOURS.md §1.7): this device's switches, and a fresh start.
+    let tours = view.settings.map(|s| &s.tours);
+    for (tour, row, name) in [
+        (Tour::Lobby, Row::TourLobby, "tour-lobby"),
+        (Tour::Builder, Row::TourBuilder, "tour-builder"),
+        (Tour::Table, Row::TourTable, "tour-table"),
+    ] {
+        let on = tours.is_none_or(|t| t.on(tour));
+        let control = out.toggle(name, on, Press::Settings(SettingsPress::Tour(tour)));
+        out.row(row, control);
+    }
+    let tips = tours.is_none_or(|t| t.tips);
+    let control = out.toggle("tour-tips", tips, Press::Settings(SettingsPress::TourTips));
+    out.row(Row::TourTips, control);
+    let restart = out.button(
+        "tour-restart",
+        Phrase::RowTourRestart.text(lang),
+        Weight::Secondary,
+        Press::Settings(SettingsPress::RestartTours),
+    );
+    out.row(Row::TourRestart, restart);
 }
 
 /// Account: the handle, signing out, deleting the account.

@@ -38,6 +38,9 @@ pub(super) struct Believed<'w, 's> {
     lists: Option<Res<'w, crate::buildui::virtual_rows::ListProbe>>,
     /// The lobby, for the builder's keyboard place.
     lobby: Option<Res<'w, crate::lobby::LobbyState>>,
+    /// The guided tour standing, and where its hole is (`/state.tour`).
+    tour: Option<Res<'w, crate::tour::TourDesk>>,
+    spotlight: Option<Res<'w, crate::tour::Spotlight>>,
     /// The report form's buttons, where a pointer would press them.
     desk_controls: Query<
         'w,
@@ -928,7 +931,8 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\
-         \"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates}}}",
+         \"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour}}}",
+        tour = tour_json(believed, settings),
         shell = shell_keys_json(believed),
         camera = camera_json(believed, duel),
         dial = dial_json(believed),
@@ -1032,6 +1036,67 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
 /// arrangements are offered here and why the others are not, the follow
 /// switch, the seat of interest, whether anything is still moving and for
 /// how many frames nothing has, and the pill's and the menu's rectangles.
+/// The guided tour (TOURS.md §3.5): which step stands, how, the hole round
+/// its anchor (`null` when none is placed), what was passed over, what this
+/// device has seen.
+fn tour_json(believed: &Believed, settings: Option<&ClientSettings>) -> String {
+    let seen = settings.map_or_else(String::new, |s| {
+        s.tours
+            .seen
+            .iter()
+            .map(|m| quoted(m))
+            .collect::<Vec<_>>()
+            .join(",")
+    });
+    let Some(run) = believed.tour.as_deref().and_then(|d| d.run.as_ref()) else {
+        return format!("{{\"tour\":null,\"mode\":\"idle\",\"seen\":[{seen}]}}");
+    };
+    let parked = believed.tour.as_deref().is_some_and(|d| d.parked);
+    let mode = if parked {
+        "parked"
+    } else {
+        match run.mode {
+            baylee_client_core::tour::Mode::Narrated => "narrated",
+            baylee_client_core::tour::Mode::Try => "try",
+            baylee_client_core::tour::Mode::Folded => "folded",
+        }
+    };
+    let anchor = believed
+        .spotlight
+        .as_deref()
+        .and_then(|s| s.hole)
+        .map_or_else(
+            || "null".to_string(),
+            |r| {
+                format!(
+                    "{{\"x\":{:.0},\"y\":{:.0},\"w\":{:.0},\"h\":{:.0}}}",
+                    r.min.x,
+                    r.min.y,
+                    r.width(),
+                    r.height()
+                )
+            },
+        );
+    let step = run.current();
+    let skipped = run
+        .skipped
+        .iter()
+        .map(|id| quoted(id))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"tour\":{},\"chapter\":{},\"step\":{},\"kind\":{},\"mode\":\"{mode}\",\
+         \"wants\":{},\"anchor\":{anchor},\"skipped\":[{skipped}],\"predicate_held\":{},\"seen\":[{seen}]}}",
+        quoted(run.tour.key()),
+        quoted(run.current_chapter().id),
+        quoted(step.id),
+        quoted(&format!("{:?}", step.kind)),
+        step.anchor
+            .map_or_else(|| "null".to_string(), |a| quoted(&format!("{a:?}"))),
+        run.held,
+    )
+}
+
 fn arrangement_json(believed: &Believed, duel: &Duel) -> String {
     use baylee_client_core::tableview::Arrangement;
     let (frame, glide, pill, panel, seat_mats) = &believed.arrangement;

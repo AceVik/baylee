@@ -128,6 +128,9 @@ pub(super) fn text_row(
     let lang = state.lobby.lang();
     let column = kit.m.frame == Frame::Phone;
     let row = plate(commands, kit);
+    commands.entity(row).insert(crate::tour::TourAnchor(
+        baylee_client_core::tour::Anchor::FrontTextRow,
+    ));
     if column {
         let pad = UiRect::all(kit.m.px(2.0));
         commands

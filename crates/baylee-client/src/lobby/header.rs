@@ -696,6 +696,8 @@ pub(super) fn toast_lane(
     let undo = state.undo.map(|u| match u.kind {
         super::decks::UndoKind::Delete => Phrase::ShellDeckDeleted.text(lang).to_string(),
         super::decks::UndoKind::Restore => Phrase::HistoryRestored.text(lang).to_string(),
+        super::decks::UndoKind::ToursOff => Phrase::TourOffToast.text(lang).to_string(),
+        super::decks::UndoKind::ToursRestarted => Phrase::TourRestartedToast.text(lang).to_string(),
     });
     let now: Vec<String> = undo
         .iter()

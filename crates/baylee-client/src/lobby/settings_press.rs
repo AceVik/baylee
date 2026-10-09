@@ -104,6 +104,12 @@ pub(crate) enum SettingsPress {
     PreviewSize(i8),
     /// Display: the text face.
     TextFace,
+    /// Display › Tours: one tour on or off.
+    Tour(baylee_client_core::tour::Tour),
+    /// Display › Tours: the just-in-time tips on or off.
+    TourTips,
+    /// Display › Tours: every seen mark forgotten, with an Undo.
+    RestartTours,
     /// Account: the handle onto the clipboard.
     CopyHandle,
     /// Network: back to the gateway list.
@@ -247,6 +253,15 @@ impl SettingsPress {
             }),
             SettingsPress::TextFace => device(settings, |s| {
                 s.prefer_text_view = !s.prefer_text_view;
+                true
+            }),
+            SettingsPress::Tour(tour) => device(settings, |s| {
+                let on = s.tours.on(tour);
+                s.tours.set(tour, !on);
+                true
+            }),
+            SettingsPress::TourTips => device(settings, |s| {
+                s.tours.tips = !s.tours.tips;
                 true
             }),
             SettingsPress::Consent(category) => device(settings, |s| {
@@ -433,6 +448,17 @@ impl SettingsPress {
             }
             SettingsPress::ToggleRail(side, row) => prefs.edit().orders.toggle(side, row),
             SettingsPress::SetRail(preset) => prefs.edit().orders.set_to(preset),
+            SettingsPress::RestartTours => {
+                if let Some(settings) = settings.as_mut() {
+                    state.tours_before = Some(settings.tours.clone());
+                    settings.tours.restart();
+                    settings.save();
+                    state.undo = Some(super::decks::Undo {
+                        kind: super::decks::UndoKind::ToursRestarted,
+                        left: super::decks::UNDO_SECS,
+                    });
+                }
+            }
             // Device rows and the screen's own, answered above.
             SettingsPress::Section(_)
             | SettingsPress::Jump(_)
@@ -469,6 +495,8 @@ impl SettingsPress {
             | SettingsPress::TextSize(_)
             | SettingsPress::PreviewSize(_)
             | SettingsPress::TextFace
+            | SettingsPress::Tour(_)
+            | SettingsPress::TourTips
             | SettingsPress::Consent(_)
             | SettingsPress::Crash(_)
             | SettingsPress::OpenSettings
