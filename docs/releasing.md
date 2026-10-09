@@ -131,8 +131,11 @@ shellcheck scripts/package-*.sh scripts/installers/*.sh scripts/release/*.sh
 hand. Since 08.10.2026 a change **lands on main after the local gates without
 waiting for CI**: `scripts/land.sh` runs `gate.sh`, `gate-features.sh` and
 `gate-wasm.sh` under the machine's cargo lock and then pushes the gated commit
-to main, only as a fast-forward (it never rebases, merges or forces; `--check`
-stops before the push). CI green matters at a release, which needs the main
+to main, only as a fast-forward, never forced. Landing is serial: under the
+lock it fetches main again, merges it into the branch if it moved (a conflict
+stops the run), gates that commit and pushes it, so a second lander waits and
+gates on top of the first instead of being refused after its gates (`--check`
+gates HEAD as it is and never merges or pushes). CI green matters at a release, which needs the main
 push run of the tagged commit green (§"Cutting one").
 
 | Trigger | Runs |
