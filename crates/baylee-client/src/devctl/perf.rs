@@ -419,6 +419,32 @@ fn frame_names(trace: &str) -> impl Iterator<Item = String> {
 /// The first frame in this workspace's crates and the first frame outside
 /// the allocator, `std`, `core` and `alloc`, read off a resolved backtrace's
 /// text.
+/// The innermost `at …/crates/baylee-…:line` of a resolved trace that is
+/// not the sampler's own or the app's entry, as `crate/src/file.rs:line`.
+fn our_line(trace: &str) -> Option<String> {
+    trace
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("at "))
+        .filter_map(|at| {
+            at.find("crates/baylee-")
+                .map(|i| &at[i + "crates/".len()..])
+        })
+        .find(|at| {
+            !at.contains("devctl/perf.rs")
+                && !at.contains("standalone.rs")
+                && !at.contains("src/main.rs")
+        })
+        .map(|at| {
+            // Drop the column: `file.rs:12:5` → `file.rs:12`.
+            match at.rsplit_once(':') {
+                Some((head, col)) if head.contains(':') && col.parse::<u32>().is_ok() => {
+                    head.to_string()
+                }
+                _ => at.to_string(),
+            }
+        })
+}
+
 fn sites_of(trace: &str) -> (String, String) {
     let frames: Vec<String> = frame_names(trace).collect();
     let plumbing = |name: &str| {
@@ -441,15 +467,20 @@ fn sites_of(trace: &str) -> (String, String) {
         .iter()
         .any(|p| name.starts_with(p))
     };
-    let ours = frames
-        .iter()
-        .find(|name| {
-            (name.starts_with("baylee") || name.starts_with("<baylee"))
-                && !name.contains("devctl::perf")
-                && !name.contains("standalone::run")
-                && !name.starts_with("baylee_client::main")
-        })
-        .map_or_else(|| "-".to_string(), Clone::clone);
+    // Our own frame, by its source line where the trace has one: a build with
+    // only line tables names an inlined frame without its path (`collect`,
+    // `bearings`), and the file says whose it is.
+    let ours = our_line(trace).unwrap_or_else(|| {
+        frames
+            .iter()
+            .find(|name| {
+                (name.starts_with("baylee") || name.starts_with("<baylee"))
+                    && !name.contains("devctl::perf")
+                    && !name.contains("standalone::run")
+                    && !name.starts_with("baylee_client::main")
+            })
+            .map_or_else(|| "-".to_string(), Clone::clone)
+    });
     let first = frames
         .iter()
         .find(|name| !plumbing(name))

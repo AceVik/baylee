@@ -76,15 +76,26 @@ fn writer_of<T: Component>(entity: &EntityRef) -> Option<String> {
         .map(|at| format!("{}:{}", at.file(), at.line()))
 }
 
-/// The types the writer is read for: the interface's layout and paint, the
-/// table's transforms and visibility.
-fn writers(world: &World) -> Vec<(ComponentId, Writer)> {
+/// The types the writer is read for, each with its name (a component's own
+/// name needs bevy's `debug` feature; these are named without it): the
+/// interface's layout and paint, the table's transforms and visibility, and
+/// what bevy derives from them.
+fn writers(world: &World) -> Vec<(ComponentId, &'static str, Writer)> {
     macro_rules! of {
         ($($t:ty),* $(,)?) => {
-            [$((world.component_id::<$t>(), writer_of::<$t> as Writer)),*]
+            [$((
+                world.component_id::<$t>(),
+                std::any::type_name::<$t>(),
+                writer_of::<$t> as Writer,
+            )),*]
         };
     }
     of![
+        GlobalTransform,
+        bevy::ui::ComputedNode,
+        bevy::ui::UiGlobalTransform,
+        InheritedVisibility,
+        ViewVisibility,
         Node,
         Text,
         TextColor,
@@ -102,8 +113,30 @@ fn writers(world: &World) -> Vec<(ComponentId, Writer)> {
         crate::hud::seatbar::BarRevision,
     ]
     .into_iter()
-    .filter_map(|(id, read)| Some((id?, read)))
+    .filter_map(|(id, name, read)| Some((id?, name, read)))
     .collect()
+}
+
+/// `on A, B, …`: the entity's other components (at most eight), each by its
+/// last path segment; `?` for a resource standing alone.
+fn shape(world: &World, components: &[ComponentId], changed: ComponentId) -> String {
+    let names: Vec<String> = components
+        .iter()
+        .filter(|&&id| id != changed)
+        .take(8)
+        .filter_map(|&id| world.components().get_name(id))
+        .map(|name| {
+            let name = name.to_string();
+            let head = name.split('<').next().unwrap_or(&name);
+            let cut = head.rfind("::").map_or(0, |at| at + 2);
+            name[cut..].to_string()
+        })
+        .collect();
+    if names.is_empty() {
+        "?".to_string()
+    } else {
+        format!("on {}", names.join(", "))
+    }
 }
 
 /// Runs in `Last` while armed: every component changed since the last run.
@@ -130,15 +163,21 @@ pub(super) fn watch(world: &mut World, mut since: Local<Option<Tick>>) {
                 if !ticks.is_changed(last, now) {
                     continue;
                 }
-                let name = world
-                    .components()
-                    .get_name(id)
-                    .map_or_else(|| format!("{id:?}"), |n| n.to_string());
-                let writer = readers
-                    .iter()
-                    .find(|(of, _)| *of == id)
-                    .and_then(|(_, read)| read(&entity))
-                    .unwrap_or_else(|| "?".to_string());
+                let known = readers.iter().find(|(of, ..)| *of == id);
+                let name = known.map_or_else(
+                    || {
+                        world
+                            .components()
+                            .get_name(id)
+                            .map_or_else(|| format!("{id:?}"), |n| n.to_string())
+                    },
+                    |(_, name, _)| (*name).to_string(),
+                );
+                // With no writer to read, what else the entity carries says
+                // which one it is.
+                let writer = known
+                    .and_then(|(_, _, read)| read(&entity))
+                    .unwrap_or_else(|| shape(world, archetype.components(), id));
                 let row = frame.entry(name).or_default();
                 row.0 += 1;
                 *row.1.entry(writer).or_default() += 1;
