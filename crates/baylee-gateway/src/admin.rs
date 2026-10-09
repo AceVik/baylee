@@ -167,6 +167,9 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
     });
     Router::new()
         .route("/admin/stats", get(stats))
+        .route("/admin/live", get(live))
+        .route("/admin/accounts", get(list_accounts))
+        .route("/admin/accounts/{id}", get(one_account))
         .route("/admin/invites", get(list_invites).post(create_invites))
         .route("/admin/invites/{id}", delete(revoke_invite))
         .fallback(no_such_route)
@@ -376,11 +379,17 @@ fn agents(app: &crate::AppState) -> serde_json::Value {
     })
 }
 
+/// How many days `GET /admin/stats` answers in `daily`.
+const DAILY_DAYS: u32 = 30;
+
 /// `GET /admin/stats`: counts, and nothing that names anybody.
 async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, Refusal> {
     let app = &console.app;
     let now = OffsetDateTime::now_utc();
     let stored = baylee_db::stats::read(&app.db, now)
+        .await
+        .map_err(|e| db_failed(&e))?;
+    let daily = baylee_db::console::daily(&app.db, now, DAILY_DAYS)
         .await
         .map_err(|e| db_failed(&e))?;
 
@@ -411,6 +420,17 @@ async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, 
             .map_or(serde_json::Value::Null, Into::into),
     );
     gateway.insert("registration".into(), app.registration.wire().into());
+    gateway.insert(
+        "uptime_secs".into(),
+        crate::auth::now_secs()
+            .saturating_sub(app.started_at)
+            .into(),
+    );
+    gateway.insert("terms".into(), app.terms.is_some().into());
+    gateway.insert(
+        "mail".into(),
+        (!matches!(app.mail, crate::mail::Mailer::Off)).into(),
+    );
     Ok(Json(serde_json::json!({
         "at": iso(now),
         "gateway": gateway,
@@ -420,11 +440,13 @@ async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, 
             "confirmed_email": stored.confirmed_email,
             "admitted_by_key": stored.admitted_by_key,
             "created": since(stored.registered_since),
+            "decks": stored.decks,
         },
         "guests": {
             "enabled": app.guests_enabled,
             "live": stored.guests,
             "cap": app.guest_cap,
+            "created": since(stored.guests_since),
         },
         "online": {
             "players": players,
@@ -442,6 +464,8 @@ async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, 
             "started": since(stored.games_started),
             "finished": stored.games_finished,
             "finished_since": since(stored.games_finished_since),
+            "record_bytes": stored.record_bytes,
+            "avg_secs_30d": stored.avg_game_secs_30d,
         },
         "agents": agents(app),
         "invites": {
@@ -453,7 +477,416 @@ async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, 
             "uses_left": stored.invite_uses_left,
             "admitted": stored.admitted_by_key,
         },
+        "daily": daily,
     })))
+}
+
+/// The session lifetimes, as the store's console reads want them.
+fn lifetimes() -> baylee_db::console::Lifetimes {
+    let of = |d: Duration| time::Duration::try_from(d).unwrap_or(time::Duration::ZERO);
+    baylee_db::console::Lifetimes {
+        account: of(crate::auth::Lifetime::ACCOUNT.ttl),
+        guest: of(crate::auth::Lifetime::GUEST.ttl),
+    }
+}
+
+/// A unix second as the console reads moments.
+fn iso_secs(secs: u64) -> String {
+    i64::try_from(secs)
+        .ok()
+        .and_then(|s| OffsetDateTime::from_unix_timestamp(s).ok())
+        .map_or_else(String::new, iso)
+}
+
+/// Where an account is, as far as this gateway's memory says.
+#[derive(Default)]
+struct Whereabouts {
+    /// A lobby socket is open.
+    lobby: bool,
+    /// In a chair of a running game, and which.
+    playing: Option<String>,
+    /// In a chair of a room still waiting, and which.
+    waiting: Option<String>,
+}
+
+/// A chair as the live view shows it, before names are known.
+struct ChairNow {
+    seat: usize,
+    kind: crate::lobby::SeatKind,
+    ai: Option<String>,
+    account: Option<String>,
+    delegate: Option<(String, String)>,
+    deck: String,
+    format: Option<String>,
+    ready: bool,
+    team: Option<u8>,
+}
+
+/// A table as the live view shows it, before names are known.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a table's facts the console shows side by side"
+)]
+struct TableNow {
+    id: String,
+    name: String,
+    playing: bool,
+    host: Option<String>,
+    created_at: u64,
+    locked: bool,
+    rematch: bool,
+    decide_secs: u32,
+    engine: bool,
+    engine_local: bool,
+    agent: Option<String>,
+    chairs: Vec<ChairNow>,
+}
+
+/// What the lobby holds now, copied out under its lock.
+fn tables_now(app: &crate::AppState) -> Vec<TableNow> {
+    let agent_names: std::collections::HashMap<String, String> = app
+        .agents
+        .lock()
+        .connected
+        .iter()
+        .map(|(id, agent)| (id.clone(), agent.name.clone()))
+        .collect();
+    let lobby = app.lobby.lock();
+    let mut tables: Vec<TableNow> = lobby
+        .waiting()
+        .chain(lobby.running())
+        .map(|game| TableNow {
+            id: game.id.clone(),
+            name: game.name.clone(),
+            playing: game.state == crate::lobby::LobbyState::Playing,
+            host: game.host.clone(),
+            created_at: game.created_at,
+            locked: game.password_hash.is_some(),
+            rematch: game.parent.is_some(),
+            decide_secs: game.house_rules.decision_timeout_secs,
+            engine: game.engine.is_some(),
+            engine_local: game.engine_local,
+            agent: game
+                .agent_id
+                .as_ref()
+                .map(|id| agent_names.get(id).cloned().unwrap_or_else(|| id.clone())),
+            chairs: game
+                .seats
+                .iter()
+                .map(|seat| ChairNow {
+                    seat: seat.seat,
+                    kind: seat.kind,
+                    ai: seat.ai.clone(),
+                    account: seat.account_id.clone(),
+                    delegate: seat
+                        .delegate
+                        .as_ref()
+                        .map(|d| (d.name.clone(), d.by.clone())),
+                    deck: seat.deck_name.clone(),
+                    format: seat.deck.as_ref().map(|d| d.format.clone()),
+                    ready: game.seat_ready(seat),
+                    team: seat.team,
+                })
+                .collect(),
+        })
+        .collect();
+    // Waiting rooms first, then the newest; the id breaks a tie.
+    tables.sort_by(|a, b| {
+        a.playing
+            .cmp(&b.playing)
+            .then(b.created_at.cmp(&a.created_at))
+            .then(a.id.cmp(&b.id))
+    });
+    tables
+}
+
+/// `GET /admin/live`: who is here now and at which table, by handle.
+async fn live(State(console): State<Admin>) -> Result<Json<serde_json::Value>, Refusal> {
+    let app = &console.app;
+    let tables = tables_now(app);
+    let mut whereabouts: std::collections::BTreeMap<String, Whereabouts> = app
+        .presence
+        .accounts()
+        .into_iter()
+        .map(|id| {
+            (
+                id,
+                Whereabouts {
+                    lobby: true,
+                    ..Whereabouts::default()
+                },
+            )
+        })
+        .collect();
+    for table in &tables {
+        for chair in &table.chairs {
+            let sitter = chair
+                .account
+                .clone()
+                .or_else(|| chair.delegate.as_ref().map(|(_, by)| by.clone()));
+            if let Some(id) = sitter {
+                let at = whereabouts.entry(id).or_default();
+                if table.playing {
+                    at.playing = Some(table.id.clone());
+                } else {
+                    at.waiting = Some(table.id.clone());
+                }
+            }
+        }
+    }
+    let mut wanted: Vec<uuid::Uuid> = whereabouts
+        .keys()
+        .filter_map(|id| uuid::Uuid::parse_str(id).ok())
+        .collect();
+    wanted.extend(
+        tables
+            .iter()
+            .filter_map(|t| t.host.as_deref())
+            .filter_map(|id| uuid::Uuid::parse_str(id).ok()),
+    );
+    wanted.sort_unstable();
+    wanted.dedup();
+    let names: std::collections::HashMap<String, baylee_db::console::Named> =
+        baylee_db::console::named(&app.db, &wanted)
+            .await
+            .map_err(|e| db_failed(&e))?
+            .into_iter()
+            .map(|(id, named)| (id.to_string(), named))
+            .collect();
+    let handle = |id: &str| {
+        names
+            .get(id)
+            .map(|n| crate::handle::handle(&n.display_name, n.tag))
+    };
+    let guest = |id: &str| names.get(id).map(|n| n.guest);
+
+    let players: Vec<serde_json::Value> = whereabouts
+        .iter()
+        .filter(|(id, _)| names.contains_key(*id))
+        .map(|(id, at)| {
+            serde_json::json!({
+                "id": id,
+                "handle": handle(id),
+                "guest": guest(id),
+                "in_lobby": at.lobby,
+                "playing": at.playing,
+                "waiting": at.waiting,
+            })
+        })
+        .collect();
+    let tables: Vec<serde_json::Value> = tables
+        .iter()
+        .map(|t| table_json(t, &handle, &guest))
+        .collect();
+    Ok(Json(serde_json::json!({
+        "at": iso(OffsetDateTime::now_utc()),
+        "players": players,
+        "tables": tables,
+        "agents": agent_list(app),
+    })))
+}
+
+/// One table of the live view, its chairs named by `handle`.
+fn table_json(
+    t: &TableNow,
+    handle: &impl Fn(&str) -> Option<String>,
+    guest: &impl Fn(&str) -> Option<bool>,
+) -> serde_json::Value {
+    let seats: Vec<serde_json::Value> = t
+        .chairs
+        .iter()
+        .map(|c| {
+            let sitter = c
+                .account
+                .as_deref()
+                .or_else(|| c.delegate.as_ref().map(|(_, by)| by.as_str()));
+            serde_json::json!({
+                "seat": c.seat,
+                "kind": c.kind,
+                "ai": c.ai,
+                "account_id": sitter,
+                "player": c.account.as_deref().and_then(handle),
+                "guest": sitter.and_then(guest),
+                "bridge": c.delegate.as_ref().map(|(name, _)| name),
+                "bridged_by": c.delegate.as_ref().and_then(|(_, by)| handle(by)),
+                "deck": c.deck,
+                "format": c.format,
+                "ready": c.ready,
+                "team": c.team,
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "id": t.id,
+        "name": t.name,
+        "state": if t.playing { "playing" } else { "waiting" },
+        "host": t.host.as_deref().and_then(handle),
+        "host_id": t.host,
+        "created_at": iso_secs(t.created_at),
+        "locked": t.locked,
+        "rematch": t.rematch,
+        "decide_secs": t.decide_secs,
+        "engine": t.engine,
+        "engine_local": t.engine_local,
+        "agent": t.agent,
+        "seats": seats,
+    })
+}
+
+/// The agents connected now, one row each.
+fn agent_list(app: &crate::AppState) -> Vec<serde_json::Value> {
+    let agents = app.agents.lock();
+    let mut list: Vec<_> = agents.connected.iter().collect();
+    list.sort_by(|a, b| a.0.cmp(b.0));
+    list.into_iter()
+        .map(|(id, agent)| {
+            serde_json::json!({
+                "id": id,
+                "name": agent.name,
+                "local": agent.local,
+                "capacity": agent.capacity,
+                "games": agent.games.len(),
+            })
+        })
+        .collect()
+}
+
+/// What `GET /admin/accounts` reads from its query string.
+#[derive(serde::Deserialize, Default)]
+#[serde(default)]
+struct AccountsQuery {
+    q: String,
+    kind: String,
+    sort: String,
+    online: bool,
+    offset: u32,
+    limit: Option<u32>,
+}
+
+/// The accounts with a lobby socket open or a chair at a table.
+fn online_ids(app: &crate::AppState) -> std::collections::BTreeSet<String> {
+    let mut ids = app.presence.accounts();
+    ids.extend(app.lobby.lock().seated_accounts());
+    ids
+}
+
+/// `GET /admin/accounts?q=&kind=&sort=&online=&offset=&limit=`: a page of
+/// accounts, each with whether it is online now.
+async fn list_accounts(
+    State(console): State<Admin>,
+    axum::extract::Query(query): axum::extract::Query<AccountsQuery>,
+) -> Result<Json<serde_json::Value>, Refusal> {
+    let app = &console.app;
+    let kind = baylee_db::console::Kind::parse(&query.kind)
+        .ok_or_else(|| err(StatusCode::BAD_REQUEST, "kind is all, registered or guest"))?;
+    let order = baylee_db::console::Order::parse(&query.sort).ok_or_else(|| {
+        err(
+            StatusCode::BAD_REQUEST,
+            "sort is newest, oldest, name, games or active",
+        )
+    })?;
+    if query.q.chars().count() > 100 {
+        return Err(err(StatusCode::BAD_REQUEST, "the search is too long"));
+    }
+    let online = online_ids(app);
+    let playing = app.lobby.lock().playing_accounts();
+    let in_lobby = app.presence.accounts();
+    let only = query.online.then(|| {
+        online
+            .iter()
+            .filter_map(|id| uuid::Uuid::parse_str(id).ok())
+            .collect::<Vec<_>>()
+    });
+    let (total, rows) = baylee_db::console::accounts(
+        &app.db,
+        &baylee_db::console::Query {
+            text: query.q,
+            kind,
+            only,
+            order,
+            offset: query.offset,
+            limit: query.limit.unwrap_or(50),
+        },
+        OffsetDateTime::now_utc(),
+        lifetimes(),
+    )
+    .await
+    .map_err(|e| db_failed(&e))?;
+    let accounts: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|row| {
+            let id = row.id.to_string();
+            let mut value = serde_json::to_value(&row).unwrap_or_default();
+            if let Some(map) = value.as_object_mut() {
+                map.insert(
+                    "handle".into(),
+                    crate::handle::handle(&row.display_name, row.tag).into(),
+                );
+                map.insert("in_lobby".into(), in_lobby.contains(&id).into());
+                map.insert("playing".into(), playing.contains(&id).into());
+                map.insert("online".into(), online.contains(&id).into());
+            }
+            value
+        })
+        .collect();
+    Ok(Json(serde_json::json!({
+        "total": total,
+        "online": online.len(),
+        "accounts": accounts,
+    })))
+}
+
+/// `GET /admin/accounts/{id}`: one account with its decks and latest games.
+async fn one_account(
+    State(console): State<Admin>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, Refusal> {
+    let app = &console.app;
+    let uuid = uuid::Uuid::parse_str(&id)
+        .map_err(|_| err(StatusCode::BAD_REQUEST, "not an account's id"))?;
+    let detail = baylee_db::console::account(&app.db, uuid, OffsetDateTime::now_utc(), lifetimes())
+        .await
+        .map_err(|e| db_failed(&e))?
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such account"))?;
+    let id = uuid.to_string();
+    let in_lobby = app.presence.accounts().contains(&id);
+    let table = {
+        let lobby = app.lobby.lock();
+        lobby
+            .waiting()
+            .chain(lobby.running())
+            .find(|game| {
+                game.seats.iter().any(|seat| {
+                    seat.account_id.as_deref() == Some(id.as_str())
+                        || seat.delegate.as_ref().is_some_and(|d| d.by == id)
+                })
+            })
+            .map(|game| {
+                serde_json::json!({
+                    "id": game.id,
+                    "name": game.name,
+                    "state": if game.state == crate::lobby::LobbyState::Playing {
+                        "playing"
+                    } else {
+                        "waiting"
+                    },
+                })
+            })
+    };
+    let mut value = serde_json::to_value(&detail).unwrap_or_default();
+    if let Some(map) = value.as_object_mut() {
+        map.insert(
+            "handle".into(),
+            crate::handle::handle(&detail.account.display_name, detail.account.tag).into(),
+        );
+        map.insert("in_lobby".into(), in_lobby.into());
+        map.insert("table".into(), table.unwrap_or_default());
+        map.insert(
+            "online".into(),
+            (in_lobby || map.get("table").is_some_and(|t| !t.is_null())).into(),
+        );
+    }
+    Ok(Json(value))
 }
 
 /// One key as the console lists it: what `invite list` shows, never the

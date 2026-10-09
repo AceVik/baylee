@@ -2,8 +2,8 @@
 //! over the whole store, never a row, an id, a name or an address.
 //!
 //! One hand-written statement, as in [`crate::invites`]: a handful of
-//! `count(*) FILTER (…)` over `account`, `session_token`, `game_record` and
-//! `invite`, so the console's every refresh is one round trip whatever it
+//! `count(*) FILTER (…)` over `account`, `deck`, `session_token`,
+//! `game_record` and `invite`, so the console's every refresh is one round trip whatever it
 //! asks. Every answer is a count or a sum; [`Stats`] has no field that could
 //! hold anything else.
 
@@ -37,6 +37,10 @@ pub struct Stats {
     /// Guest accounts (each one a live session leads to, give or take the
     /// next sweep).
     pub guests: i64,
+    /// Guests made in each window that still exist.
+    pub guests_since: Since,
+    /// Players' own decks.
+    pub decks: i64,
     /// Sessions that have not lapsed.
     pub sessions_live: i64,
     /// Accounts with at least one such session.
@@ -51,6 +55,11 @@ pub struct Stats {
     pub games_finished: i64,
     /// Of those, the ones finished in each window.
     pub games_finished_since: Since,
+    /// The bytes every record holds together.
+    pub record_bytes: i64,
+    /// How long a game finished in the last 30 days lasted on average, in
+    /// seconds; 0 for none.
+    pub avg_game_secs_30d: i64,
     /// Closed-beta keys ever made.
     pub invites_total: i64,
     /// Keys that admit somebody now: not revoked, not expired, a use left.
@@ -77,10 +86,14 @@ pub fn start_of_day(now: OffsetDateTime) -> OffsetDateTime {
 /// # Errors
 ///
 /// When the query fails.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one statement and one field per column, read top to bottom"
+)]
 pub async fn read(db: &impl ConnectionTrait, now: OffsetDateTime) -> Result<Stats, DbErr> {
     // $1 midnight UTC, $2 a week ago, $3 thirty days ago, $4 now.
     const SQL: &str = "\
-        SELECT a.*, s.*, g.*, i.* FROM \
+        SELECT a.*, d.*, s.*, g.*, i.* FROM \
         (SELECT \
             count(*) FILTER (WHERE NOT guest) AS registered, \
             count(*) FILTER (WHERE NOT guest AND email IS NOT NULL) AS with_email, \
@@ -90,8 +103,12 @@ pub async fn read(db: &impl ConnectionTrait, now: OffsetDateTime) -> Result<Stat
             count(*) FILTER (WHERE NOT guest AND created_at >= $2) AS registered_7d, \
             count(*) FILTER (WHERE NOT guest AND created_at >= $3) AS registered_30d, \
             count(*) FILTER (WHERE NOT guest AND invite_id IS NOT NULL) AS admitted_by_key, \
-            count(*) FILTER (WHERE guest) AS guests \
+            count(*) FILTER (WHERE guest) AS guests, \
+            count(*) FILTER (WHERE guest AND created_at >= $1) AS guests_today, \
+            count(*) FILTER (WHERE guest AND created_at >= $2) AS guests_7d, \
+            count(*) FILTER (WHERE guest AND created_at >= $3) AS guests_30d \
          FROM account) a, \
+        (SELECT count(*) AS decks FROM deck WHERE account_id IS NOT NULL) d, \
         (SELECT count(*) AS sessions_live, count(DISTINCT account_id) AS accounts_signed_in \
          FROM session_token WHERE expires_at > $4) s, \
         (SELECT \
@@ -102,7 +119,10 @@ pub async fn read(db: &impl ConnectionTrait, now: OffsetDateTime) -> Result<Stat
             count(*) FILTER (WHERE complete) AS games_finished, \
             count(*) FILTER (WHERE complete AND ended_at >= $1) AS finished_today, \
             count(*) FILTER (WHERE complete AND ended_at >= $2) AS finished_7d, \
-            count(*) FILTER (WHERE complete AND ended_at >= $3) AS finished_30d \
+            count(*) FILTER (WHERE complete AND ended_at >= $3) AS finished_30d, \
+            coalesce(sum(bytes), 0)::bigint AS record_bytes, \
+            coalesce(avg(extract(epoch FROM ended_at - started_at)) \
+                FILTER (WHERE complete AND ended_at >= $3), 0)::bigint AS avg_game_secs_30d \
          FROM game_record) g, \
         (SELECT \
             count(*) AS invites_total, \
@@ -142,6 +162,12 @@ pub async fn read(db: &impl ConnectionTrait, now: OffsetDateTime) -> Result<Stat
         },
         admitted_by_key: get("admitted_by_key")?,
         guests: get("guests")?,
+        guests_since: Since {
+            today_utc: get("guests_today")?,
+            last_7d: get("guests_7d")?,
+            last_30d: get("guests_30d")?,
+        },
+        decks: get("decks")?,
         sessions_live: get("sessions_live")?,
         accounts_signed_in: get("accounts_signed_in")?,
         games_recorded: get("games_recorded")?,
@@ -156,6 +182,8 @@ pub async fn read(db: &impl ConnectionTrait, now: OffsetDateTime) -> Result<Stat
             last_7d: get("finished_7d")?,
             last_30d: get("finished_30d")?,
         },
+        record_bytes: get("record_bytes")?,
+        avg_game_secs_30d: get("avg_game_secs_30d")?,
         invites_total: get("invites_total")?,
         invites_active: get("invites_active")?,
         invites_used_up: get("invites_used_up")?,
