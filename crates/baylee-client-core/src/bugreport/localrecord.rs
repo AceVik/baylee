@@ -185,14 +185,32 @@ pub enum ReadBack {
     Empty,
 }
 
-/// Reads a kept record's file back ([`ReadBack`]).
+/// A kept record's file as the record it holds: every member inflated, and
+/// only the lines that end (a member cut short gives what it inflated up to
+/// its last newline). `None` when not even one line is there.
 #[must_use]
-pub fn read_back(gzip: &[u8]) -> ReadBack {
+pub fn inflate(gzip: &[u8]) -> Option<Vec<u8>> {
+    let (mut lines, _) = inflated(gzip);
+    let kept = lines.iter().rposition(|b| *b == b'\n')? + 1;
+    lines.truncate(kept);
+    Some(lines)
+}
+
+/// Every member of `gzip` inflated as far as it goes, and whether all of
+/// it did.
+fn inflated(gzip: &[u8]) -> (Vec<u8>, bool) {
     use std::io::Read as _;
     let mut lines = Vec::new();
     let whole = flate2::read::MultiGzDecoder::new(gzip)
         .read_to_end(&mut lines)
         .is_ok();
+    (lines, whole)
+}
+
+/// Reads a kept record's file back ([`ReadBack`]).
+#[must_use]
+pub fn read_back(gzip: &[u8]) -> ReadBack {
+    let (mut lines, whole) = inflated(gzip);
     // A cut member may already have inflated part of a line: only the
     // lines that end are the record.
     let kept = lines
