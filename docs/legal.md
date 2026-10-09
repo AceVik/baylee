@@ -752,14 +752,20 @@ notices on every face of the front door at every size class, and changes
 where their *full* text stands on the smaller ones:
 
 - **Wide and Vast** (a desktop window): under the card, on a mist plate,
-  the build, the Fan Content notice **word for word**
+  the Fan Content notice **word for word**
   (`lobby::front::FAN_CONTENT_NOTICE`, pinned by
-  `the_notice_is_the_policy_s_own_words`), Scryfall's credit, and the
-  source address as text and link, with its QR code — as before.
+  `the_notice_is_the_policy_s_own_words`) and Scryfall's credit, set as a
+  short centred paragraph; and in the window's **top-right corner**, on a
+  mist plate, the source offer: its QR code and "Source code (AGPL-3.0):
+  <address>" as text and link. Moved there on 09.10.2026 at the owner's
+  request (the notices had been run into one squeezed line): the same
+  sentences, all on screen on every face, none a press away. The build
+  stands under the text row on every class (`door::version_line`); it is
+  no notice the policies ask for.
 - **Narrow, Compact and Phone**: the **one-line colophon** on every face —
-  the build, **"Unofficial Fan Content"** (which opens About), "Card data
-  and images by Scryfall", and **"Source (AGPL-3.0)"** (which opens the
-  address) — and the **About** sheet, one press away from every face (the
+  **"Unofficial Fan Content"** (which opens About), "Card data and images
+  by Scryfall", and **"Source (AGPL-3.0)"** (which opens the address); the
+  build stands under the text row — and the **About** sheet, one press away from every face (the
   text row's About, and the colophon's notice), with the notice word for
   word, Scryfall's credit, the licence, the source address as text and
   link, its code, and the third-party licences.

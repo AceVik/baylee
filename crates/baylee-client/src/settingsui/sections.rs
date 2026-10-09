@@ -321,6 +321,18 @@ fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableV
     );
     out.row(Row::FollowTurn, control);
     let mut lines = Vec::new();
+    // The widest value a seat count's stepper can show: it keeps that room,
+    // so its `+` never moves and its value is never cut.
+    let names: Vec<&str> = Arrangement::ALL
+        .iter()
+        .map(|a| a.name().text(lang))
+        .chain([Phrase::ArrAsDefault.text(lang)])
+        .collect();
+    let widest = names
+        .iter()
+        .copied()
+        .max_by_key(|n| n.chars().count())
+        .unwrap_or_default();
     for seats in BySeats::FIRST..=BySeats::LAST {
         let shown = table
             .arrangement_by_seats
@@ -328,10 +340,11 @@ fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableV
             .map_or(Phrase::ArrAsDefault.text(lang), |a| a.name().text(lang));
         let n = u8::try_from(seats).unwrap_or(u8::MAX);
         let i = (seats - BySeats::FIRST) * 2;
-        let stepper = crate::shellkit::controls::stepper(
+        let stepper = crate::shellkit::controls::stepper_room(
             out.commands,
             out.kit,
             shown,
+            widest,
             (
                 Press::Settings(SettingsPress::ArrangementForSeats(n, -1)),
                 super::rows::item("arrangement-seats", i),
@@ -342,12 +355,19 @@ fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableV
             ),
         );
         let label = out.words(&Phrase::ArrSeats.fill(lang, &[&seats.to_string()]), false);
+        // The seat counts in one column, so their steppers stand in one.
+        let column = out.kit.m.px(90.0);
+        out.commands
+            .entity(label)
+            .entry::<Node>()
+            .and_modify(move |mut node| node.min_width = column);
         let line = out
             .commands
             .spawn((
                 Node {
                     align_items: AlignItems::Center,
                     column_gap: out.kit.m.px(12.0),
+                    flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -448,10 +468,13 @@ pub(crate) fn display(out: &mut Out, view: &View) {
     out.row(Row::TextSize, control);
     let scale = view.settings.map_or(1.0, |s| s.preview_scale);
     let shown = format!("{} %", percent(scale / 2.0) * 2);
-    let control = crate::shellkit::controls::stepper(
+    // Room for the widest a preview can say ("200 %"): the value never
+    // breaks under itself (owner, 09.10.2026).
+    let control = crate::shellkit::controls::stepper_room(
         out.commands,
         out.kit,
         &shown,
+        "200 %",
         (
             Press::Settings(SettingsPress::PreviewSize(-1)),
             super::rows::item("preview-size", 0),

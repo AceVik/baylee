@@ -814,6 +814,29 @@ pub fn stepper(
     less: impl Bundle,
     more: impl Bundle,
 ) -> Entity {
+    stepper_room(commands, kit, value, value, less, more)
+}
+
+/// The width a bold value of `chars` characters takes at the body size,
+/// roughly (Alegreya Sans Bold averages about half an em): what a stepper
+/// keeps for its value so the `+` does not move as the value changes.
+fn value_room(kit: Kit, chars: usize) -> f32 {
+    #[allow(clippy::cast_precision_loss)] // a value is a few characters
+    let chars = chars as f32;
+    (chars * kit.m.text * crate::hud::UI_SCALE * 0.52).max(kit.m.scaled(32.0))
+}
+
+/// A [`stepper`] that keeps room for its widest value, `widest`, whatever
+/// value it shows (an arrangement's name, "Default"): the value never wraps
+/// or is cut, and the `+` stands still (owner, 09.10.2026: "Defa").
+pub fn stepper_room(
+    commands: &mut Commands,
+    kit: Kit,
+    value: &str,
+    widest: &str,
+    less: impl Bundle,
+    more: impl Bundle,
+) -> Entity {
     let group = commands
         .spawn((
             Role::Stepper,
@@ -834,19 +857,30 @@ pub fn stepper(
         None,
         less,
     );
+    let room = value_room(kit, widest.chars().count().max(value.chars().count()));
+    // The value centred in the room kept for the widest: a box of that width
+    // round words that never wrap.
     let shown = commands
+        .spawn((
+            Node {
+                min_width: px_fixed(room),
+                flex_shrink: 0.0,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let words = commands
         .spawn((
             Text::new(value),
             tf_bold(kit.fonts, kit.m.text),
             TextColor(tokens::INK),
-            Node {
-                min_width: kit.m.px(32.0),
-                ..default()
-            },
-            TextLayout::justify(Justify::Center),
+            TextLayout::new(Justify::Center, LineBreak::NoWrap),
             Pickable::IGNORE,
         ))
         .id();
+    commands.entity(shown).add_child(words);
     let plus = button(commands, kit, "+", Weight::Secondary, Live::Yes, None, more);
     commands.entity(group).add_children(&[minus, shown, plus]);
     group

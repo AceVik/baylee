@@ -1496,9 +1496,11 @@ fn a_long_list_of_gateways_scrolls_in_a_frame_that_keeps_its_height() {
             .map(|n| format!("https://gw{n}.example"))
             .collect();
         to_gateway_face(app);
+        // The gateway list's bar; the page's own (shown only when the page
+        // runs over) is not this list's.
         let bars = app
             .world_mut()
-            .query::<&bevy::ui_widgets::Scrollbar>()
+            .query_filtered::<&bevy::ui_widgets::Scrollbar, Without<super::super::scrollbars::OnlyWhenNeeded>>()
             .iter(app.world())
             .count();
         let list = app

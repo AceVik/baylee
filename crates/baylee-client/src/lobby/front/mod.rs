@@ -97,16 +97,20 @@ const HEADER_HEIGHT: f32 = 36.0;
 /// be a notice nobody approved. It stands under the panel in every language.
 pub(crate) const FAN_CONTENT_NOTICE: &str = "baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.";
 
-/// The card's width (§3, §2.7): 600 × the text step on a desktop, the
-/// body's width on a tablet (up to 960 × the step) and on the smallest
-/// window, and its column beside the logo on a phone.
+/// The card's width (§3, §2.7): 720 × the text step on a desktop (600
+/// until the owner found the forms squeezed, 09.10.2026), the body's width
+/// on a tablet (up to 960 × the step) and on the smallest window, and its
+/// column beside the logo on a phone.
 fn card_width(kit: Kit) -> (Val, Val) {
     match kit.m.frame {
         Frame::Compact | Frame::Phone => (Val::Percent(100.0), Val::Percent(100.0)),
         Frame::Narrow => (Val::Percent(100.0), kit.m.px(960.0)),
-        Frame::Wide | Frame::Vast => (kit.m.px(600.0), Val::Percent(100.0)),
+        Frame::Wide | Frame::Vast => (kit.m.px(CARD_WIDTH), Val::Percent(100.0)),
     }
 }
+
+/// The card's width on a desktop at the default step.
+pub(super) const CARD_WIDTH: f32 = 720.0;
 
 /// The four panels.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -1022,7 +1026,14 @@ pub(super) fn front_door(
         .entity(root)
         .entry::<Node>()
         .and_modify(|mut node| node.overflow = Overflow::clip());
-    commands.entity(root).add_child(page);
+    // A page taller than the window scrolls, and a bar at its edge says so
+    // (owner, 09.10.2026); one that fits shows none.
+    let bar = super::scrollbars::attach(commands, root, page, faces::field_metrics(kit));
+    commands
+        .entity(bar)
+        .insert(super::scrollbars::OnlyWhenNeeded)
+        .entry::<Node>()
+        .and_modify(|mut node| node.display = Display::None);
     let logo = assets.map_or_else(Handle::default, |a| a.load("brand/baylee-logo.png"));
     let logo_width = match kit.m.frame {
         Frame::Phone => 120.0,
@@ -1047,6 +1058,7 @@ pub(super) fn front_door(
         .id();
     let stage = stage(commands, state, cast, kit, scrolled_to);
     let text_row = door::text_row(commands, state, kit, music_on);
+    let version = door::version_line(commands, state, kit);
     if phone {
         // Two panes, width the plentiful axis: the logo at the left, the
         // card at the right, the text row under the logo.
@@ -1074,7 +1086,9 @@ pub(super) fn front_door(
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(left).add_children(&[brand, text_row]);
+        commands
+            .entity(left)
+            .add_children(&[brand, text_row, version]);
         commands
             .entity(stage)
             .entry::<Node>()
@@ -1110,10 +1124,13 @@ pub(super) fn front_door(
             .id();
         commands
             .entity(composition)
-            .add_children(&[brand, tagline, stage, text_row]);
+            .add_children(&[brand, tagline, stage, text_row, version]);
         commands.entity(page).add_child(composition);
     }
     let colophon = if door::full_colophon(kit, height) {
+        // The source offer stands in the top corner, its QR with it.
+        let corner = door::source_corner(commands, state, kit);
+        commands.entity(root).add_child(corner);
         door::full(commands, state, kit)
     } else {
         let line = door::one_line(commands, state, kit);

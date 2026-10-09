@@ -4267,6 +4267,25 @@ sign-in face; a guest this device keeps plays at once from the sign-in face
 sign-in face back to the gateway picker. The faces ride the existing
 carousel (the guest's is the create face's other side) and the passage.
 
+**One input per line, a wider card** (owner, 09.10.2026). The card is
+720 × the text step wide on a desktop (it was 600), and the create and
+guest faces stand every field on its own line, the caption above its box,
+on every class but a phone, whose form still sets two to a row so it ends
+above the keyboard (§2.7). A second face's head wraps rather than cuts:
+`‹ Back` and the title on one line, the gateway's chip at the right end of
+it, or on a line of its own when the three do not fit. A front door taller
+than its window scrolls, and a bar at its edge says so
+(`scrollbars::OnlyWhenNeeded`, out of the layout while the page fits).
+
+**One click is one press** (owner, 09.10.2026: "buttons need 2 clicks").
+A press on a button while a field held the caret moved the kit's focus
+onto the button, which parked the caret, which rebuilt the face before the
+button came up; bevy's `Click` goes only to the entity pressed, so the
+first click was lost. `clicks::Pressing` answers a release on the control
+drawn again in its place, with the same `Press`, when the pressed entity is
+gone; a click bevy does send is answered once
+(`one_click_on_a_button_while_a_field_has_the_caret_is_enough`).
+
 **Keys.** Each face is built from its `TabOrder` (`lobby/front/keys.rs`)
 and walked by the kit's walker. The fields stay the lobby's own editor (a
 `TextBuffer` with its caret, masking, paste and the browser's `<input>`);
@@ -4283,13 +4302,39 @@ including after `bevy_input_focus` clears the focus of a despawned entity.
 **Around the card**, on mist plates (no text on the painting without one):
 the tagline, the **text row** (the languages as one radio group, the music,
 Settings, Play offline, About; a phone stands it as a column beside the
-card) and the **colophon**: on Wide and Vast the build, the Fan Content
-notice word for word, Scryfall's credit and the source with its QR; on the
-smaller classes the one-line colophon, whose notice and Source open the
-**About** sheet (every colophon sentence in full, the licence, the source
-as text, link and code, the third-party licences). `docs/legal.md` §"The
-front door's notices". Caps Lock is inferred from a letter's case against
+card), under it **this client's build** on a line of its own (`door::
+version_line`; the whole build on Wide and Vast, the version below; it was
+in the sign-in face's head and at the start of the colophon until
+09.10.2026), and the **colophon**: on Wide and Vast the Fan Content notice
+word for word and Scryfall's credit set as a short centred paragraph
+(`door::full`, about two lines of the notice at 1920), with the source
+offer — its QR and "Source code (AGPL-3.0): <address>" as text and link —
+in the window's top-right corner (`door::source_corner`); on the smaller
+classes the one-line colophon, whose notice and Source open the **About**
+sheet (every colophon sentence in full, the licence, the source as text,
+link and code, the third-party licences). `docs/legal.md` §"The front
+door's notices". Caps Lock is inferred from a letter's case against
 Shift and said under the password being typed.
+
+**The kit answers the pointer** (owner, 09.10.2026). Every control the
+kit draws lightens and lifts under a hover and gives and darkens under a
+press, over about 120 ms (`ambience::feel`; a face behind its hit area,
+`Pickable::IGNORE`, answers its hit area's interaction); a ghost, a tab and
+an unchosen segment rise out of nothing to `tokens::HOVER`. A toggle's
+knob slides and its track eases from `TRACK_OFF` to the accent over about
+180 ms, from where the toggle under the same stop last stood
+(`controls::ToggleShown`), so the rebuild a press makes does not end the
+motion. A primary button wears a quiet light from its top edge and, while
+hovered, a soft band sweeping across it (`shellkit::sheen`,
+`kit_sheen.wgsl`, uniforms only): at rest the shader reads no clock and the
+material is written only while the pointer's warmth changes. The pointer
+is a hand over everything a click acts on, a text bar over a field, the
+arrow over a control that is off (`shellkit::pointer`; at the table, the
+table's buttons, a playable hand card and a card with an offer on the
+felt). `reduce_motion` changes every state at once and holds the sheen's
+band still. A key cap stands `controls::cap_gap` (10 × the step, never
+under 8 px) after its label. The settings search is a lobby field
+(`Field::SettingsSearch`) with the username's caret, selection and keys.
 
 **The terms sheet** (WG-1; `client-core::terms`, `lobby/front/terms.rs`):
 modal over whatever the sign-in led to, its own `TabOrder` (text, Not now,

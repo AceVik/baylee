@@ -32,10 +32,18 @@ pub(crate) fn field_metrics(kit: Kit) -> Metrics {
     }
 }
 
-/// Whether the face sets its fields two to a row: every class but the
-/// smallest desktop window (§2.7: a phone's are a two-column grid that
-/// ends above the keyboard line).
+/// Whether the face sets two things to a row: only a phone, whose form has
+/// to end above the keyboard line (§2.7). Everywhere else one input stands
+/// on each line (owner, 09.10.2026: the create and guest faces looked
+/// squeezed), and the sign-in face's two doors share a row
+/// ([`doors_side_by_side`]).
 fn two_columns(kit: Kit) -> bool {
+    kit.m.frame == Frame::Phone
+}
+
+/// The sign-in face's two doors side by side, as before, on every class
+/// but the smallest window.
+fn doors_side_by_side(kit: Kit) -> bool {
     kit.m.frame != Frame::Compact
 }
 
@@ -57,13 +65,24 @@ fn column(commands: &mut Commands, kit: Kit, gap: f32) -> Entity {
 /// Two cells side by side, each half the row; one above the other on the
 /// smallest window.
 fn pair(commands: &mut Commands, kit: Kit, left: Entity, right: Option<Entity>) -> Entity {
+    pair_if(commands, kit, two_columns(kit), left, right)
+}
+
+/// [`pair`], side by side when `side` says so.
+fn pair_if(
+    commands: &mut Commands,
+    kit: Kit,
+    side: bool,
+    left: Entity,
+    right: Option<Entity>,
+) -> Entity {
     let row = commands
         .spawn((
             Node {
                 width: Val::Percent(100.0),
                 column_gap: kit.m.px(12.0),
                 row_gap: kit.m.px(10.0),
-                flex_direction: if two_columns(kit) {
+                flex_direction: if side {
                     FlexDirection::Row
                 } else {
                     FlexDirection::Column
@@ -391,23 +410,17 @@ fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity
             Pickable::IGNORE,
         ))
         .id();
+    // This client's own build stands under the text row (owner,
+    // 09.10.2026), where every face shows it.
     commands.entity(right).add_child(version);
-    if !phone {
-        let ours = controls::label(
-            commands,
-            kit,
-            &Phrase::FrontThisClient.fill(lang, &[baylee_build::VERSION]),
-            kit.m.small,
-            tokens::MUTED,
-        );
-        commands.entity(right).add_child(ours);
-    }
     commands.entity(head).add_children(&[back, names, right]);
     head
 }
 
 /// A second face's head: `‹ Back`, the face's title, and the gateway as a
-/// chip on the right.
+/// chip on the right — or, where the three do not fit on one line, the chip
+/// on a line of its own under them (owner, 09.10.2026: the title ran into
+/// the gateway's name and was cut).
 fn face_head(commands: &mut Commands, state: &LobbyState, kit: Kit, title: &str) -> Entity {
     let lang = state.lobby.lang();
     let head = commands
@@ -415,7 +428,9 @@ fn face_head(commands: &mut Commands, state: &LobbyState, kit: Kit, title: &str)
             Node {
                 width: Val::Percent(100.0),
                 column_gap: kit.m.px(12.0),
+                row_gap: kit.m.px(6.0),
                 align_items: AlignItems::Center,
+                flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
             Pickable::IGNORE,
@@ -433,16 +448,14 @@ fn face_head(commands: &mut Commands, state: &LobbyState, kit: Kit, title: &str)
             keys::stop(state, "back"),
         ),
     );
+    // The title whole, never cut: it wraps before it is clipped.
     let words = commands
         .spawn((
             Text::new(title),
             crate::hud::tf(kit.fonts, kit.m.head),
             TextColor(tokens::INK),
-            TextLayout::no_wrap(),
             Node {
-                flex_grow: 1.0,
-                min_width: px_fixed(0.0),
-                overflow: Overflow::clip_x(),
+                flex_shrink: 1.0,
                 ..default()
             },
             Pickable::IGNORE,
@@ -450,20 +463,35 @@ fn face_head(commands: &mut Commands, state: &LobbyState, kit: Kit, title: &str)
         .id();
     let gateway =
         super::super::gateway::row_words(&state.gateway, state.probes.get(&state.gateway), lang);
+    // Pushed to the right end of its line, which is the head's first when
+    // there is room and a line of its own when there is not.
     let chip = commands
         .spawn((
             Node {
                 column_gap: kit.m.px(6.0),
                 align_items: AlignItems::Center,
                 flex_shrink: 1.0,
-                min_width: px_fixed(0.0),
+                flex_wrap: FlexWrap::Wrap,
+                max_width: Val::Percent(100.0),
+                margin: UiRect::left(Val::Auto),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
     let reach = dot(commands, kit, gateway.reach);
-    let name = controls::label(commands, kit, &gateway.title, kit.m.small, tokens::INK);
+    let name = commands
+        .spawn((
+            Text::new(gateway.title.clone()),
+            crate::hud::tf(kit.fonts, kit.m.small),
+            TextColor(tokens::INK),
+            Node {
+                flex_shrink: 1.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
     commands.entity(chip).add_children(&[reach, name]);
     if state.lobby.registration() == Registration::Invite {
         let badge = beta_badge(commands, kit, lang);
@@ -615,7 +643,13 @@ pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState,
     let doors: Vec<Entity> = create.into_iter().chain(guest).collect();
     if !doors.is_empty() {
         let line = rule(commands);
-        let row = pair(commands, kit, doors[0], doors.get(1).copied());
+        let row = pair_if(
+            commands,
+            kit,
+            doors_side_by_side(kit),
+            doors[0],
+            doors.get(1).copied(),
+        );
         commands.entity(card).add_children(&[line, row]);
         let new_one =
             lobby.registration_enabled() || (lobby.guest_offered() && lobby.kept_guest().is_none());

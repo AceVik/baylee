@@ -4,7 +4,14 @@ use bevy::prelude::*;
 use bevy::ui::{percent, px};
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 
-pub(crate) fn attach(commands: &mut Commands, parent: Entity, list: Entity, metrics: Metrics) {
+/// Puts `list` and a scrollbar for it side by side in `parent`; returns the
+/// bar's track.
+pub(crate) fn attach(
+    commands: &mut Commands,
+    parent: Entity,
+    list: Entity,
+    metrics: Metrics,
+) -> Entity {
     let host = commands
         .spawn((
             Node {
@@ -54,6 +61,38 @@ pub(crate) fn attach(commands: &mut Commands, parent: Entity, list: Entity, metr
     commands.entity(track).add_child(thumb);
     commands.entity(host).add_children(&[list, track]);
     commands.entity(parent).add_child(host);
+    track
+}
+
+/// A scrollbar shown only while its list is taller than its view: the front
+/// door's page (owner, 09.10.2026: a form taller than the window scrolls,
+/// with a bar that says so), which most windows hold whole.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct OnlyWhenNeeded;
+
+/// Shows an [`OnlyWhenNeeded`] bar while its list runs past its view, and
+/// hides it otherwise; written only when that changes.
+///
+/// Taken out of the layout while hidden (`Display::None`), so a page that
+/// fits keeps its whole width and stays centred.
+pub(super) fn show_when_needed(
+    mut bars: Query<(&Scrollbar, &mut Node), With<OnlyWhenNeeded>>,
+    lists: Query<&ComputedNode>,
+) {
+    for (bar, mut node) in &mut bars {
+        let Ok(list) = lists.get(bar.target) else {
+            continue;
+        };
+        let runs_over = list.content_size.y > list.size.y + 1.0;
+        let display = if runs_over {
+            Display::Flex
+        } else {
+            Display::None
+        };
+        if node.display != display {
+            node.display = display;
+        }
+    }
 }
 
 pub(super) fn remember(

@@ -174,6 +174,13 @@ impl Plugin for LobbyPlugin {
                 (front::fade_front, front::fade_primary_surfaces)
                     .run_if(in_state(DuelPhase::Closed)),
             )
+            // After layout, which is what says whether a page runs over.
+            .add_systems(
+                PostUpdate,
+                scrollbars::show_when_needed
+                    .after(bevy::ui::UiSystems::Layout)
+                    .run_if(in_state(DuelPhase::Closed)),
+            )
             .add_systems(
                 Update,
                 (leave_clicks, leave_keys).run_if(in_state(DuelPhase::Finished)),
