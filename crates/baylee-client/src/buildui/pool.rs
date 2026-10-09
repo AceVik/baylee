@@ -171,6 +171,7 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
             ..default()
         },
         stop("search"),
+        crate::tour::TourAnchor(baylee_client_core::tour::Anchor::BuildSearch),
     ));
     let mut first = vec![search];
     if compact(env) {
@@ -240,6 +241,9 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
     // ---- the count line
     let said = count_line(env);
     let count = cell(commands, kit, &said, m.small, tokens::MUTED, false);
+    commands.entity(count).insert(crate::tour::TourAnchor(
+        baylee_client_core::tour::Anchor::BuildCount,
+    ));
     commands.entity(holder).add_child(count);
 }
 

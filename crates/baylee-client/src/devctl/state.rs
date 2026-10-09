@@ -41,6 +41,17 @@ pub(super) struct Believed<'w, 's> {
     /// The guided tour standing, and where its hole is (`/state.tour`).
     tour: Option<Res<'w, crate::tour::TourDesk>>,
     spotlight: Option<Res<'w, crate::tour::Spotlight>>,
+    /// The bubble's and the pill's buttons, where a pointer would press them
+    /// (a try-it step's Next is not a key: the keys are the screen's).
+    tour_controls: Query<
+        'w,
+        's,
+        (
+            &'static crate::tour::TourPress,
+            &'static ComputedNode,
+            &'static UiGlobalTransform,
+        ),
+    >,
     /// The report form's buttons, where a pointer would press them.
     desk_controls: Query<
         'w,
@@ -1077,6 +1088,20 @@ fn tour_json(believed: &Believed, settings: Option<&ClientSettings>) -> String {
                 )
             },
         );
+    let controls = believed
+        .tour_controls
+        .iter()
+        .map(|(press, node, place)| {
+            let mid = place.translation * node.inverse_scale_factor;
+            format!(
+                "{{\"press\":{},\"at_x\":{:.1},\"at_y\":{:.1}}}",
+                quoted(&format!("{press:?}")),
+                mid.x,
+                mid.y
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
     let step = run.current();
     let skipped = run
         .skipped
@@ -1086,7 +1111,8 @@ fn tour_json(believed: &Believed, settings: Option<&ClientSettings>) -> String {
         .join(",");
     format!(
         "{{\"tour\":{},\"chapter\":{},\"step\":{},\"kind\":{},\"mode\":\"{mode}\",\
-         \"wants\":{},\"anchor\":{anchor},\"skipped\":[{skipped}],\"predicate_held\":{},\"seen\":[{seen}]}}",
+         \"wants\":{},\"anchor\":{anchor},\"skipped\":[{skipped}],\"predicate_held\":{},\"seen\":[{seen}],\
+         \"controls\":[{controls}]}}",
         quoted(run.tour.key()),
         quoted(run.current_chapter().id),
         quoted(step.id),

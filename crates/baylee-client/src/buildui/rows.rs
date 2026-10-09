@@ -123,6 +123,11 @@ pub(crate) fn pool_row(
             PoolRowAt(at),
         ))
         .id();
+    if at == 0 {
+        commands.entity(row).insert(crate::tour::TourAnchor(
+            baylee_client_core::tour::Anchor::BuildFirstRow,
+        ));
+    }
     let thumb = print(
         commands,
         &hover,

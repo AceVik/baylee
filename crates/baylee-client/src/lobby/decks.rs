@@ -23,6 +23,8 @@ use super::*;
 use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::surfaces::{self, SheetWidth};
 use crate::shellkit::{Frame as ShellFrame, Role, px_fixed, tokens};
+use crate::tour::TourAnchor;
+use baylee_client_core::tour::Anchor;
 use client_core::lobby::library::{AfterCopy, Compare, Page};
 use client_core::lobby::shelf::{self, Sort};
 
@@ -369,6 +371,18 @@ fn toolbar(
             },
         );
         orders::items_of(commands, tabs, &orders::DECKS, "tabs");
+        commands.entity(tabs).insert(TourAnchor(Anchor::DecksTabs));
+        // The House tab is the second of the two the kit spawns.
+        commands.queue(move |world: &mut World| {
+            let house = world
+                .get::<Children>(tabs)
+                .and_then(|children| children.get(1).copied());
+            if let Some(house) = house {
+                world
+                    .entity_mut(house)
+                    .insert(TourAnchor(Anchor::DecksHouseTab));
+            }
+        });
         commands.entity(bar).add_child(tabs);
     }
     let gap = parts::grow(commands);
@@ -455,6 +469,9 @@ fn toolbar(
         );
         orders::stop(commands, new, &orders::DECKS, "new");
         orders::stop(commands, import, &orders::DECKS, "import");
+        commands
+            .entity(import)
+            .insert(TourAnchor(Anchor::DecksImport));
         commands.entity(bar).add_children(&[new, import]);
     } else {
         // The house tab filters by format; it has no sort (its order is the
@@ -576,6 +593,22 @@ fn mine(
         };
         let tile = tile(commands, kit, lang, &look, &actions, more, None);
         orders::item(commands, tile, &orders::DECKS, "tiles", walked);
+        if walked == 0 {
+            commands
+                .entity(tile)
+                .insert(TourAnchor(Anchor::DecksFirstTile));
+            // The tile's action row: whatever holds its first action.
+            if let Some(&action) = actions.first() {
+                commands.queue(move |world: &mut World| {
+                    let row = world.get::<ChildOf>(action).map(ChildOf::parent);
+                    if let Some(row) = row {
+                        world
+                            .entity_mut(row)
+                            .insert(TourAnchor(Anchor::DecksTileActions));
+                    }
+                });
+            }
+        }
         walked += 1;
         commands.entity(tile).insert((
             super::focusing::Primary(Press::Decks(if next {
@@ -626,6 +659,7 @@ fn mine(
     }
     // The dashed New deck tile closes the shelf.
     let new = new_tile(commands, kit, lang);
+    commands.entity(new).insert(TourAnchor(Anchor::DecksNew));
     orders::item(commands, new, &orders::DECKS, "tiles", walked);
     commands.entity(grid).add_child(new);
 }
@@ -652,6 +686,10 @@ fn empty_shelf(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity 
         Press::Decks(DecksPress::NewDeck),
     );
     let actions = parts::row(commands, kit, true);
+    commands.entity(new).insert(TourAnchor(Anchor::DecksNew));
+    commands
+        .entity(import)
+        .insert(TourAnchor(Anchor::DecksImport));
     commands.entity(actions).add_children(&[new, import]);
     let column = crate::shellkit::states::empty(
         commands,
