@@ -2252,6 +2252,15 @@ messages! {
         en: "Choose \"left\" (first) or \"right\": only that pile and fliers may block it",
         de: "Wähle \"links\" (zuerst) oder \"rechts\": nur dieser Stapel und Flieger dürfen blocken",
     },
+    /// Raging River: the label for the attacker named {0}
+    ChooseRiverLabelFor {
+        en: "{0}: choose \"left\" or \"right\"; only that pile and fliers may block it",
+        de: "{0}: wähle \"links\" oder \"rechts\"; nur dieser Stapel und Flieger dürfen blocken",
+    },
+    /// Left: {0} — the "left" pile's row of a Raging River label
+    RiverLeftRow { en: "Left: {0}", de: "Links: {0}" },
+    /// Right: {0} — the "right" pile's row of a Raging River label
+    RiverRightRow { en: "Right: {0}", de: "Rechts: {0}" },
     /// attacker to block (False Orders' re-block, its blocker unnamed)
     NounAttackerToBlock {
         en: "attacker to block",

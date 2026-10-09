@@ -91,7 +91,7 @@ pub fn keyboard(
     if crate::hud::granted_keys(fired, &mut duel) {
         return;
     }
-    if damage_keys(fired, &mut duel) {
+    if damage_keys(fired, &mut duel) || pile_keys(fired, &mut duel) {
         return;
     }
     // And once more for the ability sheet, whose rows are sent by the digit
@@ -379,6 +379,55 @@ pub(super) fn damage_keys(fired: Fired, duel: &mut Duel) -> bool {
     };
     i.choose_index(next);
     duel.target_page = next / crate::choices::DAMAGE_PAGE_SIZE;
+    true
+}
+
+/// A pile choice (Fact or Fiction's pile, a Raging River label) from the
+/// keyboard: the cursor keys walk the rows, and the confirm key and Enter
+/// light the first row when none is lit and send the lit one when one is.
+///
+/// Played live, neither key did anything here: the sheet's rows answered a
+/// click only, Space said why it was holding back, and Enter reached the
+/// card under the pointer. Lighting before sending, rather than sending the
+/// first pile, because the question arrives in the middle of a run of
+/// priority passes on the same key — the reason the card dialog's confirm
+/// key ticks instead of sends (`browser_answer_keys`).
+pub(super) fn pile_keys(fired: Fired, duel: &mut Duel) -> bool {
+    let Some(i) = duel
+        .interaction
+        .as_mut()
+        .filter(|i| i.is_mine() && matches!(i.prompt(), Prompt::ChoosePile { .. }))
+    else {
+        return false;
+    };
+    let Prompt::ChoosePile { piles, .. } = i.prompt() else {
+        return false;
+    };
+    let count = piles.len();
+    if count == 0 {
+        return false;
+    }
+    let step = i32::from(fired.has(Action::CursorDown) || fired.has(Action::CursorRight))
+        - i32::from(fired.has(Action::CursorUp) || fired.has(Action::CursorLeft));
+    if step != 0 {
+        let next = match i.chosen_index() {
+            None => 0,
+            Some(at) if step > 0 => (at + 1) % count,
+            Some(at) => at.checked_sub(1).unwrap_or(count - 1),
+        };
+        i.choose_index(next);
+        return true;
+    }
+    if !(fired.has(Action::Confirm) || fired.has(Action::Primary)) {
+        return false;
+    }
+    if i.chosen_index().is_none() {
+        i.choose_index(0);
+        return true;
+    }
+    if let Some(action) = i.confirm() {
+        duel.submit(action);
+    }
     true
 }
 

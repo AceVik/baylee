@@ -536,9 +536,15 @@ impl Prompt {
             Self::ChoosePile { label: None, .. } => {
                 Phrase::ChoosePileForHand.text(lang).to_string()
             }
-            Self::ChoosePile { label: Some(_), .. } => {
-                Phrase::ChooseRiverLabel.text(lang).to_string()
-            }
+            // Raging River asks once per attacker, and the question can only
+            // be answered when it says which attacker it is about.
+            Self::ChoosePile {
+                label: Some(attacker),
+                ..
+            } => name(*attacker).map_or_else(
+                || Phrase::ChooseRiverLabel.text(lang).to_string(),
+                |attacker| Phrase::ChooseRiverLabelFor.fill(lang, &[&attacker]),
+            ),
             Self::Arrange { reason, onto } => arrange_line(lang, *reason, *onto),
             Self::YesNo { question } => yes_no_line(lang, *question, statics),
             Self::GameOver => Phrase::TheGameIsOver.text(lang).to_string(),

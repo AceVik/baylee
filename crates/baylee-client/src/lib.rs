@@ -1282,6 +1282,43 @@ impl Duel {
         }
     }
 
+    /// A Raging River label is a question about one attacker, and the
+    /// table's way of pointing at a card is the cursor: it goes onto the
+    /// attacker as each label is asked, so the card is lifted on the table,
+    /// stands in the preview, and the keyboard cursor starts from it. Played
+    /// live, the two attackers looked alike and the preview showed whichever
+    /// card the pointer had last crossed. Only when the label is new: a view
+    /// re-sending the same question leaves a player's own hover alone.
+    fn hover_the_river_label(&mut self, before: Option<ObjectId>) {
+        let Some(attacker) = self
+            .interaction
+            .as_ref()
+            .filter(|i| i.is_mine())
+            .and_then(river_label)
+        else {
+            return;
+        };
+        if before != Some(attacker) {
+            self.hovered = Some(attacker);
+            self.hovered_at = None;
+            self.hovered_log = None;
+        }
+    }
+
+    /// Makes `pending` the question, keeping what the last one carries over,
+    /// and returns the attacker the last one was a river label for.
+    fn install_question(&mut self, pending: Pending, seat: PlayerId) -> Option<ObjectId> {
+        let label_before = self.interaction.as_ref().and_then(river_label);
+        self.interaction = Some(Interaction::new_keeping(
+            pending,
+            self.view
+                .as_ref()
+                .map_or(seat, baylee_client_core::decision::resource_player),
+            self.interaction.as_ref(),
+        ));
+        label_before
+    }
+
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
         self.clear_hover_for_source_choice(&pending);
         self.target_page = 0;
@@ -1295,13 +1332,7 @@ impl Duel {
             self.subtype_group = 0;
         }
         let combat_before = self.interaction.as_ref().is_some_and(my_combat_question);
-        self.interaction = Some(Interaction::new_keeping(
-            pending,
-            self.view
-                .as_ref()
-                .map_or(seat, baylee_client_core::decision::resource_player),
-            self.interaction.as_ref(),
-        ));
+        let label_before = self.install_question(pending, seat);
         self.refresh_owed_plan();
         // My own attackers or blockers being asked for brings the camera home
         // as the question opens: its subject is my board (DESIGN-v7 §2.4).
@@ -1347,6 +1378,7 @@ impl Duel {
             self.browser.follow(v, self.interaction.as_ref());
         }
         self.clear_hover_for_new_browser(was_choosing);
+        self.hover_the_river_label(label_before);
         // A chooser belongs to the choice it was opened under. It
         // would heal itself anyway — the options are rebuilt from the
         // current `LegalActions` — but a menu that outlives its
@@ -2823,4 +2855,12 @@ fn my_combat_question(interaction: &Interaction) -> bool {
             interaction.pending(),
             Pending::ChooseAttackers { .. } | Pending::ChooseBlockers { .. }
         )
+}
+
+/// The attacker a Raging River label is asked about, if that is the question.
+fn river_label(interaction: &Interaction) -> Option<ObjectId> {
+    match interaction.pending() {
+        Pending::ChoosePile { label, .. } => *label,
+        _ => None,
+    }
 }

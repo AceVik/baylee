@@ -1269,3 +1269,44 @@ fn retarget_identity_and_names_include_the_original_incarnation() {
         Some(PlayerAction::ChooseObjects { objects: vec![] })
     );
 }
+
+/// Raging River asks the attacking player once per attacker, and two of the
+/// questions are word for word the same unless the line says which attacker
+/// it is about — played live, with two Grizzly Bears on the table the
+/// unnamed line read as a question about the pointer's card. Named in both
+/// languages; a renderer that cannot name it keeps the old line.
+#[test]
+fn a_river_label_names_the_attacker_it_is_for() {
+    let i = interaction(Pending::ChoosePile {
+        player: me(),
+        piles: vec![vec![obj(5)], vec![obj(6), obj(7)]],
+        label: Some(obj(2)),
+    });
+    let names = |id: ObjectId| (id == obj(2)).then(|| "Hill Giant".to_string());
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::En, Turn::Mine, None, false, &names),
+        "Hill Giant: choose \"left\" or \"right\"; only that pile and fliers may block it"
+    );
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::De, Turn::Mine, None, false, &names),
+        "Hill Giant: wähle \"links\" oder \"rechts\"; nur dieser Stapel und Flieger dürfen blocken"
+    );
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::En, Turn::Mine, None, false, &|_| None),
+        "Choose \"left\" (first) or \"right\": only that pile and fliers may block it"
+    );
+    // Fact or Fiction's pile is not a label, and says nothing of blocking.
+    let i = interaction(Pending::ChoosePile {
+        player: me(),
+        piles: vec![vec![obj(5)], vec![obj(6)]],
+        label: None,
+    });
+    assert!(
+        !i.prompt()
+            .headline_naming(Lang::En, Turn::Mine, None, false, &names)
+            .contains("Hill Giant")
+    );
+}
