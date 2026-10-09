@@ -11,7 +11,14 @@ use support::{Tree, expected, installed, release_tree, snapshot, write_tree};
 
 const OLD: &str = "0.1.0-beta.2";
 const NEWER: &str = "0.1.0-beta.3";
-const SYSTEMS: [Os; 3] = [Os::Windows, Os::MacOs, Os::Linux];
+/// Every system whose installation this host can lay out: the macOS bundle
+/// holds a symlink, which Windows makes only in developer mode, so a Windows
+/// host checks Windows and Linux and leaves the bundle to the Mac and CI.
+fn systems() -> impl Iterator<Item = Os> {
+    [Os::Windows, Os::MacOs, Os::Linux]
+        .into_iter()
+        .filter(|os| cfg!(unix) || *os != Os::MacOs)
+}
 
 /// Puts the newer release's tree where the updater stages it.
 fn stage(install: &Install) -> Tree {
@@ -58,7 +65,7 @@ fn after(os: Os, old: &Tree, new: &Tree) -> Tree {
 
 #[test]
 fn each_system_is_replaced_by_its_new_tree() {
-    for os in SYSTEMS {
+    for os in systems() {
         let (base, install, old) = installed(os, OLD, "each");
         let new = stage(&install);
         let applied = apply::apply(&install, OLD).unwrap();
@@ -83,6 +90,7 @@ fn each_system_is_replaced_by_its_new_tree() {
 
 /// A bundle in `/Applications`: only the bundle is replaced, and the
 /// licences the archive carries are not dropped beside it.
+#[cfg(unix)] // a bundle holds a symlink (`systems`)
 #[test]
 fn macos_in_applications_touches_nothing_but_the_bundle() {
     let base = support::scratch("applications").join("Applications");
@@ -154,7 +162,7 @@ fn the_running_windows_exe_is_set_aside_and_deleted_at_the_next_start() {
 /// at the next start: the installation is then exactly the new one.
 #[test]
 fn a_crash_after_any_step_is_finished_at_the_next_start() {
-    for os in SYSTEMS {
+    for os in systems() {
         let steps = {
             let (_, install, _) = installed(os, OLD, "count");
             stage(&install);
@@ -205,7 +213,7 @@ fn a_crash_after_any_step_is_finished_at_the_next_start() {
 /// old installation, exactly.
 #[test]
 fn a_crash_that_cannot_be_finished_is_rolled_back_to_the_old_client() {
-    for os in SYSTEMS {
+    for os in systems() {
         let steps = {
             let (_, install, _) = installed(os, OLD, "count");
             stage(&install);
@@ -240,7 +248,7 @@ fn a_crash_that_cannot_be_finished_is_rolled_back_to_the_old_client() {
 #[test]
 fn a_step_that_fails_undoes_the_ones_before_it() {
     use std::os::unix::fs::PermissionsExt as _;
-    for os in SYSTEMS {
+    for os in systems() {
         let (base, install, old) = installed(os, OLD, "fails");
         stage(&install);
         let new = install.stage().join(NEW);
@@ -267,7 +275,7 @@ fn a_step_that_fails_undoes_the_ones_before_it() {
 /// before any rename.
 #[test]
 fn a_taken_aside_refuses_before_any_rename() {
-    for os in SYSTEMS {
+    for os in systems() {
         let (base, install, old) = installed(os, OLD, "taken");
         stage(&install);
         let aside = base.join(os.aside(&install.program));
@@ -283,7 +291,7 @@ fn a_taken_aside_refuses_before_any_rename() {
 /// Nothing staged, nothing done: a client closed with no update pending.
 #[test]
 fn nothing_staged_changes_nothing() {
-    for os in SYSTEMS {
+    for os in systems() {
         let (base, install, old) = installed(os, OLD, "nothing");
         assert!(matches!(
             apply::apply(&install, OLD),

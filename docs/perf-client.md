@@ -204,3 +204,131 @@ costs more at the loud end: one second of music as the audio thread pulls
 it is lobby 6.5, calm table 10.7, tension 15.9, climax 20.5 ms (criterion,
 M1 Max): at most 2 % of one core at the climax, about 1 % at rest. Not
 sampled in the app this round. The bank is 19.6 MB (133 recordings).
+
+## Windows (8 October 2026)
+
+The first round on Windows, on the owner's desktop, branch
+`c41/windows-opt`.
+
+**Machine.** Ryzen 9 3900X (12 cores), 64 GB, RTX 4070 Ti (driver 617.42,
+32.0.16.1742), Windows 11 Pro 26200 in German. Two monitors, both at 150 %:
+3840×2160 at 240 Hz (primary; the window maximised is 2560×1369 logical) and
+2560×1600 at 120 Hz. With no preference saved the RTX picks **High** (cap
+120, rest 60, background 30, MSAA 4×).
+
+**Method.** `release` builds with `dev-control`, started by a PowerShell
+script with a scratch `XDG_CONFIG_HOME` (music muted, nothing else set) and
+the window in front, untouched unless a row says so. "Before" is
+`47ea193d` (main before the icon branch), "after" this branch.
+
+- **Frames** and the frame-time spread from `/perf`.
+- **CPU** is the process's CPU time over wall time (all threads; 100 % is
+  one core).
+- **GPU ms/s** is the process's `\GPU Engine(pid_*)\Running Time` summed
+  over its engines, per wall second. It is busy time, not energy: a GPU that
+  clocks down at a low rate takes longer per frame, so this column *rises*
+  from 30 to 15 frames on the same screen. Compare power instead.
+- **Board power** is `nvidia-smi --query-gpu=power.draw` every 250 ms over
+  the same interval, given as the rise over the desktop with no Baylee
+  running, sampled just before (20.3 W, other programs as they were).
+- **RAM** is private bytes, **VRAM** `\GPU Process Memory\Dedicated Usage`.
+- A **busy** row moves the pointer every 200 ms; a duel's row is an
+  offline game against the house (Play offline → Play the house, keep).
+- Startup and the first frame: bevy's `trace_chrome` on a `ci-release`
+  build, and full-screen captures every few hundred milliseconds.
+
+### What was found, and what changed
+
+| | Before | After |
+|---|---|---|
+| Startup: dev harness answers | 4.8–5.1 s (3 launches) | **1.1 s** |
+| Startup: what the player sees | a white 1280×720 window from 0.9 s, black and maximised at 4.7 s, the front door at 5.3 s | nothing, then the front door maximised at about 1.5–1.9 s |
+| The first frame | 3.7 s, of which `sound::voice_the_cues` 3,707 ms | the cues are synthesised on the compute pool |
+| Minimised | 30 frames, 21 % CPU (background limit) | **1** frame, 0–3 % CPU, +0.7 W |
+| Menu untouched 30 s, High | 30 frames, +13.6 W, 20–22 % CPU | **15** frames, +5.3–5.5 W, 8–10 % CPU |
+| Console window beside the game (release) | yes (a console program) | none; `--console` opens one, the log in it |
+
+The "after" column is the branch's final build, two launches each; its
+baseline that hour was 21.1 W.
+
+- **The first frame.** `voice_the_cues` rendered all 37 cue buffers in
+  `Startup`, on the main thread. Bevy creates the window visible at its
+  default size and maximises it on the first frame, so those seconds stood on
+  screen as a white box. The buffers are now one task each on the compute
+  pool (`sound::collect_the_voices` fills `Voices`), and the desktop window
+  is created hidden and shown on its third frame
+  (`standalone::show_the_window`). What is left of the first second:
+  `RenderPlugin`'s build 0.54 s, the Vulkan surface 0.30 s and the mark
+  atlas's bake 0.27 s on the main thread when the font arrives.
+- **The console.** A release runtime was a console program, so starting it
+  directly opened a console window beside the game (the launcher hid it with
+  `CREATE_NO_WINDOW`). It is a windows-subsystem program now, a debug build
+  still a console one; `--console` (passed on by the launcher) attaches to
+  the parent's console or opens one and points the standard handles at it
+  (`baylee_client::console`).
+- **Minimised.** winit sends no `Occluded` on Windows (only macOS, iOS, the
+  web and Wayland do), so a minimised client was paced as one behind other
+  windows. Windows resizes a minimised window to 0×0 (`/health` reads width
+  and height 0), and `quality::minimised` reads that as hidden.
+- **An idle menu at High** kept its world moving at the background limit.
+  `graphics::IDLE_MOVING_FPS` holds it to 15. The same front door untouched
+  for 35 s, two interleaved passes:
+
+  | Background pace | Frames | CPU | GPU ms/s (busy) | Board power over idle | GPU clock |
+  |---|---|---|---|---|---|
+  | 30 (High before) | 30 | 20–22 % | 199–202 | +13.6 W | 1,670–1,720 MHz |
+  | 15 (High now) | 15 | 11–15 % | 242–249 | +6.5 W | 427–436 MHz |
+  | 5 | 5 | 3–6 % | 145 | +2.2 W | 218–221 MHz |
+
+  The motion at 15 frames was not judged by eye. Low and Medium (an M1, the
+  owner's 7840U laptop) already rest at one frame a second and are unchanged.
+- **A game's record was not locked on Windows** (not a frame cost, found by
+  running the tests here). `records::LiveRecord` opened its file append-only,
+  Windows locks only through a handle with read or write-data access, and
+  `try_lock` failed in silence, so a second client's `recover` could cut a
+  running game's record back. The file is opened for reading as well.
+- **The tests on a Windows host.** CI runs them on Linux only. On Windows,
+  besides the record, the updater's macOS-bundle fixtures need symlinks
+  (skipped there now, which also lets `end_to_end` reach its Windows case),
+  two tests split source on `\n` against a `\r\n` checkout, and `userdirs`
+  judged a Linux path's absoluteness by the host's rules. All of
+  `baylee-client`, `-client-core` and `-update` pass on Windows now.
+
+### Measured and left alone
+
+- **Backend.** Bevy allows every backend and wgpu prefers Vulkan over DX12
+  for the same adapter, falling back to DX12 where Vulkan is missing. Forcing
+  DX12 (`WGPU_BACKEND=dx12`) against the default, two interleaved passes:
+
+  | | Vulkan | DX12 |
+  |---|---|---|
+  | Front door at 30 frames: CPU, GPU ms/s | 18–21 %, 258–276 | 19–26 %, 225–235 |
+  | Duel busy (≈118 frames): CPU | 93–105 % | 125–147 % |
+  | Duel busy: frame time p95 | 9.0–9.3 ms | 14.8–15.3 ms |
+  | Duel at rest (60): CPU | 54–56 % | 65 % |
+  | Duel: GPU ms/s | 302–313 / 328–330 | 302–305 / 334–336 |
+  | Duel: private RAM / VRAM | 1,216 / 906 MB | 1,100–1,146 / 786 MB |
+
+  DX12 costs more CPU at the table and paces worse; the default stays.
+  `WGPU_BACKEND` still chooses (the launcher passes the environment on).
+- **Frame pacing.** winit 0.30 waits on a high-resolution waitable timer on
+  Windows, and the caps hold: 30 frames at p50 33.3 ms, p99 34.1–34.7 ms;
+  60 at p50 16.6, p99 17.6–18.0; 120 at p50 8.4 ms.
+- **The table's CPU.** The main schedules take 1.15 ms a frame (7 % of a core
+  at 60 frames); the rest of a duel's 54 % is rendering and the driver, as
+  on the Mac (57 % at 60 frames, §"The client at rest, second round").
+- **Memory.** Private bytes 730–860 MB at the front door and about 1.2 GB at
+  a duel (working set 340–600 MB); dedicated VRAM 530–640 MB and 790–910 MB.
+  Not looked into further this round.
+- **"FPS N/A · GPU · CPU · LAT N/A"** in the top right of a screenshot is
+  NVIDIA's statistics overlay, not Baylee's: its frame counter does not
+  hook this program.
+- **"Winit Thread Event Target"**, a 22×22 window at 0,0 that `EnumWindows`
+  lists as visible, is winit's message window: `WS_EX_TOOLWINDOW |
+  NOACTIVATE | LAYERED | TRANSPARENT`, no taskbar button, no input.
+- **AltGr** on the German layout: `@ € { [ ] } \ ~ |` type into a field
+  through real key events, and none fires a shortcut (winit drops the left
+  Ctrl Windows fakes for AltGr).
+- **DPI.** Both monitors are at 150 % here, so a move between different
+  scales was not tried; moving the window between the two relays it out
+  (2560 → 1707 logical wide) and back.

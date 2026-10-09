@@ -4,10 +4,13 @@
 //! # Why it is not the row, and not the card either
 //!
 //! The stack panel abbreviates. A **queued** row draws no sentence at all and
-//! a **full** row draws one cut to [`STACK_SENTENCE_LINES`] lines, which is
-//! the arithmetic that lets a stack of ten stay one panel — and it is exactly
-//! what the owner reported: *"Auf dem Stack werden die Effekte oft
-//! abgekürzt."* The place that answers it is the hover preview, because
+//! a **full** row shows one in a box [`STACK_SENTENCE_LINES`] lines tall,
+//! which is the arithmetic that lets a stack of ten stay one panel. It was
+//! *cut* there until 08.10.2026, which is exactly what the owner reported:
+//! *"Auf dem Stack werden die Effekte oft abgekürzt."* (The box scrolls the
+//! rest now, under its own scrollbar, and the row's height does not follow
+//! the hover, so the oscillation below cannot start from it.) The place that
+//! reads it at size is still the hover preview, because
 //! `docs/redesign-proposal.md` §8.2 already decided that the preview "is a
 //! description of the card and is the only place rules text is read at size".
 //! A second such place inside the panel would be two answers to one question,

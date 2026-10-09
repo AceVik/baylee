@@ -1062,12 +1062,24 @@ pub fn sync_overlay(
         board.stack.is_empty(),
         duel.statics.as_ref(),
     ) {
+        // The window is in the revision, so one crossing a phone's height
+        // rebuilds the sentence's box at its other height.
+        #[allow(clippy::cast_precision_loss)] // a window's size in pixels
+        let window = Vec2::new(canvas.0 as f32, canvas.1 as f32);
+        let text_lines = super::stack::text_lines(window.y);
+        // Where it stands, and on a phone its compact shape; the drawer's
+        // part `fold_the_stack` keeps up to date every frame.
+        let room = super::stack::panel_room(
+            window,
+            duel.hand_shown,
+            super::stack::strip_right(tree.players_strip.iter()),
+        );
         let stack = spawn_stack_panel(
             &mut commands,
             duel.stack_selected,
             &prefs.all().ability_orders,
             stack_scroll,
-            full_height,
+            (full_height, text_lines, room),
             lang,
             board,
             view,

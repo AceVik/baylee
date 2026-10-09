@@ -471,8 +471,14 @@ fn at_the_gentle_lean_every_seat_is_drawn_a_board_of_the_same_width() {
         (Vec2::new(1280.0, 800.0), 1.14),
         // 1.20 since v7: a ring keeps one unit of air where it kept three
         // and a half, the camera stands closer and the near seat gains on
-        // the far ones (19.7 % at five seats, measured).
-        (Vec2::new(430.0, 932.0), 1.20),
+        // the far ones (19.7 % at five seats, measured). 1.25 since the
+        // packed table (owner, 08.10.2026): from five seats this canvas lays
+        // a frame, the camera comes closer again and every board is drawn
+        // wider — against the ellipse framed the same way (above the
+        // players' strip), the narrowest 159 → 163 px at five seats, 121 →
+        // 124 at seven, 108 → 112 at eight — while the spread goes 19.2 →
+        // 20.2 %, 18.0 → 23.8 % and 18.9 → 21.2 %.
+        (Vec2::new(430.0, 932.0), 1.25),
     ] {
         let canvas = Canvas::hud(window);
         for n in 2..=8u8 {
@@ -622,8 +628,17 @@ fn the_shot_is_as_close_as_the_band_allows() {
 #[test]
 fn the_table_sits_in_the_middle_of_what_can_be_seen() {
     let canvas = Canvas::hud(WINDOW);
-    let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
-    let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
+    // The band the shot frames in: the HUD's, or — where a ring would put
+    // a seat under the players' strip or a top button — that band less
+    // the strip, the top line, or both (`CameraRig::home_shot`).
+    let mut strips = canvas;
+    strips.bottom += crate::hud::STRIPS_H;
+    let bands = [
+        canvas,
+        strips,
+        canvas.below_the_pill(),
+        strips.below_the_pill(),
+    ];
     for n in 2..=8u8 {
         let layout = TableLayout::new(&seats(n), 2.01, None);
         let rig = CameraRig::home(&layout, canvas);
@@ -631,10 +646,19 @@ fn the_table_sits_in_the_middle_of_what_can_be_seen() {
         let eye = rig.distance * (1.0 + rig.lean * rig.lean).sqrt();
         // The rig stores world x/z; `+y` away from the local seat is `-z`.
         let along = -rig.target.y;
-        let behind = eye * ground(top, rig.lean) - (max.y - along);
-        let ahead = (min.y - along) - eye * ground(bottom, rig.lean);
+        let off = |band: &Canvas| {
+            let top = 1.0 - 2.0 * band.top / band.window.y;
+            let bottom = -1.0 + 2.0 * band.bottom / band.window.y;
+            let behind = eye * ground(top, rig.lean) - (max.y - along);
+            let ahead = (min.y - along) - eye * ground(bottom, rig.lean);
+            (behind, ahead)
+        };
+        let (behind, ahead) = off(&canvas);
         assert!(
-            (behind - ahead).abs() < 0.1,
+            bands.iter().any(|band| {
+                let (b, a) = off(band);
+                (b - a).abs() < 0.1
+            }),
             "{n} seats: {behind:.2} units of felt behind the far seat \
              against {ahead:.2} in front of the near one"
         );
@@ -1074,6 +1098,86 @@ fn the_corner_beside_the_report_button_lies_on_no_seat_s_place() {
     }
 }
 
+/// A phone's home holds the dial's hub — the turn number and where the
+/// hands leave it — on screen, grown as the dial grows: from four seats the
+/// whole hub (measured: its far rim 2–12 px under the window's top edge),
+/// at three its centre (there the hub's far half would turn the circle's
+/// second seat under the report button, which wins). It used to hold the
+/// dial's near half, its centre on the canvas's top edge.
+#[test]
+fn a_phone_s_home_holds_the_dial_s_hub() {
+    use baylee_client_core::dial;
+    use baylee_client_core::tableview::{Arrangement, TableFrame};
+    for window in [Vec2::new(844.0, 390.0), Vec2::new(932.0, 430.0)] {
+        let canvas = Canvas::for_table(window, Arrangement::Ring).with_drawer(false);
+        for n in 3..=8u8 {
+            let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+            let frame = TableFrame::of(window.x, window.y);
+            let layout =
+                TableLayout::arranged_in(&roster, canvas.aspect(), Arrangement::Ring, None, frame);
+            let rig = CameraRig::home_shot(&layout, canvas, Shot::default()).0;
+            let lens = Lens::new(rig, window);
+            let rim = Vec2::new(0.0, dial::HUB_R * dial::scale_for(&layout));
+            let (centre, rim) = (
+                lens.project(Vec2::ZERO).expect("in front"),
+                lens.project(rim).expect("in front"),
+            );
+            let held = if n == 3 { centre.y } else { rim.y };
+            assert!(
+                held >= 0.0,
+                "{n} seats in {window}: the hub stands {:.1} px (centre {:.1}) off the top",
+                rim.y,
+                centre.y
+            );
+        }
+    }
+}
+
+/// From five seats the players' strip runs under the middle of the near
+/// edge, and no seat's place lies under it at the ring's home — my own
+/// land row least of all — alone and in teams, on the desktop windows.
+#[test]
+fn no_seat_s_place_lies_under_the_players_strip() {
+    use baylee_client_core::tableview::{Arrangement, TableFrame};
+    for window in [
+        WINDOW,
+        Vec2::new(1708.0, 1032.0),
+        Vec2::new(1280.0, 800.0),
+        Vec2::new(2560.0, 1440.0),
+    ] {
+        let canvas = Canvas::hud(window);
+        let frame = TableFrame::of(window.x, window.y);
+        let line = window.y - canvas.bottom - crate::hud::STRIPS_H;
+        for n in 5..=8u8 {
+            for team in [None, Some(2_u8), Some(3)] {
+                let roster: Vec<Seat> = seats(n)
+                    .into_iter()
+                    .map(|p| Seat::on(p, team.map(|k| p.get() % k)))
+                    .collect();
+                let layout = TableLayout::arranged_in(
+                    &roster,
+                    canvas.aspect(),
+                    Arrangement::Ring,
+                    None,
+                    frame,
+                );
+                let rig = CameraRig::home_shot(&layout, canvas, Shot::default()).0;
+                let lens = Lens::new(rig, window);
+                let lowest = places(&layout)
+                    .into_iter()
+                    .filter_map(|p| lens.project(p))
+                    .map(|at| at.y)
+                    .fold(f32::NEG_INFINITY, f32::max);
+                assert!(
+                    lowest <= line + 0.5,
+                    "{n} seats ({team:?}) in {window}: a place reaches {lowest:.1} px, \
+                     the strip stands from {line:.1}"
+                );
+            }
+        }
+    }
+}
+
 /// The arrangement switcher's pill (DESIGN-v8 §2.2, invariant 11) stands on
 /// no seat's place, in every arrangement's home shot, at every seat count
 /// and in the seven windows the report corner is held clear in, the pill as
@@ -1095,9 +1199,20 @@ fn the_arrangement_pill_lies_on_no_seat_s_place() {
             Vec2::new(360.0, 800.0),
             Vec2::new(2560.0, 1440.0),
         ] {
+            // The pill names the arrangement chosen where it is offered at
+            // this seat count, and the ring it resolves to where it is not
+            // (`arrangement::pill_names`).
+            let frame = baylee_client_core::tableview::TableFrame::of(window.x, window.y);
             on_no_seat_s_place_in(
                 window,
-                crate::arrangement::pill_corner(window, arrangement),
+                |n| {
+                    let named = if arrangement.offered(usize::from(n), frame).is_ok() {
+                        arrangement
+                    } else {
+                        baylee_client_core::tableview::Arrangement::Ring
+                    };
+                    crate::arrangement::pill_corner(window, named)
+                },
                 arrangement,
             );
         }
@@ -1109,7 +1224,7 @@ fn the_arrangement_pill_lies_on_no_seat_s_place() {
 fn on_no_seat_s_place(window: Vec2, corner: Rect) {
     on_no_seat_s_place_in(
         window,
-        corner,
+        |_| corner,
         baylee_client_core::tableview::Arrangement::Ring,
     );
 }
@@ -1118,22 +1233,24 @@ fn on_no_seat_s_place(window: Vec2, corner: Rect) {
 /// interest) and the rig its home pose takes.
 fn on_no_seat_s_place_in(
     window: Vec2,
-    corner: Rect,
+    corner_at: impl Fn(u8) -> Rect,
     arrangement: baylee_client_core::tableview::Arrangement,
 ) {
     {
         let canvas = Canvas::hud(window);
-        let square = [
-            corner.min,
-            Vec2::new(corner.max.x, corner.min.y),
-            corner.max,
-            Vec2::new(corner.min.x, corner.max.y),
-        ];
         let frame = baylee_client_core::tableview::TableFrame::of(window.x, window.y);
         for n in 2..=8u8 {
+            let corner = corner_at(n);
+            let square = [
+                corner.min,
+                Vec2::new(corner.max.x, corner.min.y),
+                corner.max,
+                Vec2::new(corner.min.x, corner.max.y),
+            ];
             let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
             let arrangement = arrangement.effective(usize::from(n), frame);
-            let layout = TableLayout::arranged(&roster, canvas.aspect(), arrangement, None);
+            let layout =
+                TableLayout::arranged_in(&roster, canvas.aspect(), arrangement, None, frame);
             let shot = Shot {
                 arrangement,
                 ..Shot::default()

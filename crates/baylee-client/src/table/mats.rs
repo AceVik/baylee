@@ -311,7 +311,12 @@ pub fn sync_table(
             material.params.corner = tabletop::table_corner(span);
             // A bigger slab reaches cells the old table did not hold.
             let (veins, vein_offsets) = crate::feltmat::vein_points(span, duel.table_pattern.0);
-            images.remove(&material.veins);
+            // Replaced, never removed: the old points go when their last
+            // handle does. `Assets::remove` took them out from under the
+            // table's cover, which holds every image it waits on — a slab
+            // recut under it (a phone's table widens once its layout
+            // settles) left the cover waiting for an image that no longer
+            // existed, on "Der letzte Feinschliff" for ever.
             material.veins = images.add(veins);
             material.params.veins = vein_offsets;
             // The fields are a function of the table point and the pattern,

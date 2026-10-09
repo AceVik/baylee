@@ -75,12 +75,26 @@ fn a_team_sits_along_one_side_of_the_table() {
         // as wide as it asked to be, the camera fitted it by width, and
         // all four boards sat in the top half of the window with bare
         // felt under them.
-        let (min, max) = layout.extent().expect("a seated table has an extent");
+        //
+        // That is the ellipse's promise. The table actually laid is the
+        // ellipse or a frame of two rows, whichever draws the smaller board
+        // larger, so of the table laid what is asked is that it never draws
+        // it smaller than the canvas-shaped ellipse would.
+        let ring = TableLayout::on_ring(&table, 1.78, None);
+        let (min, max) = ring.extent().expect("a seated table has an extent");
         let span = max - min;
         assert!(
             (span.x / span.y - 1.78).abs() < 0.15,
-            "{order:?}: the table came out {} ({span:?})",
+            "{order:?}: the ring came out {} ({span:?})",
             span.x / span.y
+        );
+        let price = |t: &TableLayout| {
+            let (lo, hi) = t.extent().expect("an extent");
+            frame::price(hi - lo, 1.78, &t.slots)
+        };
+        assert!(
+            price(&layout) <= price(&ring) + 1e-4,
+            "{order:?}: the table laid draws its boards smaller than the ring"
         );
 
         // This also said a table of two sides was a smaller table than one

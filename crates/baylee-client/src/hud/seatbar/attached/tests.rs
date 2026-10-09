@@ -359,6 +359,66 @@ fn no_ink_is_written_under_the_hand() {
     );
 }
 
+/// The packed ring (owner, 08.10.2026: neighbouring boards close, nothing
+/// covered): at the ring's home on a laptop's and a smaller desktop's
+/// window, from three seats to eight, alone and in teams of two and of
+/// three, every seat's plate is drawn and every steps panel stands, and
+/// neither lies on another seat's place — a board packed beside it covers
+/// none of what hangs at its mat's edge.
+#[test]
+fn a_packed_ring_covers_no_seat_s_plate_or_steps() {
+    use crate::table::{CameraRig, Canvas, Shot};
+    use baylee_client_core::layout::{Seat, TableLayout};
+    use baylee_client_core::tableview::{Arrangement, TableFrame};
+    for window in [Vec2::new(1708.0, 1032.0), Vec2::new(1280.0, 800.0)] {
+        let canvas = Canvas::hud(window);
+        let frame = TableFrame::of(window.x, window.y);
+        let hand_top = window.y - crate::hud::HAND_ZONE_H;
+        for n in 3..=8u8 {
+            let teams: [&dyn Fn(u8) -> Option<u8>; 3] =
+                [&|_| None, &|p| Some(p % 2), &|p| (n >= 6).then_some(p % 3)];
+            for team in teams {
+                let roster: Vec<Seat> = (0..n)
+                    .map(|p| Seat::on(PlayerId::new(p), team(p)))
+                    .collect();
+                let layout = TableLayout::arranged_in(
+                    &roster,
+                    canvas.aspect(),
+                    Arrangement::Ring,
+                    None,
+                    frame,
+                );
+                let rig = CameraRig::home_shot(&layout, canvas, Shot::default()).0;
+                let lens = crate::table::Lens::new(rig, window);
+                let what = format!(
+                    "{window}, {n} seats {:?}",
+                    roster.iter().map(|s| s.team).collect::<Vec<_>>()
+                );
+                for slot in layout.on_felt() {
+                    let corners = lens.corners(slot.ledge_corners()).expect("in front");
+                    let (at, tilt, scale, _) =
+                        steps_on(slot, &lens, corners).expect("the steps stand");
+                    let steps = drawn_quad(at, Panel::Phases.size(), tilt, scale);
+                    assert!(
+                        !on_another_seat(&steps, &layout, slot.player, &lens),
+                        "{what}: {:?}'s steps lie on another seat's place",
+                        slot.player
+                    );
+                    let (at, tilt, scale) =
+                        plate_on(&layout, &lens, slot.player, |_| 2, (1.0, hand_top))
+                            .unwrap_or_else(|| panic!("{what}: {:?} has no plate", slot.player));
+                    let plate = drawn_quad(at, plate_size(2), tilt, scale);
+                    assert!(
+                        !on_another_seat(&plate, &layout, slot.player, &lens),
+                        "{what}: {:?}'s plate lies on another seat's place",
+                        slot.player
+                    );
+                }
+            }
+        }
+    }
+}
+
 /// The owner's "flush" and his two alignment rules (08.10.2026): in every
 /// built arrangement, at two to eight seats, in a laptop's and a phone's
 /// window, every plate's edge **and** every steps panel's edge lie
@@ -386,7 +446,8 @@ fn every_plate_is_flush_with_its_battlefield_and_meets_no_other() {
             for n in 2..=8u8 {
                 let roster: Vec<Seat> = (0..n).map(PlayerId::new).map(Seat::alone).collect();
                 let arrangement = wanted.effective(usize::from(n), frame);
-                let layout = TableLayout::arranged(&roster, canvas.aspect(), arrangement, None);
+                let layout =
+                    TableLayout::arranged_in(&roster, canvas.aspect(), arrangement, None, frame);
                 let shot = Shot {
                     arrangement,
                     ..Shot::default()

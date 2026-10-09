@@ -358,6 +358,14 @@ pub const TABLE_SETTLE_SECS: f32 = 2.0;
 /// Frames per second a hidden or minimised window still draws.
 pub const HIDDEN_FPS: u32 = 1;
 
+/// The most frames an idle menu draws whose world keeps moving (`High` and
+/// up; below that it rests at [`HIDDEN_FPS`]). Nobody has touched it for
+/// [`IDLE_AFTER_SECS`], and what moves is slow ambience. Measured on a
+/// Windows desktop's RTX 4070 Ti, an untouched front door at 30, 15 and 5
+/// frames drew 13.6, 6.5 and 2.2 W of board power over the desktop's own
+/// and 21, 12 and 4 % of a core (`docs/perf-client.md` §"Windows").
+pub const IDLE_MOVING_FPS: u32 = 15;
+
 /// The device's graphics settings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, from = "Stored")]
@@ -698,7 +706,8 @@ impl Graphics {
     /// with ambient effects below `High`. A resting menu holds its ambient
     /// world still where it stands (the next input moves it on from there)
     /// and draws one frame a second, so an idle front door costs next to
-    /// nothing; at `High` it keeps moving at the background limit.
+    /// nothing; at `High` it keeps moving, at the background limit and at
+    /// most [`IDLE_MOVING_FPS`].
     #[must_use]
     pub fn rests(&self, showing: Showing) -> bool {
         showing.menu
@@ -711,8 +720,8 @@ impl Graphics {
     ///
     /// Hidden beats everything (nobody sees it). A menu left alone for
     /// [`IDLE_AFTER_SECS`] comes to rest at one frame a second
-    /// ([`Self::rests`]), or at `High` draws at the background limit; behind
-    /// other windows, the
+    /// ([`Self::rests`]), or at `High` draws at the background limit held to
+    /// [`IDLE_MOVING_FPS`], in front or behind; behind other windows, the
     /// background limit; a menu settled for [`MENU_SETTLE_SECS`], at most
     /// [`MENU_FPS`]; a table at rest for [`TABLE_SETTLE_SECS`], its
     /// [`RestLimit`] where that is below the focused limit; otherwise the
@@ -728,7 +737,11 @@ impl Graphics {
         if self.rests(showing) {
             return (Pace::Fps(HIDDEN_FPS), true);
         }
-        if idle || !showing.focused {
+        if idle {
+            let fps = self.background_limit.fps().min(IDLE_MOVING_FPS);
+            return (held(fps), true);
+        }
+        if !showing.focused {
             return (held(self.background_limit.fps()), true);
         }
         if showing.menu && showing.untouched_secs >= MENU_SETTLE_SECS {
@@ -994,13 +1007,33 @@ mod tests {
             untouched_secs: IDLE_AFTER_SECS,
             ..menu
         };
-        // Medium comes to rest; High keeps its world moving at the
-        // background rate unless nothing ambient moves anyway.
+        // Medium comes to rest; High keeps its world moving, at the
+        // background rate held to `IDLE_MOVING_FPS`, unless nothing ambient
+        // moves anyway.
         assert!(medium.rests(idle) && !medium.rests(settled));
         assert_eq!(medium.pace(idle), (Pace::Fps(HIDDEN_FPS), true));
         let high = Graphics::of(Preset::High);
         assert!(!high.rests(idle));
-        assert_eq!(high.pace(idle), (Pace::Fps(30), true));
+        assert_eq!(high.pace(idle), (Pace::Fps(IDLE_MOVING_FPS), true));
+        // In front or behind, the same: an idle window behind others never
+        // draws more than the same window idle in front. Behind and touched
+        // a moment ago, the background limit holds (30 at High).
+        let idle_behind = Showing {
+            focused: false,
+            ..idle
+        };
+        assert_eq!(high.pace(idle_behind), high.pace(idle));
+        assert_eq!(
+            high.pace(Showing {
+                focused: false,
+                ..settled
+            }),
+            (Pace::Fps(30), true)
+        );
+        // Below `IDLE_MOVING_FPS` the background limit stands.
+        let mut quiet = high;
+        quiet.background_limit = BackgroundLimit::Fps5;
+        assert_eq!(quiet.pace(idle), (Pace::Fps(5), true));
         let idle_still = Showing {
             still: true,
             ..idle

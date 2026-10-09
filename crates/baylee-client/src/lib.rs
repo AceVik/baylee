@@ -54,6 +54,8 @@ pub mod castmodes;
 pub mod choices;
 mod combatfx;
 pub mod combatlines;
+/// The console a Windows release build opens only on `--console`.
+pub mod console;
 pub mod depart;
 /// The dev-control harness. Native dev builds only; see the module docs for
 /// why it is a compile-time feature rather than a runtime switch.
@@ -574,6 +576,11 @@ pub struct Duel {
     /// is no window to ask, and `None` means "assume a wide screen", which is
     /// the hard-coded `16.0 / 9.0` this replaces.
     pub canvas_aspect: Option<f32>,
+    /// The window's class, measured with [`Self::canvas_aspect`]: a phone's
+    /// ring is laid on the ellipse, every other window's may be packed on a
+    /// frame (`TableLayout::arranged_in`). `None` until measured, read as
+    /// a wide window.
+    pub canvas_frame: Option<baylee_client_core::tableview::TableFrame>,
     /// The engaged autopilot, if any ("next phase" / "end turn").
     pub autopilot: Option<AutoPilot>,
     /// Stack entry chosen as the next manual response boundary.
@@ -1758,10 +1765,14 @@ fn add_present_systems(app: &mut App) {
                 // And after the rebuild too: a preview rebuilt this frame is
                 // stood back where its text had been scrolled to, and its
                 // scrollbar shown if the text runs over (#259).
+                // And a stack entry's sentence the same way: stood where it
+                // had been scrolled to, its keys' steps taken, and its bar
+                // shown while it runs over.
                 (
                     hud::wash_the_slip_in,
                     hud::keep_the_preview_scrolled,
                     face::show_scrollbars,
+                    hud::stack_text,
                 )
                     .after(hud::sync_overlay),
                 // After the rebuild for the reason `ease_the_stack_in` is:
@@ -1958,6 +1969,12 @@ fn add_present_systems(app: &mut App) {
             .in_set(DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),
     );
+    // The cues' buffers, synthesised off the main thread since startup,
+    // arrive whenever the last is done: the lobby is open by then.
+    app.add_systems(
+        Update,
+        sound::collect_the_voices.run_if(resource_exists::<sound::Voicing>),
+    );
 }
 
 /// Everything a hand does, in the order the frame has to read it in.
@@ -2098,6 +2115,7 @@ impl Plugin for DuelPlugin {
             .insert_resource(settings::ClientSettings::load())
             .init_resource::<Duel>()
             .init_resource::<hud::PreviewScroll>()
+            .init_resource::<hud::StackTextScroll>()
             // Both are written by systems that run every frame; a missing
             // resource here is a panic at the table, not a compile error.
             .init_resource::<table::SceneIndex>()
@@ -2147,9 +2165,10 @@ impl Plugin for DuelPlugin {
                     hud::setup_fonts,
                     hud::setup_sheets,
                     // Once, on the frame the app opens: thirty-seven
-                    // buffers of arithmetic, and thereafter thirty-seven
-                    // handles. See `sound`'s header for why they are
-                    // computed and not shipped, and what the count buys.
+                    // buffers of arithmetic, started on the compute pool
+                    // and collected by `sound::collect_the_voices`. See
+                    // `sound`'s header for why they are computed and not
+                    // shipped, and what the count buys.
                     sound::voice_the_cues,
                 ),
             )
@@ -3234,11 +3253,13 @@ pub fn rebuild_board(duel: &mut Duel) {
         .chain(view.opponents_in_turn_order())
         .map(|player| Seat::on(player, team_of(player)))
         .collect();
-    let mut layout = TableLayout::arranged(
+    let mut layout = TableLayout::arranged_in(
         &seats,
         duel.canvas_aspect.unwrap_or(16.0 / 9.0),
         duel.arrangement,
         duel.visiting,
+        duel.canvas_frame
+            .unwrap_or(baylee_client_core::tableview::TableFrame::Wide),
     );
     duel.interest_laid = duel.visiting;
     for slot in &mut layout.slots {

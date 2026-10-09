@@ -49,6 +49,7 @@ Two consequences worth knowing before changing anything here:
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |
 | Fast-forward to the next turn | `⇧Tab` | implemented |
 | Number choices (X) | arrows, digits, `⌫` (or the `−`/`+` buttons) | implemented |
+| Scroll the sentence of the stack entry the cursor (or the pointer) is on, while it runs over its box: a line / a box less a line (the owner, 08.10.2026; the arrows are the number's first while one is being chosen) | `↑` `↓` / `PgUp` `PgDn` (`TextPageUp`/`TextPageDown`) | implemented |
 | Pick a row of the ability sheet (the digit drawn on it) | `1`–`9` | implemented |
 | Walk the ability sheet: its column / its mana pips | `W` `S` / `A` `D` | implemented |
 | Turn the ability sheet's page | `0` | implemented |
@@ -70,7 +71,9 @@ ring order (DESIGN-v7: the camera orbits behind the seat, no card moves) and
 `H` comes home.
 
 That is also why the arrows have no exception written into them any more. They
-are `NumberUp`/`NumberDown` and nothing else, and while a text box holds the
+are `NumberUp`/`NumberDown` and nothing else — the stack entry's sentence
+reads those same actions while no number is being chosen, as the
+arrangement menu does — and while a text box holds the
 keyboard they are the box's, because every key on this page goes through
 `Fired::of` and stops at `browser_keys`. The camera was the one route that did
 not: it read `KeyCode` directly, so the arrows drove the table *through* a

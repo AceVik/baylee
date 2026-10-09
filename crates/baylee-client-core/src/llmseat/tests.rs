@@ -29,7 +29,8 @@ const FULL: &str = r#"{
 
 /// The example in `docs/llm-seat.md`, the first JSON block there.
 fn doc_example() -> String {
-    let doc = include_str!("../../../../docs/llm-seat.md");
+    // As LF whatever the checkout wrote (Windows' `autocrlf`).
+    let doc = include_str!("../../../../docs/llm-seat.md").replace("\r\n", "\n");
     let start = doc.find("```json\n").expect("a JSON example") + "```json\n".len();
     let end = start + doc[start..].find("```").expect("its end");
     doc[start..end].to_string()

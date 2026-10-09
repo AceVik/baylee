@@ -45,9 +45,38 @@ const MOST: f32 = 3.0;
 ///
 /// `angle` keeps the ring's bearing, which is where the dial's jewel for
 /// the seat points.
+///
+/// Stood up from the table `seated` lays — a frame where one is taken — or
+/// from the ellipse, whichever the camera frames closer upright: a frame's
+/// flanks stand upright as boards across the table, and with a long side
+/// beside them (one, two and three) that cost the whole table a fifth.
 #[must_use]
 pub fn upright(seats: &[Seat], aspect: f32) -> TableLayout {
-    let mut layout = TableLayout::seated(seats, aspect, None);
+    let laid = TableLayout::seated(seats, aspect, None);
+    let ring = TableLayout::on_ring(seats, aspect, None);
+    if laid == ring {
+        return upright_of(ring, seats, aspect);
+    }
+    let (framed, ellipse) = (
+        upright_of(laid, seats, aspect),
+        upright_of(ring, seats, aspect),
+    );
+    let price = |table: &TableLayout| {
+        table.extent().map_or(f32::INFINITY, |(lo, hi)| {
+            super::super::frame::price(hi - lo, aspect.clamp(0.45, 2.8), &table.slots)
+        })
+    };
+    if price(&framed) <= price(&ellipse) {
+        framed
+    } else {
+        ellipse
+    }
+}
+
+/// [`upright`] over a ring already laid: the ellipse's, where a phone keeps
+/// it (`TableLayout::arranged_in`).
+#[must_use]
+pub fn upright_of(mut layout: TableLayout, seats: &[Seat], aspect: f32) -> TableLayout {
     for slot in &mut layout.slots {
         slot.facing = facing_for(seats, slot.ring_index);
     }

@@ -94,8 +94,13 @@ pub(super) fn seen(arrangement: Arrangement, n: u8, window: Vec2) -> Vec<(Player
             )
         };
         let (near_layout, near_rig) = if arrangement.moves_cards() {
-            let near =
-                TableLayout::arranged(&seats, canvas.aspect(), arrangement, Some(seat.player));
+            let near = TableLayout::arranged_in(
+                &seats,
+                canvas.aspect(),
+                arrangement,
+                Some(seat.player),
+                frame,
+            );
             let rig = CameraRig::home_shot(&near, canvas, shot).0;
             (near, rig)
         } else if seat.player == PlayerId::new(0) {
@@ -663,4 +668,306 @@ fn a_side_mat_draws_its_cards_and_ground_at_its_scale() {
     assert!(scale.abs_diff_eq(Vec3::splat(side.scale), 1e-5));
     let flat = lying_flat(&side, 0.0);
     assert!(flat.scale.abs_diff_eq(Vec3::splat(side.scale), 1e-6));
+}
+
+/// Every seat's creature card at the ring's home, on the table the client
+/// lays (`arranged_in`) and on the ellipse it laid before the packing
+/// (`TableLayout::on_ring`), through each one's own home shot.
+fn packed_and_ring(n: u8, window: Vec2) -> (Vec<f32>, Vec<f32>, CameraRig, CameraRig) {
+    let canvas = Canvas::hud(window);
+    let frame = TableFrame::of(window.x, window.y);
+    let seats = roster(n);
+    let shot = Shot::default();
+    let packed = TableLayout::arranged_in(&seats, canvas.aspect(), Arrangement::Ring, None, frame);
+    let ring = TableLayout::on_ring(&seats, canvas.aspect(), None);
+    let (packed_rig, ring_rig) = (
+        CameraRig::home_shot(&packed, canvas, shot).0,
+        CameraRig::home_shot(&ring, canvas, shot).0,
+    );
+    let cards = |layout: &TableLayout, rig: CameraRig| -> Vec<f32> {
+        let lens = Lens::new(rig, window);
+        layout
+            .slots
+            .iter()
+            .map(|slot| {
+                assert!(
+                    on_screen(&lens, canvas, slot),
+                    "{n} seats in {window}: {:?} is not whole on screen at home",
+                    slot.player
+                );
+                card_px(&lens, slot).unwrap_or(0.0)
+            })
+            .collect()
+    };
+    (
+        cards(&packed, packed_rig),
+        cards(&ring, ring_rig),
+        packed_rig,
+        ring_rig,
+    )
+}
+
+/// The owner's acceptance (08.10.2026): on a laptop's window (1708 × 1028),
+/// at the ring's home, every seat's board is drawn with its cards at least
+/// a quarter wider at eight playing for themselves, and at least 15 % wider
+/// at six, than on the ellipse the table was laid on before; every seat's
+/// board is whole on screen on both; and the home shot's eye stands closer
+/// — under four fifths of the ellipse's at eight, under 0.87 at six, and
+/// under the numbers measured for it (129 and 110 units).
+#[test]
+fn the_packed_table_draws_every_board_larger() {
+    let window = Vec2::new(1708.0, 1028.0);
+    for (n, gain, eye_share, eye) in [(8_u8, 1.25, 0.80, 129.0), (6, 1.15, 0.87, 110.0)] {
+        let (packed, ring, packed_rig, ring_rig) = packed_and_ring(n, window);
+        for (seat, (now, before)) in packed.iter().zip(&ring).enumerate() {
+            assert!(
+                *now >= before * gain,
+                "{n} seats: seat {seat}'s card is drawn {now:.1} px, against {before:.1} on \
+                 the ellipse ({:.0} %)",
+                (now / before - 1.0) * 100.0
+            );
+        }
+        assert!(
+            packed_rig.distance <= ring_rig.distance * eye_share && packed_rig.distance <= eye,
+            "{n} seats: the eye stands {:.1} off, against {:.1} on the ellipse",
+            packed_rig.distance,
+            ring_rig.distance
+        );
+    }
+}
+
+/// The layout chooses a frame by a price written in table units
+/// (`layout::frame`'s `WIDTH_PRICE`, read off this camera's fit at the
+/// default lean); the camera is the judge. Wherever the client lays a frame
+/// instead of the ellipse — every seat count and roster, on the desktop
+/// windows — the least favoured board at home is drawn no smaller than the
+/// ellipse would draw its own least favoured one, by more than 5 %: the
+/// price is read off a laptop's canvas, and on a 1024 × 640 window three
+/// teams of two draw their least board 5.3 px on the frame against 5.5 on
+/// the ellipse (both far under a readable card: that table is read by
+/// visiting).
+#[test]
+fn the_frame_is_taken_only_where_the_camera_draws_it_larger() {
+    for window in [
+        Vec2::new(1708.0, 1028.0),
+        Vec2::new(1280.0, 800.0),
+        Vec2::new(2560.0, 1440.0),
+        Vec2::new(1024.0, 640.0),
+    ] {
+        let canvas = Canvas::hud(window);
+        let frame = TableFrame::of(window.x, window.y);
+        for n in 3..=8_u8 {
+            let teams: [&dyn Fn(u8) -> Option<u8>; 3] =
+                [&|_| None, &|p| Some(p % 2), &|p| (n >= 6).then_some(p % 3)];
+            for team in teams {
+                let seats: Vec<Seat> = (0..n)
+                    .map(|p| Seat::on(PlayerId::new(p), team(p)))
+                    .collect();
+                let packed = TableLayout::arranged_in(
+                    &seats,
+                    canvas.aspect(),
+                    Arrangement::Ring,
+                    None,
+                    frame,
+                );
+                let ring = TableLayout::on_ring(&seats, canvas.aspect(), None);
+                if packed == ring {
+                    continue;
+                }
+                let least = |layout: &TableLayout| {
+                    let lens = Lens::new(
+                        CameraRig::home_shot(layout, canvas, Shot::default()).0,
+                        window,
+                    );
+                    layout
+                        .slots
+                        .iter()
+                        .map(|s| card_px(&lens, s).unwrap_or(0.0))
+                        .fold(f32::INFINITY, f32::min)
+                };
+                let (now, before) = (least(&packed), least(&ring));
+                assert!(
+                    now >= before * 0.95,
+                    "{n} seats in {window} ({:?}): the frame draws its least board {now:.1} px, \
+                     the ellipse {before:.1}",
+                    seats.iter().map(|s| s.team).collect::<Vec<_>>()
+                );
+            }
+        }
+    }
+}
+
+/// The packing numbers (owner, 08.10.2026: "use the table space better"):
+/// per arrangement, roster and window, my card and the other seats' cards
+/// at home, how many boards are whole on screen, the gap between each pod
+/// and its nearest neighbour (table units, least and most), the free circle
+/// round the middle, the least margin from a pod to the canvas's edge in
+/// px and the eye's distance: `cargo test -p baylee-client print_the_packing
+/// -- --ignored --nocapture`.
+#[test]
+#[ignore = "prints numbers for the packing measurements"]
+#[allow(clippy::too_many_lines)] // one table of numbers: every arrangement, roster and window
+fn print_the_packing() {
+    let rosters: Vec<(&str, Vec<Seat>)> = {
+        let alone = |n: u8| roster(n);
+        let teams = |teams: &[Option<u8>]| -> Vec<Seat> {
+            teams
+                .iter()
+                .enumerate()
+                .map(|(p, t)| Seat::on(PlayerId::new(u8::try_from(p).expect("eight")), *t))
+                .collect()
+        };
+        let alt = |n: u8, k: u8| teams(&(0..n).map(|p| Some(p % k)).collect::<Vec<_>>());
+        vec![
+            ("ffa3", alone(3)),
+            ("ffa4", alone(4)),
+            ("ffa5", alone(5)),
+            ("ffa6", alone(6)),
+            ("ffa7", alone(7)),
+            ("ffa8", alone(8)),
+            ("2v2", alt(4, 2)),
+            ("2v3", alt(5, 2)),
+            ("3v3", alt(6, 2)),
+            ("2v2v2", alt(6, 3)),
+            ("4v4", alt(8, 2)),
+            ("1v1v2", teams(&[None, None, Some(2), Some(2)])),
+            (
+                "1v2v3",
+                teams(&[Some(0), Some(1), Some(2), Some(1), Some(2), Some(2)]),
+            ),
+        ]
+    };
+    for window in [
+        Vec2::new(1708.0, 1028.0),
+        Vec2::new(1280.0, 796.0),
+        Vec2::new(844.0, 386.0),
+    ] {
+        let frame = TableFrame::of(window.x, window.y);
+        for wanted in Arrangement::ALL.into_iter().filter(|a| a.built()) {
+            for (name, seats) in &rosters {
+                let arrangement = wanted.effective(seats.len(), frame);
+                if arrangement != wanted {
+                    continue;
+                }
+                let canvas = Canvas::for_table(window, arrangement).with_drawer(false);
+                let shot = Shot {
+                    arrangement,
+                    ..Shot::default()
+                };
+                let layout =
+                    TableLayout::arranged_in(seats, canvas.aspect(), arrangement, None, frame);
+                let rig = CameraRig::home_shot(&layout, canvas, shot).0;
+                let lens = Lens::new(rig, window);
+                let felt: Vec<&SeatSlot> = layout.on_felt().collect();
+                let mine = card_px(&lens, felt[0]).unwrap_or(0.0);
+                let others: Vec<f32> = felt[1..]
+                    .iter()
+                    .map(|s| card_px(&lens, s).unwrap_or(0.0))
+                    .collect();
+                let lo = others.iter().copied().fold(f32::INFINITY, f32::min);
+                let hi = others.iter().copied().fold(0.0, f32::max);
+                let whole = felt.iter().filter(|s| on_screen(&lens, canvas, s)).count();
+                let nearest: Vec<f32> = felt
+                    .iter()
+                    .map(|a| {
+                        felt.iter()
+                            .filter(|b| b.player != a.player)
+                            .map(|b| separation(a, b))
+                            .fold(f32::INFINITY, f32::min)
+                    })
+                    .collect();
+                let gmin = nearest.iter().copied().fold(f32::INFINITY, f32::min);
+                let gmax = nearest.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+                let free = free_round_the_middle(&layout);
+                let margin = felt
+                    .iter()
+                    .flat_map(|s| footprint_corners(s))
+                    .filter_map(|p| lens.project(p))
+                    .map(|at| {
+                        (at.x - canvas.left)
+                            .min(canvas.window.x - canvas.right - at.x)
+                            .min(at.y - canvas.top)
+                            .min(canvas.window.y - canvas.bottom - at.y)
+                    })
+                    .fold(f32::INFINITY, f32::min);
+                println!(
+                    "{arrangement:?} {}x{} {name}: me {mine:.1} others {lo:.1}-{hi:.1} \
+                     whole {whole}/{} gap {gmin:.2}-{gmax:.2} free {free:.2} margin {margin:.0}px \
+                     eye {:.1} extent {:.1}x{:.1} seats [{}]",
+                    window.x,
+                    window.y,
+                    felt.len(),
+                    rig.distance,
+                    layout.extent().map_or(0.0, |(lo, hi)| hi.x - lo.x),
+                    layout.extent().map_or(0.0, |(lo, hi)| hi.y - lo.y),
+                    layout
+                        .slots
+                        .iter()
+                        .map(|s| if s.parked {
+                            "-".to_owned()
+                        } else {
+                            format!("{:.1}", card_px(&lens, s).unwrap_or(0.0))
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                );
+            }
+        }
+    }
+}
+
+/// The least distance two pods' whole places (ground and piles) keep on
+/// any of their four axes: their gap, where they are apart.
+fn separation(a: &SeatSlot, b: &SeatSlot) -> f32 {
+    let axes = |s: &SeatSlot| {
+        let (sin, cos) = s.facing.sin_cos();
+        [Vec2::new(cos, -sin), Vec2::new(sin, cos)]
+    };
+    let reach = |s: &SeatSlot, u: Vec2| {
+        let [along, away] = axes(s);
+        let f = s.footprint();
+        f.x.mul_add(u.dot(along).abs(), f.y * u.dot(away).abs())
+    };
+    axes(a)
+        .into_iter()
+        .chain(axes(b))
+        .map(|u| {
+            (b.footprint_center() - a.footprint_center()).dot(u).abs() - reach(a, u) - reach(b, u)
+        })
+        .fold(f32::NEG_INFINITY, f32::max)
+}
+
+/// A seat's whole place's four corners in table space.
+fn footprint_corners(slot: &SeatSlot) -> [Vec2; 4] {
+    let (sin, cos) = slot.facing.sin_cos();
+    let half = slot.footprint();
+    [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)].map(|(sx, sy)| {
+        let local = half * Vec2::new(sx, sy);
+        slot.footprint_center()
+            + Vec2::new(
+                cos.mul_add(local.x, sin * local.y),
+                (-sin).mul_add(local.x, cos * local.y),
+            )
+    })
+}
+
+/// How far the middle is from the nearest drawn mat (footprint and printed
+/// border), as the dial lane measures the room it may grow in.
+fn free_round_the_middle(layout: &TableLayout) -> f32 {
+    layout
+        .on_felt()
+        .map(|slot| {
+            let half = slot.footprint()
+                + Vec2::splat(baylee_client_core::tabletop::MAT_MARGIN * slot.scale);
+            let to_middle = -slot.footprint_center();
+            let side = Vec2::new(slot.facing.cos(), -slot.facing.sin());
+            let away = Vec2::new(slot.facing.sin(), slot.facing.cos());
+            let q = Vec2::new(to_middle.dot(side), to_middle.dot(away)).abs() - half;
+            if q.max_element() < 0.0 {
+                q.max_element()
+            } else {
+                q.max(Vec2::ZERO).length()
+            }
+        })
+        .fold(f32::INFINITY, f32::min)
 }

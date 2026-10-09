@@ -107,9 +107,11 @@ use baylee_client_core::llmseat::{CliTool, cli_model, is_absolute_path, shaped_l
 use baylee_engine::choice::PlayerAction;
 use io::{Reader, collect, read, write};
 use launch::dialect;
-pub use launch::{Launch, Limits, forbidden};
 #[cfg(test)]
-use launch::{program, runnable};
+use launch::program;
+#[cfg(all(test, unix))]
+use launch::runnable;
+pub use launch::{Launch, Limits, forbidden};
 #[cfg(test)]
 use mind::believed;
 use mind::lock_out;
@@ -124,7 +126,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
-#[cfg(test)]
+#[cfg(all(test, unix))]
 use store::{SESSIONS, STORE_PREFIX, private_dir};
 use store::{STALE_STORE, SessionDir, Store, forget, sweep_stores};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};

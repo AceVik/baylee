@@ -513,9 +513,21 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
 pub(in crate::hud) fn scrollbar(
     commands: &mut Commands,
     list: Entity,
-    (track, thumb): (Color, Color),
+    colours: (Color, Color),
     paint: fn(&mut EntityCommands, Paint),
 ) -> Entity {
+    scrollbar_parts(commands, list, colours, paint).0
+}
+
+/// [`scrollbar`], answering with the track and its thumb, for a caller that
+/// puts more on the thumb (a stack entry's text box fades both in with its
+/// row).
+pub(in crate::hud) fn scrollbar_parts(
+    commands: &mut Commands,
+    list: Entity,
+    (track, thumb): (Color, Color),
+    paint: fn(&mut EntityCommands, Paint),
+) -> (Entity, Entity) {
     let mut grip = commands.spawn(ScrollbarThumb {
         border_radius: BorderRadius::all(px(TRACK_W / 2.0)),
         border: UiRect::ZERO,
@@ -532,7 +544,7 @@ pub(in crate::hud) fn scrollbar(
         Scrollbar::new(list, ControlOrientation::Vertical, THUMB_MIN),
     ));
     paint(&mut bar, Paint::Fill(track));
-    bar.add_child(grip).id()
+    (bar.add_child(grip).id(), grip)
 }
 
 /// The pill at the list's bottom, hidden until lines arrive under a list the

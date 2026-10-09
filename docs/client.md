@@ -814,6 +814,45 @@ accident, and arithmetic borrows nothing.
   eight, where it stood 59 and 81 when a ring seat was twelve units at most. The
   players' strip (§"The players' strip, and the bar's right end") is how a
   player gets close to one of them.
+- **The table packs** (owner, 08.10.2026: *"use the table space better"*).
+  Duel-wide boards on an ellipse leave its four corners and its flat runs
+  bare — eight seats on a laptop stood 5–8.5 units apart on a table of
+  131.8 × 65.6, the camera 161.8 off — so `TableLayout::seated` also lays
+  the sides on a **frame** (`layout/frame.rs`): mine on the near edge, then
+  clockwise up the left edge, along the far edge, down the right, every two
+  boards `layout::POD_GAP` (1.0, a card's width) apart, a flank of one board
+  turned up to an eighth of a turn into the corner (a square flank draws its
+  cards foreshortened by the lean), each board's `HEARTH_BAND` (1.25, where
+  its plate and steps hang) and the dial's circle `DIAL_CLEAR` (1.75, the
+  dial's `MIN_FREE_RADIUS`) kept clear. The frame is taken where it draws the
+  least favoured board larger (`frame::price`, the home shot's fit at the
+  default lean written in table units, held to the camera by
+  `arrangement_tests::the_frame_is_taken_only_where_the_camera_draws_it_larger`)
+  or where the ellipse brings two boards nearer than the gap
+  (`TableLayout::keeps_clear`). Not for a focus, not for three playing for
+  themselves (the circle), and with fewer than five sides every side keeps
+  an edge to itself — two sides a gap apart on one edge read as a team. At
+  six seats the near edge holds two boards, mine and the one before me, so
+  my board stands half a step off the middle. Measured at 1708 × 1028, home,
+  per seat against the ellipse (the model, the creature card; live, the
+  board's projected width): eight +28–36 % (eye 161.8 → 124.9; live
+  +27–35 %), seven +11–31 %, six +18–49 % (125.9 → 96.0; live +17–48 %),
+  five +17–23 %, 3v3 +8–17 %, 4v4 +9–22 %, three teams of two −3–+3 %;
+  three and four unchanged. A **phone** keeps the ellipse
+  (`TableLayout::arranged_in`): its home frames my board and the dial and
+  every other board is read by visiting, so the frame's gain is not what it
+  draws. The arrangements that build their own geometry (pods, arc rail,
+  Spotlight, Focus ring) take their template from the ellipse
+  (`TableLayout::on_ring`); the upright ring stands up the frame or the
+  ellipse, whichever it frames closer.
+  A ring whose home would put a seat under the pill or the report button is
+  framed below them (`camera::reaches_the_top`, DESIGN-v8 §2.2's fallback),
+  and from five seats one whose depth binds is framed above the players'
+  strip (`camera::reaches_the_strips`: seen live, six seats stood my land
+  row under it). A phone's home holds the dial's hub — the turn number —
+  from four seats (`a_phone_s_home_holds_the_dial_s_hub`; at three only its
+  centre, where the hub's far half turns the circle's second seat under the
+  report button).
 - Lanes fan when crowded, and a row that cannot fan legibly with its merged
   cards' cells held whole scrolls (§"A row that does not fit scrolls").
 - A seat's tab carries a **second life total** when one applies. Twenty-one
@@ -1836,9 +1875,57 @@ the depth cue, which is why there is no numeral beside the rows — position
 already carries the order and the badge already carries the count.
 
 The panel is capped at 62% of the window height. Its body scrolls through
-all entries using fixed-height rows (164 px for the next entry, 82 px for
-queued entries), a bounded rendering window and height-preserving spacers.
+all entries using a bounded rendering window and height-preserving spacers:
+queued rows are a fixed 82 px, and the next entry is as tall as what it
+draws, at least 164 px, measured from the body (`StackBody::full_height`).
 Scroll position survives hover, selection and language changes.
+
+**On a phone the panel is shaped for the height it has** (08./09.10.2026:
+at 844 × 390 it showed its head and its controls and no entry at all — its
+cap was 103 px, measured against the whole hand zone, which a phone's drawer
+keeps shut). `stack::panel_room` decides where it stands: on a phone
+(`TableFrame::Phone`) at the window's top, left of the hand drawer's tab and
+of the corner's buttons (`right` = `EDGE` + the tab's width + 8), down to the
+bar where the drawer has it this frame (`fold_the_stack` follows
+`Duel::hand_shown`), ending beside the players' strip on the bar (measured off
+its laid-out node) — or, where that would leave it narrower than 240 px,
+stopping above the strip instead. The top row takes a queued row's card, its
+name cut to one line with the arrow and the targets' thumbnails on that line,
+and the sentence's two-line box under them; no subtitle, since the head says
+whose answer is awaited (`STACK_PHONE_FULL_HEIGHT`, 83 px). The run button and
+the hints are left off (the bar already offers "resolve the stack", with the
+marked stop), and the standing answers stand under the list, shown only while
+they fit whole beside a top row (`StackControls`), never cut in half. So at
+640 × 360 with the drawer open the top entry is whole: name, targets, the
+sentence and its bar (`phone_stack_tests`).
+
+**The next entry's sentence scrolls; its targets never do** (the owner,
+08.10.2026: *"Sometimes the effects on the stack are quite long and you
+can't see the target"*). The row reads name, subtitle, the arrow and the
+targets, and then the printed sentence in a box (`stack::StackTextBox`)
+four of its lines tall — two below a phone's height
+(`shellkit::size::PHONE_HEIGHT`) — with the whole sentence inside it. It was
+a 164-px row with the sentence *cut* at four lines by a character budget,
+and a two-line name over those four lines filled the row before the
+targets were reached. What runs over the box scrolls under Bevy's own
+scrollbar (`ledge::log::scrollbar_parts`, the panel's colours, the thumb
+sized to the text and draggable), which stands only while the sentence runs
+over; it is hidden, never taken out of the layout, so the text does not
+reflow when it comes. The box is not pickable — it would take the row's
+hover, which lights the row, previews it and answers a click on the
+sentence — so a wheel over the row scrolls the box while it runs over
+(`scroll::scrolls`, ahead of the hovered card's preview) and the list
+otherwise; at the box's end the wheel is swallowed, as a list's is. The bar
+is in the row, so a press or a drag on it is never a press on the spell
+(`pointer` skips a `Scrollbar`'s lineage), and moving onto it is not
+leaving the row (`pointer_hover` holds a hover while anything under the
+pointer still stands for its card). With the pointer or the card cursor on
+the entry, `↑`/`↓` (the stepper's keys, when no number is being chosen)
+scroll a line and `PgUp`/`PgDn` (`Action::TextPageUp`/`TextPageDown`) a box
+less a line. The offset and whether the sentence runs over live in
+`stack::StackTextScroll`, keyed on the object, because the overlay is
+rebuilt on every hover change; `stack::stack_text` stands a rebuilt box and
+bar back from it and writes nothing at rest.
 
 Selecting an entry marks a stopping point. “Resolve to selection” passes
 priority until that entry reaches the top, then stops **before** it resolves.
@@ -6931,9 +7018,16 @@ is nothing for a player to tune. `Off` stops the device and nothing else:
 cues are still decided, drained and reported, which keeps "is it silent" and
 "is it deciding" two separate questions.
 
-Everything is computed once, on the frame the app opens, from a xorshift32
-seeded with a constant — so the table sounds the same on every machine, and
-`a_cue_renders_the_same_bytes_twice` is what says so. The one thing a
+Everything is computed once per run, from a xorshift32 seeded with a
+constant — so the table sounds the same on every machine, and
+`a_cue_renders_the_same_bytes_twice` is what says so. The frame the app opens
+on only starts it: `sound::voice_the_cues` spawns one task per buffer on the
+compute pool and `sound::collect_the_voices` fills `Voices` when the last is
+done (well inside a second on a desktop; a browser's one thread runs the
+tasks between frames instead). Computed inside that first frame it took
+3.7 s on a Windows desktop, with the window standing white meanwhile
+(`docs/perf-client.md` §"Windows"); a cue decided before the buffers arrive
+is reported and not heard. The one thing a
 generated sound has no other audit surface for is what it *sounds like*:
 `every_cue_written_out` is `#[ignore]`d and writes all thirty-seven to a
 directory for somebody to listen to — which is where the counted three have
@@ -9492,6 +9586,15 @@ native build calls — is an explicit no-op in winit's web backend. So a
 browser window that fills the screen is Chrome's own window doing it. Framing
 the canvas is a change to that stylesheet and to nothing in Rust.
 
+**The desktop window opens hidden and is shown on its third frame**
+(`standalone::show_the_window`). Bevy shows a window at its default size and
+maximizes it on the first frame, so whatever that frame costs used to stand on
+screen as a small white window; created hidden, it appears maximized with the
+front door in it. A browser's canvas and a phone's surface are the page's and
+the system's to show, and keep `visible` as bevy sets it. A minimised window
+draws a frame a second: Windows sends no occlusion for it but resizes it to
+nothing, which `quality::minimised` reads (`docs/perf-client.md` §"Windows").
+
 ## Verification
 
 - `cargo test -p baylee-client --test duel_flow` plays real games headlessly
@@ -9572,6 +9675,18 @@ throughout preparation. The ordinary short-request veil remains debounced.
 The `dev-control` `/state` response includes `loading` with destination,
 milestone, ready/total, monotonic departure, progress and error, allowing
 screenshots to be matched to actual preparation rather than a guessed delay.
+
+**A pin does not hold an image in its store** (09.10.2026). The cover pins
+every image and mesh it waits on with a strong handle, and that stops a drop,
+not `Assets::remove`. A table opened at a phone's size sat on *"Der letzte
+Feinschliff"* for ever (3 of 4 starts at 844 × 390, either scale factor):
+its slab widens from 40.2 to 46.2 once the phone's layout settles, the felt
+was recut under the cover, and the recut *removed* its old vein image. The
+render world dropped the `GpuImage` with it, and the acknowledgement waited
+for an image that no longer existed — resizing could not help. The recut now
+only replaces the handle (the old points go with their last handle), and
+`prepare` stops waiting on an image the store no longer holds
+(`Prepared::forget_the_gone`), so no later removal can hold a cover up.
 
 ### Dedicated waiting room (2026-09-26)
 

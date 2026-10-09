@@ -14,7 +14,7 @@ const ONDU_CLERIC: &str = "Immer wenn der Ondu-Kleriker oder ein anderer Verbün
 
 /// A duel with one ability on the stack, its source on the battlefield,
 /// and the pointer on the stack entry.
-fn hovering_the_stack(hovered: bool) -> (Duel, crate::cardtext::CardTexts) {
+pub(super) fn hovering_the_stack(hovered: bool) -> (Duel, crate::cardtext::CardTexts) {
     use baylee_client_core::test_support::{ViewBuilder, printed, statics, token};
 
     let texts = crate::cardtext::CardTexts::filed(crate::cardtext::fixture::german(
@@ -351,4 +351,279 @@ fn the_stack_says_which_seat_the_table_is_waiting_for() {
         !nobody.iter().any(|line| line.starts_with("waiting for")),
         "nothing is asked of anyone, so the head says nothing: {nobody:?}"
     );
+}
+
+// ---- a long sentence scrolls in its box (the owner, 08.10.2026) -----
+//
+// *"Sometimes the effects on the stack are quite long and you can't see the
+// target. The effect text area should then be scrollable, including a
+// (visible) scrollbar."* Bevy's layout does not run in this harness, so a
+// box is told how big it and its sentence are, as `hud::scroll`'s tests do.
+
+/// The Ondu Cleric trigger, aimed at the other seat: a long German sentence
+/// and a target, with the system that keeps the sentence's box.
+fn aimed_entry(hovered: bool) -> App {
+    let (mut duel, texts) = hovering_the_stack(hovered);
+    let mut view = duel.view.clone().unwrap();
+    view.stack[0].targets = vec![baylee_core::ids::TargetRef::Player(PlayerId::new(1))];
+    duel.receive_view(view);
+    crate::rebuild_board(&mut duel);
+    let mut app = overlay_with(duel, texts);
+    app.init_resource::<stack::StackTextScroll>()
+        .add_systems(Update, stack::stack_text.after(sync_overlay));
+    app.update();
+    app
+}
+
+/// The sentence's box, and the bar beside it.
+fn sentence_box(app: &mut App) -> (Entity, Entity) {
+    let text_box = app
+        .world_mut()
+        .query_filtered::<Entity, With<stack::StackTextBox>>()
+        .single(app.world())
+        .expect("one full row, one box");
+    let bar = app
+        .world_mut()
+        .query::<(Entity, &stack::StackTextBar)>()
+        .iter(app.world())
+        .find(|(_, bar)| bar.text_box == text_box)
+        .expect("the box has its bar")
+        .0;
+    (text_box, bar)
+}
+
+/// Tells the box how tall it is drawn and how tall its sentence is, as a
+/// layout would.
+fn lay_out(app: &mut App, text_box: Entity, content: f32) {
+    let view = stack::STACK_SENTENCE_LINES * stack::STACK_SENTENCE_LINE;
+    app.world_mut().entity_mut(text_box).insert(ComputedNode {
+        size: Vec2::new(220.0, view.min(content)),
+        content_size: Vec2::new(220.0, content),
+        ..default()
+    });
+}
+
+fn shown(app: &App, bar: Entity) -> Visibility {
+    *app.world()
+        .get::<Visibility>(bar)
+        .expect("a bar has a visibility")
+}
+
+fn offset_of(app: &App, text_box: Entity) -> f32 {
+    app.world()
+        .get::<ScrollPosition>(text_box)
+        .expect("a box keeps its offset")
+        .y
+}
+
+fn ancestors(app: &App, mut entity: Entity) -> Vec<Entity> {
+    let mut line = Vec::new();
+    while let Some(parent) = app.world().get::<ChildOf>(entity).map(ChildOf::parent) {
+        line.push(parent);
+        entity = parent;
+    }
+    line
+}
+
+/// The owner's report, as a tree: the sentence stands whole in a box that
+/// scrolls, the row grows to hold it (a fixed 164 px clip was what hid the
+/// targets), and the targets stand above the box, outside it, so no length
+/// of sentence takes them out of sight.
+#[test]
+fn a_long_sentence_scrolls_in_its_box_under_targets_that_stay_in_sight() {
+    let mut app = aimed_entry(false);
+    let (text_box, _) = sentence_box(&mut app);
+    let node = app.world().get::<Node>(text_box).unwrap();
+    assert_eq!(node.overflow, Overflow::scroll_y(), "the box scrolls");
+    assert_eq!(
+        node.max_height,
+        px(stack::STACK_SENTENCE_LINES * stack::STACK_SENTENCE_LINE),
+        "and is four of the sentence's lines tall at most"
+    );
+    let (row, height) = app
+        .world_mut()
+        .query_filtered::<(Entity, &Node), With<super::super::StackRowCard>>()
+        .single(app.world())
+        .map(|(row, node)| (row, node.height))
+        .unwrap();
+    assert_eq!(height, Val::Auto, "the row holds what it draws");
+
+    // Whole, and never cut: the clause a cut dropped is the one a player
+    // most often needed.
+    let mut words = String::new();
+    let mut spans = app.world_mut().query::<(Entity, &TextSpan)>();
+    for (span, text) in spans.iter(app.world()) {
+        if ancestors(&app, span).contains(&text_box) {
+            words.push_str(&text.0);
+        }
+    }
+    assert!(words.contains(ONDU_CLERIC), "the whole sentence: {words:?}");
+    assert!(!words.contains('…'), "and nothing cut from it");
+
+    // The target, above the box and outside it.
+    let arrow = app
+        .world_mut()
+        .query::<(Entity, &Text)>()
+        .iter(app.world())
+        .find(|(arrow, text)| text.0 == "→" && ancestors(&app, *arrow).contains(&row))
+        .expect("the row points at its target")
+        .0;
+    let line = ancestors(&app, arrow);
+    assert!(!line.contains(&text_box), "the target does not scroll");
+    let (targets, body) = (line[0], line[1]);
+    let scroller = ancestors(&app, text_box)[0];
+    assert_eq!(ancestors(&app, scroller)[0], body, "one column holds both");
+    let order = app.world().get::<Children>(body).unwrap();
+    let at = |e: Entity| order.iter().position(|c| c == e).unwrap();
+    assert!(
+        at(targets) < at(scroller),
+        "the target stands above the text"
+    );
+}
+
+/// A sentence that runs over its box puts its scrollbar up; one that fits
+/// leaves it down — hidden, not taken out, so the text does not reflow when
+/// it comes. The first half fails on a client that never shows the bar, the
+/// second on one that always does.
+#[test]
+fn the_scrollbar_stands_only_while_the_sentence_runs_over() {
+    let mut app = aimed_entry(false);
+    let (text_box, bar) = sentence_box(&mut app);
+    assert_eq!(shown(&app, bar), Visibility::Hidden, "not measured yet");
+    lay_out(&mut app, text_box, 200.0);
+    app.update();
+    assert_eq!(shown(&app, bar), Visibility::Inherited, "it runs over");
+    assert!(app.world().resource::<stack::StackTextScroll>().runs_over);
+    lay_out(&mut app, text_box, 40.0);
+    app.update();
+    assert_eq!(shown(&app, bar), Visibility::Hidden, "it fits");
+    assert!(!app.world().resource::<stack::StackTextScroll>().runs_over);
+    assert_eq!(
+        app.world().get::<Node>(bar).unwrap().display,
+        Display::Flex,
+        "hidden, never out of the layout"
+    );
+}
+
+/// The arrows and the page keys scroll the sentence of the entry the cursor
+/// is on — a line, and a box less a line — and only while it runs over.
+#[test]
+fn the_focused_entry_s_sentence_scrolls_under_the_arrows_and_page_keys() {
+    use baylee_client_core::prefs::Keymap;
+    fn fired(key: KeyCode) -> crate::keys::Fired {
+        let mut keys = ButtonInput::<KeyCode>::default();
+        keys.press(key);
+        crate::keys::Fired::of(&keys, &Keymap::standard())
+    }
+    fn take(app: &mut App, key: KeyCode) -> bool {
+        let mut scroll = *app.world().resource::<stack::StackTextScroll>();
+        let took = stack::stack_text_keys(
+            fired(key),
+            app.world().resource::<Duel>(),
+            Some(&mut scroll),
+        );
+        app.insert_resource(scroll);
+        app.update();
+        took
+    }
+    let mut app = aimed_entry(true);
+    let (text_box, _) = sentence_box(&mut app);
+    // Fits: the arrows are left to whatever else wants them.
+    lay_out(&mut app, text_box, 40.0);
+    app.update();
+    assert!(!take(&mut app, KeyCode::ArrowDown), "nothing to scroll");
+
+    lay_out(&mut app, text_box, 200.0);
+    app.update();
+    assert!(take(&mut app, KeyCode::ArrowDown));
+    let line = offset_of(&app, text_box);
+    assert!(
+        (line - stack::STACK_SENTENCE_LINE).abs() < 0.01,
+        "a line: {line}"
+    );
+    assert!(take(&mut app, KeyCode::PageDown));
+    let view = stack::STACK_SENTENCE_LINES * stack::STACK_SENTENCE_LINE;
+    let paged = offset_of(&app, text_box);
+    assert!(
+        (paged - (line + view - stack::STACK_SENTENCE_LINE)).abs() < 0.01,
+        "a box less a line: {paged}"
+    );
+    assert!(take(&mut app, KeyCode::PageUp));
+    assert!(take(&mut app, KeyCode::ArrowUp));
+    assert!(
+        offset_of(&app, text_box).abs() < 0.01,
+        "and back to the top"
+    );
+
+    // The cursor elsewhere: the keys are not the entry's.
+    app.world_mut().resource_mut::<Duel>().hovered = None;
+    app.update();
+    assert!(
+        !take(&mut app, KeyCode::ArrowDown),
+        "the cursor is elsewhere"
+    );
+}
+
+/// The overlay is rebuilt on every hover change. A sentence scrolled down
+/// stands where it was in the rebuilt row, its bar up from the first frame
+/// rather than a layout later.
+#[test]
+fn a_rebuilt_row_keeps_its_sentence_where_it_was_scrolled() {
+    let mut app = aimed_entry(false);
+    let (text_box, _) = sentence_box(&mut app);
+    lay_out(&mut app, text_box, 200.0);
+    app.update();
+    app.world_mut()
+        .get_mut::<ScrollPosition>(text_box)
+        .unwrap()
+        .y = 30.0;
+    app.update();
+    app.world_mut().resource_mut::<Duel>().hovered = Some(ObjectId::new(30, 0));
+    app.update();
+    let (rebuilt, bar) = sentence_box(&mut app);
+    assert_ne!(rebuilt, text_box, "the hover rebuilt the row");
+    assert!((offset_of(&app, rebuilt) - 30.0).abs() < f32::EPSILON);
+    assert_eq!(shown(&app, bar), Visibility::Inherited);
+}
+
+/// Writes to the box, its bar and the store, counted by a system of their
+/// own so a test can hold them still.
+#[derive(Resource, Default)]
+struct Writes(usize);
+
+fn count_writes(
+    mut writes: ResMut<Writes>,
+    bars: Query<(), (With<stack::StackTextBar>, Changed<Visibility>)>,
+    boxes: Query<(), (With<stack::StackTextBox>, Changed<ScrollPosition>)>,
+    scroll: Res<stack::StackTextScroll>,
+) {
+    writes.0 += bars.iter().count() + boxes.iter().count() + usize::from(scroll.is_changed());
+}
+
+/// At rest nothing is written: no bar, no box, no store — each would wake
+/// the layout, or what watches it, every frame. The first half is the
+/// counter-test: a scroll is counted.
+#[test]
+fn a_scrolled_sentence_at_rest_writes_nothing() {
+    let mut app = aimed_entry(false);
+    let (text_box, _) = sentence_box(&mut app);
+    lay_out(&mut app, text_box, 200.0);
+    app.init_resource::<Writes>()
+        .add_systems(Update, count_writes.after(stack::stack_text));
+    app.update();
+    app.world_mut()
+        .get_mut::<ScrollPosition>(text_box)
+        .unwrap()
+        .y = 12.0;
+    app.update();
+    app.update();
+    assert!(
+        app.world().resource::<Writes>().0 > 0,
+        "a scroll is a write"
+    );
+    app.world_mut().resource_mut::<Writes>().0 = 0;
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(app.world().resource::<Writes>().0, 0, "an idle frame wrote");
 }
