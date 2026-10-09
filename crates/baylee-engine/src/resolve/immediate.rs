@@ -1278,8 +1278,10 @@ pub(super) fn exec_immediate(
         // The new targets are chosen at resolution (CR 115.7).
         Effect::ChangeTarget { to } => retarget::start(state, res, Some(to)),
         Effect::ChooseNewTargets => retarget::start(state, res, None),
+        // Added directly after this turn, ahead of any already queued:
+        // "The most recently created turn will be taken first" (CR 500.7).
         Effect::TakeExtraTurn => {
-            state.extra_turns.push_back(you);
+            state.extra_turns.push_front(you);
             None
         }
         Effect::CreateEmblem { abilities } => {

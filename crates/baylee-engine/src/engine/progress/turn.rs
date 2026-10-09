@@ -23,19 +23,19 @@ impl<L: CardLookup> Engine<L> {
             }
         });
         if !first_turn {
-            // Turn order goes on from the last turn that ended or was
-            // skipped (CR 614.10).
+            // Turn order goes on from the last normal turn that ended or
+            // was skipped (CR 614.10).
             let after = match self.cleanup {
                 Cleanup::Ended { after } => after,
-                _ => self.state.turn.active,
+                _ => self.order_after(),
             };
             self.cleanup = Cleanup::Due;
-            // Extra turns (CR 500.7) preempt the normal successor.
-            let next = self
-                .state
-                .extra_turns
-                .pop_front()
-                .unwrap_or_else(|| self.next_alive_after(after));
+            // Extra turns (CR 500.7) come directly after the turn they were
+            // added after, before the normal successor; that successor is
+            // still the one `after`'s turn would have had.
+            let extra = self.state.extra_turns.pop_front();
+            self.state.resume_after = extra.map(|_| after);
+            let next = extra.unwrap_or_else(|| self.next_alive_after(after));
             self.state.turn.active = next;
             self.state.turn.number += 1;
         }
@@ -100,6 +100,14 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
+    }
+
+    /// The player whose turn the normal order goes on from: the current
+    /// turn's, or, during an extra turn, the normal turn it was added after
+    /// (CR 500.7). In a duel an extra turn taken in the opponent's turn is
+    /// followed by the extra turn's own player again, not by the opponent.
+    pub(crate) fn order_after(&self) -> PlayerId {
+        self.state.resume_after.unwrap_or(self.state.turn.active)
     }
 
     /// The turn after `after`'s would begin: an extra turn if one is queued

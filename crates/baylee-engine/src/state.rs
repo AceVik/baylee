@@ -807,9 +807,16 @@ pub struct GameState {
     /// their ranks, so the next one goes in under the ones it was ranked
     /// below. Cleared with each new answer.
     pub discards_on_top: Vec<(ObjectId, u16)>,
-    /// Queued extra turns (CR 500.7); the front player takes the next
+    /// Queued extra turns (CR 500.7), in the order they will be taken: the
+    /// most recently created at the front. The front player takes the next
     /// turn instead of the normal successor.
     pub extra_turns: std::collections::VecDeque<PlayerId>,
+    /// While the current turn is an extra one, the player whose normal
+    /// turn it was added after: "the turns directly after the specified
+    /// turn" (CR 500.7), so the normal order resumes from that turn, not
+    /// from the extra one. `None` during a normal turn, which the order
+    /// goes on from itself.
+    pub resume_after: Option<PlayerId>,
     /// Permanents a skipped turn left to untap (Time Vault). "Some effects
     /// cause a player to skip a step, phase, or turn, then take another
     /// action. That action is considered to be the first thing that happens
@@ -1223,6 +1230,7 @@ impl GameState {
             discard_answers,
             discards_on_top,
             extra_turns,
+            resume_after,
             skip_followups,
             reanimated_auras,
             reanimation_finishes,
@@ -1307,6 +1315,7 @@ impl GameState {
             ("state.discard_answers", format!("{discard_answers:?}")),
             ("state.discards_on_top", format!("{discards_on_top:?}")),
             ("state.extra_turns", format!("{extra_turns:?}")),
+            ("state.resume_after", format!("{resume_after:?}")),
             ("state.skip_followups", format!("{skip_followups:?}")),
             ("state.reanimated_auras", format!("{reanimated_auras:?}")),
             (
