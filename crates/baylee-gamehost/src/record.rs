@@ -252,6 +252,17 @@ impl Recorder {
         recorder
     }
 
+    /// A record that goes on from `n` lines past its header, the header and
+    /// those lines already kept by whoever resumed it
+    /// ([`Session::resume_recorded`](crate::Session::resume_recorded)).
+    pub(crate) fn resumed(n: u64, ended: bool) -> Self {
+        Self {
+            n,
+            ended,
+            ..Self::default()
+        }
+    }
+
     pub(crate) fn tell_time(&mut self, unix_ms: u64) {
         self.now = unix_ms;
     }
@@ -384,6 +395,59 @@ pub enum ReplayError {
     },
 }
 
+/// The record's whole lines, parsed: a trailing line without its newline is
+/// a record cut off mid-write and is left out.
+pub(crate) fn lines_of(record: &[u8]) -> impl Iterator<Item = Result<Line, ReplayError>> + '_ {
+    let complete = match record.iter().rposition(|&b| b == b'\n') {
+        Some(end) => &record[..=end],
+        None => &[][..],
+    };
+    complete
+        .split(|&b| b == b'\n')
+        .filter(|l| !l.is_empty())
+        .enumerate()
+        .map(|(i, l)| {
+            serde_json::from_slice::<Line>(l).map_err(|e| ReplayError::Unreadable {
+                line: i + 1,
+                why: e.to_string(),
+            })
+        })
+}
+
+/// The preset and opening hash of a record's header, which must be its
+/// first line and of a shape this build reads.
+pub(crate) fn header_of(
+    lines: &mut impl Iterator<Item = Result<Line, ReplayError>>,
+) -> Result<(GamePreset, String), ReplayError> {
+    match lines.next().transpose()? {
+        Some(Line::Header {
+            record: RECORD_VERSION,
+            preset,
+            hash,
+            ..
+        }) => Ok((preset, hash)),
+        _ => Err(ReplayError::NoHeader),
+    }
+}
+
+/// Whether `engine` is where the record says it was after input `n`.
+pub(crate) fn check_hash(
+    engine: &Engine<RegistryLookup>,
+    n: Option<u64>,
+    recorded: String,
+) -> Result<(), ReplayError> {
+    let replayed = hex(engine.snapshot_hash());
+    if replayed == recorded {
+        Ok(())
+    } else {
+        Err(ReplayError::Diverged {
+            n,
+            recorded,
+            replayed,
+        })
+    }
+}
+
 /// Plays a record again on a fresh engine, checking the hash after every
 /// input.
 ///
@@ -394,43 +458,10 @@ pub enum ReplayError {
 /// At the first line that does not parse, input the engine refuses, or hash
 /// that differs; see [`ReplayError`].
 pub fn replay(record: &[u8]) -> Result<Replayed, ReplayError> {
-    let complete = match record.iter().rposition(|&b| b == b'\n') {
-        Some(end) => &record[..=end],
-        None => &[][..],
-    };
-    let mut lines = complete
-        .split(|&b| b == b'\n')
-        .filter(|l| !l.is_empty())
-        .enumerate()
-        .map(|(i, l)| {
-            serde_json::from_slice::<Line>(l).map_err(|e| ReplayError::Unreadable {
-                line: i + 1,
-                why: e.to_string(),
-            })
-        });
-    let Some(Line::Header {
-        record: RECORD_VERSION,
-        preset,
-        hash,
-        ..
-    }) = lines.next().transpose()?
-    else {
-        return Err(ReplayError::NoHeader);
-    };
+    let mut lines = lines_of(record);
+    let (preset, hash) = header_of(&mut lines)?;
     let mut engine = Engine::new(&preset, RegistryLookup).map_err(|_| ReplayError::Unbuildable)?;
-    let check = |engine: &Engine<RegistryLookup>, n: Option<u64>, recorded: String| {
-        let replayed = hex(engine.snapshot_hash());
-        if replayed == recorded {
-            Ok(())
-        } else {
-            Err(ReplayError::Diverged {
-                n,
-                recorded,
-                replayed,
-            })
-        }
-    };
-    check(&engine, None, hash)?;
+    check_hash(&engine, None, hash)?;
     let mut inputs = 0;
     let mut ended = false;
     for line in lines {
@@ -446,7 +477,7 @@ pub fn replay(record: &[u8]) -> Result<Replayed, ReplayError> {
                 engine
                     .apply(PlayerId::new(seat), action)
                     .map_err(|_| ReplayError::Refused { n })?;
-                check(&engine, Some(n), hash)?;
+                check_hash(&engine, Some(n), hash)?;
                 inputs += 1;
             }
             Line::Chair { .. } | Line::DeclaredMind { .. } => {}
