@@ -63,3 +63,4 @@ mod terror;
 mod vanishing_verse;
 mod volcanic_geyser;
 mod wipe_clean;
+mod word_of_command;
