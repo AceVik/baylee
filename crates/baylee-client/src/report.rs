@@ -48,12 +48,12 @@ mod refs;
 mod shot;
 // The guided tour points at both (`crate::tour::table`).
 pub(crate) use corner::ReportCorner;
-pub(crate) use form::DeskRoot;
 #[cfg(test)]
 pub(crate) use field::{DeskBox, DeskCaret, DeskSuggest, DeskText, ReportLink};
 /// The form's buttons: `devctl`'s `desk_controls` row, and the pointer's
 /// shape over them (`shellkit::pointer`).
 pub(crate) use form::DeskPress;
+pub(crate) use form::DeskRoot;
 #[cfg(test)]
 pub(crate) use form::DeskScroll;
 #[cfg(not(any(test, all(feature = "dev-control", not(target_arch = "wasm32")))))]
