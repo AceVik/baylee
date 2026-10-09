@@ -720,3 +720,37 @@ fn the_builder_opens_on_the_deck_not_on_a_page_the_decks_screen_left_open() {
         }
     }
 }
+
+/// The store writes a save's summary onto the row it replaced (`put_deck`),
+/// so "restored v1" for v3 stands on v2's row. Each version reads its words
+/// off its predecessor's row: the live walk found every restore named one
+/// row early and the head (v4, an Undo) never named.
+#[test]
+fn a_versions_summary_is_the_one_its_predecessors_row_keeps() {
+    use crate::lobby::library::{History, Revision};
+    let row = |version, summary: Option<&str>| Revision {
+        version,
+        summary: summary.map(str::to_string),
+        superseded_at: i64::from(version) * 10,
+        cards: 0,
+        sideboard: 0,
+        delta: None,
+        card_count: None,
+    };
+    // v1 saved; v2 saved; v3 restored v1; v4 restored v2 (an Undo).
+    let history = History {
+        version: 4,
+        updated_at: 40,
+        past: vec![
+            row(3, Some("back to version 2")),
+            row(2, Some("back to version 1")),
+            row(1, None),
+        ],
+        delta: None,
+        card_count: None,
+    };
+    assert_eq!(history.summary(4), Some("back to version 2"), "the head");
+    assert_eq!(history.summary(3), Some("back to version 1"));
+    assert_eq!(history.summary(2), None, "an ordinary save");
+    assert_eq!(history.summary(1), None, "the oldest kept");
+}

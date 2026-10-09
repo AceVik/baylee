@@ -164,13 +164,20 @@ impl History {
             .and_then(|v| v.delta)
     }
 
-    /// The summary the store keeps on a version (a revert, a precon's
-    /// source build).
+    /// What made `version` (a revert, a precon's source build), as the
+    /// store says it.
+    ///
+    /// The store keeps that sentence on the row the save *replaced*
+    /// (`put_deck`: the old lists go to `deck_version` with the new save's
+    /// summary), so `version`'s words are on its predecessor's row. Read off
+    /// `version`'s own row, every restore was named one version early and
+    /// the head never named.
     #[must_use]
     pub fn summary(&self, version: i32) -> Option<&str> {
+        let before = self.before(version)?;
         self.past
             .iter()
-            .find(|v| v.version == version)
+            .find(|v| v.version == before)
             .and_then(|v| v.summary.as_deref())
     }
 }
