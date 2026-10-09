@@ -1237,6 +1237,17 @@ mod tests {
         assert!(!crowned(LogEvent::Shuffled { player: ME }));
     }
 
+    /// A coin flip reads as the sentence it is (CR 705), for the flipper
+    /// and for the other seat, and says which way it fell.
+    #[test]
+    fn a_coin_flip_reads_as_won_or_lost() {
+        let flip = |player, won| say(Lang::En, LogEvent::CoinFlipped { player, won });
+        assert_eq!(flip(ME, true), "You flipped a coin and won the flip");
+        assert_eq!(flip(ME, false), "You flipped a coin and lost the flip");
+        assert_eq!(flip(BO, true), "Bo flipped a coin and won the flip");
+        assert_eq!(flip(BO, false), "Bo flipped a coin and lost the flip");
+    }
+
     // ---- the book ----------------------------------------------------------
 
     /// Tails that follow each other are appended in order, each once.
@@ -1931,7 +1942,7 @@ mod tests {
             LogEvent::LoopDetected { .. } => 27,
             LogEvent::DayNight { .. } => 28,
             LogEvent::Banded { .. } => 30,
-            LogEvent::CoinFlipped { .. } => 31,
+            LogEvent::CoinFlipped { .. } => 33,
             LogEvent::CardsKept { .. } => 31,
             LogEvent::BecameMonarch { .. } => 32,
             LogEvent::ConnectionLost { .. } => 33,
