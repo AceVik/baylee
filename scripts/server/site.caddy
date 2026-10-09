@@ -1,0 +1,69 @@
+# The landing page at https://<gateway host>/ (web/site/).
+#
+# Directives for the gateway's own site block, served ahead of the gateway:
+# exactly `/` is the page, `/favicon.ico` its icon (browsers ask for it
+# unasked, and the gateway would answer 404), everything under /site/ its
+# files, and everything else stays the gateway's (/info, /lobby, /health,
+# /terms, /catalog, …) or the browser client's (/play/,
+# scripts/server/play.caddy). /site/ is no route of the gateway's, so the
+# two never meet.
+#
+# Install (once, as root):
+#
+#   install -d /opt/baylee/web
+#   cp -R web/site /opt/baylee/web/site.new
+#   rm -rf /opt/baylee/web/site && mv /opt/baylee/web/site.new /opt/baylee/web/site
+#   install -m644 scripts/server/site.caddy /etc/caddy/baylee-site.caddy
+#
+# and in the gateway's site block (the file under /etc/caddy/sites/), import
+# it beside the play snippet, before the proxy's `handle`, so no two of them
+# answer one request:
+#
+#   baylee.acevik.de {
+#       import /etc/caddy/baylee-play.caddy
+#       import /etc/caddy/baylee-site.caddy
+#       handle {
+#           reverse_proxy 127.0.0.1:28766
+#       }
+#   }
+#
+# then `caddy validate --config /etc/caddy/Caddyfile` and
+# `systemctl reload caddy`. Not under sites/: that directory is imported at
+# the top level, where these directives mean nothing. To update the page,
+# repeat the copy and the rename; nothing in Caddy changes.
+#
+# No `log` here, on purpose, like the other snippets: the page keeps nothing
+# about a visitor, and an access log would.
+
+@baylee_site path / /favicon.ico /site/*
+handle @baylee_site {
+	root * /opt/baylee/web/site
+	# `/site/site.css` is `site.css` in that folder; `/` and `/favicon.ico`
+	# are left as they are and file_server finds index.html for `/`.
+	uri strip_prefix /site
+
+	# The page is asked again on every visit and answered 304 when nothing
+	# changed, so a new build shows at once. The stylesheet and the script
+	# change with the page and are not named by content, so an hour; fonts
+	# and pictures a week. Everything is revalidated once it is stale.
+	@page path /
+	header @page Cache-Control "no-cache"
+	@code path *.css *.js
+	header @code Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
+	@assets not path / *.css *.js
+	header @assets Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
+
+	# What the page may do: its own files, and GitHub's API for the release
+	# list and the CI status (site.js). No inline style or script, nothing
+	# from any other host; the downloads are links the browser follows,
+	# which no CSP directive governs. The gateway's /info and /health are
+	# 'self'.
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+
+	encode zstd gzip
+	file_server
+}
