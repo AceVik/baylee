@@ -492,7 +492,7 @@ pub fn apply_hand_scroll(
     let max_scroll = (layout.content_width - available).max(0.0);
 
     let hovered = board.hand.iter().position(|c| Some(c.id) == duel.hovered);
-    duel.hand_scroll = hand_scroll_to(
+    let scroll = hand_scroll_to(
         duel.hand_scroll,
         hovered,
         duel.hovered_at.is_some(),
@@ -500,24 +500,36 @@ pub fn apply_hand_scroll(
         available,
     )
     .clamp(0.0, max_scroll);
+    // Every write below only where the value moved: this runs every frame,
+    // a written duel reads as a moved game, and a written `Node` lays the
+    // whole interface out again.
+    if duel.hand_scroll.to_bits() != scroll.to_bits() {
+        duel.hand_scroll = scroll;
+    }
 
     for (page, mut visibility) in &mut pages {
-        *visibility = if (page.0 < 0 && duel.hand_scroll <= 0.0)
-            || (page.0 > 0 && duel.hand_scroll >= max_scroll)
-        {
-            Visibility::Hidden
-        } else {
-            Visibility::Inherited
-        };
+        visibility.set_if_neq(
+            if (page.0 < 0 && scroll <= 0.0) || (page.0 > 0 && scroll >= max_scroll) {
+                Visibility::Hidden
+            } else {
+                Visibility::Inherited
+            },
+        );
     }
     for mut node in &mut thumbs {
         let width = (available * available / layout.content_width.max(1.0))
             .clamp(20.0, available.max(20.0));
-        node.width = px(width);
-        node.left = px((available - width).max(0.0) * duel.hand_scroll / max_scroll.max(1.0));
+        let (width, left) = (
+            px(width),
+            px((available - width).max(0.0) * scroll / max_scroll.max(1.0)),
+        );
+        if node.width != width || node.left != left {
+            node.width = width;
+            node.left = left;
+        }
     }
     for mut node in &mut strips {
-        let wanted = UiRect::left(px(HAND_STRIP_INSET + layout.lead - duel.hand_scroll));
+        let wanted = UiRect::left(px(HAND_STRIP_INSET + layout.lead - scroll));
         if node.margin != wanted {
             node.margin = wanted;
         }

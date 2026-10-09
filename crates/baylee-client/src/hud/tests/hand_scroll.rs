@@ -86,3 +86,30 @@ fn grouped_hands_leave_air_and_keyboard_scroll_includes_the_gaps() {
     assert!((end + available - layout.content_width).abs() < 0.01);
     assert!((hand_scroll_to(end, Some(3), true, layout, available) - end).abs() < f32::EPSILON);
 }
+
+/// A hand nobody scrolls is not written: the duel (whose `hand_scroll` the
+/// system keeps) stays unchanged from one frame to the next. Red while the
+/// scroll was assigned through the `ResMut` every frame.
+#[test]
+fn a_hand_at_rest_leaves_the_duel_unchanged() {
+    use baylee_client_core::test_support::ViewBuilder;
+    let mut duel = crate::Duel::default();
+    duel.receive_view(ViewBuilder::new(2).build());
+    crate::rebuild_board(&mut duel);
+    let mut app = App::new();
+    app.insert_resource(duel)
+        .add_systems(Update, crate::hud::apply_hand_scroll);
+    let mut window = Window::default();
+    window.resolution.set(1708.0, 1032.0);
+    app.world_mut().spawn(window);
+    app.update();
+    let tick = app.world().read_change_tick();
+    app.update();
+    let duel = app.world().resource_ref::<crate::Duel>();
+    assert!(
+        !duel
+            .last_changed()
+            .is_newer_than(tick, app.world().read_change_tick()),
+        "the hand's scroll wrote the duel at rest"
+    );
+}
