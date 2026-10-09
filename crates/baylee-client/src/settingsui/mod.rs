@@ -76,7 +76,9 @@ pub(crate) struct View<'a> {
 /// The sidebar's width on a desktop and on a phone.
 fn sidebar_width(kit: Kit) -> Val {
     match kit.m.frame {
-        Frame::Phone => px_fixed(180.0),
+        // A phone's is narrow on purpose, but its longest word has to fit
+        // at the largest step (German "Sprachmodelle" at XL).
+        Frame::Phone => px_fixed(180.0 * kit.m.factor.max(1.0)),
         _ => kit.m.px(260.0),
     }
 }

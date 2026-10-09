@@ -455,10 +455,19 @@ pub fn row(
             Pickable::IGNORE,
         ))
         .id();
+    // The words as wide as their column, a definite width: measured at any
+    // other, a help text was given the height of fewer lines than it broke
+    // into on a narrow row and ran out of its box (the `fit` check).
+    let full = Node {
+        width: Val::Percent(100.0),
+        ..default()
+    };
     let name = prose(commands, kit, text, false);
+    commands.entity(name).insert(full.clone());
     commands.entity(words).add_child(name);
     if let Some(help) = help {
         let help = prose(commands, kit, help, true);
+        commands.entity(help).insert(full);
         commands.entity(words).add_child(help);
     }
     commands.entity(line).add_child(words);

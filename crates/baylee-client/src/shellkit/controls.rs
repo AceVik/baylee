@@ -606,7 +606,7 @@ pub fn segmented<B: Bundle>(
                     } else {
                         kit.m.scaled(30.0)
                     }),
-                    padding: UiRect::axes(kit.m.px(14.0), px_fixed(0.0)),
+                    padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL - 2.0)),
