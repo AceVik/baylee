@@ -40,12 +40,11 @@ mod form;
 mod shot;
 #[cfg(test)]
 pub(crate) use corner::ReportCorner;
-/// The form's buttons, for `devctl`'s `desk_controls` row (a test build
-/// has them from the line below).
-#[cfg(all(feature = "dev-control", not(target_arch = "wasm32"), not(test)))]
+/// The form's buttons: `devctl`'s `desk_controls` row, and the pointer's
+/// shape over them (`shellkit::pointer`).
 pub(crate) use form::DeskPress;
 #[cfg(test)]
-pub(crate) use form::{DeskBox, DeskCaret, DeskPress, DeskRoot, DeskScroll, DeskText};
+pub(crate) use form::{DeskBox, DeskCaret, DeskRoot, DeskScroll, DeskText};
 #[cfg(test)]
 mod tests;
 
