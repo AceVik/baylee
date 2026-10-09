@@ -65,14 +65,27 @@ pub fn heading(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
 
 /// A paragraph: wraps, muted or not.
 pub fn prose(commands: &mut Commands, kit: Kit, text: &str, muted: bool) -> Entity {
+    let size = if muted { kit.m.small } else { kit.m.text };
     commands
         .spawn((
             Text::new(text),
-            tf(kit.fonts, if muted { kit.m.small } else { kit.m.text }),
+            tf(kit.fonts, whole_pixels(size)),
             TextColor(if muted { tokens::MUTED } else { tokens::INK }),
             Pickable::IGNORE,
         ))
         .id()
+}
+
+/// A nominal size whose drawn size (`× UI_SCALE`) is a whole pixel.
+///
+/// Bevy measures a text for layout at the size it is given and draws it at
+/// that size rounded to a whole pixel: at a text step's fractional sizes a
+/// paragraph measured into four lines was drawn into five, and its last line
+/// lay over the next row (German Privacy at XL, the `fit` check, 09.10.2026).
+/// Rounded here, the two agree.
+#[must_use]
+pub fn whole_pixels(size: f32) -> f32 {
+    (size * crate::hud::UI_SCALE).round() / crate::hud::UI_SCALE
 }
 
 /// How wide a sheet is (§2.4): 560, 720 or 960 × factor; a phone's is the
