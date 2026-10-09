@@ -508,8 +508,14 @@ fn activate(
     off: Query<(), With<super::controls::Disabled>>,
     parents: Query<&ChildOf>,
     codes: Option<Res<ButtonInput<KeyCode>>>,
+    tour: Option<Res<crate::tour::TourDesk>>,
     mut out: MessageWriter<Activated>,
 ) {
+    // A narrated tour bubble has the keys (TOURS.md §1.3): its Enter is
+    // its Next, not the focused stop's press.
+    if tour.is_some_and(|t| t.holds_keyboard()) {
+        keys.clear();
+    }
     // At a table a stop answers only inside a modal kit sheet.
     let at_table = !table_open(phase.as_deref());
     let answers = |stop: &Stop| !at_table || table(stop.table).is_some_and(|t| t.modal);

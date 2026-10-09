@@ -760,6 +760,14 @@ impl Tours {
     }
 }
 
+/// Whether tours run on this device at all: desktop only for now (owner,
+/// 09.10.) — on a phone-sized window or under touch input no step ever
+/// starts, no offer and no tip, and the settings rows are not drawn.
+#[must_use]
+pub const fn offered_here(phone: bool, touch: bool) -> bool {
+    !phone && !touch
+}
+
 /// A seen mark: `"lobby/door"`, `"table/T10"`.
 #[must_use]
 pub fn mark(tour: Tour, id: &str) -> String {
@@ -1022,6 +1030,14 @@ impl Run {
     /// The try-it check came true (latched for the step).
     pub fn hold(&mut self) {
         self.held = true;
+    }
+
+    /// The try-it check came true: the player did what the step asked, so
+    /// the tour goes on by itself — no second press for a thing already
+    /// done (owner, 09.10.). As [`Self::next`].
+    pub fn satisfied(&mut self, tours: &mut Tours) -> Moved {
+        self.hold();
+        self.next(tours)
     }
 
     /// Whether the primary works: always, but on a try-it step before its

@@ -103,6 +103,14 @@ pub(super) fn tours(
         input.as_deref().copied().unwrap_or_default(),
     );
     let phone = m.frame == crate::shellkit::Frame::Phone;
+    // Desktop only (owner, 09.10.): on a phone or under touch nothing
+    // starts, and what stood is put away.
+    if !baylee_client_core::tour::offered_here(phone, m.touch()) {
+        if desk.run.as_ref().is_some_and(|r| r.tour != Tour::Table) {
+            desk.run = None;
+        }
+        return;
+    }
     let setting = Setting {
         top: m.header,
         phone,
@@ -126,11 +134,18 @@ pub(super) fn tours(
     if let Some(run) = desk.run.as_mut()
         && run.tour != Tour::Table
     {
+        // Done what the step asked: the tour goes on by itself.
         if let Kind::Try(check) = run.current().kind
             && !run.held
             && holds(check, &state)
         {
-            run.hold();
+            let mut tours = settings.tours.clone();
+            if run.satisfied(&mut tours) == baylee_client_core::tour::Moved::Over {
+                desk.run = None;
+            }
+            settings.tours = tours;
+            settings.save();
+            return;
         }
         let home = run.single || Some(run.current_chapter().place) == here;
         if !home && matches!(run.current().kind, Kind::Try(_)) && run.held {
@@ -145,10 +160,24 @@ pub(super) fn tours(
             return;
         }
         let parked = !home || covered;
-        if desk.parked != parked {
-            desk.parked = parked;
+        // Away from its screen, a chapter waits to be resumed there — unless
+        // the screen the player is on has a chapter of its own, which opens
+        // instead; the one set aside starts over on its next visit.
+        let elsewhere = !home
+            && !covered
+            && here.is_some_and(|p| {
+                [Tour::Lobby, Tour::Builder]
+                    .into_iter()
+                    .any(|t| settings.tours.due(t, p).is_some())
+            });
+        if !elsewhere {
+            if desk.parked != parked {
+                desk.parked = parked;
+            }
+            return;
         }
-        return;
+        desk.run = None;
+        desk.parked = false;
     }
     if desk.run.is_some() || covered {
         return;
