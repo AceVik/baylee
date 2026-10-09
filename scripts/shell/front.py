@@ -27,11 +27,27 @@ def presses():
     return [c["press"] for c in devctl.controls()]
 
 
+def press_seen(name):
+    """Clicks the control named `name` that stands inside the window (About
+    is both in the text row, which a tall page may scroll out of view, and
+    the colophon's notice, which stays)."""
+    height = devctl.health()["height"]
+    width = devctl.health()["width"]
+    seen = [
+        c for c in devctl.controls()
+        if c["press"] == name and 4 < c["at_y"] < height - 4 and 4 < c["at_x"] < width - 4
+    ]
+    if seen:
+        devctl.click_at(seen[-1]["at_x"], seen[-1]["at_y"])
+    else:
+        devctl.press(name)
+
+
 def press_until(name, done, tries=3):
     """A click right after a resize can be eaten by the window manager."""
     for _ in range(tries):
         if name in presses():
-            devctl.press(name)
+            press_seen(name)
         try:
             devctl.until(done, 3)
             return True
