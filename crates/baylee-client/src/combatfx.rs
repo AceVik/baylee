@@ -35,7 +35,6 @@ pub(crate) struct Impact {
 }
 
 /// Advance and retire effects; sound is emitted when the gesture begins.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn age(
     mut commands: Commands,
     time: Res<Time>,
@@ -111,10 +110,12 @@ pub(crate) fn animate(
     let now = time.elapsed_secs();
     let step = settings.as_ref().map_or(1.0, |s| s.text_size.factor());
     let still = prefs.all().reduce_motion;
-    let strikes = std::mem::take(&mut duel.strikes);
-    if strikes.is_empty() {
+    // Asked before it is taken: a `mem::take` through the `ResMut` marks the
+    // whole duel changed, and this runs on every frame.
+    if duel.strikes.is_empty() {
         return;
     }
+    let strikes = std::mem::take(&mut duel.strikes);
     let lens = shown
         .rig()
         .zip(windows.single().ok())
@@ -233,6 +234,30 @@ mod tests {
         assert!(recoil.offset(2.3).x > 0.29);
         assert!(recoil.offset(3.0).length() < 1e-5);
     }
+    /// No strike, no write: the duel stays unchanged from frame to frame.
+    /// Red while the strikes were taken through the `ResMut` every frame.
+    #[test]
+    fn a_frame_without_strikes_leaves_the_duel_unchanged() {
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<Duel>()
+            .init_resource::<ShownRig>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .add_systems(Update, animate);
+        app.update();
+        let tick = app.world().read_change_tick();
+        app.update();
+        let duel = app.world().resource_ref::<Duel>();
+        assert!(
+            !duel
+                .last_changed()
+                .is_newer_than(tick, app.world().read_change_tick()),
+            "a frame with no strike wrote the duel"
+        );
+    }
+
     #[test]
     fn reduced_motion_keeps_cards_at_their_resting_pose() {
         let mut app = App::new();

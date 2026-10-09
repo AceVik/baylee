@@ -132,11 +132,15 @@ pub fn choose(
         duel.arrangement = effective;
         crate::rebuild_board(&mut duel);
     }
-    if std::mem::take(&mut duel.arrangement_menu_asked)
-        && duel.arrangement_menu.is_none()
-        && let Some(settings) = settings.as_deref()
-    {
-        toggle_menu(&mut duel, settings, seats);
+    // Read before it is taken: `mem::take` through the `ResMut` would mark
+    // the duel changed on every frame, and half the HUD rebuilds on that.
+    if duel.arrangement_menu_asked {
+        duel.arrangement_menu_asked = false;
+        if duel.arrangement_menu.is_none()
+            && let Some(settings) = settings.as_deref()
+        {
+            toggle_menu(&mut duel, settings, seats);
+        }
     }
     // A menu open at a table that has become a duel has nothing to offer.
     if duel.arrangement_menu.is_some() && !measured.switchable() {

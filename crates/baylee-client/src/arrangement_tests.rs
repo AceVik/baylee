@@ -593,6 +593,30 @@ fn by_default_the_table_follows_the_turn() {
     }
 }
 
+/// A table nobody touches is not written by the arrangement's chooser: the
+/// duel stays unchanged from one frame to the next. Red while the menu's
+/// request was taken through the `ResMut` every frame.
+#[test]
+fn a_table_at_rest_is_not_written_by_the_chooser() {
+    let mut app = App::new();
+    app.init_resource::<Time>()
+        .init_resource::<ArrangementFrame>()
+        .insert_resource(crate::settings::ClientSettings::default())
+        .insert_resource(seated_duel(Arrangement::Ring))
+        .add_systems(Update, choose);
+    app.update();
+    app.update();
+    let tick = app.world().read_change_tick();
+    app.update();
+    let duel = app.world().resource_ref::<Duel>();
+    assert!(
+        !duel
+            .last_changed()
+            .is_newer_than(tick, app.world().read_change_tick()),
+        "the chooser wrote the duel at rest"
+    );
+}
+
 /// The Turntable's change of seat of interest is two slides, not a tear
 /// (DESIGN-v8 §1 row 3): every seat stands on the felt, so the cards glide
 /// straight to the instant layout — the side mat brought across at the
