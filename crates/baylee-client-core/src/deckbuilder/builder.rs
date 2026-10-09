@@ -619,6 +619,7 @@ impl DeckBuilder {
         let request = self.open_picker(entry.slot, zone);
         if let Some(picker) = &mut self.picker {
             picker.replacing = Some(entry);
+            picker.list = Some(zone);
             picker.select_original();
         }
         request
@@ -1051,22 +1052,138 @@ impl DeckBuilder {
 
     // ----------------------------------------------------------- one card
 
-    /// The card whose full text is being read, if any.
+    /// The card the card window is open on, if any (either door).
     #[must_use]
     pub fn inspecting(&self) -> Option<usize> {
-        self.inspecting
+        self.picker.as_ref().map(Picker::slot)
     }
 
-    /// Opens a card. Reading one is a separate act from adding it: on a touch
-    /// screen there is no hover to read with, and a builder where a card
-    /// cannot be read is not one.
-    pub fn inspect(&mut self, slot: usize) {
-        self.inspecting = (slot < self.pool.len()).then_some(slot);
+    /// Opens the card window through the row's door. Reading one is a
+    /// separate act from adding it: on a touch screen there is no hover to
+    /// read with, and a builder where a card cannot be read is not one.
+    pub fn inspect(&mut self, slot: usize) -> Option<LobbyRequest> {
+        let request = self.open_picker(slot, self.zone);
+        if let Some(picker) = &mut self.picker {
+            picker.door = Door::Row;
+        }
+        request
+    }
+
+    /// Opens the card window on a deck row through the row's door: ← →
+    /// walk that zone's rows, the primary still adds.
+    pub fn inspect_row(&mut self, at: usize, zone: Zone) -> Option<LobbyRequest> {
+        let request = self.open_row_picker(at, zone);
+        if let Some(picker) = &mut self.picker {
+            picker.door = Door::Row;
+        }
+        request
     }
 
     /// Closes it again.
     pub fn stop_inspecting(&mut self) {
-        self.inspecting = None;
+        self.close_picker();
+    }
+
+    /// The window's primary through a row door, and its ⇧Enter: one copy in
+    /// the chosen printing, the window staying open.
+    pub fn window_add(&mut self, zone: Zone) -> bool {
+        let Some(slot) = self.picker.as_ref().map(Picker::slot) else {
+            return false;
+        };
+        let choice = self.picked_choice();
+        let added = self.add_print(slot, zone, choice);
+        self.resync_replacing();
+        added
+    }
+
+    /// The window's `− n +` for one zone: written at once, under the copy
+    /// limit. On the row the window was opened on, that row; elsewhere one
+    /// copy in the chosen printing in, or the newest copy out.
+    pub fn window_step(&mut self, zone: Zone, more: bool) -> bool {
+        let Some(picker) = self.picker.as_ref() else {
+            return false;
+        };
+        let slot = picker.slot;
+        let mine = picker.replacing.clone().filter(|_| picker.zone == zone);
+        let changed = match (more, mine) {
+            (true, Some(row)) => self.add_print(slot, zone, row.print),
+            (true, None) => {
+                let choice = self.picked_choice();
+                self.add_print(slot, zone, choice)
+            }
+            (false, Some(row)) => {
+                let entries = match zone {
+                    Zone::Main => &mut self.main,
+                    Zone::Side => &mut self.side,
+                };
+                match entries.iter().position(|e| e == &row) {
+                    Some(at) => {
+                        Self::take_one(entries, at);
+                        self.touch();
+                        true
+                    }
+                    None => false,
+                }
+            }
+            (false, None) => self.remove(slot, zone),
+        };
+        self.resync_replacing();
+        changed
+    }
+
+    /// The row the window was opened on follows its count; a row that is
+    /// gone leaves a window that adds, as a pool card's does.
+    fn resync_replacing(&mut self) {
+        let Some(picker) = self.picker.as_ref() else {
+            return;
+        };
+        let Some(row) = picker.replacing.clone() else {
+            return;
+        };
+        let zone = picker.zone;
+        let now = self
+            .entries(zone)
+            .iter()
+            .find(|e| e.slot == row.slot && e.print == row.print && e.note == row.note)
+            .cloned();
+        if let Some(picker) = &mut self.picker {
+            picker.replacing = now;
+        }
+    }
+
+    /// ← → in the window: the previous or next card of the list it came
+    /// from (the deck zone's rows, or the pool's results), the door kept.
+    /// `None` when there is nothing that way, or no request is needed.
+    pub fn window_neighbour(&mut self, by: i32) -> (bool, Option<LobbyRequest>) {
+        let Some(picker) = self.picker.as_ref() else {
+            return (false, None);
+        };
+        let (slot, door, list) = (picker.slot, picker.door, picker.list);
+        let slots: Vec<usize> = match list {
+            Some(zone) => self.entries(zone).iter().map(|e| e.slot).collect(),
+            None => self.results().to_vec(),
+        };
+        let here = list
+            .zip(picker.replacing.as_ref())
+            .and_then(|(zone, row)| self.entries(zone).iter().position(|e| e == row))
+            .or_else(|| slots.iter().position(|s| *s == slot));
+        let Some(here) = here else {
+            return (false, None);
+        };
+        let Some(to) = here
+            .checked_add_signed(isize::try_from(by).unwrap_or(0))
+            .filter(|to| *to < slots.len())
+        else {
+            return (false, None);
+        };
+        let request = match list {
+            Some(zone) => self.open_row_picker(to, zone),
+            None => self.open_picker(slots[to], self.zone),
+        };
+        if let Some(picker) = &mut self.picker {
+            picker.door = door;
+        }
+        (true, request)
     }
 
     // ------------------------------------------------------------ the caret
@@ -1584,7 +1701,7 @@ impl DeckBuilder {
         self.changes = 0;
         self.naming = false;
         self.last_added.clear();
-        self.inspecting = None;
+        self.picker = None;
         self.commanders.clear();
         self.pending_commander.clear();
         self.stale_commander = None;

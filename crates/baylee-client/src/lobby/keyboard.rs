@@ -284,6 +284,7 @@ pub(super) fn keyboard(
             &mut scrolled,
             clipboard.as_deref_mut(),
             &mut paste,
+            &mailbox,
         );
         return;
     }

@@ -42,14 +42,15 @@ fn the_printing_picker_offers_every_control_it_needs() {
         Press::Build(BuildPress::PickerStep(-1)),
         Press::Build(BuildPress::PickerStep(1)),
         Press::Build(BuildPress::PickerGo(1)),
-        Press::Build(BuildPress::PickerLang(None)),
         Press::Build(BuildPress::PickerLang(Some(0))),
         Press::Build(BuildPress::PickerLang(Some(1))),
         Press::Build(BuildPress::PickerFinish(Finish::Foil)),
-        Press::Build(BuildPress::PickerRefresh),
         Press::Build(BuildPress::PickerForceFinish),
         Press::Build(BuildPress::FocusBuild(BuildField::PickerSet)),
-        Press::Build(BuildPress::PickerConfirm),
+        // The card window's primary through a picture door on a pool card:
+        // Add to deck, the chosen print riding along (windows-b6 §A.3).
+        Press::Build(BuildPress::WindowAdd(Zone::Main)),
+        Press::Build(BuildPress::WindowStep(Zone::Main, true)),
         Press::Build(BuildPress::PickerClose),
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");

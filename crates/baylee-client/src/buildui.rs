@@ -41,6 +41,7 @@ use baylee_client_core::images::FinishTreatment;
 use baylee_core::preset::Finish;
 use bevy::prelude::*;
 
+pub(crate) mod cardwindow;
 pub(crate) mod print_picker;
 pub(crate) mod transfer;
 pub(crate) mod virtual_rows;
@@ -208,6 +209,7 @@ impl Nav {
 /// is (that is `DeckBuilder`'s). Written only where it changes, since a write
 /// to the lobby's state is a redraw.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[allow(clippy::struct_excessive_bools)] // independent view facts, one each
 pub(crate) struct BuildUi {
     /// The deck side's tab.
     pub(crate) tab: DeckTab,
@@ -237,6 +239,14 @@ pub(crate) struct BuildUi {
     /// Bumped whenever the keyboard model moves [`Self::nav`], so the focus
     /// ring follows a key and a click alike (`focus::follow`).
     pub(crate) nav_epoch: u64,
+    /// The card window shows its printing's back (Flip, `f`).
+    pub(crate) window_back: bool,
+    /// The player reads text faces rather than art (the device's setting,
+    /// copied in as the builder is drawn).
+    pub(crate) reads_text: bool,
+    /// The kit's focus is on the card window's printing strip, where ← →
+    /// step the printings rather than the cards (`focus::follow`).
+    pub(crate) on_strip: bool,
 }
 
 impl BuildUi {

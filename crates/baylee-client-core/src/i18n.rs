@@ -4822,6 +4822,34 @@ messages! {
     BuildChoosePrinting { en: "Choose printing\u{2026}", de: "Druck wählen\u{2009}\u{2026}" },
     /// A pool row's menu: open the card sheet.
     BuildOpenCard { en: "Open card", de: "Karte öffnen" },
+    /// The card window's primary through a row door (windows-b6 §A.3).
+    CardAddToDeck { en: "Add to deck", de: "Ins Deck" },
+    /// The card window's primary through a picture door on a deck row.
+    CardApplyPrinting { en: "Apply printing", de: "Druck übernehmen" },
+    /// The card window: set this card as the commander.
+    CardSetCommander { en: "Set as commander", de: "Als Commander" },
+    /// The card window: this card is the commander.
+    CardIsCommander { en: "Is commander", de: "Ist Commander" },
+    /// The card window: turn a two-faced printing over.
+    CardFlip { en: "Flip", de: "Wenden" },
+    /// The card window: unlock the finishes this printing was not sold in.
+    CardAnyFinish { en: "any finish", de: "jedes Finish" },
+    /// The card window: the rules text shown is the compiled English Oracle.
+    CardEnglishText { en: "English text", de: "Englischer Text" },
+    /// The card window offline, or with no catalog: one printing only.
+    CardMorePrintings { en: "More printings need the gateway", de: "Weitere Drucke brauchen das Gateway" },
+    /// The card window's printing section heading.
+    CardHeadPrinting { en: "PRINTING", de: "DRUCK" },
+    /// The card window's count section heading.
+    CardHeadInDeck { en: "IN THIS DECK", de: "IN DIESEM DECK" },
+    /// The card window's main-deck stepper.
+    CardMain { en: "Main", de: "Hauptdeck" },
+    /// The card window's sideboard stepper.
+    CardSide { en: "Sideboard", de: "Sideboard" },
+    /// The card window's language chips' label.
+    CardLanguage { en: "Language", de: "Sprache" },
+    /// The card window's finish chips' label.
+    CardFinish { en: "Finish", de: "Finish" },
     /// A pool row's menu, or the card sheet: add to the main deck.
     BuildAddToMain { en: "Add to main", de: "Ins Hauptdeck" },
     /// A pool row's menu, or the card sheet: add to the sideboard.

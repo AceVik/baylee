@@ -15,7 +15,7 @@
 use super::{BuildMenu, BuildUi, DeckTab, Env, Layout, Nav, Pane, SaveState};
 use crate::cardmat::UiCards;
 use baylee_client_core::deckbuilder::{
-    BuildField, Entry, Grouping, Picker, SectionKey, Sort, Zone, transfer::Transfer,
+    BuildField, Entry, Grouping, SectionKey, Sort, Zone, transfer::Transfer,
 };
 use baylee_client_core::filterdialog::FilterPanel;
 use baylee_client_core::i18n::Lang;
@@ -256,7 +256,7 @@ struct Keys {
     tabbar: Option<TabbarKey>,
     menu: Option<MenuKey>,
     sheet: Option<SheetKey>,
-    picker: Option<Option<Picker>>,
+    picker: Option<Option<super::cardwindow::WindowKey>>,
     transfer: Option<Option<TransferKey>>,
 }
 
@@ -389,21 +389,10 @@ impl Retained {
             commands,
             h.picker,
             &mut k.picker,
-            deck.picker().cloned(),
+            super::cardwindow::key(env),
             |c, at| {
-                if let Some(picker) = deck.picker() {
-                    let dialog = super::print_picker::printing_picker(
-                        c,
-                        env.kit.fonts,
-                        env.lobby_metrics(),
-                        env.lang(),
-                        deck,
-                        picker,
-                        assets,
-                        cards,
-                        env.scrolled,
-                    );
-                    c.entity(at).add_child(dialog);
+                if let Some(window) = super::cardwindow::window(c, env, assets, cards) {
+                    c.entity(at).add_child(window);
                 }
             },
         );

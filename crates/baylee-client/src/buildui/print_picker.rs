@@ -592,7 +592,7 @@ fn icon_button(
     root
 }
 
-fn set_search(
+pub(super) fn set_search(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,

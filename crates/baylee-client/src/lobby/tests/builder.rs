@@ -380,9 +380,49 @@ fn a_card_can_be_read_in_the_builder() {
         shown.iter().any(|l| l == "{T}: Add {G}."),
         "the rules text is on screen: {shown:?}"
     );
+    let found = presses(&mut app);
     assert!(
-        presses(&mut app).contains(&Press::Build(BuildPress::CloseCard)),
+        found.contains(&Press::Build(BuildPress::PickerClose)),
         "and closes"
+    );
+    // One window (windows-b6 §A.3): the row's door has the primary Add to
+    // deck and the counts' steppers, and the printing's section.
+    assert!(found.contains(&Press::Build(BuildPress::WindowAdd(Zone::Main))));
+    assert!(found.contains(&Press::Build(BuildPress::WindowStep(Zone::Side, true))));
+    assert!(
+        shown.iter().any(|l| l == "PRINTING"),
+        "the printing section: {shown:?}"
+    );
+}
+
+/// Offline, or with no catalog, the window says why there is one printing
+/// in a sentence, and its text is never blank: the compiled English Oracle
+/// stands in, tagged for a German reader (windows-b6 §A.3).
+#[test]
+fn the_card_window_offline_says_why_and_is_never_blank() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        let _ = state.lobby.builder_mut().inspect(0);
+        let index = state
+            .lobby
+            .builder()
+            .card(0)
+            .map(|c| c.index)
+            .unwrap_or_default();
+        state
+            .lobby
+            .builder_mut()
+            .set_printings(index, Vec::new(), false);
+    }
+    app.update();
+    let shown = labels(&mut app);
+    assert!(
+        shown.iter().any(|l| l == "More printings need the gateway"),
+        "the one-printing sentence: {shown:?}"
     );
 }
 

@@ -37,6 +37,9 @@ pub struct Flip {
     /// 0.0 face up, 1.0 fully turned. Runs through the quarter turn where
     /// the card is edge-on and the faces swap.
     pub turn: f32,
+    /// Turned over by a control rather than by Shift (the card window's
+    /// Flip): the card stays turned while this holds.
+    pub held: bool,
 }
 
 /// Which side of a [`Flip`] a node is.
@@ -99,7 +102,11 @@ fn turn(
         let has_back = children
             .iter()
             .any(|child| sides.get(child).is_ok_and(|(side, ..)| *side == Side::Back));
-        let target = if wants_back && has_back { 1.0 } else { 0.0 };
+        let target = if (wants_back || flip.held) && has_back {
+            1.0
+        } else {
+            0.0
+        };
         // Linear rather than exponential, unlike everything else that moves
         // in this client: a turn has a *far* side, and an asymptote would
         // leave the card a hair short of flat for as long as shift is held.
