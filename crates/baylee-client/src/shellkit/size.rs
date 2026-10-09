@@ -6,30 +6,39 @@
 //!
 //! `Phone` is decided on the **raw** logical height (or a phone platform),
 //! never on the text step, so no step can turn a phone into a desktop
-//! (M4-4: 844 × 390 divided by step 1's 0.702 would read as Wide). The other
+//! (M4-4: 844 × 390 divided by a small step's factor would read as Narrow or
+//! Wide). The other
 //! four classes come from the **effective** width — logical pixels divided by
 //! the step's factor — so a larger step narrows the layout as it should.
 
 use bevy::input::mouse::MouseMotion;
 use bevy::input::touch::TouchInput;
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// The five text steps, per device (`ClientSettings::text_size`), geometric
-/// at a ratio of 1.125 around today's size, which is step 4 (`L`).
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+/// at a ratio of 1.125 around the default, which is step 3 (`M`): the size
+/// the shell had before there were steps.
+///
+/// Renamed on 09.10.2026 (the owner: the default reads M). The scale moved
+/// up one name and gained a step at the top: today's M is what was L, L
+/// what was XL, XL a new step 1.125 above that, S what was M, XS what was
+/// S; the old smallest step (0.702) is gone. A stored step is migrated so
+/// nobody's size changes ([`TextSize::from_stored`]); one stored at the
+/// old XS reads the new XS, the nearest that is left.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum TextSize {
-    /// Step 1, 0.702.
+    /// Step 1, 0.790 (the old `S`).
     Xs,
-    /// Step 2, 0.790.
+    /// Step 2, 0.889 (the old `M`).
     S,
-    /// Step 3, 0.889.
-    M,
-    /// Step 4, 1.000: today's sizes.
+    /// Step 3, 1.000: the default, the shell's sizes before the steps (the
+    /// old `L`).
     #[default]
+    M,
+    /// Step 4, 1.125 (the old `XL`).
     L,
-    /// Step 5, 1.125.
+    /// Step 5, 1.266: new on 09.10.2026.
     Xl,
 }
 
@@ -38,15 +47,15 @@ impl TextSize {
     pub const ALL: [Self; 5] = [Self::Xs, Self::S, Self::M, Self::L, Self::Xl];
 
     /// What the step multiplies the shell's sizes by: 1.125 to the power of
-    /// the step's distance from `L`, rounded as §8 tabulates it.
+    /// the step's distance from `M`, rounded as §8 tabulates it.
     #[must_use]
     pub const fn factor(self) -> f32 {
         match self {
-            Self::Xs => 0.702,
-            Self::S => 0.790,
-            Self::M => 0.889,
-            Self::L => 1.0,
-            Self::Xl => 1.125,
+            Self::Xs => 0.790,
+            Self::S => 0.889,
+            Self::M => 1.0,
+            Self::L => 1.125,
+            Self::Xl => 1.266,
         }
     }
 
@@ -59,6 +68,52 @@ impl TextSize {
             Self::M => 3,
             Self::L => 4,
             Self::Xl => 5,
+        }
+    }
+
+    /// The step numbered `n` (1 to 5), as [`Self::step`] numbers them.
+    #[must_use]
+    pub const fn of_step(n: u8) -> Option<Self> {
+        match n {
+            1 => Some(Self::Xs),
+            2 => Some(Self::S),
+            3 => Some(Self::M),
+            4 => Some(Self::L),
+            5 => Some(Self::Xl),
+            _ => None,
+        }
+    }
+
+    /// The step's name as the settings screen shows it, and as dev-control
+    /// takes it (`xs s m l xl`, lower case there).
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Xs => "XS",
+            Self::S => "S",
+            Self::M => "M",
+            Self::L => "L",
+            Self::Xl => "XL",
+        }
+    }
+
+    /// What a settings file stored, read as a step that keeps the size it
+    /// had. Since 09.10.2026 a step is stored as its number (`3`); a file
+    /// from before stored the old name (`"l"`), which meant the step one
+    /// name up: old `l` (1.000) is the new `M`, old `xl` (1.125) the new
+    /// `L`, old `m` the new `S`, old `s` the new `XS`, and old `xs` (0.702,
+    /// a size there is no longer) the new `XS`. Anything else reads `None`.
+    #[must_use]
+    pub fn from_stored(value: &serde_json::Value) -> Option<Self> {
+        if let Some(n) = value.as_u64() {
+            return u8::try_from(n).ok().and_then(Self::of_step);
+        }
+        match value.as_str()? {
+            "xs" | "s" => Some(Self::Xs),
+            "m" => Some(Self::S),
+            "l" => Some(Self::M),
+            "xl" => Some(Self::L),
+            _ => None,
         }
     }
 
@@ -82,6 +137,23 @@ impl TextSize {
             Self::L => Self::M,
             Self::Xl => Self::L,
         }
+    }
+}
+
+/// Stored as the step's number, which no file from before the rename wrote
+/// (those wrote a name), so the two can never be confused.
+impl Serialize for TextSize {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_u8(self.step())
+    }
+}
+
+/// Reads a number (this build's) or an old name (migrated, keeping the
+/// size); anything else is the default, as every lenient knob reads.
+impl<'de> Deserialize<'de> for TextSize {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        Ok(Self::from_stored(&value).unwrap_or_default())
     }
 }
 
@@ -292,19 +364,19 @@ mod tests {
             Frame::Wide
         );
         assert_eq!(
-            Frame::classify(Viewport::desktop(2560.0, 1440.0), TextSize::L),
+            Frame::classify(Viewport::desktop(2560.0, 1440.0), TextSize::M),
             Frame::Vast
         );
         assert_eq!(
-            Frame::classify(Viewport::desktop(1920.0, 1080.0), TextSize::L),
+            Frame::classify(Viewport::desktop(1920.0, 1080.0), TextSize::M),
             Frame::Wide
         );
         assert_eq!(
-            Frame::classify(Viewport::desktop(960.0, 700.0), TextSize::L),
+            Frame::classify(Viewport::desktop(960.0, 700.0), TextSize::M),
             Frame::Narrow
         );
         assert_eq!(
-            Frame::classify(Viewport::desktop(700.0, 700.0), TextSize::L),
+            Frame::classify(Viewport::desktop(700.0, 700.0), TextSize::M),
             Frame::Compact
         );
         // A native tablet is sized by its window: Wide, not Phone; a native
@@ -313,12 +385,12 @@ mod tests {
             platform: Platform::Mobile,
             ..Viewport::desktop(1180.0, 820.0)
         };
-        assert_eq!(Frame::classify(tablet, TextSize::L), Frame::Wide);
+        assert_eq!(Frame::classify(tablet, TextSize::M), Frame::Wide);
         let phone = Viewport {
             platform: Platform::Mobile,
             ..Viewport::desktop(920.0, 443.0)
         };
-        assert_eq!(Frame::classify(phone, TextSize::L), Frame::Phone);
+        assert_eq!(Frame::classify(phone, TextSize::M), Frame::Phone);
     }
 
     /// The old width-only reading never answers the shell's two new classes,
@@ -330,12 +402,54 @@ mod tests {
         assert_eq!(Frame::of(5000.0), Frame::Wide);
     }
 
+    /// The rename of 09.10.2026: a step a file stored before it keeps its
+    /// size (old `l` 1.000 is the new `M`, old `xl` the new `L`, …), the old
+    /// smallest step reads the new smallest, and this build stores numbers,
+    /// which no older file holds.
+    #[test]
+    fn a_stored_step_keeps_its_size_across_the_rename() {
+        let old = [
+            ("xs", TextSize::Xs, 0.790),
+            ("s", TextSize::Xs, 0.790),
+            ("m", TextSize::S, 0.889),
+            ("l", TextSize::M, 1.0),
+            ("xl", TextSize::L, 1.125),
+        ];
+        for (name, want, factor) in old {
+            let read: TextSize =
+                serde_json::from_value(serde_json::json!(name)).expect("an old name reads");
+            assert_eq!(read, want, "old {name:?}");
+            assert!((read.factor() - factor).abs() < 1e-6, "old {name:?}");
+        }
+        // The old sizes, kept: old s, m, l, xl were 0.790, 0.889, 1.0, 1.125.
+        for step in TextSize::ALL {
+            let text = serde_json::to_string(&step).expect("serializes");
+            assert_eq!(text, step.step().to_string(), "stored as its number");
+            let back: TextSize = serde_json::from_str(&text).expect("reads back");
+            assert_eq!(back, step);
+        }
+        for junk in [
+            serde_json::json!("huge"),
+            serde_json::json!(9),
+            serde_json::json!(null),
+        ] {
+            let read: TextSize = serde_json::from_value(junk).expect("anything reads");
+            assert_eq!(read, TextSize::M);
+        }
+        assert!((TextSize::M.factor() - 1.0).abs() < f32::EPSILON);
+        assert_eq!(TextSize::default(), TextSize::M);
+        assert!(
+            TextSize::Xl.factor() > 1.125,
+            "a step above the old largest"
+        );
+    }
+
     #[test]
     fn the_factors_are_the_ratio_the_design_tabulates() {
         for pair in TextSize::ALL.windows(2) {
             let ratio = pair[1].factor() / pair[0].factor();
             assert!((ratio - 1.125).abs() < 0.002, "{pair:?}: {ratio}");
         }
-        assert_eq!(TextSize::default(), TextSize::L);
+        assert_eq!(TextSize::default(), TextSize::M);
     }
 }

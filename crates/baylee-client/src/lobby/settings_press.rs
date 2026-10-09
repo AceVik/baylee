@@ -18,6 +18,8 @@ pub(crate) enum SettingsPress {
     OpenSettings,
     /// Leave it.
     CloseSettings,
+    /// Empty the search (its `×`), the caret staying in it.
+    ClearSearch,
     /// Wait for a key and bind it to this action.
     Rebind(baylee_client_core::prefs::Action),
     /// Put one action back to its default key.
@@ -397,6 +399,10 @@ impl SettingsPress {
             }
             SettingsPress::CloseSettings if state.settings.is_open() => {
                 state.settings = SettingsPane::Closed;
+            }
+            SettingsPress::ClearSearch => {
+                state.set_settings_query(String::new());
+                state.lobby.focus_on(Field::SettingsSearch);
             }
             SettingsPress::SeatKey(key) => state.seat.key_press(key),
             SettingsPress::AskToDeleteAccount => state.lobby.ask_to_delete_account(),

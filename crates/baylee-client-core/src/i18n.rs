@@ -1238,7 +1238,7 @@ messages! {
     /// Behind, with the rule
     VisitBehind { en: "Behind", de: "Dahinter" },
     /// Behind, the dial always
-    VisitBehindDial { en: "Behind, dial", de: "Dahinter, Zifferblatt" },
+    VisitBehindDial { en: "Behind, dial", de: "Dahinter, Uhr" },
     /// Across
     VisitAcross { en: "Across", de: "Gegenüber" },
     /// The game menu's priority-sound switch, on

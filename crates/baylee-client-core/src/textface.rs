@@ -378,12 +378,14 @@ pub const UI_FOOT: (f32, [f32; 2]) = (0.036, [7.0, 16.0]);
 pub const BODY_FLOOR_PX: f32 = 14.0;
 
 /// The interface's five text steps' factors (`DESIGN-v5.md` §8): geometric,
-/// 1.125 apart, the fourth the size the client had before them.
-pub const STEP_FACTORS: [f32; 5] = [0.702, 0.790, 0.889, 1.000, 1.125];
+/// 1.125 apart, the third (`M`, the default) the size the client had before
+/// them. Moved up one name on 09.10.2026: the old smallest (0.702) went and
+/// a step above the old largest (1.266) came.
+pub const STEP_FACTORS: [f32; 5] = [0.790, 0.889, 1.000, 1.125, 1.266];
 
 /// The rules' floor at each step, in pixels: the factor's, held up where a
 /// sentence stops being read (WP6).
-pub const BODY_FLOORS: [f32; 5] = [12.0, 13.0, 14.0, 14.0, 16.0];
+pub const BODY_FLOORS: [f32; 5] = [13.0, 14.0, 14.0, 16.0, 18.0];
 
 /// One of the interface's five text steps.
 ///
@@ -400,8 +402,8 @@ pub struct Step(u8);
 impl Step {
     /// The smallest step.
     pub const XS: Self = Self(1);
-    /// The fourth step, the size before there were steps.
-    pub const DEFAULT: Self = Self(4);
+    /// The third step (`M`), the size before there were steps.
+    pub const DEFAULT: Self = Self(3);
     /// The largest step.
     pub const XL: Self = Self(5);
 
@@ -1395,8 +1397,8 @@ mod tests {
         assert!((Step::DEFAULT.body_floor() - BODY_FLOOR_PX).abs() < f32::EPSILON);
         assert_eq!(
             BODY_FLOORS,
-            [12.0, 13.0, 14.0, 14.0, 16.0],
-            "the floors the design names"
+            [13.0, 14.0, 14.0, 16.0, 18.0],
+            "the floors the design names, one name up since 09.10.2026"
         );
         // A long text stops at its step's floor.
         let deep = |em: f32| 100.0 * em;

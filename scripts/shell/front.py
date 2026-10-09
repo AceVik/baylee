@@ -1,6 +1,6 @@
 """WP1 (the shell design §3, §2.7, §17): the front door's faces at the seven
-sizes, text steps 1, 4 and 5, English and German — shots, and the kit's
-overflow, window, sibling, label-budget, 44-px hit and contrast checks over
+sizes, text steps XS, M and XL, English and German — shots, and the kit's
+overflow, fit, lines, text-overlap, window, sibling, label-budget, 44-px hit and contrast checks over
 the whole tree; plus principle 8: the colophon (the Fan Content notice,
 Scryfall's credit, the AGPL source) present on every face at every size.
 
@@ -18,17 +18,36 @@ import devctl  # noqa: E402
 
 TOUCH = ((1180, 820), (844, 390), (920, 443), (640, 360))
 FACES = ("gateway", "signin", "create", "guest", "about")
+STEPS = os.environ.get("SHELL_STEPS", "xs,m,xl").split(",")
+SIZES = [tuple(int(v) for v in s.split("x")) for s in os.environ["SHELL_SIZES"].split(",")] \
+    if os.environ.get("SHELL_SIZES") else check.SIZES
 
 
 def presses():
     return [c["press"] for c in devctl.controls()]
 
 
+def press_seen(name):
+    """Clicks the control named `name` that stands inside the window (About
+    is both in the text row, which a tall page may scroll out of view, and
+    the colophon's notice, which stays)."""
+    height = devctl.health()["height"]
+    width = devctl.health()["width"]
+    seen = [
+        c for c in devctl.controls()
+        if c["press"] == name and 4 < c["at_y"] < height - 4 and 4 < c["at_x"] < width - 4
+    ]
+    if seen:
+        devctl.click_at(seen[-1]["at_x"], seen[-1]["at_y"])
+    else:
+        devctl.press(name)
+
+
 def press_until(name, done, tries=3):
     """A click right after a resize can be eaten by the window manager."""
     for _ in range(tries):
         if name in presses():
-            devctl.press(name)
+            press_seen(name)
         try:
             devctl.until(done, 3)
             return True
@@ -59,6 +78,10 @@ def choose(gateway):
 
 
 def to_face(face, gateway):
+    # A settings screen left open (a settings run before this one) stands
+    # over the door: close it first, or every face reads as settings.
+    if "Settings(CloseSettings)" in presses():
+        press_until("Settings(CloseSettings)", lambda: "Settings(CloseSettings)" not in presses())
     if "Front(About(false))" in presses():
         press_until("Front(About(false))", lambda: "Front(About(false))" not in presses())
     if face == "gateway":
@@ -101,11 +124,11 @@ def colophon(words):
 def main(out, gateway):
     os.makedirs(out, exist_ok=True)
     summary, failures = [], 0
-    for width, height in check.SIZES:
+    for width, height in SIZES:
         devctl.resize(width, height)
         time.sleep(1.0)
         touch = (width, height) in TOUCH
-        for step in ("xs", "l", "xl"):
+        for step in STEPS:
             for lang in ("en", "de"):
                 devctl.shell(text_size=step, lang=lang, input="touch" if touch else "pointer")
                 time.sleep(0.6)
@@ -121,11 +144,12 @@ def main(out, gateway):
                         + check.check_siblings(nodes)
                         + check.check_budget(nodes, lang == "de")
                         + check.check_hit(nodes, touch)
+                        + check.check_text(nodes)
                         + (colophon(words) if face != "about" else [])
                     )
                     tag = f"{face}-{width}x{height}-{step}-{lang}"
                     contrast = []
-                    if step == "l" and (lang == "en" or (width, height) in ((960, 700), (844, 390))):
+                    if step == "m" and (lang == "en" or (width, height) in ((960, 700), (844, 390))):
                         png = os.path.join(out, f"front-{tag}.png")
                         devctl.screenshot(png)
                         if lang == "en":
@@ -153,7 +177,7 @@ def main(out, gateway):
                         summary.append("    " + fault)
                     print("\n".join(summary[-1 - min(len(faults), 6):]), flush=True)
     to_face("signin", gateway)
-    devctl.shell(text_size="l", lang="en", input="auto")
+    devctl.shell(text_size="m", lang="en", input="auto")
     with open(os.path.join(out, "front-check.log"), "w") as f:
         f.write("\n".join(summary) + f"\nfailures: {failures}\n")
     print(f"failures: {failures}")

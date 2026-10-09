@@ -262,3 +262,85 @@ fn enter_on_a_front_door_toggle_turns_it_once() {
     press_key(&mut app, KeyCode::Enter, Key::Enter, &[]);
     assert_ne!(heard(&app), before, "Enter turned the music once");
 }
+
+/// The primary button going down on a control: what a mouse sends before
+/// bevy decides whether it was a `Click` (only on the entity pressed).
+fn button_down(app: &mut App, entity: Entity) {
+    app.world_mut().write_message(aimed(
+        entity,
+        bevy::picking::events::Press {
+            button: PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+            count: 1,
+        },
+    ));
+}
+
+/// The primary button coming up on whatever the pointer is over by then.
+fn button_up(app: &mut App, entity: Entity) {
+    app.world_mut().write_message(aimed(
+        entity,
+        bevy::picking::events::Release {
+            button: PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+        },
+    ));
+}
+
+/// The owner's "two clicks" (09.10.2026): with the username holding the
+/// caret, the press on Create account moves focus onto the button, which
+/// parks the caret, which rebuilds the face before the button comes up, so
+/// bevy has no pressed entity to send a `Click` to. One click is one press:
+/// the release on the button drawn again in its place is the click.
+#[test]
+fn one_click_on_a_button_while_a_field_has_the_caret_is_enough() {
+    let mut app = at_the_door();
+    assert_eq!(
+        focused_id(&app),
+        Some("username"),
+        "the form focused a field"
+    );
+    let create = Press::Front(FrontPress::ToggleRegistering);
+    let pressed = press_target(&mut app, create);
+    button_down(&mut app, pressed);
+    app.update();
+    app.update();
+    assert!(
+        app.world().get_entity(pressed).is_err(),
+        "the press rebuilt the face (the case this is about)"
+    );
+    let again = press_target(&mut app, create);
+    button_up(&mut app, again);
+    app.update();
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.face(),
+        Face::Create,
+        "one click opened Create account"
+    );
+}
+
+/// A click bevy does send (nothing was rebuilt) is answered once, not once
+/// for the click and again for the release.
+#[test]
+fn a_click_that_survived_is_answered_once() {
+    let mut app = at_the_door();
+    let create = Press::Front(FrontPress::ToggleRegistering);
+    // A first press puts focus on the button, so the second rebuilds nothing.
+    let target = press_target(&mut app, create);
+    button_down(&mut app, target);
+    app.update();
+    app.update();
+    let target = press_target(&mut app, create);
+    button_down(&mut app, target);
+    app.update();
+    button_up(&mut app, target);
+    tap(&mut app, target);
+    app.update();
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.face(),
+        Face::Create,
+        "pressed once, not twice (twice would toggle back)"
+    );
+}

@@ -72,7 +72,9 @@ fn link(commands: &mut Commands, kit: Kit, text: &str, look: Look, action: impl 
     let face = commands
         .spawn((
             Node {
-                padding: UiRect::axes(kit.m.px(8.0), px_fixed(0.0)),
+                // Room either side of the word, so the chosen language's
+                // ground does not end at its letters (owner, 09.10.2026).
+                padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
                 min_height: px_fixed(kit.m.control * 0.8),
                 align_items: AlignItems::Center,
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
@@ -98,9 +100,13 @@ fn link(commands: &mut Commands, kit: Kit, text: &str, look: Look, action: impl 
     let words = words.id();
     commands.entity(face).add_child(words);
     let wrapper = controls::hit(commands, kit, face, action);
-    commands
-        .entity(face)
-        .insert((Pickable::default(), crate::ambience::Feel::new(Color::NONE)));
+    // A word lights under the pointer as a ghost button does (the face is
+    // its hit area's: `ambience::feel` reads the wrapper).
+    commands.entity(face).insert(if look == Look::Current {
+        crate::ambience::Feel::new(tokens::SELECTED)
+    } else {
+        crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER)
+    });
     wrapper
 }
 
@@ -155,10 +161,13 @@ pub(super) fn text_row(
     }
     // On a phone's column the two languages share one line.
     if column {
+        // Side by side where the column has the room, one over the other
+        // at the larger steps.
         let pair = commands
             .spawn((
                 Node {
                     justify_content: JustifyContent::Center,
+                    flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -210,21 +219,15 @@ pub(super) fn text_row(
     row
 }
 
-/// The one-line colophon (§3), on every face below Wide: the build, the
-/// notice in the policy's own short words (its full text one press away, on
-/// About), Scryfall's credit, and the source (the address itself on About,
-/// with its code). One line at 640 px.
+/// The one-line colophon (§3), on every face below Wide: the notice in the
+/// policy's own short words (its full text one press away, on About),
+/// Scryfall's credit, and the source (the address itself on About, with its
+/// code). One line at 640 px. The build stands under the text row
+/// ([`version_line`], owner 09.10.2026).
 pub(super) fn one_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
     let lang = state.lobby.lang();
     let table = keys::table_of(state).name;
     let row = plate(commands, kit);
-    let build = controls::label(
-        commands,
-        kit,
-        baylee_build::VERSION,
-        kit.m.small,
-        tokens::INK,
-    );
     let notice = link(
         commands,
         kit,
@@ -258,7 +261,7 @@ pub(super) fn one_line(commands: &mut Commands, state: &LobbyState, kit: Kit) ->
             Stop::new(table, "source"),
         ),
     );
-    let parts = [build, notice, credit, source];
+    let parts = [notice, credit, source];
     for (i, part) in parts.into_iter().enumerate() {
         if i > 0 {
             let s = sep(commands, kit);
@@ -269,19 +272,19 @@ pub(super) fn one_line(commands: &mut Commands, state: &LobbyState, kit: Kit) ->
     row
 }
 
-/// The full colophon (Wide, Vast): the build, the notice word for word,
-/// Scryfall's credit and the source link on one mist plate, the QR at the
-/// right when there is a plain address to encode (#299).
+/// The full colophon (Wide, Vast): the Fan Content notice word for word and
+/// Scryfall's credit, set as a short centred paragraph on a mist plate
+/// rather than run into one long line (owner, 09.10.2026). The build stands
+/// under the text row ([`version_line`]) and the source with its QR in the
+/// top corner ([`source_corner`]).
 pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
     let lang = state.lobby.lang();
-    let table = keys::table_of(state).name;
     let holder = commands
         .spawn((
             Node {
                 width: Val::Percent(100.0),
                 flex_shrink: 0.0,
                 justify_content: JustifyContent::Center,
-                align_items: AlignItems::FlexEnd,
                 padding: UiRect::all(kit.m.px(8.0)),
                 ..default()
             },
@@ -294,9 +297,13 @@ pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
             Node {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
-                max_width: Val::Percent(80.0),
-                padding: UiRect::axes(kit.m.px(14.0), kit.m.px(6.0)),
-                row_gap: kit.m.px(2.0),
+                // About two lines of the notice: a paragraph, not a ribbon
+                // across the window. A definite width, so the notice is
+                // measured wrapped and the plate holds all its lines.
+                width: Val::Percent(100.0),
+                max_width: kit.m.px(COLOPHON_MEASURE),
+                padding: UiRect::axes(kit.m.px(16.0), kit.m.px(8.0)),
+                row_gap: kit.m.px(4.0),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
@@ -304,24 +311,143 @@ pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
             Pickable::IGNORE,
         ))
         .id();
-    // One flowing paragraph, as the mock sets it (two lines at 1920): the
-    // build, the notice word for word, Scryfall's credit; the source under.
-    let said = commands
+    let line = |commands: &mut Commands, text: &str| {
+        commands
+            .spawn((
+                Text::new(text),
+                crate::hud::tf(kit.fonts, kit.m.small),
+                TextColor(tokens::INK),
+                TextLayout::justify(Justify::Center),
+                Pickable::IGNORE,
+            ))
+            .id()
+    };
+    let notice = line(commands, FAN_CONTENT_NOTICE);
+    let credit = line(commands, Phrase::ScryfallCredit.text(lang));
+    commands.entity(words).add_children(&[notice, credit]);
+    commands.entity(holder).add_child(words);
+    holder
+}
+
+/// How wide the full colophon's paragraph runs at the default step: the
+/// notice in two lines at 1920 px.
+const COLOPHON_MEASURE: f32 = 760.0;
+
+/// The source offer in the window's top corner on Wide and Vast (owner,
+/// 09.10.2026; `docs/legal.md` §"The front door's notices"): its QR, and
+/// under it "Source code (AGPL-3.0): <address>" as text and link, on a
+/// mist plate. The AGPL §13
+/// offer stays on screen; it no longer stretches the colophon.
+pub(super) fn source_corner(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    let lang = state.lobby.lang();
+    let table = keys::table_of(state).name;
+    let corner = commands
         .spawn((
-            Text::new(""),
+            Role::Mist,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px_fixed(kit.m.body),
+                right: px_fixed(kit.m.body),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                max_width: kit.m.px(SOURCE_MEASURE),
+                padding: UiRect::all(kit.m.px(8.0)),
+                row_gap: kit.m.px(4.0),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::MIST),
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(code) = state.source_code.as_ref() {
+        let picture = qr(commands, code);
+        commands.entity(corner).add_child(picture);
+    }
+    // "Source code (AGPL-3.0): <address>", the sentence About says too.
+    let address = Phrase::SourceCode.fill(lang, &[source_address(state)]);
+    let shown = commands
+        .spawn((
+            Text::new(address),
+            crate::hud::tf(kit.fonts, kit.m.small),
+            TextColor(tokens::INK),
+            TextLayout::new(Justify::Center, LineBreak::WordOrCharacter),
+            Underline,
+            UnderlineColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    // The address is the link where the gateway's passed the check at the
+    // door; else it is text, as About says it.
+    let source = if state.source_code.is_some() {
+        let face = commands
+            .spawn((
+                Node {
+                    padding: UiRect::axes(kit.m.px(6.0), px_fixed(2.0)),
+                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                    max_width: Val::Percent(100.0),
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            ))
+            .id();
+        commands.entity(face).add_child(shown);
+        let wrapper = controls::hit(
+            commands,
+            kit,
+            face,
+            (
+                Press::Front(FrontPress::OpenSource),
+                Stop::new(table, "source"),
+            ),
+        );
+        commands
+            .entity(wrapper)
+            .entry::<Node>()
+            .and_modify(|mut node| node.max_width = Val::Percent(100.0));
+        wrapper
+    } else {
+        commands
+            .entity(shown)
+            .remove::<(Underline, UnderlineColor)>();
+        shown
+    };
+    commands.entity(corner).add_child(source);
+    corner
+}
+
+/// How wide the source corner may grow at the default step.
+const SOURCE_MEASURE: f32 = 280.0;
+
+/// The build this client is, on its own line under the text row, on every
+/// face (owner, 09.10.2026: "below the bar below the form"): the whole
+/// build on Wide and Vast, the version on the smaller classes.
+pub(super) fn version_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    let lang = state.lobby.lang();
+    let build = if matches!(kit.m.frame, Frame::Wide | Frame::Vast) {
+        baylee_build::short()
+    } else {
+        baylee_build::VERSION
+    };
+    let row = plate(commands, kit);
+    // "this client {0}", the version its own span (the tests and the eye
+    // find the build whole).
+    let said = Phrase::FrontThisClient.text(lang);
+    let (before, after) = said.split_once("{0}").unwrap_or((said, ""));
+    let words = commands
+        .spawn((
+            Text::new(before),
             crate::hud::tf(kit.fonts, kit.m.small),
             TextColor(tokens::INK),
             TextLayout::justify(Justify::Center),
             Pickable::IGNORE,
         ))
         .id();
-    for part in [
-        baylee_build::short(),
-        " \u{b7} ",
-        FAN_CONTENT_NOTICE,
-        " \u{b7} ",
-        Phrase::ScryfallCredit.text(lang),
-    ] {
+    for part in [build, after] {
+        if part.is_empty() {
+            continue;
+        }
         let span = commands
             .spawn((
                 TextSpan::new(part),
@@ -329,47 +455,10 @@ pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
                 TextColor(tokens::INK),
             ))
             .id();
-        commands.entity(said).add_child(span);
+        commands.entity(words).add_child(span);
     }
-    let address = Phrase::SourceCode.fill(lang, &[source_address(state)]);
-    let source = if state.source_code.is_some() {
-        link(
-            commands,
-            kit,
-            &address,
-            Look::Underlined,
-            (
-                Press::Front(FrontPress::OpenSource),
-                Stop::new(table, "source"),
-            ),
-        )
-    } else {
-        commands
-            .spawn((
-                Text::new(address),
-                crate::hud::tf(kit.fonts, kit.m.small),
-                TextColor(tokens::INK),
-                TextLayout::new(Justify::Center, LineBreak::WordOrCharacter),
-                Pickable::IGNORE,
-            ))
-            .id()
-    };
-    commands.entity(words).add_children(&[said, source]);
-    commands.entity(holder).add_child(words);
-    if let Some(code) = state.source_code.as_ref() {
-        let picture = qr(commands, code);
-        commands.entity(picture).insert(Node {
-            position_type: PositionType::Absolute,
-            right: kit.m.px(12.0),
-            bottom: kit.m.px(10.0),
-            padding: UiRect::all(px_fixed(3.0)),
-            border: UiRect::all(px_fixed(1.0)),
-            border_radius: BorderRadius::all(px_fixed(5.0)),
-            ..default()
-        });
-        commands.entity(holder).add_child(picture);
-    }
-    holder
+    commands.entity(row).add_child(words);
+    row
 }
 
 /// The source address as a QR code on a framed plate; a press opens it.
@@ -477,8 +566,16 @@ pub(crate) fn about(
             Pickable::default(),
         ))
         .id();
+    // Each paragraph as wide as the sheet's column, a definite width: at
+    // another, a long one was given the height of fewer lines than it
+    // broke into (the `fit` check, a phone at XL).
     let para = |commands: &mut Commands, words: &str, muted: bool| {
-        surfaces::prose(commands, kit, words, muted)
+        let text = surfaces::prose(commands, kit, words, muted);
+        commands.entity(text).insert(Node {
+            width: Val::Percent(100.0),
+            ..default()
+        });
+        text
     };
     let mut body = vec![
         para(commands, &format!("Baylee {}", baylee_build::short()), true),
