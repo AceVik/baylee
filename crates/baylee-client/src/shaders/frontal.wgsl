@@ -9,12 +9,15 @@
 // Broad end caps, inset tooling and a foot make the hand a physical well
 // rather than a blank panel. Ornament is generated; no borrowed assets.
 //
-// Time comes explicitly from Time<Virtual>, not the renderer's real clock.
+// Time is `globals.time`, which bevy fills from `Time<Virtual>` (paused with
+// it), as the ambience reads it: a clock in the material made every surface
+// a modified asset, prepared and uploaded again, on every frame.
 // Seven- and eleven-second motions only stir the low-contrast mineral field.
 // Reduced motion zeros both the clock and energy, leaving a designed still
 // surface rather than a frozen bright pose. Cards keep their own signals.
 
 #import bevy_ui::ui_vertex_output::UiVertexOutput
+#import bevy_render::globals::Globals
 #import "embedded://baylee_client/shaders/noise.wgsl"::fbm1
 
 struct FrontalParams {
@@ -47,6 +50,7 @@ struct FrontalParams {
     inlays: array<vec4<f32>, 5>,
 }
 
+@group(0) @binding(1) var<uniform> globals: Globals;
 @group(1) @binding(0) var<uniform> params: FrontalParams;
 
 const TAU: f32 = 6.2831853;
@@ -94,7 +98,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // field run out of the rail into the skirt without a seam.
     let x = (in.uv.x - 0.5) * params.aspect * h;
     let y = in.uv.y * h;
-    let t = params.surface.x;
+    let t = globals.time;
 
     // The breath and the swell: one factor and one offset, shared by
     // everything that moves below.

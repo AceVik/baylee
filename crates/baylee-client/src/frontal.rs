@@ -52,7 +52,7 @@ use bevy::ui::ComputedNode;
 /// hands to the target — `ambience` passes `LinearRgba` for the same reason,
 /// and mixing two dyes in linear space is also the only mix that means
 /// anything.
-#[derive(Clone, Copy, ShaderType, Debug)]
+#[derive(Clone, Copy, PartialEq, ShaderType, Debug)]
 pub struct FrontalParams {
     /// The one dye; `w` is how far the folds move it.
     pub dye: Vec4,
@@ -77,7 +77,8 @@ pub struct FrontalParams {
     /// runs off the bottom of the window, and a lobby panel's own radius on
     /// a panel that stands on the page.
     pub foot_corner: f32,
-    /// Virtual seconds and surface kind (skirt / rail / seat); then, on a
+    /// Unused (the clock is `globals.time`) and surface kind (skirt / rail /
+    /// seat); then, on a
     /// rail, its opening (`z` its centre, `w` minus its half width, or `w`
     /// over a half for an open foot) and, on a skirt, how far above the
     /// tooled line its five inlays sit in pixels (`z`: zero on the hand,
@@ -350,7 +351,6 @@ fn hang(
     >,
     materials: Option<ResMut<Assets<FrontalMaterial>>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
-    time: Res<Time<Virtual>>,
 ) {
     let Some(mut materials) = materials else {
         return;
@@ -372,22 +372,29 @@ fn hang(
         if size.y <= 0.0 {
             continue;
         }
-        let Some(mut material) = materials.get_mut(&handle.0) else {
+        let Some(params) = materials.get(&handle.0).map(|m| m.params) else {
             continue;
         };
-        if (0.5..1.5).contains(&material.params.surface.y) && material.params.surface.w <= 0.5 {
+        let mut want = params;
+        if (0.5..1.5).contains(&want.surface.y) && want.surface.w <= 0.5 {
             let width = computed.size().x.max(1.0);
             let left = transform.translation.x - width * 0.5;
             let (centre, half) = opening.map_or((0.0, 0.0), |(a, b)| {
                 ((a.midpoint(b) - left) / width, (b - a) * 0.5 / width)
             });
-            material.params.surface.z = centre;
-            material.params.surface.w = -half;
+            want.surface.z = centre;
+            want.surface.w = -half;
         }
-        material.params.aspect = size.x / size.y;
-        material.params.height = size.y;
-        material.params.energy = f32::from(u8::from(!still));
-        material.params.surface.x = if still { 0.0 } else { time.elapsed_secs() };
+        want.aspect = size.x / size.y;
+        want.height = size.y;
+        want.energy = f32::from(u8::from(!still));
+        // A write only where something moved: `get_mut` marks the asset
+        // modified, and a modified material is prepared and uploaded again.
+        if want != params
+            && let Some(mut material) = materials.get_mut(&handle.0)
+        {
+            material.params = want;
+        }
     }
 }
 
@@ -439,6 +446,44 @@ struct Globals {{ time: f32 }};
             include_str!("shaders/noise.wgsl")
         );
         crate::cardmat::tests::check_wgsl(include_str!("shaders/frontal.wgsl"), &prelude);
+    }
+
+    /// A cloth whose node has not moved is not written: after the first
+    /// frame fits it, the materials stay unmodified, so nothing is prepared
+    /// or uploaded again. Red while the clock rode in the material and every
+    /// surface was written every frame.
+    #[test]
+    fn a_hanging_cloth_at_rest_is_not_written() {
+        let mut app = App::new();
+        app.init_resource::<Assets<FrontalMaterial>>()
+            .init_resource::<Cloth>()
+            .add_systems(Update, hang);
+        let world = app.world_mut();
+        let handle = world.resource_scope(|world, mut cloth: Mut<Cloth>| {
+            let mut assets = world.resource_mut::<Assets<FrontalMaterial>>();
+            cloth.skirt(Some(&mut *assets)).expect("a handle")
+        });
+        world.spawn((
+            ComputedNode {
+                size: Vec2::new(1708.0, 190.0),
+                inverse_scale_factor: 1.0,
+                ..default()
+            },
+            bevy::ui::UiGlobalTransform::default(),
+            MaterialNode(handle),
+            Hanging,
+        ));
+        app.update();
+        app.update();
+        let tick = app.world().read_change_tick();
+        app.update();
+        let materials = app.world().resource_ref::<Assets<FrontalMaterial>>();
+        assert!(
+            !materials
+                .last_changed()
+                .is_newer_than(tick, app.world().read_change_tick()),
+            "a cloth at rest was written"
+        );
     }
 
     /// The quietest ink on the rail is readable at **every** pose the two
