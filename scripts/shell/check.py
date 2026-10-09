@@ -6,7 +6,13 @@ Every check reads `/state.shell_nodes` — each node's depth, rect, text,
 at scale 1 (launch with BAYLEE_DEV_SCALE=1, so a logical pixel is one pixel
 of the PNG). Nothing is composited: the pixels are the ones rendered.
 
-  overflow   no text node leaves its parent's rect (1 px tolerance)
+  overflow   no text node leaves its parent's rect (1 px tolerance); inside a
+             scroll container too, unless the parent is the container
+  fit        no label's glyphs are wider or taller than its own box (`tw`,
+             `th`: what the text measures; a field's typed text excepted)
+  lines      a label inside a control (button, segment, chip, tab, nav,
+             pill, key cap, stepper, toggle) stands on one line
+  overlap    no two visible text nodes on the same layer intersect
   siblings   no two sibling rows, tiles or list rows intersect
   budget     a button/chip/tab/nav label within its budget (§2.3), en or de
   hit        under Touch every hit wrapper is at least 44 x 44
@@ -93,7 +99,11 @@ def check_overflow(nodes):
     for n in nodes:
         if "t" not in n or not n["t"].strip() or n["parent"] is None:
             continue
-        if scrolled(nodes, n):
+        if n.get("hid"):
+            continue
+        # A scroll container's content may run past its edges; everything
+        # inside that content is still held to its own parent.
+        if nodes[n["parent"]].get("k") == "scroll":
             continue
         if n["w"] == 0 and n["h"] == 0:
             continue
@@ -101,6 +111,87 @@ def check_overflow(nodes):
         if not inside(n, parent):
             faults.append(f"overflow: {n['t'][:40]!r} {box(n)} leaves {box(parent)}")
     return faults
+
+
+def in_kind(nodes, n, kinds):
+    """The nearest ancestor of `n` whose role is one of `kinds`, or None."""
+    here = n["parent"]
+    while here is not None:
+        if nodes[here].get("k") in kinds:
+            return nodes[here]
+        here = nodes[here]["parent"]
+    return None
+
+
+def hidden(nodes, n):
+    """Not drawn: hidden itself or under a hidden ancestor, or sizeless."""
+    if n.get("hid") or n["w"] <= 0 or n["h"] <= 0:
+        return True
+    here = n["parent"]
+    while here is not None:
+        if nodes[here].get("hid"):
+            return True
+        here = nodes[here]["parent"]
+    return False
+
+
+def check_fit(nodes):
+    """A label whose glyphs need more room than its own box spills or is
+    cut: the box's rect alone cannot show it."""
+    faults = []
+    for n in nodes:
+        if "tw" not in n or not n.get("t", "").strip() or hidden(nodes, n):
+            continue
+        if in_kind(nodes, n, ("field",)):
+            continue
+        if n["tw"] > n["w"] + 1.5 or n["th"] > n["h"] + 1.5:
+            faults.append(
+                f"fit: {n['t'][:40]!r} needs {n['tw']:.0f}x{n['th']:.0f} in {box(n)}"
+            )
+    return faults
+
+
+CONTROLS = ("button", "segment", "chip", "tab", "nav", "pill", "keycap", "stepper", "toggle")
+
+
+def check_lines(nodes):
+    """A control's label stands on one line ("100 %" broken under itself)."""
+    faults = []
+    for n in nodes:
+        if n.get("ln", 1) <= 1 or hidden(nodes, n):
+            continue
+        owner = in_kind(nodes, n, CONTROLS)
+        if owner is not None:
+            faults.append(f"lines: {n['t'][:40]!r} breaks into {n['ln']} lines in a {owner['k']}")
+    return faults
+
+
+def layer(nodes, n):
+    """The opaque surface (a sheet, a menu, a tooltip) a node stands on;
+    None for the page itself."""
+    owner = in_kind(nodes, n, ("opaque",))
+    return None if owner is None else owner["index"]
+
+
+def check_text_overlap(nodes):
+    """No two visible texts on one layer intersect: a title running into the
+    chip beside it, a caption over its value."""
+    texts = [n for n in nodes if n.get("t", "").strip() and not hidden(nodes, n)]
+    faults = []
+    for i, a in enumerate(texts):
+        la = layer(nodes, a)
+        for b in texts[i + 1:]:
+            if layer(nodes, b) != la or overlap(a, b) <= 2.0:
+                continue
+            if a["index"] in {x["index"] for x in ancestors(nodes, b["index"], None)}:
+                continue
+            faults.append(f"overlap: {a['t'][:30]!r} {box(a)} and {b['t'][:30]!r} {box(b)}")
+    return faults
+
+
+def check_text(nodes):
+    """The three text checks of the front-polish round, together."""
+    return check_fit(nodes) + check_lines(nodes) + check_text_overlap(nodes)
 
 
 def check_window(nodes, width, height):
@@ -294,6 +385,7 @@ def gallery(outdir):
                         + check_siblings(nodes)
                         + check_budget(nodes, lang == "de")
                         + check_hit(nodes, touch)
+                        + check_text(nodes)
                     )
                     tag = f"{width}x{height}-{step}-{lang}-{'touch' if touch else 'pointer'}"
                     contrast = []

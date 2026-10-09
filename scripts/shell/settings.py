@@ -20,6 +20,12 @@ import check  # noqa: E402
 import devctl  # noqa: E402
 
 TOUCH = ((1180, 820), (844, 390), (920, 443), (640, 360))
+# The text steps measured: the smallest, the default and the largest
+# (`SHELL_STEPS=m` for a quick run). Shots and the phone's measure are the
+# default step's.
+STEPS = os.environ.get("SHELL_STEPS", "xs,m,xl").split(",")
+SIZES = [tuple(int(v) for v in s.split("x")) for s in os.environ["SHELL_SIZES"].split(",")] \
+    if os.environ.get("SHELL_SIZES") else check.SIZES
 # Each section's title, as its panel heads it (`Section::name`).
 TITLES = {
     "Graphics": ("Graphics", "Grafik"),
@@ -107,18 +113,22 @@ def section_faults(nodes, width, height, touch, german):
         + check.check_siblings(nodes)
         + check.check_budget(nodes, german)
         + check.check_hit(nodes, touch)
+        + check.check_text(nodes)
     )
 
 
 def main(out):
     os.makedirs(out, exist_ok=True)
     summary, failures, reached = [], 0, {}
-    for width, height in check.SIZES:
-        devctl.resize(width, height)
-        time.sleep(1.0)
+    for width, height, step, lang in (
+        (w, h, st, la) for w, h in SIZES for st in STEPS for la in ("en", "de")
+    ):
+        if devctl.health()["width"] != width or abs(devctl.health()["height"] - height) > 1:
+            devctl.resize(width, height)
+            time.sleep(1.0)
         touch = (width, height) in TOUCH
-        for lang in ("en", "de"):
-            devctl.shell(text_size="m", lang=lang, input="touch" if touch else "pointer")
+        if True:
+            devctl.shell(text_size=step, lang=lang, input="touch" if touch else "pointer")
             time.sleep(0.6)
             open_settings()
             for section in SECTIONS:
@@ -141,8 +151,8 @@ def main(out):
                                 and "Section(" not in c["press"]})
                 reached.setdefault(section, set()).update(drawn)
                 faults = section_faults(nodes, width, height, touch, lang == "de")
-                tag = f"{section}-{width}x{height}-{lang}"
-                if (width, height) == (844, 390):
+                tag = f"{section}-{width}x{height}-{step}-{lang}"
+                if (width, height) == (844, 390) and step == "m":
                     rows = rows_in_view(nodes, height)
                     navs = [n for n in nodes if n.get("k") == "menu_item"]
                     if len(navs) < 8:
@@ -151,7 +161,7 @@ def main(out):
                         faults.append(f"phone: {len(rows)} rows in view, 3 wanted")
                     summary.append(f"    phone: {len(navs)} sections, {len(rows)} rows in view")
                 contrast = []
-                if lang == "en" or (width, height) in ((960, 700), (844, 390)):
+                if step == "m" and (lang == "en" or (width, height) in ((960, 700), (844, 390))):
                     png = os.path.join(out, f"settings-{tag}.png")
                     devctl.screenshot(png)
                     if lang == "en":
@@ -171,7 +181,7 @@ def main(out):
                 print("\n".join(summary[-1 - min(len(faults), 6):]), flush=True)
             # The language models' sheet: a new profile opens it, Esc puts
             # it away.
-            if "Settings(Section(LanguageModels))" in presses():
+            if step == "m" and "Settings(Section(LanguageModels))" in presses():
                 press_until("Settings(Section(LanguageModels))", lambda: True, tries=1)
                 devctl.settle(4)
                 if "Settings(Seat(Add))" in presses():

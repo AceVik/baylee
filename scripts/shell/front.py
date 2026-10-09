@@ -18,6 +18,9 @@ import devctl  # noqa: E402
 
 TOUCH = ((1180, 820), (844, 390), (920, 443), (640, 360))
 FACES = ("gateway", "signin", "create", "guest", "about")
+STEPS = os.environ.get("SHELL_STEPS", "xs,m,xl").split(",")
+SIZES = [tuple(int(v) for v in s.split("x")) for s in os.environ["SHELL_SIZES"].split(",")] \
+    if os.environ.get("SHELL_SIZES") else check.SIZES
 
 
 def presses():
@@ -101,11 +104,11 @@ def colophon(words):
 def main(out, gateway):
     os.makedirs(out, exist_ok=True)
     summary, failures = [], 0
-    for width, height in check.SIZES:
+    for width, height in SIZES:
         devctl.resize(width, height)
         time.sleep(1.0)
         touch = (width, height) in TOUCH
-        for step in ("xs", "m", "xl"):
+        for step in STEPS:
             for lang in ("en", "de"):
                 devctl.shell(text_size=step, lang=lang, input="touch" if touch else "pointer")
                 time.sleep(0.6)
@@ -121,6 +124,7 @@ def main(out, gateway):
                         + check.check_siblings(nodes)
                         + check.check_budget(nodes, lang == "de")
                         + check.check_hit(nodes, touch)
+                        + check.check_text(nodes)
                         + (colophon(words) if face != "about" else [])
                     )
                     tag = f"{face}-{width}x{height}-{step}-{lang}"
