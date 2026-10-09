@@ -91,10 +91,7 @@ pub fn keyboard(
     if crate::hud::granted_keys(fired, &mut duel) {
         return;
     }
-    if damage_keys(fired, &mut duel) {
-        return;
-    }
-    if pile_keys(fired, &mut duel) {
+    if damage_keys(fired, &mut duel) || pile_keys(fired, &mut duel) {
         return;
     }
     // And once more for the ability sheet, whose rows are sent by the digit

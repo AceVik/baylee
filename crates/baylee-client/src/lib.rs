@@ -1304,6 +1304,20 @@ impl Duel {
         }
     }
 
+    /// Makes `pending` the question, keeping what the last one carries over,
+    /// and returns the attacker the last one was a river label for.
+    fn install_question(&mut self, pending: Pending, seat: PlayerId) -> Option<ObjectId> {
+        let label_before = self.interaction.as_ref().and_then(river_label);
+        self.interaction = Some(Interaction::new_keeping(
+            pending,
+            self.view
+                .as_ref()
+                .map_or(seat, baylee_client_core::decision::resource_player),
+            self.interaction.as_ref(),
+        ));
+        label_before
+    }
+
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
         self.clear_hover_for_source_choice(&pending);
         self.target_page = 0;
@@ -1317,14 +1331,7 @@ impl Duel {
             self.subtype_group = 0;
         }
         let combat_before = self.interaction.as_ref().is_some_and(my_combat_question);
-        let label_before = self.interaction.as_ref().and_then(river_label);
-        self.interaction = Some(Interaction::new_keeping(
-            pending,
-            self.view
-                .as_ref()
-                .map_or(seat, baylee_client_core::decision::resource_player),
-            self.interaction.as_ref(),
-        ));
+        let label_before = self.install_question(pending, seat);
         self.refresh_owed_plan();
         // My own attackers or blockers being asked for brings the camera home
         // as the question opens: its subject is my board (DESIGN-v7 §2.4).
