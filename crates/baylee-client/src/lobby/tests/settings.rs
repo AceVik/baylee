@@ -860,6 +860,23 @@ fn the_default_arrangement_is_drawn_as_chosen() {
         .collect();
     assert!(others.iter().all(|g| *g == others[0]), "{grounds:?}");
     assert_ne!(chosen, others[0], "the default looks like every other");
+    // And they are the kit's segments, in a segment's face, as every other
+    // one-of-n row (4K pass, 09.10.2026: buttons in a larger, bolder face).
+    let world = app.world_mut();
+    let mut buttons = world.query::<(&Press, &Children)>();
+    let mut roles = world.query::<&crate::shellkit::Role>();
+    let segments = buttons
+        .iter(world)
+        .filter(|(press, _)| matches!(press, Press::Settings(SettingsPress::Arrangement(_))))
+        .filter(|(_, children)| {
+            children.iter().any(|c| {
+                roles
+                    .get(world, c)
+                    .is_ok_and(|r| *r == crate::shellkit::Role::Segment)
+            })
+        })
+        .count();
+    assert_eq!(segments, Arrangement::ALL.len(), "not the kit's segments");
 }
 
 /// Updates draws each of its switches once. Its first row was a settings
