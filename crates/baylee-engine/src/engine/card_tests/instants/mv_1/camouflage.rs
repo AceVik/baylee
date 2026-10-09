@@ -3,15 +3,14 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Camouflage remains partial with no implemented effect. (False Orders
-/// left this pin when its effect was written: `remove_from_combat_tests`.)
+/// Camouflage is written: its piles are played in
+/// `engine::camouflage_tests`, and this file waits for the card's own test
+/// (the stub the hook asks for). The one thing held here: it is no longer
+/// the shell that cast and said nothing.
 #[test]
-fn partial_instants_with_no_text_written_resolve_doing_nothing() {
-    let card = card_index("9cf44db4-627a-4197-9588-6da72e41f03d");
-    still_partial(card);
-    assert_eq!(
-        cast_saying_nothing(card, forest(), 1),
-        Zone::Graveyard,
-        "Camouflage"
-    );
+fn camouflage_is_written() {
+    let camouflage = card_index("9cf44db4-627a-4197-9588-6da72e41f03d");
+    let def = baylee_cards::by_index(camouflage).expect("in the pool");
+    assert_eq!(def.coverage, baylee_cards_dsl::Coverage::Implemented);
+    assert!(!def.abilities.is_empty());
 }

@@ -468,6 +468,10 @@ pub struct PerTurn {
     /// its version (`Effect::ExileIfDiesThisTurn`, CR 400.7): read by
     /// `replacement::graveyard_destination`.
     pub exile_if_dies: Vec<(ObjectId, u32)>,
+    /// Camouflage resolved this turn: "instead of declaring blockers, each
+    /// defending player … divides them into a number of piles" (read by
+    /// `Engine::ask_blockers`).
+    pub camouflage: bool,
     /// The permanents no regeneration shield is applied to this turn, each
     /// with its version (`Effect::CantBeRegeneratedThisTurn`, CR 701.19c):
     /// read by `sba::destroy`.
@@ -563,6 +567,7 @@ impl PerTurn {
             graveyard_plays: Vec::new(),
             entered_graveyard: Vec::new(),
             exile_if_dies: Vec::new(),
+            camouflage: false,
             cant_regenerate: Vec::new(),
             attacked: Vec::new(),
         }
@@ -626,6 +631,7 @@ impl PerTurn {
         self.graveyard_plays.clear();
         self.entered_graveyard.clear();
         self.exile_if_dies.clear();
+        self.camouflage = false;
         self.cant_regenerate.clear();
         self.attacked.clear();
     }

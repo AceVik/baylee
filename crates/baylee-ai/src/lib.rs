@@ -496,6 +496,12 @@ impl HeuristicAgent {
                     // the weaker side, so the even split is the one that
                     // leaves both sides as strong as they can be.
                     ChoicePrompt::LeftPile => max / 2,
+                    // Camouflage: an even spread over the piles still to
+                    // fill, so every attacker meets something.
+                    ChoicePrompt::CamouflagePile { pile, of } => {
+                        let left = of.saturating_sub(pile).saturating_add(1).max(1);
+                        max.div_ceil(left)
+                    }
                     _ if max <= 2 => max,
                     _ => min,
                 };

@@ -228,6 +228,11 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         ChoicePrompt::Band { .. } => {
             "Choose the attackers to join the band (choose none and it attacks alone)".into()
         }
+        ChoicePrompt::CamouflagePile { pile, of } => format!(
+            "Camouflage, instead of declaring blockers: choose the creatures for pile {pile} of \
+             {of}. Each pile is then assigned to a different attacker at random, and each \
+             creature in it that can block that attacker does so"
+        ),
         ChoicePrompt::LeftPile => {
             "Choose the creatures for the \"left\" pile; the rest form the \"right\" pile".into()
         }

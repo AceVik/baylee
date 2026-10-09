@@ -810,6 +810,16 @@ pub enum ChoicePrompt {
     /// player's creatures without flying; the ones chosen are the left
     /// pile, the rest the right.
     LeftPile,
+    /// Camouflage, instead of declaring blockers: the creatures for pile
+    /// `pile` of `of` (one pile per creature attacking this player). A
+    /// creature goes into one pile; the piles are then assigned to the
+    /// attackers at random.
+    CamouflagePile {
+        /// Which pile, from 1.
+        pile: u8,
+        /// How many piles.
+        of: u8,
+    },
     /// Revealed cards of one card type, one of which may be put into the
     /// hand (Atraxa, Grand Unifier: "for each card type, you may put a card
     /// of that type … into your hand"). Asked once per type, and the type

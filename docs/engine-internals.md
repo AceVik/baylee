@@ -556,6 +556,24 @@ in the chosen pile, may block that attacker. A creature in no pile (one
 that entered since) may not, and two Rivers' limits on one attacker both
 bind.
 
+### Blocks made by piles at random (Camouflage)
+Camouflage replaces the declare-blockers turn-based action for the rest of
+the turn (`PerTurn::camouflage`, set by
+`Effect::BlockInPilesAtRandomThisTurn`). `ask_blockers` asks each
+defending player, in the order they would declare (CR 802.4), to name one
+pile at a time (`ChoicePrompt::CamouflagePile { pile, of }`, an existing
+ChooseCards sheet; `PlanKind::CamouflagePiles`). There is one pile per
+attacker of theirs. A creature goes into one pile, or into as many as the
+attackers it could block ("may likewise be put into additional piles",
+`BlockRules::capacity`). The piles go to different attackers at random,
+drawn from the game's seeded generator (the owner's decision, 09.10.2026),
+so a replay deals them alike. A creature then blocks its pile's attacker if
+`combat::can_block` allows it; a menace attacker is blocked by its pile only
+if two or more of it can block. Requirements (CR 509.1c) bind a
+declaration, and there is none. The blocks go through `make_blocks`, the
+half of `declare_blockers` after its checks, so they are journalled, spread
+through bands (CR 702.22h), and followed by the next defending player.
+
 ### Removed from combat, and blocked again (False Orders)
 `Effect::RemoveTargetFromCombat` is CR 506.4's "an effect specifically
 removes it from combat" (`CombatState::remove_from_combat`, the door a

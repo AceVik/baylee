@@ -5658,19 +5658,6 @@ fn choose_cast_kind(engine: &Engine<RegistryLookup>, kind: CastModeKind) -> usiz
         .unwrap_or_else(|| panic!("{kind:?} is not offered: {options:?}"))
 }
 
-/// Asserts `card` is still `Coverage::Partial`: a list of cards that say
-/// nothing ([`cast_saying_nothing`]) goes red when one of them is finished,
-/// instead of keeping it on a claim that is no longer true.
-#[track_caller]
-fn still_partial(card: CardIndex) {
-    let def = baylee_cards::by_index(card).expect("a card of the pool");
-    assert!(
-        matches!(def.coverage, baylee_cards_dsl::Coverage::Partial(_)),
-        "{} is finished: take it off the list of cards that say nothing",
-        def.faces[0].name
-    );
-}
-
 /// A card cast by p0 off `lands` of `land`: it resolves, and nothing but
 /// the card itself has moved — no life total changed, and the only
 /// permanent that came is the card, which offers no ability. Answers the
@@ -5681,9 +5668,9 @@ fn still_partial(card: CardIndex) {
 /// activation is never offered when every land was tapped for the cast,
 /// and a targeted activated ability with no legal target on this board is
 /// never offered at all — so a card whose text is fully implemented can
-/// pass here too, for any of those reasons. Callers of a `Coverage::Partial`
-/// card assert that coverage too, so a card that becomes `Implemented`
-/// fails here instead of quietly staying on the list.
+/// pass here too, for any of those reasons. (The last `Coverage::Partial`
+/// shells that sat here, Camouflage and Raging River, are written now; a
+/// new one asserts its coverage beside this call.)
 #[track_caller]
 fn cast_saying_nothing(card: CardIndex, land: CardIndex, lands: usize) -> Zone {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
