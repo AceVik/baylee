@@ -458,7 +458,7 @@ fn shell_keys_json(believed: &Believed) -> String {
         believed
             .settings
             .as_deref()
-            .map_or(4, |s| s.text_size.step()),
+            .map_or(crate::shellkit::TextSize::default().step(), |s| s.text_size.step()),
     )
 }
 

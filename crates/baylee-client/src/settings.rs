@@ -145,9 +145,12 @@ pub struct ClientSettings {
     #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
     pub table: baylee_client_core::tableview::TableView,
     /// The shell's text step, this device's (the shell design, §8): five
-    /// steps around today's size, `Ctrl/Cmd + = − 0` and Settings › Display
-    /// & Interface. The table's faces do not follow it. A file from before
-    /// it, or one naming a step this build does not know, reads `L`.
+    /// steps around the default `M`, `Ctrl/Cmd + = − 0` and Settings ›
+    /// Display & Interface. The table's faces do not follow it. Stored as
+    /// the step's number; a file from before the rename of 09.10.2026 named
+    /// the step and is read one name down, keeping its size
+    /// (`TextSize::from_stored`). A file from before it, or one naming a
+    /// step this build does not know, reads `M`.
     #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
     pub text_size: crate::shellkit::TextSize,
     /// What this device lets a report carry, and whether it sends crash
@@ -733,7 +736,7 @@ mod tests {
         assert_eq!(read.text_size, crate::shellkit::TextSize::Xl);
         let unknown: ClientSettings =
             serde_json::from_str(r#"{"text_size":"huge"}"#).expect("a step it does not know reads");
-        assert_eq!(unknown.text_size, crate::shellkit::TextSize::L);
+        assert_eq!(unknown.text_size, crate::shellkit::TextSize::M);
         assert_eq!(read.reports, written.reports);
         assert_eq!(read.gateways, written.gateways);
         assert!((read.preview_scale - 1.75).abs() < f32::EPSILON);

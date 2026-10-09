@@ -441,7 +441,7 @@ pub(crate) fn display(out: &mut Out, view: &View) {
     let step = view
         .settings
         .map_or_else(TextSize::default, |s| s.text_size);
-    let names = ["XS", "S", "M", "L", "XL"];
+    let names = TextSize::ALL.map(TextSize::name);
     let control = out.seg("text-size", &names, index(&TextSize::ALL, &step), |i| {
         Press::Settings(SettingsPress::TextSize(TextSize::ALL[i]))
     });

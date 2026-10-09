@@ -286,7 +286,7 @@ fn the_text_size_chord_passes_a_field() {
         app.world()
             .resource::<crate::settings::ClientSettings>()
             .text_size,
-        TextSize::Xl
+        TextSize::L
     );
     assert_eq!(
         value(&mut app, GALLERY_ORDER.name, "search"),
@@ -380,7 +380,7 @@ fn the_overlay_runs_what_it_highlights() {
         app.world()
             .resource::<crate::settings::ClientSettings>()
             .text_size,
-        TextSize::Xl,
+        TextSize::L,
         "Larger text did not run"
     );
 }

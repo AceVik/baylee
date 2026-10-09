@@ -118,7 +118,7 @@ def main(out):
         time.sleep(1.0)
         touch = (width, height) in TOUCH
         for lang in ("en", "de"):
-            devctl.shell(text_size="l", lang=lang, input="touch" if touch else "pointer")
+            devctl.shell(text_size="m", lang=lang, input="touch" if touch else "pointer")
             time.sleep(0.6)
             open_settings()
             for section in SECTIONS:
@@ -206,7 +206,7 @@ def main(out):
         if not drawn:
             failures += 1
             summary.append(f"    {section} drew no control")
-    devctl.shell(text_size="l", lang="en", input="auto")
+    devctl.shell(text_size="m", lang="en", input="auto")
     if "Settings(CloseSettings)" in presses():
         devctl.press("Settings(CloseSettings)")
     with open(os.path.join(out, "settings-check.log"), "w") as f:

@@ -277,7 +277,7 @@ def gallery(outdir):
     summary, failures = [], 0
     for width, height in SIZES:
         devctl.resize(width, height)
-        for step in ("xs", "l", "xl"):
+        for step in ("xs", "m", "xl"):
             for lang in ("en", "de"):
                 for touch in (False, True):
                     devctl.shell(text_size=step, lang=lang, input="touch" if touch else "pointer")
@@ -297,7 +297,7 @@ def gallery(outdir):
                     )
                     tag = f"{width}x{height}-{step}-{lang}-{'touch' if touch else 'pointer'}"
                     contrast = []
-                    if step == "l" and not touch:
+                    if step == "m" and not touch:
                         png = os.path.join(outdir, f"gallery-{tag}.png")
                         devctl.screenshot(png)
                         size = devctl.health()
@@ -317,7 +317,7 @@ def gallery(outdir):
                     for fault in faults[:8]:
                         summary.append("    " + fault)
                     print(summary[-1 - min(len(faults), 8)], flush=True)
-    devctl.shell(text_size="l", lang="en", input="auto", gallery=False)
+    devctl.shell(text_size="m", lang="en", input="auto", gallery=False)
     print("\n".join(summary))
     print(f"failures: {failures}")
     return failures

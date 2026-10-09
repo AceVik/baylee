@@ -30,7 +30,7 @@ def rebuilds():
 
 def hover():
     devctl.resize(1920, 1080)
-    devctl.shell(text_size="l", lang="en", input="pointer")
+    devctl.shell(text_size="m", lang="en", input="pointer")
     for screen in ("decks", "play"):
         screens.go(screen)
         devctl.settle()

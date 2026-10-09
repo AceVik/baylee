@@ -105,7 +105,7 @@ def main(out, gateway):
         devctl.resize(width, height)
         time.sleep(1.0)
         touch = (width, height) in TOUCH
-        for step in ("xs", "l", "xl"):
+        for step in ("xs", "m", "xl"):
             for lang in ("en", "de"):
                 devctl.shell(text_size=step, lang=lang, input="touch" if touch else "pointer")
                 time.sleep(0.6)
@@ -125,7 +125,7 @@ def main(out, gateway):
                     )
                     tag = f"{face}-{width}x{height}-{step}-{lang}"
                     contrast = []
-                    if step == "l" and (lang == "en" or (width, height) in ((960, 700), (844, 390))):
+                    if step == "m" and (lang == "en" or (width, height) in ((960, 700), (844, 390))):
                         png = os.path.join(out, f"front-{tag}.png")
                         devctl.screenshot(png)
                         if lang == "en":
@@ -153,7 +153,7 @@ def main(out, gateway):
                         summary.append("    " + fault)
                     print("\n".join(summary[-1 - min(len(faults), 6):]), flush=True)
     to_face("signin", gateway)
-    devctl.shell(text_size="l", lang="en", input="auto")
+    devctl.shell(text_size="m", lang="en", input="auto")
     with open(os.path.join(out, "front-check.log"), "w") as f:
         f.write("\n".join(summary) + f"\nfailures: {failures}\n")
     print(f"failures: {failures}")

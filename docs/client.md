@@ -2935,8 +2935,12 @@ is zero), and `text_face` draws each part where `Regions::laid` places it.
   under the name, the strip would lie on it.
 
 **Text steps move the clamps.** `textface::Step` is the interface's text
-size (five steps, 0.702 to 1.125): a face multiplies only its clamps by the
-step's factor and takes the step's rules floor (12, 13, 14, 14, 16 px). Every
+size (five steps, 0.790 to 1.266, `XS S M L XL`, the default `M` at 1.000;
+until 09.10.2026 they ran 0.702 to 1.125 with the default called `L`, and a
+stored step is read one name down so nobody's size changed, the old `XS`
+reading the new `XS`, the nearest left): a face multiplies only its clamps
+by the step's factor and takes the step's rules floor (13, 14, 14, 16,
+18 px). Every
 top clamp stands over its size on a 308-pixel preview even at the smallest
 factor, so the default preview is the same at every step and the step bites
 on the hand's clamped sizes (`a_step_moves_the_clamps_and_the_floor_and_nothing_else`).
@@ -4570,7 +4574,7 @@ right; on Narrow (960 × 700) one pane and a bottom tab bar Pool · Deck n ·
 Stats; on a phone the pool and a 260-px deck rail (commander, Main n ·
 Sideboard n, the last three added, Stats as a sheet), and at 640 one pane with
 a Pool / Deck switch in the header. Every list row is one line per cell, cut
-rather than wrapped, at the kit's row pitch (`shell.row`, 72 at step 4) and
+rather than wrapped, at the kit's row pitch (`shell.row`, 72 at the default step, `M`) and
 clipped, so a row's height is its pitch whatever its words are — two-line
 names had overlapped at 960 × 700 when a fixed pitch met free content
 (`buildui::virtual_rows`: every item's top known before layout, rows mounted a
