@@ -558,7 +558,7 @@ pub(super) fn fade_front(
                         .as_ref()
                         .map(|s| s.0.iter().map(|layer| layer.color).collect()),
                 };
-                commands.entity(node).insert(fresh.clone());
+                commands.entity(node).try_insert(fresh.clone());
                 &fresh
             };
             let share = |colour: Color| colour.with_alpha(colour.alpha() * alpha);
@@ -626,7 +626,7 @@ pub(super) fn fade_primary_surfaces(
                 };
                 let base = material.params.low.w;
                 handle.0 = materials.add(material);
-                commands.entity(entity).insert(FadedPrimary(base));
+                commands.entity(entity).try_insert(FadedPrimary(base));
                 base
             };
             if let Some(mut material) = materials.get_mut(&handle.0) {
