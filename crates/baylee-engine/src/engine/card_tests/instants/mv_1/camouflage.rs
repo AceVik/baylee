@@ -417,9 +417,13 @@ fn there_are_as_many_piles_as_attackers_and_a_creature_is_in_one() {
             "the empty pile's attacker is not blocked"
         );
     }
+}
 
-    // When the creatures run out before the piles do, the rest are empty and
-    // nobody is asked for them.
+/// When the creatures run out before the piles do, the rest are empty and
+/// nobody is asked for them: three attackers, two creatures, both in the
+/// first pile.
+#[test]
+fn piles_left_when_the_creatures_run_out_are_empty_and_not_asked() {
     let mut engine = start(
         Duel::new(9210, index::FOREST)
             .battlefield(
