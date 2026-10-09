@@ -158,6 +158,7 @@ pub(super) fn resume_inner(
             return Flow::Wait(Pending::ChoosePile {
                 player: res.controller,
                 piles,
+                label: None,
             });
         }
         AwaitingOp::InspectHand => {}
@@ -207,6 +208,23 @@ pub(super) fn resume_inner(
                     }
                 }
             }
+        }
+        AwaitingOp::DivideLeftRight {
+            asked,
+            rest,
+            left,
+            right,
+        } => {
+            return super::river::resume_divide(
+                state,
+                res,
+                since,
+                (asked, rest, left, right),
+                chosen,
+            );
+        }
+        AwaitingOp::LabelAttacker { .. } => {
+            unreachable!("a label is a pile, answered via resume_pile")
         }
         AwaitingOp::BlockAttacker { blocker } => {
             // The answer names an attacker still attacking, and the blocker

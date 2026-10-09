@@ -348,6 +348,7 @@ mod tests {
                 Pending::ChoosePile {
                     player: ME,
                     piles: vec![vec![o(1)], vec![o(2), o(3)]],
+                    label: None,
                 },
                 PlayerAction::ChooseMode(1),
             ),

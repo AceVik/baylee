@@ -1759,6 +1759,8 @@ mod flashback_tests;
 #[cfg(test)]
 mod graveyard_order_tests;
 #[cfg(test)]
+mod pile_block_tests;
+#[cfg(test)]
 mod remove_from_combat_tests;
 #[cfg(test)]
 mod requirements_tests;

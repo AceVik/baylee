@@ -3,13 +3,12 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Raging River is `Coverage::Partial` with none of its text written: it is
-/// cast and sits on the battlefield doing nothing. Lich and Island Sanctuary
-/// are played in `enchantments::lich` and `enchantments::island_sanctuary`.
+/// Raging River resolves onto the battlefield and asks nothing until its
+/// controller attacks. Its piles are played in `engine::pile_block_tests`;
+/// this file waits for the card's own test (the stub the hook asks for).
 #[test]
-fn partial_enchantments_with_no_text_written_sit_doing_nothing() {
+fn raging_river_is_cast_and_waits_for_an_attack() {
     let raging_river = card_index("a2310312-6e1e-4e34-a351-9aef499a810f");
-    still_partial(raging_river);
     assert_eq!(
         cast_saying_nothing(raging_river, mountain(), 2),
         Zone::Battlefield,

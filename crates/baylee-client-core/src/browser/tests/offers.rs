@@ -246,6 +246,7 @@ fn a_pile_choice_draws_the_cards_in_its_piles() {
         Pending::ChoosePile {
             player: me(),
             piles: vec![vec![obj(21)], vec![obj(20), obj(22)]],
+            label: None,
         },
         me(),
     );

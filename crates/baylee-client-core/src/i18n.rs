@@ -2188,6 +2188,21 @@ messages! {
         en: "attackers to join the band",
         de: "Angreifer, die sich der Gruppe anschließen",
     },
+    /// creature for the "left" pile (Raging River; the rest go right)
+    NounCreatureForLeft {
+        en: "creature for the \"left\" pile (the rest go right)",
+        de: "Kreatur für den \"linken\" Stapel (der Rest geht nach rechts)",
+    },
+    /// creatures for the "left" pile
+    NounCreaturesForLeft {
+        en: "creatures for the \"left\" pile (the rest go right)",
+        de: "Kreaturen für den \"linken\" Stapel (der Rest geht nach rechts)",
+    },
+    /// Raging River: a label for an attacker, the pile that may block it
+    ChooseRiverLabel {
+        en: "Choose \"left\" (first) or \"right\": only that pile and fliers may block it",
+        de: "Wähle \"links\" (zuerst) oder \"rechts\": nur dieser Stapel und Flieger dürfen blocken",
+    },
     /// attacker to block (False Orders' re-block, its blocker unnamed)
     NounAttackerToBlock {
         en: "attacker to block",

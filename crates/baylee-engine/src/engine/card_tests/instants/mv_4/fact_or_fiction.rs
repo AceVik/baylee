@@ -23,7 +23,7 @@ fn fact_or_fiction_takes_the_pile_its_caster_chooses() {
             },
         )
         .unwrap();
-    let Pending::ChoosePile { player, piles } = engine.pending().clone() else {
+    let Pending::ChoosePile { player, piles, .. } = engine.pending().clone() else {
         panic!(
             "expected the caster's pile choice, got {:?}",
             engine.pending()

@@ -38,7 +38,6 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Kudzu](../crates/baylee-cards/src/cards/enchantments/auras/mv_3/kudzu.rs) | tap-triggered destruction and controller-selected Aura relocation are implemented and regression-tested; final live acceptance is pending |
 | [Lich](../crates/baylee-cards/src/cards/enchantments/mv_4/lich.rs) | zero-life protection, life-gain draws, damage sacrifices and leave-game loss are implemented and regression-tested; final live acceptance is pending |
 | [Magical Hack](../crates/baylee-cards/src/cards/instants/mv_1/magical_hack.rs) | semantic text changes are implemented and independently tested; final batch acceptance is pending |
-| [Raging River](../crates/baylee-cards/src/cards/enchantments/mv_2/raging_river.rs) | Left and right piles that restrict blockers |
 | [Sleight of Mind](../crates/baylee-cards/src/cards/instants/mv_1/sleight_of_mind.rs) | semantic text changes are implemented and independently tested; final batch acceptance is pending |
 | [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | turn-skip untapping and the extra-turn ability are implemented and regression-tested; Client/AI/Seat consumers are integrated, final live acceptance is pending |
 | [Vesuvan Doppelganger](../crates/baylee-cards/src/cards/creatures/mv_5/vesuvan_doppelganger.rs) | copiable upkeep behavior and the full Oracle stack-dialog fallback are implemented and regression-tested; final live acceptance is pending |

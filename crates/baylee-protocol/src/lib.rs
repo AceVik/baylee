@@ -12,8 +12,8 @@ pub mod mind;
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 22 carries False Orders' re-block (`ChoicePrompt::BlockWith`).
-pub const PROTOCOL_VERSION: u32 = 22;
+/// Version 23 carries Raging River's piles (`ChoicePrompt::LeftPile`, `ChoosePile::label`).
+pub const PROTOCOL_VERSION: u32 = 23;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -268,7 +268,8 @@ mod tests {
         // 21: Library of Leng's arrangement, an `ArrangePrompt` variant an
         // older client cannot decode.
         // 22: False Orders' re-block, a `ChoicePrompt` variant likewise.
-        assert_eq!(PROTOCOL_VERSION, 22);
+        // 23: Raging River's division prompt, a variant likewise.
+        assert_eq!(PROTOCOL_VERSION, 23);
     }
 
     #[test]

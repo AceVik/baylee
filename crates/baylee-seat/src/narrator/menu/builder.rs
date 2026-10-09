@@ -279,11 +279,22 @@ impl Builder<'_, '_> {
                 prompt,
                 ..
             } => self.arrange(cards, piles, *prompt),
-            Pending::ChoosePile { piles, .. } => {
-                self.line(
-                    "QUESTION: Choose one pile: it goes into your hand, and the other pile \
-                     goes into the graveyard.",
-                );
+            Pending::ChoosePile { piles, label, .. } => {
+                match label {
+                    Some(attacker) => {
+                        let attacker = self.table.named(*attacker);
+                        self.line(format!(
+                            "QUESTION: Raging River: choose \"left\" (pile1) or \"right\" \
+                             (pile2) for your attacking {attacker}. This combat only \
+                             creatures with flying and creatures in the chosen pile may \
+                             block it."
+                        ));
+                    }
+                    None => self.line(
+                        "QUESTION: Choose one pile: it goes into your hand, and the other pile \
+                         goes into the graveyard.",
+                    ),
+                }
                 for (i, pile) in piles.iter().enumerate() {
                     let names: Vec<String> = pile.iter().map(|&o| self.table.named(o)).collect();
                     let label = if names.is_empty() {

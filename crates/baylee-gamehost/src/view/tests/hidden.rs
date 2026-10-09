@@ -309,6 +309,7 @@ fn a_separator_and_a_pile_chooser_are_shown_the_revealed_cards() {
     let choose = Pending::ChoosePile {
         player: caster,
         piles: vec![vec![revealed[1]], vec![revealed[0], revealed[2]]],
+        label: None,
     };
     assert_eq!(
         shown(caster, &choose),

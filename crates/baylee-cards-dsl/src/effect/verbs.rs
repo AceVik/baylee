@@ -627,6 +627,7 @@ impl Effect {
             | Effect::ExileSource
             | Effect::TapTarget
             | Effect::RemoveTargetFromCombat { .. }
+            | Effect::LeftRightPilesRestrictBlocks
             | Effect::TargetMayBlockAttackerOfChoice
             | Effect::ToggleTapTarget
             | Effect::TapAll { .. }

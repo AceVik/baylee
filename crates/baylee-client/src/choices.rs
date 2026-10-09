@@ -695,7 +695,7 @@ pub fn options(
         // A pile is its cards: the row names them, in the order the
         // separation gave them, and an empty pile says so rather than
         // drawing a blank row, because it is a pile that may be taken.
-        Prompt::ChoosePile { piles } => Some(
+        Prompt::ChoosePile { piles, .. } => Some(
             piles
                 .iter()
                 .enumerate()
