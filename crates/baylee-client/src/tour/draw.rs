@@ -2,6 +2,25 @@
 //! the pill (TOURS.md §1.2). [`draw`] rebuilds them when what they say
 //! changes; [`place`] moves them every frame after layout, writing only what
 //! moved.
+//!
+//! Nothing flickers between steps (owner, 10.10.2026: *"the tours flicker
+//! and feel buggy"*). Three causes, each closed here:
+//!
+//! - A step's rebuild despawned the scrim and spawned it again with its
+//!   sides at zero size, so for a frame nothing was dimmed. The scrim is now
+//!   kept across steps whose scrim is the same ([`ScrimKey`]), and a new one
+//!   is spawned round the hole that stood.
+//! - The old bubble went the frame the new one was spawned hidden, so the
+//!   bubble blinked out. The old one now stays ([`Leaving`]) until the new
+//!   one stands in its place, laid out where [`place`] put it; a bubble is
+//!   never shown in a frame whose layout has not yet seen its position.
+//! - [`place`] runs after layout, so what it wrote to a scrim's `Node` was
+//!   drawn a frame later and the hole trailed a moving anchor. It now also
+//!   writes the laid-out size and transform of the scrim's sides and the
+//!   hairline (absolute boxes in a full-window layer, so the layout's own
+//!   answer next frame is the same), and the hole moves in the anchor's
+//!   frame. An anchor missing for a frame (its screen rebuilding) holds
+//!   everything where it was instead of sending the bubble to the centre.
 
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::tour::{Kind, Mode, Run};
@@ -19,6 +38,19 @@ pub struct Spotlight {
     drawn: Option<Drawn>,
     /// The hole round the anchor, in logical pixels, once placed.
     pub hole: Option<Rect>,
+    /// What the standing scrim was spawned for.
+    scrim: Option<ScrimKey>,
+    /// Tour nodes rebuilt: a counter for tests and `/state`.
+    pub rebuilds: u64,
+}
+
+/// What decides the scrim's shape: kept across steps that agree on it.
+#[derive(Clone, Copy, PartialEq, Debug)]
+struct ScrimKey {
+    mode: Mode,
+    text_step: bool,
+    z: i32,
+    alpha: u32,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -50,6 +82,14 @@ pub(super) struct Ring;
 /// The bubble.
 #[derive(Component)]
 pub(super) struct Bubble;
+
+/// The scrim's layer, kept across steps with one [`ScrimKey`].
+#[derive(Component)]
+pub(super) struct ScrimLayer;
+
+/// A bubble of the step before, standing until the new one is in place.
+#[derive(Component)]
+pub(super) struct Leaving;
 
 /// The anchor's padding inside the hole, and the hairline's offset.
 const PAD: f32 = 8.0;
@@ -85,7 +125,7 @@ pub(super) fn draw(
     fonts: Option<Res<UiFonts>>,
     windows: Query<&Window>,
     input: Option<Res<crate::shellkit::InputClass>>,
-    layers: Query<Entity, With<TourLayer>>,
+    layers: Query<(Entity, Has<ScrimLayer>, Has<Bubble>), With<TourLayer>>,
     mut spot: ResMut<Spotlight>,
 ) {
     let (width, height) = windows
@@ -113,12 +153,33 @@ pub(super) fn draw(
     let Some(fonts) = fonts else {
         return;
     };
-    for layer in &layers {
+    spot.drawn.clone_from(&now);
+    spot.rebuilds += 1;
+    let scrim_key = desk
+        .shown()
+        .filter(|r| r.mode != Mode::Folded)
+        .map(|run| ScrimKey {
+            mode: run.mode,
+            text_step: run.current().anchor_on(desk.setting.phone).is_none(),
+            z: desk.setting.z,
+            alpha: desk.setting.alpha.to_bits(),
+        });
+    let keep_scrim = scrim_key.is_some() && scrim_key == spot.scrim;
+    let bubble_next = scrim_key.is_some();
+    for (layer, is_scrim, is_bubble) in &layers {
+        if is_scrim && keep_scrim {
+            continue;
+        }
+        if is_bubble && bubble_next {
+            // Stands until the new bubble is laid out in its place.
+            commands.entity(layer).remove::<Bubble>().insert(Leaving);
+            continue;
+        }
         commands.entity(layer).despawn();
     }
-    spot.drawn.clone_from(&now);
-    spot.hole = None;
+    spot.scrim = scrim_key;
     let Some(run) = desk.shown() else {
+        spot.hole = None;
         return;
     };
     let input = input.as_deref().copied().unwrap_or_default();
@@ -131,14 +192,50 @@ pub(super) fn draw(
         pill(&mut commands, kit, run, &desk.setting, lang);
         return;
     }
-    scrim(&mut commands, run, &desk.setting);
+    if !keep_scrim {
+        let hole = spot
+            .hole
+            .filter(|_| !scrim_key.is_some_and(|k| k.text_step));
+        scrim(&mut commands, run, &desk.setting, hole, (width, height));
+    }
     bubble(&mut commands, kit, run, &desk.setting, lang, width);
 }
 
-fn scrim(commands: &mut Commands, run: &Run, setting: &Setting) {
+/// The scrim's side `side` round `hole` in a `w` by `h` window; the pointer
+/// stop (4) is the hole itself.
+fn side_rect(side: u8, hole: Rect, (w, h): (f32, f32)) -> Rect {
+    match side {
+        0 => Rect::new(0.0, 0.0, w, hole.min.y),
+        1 => Rect::new(0.0, hole.max.y, w, h),
+        2 => Rect::new(0.0, hole.min.y, hole.min.x, hole.max.y),
+        3 => Rect::new(hole.max.x, hole.min.y, w, hole.max.y),
+        _ => hole,
+    }
+}
+
+fn ring_rect(hole: Rect) -> Rect {
+    Rect::new(
+        hole.min.x - RING,
+        hole.min.y - RING,
+        hole.max.x + RING,
+        hole.max.y + RING,
+    )
+}
+
+/// The scrim, spawned round `hole` (the one that stood, so a new scrim's
+/// first frame dims what the last one did) or, without one, zero-sized until
+/// [`place`] finds the anchor.
+fn scrim(
+    commands: &mut Commands,
+    run: &Run,
+    setting: &Setting,
+    hole: Option<Rect>,
+    window: (f32, f32),
+) {
     let layer = commands
         .spawn((
             TourLayer,
+            ScrimLayer,
             Node {
                 position_type: PositionType::Absolute,
                 left: px_fixed(0.0),
@@ -161,6 +258,8 @@ fn scrim(commands: &mut Commands, run: &Run, setting: &Setting) {
         if text_step && side == 0 {
             node.width = Val::Percent(100.0);
             node.height = Val::Percent(100.0);
+        } else if let Some(hole) = hole.filter(|_| !text_step) {
+            set_rect(&mut node, side_rect(side, hole, window));
         } else {
             node.width = px_fixed(0.0);
             node.height = px_fixed(0.0);
@@ -182,30 +281,33 @@ fn scrim(commands: &mut Commands, run: &Run, setting: &Setting) {
     if run.mode == Mode::Narrated {
         // Narrated: the hole is a light, not a door — a press in it does
         // nothing (§3.2). Try-it leaves it open.
-        let stop = commands
-            .spawn((
-                Scrim(4),
-                Node {
-                    position_type: PositionType::Absolute,
-                    width: px_fixed(0.0),
-                    height: px_fixed(0.0),
-                    ..default()
-                },
-            ))
-            .id();
+        let mut node = Node {
+            position_type: PositionType::Absolute,
+            width: px_fixed(0.0),
+            height: px_fixed(0.0),
+            ..default()
+        };
+        if let Some(hole) = hole {
+            set_rect(&mut node, hole);
+        }
+        let stop = commands.spawn((Scrim(4), node)).id();
         commands.entity(layer).add_child(stop);
+    }
+    let mut node = Node {
+        position_type: PositionType::Absolute,
+        width: px_fixed(0.0),
+        height: px_fixed(0.0),
+        border: UiRect::all(px_fixed(1.0)),
+        border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL + RING)),
+        ..default()
+    };
+    if let Some(hole) = hole {
+        set_rect(&mut node, ring_rect(hole));
     }
     let ring = commands
         .spawn((
             Ring,
-            Node {
-                position_type: PositionType::Absolute,
-                width: px_fixed(0.0),
-                height: px_fixed(0.0),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL + RING)),
-                ..default()
-            },
+            node,
             BorderColor::all(tokens::ACCENT),
             Pickable::IGNORE,
         ))
@@ -624,32 +726,35 @@ fn logical(node: &ComputedNode, at: &UiGlobalTransform) -> Rect {
     Rect::from_center_size(centre, size)
 }
 
-fn set_rect(node: &mut Node, rect: Rect) {
-    let want = (
+/// Whether `node` stands anywhere but `rect`.
+fn differs(node: &Node, rect: Rect) -> bool {
+    (node.left, node.top, node.width, node.height) != px_rect(rect)
+}
+
+fn px_rect(rect: Rect) -> (Val, Val, Val, Val) {
+    (
         Val::Px(rect.min.x),
         Val::Px(rect.min.y),
         Val::Px(rect.width().max(0.0)),
         Val::Px(rect.height().max(0.0)),
-    );
-    if (node.left, node.top, node.width, node.height) != want {
-        node.left = want.0;
-        node.top = want.1;
-        node.width = want.2;
-        node.height = want.3;
+    )
+}
+
+/// Writes `rect` into `node` when it differs; returns whether it did.
+fn set_rect(node: &mut Node, rect: Rect) -> bool {
+    let want = px_rect(rect);
+    if (node.left, node.top, node.width, node.height) == want {
+        return false;
     }
+    node.left = want.0;
+    node.top = want.1;
+    node.width = want.2;
+    node.height = want.3;
+    true
 }
 
 /// Where the anchor of the step standing is, in logical pixels.
-pub(super) fn anchor_rect(
-    run: &Run,
-    phone: bool,
-    anchors: &Query<(
-        &TourAnchor,
-        &ComputedNode,
-        &UiGlobalTransform,
-        &InheritedVisibility,
-    )>,
-) -> Option<Rect> {
+pub(super) fn anchor_rect(run: &Run, phone: bool, anchors: &Anchors) -> Option<Rect> {
     let want = run.current().anchor_on(phone)?;
     // Several nodes may carry one id (the header's nav pills): the hole is
     // round all of them.
@@ -659,6 +764,19 @@ pub(super) fn anchor_rect(
         .map(|(_, node, at, _)| logical(node, at))
         .reduce(|a, b| a.union(b))
 }
+
+/// Every node a step may point at, as laid out (never the scrim's own).
+pub(super) type Anchors<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static TourAnchor,
+        &'static ComputedNode,
+        &'static UiGlobalTransform,
+        &'static InheritedVisibility,
+    ),
+    (Without<Scrim>, Without<Ring>),
+>;
 
 /// Every pressable node on screen but the tour's own: a kit hit area or a
 /// table button.
@@ -675,6 +793,8 @@ type Controls<'w, 's> = Query<
     (
         Or<(With<crate::shellkit::Role>, With<Button>)>,
         Without<TourPress>,
+        Without<Scrim>,
+        Without<Ring>,
     ),
 >;
 
@@ -685,14 +805,17 @@ pub(super) fn place(
     desk: Res<TourDesk>,
     mut spot: ResMut<Spotlight>,
     windows: Query<&Window>,
-    anchors: Query<(
-        &TourAnchor,
-        &ComputedNode,
-        &UiGlobalTransform,
-        &InheritedVisibility,
-    )>,
-    mut scrims: Query<(&Scrim, &mut Node), (Without<Ring>, Without<Bubble>)>,
-    mut rings: Query<&mut Node, (With<Ring>, Without<Scrim>, Without<Bubble>)>,
+    anchors: Anchors,
+    mut scrims: Query<
+        (&Scrim, &mut Node, &mut ComputedNode, &mut UiGlobalTransform),
+        (Without<Ring>, Without<Bubble>),
+    >,
+    mut rings: Query<
+        (&mut Node, &mut ComputedNode, &mut UiGlobalTransform),
+        (With<Ring>, Without<Scrim>, Without<Bubble>),
+    >,
+    leaving: Query<Entity, With<Leaving>>,
+    mut commands: Commands,
     mut bubbles: Query<
         (&mut Node, &ComputedNode, &mut Visibility),
         (With<Bubble>, Without<Scrim>, Without<Ring>),
@@ -706,34 +829,36 @@ pub(super) fn place(
         return;
     };
     let (w, h) = (window.width(), window.height());
+    let wants_anchor = run.current().anchor_on(desk.setting.phone).is_some();
     let hole = anchor_rect(run, desk.setting.phone, &anchors).map(|r| {
         Rect::new(r.min.x - PAD, r.min.y - PAD, r.max.x + PAD, r.max.y + PAD)
             .intersect(Rect::new(0.0, 0.0, w, h))
     });
+    if wants_anchor && hole.is_none() {
+        // The anchor's screen is rebuilding (or the step is about to be
+        // passed over): everything holds where it stood, rather than the
+        // bubble jumping to the centre for a frame.
+        return;
+    }
     if spot.hole != hole {
         spot.hole = hole;
     }
     if let Some(hole) = hole {
-        for (side, mut node) in &mut scrims {
-            let rect = match side.0 {
-                0 => Rect::new(0.0, 0.0, w, hole.min.y),
-                1 => Rect::new(0.0, hole.max.y, w, h),
-                2 => Rect::new(0.0, hole.min.y, hole.min.x, hole.max.y),
-                3 => Rect::new(hole.max.x, hole.min.y, w, hole.max.y),
-                _ => hole,
-            };
-            set_rect(&mut node, rect);
+        for (side, mut node, mut computed, mut at) in &mut scrims {
+            let rect = side_rect(side.0, hole, (w, h));
+            // Asked through `&Node` first: `&mut node` is a write, and
+            // marked every side changed every frame, relaying out the UI.
+            if differs(&node, rect) && set_rect(&mut node, rect) {
+                lay_out_now(&mut computed, &mut at, rect);
+            }
         }
-        for mut node in &mut rings {
-            set_rect(
-                &mut node,
-                Rect::new(
-                    hole.min.x - RING,
-                    hole.min.y - RING,
-                    hole.max.x + RING,
-                    hole.max.y + RING,
-                ),
-            );
+        for (mut node, mut computed, mut at) in &mut rings {
+            let rect = ring_rect(hole);
+            // Asked through `&Node` first: `&mut node` is a write, and
+            // marked every side changed every frame, relaying out the UI.
+            if differs(&node, rect) && set_rect(&mut node, rect) {
+                lay_out_now(&mut computed, &mut at, rect);
+            }
         }
     }
     for (mut node, computed, mut shown) in &mut bubbles {
@@ -757,9 +882,29 @@ pub(super) fn place(
         if node.left != Val::Px(at.x) || node.top != Val::Px(at.y) {
             node.left = Val::Px(at.x);
             node.top = Val::Px(at.y);
+            // Not shown in a frame whose layout has not seen where it
+            // stands: it would be drawn a frame at the old place.
+            continue;
         }
-        shown.set_if_neq(Visibility::Inherited);
+        if shown.set_if_neq(Visibility::Inherited) {
+            for old in &leaving {
+                commands.entity(old).despawn();
+            }
+        }
     }
+}
+
+/// Writes what layout would make of `rect` for an absolute box in the
+/// full-window layer, so it is drawn this frame and not the next.
+fn lay_out_now(computed: &mut ComputedNode, at: &mut UiGlobalTransform, rect: Rect) {
+    let scale = computed.inverse_scale_factor;
+    if scale <= 0.0 {
+        return;
+    }
+    let size = rect.size() / scale;
+    computed.size = size;
+    computed.unrounded_size = size;
+    *at = UiGlobalTransform::from_translation(rect.center() / scale);
 }
 
 /// Where the bubble stands (§1.2): below the anchor, centred on it; above
@@ -947,6 +1092,170 @@ mod tests {
         ] {
             let at = spot_for(Some(anchor), size, window, 64.0, &[anchor]);
             assert!(card(at, size).intersect(anchor).is_empty(), "{anchor:?}");
+        }
+    }
+
+    /// The tour's two systems over a window and one anchor, laid out by hand
+    /// (no layout plugin: what `place` writes is what is read back).
+    mod still {
+        use super::super::*;
+        use crate::tour::TourDesk;
+        use baylee_client_core::tour::Tour;
+
+        fn fonts() -> UiFonts {
+            UiFonts {
+                text: Handle::default(),
+                medium: Handle::default(),
+                bold: Handle::default(),
+                italic: Handle::default(),
+                medium_italic: Handle::default(),
+                serif: Handle::default(),
+                serif_italic: Handle::default(),
+                icons: Handle::default(),
+                mana: Handle::default(),
+            }
+        }
+
+        /// A run on its first step with an anchor, and that anchor.
+        fn anchored(
+            from: usize,
+        ) -> (
+            baylee_client_core::tour::Run,
+            baylee_client_core::tour::Anchor,
+        ) {
+            let mut run = baylee_client_core::tour::Run::chapter(Tour::Lobby, 0, false, 2)
+                .expect("the lobby tour");
+            let steps = run.current_chapter().steps.len();
+            for step in from..steps {
+                run.step = step;
+                if let Some(anchor) = run.current().anchor_on(false) {
+                    return (run, anchor);
+                }
+            }
+            panic!("no anchored step in the lobby's first chapter");
+        }
+
+        fn app() -> (App, Entity) {
+            let mut app = App::new();
+            app.insert_resource(fonts())
+                .init_resource::<crate::settings::ClientSettings>()
+                .init_resource::<TourDesk>()
+                .init_resource::<Spotlight>()
+                .add_systems(Update, (draw, place).chain());
+            app.world_mut().spawn(Window::default());
+            let (run, anchor) = anchored(0);
+            app.world_mut().resource_mut::<TourDesk>().start(run);
+            let node = ComputedNode {
+                size: Vec2::new(100.0, 40.0),
+                ..default()
+            };
+            let at = app
+                .world_mut()
+                .spawn((
+                    TourAnchor(anchor),
+                    node,
+                    UiGlobalTransform::from_translation(Vec2::new(300.0, 200.0)),
+                    InheritedVisibility::VISIBLE,
+                ))
+                .id();
+            app.update();
+            app.update();
+            (app, at)
+        }
+
+        fn top_side(app: &mut App) -> (Entity, Rect) {
+            let mut q = app
+                .world_mut()
+                .query::<(Entity, &Scrim, &ComputedNode, &UiGlobalTransform)>();
+            q.iter(app.world())
+                .find(|(_, s, ..)| s.0 == 0)
+                .map(|(e, _, n, at)| (e, logical(n, at)))
+                .expect("the scrim's top")
+        }
+
+        #[test]
+        fn an_idle_tour_rebuilds_and_writes_nothing_per_frame() {
+            let (mut app, _) = app();
+            let rebuilds = app.world().resource::<Spotlight>().rebuilds;
+            assert!(rebuilds >= 1);
+            let tick = app.world().read_change_tick();
+            for _ in 0..10 {
+                app.update();
+            }
+            assert_eq!(app.world().resource::<Spotlight>().rebuilds, rebuilds);
+            let mut q = app
+                .world_mut()
+                .query_filtered::<Ref<Node>, Or<(With<Scrim>, With<Ring>, With<Bubble>)>>();
+            let written = q
+                .iter(app.world())
+                .filter(|n| {
+                    n.last_changed()
+                        .is_newer_than(tick, app.world().read_change_tick())
+                })
+                .count();
+            assert_eq!(written, 0, "a node of the idle tour was written");
+            assert!(
+                !app.world()
+                    .resource_ref::<Spotlight>()
+                    .last_changed()
+                    .is_newer_than(tick, app.world().read_change_tick()),
+                "the spotlight was written while nothing changed"
+            );
+        }
+
+        #[test]
+        fn an_anchor_move_moves_the_hole_in_the_same_frame() {
+            let (mut app, anchor) = app();
+            let (_, before) = top_side(&mut app);
+            assert!((before.max.y - (180.0 - PAD)).abs() < 0.01, "{before:?}");
+            app.world_mut()
+                .entity_mut(anchor)
+                .insert(UiGlobalTransform::from_translation(Vec2::new(300.0, 400.0)));
+            app.update();
+            let (_, after) = top_side(&mut app);
+            assert!(
+                (after.max.y - (380.0 - PAD)).abs() < 0.01,
+                "the hole trails its anchor: {after:?}"
+            );
+        }
+
+        #[test]
+        fn a_step_change_keeps_the_scrim_and_the_old_bubble_until_the_new_one_stands() {
+            let (mut app, _) = app();
+            let (scrim, _) = top_side(&mut app);
+            let step = app
+                .world()
+                .resource::<TourDesk>()
+                .shown()
+                .map(|r| r.step)
+                .unwrap();
+            let (next, anchor) = anchored(step + 1);
+            app.world_mut().resource_mut::<TourDesk>().start(next);
+            let mut a = app.world_mut().query::<&mut TourAnchor>();
+            for mut at in a.iter_mut(app.world_mut()) {
+                at.0 = anchor;
+            }
+            app.update();
+            assert_eq!(top_side(&mut app).0, scrim, "the scrim was rebuilt");
+            let mut q = app
+                .world_mut()
+                .query_filtered::<(), Or<(With<Bubble>, With<Leaving>)>>();
+            assert!(
+                q.iter(app.world()).count() >= 1,
+                "a frame with no bubble at all"
+            );
+        }
+
+        #[test]
+        fn a_missing_anchor_for_a_frame_holds_the_hole() {
+            let (mut app, anchor) = app();
+            let hole = app.world().resource::<Spotlight>().hole;
+            assert!(hole.is_some());
+            app.world_mut()
+                .entity_mut(anchor)
+                .insert(InheritedVisibility::HIDDEN);
+            app.update();
+            assert_eq!(app.world().resource::<Spotlight>().hole, hole);
         }
     }
 }
