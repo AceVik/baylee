@@ -3118,3 +3118,18 @@ land type"; both are convention tests that fire on a first try.
 - Current integration gate: 8,128 rules tests passed, ten skipped; 1,272 native
   tests passed, two skipped. Subsequent bounded fixes receive focused checks;
   these counts do not establish completion of Word of Command's route/undo work.
+
+## 2026-10-11 — partial-card completion: graveyard permissions and affinity
+
+- Treat Partial reasons as historical findings, not a current DSL capability
+  list. Existing flashback, counted reductions, conditional statics, fear and
+  counted prevention completed seven cards without new card-specific variants.
+- Check every sentence when completing a card. Emry used flashback as an
+  approximation; countering her artifact exposed the incorrect exile rider.
+  Her permission now names one incarnation and allows an ordinary cast.
+- A resolved characteristic grant fixes its set in every explicitly named
+  zone (CR 611.2c). Past in Flames neither grants itself its cheaper printed
+  mana cost nor grants flashback to cards milled after resolution.
+- Setup mutations do not advance rules processing. Exercise conditional
+  statics after a real priority action, rather than expecting refresh_offer
+  (which only rebuilds legal actions) to perform that processing.

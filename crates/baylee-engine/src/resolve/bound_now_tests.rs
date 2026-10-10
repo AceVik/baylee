@@ -151,29 +151,57 @@ fn a_modifier_that_locks_nothing_stays_a_question() {
     );
 }
 
-/// A filter that reaches past the battlefield stays dynamic whatever
-/// the modifier does: enumerating it would mean walking every zone the
-/// filter could mean, and narrowing to the battlefield alone would
-/// silently drop the rest.
+/// CR 611.2c also fixes grants to the cards currently in another zone.
 #[test]
-fn a_filter_that_leaves_the_battlefield_is_not_enumerated() {
-    static ELSEWHERE: Filter = Filter::And(&[Filter::CREATURE, Filter::InZone(ZoneRef::Graveyard)]);
+fn a_graveyard_grant_binds_present_cards_and_their_versions() {
     let mut state = state();
     let source = permanent(&mut state, me(), "Source");
-
+    let first = permanent(&mut state, me(), "First");
+    state
+        .move_object(
+            first,
+            ZoneLocation::Graveyard(me()),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
     let bound = bound_now(
         &state,
-        &ELSEWHERE,
-        &Modifier::ModifyPT(1, 1),
+        &Filter::InZone(ZoneRef::Graveyard),
+        &Modifier::GrantsFlashback,
         me(),
         source,
         None,
     );
-    assert_eq!(bound.len(), 1);
-    assert!(
-        matches!(bound[0], EffectFilter::Dsl(f) if *f == ELSEWHERE),
-        "a locking modifier, and still the question"
-    );
+    assert_eq!(named(&bound), vec![first]);
+    assert!(bound[0].names(state.object(first).unwrap()));
+    let late = permanent(&mut state, me(), "Late");
+    state
+        .move_object(
+            late,
+            ZoneLocation::Graveyard(me()),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    assert!(!bound[0].names(state.object(late).unwrap()));
+    state
+        .move_object(
+            first,
+            ZoneLocation::Hand(me()),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    state
+        .move_object(
+            first,
+            ZoneLocation::Graveyard(me()),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    assert!(!bound[0].names(state.object(first).unwrap()));
 }
 
 /// `only` is the half no `Filter` can do: "creatures target player

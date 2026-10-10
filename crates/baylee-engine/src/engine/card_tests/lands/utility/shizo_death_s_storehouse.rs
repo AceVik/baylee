@@ -13,9 +13,6 @@ use super::*;
 /// controller keeps. The mana ability is asserted on that survivor, because
 /// a land that lost the legend rule and a land that never made mana are
 /// different failures and the test should not be able to confuse them.
-///
-/// The file is `Coverage::Partial` for the {B}, {T} fear grant — fear is a
-/// keyword bit no rule reads — and nothing here activates it.
 #[test]
 fn shizo_is_legendary_and_the_survivor_still_taps_for_black() {
     let p0 = PlayerId::new(0);
@@ -81,4 +78,41 @@ fn shizo_is_legendary_and_the_survivor_still_taps_for_black() {
         1,
         "{{T}}: Add {{B}} on the one that is still there"
     );
+}
+
+#[test]
+fn shizo_grants_fear_with_the_printed_blocking_exceptions_until_end_of_turn() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let emry = card_index("da3e7d3d-2ca0-40c3-9602-fca37c92f507");
+    let mut engine = kit::game(
+        920,
+        &[shizo_death_s_storehouse(), emry],
+        &[llanowar_elves(), festering_goblin(), ornithopter()],
+        &[],
+        &[],
+    );
+    let target = kit::obj(&engine, kit::P0, emry);
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Black, 1)]);
+    kit::use_ability(
+        &mut engine,
+        kit::P0,
+        shizo_death_s_storehouse(),
+        1,
+        &[target],
+        &[],
+    );
+    for (card, allowed) in [
+        (llanowar_elves(), false),
+        (festering_goblin(), true),
+        (ornithopter(), true),
+    ] {
+        let blocker = kit::obj(&engine, kit::P1, card);
+        assert_eq!(
+            crate::combat::can_block(engine.state(), kit::P1, blocker, target),
+            allowed
+        );
+    }
+    let turn = engine.state().turn.number;
+    pass_until(&mut engine, |e| e.state().turn.number > turn);
+    assert!(!keywords(&engine, target).contains(KeywordSet::FEAR));
 }

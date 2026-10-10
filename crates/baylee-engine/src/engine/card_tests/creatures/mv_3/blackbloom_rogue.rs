@@ -99,25 +99,9 @@ fn a_blackbloom_bog_enters_tapped_and_taps_for_black_once_it_has_untapped() {
     assert!(is_tapped(&engine, bog), "and it paid {{T}} to make it");
 }
 
-/// "Menace. This creature gets +3/+0 as long as an opponent has eight or more
-/// cards in their graveyard." — the front face cast for its printed {2}{B},
-/// with the condition of the second sentence deliberately met.
-///
-/// Eight cards go into the opponent's graveyard *before* the Rogue is cast,
-/// which is the threshold the card names exactly, and the creature that
-/// arrives is still the 2/3 the type line prints. That is the other half of
-/// `Coverage::Partial("the graveyard-threshold +3/+0 is never applied")`, and
-/// the card leaves the modifier off rather than writing it unconditionally on
-/// purpose: a bare `Modifier::ModifyPT(3, 0)` would be a permanent 5/3, which
-/// is stronger than the printing, where omitting it only ever holds the Rogue
-/// at the 2/3 it prints. A `StaticAbility` is a layer, a filter and a
-/// modifier, and a `Filter` asks about an object, so there is nowhere to put
-/// the *while* half of the sentence.
-///
-/// The day `pt` here reads `(5, 3)`, the condition has found a home and this
-/// test is what says the `Coverage` flag on the card is now a lie.
+/// The bonus follows the opponent's graveyard threshold in both directions.
 #[test]
-fn a_blackbloom_rogue_stays_a_two_three_though_their_graveyard_holds_eight() {
+fn a_blackbloom_rogue_gains_three_power_at_eight_cards() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(11, forest())
         .battlefield(0, &[swamp(), swamp(), swamp()])
@@ -159,20 +143,22 @@ fn a_blackbloom_rogue_stays_a_two_three_though_their_graveyard_holds_eight() {
         keywords(&engine, rogue).contains(KeywordSet::MENACE),
         "menace is printed on the front face and the layers project it"
     );
-    assert_eq!(
-        pt(&engine, rogue),
-        (2, 3),
-        "`gets +3/+0 as long as an opponent has eight or more cards in their \
-         graveyard` is the clause the card admits it cannot say: the condition \
-         holds and no modifier is applied. When this reads (5, 3) the static \
-         has learned a condition and `Coverage::Partial` is what to fix"
-    );
-    let def = baylee_cards::by_index(blackbloom_rogue()).expect("the Rogue is in the pool");
-    assert!(
-        !def.is_implemented(),
-        "and the card still says so, so the 2/3 above is a promise the \
-         deckbuilder makes rather than a silent hole"
-    );
+    assert_eq!(pt(&engine, rogue), (5, 3));
+    let state = engine.dev_state_mut(p1).unwrap();
+    let card = state.zones.list(ZoneLocation::Graveyard(p1))[0];
+    state
+        .move_object(
+            card,
+            ZoneLocation::Hand(p1),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert_eq!(pt(&engine, rogue), (2, 3));
+    seed_graveyard(&mut engine, p1, 1);
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    assert_eq!(pt(&engine, rogue), (5, 3));
 }
 
 /// "Menace (This creature can't be blocked except by two or more creatures.)"
@@ -196,8 +182,7 @@ fn a_blackbloom_rogue_stays_a_two_three_though_their_graveyard_holds_eight() {
 /// That a pair is now *accepted* is a rules claim rather than a claim about
 /// this card, so it lives beside the rule in `combat_choice_tests`. What
 /// stays here is the card: the unblocked Rogue deals the 2 its type line
-/// prints, and this card stays `Coverage::Partial` because what that flag
-/// names is the +3/+0 and not menace.
+/// prints while the opposing graveyard is below the threshold.
 #[test]
 #[allow(clippy::too_many_lines)] // one attack, played step by step
 fn a_blackbloom_rogue_s_menace_is_offered_to_both_blockers_and_refuses_one() {
@@ -293,8 +278,7 @@ fn a_blackbloom_rogue_s_menace_is_offered_to_both_blockers_and_refuses_one() {
     pass_until(&mut engine, |e| e.state().players[1].life < before);
     assert_eq!(
         engine.state().players[1].life,
-        before - 2,
-        "an unblocked Rogue deals the 2 its type line prints — not the 5 the \
-         +3/+0 would have made of it, with eight cards lying in their yard"
+        before - 5,
+        "the unblocked Rogue has five power with eight cards in their graveyard"
     );
 }

@@ -563,10 +563,8 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
 /// read here, at the moment the effect begins, and the effect is registered
 /// against the objects it named rather than against the question.
 ///
-/// The one it cannot answer is a filter that reaches past the battlefield:
-/// enumerating it would mean walking every zone the filter could mean, and a
-/// narrowing to the battlefield alone would silently drop the rest. Those
-/// stay dynamic, which is what they were.
+/// Filters that explicitly name another zone enumerate the object arena;
+/// ordinary battlefield effects retain the cheaper battlefield-only walk.
 ///
 /// One effect per object rather than one effect naming several, because an
 /// [`EffectFilter`](crate::effects::EffectFilter) names exactly one — the
@@ -607,26 +605,32 @@ pub(super) fn bound_now_with_context(
     context: crate::text_changes::RuleContext,
     only: Option<&[PlayerId]>,
 ) -> SmallVec<[crate::effects::EffectFilter; 4]> {
-    if !crate::effects::locks_its_set(modifier) || crate::state::filter_reaches_other_zones(filter)
-    {
+    if !crate::effects::locks_its_set(modifier) {
         debug_assert!(
             only.is_none(),
             "a dynamic effect cannot carry the seat its card named",
         );
         return smallvec::smallvec![crate::effects::EffectFilter::Dsl(filter)];
     }
-    // Not a phased-out permanent (CR 702.26e): the set is fixed now, so
-    // one that phases in later stays out of it.
-    state
-        .battlefield_seen()
-        .filter(|id| {
-            state.object(*id).is_some_and(|o| {
-                only.is_none_or(|seats| seats.contains(&o.controller))
-                    && eval::matches_with_context(filter, state, o, you, context)
-            })
-        })
-        .map(|id| crate::effects::EffectFilter::object(state, id))
-        .collect()
+    let matches = |o: &crate::object::GameObject| {
+        !o.status.contains(crate::object::Status::PHASED_OUT)
+            && only.is_none_or(|seats| seats.contains(&o.controller))
+            && eval::matches_with_context(filter, state, o, you, context)
+    };
+    if crate::state::filter_reaches_other_zones(filter) {
+        state
+            .arena
+            .iter()
+            .filter(|(_, o)| matches(o))
+            .map(|(id, _)| crate::effects::EffectFilter::object(state, id))
+            .collect()
+    } else {
+        state
+            .battlefield_seen()
+            .filter(|id| state.object(*id).is_some_and(matches))
+            .map(|id| crate::effects::EffectFilter::object(state, id))
+            .collect()
+    }
 }
 
 /// The seats a [`PlayerRel`] names *during a resolution*.

@@ -558,24 +558,38 @@ pub fn applies_to(
     {
         return false;
     }
+    if let EffectFilter::Dsl(filter) = fx.filter
+        && !matches!(
+            obj.zone,
+            crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
+        )
+        && !crate::state::filter_reaches_other_zones(filter)
+    {
+        return false;
+    }
+    matches_filter(state, fx, obj)
+}
+
+/// Match an effect's object set in its own rule context. Callers that grant
+/// permission in a specific zone supply that zone check themselves; unlike
+/// characteristic effects, those permissions have no implicit battlefield scope.
+pub(crate) fn matches_filter(
+    state: &crate::state::GameState,
+    fx: &ContinuousEffect,
+    obj: &crate::object::GameObject,
+) -> bool {
     match &fx.filter {
         EffectFilter::ObjectIs(..) => fx.filter.names(obj),
-        EffectFilter::Dsl(filter) => {
-            (matches!(
-                obj.zone,
-                crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
-            ) || crate::state::filter_reaches_other_zones(filter))
-                && crate::eval::matches_with_context(
-                    filter,
-                    state,
-                    obj,
-                    fx.controller,
-                    crate::text_changes::RuleContext {
-                        source: fx.source.unwrap_or(obj.id),
-                        text: state.effect_text(fx),
-                    },
-                )
-        }
+        EffectFilter::Dsl(filter) => crate::eval::matches_with_context(
+            filter,
+            state,
+            obj,
+            fx.controller,
+            crate::text_changes::RuleContext {
+                source: fx.source.unwrap_or(obj.id),
+                text: state.effect_text(fx),
+            },
+        ),
     }
 }
 

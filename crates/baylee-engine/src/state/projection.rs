@@ -32,10 +32,14 @@ impl GameState {
         // Cross-zone effects (Maskwood Nexus & co.) reach into library,
         // hand, graveyard — then every object must be projected, not only
         // battlefield + stack.
-        let cross_zone = self
-            .effects
-            .iter()
-            .any(|fx| matches!(fx.filter, crate::effects::EffectFilter::Dsl(f) if filter_reaches_other_zones(f)));
+        let cross_zone = self.effects.iter().any(|fx| match fx.filter {
+            crate::effects::EffectFilter::Dsl(f) => filter_reaches_other_zones(f),
+            crate::effects::EffectFilter::ObjectIs(id, version) => {
+                self.object(id).is_some_and(|o| {
+                    o.version == version && !matches!(o.zone, Zone::Battlefield | Zone::Stack)
+                })
+            }
+        });
         // Scratch buffers live in the state so a refresh — which runs
         // after every single effect-set change — allocates nothing.
         let mut ids = std::mem::take(&mut self.projection_ids);

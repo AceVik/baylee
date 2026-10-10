@@ -473,35 +473,11 @@ fn an_opponents_artifact_dying_takes_a_life_from_the_targeted_opponent_only() {
     );
 }
 
-/// Emry, Lurker of the Loch ({2}{U}, 1/2): "Affinity for artifacts. When Emry
-/// enters, mill four cards. {T}: Choose target artifact card in your
-/// graveyard. You may cast that card this turn."
-///
-/// One game, played through the engine's own offers: she is paid for, she
-/// mills four, and on her controller's next turn — the first turn her `{T}` is
-/// hers at all (CR 302.6) — she taps to lend one of the cards she milled the
-/// permission the card prints. That permission is the point of the ability and
-/// is spent the way a seat would spend it: the card in the graveyard turns up
-/// in `legal.castable`, is cast for its own printed `{1}`, and **resolves onto
-/// the battlefield**. Emry is the first card in the pool to point
-/// `Effect::GrantFlashback` at a *permanent* card, and the half of flashback
-/// she does not print — exile instead of the graveyard — must not reach her:
-/// one more artifact standing on the table and one fewer card lying in the
-/// graveyard is what says it did not.
-///
-/// The card stands at `Coverage::Partial`, and the first half of this test is
-/// that claim rather than the working part. Two artifacts are out and exactly
-/// `{U}` is floating, which is the price the printed affinity would have
-/// charged — and the engine does not offer her. It is written to **fail** the
-/// day that stops being true: when a cost reducer can count permanents this
-/// assertion breaks, and flipping `Partial` to `Implemented` is what closes
-/// it. Its counter-half is the two artifacts standing there and the two
-/// further Islands right after — she is offered the moment her whole printed
-/// `{2}{U}` is floating, so the refusal is the missing discount and not an
-/// empty board or a card that cannot be cast at all.
+/// Affinity counts artifacts, and her own graveyard cast permission remains
+/// distinct from flashback: it casts the chosen artifact normally.
 #[test]
 #[allow(clippy::too_many_lines)] // one game, from her cast to the one she pays for
-fn emry_mills_four_and_taps_to_cast_one_of_them_but_never_costs_less() {
+fn emry_has_affinity_mills_four_and_taps_to_cast_one_of_them() {
     let p0 = PlayerId::new(0);
     let rock = quiet_artifact();
     let mut engine = Duel::new(71, rock)
@@ -523,31 +499,12 @@ fn emry_mills_four_and_taps_to_cast_one_of_them_but_never_costs_less() {
     engine
         .apply(p0, PlayerAction::ActivateManaAbility { source: first })
         .expect("an Island taps for one blue");
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    assert!(
-        !legal.castable.contains(&emry),
-        "affinity for artifacts is not implemented, so one blue mana beside two \
-         artifacts does not buy a card printed at {{2}}{{U}} — if this fires, a \
-         cost reducer learned to count permanents and Emry is no longer \
-         Coverage::Partial: {:?}",
-        legal.castable
-    );
-
-    for &land in &islands[1..] {
-        engine
-            .apply(p0, PlayerAction::ActivateManaAbility { source: land })
-            .expect("the other two Islands tap for one blue each");
-    }
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority")
     };
     assert!(
         legal.castable.contains(&emry),
-        "three Islands pay her printed {{2}}{{U}}, so the refusal above was the \
-         price she was never given a discount on: {:?}",
-        legal.castable
+        "two artifacts reduce her cost to one blue"
     );
     engine
         .apply(p0, PlayerAction::CastSpell { card: emry })
@@ -1007,27 +964,9 @@ fn a_cast_ritual_mints_a_treasure_that_grows_the_dwarf_and_a_copy_of_it_mints_no
     );
 }
 
-/// Thought Monitor ({6}{U}, a 2/2 flier): "Affinity for artifacts" and
-/// "When this creature enters, draw two cards."
-///
-/// Both halves of its `Coverage::Partial`, because a Partial test that plays
-/// only the half that works says nothing about the half that does not.
-///
-/// The half that works is the enters trigger: the spell resolves, the trigger
-/// goes on the stack, and its controller's library is two cards shorter.
-///
-/// The half that does not is affinity. `FaceDef::cost_reduction` carries one
-/// variant — `CostReduction::NotStartingPlayer` — and `casting::printed_reduction`
-/// reads that one and nothing else, so no rule in the engine counts
-/// permanents on the battlefield and this face declares no reduction at all.
-/// The bill therefore stays {6}{U} with three artifacts out: six Islands
-/// would pay the printed {3}{U} with room to spare, here they do not pay at
-/// all, and the seventh Island is what flips the offer. That the offer gates
-/// on the *quantity* of mana floating — rather than only on its colours — is
-/// what `a_printed_cost_reduction_is_counted_by_the_offer_as_well` settled,
-/// which is what makes one Island a discriminator instead of a coincidence.
+/// Three artifacts reduce {6}{U} to {3}{U}; the ETB still draws two.
 #[test]
-fn a_thought_monitor_draws_two_as_it_enters_and_three_artifacts_shorten_nothing() {
+fn a_thought_monitor_has_affinity_and_draws_two() {
     let p0 = PlayerId::new(0);
 
     // The Monitor in hand over `islands` Islands and three artifacts, walked
@@ -1048,30 +987,18 @@ fn a_thought_monitor_draws_two_as_it_enters_and_three_artifacts_shorten_nothing(
         engine
     };
 
-    // The declared gap, asserted rather than described: six mana and three
-    // artifacts are a board the printed card casts off comfortably, and this
-    // engine does not offer the spell at all.
-    let six = board(6);
-    let unaffordable = in_hand(&six, p0, thought_monitor()).expect("the Monitor is in hand");
-    let Pending::Priority { legal, .. } = six.pending().clone() else {
-        panic!("expected priority, got {:?}", six.pending())
+    let three = board(3);
+    let card = in_hand(&three, p0, thought_monitor()).unwrap();
+    let Pending::Priority { legal, .. } = three.pending() else {
+        panic!("priority")
     };
-    assert!(
-        !legal.castable.contains(&unaffordable),
-        "three artifacts take nothing off {{6}}{{U}}, so six Islands do not \
-         cast it — affinity is the gap this card declares"
-    );
-
-    // And the half that works, one Island further along.
-    let mut engine = board(7);
-    let spell = in_hand(&engine, p0, thought_monitor()).expect("the Monitor is in hand");
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
+    assert!(!legal.castable.contains(&card));
+    let mut engine = board(4);
+    let spell = in_hand(&engine, p0, thought_monitor()).unwrap();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority")
     };
-    assert!(
-        legal.castable.contains(&spell),
-        "the seventh Island is what pays for it, and nothing else changed"
-    );
+    assert!(legal.castable.contains(&spell));
     let hand_before = engine
         .state()
         .zones
@@ -1516,5 +1443,68 @@ fn clone_declined_enters_as_a_zero_zero_and_dies() {
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_some(),
         "and the Elves are as they were"
+    );
+}
+
+#[test]
+fn emry_permission_is_scoped_and_countering_the_artifact_does_not_exile_it() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let (p0, p1) = (kit::P0, kit::P1);
+    let mut engine = Duel::new(916, quiet_artifact())
+        .battlefield(0, &[emry_lurker_of_the_loch()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0));
+    seed_graveyard(&mut engine, p0, 2);
+    let cards = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(p0))
+        .clone();
+    kit::use_ability(
+        &mut engine,
+        p0,
+        emry_lurker_of_the_loch(),
+        1,
+        &[cards[0]],
+        &[],
+    );
+    assert!(
+        crate::casting::graveyard_cast_permission(
+            engine.state(),
+            p0,
+            engine.state().object(cards[0]).unwrap()
+        )
+        .is_some()
+    );
+    assert!(
+        crate::casting::graveyard_cast_permission(
+            engine.state(),
+            p0,
+            engine.state().object(cards[1]).unwrap()
+        )
+        .is_none()
+    );
+    assert!(!crate::casting::flashback_granted(engine.state(), cards[0]));
+    kit::float(&mut engine, p0, &[(ManaColor::Blue, 1)]);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: cards[0] })
+        .unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    kit::float(&mut engine, p1, &[(ManaColor::Blue, 2)]);
+    kit::cast_at(&mut engine, p1, counterspell(), &[cards[0]], &[]);
+    let card = engine.state().object(cards[0]).unwrap();
+    assert_eq!(
+        card.zone,
+        Zone::Graveyard,
+        "Emry does not create a flashback exile rider"
+    );
+    assert!(
+        crate::casting::graveyard_cast_permission(engine.state(), p0, card).is_none(),
+        "the returned card is a new object"
     );
 }

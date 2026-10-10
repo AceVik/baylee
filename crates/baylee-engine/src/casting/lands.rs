@@ -137,6 +137,7 @@ pub fn graveyard_cast_permission(
     // it is asked before the word "permanent" is.
     if state.effects.iter().any(|fx| {
         fx.controller == player
+            && crate::effects::matches_filter(state, fx, obj)
             && matches!(
                 fx.modifier,
                 baylee_cards_dsl::Modifier::CastSpellsFromGraveyard
@@ -149,6 +150,7 @@ pub fn graveyard_cast_permission(
     }
     if state.effects.iter().any(|fx| {
         fx.controller == player
+            && crate::effects::matches_filter(state, fx, obj)
             && matches!(
                 fx.modifier,
                 baylee_cards_dsl::Modifier::CastPermanentSpellsFromGraveyard

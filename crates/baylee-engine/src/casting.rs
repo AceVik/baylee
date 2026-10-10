@@ -707,18 +707,9 @@ pub(crate) fn cast_is_forbidden(
 ///
 /// One reader, because a grant arrives in either of two shapes and a caller
 /// that knew only one of them offered nothing. `Effect::GrantFlashback`
-/// names its target and registers `EffectFilter::ObjectIs`; a card whose
-/// sentence is about a *set* — "each instant and sorcery card in your
-/// graveyard" — resolves through `bound_now`, which cannot enumerate a
-/// filter reaching past the battlefield and so registers
-/// `EffectFilter::Dsl`. Both readers of the grant matched `ObjectIs` alone,
-/// so the second shape granted flashback to nobody: the effect was in the
-/// table, `legal.castable` held no graveyard card, and nothing said why.
-///
-/// [`crate::effects::applies_to`] is the function that already answers both,
-/// and is what `granted_activated`, `eval::protected_from` and the granted-
-/// trigger walk ask. A third hand-rolled `matches!` beside them was the
-/// defect waiting to happen, and it happened.
+/// names its target and registers `EffectFilter::ObjectIs`; a resolved
+/// graveyard-wide grant binds the cards present when it resolves (CR 611.2c).
+/// Static grants may remain dynamic. Both use the shared effect matcher.
 #[must_use]
 pub fn flashback_granted(state: &GameState, card: ObjectId) -> bool {
     let Some(obj) = state.object(card) else {

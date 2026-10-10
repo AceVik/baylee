@@ -28,19 +28,10 @@ fn faithless_looting() -> baylee_core::ids::CardIndex {
 /// selection is the player's and not "the first two the engine found", since
 /// the other drawn card is still in hand afterwards.
 ///
-/// The second half is the `Coverage::Partial` the card admits to. Flashback
-/// {2}{R} is not written, and the offer is where that shows:
-/// `LegalActions::castable` reaches a graveyard only for a card a
-/// `GrantsFlashback` effect points at, or a face that prints disturb, and
-/// Faithless Looting is neither. So with three Mountains tapped — exactly
-/// what the printed flashback cost takes, and *tapped* rather than merely
-/// standing because `casting::can_cast` probes the floating pool — the card
-/// sitting in its owner's graveyard is still not offered back, and naming it
-/// anyway is refused. If flashback is ever written, this is the assertion
-/// that fails, which is the point of playing the gap and not only the half
-/// that works.
+/// The same spell can then be cast for its printed flashback cost and is
+/// exiled after resolving its second draw/discard sequence.
 #[test]
-fn faithless_looting_discards_a_card_it_just_drew_and_is_never_offered_back_for_flashback() {
+fn faithless_looting_discards_a_card_it_just_drew_and_flashes_back() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(83, forest())
         .battlefield(0, &[mountain(); 4])
@@ -114,32 +105,35 @@ fn faithless_looting_discards_a_card_it_just_drew_and_is_never_offered_back_for_
     let looting = in_graveyard(&engine, p0, faithless_looting())
         .expect("the sorcery finished resolving and went to the graveyard");
 
-    // The half the card does not have. Read from a sorcery-speed priority,
-    // because a refusal read at instant speed would be the timing rule
-    // talking rather than the missing permission.
-    assert!(
-        matches!(engine.state().turn.phase, Phase::FirstMain) && engine.state().turn.active == p0,
-        "the spell resolved back into p0's own main phase"
-    );
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    assert_eq!(
-        legal.mana_abilities.len(),
-        3,
-        "three Mountains still stand, which is what the flashback cost takes"
-    );
     tap_all_mana(&mut engine, p0);
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: looting })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!()
     };
-    assert!(
-        !legal.castable.contains(&looting),
-        "no flashback is written, so the graveyard card is not offered: {:?}",
-        legal.castable
+    assert_eq!((min, max), (2, 2));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: options[..2].to_vec(),
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(engine.state().object(looting).unwrap().zone, Zone::Exile);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "flashback costs three mana"
     );
-    let refused = engine.apply(p0, PlayerAction::CastSpell { card: looting });
-    assert!(refused.is_err(), "and naming it anyway is refused");
 }
 
 // oracle_id = "b08c5b86-4f84-46a3-877f-bbf71ec17adb"

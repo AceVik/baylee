@@ -380,6 +380,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "DiscardUpToThenDraw",
         "PermanentOfEachTypeFromGraveyard",
         "CastPermanentSpellsFromGraveyard",
+        "CastSpellsFromGraveyard",
         "MillMayTakeOne",
         "RevealTopOnePerType",
         "ExileTopMayCast",

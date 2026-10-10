@@ -5,8 +5,7 @@ use super::*;
 
 /// Past in Flames — {3}{R} sorcery: "Each instant and sorcery card in your
 /// graveyard gains flashback until end of turn. The flashback cost is equal
-/// to its mana cost." (Its own flashback {4}{R} is the `Coverage::Partial`
-/// gap, and nothing here presses it.)
+/// to its mana cost." Its own flashback costs {4}{R}.
 ///
 /// The scenario is one card in one zone read twice. A Dark Ritual is cast so
 /// that it lies in its owner's graveyard, and the offer — the only way this
@@ -122,5 +121,51 @@ fn past_in_flames_grants_a_graveyard_ritual_flashback_and_that_cast_exiles_it() 
             .list(ZoneLocation::Exile(p0))
             .contains(&ritual),
         "it is in exile, where a card cast out of a graveyard goes"
+    );
+}
+
+#[test]
+fn past_in_flames_fixes_its_graveyard_set_and_uses_its_own_flashback_cost() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let p0 = kit::P0;
+    let mut engine = Duel::new(914, dark_ritual())
+        .hand(0, &[past_in_flames()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0));
+    seed_graveyard(&mut engine, p0, 1);
+    let first = in_graveyard(&engine, p0, dark_ritual()).unwrap();
+    kit::float(&mut engine, p0, &[(ManaColor::Red, 9)]);
+    let flames = in_hand(&engine, p0, past_in_flames()).unwrap();
+    kit::cast_at(&mut engine, p0, past_in_flames(), &[], &[]);
+    assert!(crate::casting::flashback_granted(engine.state(), first));
+    assert!(
+        !crate::casting::flashback_granted(engine.state(), flames),
+        "it was still on the stack"
+    );
+    seed_graveyard(&mut engine, p0, 1);
+    let late = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(p0))
+        .last()
+        .unwrap();
+    assert!(
+        !crate::casting::flashback_granted(engine.state(), late),
+        "a later arrival gains nothing"
+    );
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: flames })
+        .unwrap();
+    kit::settle(&mut engine);
+    assert_eq!(engine.state().object(flames).unwrap().zone, Zone::Exile);
+    assert_eq!(
+        kit::pool_total(&engine, p0),
+        0,
+        "four for the first cast, five for flashback"
+    );
+    assert!(
+        crate::casting::flashback_granted(engine.state(), late),
+        "the second resolution sees it"
     );
 }

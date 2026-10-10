@@ -394,8 +394,13 @@ one second warmup, two seconds measurement):
 | --- | ---: | ---: |
 | Reproject 1,000 objects with individual haste effects | 2.433 ms | 0.520 ms |
 | Reproject 3,000 objects with individual haste effects | 22.240 ms | 1.566 ms |
-| Build the client board with 1,000 distinct stack targets | 1.133 ms | 0.503 ms |
-| Build the client board with 3,000 distinct stack targets | 13.215 ms | 1.484 ms |
+| Build the client board with 1,000 distinct stack targets | 1.133 ms | 0.480 ms |
+| Build the client board with 3,000 distinct stack targets | 13.215 ms | 1.428 ms |
+
+The complete 3,000-Ally rally fell from 44,873.6 to 25,608.4 ms after the
+trigger and membership changes; its largest action fell from 78.5 to 29.3 ms.
+Both runs produced `4c8df3e77e248870`. This comparison starts after the initial
+layer-index change, so it does not measure the entire optimization against main.
 
 The layer plan indexes exact-object effects after dependency sorting and
 merges their ranks with global effects. Conditional animation retains the
