@@ -297,6 +297,14 @@ pub enum Modifier {
     /// asked of each player or planeswalker the creature could attack, with
     /// the defending player the one CR 506.2 names for it.
     CantAttackUnlessDefenderControls(&'static crate::Filter),
+    /// Landwalk of a land the filter describes (CR 702.14a, 702.14c): the
+    /// affected creature can't be blocked as long as the defending player
+    /// controls a land it matches. The basic five are keyword bits; this is
+    /// the rest of the family, "desertwalk" (Desert Nomads), "nonbasic
+    /// landwalk", "legendary landwalk". The filter's "you" is the effect's
+    /// controller and it is asked of the defending player's lands as they
+    /// are now.
+    LandwalkMatching(&'static crate::Filter),
     /// The affected creature attacks each combat if able: a requirement on
     /// the declaration of attackers (CR 508.1d). The card's own sentence
     /// (Juggernaut) is a static on `Filter::This`; "that creature attacks
@@ -793,6 +801,7 @@ impl Modifier {
             | Self::CombatDamageCantBePrevented
             | Self::CantBeBlockedBy(_)
             | Self::CantAttackUnlessDefenderControls(_)
+            | Self::LandwalkMatching(_)
             | Self::AttacksEachCombat
             | Self::CanBlockAdditional(_)
             | Self::CanBlockAnyNumber
@@ -1193,6 +1202,7 @@ mod tests {
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
+            Modifier::LandwalkMatching(&Filter::LAND),
             Modifier::AttacksEachCombat,
             Modifier::CanBlockAdditional(1),
             Modifier::CanBlockAnyNumber,

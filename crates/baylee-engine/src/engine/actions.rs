@@ -2045,7 +2045,27 @@ impl<L: CardLookup> Engine<L> {
             self.ask_blockers(next);
             return;
         }
+        self.blockers_declared();
+    }
+
+    /// Every defending player has declared: the declaration is over, and
+    /// each attacker nothing blocks is unblocked (CR 509.1h), which "attacks
+    /// and isn't blocked" hears.
+    pub(super) fn blockers_declared(&mut self) {
         self.combat_declared = CombatDeclared::Blockers;
+        let unblocked: Vec<ObjectId> = self
+            .state
+            .combat
+            .attackers()
+            .iter()
+            .filter(|a| !a.blocked)
+            .map(|a| a.creature)
+            .collect();
+        for object in unblocked {
+            self.state
+                .journal
+                .record(GameEvent::AttackerUnblocked { object });
+        }
     }
 
     // --------------------------------------------------------- turn steps

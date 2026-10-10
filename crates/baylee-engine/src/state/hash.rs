@@ -1438,6 +1438,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::Tapped => h.u8(17),
         F::Untapped => h.u8(18),
         F::Attacking => h.u8(19),
+        F::BandedWithSource => h.u8(50),
         F::Blocking => h.u8(47),
         F::Unblocked => h.u8(39),
         F::ControlledByActivePlayer => h.u8(40),

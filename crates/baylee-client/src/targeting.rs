@@ -428,6 +428,10 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // permanent, are history of the same kind.
         | Filter::AttackedThisTurn
         | Filter::ControlledSinceTurnBegan
+        // Bands are relative to the filter's source, which this walk
+        // never knows (`Filter::This` above answers false for the same
+        // reason).
+        | Filter::BandedWithSource
         // The engine's counter kind against the view's wire kind, and the
         // translation is gamehost's; `baylee-ai` refuses it for that reason.
         | Filter::HasCounter(_)

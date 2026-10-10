@@ -122,6 +122,14 @@ pub fn matches_projected_with_context(
         // A lookup and not a scan: this arm runs once per object whenever a
         // filter is walked over the battlefield (`CombatState`'s doc).
         Filter::Attacking => state.combat.is_attacking(obj.id),
+        // CR 702.22: in the source's band, which the attack declared.
+        Filter::BandedWithSource => {
+            obj.id != this
+                && state
+                    .combat
+                    .band_of(this)
+                    .is_some_and(|band| state.combat.band_of(obj.id) == Some(band))
+        }
         Filter::Blocking => state.combat.blockers.iter().any(|b| b.blocker == obj.id),
         // Blocked or unblocked is settled as blockers are declared (CR
         // 509.1h), which is the declare-blockers step's first act; from

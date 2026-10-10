@@ -1044,6 +1044,9 @@ impl HeuristicAgent {
                     .map(|p| self.draw_worth(view, p, n))
                     .sum()
             }
+            // The card is kept only when it fits, which a hidden library
+            // cannot say: half a draw, the even odds.
+            Effect::DrawRevealDiscardUnless { .. } => self.draw_worth(view, me, 1) / 2,
             Effect::PutFromHandOnTop { count } => -i64::from(*count) * 250,
             Effect::GainLife { amount } => count(*amount)? * life_price(view, me),
             Effect::GainLifeFor { amount, who } => {

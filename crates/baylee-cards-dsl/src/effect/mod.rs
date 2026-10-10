@@ -354,6 +354,15 @@ pub enum Effect {
         /// How many.
         amount: Amount,
     },
+    /// "Draw a card and reveal it. If it isn't [a card the filter matches],
+    /// discard it." (Sindbad.) The card drawn is shown to every player
+    /// (CR 701.20a) and asked about in the hand. A draw that waits on a
+    /// replacement question (Island Sanctuary's, `draws_to_offer`) has no
+    /// card yet: nothing is revealed or discarded for it.
+    DrawRevealDiscardUnless {
+        /// What is kept.
+        keep: &'static Filter,
+    },
     /// A relative player draws cards.
     DrawCardsFor {
         /// How many.

@@ -314,6 +314,13 @@ pub enum GameEvent {
         /// The attacker it blocks.
         attacker: ObjectId,
     },
+    /// An attacking creature is unblocked once every defending player has
+    /// declared blockers (CR 509.1h): no creature blocks it and none was
+    /// declared to.
+    AttackerUnblocked {
+        /// The attacking creature.
+        object: ObjectId,
+    },
     /// A player lost the game.
     PlayerLost {
         /// The player.

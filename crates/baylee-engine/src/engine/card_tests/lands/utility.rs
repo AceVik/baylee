@@ -109,6 +109,7 @@ mod ice_floe;
 mod immersturm_skullcairn;
 mod interplanar_beacon;
 mod iron_hills;
+mod island_of_wak_wak;
 mod jasmine_dragon_tea_shop;
 mod junktown;
 mod karakas;

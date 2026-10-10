@@ -512,6 +512,11 @@ pub enum Trigger {
     /// once when it is declared as a blocker, however many attackers it
     /// blocks (CR 509.3a). The blocker is the trigger's event object.
     Blocks(&'static Filter),
+    /// "Whenever [a creature matching the filter] attacks and isn't
+    /// blocked" (Merchant Ship): once per attacker that is unblocked when
+    /// the last defending player has declared blockers (CR 509.1h). The
+    /// attacker is the trigger's event object.
+    AttacksAndIsntBlocked(&'static Filter),
     /// A matching creature is the sole declared attacker (exalted).
     /// This is checked when attacking, not again when the trigger resolves.
     AttacksAlone(&'static Filter),

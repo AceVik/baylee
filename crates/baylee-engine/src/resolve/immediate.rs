@@ -372,6 +372,21 @@ pub(super) fn exec_immediate(
             state.draw_cards(you, n);
             None
         }
+        Effect::DrawRevealDiscardUnless { keep } => {
+            let drawn = state.draw_cards(you, 1);
+            let &card = drawn.first()?;
+            state.journal.record(GameEvent::Revealed {
+                player: you,
+                cards: vec![card],
+            });
+            let fits = state.object(card).is_some_and(|o| {
+                eval::matches_with_context(keep, state, o, you, res.rule_context())
+            });
+            if fits {
+                return None;
+            }
+            super::discard::discard_or_ask(state, res, &[(card, you)])
+        }
         Effect::DrawCardsFor { amount, who } => {
             let n = amount2(&amount, state, you, res) as usize;
             for player in players_of(who, state, you, res) {

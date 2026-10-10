@@ -1111,6 +1111,7 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::PlayerBecameTarget { object, .. }
         | GameEvent::BecameAttacker { object, .. }
         | GameEvent::BecameBlocker { object, .. }
+        | GameEvent::AttackerUnblocked { object }
         // The permanent that became tapped: "that land's controller" of
         // Psychic Venom.
         | GameEvent::ObjectTapped { object, .. }
@@ -2305,6 +2306,9 @@ fn matches(
                 .object(*object)
                 .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
+        (Trigger::AttacksAndIsntBlocked(filter), GameEvent::AttackerUnblocked { object }) => state
+            .object(*object)
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         (Trigger::AttacksAlone(filter), GameEvent::BecameAttacker { object, .. }) => {
             batch
                 .iter()

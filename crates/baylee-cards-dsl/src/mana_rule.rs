@@ -73,6 +73,7 @@ fn moves_library(effect: &Effect) -> bool {
     match effect {
         Effect::DrawCards { .. }
         | Effect::DrawCardsFor { .. }
+        | Effect::DrawRevealDiscardUnless { .. }
         | Effect::DiscardUpToThenDraw { .. }
         | Effect::LookAtTopPick { .. }
         | Effect::LookAtTopKeepBottomPlay { .. }

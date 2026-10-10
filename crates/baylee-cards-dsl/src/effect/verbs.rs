@@ -602,6 +602,7 @@ impl Effect {
             | Effect::LoseLife { .. }
             | Effect::DrawCards { .. }
             | Effect::DrawCardsFor { .. }
+            | Effect::DrawRevealDiscardUnless { .. }
             | Effect::ExileTargetsCreateTokens { .. }
             | Effect::DealDamage { .. }
             | Effect::Fight { .. }

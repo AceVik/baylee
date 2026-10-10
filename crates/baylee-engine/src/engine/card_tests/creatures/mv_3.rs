@@ -48,6 +48,7 @@ mod drake_hatchling;
 mod dusk_imp;
 mod dwarven_demolition_team;
 mod dwarven_warriors;
+mod el_hajjaj;
 mod endurance;
 mod ertai_wizard_adept;
 mod extraction_specialist;

@@ -787,6 +787,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Tapped
         | Filter::Untapped
         | Filter::Attacking
+        | Filter::BandedWithSource
         | Filter::Blocking
         | Filter::Unblocked
         | Filter::EnteredThisTurn
@@ -1198,6 +1199,7 @@ fn apply(
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBeBlockedBy(_)
         | Modifier::CantAttackUnlessDefenderControls(_)
+        | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat
         | Modifier::CanBlockAdditional(_)
         | Modifier::CanBlockAnyNumber

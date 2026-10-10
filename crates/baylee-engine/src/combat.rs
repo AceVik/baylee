@@ -789,6 +789,29 @@ pub fn can_block(
     {
         return false;
     }
+    // The rest of the family (desertwalk, CR 702.14c): a land the effect's
+    // filter describes, among the defending player's.
+    if state.effects.iter().any(|fx| {
+        let baylee_cards_dsl::Modifier::LandwalkMatching(filter) = fx.modifier else {
+            return false;
+        };
+        crate::effects::applies_to(state, fx, a)
+            && state.battlefield_seen().any(|id| {
+                state.object(id).is_some_and(|land| {
+                    land.controller == defending
+                        && land.characteristics().types.contains(TypeSet::LAND)
+                        && crate::eval::matches(
+                            filter,
+                            state,
+                            land,
+                            fx.controller,
+                            fx.source.unwrap_or(attacker),
+                        )
+                })
+            })
+    }) {
+        return false;
+    }
     // Menace is deliberately *not* asked here. CR 702.111b restricts the
     // whole declaration and CR 509.1b is where that is checked, so a
     // function that sees one pair cannot answer it — and asking it here

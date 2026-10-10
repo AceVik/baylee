@@ -611,7 +611,7 @@ impl<L: CardLookup> Engine<L> {
                     // `declare_blockers` asks the next one itself, so this
                     // is a table whose last defending player left between.
                     (None, Some(_)) => {
-                        self.combat_declared = CombatDeclared::Blockers;
+                        self.blockers_declared();
                         return false;
                     }
                 };

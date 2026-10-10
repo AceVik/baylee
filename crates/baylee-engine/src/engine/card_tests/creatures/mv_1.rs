@@ -39,6 +39,7 @@ mod flamekin_harbinger;
 mod flying_men;
 mod frostling;
 mod fyndhorn_elves;
+mod ghazban_ogre;
 mod goblin_balloon_brigade;
 mod goblin_digging_team;
 mod goblin_sledder;

@@ -181,6 +181,15 @@ impl HeuristicAgent {
                     .iter()
                     .any(|attacker| attacker.creature == object.id),
             ),
+            // CR 702.22c: the view names every attacking band.
+            Filter::BandedWithSource => this.map(|id| {
+                object.id != id
+                    && view
+                        .combat
+                        .bands
+                        .iter()
+                        .any(|band| band.contains(&id) && band.contains(&object.id))
+            }),
             Filter::Blocking => Some(
                 view.combat
                     .blockers

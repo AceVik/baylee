@@ -388,6 +388,9 @@ impl GameLog {
             // would reveal a card in a hidden hand, and a line naming none
             // says only that the caster thought for a while.
             | GameEvent::CastCancelled { .. }
+            // The board says which attackers nothing blocks, and an ability
+            // it set off has its own line.
+            | GameEvent::AttackerUnblocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.
             | GameEvent::ZoneChanged {

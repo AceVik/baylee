@@ -3,8 +3,8 @@
 //! Oracle: Whenever this creature attacks and isn't blocked, you gain 2 life.
 //! Oracle: When you control no Islands, sacrifice this creature.
 //! Set: ARN #17 — Arabian Nights | Scryfall ID: 2b827094-fb2c-46db-b898-02e0c308601f | Oracle ID: 69556f6c-c05b-4902-bac7-012f0ed81b75
-// PARTIAL — the attack restriction and the no-Islands sacrifice are built;
-// the attack-and-isn't-blocked trigger is off the card.
+// IMPLEMENTED — the attack restriction, Trigger::AttacksAndIsntBlocked for
+// the life gain, and the no-Islands sacrifice.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -28,20 +28,15 @@ card!(
         power = Some(0),
         toughness = Some(2),
     ),],
-    coverage = Coverage::Partial(
-        "no trigger hears \"attacks and isn't blocked\": Trigger::Attacks fires \
-         at declare attackers, before blockers are declared, so Filter::Unblocked \
-         is false there and the closest trigger is a different event"
-    ),
-    // NOT SUPPORTED: "Whenever this creature attacks and isn't blocked, you
-    // gain 2 life." — the gain is Effect::gain_life(2), but no Trigger names
-    // the unblocked attacker: Trigger::Attacks fires at declare attackers
-    // (CR 508.1), where Filter::Unblocked is not yet true (it needs blockers
-    // declared, CR 509.1h), and no delayed trigger hears "becomes unblocked".
+    coverage = Coverage::Implemented,
     abilities = &[
         static_ability!(
             Filter::This,
             Modifier::CantAttackUnlessDefenderControls(&ISLAND)
+        ),
+        triggered!(
+            Trigger::AttacksAndIsntBlocked(&Filter::This),
+            &[Effect::gain_life(2)]
         ),
         triggered!(Trigger::State(&NO_ISLANDS), &[Effect::SacrificeSelf]),
     ],
