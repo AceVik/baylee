@@ -1,7 +1,6 @@
 //! Vesuvan Doppelganger — {3}{U}{U} — Creature — Shapeshifter
 //! Oracle: You may have this creature enter as a copy of any creature on the battlefield, except it doesn't copy that creature's color and it has "At the beginning of your upkeep, you may have this creature become a copy of target creature, except it doesn't copy that creature's color and it has this ability."
 //! Set: ME1 #54 — Masters Edition | Scryfall ID: 543c08bc-f8ce-4324-b78d-891c49f3a24a | Oracle ID: aeaccab9-3e2c-4a40-a483-52c4972b2014
-// PARTIAL — composable copy text awaits independent and live acceptance.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -26,7 +25,7 @@ card!(
     oracle_id = "aeaccab9-3e2c-4a40-a483-52c4972b2014",
     scryfall_id = "543c08bc-f8ce-4324-b78d-891c49f3a24a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Partial("composable copy text awaits independent and live acceptance"),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vesuvan Doppelganger",
         mana_cost = mana!("{3}{U}{U}"),

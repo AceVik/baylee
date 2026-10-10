@@ -322,6 +322,11 @@ pub(crate) fn check_player_targets_match_the_printing(
 /// - "you may have it block an attacking creature of your choice" (False
 ///   Orders) — `TargetMayBlockAttackerOfChoice`, a `min: 0` choice of
 ///   attacker asked as it resolves.
+/// - "you may choose a creature card in your hand … If you do, you may cast
+///   that card face down" (Illusionary Mask) — `CastFaceDownUsingSpentX`,
+///   a `min: 0` choice over the hand asked as the ability resolves
+///   (`resolve/immediate.rs`, `AwaitingOp::MaskedCast`); choosing no card
+///   is the decline, and the activation is not refunded.
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -382,6 +387,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "SkipTurnToUntapSelf",
         "MayDiscardToLibraryTop",
         "TargetMayBlockAttackerOfChoice",
+        "CastFaceDownUsingSpentX",
     ];
     if !def.is_implemented() {
         return;

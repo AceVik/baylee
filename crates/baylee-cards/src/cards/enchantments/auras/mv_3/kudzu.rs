@@ -2,8 +2,6 @@
 //! Oracle: Enchant land
 //! Oracle: When enchanted land becomes tapped, destroy it. That land's controller may attach this Aura to a land of their choice.
 //! Set: ME4 #159 — Masters Edition IV | Scryfall ID: c3bc363a-573e-4df4-9b1b-586bf4275f3c | Oracle ID: 51ca5965-ae39-4e51-8948-9a230a03f906
-// PARTIAL — every clause is implemented and engine-tested; final live
-// acceptance of the relocation choice is pending.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,9 +11,7 @@ card!(
     oracle_id = "51ca5965-ae39-4e51-8948-9a230a03f906",
     scryfall_id = "c3bc363a-573e-4df4-9b1b-586bf4275f3c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Partial(
-        "every clause is implemented and engine-tested; final live acceptance of the relocation choice is pending"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kudzu",
         mana_cost = mana!("{1}{G}{G}"),

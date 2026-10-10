@@ -14,32 +14,33 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **271 Implemented, 15 Partial,
-4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 271 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+290 distinct Oracle identities in `set_lea.rs`: **286 Implemented, 0 Partial,
+4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`
+(measured from the card files on 2026-10-10).
+Every one of the 286 in-scope cards is `Coverage::Implemented` and has a card
+test that plays its printed clauses. The last nine (Animate Dead, Drain Power,
+Illusionary Mask, Kudzu, Lich, Magical Hack, Sleight of Mind, Time Vault,
+Vesuvan Doppelganger) were played live on 2026-10-09 and found to behave per
+Oracle (Time Vault's turn-order defect was fixed first, CR 500.7, `412892f38`);
+their flags were flipped on 2026-10-10 after a clause-by-clause review of card,
+Oracle text and tests, with three tests added: Magical Hack and Sleight of
+Mind at the cards' own test paths (addressed by oracle id, the change held
+across a round of turns), and Lich's "nontoken" shown against tokens on the
+board.
+
 Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact,
 Nether Shadow, Sunglasses of Urza, Sengir Vampire, Earthbind, Personal Incarnation,
-Channel and Guardian Angel are
-included in the Implemented count. Their dedicated
-behavioral tests replace the earlier cast-only evidence; milestone validation
-and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
+Channel and Guardian Angel are included in the Implemented count. Their
+dedicated behavioral tests replace the earlier cast-only evidence; milestone
+validation and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
 
 Excluded cards: Chaos Orb (dexterity); Contract from Below, Darkpact and Demonic
 Attorney (ante). These are explicit scope exclusions, never counted as implemented.
 
 ### Remaining cards
 
-| Card | Remaining implementation or acceptance work |
-| --- | --- |
-| [Animate Dead](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/animate_dead.rs) | Aura reanimation, restricted attachment and the leave sacrifice are implemented and regression-tested; final live acceptance is pending |
-| [Drain Power](../crates/baylee-cards/src/cards/sorceries/mv_2/drain_power.rs) | forced land activations and exact mana transfer are implemented; final live acceptance is pending |
-| [Illusionary Mask](../crates/baylee-cards/src/cards/artifacts/mv_2/illusionary_mask.rs) | spent-mana casting and face-up replacement events are implemented; final selector and live acceptance are pending |
-| [Kudzu](../crates/baylee-cards/src/cards/enchantments/auras/mv_3/kudzu.rs) | tap-triggered destruction and controller-selected Aura relocation are implemented and regression-tested; final live acceptance is pending |
-| [Lich](../crates/baylee-cards/src/cards/enchantments/mv_4/lich.rs) | zero-life protection, life-gain draws, damage sacrifices and leave-game loss are implemented and regression-tested; final live acceptance is pending |
-| [Magical Hack](../crates/baylee-cards/src/cards/instants/mv_1/magical_hack.rs) | semantic text changes are implemented and independently tested; final batch acceptance is pending |
-| [Sleight of Mind](../crates/baylee-cards/src/cards/instants/mv_1/sleight_of_mind.rs) | semantic text changes are implemented and independently tested; final batch acceptance is pending |
-| [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | turn-skip untapping and the extra-turn ability are implemented and regression-tested; Client/AI/Seat consumers are integrated, final live acceptance is pending |
-| [Vesuvan Doppelganger](../crates/baylee-cards/src/cards/creatures/mv_5/vesuvan_doppelganger.rs) | copiable upkeep behavior and the full Oracle stack-dialog fallback are implemented and regression-tested; final live acceptance is pending |
+None. The table that stood here listed the nine cards above with "final live
+acceptance pending"; that acceptance happened on 2026-10-09.
 
 ### Interrupted-session takeover — 2026-10-04
 

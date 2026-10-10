@@ -50,7 +50,15 @@ fn lich_out() -> (Engine<RegistryLookup>, ObjectId) {
             0,
             &[swamp(), swamp(), swamp(), swamp(), mountain(), plains()],
         )
-        .hand(0, &[index::LICH, index::LIGHTNING_BOLT, index::DISENCHANT])
+        .hand(
+            0,
+            &[
+                index::LICH,
+                index::LIGHTNING_BOLT,
+                index::DISENCHANT,
+                index::RAISE_THE_ALARM,
+            ],
+        )
         .life(0, 20)
         .start();
     keep_mulligans(&mut engine);
@@ -159,6 +167,33 @@ fn lich_makes_each_point_of_damage_a_sacrifice() {
     assert_eq!(engine.state().players[0].life, -3);
     assert!(!engine.state().players[0].has_lost());
     assert_eq!(engine.state().object(lich).unwrap().zone, Zone::Battlefield);
+}
+
+/// "… sacrifice that many **nontoken** permanents": with two Soldier tokens
+/// on the board beside the six lands and Lich, the question lists the seven
+/// cards and neither token. Without a token on the board a filter that
+/// forgot the word would list the same seven.
+#[test]
+fn lich_does_not_let_a_token_pay_for_the_damage() {
+    let (mut engine, lich) = lich_out();
+    float(&mut engine, ManaColor::White, 2);
+    cast_with_floating(&mut engine, P0, index::RAISE_THE_ALARM);
+    pass_until(&mut engine, stack_is_empty);
+    let tokens = tokens_of(&engine, P0);
+    assert_eq!(tokens.len(), 2, "two Soldiers");
+    bolt_myself(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!()
+    };
+    assert_eq!(options.len(), 7, "six lands and Lich itself");
+    assert!(options.contains(&lich));
+    assert!(
+        tokens.iter().all(|token| !options.contains(token)),
+        "a token is not offered"
+    );
 }
 
 /// "If you can't, you lose the game": two nontoken permanents against three

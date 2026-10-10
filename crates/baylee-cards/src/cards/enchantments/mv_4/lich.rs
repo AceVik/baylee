@@ -5,8 +5,6 @@
 //! Oracle: Whenever you're dealt damage, sacrifice that many nontoken permanents. If you can't, you lose the game.
 //! Oracle: When this enchantment is put into a graveyard from the battlefield, you lose the game.
 //! Set: ME4 #89 — Masters Edition IV | Scryfall ID: d4d7d1fd-4a5e-4cc3-8056-12cae084cc6a | Oracle ID: 5b7515f2-7a5a-4e2a-9784-6cbacd768172
-// PARTIAL — every clause is implemented and engine-tested; final live
-// acceptance is pending.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -15,9 +13,7 @@ card!(
     oracle_id = "5b7515f2-7a5a-4e2a-9784-6cbacd768172",
     scryfall_id = "d4d7d1fd-4a5e-4cc3-8056-12cae084cc6a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Partial(
-        "every clause is implemented and engine-tested; final live acceptance is pending"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lich",
         mana_cost = mana!("{B}{B}{B}{B}"),
