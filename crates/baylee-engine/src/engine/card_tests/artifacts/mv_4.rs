@@ -30,6 +30,7 @@ mod power_matrix;
 mod primal_amulet;
 mod rocket_launcher;
 mod rod_of_ruin;
+mod sandals_of_abdallah;
 mod sisay_s_ring;
 mod skull_catapult;
 mod staff_of_zegon;
