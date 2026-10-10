@@ -243,7 +243,9 @@ impl HeuristicAgent {
             | Filter::ControlledSinceTurnBegan
             | Filter::SharesSubtypeWithCommander
             // Not one of those: a gap, and the header says why.
-            | Filter::HasCounter(_) => None,
+            | Filter::HasCounter(_)
+            // The stack's targets are not on the view's objects.
+            | Filter::NotTargetedByAnotherNamed(_) => None,
         }
     }
 

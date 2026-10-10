@@ -136,11 +136,10 @@ fn battering_ram_destroys_every_wall_that_blocks_it() {
                     .unwrap();
             }
             Pending::Priority { player, .. } => {
-                if engine.state().turn.step != Step::CombatEnd {
-                    engine.apply(player, PlayerAction::PassPriority).unwrap();
-                } else {
+                if engine.state().turn.step == Step::CombatEnd {
                     break;
                 }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
             other => panic!("unexpected: {other:?}"),
         }

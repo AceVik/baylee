@@ -100,6 +100,21 @@ pub fn matches_projected_with_context(
         // CR 201.2: the name an object has *now*, read off its projected
         // characteristics, so a clone answers to what it copied.
         Filter::Named(name) => state.names.get(chars.name) == *name,
+        Filter::NotTargetedByAnotherNamed(name) => !state
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .iter()
+            .filter_map(|&id| state.object(id))
+            .filter(|ability| ability.kind == crate::object::ObjectKind::AbilityOnStack)
+            .any(|ability| {
+                ability.targets.contains(&obj.id)
+                    && ability.ability.is_some_and(|loc| {
+                        loc.source != this
+                            && state.object(loc.source).is_some_and(|source| {
+                                state.names.get(source.characteristics().name) == *name
+                            })
+                    })
+            }),
         Filter::IsToken => obj.card.is_none(),
         Filter::WithSingleTarget => {
             obj.targets.len() + obj.second_targets().len() + obj.target_players.len() == 1

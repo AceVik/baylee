@@ -104,6 +104,10 @@ pub enum Filter {
     /// banded with this creature" (Camel). The source itself is not banded
     /// with itself; a creature not in a band is banded with nothing.
     BandedWithSource,
+    /// Not the target of an ability on the stack whose source is another
+    /// object with this name (Goblin Artisans: "that isn't the target of an
+    /// ability from another creature named Goblin Artisans").
+    NotTargetedByAnotherNamed(&'static str),
     /// A blocking creature (CR 509.1g): declared as a blocker this combat
     /// and not removed from it since.
     Blocking,
