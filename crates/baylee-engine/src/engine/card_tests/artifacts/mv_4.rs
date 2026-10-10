@@ -20,6 +20,7 @@ mod jade_monolith;
 mod jade_statue;
 mod jayemdae_tome;
 mod kormus_bell;
+mod life_chisel;
 mod machine_god_s_effigy;
 mod mightstone;
 mod nevinyrral_s_disk;
