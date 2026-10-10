@@ -511,6 +511,7 @@ async fn a_change_wants_the_proof_passes_only_its_fields_and_is_audited_without_
 /// passes only its fields, and is audited as `<host>/<id>`; a key reaches
 /// the gateway and is in no audit row.
 #[tokio::test(flavor = "multi_thread")]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
 async fn the_hosted_model_pages_relay_their_fields_and_never_keep_a_key() {
     let gw = stub().await;
     let service = Service::start("llm", Some(&gw.url)).await;

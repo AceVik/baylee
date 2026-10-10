@@ -154,7 +154,7 @@ fn seat_agent(
     name: &str,
     gateway: String,
     bridge_gateway: Option<String>,
-    defs: BTreeMap<String, Definition>,
+    defs: &BTreeMap<String, Definition>,
     played: &Arc<Played>,
     keys: Arc<MemoryKeys>,
 ) -> Arc<Host> {
@@ -167,7 +167,7 @@ fn seat_agent(
             .as_nanos()
     ));
     let _ = std::fs::remove_dir_all(&dir);
-    write_profiles(&dir.join(baylee_seathost::PROFILES_FILE), &defs).unwrap();
+    write_profiles(&dir.join(baylee_seathost::PROFILES_FILE), defs).unwrap();
     Host::new(Config {
         name: name.into(),
         gateway,
@@ -306,7 +306,7 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
         "a",
         format!("unix:{}", socket.display()),
         Some(http_base.clone()),
-        BTreeMap::from([
+        &BTreeMap::from([
             ("sonnet".into(), definition("Sonnet", 1, None)),
             (
                 "opus".into(),
@@ -335,7 +335,7 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
         "b",
         http_base.clone(),
         None,
-        BTreeMap::from([("sonnet".into(), definition("Sonnet", 1, None))]),
+        &BTreeMap::from([("sonnet".into(), definition("Sonnet", 1, None))]),
         &played,
         Arc::new(MemoryKeys::default()),
     );
@@ -636,4 +636,131 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
         !logs.contains("never-in-a-log"),
         "the key reached the gateway's log"
     );
+}
+
+/// The process path: the real seat agent's `ProcessLauncher` starts the
+/// real `baylee-seat` binary, whose mind is the fake agent CLI
+/// (`examples/fake-agent-cli.rs`, no model, no network), on a chair a
+/// registered host ordered; the bridge checks the CLI's login, sits on the
+/// gateway's ticket, says ready, and the game is played to its end (the
+/// fake answers nothing it is asked, so the bridge's house finishes it).
+///
+/// Needs the binaries beside the gateway's:
+/// `cargo build -p baylee-seat --bins --examples` first.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[ignore = "needs baylee-seat and its fake CLI built: cargo build -p baylee-seat --bins --examples"]
+#[allow(clippy::too_many_lines)] // e2e scenario script
+async fn hosted_seat_processes() {
+    let bin_dir = std::path::Path::new(env!("CARGO_BIN_EXE_baylee-gateway"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let bridge_bin = bin_dir.join("baylee-seat");
+    let fake = bin_dir.join("examples").join("fake-agent-cli");
+    assert!(
+        bridge_bin.exists() && fake.exists(),
+        "build them first: cargo build -p baylee-seat --bins --examples"
+    );
+    let id = std::process::id();
+    let socket = std::env::temp_dir().join(format!("baylee-gw-hostedp-{id}.sock"));
+    let admin_port_file = std::env::temp_dir().join(format!("baylee-gw-hostedp-{id}.admin"));
+    let gw = spawn("hostedp", &socket, &admin_port_file);
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let http_base = format!("http://127.0.0.1:{port}");
+
+    // The CLI's home: its script, and nothing of this machine's.
+    let home = std::env::temp_dir().join(format!("baylee-e2e-fakecli-{id}"));
+    let _ = std::fs::remove_dir_all(&home);
+    std::fs::create_dir_all(home.join("empty-path")).unwrap();
+    std::fs::write(
+        home.join("fake-cli.json"),
+        json!({"logged_in": true, "steps": []}).to_string(),
+    )
+    .unwrap();
+    let state_dir = home.join("state");
+    let mut cli = definition("Fake", 1, None);
+    cli.vendor = "Nobody".into();
+    cli.profile = json!({"provider": "cli", "model": "claude", "command": fake});
+    write_profiles(
+        &state_dir.join(baylee_seathost::PROFILES_FILE),
+        &BTreeMap::from([("fake".into(), cli)]),
+    )
+    .unwrap();
+    let launcher = baylee_seathost::launch::ProcessLauncher {
+        bridge: bridge_bin,
+        work: state_dir.join("run"),
+        env: vec![
+            ("HOME".into(), home.display().to_string()),
+            ("PATH".into(), home.join("empty-path").display().to_string()),
+            ("BAYLEE_KEY_STORE".into(), "off".into()),
+        ],
+    };
+    let seat_agent = Host::new(Config {
+        name: "proc".into(),
+        gateway: format!("unix:{}", socket.display()),
+        token: SEATHOST_TOKEN.into(),
+        capacity: 0,
+        state_dir,
+        bridge_gateway: Some(http_base.clone()),
+        keys: Arc::new(MemoryKeys::default()),
+        launcher: Arc::new(launcher),
+    })
+    .unwrap();
+    tokio::spawn(seat_agent.clone().serve());
+
+    let host = login(port, "hostp", "TEST-host");
+    until("the fake profile is checked and offered", || {
+        profile(port, &host, "fake")["state"] == "available"
+    })
+    .await;
+    let lobby = Lobby::new(&http_base);
+    let session = Session::from_token(host.clone());
+    let chair = room(&lobby, &session).await;
+    let (status, body) = order(port, &host, &chair.game_id, "fake");
+    assert_eq!(status, 202, "{body}");
+    until("the bridge process sits and is ready", || {
+        row(port, &host, &chair.game_id)["seats"][1]["hosted"]["state"] == "ready"
+    })
+    .await;
+    let listed = row(port, &host, &chair.game_id);
+    assert_eq!(listed["seats"][1]["player"], "LLM-Fake", "{listed}");
+    lobby.ready(&session, &chair.game_id).await.unwrap();
+    lobby.start(&session, &chair.game_id).await.unwrap();
+    let scripted: Arc<dyn Mind> = Arc::new(ScriptedMind::idle());
+    let core = SeatCore::new(
+        BridgeConfig::default(),
+        Deck::acceptance("Allytifact").unwrap().list,
+        scripted.disclosure(),
+    );
+    let mut link = SeatLink::new(lobby.clone(), chair.clone(), Some(session.clone()));
+    let options = PlayOptions {
+        min_think: Duration::ZERO,
+        ..PlayOptions::default()
+    };
+    let mine = tokio::time::timeout(
+        GAME_BUDGET,
+        bridge::play(
+            &mut link,
+            core,
+            scripted,
+            &mut Transcript::memory(),
+            &options,
+        ),
+    )
+    .await
+    .expect("the game ends in time")
+    .expect("the host's chair plays");
+    assert!(mine.result.is_some(), "{mine:?}");
+    until("the bridge process ends and the profile is free", || {
+        profile(port, &host, "fake")["games"] == 0
+    })
+    .await;
+    let log = std::fs::read_to_string(home.join("fake-cli.log")).unwrap_or_default();
+    assert!(
+        log.contains("auth"),
+        "the bridge checked the CLI's login: {log}"
+    );
+    let _ = std::fs::remove_dir_all(&home);
 }

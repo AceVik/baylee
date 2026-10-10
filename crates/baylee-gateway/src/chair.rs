@@ -273,7 +273,13 @@ pub(crate) async fn redeem(
         .consume(ticket, &door, Instant::now())
         .map_err(|why| {
             tracing::debug!(?why, "a chair ticket opened nothing");
-            err(StatusCode::UNAUTHORIZED, TICKET_REFUSED)
+            // Switched off, a ticket that opened nothing was no hosted
+            // model's either: the switch is the answer.
+            if state.chair_tickets_enabled {
+                err(StatusCode::UNAUTHORIZED, TICKET_REFUSED)
+            } else {
+                err(StatusCode::FORBIDDEN, SWITCHED_OFF)
+            }
         })?;
     let wsticket::Grant::Chair { host, order, .. } = grant else {
         return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
