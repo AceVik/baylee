@@ -48,6 +48,13 @@ pub(crate) async fn lobby_ws(
     Ok(ws.on_upgrade(move |socket| run_lobby_socket(state, account_id, params.query, socket)))
 }
 
+/// How often a quiet lobby socket is pinged.
+const PING_EVERY: std::time::Duration = std::time::Duration::from_secs(20);
+
+/// How long a lobby socket may go without a word (a pong counts) before it
+/// is taken for dead: two pings unanswered and some slack.
+const QUIET: std::time::Duration = std::time::Duration::from_secs(50);
+
 /// Pushes the listing to one reader until they go away.
 pub(crate) async fn run_lobby_socket(
     state: Shared,
@@ -68,9 +75,38 @@ pub(crate) async fn run_lobby_socket(
     }
     // Counted as present for as long as this socket is open, and no longer:
     // every return below drops it (`GET /lobby/stats`).
-    let _present = state.presence.enter(&account_id);
+    let present = state.presence.enter(&account_id);
+    serve_listing(
+        &state,
+        &account_id,
+        &query,
+        &mut socket,
+        &mut changed,
+        &mut departed,
+    )
+    .await;
+    drop(present);
+    crate::departure::socket_closed(&state, &account_id);
+}
+
+/// The listing, sent and re-sent until the socket or the account goes.
+async fn serve_listing(
+    state: &Shared,
+    account_id: &str,
+    query: &lobby::LobbyQuery,
+    socket: &mut WebSocket,
+    changed: &mut tokio::sync::broadcast::Receiver<()>,
+    departed: &mut tokio::sync::broadcast::Receiver<String>,
+) {
+    // A socket whose far end vanished without a word (a lid closed, a
+    // network gone) is never read as closed by `recv`; a ping it cannot
+    // answer is how it is found (#B7). Every client answers pings on its
+    // own (tungstenite, browsers), so silence past `QUIET` is a dead line.
+    let mut ping = tokio::time::interval(PING_EVERY);
+    ping.tick().await;
+    let mut heard = tokio::time::Instant::now();
     loop {
-        let payload = listing_page(&state, &account_id, &query).await.to_string();
+        let payload = listing_page(state, account_id, query).await.to_string();
         if socket.send(Message::Text(payload.into())).await.is_err() {
             return;
         }
@@ -101,8 +137,15 @@ pub(crate) async fn run_lobby_socket(
                 // (`GET /lobby/stats`).
                 said = socket.recv() => match said {
                     None | Some(Err(_) | Ok(Message::Close(_))) => return,
-                    Some(Ok(_)) => {}
+                    Some(Ok(_)) => heard = tokio::time::Instant::now(),
                 },
+                _ = ping.tick() => {
+                    if heard.elapsed() > QUIET
+                        || socket.send(Message::Ping(Vec::new().into())).await.is_err()
+                    {
+                        return;
+                    }
+                }
             }
         }
     }

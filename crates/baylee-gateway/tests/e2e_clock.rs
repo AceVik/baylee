@@ -57,7 +57,10 @@ async fn the_clock_a_room_picks_is_the_clock_the_engine_is_given() {
         preset.house_rules.decision_timeout_secs, 30,
         "the engine got the default clock, not the room's"
     );
-    assert_eq!(preset.house_rules.reconnect_window_secs, 30);
+    assert_eq!(
+        preset.house_rules.reconnect_window_secs, 180,
+        "one reconnect window for every clock"
+    );
 
     // And the parts of `HouseRules` nobody chose are still the defaults, so
     // picking a clock does not quietly re-decide the rest of the table.
@@ -91,7 +94,7 @@ async fn saying_nothing_plays_three_minutes_a_decision() {
     // the field entirely.
     // Three minutes since 08.10.2026 (the owner); ten before.
     assert_eq!(preset.house_rules.decision_timeout_secs, 180);
-    assert_eq!(preset.house_rules.reconnect_window_secs, 60);
+    assert_eq!(preset.house_rules.reconnect_window_secs, 180);
 
     agent.abort();
 }
@@ -118,7 +121,7 @@ async fn a_player_can_see_the_pace_before_sitting_down() {
         30,
         "a player cannot see what pace this table plays at: {listing}"
     );
-    assert_eq!(json_number(&listing, "reconnect_secs"), 30);
+    assert_eq!(json_number(&listing, "reconnect_secs"), 180);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -205,7 +208,7 @@ async fn the_gateway_publishes_the_clocks_it_will_accept() {
 /// counting, so join is the only moment it can be told; and three ways into
 /// a game read no lobby row at all. This asserts the end of that chain: a
 /// room picks `blitz`, and the first payload a seat's socket receives says
-/// 30 and 30.
+/// 30 to decide and the gateway's 180 to reconnect.
 #[tokio::test(flavor = "multi_thread")]
 async fn a_seat_is_told_the_two_limits_its_table_plays_at() {
     let gw = spawn_gateway("clock-static");
@@ -243,7 +246,7 @@ async fn a_seat_is_told_the_two_limits_its_table_plays_at() {
     );
     assert_eq!(
         statics.reconnect_secs,
-        Some(30),
+        Some(180),
         "the seat was not told how long it may be gone"
     );
 }

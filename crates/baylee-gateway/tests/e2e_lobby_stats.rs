@@ -32,7 +32,7 @@ fn stats(port: u16, token: &str) -> (i64, i64, i64) {
 /// Waits for `players_online` to read `want`: a socket closing is noticed
 /// by the gateway's task for it, a moment after the client let go.
 async fn online(port: u16, token: &str, want: i64) {
-    for _ in 0..100 {
+    for _ in 0..500 {
         if stats(port, token).0 == want {
             return;
         }
@@ -81,16 +81,24 @@ async fn the_numbers_move_with_a_socket_a_table_and_a_game() {
     assert_eq!(status, 200, "{body}");
     assert_eq!(stats(port, &idle), (1, 1, 0));
 
-    // A game against the house runs at once, and its player is online.
+    // Closing the socket takes the watcher out again.
+    socket.close(None).await.expect("close");
+    drop(socket);
+    online(port, &idle, 0).await;
+
+    // A game against the house runs at once; its player is online while
+    // their chair's socket is open, and not for holding the chair: a chair
+    // whose connection is gone is held, its player is not here.
     let player = login(port, "game-player", "Player");
     let deck = make_deck(port, &player);
     let create = format!("{{\"deck_id\":\"{deck}\",\"mode\":\"ai\"}}");
     let (status, body) = http(port, "POST", "/lobby/games", Some(&player), &create);
     assert_eq!(status, 200, "{body}");
-    assert_eq!(stats(port, &idle), (2, 1, 1));
-
-    // Closing the socket takes the watcher out again.
-    socket.close(None).await.expect("close");
-    drop(socket);
+    assert_eq!(stats(port, &idle), (0, 1, 1));
+    let game_id = json_field(&body, "game_id").to_string();
+    let seat_token = json_field(&body, "seat_token").to_string();
+    let seat = common::dial_seat(port, &game_id, &seat_token).await;
     online(port, &idle, 1).await;
+    drop(seat);
+    online(port, &idle, 0).await;
 }

@@ -279,6 +279,16 @@ pub(crate) async fn run_game_socket(
     };
     // What this seat sends, for the line logged when it goes, and how much
     // it may (#284).
+    // The player's own chair counts them as here (`presence.rs`); a seat
+    // bridge's does not, its host is counted by `Lobby::bridging_accounts`.
+    let account = state
+        .lobby
+        .lock()
+        .games
+        .get(&game_id)
+        .and_then(|game| game.seats.get(seat))
+        .and_then(|chair| chair.account_id.clone());
+    let present = account.as_deref().map(|id| state.presence.enter(id));
     let opened = std::time::Instant::now();
     let mut meter = seatrate::Meter::new(opened);
     let mut allowance = seatrate::Allowance::new(opened, seatrate::RATE, seatrate::BURST);
@@ -358,6 +368,13 @@ pub(crate) async fn run_game_socket(
     // has to be told when one walks away.
     to_engine(
         &link,
-        v1::envelope::Msg::SeatDetached(v1::SeatDetached { seat: seat as u32 }),
+        v1::envelope::Msg::SeatDetached(v1::SeatDetached {
+            seat: seat as u32,
+            left: false,
+        }),
     );
+    drop(present);
+    if let Some(account) = account {
+        crate::departure::socket_closed(&state, &account);
+    }
 }

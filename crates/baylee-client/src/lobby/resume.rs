@@ -465,6 +465,8 @@ fn restart_on_request(
     };
     match crate::update::native::restart(&handoff.to_bytes(), true) {
         Ok(()) => {
+            // Coming straight back: the chair and the room are kept.
+            super::departure::restarting();
             exit.write(AppExit::Success);
         }
         Err(err) => {

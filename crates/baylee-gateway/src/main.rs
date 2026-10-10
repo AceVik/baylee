@@ -13,6 +13,7 @@ mod auth;
 mod chair;
 mod clock;
 mod cosmetics;
+mod departure;
 mod engine;
 mod handle;
 mod invite;
@@ -199,6 +200,13 @@ struct AppState {
     /// The accounts with a lobby socket open, as a count for
     /// `GET /lobby/stats` (`presence.rs`); memory only.
     presence: presence::Presence,
+    /// How long a lost seat is waited for while other players are at the
+    /// table (`BAYLEE_RECONNECT_SECS`, default 180), for a room that names
+    /// no window of its own (`clock.rs`).
+    reconnect_secs: u32,
+    /// How long a waiting room keeps the chair of a player whose client went
+    /// away (`BAYLEE_ROOM_GRACE_SECS`, default 60; `departure.rs`).
+    room_grace: std::time::Duration,
     /// When this process started serving (unix seconds), for the admin
     /// console's uptime.
     started_at: u64,
@@ -250,6 +258,14 @@ async fn main() {
         .unwrap_or_else(|why| panic!("BAYLEE_SOURCE_URL: {why}"));
     let guest_cap = guest_cap(std::env::var("BAYLEE_GUEST_CAP").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_GUEST_CAP: {why}"));
+    let reconnect_secs =
+        clock::reconnect_from_env(std::env::var("BAYLEE_RECONNECT_SECS").ok().as_deref())
+            .unwrap_or_else(|why| panic!("BAYLEE_RECONNECT_SECS: {why}"));
+    let room_grace = wsticket::lifetime_from_env(
+        std::env::var("BAYLEE_ROOM_GRACE_SECS").ok().as_deref(),
+        departure::ROOM_GRACE_SECS,
+    )
+    .unwrap_or_else(|why| panic!("BAYLEE_ROOM_GRACE_SECS: {why}"));
     let ticket_ttl = wsticket::ttl_from_env(std::env::var("BAYLEE_WS_TICKET_SECS").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_WS_TICKET_SECS: {why}"));
     let chair_ticket_ttl = wsticket::lifetime_from_env(
@@ -331,6 +347,8 @@ async fn main() {
         chair_tickets_enabled: switched_on(std::env::var("BAYLEE_CHAIR_TICKETS").ok().as_deref()),
         names: namebook::NameBook::default(),
         presence: presence::Presence::default(),
+        reconnect_secs,
+        room_grace,
         started_at: auth::now_secs(),
         terms,
     });
@@ -357,6 +375,7 @@ async fn main() {
         .merge(report::routes())
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/lobby/stats", get(lobby_stats))
+        .route("/lobby/depart", post(departure::depart))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/configure", post(room::configure))
         .route("/lobby/games/{id}/seat", post(take_seat))

@@ -557,6 +557,8 @@ struct ProbeEnd {
     hash: std::sync::Arc<tokio::sync::watch::Sender<Option<u64>>>,
     flushes: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     mute: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// Whether the engine runs its clocks, as `baylee-engine-server` does.
+    clocked: bool,
 }
 
 impl EngineProbe {
@@ -574,9 +576,21 @@ impl EngineProbe {
                 hash: std::sync::Arc::new(hash),
                 flushes,
                 mute,
+                clocked: false,
             },
         )
     }
+}
+
+/// An agent whose engines run their clocks — decision, reconnect window,
+/// and the hold — as `baylee-engine-server` does, for the tests about a
+/// seat whose connection is gone.
+#[allow(dead_code)] // only the departure tests need clocks
+pub async fn attach_agent_clocked(gateway: &Gateway) -> tokio::task::JoinHandle<()> {
+    let (_, mut end) = EngineProbe::new();
+    end.clocked = true;
+    let presets = tokio::sync::mpsc::unbounded_channel().0;
+    attach_agent_inner(gateway, presets, end, None).await
 }
 
 /// The agent of [`attach_agent`], with a probe into its engines.
@@ -656,11 +670,30 @@ async fn run_engine(
         )
         .unwrap()
     };
+    let mut armed = baylee_engine_server::Armed::default();
     loop {
         let delay = runner
             .entrance_deadline()
             .map(|at| std::time::Duration::from_millis(at.saturating_sub(wall_ms())));
+        let now = tokio::time::Instant::now();
+        if probe.clocked {
+            armed.sync(&runner.clocks(), |clock| {
+                now + std::time::Duration::from_secs(u64::from(clock.secs))
+            });
+        }
+        let next = armed.next();
         let out = tokio::select! {
+            () = async {
+                match next {
+                    Some((_, at)) => tokio::time::sleep_until(at).await,
+                    None => std::future::pending::<()>().await,
+                }
+            } => {
+                let Some((clock, _)) = next else { continue };
+                armed.fired(clock);
+                runner.tell_time(wall_ms());
+                runner.timeout(clock)
+            }
             () = async {
                 if let Some(delay) = delay { tokio::time::sleep(delay).await; }
                 else { std::future::pending::<()>().await; }

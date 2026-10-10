@@ -19,8 +19,6 @@ pub struct Preset {
     pub name: &'static str,
     /// Seconds to answer one question. Zero means no decision clock at all.
     pub decision_timeout_secs: u32,
-    /// Seconds a seat may be gone before the house answers for it.
-    pub reconnect_window_secs: u32,
     /// One line, for a client building a picker without hard-coding this
     /// table.
     pub blurb: &'static str,
@@ -38,25 +36,21 @@ pub const PRESETS: &[Preset] = &[
     Preset {
         name: "classic",
         decision_timeout_secs: baylee_core::preset::DEFAULT_DECISION_SECS,
-        reconnect_window_secs: 60,
         blurb: "three minutes a decision; the default",
     },
     Preset {
         name: "casual",
         decision_timeout_secs: 600,
-        reconnect_window_secs: 60,
         blurb: "ten minutes a decision",
     },
     Preset {
         name: "standard",
         decision_timeout_secs: 120,
-        reconnect_window_secs: 60,
         blurb: "two minutes a decision",
     },
     Preset {
         name: "blitz",
         decision_timeout_secs: 30,
-        reconnect_window_secs: 30,
         blurb: "thirty seconds a decision",
     },
     Preset {
@@ -67,10 +61,39 @@ pub const PRESETS: &[Preset] = &[
         // see the refusal of zero below.
         name: "untimed",
         decision_timeout_secs: 0,
-        reconnect_window_secs: 60,
         blurb: "no decision clock; a seat can still be stood in for",
     },
 ];
+
+/// How long a seat whose connection was lost is waited for before the
+/// house plays it, when another player is still at the table (owner,
+/// 10.10.2026: three minutes). One number for every clock rather than a
+/// column of the table above: it is how long a router takes to come back,
+/// not how fast the game is played. `BAYLEE_RECONNECT_SECS` replaces it for
+/// a whole gateway, and a room may still name its own
+/// (`reconnect_window_secs`). A seat with no other player left at the table
+/// is not waited for on any clock: the game pauses
+/// (`docs/protocol.md` §"Leaving, and losing the connection").
+pub const DEFAULT_RECONNECT_SECS: u32 = 180;
+
+/// `BAYLEE_RECONNECT_SECS`, read at start: unset is
+/// [`DEFAULT_RECONNECT_SECS`], and a value outside the bounds a room is
+/// held to refuses startup.
+///
+/// # Errors
+/// The sentence the gateway refuses to start with.
+pub fn reconnect_from_env(raw: Option<&str>) -> Result<u32, String> {
+    match raw.map(str::trim) {
+        None | Some("") => Ok(DEFAULT_RECONNECT_SECS),
+        Some(text) => match text.parse::<u32>() {
+            Ok(secs) if (MIN_RECONNECT_SECS..=MAX_SECS).contains(&secs) => Ok(secs),
+            Ok(secs) => Err(format!(
+                "{secs} seconds is outside {MIN_RECONNECT_SECS}..={MAX_SECS}"
+            )),
+            Err(_) => Err(format!("{text:?} is not a whole number of seconds")),
+        },
+    }
+}
 
 /// The shortest decision worth offering, in seconds.
 ///
@@ -127,6 +150,7 @@ pub fn resolve(
     name: Option<&str>,
     decision: Option<u32>,
     reconnect: Option<u32>,
+    default_reconnect: u32,
 ) -> Result<HouseRules, String> {
     let base = match name.map(str::trim).filter(|n| !n.is_empty()) {
         Some(n) => named(n).ok_or_else(|| {
@@ -139,7 +163,7 @@ pub fn resolve(
         None => &PRESETS[0],
     };
     let decision = decision.unwrap_or(base.decision_timeout_secs);
-    let reconnect = reconnect.unwrap_or(base.reconnect_window_secs);
+    let reconnect = reconnect.unwrap_or(default_reconnect);
 
     if decision != 0 && !(MIN_DECISION_SECS..=MAX_SECS).contains(&decision) {
         return Err(format!(
@@ -164,7 +188,10 @@ pub fn resolve(
 
 #[cfg(test)]
 mod tests {
-    use super::{MAX_SECS, MIN_DECISION_SECS, MIN_RECONNECT_SECS, PRESETS, resolve};
+    use super::{
+        DEFAULT_RECONNECT_SECS, MAX_SECS, MIN_DECISION_SECS, MIN_RECONNECT_SECS, PRESETS,
+        reconnect_from_env, resolve,
+    };
 
     /// Three minutes a decision for a room that names no clock (owner,
     /// 08.10.2026), and the same number a preset built without a room
@@ -172,9 +199,9 @@ mod tests {
     /// or a rematch's defaults play at one pace.
     #[test]
     fn saying_nothing_is_three_minutes_a_decision() {
-        let rules = resolve(None, None, None).expect("the default resolves");
+        let rules = resolve(None, None, None, 180).expect("the default resolves");
         assert_eq!(rules.decision_timeout_secs, 180);
-        assert_eq!(rules.reconnect_window_secs, 60);
+        assert_eq!(rules.reconnect_window_secs, DEFAULT_RECONNECT_SECS);
         assert_eq!(PRESETS[0].name, "classic");
         assert_eq!(
             PRESETS[0].decision_timeout_secs,
@@ -188,50 +215,56 @@ mod tests {
             ("blitz", 30),
             ("untimed", 0),
         ] {
-            let rules = resolve(Some(name), None, None).expect("still offered");
+            let rules = resolve(Some(name), None, None, 180).expect("still offered");
             assert_eq!(rules.decision_timeout_secs, decide, "{name}");
         }
     }
 
     #[test]
     fn a_name_picks_its_row_and_a_number_overrides_it() {
-        let blitz = resolve(Some("blitz"), None, None).expect("blitz");
+        let blitz = resolve(Some("blitz"), None, None, 180).expect("blitz");
         assert_eq!(blitz.decision_timeout_secs, 30);
-        assert_eq!(blitz.reconnect_window_secs, 30);
+        assert_eq!(
+            blitz.reconnect_window_secs, 180,
+            "one window for every clock"
+        );
 
         // The whole reason there is no `custom` sentinel.
-        let patient = resolve(Some("blitz"), None, Some(120)).expect("blitz, longer window");
+        let patient = resolve(Some("blitz"), None, Some(120), 180).expect("blitz, longer window");
         assert_eq!(patient.decision_timeout_secs, 30);
         assert_eq!(patient.reconnect_window_secs, 120);
     }
 
     #[test]
     fn zero_means_no_decision_clock_and_is_not_the_same_as_the_minimum() {
-        let untimed = resolve(Some("untimed"), None, None).expect("untimed");
+        let untimed = resolve(Some("untimed"), None, None, 180).expect("untimed");
         assert_eq!(
             untimed.decision_timeout_secs, 0,
             "the engine reads zero as no deadline; a large number is a different game"
         );
-        assert!(resolve(None, Some(0), None).is_ok(), "zero is a choice");
         assert!(
-            resolve(None, Some(MIN_DECISION_SECS - 1), None).is_err(),
+            resolve(None, Some(0), None, 180).is_ok(),
+            "zero is a choice"
+        );
+        assert!(
+            resolve(None, Some(MIN_DECISION_SECS - 1), None, 180).is_err(),
             "one second under the floor is not a fast game, it is an unreadable one"
         );
     }
 
     #[test]
     fn a_table_of_strangers_may_not_turn_the_stand_in_off() {
-        let refused = resolve(None, None, Some(0)).expect_err("zero window is refused");
+        let refused = resolve(None, None, Some(0), 180).expect_err("zero window is refused");
         assert!(
             refused.contains("reconnect_window_secs"),
             "the message has to name the field: {refused}"
         );
-        assert!(resolve(None, None, Some(MIN_RECONNECT_SECS)).is_ok());
+        assert!(resolve(None, None, Some(MIN_RECONNECT_SECS), 180).is_ok());
     }
 
     #[test]
     fn an_unknown_name_says_which_ones_there_are() {
-        let refused = resolve(Some("bullet"), None, None).expect_err("no such clock");
+        let refused = resolve(Some("bullet"), None, None, 180).expect_err("no such clock");
         for preset in PRESETS {
             assert!(
                 refused.contains(preset.name),
@@ -243,9 +276,9 @@ mod tests {
 
     #[test]
     fn nothing_may_run_past_an_hour() {
-        assert!(resolve(None, Some(MAX_SECS), None).is_ok());
-        assert!(resolve(None, Some(MAX_SECS + 1), None).is_err());
-        assert!(resolve(None, None, Some(MAX_SECS + 1)).is_err());
+        assert!(resolve(None, Some(MAX_SECS), None, 180).is_ok());
+        assert!(resolve(None, Some(MAX_SECS + 1), None, 180).is_err());
+        assert!(resolve(None, None, Some(MAX_SECS + 1), 180).is_err());
     }
 
     #[test]
@@ -253,10 +286,23 @@ mod tests {
         // A table that a caller could not have typed by hand is a table the
         // validation and the menu disagree about.
         for preset in PRESETS {
-            let resolved = resolve(Some(preset.name), None, None)
+            let resolved = resolve(Some(preset.name), None, None, 180)
                 .unwrap_or_else(|e| panic!("preset {:?} does not validate: {e}", preset.name));
             assert_eq!(resolved.decision_timeout_secs, preset.decision_timeout_secs);
-            assert_eq!(resolved.reconnect_window_secs, preset.reconnect_window_secs);
         }
+    }
+
+    #[test]
+    fn the_gateway_names_the_window_every_room_gets_by_default() {
+        assert_eq!(reconnect_from_env(None), Ok(180));
+        assert_eq!(reconnect_from_env(Some(" ")), Ok(180));
+        assert_eq!(reconnect_from_env(Some("45")), Ok(45));
+        assert!(reconnect_from_env(Some("0")).is_err());
+        assert!(reconnect_from_env(Some("3601")).is_err());
+        assert!(reconnect_from_env(Some("soon")).is_err());
+        let rules = resolve(Some("blitz"), None, None, 45).expect("blitz");
+        assert_eq!(rules.reconnect_window_secs, 45);
+        let own = resolve(Some("blitz"), None, Some(20), 45).expect("its own");
+        assert_eq!(own.reconnect_window_secs, 20, "a room's own number wins");
     }
 }

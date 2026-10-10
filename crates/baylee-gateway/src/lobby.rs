@@ -397,6 +397,36 @@ impl LobbyGame {
         }
     }
 
+    /// `account_id` gives up its chair in this waiting room; whether it had
+    /// one. The one rule for leaving a room, shared by `POST …/leave` and by
+    /// a player whose client went away ([`Lobby::leave_waiting_rooms`]).
+    ///
+    /// A room outlives its host: it passes to whoever has been here longest,
+    /// and only a room with nobody left in it is closed. The earlier version
+    /// closed it the moment the host stood up, which threw everyone else out
+    /// of a table they were sitting at.
+    pub fn leave(&mut self, account_id: &str, now: u64) -> bool {
+        let Some(chair) = self
+            .seats
+            .iter_mut()
+            .find(|s| s.account_id.as_deref() == Some(account_id))
+        else {
+            return false;
+        };
+        chair.vacate();
+        // A seat bridge it seated goes with it: nobody is left at the table
+        // to answer for the chair (`chair.rs`).
+        for seat in &mut self.seats {
+            if seat.delegate.as_ref().is_some_and(|d| d.by == account_id) {
+                seat.vacate();
+            }
+        }
+        if self.hosted_by(account_id) && !self.hand_over_host() {
+            self.finish(now);
+        }
+        true
+    }
+
     /// A game whose seats are decided and whose engine has been ordered.
     #[must_use]
     pub fn playing(id: String, seats: Vec<LobbySeat>, preset: GamePreset, created_at: u64) -> Self {
@@ -642,6 +672,20 @@ impl Lobby {
             .collect()
     }
 
+    /// The accounts whose seat bridge plays a chair of a running game: they
+    /// count as here although no socket of theirs is open
+    /// (`GET /lobby/stats`).
+    #[must_use]
+    pub fn bridging_accounts(&self) -> BTreeSet<String> {
+        self.running()
+            .flat_map(|game| {
+                game.seats
+                    .iter()
+                    .filter_map(|seat| seat.delegate.as_ref().map(|d| d.by.clone()))
+            })
+            .collect()
+    }
+
     /// Every account id sitting at a visible table.
     ///
     /// The caller resolves these to display names against the store, which
@@ -698,6 +742,25 @@ impl Lobby {
             }
         }
         sat
+    }
+
+    /// `account_id` stands up from every room still waiting, as its own
+    /// `POST …/leave` would: the chair is emptied, a seat bridge it seated
+    /// goes with it, and a room it hosted passes to whoever has been there
+    /// longest or closes when nobody is left. A running game is not touched:
+    /// its chair is the engine's to hold (`docs/protocol.md` §"Leaving, and
+    /// losing the connection").
+    ///
+    /// Returns the ids of the rooms it stood up from.
+    pub fn leave_waiting_rooms(&mut self, account_id: &str, now: u64) -> Vec<String> {
+        let mut left = Vec::new();
+        for (id, game) in &mut self.games {
+            if game.state == LobbyState::Waiting && game.leave(account_id, now) {
+                left.push(id.clone());
+            }
+        }
+        left.sort();
+        left
     }
 
     /// Games visible in the lobby (waiting or playing), searched and paged.

@@ -3495,6 +3495,28 @@ messages! {
         en: "{0} went away and the house took over their seat",
         de: "{0} ist weggegangen, und das Haus hat den Platz übernommen",
     },
+    /// The reading seat lost its connection; `{1}` is how long the table
+    /// waits (m:ss) before the house takes the chair.
+    LogConnectionLostYou {
+        en: "{7} lost the connection – the table waited {1} before the house would take over",
+        de: "{7} hast die Verbindung verloren – der Tisch wartete {1}, bevor das Haus übernommen hätte",
+    },
+    /// Another seat lost its connection; `{1}` as above.
+    LogConnectionLost {
+        en: "{0} lost the connection – waiting {1} for them to reconnect",
+        de: "{0} hat die Verbindung verloren – warte {1} auf die Rückkehr",
+    },
+    /// The reading seat lost its connection, and nobody else is at the
+    /// table: the game is paused.
+    LogConnectionLostPausedYou {
+        en: "{7} lost the connection – the game was paused until the connection was back",
+        de: "{7} hast die Verbindung verloren – das Spiel war pausiert, bis die Verbindung zurück war",
+    },
+    /// Another seat lost its connection with nobody else at the table.
+    LogConnectionLostPaused {
+        en: "{0} lost the connection – the game is paused until they reconnect",
+        de: "{0} hat die Verbindung verloren – das Spiel ist pausiert, bis die Verbindung zurück ist",
+    },
     /// The reading seat is back at its chair.
     LogReturnedYou { en: "{7} came back", de: "{7} bist zurückgekommen" },
     /// Another seat is back at its chair.

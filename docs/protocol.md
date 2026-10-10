@@ -2709,6 +2709,69 @@ which already knows every seat's deck — with the seat token it is already
 holding. `VIEW_VERSION` is untouched by any of this, and a client that does
 not ask simply plays with generated backs.
 
+### Leaving, and losing the connection
+
+The owner's report on beta.6 (10.10.2026): signed in, opened a room, closed
+the client — and the room stayed, with him in it. A waiting room has no
+engine to hold a chair, and nothing tied a room to its players' sockets.
+Two different things can happen to a player, and they are kept apart:
+
+**Leaving on purpose.** A client that quits normally (window closed, ⌘Q,
+app exit; `crates/baylee-client/src/lobby/departure.rs`, natively) sends
+`POST /lobby/depart` with its session on the way out, waiting at most 2 s.
+The gateway acts at once (`204` whether or not there was anything to
+leave): it stands the account up from every **waiting room** exactly as its
+own `POST …/leave` would (`LobbyGame::leave`: the room passes to whoever has
+been there longest, or closes when nobody is left; every lobby feed is
+pushed the change), and tells the engine of every **running game** it sits
+in `SeatDetached { left: true }`. The engine hands the chair to the house at
+once if another player's chair is still answered by a player, and otherwise
+concedes for every chair the house holds, which ends the game. A restart into
+an update or a moved copy sends nothing: it is coming straight back.
+
+**Losing the connection** (a crash, the network, a lid closed). Nothing is
+said, so the gateway waits:
+
+- *Presence* follows the sockets with no grace: `players_online` drops the
+  moment the account's last socket — `/lobby/ws`, or its own chair's seat
+  socket — closes. A chair held for a player is not the player being here.
+  A lobby socket is pinged every 20 s and taken for dead after 50 s without
+  a word (a pong counts), so a line that vanished without a FIN is found
+  too. The client holds the lobby socket on the table screen and in the
+  deck builder (a player changing decks has not left their room).
+- *A waiting room* keeps the chair for `BAYLEE_ROOM_GRACE_SECS` (default
+  **60 s**, `1..=600`, anything else refuses startup) after the account's
+  last socket closed (`departure.rs`). Long enough for a restart into an
+  update, which walks back into its room, and a Wi-Fi that dropped; a
+  socket opened in between cancels it, and a later closing arms its own.
+  When it falls due the player leaves the room as above.
+- *A running game* is the engine's (`EngineRunner::clocks`):
+  - With **another player at the table** (a chair answered over a socket,
+    with its socket open), every seat still here is told at once in the log
+    (`LogEvent::ConnectionLost { player, wait_secs }`, "… lost the connection
+    – waiting 3:00 for them to reconnect"), and the lost seat, when it is
+    asked, is on the reconnect window (`Deadline::StandIn`). When it runs out
+    the house plays the chair (`Session::stand_in`) until the player is
+    back; their socket returning hands it back (`Session::hand_back`,
+    `LogEvent::Returned`). The window is the table's
+    `reconnect_window_secs`: what the room named, else
+    `BAYLEE_RECONNECT_SECS` on the gateway (default **180 s**, owner
+    10.10.2026; `10..=3600`). It counts from when the seat is asked, so it is
+    at most the line's number after the loss.
+  - With **nobody else at the table** (only AI chairs, or every other
+    player gone too) the game **pauses**: no decision clock, no reconnect
+    window, and the house moves nothing, so the table stands at the lost
+    player's question (`wait_secs: null`, "the game is paused until they
+    reconnect"). The only clock is the table's hold (`Deadline::Hold`,
+    `HOLD_SECS` = **24 h**): a day with nobody at the table and the house
+    concedes for every absent player, ending the game. A game never outlives
+    its engine process either, and a gateway restart ends every game (the
+    engine link is lost), so that is the longest a paused game can stand.
+
+`docs/client.md` §"Restarting into an update" still holds: the restarted
+client asks for its chair again (`POST …/seat`) inside the window, and a
+paused game simply goes on.
+
 ### Which clock a table plays at
 
 Every game this gateway hosted ran the same clock — 600 s to decide and 60 s
@@ -2728,13 +2791,19 @@ and did not move. There is no `custom` sentinel: a name picks a row and a
 number replaces one field of it, so "blitz but longer to come back" needs no
 sixth preset.
 
-| name | decide | reconnect | |
-| --- | --- | --- | --- |
-| `classic` | 180 | 60 | the default |
-| `casual` | 600 | 60 | the default until 08.10.2026 |
-| `standard` | 120 | 60 | |
-| `blitz` | 30 | 30 | |
-| `untimed` | 0 | 60 | no decision clock at all |
+| name | decide | |
+| --- | --- | --- |
+| `classic` | 180 | the default |
+| `casual` | 600 | the default until 08.10.2026 |
+| `standard` | 120 | |
+| `blitz` | 30 | |
+| `untimed` | 0 | no decision clock at all |
+
+The reconnect window is no longer a column (10.10.2026): every clock gets the
+gateway's `BAYLEE_RECONNECT_SECS` (default 180 s; it was 60, and 30 for
+`blitz`), because it is how long a router takes to come back, not how fast
+the game is played. A room may still name its own `reconnect_window_secs`,
+and `GET /auth/config` publishes the gateway's value on every row.
 
 `GET /auth/config` publishes this table with a one-line blurb each, so a
 client builds its picker from what the gateway accepts rather than from a
@@ -2745,8 +2814,10 @@ of zero is a *choice*: the engine reads it as no deadline (`clock()` returns
 `None`), which is the only way to play a game that cannot be lost on time. A
 `reconnect_window_secs` of zero is **refused**, although the engine would
 accept it — with no stand-in clock a seat whose player closed their laptop is
-on no clock at all and the whole table waits on them forever, which is the
-exact failure `reconnect_window_secs` was added to end. That is a gateway
+on no clock at all and every other player at the table waits on them
+forever, which is the exact failure `reconnect_window_secs` was added to end.
+(A table with nobody else at it is paused on purpose instead, and held for a
+day: §"Leaving, and losing the connection".) That is a gateway
 policy about hosting strangers, not a rules one; a local harness may still
 choose it. Anything between 1 and 9 seconds is refused on both, and an hour is
 the ceiling: under ten seconds is not a fast game, it is one nobody can read a
@@ -3075,9 +3146,11 @@ the listing is: the front door shows no counts. Three numbers and nothing
 else — no ids, no names, nothing per table — exact, not rounded, and read
 from memory at the moment of asking.
 
-- `players_online`: distinct accounts that have a lobby socket open
-  (`/lobby/ws`), together with those in a chair of a running game (their
-  own, or one their seat bridge plays). Not a count of sessions: a session
+- `players_online`: distinct accounts that have a socket open — the lobby's
+  (`/lobby/ws`) or their own chair's at a running game — together with those
+  whose seat bridge plays a chair of a running game. A chair held for a
+  player whose connection is gone does not count them
+  (§"Leaving, and losing the connection"). Not a count of sessions: a session
   lives twelve hours after its last request, a guest's a month, and neither
   is presence. The gateway reads the lobby socket only to notice it closing,
   so a player who leaves stops counting at once.

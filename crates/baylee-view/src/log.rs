@@ -255,6 +255,15 @@ pub enum LogEvent {
         /// The seat.
         player: PlayerId,
     },
+    /// A seat's player lost the connection (not a deliberate leave).
+    ConnectionLost {
+        /// The seat.
+        player: PlayerId,
+        /// How long the table waits before the house takes the chair,
+        /// counted from this line's time; `None` when no other player is at
+        /// the table and the game is paused until they come back.
+        wait_secs: Option<u32>,
+    },
     /// A seat's player is back in their chair.
     Returned {
         /// The seat.
@@ -474,6 +483,7 @@ impl LogEvent {
             | Self::Kept { .. }
             | Self::TimedOut { .. }
             | Self::StandIn { .. }
+            | Self::ConnectionLost { .. }
             | Self::Returned { .. }
             | Self::Life { .. }
             | Self::Shuffled { .. }
@@ -526,6 +536,7 @@ impl LogEvent {
             | Self::Kept { .. }
             | Self::TimedOut { .. }
             | Self::StandIn { .. }
+            | Self::ConnectionLost { .. }
             | Self::Returned { .. }
             | Self::Life { .. }
             | Self::Shuffled { .. }

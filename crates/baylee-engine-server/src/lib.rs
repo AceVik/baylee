@@ -35,7 +35,7 @@ use flate2::write::GzEncoder;
 mod clocks;
 mod frames;
 
-pub use clocks::{Armed, Clock, Deadline};
+pub use clocks::{Armed, Clock, Deadline, HOLD_SECS};
 pub use frames::{curtain, seat_frame};
 use frames::{ended, error};
 
@@ -97,6 +97,9 @@ pub struct EngineRunner {
     /// Which seats have a live socket. The clock only runs for a seat that
     /// can answer.
     attached: Vec<u8>,
+    /// Seats whose connection was lost (not left on purpose) and that have
+    /// not come back, so their return can be told.
+    lost: Vec<u8>,
     /// Whether `GameEnded` has already been reported.
     ended: bool,
     /// The next [`v1::GameRecordChunk::seq`] (#315).
@@ -195,11 +198,59 @@ impl EngineRunner {
         let Some(session) = self.session.as_ref() else {
             return Vec::new();
         };
-        session
+        let mut clocks: Vec<Clock> = session
             .awaited()
             .iter()
             .filter_map(|seat| self.clock_for(session, seat))
+            .collect();
+        clocks.extend(self.hold_clock(session));
+        clocks
+    }
+
+    /// Whether a player other than `seat` is at the table: a chair answered
+    /// over a socket, with its socket open. What decides between waiting
+    /// for a lost seat (someone is here to wait) and pausing the game
+    /// (nobody is).
+    fn another_player_here(&self, session: &Session, seat: Option<PlayerId>) -> bool {
+        self.attached.iter().any(|&other| {
+            Some(other) != seat.map(PlayerId::get)
+                && session
+                    .seat_kind(PlayerId::new(other))
+                    .is_some_and(SeatKind::answers_over_socket)
+        })
+    }
+
+    /// A player's chair still in the game whose socket is gone.
+    fn absent_players(&self, session: &Session) -> Vec<PlayerId> {
+        (0..session.seat_count())
+            .filter_map(|seat| u8::try_from(seat).ok())
+            .map(PlayerId::new)
+            .filter(|&seat| !self.attached.contains(&seat.get()))
+            .filter(|&seat| {
+                matches!(
+                    session.seat_kind(seat),
+                    Some(SeatKind::Human | SeatKind::StandIn(_))
+                )
+            })
+            .filter(|&seat| !session.has_left(seat))
             .collect()
+    }
+
+    /// The table's hold, while nobody is at it ([`Deadline::Hold`]).
+    fn hold_clock(&self, session: &Session) -> Option<Clock> {
+        if self.curtain.is_some() || self.ended || self.another_player_here(session, None) {
+            return None;
+        }
+        if matches!(session.pending(), Pending::GameOver(_)) {
+            return None;
+        }
+        let seat = *self.absent_players(session).first()?;
+        Some(Clock {
+            seat,
+            what: Deadline::Hold,
+            seq: 0,
+            secs: HOLD_SECS,
+        })
     }
 
     /// `seat`'s clock, if it is on one.
@@ -212,6 +263,9 @@ impl EngineRunner {
         } else if session
             .seat_kind(seat)
             .is_some_and(SeatKind::answers_over_socket)
+            // Nobody else at the table: nobody is waiting, so the game is
+            // paused rather than handed to the house (owner, 10.10.2026).
+            && self.another_player_here(session, Some(seat))
         {
             (Deadline::StandIn, session.reconnect_window_secs())
         } else {
@@ -235,6 +289,9 @@ impl EngineRunner {
     pub fn timeout(&mut self, clock: Clock) -> Vec<Envelope> {
         if self.curtain.is_some() {
             return Vec::new();
+        }
+        if clock.what == Deadline::Hold {
+            return self.hold_expired();
         }
         let Some(session) = self.session.as_mut() else {
             return Vec::new();
@@ -260,6 +317,7 @@ impl EngineRunner {
             // The same race as above, in the other direction: the socket may
             // have come back between the timer firing and this being called,
             // and a player at the table must not have their chair taken.
+            Deadline::Hold => Vec::new(),
             Deadline::StandIn => {
                 if self.attached.contains(&clock.seat.get()) {
                     return Vec::new();
@@ -341,17 +399,7 @@ impl EngineRunner {
         match envelope.msg {
             Some(v1::envelope::Msg::GameSetup(setup)) => self.setup(&setup),
             Some(v1::envelope::Msg::SeatAttached(attached)) => self.attach(attached),
-            Some(v1::envelope::Msg::SeatDetached(detached)) => {
-                self.attached.retain(|s| u32::from(*s) != detached.seat);
-                if let (Some(barrier), Ok(seat)) =
-                    (self.curtain.as_mut(), u8::try_from(detached.seat))
-                {
-                    barrier.ready = barrier.ready.iter().filter(|p| p.get() != seat).collect();
-                    self.enter_at = None;
-                    return self.loading_status();
-                }
-                Vec::new()
-            }
+            Some(v1::envelope::Msg::SeatDetached(detached)) => self.detach(detached),
             Some(v1::envelope::Msg::SeatFrame(frame)) => self.seat_frame(&frame),
             Some(v1::envelope::Msg::FlushRecord(flush)) => self.flush_record(flush.nonce),
             _ => Vec::new(),
@@ -596,7 +644,10 @@ impl EngineRunner {
         // would be the one payload still saying they are not. It comes first
         // in the *other* order too: `hand_back` marks every seat's roster as
         // out of date, and this seat's is cleared by sending it.
-        session.hand_back(player);
+        if !session.hand_back(player) && self.lost.contains(&seat) && self.curtain.is_none() {
+            session.connection_back(player);
+        }
+        self.lost.retain(|s| *s != seat);
         // A new socket says anew what answers the seat (`v1::SeatMind`);
         // until it does, the record does not credit it with what the last
         // one said. A resync is the same socket.
@@ -643,6 +694,116 @@ impl EngineRunner {
         // The table is open, and has been since before this seat arrived:
         // it is told so last, after what it opens on.
         out.push(seat_frame(seat, &curtain()));
+        out.extend(self.ending());
+        out
+    }
+
+    /// A seat's socket is gone (`docs/protocol.md` §"Leaving, and losing the
+    /// connection").
+    ///
+    /// A lost connection moves nothing: the table is told, and waits
+    /// ([`Deadline::StandIn`] while another player is here) or pauses
+    /// ([`Deadline::Hold`] when nobody is). A deliberate leave
+    /// (`left`) hands the chair to the house at once, and ends the game
+    /// when no player's chair is left answered by a player.
+    fn detach(&mut self, detached: v1::SeatDetached) -> Vec<Envelope> {
+        let Ok(seat) = u8::try_from(detached.seat) else {
+            return Vec::new();
+        };
+        let was_here = self.attached.contains(&seat);
+        self.attached.retain(|s| *s != seat);
+        if let Some(barrier) = self.curtain.as_mut() {
+            barrier.ready = barrier.ready.iter().filter(|p| p.get() != seat).collect();
+            self.enter_at = None;
+            if !detached.left {
+                return self.loading_status();
+            }
+        }
+        if self.ended {
+            return Vec::new();
+        }
+        let player = PlayerId::new(seat);
+        let here = self.another_player_here_now(player);
+        let Some(session) = self.session.as_mut() else {
+            return Vec::new();
+        };
+        if detached.left {
+            self.lost.retain(|s| *s != seat);
+            session.stand_in(player);
+            let anyone = (0..session.seat_count())
+                .filter_map(|s| u8::try_from(s).ok())
+                .map(PlayerId::new)
+                .any(|s| {
+                    !session.has_left(s)
+                        && session
+                            .seat_kind(s)
+                            .is_some_and(SeatKind::answers_over_socket)
+                });
+            let routed = if anyone {
+                // Before the curtain the house plays nothing (#256): the
+                // chair is simply the house's when the table opens.
+                if self.curtain.is_some() {
+                    return self.loading_status();
+                }
+                session.pump()
+            } else {
+                // Nobody's own chair is left: the house concedes for every
+                // player it is holding, and the game ends.
+                let away: Vec<PlayerId> = (0..session.seat_count())
+                    .filter_map(|s| u8::try_from(s).ok())
+                    .map(PlayerId::new)
+                    .filter(|&s| matches!(session.seat_kind(s), Some(SeatKind::StandIn(_))))
+                    .collect();
+                let mut routed = Vec::new();
+                for s in away {
+                    routed.extend(session.concede_for_absent(s).unwrap_or_default());
+                }
+                routed
+            };
+            let mut out = self.route(&routed);
+            out.extend(self.ending());
+            return out;
+        }
+        if !was_here {
+            return Vec::new();
+        }
+        let wait = here.then(|| session.reconnect_window_secs());
+        if !session.connection_lost(player, wait) {
+            return Vec::new();
+        }
+        if !self.lost.contains(&seat) {
+            self.lost.push(seat);
+        }
+        // Nothing moves: every seat still here is shown the line.
+        let routed = session.pump();
+        self.route(&routed)
+    }
+
+    /// [`Self::another_player_here`] against the session as it stands.
+    fn another_player_here_now(&self, seat: PlayerId) -> bool {
+        self.session
+            .as_ref()
+            .is_some_and(|session| self.another_player_here(session, Some(seat)))
+    }
+
+    /// The table was held a whole [`HOLD_SECS`] with nobody at it: the house
+    /// concedes for every absent player, and the game ends.
+    fn hold_expired(&mut self) -> Vec<Envelope> {
+        let Some(session) = self.session.as_ref() else {
+            return Vec::new();
+        };
+        if self.ended || self.another_player_here(session, None) {
+            return Vec::new();
+        }
+        let away = self.absent_players(session);
+        let Some(session) = self.session.as_mut() else {
+            return Vec::new();
+        };
+        let mut routed = Vec::new();
+        for seat in away {
+            routed.extend(session.concede_for_absent(seat).unwrap_or_default());
+        }
+        let mut out = self.route(&routed);
         out.extend(self.ending());
         out
     }

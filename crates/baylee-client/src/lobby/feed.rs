@@ -98,11 +98,14 @@ pub(super) fn feed(
     mut feed: ResMut<Feed>,
 ) {
     let feed = &mut *feed;
-    // Only the table screen reads the list. The deck builder is a long visit
-    // and the sign-in screen has no token, so a socket held open across
-    // either is a subscription nobody is reading.
+    // Held on the table screen and in the deck builder: the socket is also
+    // how the gateway knows this player is still here (`presence.rs`), and a
+    // player who left a room to change decks has not left the room. The
+    // sign-in screen has no token; a seated client has its seat's socket.
     let wanted = match (state.lobby.token(), state.lobby.screen()) {
-        (Some(token), Screen::Table) => Some((token.to_string(), state.lobby.query())),
+        (Some(token), Screen::Table | Screen::Build) => {
+            Some((token.to_string(), state.lobby.query()))
+        }
         _ => None,
     };
     let Some(wanted) = wanted else {

@@ -78,6 +78,10 @@ impl Plugin for LobbyPlugin {
         // A deletion waiting for its Undo goes out as the client closes.
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Last, decks::flush_on_exit);
+        // Quitting tells the gateway, so the rooms and tables act at once.
+        #[cfg(not(target_arch = "wasm32"))]
+        app.init_resource::<departure::Departure>()
+            .add_systems(Last, departure::track);
         crate::vista::install(app);
         // The same orchestra continues through the lobby and every table.
         crate::music::install(app);
@@ -844,6 +848,8 @@ mod build_press;
 mod clicks;
 mod confirm;
 mod decks;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod departure;
 pub(crate) mod dock;
 mod editing;
 mod end_screen;
