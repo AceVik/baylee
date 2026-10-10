@@ -108,3 +108,42 @@ fn otawara_channels_from_hand_to_bounce_a_creature_and_discards_itself() {
         "a bounce draws nothing, for either seat"
     );
 }
+
+#[test]
+fn otawara_counts_only_your_legendary_creatures_for_channel() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let emry = card_index("da3e7d3d-2ca0-40c3-9602-fca37c92f507");
+    let mut engine = kit::game(
+        932,
+        &[emry, llanowar_elves()],
+        &[emry],
+        &[otawara_soaring_city()],
+        &[],
+    );
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Blue, 2)]);
+    let source = in_hand(&engine, kit::P0, otawara_soaring_city()).unwrap();
+    assert!(
+        engine
+            .apply(
+                kit::P0,
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index: 1
+                }
+            )
+            .is_err()
+    );
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Blue, 1)]);
+    let target = kit::obj(&engine, kit::P1, emry);
+    kit::use_ability(
+        &mut engine,
+        kit::P0,
+        otawara_soaring_city(),
+        1,
+        &[target],
+        &[],
+    );
+    assert_eq!(kit::pool_total(&engine, kit::P0), 0);
+    assert_eq!(engine.state().object(target).unwrap().zone, Zone::Hand);
+    assert_eq!(engine.state().object(source).unwrap().zone, Zone::Graveyard);
+}

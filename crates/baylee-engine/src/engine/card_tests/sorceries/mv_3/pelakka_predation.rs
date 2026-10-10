@@ -3,14 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Pelakka Predation` // `Pelakka Caverns` (`Coverage::Partial`): "Target opponent reveals
-/// their hand. You choose a card from it with mana value 3 or greater. That player discards
-/// that card. // This land enters tapped. {T}: Add {B}."
-///
-/// Under `Coverage::Partial`, the front-face targeted discard clause is not expressible in
-/// the DSL, but the back face (`Pelakka Caverns`) is fully implemented. The test plays the
-/// land face, confirms it enters tapped, advances to the next turn so it untaps, and
-/// activates its mana ability to add `{B}`.
+/// The land face enters tapped and produces black mana after untapping.
 #[test]
 fn pelakka_caverns_enters_tapped_and_taps_for_black_mana() {
     let (mut engine, caverns) =
@@ -40,4 +33,54 @@ fn pelakka_caverns_enters_tapped_and_taps_for_black_mana() {
         black_before + 1,
         "adds one black mana to the pool"
     );
+}
+
+#[test]
+fn pelakka_predation_reveals_the_hand_and_discards_only_a_card_of_mana_value_at_least_three() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut engine = kit::game(
+        930,
+        &[],
+        &[],
+        &[pelakka_predation()],
+        &[chromatic_lantern(), llanowar_elves()],
+    );
+    let lantern = in_hand(&engine, kit::P1, chromatic_lantern()).unwrap();
+    let elf = in_hand(&engine, kit::P1, llanowar_elves()).unwrap();
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Black, 3)]);
+    cast_with_floating(&mut engine, kit::P0, pelakka_predation());
+    engine
+        .apply(kit::P0, PlayerAction::ChoosePlayer(kit::P1))
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending()
+    else {
+        unreachable!()
+    };
+    assert_eq!(*player, kit::P0);
+    assert_eq!((*min, *max), (1, 1));
+    assert!(options.contains(&lantern));
+    assert!(!options.contains(&elf));
+    engine
+        .apply(
+            kit::P0,
+            PlayerAction::ChooseObjects {
+                objects: vec![lantern],
+            },
+        )
+        .unwrap();
+    kit::settle(&mut engine);
+    assert_eq!(
+        engine.state().object(lantern).unwrap().zone,
+        Zone::Graveyard
+    );
+    assert_eq!(engine.state().object(elf).unwrap().zone, Zone::Hand);
 }

@@ -206,16 +206,6 @@ fn a_chosen_discard_is_asked_about_after_it_is_chosen() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
     cast_from_hand(&mut engine, P0, frantic_search());
-    // "Untap up to three lands": none.
-    engine
-        .apply(
-            P0,
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![],
-            },
-        )
-        .unwrap();
     pass_until(
         &mut engine,
         |e| matches!(e.pending(), Pending::ChooseCards { player, .. } if *player == P0),

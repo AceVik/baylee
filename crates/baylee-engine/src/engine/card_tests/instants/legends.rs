@@ -349,3 +349,31 @@ fn teleport_makes_an_attacker_unblockable_in_the_declare_attackers_step() {
         "it can't be blocked"
     );
 }
+
+#[test]
+fn disharmony_removes_untaps_and_temporarily_takes_an_attacker() {
+    let card = card_index("fc4f1aa1-e252-4454-9ad9-d41682dff13b");
+    let mut engine = game(946, &[llanowar_elves()], &[], &[], &[card]);
+    let attacker = obj(&engine, P0, llanowar_elves());
+    attackers_offered(&mut engine);
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker, Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P1),
+    );
+    float(&mut engine, P1, &[(ManaColor::Red, 3)]);
+    cast_at(&mut engine, P1, card, &[attacker], &[]);
+    assert_eq!(engine.state().object(attacker).unwrap().controller, P1);
+    assert!(!tapped(&engine, attacker));
+    assert!(engine.state().combat.defender_of(attacker).is_none());
+    let turn = engine.state().turn.number;
+    pass_until(&mut engine, |e| e.state().turn.number > turn);
+    assert_eq!(engine.state().object(attacker).unwrap().controller, P0);
+}

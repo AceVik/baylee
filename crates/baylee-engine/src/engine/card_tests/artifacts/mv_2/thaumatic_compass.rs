@@ -3,18 +3,11 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Thaumatic Compass` // `Spires of Orazca` (`Coverage::Partial`): "{3}, {T}: Search your library
-/// for a basic land card, reveal it, put it into your hand, then shuffle. At the beginning of
-/// your end step, if you control seven or more lands, transform this artifact. // {T}: Add {C}.
-/// {T}: Untap target attacking creature an opponent controls and remove it from combat."
-///
-/// Under `Coverage::Partial`, `Spires of Orazca`'s combat removal ability is omitted, while
-/// the land search and the end-step transform under `Condition::ControlCount(&Filter::LAND, 7)`
-/// are fully implemented. The test uses `Thaumatic Compass` to fetch a 7th basic land to hand,
-/// plays that land, advances to the end step, and confirms that `Thaumatic Compass` transforms into
-/// `Spires of Orazca` on face 1 as a land.
+/// The front fetches the seventh land and transforms at the end step. The back
+/// untaps an opposing attacker and removes it from combat on the following turn.
 #[test]
 fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lands() {
+    use crate::engine::card_tests::legends_kit as kit;
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(249, forest())
         .battlefield(
@@ -29,17 +22,14 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
                 thaumatic_compass(),
             ],
         )
+        .battlefield(1, &[llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let compass = on_battlefield(&engine, p0, thaumatic_compass()).expect("compass on battlefield");
     let compass_was = identity(&engine, compass);
-    assert_eq!(
-        engine.state().object(compass).map(|o| o.face_index),
-        Some(0),
-        "compass starts on face 0"
-    );
+    assert_eq!(engine.state().object(compass).unwrap().face_index, 0);
 
     // Tap 3 Forests to activate the {3}, {T} search ability.
     tap_all_mana(&mut engine, p0);
@@ -81,11 +71,7 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
         .apply(p0, PlayerAction::PlayLand { card: fetched_land })
         .unwrap();
 
-    assert_eq!(
-        lands_of(&engine, p0).len(),
-        7,
-        "p0 now controls seven lands"
-    );
+    assert_eq!(lands_of(&engine, p0).len(), 7);
 
     // Advance to the end step: with 7 lands, the transform trigger fires and resolves.
     pass_until(&mut engine, |e| {
@@ -109,4 +95,24 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
         !t.contains(TypeSet::ARTIFACT),
         "transformed permanent is no longer an artifact"
     );
+    reach_their_main_phase(&mut engine, p0);
+    let attacker = kit::obj(&engine, kit::P1, llanowar_elves());
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == kit::P1 && matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            kit::P1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker, Defender::Player(p0))],
+            },
+        )
+        .unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    kit::use_ability(&mut engine, p0, thaumatic_compass(), 1, &[attacker], &[]);
+    assert!(!is_tapped(&engine, attacker));
+    assert!(engine.state().combat.defender_of(attacker).is_none());
 }

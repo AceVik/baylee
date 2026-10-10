@@ -3,7 +3,8 @@
 //! Oracle: Look at target player's hand.
 //! Oracle: Draw a card.
 //! Set: NPH #35 — New Phyrexia | Scryfall ID: 995486ce-58bb-4753-a812-0ca73ef1a235 | Oracle ID: 1d67f5ff-1fce-45e5-b6a1-416c569351e2
-// PARTIAL — draw a card, targeting any player; the hand look is not written.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -17,14 +18,9 @@ card!(
         mana_cost = mana!("{U/P}"),
         types = TypeSet::SORCERY,
     ),],
-    coverage = Coverage::Partial("cannot look at target player's hand: no Effect reads a hand"),
-    // NOT SUPPORTED: "Look at target player's hand" — no `Effect` reads a
-    // player's hand. The two nearest are `DiscardForPlayers` and
-    // `BottomCardFromHand`, and both change the hand rather than show it.
-    // The target requirement stays on the card because the printed spell
-    // does target a player; only the look itself is missing.
+    coverage = Coverage::Implemented,
     abilities = &[spell!(
-        &[Effect::draw(1)],
+        &[Effect::LookAtChosenHand, Effect::draw(1)],
         targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
     )],
 );

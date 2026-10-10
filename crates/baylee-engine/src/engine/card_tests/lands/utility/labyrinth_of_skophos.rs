@@ -3,14 +3,13 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Labyrinth of Skophos: "{T}: Add {C}." / "{4}, {T}: Remove target attacking or blocking creature from combat."
-/// Under `Coverage::Partial`, the ability to remove a creature from combat is unsupported and omitted.
-/// The land taps for its mana ability adding {C} to the mana pool.
+/// The land produces colorless mana. Its combat ability needs an attacker or
+/// blocker even when its mana cost is affordable.
 #[test]
-fn labyrinth_of_skophos_taps_for_colorless_and_omits_combat_removal() {
+fn labyrinth_needs_a_combat_target_even_when_its_cost_is_affordable() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(127, forest())
-        // Four Forests for the {4} the missing ability costs — generic mana
+        // Four Forests pay the combat ability’s {4} — generic mana
         // takes any colour — because the pin below is read off the offer and
         // `can_afford` reads the pool.
         .battlefield(
@@ -54,4 +53,44 @@ fn labyrinth_of_skophos_taps_for_colorless_and_omits_combat_removal() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Colorless), 1);
     assert!(is_tapped(&engine, lab));
+}
+
+#[test]
+fn labyrinth_removes_attackers_or_blockers_without_unblocking_or_untapping() {
+    use crate::engine::card_tests::legends_kit as kit;
+    for remove_blocker in [false, true] {
+        let mut engine = kit::game(
+            944,
+            &[labyrinth_of_skophos(), llanowar_elves()],
+            &[llanowar_elves()],
+            &[],
+            &[],
+        );
+        let attacker = kit::obj(&engine, kit::P0, llanowar_elves());
+        let blocker = kit::obj(&engine, kit::P1, llanowar_elves());
+        kit::attackers_offered(&mut engine);
+        kit::declare(&mut engine, &[attacker]);
+        kit::block(&mut engine, &[(blocker, attacker)]);
+        kit::float(&mut engine, kit::P0, &[(ManaColor::Colorless, 4)]);
+        kit::use_ability(
+            &mut engine,
+            kit::P0,
+            labyrinth_of_skophos(),
+            1,
+            &[if remove_blocker { blocker } else { attacker }],
+            &[],
+        );
+        assert!(is_tapped(&engine, attacker));
+        let life = kit::life(&engine, kit::P1);
+        pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+        assert_eq!(kit::life(&engine, kit::P1), life);
+        assert_eq!(
+            engine.state().object(attacker).unwrap().zone,
+            Zone::Battlefield
+        );
+        assert_eq!(
+            engine.state().object(blocker).unwrap().zone,
+            Zone::Battlefield
+        );
+    }
 }

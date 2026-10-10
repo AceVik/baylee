@@ -3,9 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Susur Secundi, Void Altar: "This land enters tapped." / "{T}: Add {B}." / "Station..." / "12+ | {1}{B}, {T}, Pay 2 life, Sacrifice a creature: Draw cards equal to the sacrificed creature's power."
-/// Under `Coverage::Partial`, Station and the `12+` draw ability are omitted because no amount reads the power of a creature tapped or sacrificed in a cost.
-/// Playing this land causes it to enter tapped, and after untapping on a subsequent turn it taps for black mana.
+/// The land enters tapped and its ordinary mana ability adds black mana.
 #[test]
 fn susur_secundi_void_altar_enters_tapped_and_taps_for_black() {
     let p0 = PlayerId::new(0);
@@ -29,4 +27,57 @@ fn susur_secundi_void_altar_enters_tapped_and_taps_for_black() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Black), 1);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn susur_stations_then_draws_the_sacrificed_creatures_power() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut engine = kit::game(
+        954,
+        &[susur_secundi_void_altar(), serra_angel()],
+        &[],
+        &[],
+        &[],
+    );
+    let land = kit::obj(&engine, kit::P0, susur_secundi_void_altar());
+    let angel = kit::obj(&engine, kit::P0, serra_angel());
+    crate::replacement::put_counters(
+        engine.dev_state_mut(kit::P0).unwrap(),
+        land,
+        CounterKind::Charge,
+        8,
+    );
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Black, 2)]);
+    assert!(!kit::offered(
+        &engine,
+        susur_secundi_void_altar(),
+        kit::P0,
+        2
+    ));
+    activate(&mut engine, kit::P0, susur_secundi_void_altar(), 1);
+    engine
+        .apply(
+            kit::P0,
+            PlayerAction::ChooseObjects {
+                objects: vec![angel],
+            },
+        )
+        .unwrap();
+    kit::settle(&mut engine);
+    assert_eq!(counters_on(&engine, land, CounterKind::Charge), 12);
+    let library = library_size(&engine, kit::P0);
+    let life = kit::life(&engine, kit::P0);
+    activate(&mut engine, kit::P0, susur_secundi_void_altar(), 2);
+    engine
+        .apply(
+            kit::P0,
+            PlayerAction::ChooseObjects {
+                objects: vec![angel],
+            },
+        )
+        .unwrap();
+    kit::settle(&mut engine);
+    assert_eq!(kit::life(&engine, kit::P0), life - 2);
+    assert_eq!(library_size(&engine, kit::P0), library - 4);
+    assert_eq!(engine.state().object(angel).unwrap().zone, Zone::Graveyard);
 }

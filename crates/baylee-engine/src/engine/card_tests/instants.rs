@@ -175,16 +175,7 @@ fn dryad_arbor() -> baylee_core::ids::CardIndex {
     card_index("e996cd67-739c-40f4-b276-0042acf26c71")
 }
 
-/// Frantic Search cast off exactly the three Islands that pay for it, with
-/// Dryad Arbor standing beside them under Lightning Greaves — a *land* with
-/// shroud. Answers `(engine, arbor, islands)` on the spell's own target
-/// choice.
-///
-/// The three Islands are what makes the untap the point of the card: they
-/// are the whole mana the spell cost, so a resolution that reaches its last
-/// effect hands all of it back. The Arbor is deliberately left untapped and
-/// out of the payment, so which land the engine spends is not a thing this
-/// test can be wrong about.
+/// A cast Search over four tapped lands, one with shroud from Greaves.
 fn a_frantic_search_choosing_its_lands() -> (Engine<RegistryLookup>, ObjectId, Vec<ObjectId>) {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(77, island())
@@ -238,7 +229,7 @@ fn a_frantic_search_choosing_its_lands() -> (Engine<RegistryLookup>, ObjectId, V
 
     let islands = all_on_battlefield(&engine, p0, island());
     assert_eq!(islands.len(), 3, "the rest of the board is three Islands");
-    tap_all_mana_but(&mut engine, p0, Some(dryad_arbor()));
+    tap_all_mana(&mut engine, p0);
     let spell = in_hand(&engine, p0, frantic_search()).expect("the Search is in hand");
     engine
         .apply(p0, PlayerAction::CastSpell { card: spell })
@@ -246,124 +237,61 @@ fn a_frantic_search_choosing_its_lands() -> (Engine<RegistryLookup>, ObjectId, V
     (engine, arbor, islands)
 }
 
-/// Frantic Search: "Draw two cards, then discard two cards. Untap up to
-/// three lands."
-///
-/// Both halves of the card's `Coverage::Partial` are decided by one cast,
-/// so they are asserted on one board.
-///
-/// The half that works is the one the card file asks for by name. This is
-/// the first spell whose effect list *suspends* mid-list: `draw(2)` runs,
-/// `DiscardForPlayers` stops the resolution on a `ChooseCards`, and the
-/// `UntapTarget` behind it happens only when that answer comes back
-/// (`Resolution::pc` picks the list up where it left off). So the three
-/// Islands are read twice — still tapped while the discard is being asked,
-/// untapped once it has been answered. A resolution that dropped its own
-/// tail would leave all three tapped and still pass a test that only
-/// looked in the graveyard.
-///
-/// The half that does not work is the `// NOT SUPPORTED:` comment. The
-/// printed card names no target, so on paper the lands are picked as it
-/// resolves and nothing about them has to be targetable; the DSL says "up
-/// to three" with a `TargetReq`, so they are named as the spell is cast
-/// (CR 601.2c) and a land with shroud (CR 702.18a) is not offered at all.
-/// Dryad Arbor under Lightning Greaves is that land — on the battlefield,
-/// a land, and missing from the choice.
+/// The land choice follows the draw/discard and is not targeting.
 #[test]
-fn frantic_search_untaps_the_lands_that_paid_for_it_and_cannot_reach_a_shrouded_one() {
+fn frantic_search_untaps_chosen_lands_including_a_shrouded_one() {
     let p0 = PlayerId::new(0);
     let (mut engine, arbor, islands) = a_frantic_search_choosing_its_lands();
-
-    let Pending::ChooseTargets {
-        options, min, max, ..
-    } = engine.pending().clone()
-    else {
-        panic!(
-            "the lands are a `TargetReq`, so they are chosen as the spell \
-             is cast — got {:?}",
-            engine.pending()
-        )
-    };
-    assert_eq!((min, max), (0, 3), "\"up to three lands\"");
     assert!(
-        !options.contains(&arbor),
-        "NOT SUPPORTED, and this is its exact shape: the printed card \
-         targets nothing and would untap the shrouded Arbor, but \"up to \
-         three\" is spelled as targets, so shroud keeps it off the list"
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "no cast-time land targets"
     );
-    assert!(
-        islands.iter().all(|l| options.contains(l)),
-        "an Island is a land nothing protects, so all three are offered"
-    );
-
     let library_before = library_size(&engine, p0);
-    assert!(
-        islands.iter().all(|&l| is_tapped(&engine, l)),
-        "all three Islands paid for the spell"
-    );
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: islands.clone(),
-            },
-        )
-        .expect("three lands is what \"up to three\" allows");
-
-    // The resolution stops here, halfway down its own effect list.
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
     });
     let Pending::ChooseCards {
-        player,
-        options,
-        min,
-        max,
-        ..
+        options, min, max, ..
     } = engine.pending().clone()
     else {
-        unreachable!("pass_until only stops on the discard")
+        unreachable!()
     };
-    assert_eq!(player, p0, "\"discard two cards\" — the caster's own hand");
-    assert_eq!((min, max), (2, 2), "two, and not a choice of how many");
-    assert_eq!(
-        library_size(&engine, p0),
-        library_before - 2,
-        "\"draw two cards\" is the effect before this one, and it ran"
-    );
-    assert!(
-        islands.iter().all(|&l| is_tapped(&engine, l)),
-        "the untap is a later effect of the same resolution: with the \
-         discard still being asked, the three lands are still tapped"
-    );
-
-    let discarded: Vec<ObjectId> = options.iter().copied().take(2).collect();
+    assert_eq!((min, max), (2, 2));
+    assert_eq!(library_size(&engine, p0), library_before - 2);
+    assert!(islands.iter().all(|&id| is_tapped(&engine, id)));
     engine
         .apply(
             p0,
             PlayerAction::ChooseObjects {
-                objects: discarded.clone(),
+                objects: options[..2].to_vec(),
             },
         )
-        .expect("two of the cards the discard itself offered");
+        .unwrap();
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("untap choice")
+    };
+    assert_eq!((min, max), (0, 3));
+    assert!(
+        options.contains(&arbor),
+        "shroud does not prevent this choice"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![arbor, islands[0], islands[1]],
+            },
+        )
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
-
-    assert!(
-        discarded
-            .iter()
-            .all(|c| engine.state().object(*c).map(|o| o.zone) == Some(Zone::Graveyard)),
-        "both discarded cards are in their owner's graveyard"
-    );
-    assert!(
-        islands.iter().all(|&l| !is_tapped(&engine, l)),
-        "\"Untap up to three lands\": the resolution came back from the \
-         discard and finished its effect list, so the mana that paid for \
-         the spell is standing again"
-    );
-    assert!(
-        in_graveyard(&engine, p0, frantic_search()).is_some(),
-        "and the instant itself is in the graveyard"
-    );
+    assert!(!is_tapped(&engine, arbor));
+    assert!(!is_tapped(&engine, islands[0]));
+    assert!(!is_tapped(&engine, islands[1]));
+    assert!(is_tapped(&engine, islands[2]));
+    assert!(in_graveyard(&engine, p0, frantic_search()).is_some());
 }
 
 // oracle_id = "1a0770e6-b093-4439-baff-6889a50ba12e"

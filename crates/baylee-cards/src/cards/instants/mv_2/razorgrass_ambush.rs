@@ -5,13 +5,11 @@
 //! Set: MH3 #238 — Modern Horizons 3 | Scryfall ID: 57065dca-f90e-4184-bbc4-95d726a4160b | Oracle ID: 5da954fa-9001-4557-825c-1462035d21ed
 //! Face: Razorgrass Ambush — {1}{W} — Instant
 //! Face: Razorgrass Field —  — Land
-// PARTIAL — the back face is complete (enters tapped unless you pay 3 life;
-// {T}: Add {W}); the front face deals its 3 damage but can name an *attacking*
-// creature only, because the DSL has no filter for a blocking one.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
-/// Razorgrass Field's own abilities: `{T}: Add {W}.`
 static RAZORGRASS_FIELD: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::White, 1)])];
 
 card!(
@@ -32,19 +30,18 @@ card!(
             abilities = RAZORGRASS_FIELD,
         ),
     ],
-    coverage = Coverage::Partial(
-        "Razorgrass Ambush cannot target a blocking creature — the DSL has no \
-         Filter variant for \"blocking\", so only an attacking one is offered",
-    ),
-    // NOT SUPPORTED: "target attacking or blocking creature" — the blocking half
-    // of the target has no filter, so the spell reaches an attacking creature only.
+    coverage = Coverage::Implemented,
     abilities = &[spell!(
         &[Effect::DealDamage {
             amount: Amount::Fixed(3),
-            target: TargetSpec::Object(&Filter::ATTACKING_CREATURE),
+            target: TargetSpec::Object(&Filter::And(&[
+                Filter::CREATURE,
+                Filter::Or(&[Filter::Attacking, Filter::Blocking])
+            ])),
         }],
-        targets = Some(TargetReq::one(TargetSpec::Object(
-            &Filter::ATTACKING_CREATURE,
-        ))),
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::And(&[
+            Filter::CREATURE,
+            Filter::Or(&[Filter::Attacking, Filter::Blocking])
+        ]),))),
     )],
 );

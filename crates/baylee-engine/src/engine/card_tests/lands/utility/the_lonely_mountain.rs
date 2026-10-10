@@ -3,11 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `The Lonely Mountain` prints `({{T}}: Add {{R}}.)`, `This land enters tapped unless you control an Equipment.`, and `{{4}}{{R}}, {{T}}: Create a 2/2 red Dwarf creature token. This ability costs {{1}} less to activate for each Equipment you control. Activate only as a sorcery.`
-///
-/// Under `Coverage::Partial`, `EnterModifier::TappedUnless` and the `{{T}}: Add {{R}}` mana ability are built, while the Dwarf token creation and cost reduction are omitted.
-/// Without an Equipment on the battlefield, playing this land puts it onto the battlefield tapped.
-/// After untapping on the next turn, floating `{{5}}` red mana from basic mountains verifies that ability 0 is offered while ability 1 is withheld under `Coverage::Partial`, and tapping `The Lonely Mountain` adds `{{R}}`.
+/// Without Equipment the land enters tapped. On the following turn both mana
+/// and Dwarf abilities are offered when the full five mana is available.
 #[test]
 fn the_lonely_mountain_enters_tapped_without_equipment_and_taps_for_red() {
     let p0 = PlayerId::new(0);
@@ -50,8 +47,8 @@ fn the_lonely_mountain_enters_tapped_without_equipment_and_taps_for_red() {
         "ability 0 ({{T}}: Add {{R}}) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(land, 1)),
-        "Dwarf token ability is omitted under `Coverage::Partial` despite floating {{4}}{{R}}"
+        legal.abilities.contains(&(land, 1)),
+        "the Dwarf ability is affordable at its full cost without Equipment"
     );
 
     activate(&mut engine, p0, the_lonely_mountain(), 0);
@@ -59,4 +56,42 @@ fn the_lonely_mountain_enters_tapped_without_equipment_and_taps_for_red() {
     assert_eq!(pool.available(ManaColor::Red), 6);
     assert_eq!(pool.total(), 6);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn lonely_mountain_creates_a_dwarf_with_the_equipment_discount() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut engine = kit::game(
+        936,
+        &[
+            the_lonely_mountain(),
+            lightning_greaves(),
+            lightning_greaves(),
+            sol_ring(),
+        ],
+        &[lightning_greaves()],
+        &[],
+        &[],
+    );
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Red, 2)]);
+    assert!(!kit::offered(&engine, the_lonely_mountain(), kit::P0, 1));
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Red, 1)]);
+    kit::use_ability(&mut engine, kit::P0, the_lonely_mountain(), 1, &[], &[]);
+    assert_eq!(kit::pool_total(&engine, kit::P0), 0);
+    let dwarf = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .last()
+        .unwrap();
+    assert_eq!(pt(&engine, dwarf), (2, 2));
+    assert!(
+        engine
+            .state()
+            .object(dwarf)
+            .unwrap()
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::DWARF)
+    );
 }

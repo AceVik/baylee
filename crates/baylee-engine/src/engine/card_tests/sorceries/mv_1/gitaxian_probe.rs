@@ -3,21 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Gitaxian Probe — `{U/P}` sorcery: "({U/P} can be paid with either {U} or
-/// 2 life.) Look at target player's hand. Draw a card."
-///
-/// The card is `Coverage::Partial` with the *look* missing and the target
-/// requirement and the draw written, so the three claims here are exactly
-/// that half. First the question: "target player" enumerates both seats —
-/// and it arrives as `ChoosePlayer` rather than as the object-and-player
-/// `ChooseTargets`, because a requirement that is only a player never
-/// reaches the object half of targeting — and the probe is aimed at the
-/// opponent, the seat whose hand it is printed to look at. Second the cantrip: the spell
-/// leaves the hand, lands in its owner's graveyard, and puts exactly one
-/// card off the top of the caster's library into that same hand, so the
-/// hand it was cast from is the hand it finishes with. Third the gap: the
-/// target's hand and library are the size they were, because no effect
-/// reads a hand and the look moves nothing.
+/// The caster privately inspects the target's hand before drawing a card.
 #[test]
 fn gitaxian_probe_asks_for_any_player_and_replaces_itself() {
     let p0 = PlayerId::new(0);
@@ -25,22 +11,15 @@ fn gitaxian_probe_asks_for_any_player_and_replaces_itself() {
     let mut engine = Duel::new(17, island())
         .battlefield(0, &[island(), island()])
         .hand(0, &[gitaxian_probe()])
+        .hand(1, &[forest(), llanowar_elves()])
         .battlefield(1, &[llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let hand_before = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
-        .len();
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     let library_before = library_size(&engine, p0);
-    let their_hand = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p1))
-        .len();
+    let their_hand = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
     let their_library = library_size(&engine, p1);
 
     cast_from_hand(&mut engine, p0, gitaxian_probe());
@@ -79,6 +58,41 @@ fn gitaxian_probe_asks_for_any_player_and_replaces_itself() {
     engine
         .apply(p0, PlayerAction::ChoosePlayer(p1))
         .expect("the opponent is a player the probe may target");
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::LookAtHand,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!()
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options, *engine.state().zones.list(ZoneLocation::Hand(p1)));
+    assert_eq!((min, max), (0, 0));
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before,
+        "the draw follows the look"
+    );
+    assert!(
+        engine
+            .apply(p1, PlayerAction::ChooseObjects { objects: vec![] })
+            .is_err()
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(
@@ -86,11 +100,7 @@ fn gitaxian_probe_asks_for_any_player_and_replaces_itself() {
         "the sorcery resolved and went to its owner's graveyard"
     );
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before,
         "one card spent and one drawn: the Probe is a cantrip"
     );
@@ -101,19 +111,9 @@ fn gitaxian_probe_asks_for_any_player_and_replaces_itself() {
     );
 
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Hand(p1))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
         their_hand,
-        "the look at the target's hand is the `Coverage::Partial` gap — \
-         nothing was taken, shown or moved"
+        "inspection moves no cards"
     );
-    assert_eq!(
-        library_size(&engine, p1),
-        their_library,
-        "and nothing left the target's library either, so the draw went to \
-         the caster and not to the seat that was pointed at"
-    );
+    assert_eq!(library_size(&engine, p1), their_library);
 }

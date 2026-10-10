@@ -3133,3 +3133,21 @@ land type"; both are convention tests that fire on a first try.
 - Setup mutations do not advance rules processing. Exercise conditional
   statics after a real priority action, rather than expecting refresh_offer
   (which only rebuilds legal actions) to perform that processing.
+
+## 2026-10-11 — partial-card completion: combat, land cycles and Station
+
+- Completed 23 more cards with shared primitives already present in the engine.
+  Historical Partial comments in tests can be as stale as the card definitions;
+  replace them with assertions about the printed rule, not the missing feature.
+- Frantic Search chooses untapped lands during resolution, without targeting.
+  A tapped land with shroud distinguishes that procedure from cast-time targets.
+- Depletion counters prevent the untap before the upkeep trigger removes one.
+  Exercise two actual turns for every member of the five-land cycle.
+- Discount tests must include opponents’ matching permanents and your own
+  nonmatching ones. Station tests pay real tap costs and reach twelve counters;
+  sacrifice-powered draw must read last-known power after the creature leaves.
+- Removing a blocker from combat leaves its attacker blocked. Test combat damage
+  after removal, as well as the immediate combat membership and tap state.
+- Validation: all 5,339 engine tests passed (two existing ignores), including
+  combat removal, private hand inspection, chosen-color protection, graveyard
+  casting/exile replacement, threshold discard and modal back faces.

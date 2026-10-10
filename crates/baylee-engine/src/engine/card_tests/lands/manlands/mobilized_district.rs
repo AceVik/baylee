@@ -3,15 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Mobilized District prints `{{T}}: Add {{C}}` and `{4}: This land becomes a
-/// 3/3 Citizen creature with vigilance until end of turn. It's still a land.
-/// This ability costs {1} less to activate for each legendary creature and
-/// planeswalker you control.`
-///
-/// Under `Coverage::Partial`, the cost reduction for legendary creatures and
-/// planeswalkers is unsupported and dropped. This test pays `{4}` off four
-/// basic lands to animate Mobilized District into a 3/3 Citizen creature with
-/// vigilance that remains a land.
+/// Without legendary creatures or planeswalkers, animation costs the full four
+/// generic mana and creates a vigilant 3/3 Citizen that remains a land.
 #[test]
 fn mobilized_district_animates_into_a_vigilant_citizen() {
     let p0 = PlayerId::new(0);
@@ -54,5 +47,30 @@ fn mobilized_district_animates_into_a_vigilant_citizen() {
             .contains(baylee_core::generated::subtypes::creature::CITIZEN)
     );
     assert!(keywords(&engine, district).contains(KeywordSet::VIGILANCE));
+    assert_eq!(pt(&engine, district), (3, 3));
+}
+
+#[test]
+fn mobilized_district_counts_legendary_creatures_and_planeswalkers_once_each() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let emry = card_index("da3e7d3d-2ca0-40c3-9602-fca37c92f507");
+    let mut engine = kit::game(
+        934,
+        &[
+            mobilized_district(),
+            emry,
+            karn_the_great_creator(),
+            llanowar_elves(),
+        ],
+        &[emry],
+        &[],
+        &[],
+    );
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Blue, 1)]);
+    assert!(!kit::offered(&engine, mobilized_district(), kit::P0, 1));
+    kit::float(&mut engine, kit::P0, &[(ManaColor::Blue, 1)]);
+    kit::use_ability(&mut engine, kit::P0, mobilized_district(), 1, &[], &[]);
+    assert_eq!(kit::pool_total(&engine, kit::P0), 0);
+    let district = kit::obj(&engine, kit::P0, mobilized_district());
     assert_eq!(pt(&engine, district), (3, 3));
 }

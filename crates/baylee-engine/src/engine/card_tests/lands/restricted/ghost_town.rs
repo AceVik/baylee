@@ -4,7 +4,6 @@
 use super::*;
 
 /// Ghost Town: "{T}: Add {C}." / "{0}: Return this land to its owner's hand. Activate only if it's not your turn."
-/// Under `Coverage::Partial`, the not-your-turn timing restriction is omitted.
 /// Activating ability 1 for {0} returns Ghost Town from the battlefield to its owner's hand.
 #[test]
 fn ghost_town_returns_to_hand_on_activation() {
@@ -18,6 +17,22 @@ fn ghost_town_returns_to_hand_on_activation() {
     assert!(on_battlefield(&engine, p0, ghost_town()).is_some());
     assert!(in_hand(&engine, p0, ghost_town()).is_none());
 
+    let town = on_battlefield(&engine, p0, ghost_town()).unwrap();
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: town,
+                    ability_index: 1
+                }
+            )
+            .is_err()
+    );
+    pass_until(&mut engine, |e| {
+        e.state().turn.active != p0
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
     activate(&mut engine, p0, ghost_town(), 1);
     pass_until(&mut engine, stack_is_empty);
 

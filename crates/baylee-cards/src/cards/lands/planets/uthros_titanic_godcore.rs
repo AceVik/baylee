@@ -4,8 +4,8 @@
 //! Oracle: Station (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)
 //! Oracle: 12+ | {U}, {T}: Add {U} for each artifact you control.
 //! Set: EOE #260 — Edge of Eternities | Scryfall ID: 11da39d6-cfa6-498d-91b1-11454cc7e5a3 | Oracle ID: df08ac72-010f-42f8-beb3-6d645c638e1e
-// PARTIAL — enters tapped, {T}: Add {U}, and the 12+ ability gated on charge
-// counters; Station's counter amount is not expressible.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -21,12 +21,7 @@ card!(
         subtypes = &[subtypes::land::PLANET],
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
-    coverage = Coverage::Partial(
-        "Station's effect — charge counters \"equal to its power\" — has no \
-         Amount that reads the power of the permanent named to pay \
-         CostPart::TapOther: Amount::TargetPower reads a target and \
-         Amount::SourcePower reads this land",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
         mana_ability!(
@@ -40,14 +35,13 @@ card!(
             )],
             condition = Some(Condition::CountersOnSelf(CounterKind::Charge, 12)),
         ),
+        activated!(
+            cost!(TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
+            &[Effect::AddCounter {
+                kind: CounterKind::Charge,
+                amount: Amount::TappedPower
+            }],
+            timing = ActivationTiming::SorcerySpeed,
+        ),
     ],
 );
-
-// NOT SUPPORTED: "Station (Tap another creature you control: Put charge
-// counters equal to its power on this Planet. Station only as a sorcery.)" —
-// `CostPart::TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)` and
-// `timing = ActivationTiming::SorcerySpeed` say the cost, but the count is the
-// power of the creature that paid it, and no `Amount` reads the object a cost
-// was paid with. Pointing a `TargetSpec` at that creature instead would make a
-// cost into a target (CR 115.1) and let the cost and the amount name two
-// different creatures.

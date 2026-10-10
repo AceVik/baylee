@@ -691,6 +691,7 @@ mod tests {
                 "Huntmaster of the Fells",
                 "Archangel Avacyn",
                 "Conqueror's Galleon",
+                "Thaumatic Compass",
                 "Treasure Map",
                 "Vance's Blasting Cannons",
                 "Hadana's Climb",

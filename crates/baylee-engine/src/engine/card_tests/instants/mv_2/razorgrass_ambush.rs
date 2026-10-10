@@ -3,31 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Razorgrass Ambush // Razorgrass Field — `{1}{W}` Instant // Land.
-/// The instant face reads "Razorgrass Ambush deals 3 damage to target
-/// attacking or blocking creature." The land face has a life-payment
-/// enter trigger and `{T}: Add {W}`.
-///
-/// Both faces are a GENERATED STUB — no abilities are implemented. The
-/// instant face declares no targeting, so the stub casts as a vanilla
-/// spell and the test can only confirm that the card reaches the stack and
-/// resolves into the graveyard. The 3-damage effect, the mandatory combat
-/// target, and the land-face life-payment trigger are all absent; this
-/// scenario proves nothing about those clauses.
-///
-/// SKIP: the instant effect — "deals 3 damage to target attacking or
-/// blocking creature" — needs a creature in combat as a target, which
-/// requires a full combat phase and a helper to read the damage counter.
-/// The land-face enter trigger (pay 3 life or enter tapped) needs
-/// Razorgrass Ambush // Razorgrass Field (`Coverage::Partial`): "Razorgrass
-/// Ambush deals 3 damage to target attacking or blocking creature."
-///
-/// The blocking half is the partial — the DSL has no filter for a blocking
-/// creature — so the implemented sentence is the attacking one, and reaching
-/// it needs a real combat. That is the whole point of the test: the spell is
-/// **not castable** with nothing attacking, which is how this card first
-/// read as an unimplemented stub to a reader that only tried to cast it on
-/// an empty board.
+/// The instant needs a creature in combat and deals three damage to it.
+/// An empty battlefield must not offer a legal cast even with enough mana.
 #[test]
 fn razorgrass_ambush_burns_a_creature_that_is_attacking() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -114,5 +91,28 @@ fn razorgrass_ambush_burns_a_creature_that_is_attacking() {
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
         "three damage on a 1/1 is lethal (CR 704.5g)"
+    );
+}
+
+#[test]
+fn razorgrass_ambush_can_target_a_blocker() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut engine = kit::game(
+        956,
+        &[llanowar_elves()],
+        &[llanowar_elves()],
+        &[razorgrass_ambush()],
+        &[],
+    );
+    let attacker = kit::obj(&engine, kit::P0, llanowar_elves());
+    let blocker = kit::obj(&engine, kit::P1, llanowar_elves());
+    kit::attackers_offered(&mut engine);
+    kit::declare(&mut engine, &[attacker]);
+    kit::block(&mut engine, &[(blocker, attacker)]);
+    kit::float(&mut engine, kit::P0, &[(ManaColor::White, 2)]);
+    kit::cast_at(&mut engine, kit::P0, razorgrass_ambush(), &[blocker], &[]);
+    assert_eq!(
+        engine.state().object(blocker).unwrap().zone,
+        Zone::Graveyard
     );
 }

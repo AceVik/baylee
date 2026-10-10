@@ -7,9 +7,8 @@
 //! Set: XLN #249 — Ixalan | Scryfall ID: 392af78e-34d5-4b1b-8b29-0e702271e4d7 | Oracle ID: f9085e55-2833-41b7-9100-a35dc04dee93
 //! Face: Thaumatic Compass — {2} — Artifact
 //! Face: Spires of Orazca —  — Land
-// PARTIAL — the front face's land search and its seven-or-more-lands end-step
-// transform are built, and so is Spires of Orazca's {T}: Add {C}. The back
-// face's second ability is not; see the NOT SUPPORTED line below.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -25,19 +24,25 @@ card!(
         ),
         face!(
             name = "Spires of Orazca",
-            // CR 712.8c: a nonmodal double-faced card is cast as its front
-            // face and reaches this one only by transforming.
             castable_from_hand = false,
             types = TypeSet::LAND,
-            abilities = &[mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)])],
+            abilities = &[
+                mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+                activated!(
+                    Cost::TAP,
+                    &[
+                        Effect::UntapTarget,
+                        Effect::RemoveTargetFromCombat { unblock: false }
+                    ],
+                    target = Some(TargetSpec::Object(&Filter::And(&[
+                        Filter::ATTACKING_CREATURE,
+                        Filter::ControlledByOpponent,
+                    ]))),
+                ),
+            ],
         ),
     ],
-    coverage = Coverage::Partial(
-        "Spires of Orazca's \"{T}: Untap target attacking creature an opponent \
-         controls and remove it from combat\": no effect takes a creature out of \
-         combat, so the ability is off the card rather than shipped as an untap \
-         that leaves the attacker attacking"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         activated!(
             cost!("{3}", TapSelf),
@@ -57,10 +62,3 @@ card!(
         ),
     ],
 );
-
-// NOT SUPPORTED: Spires of Orazca — "{T}: Untap target attacking creature an
-// opponent controls and remove it from combat". Effect::UntapTarget says the
-// first half and nothing says the second — PhaseOut and ExileAndReturnAtEndStep
-// are different sentences — and half of that ability (the untap, with the
-// creature still in combat) is a card that looks like it saves you and does
-// not, so the ability comes off whole.
