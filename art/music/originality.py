@@ -28,7 +28,7 @@ def melodies(text):
     out = {}
     for m in re.finditer(r"const ([A-Z_0-9]+): Phrase = &\[(.*?)\n\];", text, re.S):
         out[m.group(1)] = [int(n) for n in re.findall(r"\((\d+), \d+\)", m.group(2)) if int(n)]
-    assert len(out) == 25, f"expected 25 complete phrases, found {len(out)}"
+    assert len(out) == 75, f"expected 75 complete phrases, found {len(out)}"
     return out
 
 
@@ -54,7 +54,7 @@ def main():
             if setting:
                 tunes.append((tune["name"], setting))
     bad = 0
-    for name, pitches in melodies(MELODIES.read_text()).items():
+    for name, pitches in melodies(MELODIES.read_text() + MELODIES.with_name("styles").joinpath("manuscript.rs").read_text()).items():
         ours = intervals(pitches)
         run, tune = max((longest_common_run(ours, theirs), name) for name, theirs in tunes)
         flag = "MATCH" if run >= RUN else "ok"

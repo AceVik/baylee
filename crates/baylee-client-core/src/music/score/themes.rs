@@ -1,10 +1,10 @@
-//! Five complete B♭ Dorian suites with independent phrases and metres.
+//! The five Dorian suites and ten additional independent musical styles.
 use super::{
     Movement,
     manuscript::{self, Phrase},
 };
 
-/// The five complete B♭ Dorian suites.
+/// Fifteen complete suites, with eight movements each.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[repr(u8)]
@@ -24,17 +24,73 @@ pub enum Theme {
     Tide = 3,
     /// Sternfall: broad 3+2 phrases in five, opening into octave-spanning arcs.
     Star = 4,
+    /// Velvet Night · Piano.
+    Velvet = 5,
+    /// Copperwork · Baroque.
+    Copper = 6,
+    /// Juniper · Folk.
+    Juniper = 7,
+    /// Lagoon Light · Bossa.
+    Lagoon = 8,
+    /// Lanterns · Jazz waltz.
+    Lantern = 9,
+    /// Neon Path · Synthwave.
+    Neon = 10,
+    /// Pixelstorm · Chiptune.
+    Circuit = 11,
+    /// Mosaic · Marimba.
+    Mosaic = 12,
+    /// Orbit · Ambient.
+    Orbit = 13,
+    /// Iron Pulse · Breakbeat.
+    Iron = 14,
 }
 impl Theme {
-    /// Every suite, in settings order.
-    pub const ALL: [Self; 5] = [
+    /// The original five suites, retained without musical changes.
+    pub const DORIAN: [Self; 5] = [
         Self::Ember,
         Self::Glass,
         Self::Thorn,
         Self::Tide,
         Self::Star,
     ];
-    /// Decode the three theme bits; invalid values select the first suite.
+    /// Ten additional independent styles.
+    pub const EXPLORATIONS: [Self; 10] = [
+        Self::Velvet,
+        Self::Copper,
+        Self::Juniper,
+        Self::Lagoon,
+        Self::Lantern,
+        Self::Neon,
+        Self::Circuit,
+        Self::Mosaic,
+        Self::Orbit,
+        Self::Iron,
+    ];
+    /// Whether this is one of the ten additional styles.
+    #[must_use]
+    pub const fn exploration(self) -> bool {
+        self as u8 >= 5
+    }
+    /// Every suite, in settings order.
+    pub const ALL: [Self; 15] = [
+        Self::Ember,
+        Self::Glass,
+        Self::Thorn,
+        Self::Tide,
+        Self::Star,
+        Self::Velvet,
+        Self::Copper,
+        Self::Juniper,
+        Self::Lagoon,
+        Self::Lantern,
+        Self::Neon,
+        Self::Circuit,
+        Self::Mosaic,
+        Self::Orbit,
+        Self::Iron,
+    ];
+    /// Decode the four theme bits; invalid values select the first suite.
     #[must_use]
     pub const fn of(bits: u8) -> Self {
         match bits {
@@ -42,6 +98,17 @@ impl Theme {
             2 => Self::Thorn,
             3 => Self::Tide,
             4 => Self::Star,
+            5 => Self::Velvet,
+            6 => Self::Copper,
+            7 => Self::Juniper,
+            8 => Self::Lagoon,
+            9 => Self::Lantern,
+            10 => Self::Neon,
+            11 => Self::Circuit,
+            12 => Self::Mosaic,
+            13 => Self::Orbit,
+            14 => Self::Iron,
+
             _ => Self::Ember,
         }
     }
@@ -54,6 +121,16 @@ impl Theme {
             Self::Thorn => "thorn",
             Self::Tide => "tide",
             Self::Star => "star",
+            Self::Velvet => "velvet",
+            Self::Copper => "copper",
+            Self::Juniper => "juniper",
+            Self::Lagoon => "lagoon",
+            Self::Lantern => "lantern",
+            Self::Neon => "neon",
+            Self::Circuit => "circuit",
+            Self::Mosaic => "mosaic",
+            Self::Orbit => "orbit",
+            Self::Iron => "iron",
         }
     }
     /// Eighth-note pulses: 4/4, 3/4, 4/4, 6/8 or 5/4.
@@ -62,6 +139,7 @@ impl Theme {
             Self::Ember | Self::Thorn => 8,
             Self::Glass | Self::Tide => 6,
             Self::Star => 10,
+            other => super::styles::profile(other).ticks,
         }
     }
     pub(super) fn eighth(self, movement: Movement) -> f64 {
@@ -71,6 +149,7 @@ impl Theme {
             Self::Thorn => 124.0,
             Self::Tide => 138.0,
             Self::Star => 120.0,
+            other => super::styles::profile(other).bpm,
         };
         let pace = match movement {
             Movement::Title => 1.0,
@@ -91,6 +170,7 @@ impl Theme {
             Self::Thorn => &manuscript::THORN,
             Self::Tide => &manuscript::TIDE,
             Self::Star => &manuscript::STAR,
+            other => super::styles::profile(other).pages,
         }
     }
 }

@@ -15,8 +15,29 @@ pub(in crate::music) enum Instrument {
     ViolinShort,
     ViolaShort,
     CelloShort,
+    Piano,
+    Clav,
+    Flute,
+    Guitar,
+    ElectricPiano,
+    AnalogLead,
+    ChipLead,
+    Marimba,
+    Bell,
+    Pad,
+    SynthBass,
+    Kick,
+    Snare,
+    Hat,
 }
 impl Instrument {
+    pub(in crate::music) const fn synthetic(self) -> bool {
+        self as u8 >= Self::Piano as u8
+    }
+    #[cfg(test)]
+    pub(in crate::music) const fn percussion(self) -> bool {
+        matches!(self, Self::Kick | Self::Snare | Self::Hat)
+    }
     pub(super) const fn pan(self) -> f32 {
         match self {
             Self::Harp => -0.38,
@@ -25,8 +46,12 @@ impl Instrument {
             Self::Violin | Self::ViolinShort => -0.24,
             Self::Viola | Self::ViolaShort => 0.26,
             Self::Cello | Self::CelloShort => 0.16,
-            Self::Bass => 0.0,
             Self::Trombone => -0.06,
+            Self::Piano | Self::Guitar | Self::Clav => -0.18,
+            Self::Marimba | Self::ElectricPiano => 0.18,
+            Self::Bell | Self::Hat => 0.32,
+            Self::Pad => -0.30,
+            _ => 0.0,
         }
     }
     pub(in crate::music) const fn short(self) -> bool {
@@ -56,7 +81,7 @@ pub(in crate::music) struct Note {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(super) role: Role,
 }
-const EMPTY: Note = Note {
+pub(super) const EMPTY: Note = Note {
     instrument: Instrument::Harp,
     pitch: 60,
     length: 0.0,
@@ -66,14 +91,21 @@ const EMPTY: Note = Note {
 };
 
 pub(in crate::music) struct Notes {
-    events: [Note; 24],
-    len: usize,
+    pub(super) events: [Note; 24],
+    pub(super) len: usize,
 }
 impl Notes {
     pub(in crate::music) fn as_slice(&self) -> &[Note] {
         &self.events[..self.len]
     }
-    fn add(&mut self, instrument: Instrument, pitch: u8, length: f32, gain: f32, role: Role) {
+    pub(super) fn add(
+        &mut self,
+        instrument: Instrument,
+        pitch: u8,
+        length: f32,
+        gain: f32,
+        role: Role,
+    ) {
         assert!(self.len < self.events.len(), "a tick fits the note budget");
         self.events[self.len] = Note {
             instrument,
@@ -105,6 +137,9 @@ const AB: Chord = Chord(56, 4, 7);
 /// Major/minor triads only. A suite's harmonic route supports its motif;
 /// borrowed major/minor thirds are changed in every voice together.
 pub(super) fn chord(theme: Theme, movement: Movement, bar: u32) -> Chord {
+    if theme.exploration() {
+        return super::styles::chord(theme, movement, bar);
+    }
     let b = (bar % 8) as usize;
     let home = match theme {
         Theme::Ember => [BBM, EB, FM, AB, BBM, EB, EB, BBM],
@@ -112,6 +147,7 @@ pub(super) fn chord(theme: Theme, movement: Movement, bar: u32) -> Chord {
         Theme::Thorn => [BBM, BBM, AB, EB, BBM, BBM, FM, BBM],
         Theme::Tide => [BBM, EB, AB, FM, BBM, EB, EB, BBM],
         Theme::Star => [BBM, FM, DB, EB, BBM, FM, AB, BBM],
+        _ => unreachable!("explorations dispatch above"),
     }[b];
     match movement {
         Movement::Victory if home.0 == BBM.0 => BB,
@@ -126,7 +162,7 @@ pub(super) fn chord(theme: Theme, movement: Movement, bar: u32) -> Chord {
 }
 
 /// Voice a chord tone near a register, reducing parallel octave jumps in the bed.
-fn near(pitch: u8, centre: u8) -> u8 {
+pub(super) fn near(pitch: u8, centre: u8) -> u8 {
     let mut value = i16::from(pitch);
     let centre = i16::from(centre);
     while value > centre + 6 {
@@ -139,7 +175,7 @@ fn near(pitch: u8, centre: u8) -> u8 {
 }
 
 /// Notes beginning at this tick, with composed rests retained.
-fn onset(bar: Bar, tick: u8) -> Option<(u8, u8)> {
+pub(super) fn onset(bar: Bar, tick: u8) -> Option<(u8, u8)> {
     let mut at = 0;
     for &(pitch, length) in bar {
         if at == tick {
@@ -162,7 +198,7 @@ fn colour(pitch: u8, harmony: Chord) -> u8 {
     }
 }
 
-fn line(theme: Theme, movement: Movement, bar: u32) -> Bar {
+pub(super) fn line(theme: Theme, movement: Movement, bar: u32) -> Bar {
     let pages = theme.pages();
     let local = if movement.ending() {
         bar.saturating_sub(1)
@@ -274,6 +310,7 @@ fn arpeggio(theme: Theme, Chord(root, third, fifth): Chord, tick: u8, stride: u8
         Theme::Thorn => [0, 12, fifth, 12, 0],
         Theme::Tide => [0, fifth, third + 12, 12, fifth + 12],
         Theme::Star => [0, third + 12, fifth + 12, 12, fifth],
+        _ => unreachable!("explorations use their own accompaniment"),
     };
     root + steps[usize::from(tick / stride) % steps.len()]
 }
@@ -440,6 +477,7 @@ fn cue(out: &mut Notes, theme: Theme, movement: Movement, tick: u8) {
                 Theme::Thorn => [58, 70, 77, 86],
                 Theme::Tide => [62, 70, 77, 82],
                 Theme::Star => [58, 65, 77, 82],
+                _ => unreachable!("exploration cue"),
             })[index]
         }
         Movement::Defeat => {
@@ -449,6 +487,7 @@ fn cue(out: &mut Notes, theme: Theme, movement: Movement, tick: u8) {
                 Theme::Thorn => [82, 77, 61, 58],
                 Theme::Tide => [77, 70, 65, 58],
                 Theme::Star => [82, 73, 65, 58],
+                _ => unreachable!("exploration cue"),
             })[index]
         }
         _ => [70, 77, 65, 70][index],
@@ -483,6 +522,9 @@ fn cue(out: &mut Notes, theme: Theme, movement: Movement, tick: u8) {
 }
 
 pub(in crate::music) fn notes(theme: Theme, movement: Movement, bar: u32, tick: u8) -> Notes {
+    if theme.exploration() {
+        return super::styles::notes(theme, movement, bar, tick);
+    }
     let mut out = Notes {
         events: [EMPTY; 24],
         len: 0,

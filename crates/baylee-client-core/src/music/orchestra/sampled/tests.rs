@@ -21,7 +21,7 @@ fn studio_cache_is_bounded_and_covers_every_composed_pitch() {
             for bar in 0..33 {
                 for tick in 0..theme.ticks() {
                     for note in arrangement::notes(theme, movement, bar, tick).as_slice() {
-                        if note.instrument != Instrument::Lyre {
+                        if note.instrument != Instrument::Lyre && !note.instrument.synthetic() {
                             assert!(clips()[key(note.instrument, note.pitch)].is_some());
                         }
                     }

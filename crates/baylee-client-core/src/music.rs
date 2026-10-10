@@ -1,4 +1,4 @@
-//! Five original suites in B♭ Dorian, with eight adaptive movements each.
+//! Fifteen original suites: five in B♭ Dorian and ten independent styles.
 //! CC0 acoustic recordings, with studio 48-kHz or original 44.1-kHz banks.
 //! One persistent orchestra admits scene changes on the next eighth-note pulse;
 //! releases and room tails bridge the change, and tempo moves continuously.
@@ -31,18 +31,48 @@ pub enum MusicTheme {
     Tide,
     /// Sternfall, in five.
     Star,
+    /// Velvet Night · Piano.
+    Velvet,
+    /// Copperwork · Baroque.
+    Copper,
+    /// Juniper · Folk.
+    Juniper,
+    /// Lagoon Light · Bossa.
+    Lagoon,
+    /// Lanterns · Jazz waltz.
+    Lantern,
+    /// Neon Path · Synthwave.
+    Neon,
+    /// Pixelstorm · Chiptune.
+    Circuit,
+    /// Mosaic · Marimba.
+    Mosaic,
+    /// Orbit · Ambient.
+    Orbit,
+    /// Iron Pulse · Breakbeat.
+    Iron,
     /// A different suite each game.
     #[default]
     Rotating,
 }
 impl MusicTheme {
     /// Every choice, in settings order.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 16] = [
         Self::Ember,
         Self::Glass,
         Self::Thorn,
         Self::Tide,
         Self::Star,
+        Self::Velvet,
+        Self::Copper,
+        Self::Juniper,
+        Self::Lagoon,
+        Self::Lantern,
+        Self::Neon,
+        Self::Circuit,
+        Self::Mosaic,
+        Self::Orbit,
+        Self::Iron,
         Self::Rotating,
     ];
     /// The suite at this rotation.
@@ -54,7 +84,18 @@ impl MusicTheme {
             Self::Thorn => Theme::Thorn,
             Self::Tide => Theme::Tide,
             Self::Star => Theme::Star,
-            Self::Rotating => Theme::ALL[(turn % 5) as usize],
+            Self::Velvet => Theme::Velvet,
+            Self::Copper => Theme::Copper,
+            Self::Juniper => Theme::Juniper,
+            Self::Lagoon => Theme::Lagoon,
+            Self::Lantern => Theme::Lantern,
+            Self::Neon => Theme::Neon,
+            Self::Circuit => Theme::Circuit,
+            Self::Mosaic => Theme::Mosaic,
+            Self::Orbit => Theme::Orbit,
+            Self::Iron => Theme::Iron,
+
+            Self::Rotating => Theme::ALL[(turn % 15) as usize],
         }
     }
 }

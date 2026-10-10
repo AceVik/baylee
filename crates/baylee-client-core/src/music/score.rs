@@ -1,4 +1,4 @@
-//! Five original suites in B♭ Dorian, performed by one persistent orchestra.
+//! Fifteen original suites, performed by one persistent acoustic/synthetic ensemble.
 //! Composition is in `manuscript`; arranging is a pure, bounded note scheduler.
 //! Scene/theme changes are admitted on the next
 //! eighth (about 0.18–0.35 seconds). Result cues finish before leaving the result.
@@ -19,6 +19,7 @@ use std::sync::{
 pub(super) mod arrangement;
 mod manuscript;
 mod part;
+mod styles;
 mod themes;
 pub use part::Movement;
 pub use themes::Theme;
@@ -181,7 +182,12 @@ impl Tune {
             );
         }
         self.tick += 1;
-        self.until_tick += f64::from(RATE) * self.eighth;
+        let swing = if self.position.theme == Theme::Lantern {
+            if self.tick % 2 == 1 { 1.18 } else { 0.82 }
+        } else {
+            1.0
+        };
+        self.until_tick += f64::from(RATE) * self.eighth * swing;
     }
     fn advance(&mut self) {
         self.eighth += (self.target - self.eighth) / (f64::from(RATE) * 3.0);
@@ -227,5 +233,7 @@ impl Iterator for Tune {
         Some(left)
     }
 }
+#[cfg(test)]
+mod exploration_tests;
 #[cfg(test)]
 mod tests;

@@ -252,7 +252,17 @@ Urheber- und Medienrecht.
    only as reference context and for non-expressive signal statistics;
    no listening claim or legal-originality guarantee is made.
 
-   The player now uses the pinned **CC0 acoustic recordings** below for
+   Ten additional suites were added on 10.10.2026 under the owner’s explicit
+   artistic freedom. Their authored motifs and native 48-kHz additive patches
+   (including synthesized percussion) use no downloaded presets, soundfonts,
+   loops, recordings or melodies. The original five remain unchanged. The
+   additional acoustic layers use the same pinned, hash-verified CC0 bank.
+   Selecting either bank affects recorded voices only; modelled instruments
+   remain native 48 kHz. Purely synthesized arrangements sound identical in
+   both bank settings. Policy and publisher pages below were re-read for this
+   extension; no new third-party assets or licensing exceptions were added.
+
+   The player uses the pinned **CC0 acoustic recordings** below for
    harp, plucked psaltery, violin, viola, cello, bowed bass and trombone.
    The lyre is our own plucked-string model. Every suite supports both banks:
    **Studio 48 kHz** (32-tap windowed-sinc preparation and pitch correction)

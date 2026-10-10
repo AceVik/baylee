@@ -108,6 +108,7 @@ fn family(instrument: Instrument) -> Family {
         Instrument::ViolinShort => 7,
         Instrument::ViolaShort => 8,
         Instrument::CelloShort => 9,
+        _ => unreachable!("synthetic voices have a separate renderer"),
     }]
 }
 
@@ -211,7 +212,7 @@ fn clips() -> &'static [Option<Clip>] {
                 for bar in 0..33 {
                     for tick in 0..theme.ticks() {
                         for note in arrangement::notes(theme, movement, bar, tick).as_slice() {
-                            if note.instrument != Instrument::Lyre {
+                            if note.instrument != Instrument::Lyre && !note.instrument.synthetic() {
                                 used[key(note.instrument, note.pitch)] = true;
                             }
                         }

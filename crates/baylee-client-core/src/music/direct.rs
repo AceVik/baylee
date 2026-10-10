@@ -167,8 +167,8 @@ impl ScoreRequest {
             | u64::from(self.spells & 15) << 29
             | u64::from(self.arrivals & 15) << 33
             | u64::from(self.turn_seat & 7) << 37
-            | u64::from(self.theme as u8 & 7) << 40
-            | u64::from(self.samples as u8) << 43
+            | u64::from(self.theme as u8 & 15) << 40
+            | u64::from(self.samples as u8) << 44
     }
 
     /// The request a word holds.
@@ -192,8 +192,8 @@ impl ScoreRequest {
             spells: nibble(29),
             arrivals: nibble(33),
             turn_seat: nibble(37) & 7,
-            theme: Theme::of(nibble(40) & 7),
-            samples: if bit(43) {
+            theme: Theme::of(nibble(40)),
+            samples: if bit(44) {
                 SampleSet::Original441
             } else {
                 SampleSet::Studio48

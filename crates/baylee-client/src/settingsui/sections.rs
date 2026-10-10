@@ -375,41 +375,7 @@ pub(crate) fn audio(out: &mut Out, view: &View) {
     out.row(Row::Master, control);
     let control = out.slider("music", percent(music), Volume::Music);
     out.row(Row::Music, control);
-    let themes = baylee_client_core::music::MusicTheme::ALL;
-    let chosen = view
-        .settings
-        .map_or_else(baylee_client_core::music::MusicTheme::default, |s| {
-            s.music.theme()
-        });
-    let names = labels(
-        lang,
-        &[
-            Phrase::MusicThemeEmber,
-            Phrase::MusicThemeGlass,
-            Phrase::MusicThemeThorn,
-            Phrase::MusicThemeTide,
-            Phrase::MusicThemeStar,
-            Phrase::MusicThemeRotating,
-        ],
-    );
-    let control = out.seg("music-theme", &names, index(&themes, &chosen), |i| {
-        Press::Settings(SettingsPress::PickMusicTheme(themes[i]))
-    });
-    out.row(Row::MusicTheme, control);
-    let samples = baylee_client_core::music::SampleSet::ALL;
-    let chosen = view
-        .settings
-        .map_or_else(baylee_client_core::music::SampleSet::default, |s| {
-            s.music.samples()
-        });
-    let names = labels(
-        lang,
-        &[Phrase::MusicSamplesStudio, Phrase::MusicSamplesOriginal],
-    );
-    let control = out.seg("music-samples", &names, index(&samples, &chosen), |i| {
-        Press::Settings(SettingsPress::PickMusicSamples(samples[i]))
-    });
-    out.row(Row::MusicSamples, control);
+    music_selection(out, view);
     let control = out.slider("effects", percent(effects), Volume::Effects);
     out.row(Row::Effects, control);
     let control = out.toggle(
@@ -437,6 +403,56 @@ pub(crate) fn audio(out: &mut Out, view: &View) {
         |i| Press::Settings(SettingsPress::PickSound(all[i])),
     );
     out.row(Row::TableSounds, control);
+}
+
+/// Fifteen suites and the independent recorded sound bank.
+fn music_selection(out: &mut Out, view: &View) {
+    let lang = out.lang;
+    let themes = baylee_client_core::music::MusicTheme::ALL;
+    let chosen = view
+        .settings
+        .map_or_else(baylee_client_core::music::MusicTheme::default, |s| {
+            s.music.theme()
+        });
+    let names = labels(
+        lang,
+        &[
+            Phrase::MusicThemeEmber,
+            Phrase::MusicThemeGlass,
+            Phrase::MusicThemeThorn,
+            Phrase::MusicThemeTide,
+            Phrase::MusicThemeStar,
+            Phrase::MusicThemeVelvet,
+            Phrase::MusicThemeCopper,
+            Phrase::MusicThemeJuniper,
+            Phrase::MusicThemeLagoon,
+            Phrase::MusicThemeLantern,
+            Phrase::MusicThemeNeon,
+            Phrase::MusicThemeCircuit,
+            Phrase::MusicThemeMosaic,
+            Phrase::MusicThemeOrbit,
+            Phrase::MusicThemeIron,
+            Phrase::MusicThemeRotating,
+        ],
+    );
+    let control = out.choices("music-theme", &names, index(&themes, &chosen), |i| {
+        Press::Settings(SettingsPress::PickMusicTheme(themes[i]))
+    });
+    out.block(Row::MusicTheme, &[control]);
+    let samples = baylee_client_core::music::SampleSet::ALL;
+    let chosen = view
+        .settings
+        .map_or_else(baylee_client_core::music::SampleSet::default, |s| {
+            s.music.samples()
+        });
+    let names = labels(
+        lang,
+        &[Phrase::MusicSamplesStudio, Phrase::MusicSamplesOriginal],
+    );
+    let control = out.seg("music-samples", &names, index(&samples, &chosen), |i| {
+        Press::Settings(SettingsPress::PickMusicSamples(samples[i]))
+    });
+    out.row(Row::MusicSamples, control);
 }
 
 /// Display & Interface: the language, the text size, the preview.

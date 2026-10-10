@@ -24,7 +24,7 @@ pub(super) fn preview(body: &str, commands: &mut Commands) -> String {
             request.samples = preview.samples;
             commands.insert_resource(crate::music::Audition(request));
             serde_json::json!({"ok":true,"theme":preview.theme,"movement":preview.movement,
-                "samples":preview.samples,"source_rate":44100,"rate":baylee_client_core::music::RATE})
+                "samples":preview.samples,"recorded_source_rate":44100,"synthesis_rate":48000,"rate":baylee_client_core::music::RATE})
             .to_string()
         }
         Err(error) => serde_json::json!({"error":error.to_string()}).to_string(),

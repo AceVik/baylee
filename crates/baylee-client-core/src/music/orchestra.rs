@@ -8,6 +8,7 @@
 // MIDI pitches, buffer indices and bounded audio amplitudes.
 use super::{RATE, score::arrangement::Instrument};
 mod sampled;
+mod synth;
 pub(super) use sampled::{Def, Family, Kind};
 mod plucked;
 use plucked::{Lute, STRINGS};
@@ -15,6 +16,7 @@ use sampled::Voice;
 
 pub(super) fn prepare() {
     sampled::prepare();
+    synth::prepare();
 }
 /// How a note is touched beyond its pitch, length and level.
 #[derive(Clone, Copy, Debug)]
@@ -99,6 +101,7 @@ const PLUCK_ROOM: f32 = 0.18;
 
 pub(super) struct Orchestra {
     voices: Vec<Voice>,
+    synth: synth::Synth,
     strings: [Lute; STRINGS],
     plucks: u32,
     room: [Delay; 8],
@@ -110,6 +113,7 @@ impl Default for Orchestra {
         prepare();
         Self {
             voices: Vec::with_capacity(POLYPHONY),
+            synth: synth::Synth::default(),
             strings: std::array::from_fn(|_| Lute::new()),
             plucks: 0,
             room: [1631, 2043, 2327, 2821, 1697, 2101, 2399, 2921].map(Delay::new),
@@ -152,7 +156,10 @@ impl Orchestra {
         touch: Touch,
         samples: super::SampleSet,
     ) {
-        if instrument == Instrument::Lyre {
+        if instrument.synthetic() {
+            self.synth
+                .note(instrument, pitch, seconds, panned(gain, touch.pan), touch);
+        } else if instrument == Instrument::Lyre {
             // A free voice normally exists; deterministic stealing is a last resort.
             let slot = self
                 .strings
@@ -188,6 +195,7 @@ impl Orchestra {
     /// Release from the current level (including notes already releasing).
     /// Never rewind a release envelope when a second change follows quickly.
     pub(super) fn release_notes(&mut self) {
+        self.synth.release();
         for voice in &mut self.voices {
             voice.release();
         }
@@ -239,6 +247,7 @@ impl Orchestra {
                 feed += (frame[0] + frame[1]) * PLUCK_ROOM;
             }
         }
+        self.synth.frame(&mut dry, &mut feed);
         self.finish(dry, feed)
     }
     /// Voice-major blocks, with exactly the reference's summation order.
@@ -272,6 +281,7 @@ impl Orchestra {
                 *send += (note[0] + note[1]) * PLUCK_ROOM;
             }
         }
+        self.synth.render(out, feed);
         for (frame, send) in out.iter_mut().zip(feed.iter()) {
             *frame = self.finish(*frame, *send);
         }

@@ -10,7 +10,7 @@ fn render_seconds(tune: &mut Tune, seconds: usize) -> Vec<[f32; 2]> {
 #[test]
 fn each_suite_has_complete_distinct_manuscripts() {
     let mut titles = Vec::new();
-    for theme in Theme::ALL {
+    for theme in Theme::DORIAN {
         let book = theme.pages();
         for phrase in [
             book.title,
@@ -79,7 +79,7 @@ fn each_suite_has_complete_distinct_manuscripts() {
 
 #[test]
 fn all_forty_arrangements_use_the_requested_groups_and_registers() {
-    for theme in Theme::ALL {
+    for theme in Theme::DORIAN {
         for movement in Movement::ALL {
             let notes: Vec<_> = (0..33)
                 .flat_map(|bar| {
@@ -161,7 +161,7 @@ fn result_cues_have_the_requested_contours_and_do_not_repeat() {
             if movement == Movement::Defeat {
                 assert!(pitches.windows(2).all(|w| w[1] < w[0]));
             }
-            if movement == Movement::Draw {
+            if movement == Movement::Draw && !theme.exploration() {
                 assert!(pitches.iter().all(|p| [5, 10].contains(&(p % 12))));
             }
             let after: Vec<_> = (0..theme.ticks())
@@ -231,8 +231,8 @@ fn blocks_and_scalar_frames_match_through_mid_phrase_changes() {
         let mut scalar = Tune::with_control(control.clone());
         let mut block = Tune::with_control(control.clone());
         let mut out = [[0.0; 2]; 257];
-        for (i, movement) in Movement::ALL.into_iter().enumerate() {
-            let mut request = movement.request(Theme::ALL[i % 5]);
+        for (i, theme) in Theme::ALL.into_iter().enumerate() {
+            let mut request = Movement::ALL[i % 8].request(theme);
             request.samples = samples;
             control.set(request);
             for round in 0..100 {
@@ -373,13 +373,13 @@ fn no_melody_echoes_a_tune_we_must_not() {
             checked += 1;
         }
     }
-    assert_eq!(checked, 25);
+    assert_eq!(checked, Theme::ALL.len() * 5);
 }
 
 #[test]
 fn each_tavern_is_strictly_dorian_with_a_distinct_harmonic_route() {
     let mut routes = Vec::new();
-    for theme in Theme::ALL {
+    for theme in Theme::DORIAN {
         let mut route = Vec::new();
         for bar in 0..8 {
             let arrangement::Chord(root, third, fifth) =
@@ -397,7 +397,7 @@ fn each_tavern_is_strictly_dorian_with_a_distinct_harmonic_route() {
 #[test]
 fn two_bar_themes_return_and_every_written_note_belongs_to_its_harmony() {
     let mut signatures = Vec::new();
-    for theme in Theme::ALL {
+    for theme in Theme::DORIAN {
         let pages = theme.pages();
         assert_eq!(
             &pages.title[..2],

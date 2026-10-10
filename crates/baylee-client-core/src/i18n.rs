@@ -5950,7 +5950,7 @@ messages! {
     /// Audio: the music's theme.
     RowMusicTheme { en: "Music theme", de: "Musik-Thema" },
     /// Audio: five complete original suites and automatic rotation.
-    HelpMusicTheme { en: "Five original suites in Bb Dorian. Rotating picks a different suite each game. Transitions flow into the next musical pulse", de: "Fünf eigene Suiten in Bb-Dorisch. Wechselnd wählt pro Spiel eine andere. Übergänge fließen in den nächsten musikalischen Puls" },
+    HelpMusicTheme { en: "Fifteen original suites: five in Bb Dorian and ten contrasting styles. Rotating picks a different suite each game. Transitions flow into the next musical pulse", de: "Fünf Suiten in Bb-Dorisch und zehn weitere in ganz unterschiedlichen Stilen. Wechselnd wählt pro Spiel eine andere. Übergänge fließen in den nächsten musikalischen Puls" },
     /// Audio: suite one.
     MusicThemeEmber { en: "Ember Path", de: "Glutpfad" },
     /// Audio: suite two.
@@ -5959,13 +5959,33 @@ messages! {
     MusicThemeThorn { en: "Thorn Crown", de: "Dornenkrone" },
     /// Audio: suite four.
     MusicThemeTide { en: "Mist Harbour", de: "Nebelhafen" },
+    /// Additional suite: Velvet Night · Piano.
+    MusicThemeVelvet { en: "Velvet Night · Piano", de: "Samtnacht · Klavier" },
+    /// Additional suite: Copperwork · Baroque.
+    MusicThemeCopper { en: "Copperwork · Baroque", de: "Kupferwerk · Barock" },
+    /// Additional suite: Juniper · Folk.
+    MusicThemeJuniper { en: "Juniper · Folk", de: "Wacholder · Folk" },
+    /// Additional suite: Lagoon Light · Bossa.
+    MusicThemeLagoon { en: "Lagoon Light · Bossa", de: "Lagunenlicht · Bossa" },
+    /// Additional suite: Lanterns · Jazz waltz.
+    MusicThemeLantern { en: "Lanterns · Jazz waltz", de: "Laternen · Jazzwalzer" },
+    /// Additional suite: Neon Path · Synthwave.
+    MusicThemeNeon { en: "Neon Path · Synthwave", de: "Neonpfad · Synthwave" },
+    /// Additional suite: Pixelstorm · Chiptune.
+    MusicThemeCircuit { en: "Pixelstorm · Chiptune", de: "Pixelsturm · Chiptune" },
+    /// Additional suite: Mosaic · Marimba.
+    MusicThemeMosaic { en: "Mosaic · Marimba", de: "Mosaik · Marimba" },
+    /// Additional suite: Orbit · Ambient.
+    MusicThemeOrbit { en: "Orbit · Ambient", de: "Umlaufbahn · Ambient" },
+    /// Additional suite: Iron Pulse · Breakbeat.
+    MusicThemeIron { en: "Iron Pulse · Breakbeat", de: "Eisenpuls · Breakbeat" },
     /// Audio: suite five.
     MusicThemeStar { en: "Starfall", de: "Sternfall" },
     /// Audio: a different suite each game.
     /// Recorded instrument bank.
     RowMusicSamples { en: "Instrument sound", de: "Instrumentenklang" },
     /// Source and playback rates of the banks.
-    HelpMusicSamples { en: "Both banks use CC0 recordings made at 44.1 kHz. Studio prepares a high-quality 48 kHz bank; the alternative plays the original bank", de: "Beide Banken nutzen CC0-Aufnahmen mit 44,1 kHz. Studio bereitet sie hochwertig für 48 kHz auf; die Alternative spielt die Originalbank" },
+    HelpMusicSamples { en: "Both banks use CC0 recordings made at 44.1 kHz. Studio prepares a high-quality 48 kHz bank; the alternative plays the original bank. Our synthesizers always run at 48 kHz", de: "Beide Banken nutzen CC0-Aufnahmen mit 44,1 kHz. Studio bereitet sie hochwertig für 48 kHz auf; die Alternative spielt die Originalbank. Eigene Synthesizer laufen immer mit 48 kHz" },
     /// Prepared 48-kHz sound.
     MusicSamplesStudio { en: "Studio · 48 kHz", de: "Studio · 48 kHz" },
     /// Original 44.1-kHz recordings.
