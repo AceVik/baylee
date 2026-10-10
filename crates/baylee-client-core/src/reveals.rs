@@ -10,8 +10,8 @@
 //!
 //! [`Reveals`] is the half of the fix that needs no renderer: it reads the
 //! log as it arrives and keeps the reveals this seat has not been shown yet,
-//! oldest first. The renderer draws [`Reveals::current`] and asks
-//! [`Reveals::tick`] for its clock; it decides nothing about which cards.
+//! oldest first. The renderer draws [`Reveals::current`]; it decides nothing
+//! about which cards.
 //!
 //! # Which lines are news
 //!
@@ -38,8 +38,9 @@
 //!
 //! Nothing here touches the browser, the interaction or the outbox, so a
 //! reveal cannot hold a question up; the renderer stands it under a dialog
-//! that is answering one. It goes when its time is up, or earlier when the
-//! player puts it away ([`Reveals::dismiss`]). It does not go when this seat
+//! that is answering one. It has no clock (owner, 10.10.2026: *"it must not
+//! close by itself"*): it goes only when the player puts it away
+//! ([`Reveals::dismiss`]). It does not go when this seat
 //! answers something: the autopilot and standing orders answer for it, and an
 //! opponent's tutor on their own turn would then close on the pass that
 //! follows it, before anybody had seen it.
@@ -50,15 +51,6 @@ use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_view::{CardIdentity, LogEntry, LogEvent, LogObject, LogTail, PlayerView};
 
 use crate::gamelog::LogBook;
-
-/// How long a reveal of one card stands, in seconds.
-pub const SHOW_SECS: f64 = 7.0;
-
-/// How much longer it stands for every card past the first.
-pub const PER_CARD_SECS: f64 = 1.5;
-
-/// The longest any one reveal stands, however many cards it shows.
-pub const LONGEST_SECS: f64 = 15.0;
 
 /// How many reveals may wait behind the one standing. Past this the oldest
 /// waiting one is let go: a loop that reveals a card a step would otherwise
@@ -88,25 +80,10 @@ pub struct Reveal {
     pub number: u64,
 }
 
-impl Reveal {
-    /// How long it stands, in seconds: [`SHOW_SECS`], and
-    /// [`PER_CARD_SECS`] more for each card past the first, at most
-    /// [`LONGEST_SECS`].
-    #[must_use]
-    pub fn lasts(&self) -> f64 {
-        #[allow(clippy::cast_precision_loss)] // a reveal is a handful of cards
-        let extra = self.cards.len().saturating_sub(1) as f64;
-        (SHOW_SECS + PER_CARD_SECS * extra).min(LONGEST_SECS)
-    }
-}
-
 /// The reveals this seat is being shown, oldest first.
 #[derive(Clone, Default, Debug)]
 pub struct Reveals {
     queue: VecDeque<Reveal>,
-    /// When the front one stood up, on the caller's clock. `None` until the
-    /// first [`Self::tick`] after it reached the front.
-    since: Option<f64>,
     /// The `seq` of the view that came with the last telling from line 0:
     /// every chunk of that telling is history.
     retold: Option<u64>,
@@ -216,44 +193,10 @@ impl Reveals {
         self.queue.len().saturating_sub(1)
     }
 
-    /// Whether [`Self::tick`] at `now` would change anything, so a caller
-    /// holding the state behind change detection can ask before it writes.
-    #[must_use]
-    pub fn due(&self, now: f64) -> bool {
-        match (self.queue.front(), self.since) {
-            (None, since) => since.is_some(),
-            (Some(_), None) => true,
-            (Some(front), Some(at)) => now - at >= front.lasts(),
-        }
-    }
-
-    /// Runs the clock to `now`, in seconds on any clock that only moves
-    /// forward: starts the front reveal's time the first time it is asked,
-    /// and lets it go once its time is up. Returns whether the reveal
-    /// standing changed.
-    pub fn tick(&mut self, now: f64) -> bool {
-        let Some(front) = self.queue.front() else {
-            self.since = None;
-            return false;
-        };
-        match self.since {
-            None => {
-                self.since = Some(now);
-                false
-            }
-            Some(at) if now - at >= front.lasts() => {
-                self.queue.pop_front();
-                self.since = self.queue.front().map(|_| now);
-                true
-            }
-            Some(_) => false,
-        }
-    }
-
     /// The player put the standing reveal away: the next one, if any, stands
-    /// up on the next [`Self::tick`]. Returns whether there was one.
+    /// up in its place. The only way a reveal goes (owner, 10.10.2026: it
+    /// stays until the player reacts). Returns whether there was one.
     pub fn dismiss(&mut self) -> bool {
-        self.since = None;
         self.queue.pop_front().is_some()
     }
 }

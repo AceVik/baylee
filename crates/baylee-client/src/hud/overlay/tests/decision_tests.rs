@@ -239,6 +239,44 @@ fn a_discard_and_the_cards_to_the_bottom_fold_like_a_target_question() {
     }
 }
 
+/// A question answered while its sheet is folded takes its pill with it —
+/// red when the pill of a resolved spell's target question stayed on the
+/// table turns later (the owner's beta.6 report: Path to Exile's pill
+/// outlived the spell).
+#[test]
+fn a_folded_questions_pill_goes_when_the_question_does() {
+    let (duel, _) = targeting();
+    let mut app = bar_of(duel);
+    app.update();
+    app.world_mut().resource_mut::<Duel>().fold_decision();
+    app.update();
+    app.update();
+    assert_eq!(count::<ledge::drawer::SheetPill>(&mut app), 1, "folded");
+
+    {
+        let mut duel = app.world_mut().resource_mut::<Duel>();
+        duel.interaction = Some(baylee_client_core::Interaction::new(
+            Pending::Priority {
+                player: PlayerId::new(0),
+                legal: Box::default(),
+            },
+            PlayerId::new(0),
+        ));
+        let view = duel.view.as_mut().expect("a view");
+        view.stack.clear();
+        view.targeting = None;
+        view.seq += 1;
+    }
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(
+        count::<ledge::drawer::SheetPill>(&mut app),
+        0,
+        "the pill went with its question"
+    );
+}
+
 /// The fold is the question's: a new snapshot (the game moved on) opens the
 /// next sheet unfolded by itself.
 #[test]

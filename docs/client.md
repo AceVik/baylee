@@ -8707,15 +8707,17 @@ from 0 (a question asked again) tells nothing and marks nothing.
 
 **A frame's reveals by one seat are one picture**; reveals by different seats
 queue, oldest first, at most `WAITING_CAP` (6) waiting, and the oldest
-waiting one is let go past that (never the one standing). Each stands
-`SHOW_SECS` (7 s), 1.5 s more for each card past the first, at most 15 s,
-counted from when it stood up, on the game's `Time` (so `dev-control`'s
-`/pause` holds it). It does **not** go when this seat answers something: the
+waiting one is let go past that (never the one standing). **It has no
+clock** (owner, 10.10.2026: *"must not close by itself: it stays until the
+player reacts"*; it stood 7 to 15 s before): only `Reveals::dismiss`, the
+player's own answer, takes it away. It does **not** go when this seat answers something: the
 autopilot and standing orders answer for it, and an opponent's tutor on their
 own turn would close on the pass that follows it before anybody saw it.
 
-`hud::revealed` draws `Reveals::current` and nothing else: a sheet of the
-preview slip's parchment, centred under `TOP_CLEAR`, with "Bo reveals" (and
+`hud::revealed` draws `Reveals::current` and nothing else: since 10.10.2026
+the decision sheet's paper in the decision sheet's place, grown out of the
+shelf (`ledge::drawer::root_node`, open at its foot, its shadow upward, like
+the cast's target sheet), with "Bo reveals" (and
 "N more to come" while others wait) over the cards. Each card is drawn the
 way a log link previews it (#300), from the printing the line named
 (`LogLink::art`, `ArtSize::Normal`) and not from an object on the table,
@@ -8726,14 +8728,16 @@ report corner and the hand zone, in one row where that costs nothing. Nothing
 is drawn on a print, and the sheet does not move, so `reduce_motion` has
 nothing to hold.
 
-It stands on the log's rung (`Z_LOG`), a sheet only showing the game: a zone
-dialog answering a question stands over it, the hover preview over that, and
+It stands on the log's rung (`Z_LOG`), a sheet only showing the game. While a
+decision sheet of this seat's own is asked (`drawer::sheet_asked`) the reveal
+steps aside, still queued, and stands up again once the question is answered.
+A zone dialog answering a question stands over it, the hover preview over that, and
 the band across the window lets the pointer through. It takes no key but
 `Esc`, which puts it away first among the standing panels, one reveal a
 press (docs/keyboard-map.md), and a press on the sheet does the same
 (`MenuAction::DismissReveal`). Nothing is held up over the end screen, which
 shows the whole log. Tests: `reveals::tests` (the edge, the filter, the
-queue, the clock, the fit), `log_feed_tests::another_seat_s_reveal_…` (the
+queue, no clock, the fit), `log_feed_tests::another_seat_s_reveal_…` (the
 join through `poll_host`), `hud::revealed::tests` (the sheet), and
 `input::tests::menu` (`Esc`, and a question in front of a reveal answered
 by its own key).
