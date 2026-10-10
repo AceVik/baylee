@@ -110,8 +110,9 @@ pub(crate) enum PlayPress {
     Life(i32),
     /// The sheet: free mulligans up or down.
     Mulligans(bool),
-    /// The sheet: a clock, by its place in the gateway's list.
-    Clock(usize),
+    /// The sheet's clock stepper: the next slower clock in the gateway's
+    /// list (`true`) or the next faster one.
+    StepClock(bool),
     /// The sheet's primary: Open table, or Apply over a room.
     Open,
     /// Close a sheet without doing anything.
@@ -1144,7 +1145,7 @@ fn table_row(
     if let Some(host) = &game.host {
         meta.push(host.clone());
     }
-    if let Some(format) = model::host_format(game) {
+    if let Some(format) = model::table_format(game) {
         meta.push(shelf::format_label(lang, format));
     }
     meta.push(Phrase::RulesLife.fill(lang, &[&game.setup.starting_life.to_string()]));
@@ -1207,7 +1208,7 @@ fn table_row(
     if phone
         && !mine
         && model::format_warning(lang, mine_format, game).is_some()
-        && let Some(theirs) = model::host_format(game)
+        && let Some(theirs) = model::table_format(game)
     {
         let warn = parts::badge_with(
             commands,
@@ -1758,18 +1759,27 @@ fn create_sheet(
 
     // The clock: the gateway's list, the first the default (M-4). A room's
     // clock is set when it opens, so Apply shows it and offers no change.
+    // Fourteen paces (owner, 10.10.2026) are a stepper, not a row of
+    // segments: a row that long fits no phone. It keeps room for the widest
+    // label, so the `+` stands still while the player steps through them.
     if !lobby.offline() && !editing {
         body.push(label(commands, Phrase::SheetClock.text(lang)));
         let clocks = lobby.clocks();
         let labels: Vec<String> = clocks.iter().map(|c| model::clock_label(lang, c)).collect();
-        let items: Vec<&str> = labels.iter().map(String::as_str).collect();
+        let at_clock = draft.clock.min(clocks.len().saturating_sub(1));
+        let widest = labels
+            .iter()
+            .max_by_key(|l| l.chars().count())
+            .cloned()
+            .unwrap_or_default();
         let at = body.len();
-        body.push(controls::segmented(
+        body.push(controls::stepper_room(
             commands,
             kit,
-            &items,
-            draft.clock.min(clocks.len().saturating_sub(1)),
-            |i| Press::Play(PlayPress::Clock(i)),
+            labels.get(at_clock).map_or("", String::as_str),
+            &widest,
+            Press::Play(PlayPress::StepClock(false)),
+            Press::Play(PlayPress::StepClock(true)),
         ));
         orders::items_of(commands, body[at], &orders::CREATE, "clock");
         if let Some(clock) = clocks.get(draft.clock) {
@@ -1998,9 +2008,10 @@ impl PlayPress {
                     };
                 }
             }
-            PlayPress::Clock(at) => {
+            PlayPress::StepClock(later) => {
+                let count = state.lobby.clocks().len();
                 if let Some((draft, _)) = state.play.sheet.as_mut() {
-                    draft.clock = at;
+                    draft.clock = model::step_clock(draft.clock, count, later);
                 }
             }
             PlayPress::Open => {

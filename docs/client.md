@@ -9944,6 +9944,24 @@ The host can set 2–8 chairs, teams, five AI profiles, room name, optional pass
 permanents per seat. Commander, 20-life duel and five-basic-land starting templates
 populate these settings. These are starting-state templates, not deck legality
 formats. Planechase is labelled unavailable until its actual rules exist.
+
+A fourth template, **Mixed** (owner, 10.10.2026), opens a table for decks of
+different formats (`RoomSetup.format = mixed`, `docs/protocol.md` §"A mixed
+table"): 20 life for every seat unless Adjust or a seat's own life says
+otherwise, no format warning before a Join (`play::format_warning`), every
+seat's deck marked as fitting (`play::fits`), the Commander chip admitting the
+table, and *Mixed*/*Gemischt* where the list, the room's title and its rules
+rail name a table's format (`play::table_format`, `shelf::format_label`).
+Edit rules over a mixed room reads it back as Mixed, and Apply keeps or clears
+it with the template chosen.
+
+The sheet's clock (create only) is a stepper over the gateway's fourteen
+clocks (`GET /auth/config`, `docs/protocol.md` §"Which clock a table plays
+at"), not a segmented row: fourteen labels fit no phone. It keeps room for the
+widest label (`controls::stepper_room`), stops at both ends
+(`play::step_clock`), and its buttons are not a radio group for the arrows.
+Every clock this build knows has a label and a help line in each language;
+one it does not know shows the wire's name and the gateway's blurb.
 The earliest joined remaining human inherits the host role when the host leaves.
 
 The login's stone frame, Baylee and lantern positions no longer receive pointer

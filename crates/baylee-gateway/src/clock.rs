@@ -26,12 +26,14 @@ pub struct Preset {
 
 /// The clocks a room may pick by name.
 ///
-/// Five different games rather than five points on a slider. The first is
-/// the default, the clock a room that names none plays: `classic`, three
-/// minutes a decision (owner, 08.10.2026), the same number as
-/// [`HouseRules::default`]. `casual` was first until then, and every table
-/// played at its ten minutes; it is still offered, as is every other clock
-/// that was.
+/// The first is the default, the clock a room that names none plays:
+/// `classic`, three minutes a decision (owner, 08.10.2026), the same number
+/// as [`HouseRules::default`]. `casual` was first until then, and every
+/// table played at its ten minutes; it is still offered, as is every other
+/// clock that was. After the default they run from the fastest to the
+/// slowest, then `untimed` (owner, 10.10.2026: many more paces, from fifteen
+/// seconds to an hour). A name is never taken back or given another pace:
+/// rooms, rematches and older clients name them.
 pub const PRESETS: &[Preset] = &[
     Preset {
         name: "classic",
@@ -39,9 +41,29 @@ pub const PRESETS: &[Preset] = &[
         blurb: "three minutes a decision; the default",
     },
     Preset {
-        name: "casual",
-        decision_timeout_secs: 600,
-        blurb: "ten minutes a decision",
+        name: "bullet",
+        decision_timeout_secs: 15,
+        blurb: "fifteen seconds a decision",
+    },
+    Preset {
+        name: "blitz",
+        decision_timeout_secs: 30,
+        blurb: "thirty seconds a decision",
+    },
+    Preset {
+        name: "rapid",
+        decision_timeout_secs: 45,
+        blurb: "forty-five seconds a decision",
+    },
+    Preset {
+        name: "quick",
+        decision_timeout_secs: 60,
+        blurb: "one minute a decision",
+    },
+    Preset {
+        name: "brisk",
+        decision_timeout_secs: 90,
+        blurb: "ninety seconds a decision",
     },
     Preset {
         name: "standard",
@@ -49,9 +71,34 @@ pub const PRESETS: &[Preset] = &[
         blurb: "two minutes a decision",
     },
     Preset {
-        name: "blitz",
-        decision_timeout_secs: 30,
-        blurb: "thirty seconds a decision",
+        name: "relaxed",
+        decision_timeout_secs: 300,
+        blurb: "five minutes a decision",
+    },
+    Preset {
+        name: "casual",
+        decision_timeout_secs: 600,
+        blurb: "ten minutes a decision",
+    },
+    Preset {
+        name: "leisurely",
+        decision_timeout_secs: 900,
+        blurb: "fifteen minutes a decision",
+    },
+    Preset {
+        name: "patient",
+        decision_timeout_secs: 1200,
+        blurb: "twenty minutes a decision",
+    },
+    Preset {
+        name: "unhurried",
+        decision_timeout_secs: 1800,
+        blurb: "half an hour a decision",
+    },
+    Preset {
+        name: "marathon",
+        decision_timeout_secs: 3600,
+        blurb: "an hour a decision",
     },
     Preset {
         // Not the same as a very large number: the engine reads zero as "no
@@ -138,7 +185,7 @@ pub fn named(name: &str) -> Option<&'static Preset> {
 /// What a room asked for, resolved against the presets and the bounds.
 ///
 /// A name picks a row; the two numbers then override whatever it gave, so
-/// "blitz but I want longer to come back" needs no sixth preset and no
+/// "blitz but I want longer to come back" needs no extra preset and no
 /// `custom` sentinel. Nothing named and nothing given is [`PRESETS`]`[0]`,
 /// the default.
 ///
@@ -220,6 +267,48 @@ mod tests {
         }
     }
 
+    /// Many paces (owner, 10.10.2026): after the default they run from
+    /// fifteen seconds to an hour, no two alike, and `untimed` closes the
+    /// list. A menu with two rows of one pace would make the client's
+    /// `table_clock_label`, which finds a table's clock by its numbers,
+    /// name a room after the wrong one.
+    #[test]
+    fn the_paces_run_from_fifteen_seconds_to_an_hour_each_once() {
+        let names: Vec<&str> = PRESETS.iter().map(|p| p.name).collect();
+        assert_eq!(
+            names,
+            [
+                "classic",
+                "bullet",
+                "blitz",
+                "rapid",
+                "quick",
+                "brisk",
+                "standard",
+                "relaxed",
+                "casual",
+                "leisurely",
+                "patient",
+                "unhurried",
+                "marathon",
+                "untimed",
+            ]
+        );
+        let timed: Vec<u32> = PRESETS[1..PRESETS.len() - 1]
+            .iter()
+            .map(|p| p.decision_timeout_secs)
+            .collect();
+        assert_eq!(
+            timed,
+            [15, 30, 45, 60, 90, 120, 300, 600, 900, 1200, 1800, 3600]
+        );
+        let mut paces: Vec<u32> = PRESETS.iter().map(|p| p.decision_timeout_secs).collect();
+        paces.sort_unstable();
+        paces.dedup();
+        assert_eq!(paces.len(), PRESETS.len(), "two clocks of one pace");
+        assert!(PRESETS.iter().all(|p| !p.blurb.is_empty()));
+    }
+
     #[test]
     fn a_name_picks_its_row_and_a_number_overrides_it() {
         let blitz = resolve(Some("blitz"), None, None, 180).expect("blitz");
@@ -264,7 +353,7 @@ mod tests {
 
     #[test]
     fn an_unknown_name_says_which_ones_there_are() {
-        let refused = resolve(Some("bullet"), None, None, 180).expect_err("no such clock");
+        let refused = resolve(Some("glacial"), None, None, 180).expect_err("no such clock");
         for preset in PRESETS {
             assert!(
                 refused.contains(preset.name),
