@@ -18,7 +18,7 @@ use std::{io::Write, path::Path, sync::Arc};
 
 /// The theme every request of the next renders sings, and the prefix their
 /// files are named with.
-static THEME: Mutex<(Theme, &str)> = Mutex::new((Theme::Epic, ""));
+static THEME: Mutex<(Theme, &str)> = Mutex::new((Theme::Thorn, ""));
 
 fn with(theme: Theme, prefix: &'static str) {
     *THEME.lock().expect("one thread") = (theme, prefix);
@@ -122,10 +122,10 @@ fn main() -> std::io::Result<()> {
     // The four themes, each at the table (40 s: intimate, the strings
     // swelling in, the horns' statement) and through every scene.
     for (theme, name) in [
-        (Theme::Ballad, "theme-A-ballad"),
-        (Theme::Dance, "theme-B-slavic-dance"),
-        (Theme::Epic, "theme-C-epic-heroic"),
-        (Theme::Jig, "theme-D-medieval-jig"),
+        (Theme::Ember, "theme-A-ballad"),
+        (Theme::Glass, "theme-B-slavic-dance"),
+        (Theme::Thorn, "theme-C-epic-heroic"),
+        (Theme::Tide, "theme-D-medieval-jig"),
     ] {
         with(theme, "");
         render(dir, name, 42.0, &vec![(0.0, table(0.05))])?;
@@ -179,7 +179,7 @@ fn main() -> std::io::Result<()> {
     eprintln!("themes rendered in {:?}", started.elapsed());
     // The scenes as before, in the default theme: the "after" half of the
     // before/after pairs.
-    with(Theme::Epic, "after-");
+    with(Theme::Thorn, "after-");
     scenes(dir)
 }
 

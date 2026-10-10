@@ -211,7 +211,6 @@ struct Voice {
     /// Frames of silence before it begins.
     wait: u32,
     /// What [`Orchestra::release`] lets go by; 0 is nothing.
-    tag: u8,
     position: f64,
     rate: f64,
     age: u32,
@@ -439,7 +438,6 @@ impl Orchestra {
         self.voices.push(Voice {
             instrument,
             wait: (touch.late.max(0.0) * RATE as f32) as u32,
-            tag: 0,
             position: 0.0,
             rate: sample.rate(pitch),
             age: 0,
@@ -452,26 +450,11 @@ impl Orchestra {
         });
     }
 
-    /// Holds recording `instrument` at `pitch` until [`Self::release`] lets
-    /// go of `tag`.
-    pub(super) fn held(&mut self, instrument: usize, pitch: u8, gain: f32, touch: Touch, tag: u8) {
-        let before = self.voices.len();
-        self.note(instrument, pitch, 0.0, gain, touch);
-        if self.voices.len() > before
-            && let Some(voice) = self.voices.last_mut()
-        {
-            voice.hold = u32::MAX / 2;
-            voice.tag = tag;
-        }
-    }
-
-    /// Lets every voice held under `tag` go into its release now.
-    pub(super) fn release(&mut self, tag: u8) {
+    /// Release current musical notes smoothly while preserving the room.
+    pub(super) fn release_notes(&mut self) {
         for voice in &mut self.voices {
-            if voice.tag == tag {
-                voice.hold = voice.hold.min(voice.age);
-                voice.tag = 0;
-            }
+            voice.hold = voice.hold.min(voice.age);
+            voice.release = (0.7 * RATE as f32) as u32;
         }
     }
 

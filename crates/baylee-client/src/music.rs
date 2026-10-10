@@ -239,7 +239,7 @@ fn perform(
 fn seed() -> u8 {
     web_time::SystemTime::now()
         .duration_since(web_time::UNIX_EPOCH)
-        .map_or(0, |since| (since.as_secs() % 4) as u8)
+        .map_or(0, |since| (since.as_secs() % 5) as u8)
 }
 
 /// Below this gain the music is inaudible: a sink that has faded to it and
@@ -570,7 +570,7 @@ mod tests {
                 DuelPhase::Finished,
                 None,
                 Some(&duel),
-                music::MusicTheme::Epic,
+                music::MusicTheme::Thorn,
                 &mut Memory::default(),
                 0.1,
             );

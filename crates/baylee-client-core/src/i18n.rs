@@ -5949,17 +5949,19 @@ messages! {
     RowMusic { en: "Music", de: "Musik" },
     /// Audio: the music's theme.
     RowMusicTheme { en: "Music theme", de: "Musik-Thema" },
-    /// Audio: what the four themes are.
-    HelpMusicTheme { en: "Ballad: a lyrical folk song · Dance: a driving minor dance · Epic: broad and heroic · Jig: a playful medieval jig · Rotating: a different one each game. It changes at the next bar, no restart", de: "Ballade: ein lyrisches Volkslied · Tanz: ein treibender Moll-Tanz · Episch: weit und heroisch · Jig: eine verspielte mittelalterliche Gigue · Wechselnd: jedes Spiel ein anderes. Es wechselt mit dem n\u{e4}chsten Takt, ohne Neustart" },
-    /// Audio: theme A.
-    MusicThemeBallad { en: "Ballad", de: "Ballade" },
-    /// Audio: theme B.
-    MusicThemeDance { en: "Dance", de: "Tanz" },
-    /// Audio: theme C.
-    MusicThemeEpic { en: "Epic", de: "Episch" },
-    /// Audio: theme D.
-    MusicThemeJig { en: "Jig", de: "Jig" },
-    /// Audio: a different theme each game.
+    /// Audio: five complete original suites and automatic rotation.
+    HelpMusicTheme { en: "Five original suites in B♭ Dorian: Ember Path (4/4), Moon Glass (3/4), Thorn Crown (4/4), Mist Harbour (6/8), Starfall (5/4). Rotating changes suite each game. Transitions flow into the next musical pulse", de: "Fünf eigene Suiten in B♭-Dorisch: Glutpfad (4/4), Mondglas (3/4), Dornenkrone (4/4), Nebelhafen (6/8), Sternfall (5/4). Wechselnd wählt pro Spiel eine andere Suite. Übergänge fließen in den nächsten musikalischen Puls" },
+    /// Audio: suite one.
+    MusicThemeEmber { en: "Ember Path", de: "Glutpfad" },
+    /// Audio: suite two.
+    MusicThemeGlass { en: "Moon Glass", de: "Mondglas" },
+    /// Audio: suite three.
+    MusicThemeThorn { en: "Thorn Crown", de: "Dornenkrone" },
+    /// Audio: suite four.
+    MusicThemeTide { en: "Mist Harbour", de: "Nebelhafen" },
+    /// Audio: suite five.
+    MusicThemeStar { en: "Starfall", de: "Sternfall" },
+    /// Audio: a different suite each game.
     MusicThemeRotating { en: "Rotating", de: "Wechselnd" },
     /// Audio: the music's volume.
     HelpMusic { en: "The lobby's own score; every lobby screen has its switch", de: "Die eigene Musik der Lobby; jeder Lobby-Bildschirm hat ihren Schalter" },

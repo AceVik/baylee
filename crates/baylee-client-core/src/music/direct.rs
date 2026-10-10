@@ -167,7 +167,7 @@ impl ScoreRequest {
             | u64::from(self.spells & 15) << 29
             | u64::from(self.arrivals & 15) << 33
             | u64::from(self.turn_seat & 7) << 37
-            | u64::from(self.theme as u8 & 3) << 40
+            | u64::from(self.theme as u8 & 7) << 40
     }
 
     /// The request a word holds.

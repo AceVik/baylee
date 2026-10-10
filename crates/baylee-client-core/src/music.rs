@@ -14,46 +14,50 @@ mod direct;
 mod orchestra;
 mod score;
 pub use direct::{Ending, Memory, Place, Scene, ScoreRequest, direct};
-pub use score::{ScoreControl, Theme, Tune};
+pub use score::{Movement, Position, ScoreControl, Theme, Tune};
 
-/// The theme the player chose in Settings → Audio, per device: one of the
-/// four, or a different one each game.
+/// The complete suite chosen in Settings → Audio, remembered per device.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MusicTheme {
-    /// A: the ballad.
-    Ballad,
-    /// B: the dance.
-    Dance,
-    /// C: the epic.
-    Epic,
-    /// D: the jig.
-    Jig,
-    /// A different theme each game (the default, owner 09.10.2026: the
-    /// player hears all four before choosing one).
+    /// Glutpfad, in four.
+    #[serde(alias = "ballad")]
+    Ember,
+    /// Mondglas, in three.
+    #[serde(alias = "dance")]
+    Glass,
+    /// Dornenkrone, in four.
+    #[serde(alias = "epic")]
+    Thorn,
+    /// Nebelhafen, in compound duple metre.
+    #[serde(alias = "jig")]
+    Tide,
+    /// Sternfall, in five.
+    Star,
+    /// A different suite each game.
     #[default]
     Rotating,
 }
-
 impl MusicTheme {
-    /// Every choice, in the order the settings show them.
-    pub const ALL: [Self; 5] = [
-        Self::Ballad,
-        Self::Dance,
-        Self::Epic,
-        Self::Jig,
+    /// Every choice, in settings order.
+    pub const ALL: [Self; 6] = [
+        Self::Ember,
+        Self::Glass,
+        Self::Thorn,
+        Self::Tide,
+        Self::Star,
         Self::Rotating,
     ];
-
-    /// The theme this choice sings at the `turn`-th rotation.
+    /// The suite at this rotation.
     #[must_use]
     pub const fn pick(self, turn: u8) -> Theme {
         match self {
-            Self::Ballad => Theme::Ballad,
-            Self::Dance => Theme::Dance,
-            Self::Epic => Theme::Epic,
-            Self::Jig => Theme::Jig,
-            Self::Rotating => Theme::ALL[(turn % 4) as usize],
+            Self::Ember => Theme::Ember,
+            Self::Glass => Theme::Glass,
+            Self::Thorn => Theme::Thorn,
+            Self::Tide => Theme::Tide,
+            Self::Star => Theme::Star,
+            Self::Rotating => Theme::ALL[(turn % 5) as usize],
         }
     }
 }

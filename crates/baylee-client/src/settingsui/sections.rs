@@ -384,10 +384,11 @@ pub(crate) fn audio(out: &mut Out, view: &View) {
     let names = labels(
         lang,
         &[
-            Phrase::MusicThemeBallad,
-            Phrase::MusicThemeDance,
-            Phrase::MusicThemeEpic,
-            Phrase::MusicThemeJig,
+            Phrase::MusicThemeEmber,
+            Phrase::MusicThemeGlass,
+            Phrase::MusicThemeThorn,
+            Phrase::MusicThemeTide,
+            Phrase::MusicThemeStar,
             Phrase::MusicThemeRotating,
         ],
     );
