@@ -1162,7 +1162,15 @@ fn table_row(
         .filter(|s| s.taken || s.kind == SeatKind::Ai)
         .count();
     let state_word = if game.state == "playing" {
-        Phrase::PlayPlaying.text(lang).to_string()
+        // How long it has run, on every frame (a phone has no meta line).
+        match game.running_secs {
+            Some(secs) => format!(
+                "{} \u{b7} {}",
+                Phrase::PlayPlaying.text(lang),
+                model::running_label(lang, secs)
+            ),
+            None => Phrase::PlayPlaying.text(lang).to_string(),
+        }
     } else {
         Phrase::PlaySeats.fill(lang, &[&taken.to_string(), &game.seats.len().to_string()])
     };

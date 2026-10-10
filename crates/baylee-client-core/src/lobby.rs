@@ -359,6 +359,10 @@ pub struct GameSummary {
     /// The pace it plays at; `None` from a gateway that does not say.
     #[serde(default)]
     pub clock: Option<play::TableClock>,
+    /// How long a running table had been going when the gateway answered,
+    /// in seconds; `None` for a waiting room or a gateway that does not say.
+    #[serde(default)]
+    pub running_secs: Option<u64>,
 }
 
 impl GameSummary {

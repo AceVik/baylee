@@ -5154,6 +5154,10 @@ messages! {
     // ---- play + room (WP2) -----------------------------------------------
     /// A clock's span in minutes. `{0}` minutes.
     ClockMinutes { en: "{0} min", de: "{0} Min." },
+    /// How long a running table has gone, under an hour. `{0}` minutes.
+    RunningMinutes { en: "{0} min", de: "{0} Min." },
+    /// How long a running table has gone. `{0}` hours, `{1}` minutes.
+    RunningHours { en: "{0} h {1} min", de: "{0} Std. {1} Min." },
     /// A clock's span in seconds. `{0}` seconds.
     ClockSeconds { en: "{0} s", de: "{0} s" },
     /// The `classic` clock's name: three minutes, the default.

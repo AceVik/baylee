@@ -681,6 +681,7 @@ impl Offline {
             rematch: false,
             setup: room.setup.clone(),
             clock: None,
+            running_secs: None,
             seats: room
                 .chairs
                 .iter()

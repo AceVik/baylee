@@ -2813,6 +2813,14 @@ One game in that page reads:
                "deck": "", "ready": true } ] }
 ```
 
+A running table (`"state": "playing"`) also says `"running_secs"`: how long it
+has been going, in seconds as of this answer, counted from the moment its
+seats were decided and its engine ordered (`LobbyGame::started_at`); a waiting
+room says `null`. A span rather than the start instant, so a client with a
+wrong clock still shows the right number. Additive: a client that predates it
+ignores it, one that meets a gateway without it shows no duration. The client
+writes it beside "playing" in whole minutes (`12 min`, `1 h 5 min`).
+
 Never an account id — a `player` is a handle (`Alice#af03`), and `you` / `yours` answer
 "is that me" without the listing having to carry anyone's account. `kind` is
 `"human"` or `"ai"`, and `ai` names a difficulty from `AIProfile::NAMED`
