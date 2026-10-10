@@ -475,6 +475,38 @@ fn four_card_choices_read_as_four_different_decisions() {
         line(ChoicePrompt::Generic, 2, 2, Lang::De),
         "Wähle 2 Karten"
     );
+
+    // Kudzu's move (09.10.): says what is chosen, never "up to 1 card".
+    let host = ChoicePrompt::NewHost { aura: obj(9) };
+    assert_eq!(
+        line(host, 0, 1, Lang::En),
+        "Choose up to 1 permanent to move the Aura onto"
+    );
+    assert_eq!(
+        line(host, 0, 1, Lang::De),
+        "Wähle bis zu 1 bleibende Karte, an die die Aura wandert"
+    );
+}
+
+/// Entering as a copy chooses and does not target (09.10.: Vesuvan
+/// Doppelganger's question said "target").
+#[test]
+fn a_copy_choice_is_not_called_a_target() {
+    for lang in Lang::ALL {
+        let i = interaction(Pending::ChooseTargets {
+            player: me(),
+            options: vec![obj(2)],
+            player_options: Vec::new(),
+            min: 0,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::CopyOf,
+        });
+        let line = i.prompt().headline(lang, Turn::Mine, None, false);
+        assert!(
+            !line.to_lowercase().contains("target") && !line.contains("Ziel"),
+            "{line}"
+        );
+    }
 }
 
 #[test]

@@ -701,7 +701,7 @@ impl<L: CardLookup> Engine<L> {
             player_options: Vec::new(),
             min: 0,
             max: 1,
-            reason: TargetPrompt::Targets,
+            reason: TargetPrompt::CopyOf,
         };
         self.awaiting_answer = true;
         true

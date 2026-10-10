@@ -863,6 +863,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounCardFromGraveyard,
             Phrase::NounCardsFromGraveyard,
         ),
+        ChoicePrompt::NewHost { .. } => (Phrase::NounNewHostFor, Phrase::NounNewHostsFor),
         ChoicePrompt::LookAtHand
         | ChoicePrompt::Delve
         | ChoicePrompt::OneOfType { .. }
@@ -907,6 +908,18 @@ fn cards_line(
         .fill(lang, &[&pile.to_string(), &of.to_string()]);
         return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
     }
+    // An Aura's new host names the Aura (09.10.: Kudzu asked for "up to 1
+    // card").
+    if let ChoicePrompt::NewHost { aura } = reason {
+        let aura = name(aura).unwrap_or_else(|| Phrase::NounTheAura.text(lang).to_owned());
+        let noun = Phrase::counted(
+            usize::from(max),
+            Phrase::NounNewHostFor,
+            Phrase::NounNewHostsFor,
+        )
+        .fill(lang, &[&aura]);
+        return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
+    }
     if let ChoicePrompt::BlockWith { blocker } = reason
         && let Some(blocker) = name(blocker)
     {
@@ -949,6 +962,14 @@ fn targets_line(
 ) -> String {
     match reason {
         TargetPrompt::Convoke => Phrase::TapToHelpPay.text(lang).to_string(),
+        // Entering as a copy chooses; it does not target.
+        TargetPrompt::CopyOf => choose_line(
+            lang,
+            Phrase::NounPermanentToCopy,
+            Phrase::NounPermanentsToCopy,
+            min,
+            max,
+        ),
         TargetPrompt::Targets => {
             choose_line(lang, Phrase::NounTarget, Phrase::NounTargets, min, max)
         }

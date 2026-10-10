@@ -2199,6 +2199,28 @@ messages! {
         en: "permanents to leave tapped",
         de: "bleibende Karten, die getappt bleiben",
     },
+    /// permanent to move {0} onto (an Aura's new host, Kudzu): not a target
+    NounNewHostFor {
+        en: "permanent to move {0} onto",
+        de: "bleibende Karte, an die {0} wandert",
+    },
+    /// permanents to move {0} onto
+    NounNewHostsFor {
+        en: "permanents to move {0} onto",
+        de: "bleibende Karten, an die {0} wandert",
+    },
+    /// The Aura of a new-host question, where it cannot be named.
+    NounTheAura { en: "the Aura", de: "die Aura" },
+    /// permanent to copy (enter as a copy): a choice, not a target
+    NounPermanentToCopy {
+        en: "permanent to copy",
+        de: "bleibende Karte, die kopiert wird",
+    },
+    /// permanents to copy
+    NounPermanentsToCopy {
+        en: "permanents to copy",
+        de: "bleibende Karten, die kopiert werden",
+    },
     /// permanent to untap
     NounPermanentToUntap {
         en: "permanent to untap",
