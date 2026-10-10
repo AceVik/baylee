@@ -1567,6 +1567,7 @@ impl RoomPress {
             }
             RoomPress::SetUpModel => {
                 state.chair_sheet = None;
+                state.hosted_sheet = false;
                 state.set_settings_section(
                     baylee_client_core::settings_map::Section::LanguageModels,
                 );
