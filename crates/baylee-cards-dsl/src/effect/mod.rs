@@ -994,6 +994,20 @@ pub enum Effect {
         /// What may be sacrificed.
         filter: &'static Filter,
     },
+    /// "Sacrifice a [filter]. If you sacrifice a [`if_it_was`] this way,
+    /// [then]." (Serendib Djinn: a land, and 3 damage to you if it was an
+    /// Island.) You choose one permanent you control matching `filter` and
+    /// sacrifice it; nothing to choose, nothing happens (CR 609.3). `then`
+    /// runs only when the sacrificed permanent, as it last existed on the
+    /// battlefield (CR 608.2h), matched `if_it_was`.
+    SacrificeOneThen {
+        /// What is sacrificed.
+        filter: &'static Filter,
+        /// What it must have been for `then` to happen.
+        if_it_was: &'static Filter,
+        /// What happens if it was.
+        then: &'static [Effect],
+    },
     /// Each player in `who` returns a permanent they control matching the
     /// filter to its owner's hand (their choice; the Ravnica bounce lands —
     /// "when this land enters, return a land you control to its owner's

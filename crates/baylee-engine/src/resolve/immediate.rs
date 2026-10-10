@@ -233,6 +233,7 @@ pub(super) fn exec_immediate(
         | Effect::RevealHandDiscard { .. }
         | Effect::LookAtChosenHand
         | Effect::SacrificeFilter { .. }
+        | Effect::SacrificeOneThen { .. }
         | Effect::ReturnChosenToHand { .. }
         | Effect::UntapChosen { .. }
         | Effect::AllGraveyardCreaturesToBattlefield

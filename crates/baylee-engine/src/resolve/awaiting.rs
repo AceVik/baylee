@@ -358,6 +358,14 @@ pub enum AwaitingOp {
         /// Players still to choose.
         remaining: Vec<PlayerId>,
     },
+    /// After `SacrificeOneThen`: sacrifice the chosen permanent, and `then`
+    /// if it matched `if_it_was` as it last was on the battlefield.
+    SacrificeOneThen {
+        /// What it must have been.
+        if_it_was: &'static baylee_cards_dsl::Filter,
+        /// What happens if it was.
+        then: &'static [baylee_cards_dsl::Effect],
+    },
     /// After `SacrificeAmountOrLose`: sacrifice every chosen permanent in
     /// one event (Lich).
     SacrificeAllChosen,

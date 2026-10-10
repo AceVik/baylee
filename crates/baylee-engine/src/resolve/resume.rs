@@ -678,6 +678,34 @@ pub(super) fn resume_inner(
                 );
             }
         }
+        AwaitingOp::SacrificeOneThen { if_it_was, then } => {
+            if let Some(&victim) = chosen.first() {
+                // Asked before it moves: what it was on the battlefield
+                // (CR 608.2h), not the card it becomes in the graveyard.
+                let was = state.object(victim).is_some_and(|o| {
+                    eval::matches_with_context(
+                        if_it_was,
+                        state,
+                        o,
+                        res.controller,
+                        res.rule_context(),
+                    )
+                });
+                let owner = state.object(victim).map_or(res.controller, |o| o.owner);
+                if let Some(obj) = state.object_mut(victim) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    victim,
+                    ZoneLocation::Graveyard(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                if was && let Some(pending) = run_nested(state, res, then) {
+                    return next_choice(state, res, since, pending);
+                }
+            }
+        }
         AwaitingOp::SacrificeAllChosen => sacrifice_together(state, chosen),
         AwaitingOp::ReturnChosen { filter, remaining } => {
             if let Some(&returned) = chosen.first() {

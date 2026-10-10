@@ -66,7 +66,10 @@
 /// coin; if you lose the flip, …"); `verb_tests::both_flip_branches_are_visited`.
 /// Raised 32 → 33 for `WhenTargetDiesThisTurn::effects` (Sandals of
 /// Abdallah); `verb_tests::flip_coin_and_dies_this_turn_bodies_are_visited`.
-const NESTING_FIELDS: usize = 33;
+/// Raised 33 → 34 for `SacrificeOneThen::then` (Serendib Djinn's "if you
+/// sacrifice an Island this way");
+/// `verb_tests::sacrifice_one_then_body_is_visited`.
+const NESTING_FIELDS: usize = 34;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -104,7 +107,8 @@ const NESTING_FIELDS: usize = 33;
 /// `FlipCoin` is the twenty-eighth (2026-10-10): one new carrier, two
 /// branches. `WhenTargetDiesThisTurn` (Sandals of Abdallah's delayed
 /// "destroy this artifact") is the twenty-ninth (2026-10-10).
-const CARRYING_VARIANTS: usize = 29;
+/// `SacrificeOneThen` (Serendib Djinn) is the thirtieth (2026-10-10).
+const CARRYING_VARIANTS: usize = 30;
 
 /// The floor under the reader itself.
 ///

@@ -925,6 +925,25 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 total: None,
             })
         }
+        Effect::SacrificeOneThen {
+            filter,
+            if_it_was,
+            then,
+        } => {
+            let options = chosen::options(state, you, filter, you, res.source);
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::SacrificeOneThen { if_it_was, then });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            })
+        }
         Effect::ReturnChosenToHand { who, filter } => {
             let mut players = players_of(who, state, you, res);
             // `min: 1` because the printed sentence is an instruction and

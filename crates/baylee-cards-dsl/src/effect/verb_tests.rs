@@ -141,6 +141,24 @@ fn flip_coin_and_dies_this_turn_bodies_are_visited() {
     assert!(drew && sacrificed && destroyed);
 }
 
+/// "If you sacrifice an Island this way, this creature deals 3 damage to
+/// you" (Serendib Djinn) is a body the walk goes into.
+#[test]
+fn sacrifice_one_then_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::SacrificeOneThen {
+        filter: &crate::Filter::LAND,
+        if_it_was: &crate::Filter::LAND,
+        then: &[Effect::draw(1)],
+    }];
+    let mut seen = 0;
+    let mut body_seen = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        body_seen |= matches!(effect, Effect::DrawCards { .. });
+    });
+    assert_eq!(seen, 2);
+    assert!(body_seen);
+}
+
 #[test]
 fn linked_counter_cleanup_body_is_visited() {
     let effects = &[Effect::ScheduleLinkedCounterCleanup {
