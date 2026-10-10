@@ -124,6 +124,7 @@ mod scavenging_ghoul;
 mod seahunter;
 mod seasoned_marshal;
 mod seismic_mage;
+mod serendib_djinn;
 mod sheoldred_the_apocalypse;
 mod shock_troops;
 mod silver_erne;
