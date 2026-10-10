@@ -54,6 +54,10 @@ reviews**. Listening files are supplied for human review.
 3. Final balance/transition corrections and complete-form render; numerical
    headroom, tuning, interval, instrumentation and interruption tests.
 
+Validation results and per-suite measurements are kept in `review.json`.
+The final 45 renders peak at 0.4773 (more than 6 dB below full scale); every
+transition tour retains its quickly dismissed draw cue after the third pass.
+
 ## Historical recordings (not used by the active score)
 
 The remainder documents the previous bank for reproducibility. Its files are

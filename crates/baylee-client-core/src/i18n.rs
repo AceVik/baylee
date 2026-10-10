@@ -5950,7 +5950,7 @@ messages! {
     /// Audio: the music's theme.
     RowMusicTheme { en: "Music theme", de: "Musik-Thema" },
     /// Audio: five complete original suites and automatic rotation.
-    HelpMusicTheme { en: "Five original suites in B♭ Dorian: Ember Path (4/4), Moon Glass (3/4), Thorn Crown (4/4), Mist Harbour (6/8), Starfall (5/4). Rotating changes suite each game. Transitions flow into the next musical pulse", de: "Fünf eigene Suiten in B♭-Dorisch: Glutpfad (4/4), Mondglas (3/4), Dornenkrone (4/4), Nebelhafen (6/8), Sternfall (5/4). Wechselnd wählt pro Spiel eine andere Suite. Übergänge fließen in den nächsten musikalischen Puls" },
+    HelpMusicTheme { en: "Five original suites in Bb Dorian. Rotating picks a different suite each game. Transitions flow into the next musical pulse", de: "Fünf eigene Suiten in Bb-Dorisch. Wechselnd wählt pro Spiel eine andere. Übergänge fließen in den nächsten musikalischen Puls" },
     /// Audio: suite one.
     MusicThemeEmber { en: "Ember Path", de: "Glutpfad" },
     /// Audio: suite two.
@@ -5964,7 +5964,7 @@ messages! {
     /// Audio: a different suite each game.
     MusicThemeRotating { en: "Rotating", de: "Wechselnd" },
     /// Audio: the music's volume.
-    HelpMusic { en: "The lobby's own score; every lobby screen has its switch", de: "Die eigene Musik der Lobby; jeder Lobby-Bildschirm hat ihren Schalter" },
+    HelpMusic { en: "Music throughout the title screen, lobby and game", de: "Musik für Titelbildschirm, Lobby und Spiel" },
     /// Audio: the table's sounds.
     HelpEffects { en: "The table's sounds, under your account's Table sounds", de: "Die Kl\u{e4}nge des Tisches, unter den Tischkl\u{e4}ngen deines Kontos" },
     /// Audio: silence behind other windows.
