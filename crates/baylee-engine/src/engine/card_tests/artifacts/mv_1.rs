@@ -36,6 +36,7 @@ mod sunbeam_spellbomb;
 mod sungrass_egg;
 mod tablet_of_epityr;
 mod tanglebloom;
+mod the_rack;
 mod throne_of_bone;
 mod urza_s_chalice;
 mod voltaic_key;
