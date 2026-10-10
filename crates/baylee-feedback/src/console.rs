@@ -5,6 +5,10 @@
 //!
 //! - `GET /ui/api/admin/stats`: the gateway's numbers, as it sends them.
 //! - `GET /ui/api/admin/live`: who is online and the tables open now.
+//! - `GET /ui/api/admin/metrics`: the last hour of the server's samples.
+//! - `GET /ui/api/admin/sets`, `GET /ui/api/admin/sets/{code}`: how far
+//!   the pool is through each set, and one set's cards; a code is letters
+//!   and digits, lower-cased here.
 //! - `GET /ui/api/admin/accounts?q=&kind=&sort=&online=&offset=&limit=`:
 //!   a page of accounts; the query is read into those six fields and
 //!   written out again.
@@ -111,6 +115,9 @@ pub(crate) fn routes() -> Router<Shared> {
     Router::new()
         .route("/ui/api/admin/stats", get(stats))
         .route("/ui/api/admin/live", get(live))
+        .route("/ui/api/admin/metrics", get(metrics))
+        .route("/ui/api/admin/sets", get(sets))
+        .route("/ui/api/admin/sets/{code}", get(one_set))
         .route("/ui/api/admin/accounts", get(accounts))
         .route("/ui/api/admin/accounts/{id}", get(account))
         .route("/ui/api/admin/invites", get(invites).post(create))
@@ -283,6 +290,45 @@ async fn live(State(shared): State<Shared>, headers: HeaderMap) -> Result<Respon
     ask(&gateway, "GET", "/admin/live".into(), &admin, None)
         .await
         .map(answer)
+}
+
+async fn metrics(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/metrics".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+async fn sets(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/sets".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+/// A set code as Scryfall writes them: letters and digits, a few of them.
+fn is_set_code(code: &str) -> bool {
+    (1..=8).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_alphanumeric())
+}
+
+async fn one_set(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(code): Path<String>,
+) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    if !is_set_code(&code) {
+        return Err(refuse(StatusCode::BAD_REQUEST, "not a set code"));
+    }
+    ask(
+        &gateway,
+        "GET",
+        format!("/admin/sets/{}", code.to_ascii_lowercase()),
+        &admin,
+        None,
+    )
+    .await
+    .map(answer)
 }
 
 /// What `GET /ui/api/admin/accounts` takes, and all it passes on.

@@ -249,6 +249,7 @@ async fn stand_in_engine(start: v1::StartEngine) {
                 game_id: start.game_id.clone(),
                 token: start.engine_token.clone(),
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                pid: 0,
             })),
         },
     )

@@ -364,6 +364,7 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
                 return;
             };
             game.engine = Some(tx);
+            game.engine_pid = Some(hello.pid).filter(|pid| *pid != 0 && game.engine_local);
             let seats = game
                 .seats
                 .iter()

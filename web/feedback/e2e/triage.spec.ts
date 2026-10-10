@@ -49,6 +49,8 @@ test("a wrong password is refused and the right one lets the admin in", async ({
 test("the list filters by kind, text, pseudonym and record", async ({ page }) => {
   const problems = watch(page);
   await signIn(page);
+  // The filters fold away until asked for (beta.7), and stay open after.
+  await page.getByRole("button", { name: /^Filters/ }).click();
   await page.getByLabel("Kind").selectOption("crash");
   await expect(page.getByRole("row")).toHaveCount(2);
   await expect(page).toHaveURL(/\?kind=crash$/);
@@ -82,7 +84,15 @@ test("a report opens from the keyboard and shows its dump", async ({ page }) => 
   await expect(page.getByRole("row")).toHaveCount(5);
   await page.locator("body").click({ position: { x: 5, y: 5 } });
   for (const key of ["j", "j", "j", "k", "j"]) await page.keyboard.press(key);
+  // Enter opens the report in a drawer beside the list (beta.7); `o` its page.
   await page.keyboard.press("Enter");
+  const drawer = page.getByTestId("drawer");
+  await expect(drawer.getByRole("heading", { name: "What the player wrote" })).toBeVisible();
+  await expect(drawer.getByText("The Swamp untapped by itself during my upkeep.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await page.keyboard.press("o");
+  await expect(page).toHaveURL(/\/r\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { name: "What the player wrote" })).toBeVisible();
   await expect(page.getByText("The Swamp untapped by itself during my upkeep.")).toBeVisible();
 
@@ -113,7 +123,7 @@ test("status, issue link and deletion stick, and are in the history", async ({ p
   await expect(page.getByText("Status: Triaged.")).toBeVisible();
 
   await page.getByLabel("Issue number or URL").fill("https://github.com/AceVik/baylee/issues/311");
-  await page.getByRole("button", { name: "Link" }).click();
+  await page.getByRole("button", { name: "Link", exact: true }).click();
   const issue = page.getByRole("link", { name: "#311" });
   await expect(issue).toHaveAttribute("href", "https://github.com/AceVik/baylee/issues/311");
 

@@ -1538,7 +1538,7 @@ POST /lobby/games ─┐
               gateway ── StartEngine{game_id, engine_token, gateway_url} ──> agent
                    ^                                                          │ spawn
                    │                                                          v
-                   └── EngineHello{game_id, token, protocol_version} ── baylee-engine-server
+                   └── EngineHello{game_id, token, protocol_version, pid} ── baylee-engine-server
                    │
                    ├── GameSetup / SeatAttached / SeatDetached / SeatFrame / FlushRecord ──>
                    <── SeatFrame / GameRecordChunk / RecordFlushed / GameEnded ──────────────
@@ -2177,6 +2177,9 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | --- | --- |
 | `GET /admin/stats` | the numbers below |
 | `GET /admin/live` | who is here now and where, below |
+| `GET /admin/metrics` | the last hour of server samples, below |
+| `GET /admin/sets` | how far the pool is through each set, below |
+| `GET /admin/sets/{code}` | one set's cards; `404` for a code the ledger has not, `400` for one that is not letters and digits |
 | `GET /admin/accounts` | a page of accounts, below; `?q=` (part of a username or display name, a `#tag` in hex, or an id; at most 100 characters), `kind=all\|registered\|guest`, `sort=newest\|oldest\|name\|games\|active`, `online=true` (only accounts with a lobby socket or a chair), `offset`, `limit` (1–200, default 50); anything else in them `400` |
 | `GET /admin/accounts/{id}` | one account, below; `404` for none, `400` for an id that is not a UUID |
 | `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
@@ -2237,6 +2240,55 @@ anything per person:
   decks; `avg_secs_30d` is the mean length of the games finished in the
   last 30 days (`0` for none); `uptime_secs` how long this process has
   served.
+
+**The server** (`GET /admin/metrics`, `crates/baylee-gateway/src/metrics.rs`;
+owner, beta.7): what the machine is doing, sampled every 5 seconds into a
+ring of the last hour (720 samples) in memory, nothing written and nothing
+per person. `{"at", "interval_secs": 5, "keep": 720, "platform", "cores",
+"process_uptime_secs", "host": {"uptime_secs", "mem_total", "disk_total",
+"disk_path": "/", "load": [1m, 5m, 15m]}, "now": <sample>, "history":
+{"at": [unix secs…], "cpu", "load1", "mem_used", "disk_used", "net_in",
+"net_out", "sockets", "requests"}, "games": [{"game_id", "pid", "cpu":
+[…], "rss": […]}]}`. A sample is `{"at", "cpu"` (the share of all cores
+busy over the interval, 0–1), `"load1", "mem_used", "disk_used", "net_in",
+"net_out"` (bytes a second over every interface but loopback), `"sockets"`
+(this process's open sockets), `"requests"` (a second, on the public
+routes; the console's own are not counted), `"games": [{"game_id", "pid",
+"cpu"` (cores used, 0.5 is half a core), `"rss"}]}`. The columns of
+`history` are the ring's samples oldest first, one value per sample;
+`games` are the engine processes of the latest sample, each with its
+column over the whole ring (`null` where a sample did not have it). The
+host is read off `/proc` (`/proc/stat`, `/proc/meminfo`, `/proc/loadavg`,
+`/proc/net/dev`, `/proc/uptime`, `/proc/self/fd` and `/proc/<pid>/stat`), so
+those fields exist on Linux and are `null` elsewhere (a developer's macOS);
+the disk (`statvfs` on `/`), the process uptime and the request rate are
+answered everywhere. A rate is the difference between two ticks, so the
+first sample of the process, or of an engine, has none; a counter that
+went backwards reads as zero. Which games: those whose engine runs on this
+machine (`engine_local`) and said its process id in `EngineHello.pid`
+(field 4, sent by `baylee-engine-server` as `std::process::id()`; 0 or an
+engine on another machine is read nowhere). **No protocol bump** for the
+field, as for `GameRecordChunk` above: only an engine sends it and only a
+gateway reads it, and an older engine says 0.
+
+**The pool** (`GET /admin/sets`, `crates/baylee-gateway/src/sets.rs`):
+how far this build is through each set, from one source of truth in two
+halves the gateway already links, the ledger (`baylee_cards_index::ROWS`,
+every card of the corpus with the set it was first printed in) and the
+compiled pool (`baylee_cards::pool::rows()`); no file is committed to say
+it. `{"at", "version", "corpus"` (ledger rows), `"pool": {"cards",
+"implemented", "partial", "unimplemented", "absent"}, "sets": [{"code",
+"position", "total", "implemented", "partial", "unimplemented",
+"absent"}]}`, sets in the ledger's order, which is release order by first
+printing; a set counts the cards *first printed* in it, so it is smaller
+than Scryfall's page for any set with reprints; `absent` is a ledger row
+with no pool card at all, `unimplemented` a compiled stub. `GET
+/admin/sets/{code}` (any case) is the same row with `"cards": [{"index",
+"name", "coverage", "note", "type_line", "scryfall_id", "oracle_id"}]` in
+ledger order; `coverage` is one of the four, and an absent card has no
+`scryfall_id` or `type_line`. The id is for the admin's browser to build
+a picture's address from itself (`docs/legal.md` §3): the gateway serves
+no card image here.
 
 **People** (`/admin/live`, `/admin/accounts`), since the owner asked to
 see who plays (09.10.2026). These name accounts: by handle (`Name#tag`),

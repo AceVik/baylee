@@ -20,12 +20,21 @@ use axum::response::{IntoResponse, Response};
 use crate::refuse;
 use crate::ui::Ui;
 
+/// The one host besides the service's own that the page may load a picture
+/// from: Scryfall's image host, for a card a report names
+/// (`docs/legal.md` §3, #270). The admin's browser fetches it straight from
+/// there; this service never does, so it neither proxies nor republishes a
+/// card image. It is an image source only: `connect-src` stays `'self'`,
+/// so the page cannot call Scryfall's API.
+pub const SCRYFALL_IMAGES: &str = "https://cards.scryfall.io";
+
 /// The service's content security policy: its own origin for everything,
-/// images also as `data:` (a report's screenshot is a PNG in base64), no
-/// inline script, no plugin, no frame around it.
+/// images also as `data:` (a report's screenshot is a PNG in base64) and
+/// from [`SCRYFALL_IMAGES`], no inline script, no plugin, no frame around
+/// it.
 pub const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; \
-    img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; \
-    base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+    img-src 'self' data: https://cards.scryfall.io; font-src 'self'; connect-src 'self'; \
+    object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 
 /// Adds the security headers to every response, API or file.
 pub(crate) async fn security_headers(mut response: Response) -> Response {
@@ -229,5 +238,29 @@ mod tests {
         assert!(!CSP.contains("unsafe-inline"));
         assert!(!CSP.contains("unsafe-eval"));
         assert!(CSP.contains("frame-ancestors 'none'"));
+    }
+
+    /// Scryfall's image host is the one foreign origin in the policy, and
+    /// only for images: a script, a style, a font or a request to anywhere
+    /// else stays refused.
+    #[test]
+    fn scryfall_is_the_one_foreign_origin_and_only_for_images() {
+        let directives: Vec<(&str, &str)> = CSP
+            .split(';')
+            .map(|d| d.trim().split_once(' ').unwrap_or((d.trim(), "")))
+            .collect();
+        for (name, sources) in &directives {
+            let foreign: Vec<&str> = sources
+                .split_whitespace()
+                .filter(|s| s.contains("://"))
+                .collect();
+            if *name == "img-src" {
+                assert_eq!(foreign, [SCRYFALL_IMAGES], "{name}");
+            } else {
+                assert!(foreign.is_empty(), "{name} names {foreign:?}");
+            }
+        }
+        assert!(SCRYFALL_IMAGES.starts_with("https://"));
+        assert!(CSP.contains("connect-src 'self';"));
     }
 }

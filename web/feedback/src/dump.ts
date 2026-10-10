@@ -125,9 +125,13 @@ export function readCrash(client: Record<string, unknown>): Crash | null {
 /** One card the player's text names in brackets (`client.refs.cards`). */
 export interface CardRef {
   text: string;
+  /** Where in the text, `[start, end)` in characters, brackets included. */
+  at: [number, number] | null;
   card: number | null;
   zone: string | null;
   owner: number | null;
+  /** The printing's Scryfall id; only one shaped like an id. */
+  scryfallId: string | null;
   /** Scryfall's page for the printing; only for an id shaped like one. */
   scryfall: string | null;
 }
@@ -135,7 +139,15 @@ export interface CardRef {
 /** One player the text names (`client.refs.players`): a seat, never an account. */
 export interface PlayerRef {
   text: string;
+  at: [number, number] | null;
   seat: number | null;
+}
+
+/** `[start, end)` as the client writes it, or nothing. */
+function range(v: unknown): [number, number] | null {
+  if (!Array.isArray(v) || v.length !== 2) return null;
+  const [a, b] = v.map(num);
+  return a != null && b != null ? [a, b] : null;
 }
 
 export interface Refs {
@@ -159,16 +171,20 @@ export function readRefs(client: Record<string, unknown>): Refs | null {
     cards: cards.filter(isRecord).map((c) => {
       const print = isRecord(c["print"]) ? c["print"] : null;
       const id = print ? text(print["scryfall_id"]) : null;
+      const valid = id !== null && SCRYFALL_ID.test(id);
       return {
         text: text(c["text"]) ?? "?",
+        at: range(c["at"]),
         card: num(c["card"]),
         zone: text(c["zone"]),
         owner: num(c["owner"]),
-        scryfall: id !== null && SCRYFALL_ID.test(id) ? `https://scryfall.com/card/${id}` : null,
+        scryfallId: valid ? id : null,
+        scryfall: valid ? `https://scryfall.com/card/${id}` : null,
       };
     }),
     players: players.filter(isRecord).map((p) => ({
       text: text(p["text"]) ?? "?",
+      at: range(p["at"]),
       seat: num(p["seat"]),
     })),
   };

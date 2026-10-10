@@ -245,9 +245,13 @@ a reference and has no entry; a report whose text names nothing has no
 The client builds it (`client-core::bugreport::refs::refs_for`) from the
 candidates the form offered: at a table only the seat's own view
 (`refs::candidates`, never a library, another hand or a face-down card),
-elsewhere the compiled pool. The admin UI lists them under the text, each
-card with a link to its Scryfall page; the text itself is shown as
-written.
+elsewhere the compiled pool. The admin UI draws each resolved reference as
+a chip in its place in the text (a card linking to its Scryfall page, with
+its picture on hover; a player as a seat), lists them under the text, and
+leaves a bracket the client resolved to nothing, or whose range does not
+say what the text says there, as the text the player wrote. A card's
+picture is loaded by the admin's browser straight from Scryfall's image
+host, never through this service (`docs/legal.md` §3; §"Headers" below).
 
 `scripts/server/feedback-direct.caddy` is the proxy's part: the route
 alone on the public site, its body bounded before the service reads it, no
@@ -312,6 +316,23 @@ status, its GitHub issue, and deletion. The page is built from `web/feedback`
 serves itself from `FEEDBACK_WEB_DIR`. Unset, the service serves no page and
 `/` stays `404`; a directory without an `index.html` refuses to start.
 
+What the list does (beta.7; the README has the keys): views by status,
+search and filters in the URL, a drawer that opens a report beside the
+list, a selection that sets a status on several reports (one `PATCH` and
+one audit row each; there is no bulk route), a quiet refresh every 30
+seconds that announces new reports instead of moving the rows, an export
+of what is shown as CSV made in the browser, and an unread marker kept in
+the browser's `localStorage` only (the service keeps no per-admin state).
+**A reporter is never resolved to an account.** The pseudonym is an HMAC
+the gateway makes so that this service cannot know who wrote a report
+(§"The gateway" above, `docs/privacy.md`); asking the gateway's console to
+turn it back into a name would undo that promise in one request, so the UI
+does not, and the gateway's console has no such route. The UI shows an
+alias derived in the browser from the pseudonym itself (two words, a hue,
+its first four characters; `web/feedback/src/reports/alias.ts`), which is
+stable per reporter and per gateway and says nothing more than the hex
+does.
+
 ### Admins: `baylee-feedback admin …`
 
 Admins are kept in the service's database and are made only on the server,
@@ -374,6 +395,7 @@ route below is `401`.
 | `PATCH /ui/api/reports/{id}` | `{"status"?, "issue"?}`: `issue` a positive number links, `null` unlinks, absent leaves it; answers the report |
 | `DELETE /ui/api/reports/{id}` | `204` |
 | `GET /ui/api/facets` | `{gateways, statuses, kinds, reporters}`, each `[{"value","count"}]`; the 50 busiest reporters |
+| `GET /ui/api/stats` | `{"days": 30, "rows": [{"day", "kind", "count"}]}`: reports per UTC day and kind over the last 30 days, by day then kind, for the overview's chart of bugs and crashes; counts only |
 | `POST /ui/api/login`, `POST /ui/api/logout` | above |
 | `/ui/api/admin/…` | the admin console, below |
 
@@ -395,12 +417,21 @@ no report text).
 ### The admin console (`/ui/api/admin/…`)
 
 The UI's admin area shows one gateway: its **Overview** (`/admin`:
-headline numbers, a month of days as charts, the open tables and every
-count), **Live** (`/admin/live`: who is online and where, every waiting and
-running table with its chairs, the agents; every 5 seconds), **Accounts**
-(`/admin/accounts`: searched, filtered and sorted in the query string;
-`/admin/accounts/{id}`: one account, its decks and latest games) and
-**Beta keys** (`/admin/keys`), so the owner needs a shell for none of it.
+headline numbers, a month of days as charts, the reports' bugs and crashes
+among them, the open tables, every count, and whether the gateway and this
+service answer, with their builds), **Live** (`/admin/live`: who is online
+and where, every waiting and running table with its chairs, the agents,
+and the server's last hour: CPU, memory, disk, network, requests, sockets,
+uptime and each engine process on that machine, as `GET /admin/metrics`
+samples it, `docs/protocol.md` §"The admin console"; every 5 seconds),
+**Sets** (`/admin/sets`: how far the pool is through each set in release
+order, from the gateway's ledger and compiled pool; `/admin/sets/{code}`:
+one set's cards, each a chip to its Scryfall page with its picture on
+hover from Scryfall's host, as a report's card chips are, `docs/legal.md`
+§3), **Accounts** (`/admin/accounts`: searched, filtered and sorted in the
+query string; `/admin/accounts/{id}`: one account, its decks and latest
+games) and **Beta keys** (`/admin/keys`), so the owner needs a shell for
+none of it.
 A sidebar on a wide screen, a tab bar at the bottom of a phone. The
 service passes each request on to the gateway's admin console
 (`docs/protocol.md` §"The admin console") with the gateway's token, which
@@ -410,6 +441,9 @@ the browser never sees:
 | --- | --- |
 | `GET /ui/api/admin/stats` | the gateway's `GET /admin/stats`, as it answers |
 | `GET /ui/api/admin/live` | the gateway's `GET /admin/live` |
+| `GET /ui/api/admin/metrics` | the gateway's `GET /admin/metrics`: the last hour of server samples (`docs/protocol.md` §"The admin console") |
+| `GET /ui/api/admin/sets` | the gateway's `GET /admin/sets`: how far the pool is through each set |
+| `GET /ui/api/admin/sets/{code}` | the gateway's `GET /admin/sets/{code}`, the code lower-cased; `400` unless it is one to eight letters and digits |
 | `GET /ui/api/admin/accounts` | the gateway's `GET /admin/accounts`; the query is read into `q`, `kind`, `sort`, `online`, `offset`, `limit` and written out again (anything else `400`) |
 | `GET /ui/api/admin/accounts/{id}` | the gateway's `GET /admin/accounts/{id}`; `400` for an id that is not a UUID |
 | `GET /ui/api/admin/invites` | its keys, newest first; never a key |
@@ -457,10 +491,15 @@ Several gateways are not configured yet: the routes would take a
 
 Every answer of the service, page, file or JSON, carries
 `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src
-'self'; img-src 'self' data:; font-src 'self'; connect-src 'self';
-object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors
-'none'` (`data:` images for a report's screenshot, which is a PNG in the
-report), `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+'self'; img-src 'self' data: https://cards.scryfall.io; font-src 'self';
+connect-src 'self'; object-src 'none'; base-uri 'none'; form-action
+'self'; frame-ancestors 'none'` (`data:` images for a report's screenshot,
+which is a PNG in the report; `cards.scryfall.io` for the picture of a card
+a report names or a set lists, which the admin's browser fetches from
+Scryfall itself and this service never touches, `docs/legal.md` §3 — an
+image source only, as `connect-src` stays `'self'`), `X-Frame-Options:
+DENY`, `Referrer-Policy: no-referrer` (so Scryfall sees a card id and
+nothing of a report),
 `X-Content-Type-Options: nosniff`, and same-origin opener and resource
 policies. JSON is `Cache-Control: no-store`. Files under `assets/` (named by
 their hash) are `public, max-age=31536000, immutable`, the rest `no-cache`.

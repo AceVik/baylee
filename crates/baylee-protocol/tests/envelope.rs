@@ -30,6 +30,7 @@ fn an_engine_hello_keeps_its_game_token_and_version() {
         game_id: "g1".into(),
         token: "t".into(),
         protocol_version: PROTOCOL_VERSION,
+        pid: 4242,
     };
     assert_eq!(
         trip(Msg::EngineHello(hello.clone())),
@@ -44,10 +45,13 @@ fn a_hello_from_before_the_version_field_reads_as_version_zero() {
         game_id: "g".into(),
         token: "t".into(),
         protocol_version: 0,
+        pid: 0,
     };
     let wire = old.encode_to_vec();
     let back = v1::EngineHello::decode(&wire[..]).unwrap();
     assert_eq!(back.protocol_version, 0);
+    // Nor a pid (field 4): a gateway reads no process then.
+    assert_eq!(back.pid, 0);
     assert!(
         version_refusal("This engine", back.protocol_version)
             .unwrap()

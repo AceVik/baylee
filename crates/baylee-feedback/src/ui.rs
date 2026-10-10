@@ -451,6 +451,7 @@ pub(crate) fn routes() -> Router<Shared> {
         .route("/ui/api/logout", post(logout))
         .route("/ui/api/me", get(me))
         .route("/ui/api/facets", get(facets))
+        .route("/ui/api/stats", get(stats))
         .route("/ui/api/reports", get(reports))
         .route(
             "/ui/api/reports/{id}",
@@ -751,6 +752,61 @@ async fn facets(State(shared): State<Shared>, headers: HeaderMap) -> Result<Json
         kinds: counts(db, "kind", 100).await?,
         reporters: counts(db, "reporter", TOP_REPORTERS).await?,
     }))
+}
+
+/// How many days back `GET /ui/api/stats` counts.
+const STATS_DAYS: u32 = 30;
+
+/// One day's reports of one kind.
+#[derive(Serialize)]
+struct DayKind {
+    /// `YYYY-MM-DD`, UTC.
+    day: String,
+    kind: String,
+    count: i64,
+}
+
+/// `GET /ui/api/stats`: reports per UTC day and kind over the last
+/// [`STATS_DAYS`] days, for the overview's error-rate chart. Counts only.
+#[derive(Serialize)]
+struct ReportStats {
+    days: u32,
+    rows: Vec<DayKind>,
+}
+
+async fn stats(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Json<ReportStats>, Refusal> {
+    session(&shared.state, &shared.ui, &headers).await?;
+    let db = &shared.state.db;
+    let rows = db
+        .query_all_raw(Statement::from_sql_and_values(
+            db.get_database_backend(),
+            "SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, kind, \
+                 count(*) AS count FROM feedback_report \
+             WHERE created_at >= now() - make_interval(days => $1) \
+             GROUP BY day, kind ORDER BY day, kind",
+            [i32::try_from(STATS_DAYS).unwrap_or(30).into()],
+        ))
+        .await
+        .map_err(|e| db_down(&e))?;
+    rows.iter()
+        .map(|row| {
+            Ok(DayKind {
+                day: row.try_get("", "day")?,
+                kind: row.try_get("", "kind")?,
+                count: row.try_get("", "count")?,
+            })
+        })
+        .collect::<Result<_, sea_orm::DbErr>>()
+        .map(|rows| {
+            Json(ReportStats {
+                days: STATS_DAYS,
+                rows,
+            })
+        })
+        .map_err(|e| db_down(&e))
 }
 
 #[cfg(test)]
