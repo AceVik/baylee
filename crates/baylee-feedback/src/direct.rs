@@ -77,6 +77,18 @@ impl Allowance {
 
     /// Whether a request from `address` may be taken at `now`; counted if so.
     pub fn take(&mut self, address: &str, now: OffsetDateTime) -> bool {
+        self.take_within(address, now, PER_ADDRESS, PER_SERVICE)
+    }
+
+    /// [`Allowance::take`] under other bounds: `per_address` and
+    /// `per_service` requests per [`WINDOW`].
+    pub fn take_within(
+        &mut self,
+        address: &str,
+        now: OffsetDateTime,
+        per_address: usize,
+        per_service: usize,
+    ) -> bool {
         while self.all.front().is_some_and(|t| now - *t >= WINDOW) {
             self.all.pop_front();
         }
@@ -88,7 +100,7 @@ impl Allowance {
         while times.front().is_some_and(|t| now - *t >= WINDOW) {
             times.pop_front();
         }
-        if times.len() >= PER_ADDRESS || self.all.len() >= PER_SERVICE {
+        if times.len() >= per_address || self.all.len() >= per_service {
             return false;
         }
         times.push_back(now);

@@ -186,6 +186,38 @@ The client confirms first: a direct report, and any report carrying a
 record, goes only after a page listing where it goes and every part it
 carries (`client-core::bugreport::ReportForm::parts`).
 
+### Offline now: `POST /client/alive`
+
+How many people are playing offline right now, anonymously. While a game a
+client hosts itself (`LocalHost`) runs, and its player has left "Send
+anonymous usage count" on (Settings › Privacy & Data, default on), the
+client sends once a minute (`client-core::usage::BEAT_SECS`):
+
+```json
+{ "game": "<32 lowercase hex digits>" }
+```
+
+and nothing else: the value is random, made for that one game, held in the
+client's memory only and forgotten when the game ends. It is not the
+direct reports' device id, not an account, nothing about the game; it is
+there only so a game is counted once, not once per beat. The body is
+`deny_unknown_fields` and at most 256 bytes; anything else is `400` and
+not counted. The answer is `204`.
+
+The service keeps each value with the time it was last heard, in memory
+(`alive::Presence`, at most 20 000), and drops it 150 s after its last beat
+(`alive::TTL`: two beats and a margin). Nothing is written to the database
+or logged per beat; a restart forgets it all. The route stands on the
+direct reports' switch (`FEEDBACK_DIRECT_KEY`, `503` without), answers any
+origin as they do, and has an allowance of its own, in memory: 300 beats
+per address and 120 000 in all per hour. With the setting off, or with no
+feedback service known (`feedback_url` `""`, no `BAYLEE_FEEDBACK_PUBLIC_URL`),
+the client sends nothing.
+
+The admin overview shows the count ("Offline now"), from
+`GET /ui/api/admin/offline` (`{"offline_now": n, "window_secs": 150}`), for a
+signed-in admin; it needs no gateway console.
+
 ### References in the text
 
 `text` stays plain printable text and reads on its own: a card the player

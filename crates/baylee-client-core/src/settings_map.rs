@@ -304,6 +304,8 @@ pub enum Row {
     ReportConsent,
     /// Crash reports.
     CrashReports,
+    /// The anonymous offline count.
+    UsageCount,
     /// The report form.
     ReportProblem,
 }
@@ -637,6 +639,13 @@ pub const ROWS: &[RowDef] = &[
         D,
         P::RowCrashReports,
         P::HelpCrashReports,
+    ),
+    def(
+        Row::UsageCount,
+        S::Privacy,
+        D,
+        P::RowUsageCount,
+        P::HelpUsageCount,
     ),
     def(
         Row::ReportProblem,

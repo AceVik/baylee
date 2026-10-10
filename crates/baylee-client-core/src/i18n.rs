@@ -5908,7 +5908,7 @@ messages! {
     /// Privacy: what is kept and sent.
     RowWhatIsKept { en: "What is kept and sent", de: "Was gespeichert und gesendet wird" },
     /// Privacy: the true list.
-    HelpWhatIsKept { en: "The gateway keeps your account, decks, settings and which terms you accepted. This client sends, on its own, only update checks to GitHub (desktop, while checking is on), crash reports once you agree, and asks Scryfall for card images in a browser", de: "Das Gateway speichert dein Konto, deine Decks, Einstellungen und welche Bedingungen du angenommen hast. Dieser Client sendet von selbst nur Update-Pr\u{fc}fungen an GitHub (Desktop, solange gepr\u{fc}ft wird), Absturzberichte nach deiner Zustimmung und fragt im Browser Scryfall nach Kartenbildern" },
+    HelpWhatIsKept { en: "The gateway keeps your account, decks, settings and which terms you accepted. This client sends, on its own, only update checks to GitHub (desktop, while checking is on), crash reports once you agree, while an offline game runs an anonymous still-playing count (unless switched off below), and asks Scryfall for card images in a browser", de: "Das Gateway speichert dein Konto, deine Decks, Einstellungen und welche Bedingungen du angenommen hast. Dieser Client sendet von selbst nur Update-Pr\u{fc}fungen an GitHub (Desktop, solange gepr\u{fc}ft wird), Absturzberichte nach deiner Zustimmung, w\u{e4}hrend ein Offline-Spiel l\u{e4}uft eine anonyme \u{201e}spielt noch\u{201c}-Z\u{e4}hlung (au\u{df}er unten ausgeschaltet) und fragt im Browser Scryfall nach Kartenbildern" },
     /// Privacy: what a report may carry.
     RowReportConsent { en: "What a report may carry", de: "Was ein Bericht mitnehmen darf" },
     /// Privacy: consent.
@@ -5917,6 +5917,10 @@ messages! {
     RowCrashReports { en: "Crash reports", de: "Absturzberichte" },
     /// Privacy: crash reports.
     HelpCrashReports { en: "After a crash: send a report, ask each time, or never", de: "Nach einem Absturz: Bericht senden, jedes Mal fragen oder nie" },
+    /// Privacy: the anonymous offline count.
+    RowUsageCount { en: "Send anonymous usage count", de: "Anonyme Nutzungszahl senden" },
+    /// Privacy: the anonymous offline count.
+    HelpUsageCount { en: "While you play offline, says once a minute that a game is running: no account, no device id, nothing about the game", de: "Sagt beim Offline-Spielen einmal pro Minute, dass ein Spiel l\u{e4}uft: kein Konto, keine Ger\u{e4}te-ID, nichts \u{fc}ber das Spiel" },
     /// Crash reports: always.
     CrashSend { en: "Send", de: "Senden" },
     /// Crash reports: ask.

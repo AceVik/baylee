@@ -7,6 +7,8 @@
 //! - `POST /intake/reports`: a gateway, with its own intake token.
 //! - `POST /client/reports`: a client signed in to no gateway, with no
 //!   token at all, held to its limits instead ([`direct`]).
+//! - `POST /client/alive`: an offline game still going, anonymously, for
+//!   the admins' "offline now" ([`alive`]).
 //! - `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/record`: the
 //!   read token (or the admin token).
 //! - `PATCH /reports/{id}` (status), `DELETE /reports/{id}`: the admin token.
@@ -22,6 +24,7 @@
 #![warn(missing_docs)]
 
 pub mod admin;
+pub mod alive;
 pub mod console;
 pub mod direct;
 pub mod migration;
@@ -323,6 +326,13 @@ pub fn app_with(state: Arc<AppState>, ui: ui::Ui) -> Router {
             post(direct::post)
                 .options(direct::preflight)
                 .layer(axum::extract::DefaultBodyLimit::max(direct::MAX_BODY_BYTES))
+                .layer(axum::middleware::map_response(direct::any_origin)),
+        )
+        .route(
+            "/client/alive",
+            post(alive::post)
+                .options(direct::preflight)
+                .layer(axum::extract::DefaultBodyLimit::max(alive::MAX_BODY_BYTES))
                 .layer(axum::middleware::map_response(direct::any_origin)),
         )
         .route("/reports", get(list))

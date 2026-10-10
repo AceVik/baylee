@@ -99,6 +99,12 @@ export interface Day {
   players: number;
 }
 
+/** `GET /ui/api/admin/offline`: offline games going now, anonymous. */
+export interface Offline {
+  offline_now: number;
+  window_secs: number;
+}
+
 /** `GET /ui/api/admin/stats`: a gateway's numbers, counts only. */
 export interface Stats {
   at: string;
@@ -506,6 +512,7 @@ export const api = {
   admin: {
     stats: () => json<Stats>("GET", "/ui/api/admin/stats"),
     live: () => json<Live>("GET", "/ui/api/admin/live"),
+    offline: () => json<Offline>("GET", "/ui/api/admin/offline"),
     accounts: (filter: AccountFilter) => {
       const query = accountQuery(filter);
       return json<AccountPage>(

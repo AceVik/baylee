@@ -14,6 +14,8 @@
 //!   keys and answers them, the one time they are shown.
 //! - `DELETE /ui/api/admin/invites/{id}`: revokes one.
 //! - `GET /ui/api/admin/audit`: the latest changes made through here.
+//! - `GET /ui/api/admin/offline`: offline games going now, this service's
+//!   own anonymous count (`crate::alive`); needs no gateway.
 //!
 //! The service builds every request itself: a body is read into the four
 //! fields the gateway takes and written out again, and an id must be a
@@ -114,6 +116,19 @@ pub(crate) fn routes() -> Router<Shared> {
         .route("/ui/api/admin/invites", get(invites).post(create))
         .route("/ui/api/admin/invites/{id}", delete(revoke))
         .route("/ui/api/admin/audit", get(audit))
+        .route("/ui/api/admin/offline", get(offline))
+}
+
+/// `GET /ui/api/admin/offline`: how many offline games are going now
+/// (`crate::alive`). This service's own number, so it wants the session
+/// alone, not a gateway's console.
+async fn offline(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
+    session(&shared.state, &shared.ui, &headers).await?;
+    Ok(Json(serde_json::json!({
+        "offline_now": shared.ui.offline_now(),
+        "window_secs": crate::alive::TTL.whole_seconds(),
+    }))
+    .into_response())
 }
 
 /// What the gateway answered: its status and its JSON (`null` for none).

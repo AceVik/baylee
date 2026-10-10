@@ -76,6 +76,10 @@ pub struct Ui {
     limiter: Mutex<Limiter>,
     /// Direct reports per address and in all (`crate::direct`).
     direct: Mutex<crate::direct::Allowance>,
+    /// Offline-game beats per address and in all (`crate::alive`).
+    alive: Mutex<crate::direct::Allowance>,
+    /// The offline games heard from lately (`crate::alive`).
+    presence: Mutex<crate::alive::Presence>,
 }
 
 impl Default for Ui {
@@ -86,6 +90,8 @@ impl Default for Ui {
             clock: Arc::new(OffsetDateTime::now_utc),
             limiter: Mutex::new(Limiter::default()),
             direct: Mutex::new(crate::direct::Allowance::default()),
+            alive: Mutex::new(crate::direct::Allowance::default()),
+            presence: Mutex::new(crate::alive::Presence::default()),
         }
     }
 }
@@ -156,6 +162,39 @@ impl Ui {
     /// in memory for the allowances' window, never written down.
     pub(crate) fn address(&self, peer: Option<IpAddr>, headers: &HeaderMap) -> String {
         client_address(&self.trusted_proxies, peer, headers)
+    }
+
+    /// Whether an offline game's beat from `address` may be taken now;
+    /// counted.
+    pub(crate) fn allow_alive(&self, address: &str) -> bool {
+        let now = self.now();
+        self.alive
+            .lock()
+            .expect("the allowance is never poisoned")
+            .take_within(
+                address,
+                now,
+                crate::alive::PER_ADDRESS,
+                crate::alive::PER_SERVICE,
+            )
+    }
+
+    /// An offline game is still going.
+    pub(crate) fn beat(&self, game: &str) {
+        let now = self.now();
+        self.presence
+            .lock()
+            .expect("the presence is never poisoned")
+            .beat(game, now);
+    }
+
+    /// How many offline games are going now (`crate::alive`).
+    pub(crate) fn offline_now(&self) -> usize {
+        let now = self.now();
+        self.presence
+            .lock()
+            .expect("the presence is never poisoned")
+            .count(now)
     }
 
     /// Whether a direct report from `address` may be taken now; counted.

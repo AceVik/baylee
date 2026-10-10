@@ -118,6 +118,8 @@ pub(crate) enum SettingsPress {
     CopyDiagnostics,
     /// Privacy: what a report may carry.
     Consent(baylee_client_core::bugreport::Category),
+    /// Privacy: the anonymous offline count on or off.
+    UsageCount,
     /// Privacy: crash reports.
     Crash(baylee_client_core::bugreport::CrashConsent),
     /// Controls: wait for a key for this shortcut.
@@ -155,6 +157,12 @@ fn graphics(
 }
 
 /// A device setting, written and saved when it differs.
+/// Privacy: the anonymous offline count on or off.
+fn flip_usage_count(settings: &mut crate::settings::ClientSettings) -> bool {
+    settings.usage_count = !settings.usage_count;
+    true
+}
+
 fn device(
     settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
     change: impl FnOnce(&mut crate::settings::ClientSettings) -> bool,
@@ -269,6 +277,7 @@ impl SettingsPress {
                 s.reports.set(category, !now);
                 true
             }),
+            SettingsPress::UsageCount => device(settings, flip_usage_count),
             SettingsPress::Crash(crash) => device(settings, |s| {
                 let differs = s.reports.crashes != crash;
                 s.reports.crashes = crash;
@@ -499,6 +508,7 @@ impl SettingsPress {
             | SettingsPress::TourTips
             | SettingsPress::Consent(_)
             | SettingsPress::Crash(_)
+            | SettingsPress::UsageCount
             | SettingsPress::OpenSettings
             | SettingsPress::CloseSettings
             | SettingsPress::PickSky(_)
