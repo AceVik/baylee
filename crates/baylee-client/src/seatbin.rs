@@ -36,6 +36,21 @@ pub(crate) fn program() -> Option<PathBuf> {
     beside.is_file().then_some(beside)
 }
 
+/// The bridge as a child of this client. On Windows without a console
+/// window: the bridge is a console program and the client is not, so the
+/// system would open one for it beside the game.
+fn command(program: PathBuf) -> Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
+    let mut command = Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt as _;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command
+}
+
 /// What came back from the key jobs started, waiting to be taken.
 type Answers = Arc<Mutex<Vec<(KeyEntry, Result<KeyState, String>)>>>;
 
@@ -70,7 +85,7 @@ impl KeyRunner {
 /// sentence it failed with (its last line on stderr).
 fn run_key(job: &KeyJob) -> Result<KeyState, String> {
     let program = program().ok_or_else(no_program)?;
-    let mut child = Command::new(program)
+    let mut child = command(program)
         .args(job.args())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -130,7 +145,7 @@ impl Bridge {
         first: Option<&str>,
     ) -> Result<Self, String> {
         let program = program().ok_or_else(no_program)?;
-        let mut command = Command::new(program);
+        let mut command = command(program);
         command
             .args(args)
             .stdin(Stdio::piped())

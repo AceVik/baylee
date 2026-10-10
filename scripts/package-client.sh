@@ -24,11 +24,15 @@ rm -rf "$stage"
 mkdir -p "$stage"
 
 case "$target" in
-*-windows-*) exe=baylee-client.exe; launcher=baylee-launch.exe; runtime=baylee-runtime.exe ;;
-*) exe=baylee-client; launcher=baylee-launch; runtime=baylee-runtime ;;
+*-windows-*) exe=baylee-client.exe; launcher=baylee-launch.exe; runtime=baylee-runtime.exe; seat=baylee-seat.exe ;;
+*) exe=baylee-client; launcher=baylee-launch; runtime=baylee-runtime; seat=baylee-seat ;;
 esac
-[ -f "$bin_dir/$exe" ] || { echo "no $bin_dir/$exe" >&2; exit 1; }
-[ -f "$bin_dir/$launcher" ] || { echo "no $bin_dir/$launcher" >&2; exit 1; }
+# The seat bridge travels beside the client: the client seats a language
+# model only by running it from its own folder (seatbin.rs), and without it
+# the room offers no language-model chair (beta.6 shipped without it).
+for f in "$exe" "$launcher" "$seat"; do
+    [ -f "$bin_dir/$f" ] || { echo "no $bin_dir/$f" >&2; exit 1; }
+done
 
 readme() {
     cat <<EOF
@@ -77,6 +81,7 @@ case "$target" in
     mkdir -p "$app/MacOS" "$app/Resources"
     cp "$bin_dir/$exe" "$app/MacOS/$runtime"
     cp "$bin_dir/$launcher" "$app/MacOS/$exe"
+    cp "$bin_dir/$seat" "$app/MacOS/$seat"
     cp -R crates/baylee-client/assets "$app/Resources/assets"
     cp crates/baylee-client/assets/brand/baylee.icns "$app/Resources/Baylee.icns"
     ln -s ../Resources/assets "$app/MacOS/assets"
@@ -102,6 +107,7 @@ EOF
     # over the bundle a downloaded app reads as "damaged" rather than as
     # "unidentified developer", and only the second has a way past it.
     codesign --force --sign - "$app/MacOS/$runtime"
+    codesign --force --sign - "$app/MacOS/$seat"
     codesign --force --sign - "$stage/Baylee.app"
     # Symbols for a crash report, beside the app rather than in it.
     if [ -d "$bin_dir/$exe.dSYM" ]; then
@@ -111,6 +117,7 @@ EOF
 *)
     cp "$bin_dir/$exe" "$stage/$runtime"
     cp "$bin_dir/$launcher" "$stage/$exe"
+    cp "$bin_dir/$seat" "$stage/$seat"
     cp -R crates/baylee-client/assets "$stage/assets"
     # MSVC keeps the line tables in a .pdb beside the .exe.
     if [ -f "$bin_dir/baylee_client.pdb" ]; then

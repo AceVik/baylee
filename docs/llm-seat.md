@@ -544,7 +544,11 @@ one line. `llmseat::panel::SeatPanel` decides and is tested in client-core,
   from a terminal meanwhile). `llmseat::keys::KeyDesk` decides,
   `crates/baylee-client/src/seatbin.rs` runs the jobs off the frame, and
   `BAYLEE_SEAT_BIN` names the bridge (default: `baylee-seat` beside the
-  client).
+  client; every package ships it there). A room's open chair offers
+  *Language model* on every desktop build (`tableseats::offer`): live with
+  the bridge, drawn off with its reason without it, and with no profile yet
+  its sheet explains profiles and keys and leads to Settings › Language
+  models.
 - **Faults.** Every refusal of the file stands beside the box it is about,
   in the player's language: `SeatSettings::faults` is the list that
   `parse` and `check` say the first of, so the panel and the bridge refuse

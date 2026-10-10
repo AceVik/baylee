@@ -94,8 +94,9 @@ jobs:
           shared-key: desktop-dist-${{ matrix.os }}-${{ matrix.target }}
           cache-on-failure: true
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      # The two binaries the package ships, the client and its launcher, and
-      # nothing else. This was `--workspace --bins`: fifteen binaries, each
+      # The three binaries the package ships, the client, its launcher and the
+      # seat bridge (`baylee-seat`, which seats a language model), and nothing
+      # else. This was `--workspace --bins`: fifteen binaries, each
       # thin-LTO'd at one codegen unit, so on the three-core Mac the workspace
       # crates were compiled two minutes in and the next 48 went to linking
       # servers, trainers and xtask that no package contains (run
@@ -110,7 +111,7 @@ jobs:
         env:
           BAYLEE_RELEASE_BUILD: '1'
           PACKAGE_TARGET: ${{ matrix.target }}
-        run: cargo build --locked --workspace --bin baylee-client --bin baylee-launch --profile dist --target "$PACKAGE_TARGET"
+        run: cargo build --locked --workspace --bin baylee-client --bin baylee-launch --bin baylee-seat --profile dist --target "$PACKAGE_TARGET"
       - if: inputs.source-run == ''
         shell: bash
         env:

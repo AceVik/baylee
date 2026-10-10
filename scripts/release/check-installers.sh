@@ -74,6 +74,7 @@ mac() {
         fail "the bundle lost its assets link"
     need "$mnt/Baylee.app/Contents/MacOS/baylee-client"
     need "$mnt/Baylee.app/Contents/MacOS/baylee-runtime"
+    need "$mnt/Baylee.app/Contents/MacOS/baylee-seat"
     codesign --verify --deep --strict "$mnt/Baylee.app"
     echo "dmg: layout and seal ok"
     $install || return 0
@@ -108,7 +109,7 @@ windows() {
     # Inno's own `/` switches; MSYS_NO_PATHCONV keeps the MSYS shell from
     # turning them into paths.
     MSYS_NO_PATHCONV=1 "$setup" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/LOG=$(cygpath -w "$out/setup.log")"
-    for f in baylee-client.exe baylee-runtime.exe baylee.ico LICENSE NOTICE README.txt \
+    for f in baylee-client.exe baylee-runtime.exe baylee-seat.exe baylee.ico LICENSE NOTICE README.txt \
         assets/fonts/AlegreyaSans-Regular.ttf unins000.exe; do
         need "$dir/$f"
     done
@@ -136,7 +137,7 @@ linux() {
     (cd "$tmp" && "$OLDPWD/$image" --appimage-extract >/dev/null)
     local root="$tmp/squashfs-root"
     [ "$(readlink "$root/AppRun")" = opt/baylee/baylee-client ] || fail "AppRun is not the launcher"
-    for f in baylee-client baylee-runtime LICENSE NOTICE README.txt assets/fonts/AlegreyaSans-Regular.ttf; do
+    for f in baylee-client baylee-runtime baylee-seat LICENSE NOTICE README.txt assets/fonts/AlegreyaSans-Regular.ttf; do
         need "$root/opt/baylee/$f"
     done
     need "$root/baylee.desktop"
@@ -153,6 +154,7 @@ linux() {
     local contents
     contents=$(dpkg-deb --contents "$deb")
     grep -q '\./opt/baylee/baylee-runtime$' <<<"$contents" || fail ".deb has no runtime"
+    grep -q '\./opt/baylee/baylee-seat$' <<<"$contents" || fail ".deb has no seat bridge"
     for n in $linux_icon_sizes; do
         grep -q "\./usr/share/icons/hicolor/${n}x$n/apps/baylee\.png$" <<<"$contents" || fail ".deb has no ${n}px icon"
     done
@@ -161,6 +163,7 @@ linux() {
     sudo apt-get install -y --no-install-recommends "./$deb" desktop-file-utils
     [ "$(readlink -f /usr/bin/baylee)" = /opt/baylee/baylee-client ] || fail "/usr/bin/baylee does not lead to the launcher"
     need /opt/baylee/baylee-runtime
+    need /opt/baylee/baylee-seat
     need /usr/share/applications/baylee.desktop
     for n in $linux_icon_sizes; do need "/usr/share/icons/hicolor/${n}x$n/apps/baylee.png"; done
     desktop-file-validate /usr/share/applications/baylee.desktop

@@ -681,15 +681,29 @@ fn seat_card(
             walk(commands, ai);
             anchor = Some((at, ai, true));
             commands.entity(line).add_child(ai);
-            // Desktop builds only (M-3): nothing to spawn elsewhere.
-            if crate::tableseats::available() {
-                let llm = super::parts::menu_button(
+            // Desktop builds only (M-3): nothing to spawn elsewhere. A
+            // desktop without its bridge shows the control off, with why.
+            let press = Press::Room(RoomPress::OpenChair(index, seat.seat));
+            let llm = match state.llm.offer() {
+                crate::tableseats::Offer::Absent => None,
+                crate::tableseats::Offer::Ready => Some(super::parts::menu_button(
                     commands,
                     kit,
                     Phrase::RoomLanguageModel.text(lang),
                     Weight::Secondary,
-                    Press::Room(RoomPress::OpenChair(index, seat.seat)),
-                );
+                    press,
+                )),
+                crate::tableseats::Offer::Missing => Some(controls::button(
+                    commands,
+                    kit,
+                    Phrase::RoomLanguageModel.text(lang),
+                    Weight::Secondary,
+                    Live::No(Phrase::RoomNoBridge.text(lang)),
+                    None,
+                    press,
+                )),
+            };
+            if let Some(llm) = llm {
                 walk(commands, llm);
                 commands.entity(line).add_child(llm);
             }
@@ -1011,7 +1025,7 @@ fn chair_sheet(
             Weight::Primary,
             Live::Yes,
             None,
-            Press::Settings(SettingsPress::OpenSettings),
+            Press::Room(RoomPress::SetUpModel),
         ));
     }
     let ids: [&'static str; 2] = if state.llm.planned(chair).is_some() {
@@ -1174,6 +1188,9 @@ pub(crate) enum RoomPress {
     OpenChair(usize, u32),
     /// Close the chair sheet.
     CloseChair,
+    /// The chair sheet without a profile: Settings, open at Language
+    /// models, where a profile and its key are set up.
+    SetUpModel,
     /// A seat's own starting life: the same drawer as its starting position.
     LifeOverride(u8),
 }
@@ -1379,6 +1396,15 @@ impl RoomPress {
                 }
             }
             RoomPress::CloseChair => state.chair_sheet = None,
+            RoomPress::SetUpModel => {
+                state.chair_sheet = None;
+                state.set_settings_section(
+                    baylee_client_core::settings_map::Section::LanguageModels,
+                );
+                if !state.settings.is_open() {
+                    state.settings = super::SettingsPane::Open;
+                }
+            }
             RoomPress::LifeOverride(seat) => {
                 if state.room_setup_seat != Some(seat) {
                     state.room_setup_seat = Some(seat);

@@ -5320,7 +5320,9 @@ messages! {
     /// The chair sheet's primary.
     RoomSeat { en: "Seat", de: "Setzen" },
     /// The chair sheet without a model to seat.
-    RoomNoModel { en: "No language model is set up on this computer yet.", de: "Auf diesem Rechner ist noch kein Sprachmodell eingerichtet." },
+    RoomNoModel { en: "No language model is set up on this computer yet. Under Settings › Language models, add a profile: the provider and model a chair plays, and its key, which stays in this computer's keychain.", de: "Auf diesem Rechner ist noch kein Sprachmodell eingerichtet. Lege unter Einstellungen › Sprachmodelle ein Profil an: Anbieter und Modell, die ein Platz spielt, und seinen Schlüssel, der im Schlüsselbund dieses Rechners bleibt." },
+    /// The room's Language model button, off: the install lacks its bridge.
+    RoomNoBridge { en: "This install lacks the seat bridge (baylee-seat) beside the game; install the latest release again.", de: "Dieser Installation fehlt die Sitzbrücke (baylee-seat) neben dem Spiel; installiere das neueste Release erneut." },
     /// The chair sheet's way to set one up.
     RoomSetUpModel { en: "Set up a model…", de: "Modell einrichten …" },
     /// The chair sheet's title. `{0}` the chair.
