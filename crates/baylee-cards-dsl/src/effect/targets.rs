@@ -86,6 +86,10 @@ pub enum PlayerRel {
     /// on the stack (CR 112.2), whoever controls the spell by the time the
     /// ability resolves.
     EventPlayer,
+    /// "The player with the most life" (Ghazbán Ogre): the one player who
+    /// has more life than each other player still in the game, and nobody
+    /// on a tie. Read as the effect resolves; nothing is targeted.
+    MostLife,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).

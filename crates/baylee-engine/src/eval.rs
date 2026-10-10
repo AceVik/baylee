@@ -300,6 +300,7 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .filter(|p| p.id == state.turn.active && !p.has_lost())
             .map(|p| p.id)
             .collect(),
+        PlayerRel::MostLife => most_life(state).into_iter().collect(),
         PlayerRel::ControllerOfTarget
         | PlayerRel::ControllerOfEvent
         | PlayerRel::Chosen
@@ -310,6 +311,24 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             return None;
         }
     })
+}
+
+/// The one player still in the game with more life than each other one
+/// ("the player with the most life", Ghazbán Ogre), or `None` on a tie.
+#[must_use]
+pub fn most_life(state: &GameState) -> Option<PlayerId> {
+    let mut alive = state.players.iter().filter(|p| !p.has_lost());
+    let first = alive.next()?;
+    let (mut best, mut tied) = (first, false);
+    for p in alive {
+        if p.life > best.life {
+            best = p;
+            tied = false;
+        } else if p.life == best.life {
+            tied = true;
+        }
+    }
+    (!tied).then_some(best.id)
 }
 
 /// The graveyard cards a `CardInGraveyard` spec may point at.
@@ -590,6 +609,7 @@ pub fn condition_holds_with_context(
     let source = context.source;
     match condition {
         Condition::YourTurn => state.turn.active == you,
+        Condition::APlayerHasMostLife => most_life(state).is_some(),
         // The announced X on the source, where `cast_wizard` writes it and
         // where `Filter::CmcAtMostX` reads it.
         Condition::XAtLeast(n) => state.object(source).map_or(0, |o| o.x_value) >= n,

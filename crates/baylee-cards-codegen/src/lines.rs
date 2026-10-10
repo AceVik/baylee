@@ -626,6 +626,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::DealsCombatDamageToPlayer(_)
         | T::DealsCombatDamageToOpponent(_)
         | T::DealsDamageToOpponent(_)
+        | T::DealsDamage(_)
         | T::DealtDamage(_) => &["damage"],
         // Living Artifact and Lich, "Whenever you're dealt damage".
         T::PlayerDealtDamage(_) => &["dealt damage"],
@@ -750,6 +751,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::DealsCombatDamageToPlayer(filter)
         | Trigger::DealsCombatDamageToOpponent(filter)
         | Trigger::DealsDamageToOpponent(filter)
+        | Trigger::DealsDamage(filter)
         | Trigger::DealtDamage(filter)
         | Trigger::SpellCast(filter) => {
             if matches!(filter, baylee_cards_dsl::Filter::This) {

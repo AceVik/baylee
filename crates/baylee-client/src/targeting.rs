@@ -220,6 +220,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                 // for a spell already attached to something, and a spell
                 // choosing targets is not.
                 PlayerRel::OwnerOfSource
+                | PlayerRel::MostLife
                 | PlayerRel::ControllerOfTarget
                 | PlayerRel::ControllerOfEvent
                 | PlayerRel::ControllerOfAttached

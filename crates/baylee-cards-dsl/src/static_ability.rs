@@ -608,6 +608,10 @@ pub enum Modifier {
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
     SetPT(i16, i16),
+    /// "[The affected creature] has base power N" (Island of Wak-Wak,
+    /// Singing Tree: "has base power 0 until end of turn"): power alone, in
+    /// layer 7b beside [`Self::SetPT`] (CR 613.4b), toughness untouched.
+    SetPower(i16),
     /// "This creature's power and toughness are each equal to [count]"
     /// **granted** by an effect — Druid Class's land that "becomes a
     /// creature with haste and 'This creature's power and toughness are
@@ -755,7 +759,7 @@ impl Modifier {
             | Self::GrantTriggered { .. } => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } => Layer::PtCda,
-            Self::SetPT(..) | Self::SetPTToCount(_) => Layer::PtSet,
+            Self::SetPT(..) | Self::SetPower(_) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::ModifyPT(..)
             | Self::ModifyPTPerCount { .. }
             | Self::ModifyPTHalfCount(_)
@@ -899,6 +903,10 @@ pub enum Duration {
     /// and leave a card that compiles, claims `Implemented` and does nothing
     /// at all.
     UntilYourNextUntapStep,
+    /// "Until your next upkeep" (Erhnam Djinn): ends as the effect
+    /// controller's next upkeep step begins (CR 503), after that turn's
+    /// untap step, so the effect still stands through it.
+    UntilYourNextUpkeep,
 }
 
 /// Replacement rules and trigger modification (CR 614; Doubling Season,
@@ -1118,6 +1126,7 @@ mod tests {
                 Layer::PtCda,
             ),
             (Modifier::SetPT(2, 2), Layer::PtSet),
+            (Modifier::SetPower(0), Layer::PtSet),
             (
                 Modifier::SetPTToCount(PtCount::YouControl(&Filter::YOUR_LAND)),
                 Layer::PtSet,

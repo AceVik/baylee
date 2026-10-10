@@ -1,7 +1,9 @@
 //! Ghazbán Ogre — {G} — Creature — Ogre
 //! Oracle: At the beginning of your upkeep, if a player has more life than each other player, the player with the most life gains control of this creature.
 //! Set: ME1 #120 — Masters Edition | Scryfall ID: 1e14cf3a-3c5a-4c22-88d1-1b19660b2e2a | Oracle ID: d361bdd4-afb8-493d-9091-ebe22f215834
-// PARTIAL — the upkeep control-change trigger is off the card.
+// IMPLEMENTED — at your upkeep, if one player has the most life
+// (Condition::APlayerHasMostLife, CR 603.4), that player gains control of the
+// Ogre (PlayerRel::MostLife).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -19,17 +21,15 @@ card!(
         power = Some(2),
         toughness = Some(2),
     ),],
-    coverage = Coverage::Partial(
-        "no PlayerRel names the player with the most life, so the \
-         control-change trigger has no new controller it can hand the Ogre \
-         to"
-    ),
-    // NOT SUPPORTED: "At the beginning of your upkeep, if a player has
-    // more life than each other player, the player with the most life
-    // gains control of this creature." — `Effect::ChangeController` exists
-    // but takes a `PlayerRel`, and no variant names the player with the
-    // most life; `Condition` has no "a player has more life than each
-    // other player" sentence either. Handing the Ogre to `You`, an
-    // opponent or the active player would all be a different card, so the
-    // trigger comes off.
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::StepBegin {
+            step: StepKind::Upkeep,
+            whose: PlayerRel::You,
+        },
+        &[Effect::ChangeController {
+            new_controller: PlayerRel::MostLife,
+        }],
+        condition = Some(Condition::APlayerHasMostLife),
+    )],
 );

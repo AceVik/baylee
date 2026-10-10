@@ -468,6 +468,18 @@ impl HeuristicAgent {
             PlayerRel::You => vec![view.seat],
             PlayerRel::EachPlayer => every().collect(),
             PlayerRel::ActivePlayer => every().filter(|p| *p == view.active).collect(),
+            // The one seat with strictly the most life, as the view shows
+            // every seat's life; nobody on a tie.
+            PlayerRel::MostLife => {
+                let alive: Vec<_> = view.seats.iter().filter(|s| !s.has_lost()).collect();
+                let best = alive.iter().map(|s| s.life).max();
+                let top: Vec<PlayerId> = alive
+                    .iter()
+                    .filter(|s| Some(s.life) == best)
+                    .map(|s| s.player)
+                    .collect();
+                if top.len() == 1 { top } else { Vec::new() }
+            }
             // One opponent or all of them is the same question for
             // reachability: either way the effect has somewhere to land.
             PlayerRel::Opponent | PlayerRel::EachOpponent => {

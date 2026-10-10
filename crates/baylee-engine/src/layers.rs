@@ -742,6 +742,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                 modifier,
                 Modifier::ModifyPT(..)
                     | Modifier::SetPT(..)
+                    | Modifier::SetPower(_)
                     | Modifier::SetPTToCount(_)
                     | Modifier::SwitchPT
                     | Modifier::CharacteristicPT { .. }
@@ -1247,6 +1248,13 @@ fn apply(
             if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
                 c.power = Some(*p);
                 c.toughness = Some(*t);
+            }
+        }
+        // CR 613.4b: "has base power N" sets power alone, toughness as the
+        // layers before left it.
+        Modifier::SetPower(p) => {
+            if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
+                c.power = Some(*p);
             }
         }
         // CR 613.4b: the granted sentence sets power and toughness to the

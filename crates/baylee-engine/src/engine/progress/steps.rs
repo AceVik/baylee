@@ -200,6 +200,15 @@ impl<L: CardLookup> Engine<L> {
         if next_step == Step::Cleanup {
             self.cleanup = Cleanup::Due;
         }
+        // "Until your next upkeep" ends as that upkeep begins, before
+        // anything triggers at it (CR 503.1).
+        if next_step == Step::Upkeep {
+            let active = self.state.turn.active;
+            self.state.effects.remove_where(|fx| {
+                matches!(fx.duration, baylee_cards_dsl::Duration::UntilYourNextUpkeep)
+                    && fx.controller == active
+            });
+        }
         // "At end of combat" triggers as the end of combat step begins
         // (CR 511.2), and two arms above enter it: after combat damage, and
         // straight from the declare attackers step when nothing attacked.

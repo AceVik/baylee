@@ -121,6 +121,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ModifyPTPerGraveyardCard { .. }
         | Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
+        | Modifier::SetPower(_)
         | Modifier::SetPTToCount(_)
         | Modifier::SwitchPT => true,
         // Neither: a shield that prevents damage, and the rules a player
@@ -936,6 +937,7 @@ mod tests {
                 toughness_plus: 0,
             },
             Modifier::SetPT(2, 2),
+            Modifier::SetPower(0),
             Modifier::SetPTToCount(baylee_cards_dsl::PtCount::YouControl(&Filter::YOUR_LAND)),
             Modifier::ModifyPT(1, 1),
             Modifier::ModifyPTPerCount {
@@ -1059,7 +1061,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            83,
+            84,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1111,7 +1113,8 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: thirty-three
-    /// modifiers lock the objects they found, fifty do not.
+    /// modifiers lock the objects they found, fifty do not (thirty-four
+    /// since `SetPower`).
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -1119,10 +1122,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_three_modifiers_lock_a_set_and_fifty_do_not() {
+    fn thirty_four_modifiers_lock_a_set_and_fifty_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (33, 50));
+        assert_eq!((locking, all.len() - locking), (34, 50));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

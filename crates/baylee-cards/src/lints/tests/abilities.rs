@@ -46,7 +46,8 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::Opponent
                     | PlayerRel::EachOpponent
                     | PlayerRel::EachPlayer
-                    | PlayerRel::ActivePlayer => true,
+                    | PlayerRel::ActivePlayer
+                    | PlayerRel::MostLife => true,
                     PlayerRel::Chosen
                     | PlayerRel::ControllerOfTarget
                     | PlayerRel::ControllerOfEvent

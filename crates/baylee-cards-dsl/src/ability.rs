@@ -297,6 +297,9 @@ pub enum Condition {
     /// `All(&[YourTurn, DuringStep(StepKind::Upkeep)])`: a restriction on
     /// activating (CR 602.5) is one condition, and the sentence is two.
     All(&'static [Condition]),
+    /// "If a player has more life than each other player" (Ghazbán Ogre):
+    /// one player still in the game has strictly the most life.
+    APlayerHasMostLife,
     /// It is an opponent's turn: the active player is an opponent of
     /// "you". Not `Not(&YourTurn)`, which a teammate's turn also satisfies.
     OpponentsTurn,
@@ -401,6 +404,12 @@ pub enum Trigger {
     /// to and the amount ride on the trigger, as on
     /// [`Self::DealsCombatDamageToOpponent`].
     DealsDamageToOpponent(&'static Filter),
+    /// A source matching the filter deals damage, combat or not, to any
+    /// player or permanent (El-Hajjâj: "whenever this creature deals damage,
+    /// you gain that much life"). Once per damage event, and once for a
+    /// step's combat damage, whatever it was dealt to (CR 510.2, 603.2c);
+    /// "that much" (`Amount::EventAmount`) is all of it.
+    DealsDamage(&'static Filter),
     /// A permanent matching the filter is dealt damage (Fungusaur:
     /// "whenever this creature is dealt damage, put a +1/+1 counter on
     /// it"). All combat damage is dealt at once (CR 510.2), so a creature
