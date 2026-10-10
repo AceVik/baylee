@@ -225,7 +225,7 @@ fn bubble_width(kit: Kit) -> f32 {
 /// up (TOURS.md §3.3), and always over the hover preview (Windows 4K pass,
 /// 09.10.: a preview opened under a resting pointer hid half of D7's words).
 fn bubble_z(anchor: Option<baylee_client_core::tour::Anchor>, z: i32) -> i32 {
-    if anchor == Some(baylee_client_core::tour::Anchor::ReportForm) {
+    if anchor.is_some_and(baylee_client_core::tour::Anchor::on_report_form) {
         REPORT_FORM_Z + 10
     } else {
         (z + 6).max(crate::lobby::preview::PREVIEW_Z + 1)
@@ -753,12 +753,55 @@ pub(super) fn place(
                 .filter(|r| !r.intersect(hole).is_empty())
                 .collect()
         });
-        let at = spot_for(hole, size, (w, h), desk.setting.top, &pressable);
+        // A part of the report form (T32's attachments): beside the form,
+        // level with the part, never over the form's other rows.
+        let at = match (hole, sheet_beside(run, &anchors)) {
+            (Some(part), Some(sheet)) => spot_beside(part, sheet, size, (w, h))
+                .unwrap_or_else(|| spot_for(hole, size, (w, h), desk.setting.top, &pressable)),
+            _ => spot_for(hole, size, (w, h), desk.setting.top, &pressable),
+        };
         if node.left != Val::Px(at.x) || node.top != Val::Px(at.y) {
             node.left = Val::Px(at.x);
             node.top = Val::Px(at.y);
         }
         shown.set_if_neq(Visibility::Inherited);
+    }
+}
+
+/// The report form's sheet, when the step stands on a part of it.
+fn sheet_beside(
+    run: &Run,
+    anchors: &Query<(
+        &TourAnchor,
+        &ComputedNode,
+        &UiGlobalTransform,
+        &InheritedVisibility,
+    )>,
+) -> Option<Rect> {
+    use baylee_client_core::tour::Anchor;
+    if run.current().anchor != Some(Anchor::ReportAttachments) {
+        return None;
+    }
+    anchors
+        .iter()
+        .find(|(a, node, _, shown)| {
+            a.0 == Anchor::ReportForm && shown.get() && node.size() != Vec2::ZERO
+        })
+        .map(|(_, node, at, _)| logical(node, at))
+}
+
+/// Beside `sheet`, level with `part` of it (clamped into the window): its
+/// right side first, then its left; `None` when neither has the room.
+#[must_use]
+pub fn spot_beside(part: Rect, sheet: Rect, size: Vec2, (w, h): (f32, f32)) -> Option<Vec2> {
+    let gap = 12.0;
+    let y = (part.center().y - size.y / 2.0).clamp(INSET, (h - size.y - INSET).max(INSET));
+    if sheet.max.x + gap + size.x + INSET <= w {
+        Some(Vec2::new(sheet.max.x + gap, y))
+    } else if sheet.min.x - gap - size.x >= INSET {
+        Some(Vec2::new(sheet.min.x - gap - size.x, y))
+    } else {
+        None
     }
 }
 
@@ -932,6 +975,28 @@ mod tests {
             assert!(bubble_z(Some(Anchor::DecksNew), z) > preview, "{z}");
         }
         assert!(bubble_z(Some(Anchor::ReportForm), 19) > REPORT_FORM_Z);
+    }
+
+    /// T32 (09.10.): the bubble stands beside the report form, level with
+    /// its attachments, covering none of the form, at both live sizes.
+    #[test]
+    fn the_attachments_bubble_stands_beside_the_form() {
+        for window in [(1708.0, 1032.0), (2560.0, 1440.0)] {
+            let sheet = Rect::new(
+                window.0 / 2.0 - 320.0,
+                80.0,
+                window.0 / 2.0 + 320.0,
+                window.1 - 80.0,
+            );
+            let part = Rect::new(sheet.min.x + 24.0, 500.0, sheet.max.x - 24.0, 760.0);
+            let size = Vec2::new(360.0, 300.0);
+            let at = spot_beside(part, sheet, size, window).expect("room beside");
+            let bubble = card(at, size);
+            assert!(bubble.intersect(sheet).is_empty(), "{window:?}: {bubble:?}");
+            assert!(bubble.min.y <= part.max.y && bubble.max.y >= part.min.y);
+        }
+        let narrow = Rect::new(20.0, 0.0, 1260.0, 720.0);
+        assert!(spot_beside(narrow, narrow, Vec2::new(360.0, 300.0), (1280.0, 720.0)).is_none());
     }
 
     /// Where a side has room the bubble never touches the anchor at all.

@@ -142,6 +142,17 @@ pub enum Anchor {
     ArrangementPill,
     ReportCorner,
     ReportForm,
+    ReportAttachments,
+}
+
+impl Anchor {
+    /// Whether the anchor stands on the report form: its steps are read
+    /// over the form, whose keys yield to the bubble while it narrates
+    /// (09.10.: Enter went to the text and T32 could not be left by key).
+    #[must_use]
+    pub const fn on_report_form(self) -> bool {
+        matches!(self, Self::ReportForm | Self::ReportAttachments)
+    }
 }
 
 /// What a try-it step waits for, read from state, never from UI events
@@ -784,7 +795,7 @@ pub const TABLE: &[Chapter] = &[
             ),
             step(
                 "T32",
-                Some(A::ReportForm),
+                Some(A::ReportAttachments),
                 N,
                 P::TourT32Title,
                 P::TourT32Body,
@@ -1211,6 +1222,14 @@ impl Run {
     #[must_use]
     pub fn holds_keyboard(&self) -> bool {
         self.mode == Mode::Narrated
+    }
+
+    /// Whether the bubble narrates over the report form: then its keys are
+    /// the bubble's, not the form's text (folding the bubble gives them
+    /// back).
+    #[must_use]
+    pub fn narrates_over_the_form(&self) -> bool {
+        self.holds_keyboard() && self.current().anchor.is_some_and(Anchor::on_report_form)
     }
 
     /// Follows whether a question is pending for this seat (TOURS.md §1.5):

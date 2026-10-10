@@ -122,3 +122,31 @@ fn a_cast_try_it_parks_over_the_opening_hands_and_comes_back() {
     assert_eq!(run.current().id, "T8");
     assert_eq!(run.mode, Mode::Try);
 }
+
+/// T32 stands over the open report form (09.10.: Enter went to the form's
+/// text and a keyboard player could not leave the step): the bubble's
+/// Enter moves the tour on all the same.
+#[test]
+fn enter_over_the_report_form_moves_the_tour_on() {
+    let mut app = App::new();
+    let mut run = Run::chapter(Tour::Table, 0, false, 2).expect("the table tour");
+    let mut tours = baylee_client_core::tour::Tours::default();
+    while run.current().id != "T32" {
+        run.next(&mut tours);
+    }
+    assert!(run.narrates_over_the_form());
+    let mut report = crate::report::ReportDesk::default();
+    report.open = true;
+    app.init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<super::TourDesk>()
+        .insert_resource(report)
+        .insert_resource(crate::settings::ClientSettings::default())
+        .add_systems(Update, super::keys);
+    app.world_mut().resource_mut::<super::TourDesk>().run = Some(run);
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::Enter);
+    app.update();
+    let run = desk(&app).run.as_ref().expect("the run goes on");
+    assert_eq!(run.current().id, "T33");
+}

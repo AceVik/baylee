@@ -248,7 +248,7 @@ pub(super) fn mark(
         >,
         Query<Entity, (With<crate::hud::revealed::RevealSheet>, Without<TourAnchor>)>,
         Query<Entity, (With<crate::report::ReportCorner>, Without<TourAnchor>)>,
-        Query<Entity, (With<crate::report::DeskRoot>, Without<TourAnchor>)>,
+        Query<(Entity, &crate::report::ReportAnchor), Without<TourAnchor>>,
     ),
     (buttons, plates, zones): (
         Query<(Entity, &MenuButton), Without<TourAnchor>>,
@@ -276,7 +276,13 @@ pub(super) fn mark(
         .chain(pill.iter().map(|e| (e, Anchor::ArrangementPill)))
         .chain(reveal.iter().map(|e| (e, Anchor::RevealSheet)))
         .chain(corner.iter().map(|e| (e, Anchor::ReportCorner)))
-        .chain(form.iter().map(|e| (e, Anchor::ReportForm)))
+        // The form's sheet itself, not the shade over the whole window
+        // (09.10.: T32's bubble stood in a far corner).
+        .chain(form.iter().filter_map(|(e, a)| match a {
+            crate::report::ReportAnchor::Form => Some((e, Anchor::ReportForm)),
+            crate::report::ReportAnchor::Attachments => Some((e, Anchor::ReportAttachments)),
+            _ => None,
+        }))
         .chain(zones.iter().map(|e| (e, Anchor::TrayZones)));
     for (entity, anchor) in marked {
         put(entity, anchor);
