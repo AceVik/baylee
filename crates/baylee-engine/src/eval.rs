@@ -479,11 +479,9 @@ pub fn amount_with_context(
         // ability's source is the permanent and its payment is on the
         // ability. Here, with no resolution, `this` is all there is, which
         // answers for a spell (its own source) and 0 for anything else.
-        Amount::SacrificedManaValue => state
-            .object(this)
-            .and_then(|o| o.paid.as_ref())
-            .and_then(|p| p.sacrificed_mana_value)
-            .unwrap_or(0),
+        Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
+            crate::resolve::sacrificed_amount(state.object(this), amount)
+        }
         Amount::ManaSpentToCast => state
             .object(this)
             .and_then(|o| o.paid.as_ref())

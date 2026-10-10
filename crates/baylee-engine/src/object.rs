@@ -974,6 +974,31 @@ pub struct SecondInstance {
     pub req: Option<baylee_cards_dsl::TargetReq>,
 }
 
+/// What a cost's sacrificed permanent was as it last existed on the
+/// battlefield (CR 608.2h), read before it went.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct SacrificedLki {
+    /// Its mana value.
+    pub mana_value: u32,
+    /// Its power, 0 for a noncreature.
+    pub power: i32,
+    /// Its toughness, 0 for a noncreature.
+    pub toughness: i32,
+}
+
+impl SacrificedLki {
+    /// `object` as it is now, about to be sacrificed.
+    #[must_use]
+    pub fn of(object: &GameObject) -> Self {
+        let c = object.characteristics();
+        Self {
+            mana_value: c.mana_value(),
+            power: i32::from(c.power.unwrap_or(0)),
+            toughness: i32::from(c.toughness.unwrap_or(0)),
+        }
+    }
+}
+
 /// What was paid to cast a spell or activate an ability, as far as an effect
 /// of it may ask (CR 601.2h, CR 602.2b).
 ///
@@ -987,10 +1012,10 @@ pub struct SecondInstance {
 pub struct PaidRecord {
     /// Source found after this cost actually moved it to a public zone (CR 400.7j).
     pub source_after_cost: Option<baylee_core::ids::DamageSourceRef>,
-    /// The mana value of the permanent sacrificed to pay the cost, as it
-    /// last existed on the battlefield (CR 608.2h) — "the sacrificed
-    /// creature's mana value". `None` when nothing was sacrificed.
-    pub sacrificed_mana_value: Option<u32>,
+    /// The permanent sacrificed to pay the cost as it last existed on the
+    /// battlefield (CR 608.2h) — "the sacrificed creature's mana value",
+    /// "… power", "… toughness". `None` when nothing was sacrificed.
+    pub sacrificed_lki: Option<SacrificedLki>,
     /// Exact creature sacrificed to pay this object's cost.
     pub sacrificed: Option<(ObjectId, u32)>,
     /// How much mana was spent on the cost (CR 601.2h) — "the amount of mana

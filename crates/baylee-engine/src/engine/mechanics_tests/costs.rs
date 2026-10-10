@@ -325,7 +325,11 @@ fn an_additional_sacrifice_is_paid_and_its_mana_value_remembered() {
         .unwrap();
     let spell = on_the_stack(&engine, offering);
     assert_eq!(
-        spell.paid.as_ref().and_then(|p| p.sacrificed_mana_value),
+        spell
+            .paid
+            .as_ref()
+            .and_then(|p| p.sacrificed_lki)
+            .map(|s| s.mana_value),
         Some(3),
         "the Ox's {{2}}{{G}}"
     );
