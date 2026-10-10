@@ -262,15 +262,9 @@ pub(super) fn add_present_systems(app: &mut App) {
                     hud::follow_the_log.after(hud::sync_log),
                     hud::hover_log_links.after(hud::sync_log),
                     hud::update_ai_log,
-                    // Cards another seat revealed: the clock, then the sheet
-                    // it leaves standing, after the shelf for the log's
-                    // reason (both hang off the overlay's root).
-                    (
-                        hud::revealed::tick,
-                        hud::revealed::sync
-                            .after(hud::revealed::tick)
-                            .after(hud::sync_ledge),
-                    ),
+                    // Cards another seat revealed, after the shelf for the
+                    // log's reason (both hang off the overlay's root).
+                    hud::revealed::sync.after(hud::sync_ledge),
                 ),
                 // The tray's doors stand in the shelf's row but not in its
                 // layout, so they need nothing the shelf worked out — but

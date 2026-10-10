@@ -13,22 +13,26 @@
 //! log's own [`LogLink`] so the pointer on one opens the table's preview of
 //! that printing; and a foot with the close answer and `Esc`'s cap. The
 //! fold (`Duel::reveal_fold`, keyed on the reveal's number) folds it to the
-//! sheet's pill at the top, and the next reveal stands up open.
+//! sheet's pill over the shelf, and the next reveal stands up open.
 //!
-//! It stands at the top of the window, centred, on the log's rung
-//! ([`Z_LOG`]): a sheet only showing the game. A zone dialog answering a
-//! question stands over it and the hover preview over that, so it never
-//! covers what this seat has to answer, and no key but `Esc` is its. The
-//! cross, the foot's answer and `Esc` (`input::answering`'s ladder) put it
-//! away; folded or not, its time runs out as before. It does not move, so
-//! `reduce_motion` has nothing to hold still; nothing is drawn on a print,
-//! and every card shows its own picture whole.
+//! Since 10.10.2026 (the owner: *"like the target selection for a cast, it
+//! should move down into the decision area … and must not close by itself"*)
+//! it stands where the decision sheet does, grown out of the shelf at the
+//! bottom (`ledge::drawer::root_node`), open at its foot, its shadow cast
+//! upward, on the log's rung ([`Z_LOG`]). It has no clock: it stays until
+//! the cross, the foot's answer or `Esc` (`input::answering`'s ladder) put
+//! it away. While a decision sheet of this seat's own stands in that place
+//! the reveal steps aside, still waiting, and comes back once the question is
+//! answered: it never covers what this seat has to answer, and a zone dialog
+//! and the hover preview stand over it. It does not move, so `reduce_motion`
+//! has nothing to hold still; nothing is drawn on a print, and every card
+//! shows its own picture whole.
 //!
 //! [`Reveals::current`]: baylee_client_core::reveals::Reveals::current
 
 use super::{
     EDGE, HudRoot, LogLink, MenuAction, TOP_CLEAR, UiFonts, Z_LOG, card_radius, palette,
-    sheet_radius, sheet_shadow, spawn_card_art,
+    sheet_radius, spawn_card_art,
 };
 use crate::Duel;
 use crate::cardmat::{CardLook, CardUiMaterial, UiCardMaterials, UiCards, finish_of};
@@ -83,22 +87,13 @@ pub struct RevealRevision {
     waiting: usize,
     /// Folded to its pill.
     folded: bool,
+    /// Stepped aside for a decision sheet standing in its place.
+    yielding: bool,
     lang: Option<Lang>,
     /// The window, in whole pixels.
     window: (i32, i32),
     /// The textures' arrivals, so a card whose picture lands is drawn again.
     arrivals: u64,
-}
-
-/// Runs the reveals' clock on the game's own time, so a paused clock
-/// (`dev-control`'s `/pause`) holds a reveal up as long as it is paused.
-pub fn tick(time: Res<Time>, mut duel: ResMut<Duel>) {
-    let now = time.elapsed_secs_f64();
-    // Asked first, through `Res`'s side of the borrow: a write every frame
-    // would mark the duel changed on every frame for nothing.
-    if duel.reveals.due(now) {
-        duel.reveals.tick(now);
-    }
 }
 
 /// Draws the reveal standing, and takes the sheet away when none is.
@@ -119,7 +114,11 @@ pub fn sync(
     prefs: Option<Res<crate::prefs::Prefs>>,
 ) {
     // Nothing over the end screen: it shows the whole log, this line too.
-    let shown = duel.reveals.current().filter(|_| duel.ending().is_none());
+    let yielding = super::ledge::drawer::sheet_asked(&duel);
+    let shown = duel
+        .reveals
+        .current()
+        .filter(|_| duel.ending().is_none() && !yielding);
     let window = windows.single().map_or(Vec2::new(1280.0, 720.0), |w| {
         Vec2::new(w.width(), w.height())
     });
@@ -128,6 +127,7 @@ pub fn sync(
         number: shown.map(|r| r.number),
         waiting: duel.reveals.waiting(),
         folded: shown.is_some_and(|r| duel.reveal_fold.is_folded(Some(r.number))),
+        yielding,
         lang: Some(lang),
         window: (window.x as i32, window.y as i32),
         arrivals: if shown.is_some() { textures.epoch() } else { 0 },
@@ -217,7 +217,8 @@ struct Paper<'a> {
     cancel_cap: Option<String>,
 }
 
-/// The sheet: a full-width band at the top that the pointer passes through,
+/// The sheet: a full-width band over the shelf, where the decision sheet
+/// stands, that the pointer passes through,
 /// and in it the decision sheet's own paper — head ("Bo reveals", how many
 /// more wait, the fold and the close cross), the cards, and a foot with the
 /// close answer and `Esc`'s cap. Folded, the band holds the sheet's pill.
@@ -231,14 +232,7 @@ fn spawn_sheet(
     let band = commands
         .spawn((
             RevealSheet,
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(TOP_CLEAR),
-                left: px(0),
-                right: px(0),
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
+            super::ledge::drawer::root_node(),
             ZIndex(Z_LOG),
             Pickable::IGNORE,
         ))
@@ -278,13 +272,29 @@ fn spawn_sheet(
                 align_items: AlignItems::Center,
                 padding: UiRect::all(px(PAD)),
                 row_gap: px(GAP),
-                border: UiRect::all(px(1)),
-                border_radius: sheet_radius(),
+                // Open at the foot, as the decision sheet is: it grows out of
+                // the shelf rather than standing on it.
+                border: UiRect {
+                    bottom: px(0),
+                    ..UiRect::all(px(1))
+                },
+                border_radius: BorderRadius {
+                    bottom_left: px(0),
+                    bottom_right: px(0),
+                    ..sheet_radius()
+                },
                 ..default()
             },
             BackgroundColor(palette::DOCK_GROUND),
             BorderColor::all(palette::DOCK_EDGE),
-            sheet_shadow(),
+            // Upward, onto the table, as the decision sheet's.
+            BoxShadow(vec![ShadowStyle {
+                color: palette::SHADOW,
+                x_offset: px(0.0),
+                y_offset: px(-6.0),
+                spread_radius: px(0.0),
+                blur_radius: px(18.0),
+            }]),
         ))
         .id();
     let top = sheet::spawn_head(
