@@ -107,8 +107,9 @@ fn metrics(
     height: f32,
     settings: &crate::settings::ClientSettings,
     input: crate::shellkit::InputClass,
+    ui: f32,
 ) -> ShellMetrics {
-    ShellMetrics::of(
+    ShellMetrics::under(
         crate::shellkit::Viewport {
             width,
             height,
@@ -116,6 +117,7 @@ fn metrics(
             input,
         },
         settings.text_size,
+        ui,
     )
 }
 
@@ -128,6 +130,7 @@ pub(super) fn draw(
     fonts: Option<Res<UiFonts>>,
     windows: Query<&Window>,
     input: Option<Res<crate::shellkit::InputClass>>,
+    ui: Option<Res<UiScale>>,
     layers: Query<(Entity, Has<ScrimLayer>, Has<Bubble>), With<TourLayer>>,
     mut spot: ResMut<Spotlight>,
 ) {
@@ -135,6 +138,11 @@ pub(super) fn draw(
         .iter()
         .next()
         .map_or((1280.0, 800.0), |w| (w.width(), w.height()));
+    // The window in the UI's units, which the scrim and the bubble are laid
+    // out in; the metrics read the window itself.
+    let ui = ui.as_deref().map_or(1.0, |ui| ui.0.max(f32::EPSILON));
+    let (raw_width, raw_height) = (width, height);
+    let (width, height) = (width / ui, height / ui);
     let lang = Lang::of(&settings.lang);
     let now = desk.shown().map(|run| Drawn {
         tour: run.tour,
@@ -188,7 +196,7 @@ pub(super) fn draw(
     let input = input.as_deref().copied().unwrap_or_default();
     let kit = Kit {
         fonts: &fonts,
-        m: metrics(width, height, &settings, input),
+        m: metrics(raw_width, raw_height, &settings, input, ui),
         german: lang == Lang::De,
     };
     if run.mode == Mode::Folded {
@@ -808,6 +816,7 @@ pub(super) fn place(
     desk: Res<TourDesk>,
     mut spot: ResMut<Spotlight>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     anchors: Anchors,
     mut scrims: Query<
         (&Scrim, &mut Node, &mut ComputedNode, &mut UiGlobalTransform),
@@ -842,7 +851,7 @@ pub(super) fn place(
     let Some(window) = windows.iter().next() else {
         return;
     };
-    let (w, h) = (window.width(), window.height());
+    let (w, h) = crate::hud::scale::space(window, ui.as_deref()).into();
     let wants_anchor = run.current().anchor_on(desk.setting.phone).is_some();
     let hole = anchor_rect(run, desk.setting.phone, &anchors).map(|r| {
         Rect::new(r.min.x - PAD, r.min.y - PAD, r.max.x + PAD, r.max.y + PAD)

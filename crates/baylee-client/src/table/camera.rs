@@ -988,13 +988,14 @@ impl Canvas {
 /// places, none of which has a window — it answers a view arriving, a
 /// preference changing, a focus moving. The window changes on its own
 /// schedule, and this is the one place that notices.
-pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
+pub fn track_canvas(windows: Query<&Window>, ui: Option<Res<UiScale>>, mut duel: ResMut<Duel>) {
     // The arrangement in effect is decided by `arrangement::choose`, which
     // runs just before this and seats the table again when it changes.
     let Ok(window) = windows.single() else {
         return;
     };
-    let aspect = Canvas::for_table(Vec2::new(window.width(), window.height()), duel.arrangement)
+    let space = crate::hud::scale::space(window, ui.as_deref());
+    let aspect = Canvas::for_table(space, duel.arrangement)
         .with_drawer(duel.hand_drawn_open)
         .aspect();
     let frame = baylee_client_core::tableview::TableFrame::of(window.width(), window.height());
@@ -1043,6 +1044,7 @@ pub fn track_proposals(mut duel: ResMut<Duel>) {
 pub fn frame_table(
     mut duel: ResMut<Duel>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     settings: Option<Res<crate::settings::ClientSettings>>,
     mut rig: ResMut<CameraRig>,
     (mut pose, prefs): (ResMut<CameraPose>, Option<Res<crate::prefs::Prefs>>),
@@ -1057,8 +1059,11 @@ pub fn frame_table(
     let Ok(window) = windows.single() else {
         return;
     };
-    let canvas = Canvas::for_table(Vec2::new(window.width(), window.height()), duel.arrangement)
-        .with_drawer(duel.hand_drawn_open);
+    let canvas = Canvas::for_table(
+        crate::hud::scale::space(window, ui.as_deref()),
+        duel.arrangement,
+    )
+    .with_drawer(duel.hand_drawn_open);
     // The device's lean and visit camera, and the arrangement in effect at
     // this table — not the device's default, which this game's switch, the
     // per-count memory and the offer may all have overruled.

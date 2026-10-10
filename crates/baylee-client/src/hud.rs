@@ -2235,6 +2235,7 @@ pub(crate) mod peeks;
 mod preview_keys;
 pub(crate) mod rail;
 pub(crate) mod revealed;
+pub(crate) mod scale;
 mod scroll;
 pub(crate) mod seatbar;
 mod sheet;

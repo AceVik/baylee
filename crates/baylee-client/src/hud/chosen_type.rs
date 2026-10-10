@@ -67,6 +67,7 @@ fn choice_words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String
 
 type Geometry<'w, 's> = (
     Query<'w, 's, &'static Window>,
+    Option<Res<'w, UiScale>>,
     Query<'w, 's, (&'static table::CardVisual, &'static Transform)>,
     Query<
         'w,
@@ -83,7 +84,7 @@ pub(crate) fn sync(
     duel: Res<Duel>,
     (settings, fonts): (Res<ClientSettings>, Res<UiFonts>),
     shown: Res<table::ShownRig>,
-    (windows, cards, previews): Geometry<'_, '_>,
+    (windows, ui, cards, previews): Geometry<'_, '_>,
     mut labels: Query<(
         Entity,
         &ChosenTypeLabel,
@@ -100,7 +101,7 @@ pub(crate) fn sync(
         windows
             .single()
             .ok()
-            .map(|window| table::Lens::new(rig, Vec2::new(window.width(), window.height())))
+            .map(|window| table::Lens::new(rig, crate::hud::scale::space(window, ui.as_deref())))
     });
     let wanted = wanted_labels(&duel, lang);
     for (entity, mark, _, _, _, _, _) in &mut labels {
@@ -127,7 +128,7 @@ pub(crate) fn sync(
     let window = windows
         .single()
         .ok()
-        .map(|w| Vec2::new(w.width(), w.height()));
+        .map(|w| crate::hud::scale::space(w, ui.as_deref()));
     for (id, label, charge) in wanted {
         // Reuse the renderer's measured logical size once this exact text
         // has been laid out. Changed text gets a conservative first frame.

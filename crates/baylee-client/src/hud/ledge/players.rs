@@ -608,14 +608,15 @@ pub fn sync_players(
     settings: Res<crate::settings::ClientSettings>,
     prefs: Res<crate::prefs::Prefs>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     mut width_seen: Local<Option<u32>>,
     mut revision: ResMut<PlayersRevision>,
     mut strip: Query<(Entity, Option<&Children>, &mut Visibility, &mut Node), With<PlayersStrip>>,
     mut buttons: Query<(&PlayerButton, &mut SeatGlow, &mut Hint, &Children)>,
     writing: Query<Entity, With<Writing>>,
 ) {
-    let window = windows.single().ok();
-    let width = window.map(|w| w.width().to_bits());
+    let window = crate::hud::scale::window_space(&windows, ui.as_deref());
+    let width = window.map(|w| w.x.to_bits());
     let resized = *width_seen != width;
     *width_seen = width;
     let moved = duel.is_changed() || settings.is_changed() || resized || revision.tier.is_none();
@@ -634,7 +635,7 @@ pub fn sync_players(
             sides.push(seat.team);
         }
     }
-    let window_w = window.map_or(1280.0, Window::width);
+    let window_w = window.map_or(1280.0, |w| w.x);
     let next = PlayersRevision {
         tier: (!seats.is_empty()).then(|| Tier::fitting(window_w, &seats, sides.len(), step)),
         seats,

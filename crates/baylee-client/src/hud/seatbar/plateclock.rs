@@ -194,12 +194,14 @@ pub fn sync_plate_clocks(
 /// screen, a plate under the hand zone), because a clock with no plate
 /// beside it names nobody.
 #[allow(clippy::type_complexity)] // two disjoint queries over one clock's parts
+#[allow(clippy::too_many_arguments)] // a Bevy system
 pub fn tick_plate_clocks(
     time: Res<Time>,
     mut duel: ResMut<Duel>,
     shown: Res<crate::table::ShownRig>,
     settings: Res<crate::settings::ClientSettings>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     mut clocks: Query<(&PlateClock, &mut Node, &mut UiTransform)>,
     mut inks: Query<(&PlateClockInk, &mut Text, &mut TextColor)>,
 ) {
@@ -209,7 +211,7 @@ pub fn tick_plate_clocks(
         .seat_clocks
         .advance(time.delta_secs());
     let lens = shown.rig().zip(windows.single().ok()).map(|(rig, window)| {
-        crate::table::Lens::new(rig, Vec2::new(window.width(), window.height()))
+        crate::table::Lens::new(rig, crate::hud::scale::space(window, ui.as_deref()))
     });
     // The plates are drawn at the player's text step; so is what stands
     // beside them.
