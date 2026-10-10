@@ -531,6 +531,7 @@ impl Effect {
             // What the delayed trigger will do.
             | Effect::ScheduleLinkedCounterCleanup { kind: _, effects }
             | Effect::AtNextEndStep { effects }
+            | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::AtEndOfCombat { about: _, effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::ChooseYoursThen { filter: _, then }

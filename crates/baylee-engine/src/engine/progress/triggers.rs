@@ -366,6 +366,7 @@ impl<L: CardLookup> Engine<L> {
             .into_iter()
             .filter(|d| match d.when {
                 crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
+                | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
                 | crate::state::DelayedWhen::LeavesBattlefield { card, version, .. } => {
                     self.state.object(card).is_some_and(|o| {
                         o.zone == crate::zone::Zone::Battlefield && o.version == version

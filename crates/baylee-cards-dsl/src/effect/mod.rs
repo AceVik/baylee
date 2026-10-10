@@ -719,6 +719,18 @@ pub enum Effect {
         /// What the delayed trigger does.
         effects: &'static [Effect],
     },
+    /// "When that creature dies this turn, [effects]" (Sandals of Abdallah:
+    /// "destroy this artifact"): a delayed triggered ability (CR 603.7)
+    /// created as this resolves, with this ability's source and controller
+    /// (CR 603.7d, 603.7e), watching the first target as the object it is
+    /// now. It triggers once (CR 603.7b) the first time that object goes
+    /// from the battlefield to a graveyard (CR 700.4) this turn; it is gone
+    /// once the object leaves the battlefield any other way (CR 400.7) or
+    /// the turn ends. With no target left, nothing is watched.
+    WhenTargetDiesThisTurn {
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
     /// "[Effects] at end of combat": a delayed triggered ability (CR 603.7)
     /// created as this resolves, with this ability's source and controller
     /// (CR 603.7d, 603.7e), that triggers as the next end of combat step

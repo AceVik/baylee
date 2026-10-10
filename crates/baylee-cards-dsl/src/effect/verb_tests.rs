@@ -116,6 +116,31 @@ fn at_next_end_step_body_is_visited() {
     assert!(body_seen);
 }
 
+/// A coin flip's two branches (the Arabian Nights coin flips) and "when
+/// that creature dies this turn" (Sandals of Abdallah) carry effects, and
+/// the walk goes into each.
+#[test]
+fn flip_coin_and_dies_this_turn_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::FlipCoin {
+            won: &[Effect::draw(1)],
+            lost: &[Effect::SacrificeSelf],
+        },
+        Effect::WhenTargetDiesThisTurn {
+            effects: &[Effect::destroy(TargetSpec::ThisObject)],
+        },
+    ];
+    let mut seen = 0;
+    let (mut drew, mut sacrificed, mut destroyed) = (false, false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        drew |= matches!(effect, Effect::DrawCards { .. });
+        sacrificed |= matches!(effect, Effect::SacrificeSelf);
+        destroyed |= matches!(effect, Effect::Destroy { .. });
+    });
+    assert_eq!(seen, 5);
+    assert!(drew && sacrificed && destroyed);
+}
+
 #[test]
 fn linked_counter_cleanup_body_is_visited() {
     let effects = &[Effect::ScheduleLinkedCounterCleanup {

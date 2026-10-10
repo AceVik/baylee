@@ -541,6 +541,31 @@ pub(super) fn exec_immediate(
         // An ability that never said "target" is about its source
         // ("sacrifice this creature", Dragon Whelp); one that targeted
         // and has no object target left is about nothing.
+        Effect::WhenTargetDiesThisTurn { effects } => {
+            let &card = res.targets.first()?;
+            let version = state
+                .object(card)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)?
+                .version;
+            let after = state.journal.last_seq();
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::DiesThisTurn {
+                    card,
+                    version,
+                    after,
+                },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
         Effect::AtNextEndStep { effects } => {
             let about_ref = subjects::this(state, res);
             let action = match about_ref.map(|r| (r.object, r.version)) {

@@ -608,9 +608,16 @@ fn watch_triggers(
     for watch in &state.delayed {
         // "When that land dies or is put into exile" watches two
         // destinations; "when this Aura leaves the battlefield" every one.
-        let (card, after, any_zone) = match watch.when {
-            crate::state::DelayedWhen::DiesOrIsExiled { card, after, .. } => (card, after, false),
-            crate::state::DelayedWhen::LeavesBattlefield { card, after, .. } => (card, after, true),
+        let (card, after, to_graveyard_only, any_zone) = match watch.when {
+            crate::state::DelayedWhen::DiesOrIsExiled { card, after, .. } => {
+                (card, after, false, false)
+            }
+            crate::state::DelayedWhen::DiesThisTurn { card, after, .. } => {
+                (card, after, true, false)
+            }
+            crate::state::DelayedWhen::LeavesBattlefield { card, after, .. } => {
+                (card, after, false, true)
+            }
             _ => continue,
         };
         // A watch about another object ("that creature's controller
@@ -653,6 +660,8 @@ fn watch_triggers(
             });
         let fires = if any_zone {
             left.is_some()
+        } else if to_graveyard_only {
+            matches!(left, Some(Zone::Graveyard))
         } else {
             matches!(left, Some(Zone::Graveyard | Zone::Exile))
         };

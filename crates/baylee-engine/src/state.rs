@@ -252,6 +252,17 @@ pub enum DelayedWhen {
         /// The journal sequence number the watch was created at.
         after: u64,
     },
+    /// "When that creature dies this turn" (Sandals of Abdallah): as
+    /// [`Self::DiesOrIsExiled`], but a graveyard only (CR 700.4), and the
+    /// watch is dropped as the next turn begins.
+    DiesThisTurn {
+        /// The permanent watched.
+        card: ObjectId,
+        /// Its identity when the watch was created.
+        version: u32,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
     /// "When this Aura leaves the battlefield" (Animate Dead): the next time
     /// `card`, as the object it was at `version`, leaves the battlefield for
     /// any zone. Read off the journal like [`Self::DiesOrIsExiled`], after
