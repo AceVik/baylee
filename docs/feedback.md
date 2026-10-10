@@ -417,6 +417,31 @@ the browser never sees:
   browser has it, Share; there is no invite link, because the client takes
   a key only typed into its sign-up form. Revoking asks once more.
 
+#### Hosted models (`/ui/api/admin/llm/…`)
+
+The **Models** pages: which seat agents are connected, which profiles each
+runs, their state, games, spend against caps, key kept or not; and the
+changes, passed on to the gateway's `/admin/llm/…` (`docs/protocol.md`
+§"Hosted language-model seats"), each as the gateway answers it:
+
+| route | gateway route |
+| --- | --- |
+| `GET /ui/api/admin/llm/seathosts` | `GET /admin/llm/seathosts` |
+| `GET /ui/api/admin/llm/profiles` | `GET /admin/llm/profiles` |
+| `PUT /ui/api/admin/llm/seathosts/{host}/profiles/{id}` | `PUT /admin/llm/seathosts/{host}/profiles/{id}`; the body is read into a definition (`label`, `vendor`, `enabled`, `max_games`, `caps`, `canary`, `profile`) and written out again |
+| `DELETE /ui/api/admin/llm/seathosts/{host}/profiles/{id}` | `DELETE …` |
+| `POST /ui/api/admin/llm/seathosts/{host}/profiles/{id}/enabled` | `{"enabled"}` |
+| `POST /ui/api/admin/llm/seathosts/{host}/profiles/{id}/probe` | — |
+| `POST /ui/api/admin/llm/seathosts/{host}/profiles/{id}/key` | `{"key": "…" \| null}`; write-only |
+
+`{host}` and `{id}` must be 1–64 of `A-Za-z0-9._-` (`400` otherwise). The
+key is held in this service's memory for the request only: it is in no
+row, no log line, and an error naming it is never passed back; the page
+shows only `key: kept/absent` from the listing. Every change that
+succeeded is a `feedback_audit` row, action `gateway.llm.profile.write`,
+`.delete`, `.enable`, `.disable`, `.probe`, `gateway.llm.key.set` or
+`.delete`, detail `<host>/<id>` and nothing else.
+
 Several gateways are not configured yet: the routes would take a
 `?gateway=<name>` and the two settings a list of `name=url` pairs, as
 `FEEDBACK_GATEWAY_TOKENS` does.
