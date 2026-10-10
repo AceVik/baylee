@@ -194,15 +194,21 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
         "src/target/release",
         "src/web/feedback",
         "src/crates/baylee-client",
+        "src/scripts/server",
         "bin",
         "state",
     ] {
         std::fs::create_dir_all(root.join(dir)).unwrap();
     }
     std::fs::create_dir_all(&stubs).unwrap();
-    for binary in ["baylee-gateway", "baylee-catalog"] {
+    for binary in ["baylee-gateway", "baylee-catalog", "run-deploy-hooks"] {
         std::fs::write(root.join("src/target/release").join(binary), b"").unwrap();
     }
+    std::fs::write(
+        root.join("src/scripts/server/baylee-deploy-hooks.sudoers"),
+        b"",
+    )
+    .unwrap();
     let calls: PathBuf = scratch.join("calls");
 
     stub(

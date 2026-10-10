@@ -1,0 +1,22 @@
+[package]
+name = "baylee-deploy-hooks"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Binary: runs an operator's local deploy hooks for one phase of a server deploy, root-owned files only (docs/deploy-hooks.md)"
+
+[lints]
+workspace = true
+
+# Nothing but rustix, already in the tree (the gateway's metrics use it): the
+# dispatcher opens, checks and runs file descriptors, and `std` has no safe
+# word for `openat` with `O_NOFOLLOW`, `fstat` on a descriptor, a process
+# group's kill or a non-reaping `waitid`. Linux only: the server is Linux,
+# and elsewhere the binary builds and says so.
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { workspace = true, features = ["fs", "process", "std"] }
+
+[[bin]]
+name = "run-deploy-hooks"
+path = "src/main.rs"
