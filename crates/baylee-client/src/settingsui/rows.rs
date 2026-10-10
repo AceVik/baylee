@@ -132,6 +132,47 @@ impl Out<'_, '_, '_> {
         })
     }
 
+    /// Many named choices: wrap at the available width, one keyboard composite.
+    pub(crate) fn choices(
+        &mut self,
+        id: &'static str,
+        labels: &[&str],
+        selected: Option<usize>,
+        press: impl Fn(usize) -> Press,
+    ) -> Entity {
+        let holder = self
+            .commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: px_fixed(self.kit.m.gap),
+                    row_gap: px_fixed(self.kit.m.gap),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        for (i, label) in labels.iter().enumerate() {
+            let current = selected == Some(i);
+            let button = controls::button(
+                self.commands,
+                self.kit,
+                label,
+                if current {
+                    Weight::Primary
+                } else {
+                    Weight::Secondary
+                },
+                Live::Yes,
+                None,
+                (press(i), item(id, i), Current(current)),
+            );
+            self.commands.entity(holder).add_child(button);
+        }
+        holder
+    }
+
     /// A toggle.
     pub(crate) fn toggle(&mut self, id: &'static str, on: bool, press: Press) -> Entity {
         controls::toggle(self.commands, self.kit, on, (press, stop(id)))

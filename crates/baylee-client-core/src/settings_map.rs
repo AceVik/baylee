@@ -232,8 +232,10 @@ pub enum Row {
     Master,
     /// The music.
     Music,
-    /// The music's theme: one of four, or a different one each game.
+    /// One of five suites, or a different one each game.
     MusicTheme,
+    /// Sample bank shared by every suite.
+    MusicSamples,
     /// The table's cues, under the account's ceiling.
     Effects,
     /// Silent behind other windows.
@@ -458,6 +460,13 @@ pub const ROWS: &[RowDef] = &[
         D,
         P::RowMusicTheme,
         P::HelpMusicTheme,
+    ),
+    def(
+        Row::MusicSamples,
+        S::Audio,
+        D,
+        P::RowMusicSamples,
+        P::HelpMusicSamples,
     ),
     def(Row::Effects, S::Audio, D, P::EffectsVolume, P::HelpEffects),
     def(
@@ -810,6 +819,7 @@ mod tests {
                 Row::Master,
                 Row::Music,
                 Row::MusicTheme,
+                Row::MusicSamples,
                 Row::Effects,
                 Row::MuteUnfocused,
                 Row::PriorityCue,

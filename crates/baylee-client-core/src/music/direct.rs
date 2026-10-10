@@ -6,16 +6,14 @@
 //! exactly as a hosted one does, so both sound the same by construction.
 //!
 //! The answer is a [`ScoreRequest`], packed into one `u64` that the audio
-//! thread reads atomically ([`super::ScoreControl`]). One-off accents (a hunt,
-//! the monarch changing, a big spell, the table's arrival) travel as small
-//! counters rather than flags: a counter that moved is an accent, and an
-//! accent can never be lost or played twice by a read that came early or late.
+//! thread reads atomically ([`super::ScoreControl`]). Legacy event counters remain packed for diagnostics. The current suites
+//! use combat/tension for movements and compose their accents in the score.
 #![allow(clippy::cast_precision_loss)] // small board counts and life totals
 use baylee_core::ids::PlayerId;
 use baylee_core::types::TypeSet;
 use baylee_view::{ObjectStatus, PlayerView};
 
-use super::{MusicTheme, Theme};
+use super::{MusicTheme, SampleSet, Theme};
 
 /// Where the player is: the screens outside a game, and a game's phases.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -62,22 +60,22 @@ impl Ending {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Scene {
-    /// The front door: B♭ Lydian, the alto recorder alone.
+    /// The title screen: the full B♭ Dorian suite.
     #[default]
     FrontDoor = 0,
-    /// The lobby: B♭ Lydian with its ostinato.
+    /// The lobby: a relaxed Dorian tavern arrangement.
     Lobby = 1,
-    /// Deck building: B♭ Ionian, ostinato and drone only.
+    /// Deck building shares the relaxed Dorian tavern.
     Build = 2,
     /// A table opening: the arrival.
     Opening = 3,
-    /// A game: calm, tension, the hunt or the climax, by [`ScoreRequest::tension`].
+    /// A game: standard, combat or endgame, by pressure and combat state.
     Table = 4,
     /// The victory, in B♭.
     Victory = 5,
-    /// The draw: an open fifth on F.
+    /// The draw: open-fifth cue, then major/minor ambiguity.
     Draw = 6,
-    /// The defeat, in G Aeolian.
+    /// The defeat: falling cue, then a B♭-centred lament.
     Defeat = 7,
 }
 
@@ -139,6 +137,8 @@ pub struct ScoreRequest {
     pub turn_seat: u8,
     /// The theme to sing.
     pub theme: Theme,
+    /// Recorded sound bank, independent of the theme.
+    pub samples: SampleSet,
 }
 
 impl ScoreRequest {
@@ -167,7 +167,8 @@ impl ScoreRequest {
             | u64::from(self.spells & 15) << 29
             | u64::from(self.arrivals & 15) << 33
             | u64::from(self.turn_seat & 7) << 37
-            | u64::from(self.theme as u8 & 3) << 40
+            | u64::from(self.theme as u8 & 15) << 40
+            | u64::from(self.samples as u8) << 44
     }
 
     /// The request a word holds.
@@ -192,6 +193,11 @@ impl ScoreRequest {
             arrivals: nibble(33),
             turn_seat: nibble(37) & 7,
             theme: Theme::of(nibble(40)),
+            samples: if bit(44) {
+                SampleSet::Original441
+            } else {
+                SampleSet::Studio48
+            },
         }
     }
 }
@@ -221,9 +227,8 @@ pub struct Memory {
     spells: u8,
     arrivals: u8,
     opening: bool,
-    /// Where "rotating" starts: a different theme each run of the client,
-    /// then the next at every table that opens.
-    seed: u8,
+    /// Current suite in the rotation, independent of wrapping cue counters.
+    rotation: u8,
 }
 
 impl Memory {
@@ -231,7 +236,7 @@ impl Memory {
     #[must_use]
     pub fn seeded(seed: u8) -> Self {
         Self {
-            seed,
+            rotation: u8::try_from(usize::from(seed) % Theme::ALL.len()).unwrap_or_default(),
             ..Self::default()
         }
     }
@@ -306,6 +311,8 @@ pub fn direct(
     let mut request = ScoreRequest::default();
     if place == Place::Opening && !memory.opening {
         memory.arrivals = memory.arrivals.wrapping_add(1);
+        memory.rotation =
+            u8::try_from((usize::from(memory.rotation) + 1) % Theme::ALL.len()).unwrap_or_default();
     }
     memory.opening = place == Place::Opening;
     request.scene = match place {
@@ -317,10 +324,10 @@ pub fn direct(
     };
     if !matches!(place, Place::Table | Place::Finished | Place::Opening) {
         // A game left behind: the next one starts from nothing.
-        let (arrivals, seed) = (memory.arrivals, memory.seed);
+        let (arrivals, rotation) = (memory.arrivals, memory.rotation);
         *memory = Memory {
             arrivals,
-            seed,
+            rotation,
             ..Memory::default()
         };
     }
@@ -381,7 +388,7 @@ pub fn direct(
     request.monarchs = memory.monarchs;
     request.spells = memory.spells;
     request.arrivals = memory.arrivals;
-    request.theme = theme.pick(memory.seed.wrapping_add(memory.arrivals));
+    request.theme = theme.pick(memory.rotation);
     request
 }
 

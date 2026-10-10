@@ -1,72 +1,137 @@
-//! Baylee's continuous adaptive score: an original modal score around B♭,
-//! performed from CC0 recordings of old instruments (recorders, bowed and
-//! plucked psaltery, folk harp, bagpipe, frame drums, davul, bells; VCSL,
-//! VSCO 2 CE, `FreePats`) and one synthesised lute, by one sampler and one
-//! musical clock, from the front door to the table and its ending. Scene
-//! changes alter future notes at bar lines; held notes and the room continue.
-//! No track is stopped or crossfaded. Everything plays offline: the bank is
-//! in the binary, and the drivers read only the [`PlayerView`].
-//!
-//! [`PlayerView`]: baylee_view::PlayerView
+//! Fifteen original suites: five in B♭ Dorian and ten independent styles.
+//! CC0 acoustic recordings, with studio 48-kHz or original 44.1-kHz banks.
+//! One persistent orchestra admits scene changes on the next eighth-note pulse;
+//! releases and room tails bridge the change, and tempo moves continuously.
+//! Recorded source rate is 44.1 kHz in both banks; studio preparation resamples
+//! and tunes before playback. The lyre is our own native 48-kHz string model.
 
+#[allow(dead_code)] // Historical generated bank retains unused documented families.
 mod bank;
 mod direct;
 mod orchestra;
 mod score;
 pub use direct::{Ending, Memory, Place, Scene, ScoreRequest, direct};
-pub use score::{ScoreControl, Theme, Tune};
+pub use score::{Movement, Position, ScoreControl, Theme, Tune};
 
-/// The theme the player chose in Settings → Audio, per device: one of the
-/// four, or a different one each game.
+/// The complete suite chosen in Settings → Audio, remembered per device.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MusicTheme {
-    /// A: the ballad.
-    Ballad,
-    /// B: the dance.
-    Dance,
-    /// C: the epic.
-    Epic,
-    /// D: the jig.
-    Jig,
-    /// A different theme each game (the default, owner 09.10.2026: the
-    /// player hears all four before choosing one).
+    /// Glutpfad, in four.
+    #[serde(alias = "ballad")]
+    Ember,
+    /// Mondglas, in three.
+    #[serde(alias = "dance")]
+    Glass,
+    /// Dornenkrone, in four.
+    #[serde(alias = "epic")]
+    Thorn,
+    /// Nebelhafen, in compound duple metre.
+    #[serde(alias = "jig")]
+    Tide,
+    /// Sternfall, in five.
+    Star,
+    /// Velvet Night · Piano.
+    Velvet,
+    /// Copperwork · Baroque.
+    Copper,
+    /// Juniper · Folk.
+    Juniper,
+    /// Lagoon Light · Bossa.
+    Lagoon,
+    /// Lanterns · Jazz waltz.
+    Lantern,
+    /// Neon Path · Synthwave.
+    Neon,
+    /// Pixelstorm · Chiptune.
+    Circuit,
+    /// Mosaic · Marimba.
+    Mosaic,
+    /// Orbit · Ambient.
+    Orbit,
+    /// Iron Pulse · Breakbeat.
+    Iron,
+    /// A different suite each game.
     #[default]
     Rotating,
 }
-
 impl MusicTheme {
-    /// Every choice, in the order the settings show them.
-    pub const ALL: [Self; 5] = [
-        Self::Ballad,
-        Self::Dance,
-        Self::Epic,
-        Self::Jig,
+    /// Every choice, in settings order.
+    pub const ALL: [Self; 16] = [
+        Self::Ember,
+        Self::Glass,
+        Self::Thorn,
+        Self::Tide,
+        Self::Star,
+        Self::Velvet,
+        Self::Copper,
+        Self::Juniper,
+        Self::Lagoon,
+        Self::Lantern,
+        Self::Neon,
+        Self::Circuit,
+        Self::Mosaic,
+        Self::Orbit,
+        Self::Iron,
         Self::Rotating,
     ];
-
-    /// The theme this choice sings at the `turn`-th rotation.
+    /// The suite at this rotation.
     #[must_use]
     pub const fn pick(self, turn: u8) -> Theme {
         match self {
-            Self::Ballad => Theme::Ballad,
-            Self::Dance => Theme::Dance,
-            Self::Epic => Theme::Epic,
-            Self::Jig => Theme::Jig,
-            Self::Rotating => Theme::ALL[(turn % 4) as usize],
+            Self::Ember => Theme::Ember,
+            Self::Glass => Theme::Glass,
+            Self::Thorn => Theme::Thorn,
+            Self::Tide => Theme::Tide,
+            Self::Star => Theme::Star,
+            Self::Velvet => Theme::Velvet,
+            Self::Copper => Theme::Copper,
+            Self::Juniper => Theme::Juniper,
+            Self::Lagoon => Theme::Lagoon,
+            Self::Lantern => Theme::Lantern,
+            Self::Neon => Theme::Neon,
+            Self::Circuit => Theme::Circuit,
+            Self::Mosaic => Theme::Mosaic,
+            Self::Orbit => Theme::Orbit,
+            Self::Iron => Theme::Iron,
+
+            Self::Rotating => Theme::ALL[(turn % 15) as usize],
         }
     }
 }
 
-/// Stereo output sample rate, and the bank's.
-pub const RATE: u32 = 44_100;
+/// Recorded sound bank, independent of the musical suite. Output remains 48 kHz.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[repr(u8)]
+pub enum SampleSet {
+    /// Windowed-sinc preparation at every used pitch, cached at 48 kHz.
+    #[default]
+    Studio48 = 0,
+    /// Original 44.1-kHz PCM, cubic playback at the continuous output rate.
+    Original441 = 1,
+}
+impl SampleSet {
+    /// Settings order.
+    pub const ALL: [Self; 2] = [Self::Studio48, Self::Original441];
+    /// Stable development-control and file name.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Studio48 => "studio48",
+            Self::Original441 => "original441",
+        }
+    }
+}
+
+/// Continuous stereo output rate, independent of the selected sample bank.
+pub const RATE: u32 = 48_000;
 /// Interleaved left and right channels.
 pub const CHANNELS: u16 = 2;
 
-/// Read the embedded sample bank's table once before starting the audio
-/// device.
+/// Prepare band-limited instrument tables before starting the audio device.
 pub fn prepare() {
-    orchestra::instruments();
+    orchestra::prepare();
 }
 
 /// How loud the front door's music is, as this device remembers it.
@@ -83,6 +148,7 @@ pub struct MusicLevel {
     muted: bool,
     /// The theme (absent from a file older than the themes: the default).
     theme: MusicTheme,
+    samples: SampleSet,
 }
 
 impl Default for MusicLevel {
@@ -93,6 +159,7 @@ impl Default for MusicLevel {
             volume: 0.5,
             muted: false,
             theme: MusicTheme::default(),
+            samples: SampleSet::default(),
         }
     }
 }
@@ -122,9 +189,19 @@ impl MusicLevel {
         self.theme
     }
 
-    /// Chooses a theme: heard from the next bar line, no restart.
+    /// Chooses a theme: heard from the next musical pulse, no restart.
     pub const fn set_theme(&mut self, theme: MusicTheme) {
         self.theme = theme;
+    }
+
+    /// The sample bank, available for every suite.
+    #[must_use]
+    pub const fn samples(self) -> SampleSet {
+        self.samples
+    }
+    /// Change timbre at the next pulse without restarting the score.
+    pub const fn set_samples(&mut self, samples: SampleSet) {
+        self.samples = samples;
     }
 
     /// Whether the player silenced it.
@@ -200,7 +277,7 @@ mod tests {
         assert_eq!(
             older.theme(),
             MusicTheme::Rotating,
-            "a file from before the themes rotates through all four"
+            "a file from before the themes rotates through all five"
         );
     }
 

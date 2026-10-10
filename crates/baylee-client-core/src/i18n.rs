@@ -5949,20 +5949,51 @@ messages! {
     RowMusic { en: "Music", de: "Musik" },
     /// Audio: the music's theme.
     RowMusicTheme { en: "Music theme", de: "Musik-Thema" },
-    /// Audio: what the four themes are.
-    HelpMusicTheme { en: "Ballad: a lyrical folk song · Dance: a driving minor dance · Epic: broad and heroic · Jig: a playful medieval jig · Rotating: a different one each game. It changes at the next bar, no restart", de: "Ballade: ein lyrisches Volkslied · Tanz: ein treibender Moll-Tanz · Episch: weit und heroisch · Jig: eine verspielte mittelalterliche Gigue · Wechselnd: jedes Spiel ein anderes. Es wechselt mit dem n\u{e4}chsten Takt, ohne Neustart" },
-    /// Audio: theme A.
-    MusicThemeBallad { en: "Ballad", de: "Ballade" },
-    /// Audio: theme B.
-    MusicThemeDance { en: "Dance", de: "Tanz" },
-    /// Audio: theme C.
-    MusicThemeEpic { en: "Epic", de: "Episch" },
-    /// Audio: theme D.
-    MusicThemeJig { en: "Jig", de: "Jig" },
-    /// Audio: a different theme each game.
+    /// Audio: five complete original suites and automatic rotation.
+    HelpMusicTheme { en: "Fifteen original suites: five in Bb Dorian and ten contrasting styles. Rotating picks a different suite each game. Transitions flow into the next musical pulse", de: "Fünf Suiten in Bb-Dorisch und zehn weitere in ganz unterschiedlichen Stilen. Wechselnd wählt pro Spiel eine andere. Übergänge fließen in den nächsten musikalischen Puls" },
+    /// Audio: suite one.
+    MusicThemeEmber { en: "Ember Path", de: "Glutpfad" },
+    /// Audio: suite two.
+    MusicThemeGlass { en: "Moon Glass", de: "Mondglas" },
+    /// Audio: suite three.
+    MusicThemeThorn { en: "Thorn Crown", de: "Dornenkrone" },
+    /// Audio: suite four.
+    MusicThemeTide { en: "Mist Harbour", de: "Nebelhafen" },
+    /// Additional suite: Velvet Night · Piano.
+    MusicThemeVelvet { en: "Velvet Night · Piano", de: "Samtnacht · Klavier" },
+    /// Additional suite: Copperwork · Baroque.
+    MusicThemeCopper { en: "Copperwork · Baroque", de: "Kupferwerk · Barock" },
+    /// Additional suite: Juniper · Folk.
+    MusicThemeJuniper { en: "Juniper · Folk", de: "Wacholder · Folk" },
+    /// Additional suite: Lagoon Light · Bossa.
+    MusicThemeLagoon { en: "Lagoon Light · Bossa", de: "Lagunenlicht · Bossa" },
+    /// Additional suite: Lanterns · Jazz waltz.
+    MusicThemeLantern { en: "Lanterns · Jazz waltz", de: "Laternen · Jazzwalzer" },
+    /// Additional suite: Neon Path · Synthwave.
+    MusicThemeNeon { en: "Neon Path · Synthwave", de: "Neonpfad · Synthwave" },
+    /// Additional suite: Pixelstorm · Chiptune.
+    MusicThemeCircuit { en: "Pixelstorm · Chiptune", de: "Pixelsturm · Chiptune" },
+    /// Additional suite: Mosaic · Marimba.
+    MusicThemeMosaic { en: "Mosaic · Marimba", de: "Mosaik · Marimba" },
+    /// Additional suite: Orbit · Ambient.
+    MusicThemeOrbit { en: "Orbit · Ambient", de: "Umlaufbahn · Ambient" },
+    /// Additional suite: Iron Pulse · Breakbeat.
+    MusicThemeIron { en: "Iron Pulse · Breakbeat", de: "Eisenpuls · Breakbeat" },
+    /// Audio: suite five.
+    MusicThemeStar { en: "Starfall", de: "Sternfall" },
+    /// Audio: a different suite each game.
+    /// Recorded instrument bank.
+    RowMusicSamples { en: "Instrument sound", de: "Instrumentenklang" },
+    /// Source and playback rates of the banks.
+    HelpMusicSamples { en: "Both banks use CC0 recordings made at 44.1 kHz. Studio prepares a high-quality 48 kHz bank; the alternative plays the original bank. Our synthesizers always run at 48 kHz", de: "Beide Banken nutzen CC0-Aufnahmen mit 44,1 kHz. Studio bereitet sie hochwertig für 48 kHz auf; die Alternative spielt die Originalbank. Eigene Synthesizer laufen immer mit 48 kHz" },
+    /// Prepared 48-kHz sound.
+    MusicSamplesStudio { en: "Studio · 48 kHz", de: "Studio · 48 kHz" },
+    /// Original 44.1-kHz recordings.
+    MusicSamplesOriginal { en: "Original · 44.1 kHz", de: "Original · 44,1 kHz" },
+    /// Change suite between games.
     MusicThemeRotating { en: "Rotating", de: "Wechselnd" },
     /// Audio: the music's volume.
-    HelpMusic { en: "The lobby's own score; every lobby screen has its switch", de: "Die eigene Musik der Lobby; jeder Lobby-Bildschirm hat ihren Schalter" },
+    HelpMusic { en: "Music throughout the title screen, lobby and game", de: "Musik für Titelbildschirm, Lobby und Spiel" },
     /// Audio: the table's sounds.
     HelpEffects { en: "The table's sounds, under your account's Table sounds", de: "Die Kl\u{e4}nge des Tisches, unter den Tischkl\u{e4}ngen deines Kontos" },
     /// Audio: silence behind other windows.

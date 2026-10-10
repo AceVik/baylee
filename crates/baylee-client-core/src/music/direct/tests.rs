@@ -12,7 +12,7 @@ fn at_table(view: &PlayerView, memory: &mut Memory) -> ScoreRequest {
         Place::Table,
         Some(view),
         None,
-        MusicTheme::Epic,
+        MusicTheme::Thorn,
         memory,
         0.016,
     )
@@ -24,10 +24,11 @@ fn at_table(view: &PlayerView, memory: &mut Memory) -> ScoreRequest {
 fn the_theme_is_chosen_and_rotates_by_table() {
     let mut memory = Memory::default();
     for (choice, theme) in [
-        (MusicTheme::Ballad, Theme::Ballad),
-        (MusicTheme::Dance, Theme::Dance),
-        (MusicTheme::Epic, Theme::Epic),
-        (MusicTheme::Jig, Theme::Jig),
+        (MusicTheme::Ember, Theme::Ember),
+        (MusicTheme::Glass, Theme::Glass),
+        (MusicTheme::Thorn, Theme::Thorn),
+        (MusicTheme::Tide, Theme::Tide),
+        (MusicTheme::Star, Theme::Star),
     ] {
         let request = direct(Place::Lobby, None, None, choice, &mut memory, 0.016);
         assert_eq!(request.theme, theme);
@@ -36,7 +37,7 @@ fn the_theme_is_chosen_and_rotates_by_table() {
     let rotating = MusicTheme::Rotating;
     let mut memory = Memory::seeded(1);
     let first = direct(Place::Lobby, None, None, rotating, &mut memory, 0.016).theme;
-    assert_eq!(first, Theme::Dance, "the seed picks the first");
+    assert_eq!(first, Theme::Glass, "the seed picks the first");
     direct(Place::Opening, None, None, rotating, &mut memory, 0.016);
     let view = quiet();
     let second = direct(
@@ -48,7 +49,7 @@ fn the_theme_is_chosen_and_rotates_by_table() {
         0.016,
     )
     .theme;
-    assert_eq!(second, Theme::Epic, "the next table, the next theme");
+    assert_eq!(second, Theme::Thorn, "the next table, the next theme");
     let back = direct(Place::Lobby, None, None, rotating, &mut memory, 0.016).theme;
     assert_eq!(
         back, second,
@@ -85,7 +86,8 @@ fn a_request_packs_into_one_word() {
         spells: 15,
         arrivals: 7,
         turn_seat: 5,
-        theme: Theme::Jig,
+        theme: Theme::Tide,
+        samples: SampleSet::Original441,
     };
     assert_eq!(ScoreRequest::unpack(request.pack()), request);
     let nan = ScoreRequest {
@@ -113,7 +115,7 @@ fn every_place_has_its_scene() {
         (Place::Opening, Scene::Opening),
     ] {
         assert_eq!(
-            direct(place, None, None, MusicTheme::Epic, &mut memory, 0.016).scene,
+            direct(place, None, None, MusicTheme::Thorn, &mut memory, 0.016).scene,
             scene
         );
     }
@@ -122,7 +124,7 @@ fn every_place_has_its_scene() {
         Place::Opening,
         None,
         None,
-        MusicTheme::Epic,
+        MusicTheme::Thorn,
         &mut memory,
         0.016,
     );
@@ -141,7 +143,7 @@ fn every_place_has_its_scene() {
             Place::Finished,
             Some(&view),
             Some(ending),
-            MusicTheme::Epic,
+            MusicTheme::Thorn,
             &mut memory,
             0.016,
         );
@@ -282,7 +284,7 @@ fn activity_decays_and_a_repeated_snapshot_is_not_counted() {
         Place::Table,
         Some(&view),
         None,
-        MusicTheme::Epic,
+        MusicTheme::Thorn,
         &mut memory,
         0.1,
     )
@@ -293,7 +295,7 @@ fn activity_decays_and_a_repeated_snapshot_is_not_counted() {
         Place::Table,
         Some(&view),
         None,
-        MusicTheme::Epic,
+        MusicTheme::Thorn,
         &mut memory,
         0.1,
     )
@@ -302,7 +304,7 @@ fn activity_decays_and_a_repeated_snapshot_is_not_counted() {
         Place::Table,
         Some(&view),
         None,
-        MusicTheme::Epic,
+        MusicTheme::Thorn,
         &mut memory,
         0.0,
     )
@@ -311,7 +313,7 @@ fn activity_decays_and_a_repeated_snapshot_is_not_counted() {
         Place::Table,
         Some(&view),
         None,
-        MusicTheme::Epic,
+        MusicTheme::Thorn,
         &mut memory,
         9.0,
     )
@@ -322,6 +324,42 @@ fn activity_decays_and_a_repeated_snapshot_is_not_counted() {
         "the same snapshot again adds nothing"
     );
     assert!(later < peak && later > calm, "decays: {later}");
-    direct(Place::Lobby, None, None, MusicTheme::Epic, &mut memory, 0.1);
+    direct(
+        Place::Lobby,
+        None,
+        None,
+        MusicTheme::Thorn,
+        &mut memory,
+        0.1,
+    );
     assert!(memory.activity.abs() < f32::EPSILON && memory.seq.is_none());
+}
+
+#[test]
+fn rotation_never_repeats_or_skips_when_arrival_counters_wrap() {
+    for seed in [0, 1, 14, 240, 255] {
+        let mut memory = Memory::seeded(seed);
+        for game in 0..600 {
+            let lobby = direct(
+                Place::Lobby,
+                None,
+                None,
+                MusicTheme::Rotating,
+                &mut memory,
+                0.016,
+            );
+            assert_eq!(
+                lobby.theme,
+                Theme::ALL[(usize::from(seed) + game) % Theme::ALL.len()]
+            );
+            direct(
+                Place::Opening,
+                None,
+                None,
+                MusicTheme::Rotating,
+                &mut memory,
+                0.016,
+            );
+        }
+    }
 }

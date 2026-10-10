@@ -46,8 +46,11 @@ pub(crate) const SETTINGS: TabOrder = TabOrder {
         // Audio
         "master",
         "music",
+        "music-theme",
+        "music-samples",
         "effects",
         "mute-unfocused",
+        "priority-cue",
         "table-sounds",
         // Display & Interface
         "language",
@@ -347,8 +350,11 @@ mod tests {
             "sky",
             "master",
             "music",
+            "music-theme",
+            "music-samples",
             "effects",
             "mute-unfocused",
+            "priority-cue",
             "table-sounds",
             "language",
             "text-size",

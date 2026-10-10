@@ -44,6 +44,7 @@
 //! POST /timescale {"speed":0.1}   (the whole picture, a tenth as fast)
 //! POST /pause    {"paused":false}   (absent or true stops the clock)
 //! POST /step     {"frames":6}   (replies once they have run)
+//! POST /music    {"theme":"star","movement":"combat"} (or {"auto":true})
 //! POST /perf     {"reset":true}   (frame time, entities, systems, allocations; `perf`)
 //! POST /hide     {"what":"felt","hidden":true}   (one material's entities away)
 //! POST /msaa     {"samples":1}   (every camera's multisampling)
@@ -69,6 +70,7 @@
 //! --features dev-control`, then `curl -s localhost:28770/state`.
 
 mod changed;
+mod music;
 mod perf;
 mod state;
 
@@ -758,6 +760,7 @@ fn pump(
     for job in waiting(&mut control) {
         let answer = match job.path.as_str() {
             "/health" => health(control.frame, windows.single().ok().map(|(_, w)| w), &clock),
+            "/music" => music::preview(&job.body, &mut commands),
             "/state" => {
                 let size = windows
                     .single()

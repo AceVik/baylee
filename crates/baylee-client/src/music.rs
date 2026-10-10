@@ -1,6 +1,6 @@
 //! One orchestra follows the player through the whole app. The conductor
 //! (`client-core::music::direct`, a pure function of the screen and the
-//! `PlayerView`) changes future bars; the audio player never restarts at a
+//! `PlayerView`) changes future notes; the audio player never restarts at a
 //! screen change. Only the user's own volume fades the master, and a
 //! priority cue ducks it for a moment.
 use crate::{Duel, DuelPhase, lobby::LobbyState, settings::ClientSettings};
@@ -67,6 +67,11 @@ struct Playing {
 /// (dev-control): what the drivers decided, beside what a player hears.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct Heard(pub ScoreRequest);
+
+/// Temporary dev-control audition; removing it restores the game director.
+#[cfg(feature = "dev-control")]
+#[derive(Resource)]
+pub(crate) struct Audition(pub ScoreRequest);
 
 /// Priority cues the music ducks under: `sound.rs` counts each one it plays.
 #[derive(Resource, Clone, Copy, Debug, Default)]
@@ -177,6 +182,7 @@ fn perform(
     duck: Res<Duck>,
     mut memory: Local<Option<Memory>>,
     mut ducking: Local<(u32, f32)>,
+    #[cfg(feature = "dev-control")] audition: Option<Res<Audition>>,
 ) {
     let dt = time.delta_secs();
     // "Rotating" starts somewhere new each run of the client.
@@ -184,7 +190,7 @@ fn perform(
     let theme = settings
         .as_ref()
         .map_or_else(music::MusicTheme::default, |s| s.music.theme());
-    let request = direction(
+    let mut request = direction(
         phase.map_or(DuelPhase::Closed, |p| *p.get()),
         lobby.as_deref().map(|lobby| lobby.lobby.screen()),
         duel.as_deref(),
@@ -192,6 +198,11 @@ fn perform(
         memory,
         dt,
     );
+    request.samples = settings
+        .as_ref()
+        .map_or_else(music::SampleSet::default, |s| s.music.samples());
+    #[cfg(feature = "dev-control")]
+    let request = audition.as_ref().map_or(request, |preview| preview.0);
     conductor.control.set(request);
     if heard.0 != request {
         heard.0 = request;
@@ -239,7 +250,7 @@ fn perform(
 fn seed() -> u8 {
     web_time::SystemTime::now()
         .duration_since(web_time::UNIX_EPOCH)
-        .map_or(0, |since| (since.as_secs() % 4) as u8)
+        .map_or(0, |since| (since.as_secs() % 5) as u8)
 }
 
 /// Below this gain the music is inaudible: a sink that has faded to it and
@@ -477,7 +488,7 @@ mod tests {
         }
         assert!(app.world().get::<Playing>(entity).unwrap().gain > 0.24);
         // The theme is a setting: changed, the very next request carries it,
-        // and the one player plays on (the score takes it at a bar line).
+        // and the one player plays on (the score takes it at the next musical pulse).
         for theme in music::MusicTheme::ALL {
             app.world_mut()
                 .resource_mut::<ClientSettings>()
@@ -570,7 +581,7 @@ mod tests {
                 DuelPhase::Finished,
                 None,
                 Some(&duel),
-                music::MusicTheme::Epic,
+                music::MusicTheme::Thorn,
                 &mut Memory::default(),
                 0.1,
             );

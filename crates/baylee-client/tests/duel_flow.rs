@@ -363,7 +363,7 @@ impl Client {
                         music::Place::Table,
                         Some(&v),
                         None,
-                        music::MusicTheme::Epic,
+                        music::MusicTheme::Thorn,
                         &mut self.heard,
                         0.25,
                     );
@@ -1334,7 +1334,7 @@ fn the_music_follows_a_house_game_offline() {
         music::Place::Finished,
         Some(view),
         Some(ending),
-        music::MusicTheme::Epic,
+        music::MusicTheme::Thorn,
         &mut memory,
         0.25,
     );

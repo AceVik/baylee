@@ -7183,131 +7183,125 @@ counted cues exist to do.
 
 ### One orchestra follows the player
 
-`baylee-client-core/src/music/` performs an original modal score on CC0
-recordings of old instruments (music v2, 08.10.2026; the design is
-`.claude/music/DESIGN-music-v2.md`): baroque recorders, bowed and plucked
-psaltery, folk harp, strumstick, a Renaissance organ, a bagpipe (chanter and
-drones), solo violin, contrabass, cellos, frame drums, the davul, nakers,
-a rope snare, tambourine and bells, and a French horn for the hunt only — plus
-one string of our own, a Karplus–Strong lute. The bank (`bank.rs`, generated
-by `art/music/prepare.py`, provenance in `art/music/samples.json`) is 99
-recordings, mono 44,100 Hz PCM16, 15.6 MB, embedded in the binary: the music
-plays offline. Sustains are looped (the crossfade is baked in), the chanter
-keeps its own intonation (the SFZ's cents), and no recording is read more than
-a minor third from its pitch (a melody note a whole tone, the chanter a
-semitone; `no_recording_is_stretched_out_of_its_colour`).
+Fifteen original suites (10 October 2026) are available. The first five remain
+unchanged, centred on **B♭ Dorian**
+(B♭ C D♭ E♭ F G A♭), are selected in **Settings → Audio → Music theme**.
+The sixteenth choice, Rotating, advances through all fifteen between games. Settings
+from the previous four-theme score migrate by serde aliases without losing
+volume or mute. English and German labels are supplied.
 
-Since round 2 (owner, 08.–09.10.2026) the consort sits on an **orchestral
-body** in a cinematic hybrid orchestral manner (`score/orchestral.rs`): the
-violin, viola and cello sections hold each bar's chord with their own swells
-on a slow harmonic rhythm, spiccato strings drive by layers (eighths, then
-sixteenths; 3+3, 3+2+2, or the dance's 2+2+2), a tuba pedal and trombone
-swells give weight in the tense scenes, horns (with a trombone beneath) state
-the theme heroically, and taiko-like drums, toms, a timpani roll into each
-phrase, a cymbal swell and a gong build. Each layer is a level slewed per bar
-like the others, so a scene grows from intimate to huge by adding layers and
-density. The table's 48-bar arc: the theme alone, its answer with the strings
-swelling in, the theme on the horns with the whole body, the ostinato alone,
-the answer quietly, drone and harp.
-
-**Four themes, chosen in Settings → Audio → "Music theme"** (`MusicTheme`,
-per device in `ClientSettings::music`, default Epic): A Ballad (lyrical, in
-the British folk manner; alto recorder), B Dance (a driving Slavic minor
-dance pulled into 2+2+2; fiddle), C Epic (broad and heroic; tenor recorder,
-horns and strings), D Jig (a playful medieval jig; alto recorder and
-psaltery), or Rotating (a different theme each table, starting somewhere new
-each run). A theme is two eight-bar phrases in C Dorian (`score/melodies.rs`)
-and a character (`score/themes.rs`); every scene derives its line from them
-by moving it within the pitch set (one degree down to B♭, three to G, four to
-F), re-rhythming it 3+2+2 for tension, and centring it in each instrument's
-register (the chanter folded into its nine notes; an ending's last note drawn
-to its final). A change is taken on the next bar line: one bar's breath, the
-orchestra's chord ringing on, then the new theme from its first bar
-(`the_theme_changes_on_a_bar_line_without_a_restart`). Choosing a theme in
-the settings is therefore its own preview.
-
-It is **not shrill** (owner, 08.10.): the bright families (bells, cymbals,
-tambourine, the chanter, psaltery, violins) play through a gentle low-pass,
-the master has a high shelf (−3.7 dB above about 2.5 kHz), the room is
-darker and wetter, the high bowed-psaltery beds and octave-up doublings are
-gone, and attacks are softened by a few milliseconds. Energy above 4 kHz fell
-4–30× per scene (`.claude/music/previews/round2/`, before/after pairs). Tempi
-rose about 12 % (the table at a dotted quarter of 78, the climax 134).
-
-There is **one musical clock and one persistent AudioPlayer**. Every scene
-lives on one pitch set around B♭ (B♭ C D E♭ F G A; E is the one movable
-degree), and the drone decides the mode:
-
-| Scene | Final, mode | Metre |
+| Suite | Metre / title tempo | Identity |
 |---|---|---|
-| front door, lobby | B♭ Lydian (E♮: the wonder) | 6/8 |
-| deck building | B♭ Ionian | 6/8 |
-| a table opening | an arrival on B♭ (davul, bell, harp) | 6/8 |
-| the table at rest | C Dorian | 6/8 |
-| rising tension | G Aeolian; from 0.7 a D Phrygian shadow at phrase ends | 7/8 (3+2+2); 5/8 when a player is about to lose |
-| attackers declared (the hunt) | F Mixolydian, the hunting-horn call | 6/8 jig |
-| the climax | G Aeolian, full pipes and davul | 6/8 jig |
-| a big spell | one bar of B♭ Lydian light (harp E♮, bell) | — |
-| victory / draw / defeat | B♭ / the open fifth F–C, unresolved / G Aeolian | 6/8 / 3/4 / 3/4, slowing |
+| Glutpfad / Ember Path | 4/4, quarter = 112 | Broad fifth call, violin-led answering phrase |
+| Mondglas / Moon Glass | 3/4, quarter = 132 | Falling arpeggio and rising answer, harp-led waltz |
+| Dornenkrone / Thorn Crown | 4/4, quarter = 124 | Repeated-note call, short–short–long march rhythm |
+| Nebelhafen / Mist Harbour | 6/8, dotted quarter = 92 | Lilting 1+2 cells, lyre-led flowing line |
+| Sternfall / Starfall | 5/4, quarter = 120 | Long descending octave arc and spacious answer |
 
-The conductor admits a change on a bar line. Where the final moves, the bar
-after the request is a pivot bar: its bass already plays the new final's
-fifth and its melody rests (`the_drone_moves_at_a_bar_line_through_a_pivot`).
-Layers (drone, bass, ostinato, melody, drums, the pipe's drones, the chanter)
-slew per bar, up over two bars and down over three; the tempo approaches its
-target over six seconds (an ending's ritardando over 1.5). Held notes and the
-room never restart, no track is crossfaded. The bagpipe is the instrument of
-rising tension: its drones enter at a tension of 0.25 and grow, the chanter
-joins at 0.55, the climax is full pipes and the davul; the drums enter one by
-one (frame drum 0.35, davul 0.5, nakers 0.6, rope snare and tambourine 0.7).
-Tension enters at 0.35 and leaves below 0.2; the climax needs two bars at 0.8
-(or a lethal board) and leaves below 0.5, and after 64 bars takes a breath of
-eight. The horn calls once on the bar after attackers are declared (this
-seat's own attack near and full, another's from further off), at most once a
-turn and once in sixteen bars, never the same call twice running. Each ending
-takes eight bars, grows out of the last texture's pulse, finishes even when
-the result is dismissed early, and then holds its last chord until the player
-leaves. It moves and breathes (owner, 08.10.: livelier, more dynamics): the table dances at a dotted quarter of 69 (the front door 61, the lobby 65, the hunt 116, the climax 118); every struck note follows an eight-bar swell (−2.6 dB where a phrase begins to +1.4 dB at its crest), leans on the downbeat and gives way on offbeat sixteenths, and varies by ±5 % note to note; every fourth bar ends in a frame-drum fill (the tense textures add the davul and a naker every eighth), every eighth bar in a psaltery run into the next phrase; melodies take mordents and turns by bar number; the calm and lobby harps run in sixteenths every other bar with a lute on the offbeats, and tension and the climax drive on with sixteenths after their accents. A long game varies by a 48-bar cycle at the table (16 bars of theme, 8
-of ostinato alone, 16 of the theme's variant, 8 of drone and harp), a melody
-instrument that turns by cycle and when the monarch changes hands, a drone
-colour every 24 bars and a second reading of the bass line. All of it is a
-function of the bar, the tick and the requests (`two_performances_of_one_script_are_identical`).
+The ten additional suites use the owner's explicit artistic freedom for different
+keys, instrumentation and styles. The original five keep their score and sound.
+The settings selector wraps named buttons while retaining one composite keyboard
+stop (arrows choose focus, Enter selects); labels are available in German/English.
 
-The drivers are pure and in client-core: `music::direct(place, view, ending,
-memory, dt)` reads the lobby's screen, the duel's phase, the `PlayerView` and
-the result, and nothing else — combat, a big spell (mana value 5 or more, or a
-stack of three), low life (this seat's own weighs more), a player about to
-lose, a board that reads as lethal (the active player's untapped creatures
-that may attack against an opponent's life: a reading of the public board,
-not the engine's), the decaying activity of life and board changes, and
-accents counted once (the hunt, the monarch, a big spell, an arrival). A
-`LocalHost` game fills the view as the socket does, so a house game offline
-sounds as a hosted one (`the_music_follows_a_house_game_offline`). The Bevy
-`perform()` maps `DuelPhase` and `Screen` to a `Place`, sends the request
-(one `u64`, `ScoreControl`), and `/state` reports it as `score` (dev-control).
+| Additional suite | Style / tonal centre | Metre / title tempo |
+|---|---|---|
+| Samtnacht / Velvet Night | Piano nocturne, D minor | 4/4, quarter = 108 |
+| Kupferwerk / Copperwork | Baroque chamber, D major | 3/4, quarter = 128 |
+| Wacholderreigen / Juniper | Folk jig, G major | 6/8, quarter = 144 |
+| Lagunenlicht / Lagoon Light | Bossa nova, F major | 4/4, quarter = 132 |
+| Laternenwalzer / Lanterns | Jazz waltz, E-flat major | 3/4, quarter = 138; 59:41 swung eighths |
+| Neonpfad / Neon Path | Synthwave, C minor | 4/4, quarter = 126 |
+| Pixelsturm / Pixelstorm | Chiptune, E minor | 4/4, quarter = 156 |
+| Mosaik / Mosaic | Marimba minimalism, A major | 7/8, quarter = 144 |
+| Umlaufbahn / Orbit | Bell/pad ambient, D-flat major | 4/4, quarter = 116 |
+| Eisenpuls / Iron Pulse | Orchestral breakbeat, G minor | 4/4, quarter = 146 |
 
-Quick settings behind the login/lobby gear contain mute and volume controls
-in ten-percent steps. The full settings screen and the table's game menu
-provide the same controls. The chosen level remains device-local in
-`ClientSettings::music`; changing volume slews only the master over 100 ms.
-Once muted and faded out, the sink is paused and the score is not rendered at
-all; unmuting resumes it where it stood. A priority cue (the priority strike,
-a refusal, combat and this seat's own life) ducks the music 6 dB in 30 ms and
-gives it back over 400 ms (`Duck`). Sound effects keep their independent
-preference.
+`music/score/styles/manuscript.rs` supplies fifty further authored phrases;
+`styles/rhythm.rs` gives each style its own accompaniment. Every title has an
+original two-bar motif, answer, return, cadence and contrasting B section.
+All ten provide the same eight game movements, with consonant triads and
+independent ascending/descending/open-fifth result cues. Jazz colour comes from
+rhythm, voicing and timbre here: no dissonant seventh/altered chords are added.
+Native 48-kHz additive synthesis supplies eleven original pitched patches and
+three percussion voices. Harmonic tables stop below 16 kHz at the highest score
+pitch; attacks, spectral decay and instrument-specific releases give each patch
+its own articulation. These are modelled instruments, not new studio recordings.
+No third-party synthesizer preset or loop is used. The bank setting changes
+recorded voices only; wholly synthesized arrangements sound identical in both.
+The new pool is capped at 64 voices beside the existing 96 recorded voices and
+24 lyre strings, with no allocation or I/O during admission/rendering.
 
-To hear the exact runtime score, scene by scene and through every transition:
+The original five's eight situations retain the requested medieval/orchestral
+instrument groups. Their manuscript and arrangements are described below.
+
+`music/score/manuscript.rs` contains the original, independently notated
+melodies, with eighth-note durations and explicit rests. Each title opens with
+a two-bar motif: answer, recognizable return and cadence make an eight-bar
+period. The 32-bar title form uses statement, intimate repeat, a developed
+bridge and return. Tavern/table arrangements subtly quote that suite’s motif. Each suite has title, answer, tavern,
+standard-game and combat phrases. These develop into eight movements:
+
+- Title: wide intervals, consonant triads, all four instrument groups.
+- Lobby/deckbuilder: sparse Dorian tavern music, plucks with cello/viola.
+- Standard: lyre/harp/zither melodies and bowed accompaniment.
+- Combat: repeated notes and close thirds, short bowed ostinati,
+  major/minor mixture; trombone sits behind the strings.
+- Endgame: wide thematic returns, stronger strings and brass, plucked accents.
+- Victory: rising attention cue, then bright thematic music.
+- Defeat: falling attention cue, then a slower cello lament.
+- Draw: open-fifth attention cue, then consecutive major/minor colours.
+
+The pure director reads the screen and `PlayerView` only. Combat is combat;
+endgame uses high tension, lethal pressure or imminent defeat with hysteresis
+on tension. No network, rule-engine changes or hidden information enter audio.
+
+**Transitions** are admitted at the next eighth pulse, normally within about
+0.18–0.35 seconds, including a settings theme change. The short four-note result
+cue can finish before a dismissal; another result can interrupt it. One
+persistent `AudioPlayer`, sample clock and room continue throughout. Existing
+voices release from their current level, and the tempo eases over three
+seconds. No WAV is restarted and no full bar/phrase must finish. A fast
+succession of changes cannot revive a voice already in release.
+
+**Sound banks:** all fifteen suites are available in both Settings → Audio →
+Instrument sound choices. **Studio 48 kHz** prepares each composed pitch with
+32-tap Blackman-windowed sinc interpolation before playback. **Original
+44.1 kHz** reads the existing mono PCM bank with cubic interpolation. Both use
+real CC0 recordings originally made at 44.1 kHz (VCSL/VSCO 2 CE), not native
+48-kHz recordings. The harp, plucked psaltery, violin, viola, cello, bowed bass
+and trombone retain their recorded articulation; lyre is our own string model.
+The continuous output device runs at 48 kHz in both cases. Bank changes affect
+new notes on the next pulse and preserve held notes, position and room tails.
+
+Only the 51 active recordings enter the runtime bank (6.6 MB of PCM, selected
+at compile time without modifying the historical generated manifest).
+Only pitches actually used by the score are cached for Studio; only used
+families are decoded for Original. Preparation happens before the audio player
+starts, never at a scene or bank change. Polyphony and event arrays are bounded;
+rendering has no file I/O or new allocations. Studio reads one prepared frame
+per voice; Original interpolates four already-decoded frames, with a guarded
+loop-boundary path. Scalar/block equivalence, loop seams, the resampler's
+stopband, source hashes, harmonic compatibility and bank persistence are tested.
+The normal mix stays linear; a safety knee acts only above 0.85 amplitude.
+Existing master/music volume, background mute and priority-cue ducking apply.
+
+Render the **same renderer used by the client**, for review or regression:
 
 ```sh
-cargo run --release -p baylee-client-core --example music_demo -- <dir>
+cargo run --release -p baylee-client-core --example music_demo -- /tmp/baylee-music 180
+python3 art/music/originality.py
+# Append `new` or `dorian` after the seconds argument to render only that group.
 ```
 
-It writes sixteen WAVs (the front door, the lobby, deck building, the
-arrival, the calm table on this seat's turn and another's, tension rising, the
-hunt, the climax, the three endings, big spells, the pipe's drones re-pitched,
-the monarch, and a whole game in five minutes) and prints each one's peak and
-loudness. Browser playback retains the existing AudioContext gesture unlock
-in `index.html`; autoplay permission remains the browser's decision.
+This writes 240 stereo PCM24/48-kHz WAVs and 30 transition tours, in
+`studio48` and `original441` directories. Those names describe the sample banks,
+not different output-device rates. Tours
+request changes deliberately off-beat, including leaving combat and dismissing
+a result during its cue. `measurements.json` records actual admitted positions,
+peak, RMS, maximum adjacent-sample step and format. These are pre-master offline
+renders, not recordings of the system output or proof of subjective quality.
+The tool refuses non-finite/clipping output. See `art/music/README.md` for the
+composition/refinement record and listening workflow.
 
 ## The zone browser is a dialog, which is a different material
 
