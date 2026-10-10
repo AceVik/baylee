@@ -406,6 +406,9 @@ pub(crate) fn spawn_finish(
                 .as_ref()
                 .map(|view| table_losses(lang, view, Some(statics), seat))
                 .unwrap_or_default(),
+            watched: duel
+                .watching
+                .then(|| spectators_verdict(lang, result, statics)),
         },
     );
 
@@ -450,6 +453,23 @@ struct Said<'a> {
     /// [`table_losses`]: the reader's own loss first, then each other
     /// seat's that is out.
     losses: Vec<String>,
+    /// The verdict as a spectator reads it, who neither won nor lost.
+    watched: Option<String>,
+}
+
+/// Who won, named, for a spectator (`docs/protocol.md` §"Spectators"):
+/// seat 0's verdict would tell them they had won or lost.
+fn spectators_verdict(
+    lang: Lang,
+    result: &baylee_engine::win::GameResult,
+    statics: &baylee_view::GameStatic,
+) -> String {
+    use baylee_engine::win::Victor;
+    match result.winner {
+        None => Phrase::TheGameIsADraw.text(lang).to_string(),
+        Some(Victor::Player(p)) => Phrase::LogWonOne.fill(lang, &[statics.seat_name(p)]),
+        Some(Victor::Team(n)) => Phrase::TheirTeamWon.fill(lang, &[&n.to_string()]),
+    }
 }
 
 /// The verdict, and the line under it when there is one.
@@ -460,10 +480,11 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
         seat,
         team,
         losses,
+        watched,
     } = said;
     let headline = commands
         .spawn((
-            Text::new(verdict(lang, result, seat, team)),
+            Text::new(watched.unwrap_or_else(|| verdict(lang, result, seat, team))),
             // The one place this client asks a face for a weight, and Faustina
             // is the one it can ask: Alegreya Sans ships as static cuts,
             // where `weight` reaches nothing at all.

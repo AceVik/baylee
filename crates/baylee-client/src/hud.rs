@@ -2241,6 +2241,7 @@ pub(crate) use sheet::granted::{
     focus_granted_sheet, granted_click, granted_keys, granted_offers, sync_granted_sheet,
 };
 mod slip;
+pub(crate) mod spectators;
 mod stack;
 pub(crate) mod suspended;
 mod tray;

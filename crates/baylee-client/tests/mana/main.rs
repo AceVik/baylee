@@ -133,7 +133,8 @@ impl Table {
                 HostMessage::Static(_)
                 | HostMessage::Curtain
                 | HostMessage::Preparing { .. }
-                | HostMessage::AiLog(_) => {}
+                | HostMessage::AiLog(_)
+                | HostMessage::Spectators(_) => {}
             }
         }
     }

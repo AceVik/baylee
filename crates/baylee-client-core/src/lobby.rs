@@ -359,6 +359,12 @@ pub struct GameSummary {
     /// The pace it plays at; `None` from a gateway that does not say.
     #[serde(default)]
     pub clock: Option<play::TableClock>,
+    /// Whether a player without a chair may watch it.
+    #[serde(default)]
+    pub spectators_allowed: bool,
+    /// How many watch it now.
+    #[serde(default)]
+    pub spectators: u32,
 }
 
 impl GameSummary {
@@ -366,6 +372,13 @@ impl GameSummary {
     #[must_use]
     pub fn joinable(&self) -> bool {
         self.state == "waiting" && self.seats.iter().any(GameSeat::open)
+    }
+
+    /// Whether this player could watch it: a table being played that
+    /// allows spectators, with no chair of theirs at it.
+    #[must_use]
+    pub fn watchable(&self) -> bool {
+        self.state == "playing" && self.spectators_allowed && self.my_seat().is_none()
     }
 
     /// Which seat is this player's, if any.
@@ -526,6 +539,19 @@ pub struct SeatHandover {
     pub local: bool,
 }
 
+impl SeatHandover {
+    /// The `seat` of a spectator's handover: no chair at all. Its
+    /// `seat_token` is then the account's session, which buys the watch
+    /// socket's ticket (`docs/protocol.md` §"Spectators").
+    pub const WATCH: u32 = u32::MAX;
+
+    /// Whether this handover watches rather than sits.
+    #[must_use]
+    pub const fn watching(&self) -> bool {
+        self.seat == Self::WATCH
+    }
+}
+
 /// What a new table is opened against.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GameMode {
@@ -642,6 +668,9 @@ pub enum LobbyRequest {
         /// The house AI's difficulty for [`GameMode::Ai`]; `None` is the
         /// gateway's (steady).
         ai: Option<String>,
+        /// Whether players without a chair may watch (`docs/protocol.md`
+        /// §"Spectators").
+        spectators: bool,
     },
     /// `POST /lobby/games/{id}/join`.
     JoinGame {
@@ -2320,6 +2349,7 @@ impl Lobby {
             password,
             clock: None,
             ai: None,
+            spectators: true,
         })
     }
 
@@ -2786,6 +2816,25 @@ impl Lobby {
     #[must_use]
     pub fn stats(&self) -> Option<&strips::LobbyStats> {
         self.stats.as_ref()
+    }
+
+    /// Watch a game being played (`docs/protocol.md` §"Spectators"): the
+    /// shell dials the watch socket with this account's session. Nothing
+    /// is asked of the gateway here; the ticket request is the ask.
+    pub fn watch_table(&mut self, game_id: &str) -> bool {
+        if self.busy || self.offline() || !matches!(self.screen, Screen::Table) {
+            return false;
+        }
+        let Some(token) = self.token().map(str::to_string) else {
+            return false;
+        };
+        self.screen = Screen::Seated(SeatHandover {
+            game_id: game_id.to_string(),
+            seat: SeatHandover::WATCH,
+            seat_token: token,
+            local: false,
+        });
+        true
     }
 
     /// Return to a game being played that holds this player's chair (the

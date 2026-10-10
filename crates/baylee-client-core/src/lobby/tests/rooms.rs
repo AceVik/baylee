@@ -27,6 +27,7 @@ fn hosting_names_the_selected_deck() {
             password: String::new(),
             clock: None,
             ai: None,
+            spectators: true,
         })
     );
 }
@@ -91,6 +92,7 @@ fn the_room_password_goes_with_the_next_table_and_is_then_forgotten() {
             password: "supper".to_string(),
             clock: None,
             ai: None,
+            spectators: true,
         })
     );
     assert!(lobby.room_password().is_empty());

@@ -385,6 +385,8 @@ pub struct TableDraft {
     pub clock: usize,
     /// Whether Adjust is unfolded.
     pub adjust: bool,
+    /// Whether players without a chair may watch the table.
+    pub spectators: bool,
 }
 
 impl Default for TableDraft {
@@ -404,6 +406,7 @@ impl TableDraft {
             mulligans: RoomSetup::default().free_mulligans,
             clock: 0,
             adjust: false,
+            spectators: true,
         }
     }
 
@@ -527,6 +530,7 @@ impl Lobby {
                 password,
                 clock,
                 ai,
+                spectators: draft.spectators,
             },
             other => other,
         })
@@ -543,6 +547,7 @@ impl Lobby {
                 name,
                 password,
                 clock,
+                spectators,
                 ..
             } => Some(LobbyRequest::CreateGame {
                 deck_id,
@@ -552,6 +557,7 @@ impl Lobby {
                 password,
                 clock,
                 ai: Some(difficulty.to_string()),
+                spectators,
             }),
             other => Some(other),
         }
@@ -577,6 +583,7 @@ impl Lobby {
             mulligans: setup.free_mulligans,
             clock: 0,
             adjust: false,
+            spectators: true,
         })
     }
 

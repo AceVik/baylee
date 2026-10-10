@@ -379,7 +379,10 @@ impl Client {
                 }
                 // This driver answers the host itself, not through the
                 // client's outbox, so it has nothing to hold.
-                HostMessage::Curtain | HostMessage::Preparing { .. } | HostMessage::AiLog(_) => {}
+                HostMessage::Curtain
+                | HostMessage::Preparing { .. }
+                | HostMessage::AiLog(_)
+                | HostMessage::Spectators(_) => {}
             }
         }
     }

@@ -58,6 +58,12 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // stays open between them — nothing here closes it — which is the
         // whole reason it is not a child of the shelf: the arming press
         // rebuilds the shelf's columns.
+        // A spectator concedes nothing: it leaves (`docs/protocol.md`
+        // §"Spectators"), in one press, since nothing is lost by it.
+        MenuAction::Concede if duel.watching => {
+            duel.leave_asked = true;
+            duel.game_menu = false;
+        }
         MenuAction::Concede => {
             if was_armed {
                 duel.submit(PlayerAction::Concede);

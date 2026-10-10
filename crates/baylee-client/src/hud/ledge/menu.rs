@@ -191,6 +191,8 @@ pub struct MenuRevision {
     arrangement: Option<baylee_client_core::tableview::Arrangement>,
     /// Whether this client hosts the game (a house game): the tour's row.
     house: bool,
+    /// Whether this client only watches: its way out is *Stop watching*.
+    watching: bool,
 }
 
 /// Where the panel stands.
@@ -331,6 +333,7 @@ pub fn sync_menu(
         house: host
             .as_deref()
             .is_some_and(|h| h.0.link() == crate::host::LinkState::Local),
+        watching: duel.watching,
     };
     // Whether the panel is *showing*, which is not whether it is visible: one
     // in the middle of folding away is still on the screen and is already
@@ -370,7 +373,7 @@ pub fn sync_menu(
     // draw cannot be offered in the middle of conceding, so `Dead` is what is
     // true; and a row that vanished would let the confirm row slide up under
     // a pointer that is about to press it.
-    let offer_weight = if next.can_offer_draw && !next.armed {
+    let offer_weight = if next.can_offer_draw && !next.armed && !next.watching {
         Weight::Secondary
     } else {
         Weight::Dead
@@ -389,7 +392,9 @@ pub fn sync_menu(
     }
     commands.entity(panel).add_child(offer);
 
-    let (words, weight) = if next.armed {
+    let (words, weight) = if next.watching {
+        (Phrase::StopWatching, Weight::Secondary)
+    } else if next.armed {
         (Phrase::ConcedeConfirm, Weight::Danger)
     } else {
         (Phrase::Concede, Weight::Secondary)

@@ -2527,6 +2527,19 @@ messages! {
     OfferADraw { en: "Offer a draw", de: "Remis anbieten" },
     /// Concede
     Concede { en: "Concede", de: "Aufgeben" },
+    /// A lobby row's button: watch a running table (`docs/protocol.md`
+    /// §"Spectators").
+    Watch { en: "Watch", de: "Zuschauen" },
+    /// The game menu's way out for a spectator.
+    StopWatching { en: "Stop watching", de: "Zuschauen beenden" },
+    /// How many watch a table. `{0}` the count.
+    SpectatorCount { en: "{0} watching", de: "{0} Zuschauer" },
+    /// A new room's option: whether players without a chair may watch.
+    AllowSpectators { en: "Allow spectators", de: "Zuschauer erlauben" },
+    /// The lobby's line after a spectator leaves a table.
+    StoppedWatching { en: "You stopped watching", de: "Du schaust nicht mehr zu" },
+    /// The table's badge for a spectator: nothing here is theirs to play.
+    YouAreWatching { en: "You are watching", de: "Du schaust zu" },
     /// Concede, armed and waiting for the second press.
     ConcedeConfirm { en: "Concede? Press again", de: "Aufgeben? Nochmal drücken" },
     /// The game log panel's title (#262). Not a `Log…` phrase: those are the

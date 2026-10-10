@@ -61,8 +61,12 @@ pub struct SeatTicket {
     /// Only a hint: the table says which chair this is, in the opening
     /// payload, and [`NetworkHost`] believes the table.
     pub seat: PlayerId,
-    /// The seat token issued by `POST /lobby/games` or `.../join`.
+    /// The seat token issued by `POST /lobby/games` or `.../join`; for a
+    /// spectator, the account's session.
     pub seat_token: String,
+    /// Whether this ticket watches rather than sits (`docs/protocol.md`
+    /// §"Spectators"): `/games/{id}/watch`, bought with the session.
+    pub watch: bool,
 }
 
 /// A gateway base URL as a websocket URL of the same host.
@@ -88,7 +92,11 @@ impl SeatTicket {
     #[must_use]
     pub fn socket_url(&self, ticket: &str) -> String {
         let base = ws_base(&self.gateway);
-        let path = baylee_protocol::seat_socket_path(&self.game_id, ticket);
+        let path = if self.watch {
+            baylee_protocol::watch_socket_path(&self.game_id, ticket)
+        } else {
+            baylee_protocol::seat_socket_path(&self.game_id, ticket)
+        };
         format!("{base}{path}")
     }
 
@@ -109,6 +117,7 @@ impl SeatTicket {
             game_id,
             seat: PlayerId::new(seat),
             seat_token,
+            watch: false,
         })
     }
 
@@ -340,10 +349,9 @@ impl NetworkHost {
         let pending = Some(request_ticket(
             &ticket.gateway,
             &ticket.seat_token,
-            TicketSocket::Seat {
-                game_id: &ticket.game_id,
-            },
+            ticket_socket(&ticket),
         ));
+        let watch = ticket.watch;
         Ok(Self {
             seat: ticket.seat,
             ticket,
@@ -352,14 +360,19 @@ impl NetworkHost {
             dial,
             last_seq: 0,
             connection: Connection::default(),
-            outbox: vec![a_person_answers()],
+            // A spectator says nothing to the table, not even who it is.
+            outbox: if watch {
+                Vec::new()
+            } else {
+                vec![a_person_answers()]
+            },
             pending_out: Vec::new(),
             refused: None,
             clock: clock::Clock::default(),
             clock_origin: web_time::Instant::now(),
             next_probe: 0,
             pending_ready: false,
-            clock_open: true,
+            clock_open: !watch,
         })
     }
 
@@ -386,12 +399,17 @@ impl NetworkHost {
         self.clock = clock::Clock::default();
         self.next_probe = 0;
         self.pending_ready = false;
-        self.clock_open = true;
+        self.clock_open = !self.ticket.watch;
         // Still lost until the new socket says `Opened`, and dialling until
         // then so the application waits for this attempt instead of starting
         // another one on the next frame.
         self.connection.lost = true;
         self.connection.dialling = true;
+        // A spectator's socket is sent the whole table as it opens, and has
+        // nothing to say to it.
+        if self.ticket.watch {
+            return Ok(());
+        }
         let resume = Envelope {
             msg: Some(v1::envelope::Msg::Resume(v1::ResumeGame {
                 game_id: self.ticket.game_id.clone(),
@@ -415,9 +433,7 @@ impl NetworkHost {
         self.pending = Some(request_ticket(
             &self.ticket.gateway,
             &self.ticket.seat_token,
-            TicketSocket::Seat {
-                game_id: &self.ticket.game_id,
-            },
+            ticket_socket(&self.ticket),
         ));
     }
 
@@ -521,6 +537,36 @@ impl NetworkHost {
     }
 }
 
+/// Which socket a ticket buys: a seat's, or a spectator's.
+fn ticket_socket(ticket: &SeatTicket) -> TicketSocket<'_> {
+    if ticket.watch {
+        TicketSocket::Watch {
+            game_id: &ticket.game_id,
+        }
+    } else {
+        TicketSocket::Seat {
+            game_id: &ticket.game_id,
+        }
+    }
+}
+
+/// A spectator's frame as the renderer reads a seat's: its view is a
+/// `SpectatorView`, drawn from seat 0 with no hand and no question.
+fn watched_message(envelope: Envelope) -> Option<HostMessage> {
+    if let Some(v1::envelope::Msg::StateDelta(delta)) = &envelope.msg {
+        return Some(
+            match serde_json::from_slice::<baylee_view::SpectatorView>(&delta.view_json) {
+                Ok(view) => HostMessage::View(
+                    Box::new(view.into_player_view(PlayerId::new(0))),
+                    crate::host::log_tail(&delta.log_json),
+                ),
+                Err(e) => HostMessage::Failed(format!("unreadable game state: {e}")),
+            },
+        );
+    }
+    host_message(envelope)
+}
+
 /// What answers this seat, for the game's record (#315): a person. The
 /// first thing every socket sends, before its ready and any answer
 /// (`docs/protocol.md` §"Who answers a seat, as it says"); the table shows
@@ -594,7 +640,12 @@ impl DuelHost for NetworkHost {
                             }
                             self.note_seq(&envelope);
                             self.note_refusal(&envelope);
-                            if let Some(message) = host_message(envelope) {
+                            let message = if self.ticket.watch {
+                                watched_message(envelope)
+                            } else {
+                                host_message(envelope)
+                            };
+                            if let Some(message) = message {
                                 if let HostMessage::Static(statics) = &message {
                                     // The table decides which chair this is; a
                                     // ticket could only ever guess at it.
@@ -634,6 +685,10 @@ impl DuelHost for NetworkHost {
     }
 
     fn submit(&mut self, action: PlayerAction) {
+        // A spectator answers nothing; the table would drop it anyway.
+        if self.ticket.watch {
+            return;
+        }
         let Ok(action_json) = serde_json::to_vec(&action) else {
             self.pending_out.push(HostMessage::Failed(
                 "your answer could not be encoded".to_string(),
@@ -654,11 +709,15 @@ impl DuelHost for NetworkHost {
     }
 
     fn ready(&mut self) {
-        self.pending_ready = true;
+        self.pending_ready = !self.ticket.watch;
     }
 
     fn seat(&self) -> PlayerId {
         self.seat
+    }
+
+    fn watching(&self) -> bool {
+        self.ticket.watch
     }
 
     fn seat_token(&self) -> Option<&str> {
@@ -712,6 +771,7 @@ mod tests {
             game_id: "0199-abc".to_string(),
             seat: PlayerId::new(1),
             seat_token: "deadbeef".to_string(),
+            watch: false,
         }
     }
 
@@ -781,6 +841,7 @@ mod tests {
             game_id: "x".to_string(),
             seat: PlayerId::new(0),
             seat_token: String::new(),
+            watch: false,
         };
         // The check `discover` applies, on the values it would have built.
         assert!(empty.seat_token.is_empty());

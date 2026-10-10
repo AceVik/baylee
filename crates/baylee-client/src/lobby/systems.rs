@@ -238,11 +238,13 @@ pub(super) fn poll(
         }
         return;
     }
+    let watch = handover.watching();
     let ticket = SeatTicket {
         gateway: state.gateway.clone(),
         game_id: handover.game_id,
         // A hint only; the table's opening payload says which chair this is.
         seat: PlayerId::new(u8::try_from(handover.seat).unwrap_or(0)),
+        watch,
         seat_token: handover.seat_token,
     };
     match NetworkHost::connect(ticket) {
@@ -640,7 +642,9 @@ pub(super) fn came_back(
     // a warning. That would not fail those tests — it would hollow them out,
     // since what they assert on is what this function does. An embedder with
     // its own duel is the same case in production.
-    match ended_as(duel.as_deref()) {
+    let watched = matches!(state.lobby.screen(), Screen::Seated(h) if h.watching());
+    match ended_as(duel.as_deref()).filter(|_| !watched) {
+        _ if watched => state.lobby.stand_up(Phrase::StoppedWatching, &[]),
         Some((result, seat, team, own)) => {
             // Play's Recent games (this session), before the seat goes.
             super::play::remember(&mut state, duel.as_deref(), result, seat, team);
