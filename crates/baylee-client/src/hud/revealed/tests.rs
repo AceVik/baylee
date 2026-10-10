@@ -1,9 +1,9 @@
 //! The sheet that holds up another seat's reveal: it stands for the reveal
 //! and with every card in it, says whose it is, stands under a dialog that
-//! answers a question, and goes when the reveal does — put away or timed out.
+//! answers a question, stands where the decision sheet does, and goes only
+//! when the player puts it away: never by itself.
 
 use super::*;
-use baylee_client_core::reveals::SHOW_SECS;
 use baylee_client_core::test_support::{hear_live, revealed_line, statics};
 use std::time::Duration;
 
@@ -42,7 +42,7 @@ fn table() -> App {
         .init_resource::<crate::settings::ClientSettings>()
         .init_resource::<RevealRevision>()
         .init_resource::<Time>()
-        .add_systems(Update, (tick, sync).chain());
+        .add_systems(Update, sync);
     app.world_mut().spawn((HudRoot, Node::default()));
     app
 }
@@ -150,20 +150,51 @@ fn the_sheet_goes_when_the_reveal_is_put_away_and_the_next_one_takes_its_place()
 }
 
 #[test]
-fn the_sheet_goes_by_itself_when_its_time_is_up() {
+fn the_sheet_never_goes_by_itself_however_long_it_stands() {
     let mut app = table();
     reveal(&mut app, vec![revealed_line(1, 40, 7)]);
     app.update();
-    assert_eq!(sheets(&mut app).len(), 1);
-    let half = Duration::from_secs_f64(SHOW_SECS / 2.0);
-    app.world_mut().resource_mut::<Time>().advance_by(half);
+    let standing = sheets(&mut app);
+    assert_eq!(standing.len(), 1);
+    // A minute of game time and many frames: the old clock let it go at 7 s.
+    for _ in 0..60 {
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs(1));
+        app.update();
+    }
+    assert_eq!(
+        sheets(&mut app),
+        standing,
+        "the reveal closed or was rebuilt without the player's answer"
+    );
+    // The player's answer is what takes it away.
+    app.world_mut().resource_mut::<Duel>().reveals.dismiss();
     app.update();
-    assert_eq!(sheets(&mut app).len(), 1, "gone before its time");
-    app.world_mut()
-        .resource_mut::<Time>()
-        .advance_by(half + Duration::from_millis(10));
+    assert!(sheets(&mut app).is_empty(), "the answer did not close it");
+}
+
+#[test]
+fn the_sheet_stands_in_the_decision_area_over_the_shelf_open_at_its_foot() {
+    let mut app = table();
+    reveal(&mut app, vec![revealed_line(1, 40, 7)]);
     app.update();
-    assert!(sheets(&mut app).is_empty(), "the reveal outstayed its time");
+    let band = sheets(&mut app)[0];
+    let node = app.world().get::<Node>(band).expect("a node").clone();
+    let drawer = crate::hud::ledge::drawer::root_node();
+    assert_eq!(node.position_type, PositionType::Absolute);
+    assert_eq!(
+        node.bottom, drawer.bottom,
+        "where the decision sheet stands"
+    );
+    assert_eq!(node.top, Val::Auto, "no longer hung from the top");
+    let page = app.world().get::<Children>(band).expect("its paper")[0];
+    let paper = app.world().get::<Node>(page).expect("a node");
+    assert_eq!(
+        paper.border.bottom,
+        px(0),
+        "open at the foot, as the sheet is"
+    );
 }
 
 #[test]
@@ -293,11 +324,13 @@ fn a_folded_reveal_is_a_pill_and_the_next_one_opens() {
 
     fold(&mut app);
     app.update();
-    let all = Duration::from_secs_f64(SHOW_SECS + 0.1);
-    app.world_mut().resource_mut::<Time>().advance_by(all);
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(Duration::from_secs(60));
     app.update();
-    assert!(
-        sheets(&mut app).is_empty(),
-        "a folded reveal still times out"
+    assert_eq!(
+        count::<RevealPill>(&mut app),
+        1,
+        "a folded reveal never times out"
     );
 }

@@ -270,65 +270,40 @@ fn one_frame_s_reveals_merge_per_seat_and_queue_across_seats() {
 }
 
 #[test]
-fn a_reveal_goes_when_its_time_is_up_and_the_next_one_gets_its_own() {
+fn a_reveal_stands_until_the_player_puts_it_away_and_only_then_the_next_one() {
     let (mut book, mut reveals) = attached();
     reveals.take(
         &mut book,
         &tail(2, vec![revealed(them(), vec![known(40, 7)])]),
         &view(2),
     );
+    // Frames that tell nothing new, and this seat's own answers, never
+    // take it away: there is no clock (owner, 10.10.2026).
+    for seq in 3..40 {
+        reveals.take(&mut book, &tail(seq, vec![quiet()]), &view(u64::from(seq)));
+    }
     reveals.take(
         &mut book,
         &tail(
-            3,
+            40,
             vec![revealed(
                 them(),
                 vec![known(41, 8), known(42, 9), known(43, 10)],
             )],
         ),
-        &view(3),
+        &view(40),
     );
-    // The clock starts the first time it is asked, not when the line came.
-    assert!(reveals.due(100.0));
-    assert!(!reveals.tick(100.0));
-    assert!(!reveals.due(100.0 + SHOW_SECS - 0.1));
-    assert!(!reveals.tick(100.0 + SHOW_SECS - 0.1));
     assert_eq!(reveals.current().map(|r| r.cards.len()), Some(1));
-    assert!(reveals.tick(100.0 + SHOW_SECS));
-    let next = reveals
-        .current()
-        .expect("the second stands up as the first goes");
-    assert_eq!(next.cards.len(), 3);
-    assert!(
-        (next.lasts() - (SHOW_SECS + 2.0 * PER_CARD_SECS)).abs() < 1e-9,
-        "three cards stand longer than one"
+    assert_eq!(reveals.waiting(), 1);
+    assert!(reveals.dismiss());
+    assert_eq!(
+        reveals.current().map(|r| r.cards.len()),
+        Some(3),
+        "the second stands up as the first is put away"
     );
-    // Its own time, counted from when it stood up.
-    let up = 100.0 + SHOW_SECS;
-    assert!(!reveals.tick(up + SHOW_SECS));
-    assert!(reveals.tick(up + next_lasts(&reveals)));
+    assert!(reveals.dismiss());
     assert!(reveals.current().is_none());
-    assert!(!reveals.due(1e9), "nothing standing is never due");
-}
-
-fn next_lasts(reveals: &Reveals) -> f64 {
-    reveals.current().map_or(0.0, Reveal::lasts)
-}
-
-#[test]
-fn no_reveal_stands_longer_than_the_longest() {
-    let reveal = Reveal {
-        player: them(),
-        cards: (0..40)
-            .map(|i| ShownCard {
-                id: oid(i),
-                card: None,
-                token: Some(1),
-            })
-            .collect(),
-        number: 1,
-    };
-    assert!((reveal.lasts() - LONGEST_SECS).abs() < 1e-9);
+    assert!(!reveals.dismiss(), "nothing left to put away");
 }
 
 #[test]
