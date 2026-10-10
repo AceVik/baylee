@@ -303,6 +303,11 @@ message EngineHello {
   // The PROTOCOL_VERSION this engine was built with (#271), checked like
   // AgentHello's.
   uint32 protocol_version = 3;
+  // The engine's process id on its machine, so a gateway on the same
+  // machine can read its CPU and memory for the admin console
+  // (`docs/protocol.md` §"The admin console"). 0 is an engine from before
+  // this field, or one that does not say; the gateway reads nothing then.
+  uint32 pid = 4;
 }
 
 // Gateway → engine: everything needed to build the game.

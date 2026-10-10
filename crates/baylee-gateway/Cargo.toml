@@ -23,8 +23,9 @@ axum.workspace = true
 base64.workspace = true
 baylee-build.workspace = true
 baylee-cards.workspace = true
-# The ledger, for one question the pool cannot answer: whether a name this
-# build compiles no card for is a real card anyway. 2.7 MB of names the
+# The ledger, for two questions the pool cannot answer: whether a name this
+# build compiles no card for is a real card anyway, and how far the pool is
+# through each set (`sets.rs`, the admin console). 2.7 MB of names the
 # rules engine must never link — which is why the table is its own crate
 # rather than a feature, so a dependent here reaches nothing else.
 baylee-cards-index.workspace = true
@@ -62,6 +63,12 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 ureq.workspace = true
 uuid.workspace = true
+
+# The server metrics (`metrics.rs`): free disk, and the clock the kernel
+# counts a process's CPU time in. Unix only: on Windows (the build matrix)
+# rustix offers neither, and the metrics answer what `std` can say.
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
 
 [dev-dependencies]
 # The gateway no longer links the rules kernel — that is the point of the

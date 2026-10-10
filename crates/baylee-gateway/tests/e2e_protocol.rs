@@ -103,6 +103,7 @@ async fn an_engine_of_another_protocol_ends_its_game() {
             game_id: game_id.clone(),
             token: start.engine_token.clone(),
             protocol_version: OTHER,
+            pid: 0,
         })),
     };
     send(&mut engine, &hello).await;

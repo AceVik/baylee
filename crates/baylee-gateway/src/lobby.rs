@@ -255,6 +255,11 @@ pub struct LobbyGame {
     pub engine_local: bool,
     /// The engine process, once it has dialled in.
     pub engine: Option<EngineLink>,
+    /// That process's id, from its hello, kept only when the engine runs on
+    /// this machine (`engine_local`): the server metrics read its CPU and
+    /// memory off `/proc` for the admin console (`metrics.rs`). A pid on
+    /// another machine names nothing here, so it is not kept.
+    pub engine_pid: Option<u32>,
     /// Flips to true when an engine is attached. A seat socket may open the
     /// moment the lobby says "playing", which is before the engine exists;
     /// this is what it waits on rather than polling.
@@ -423,6 +428,7 @@ impl LobbyGame {
             agent_id: None,
             engine_local: false,
             engine: None,
+            engine_pid: None,
             ready: watch::channel(false).0,
             outboxes: Vec::new(),
             created_at,

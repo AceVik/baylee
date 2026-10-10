@@ -642,6 +642,7 @@ async fn run_engine(
                 game_id: start.game_id.clone(),
                 token: start.engine_token.clone(),
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                pid: 0,
             })),
         },
     )

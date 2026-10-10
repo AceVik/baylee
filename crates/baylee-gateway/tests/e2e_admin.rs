@@ -346,6 +346,111 @@ async fn the_numbers_count_what_happened_and_name_nobody() {
     agent.abort();
 }
 
+/// The server metrics and the set progress are the shapes the UI reads:
+/// the metrics answer on every platform (`/proc` fields `null` where there
+/// is none) and name nobody; the sets partition the corpus, in release
+/// order, and one set lists its cards with a Scryfall id the browser builds
+/// a picture's address from itself (`docs/legal.md` §3).
+#[test]
+fn metrics_and_set_progress_have_the_shapes_the_console_reads() {
+    let c = console("admin_metrics", &[]);
+    // Requests on the public port are counted; the console's are not.
+    for _ in 0..3 {
+        let (status, _) = http(c.gw.port, "GET", "/health", None, "");
+        assert_eq!(status, 200);
+    }
+    let (status, body) = admin(&c, "GET", "/admin/metrics", "");
+    assert_eq!(status, 200, "{body}");
+    let metrics = json(&body);
+    assert_eq!(metrics["interval_secs"], 5, "{metrics}");
+    assert_eq!(metrics["keep"], 720, "{metrics}");
+    assert_eq!(metrics["platform"], std::env::consts::OS, "{metrics}");
+    assert!(
+        metrics["cores"].as_u64().is_some_and(|n| n >= 1),
+        "{metrics}"
+    );
+    assert!(metrics["process_uptime_secs"].is_u64(), "{metrics}");
+    assert!(metrics["host"].is_object(), "{metrics}");
+    assert_eq!(metrics["host"]["disk_path"], "/", "{metrics}");
+    if cfg!(target_os = "linux") {
+        assert!(metrics["host"]["mem_total"].is_u64(), "{metrics}");
+    }
+    for column in [
+        "at",
+        "cpu",
+        "load1",
+        "mem_used",
+        "disk_used",
+        "net_in",
+        "net_out",
+        "sockets",
+        "requests",
+    ] {
+        assert!(metrics["history"][column].is_array(), "{column}: {metrics}");
+    }
+    assert!(metrics["games"].is_array(), "{metrics}");
+    // The first sample is taken as the gateway starts: a point with no rate.
+    assert!(metrics["now"].is_object(), "{metrics}");
+    assert_eq!(metrics["now"]["requests"], 0.0, "{metrics}");
+    assert!(
+        metrics["now"]["games"]
+            .as_array()
+            .is_some_and(Vec::is_empty)
+    );
+    for leak in ["alice", "token", "@"] {
+        assert!(!body.contains(leak), "{leak} in {body}");
+    }
+
+    let (status, body) = admin(&c, "GET", "/admin/sets", "");
+    assert_eq!(status, 200, "{body}");
+    let sets = json(&body);
+    let pool = &sets["pool"];
+    let corpus = sets["corpus"].as_u64().expect("the corpus size");
+    let sum = ["implemented", "partial", "unimplemented", "absent"]
+        .iter()
+        .map(|k| pool[k].as_u64().unwrap_or_else(|| panic!("{k}: {pool}")))
+        .sum::<u64>();
+    assert_eq!(sum, corpus, "{pool}");
+    assert_eq!(
+        pool["cards"].as_u64().unwrap() + pool["absent"].as_u64().unwrap(),
+        corpus
+    );
+    let list = sets["sets"].as_array().expect("sets");
+    assert_eq!(list[0]["code"], "lea", "{}", list[0]);
+    assert_eq!(list[0]["position"], 0);
+    assert_eq!(list[1]["code"], "leb");
+    let per_set: u64 = list.iter().map(|s| s["total"].as_u64().unwrap()).sum();
+    assert_eq!(per_set, corpus);
+    assert!(sets["version"].is_string());
+
+    let (status, body) = admin(&c, "GET", "/admin/sets/LEA", "");
+    assert_eq!(status, 200, "{body}");
+    let alpha = json(&body);
+    assert_eq!(alpha["code"], "lea");
+    let cards = alpha["cards"].as_array().expect("cards");
+    assert_eq!(cards.len() as u64, alpha["total"].as_u64().unwrap());
+    let bolt = cards
+        .iter()
+        .find(|c| c["name"] == "Lightning Bolt")
+        .expect("Alpha has Lightning Bolt");
+    assert_ne!(bolt["coverage"], "absent", "{bolt}");
+    assert!(
+        bolt["scryfall_id"]
+            .as_str()
+            .is_some_and(|id| id.len() == 36)
+    );
+    assert!(
+        bolt["type_line"]
+            .as_str()
+            .is_some_and(|t| t.contains("Instant"))
+    );
+    assert!(bolt["index"].is_u64());
+    for (path, status) in [("/admin/sets/zzzz", 404), ("/admin/sets/a-b", 400)] {
+        let (got, body) = admin(&c, "GET", path, "");
+        assert_eq!(got, status, "{path}: {body}");
+    }
+}
+
 /// The accounts, one account and the live view name players (owner,
 /// 09.10.2026), and never a secret: no password hash, token, session hash
 /// or e-mail address.

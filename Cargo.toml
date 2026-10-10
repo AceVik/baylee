@@ -91,6 +91,10 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio = { version = "1", features = ["full"] }
 parking_lot = "0.12"
+# Already in the tree under tokio and tempfile; the gateway's server metrics
+# ask it two things `std` has no safe word for: a filesystem's free space
+# (`statvfs`) and the clock ticks a `/proc/<pid>/stat` counts in.
+rustix = { version = "1", features = ["fs", "param"] }
 axum = { version = "0.8", features = ["ws"] }
 argon2 = "0.6"
 getrandom = "0.4"

@@ -695,6 +695,7 @@ mod attached {
                     game_id: attach.game_id.clone(),
                     token: attach.token.clone(),
                     protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                    pid: std::process::id(),
                 })),
             },
         )
