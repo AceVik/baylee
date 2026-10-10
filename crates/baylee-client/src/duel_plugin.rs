@@ -416,6 +416,8 @@ impl Plugin for DuelPlugin {
     #[allow(clippy::too_many_lines)] // the client plugins are registered together
     fn build(&self, app: &mut App) {
         add_present_systems(app);
+        app.init_resource::<UiScale>()
+            .add_systems(PreUpdate, hud::scale::follow_the_window);
         arrangement::plugin(app);
         add_input_systems(app);
         // Shared with the lobby, which is a separate plugin and may already

@@ -96,6 +96,7 @@ pub fn in_effect(
 /// the same frame are one rebuild apart, not two frames.
 pub fn choose(
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     settings: Option<Res<crate::settings::ClientSettings>>,
     time: Res<Time>,
     mut duel: ResMut<Duel>,
@@ -104,7 +105,7 @@ pub fn choose(
     let window = windows
         .single()
         .ok()
-        .map(|w| Vec2::new(w.width(), w.height()));
+        .map(|w| crate::hud::scale::space(w, ui.as_deref()));
     let frame = window.map(|w| TableFrame::of(w.x, w.y));
     let seats = seat_count(&duel);
     let height = window.map_or(0.0, |w| w.y);

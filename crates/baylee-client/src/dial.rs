@@ -220,6 +220,7 @@ pub(crate) fn turn_the_dial(
     shown: Res<crate::table::ShownRig>,
     quality: Option<Res<crate::quality::InUse>>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     mut slabs: Query<(&mut DialFace, &MeshMaterial3d<crate::feltmat::FeltMaterial>)>,
     mut materials: ResMut<Assets<crate::feltmat::FeltMaterial>>,
     mut report: ResMut<DialReport>,
@@ -296,7 +297,7 @@ pub(crate) fn turn_the_dial(
 
     // The report, for `/state.dial`.
     let lens = shown.rig().zip(windows.single().ok()).map(|(rig, window)| {
-        crate::table::Lens::new(rig, Vec2::new(window.width(), window.height()))
+        crate::table::Lens::new(rig, crate::hud::scale::space(window, ui.as_deref()))
     });
     let next = report_of(
         &face.0,

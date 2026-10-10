@@ -486,6 +486,7 @@ pub struct HandPage(i8);
 pub fn apply_hand_scroll(
     mut duel: ResMut<Duel>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     mut strips: Query<&mut Node, (With<HandStrip>, Without<HandScrollThumb>)>,
     mut thumbs: Query<&mut Node, (With<HandScrollThumb>, Without<HandStrip>)>,
     mut pages: Query<(&HandPage, &mut Visibility)>,
@@ -495,7 +496,7 @@ pub fn apply_hand_scroll(
     };
     // The same width the rebuild lays the row out in. The two used to
     // differ, and that is what moved the row sideways on every rebuild.
-    let available = hand_available(window.width());
+    let available = hand_available(crate::hud::scale::space(window, ui.as_deref()).x);
     let layout = grouped_hand_layout(board.hand.len(), available, &duel.hand_groups);
     let max_scroll = (layout.content_width - available).max(0.0);
 
@@ -592,6 +593,23 @@ pub(super) enum PreviewAt {
     /// A hover with no pointer behind it: the keyboard cursor names a card
     /// without standing anywhere, so the panel falls back to the middle.
     Loose,
+}
+
+impl PreviewAt {
+    /// The same place in the HUD's units: a card's rectangle and a pointer are
+    /// read in logical window pixels, which the UI scale (`hud::scale`)
+    /// divides; a hand card's place is the HUD's own already.
+    pub(super) fn in_ui(self, scale: f32) -> Self {
+        let scale = scale.max(f32::EPSILON);
+        match self {
+            Self::Card(rect) => Self::Card(Rect {
+                min: rect.min / scale,
+                max: rect.max / scale,
+            }),
+            Self::Pointer(at) => Self::Pointer(at / scale),
+            other => other,
+        }
+    }
 }
 
 /// Which card the preview shows and where it opens. Art comes from the hand,

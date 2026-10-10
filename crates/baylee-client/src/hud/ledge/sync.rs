@@ -27,6 +27,7 @@ pub fn sync_ledge(
     prefs: Res<crate::prefs::Prefs>,
     texts: Res<crate::cardtext::CardTexts>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
 ) {
     let Ok((shelf, standing)) = shelf.single() else {
         return;
@@ -46,7 +47,8 @@ pub fn sync_ledge(
     } else {
         shelf_headline(&duel, lang, &texts)
     };
-    let window_w = windows.single().map_or(1200, |w| w.width() as i32);
+    let window_w =
+        crate::hud::scale::window_space(&windows, ui.as_deref()).map_or(1200, |w| w.x as i32);
     let next = LedgeRevision {
         chosen_index: duel
             .interaction

@@ -107,6 +107,7 @@ pub fn sync(
     mut textures: ResMut<CardTextures>,
     assets: Res<AssetServer>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
@@ -119,9 +120,8 @@ pub fn sync(
         .reveals
         .current()
         .filter(|_| duel.ending().is_none() && !yielding);
-    let window = windows.single().map_or(Vec2::new(1280.0, 720.0), |w| {
-        Vec2::new(w.width(), w.height())
-    });
+    let window = crate::hud::scale::window_space(&windows, ui.as_deref())
+        .unwrap_or(Vec2::new(1280.0, 720.0));
     let lang = Lang::of(&settings.lang);
     let next = RevealRevision {
         number: shown.map(|r| r.number),

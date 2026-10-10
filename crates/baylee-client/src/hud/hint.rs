@@ -42,10 +42,12 @@ const HINT_MAX_W: f32 = 340.0;
 
 /// Shows the hovered control's hint, and hides it when nothing named is
 /// under the pointer.
+#[allow(clippy::too_many_arguments)] // a Bevy system
 pub fn show_hint(
     mut commands: Commands,
     fonts: Res<UiFonts>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     hints: Query<(
         Entity,
         &Hint,
@@ -103,8 +105,8 @@ pub fn show_hint(
         .ok()
         .map(|w| {
             (
-                Vec2::new(w.width(), w.height()),
-                w.cursor_position().unwrap_or_default(),
+                crate::hud::scale::space(w, ui.as_deref()),
+                crate::hud::scale::cursor(w, ui.as_deref()).unwrap_or_default(),
             )
         })
         .unwrap_or_default();

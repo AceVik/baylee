@@ -95,8 +95,18 @@ impl ShellMetrics {
     /// The metrics for a window at a text step.
     #[must_use]
     pub fn of(view: Viewport, step: TextSize) -> Self {
+        Self::under(view, step, 1.0)
+    }
+
+    /// The metrics for a window whose UI is already drawn `ui` times larger
+    /// (Bevy's `UiScale`, which the table HUD sets: `hud::scale`): the
+    /// big-screen step that scale already applies is taken out, so a shell
+    /// panel over the table is drawn the size it is in the lobby. `view` is
+    /// the window itself, in logical pixels.
+    #[must_use]
+    pub fn under(view: Viewport, step: TextSize, ui: f32) -> Self {
         let frame = Frame::classify(view, step);
-        let scale = screen_scale(view, step);
+        let scale = screen_scale(view, step) / ui.max(f32::EPSILON);
         let f = step.factor() * scale;
         let touch = view.input == InputClass::Touch;
         // Today's three rows (`lobby::Metrics::of`), as the default step's (M) values.

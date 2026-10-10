@@ -2112,6 +2112,7 @@ fn spawn_pager(
 pub fn place_ability_sheet(
     shown: Res<crate::table::ShownRig>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     cards: Query<(&crate::table::CardVisual, &crate::table::CardRest)>,
     hand: Query<
         (
@@ -2135,7 +2136,7 @@ pub fn place_ability_sheet(
     let Ok(window) = windows.single() else {
         return;
     };
-    let size = Vec2::new(window.width(), window.height());
+    let size = crate::hud::scale::space(window, ui.as_deref());
     // The camera is asked for *inside* the table's half and not before it: a
     // sheet standing beside a card in the hand is `bevy_ui` from end to end
     // and has no business waiting for a rig that has not settled yet.
