@@ -360,3 +360,23 @@ fn bottom_card_from_hand_body_is_visited() {
     assert_eq!(seen, 2);
     assert!(body_seen);
 }
+
+/// A coin flip's two outcomes are both branches a pool walk has to find,
+/// the lost one as much as the won one (Mijae Djinn does nothing on a win).
+#[test]
+fn both_flip_branches_are_visited() {
+    static EFFECTS: &[Effect] = &[Effect::FlipCoin {
+        won: &[Effect::GainLife {
+            amount: Amount::Fixed(1),
+        }],
+        lost: &[Effect::CounterTargetSpellOrAbility],
+    }];
+    let mut seen = 0;
+    let (mut won_seen, mut lost_seen) = (false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        won_seen |= matches!(effect, Effect::GainLife { .. });
+        lost_seen |= matches!(effect, Effect::CounterTargetSpellOrAbility);
+    });
+    assert_eq!(seen, 3);
+    assert!(won_seen && lost_seen);
+}

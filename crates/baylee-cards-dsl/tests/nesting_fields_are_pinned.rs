@@ -62,7 +62,9 @@
 /// Linked counter cleanup adds a delayed body; its traversal has a behavioral test.
 /// Raised 29 → 30 on 2026-10-07 for `BottomCardFromHand::then` (Vendilion
 /// Clique's "if you do"); `verb_tests::bottom_card_from_hand_body_is_visited`.
-const NESTING_FIELDS: usize = 30;
+/// Raised 30 → 32 for `FlipCoin::won` and `::lost` (Mijae Djinn: "flip a
+/// coin; if you lose the flip, …"); `verb_tests::both_flip_branches_are_visited`.
+const NESTING_FIELDS: usize = 32;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -97,7 +99,9 @@ const NESTING_FIELDS: usize = 30;
 /// `ScheduleLinkedCounterCleanup` is the twenty-sixth carrier.
 /// `BottomCardFromHand` is the twenty-seventh (2026-10-07): one new
 /// carrier, one branch.
-const CARRYING_VARIANTS: usize = 27;
+/// `FlipCoin` is the twenty-eighth (2026-10-10): one new carrier, two
+/// branches.
+const CARRYING_VARIANTS: usize = 28;
 
 /// The floor under the reader itself.
 ///

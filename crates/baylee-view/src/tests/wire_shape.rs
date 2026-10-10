@@ -313,7 +313,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // a reader of 55 without it ignores it, so 55 still names the shape.
     // `PlayerView::clocks` (and its `SeatClock`) likewise: additive,
     // defaulted, skipped while empty.
-    const RECORDED: (u32, u64) = (56, 14_725_103_676_352_183_217);
+    // 57: a new `LogEvent` variant (the coin flip), which a reader of 56
+    // cannot parse.
+    const RECORDED: (u32, u64) = (57, 9_724_381_099_440_331_281);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =
