@@ -283,7 +283,8 @@ mod tests {
         // 24: Camouflage's pile prompt, likewise.
         // 26: spectators (25 is another branch's): `SpectatorsChanged`,
         // `SpectatorFrame`, `Spectators`, `/games/{id}/watch`.
-        assert_eq!(PROTOCOL_VERSION, 26);
+        // 27: a damage decision's `DamageEffectKind::PreventAll`.
+        assert_eq!(PROTOCOL_VERSION, 27);
     }
 
     #[test]
