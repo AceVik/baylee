@@ -4,6 +4,7 @@
 use super::*;
 
 mod animate_wall;
+mod artifact_ward;
 mod black_ward;
 mod blue_ward;
 mod burrowing;

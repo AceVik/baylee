@@ -479,11 +479,9 @@ pub fn amount_with_context(
         // ability's source is the permanent and its payment is on the
         // ability. Here, with no resolution, `this` is all there is, which
         // answers for a spell (its own source) and 0 for anything else.
-        Amount::SacrificedManaValue => state
-            .object(this)
-            .and_then(|o| o.paid.as_ref())
-            .and_then(|p| p.sacrificed_mana_value)
-            .unwrap_or(0),
+        Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
+            crate::resolve::sacrificed_amount(state.object(this), amount)
+        }
         Amount::ManaSpentToCast => state
             .object(this)
             .and_then(|o| o.paid.as_ref())
@@ -1013,15 +1011,21 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
 /// Silence)? `source` is the spell, or the source of the ability, doing the
 /// targeting, and the filter is asked of it with the effect's controller as
 /// "you" — the same reading [`protected_from`] gives protection, whose
-/// targeting half this is.
+/// targeting half this is. `CantBeTargetedByAbilitiesFrom` (Artifact Ward)
+/// asks only of an ability's source: a spell is on the stack as it chooses
+/// its targets (CR 601.2a, 601.2c), and an ability's source is not the
+/// object on the stack.
 #[must_use]
 pub fn untargetable_by_source(state: &GameState, object: ObjectId, source: ObjectId) -> bool {
     let (Some(obj), Some(src)) = (state.object(object), state.object(source)) else {
         return false;
     };
+    let spell = src.zone == crate::zone::Zone::Stack;
     state.effects.iter().any(|fx| {
-        let baylee_cards_dsl::Modifier::CantBeTargetedBy(f) = fx.modifier else {
-            return false;
+        let f = match fx.modifier {
+            baylee_cards_dsl::Modifier::CantBeTargetedBy(f) => f,
+            baylee_cards_dsl::Modifier::CantBeTargetedByAbilitiesFrom(f) if !spell => f,
+            _ => return false,
         };
         crate::effects::applies_to(state, fx, obj)
             && matches_with_context(

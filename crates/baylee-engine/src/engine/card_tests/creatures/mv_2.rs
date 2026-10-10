@@ -12,6 +12,7 @@ mod alaborn_musketeer;
 mod anaba_ancestor;
 mod angelic_wall;
 mod argothian_enchantress;
+mod argothian_pixies;
 mod armored_pegasus;
 mod atog;
 mod auratog;

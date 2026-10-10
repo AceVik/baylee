@@ -48,6 +48,7 @@ mod daru_encampment;
 mod deserted_temple;
 mod desolate_lighthouse;
 mod detection_tower;
+mod diamond_valley;
 mod dragon_cursed_halls;
 mod drannith_ruins;
 mod drownyard_temple;

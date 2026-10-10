@@ -1008,6 +1008,20 @@ impl Writer<'_> {
                 Phrase::LogRolled,
                 vec![Self::count(sides), Self::count(result)],
             ),
+            LogEvent::CoinFlipped { player, won } => self.about(
+                *player,
+                if *won {
+                    Phrase::LogFlipWonYou
+                } else {
+                    Phrase::LogFlipLostYou
+                },
+                if *won {
+                    Phrase::LogFlipWon
+                } else {
+                    Phrase::LogFlipLost
+                },
+                Vec::new(),
+            ),
             LogEvent::Lost { player, cause } => {
                 let (you, other) = loss_phrases(*cause);
                 self.about(*player, log_loss(*cause).unwrap_or(you), other, Vec::new())
@@ -1221,6 +1235,17 @@ mod tests {
         let crowned = |event| read(&book(&[entry(1, event)]), Lang::En).crowned;
         assert!(crowned(LogEvent::BecameMonarch { player: ME }));
         assert!(!crowned(LogEvent::Shuffled { player: ME }));
+    }
+
+    /// A coin flip reads as the sentence it is (CR 705), for the flipper
+    /// and for the other seat, and says which way it fell.
+    #[test]
+    fn a_coin_flip_reads_as_won_or_lost() {
+        let flip = |player, won| say(Lang::En, LogEvent::CoinFlipped { player, won });
+        assert_eq!(flip(ME, true), "You flipped a coin and won the flip");
+        assert_eq!(flip(ME, false), "You flipped a coin and lost the flip");
+        assert_eq!(flip(BO, true), "Bo flipped a coin and won the flip");
+        assert_eq!(flip(BO, false), "Bo flipped a coin and lost the flip");
     }
 
     // ---- the book ----------------------------------------------------------
@@ -1917,13 +1942,14 @@ mod tests {
             LogEvent::LoopDetected { .. } => 27,
             LogEvent::DayNight { .. } => 28,
             LogEvent::Banded { .. } => 30,
+            LogEvent::CoinFlipped { .. } => 34,
             LogEvent::CardsKept { .. } => 31,
             LogEvent::BecameMonarch { .. } => 32,
             LogEvent::ConnectionLost { .. } => 33,
         }
     }
 
-    const VARIANTS: usize = 34;
+    const VARIANTS: usize = 35;
 
     /// Every kind of line, about `player`, with every answer, cause, zone and
     /// counter a line can carry.
@@ -2040,6 +2066,8 @@ mod tests {
                 sides: 20,
                 result: 17,
             },
+            LogEvent::CoinFlipped { player, won: true },
+            LogEvent::CoinFlipped { player, won: false },
             LogEvent::GameOver {
                 winners: SeatSet::new(),
             },
@@ -2259,6 +2287,7 @@ mod tests {
             | LogEvent::Shuffled { player }
             | LogEvent::BecameMonarch { player }
             | LogEvent::DiceRolled { player, .. }
+            | LogEvent::CoinFlipped { player, .. }
             | LogEvent::Lost { player, .. } => Some(*player),
             LogEvent::Countered { .. }
             | LogEvent::DidNotResolve { .. }

@@ -2524,7 +2524,7 @@ impl<L: CardLookup> Engine<L> {
         }
         // Mandatory additional cost parts (e.g. Toxic Deluge's pay X life).
         let mut sacrificed = wizard.sacrifices.iter();
-        let mut sacrificed_mana_value = None;
+        let mut sacrificed_lki = None;
         let mut sacrificed_object = None;
         let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
         for part in face.mandatory_additional_costs {
@@ -2555,10 +2555,10 @@ impl<L: CardLookup> Engine<L> {
                         ));
                     };
                     sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
-                    sacrificed_mana_value = self
+                    sacrificed_lki = self
                         .state
                         .object(chosen)
-                        .map(|o| o.characteristics().mana_value());
+                        .map(crate::object::SacrificedLki::of);
                     super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                 }
                 // Already skipped, by [`paid_as_a_mandatory_additional_cost`]
@@ -2740,10 +2740,10 @@ impl<L: CardLookup> Engine<L> {
         // gives it up: the spell on the stack is the object that reads it.
         // A free cast spent no mana (CR 601.2h pays nothing it was not
         // asked for), whatever its printed cost says.
-        if (paid_mana.mana_spent > 0 || sacrificed_mana_value.is_some())
+        if (paid_mana.mana_spent > 0 || sacrificed_lki.is_some())
             && let Some(obj) = self.state.object_mut(card)
         {
-            paid_mana.sacrificed_mana_value = sacrificed_mana_value;
+            paid_mana.sacrificed_lki = sacrificed_lki;
             paid_mana.sacrificed = sacrificed_object;
             obj.paid = Some(Box::new(paid_mana));
         }

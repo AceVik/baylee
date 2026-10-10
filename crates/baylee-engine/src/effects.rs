@@ -148,6 +148,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::OpponentsCantCast(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
+        | Modifier::CantBeTargetedByAbilitiesFrom(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife { .. }
@@ -156,6 +157,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBeAttackedExceptBy { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+        | Modifier::PreventDamageFrom(_)
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBeBlockedBy(_)
         | Modifier::CantAttackUnlessDefenderControls(_)
@@ -963,6 +965,7 @@ mod tests {
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
             Modifier::CantBeEnchantedExceptSource,
             Modifier::CantBeTargetedBy(&Filter::CREATURE),
+            Modifier::CantBeTargetedByAbilitiesFrom(&Filter::ARTIFACT),
             Modifier::DrawLimitPerTurn {
                 who: PlayerRel::EachPlayer,
                 limit: 1,
@@ -983,6 +986,7 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
@@ -1055,7 +1059,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            81,
+            83,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1107,7 +1111,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: thirty-three
-    /// modifiers lock the objects they found, forty-eight do not.
+    /// modifiers lock the objects they found, fifty do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -1115,10 +1119,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_three_modifiers_lock_a_set_and_forty_eight_do_not() {
+    fn thirty_three_modifiers_lock_a_set_and_fifty_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (33, 48));
+        assert_eq!((locking, all.len() - locking), (33, 50));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

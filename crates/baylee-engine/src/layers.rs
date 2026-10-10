@@ -1184,6 +1184,7 @@ fn apply(
         | Modifier::OpponentsCantCast(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
+        | Modifier::CantBeTargetedByAbilitiesFrom(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife { .. }
@@ -1192,6 +1193,7 @@ fn apply(
         | Modifier::CantBeAttackedExceptBy { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+        | Modifier::PreventDamageFrom(_)
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBeBlockedBy(_)
         | Modifier::CantAttackUnlessDefenderControls(_)

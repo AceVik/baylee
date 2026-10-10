@@ -4,6 +4,7 @@
 use super::*;
 
 mod birthing_pod;
+mod bottle_of_suleiman;
 mod conduit_of_worlds;
 mod conservator;
 mod cyclopean_tomb;
@@ -19,6 +20,7 @@ mod jade_monolith;
 mod jade_statue;
 mod jayemdae_tome;
 mod kormus_bell;
+mod life_chisel;
 mod machine_god_s_effigy;
 mod mightstone;
 mod nevinyrral_s_disk;

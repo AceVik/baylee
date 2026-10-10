@@ -547,6 +547,10 @@ impl Effect {
                 then,
             } => (then, NONE),
             Effect::IfKicked { then, otherwise }
+            | Effect::FlipCoin {
+                won: then,
+                lost: otherwise,
+            }
             | Effect::IfCondition {
                 condition: _,
                 then,

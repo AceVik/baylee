@@ -433,6 +433,13 @@ pub enum LogEvent {
         /// Whose.
         player: PlayerId,
     },
+    /// A coin was flipped (CR 705).
+    CoinFlipped {
+        /// Who flipped it.
+        player: PlayerId,
+        /// Whether they won the flip.
+        won: bool,
+    },
     /// A die was rolled.
     DiceRolled {
         /// Who rolled it.
@@ -489,6 +496,7 @@ impl LogEvent {
             | Self::Shuffled { .. }
             | Self::BecameMonarch { .. }
             | Self::DiceRolled { .. }
+            | Self::CoinFlipped { .. }
             | Self::Lost { .. }
             | Self::GameOver { .. }
             | Self::LoopDetected { .. }
@@ -542,6 +550,7 @@ impl LogEvent {
             | Self::Shuffled { .. }
             | Self::BecameMonarch { .. }
             | Self::DiceRolled { .. }
+            | Self::CoinFlipped { .. }
             | Self::Lost { .. }
             | Self::GameOver { .. }
             | Self::LoopDetected { .. }

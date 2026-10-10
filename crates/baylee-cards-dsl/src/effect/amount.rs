@@ -79,6 +79,13 @@ pub enum Amount {
     /// a spell's `Sacrifice` additional cost in the cast wizard, an
     /// activation's in `pay_cost`. Nothing sacrificed reads 0.
     SacrificedManaValue,
+    /// "The sacrificed creature's power" (Kazuul's Fury, Life Chisel's
+    /// sibling Miren): as [`Self::SacrificedManaValue`], the power it had
+    /// as it last existed on the battlefield (CR 608.2h). Never negative.
+    SacrificedPower,
+    /// "The sacrificed creature's toughness" (Diamond Valley, Miren, the
+    /// Moaning Well): likewise, its toughness. Never negative.
+    SacrificedToughness,
     /// "The amount of mana spent to cast this spell" (Memory Deluge): what
     /// the cast paid in mana (CR 601.2h), read off the stack object where
     /// the payment wrote it, as [`Self::SacrificedManaValue`] is. A free

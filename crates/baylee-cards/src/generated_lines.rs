@@ -2122,7 +2122,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Bottle of Suleiman
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Brass Man
     &[FaceLines {
         sentences: 2,
@@ -2162,8 +2169,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Desert
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -2176,7 +2183,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Diamond Valley
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Drop of Honey
     &[FaceLines {
         sentences: 2,
@@ -2362,7 +2376,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Mijae Djinn
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Oasis
@@ -2469,7 +2490,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Ydwen Efreet
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Amulet of Kroog
     &[FaceLines {
         sentences: 1,
@@ -2498,11 +2526,18 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Argothian Treefolk
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
         lines: &[None],
         modes: &[],
         alternatives: &[],
     }],
-    &[],
     &[],
     // Artifact Blast
     &[FaceLines {
@@ -2524,7 +2559,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 4,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[None, None, None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -3795,7 +3830,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Life Chisel
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Lifeblood
     &[FaceLines {
@@ -15588,8 +15630,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Starlit Sanctum
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -18944,8 +18986,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Miren, the Moaning Well
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -36733,7 +36775,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 2,
             stackable: 0,
-            lines: &[],
+            lines: &[None],
             modes: &[],
             alternatives: &[],
         },

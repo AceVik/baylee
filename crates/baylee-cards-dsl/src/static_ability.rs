@@ -270,6 +270,14 @@ pub enum Modifier {
     /// (Maze of Ith, Kor Haven). Combat's damage doors ask it and an
     /// effect's do not.
     PreventDamageFromIt,
+    /// "Prevent all damage that would be dealt to [the affected object] by
+    /// [sources the filter matches]" (Argothian Treefolk: "by artifacts";
+    /// Artifact Ward's enchanted creature; Camel: "Deserts"). Every kind of
+    /// damage, combat or not (CR 615.1a), unlike [`Self::PreventDamageToIt`];
+    /// and only damage, unlike protection (CR 702.16), so the source may
+    /// still target and block it. The filter is read against the source as
+    /// the damage is dealt, its "you" the effect's controller.
+    PreventDamageFrom(&'static Filter),
     /// Combat damage the affected object would deal can't be prevented
     /// (Questing Beast: "Combat damage that would be dealt by creatures you
     /// control can't be prevented"). CR 615.12: a prevention effect applied
@@ -393,6 +401,12 @@ pub enum Modifier {
     /// about the permanent and not a characteristic of it, so it has no
     /// layer.
     CantBeTargetedBy(&'static crate::Filter),
+    /// "[The affected permanent] can't be the target of abilities from
+    /// [sources the filter matches]" (Artifact Ward: "artifact sources"):
+    /// [`Self::CantBeTargetedBy`] for activated and triggered abilities
+    /// only, so a matching spell may still target it. The filter is asked of
+    /// the ability's source.
+    CantBeTargetedByAbilitiesFrom(&'static crate::Filter),
     /// The affected object becomes a copy of the given object (layer 1
     /// copiable values; Cursed Mirror's until-EOT copy).
     BecomeCopyOf(baylee_core::ids::ObjectId),
@@ -762,6 +776,7 @@ impl Modifier {
             | Self::OpponentsCantCast(_)
             | Self::CantBeEnchantedExceptSource
             | Self::CantBeTargetedBy(_)
+            | Self::CantBeTargetedByAbilitiesFrom(_)
             | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose
             | Self::CantLoseLife { .. }
@@ -770,6 +785,7 @@ impl Modifier {
             | Self::CantBeAttackedExceptBy { .. }
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
+            | Self::PreventDamageFrom(_)
             | Self::CombatDamageCantBePrevented
             | Self::CantBeBlockedBy(_)
             | Self::CantAttackUnlessDefenderControls(_)
@@ -1164,6 +1180,7 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),

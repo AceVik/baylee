@@ -493,6 +493,13 @@ impl GameLog {
                     sees,
                 );
             }
+            GameEvent::CoinFlipped { player, won } => self.push(
+                LogEvent::CoinFlipped {
+                    player: *player,
+                    won: *won,
+                },
+                Vec::new(),
+            ),
             GameEvent::DiceRolled {
                 player,
                 sides,

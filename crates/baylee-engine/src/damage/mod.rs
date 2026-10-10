@@ -542,7 +542,9 @@ impl DamageWork {
                     used |= n > 0;
                     part.applied.push(candidate.key);
                 }
-                DamageEffectKind::PreventCombat | DamageEffectKind::Protection => {
+                DamageEffectKind::PreventCombat
+                | DamageEffectKind::PreventAll
+                | DamageEffectKind::Protection => {
                     if preventable {
                         part.view.amount = 0;
                     }

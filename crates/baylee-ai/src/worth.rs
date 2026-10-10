@@ -1195,6 +1195,9 @@ impl HeuristicAgent {
                     Modifier::PreventDamageFromIt => {
                         objects.iter().map(|o| self.prevent(view, o, true)).sum()
                     }
+                    Modifier::PreventDamageFrom(_) => {
+                        objects.iter().map(|o| self.prevent(view, o, false)).sum()
+                    }
                     // A type, a colour or a subtype changes what other
                     // cards say about the object and nothing by itself.
                     Modifier::AddType(_)

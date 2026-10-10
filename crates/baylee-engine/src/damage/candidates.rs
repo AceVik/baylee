@@ -133,6 +133,35 @@ impl DamageWork {
                     Kind::Protection
                 }
 
+                Modifier::PreventDamageFrom(filter) => {
+                    let DamageTarget::Object(target) = part.view.recipient else {
+                        continue;
+                    };
+                    let Some(object) = state
+                        .object(target)
+                        .filter(|o| crate::effects::applies_to(state, fx, o))
+                    else {
+                        continue;
+                    };
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    if !crate::eval::matches_projected_with_context(
+                        filter,
+                        state,
+                        source,
+                        source.characteristics(),
+                        fx.controller,
+                        crate::text_changes::RuleContext {
+                            source: fx.source.unwrap_or(object.id),
+                            text: state.effect_text(fx),
+                        },
+                    ) {
+                        continue;
+                    }
+                    Kind::PreventAll
+                }
                 Modifier::PreventDamageFromIt
                     if part.view.is_combat
                         && state

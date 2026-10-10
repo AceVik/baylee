@@ -1980,6 +1980,8 @@ messages! {
     DamageShield { en: "Prevent the next damage; shield remaining: {0}", de: "Verhindere die nächsten Schadenspunkte; Schild übrig: {0}" },
     /// Damage decision: `DamageEventShield`.
     DamageEventShield { en: "Prevent this event’s damage; remaining: {0}; excess expires", de: "Verhindere Schaden dieses Ereignisses; übrig: {0}; Rest verfällt" },
+    /// Damage decision: `DamagePreventAll`.
+    DamagePreventAll { en: "Prevent all indicated damage", de: "Verhindere den gesamten angegebenen Schaden" },
     /// Damage decision: `DamagePreventCombat`.
     DamagePreventCombat { en: "Prevent all indicated combat damage", de: "Verhindere den gesamten angegebenen Kampfschaden" },
     /// Damage decision: `DamageProtection`.
@@ -3874,6 +3876,14 @@ messages! {
     LogRolledYou { en: "{7} rolled a d{1} and got {2}", de: "{7} hast mit einem W{1} eine {2} gewürfelt" },
     /// Another seat rolled a die.
     LogRolled { en: "{0} rolled a d{1} and got {2}", de: "{0} hat mit einem W{1} eine {2} gewürfelt" },
+    /// The reading seat flipped a coin and won the flip.
+    LogFlipWonYou { en: "{7} flipped a coin and won the flip", de: "{7} hast eine Münze geworfen und den Wurf gewonnen" },
+    /// The reading seat flipped a coin and lost the flip.
+    LogFlipLostYou { en: "{7} flipped a coin and lost the flip", de: "{7} hast eine Münze geworfen und den Wurf verloren" },
+    /// Another seat won a coin flip.
+    LogFlipWon { en: "{0} flipped a coin and won the flip", de: "{0} hat eine Münze geworfen und den Wurf gewonnen" },
+    /// Another seat lost a coin flip.
+    LogFlipLost { en: "{0} flipped a coin and lost the flip", de: "{0} hat eine Münze geworfen und den Wurf verloren" },
     /// The reading seat won.
     LogWonYou { en: "{7} won the game", de: "{7} hast das Spiel gewonnen" },
     /// One other seat won. `{0}` is it.
