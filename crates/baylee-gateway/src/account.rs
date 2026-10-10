@@ -186,6 +186,7 @@ pub fn forget_accounts(state: &Shared, accounts: &[String]) {
         let _ = state.departed.send(account.clone());
     }
     if sat {
+        crate::seathost::stop_unseated(state);
         state.lobby_moved();
     }
 }

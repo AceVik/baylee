@@ -49,6 +49,8 @@ const GAME_BUDGET: Duration = Duration::from_secs(600);
 struct Played {
     started: Mutex<Vec<String>>,
     outcomes: Mutex<Vec<Option<Outcome>>>,
+    /// How many bridges were told `stop_seat`.
+    stopped: Mutex<u32>,
 }
 
 /// Plays a hosted chair in this process: redeems the ticket as the bridge
@@ -111,6 +113,7 @@ impl Launcher for InProcess {
                     }
                 }
                 _ = stop => {
+                    *played.stopped.lock().unwrap() += 1;
                     let _ = lobby.leave_chair(&chair).await;
                     Exit::Ended
                 }
@@ -437,6 +440,40 @@ async fn hosted_profiles_are_aggregated_balanced_guarded_and_play_a_whole_game()
         profile(port, &host, "sonnet")["games"] == 1
     })
     .await;
+
+    // Ordered again, then rearranged: the host gives the chair to the house,
+    // and the seat agent is told `stop_seat` for it, as for a take-back.
+    let (status, body) = order(port, &host, &second.game_id, "sonnet");
+    assert_eq!(status, 202, "{body}");
+    until("the bridge sits again", || {
+        played.started.lock().unwrap().len() == 3
+    })
+    .await;
+    until("two games again", || {
+        profile(port, &host, "sonnet")["games"] == 2
+    })
+    .await;
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{}/seats/1", second.game_id),
+        Some(&host),
+        r#"{"kind":"ai"}"#,
+    );
+    assert_eq!(status, 200, "{body}");
+    until("the rearranged chair's bridge is told to stop", || {
+        *played.stopped.lock().unwrap() == 2
+    })
+    .await;
+    until("the rearranged chair's bridge is gone", || {
+        profile(port, &host, "sonnet")["games"] == 1
+    })
+    .await;
+    assert_eq!(
+        row(port, &host, &second.game_id)["seats"][1]["hosted"],
+        Value::Null,
+        "the house's chair carries no hosted model"
+    );
 
     // The first room plays a whole game: the host's chair plays nothing,
     // the hosted chair (the house, standing in for a model) wins.

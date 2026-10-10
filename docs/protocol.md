@@ -2433,7 +2433,11 @@ The room's host, signed in to a **registered account**, with its session:
   before the game, is reopened with a `note` and the seat agent told
   `stop_seat`.
 - `DELETE …/chairs/{seat}/hosted`: the host takes the chair back before
-  the game (`204`); the bridge is stopped.
+  the game (`204`); the bridge is stopped. So is it, with `stop_seat`,
+  whenever its chair stops standing for the order otherwise: the host
+  rearranges the chair (house or open), the host leaves and the room
+  closes, the account is deleted, or the bridge leaves on its own
+  (`seathost::stop_unseated`).
 - Mid-game, a bridge that dies is an absent socket like any player's: the
   house stands in.
 

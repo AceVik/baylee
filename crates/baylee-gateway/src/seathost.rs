@@ -493,6 +493,47 @@ fn stop(state: &Shared, order: &str) {
     }
 }
 
+/// The orders no chair stands for any more: its room is gone or over, or
+/// its chair was rearranged, emptied or ordered again.
+fn unseated(lobby: &lobby::Lobby, orders: &HashMap<String, Placed>) -> Vec<String> {
+    let mut gone: Vec<String> = orders
+        .iter()
+        .filter(|(order, placed)| {
+            let held = lobby.games.get(&placed.game_id).is_some_and(|game| {
+                game.state != lobby::LobbyState::Over
+                    && game.seats.get(placed.seat).is_some_and(|chair| {
+                        chair
+                            .hosted
+                            .as_ref()
+                            .is_some_and(|h| h.standing() && &h.order == *order)
+                    })
+            });
+            !held
+        })
+        .map(|(order, _)| order.clone())
+        .collect();
+    gone.sort_unstable();
+    gone
+}
+
+/// Sends `stop_seat` for every order whose chair was rearranged, taken
+/// back or left with its host, and drops its unspent ticket. Called with
+/// no lock held, after a change to a room's chairs.
+pub(crate) fn stop_unseated(state: &Shared) {
+    // One lock at a time, as everywhere here: the orders first, then the
+    // lobby. An order placed in between is not in the copy, so not stopped.
+    let orders = state.seathosts.lock().orders.clone();
+    let gone = unseated(&state.lobby.lock(), &orders);
+    for order in gone {
+        tracing::info!(
+            order,
+            "a hosted chair was rearranged; its bridge is stopped"
+        );
+        stop(state, &order);
+        revoke(state, &order);
+    }
+}
+
 /// What a room's listing says of a chair's hosted model.
 pub(crate) fn chair_json(chair: &lobby::LobbySeat) -> serde_json::Value {
     let Some(hosted) = &chair.hosted else {
@@ -982,6 +1023,97 @@ mod tests {
             starting: HashMap::new(),
             conn: 0,
         }
+    }
+
+    /// A hosted chair rearranged, taken back or left with its room is an
+    /// order no chair stands for: its bridge is told `stop_seat`. A chair
+    /// still holding its order, waiting or playing, keeps it.
+    #[test]
+    fn an_order_whose_chair_was_rearranged_is_stopped() {
+        let deck = crate::store::Deck {
+            id: "deck".into(),
+            account_id: "h".into(),
+            kind: "account".into(),
+            name: "Deck".into(),
+            format: "freeform".into(),
+            description: None,
+            origin: None,
+            version: 1,
+            cards: vec!["60 Forest".into()],
+            sideboard: vec![],
+            commanders: vec![],
+            sleeve: None,
+            playmat: None,
+            updated_at: 0,
+            offered: true,
+        };
+        let hosted = |order: &str| lobby::HostedChair {
+            order: order.into(),
+            host: "a".into(),
+            profile: "sonnet".into(),
+            label: "Sonnet".into(),
+            vendor: "V".into(),
+            model: "m".into(),
+            note: None,
+        };
+        let mut lobby = lobby::Lobby::default();
+        for id in ["g", "over"] {
+            let mut game = lobby::LobbyGame::room(
+                id.into(),
+                "h".into(),
+                "Deck".into(),
+                deck.clone(),
+                4,
+                id.into(),
+                0,
+            );
+            game.seats[1].hosted = Some(hosted(&format!("{id}-kept")));
+            game.seats[2].hosted = Some(hosted(&format!("{id}-moved")));
+            game.seats[3].hosted = Some(hosted(&format!("{id}-failed")));
+            lobby.games.insert(id.into(), game);
+        }
+        let mut orders = HashMap::new();
+        for id in ["g", "over"] {
+            for (order, seat) in [("kept", 1), ("moved", 2), ("failed", 3)] {
+                orders.insert(
+                    format!("{id}-{order}"),
+                    Placed {
+                        host: "a".into(),
+                        game_id: id.into(),
+                        seat,
+                    },
+                );
+            }
+        }
+        orders.insert(
+            "no-room".into(),
+            Placed {
+                host: "a".into(),
+                game_id: "gone".into(),
+                seat: 1,
+            },
+        );
+        // Every chair holds its order; only the room that is gone is not.
+        assert_eq!(unseated(&lobby, &orders), ["no-room"]);
+        let game = lobby.games.get_mut("g").expect("room");
+        game.seats[2].vacate();
+        if let Some(h) = game.seats[3].hosted.as_mut() {
+            h.note = Some("failed".into());
+        }
+        lobby.games.get_mut("over").expect("room").state = lobby::LobbyState::Over;
+        assert_eq!(
+            unseated(&lobby, &orders),
+            [
+                "g-failed",
+                "g-moved",
+                "no-room",
+                "over-failed",
+                "over-kept",
+                "over-moved"
+            ]
+        );
+        lobby.games.get_mut("g").expect("room").state = lobby::LobbyState::Playing;
+        assert!(!unseated(&lobby, &orders).contains(&"g-kept".to_string()));
     }
 
     /// One profile on two seat agents is one row, its games summed; the

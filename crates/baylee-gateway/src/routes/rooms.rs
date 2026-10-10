@@ -426,6 +426,7 @@ pub(crate) async fn set_seat(
             }
         }
     }
+    crate::seathost::stop_unseated(&state);
     state.lobby_moved();
     Ok(Json(listing(&state, &account_id).await))
 }
@@ -606,6 +607,7 @@ pub(crate) async fn leave_game(
     }
     drop(lobby);
     chair::revoke(&state, &id, &account_id);
+    crate::seathost::stop_unseated(&state);
     state.lobby_moved();
     Ok(StatusCode::NO_CONTENT)
 }

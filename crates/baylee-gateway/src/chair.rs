@@ -464,6 +464,7 @@ pub(crate) async fn leave(
         }
         chair.vacate();
     }
+    crate::seathost::stop_unseated(&state);
     state.lobby_moved();
     Ok(StatusCode::NO_CONTENT)
 }
