@@ -385,6 +385,16 @@ pub(super) fn now_secs() -> u64 {
         .map_or(0, |since| since.as_secs())
 }
 
+/// The device's offset east of UTC now, in seconds; 0 where the platform
+/// will not say it.
+pub(super) fn local_offset() -> i32 {
+    let unix = i64::try_from(now_secs()).unwrap_or(0);
+    time::OffsetDateTime::from_unix_timestamp(unix)
+        .ok()
+        .and_then(|utc| time::UtcOffset::local_offset_at(utc).ok())
+        .map_or(0, time::UtcOffset::whole_seconds)
+}
+
 /// Now on the device's own clock, "14:05", the way the game log says a
 /// line's time (#300); UTC where the platform will not say its offset.
 pub(super) fn local_hh_mm() -> String {

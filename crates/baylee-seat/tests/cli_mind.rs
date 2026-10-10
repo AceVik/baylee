@@ -1207,6 +1207,46 @@ async fn the_mind_is_ready_exactly_while_the_login_check_passes() {
     assert_eq!(mind.disclosure(), baylee_seat::Disclosure::Llm);
 }
 
+/// `baylee-seat check`, the real binary, as a seat agent runs it: one JSON
+/// line, `ok` for a signed-in CLI and `signed_out` for one that is not; it
+/// starts no game and says nothing on a key.
+#[test]
+fn the_check_command_says_in_one_line_whether_a_profile_can_play() {
+    let rig = Rig::new("checkcmd", cli(json!({})), &json!({"logged_in": true}));
+    let run = || {
+        let out = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-seat"))
+            .args(["check", "--profile", "cc", "--config"])
+            .arg(rig.home.join("llm-seat.json"))
+            .env_clear()
+            .env("HOME", &rig.home)
+            .env("PATH", &rig.path)
+            .env("BAYLEE_KEY_STORE", "off")
+            .output()
+            .expect("the bridge runs");
+        let text = String::from_utf8_lossy(&out.stdout).into_owned();
+        let line = text.lines().last().unwrap_or_default().to_string();
+        serde_json::from_str::<Value>(&line).unwrap_or_else(|_| panic!("not JSON: {text}"))
+    };
+    assert_eq!(run(), json!({"ok": true}));
+    rig.script(&json!({"logged_in": false}));
+    let said = run();
+    assert_eq!(said["ok"], false, "{said}");
+    assert_eq!(said["cause"], "signed_out", "{said}");
+    let version = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-seat"))
+        .arg("--version")
+        .output()
+        .unwrap();
+    let version = String::from_utf8_lossy(&version.stdout).into_owned();
+    assert!(
+        version.contains(if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        }),
+        "{version}"
+    );
+}
+
 /// A tool whose replies report the process's running count (agy does) is
 /// booked by the differences: two turns of one process count each call
 /// once, not the first one twice, and a new process counts from nothing

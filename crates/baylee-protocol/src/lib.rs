@@ -10,6 +10,7 @@
 
 pub mod mind;
 pub mod names;
+pub mod seathost;
 
 /// Wire protocol version; incompatible versions refuse the session.
 /// Version 24 carries Camouflage's piles (`ChoicePrompt::CamouflagePile`).

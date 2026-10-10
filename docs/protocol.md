@@ -2327,6 +2327,191 @@ confirmed), a deck's cards or a record's bytes (`baylee_db::console`).
   no account holds, the house's or a deleted account's, with `player`
   `null`).
 
+## Hosted language-model seats (beta.7)
+
+A room's host may seat a language model that runs on the operator's
+machines rather than on its own: a **hosted seat**. Every platform can
+order one (browser and phone included), because the bridge
+(`baylee-seat join --chair-ticket`) runs beside a **seat agent**
+(`baylee-seathost`), not on the player's machine. The gateway stays
+rules-free: the bridge is an ordinary seat socket whose frames are
+forwarded byte for byte, and everything the gateway says about a profile
+(state, games, spend) is what a seat agent *reported*; it derives none of
+it and keeps none of it on disk. `docs/llm-seat.md` §"A hosted seat" is
+the seat agent's side.
+
+### The seat agent's socket: `GET /seathost/ws`
+
+A seat agent dials the gateway as an engine agent does, on a route of its
+own, with its own secret, **`BAYLEE_SEATHOST_TOKEN`** (32 characters at
+least, one word, none of the gateway's other secrets; unset, the route
+refuses everyone and the gateway offers no hosted seat). Over
+`BAYLEE_UNIX_SOCKET` it is *local*, which is the only way a key may travel
+to it (below). Several seat agents may be connected at once, on several
+machines; each is known by the **name** in its hello (1–64 of
+`A-Za-z0-9._-`, `BAYLEE_SEATHOST_NAME`), stable across restarts, and a
+second one under a name that is connected is refused.
+
+Frames are **JSON text frames**, one object each, tagged by `"type"`
+(`baylee_protocol::seathost`). Not `Envelope` entries: the link is a
+control plane between two builds of one workspace that the gateway never
+forwards to anyone, as `preset_json` is JSON, and it touches neither the
+player protocol nor `PROTOCOL_VERSION`. The hello still states the version
+and is refused on a mismatch (`version_refusal`), as every peer's is.
+
+| direction | `type` | fields |
+|---|---|---|
+| agent → gateway | `hello` | `token`, `name`, `protocol_version`, `capacity` (live bridges at once, `0` = no bound) |
+| gateway → agent | `welcome` | `heartbeat_secs` |
+| gateway → agent | `refused` | `message` (then the socket closes) |
+| agent → gateway | `profiles` | `profiles`: every profile it holds, whole, on connect and after every change (below) |
+| gateway → agent | `start_seat` | `order`, `game_id`, `seat`, `profile`, `chair_ticket`, `gateway_url`, `deck_text` (optional, a deck in any format the bridge reads) |
+| gateway → agent | `stop_seat` | `order` |
+| agent → gateway | `seat_status` | `order`, `kind` (`started`, `failed`, `exited`), `detail` (one sentence, never a key) |
+| gateway → agent | `profile_write` | `request`, `id`, `definition`, `admin` |
+| gateway → agent | `profile_delete` | `request`, `id`, `admin` |
+| gateway → agent | `control` | `request`, `id`, `action` (`probe`, `enable`, `disable`), `admin` |
+| gateway → agent | `key_write` | `request`, `id`, `key` (absent = forget the key), `admin` |
+| agent → gateway | `answer` | `request`, `ok`, `error` (a sentence, when not ok) |
+| both | `heartbeat` | — |
+
+A seat agent that sends nothing for two heartbeats is dropped, and its
+profiles leave the offer with it. The chair ticket in `start_seat` is the
+same class of secret a host's client is handed; the seat agent gives it to
+the bridge as its first stdin line, never an argument, and logs it nowhere.
+
+**A profile, as reported** (`profiles[]`):
+
+```json
+{"id": "sonnet", "label": "Sonnet", "vendor": "Anthropic", "kind": "api",
+ "model": "claude-sonnet-5-5", "state": "available", "until_unix": null,
+ "games": 1, "max_games": 4, "enabled": true, "canary": false,
+ "caps": {"day_usd": 10, "month_usd": 100},
+ "spent": {"day_usd": 0.42, "month_usd": 3.1, "day_tokens": 0, "month_tokens": 0},
+ "key": "kept", "last_error": null, "last_ok_unix": 1791800000,
+ "definition": { "…": "the profile_write definition" }}
+```
+
+- `kind`: `api` (a model behind an HTTP API and a key) or `cli` (an agent
+  CLI signed in on the seat agent's machine).
+- `state`: `available`; `busy` (`games` = `max_games`, or the seat agent at
+  its capacity); `exhausted` (a cap of the profile's spend book is reached,
+  or the provider said it is limited; `until_unix` when it is known when
+  that ends); `probing` (its check is running); `needs_login` (a CLI's
+  login check says signed out); `failing` (its check failed: no key, the
+  endpoint refused, the program is missing; `last_error` says which);
+  `disabled` (switched off).
+- `key`: `kept`, `absent`, `none_needed` (a CLI, or an endpoint that takes
+  none), or `unavailable` (the seat agent has no key store). Never the key.
+- `caps`, `max_games`: absent = none. `spent` is the profile's own spend
+  book for the current (UTC) day and month.
+
+**A profile's definition** (`profile_write.definition`, and as reported):
+
+```json
+{"label": "Sonnet", "vendor": "Anthropic", "enabled": true,
+ "max_games": 4, "caps": {"day_usd": 10, "month_usd": 100}, "canary": false,
+ "profile": {"provider": "anthropic", "model": "claude-sonnet-5-5", "effort": "medium"}}
+```
+
+`profile` is one profile of the settings file in its own format
+(`docs/llm-seat.md` §"The file"), held to the same refusals (no key and no
+key-shaped value in any field); `max_games`, `caps` and `canary` are each
+optional and off when absent; `label` and `vendor` are 1–40 characters
+with no control character (`vendor` is what the room shows as "game data
+goes to …").
+
+### Which profiles a player sees: `GET /lobby/llm-profiles`
+
+Any signed-in session (`401` without):
+
+```json
+{"profiles": [
+  {"id": "sonnet", "label": "Sonnet", "vendor": "Anthropic", "kind": "api",
+   "model": "claude-sonnet-5-5", "state": "available", "until_unix": null,
+   "games": 1, "max_games": 8, "available": true}]}
+```
+
+One row per profile **id**, over every connected seat agent: a profile of
+the same id on several seat agents is one row, its `games`/`max_games`
+summed (`max_games` `null` when one of them has none), its `state` the best
+any of them reports (in the order `available`, `busy`, `probing`,
+`exhausted`, `needs_login`, `failing`, `disabled`; `until_unix` the
+earliest), its label, vendor, kind and model the first seat agent's by
+name. Rows that are not `available` are **still listed**, after every
+available one (each group by label), so a player knows the profile exists
+and when to come back. `/info` says `hosted_llm: true` while any seat agent
+is connected.
+
+### Ordering one: `POST /lobby/games/{id}/chairs/{seat}/hosted`
+
+The room's host, signed in to a **registered account**, with its session:
+`{"profile": "<id>", "deck_text"?: "<deck>"}`.
+
+- `403` for a guest (`a guest cannot seat a hosted model; sign in with an
+  account`) and for anyone but the room's host; `404` no such room or seat;
+  `409` a chair that is not an open person's chair of a waiting room, or a
+  profile that is not available now — then `{"error", "state",
+  "until_unix"}`, also for a profile no seat agent holds (`state`
+  `"unknown"`); `503` no seat agent connected.
+- Answered `202 {"seat", "profile", "state": "starting"}`. The gateway
+  picks one seat agent holding the profile: those whose report says
+  `available`, below `max_games` (counting orders still starting) and
+  within capacity, the **least busy** first (fewest live games of that
+  profile, then fewest bridges in all, then by name). It marks the chair
+  `hosted`, mints a chair ticket for it in the host's name
+  (§"A host's chair for a seat bridge"; a hosted ticket is redeemed even
+  where `BAYLEE_CHAIR_TICKETS=off`), and sends `start_seat`.
+- The bridge redeems the ticket as `LLM-<label>`, the host's delegate, and
+  says ready once its mind answered its check. A chair not ready **60 s**
+  after the order, or one whose seat agent reports `failed` or goes away
+  before the game, is reopened with a `note` and the seat agent told
+  `stop_seat`.
+- `DELETE …/chairs/{seat}/hosted`: the host takes the chair back before
+  the game (`204`); the bridge is stopped. So is it, with `stop_seat`,
+  whenever its chair stops standing for the order otherwise: the host
+  rearranges the chair (house or open), the host leaves and the room
+  closes, the account is deleted, or the bridge leaves on its own
+  (`seathost::stop_unseated`).
+- Mid-game, a bridge that dies is an absent socket like any player's: the
+  house stands in.
+
+In the room's listing a chair carries
+`"hosted": {"profile", "label", "vendor", "model", "state", "note"}` or
+`null`: `state` is `starting` (ordered, not ready yet), `ready`, or
+`failed` (the chair is open again; `note` says why, until the chair is
+taken or ordered again). A hosted bridge plays **pseudonymised**
+(`--hosted`): its prompts name seats `P1…Pn`, never a display name. Its
+record line says `llm_api`/`llm_cli` as any bridge's does
+(§"Who answers a seat, as it says").
+
+### The console: `/admin/llm/…`
+
+On the admin listener with the admin checks (§"The admin console"); every
+change names its admin (`X-Baylee-Admin`) and writes an audit line
+(`baylee_gateway::audit`, `action=llm.…`, the seat agent and profile id;
+never a key, a `base_url` or a definition's text).
+
+| route | what |
+|---|---|
+| `GET /admin/llm/seathosts` | `{"seathosts": [{"name", "local", "capacity", "games", "connected_secs", "profiles": [<profile as reported>]}]}` |
+| `GET /admin/llm/profiles` | `{"profiles": [{"id", "label", "vendor", "kind", "model", "state", "until_unix", "games", "max_games", "available", "hosts": [{"host", "state", "until_unix", "games", "max_games", "enabled", "canary", "caps", "spent", "key", "last_error", "last_ok_unix"}]}]}`, ordered as the player list |
+| `PUT /admin/llm/seathosts/{host}/profiles/{id}` | body: a definition; `200 {"ok": true}` once the seat agent wrote it, `400` with its refusal; audit `llm.profile.write` |
+| `DELETE /admin/llm/seathosts/{host}/profiles/{id}` | `204`; audit `llm.profile.delete` (a key stays in the store) |
+| `POST /admin/llm/seathosts/{host}/profiles/{id}/enabled` | `{"enabled": bool}`; `204`; audit `llm.profile.enable` / `llm.profile.disable` |
+| `POST /admin/llm/seathosts/{host}/profiles/{id}/probe` | runs the check now (and the paid canary where the profile has one); `202`; audit `llm.profile.probe` |
+| `POST /admin/llm/seathosts/{host}/profiles/{id}/key` | `{"key": "…"}` sets, `{"key": null}` forgets; `204`; **write-only**: no route answers a key, only `key: kept/absent`; audit `llm.key.set` / `llm.key.delete` |
+
+`{host}` is a seat agent's name, `{id}` a profile id (1–64 of
+`A-Za-z0-9._-`); a seat agent not connected is `404`, one that does not
+answer within 10 s `504`, its refusal `400` with its sentence. The key
+route is `503` (`keys travel only over the unix socket`) unless that seat
+agent came in on `BAYLEE_UNIX_SOCKET`: the one hop without TLS is then a
+socket on the same machine. The key is held in memory for the request
+only, at every hop: no database row, no log line, no argument, no
+environment; the seat agent writes it into its key store
+(`docs/llm-seat.md` §"Where a key is kept", `file:<dir>`).
+
 ## Terms of use (WG-1)
 
 A gateway may ask its players to accept terms of use. The operator points

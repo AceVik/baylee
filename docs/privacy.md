@@ -28,6 +28,9 @@ the pointers, because line numbers move.
 | Chair ticket (hash only), with the room, chair and host account it is for | gateway memory | ≤ 120 s (`BAYLEE_CHAIR_TICKET_SECS`), or until used | use, its host leaving the room or being deleted, the ticket sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
 | Game state | engine process memory | the game | the process exits |
+| A hosted model's game data (its seat's view: board, its own hand, log lines, card text, seat numbers, no display name) | leaves the seat agent's machine for the profile's provider | the provider's own terms | — |
+| Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
+| A hosted profile's definition, its spend book (per game: time, model, reserved, spent; nothing of the game), its key | the seat agent's machine (`hosted.json`, `spend/<id>.json`, its key directory) | until the operator removes them | the operator |
 | Server logs | stdout | the host's choice | the host |
 | Legacy import file | disk, `STORE_PATH` + `.imported` | indefinitely | nothing |
 | Client settings | the player's device | until the player removes them | the player; a guest's token at sign-out |
@@ -41,6 +44,23 @@ the pointers, because line numbers move.
 | Update check (#326) | leaves a desktop client for `api.github.com` and GitHub's download hosts | GitHub's own terms | switching "Check for updates automatically" off |
 | Update choice and payloads | the player's device: `update.json`; per-user updater state (paths below) | choices until changed; active and previous payload retained; older payloads removed on a safe next launch | the player; the launcher when no runtime is using them |
 | Where the player was, across "Restart now" (no secret) | the player's device, `resume.json` beside the settings (desktop only) | until the next start reads it; ignored after ten minutes | the client, at the next start |
+
+## Hosted models
+
+A room's host may seat a language model the operator runs (`docs/llm-seat.md`
+§"A hosted seat"). Its bridge sends the profile's provider what any language
+model seat sends: its own seat's view as text (the board, its own hand, the
+counts of the others' hands and libraries, the log lines its seat is told,
+the question), its deck, and the Oracle text of cards it sees. A hosted
+bridge names no player (`--hosted`): every other seat is `P1…Pn`, so no
+display name, account or deck list of another player is sent; cards they
+play face up are part of the game. The room shows the vendor on the chair
+before anyone says ready. The gateway keeps only what the seat agents
+report about their profiles, in memory; the seat agent keeps its profiles,
+one spend book per profile (when, which model, what was reserved and
+spent) and its keys on its own machine. A key the console sets passes
+through the feedback service and the gateway in memory only, for that
+request, and is answered back by nothing.
 
 ## Accounts
 

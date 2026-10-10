@@ -42,7 +42,7 @@ use axum::extract::{Path, Request, State};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Json, Response};
-use axum::routing::{delete, get};
+use axum::routing::{delete, get, post, put};
 use sha2::{Digest as _, Sha256};
 use subtle::ConstantTimeEq as _;
 use time::OffsetDateTime;
@@ -175,6 +175,24 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
         .route("/admin/accounts/{id}", get(one_account))
         .route("/admin/invites", get(list_invites).post(create_invites))
         .route("/admin/invites/{id}", delete(revoke_invite))
+        .route("/admin/llm/seathosts", get(llm_seathosts))
+        .route("/admin/llm/profiles", get(llm_profiles))
+        .route(
+            "/admin/llm/seathosts/{host}/profiles/{id}",
+            put(llm_write).delete(llm_delete),
+        )
+        .route(
+            "/admin/llm/seathosts/{host}/profiles/{id}/enabled",
+            post(llm_enabled),
+        )
+        .route(
+            "/admin/llm/seathosts/{host}/profiles/{id}/probe",
+            post(llm_probe),
+        )
+        .route(
+            "/admin/llm/seathosts/{host}/profiles/{id}/key",
+            post(llm_key),
+        )
         .fallback(no_such_route)
         .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY_BYTES))
         .layer(axum::middleware::from_fn_with_state(console.clone(), guard))
@@ -519,6 +537,8 @@ struct ChairNow {
     ai: Option<String>,
     account: Option<String>,
     delegate: Option<(String, String)>,
+    /// What the room's listing says of a hosted model here, or `null`.
+    hosted: serde_json::Value,
     deck: String,
     format: Option<String>,
     ready: bool,
@@ -585,6 +605,7 @@ fn tables_now(app: &crate::AppState) -> Vec<TableNow> {
                         .delegate
                         .as_ref()
                         .map(|d| (d.name.clone(), d.by.clone())),
+                    hosted: crate::seathost::chair_json(seat),
                     deck: seat.deck_name.clone(),
                     format: seat.deck.as_ref().map(|d| d.format.clone()),
                     ready: game.seat_ready(seat),
@@ -753,6 +774,7 @@ fn table_json(
                 "guest": sitter.and_then(guest),
                 "bridge": c.delegate.as_ref().map(|(name, _)| name),
                 "bridged_by": c.delegate.as_ref().and_then(|(_, by)| handle(by)),
+                "hosted": c.hosted,
                 "deck": c.deck,
                 "format": c.format,
                 "ready": c.ready,
@@ -1066,6 +1088,175 @@ async fn revoke_invite(
         id = %id,
         "admin console: closed beta key revoked"
     );
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ---------------------------------------------------------- hosted models
+
+/// `GET /admin/llm/seathosts`: every seat agent connected, and what it
+/// reported (`docs/protocol.md` §"Hosted language-model seats").
+async fn llm_seathosts(State(console): State<Admin>) -> Json<serde_json::Value> {
+    Json(crate::seathost::seathosts_json(&console.app))
+}
+
+/// `GET /admin/llm/profiles`: one row per profile, over every seat agent.
+async fn llm_profiles(State(console): State<Admin>) -> Json<serde_json::Value> {
+    Json(crate::seathost::profiles_json(&console.app))
+}
+
+/// One audit line for a change to a hosted profile: who, what, which seat
+/// agent and profile; never a key, an address or a definition's text.
+fn llm_audit(actor: &str, action: &str, host: &str, id: &str) {
+    tracing::info!(
+        target: "baylee_gateway::audit",
+        admin = %actor,
+        action,
+        seathost = %host,
+        profile = %id,
+        "admin console: hosted profile changed"
+    );
+}
+
+/// `PUT /admin/llm/seathosts/{host}/profiles/{id}`: a profile's definition.
+async fn llm_write(
+    State(console): State<Admin>,
+    axum::Extension(Actor(actor)): axum::Extension<Actor>,
+    Path((host, id)): Path<(String, String)>,
+    body: Bytes,
+) -> Result<Json<serde_json::Value>, Refusal> {
+    let definition: baylee_protocol::seathost::Definition = serde_json::from_slice(&body)
+        .map_err(|e| err_saying(StatusCode::BAD_REQUEST, format!("not a profile: {e}")))?;
+    crate::seathost::ask(
+        &console.app,
+        &host,
+        &id,
+        &actor,
+        crate::seathost::Ask::Write(definition),
+    )
+    .await?;
+    llm_audit(&actor, "llm.profile.write", &host, &id);
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// `DELETE /admin/llm/seathosts/{host}/profiles/{id}`.
+async fn llm_delete(
+    State(console): State<Admin>,
+    axum::Extension(Actor(actor)): axum::Extension<Actor>,
+    Path((host, id)): Path<(String, String)>,
+) -> Result<StatusCode, Refusal> {
+    crate::seathost::ask(
+        &console.app,
+        &host,
+        &id,
+        &actor,
+        crate::seathost::Ask::Delete,
+    )
+    .await?;
+    llm_audit(&actor, "llm.profile.delete", &host, &id);
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// What `…/enabled` takes.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EnabledBody {
+    enabled: bool,
+}
+
+/// `POST /admin/llm/seathosts/{host}/profiles/{id}/enabled`.
+async fn llm_enabled(
+    State(console): State<Admin>,
+    axum::Extension(Actor(actor)): axum::Extension<Actor>,
+    Path((host, id)): Path<(String, String)>,
+    body: Bytes,
+) -> Result<StatusCode, Refusal> {
+    let body: EnabledBody = serde_json::from_slice(&body)
+        .map_err(|_| err(StatusCode::BAD_REQUEST, "send {\"enabled\": true|false}"))?;
+    let (action, audit) = if body.enabled {
+        (
+            baylee_protocol::seathost::ControlAction::Enable,
+            "llm.profile.enable",
+        )
+    } else {
+        (
+            baylee_protocol::seathost::ControlAction::Disable,
+            "llm.profile.disable",
+        )
+    };
+    crate::seathost::ask(
+        &console.app,
+        &host,
+        &id,
+        &actor,
+        crate::seathost::Ask::Control(action),
+    )
+    .await?;
+    llm_audit(&actor, audit, &host, &id);
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `POST /admin/llm/seathosts/{host}/profiles/{id}/probe`.
+async fn llm_probe(
+    State(console): State<Admin>,
+    axum::Extension(Actor(actor)): axum::Extension<Actor>,
+    Path((host, id)): Path<(String, String)>,
+) -> Result<StatusCode, Refusal> {
+    crate::seathost::ask(
+        &console.app,
+        &host,
+        &id,
+        &actor,
+        crate::seathost::Ask::Control(baylee_protocol::seathost::ControlAction::Probe),
+    )
+    .await?;
+    llm_audit(&actor, "llm.profile.probe", &host, &id);
+    Ok(StatusCode::ACCEPTED)
+}
+
+/// What `…/key` takes: a key, or `null` to forget it. No `Debug`: nothing
+/// may print it.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct KeyBody {
+    key: Option<String>,
+}
+
+/// `POST /admin/llm/seathosts/{host}/profiles/{id}/key`: write-only. The
+/// key goes to the seat agent over the unix socket and nowhere else; no
+/// route answers it, the audit line names only that it was set.
+async fn llm_key(
+    State(console): State<Admin>,
+    axum::Extension(Actor(actor)): axum::Extension<Actor>,
+    Path((host, id)): Path<(String, String)>,
+    body: Bytes,
+) -> Result<StatusCode, Refusal> {
+    let KeyBody { key } = serde_json::from_slice(&body).map_err(|_| {
+        err(
+            StatusCode::BAD_REQUEST,
+            "send {\"key\": \"…\"} or {\"key\": null}",
+        )
+    })?;
+    let key = key.map(|k| k.trim().to_string());
+    if key.as_ref().is_some_and(String::is_empty) {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "an empty key; send null to forget one",
+        ));
+    }
+    let audit = if key.is_some() {
+        "llm.key.set"
+    } else {
+        "llm.key.delete"
+    };
+    crate::seathost::ask(
+        &console.app,
+        &host,
+        &id,
+        &actor,
+        crate::seathost::Ask::Key(key),
+    )
+    .await?;
+    llm_audit(&actor, audit, &host, &id);
     Ok(StatusCode::NO_CONTENT)
 }
 

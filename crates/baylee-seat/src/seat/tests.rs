@@ -711,3 +711,26 @@ fn the_seat_declares_its_mind_before_its_ready_on_every_socket_and_on_a_swap() {
         assert_eq!(baylee_protocol::mind::fault(&declared), None);
     }
 }
+
+/// A hosted seat names nobody to its mind: the request's context holds no
+/// display name, and the prompt's prefix says `P2 is an opponent`.
+#[test]
+fn a_pseudonymous_seat_tells_its_mind_no_name() {
+    for pseudonymous in [false, true] {
+        let mut core = seated(BridgeConfig {
+            pseudonymous,
+            ..BridgeConfig::default()
+        });
+        let steps = core.hear(&asked(2, &colour()));
+        let request = request(&steps).expect("the mind is asked");
+        let prefix = crate::narrator::prefix(&request.context, crate::narrator::DeckText::Full);
+        assert_eq!(prefix.contains("Alice"), !pseudonymous, "{prefix}");
+        assert_eq!(
+            request.context.names.iter().any(|n| !n.is_empty()),
+            !pseudonymous
+        );
+        if pseudonymous {
+            assert!(prefix.contains("P2 is an opponent."), "{prefix}");
+        }
+    }
+}

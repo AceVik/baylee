@@ -108,6 +108,20 @@ async fn stub() -> Stub {
                     ("DELETE", path) if path.starts_with("/admin/invites/") => {
                         StatusCode::NO_CONTENT.into_response()
                     }
+                    ("GET", path) if path.starts_with("/admin/llm/") => {
+                        axum::Json(serde_json::json!({ "profiles": [] })).into_response()
+                    }
+                    ("PUT", path) if path.starts_with("/admin/llm/") => {
+                        axum::Json(serde_json::json!({ "ok": true })).into_response()
+                    }
+                    ("POST", path)
+                        if path.starts_with("/admin/llm/") && path.ends_with("/probe") =>
+                    {
+                        StatusCode::ACCEPTED.into_response()
+                    }
+                    ("POST" | "DELETE", path) if path.starts_with("/admin/llm/") => {
+                        StatusCode::NO_CONTENT.into_response()
+                    }
                     _ => StatusCode::NOT_FOUND.into_response(),
                 }
             }
@@ -505,6 +519,131 @@ async fn a_change_wants_the_proof_passes_only_its_fields_and_is_audited_without_
     }
     assert!(!audit.text().contains(KEY), "a key in the audit");
     assert!(!audit.text().contains("for Max"), "a note in the audit");
+    service.close().await;
+    gw.server.abort();
+}
+
+/// The hosted-model pages: a read passes through, a change wants the proof,
+/// passes only its fields, and is audited as `<host>/<id>`; a key reaches
+/// the gateway and is in no audit row.
+#[tokio::test(flavor = "multi_thread")]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+async fn the_hosted_model_pages_relay_their_fields_and_never_keep_a_key() {
+    let gw = stub().await;
+    let service = Service::start("llm", Some(&gw.url)).await;
+    let cookie = service.login().await;
+    let answer = service
+        .call(
+            "GET",
+            "/ui/api/admin/llm/profiles",
+            &with_cookie(&cookie),
+            None,
+        )
+        .await;
+    assert_eq!(answer.status, 200, "{}", answer.text());
+    let base = "/ui/api/admin/llm/seathosts/main/profiles/sonnet";
+    let key = "sk-ant-api03-relayed-not-kept-0123456789abcdef";
+    // Without the proof, nothing.
+    let answer = service
+        .call(
+            "POST",
+            &format!("{base}/key"),
+            &with_cookie(&cookie),
+            Some("{}"),
+        )
+        .await;
+    assert_eq!(answer.status, 403);
+    let mut proved = service.proof();
+    proved.push(("cookie", cookie.clone()));
+    let definition = r#"{"label":"Sonnet","vendor":"Anthropic","max_games":2,"profile":{"provider":"anthropic","model":"claude-sonnet-5-5"}}"#;
+    for (method, path, body, status) in [
+        ("PUT", base.to_string(), Some(definition), 200),
+        (
+            "POST",
+            format!("{base}/enabled"),
+            Some(r#"{"enabled":false}"#),
+            204,
+        ),
+        ("POST", format!("{base}/probe"), None, 202),
+        (
+            "POST",
+            format!("{base}/key"),
+            Some(&*format!(r#"{{"key":"{key}"}}"#)),
+            204,
+        ),
+        ("DELETE", base.to_string(), None, 204),
+    ] {
+        let answer = service.call(method, &path, &proved, body).await;
+        assert_eq!(answer.status, status, "{method} {path}: {}", answer.text());
+    }
+    // Fields it does not know, and a path that is not a name: refused here.
+    let answer = service
+        .call(
+            "PUT",
+            base,
+            &proved,
+            Some(r#"{"label":"x","vendor":"y","profile":{},"admin":"z"}"#),
+        )
+        .await;
+    assert_eq!(answer.status, 400);
+    let answer = service
+        .call(
+            "PUT",
+            "/ui/api/admin/llm/seathosts/a%2Fb/profiles/x",
+            &proved,
+            Some(definition),
+        )
+        .await;
+    assert_eq!(answer.status, 400);
+
+    let seen = gw.seen();
+    let paths: Vec<String> = seen
+        .iter()
+        .map(|s| format!("{} {}", s.method, s.path))
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            "GET /admin/llm/profiles",
+            "PUT /admin/llm/seathosts/main/profiles/sonnet",
+            "POST /admin/llm/seathosts/main/profiles/sonnet/enabled",
+            "POST /admin/llm/seathosts/main/profiles/sonnet/probe",
+            "POST /admin/llm/seathosts/main/profiles/sonnet/key",
+            "DELETE /admin/llm/seathosts/main/profiles/sonnet",
+        ]
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&seen[4].body).unwrap(),
+        serde_json::json!({ "key": key }),
+        "the key reaches the gateway"
+    );
+    assert_eq!(seen[4].header("x-baylee-admin"), Some(NAME));
+
+    let audit = service
+        .call("GET", "/ui/api/admin/audit", &with_cookie(&cookie), None)
+        .await;
+    let rows = audit.json();
+    let actions: Vec<&str> = rows
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["action"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        actions,
+        [
+            "gateway.llm.profile.delete",
+            "gateway.llm.key.set",
+            "gateway.llm.profile.probe",
+            "gateway.llm.profile.disable",
+            "gateway.llm.profile.write",
+        ]
+    );
+    assert!(audit.text().contains("main/sonnet"));
+    assert!(
+        !audit.text().contains("relayed-not-kept"),
+        "a key in the audit"
+    );
     service.close().await;
     gw.server.abort();
 }

@@ -293,6 +293,164 @@ impl KeyStore for MemoryKeys {
     }
 }
 
+/// The prefix of [`STORE_ENV`] that names a directory store:
+/// `file:<dir>` ([`FileKeys`]).
+pub const FILE_STORE_PREFIX: &str = "file:";
+
+/// A store in a directory, one file per entry named as the OS store names
+/// its account (`{key_env}@{host}`): for a server with no session bus, such
+/// as a seat agent's (`docs/llm-seat.md` §"Where a key is kept").
+///
+/// The directory is `0700` and every file `0600`, written through a temp
+/// file beside it and renamed; a file or a directory any other user may
+/// read, or a file owned by another user than its directory, is refused
+/// rather than read. On a platform without unix modes it is unavailable.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone)]
+pub struct FileKeys {
+    dir: std::path::PathBuf,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl FileKeys {
+    /// The store in `dir`, made (`0700`) when it is not there.
+    #[must_use]
+    pub fn new(dir: impl Into<std::path::PathBuf>) -> Self {
+        Self { dir: dir.into() }
+    }
+
+    fn path(&self, entry: &KeyEntry) -> Result<std::path::PathBuf, String> {
+        let name = entry.account();
+        if name.contains(['/', '\\']) || name.starts_with('.') {
+            return Err("that entry cannot be a file's name".into());
+        }
+        Ok(self.dir.join(name))
+    }
+
+    #[cfg(unix)]
+    fn open(&self) -> Result<(), String> {
+        use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _};
+        if !self.dir.exists() {
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(&self.dir)
+                .map_err(|e| format!("the key directory could not be made: {}", e.kind()))?;
+        }
+        let meta = std::fs::metadata(&self.dir)
+            .map_err(|e| format!("the key directory could not be read: {}", e.kind()))?;
+        if !meta.is_dir() {
+            return Err("the key store is not a directory".into());
+        }
+        if meta.permissions().mode() & 0o077 != 0 {
+            return Err("the key directory may be read by other users; it must be 0700".into());
+        }
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    fn open(&self) -> Result<(), String> {
+        Err("a key directory needs unix file modes".into())
+    }
+
+    /// Whether the file at `path` may be read as a key: only its directory's
+    /// owner's, and nobody else may read it.
+    #[cfg(unix)]
+    fn trusted(&self, path: &std::path::Path) -> Result<bool, String> {
+        use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
+        let meta = match std::fs::symlink_metadata(path) {
+            Ok(meta) => meta,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(e) => return Err(format!("a key file could not be read: {}", e.kind())),
+        };
+        let dir = std::fs::metadata(&self.dir)
+            .map_err(|e| format!("the key directory could not be read: {}", e.kind()))?;
+        if !meta.is_file() || meta.uid() != dir.uid() {
+            return Err("a key file is not this store's own; it was not read".into());
+        }
+        if meta.permissions().mode() & 0o077 != 0 {
+            return Err("a key file may be read by other users; it was not read".into());
+        }
+        Ok(true)
+    }
+
+    #[cfg(not(unix))]
+    fn trusted(&self, _path: &std::path::Path) -> Result<bool, String> {
+        Err("a key directory needs unix file modes".into())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl KeyStore for FileKeys {
+    fn available(&self) -> Result<(), String> {
+        self.open()
+    }
+
+    fn has(&self, entry: &KeyEntry) -> Result<bool, String> {
+        self.open()?;
+        self.trusted(&self.path(entry)?)
+    }
+
+    fn get(&self, entry: &KeyEntry) -> Result<Option<String>, String> {
+        self.open()?;
+        let path = self.path(entry)?;
+        if !self.trusted(&path)? {
+            return Ok(None);
+        }
+        let text = std::fs::read_to_string(&path)
+            .map_err(|e| format!("a key file could not be read: {}", e.kind()))?;
+        let key = text.trim();
+        Ok((!key.is_empty()).then(|| key.to_string()))
+    }
+
+    #[cfg(unix)]
+    fn set(&self, entry: &KeyEntry, key: &str) -> Result<(), String> {
+        use std::io::Write as _;
+        use std::os::unix::fs::OpenOptionsExt as _;
+        if let Some(why) = key_fault(key) {
+            return Err(why.into());
+        }
+        self.open()?;
+        let path = self.path(entry)?;
+        // An existing file another user put there is not replaced blindly.
+        self.trusted(&path)?;
+        let temp = self
+            .dir
+            .join(format!(".{}.{}.tmp", entry.account(), std::process::id()));
+        let _ = std::fs::remove_file(&temp);
+        let written = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&temp)
+            .and_then(|mut file| {
+                file.write_all(key.as_bytes())?;
+                file.write_all(b"\n")?;
+                file.sync_all()
+            })
+            .and_then(|()| std::fs::rename(&temp, &path));
+        if let Err(e) = written {
+            let _ = std::fs::remove_file(&temp);
+            return Err(format!("the key could not be written: {}", e.kind()));
+        }
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    fn set(&self, _entry: &KeyEntry, _key: &str) -> Result<(), String> {
+        Err("a key directory needs unix file modes".into())
+    }
+
+    fn delete(&self, entry: &KeyEntry) -> Result<(), String> {
+        self.open()?;
+        match std::fs::remove_file(self.path(entry)?) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(format!("the key could not be forgotten: {}", e.kind())),
+        }
+    }
+}
+
 /// What the client asks the bridge of the store (`baylee-seat key`).
 #[derive(Clone, PartialEq, Eq)]
 pub enum KeyJob {
@@ -501,6 +659,34 @@ fn blank_key_shapes_short(text: &str) -> String {
 mod tests {
     use super::super::seating::Preset;
     use super::*;
+
+    /// A directory store on a temp directory of its own: kept `0600` in a
+    /// `0700` directory, read back, forgotten; and a file another user
+    /// could read is refused rather than read.
+    #[cfg(unix)]
+    #[test]
+    fn a_file_store_keeps_a_key_only_for_its_owner() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = std::env::temp_dir().join(format!("baylee-filekeys-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let store = FileKeys::new(dir.join("keys"));
+        let at = KeyEntry::named("ANTHROPIC_API_KEY", "api.anthropic.com").unwrap();
+        assert_eq!(state(&store, &at), KeyState::Absent);
+        let key = "sk-ant-api03-placeholder-placeholder-placeholder";
+        store.set(&at, key).unwrap();
+        let path = dir.join("keys").join(at.account());
+        let mode = |p: &std::path::Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&path), 0o600);
+        assert_eq!(mode(&dir.join("keys")), 0o700);
+        assert_eq!(store.get(&at).unwrap().as_deref(), Some(key));
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(store.get(&at).is_err(), "a key others may read is not read");
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        store.delete(&at).unwrap();
+        assert_eq!(state(&store, &at), KeyState::Absent);
+        assert!(store.set(&at, "").is_err(), "no blank key");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn a_key_is_kept_under_its_variable_and_the_host_it_goes_to() {

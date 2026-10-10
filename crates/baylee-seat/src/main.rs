@@ -57,9 +57,19 @@ use std::time::Duration;
 /// The gateway a bridge dials when told nothing.
 const LOCAL_GATEWAY: &str = "http://127.0.0.1:28766";
 
+/// The version, and whether this is a debug build: a seat agent refuses a
+/// debug bridge, which shows a model's reasoning to the whole table
+/// (`docs/protocol.md` §"An AI seat's reasoning").
+const VERSION: &str = if cfg!(debug_assertions) {
+    concat!(env!("CARGO_PKG_VERSION"), " debug")
+} else {
+    concat!(env!("CARGO_PKG_VERSION"), " release")
+};
+
 #[derive(Parser)]
 #[command(
     name = "baylee-seat",
+    version = VERSION,
     about = "A mind at a Baylee table, as an ordinary socket player"
 )]
 struct Cli {
@@ -74,6 +84,26 @@ enum Command {
     /// Keep, replace or forget a profile's key in the OS credential store,
     /// or say whether one is kept (never what).
     Key(KeyArgs),
+    /// Whether a profile can play now, without a game: its free check (a
+    /// model's entry, the model list, a CLI's login), and with `--canary`
+    /// one paid answer besides. Prints one JSON line (`docs/llm-seat.md`
+    /// §"A hosted seat").
+    Check(CheckArgs),
+}
+
+#[derive(clap::Args)]
+struct CheckArgs {
+    /// The profile to check, in the settings file.
+    #[arg(long)]
+    profile: String,
+    /// The settings file [default: `BAYLEE_SEAT_CONFIG`, else
+    /// `llm-seat.json` in the client's config directory].
+    #[arg(long)]
+    config: Option<PathBuf>,
+    /// Ask the model one question as well: it costs a call, and is the only
+    /// way to see a spent credit or an exhausted subscription window.
+    #[arg(long)]
+    canary: bool,
 }
 
 #[derive(clap::Args)]
@@ -237,6 +267,11 @@ struct Join {
     /// Sit at a table that gives a question 30 seconds or fewer.
     #[arg(long)]
     allow_blitz: bool,
+    /// Played for a gateway's seat agent (a hosted seat): name no player
+    /// to the mind, only `P1…Pn`, because the others at the table did not
+    /// choose the provider its prompts go to.
+    #[arg(long)]
+    hosted: bool,
 }
 
 /// What decides.
@@ -525,6 +560,11 @@ async fn run() -> anyhow::Result<()> {
     let keys = keys::store(&env);
     match Cli::parse().command {
         Command::Key(key) => key_command(&key, &env, &*keys),
+        Command::Check(check) => {
+            let line = check_command(&check, &env, &*keys).await;
+            say!("{line}");
+            Ok(())
+        }
         Command::Join(join) => {
             let (mut let_go, orders, ticket) = if join.tethered {
                 let held = tether::hold(join.chair_ticket);
@@ -551,6 +591,104 @@ async fn run() -> anyhow::Result<()> {
             done
         }
     }
+}
+
+/// `baylee-seat check`: the profile's free check, and its canary when
+/// asked, as one JSON line: `{"ok": true}` or `{"ok": false, "cause",
+/// "error"}`, `cause` `signed_out`, `limited` or `failing`. Never a key in
+/// it: every sentence is blanked of key shapes.
+async fn check_command(
+    check: &CheckArgs,
+    env: &dyn Fn(&str) -> Option<String>,
+    keys: &dyn KeyStore,
+) -> String {
+    let line = match checked(check, env, keys).await {
+        Ok(()) => serde_json::json!({ "ok": true }),
+        Err(why) => {
+            let why = baylee_client_core::llmseat::blank_key_shapes(&why);
+            serde_json::json!({ "ok": false, "cause": cause_of(&why), "error": why })
+        }
+    };
+    line.to_string()
+}
+
+/// Which kind of failure `why` is, read from the sentence the provider's
+/// classification wrote (`llm::anthropic`, the CLI dialects): a seat agent
+/// waits out a limit, asks for a sign-in, and calls anything else failing.
+fn cause_of(why: &str) -> &'static str {
+    let lower = why.to_ascii_lowercase();
+    if [
+        "signed out",
+        "not signed in",
+        "sign in",
+        "not logged in",
+        "log in",
+        "login",
+    ]
+    .iter()
+    .any(|w| lower.contains(w))
+    {
+        "signed_out"
+    } else if [
+        "rate limit",
+        "quota",
+        "limit",
+        "overloaded",
+        "credit",
+        "usage",
+    ]
+    .iter()
+    .any(|w| lower.contains(w))
+    {
+        "limited"
+    } else {
+        "failing"
+    }
+}
+
+async fn checked(
+    check: &CheckArgs,
+    env: &dyn Fn(&str) -> Option<String>,
+    keys: &dyn KeyStore,
+) -> Result<(), String> {
+    let paths = Paths::resolve(check.config.as_deref(), None, env);
+    let file = paths.load()?;
+    let plan = config::plan(
+        None,
+        file.as_ref(),
+        &paths,
+        Some(&check.profile),
+        &Overrides::default(),
+    )?
+    .ok_or_else(|| format!("no profile «{}» in the settings file", check.profile))?;
+    let stored = plan.key_env.as_deref().and_then(|key_env| {
+        let provider = plan.settings.provider;
+        let env_base = provider.base_env().and_then(env);
+        let base = llmseat_keys::address(provider, plan.base_url.as_deref(), env_base.as_deref())?;
+        keys::stored_key(keys, key_env, &base, env)
+    });
+    let env = |name: &str| {
+        env(name).or_else(|| {
+            (plan.key_env.as_deref() == Some(name))
+                .then(|| stored.clone())
+                .flatten()
+        })
+    };
+    let built = llm::build(&plan, &env)?;
+    match tokio::time::timeout(CHECK_WAIT, built.mind.check()).await {
+        Ok(Ok(())) => {}
+        Ok(Err(why)) => return Err(why),
+        Err(_) => {
+            return Err(format!(
+                "the check did not answer within {} s",
+                CHECK_WAIT.as_secs()
+            ));
+        }
+    }
+    if check.canary {
+        baylee_seat::canary::ask(&*built.mind, CHECK_WAIT).await?;
+    }
+    Ok(())
 }
 
 /// `baylee-seat key`: the entry of the profile named, then what was asked
@@ -1190,6 +1328,7 @@ async fn play_out(
         think: Duration::from_secs(seated.think_secs),
         allow_blitz: join.allow_blitz,
         house: seated.profile,
+        pseudonymous: join.hosted,
         ..BridgeConfig::default()
     };
     let core = seat_core(config, &seated.deck, &*seated.mind).with_mind(seated.declared.clone());

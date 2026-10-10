@@ -1,0 +1,351 @@
+/* The hosted models (`/admin/models`): seat agents as even cards, each
+   profile a card with one row per seat agent holding it, an assignment
+   grid, and quick, quiet motion that stops when the system asks. */
+.llm-hosts,
+.llm-profiles,
+.llm-on-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.llm-hosts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 0.75rem;
+}
+
+.llm-profiles {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.llm-profile-head,
+.llm-on-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.llm-profile-head h3 {
+  margin: 0;
+}
+
+.llm-profile-head p {
+  margin: 0.15rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.llm-badges {
+  display: inline-flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.llm-on-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.llm-on {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.llm-on.state-disabled {
+  opacity: 0.72;
+}
+
+.facts.llm-facts {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.facts.llm-facts dd {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.llm-meter {
+  display: block;
+  inline-size: 5rem;
+  block-size: 4px;
+  margin: 0.2rem 0 0 auto;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.llm-meter > span {
+  display: block;
+  block-size: 100%;
+  background: var(--ok);
+}
+
+.llm-meter.full > span {
+  background: var(--warn);
+}
+
+.llm-on p,
+.llm-key p {
+  margin: 0;
+}
+
+.llm-error {
+  overflow-wrap: anywhere;
+}
+
+.llm-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.llm-actions button {
+  min-height: 44px;
+  min-width: 0;
+  padding-inline: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Delete always sits in the last column, so every card's row ends alike. */
+.llm-actions .danger-quiet {
+  grid-column: -2;
+}
+
+.llm-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.llm-knob {
+  position: relative;
+  inline-size: 1.9rem;
+  block-size: 1.05rem;
+  border-radius: 1rem;
+  background: var(--border);
+  flex: none;
+}
+
+.llm-knob::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 0.15rem;
+  inset-inline-start: 0.15rem;
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.llm-switch.on .llm-knob {
+  background: var(--ok);
+}
+
+.llm-switch.on .llm-knob::after {
+  transform: translateX(0.85rem);
+}
+
+.llm-key {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.llm-key-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.llm-key-row input {
+  flex: 1 1 10rem;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.llm-matrix-wrap {
+  overflow-x: auto;
+}
+
+.llm-matrix {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+
+.llm-matrix th,
+.llm-matrix td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+
+.llm-matrix th[scope="row"],
+.llm-matrix thead th:first-child {
+  text-align: start;
+}
+
+/* A square a finger can hit, ticked with the accent. */
+.llm-cell {
+  appearance: none;
+  inline-size: 44px;
+  block-size: 44px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface) center / 1.3rem no-repeat;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.llm-cell:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.llm-cell:checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z' fill='white'/%3E%3C/svg%3E");
+}
+
+.llm-cell:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.llm-notice {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-start: 4.5rem;
+  z-index: 20;
+  inline-size: fit-content;
+  max-inline-size: calc(100% - 2rem);
+  margin-inline: auto;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.llm-notice.tone-danger {
+  color: var(--danger);
+}
+
+.llm-notice.gone {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.llm-dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+
+.llm-dialog {
+  inline-size: min(calc(100% - 2rem), 30rem);
+  max-block-size: calc(100% - 2rem);
+  background: var(--surface);
+  overflow-y: auto;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.llm-dialog[open],
+.llm-editor-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.llm-dialog h3 {
+  margin: 0;
+}
+
+.llm-dialog.llm-editor {
+  inline-size: min(calc(100% - 2rem), 40rem);
+}
+
+.llm-editor textarea {
+  inline-size: 100%;
+  font: 0.85rem/1.4 var(--mono);
+}
+
+.llm-checks {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .llm-cell {
+    transition:
+      transform 90ms ease-out,
+      background-color 120ms ease-out,
+      border-color 120ms ease-out;
+  }
+  .llm-on,
+  .llm-host {
+    transition:
+      box-shadow 120ms ease-out,
+      border-color 120ms ease-out;
+  }
+  .llm-on:hover,
+  .llm-host:hover {
+    border-color: var(--accent);
+  }
+  .llm-actions button,
+  .llm-key-row button {
+    transition:
+      transform 90ms ease-out,
+      background-color 120ms ease-out;
+  }
+  .llm-actions button:active:not(:disabled),
+  .llm-key-row button:active:not(:disabled),
+  .llm-cell:active {
+    transform: scale(0.96);
+  }
+  .llm-knob,
+  .llm-knob::after {
+    transition:
+      transform 140ms ease-out,
+      background-color 140ms ease-out;
+  }
+  .llm-meter > span {
+    transition: inline-size 300ms ease-out;
+  }
+  .llm-notice {
+    transition:
+      opacity 160ms ease-out,
+      visibility 160ms;
+  }
+  .llm-dialog::backdrop {
+    animation: llm-fade 140ms ease-out;
+  }
+  .llm-dialog {
+    animation: llm-rise 160ms ease-out;
+  }
+}
+
+@keyframes llm-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes llm-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.98);
+  }
+}

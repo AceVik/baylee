@@ -12,6 +12,9 @@ workspace = true
 prost.workspace = true
 bytes.workspace = true
 unicode-normalization.workspace = true
+# The seat agent's link (`seathost`): JSON text frames.
+serde.workspace = true
+serde_json.workspace = true
 
 [build-dependencies]
 prost-build.workspace = true

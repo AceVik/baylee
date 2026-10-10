@@ -113,7 +113,7 @@ stage() {
     git clean -q -fd -e target -e web/feedback/node_modules
     "$cargo" build --release --locked \
         -p baylee-gateway -p baylee-agent -p baylee-engine-server -p baylee-catalog \
-        -p baylee-feedback 2>&1 | tail -1
+        -p baylee-feedback -p baylee-seat -p baylee-seathost 2>&1 | tail -1
     rev=$(git rev-parse HEAD)
 
     rm -rf "$state/staged"
@@ -130,6 +130,13 @@ stage() {
     sudo install -m755 scripts/server/baylee-deploy /usr/local/sbin/baylee-deploy
     sudo install -m755 scripts/server/baylee-invite /usr/local/sbin/baylee-invite
     log "staged ${rev:0:10}: agent and engine installed, agent off until the gateway follows"
+    # Seat agents (docs/llm-seat.md §"A hosted seat"): the bridge and the
+    # agent are installed as the engine is, unlinked and written anew, so a
+    # bridge playing keeps its old file; the agents restart in `finish`.
+    if [ -f /etc/systemd/system/baylee-seathost@.service ]; then
+        sudo install -m755 target/release/{baylee-seat,baylee-seathost} "$bin/"
+        log "seat agent and bridge ${rev:0:10} installed"
+    fi
     if installed baylee-feedback; then
         sudo install -m755 target/release/baylee-feedback "$bin/"
         feedback_web
@@ -279,6 +286,9 @@ finish() {
     sudo systemctl restart baylee-gateway
     for _ in $(seq 20); do curl -fsS -m 2 "$gateway/info" >/dev/null 2>&1 && break; sleep 1; done
     sudo systemctl start baylee-agent
+    # Under the same wait as the gateway (no local game running): a seat
+    # agent's restart lets go of every bridge it runs.
+    sudo systemctl try-restart 'baylee-seathost@*' 2>/dev/null || true
     echo "$rev" > "$state/deployed"
     rm -rf "$state/staged"
     log "deployed ${rev:0:10} (games running: $running, waiting: $waiting${force:+, forced})"

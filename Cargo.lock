@@ -1163,6 +1163,7 @@ dependencies = [
  "baylee-gamehost",
  "baylee-protocol",
  "baylee-seat",
+ "baylee-seathost",
  "baylee-view",
  "bytes",
  "flate2",
@@ -1195,6 +1196,8 @@ dependencies = [
  "prost",
  "prost-build",
  "protoc-bin-vendored",
+ "serde",
+ "serde_json",
  "unicode-normalization",
 ]
 
@@ -1227,6 +1230,22 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ureq",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-seathost"
+version = "0.1.0-beta.6"
+dependencies = [
+ "baylee-client-core",
+ "baylee-protocol",
+ "futures-util",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite 0.30.0",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 

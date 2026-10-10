@@ -51,6 +51,7 @@ baylee-db = { path = "crates/baylee-db" }
 baylee-feedback = { path = "crates/baylee-feedback" }
 baylee-update = { path = "crates/baylee-update" }
 baylee-seat = { path = "crates/baylee-seat" }
+baylee-seathost = { path = "crates/baylee-seathost" }
 # Without `play` by default: its one dependent, xtask, reads only the card rule.
 baylee-train = { path = "crates/baylee-train", default-features = false }
 

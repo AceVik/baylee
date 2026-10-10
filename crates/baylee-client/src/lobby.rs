@@ -492,6 +492,8 @@ pub struct LobbyState {
     pub(crate) room_away: bool,
     /// The room's chair sheet (a language model, desktop builds), by seat.
     pub(crate) chair_sheet: Option<u32>,
+    /// The chair sheet lists the gateway's hosted models instead.
+    pub(crate) hosted_sheet: bool,
     /// The room's seats show their side as a chip that steps on (Set teams).
     pub(crate) teams_edit: bool,
     /// Copy invite was pressed in this room.
@@ -752,6 +754,7 @@ impl LobbyState {
             tours_before: None,
             room_away: false,
             chair_sheet: None,
+            hosted_sheet: false,
             teams_edit: false,
             invite_copied: false,
             clipboard_out: None,
@@ -842,6 +845,8 @@ enum Expect {
     Seat,
     /// A chair given up; the gateway answers `204` with no body.
     Left,
+    /// `GET /lobby/llm-profiles`: `{"profiles": [...]}`.
+    HostedProfiles,
 }
 
 mod build_press;

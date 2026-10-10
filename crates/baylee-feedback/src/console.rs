@@ -20,6 +20,9 @@
 //! - `GET /ui/api/admin/audit`: the latest changes made through here.
 //! - `GET /ui/api/admin/offline`: offline games going now, this service's
 //!   own anonymous count (`crate::alive`); needs no gateway.
+//! - `/ui/api/admin/llm/…`: the hosted models (seat agents, their profiles,
+//!   a profile written, deleted, switched, probed, its key set write-only),
+//!   passed to the gateway's `/admin/llm/…`.
 //!
 //! The service builds every request itself: a body is read into the four
 //! fields the gateway takes and written out again, and an id must be a
@@ -40,7 +43,7 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Json, Response};
-use axum::routing::{delete, get};
+use axum::routing::{delete, get, post, put};
 use sea_orm::{ConnectionTrait as _, Statement};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -124,6 +127,24 @@ pub(crate) fn routes() -> Router<Shared> {
         .route("/ui/api/admin/invites/{id}", delete(revoke))
         .route("/ui/api/admin/audit", get(audit))
         .route("/ui/api/admin/offline", get(offline))
+        .route("/ui/api/admin/llm/seathosts", get(llm_seathosts))
+        .route("/ui/api/admin/llm/profiles", get(llm_profiles))
+        .route(
+            "/ui/api/admin/llm/seathosts/{host}/profiles/{id}",
+            put(llm_write).delete(llm_delete),
+        )
+        .route(
+            "/ui/api/admin/llm/seathosts/{host}/profiles/{id}/enabled",
+            post(llm_enabled),
+        )
+        .route(
+            "/ui/api/admin/llm/seathosts/{host}/profiles/{id}/probe",
+            post(llm_probe),
+        )
+        .route(
+            "/ui/api/admin/llm/seathosts/{host}/profiles/{id}/key",
+            post(llm_key),
+        )
 }
 
 /// `GET /ui/api/admin/offline`: how many offline games are going now
@@ -179,7 +200,7 @@ async fn ask(
                 "the gateway's console is shut after too many wrong tokens; try again later",
             ));
         }
-        200..=299 | 400 | 404 | 503 => {}
+        200..=299 | 400 | 404 | 409 | 503 | 504 => {}
         _ => {
             tracing::warn!(status, "admin console: the gateway answered unexpectedly");
             return Err(refuse(
@@ -217,6 +238,12 @@ fn send(
     let url = format!("{}{path}", gateway.url);
     let bearer = format!("Bearer {}", gateway.token);
     let response = match (method, body) {
+        ("PUT", Some(body)) => agent
+            .put(&url)
+            .header("Authorization", &bearer)
+            .header("X-Baylee-Admin", actor)
+            .header("Content-Type", "application/json")
+            .send(&body[..]),
         ("POST", Some(body)) => agent
             .post(&url)
             .header("Authorization", &bearer)
@@ -506,6 +533,212 @@ async fn revoke(
         if let Err(e) = note(&shared, &admin, "gateway.invite.revoke", &detail).await {
             tracing::error!("admin console: the audit row was not written: {e}");
         }
+    }
+    Ok(answer(done))
+}
+
+// ------------------------------------------------------------ hosted models
+
+/// Whether `name` may be a seat agent's name or a profile's id, as the
+/// gateway takes them: 1-64 of `A-Za-z0-9._-`.
+fn llm_name(name: &str) -> bool {
+    (1..=64).contains(&name.len())
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))
+}
+
+/// `{host}` and `{id}`, checked.
+fn llm_path(host: &str, id: &str) -> Result<String, Refusal> {
+    if llm_name(host) && llm_name(id) {
+        Ok(format!("/admin/llm/seathosts/{host}/profiles/{id}"))
+    } else {
+        Err(refuse(
+            StatusCode::BAD_REQUEST,
+            "a seat agent's name and a profile's id are 1-64 of A-Z a-z 0-9 . - _",
+        ))
+    }
+}
+
+async fn llm_seathosts(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/llm/seathosts".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+async fn llm_profiles(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/llm/profiles".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+/// A hosted profile's definition, all the gateway takes: read into these
+/// fields and written out again (`docs/protocol.md` §"Hosted
+/// language-model seats").
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct LlmDefinition {
+    label: String,
+    vendor: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_games: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    caps: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    canary: Option<bool>,
+    profile: serde_json::Value,
+}
+
+/// A change that succeeded, noted: the action and `<host>/<id>`, nothing
+/// else (never a key or a definition).
+async fn llm_noted(shared: &Shared, admin: &str, action: &str, host: &str, id: &str) {
+    let detail = format!("{host}/{id}");
+    tracing::info!(admin, action, %detail, "admin console");
+    if let Err(e) = note(shared, admin, action, &detail).await {
+        tracing::error!("admin console: the audit row was not written: {e}");
+    }
+}
+
+async fn llm_write(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path((host, id)): Path<(String, String)>,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let path = llm_path(&host, &id)?;
+    let definition: LlmDefinition = serde_json::from_slice(&body)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a profile's definition"))?;
+    let body = serde_json::to_vec(&definition)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a profile's definition"))?;
+    let done = ask(&gateway, "PUT", path, &admin, Some(body)).await?;
+    if done.status == 200 {
+        llm_noted(&shared, &admin, "gateway.llm.profile.write", &host, &id).await;
+    }
+    Ok(answer(done))
+}
+
+async fn llm_delete(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path((host, id)): Path<(String, String)>,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let path = llm_path(&host, &id)?;
+    let done = ask(&gateway, "DELETE", path, &admin, None).await?;
+    if done.status == 204 {
+        llm_noted(&shared, &admin, "gateway.llm.profile.delete", &host, &id).await;
+    }
+    Ok(answer(done))
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct LlmEnabled {
+    enabled: bool,
+}
+
+async fn llm_enabled(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path((host, id)): Path<(String, String)>,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let path = llm_path(&host, &id)?;
+    let switch: LlmEnabled = serde_json::from_slice(&body)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "send {\"enabled\": true|false}"))?;
+    let body = serde_json::to_vec(&switch)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "send {\"enabled\": true|false}"))?;
+    let done = ask(
+        &gateway,
+        "POST",
+        format!("{path}/enabled"),
+        &admin,
+        Some(body),
+    )
+    .await?;
+    if done.status == 204 {
+        let action = if switch.enabled {
+            "gateway.llm.profile.enable"
+        } else {
+            "gateway.llm.profile.disable"
+        };
+        llm_noted(&shared, &admin, action, &host, &id).await;
+    }
+    Ok(answer(done))
+}
+
+async fn llm_probe(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path((host, id)): Path<(String, String)>,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let path = llm_path(&host, &id)?;
+    let done = ask(
+        &gateway,
+        "POST",
+        format!("{path}/probe"),
+        &admin,
+        Some(b"{}".to_vec()),
+    )
+    .await?;
+    if done.status == 202 {
+        llm_noted(&shared, &admin, "gateway.llm.profile.probe", &host, &id).await;
+    }
+    Ok(answer(done))
+}
+
+/// A key, or `null` to forget it. No `Debug`: nothing may print it; held
+/// for this request only.
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct LlmKey {
+    key: Option<String>,
+}
+
+async fn llm_key(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path((host, id)): Path<(String, String)>,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let path = llm_path(&host, &id)?;
+    let key: LlmKey = serde_json::from_slice(&body).map_err(|_| {
+        refuse(
+            StatusCode::BAD_REQUEST,
+            "send {\"key\": \"…\"} or {\"key\": null}",
+        )
+    })?;
+    let set = key.key.is_some();
+    let body =
+        serde_json::to_vec(&key).map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a key"))?;
+    drop(key);
+    let done = ask(&gateway, "POST", format!("{path}/key"), &admin, Some(body)).await?;
+    if done.status == 204 {
+        let action = if set {
+            "gateway.llm.key.set"
+        } else {
+            "gateway.llm.key.delete"
+        };
+        llm_noted(&shared, &admin, action, &host, &id).await;
     }
     Ok(answer(done))
 }

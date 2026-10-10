@@ -104,6 +104,12 @@ pub(crate) async fn info(State(state): State<Shared>) -> Json<serde_json::Value>
     // account or guest) or `off`, and whether guests are taken at all.
     body.insert("registration".into(), state.registration.wire().into());
     body.insert("guests".into(), state.guests_enabled.into());
+    // Whether a host may seat a model this gateway's seat agents run
+    // (`docs/protocol.md` §"Hosted language-model seats").
+    body.insert(
+        "hosted_llm".into(),
+        (state.seathost_token.is_some() && !state.seathosts.lock().hosts.is_empty()).into(),
+    );
     // The version of the terms a player accepts here (WG-1), `null` when
     // the gateway has none; `GET /terms` has the text.
     body.insert(
@@ -275,6 +281,23 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<ser
             "connected": agents_connected,
             "games": agent_games,
         }),
+    );
+    // Seat agents (`seathost.rs`): how many, and the bridges they run.
+    let (seathosts, hosted_games) = {
+        let registry = state.seathosts.lock();
+        (
+            registry.hosts.len(),
+            registry
+                .hosts
+                .values()
+                .flat_map(|host| &host.profiles)
+                .map(|profile| profile.games)
+                .sum::<u32>(),
+        )
+    };
+    body.insert(
+        "seathosts".into(),
+        serde_json::json!({ "connected": seathosts, "games": hosted_games }),
     );
     body.insert(
         "games".into(),

@@ -2,6 +2,7 @@ mod decks;
 mod deletion;
 mod fields;
 mod guests;
+mod hosted;
 mod invites;
 mod offline;
 mod rooms;

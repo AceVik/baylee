@@ -454,6 +454,74 @@ export interface MadeKeys {
   note: string | null;
 }
 
+/** A hosted profile's states, best first, as the player list orders them. */
+export const LLM_STATES = [
+  "available",
+  "busy",
+  "probing",
+  "exhausted",
+  "needs_login",
+  "failing",
+  "disabled",
+] as const;
+export type LlmState = (typeof LLM_STATES)[number];
+
+export interface LlmCaps {
+  day_usd?: number;
+  month_usd?: number;
+  day_tokens?: number;
+  month_tokens?: number;
+}
+
+/** What the gateway takes to write a profile (docs/protocol.md §"Hosted language-model seats"). */
+export interface LlmDefinition {
+  label: string;
+  vendor: string;
+  enabled?: boolean;
+  max_games?: number;
+  caps?: LlmCaps;
+  canary?: boolean;
+  profile: Record<string, unknown>;
+}
+
+export interface LlmSpent {
+  day_usd: number;
+  month_usd: number;
+  day_tokens: number;
+  month_tokens: number;
+}
+
+/** One profile as one seat agent reported it. */
+export interface LlmProfile {
+  id: string;
+  label: string;
+  vendor: string;
+  kind: "api" | "cli";
+  model: string;
+  state: LlmState;
+  until_unix: number | null;
+  games: number;
+  max_games: number | null;
+  enabled: boolean;
+  canary: boolean;
+  caps: LlmCaps | null;
+  spent: LlmSpent | null;
+  key: "kept" | "absent" | "none_needed" | "unavailable";
+  last_error: string | null;
+  last_ok_unix: number | null;
+  definition: LlmDefinition;
+}
+
+/** A connected seat agent. */
+export interface SeatHost {
+  name: string;
+  local: boolean;
+  capacity: number;
+  games: number;
+  connected_secs: number;
+  profiles: LlmProfile[];
+}
+
 /** A change made through the console, as this service audited it. */
 export interface ConsoleChange {
   at: string;
@@ -507,7 +575,7 @@ export function onSignedOut(listener: Listener): () => void {
 }
 
 async function request(
-  method: "GET" | "POST" | "PATCH" | "DELETE",
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
 ): Promise<Response> {
@@ -596,6 +664,10 @@ export function parseFilter(search: string): Filter {
   return filter;
 }
 
+function llmPath(host: string, id: string): string {
+  return `/ui/api/admin/llm/seathosts/${encodeURIComponent(host)}/profiles/${encodeURIComponent(id)}`;
+}
+
 export const api = {
   me: () => json<Me>("GET", "/ui/api/me"),
   login: (name: string, password: string) => json<Me>("POST", "/ui/api/login", { name, password }),
@@ -638,5 +710,24 @@ export const api = {
       await request("DELETE", `/ui/api/admin/invites/${encodeURIComponent(id)}`);
     },
     audit: () => json<ConsoleChange[]>("GET", "/ui/api/admin/audit"),
+    llm: {
+      seathosts: async () => (await json<{ seathosts: SeatHost[] }>("GET", "/ui/api/admin/llm/seathosts")).seathosts,
+      write: async (host: string, id: string, definition: LlmDefinition) => {
+        await request("PUT", llmPath(host, id), definition);
+      },
+      remove: async (host: string, id: string) => {
+        await request("DELETE", llmPath(host, id));
+      },
+      enable: async (host: string, id: string, enabled: boolean) => {
+        await request("POST", `${llmPath(host, id)}/enabled`, { enabled });
+      },
+      probe: async (host: string, id: string) => {
+        await request("POST", `${llmPath(host, id)}/probe`);
+      },
+      /** Write-only: `null` forgets the key; no route ever answers one. */
+      key: async (host: string, id: string, key: string | null) => {
+        await request("POST", `${llmPath(host, id)}/key`, { key });
+      },
+    },
   },
 };
