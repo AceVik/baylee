@@ -1096,6 +1096,12 @@ fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
 fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> Option<ObjectId> {
     match (trigger, event) {
         (
+            Trigger::BecomesBlockedBy(_) | Trigger::BecomesBlocked,
+            GameEvent::BecameBlocker {
+                object: blocker, ..
+            },
+        ) => Some(*blocker),
+        (
             Trigger::BlocksOrBecomesBlockedBy(_),
             GameEvent::BecameBlocker {
                 object: blocker,
@@ -2299,6 +2305,35 @@ fn matches(
             state
                 .object(other)
                 .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        // CR 509.3d: one event per blocker of this creature.
+        (
+            Trigger::BecomesBlockedBy(filter),
+            GameEvent::BecameBlocker {
+                object: blocker,
+                attacker,
+            },
+        ) => {
+            *attacker == source
+                && state
+                    .object(*blocker)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        // CR 509.3c: once, on the first blocker declared for it.
+        (Trigger::BecomesBlocked, GameEvent::BecameBlocker { attacker, .. }) => {
+            if *attacker != source {
+                return false;
+            }
+            let Some(at) = batch
+                .iter()
+                .position(|entry| std::ptr::eq(&raw const entry.event, event))
+            else {
+                return false;
+            };
+            !state.combat.blockers_of(source).is_empty()
+                && !batch[..at].iter().any(|entry| {
+                    matches!(entry.event, GameEvent::BecameBlocker { attacker: earlier, .. } if earlier == source)
+                })
         }
         // CR 509.3a: once per blocker, on the first of its pairs in the
         // declaration, however many attackers it blocks.
