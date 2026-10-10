@@ -335,6 +335,7 @@ pub(super) fn preview(
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     reading: Reading,
+    spot: Option<Res<crate::tour::Spotlight>>,
 ) {
     let canvas = windows
         .iter()
@@ -364,7 +365,8 @@ pub(super) fn preview(
         assets: &mut store,
     };
 
-    let rect = place(hovered.at, canvas);
+    let bubble = spot.as_deref().and_then(|s| s.bubble);
+    let rect = place_clear(hovered.at, canvas, bubble);
     let (left, top, width, height) = (rect.min.x, rect.min.y, rect.width(), rect.height());
 
     // The frame that turns: it holds the position and the scale, and each
@@ -447,6 +449,30 @@ pub(super) fn preview(
         baylee_client_core::images::back_url(baylee_client_core::images::ArtSize::Normal)
     });
     face(&back, crate::flip::Side::Back);
+}
+
+/// [`place`], clear of the tour's bubble where it can be (09.10.: a preview
+/// lay over the bubble's words): the other side of the pointer, else the
+/// side of the bubble away from it.
+fn place_clear(at: Vec2, canvas: Vec2, bubble: Option<Rect>) -> Rect {
+    let first = place(at, canvas);
+    let Some(bubble) = bubble.filter(|b| !b.intersect(first).is_empty()) else {
+        return first;
+    };
+    let width = first.width();
+    let w = canvas.x;
+    let clamp = |left: f32| {
+        let left = left.clamp(8.0, (w - width - 8.0).max(8.0));
+        Rect::new(left, first.min.y, left + width, first.max.y)
+    };
+    let left_of_pointer = clamp(at.x - width - 24.0);
+    let right_of_pointer = clamp(at.x + 24.0);
+    let left_of_bubble = clamp(bubble.min.x - width - 12.0);
+    let right_of_bubble = clamp(bubble.max.x + 12.0);
+    [right_of_pointer, left_of_pointer, right_of_bubble, left_of_bubble]
+        .into_iter()
+        .find(|r| r.intersect(bubble).is_empty())
+        .unwrap_or(first)
 }
 
 /// Where the preview of a row the pointer came onto at `at` stands, in a
@@ -566,6 +592,19 @@ pub(super) fn starter_rows() -> Vec<String> {
 mod tests {
     use super::*;
     use baylee_client_core::deckbuilder::PoolCard;
+
+    /// A tour bubble stands where the preview would (09.10.): the preview
+    /// moves clear of it.
+    #[test]
+    fn the_preview_stands_clear_of_the_tour_bubble() {
+        let canvas = Vec2::new(1708.0, 1032.0);
+        let at = Vec2::new(500.0, 500.0);
+        let first = place(at, canvas);
+        let bubble = Rect::new(first.min.x + 20.0, 300.0, first.min.x + 380.0, 600.0);
+        let clear = place_clear(at, canvas, Some(bubble));
+        assert!(clear.intersect(bubble).is_empty(), "{clear:?}");
+        assert_eq!(place_clear(at, canvas, None), first);
+    }
 
     fn pointer_event<E: std::fmt::Debug + Clone + Reflect>(
         entity: Entity,

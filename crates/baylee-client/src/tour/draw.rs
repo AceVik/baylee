@@ -19,6 +19,9 @@ pub struct Spotlight {
     drawn: Option<Drawn>,
     /// The hole round the anchor, in logical pixels, once placed.
     pub hole: Option<Rect>,
+    /// The bubble, in logical pixels, once placed: the card preview stands
+    /// clear of it.
+    pub bubble: Option<Rect>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -698,8 +701,15 @@ pub(super) fn place(
         (With<Bubble>, Without<Scrim>, Without<Ring>),
     >,
     controls: Controls,
+    strips: Query<
+        (&ComputedNode, &UiGlobalTransform, &InheritedVisibility),
+        With<crate::shellkit::header::SeatStrip>,
+    >,
 ) {
     let Some(run) = desk.shown() else {
+        if spot.bubble.is_some() {
+            spot.bubble = None;
+        }
         return;
     };
     let Some(window) = windows.iter().next() else {
@@ -753,6 +763,18 @@ pub(super) fn place(
                 .filter(|r| !r.intersect(hole).is_empty())
                 .collect()
         });
+        // The shell's strips ("Seated at …") are never covered either
+        // (09.10.: L4's bubble lay on the seated strip).
+        let pressable: Vec<Rect> = pressable
+            .into_iter()
+            .chain(
+                strips
+                    .iter()
+                    .filter(|(node, _, shown)| shown.get() && node.size() != Vec2::ZERO)
+                    .map(|(node, at, _)| logical(node, at))
+                    .filter(|r| hole.is_none_or(|hole| r.intersect(hole).is_empty())),
+            )
+            .collect();
         // A part of the report form (T32's attachments): beside the form,
         // level with the part, never over the form's other rows.
         let at = match (hole, sheet_beside(run, &anchors)) {
@@ -760,6 +782,10 @@ pub(super) fn place(
                 .unwrap_or_else(|| spot_for(hole, size, (w, h), desk.setting.top, &pressable)),
             _ => spot_for(hole, size, (w, h), desk.setting.top, &pressable),
         };
+        let placed = Some(Rect::from_corners(at, at + size));
+        if spot.bubble != placed {
+            spot.bubble = placed;
+        }
         if node.left != Val::Px(at.x) || node.top != Val::Px(at.y) {
             node.left = Val::Px(at.x);
             node.top = Val::Px(at.y);
@@ -831,11 +857,20 @@ pub fn spot_for(
     let gap = 12.0;
     let centre_x = hole.center().x - size.x / 2.0;
     let centre_y = hole.center().y - size.y / 2.0;
-    let below = Vec2::new(centre_x, hole.max.y + gap);
+    // Below steps down past whatever it would cover (a strip under the
+    // header, 09.10.), until it covers nothing.
+    let mut below = Vec2::new(centre_x, hole.max.y + gap);
+    for _ in 0..controls.len() {
+        let card = Rect::from_corners(below, below + size);
+        match controls.iter().find(|c| !card.intersect(**c).is_empty()) {
+            Some(c) if c.max.y + gap > below.y => below.y = c.max.y + gap,
+            _ => break,
+        }
+    }
     let above = Vec2::new(centre_x, hole.min.y - gap - size.y);
     let right = Vec2::new(hole.max.x + gap, centre_y);
     let left = Vec2::new(hole.min.x - gap - size.x, centre_y);
-    let fits_below = hole.max.y + gap + size.y + INSET <= h;
+    let fits_below = below.y + size.y + INSET <= h;
     let fits_above = hole.min.y - gap - size.y >= top.min(INSET.max(top));
     let fits_right = hole.max.x + gap + size.x + INSET <= w;
     let fits_left = hole.min.x - gap - size.x >= INSET;
@@ -855,8 +890,12 @@ pub fn spot_for(
             (fits_left, left),
         ]
     };
+    let covers = |at: Vec2| {
+        let card = Rect::from_corners(at, at + size);
+        controls.iter().any(|c| !card.intersect(*c).is_empty())
+    };
     for (fits, at) in order {
-        if fits {
+        if fits && !covers(clamp(at)) {
             return clamp(at);
         }
     }
@@ -997,6 +1036,20 @@ mod tests {
         }
         let narrow = Rect::new(20.0, 0.0, 1260.0, 720.0);
         assert!(spot_beside(narrow, narrow, Vec2::new(360.0, 300.0), (1280.0, 720.0)).is_none());
+    }
+
+    /// L4 (09.10.): the header's nav pills with the seated strip right
+    /// under them; the bubble takes another side than the strip's.
+    #[test]
+    fn a_bubble_never_lies_on_the_seated_strip() {
+        let window = (1708.0, 1032.0);
+        let size = Vec2::new(360.0, 300.0);
+        let nav = Rect::new(192.0, 8.0, 540.0, 52.0);
+        let strip = Rect::new(0.0, 64.0, 1708.0, 100.0);
+        let at = spot_for(Some(nav), size, window, 64.0, &[strip]);
+        let bubble = card(at, size);
+        assert!(bubble.intersect(strip).is_empty(), "{bubble:?}");
+        assert!(bubble.intersect(nav).is_empty(), "{bubble:?}");
     }
 
     /// Where a side has room the bubble never touches the anchor at all.
