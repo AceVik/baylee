@@ -1082,20 +1082,28 @@ fn the_attachments_close_behind_their_count_and_stay_closed() {
     };
     assert!(toggles(&mut app) > 0, "open on a first report");
     let words = form_words(&mut app);
+    // Every box starts ticked (owner, 10.10.2026): "N of N".
     let there = words
-        .split("0 of ")
-        .nth(1)
-        .and_then(|rest| rest.split(|c: char| !c.is_ascii_digit()).next())
-        .expect("the count beside the disclosure")
-        .to_string();
+        .lines()
+        .find_map(|line| {
+            let (ticked, of) = line.trim().split_once(" of ")?;
+            let digits = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit());
+            (digits(ticked) && digits(of)).then(|| of.to_string())
+        })
+        .expect("the count beside the disclosure");
+    assert!(words.contains(&format!("{there} of {there}")), "{words}");
     let redraws = desk(&app).redraws;
     click_desk(&mut app, "the system box", |p| {
         matches!(p, DeskPress::Toggle(Category::System))
     });
     assert_eq!(desk(&app).redraws, redraws, "a tick redrew the form");
-    let one = format!("1 of {there}");
     assert!(!there.is_empty() && there != "0", "{words}");
-    assert!(form_words(&mut app).contains(&one), "the count followed");
+    let all: usize = there.parse().expect("a count");
+    let one_less = format!("{} of {there}", all - 1);
+    assert!(
+        form_words(&mut app).contains(&one_less),
+        "the count followed"
+    );
 
     click_desk(&mut app, "the disclosure", |p| {
         matches!(p, DeskPress::Attachments)
