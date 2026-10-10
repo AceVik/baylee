@@ -185,3 +185,66 @@ fn idle_frames_rebuild_nothing() {
     }
     assert_eq!(rebuilt(&app), before, "an idle frame rebuilt the tree");
 }
+
+/// An idle lobby writes no UI node per frame: no `Node`, no text, no image
+/// (the header's logo takes its cut once, `sharpen_brand`); what moves at
+/// rest is the world's material uniforms (Baylee's fireflies), never the
+/// tree.
+#[test]
+fn an_idle_lobby_writes_no_ui_node() {
+    #[derive(Resource, Default)]
+    struct Wrote(usize);
+    #[allow(clippy::type_complexity)]
+    fn watch(
+        nodes: Query<
+            (),
+            Or<(
+                Changed<Node>,
+                Changed<Text>,
+                Changed<ImageNode>,
+                Changed<BackgroundColor>,
+            )>,
+        >,
+        mut wrote: ResMut<Wrote>,
+    ) {
+        wrote.0 += nodes.iter().count();
+    }
+    let mut app = signed_in();
+    let cut = |n: u128| {
+        Handle::<Image>::Uuid(
+            bevy::asset::uuid::Uuid::from_u128(n),
+            std::marker::PhantomData,
+        )
+    };
+    app.insert_resource(crate::shellkit::header::BrandArt([cut(1), cut(2), cut(3)]))
+        .insert_resource(crate::quality::DisplayTrial::default())
+        .insert_resource(crate::quality::InUse(
+            baylee_client_core::graphics::Graphics::default(),
+        ))
+        .init_resource::<Wrote>()
+        .add_systems(Last, watch);
+    for _ in 0..4 {
+        app.update();
+    }
+    let marks = app
+        .world_mut()
+        .query_filtered::<&ImageNode, With<crate::shellkit::header::BrandMark>>()
+        .iter(app.world())
+        .filter(|image| image.color == Color::WHITE)
+        .count();
+    assert_eq!(marks, 1, "the logo took its cut");
+    // The watcher sees writes: the frames that drew the tree made some.
+    assert!(
+        app.world().resource::<Wrote>().0 > 0,
+        "the watcher saw nothing"
+    );
+    app.world_mut().resource_mut::<Wrote>().0 = 0;
+    for _ in 0..5 {
+        app.update();
+    }
+    assert_eq!(
+        app.world().resource::<Wrote>().0,
+        0,
+        "an idle frame wrote a node"
+    );
+}
