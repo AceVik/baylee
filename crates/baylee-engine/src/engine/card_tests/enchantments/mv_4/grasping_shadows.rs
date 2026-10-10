@@ -3,18 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Grasping Shadows` // `Shadows' Lair` (`Coverage::Partial`):
-/// "Whenever a creature you control attacks alone, it gains deathtouch and lifelink until
-/// end of turn. Put a dread counter on this enchantment. Then if there are three or more dread
-/// counters on it, transform it. // `{{T}}`: Add `{{B}}`. `{{B}}`, `{{T}}`, Remove a dread counter
-/// from this land: You draw a card and you lose 1 life."
-///
-/// The lone-attacker trigger is written up to the transform (#206). Cast from hand, the
-/// enchantment sees a lone Llanowar Elves attack: the Elf — the event object, not a chosen
-/// target — gains deathtouch and lifelink, and the dread counter lands on the enchantment and
-/// not on the Elf, which is the one place the two halves of the sentence could be confused
-/// (`Effect::AddCounter` follows the event object; `AddCounterFilter` over `Filter::This`
-/// finds the source). The card stays on its front face.
+/// An attack by one creature grants keywords to that creature and a dread counter to the enchantment.
 #[test]
 fn grasping_shadows_arms_a_lone_attacker_and_gathers_a_dread_counter() {
     let p0 = PlayerId::new(0);
@@ -87,13 +76,13 @@ fn grasping_shadows_arms_a_lone_attacker_and_gathers_a_dread_counter() {
     assert_eq!(
         engine.state().object(shadows).map(|o| o.face_index),
         Some(0),
-        "no transform in place (#206): Grasping Shadows stays on face 0"
+        "one dread counter is below the transform threshold"
     );
 }
 
 /// `Grasping Shadows`: two attackers are not one attacking alone (CR 506.5), so neither
-/// gains anything and no dread counter is put — the intervening `if` is asked after the
-/// whole declaration, not as each attacker is added to it.
+/// gains anything and no dread counter is put — the trigger checks the
+/// whole declaration, not each attacker in isolation.
 #[test]
 fn grasping_shadows_ignores_an_attack_by_two() {
     let p0 = PlayerId::new(0);
@@ -132,10 +121,7 @@ fn grasping_shadows_ignores_an_attack_by_two() {
     assert_eq!(counters_on(&engine, shadows, counters::DREAD), 0);
 }
 
-/// `Shadows' Lair`, reached by turning the card over on the board — the one door a
-/// transforming land face has while nothing transforms it in play (#206) — with one dread
-/// counter on it, as the front face would have left it. `{{B}}`, `{{T}}`, remove the counter:
-/// draw a card and lose 1 life. The counter is part of the cost, so the ability leaves none.
+/// The back face spends its inherited dread counters as part of the draw cost.
 #[test]
 fn shadows_lair_spends_a_dread_counter_to_draw_and_lose_one_life() {
     let p0 = PlayerId::new(0);
@@ -191,4 +177,39 @@ fn shadows_lair_spends_a_dread_counter_to_draw_and_lose_one_life() {
         hand + 1,
         "into your hand"
     );
+}
+
+#[test]
+fn third_lone_attack_transforms_in_place_even_if_the_attacker_leaves() {
+    use crate::engine::card_tests::legends_kit as kit;
+    for attacker_leaves in [false, true] {
+        let mut e = kit::game(975, &[grasping_shadows(), llanowar_elves()], &[], &[], &[]);
+        let shadows = kit::obj(&e, kit::P0, grasping_shadows());
+        let elf = kit::obj(&e, kit::P0, llanowar_elves());
+        let original = identity(&e, shadows);
+        crate::replacement::put_counters(&mut e.state, shadows, counters::DREAD, 2);
+        kit::attackers_offered(&mut e);
+        e.apply(
+            kit::P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(kit::P1))],
+            },
+        )
+        .unwrap();
+        if attacker_leaves {
+            e.state
+                .move_object(
+                    elf,
+                    ZoneLocation::Graveyard(kit::P0),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
+        }
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(identity(&e, shadows), original);
+        assert_eq!(e.state.object(shadows).unwrap().face_index, 1);
+        assert_eq!(counters_on(&e, shadows, counters::DREAD), 3);
+        assert!(types(&e, shadows).contains(TypeSet::LAND));
+    }
 }

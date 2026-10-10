@@ -3,17 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Dowsing Device` // `Geode Grotto` (`Coverage::Partial`): "Whenever this artifact or another
-/// artifact you control enters, up to one target creature you control gets +1/+0 and gains
-/// haste until end of turn. Then transform this artifact if you control four or more artifacts.
-/// // {T}: Add {R}. {2}{R}, {T}: Until end of turn, target creature gains haste and gets +X/+0,
-/// where X is the number of artifacts you control. Activate only as a sorcery."
-///
-/// Under `Coverage::Partial`, the conditional transform clause is omitted, while the ETB trigger
-/// targeting up to one creature you control for +1/+0 and `KeywordSet::HASTE` is implemented.
-/// The test casts `Dowsing Device` from hand, targets a controlled creature, verifies that the
-/// opponent's creature cannot be targeted via `Filter::YOUR_CREATURE`, confirms the +1/+0 pump
-/// and granted haste, and verifies that `Dowsing Device` remains on face 0.
+/// Entry pumps a controlled creature; fewer than four artifacts cannot transform the Device.
 #[test]
 fn dowsing_device_triggers_on_entry_to_pump_and_grant_haste_to_controlled_creature() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -78,6 +68,62 @@ fn dowsing_device_triggers_on_entry_to_pump_and_grant_haste_to_controlled_creatu
     assert_eq!(
         engine.state().object(device).map(|o| o.face_index),
         Some(0),
-        "device remains on front face 0 without the transform clause"
+        "fewer than four artifacts leave it on face 0"
     );
+}
+
+#[test]
+fn dowsing_transforms_without_a_target_but_not_with_an_illegal_chosen_target() {
+    use crate::engine::card_tests::legends_kit as kit;
+    for invalid_target in [false, true] {
+        let mut e = kit::game(
+            976,
+            &[
+                sol_ring(),
+                chromatic_lantern(),
+                quiet_artifact(),
+                llanowar_elves(),
+            ],
+            &[],
+            &[dowsing_device()],
+            &[],
+        );
+        let elf = kit::obj(&e, kit::P0, llanowar_elves());
+        kit::float(&mut e, kit::P0, &[(ManaColor::Red, 2)]);
+        cast_with_floating(&mut e, kit::P0, dowsing_device());
+        pass_until(&mut e, |e| {
+            matches!(e.pending(), Pending::ChooseTargets { .. })
+        });
+        e.apply(
+            kit::P0,
+            PlayerAction::ChooseObjects {
+                objects: if invalid_target { vec![elf] } else { vec![] },
+            },
+        )
+        .unwrap();
+        let device = kit::obj(&e, kit::P0, dowsing_device());
+        let original = identity(&e, device);
+        if invalid_target {
+            e.state
+                .move_object(
+                    elf,
+                    ZoneLocation::Graveyard(kit::P0),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
+        }
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(identity(&e, device), original);
+        assert_eq!(
+            e.state.object(device).unwrap().face_index,
+            u8::from(!invalid_target)
+        );
+        if !invalid_target {
+            kit::float(&mut e, kit::P0, &[(ManaColor::Red, 3)]);
+            kit::use_ability(&mut e, kit::P0, dowsing_device(), 1, &[elf], &[]);
+            assert_eq!(pt(&e, elf), (4, 1));
+            assert!(keywords(&e, elf).contains(KeywordSet::HASTE));
+        }
+    }
 }

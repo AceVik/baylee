@@ -3,9 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Balamb Garden, `SeeD` Academy // Balamb Garden, Airborne: "This land enters tapped." / "{T}: Add {G} or {U}." / "{5}{G}{U}, {T}: Transform this land..."
-/// Under `Coverage::Partial`, the transform ability and back-face crew ability are omitted.
-/// Playing the front face enters tapped, and after untapping on a subsequent turn it offers a choice between green and blue mana.
+/// The land enters tapped and offers green or blue mana after untapping.
 #[test]
 fn balamb_garden_enters_tapped_and_taps_for_green_or_blue() {
     let p0 = PlayerId::new(0);
@@ -39,4 +37,62 @@ fn balamb_garden_enters_tapped_and_taps_for_green_or_blue() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Blue), 1);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn balamb_discounts_other_own_towns_transforms_then_crews_and_draws_on_attack() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let garden = balamb_garden_see_d_academy();
+    let mut e = kit::game(
+        977,
+        &[garden, garden, garden, llanowar_elves()],
+        &[garden],
+        &[],
+        &[],
+    );
+    let vehicle = kit::obj(&e, kit::P0, garden);
+    let elf = kit::obj(&e, kit::P0, llanowar_elves());
+    let original = identity(&e, vehicle);
+    kit::float(
+        &mut e,
+        kit::P0,
+        &[
+            (ManaColor::Green, 1),
+            (ManaColor::Blue, 1),
+            (ManaColor::Colorless, 2),
+        ],
+    );
+    assert!(!priority_offer(&e).abilities.contains(&(vehicle, 1)));
+    kit::float(&mut e, kit::P0, &[(ManaColor::Colorless, 1)]);
+    e.apply(
+        kit::P0,
+        PlayerAction::ActivateAbility {
+            source: vehicle,
+            ability_index: 1,
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(identity(&e, vehicle), original);
+    assert_eq!(kit::pool_total(&e, kit::P0), 0);
+    assert!(is_tapped(&e, vehicle));
+    assert_eq!(types(&e, vehicle), TypeSet::ARTIFACT);
+    reach_their_main_phase(&mut e, kit::P1);
+    reach_their_main_phase(&mut e, kit::P0);
+    e.apply(
+        kit::P0,
+        PlayerAction::ActivateAbility {
+            source: vehicle,
+            ability_index: 1,
+        },
+    )
+    .unwrap();
+    e.apply(kit::P0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert!(types(&e, vehicle).contains(TypeSet::CREATURE));
+    assert_eq!(pt(&e, vehicle), (5, 4));
+    let before = library_size(&e, kit::P0);
+    kit::attack(&mut e, &[vehicle]);
+    assert_eq!(library_size(&e, kit::P0), before - 1);
 }

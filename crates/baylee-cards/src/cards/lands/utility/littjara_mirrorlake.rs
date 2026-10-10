@@ -3,13 +3,11 @@
 //! Oracle: {T}: Add {U}.
 //! Oracle: {2}{G}{G}{U}, {T}, Sacrifice this land: Create a token that's a copy of target creature you control, except it enters with an additional +1/+1 counter on it. Activate only as a sorcery.
 //! Set: NCC #412 — New Capenna Commander | Scryfall ID: cf1f38de-44b3-42fa-9288-d7c1832ff75f | Oracle ID: 3b577179-10d0-43f1-ac17-9dd2d12c965d
-// PARTIAL — enters tapped, {T}: Add {U}, and the copy ability at sorcery
-// speed; the copy's extra +1/+1 counter is not expressible.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
-/// "Target creature you control" — the ability names it twice: once as what
-/// it targets, once as what the copy is of.
 const COPY_TARGET: TargetSpec = TargetSpec::Object(&Filter::YOUR_CREATURE);
 
 card!(
@@ -22,22 +20,20 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
-    coverage = Coverage::Partial(
-        "the copy token's additional +1/+1 counter: Effect::CreateTokenCopyOf \
-         carries no CopyMod list",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-        // NOT SUPPORTED: "except it enters with an additional +1/+1 counter
-        // on it" — Effect::CreateTokenCopyOf has no mods field, so the copy
-        // arrives plain; CopyMod::AddCounter is reachable only through
-        // CreateTokenCopyOfEquipped, which copies the creature the source is
-        // attached to rather than a target.
         activated!(
             cost!("{2}{G}{G}{U}", TapSelf, SacrificeSelf),
-            &[Effect::CreateTokenCopyOf {
-                target: Some(COPY_TARGET),
-                kicked_bonus: 0,
+            &[Effect::CreateTokenCopyOfTarget {
+                mods: &[CopyMod::AddCounter(
+                    CounterKind::Plus {
+                        power: 1,
+                        toughness: 1
+                    },
+                    1
+                )],
+                sacrifice_at_next_end_step: false,
             }],
             target = Some(COPY_TARGET),
             timing = ActivationTiming::SorcerySpeed,

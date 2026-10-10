@@ -184,7 +184,7 @@ pub fn line_shape(line: &str) -> LineShape {
         // rather than a full stop, and carries a `{`. The pool's shortest
         // grant is 46 characters and only that length stood between this
         // and the same defect one branch over.
-        if line.contains(':') {
+        if line.contains(':') || granted_crew_number(line).is_some() {
             return LineShape::Grant;
         }
         // A keyword ability with a cost is a printed sentence too, and it
@@ -304,6 +304,16 @@ fn a_numbered_tapping_keyword(line: &str) -> bool {
         line.strip_prefix(keyword)
             .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
     })
+}
+
+/// A type-changing effect may grant crew without quoting an activation.
+fn granted_crew_number(line: &str) -> Option<u8> {
+    let lower = line.to_ascii_lowercase();
+    let (_, tail) = lower.split_once(" with crew ")?;
+    tail.split(|c: char| !c.is_ascii_digit())
+        .next()?
+        .parse()
+        .ok()
 }
 
 /// Whether a keyword line's own reminder text writes out an activated
@@ -809,7 +819,13 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
         // granted ability's and printed as its head (CR 113.10a).
         A::Static(_) | A::CopyOnEnter { .. } | A::CopyOnEnterUntilEot { .. } => {
             match granted_cost(ability) {
-                Some(cost) => quoted(line).is_some_and(|inside| cost_fits(&cost, inside)),
+                Some(cost) => {
+                    quoted(line).is_some_and(|inside| cost_fits(&cost, inside))
+                        || granted_crew_number(line).is_some_and(|n| {
+                            cost.mana == baylee_core::mana::ManaCost::ZERO
+                                && cost.parts == [CostPart::Crew(n)]
+                        })
+                }
                 None => true,
             }
         }

@@ -3932,7 +3932,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Livonya Silone
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Mana Drain
@@ -30172,8 +30179,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Drownyard Temple
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -31069,8 +31076,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Smuggler's Copter
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 3,
+        lines: &[Some(1), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -40509,8 +40516,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Eiganjo, Seat of the Empire
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -40785,7 +40792,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None, None, None],
+        lines: &[None, None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50531,15 +50538,15 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 3,
-            stackable: 0,
-            lines: &[Some(1)],
+            stackable: 1,
+            lines: &[Some(1), Some(2)],
             modes: &[],
             alternatives: &[],
         },
         FaceLines {
             sentences: 3,
-            stackable: 1,
-            lines: &[Some(1)],
+            stackable: 2,
+            lines: &[Some(1), Some(2)],
             modes: &[],
             alternatives: &[],
         },
@@ -51148,8 +51155,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Adagia, Windswept Bastion
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[Some(1), Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],

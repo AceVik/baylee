@@ -1607,119 +1607,48 @@ impl<L: CardLookup> Engine<L> {
         Ok(())
     }
 
-    /// Activates a granted ability (Urza's Saga's Construct chapter):
-    /// pays the cost, then pushes the granted effects via the synthetic
-    /// side map (or resolves immediately for mana abilities).
-    fn start_granted_activation(
+    /// Capture a granted ability's effects independently of its grantor. Cost
+    /// choices, payment and paid-source identities use the ordinary activation path.
+    fn push_granted_ability(
         &mut self,
         player: PlayerId,
         source: ObjectId,
-        slot: u32,
         targets: SmallVec<[ObjectId; 2]>,
-    ) -> Result<(), EngineError> {
-        // `slot` counts the grants that *apply*, in the order the offer
-        // counted them. Reading it back through the same iterator is what
-        // makes the two agree; a mismatch would run the ability next to the
-        // one the player pressed.
-        let granted = crate::effects::granted_activated(&self.state, source)
-            .nth(slot as usize)
-            .ok_or(EngineError::IllegalAction("no granted ability"))?;
-        let text = granted.text;
-        let (cost, effects, mana_ability) = (
-            self.activation_price(player, source, &granted.cost, None),
-            granted.effects,
-            granted.mana_ability,
-        );
-        // A granted ability has no stage that asks, so a granted cost that
-        // needs an answer is refused *here* rather than by the payer — which
-        // is the difference between an activation that does not happen and
-        // one whose mana is gone. Nothing in the pool grants such a cost
-        // today; `offer_tests`' pool-wide sweep is what keeps it that way.
-        if cost.parts.iter().any(cost_wizard::needs_an_answer) {
-            return Err(EngineError::IllegalAction(
-                "a granted ability cannot ask for its cost yet",
-            ));
-        }
-        // A granted ability carries no counter cost — nothing in the pool
-        // grants one — so there is no number to announce and none to pay.
-        self.pay_cost(player, source, &cost, &[], 0)?;
-        if mana_ability {
-            let mut res = crate::resolve::Resolution {
-                source,
-                on_stack: source,
-                controller: player,
-                effects: crate::resolve::flatten(effects),
-                pc: 0,
+        granted: crate::effects::GrantedAbility,
+    ) -> ObjectId {
+        self.activating_abilities = None;
+        let object = self.state.object(source);
+        let name = object.map_or(NameRef::new(0), |o| o.base.name);
+        let card = object.and_then(|o| o.card).map(|c| c.index);
+        let base = self.state.bare_base(name);
+        let id = self.state.arena.insert_with(|id| {
+            GameObject::new_ability_on_stack(
+                id,
+                player,
+                AbilityLoc {
+                    card,
+                    index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                    source,
+                },
                 targets,
-                second_targets: SmallVec::new(),
-                x: None,
-                chosen_player: None,
-                target_players: baylee_core::ids::SeatSet::new(),
-                event_object: None,
-                targeted: false,
-                awaiting: None,
-                mana_ability: true,
-                countered_source: None,
-                target_lki: None,
-                subject: crate::resolve::SubjectContext::default(),
-                text,
-                event_mana: None,
-                retarget_left: None,
-            };
-            match crate::resolve::run(&mut self.state, &mut res) {
-                crate::resolve::Flow::Complete => {}
-                crate::resolve::Flow::Wait(pending) => {
-                    self.resolution = Some(res);
-                    self.pending = pending;
-                    self.awaiting_answer = true;
-                    return Ok(());
-                }
-            }
-        } else {
-            let name = self
-                .state
-                .object(source)
-                .map_or(NameRef::new(0), |o| o.base.name);
-            let base = self.state.bare_base(name);
-            // An ability a continuous effect *granted* belongs to whatever
-            // it was granted to, which need not have a card. It records
-            // whichever it is, as `push_ability_to_stack` does; there is no
-            // sentinel to pick any more.
-            let card = self
-                .state
-                .object(source)
-                .and_then(|o| o.card)
-                .map(|c| c.index);
-            let id = self.state.arena.insert_with(|id| {
-                GameObject::new_ability_on_stack(
-                    id,
-                    player,
-                    crate::object::AbilityLoc {
-                        card,
-                        index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                        source,
-                    },
-                    targets,
-                    base,
-                )
-            });
-            if let Some(identity) = self.state.source_identity(id) {
-                self.state.text_changes.set(identity, text);
-            }
-            self.synthetic_fx.insert(id, effects);
-            self.state
-                .zones
-                .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
-            self.state.capture_linked_references(id, effects);
-            self.state.journal.record(GameEvent::AbilityTriggered {
-                object: id,
-                source,
-                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                controller: player,
-            });
+                base,
+            )
+        });
+        if let Some(identity) = self.state.source_identity(id) {
+            self.state.text_changes.set(identity, granted.text);
         }
-        self.after_action(player);
-        Ok(())
+        self.synthetic_fx.insert(id, granted.effects);
+        self.state
+            .zones
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+        self.state.capture_linked_references(id, granted.effects);
+        self.state.journal.record(GameEvent::AbilityTriggered {
+            object: id,
+            source,
+            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+            controller: player,
+        });
+        id
     }
 
     #[allow(clippy::too_many_lines)] // activation is a staged checklist; extraction would obscure it
@@ -1756,10 +1685,21 @@ impl<L: CardLookup> Engine<L> {
                 "activated abilities of artifacts can't be activated (Karn)",
             ));
         }
-        // Granted abilities (synthetic index): resolve via the side map.
-        if let Some(slot) = crate::choice::granted_slot(ability_index) {
-            return self.start_granted_activation(player, source, slot, targets);
-        }
+        // A granted ability follows the same announcements, cost choices and
+        // payment as a printed one (CR 602.2b). Its effects are captured below
+        // before paying can remove either the recipient or the grantor.
+        let granted = crate::choice::granted_slot(ability_index)
+            .map(|slot| {
+                crate::effects::granted_activated(&self.state, source)
+                    .nth(slot as usize)
+                    .ok_or(EngineError::IllegalAction("no granted ability"))
+            })
+            .transpose()?;
+        let granted_definition = granted.map(|grant| {
+            let mut parts = baylee_cards_dsl::ActivatedParts::new(grant.cost, grant.effects);
+            parts.mana_ability = grant.mana_ability;
+            parts.build()
+        });
         // Loyalty abilities route to their own activation path first.
         if let Some(cost) = self.loyalty_cost(source, ability_index) {
             return self.start_loyalty_activation(player, source, ability_index, targets, cost);
@@ -1784,9 +1724,9 @@ impl<L: CardLookup> Engine<L> {
             // copying Werefox Bodyguard was offered the sacrifice ability
             // at index 1 and refused it with "no such ability", because
             // Glasspool Mimic's printed list is one entry long.
-            let ability = obj
-                .abilities(&self.lookup)
-                .get(ability_index as usize)
+            let ability = granted_definition
+                .as_ref()
+                .or_else(|| obj.abilities(&self.lookup).get(ability_index as usize))
                 .ok_or(EngineError::IllegalAction("no such ability"))?;
             if ability.is_intrinsic_mana_ability()
                 && casting::intrinsic_mana_colors(&self.state, source).is_empty()
@@ -2325,9 +2265,14 @@ impl<L: CardLookup> Engine<L> {
         self.activation_targets_answered = false;
         self.activation_phyrexian.clear();
         let activated_source_version = self.state.object(source).map(|o| o.version);
-        let activated_text = self.activating_abilities.as_ref().map_or(
-            self.state.ability_text(source, ability_index),
-            |(_, list)| list.base_text(ability_index as usize),
+        let activated_text = granted.map_or_else(
+            || {
+                self.activating_abilities.as_ref().map_or(
+                    self.state.ability_text(source, ability_index),
+                    |(_, list)| list.base_text(ability_index as usize),
+                )
+            },
+            |grant| grant.text,
         );
         let paid = self.pay_cost(player, source, &cost, &answers, x)?;
         // The life the Phyrexian symbols were paid with, beside the rest of
@@ -2425,7 +2370,11 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         } else {
-            let ability = self.push_ability_to_stack(player, source, ability_index, targets);
+            let ability = if let Some(granted) = granted {
+                self.push_granted_ability(player, source, targets, granted)
+            } else {
+                self.push_ability_to_stack(player, source, ability_index, targets)
+            };
             if let Some(version) = activated_source_version
                 && let Some(obj) = self.state.object_mut(ability)
             {

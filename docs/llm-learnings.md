@@ -3151,3 +3151,22 @@ land type"; both are convention tests that fire on a first try.
 - Validation: all 5,339 engine tests passed (two existing ignores), including
   combat removal, private hand inspection, chosen-color protection, graveyard
   casting/exile replacement, threshold discard and modal back faces.
+
+## 2026-10-11 — partial-card completion: granted costs and token copies
+
+- Completed twelve more cards. Granted activations must use the same cost
+  wizard as printed activations: crew needs an actual power-checked selection,
+  and an announced X must survive both payment and synthetic stack resolution.
+- Entry counters are not copiable characteristics. Token-copy effects apply
+  them to each created token through replacement processing; Doubling Season
+  changes both token count and entry counters, while a subsequent copy inherits
+  neither the original's nor the token's counters.
+- Copy exceptions such as Adagia's legendary supertype are copiable. Test a
+  second-generation copy and the resulting legend choice, not only the first
+  token's characteristics.
+- Oracle line matching must recognize crew granted by a type-changing sentence
+  without quoted activation text, and reject a different printed crew number.
+- Check transformation after the actual trigger or cost, including an attacker
+  leaving combat in response, an optional zero-target choice, and a target that
+  becomes illegal. These cases distinguish resolution instructions from an
+  intervening-if condition or a state trigger.

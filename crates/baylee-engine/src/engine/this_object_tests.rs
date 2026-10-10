@@ -326,6 +326,7 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
     // effect — which is the property this list is here for.
     const READ: &[&str] = &[
         "ReturnToHand { target: ThisObject }",
+        "ReturnToBattlefieldTapped { target: ThisObject }",
         "Destroy { target: ThisObject, no_regen: false }",
         "Destroy { target: ThisObject, no_regen: true }",
         "GraveyardToBattlefield { target: ThisObject, owner_control: false, counters: None }",

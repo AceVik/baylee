@@ -3,16 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Lavaclaw Reaches enters tapped, prints `{{T}}: Add {{B}} or {{R}}`, and
-/// `{1}{B}{R}: Until end of turn, this land becomes a 2/2 black and red
-/// Elemental creature with "{X}: This creature gets +X/+0 until end of
-/// turn." It's still a land.`
-///
-/// Under `Coverage::Partial`, the granted pump ability is dropped because a
-/// granted ability is activated with X fixed at 0. This test plays the
-/// land tapped, untaps on the following turn, pays `{1}{B}{R}` to animate it
-/// into a 2/2 black and red Elemental creature that remains a land, and confirms
-/// it offers only its printed abilities.
+/// Animation adds creaturehood, colors and the Elemental subtype until end of turn.
 #[test]
 fn lavaclaw_reaches_enters_tapped_and_animates_into_an_elemental() {
     let p0 = PlayerId::new(0);
@@ -85,7 +76,59 @@ fn lavaclaw_reaches_enters_tapped_and_animates_into_an_elemental() {
     };
     assert_eq!(
         legal.abilities.iter().filter(|(id, _)| *id == land).count(),
-        2,
-        "only the printed mana and animate abilities, no granted +X/+0 ability"
+        3,
+        "the two printed abilities and the granted +X/+0 ability"
+    );
+}
+
+#[test]
+fn lavaclaw_granted_x_pump_announces_pays_and_expires() {
+    use crate::engine::card_tests::legends_kit as kit;
+    let mut e = kit::game(981, &[lavaclaw_reaches()], &[], &[], &[]);
+    let land = kit::obj(&e, kit::P0, lavaclaw_reaches());
+    // The animation replaces an existing color rather than accumulating it.
+    e.state.object_mut(land).unwrap().base_mut().colors =
+        baylee_core::color::ColorSet::of(baylee_core::color::Color::Green);
+    kit::float(
+        &mut e,
+        kit::P0,
+        &[
+            (ManaColor::Black, 1),
+            (ManaColor::Red, 1),
+            (ManaColor::Colorless, 4),
+        ],
+    );
+    kit::use_ability(&mut e, kit::P0, lavaclaw_reaches(), 1, &[], &[]);
+    assert_eq!(pt(&e, land), (2, 2));
+    assert!(
+        !e.state
+            .object(land)
+            .unwrap()
+            .characteristics()
+            .colors
+            .contains(baylee_core::color::Color::Green)
+    );
+    let ability = crate::choice::granted_ability(0);
+    assert!(priority_offer(&e).abilities.contains(&(land, ability)));
+    e.apply(
+        kit::P0,
+        PlayerAction::ActivateAbility {
+            source: land,
+            ability_index: ability,
+        },
+    )
+    .unwrap();
+    assert!(matches!(e.pending(), Pending::ChooseNumber { .. }));
+    e.apply(kit::P0, PlayerAction::ChooseNumber(3)).unwrap();
+    assert_eq!(kit::pool_total(&e, kit::P0), 0);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(pt(&e, land), (5, 2));
+    assert!(types(&e, land).contains(TypeSet::LAND));
+    reach_their_main_phase(&mut e, kit::P1);
+    assert!(!types(&e, land).contains(TypeSet::CREATURE));
+    assert!(
+        crate::effects::granted_activated(e.state(), land)
+            .next()
+            .is_none()
     );
 }

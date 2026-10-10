@@ -926,6 +926,8 @@ pub enum CopyMod {
     AddType(baylee_core::types::TypeSet),
     /// Removes types ("except it's not a creature").
     RemoveType(baylee_core::types::TypeSet),
+    /// Adds supertypes to the copy's copiable values ("except it's legendary").
+    AddSupertype(baylee_core::types::SupertypeSet),
     /// Removes supertypes ("except it's not legendary").
     RemoveSupertype(baylee_core::types::SupertypeSet),
     /// Adds a subtype ("except it's a Shapeshifter").

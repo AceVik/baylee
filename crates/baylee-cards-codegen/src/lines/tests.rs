@@ -4,6 +4,27 @@ use baylee_cards_dsl::filter::Filter;
 use baylee_cards_dsl::loyalty;
 
 #[test]
+fn crew_granted_by_a_type_change_keeps_its_printed_line_and_number() {
+    use baylee_cards_dsl::{Modifier, cost, static_ability};
+    let grant = static_ability!(
+        Filter::AttachedToBySource,
+        Modifier::GrantActivated {
+            cost: cost!(Crew(5)),
+            effects: &[],
+            mana_ability: false,
+        }
+    );
+    let text =
+        "Enchanted permanent is a Vehicle artifact with crew 5 and it loses all other card types.";
+    assert_eq!(map(&[grant], text).lines, [Some(0)]);
+    assert_eq!(
+        map(&[grant], &text.replace("crew 5", "crew 3")).lines,
+        [None]
+    );
+    assert_eq!(line_shape("Crew 5"), LineShape::Activated);
+}
+
+#[test]
 fn damage_history_death_trigger_maps_to_the_death_clause() {
     use baylee_cards_dsl::{CounterKind, Trigger, triggered};
     let ability = triggered!(

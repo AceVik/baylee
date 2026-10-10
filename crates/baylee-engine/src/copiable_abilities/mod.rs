@@ -466,6 +466,7 @@ pub fn apply_characteristic_exceptions_with_text(
         match *modifier {
             CopyMod::AddType(types) => copied.types = copied.types.union(types),
             CopyMod::RemoveType(types) => copied.types = copied.types.difference(types),
+            CopyMod::AddSupertype(types) => copied.supertypes = copied.supertypes.union(types),
             CopyMod::RemoveSupertype(types) => {
                 copied.supertypes = copied.supertypes.difference(types);
             }
@@ -488,6 +489,23 @@ pub fn apply_characteristic_exceptions_with_text(
             | CopyMod::GrantAbility(_)
             | CopyMod::KeepResolvingAbility => {}
         }
+    }
+}
+
+/// Counters added by a copy instruction are entry actions, never copiable
+/// characteristics (CR 707.2). Shared by permanent copies and token copies.
+pub(crate) fn copy_entry_counter(
+    modifier: &CopyMod,
+    types: baylee_core::types::TypeSet,
+    x: u32,
+) -> Option<(baylee_cards_dsl::CounterKind, u16)> {
+    match *modifier {
+        CopyMod::AddCounter(kind, amount) => Some((kind, amount)),
+        CopyMod::AddCounterIf(required, kind, amount) if types.intersects(required) => {
+            Some((kind, amount))
+        }
+        CopyMod::AddCounterX(kind) => Some((kind, u16::try_from(x).unwrap_or(u16::MAX))),
+        _ => None,
     }
 }
 
@@ -599,14 +617,7 @@ pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplicat
         });
     }
     for modifier in mods {
-        let counters = match *modifier {
-            CopyMod::AddCounter(kind, amount) => Some((kind, amount)),
-            CopyMod::AddCounterIf(types, kind, amount) if became.intersects(types) => {
-                Some((kind, amount))
-            }
-            CopyMod::AddCounterX(kind) => Some((kind, u16::try_from(x).unwrap_or(u16::MAX))),
-            _ => None,
-        };
+        let counters = copy_entry_counter(modifier, became, x);
         if let Some((kind, amount)) = counters
             && amount > 0
         {

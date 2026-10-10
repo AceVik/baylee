@@ -799,3 +799,21 @@ fn hyperion_blacksmith_taps_an_opponents_artifact() {
     settle(&mut e);
     assert!(tapped(&e, theirs), "the opponent's artifact is tapped");
 }
+
+#[test]
+fn livonya_walks_only_past_a_legendary_land_of_the_defending_player() {
+    use baylee_core::generated::index;
+    for (defending_land, blocked) in [(forest(), true), (index::EIGANJO_CASTLE, false)] {
+        let mut e = game(
+            974,
+            &[index::LIVONYA_SILONE, index::SHIZO_DEATH_S_STOREHOUSE],
+            &[defending_land, llanowar_elves()],
+            &[],
+            &[],
+        );
+        let attacker = obj(&e, P0, index::LIVONYA_SILONE);
+        let blocker = obj(&e, P1, llanowar_elves());
+        let offered = attack(&mut e, &[attacker]);
+        assert_eq!(may_block(&offered, blocker, attacker), blocked);
+    }
+}

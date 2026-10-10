@@ -484,7 +484,8 @@ impl<L: CardLookup> Engine<L> {
                     pc: 0,
                     targets: obj.targets.clone(),
                     second_targets: SmallVec::from_slice(obj.second_targets()),
-                    x: None,
+                    // Granted activated abilities announce and pay X too.
+                    x: Some(obj.x_value),
                     chosen_player: obj.chosen_player,
                     target_players: obj.target_players,
                     event_object: obj.event_object,

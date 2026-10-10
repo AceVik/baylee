@@ -3,13 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Littjara Mirrorlake prints `This land enters tapped.`, `{{T}}: Add {{U}}.`, and `{{2}}{{G}}{{G}}{{U}}, {{T}}, Sacrifice this land: Create a token that's a copy of target creature you control, except it enters with an additional +1/+1 counter on it. Activate only as a sorcery.`
-///
-/// Under `Coverage::Partial`, the copy token's additional +1/+1 counter is omitted because `Effect::CreateTokenCopyOf` carries no modifier list.
-/// Playing Littjara Mirrorlake enters tapped. In the following turn, with `{{2}}{{G}}{{G}}{{U}}` floating from basic lands,
-/// ability 1 targets only a controlled creature (`llanowar_elves()`) and not an opponent's creature.
-/// Upon resolution, Littjara Mirrorlake is sacrificed and a copy token enters
-/// as a 1/1 without a `CounterKind::Plus` counter.
+/// The copy enters with its additional counter; only your creatures are legal targets.
 #[test]
 fn littjara_mirrorlake_enters_tapped_and_creates_creature_copy() {
     let p0 = PlayerId::new(0);
@@ -88,7 +82,11 @@ fn littjara_mirrorlake_enters_tapped_and_creates_creature_copy() {
 
     let tokens = tokens_of(&engine, p0);
     assert_eq!(tokens.len(), 1, "one copy token created");
-    assert_eq!(pt(&engine, tokens[0]), (1, 1), "token is a 1/1 elf");
+    assert_eq!(
+        pt(&engine, tokens[0]),
+        (2, 2),
+        "a copied Elf with one additional counter"
+    );
     assert_eq!(
         counters_on(
             &engine,
@@ -98,7 +96,59 @@ fn littjara_mirrorlake_enters_tapped_and_creates_creature_copy() {
                 toughness: 1,
             }
         ),
-        0,
-        "additional +1/+1 counter omitted under `Coverage::Partial`"
+        1,
+        "the copy enters with an additional +1/+1 counter"
     );
+}
+
+#[test]
+fn mirrorlake_doubles_tokens_and_entry_counters_but_counters_are_not_copiable() {
+    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_core::generated::index;
+    let mut e = kit::game(
+        982,
+        &[
+            littjara_mirrorlake(),
+            llanowar_elves(),
+            index::DOUBLING_SEASON,
+        ],
+        &[],
+        &[index::PHANTASMAL_IMAGE],
+        &[],
+    );
+    let elf = kit::obj(&e, kit::P0, llanowar_elves());
+    crate::replacement::put_counters(&mut e.state, elf, CounterKind::P1P1, 3);
+    kit::float(
+        &mut e,
+        kit::P0,
+        &[
+            (ManaColor::Green, 2),
+            (ManaColor::Blue, 1),
+            (ManaColor::Colorless, 2),
+        ],
+    );
+    kit::use_ability(&mut e, kit::P0, littjara_mirrorlake(), 1, &[elf], &[]);
+    let copies = tokens_of(&e, kit::P0);
+    assert_eq!(copies.len(), 2);
+    for copy in &copies {
+        assert_eq!(counters_on(&e, *copy, CounterKind::P1P1), 2);
+        assert_eq!(pt(&e, *copy), (3, 3));
+    }
+    assert_eq!(counters_on(&e, elf, CounterKind::P1P1), 6);
+    kit::float(&mut e, kit::P0, &[(ManaColor::Blue, 2)]);
+    let image = in_hand(&e, kit::P0, index::PHANTASMAL_IMAGE).unwrap();
+    cast_with_floating(&mut e, kit::P0, index::PHANTASMAL_IMAGE);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    e.apply(
+        kit::P0,
+        PlayerAction::ChooseObjects {
+            objects: vec![copies[0]],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(pt(&e, image), (1, 1));
+    assert_eq!(counters_on(&e, image, CounterKind::P1P1), 0);
 }

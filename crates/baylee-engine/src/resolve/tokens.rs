@@ -142,15 +142,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             mods,
             sacrifice_at_next_end_step,
         } => {
-            if let Some(original) = res.targets.first().copied()
-                && let Some(base) = crate::layers::copiable_values(state, original)
-            {
-                let mut modified = (*base).clone();
-                for m in mods {
-                    apply_copy_mod_with_text(&mut modified, m, res.text);
-                }
-                let made =
-                    create_token_copies(state, you, original, &std::sync::Arc::new(modified), 1);
+            if let Some(original) = res.targets.first().copied() {
+                let made = create_modified_token_copies(state, res, original, mods, 1);
                 // One delayed trigger per token, naming that token and no
                 // other object: a token that has left and been replaced is
                 // not "it" (CR 400.7), and the version says so.
@@ -168,32 +161,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::CreateTokenCopyOfSource { mods } => {
-            // The source card, wherever the cost put it: exile, for
-            // eternalize. Its copiable values there are the card's own.
-            if let Some(base) = crate::layers::copiable_values(state, res.source) {
-                let mut modified = (*base).clone();
-                for m in mods {
-                    apply_copy_mod_with_text(&mut modified, m, res.text);
-                }
-                create_token_copies(state, you, res.source, &std::sync::Arc::new(modified), 1);
-            }
+            create_modified_token_copies(state, res, res.source, mods, 1);
             None
         }
         Effect::CreateTokenCopyOfEquipped { kicked_bonus, mods } => {
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
-            if let Some(equipped) = state.object(res.source).and_then(|o| o.attached_to)
-                && let Some(base) = crate::layers::copiable_values(state, equipped)
-            {
-                // The modifications are applied once and the result copied,
-                // rather than per token: they do not depend on how many
-                // there are, and the doubling below must see the same base
-                // every copy gets.
-                let mut modified = (*base).clone();
-                for m in mods {
-                    apply_copy_mod_with_text(&mut modified, m, res.text);
-                }
-                create_token_copies(state, you, equipped, &std::sync::Arc::new(modified), count);
+            if let Some(equipped) = state.object(res.source).and_then(|o| o.attached_to) {
+                create_modified_token_copies(state, res, equipped, mods, count);
             }
             None
         }
@@ -283,6 +258,44 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
 }
 
 /// Maps literal words in a copy exception, leaving copied values unchanged.
+fn create_modified_token_copies(
+    state: &mut GameState,
+    res: &Resolution,
+    original: ObjectId,
+    mods: &[baylee_cards_dsl::CopyMod],
+    count: u32,
+) -> Vec<ObjectId> {
+    let Some(base) = crate::layers::copiable_values(state, original) else {
+        return Vec::new();
+    };
+    let mut modified = (*base).clone();
+    for modifier in mods {
+        apply_copy_mod_with_text(&mut modified, modifier, res.text);
+    }
+    let types = modified.types;
+    let made = create_token_copies(
+        state,
+        res.controller,
+        original,
+        &std::sync::Arc::new(modified),
+        count,
+    );
+    // No rules processing intervenes before these entry counters are placed.
+    // Each token receives them through the replacement path, independently of
+    // the token multiplier. They must not enter the copied base or ability list.
+    for &id in &made {
+        for modifier in mods {
+            if let Some((kind, amount)) =
+                crate::copiable_abilities::copy_entry_counter(modifier, types, res.x.unwrap_or(0))
+                && amount > 0
+            {
+                crate::replacement::put_counters(state, id, kind, amount);
+            }
+        }
+    }
+    made
+}
+
 pub(super) fn apply_copy_mod_with_text(
     base: &mut Characteristics,
     modifier: &baylee_cards_dsl::CopyMod,
