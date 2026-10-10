@@ -31,3 +31,41 @@ fn illusionary_mask_casts_and_offers_its_x_ability() {
             .contains(TypeSet::ARTIFACT)
     );
 }
+
+/// "{X}:" is announced before its mana is made (CR 602.2b, by 601.2b and
+/// 601.2g): with nothing floating and two Forests untapped, X may be 2,
+/// and the Forests are tapped in the activation's payment window. Bounded by
+/// the floating pool, X was 0 here.
+#[test]
+fn illusionary_mask_announces_x_from_untapped_lands() {
+    let card = card_index("05ac866d-0405-4d25-986a-c10fcfc097e6");
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[card, forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mask = on_battlefield(&engine, p0, card).expect("Mask deployed");
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    activate(&mut engine, p0, card, 0);
+    let Pending::ChooseNumber { max, .. } = engine.pending().clone() else {
+        panic!("expected the announced X, got {:?}", engine.pending());
+    };
+    assert!(max >= 2, "two Forests stand untapped, got max {max}");
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+    assert!(
+        engine.payment_window().is_some(),
+        "the mana is made in the activation's window, got {:?}",
+        engine.pending()
+    );
+    tap_mana_except(&mut engine, p0, mask);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(engine.payment_window().is_none());
+    assert!(!stack_is_empty(&engine), "the ability is on the stack");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{2}} spent"
+    );
+}
