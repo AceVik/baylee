@@ -60,7 +60,10 @@ fn duel_window(decision_secs: u32, window_secs: u32) -> GamePreset {
 fn detach(runner: &mut EngineRunner, seat: u32) -> Vec<Envelope> {
     runner.handle(
         Envelope {
-            msg: Some(v1::envelope::Msg::SeatDetached(v1::SeatDetached { seat })),
+            msg: Some(v1::envelope::Msg::SeatDetached(v1::SeatDetached {
+                seat,
+                left: false,
+            })),
         },
         &[],
     )
@@ -173,6 +176,61 @@ fn two_humans(timeout_secs: u32) -> GamePreset {
     let mut preset = duel(timeout_secs);
     preset.seats[1].controller = baylee_core::preset::SeatController::Open;
     preset
+}
+
+/// Two human seats with a reconnect window a test can point at.
+fn two_humans_window(decision_secs: u32, window_secs: u32) -> GamePreset {
+    let mut preset = two_humans(decision_secs);
+    preset.house_rules.reconnect_window_secs = window_secs;
+    preset
+}
+
+/// Both seats of a two-human table sit; the curtain goes up.
+fn sit_both(runner: &mut EngineRunner) {
+    attach(runner, 0);
+    attach(runner, 1);
+    ready(runner, 0);
+    ready(runner, 1);
+    if let Some(at) = runner.entrance_deadline() {
+        runner.tell_time(at);
+        runner.finish_entrance();
+    }
+    assert!(!runner.curtain_pending());
+}
+
+/// `seat`'s clock, if it is on one (the table's hold is no seat's).
+fn clock_of(runner: &EngineRunner, seat: u8) -> Option<Clock> {
+    runner
+        .clocks()
+        .into_iter()
+        .find(|c| c.seat.get() == seat && c.what != Deadline::Hold)
+}
+
+/// A seat's player left on purpose (`POST /lobby/depart`).
+fn leave(runner: &mut EngineRunner, seat: u32) -> Vec<Envelope> {
+    runner.handle(
+        Envelope {
+            msg: Some(v1::envelope::Msg::SeatDetached(v1::SeatDetached {
+                seat,
+                left: true,
+            })),
+        },
+        &[],
+    )
+}
+
+/// Every log line `seat` was sent, as JSON text.
+fn log_text(envelopes: &[Envelope], seat: u32) -> String {
+    frames(envelopes)
+        .into_iter()
+        .filter_map(|(s, msg)| match msg {
+            v1::envelope::Msg::StateDelta(delta) if s == seat && !delta.log_json.is_empty() => {
+                String::from_utf8(delta.log_json.clone()).ok()
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Whose frames say what, in order, for the seats a test cares about.

@@ -353,6 +353,10 @@ message Spectators {
 
 message SeatDetached {
   uint32 seat = 1;
+  // The player left on purpose (`POST /lobby/depart`), rather than losing
+  // the connection: the house takes the chair at once, or the game ends
+  // when no other player is at the table.
+  bool left = 2;
 }
 
 // Either direction on the engine link: one player-facing Envelope, tagged with

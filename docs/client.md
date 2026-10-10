@@ -9124,7 +9124,9 @@ continue where you left off". Then:
   not): `POST /lobby/games/{id}/seat`, which hands the signed-in account a
   fresh ticket for its own chair and only to it (`docs/protocol.md`; no new
   route). The engine held the chair meanwhile (`Deadline::StandIn`, the
-  reconnect window, 60 s by default; the house stands in only after it),
+  reconnect window, 180 s by default; the house stands in only after it,
+  and only while another player is at the table: alone with the house the
+  game was paused; `docs/protocol.md` §"Leaving, and losing the connection"),
   and the table says "Back at your table – your seat was held while you
   restarted" for eight seconds, or, where the seat's own view says the
   house stood in (the window had run out), that the house played for the

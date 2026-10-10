@@ -313,7 +313,7 @@ pub(crate) async fn auth_config(State(state): State<Shared>) -> Json<serde_json:
         "clocks": clock::PRESETS.iter().map(|preset| serde_json::json!({
             "name": preset.name,
             "decide_secs": preset.decision_timeout_secs,
-            "reconnect_secs": preset.reconnect_window_secs,
+            "reconnect_secs": state.reconnect_secs,
             "blurb": preset.blurb,
         })).collect::<Vec<_>>(),
     }))

@@ -782,6 +782,20 @@ impl Writer<'_> {
                 Phrase::LogStandIn,
                 Vec::new(),
             ),
+            LogEvent::ConnectionLost { player, wait_secs } => match wait_secs {
+                Some(secs) => self.about(
+                    *player,
+                    Phrase::LogConnectionLostYou,
+                    Phrase::LogConnectionLost,
+                    vec![Piece::plain(format!("{}:{:02}", secs / 60, secs % 60))],
+                ),
+                None => self.about(
+                    *player,
+                    Phrase::LogConnectionLostPausedYou,
+                    Phrase::LogConnectionLostPaused,
+                    Vec::new(),
+                ),
+            },
             LogEvent::Returned { player } => self.about(
                 *player,
                 Phrase::LogReturnedYou,
@@ -1905,10 +1919,11 @@ mod tests {
             LogEvent::Banded { .. } => 30,
             LogEvent::CardsKept { .. } => 31,
             LogEvent::BecameMonarch { .. } => 32,
+            LogEvent::ConnectionLost { .. } => 33,
         }
     }
 
-    const VARIANTS: usize = 33;
+    const VARIANTS: usize = 34;
 
     /// Every kind of line, about `player`, with every answer, cause, zone and
     /// counter a line can carry.
@@ -1921,6 +1936,14 @@ mod tests {
             LogEvent::Kept { player, cards: 1 },
             LogEvent::Kept { player, cards: 6 },
             LogEvent::StandIn { player },
+            LogEvent::ConnectionLost {
+                player,
+                wait_secs: Some(161),
+            },
+            LogEvent::ConnectionLost {
+                player,
+                wait_secs: None,
+            },
             LogEvent::Returned { player },
             LogEvent::LandPlayed {
                 from: None,
@@ -2208,6 +2231,7 @@ mod tests {
             | LogEvent::Kept { player, .. }
             | LogEvent::TimedOut { player, .. }
             | LogEvent::StandIn { player }
+            | LogEvent::ConnectionLost { player, .. }
             | LogEvent::Returned { player }
             | LogEvent::LandPlayed { player, .. }
             | LogEvent::Cast { player, .. }

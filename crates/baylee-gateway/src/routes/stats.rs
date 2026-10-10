@@ -9,9 +9,10 @@ use crate::{ErrorBody, HeaderMap, Json, Shared, State, StatusCode, authed};
 /// front door, not even how busy it is. Numbers and nothing else — no ids,
 /// no names, nothing per table — and exact rather than rounded.
 ///
-/// - `players_online`: distinct accounts with a lobby socket open
-///   ([`crate::presence`]) together with those in a chair of a running game
-///   (their own, or one their seat bridge plays). A session row is not
+/// - `players_online`: distinct accounts with a socket open — the lobby's,
+///   or their own chair's at a running game ([`crate::presence`]) —
+///   together with those whose seat bridge plays a chair of one. A player
+///   whose connection is gone is not online, though the chair is held. A session row is not
 ///   presence: a guest's lasts thirty days after its last request.
 /// - `tables_waiting`, `games_running`: the lobby's tables in those two
 ///   states, counted as `/health` counts them ([`crate::Lobby::waiting`],
@@ -24,7 +25,7 @@ pub(crate) async fn lobby_stats(
     let (mut online, tables_waiting, games_running) = {
         let lobby = state.lobby.lock();
         (
-            lobby.playing_accounts(),
+            lobby.bridging_accounts(),
             lobby.waiting().count(),
             lobby.running().count(),
         )

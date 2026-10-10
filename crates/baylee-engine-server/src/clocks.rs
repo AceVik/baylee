@@ -19,7 +19,19 @@ pub enum Deadline {
     /// chair, rather than answering once for a player who is not coming back
     /// to the next question either.
     StandIn,
+    /// No player is at the table at all: the game is paused, and held
+    /// [`HOLD_SECS`] for them to come back. On expiry the house concedes for
+    /// every absent player and the game ends. `seq` is always zero: the hold
+    /// is the table's, not a question's.
+    Hold,
 }
+
+/// How long a game with no player at the table is held paused, in seconds:
+/// a day. Long enough for a laptop that went to sleep overnight; a game
+/// never outlives its engine process either, and a gateway restart ends
+/// every game (its engine link is lost), so this is the longest a paused
+/// game can stand.
+pub const HOLD_SECS: u32 = 24 * 60 * 60;
 
 /// What a seat owes, and how long it has to pay.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -142,44 +142,47 @@ fn the_other_seats_hold_does_not_wind_the_clock() {
 /// The clock is the one thing the rules kernel must not own, and it must
 /// not run against a player who is not there to see it.
 ///
-/// They are on the *other* clock instead: a seat with no socket cannot
-/// lose on time to a question it never saw, but the table must not be
-/// left waiting on it forever either.
+/// With another player at the table they are on the *other* clock instead:
+/// a seat with no socket cannot lose on time to a question it never saw,
+/// but the player still here must not be left waiting on it forever.
 #[test]
 fn nobody_is_on_a_clock_they_cannot_see() {
     let mut runner = EngineRunner::new();
-    setup(&mut runner, &duel_window(60, 30));
-    sit(&mut runner, 0);
-    let clock = on_clock(&runner).expect("the seat being asked is here");
-    assert_eq!(clock.seat.get(), 0);
+    setup(&mut runner, &two_humans_window(60, 30));
+    sit_both(&mut runner);
+    let clock = clock_of(&runner, 0).expect("the seat being asked is here");
     assert_eq!(clock.what, Deadline::Decide);
     assert_eq!(clock.secs, 60);
 
-    detach(&mut runner, 0);
-    let clock = on_clock(&runner).expect("the table is still waiting on it");
-    assert_eq!(clock.seat.get(), 0);
+    let told = detach(&mut runner, 0);
+    let clock = clock_of(&runner, 0).expect("the table is still waiting on it");
     assert_eq!(
         clock.what,
         Deadline::StandIn,
         "the player walked away; it is the chair that is on a clock now"
     );
     assert_eq!(clock.secs, 30, "and it is the table's reconnect window");
+    assert!(
+        log_text(&told, 1).contains(r#"{"ConnectionLost":{"player":0,"wait_secs":30}}"#),
+        "the player still here was not told: {}",
+        log_text(&told, 1)
+    );
 }
 
 /// A table with no decision limit puts nobody on a *decision* clock — and
 /// the two limits are independent, because a table that gives its players
 /// all the time in the world still must not sit forever on a closed
-/// laptop.
+/// laptop while another player waits.
 #[test]
 fn no_limit_means_no_clock() {
     let mut runner = EngineRunner::new();
-    setup(&mut runner, &duel_window(0, 30));
-    sit(&mut runner, 0);
-    assert_eq!(on_clock(&runner), None);
+    setup(&mut runner, &two_humans_window(0, 30));
+    sit_both(&mut runner);
+    assert!(runner.clocks().is_empty());
 
     detach(&mut runner, 0);
     assert_eq!(
-        on_clock(&runner).map(|c| (c.what, c.secs)),
+        clock_of(&runner, 0).map(|c| (c.what, c.secs)),
         Some((Deadline::StandIn, 30)),
         "no decision limit is not no reconnect window"
     );
@@ -195,8 +198,72 @@ fn a_table_that_never_gives_up_a_chair_never_takes_one() {
     assert_eq!(on_clock(&runner), None);
 }
 
+/// With nobody else at the table a lost connection pauses the game (owner,
+/// 10.10.2026): no decision clock, no reconnect window, no house move —
+/// only the table's hold, a day long. The log says it is paused.
+#[test]
+fn a_player_alone_with_the_house_pauses_the_game() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &duel_window(60, 30));
+    sit(&mut runner, 0);
+    let before = runner.session().expect("built").decision_seq();
+    let frames = runner.session().expect("built").seq();
+
+    let told = detach(&mut runner, 0);
+    assert!(
+        told.is_empty(),
+        "nobody is here to be told, and nothing moved"
+    );
+    let clock = on_clock(&runner).expect("the hold");
+    assert_eq!((clock.what, clock.secs), (Deadline::Hold, HOLD_SECS));
+    let session = runner.session().expect("built");
+    assert_eq!(
+        session.decision_seq(),
+        before,
+        "the house moved while paused"
+    );
+    assert_eq!(session.seq(), frames);
+    assert!(
+        !session
+            .seat_kind(PlayerId::new(0))
+            .is_some_and(SeatKind::is_away),
+        "the house sat down at a paused table"
+    );
+
+    // Back: the seat is asked again on its decision clock, and its log says
+    // what happened while it was gone.
+    let back = sit(&mut runner, 0);
+    assert_eq!(on_clock(&runner).map(|c| c.what), Some(Deadline::Decide));
+    let said = log_text(&back, 0);
+    assert!(
+        said.contains(r#"{"ConnectionLost":{"player":0,"wait_secs":null}}"#)
+            && said.contains(r#"{"Returned":{"player":0}}"#),
+        "{said}"
+    );
+    assert_eq!(runner.session().expect("built").decision_seq(), before);
+}
+
+/// The hold is not forever: a day with nobody at the table, and the house
+/// concedes for the absent player.
+#[test]
+fn a_paused_game_held_a_whole_day_ends() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &duel_window(60, 30));
+    sit(&mut runner, 0);
+    detach(&mut runner, 0);
+    let hold = on_clock(&runner).expect("the hold");
+    let out = runner.timeout(hold);
+    assert!(runner.finished(), "the game was not ended");
+    assert!(
+        out.iter().any(
+            |e| matches!(&e.msg, Some(v1::envelope::Msg::GameEnded(ended)) if ended.winners == [1])
+        ),
+        "the house's seat wins"
+    );
+}
+
 /// The bug the reconnect window exists for: seat 0 closes its laptop
-/// while it owes an answer, and nothing moves the game again.
+/// while it owes an answer, and the player still at the table waits.
 ///
 /// A stand-in rather than one answer on the seat's behalf, because a
 /// player who is not there for this question is not there for the next
@@ -205,18 +272,20 @@ fn a_table_that_never_gives_up_a_chair_never_takes_one() {
 #[test]
 fn a_chair_nobody_is_sitting_in_goes_to_the_house() {
     let mut runner = EngineRunner::new();
-    setup(&mut runner, &duel_window(60, 30));
-    sit(&mut runner, 0);
+    setup(&mut runner, &two_humans_window(60, 30));
+    sit_both(&mut runner);
     detach(&mut runner, 0);
-    let stuck = runner.session().expect("the game is built").decision_seq();
-
-    let clock = on_clock(&runner).expect("the chair is on a clock");
+    let clock = clock_of(&runner, 0).expect("the chair is on a clock");
     assert_eq!(clock.what, Deadline::StandIn);
-    let _ = runner.timeout(clock);
+    let out = runner.timeout(clock);
+    let session = runner.session().expect("the game is built");
     assert!(
-        runner.session().expect("the game is built").decision_seq() > stuck,
-        "the house sat down and the table moved on"
+        session
+            .seat_kind(PlayerId::new(0))
+            .is_some_and(SeatKind::is_away),
+        "the house sat down"
     );
+    assert!(log_text(&out, 1).contains(r#"{"StandIn":{"player":0}}"#));
 }
 
 /// The same race the decision clock has, in the other direction: the
@@ -225,18 +294,18 @@ fn a_chair_nobody_is_sitting_in_goes_to_the_house() {
 #[test]
 fn a_player_who_gets_back_in_time_keeps_their_chair() {
     let mut runner = EngineRunner::new();
-    setup(&mut runner, &duel_window(60, 30));
-    sit(&mut runner, 0);
+    setup(&mut runner, &two_humans_window(60, 30));
+    sit_both(&mut runner);
     detach(&mut runner, 0);
-    let clock = on_clock(&runner).expect("the chair is on a clock");
-    sit(&mut runner, 0);
+    let clock = clock_of(&runner, 0).expect("the chair is on a clock");
+    attach(&mut runner, 0);
 
     assert!(
         runner.timeout(clock).is_empty(),
         "the deadline fired for a chair that is occupied again"
     );
     assert_eq!(
-        on_clock(&runner).map(|c| c.what),
+        clock_of(&runner, 0).map(|c| c.what),
         Some(Deadline::Decide),
         "and the seat is simply being asked again"
     );
@@ -247,10 +316,10 @@ fn a_player_who_gets_back_in_time_keeps_their_chair() {
 #[test]
 fn the_house_gives_the_chair_back_when_the_socket_returns() {
     let mut runner = EngineRunner::new();
-    setup(&mut runner, &duel_window(60, 30));
-    sit(&mut runner, 0);
+    setup(&mut runner, &two_humans_window(60, 30));
+    sit_both(&mut runner);
     detach(&mut runner, 0);
-    let clock = on_clock(&runner).expect("the chair is on a clock");
+    let clock = clock_of(&runner, 0).expect("the chair is on a clock");
     let _ = runner.timeout(clock);
     assert!(
         runner
@@ -261,7 +330,7 @@ fn the_house_gives_the_chair_back_when_the_socket_returns() {
         "the house is holding seat 0"
     );
 
-    sit(&mut runner, 0);
+    let back = attach(&mut runner, 0);
     assert!(
         !runner
             .session()
@@ -270,6 +339,38 @@ fn the_house_gives_the_chair_back_when_the_socket_returns() {
             .is_some_and(SeatKind::is_away),
         "the player is back and the chair is theirs"
     );
+    assert!(log_text(&back, 1).contains(r#"{"Returned":{"player":0}}"#));
+}
+
+/// A deliberate leave with another player at the table: the house takes
+/// the chair at once, no window.
+#[test]
+fn a_player_who_leaves_on_purpose_is_stood_in_for_at_once() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &two_humans_window(60, 30));
+    sit_both(&mut runner);
+    leave(&mut runner, 0);
+    let session = runner.session().expect("built");
+    assert!(
+        session
+            .seat_kind(PlayerId::new(0))
+            .is_some_and(SeatKind::is_away)
+    );
+    assert!(!runner.finished(), "another player is at the table");
+    assert!(clock_of(&runner, 0).is_none(), "no window for a leave");
+}
+
+/// A deliberate leave with nobody else's chair left: the game ends.
+#[test]
+fn the_last_player_leaving_on_purpose_ends_the_game() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &duel_window(60, 30));
+    sit(&mut runner, 0);
+    let out = leave(&mut runner, 0);
+    assert!(runner.finished());
+    assert!(out.iter().any(
+        |e| matches!(&e.msg, Some(v1::envelope::Msg::GameEnded(ended)) if ended.winners == [1])
+    ));
 }
 
 /// One seat's expired clock must never take another seat's decision, and

@@ -3,7 +3,7 @@ use crate::record::{ChairChange, Mind};
 use baylee_ai::HeuristicAgent;
 use baylee_core::ids::{PlayerId, SeatSet};
 use baylee_core::preset::AIProfile;
-use baylee_engine::choice::Pending;
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_protocol::v1::Envelope;
 use baylee_view::{LogEvent, PlayerView, SeatSetting, SharedHand};
 
@@ -80,6 +80,19 @@ impl Session {
             .filter(|(_, k)| k.answers_over_socket())
             .map(|(i, _)| PlayerId::new(i as u8))
             .collect()
+    }
+
+    /// How many chairs the table has.
+    #[must_use]
+    pub fn seat_count(&self) -> usize {
+        self.seats.len()
+    }
+
+    /// Whether `seat`'s player has left the game (lost, conceded): their
+    /// chair answers nothing any more.
+    #[must_use]
+    pub fn has_left(&self, seat: PlayerId) -> bool {
+        self.engine.state().has_left(seat)
     }
 
     /// What kind of chair a seat is, or `None` when it is not a seat here.
@@ -186,6 +199,57 @@ impl Session {
         self.log.note(LogEvent::StandIn { player: seat });
         self.chair_changed(seat, ChairChange::StoodIn);
         true
+    }
+
+    /// A player's connection was lost (not a deliberate leave): the log says
+    /// so to everyone still at the table, with how long the table waits
+    /// before the house sits down (`wait_secs`), or `None` when nobody else
+    /// is at the table and the game is paused until they are back.
+    ///
+    /// Returns whether it was noted: only a player's own chair loses a
+    /// connection worth telling. Moves nothing in the game.
+    pub fn connection_lost(&mut self, seat: PlayerId, wait_secs: Option<u32>) -> bool {
+        if !matches!(self.seat_kind(seat), Some(SeatKind::Human)) {
+            return false;
+        }
+        self.log.note(LogEvent::ConnectionLost {
+            player: seat,
+            wait_secs,
+        });
+        true
+    }
+
+    /// A player whose connection was lost is back before the house took
+    /// their chair: the log says so. (A chair the house was holding says it
+    /// through [`Session::hand_back`].)
+    pub fn connection_back(&mut self, seat: PlayerId) {
+        self.log.note(LogEvent::Returned { player: seat });
+    }
+
+    /// The house concedes for a player who is not coming back: one who left
+    /// on purpose with no other player at the table, or one whose game was
+    /// held paused for as long as a game is held. The chair is stood in for
+    /// first, so the record says the house answered, never the player.
+    ///
+    /// `None` when the seat is not a player's chair, or has left the game.
+    pub fn concede_for_absent(&mut self, seat: PlayerId) -> Option<Vec<(PlayerId, Envelope)>> {
+        if self.engine.state().has_left(seat) {
+            return None;
+        }
+        match self.seat_kind(seat)? {
+            SeatKind::Human => {
+                self.stand_in(seat);
+            }
+            SeatKind::StandIn(_) => {}
+            SeatKind::Ai(_) | SeatKind::Driven(_) => return None,
+        }
+        let deciding = self.deciding();
+        let moved = self.apply_house_action(seat, PlayerAction::Concede);
+        self.seq += 1;
+        if moved {
+            self.moved(seat, deciding);
+        }
+        Some(self.pump())
     }
 
     /// The player came back; the chair is theirs again.

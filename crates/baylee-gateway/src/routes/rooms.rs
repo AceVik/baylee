@@ -62,6 +62,7 @@ pub(crate) async fn create_game(
         body.clock.as_deref(),
         body.decision_timeout_secs,
         body.reconnect_window_secs,
+        state.reconnect_secs,
     )
     .map_err(|reason| err_saying(StatusCode::BAD_REQUEST, reason))?;
 
@@ -588,27 +589,8 @@ pub(crate) async fn leave_game(
     if game.state != LobbyState::Waiting {
         return Err(err(StatusCode::CONFLICT, "game already started"));
     }
-    let Some(chair) = game
-        .seats
-        .iter_mut()
-        .find(|s| s.account_id.as_ref() == Some(&account_id))
-    else {
+    if !game.leave(&account_id, auth::now_secs()) {
         return Err(err(StatusCode::NOT_FOUND, "you are not at this table"));
-    };
-    chair.vacate();
-    // A seat bridge it seated goes with it: nobody is left at the table to
-    // answer for the chair (`chair.rs`).
-    for seat in &mut game.seats {
-        if seat.delegate.as_ref().is_some_and(|d| d.by == account_id) {
-            seat.vacate();
-        }
-    }
-    // A room outlives its host: it passes to whoever has been here longest,
-    // and only a room with nobody left in it is closed. The earlier version
-    // closed it the moment the host stood up, which threw everyone else out
-    // of a table they were sitting at.
-    if game.hosted_by(&account_id) && !game.hand_over_host() {
-        game.finish(auth::now_secs());
     }
     drop(lobby);
     chair::revoke(&state, &id, &account_id);
