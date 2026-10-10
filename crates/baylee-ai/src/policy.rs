@@ -891,6 +891,9 @@ impl HeuristicAgent {
             return 0;
         };
         let spells = def.abilities_for_face(usize::from(card.face));
+        if crate::optional::not_now(view, spells, |seat| self.hostile(seat, view.seat)) {
+            return -10_000;
+        }
         if self.bad_removal_exchange(view, card, f, spells) {
             return -10_000;
         }
