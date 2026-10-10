@@ -502,34 +502,7 @@ pub fn player_view(
         owed: ctx.owed,
         monarch: state.monarch,
         day_night: state.day_night.map(day_night),
-        seats: state
-            .players
-            .iter()
-            .map(|p| SeatView {
-                player: p.id,
-                life: p.life,
-                poison: p.poison,
-                energy: p.energy,
-                hand_count: state.zones.list(ZoneLocation::Hand(p.id)).len() as u32,
-                no_max_hand_size: state.no_max_hand_size(p.id),
-                library_count: state.zones.list(ZoneLocation::Library(p.id)).len() as u32,
-                graveyard_count: state.zones.list(ZoneLocation::Graveyard(p.id)).len() as u32,
-                loss: p.loss.map(loss_cause),
-                house_answered: house_answered.get(p.id.get() as usize).copied().flatten(),
-                mana_pool: mana_pool(state, p.id),
-                commanders: state
-                    .commanders
-                    .get(p.id.get() as usize)
-                    .map_or_else(Vec::new, |list| {
-                        list.iter().map(|c| commander_view(state, c)).collect()
-                    }),
-                commander_damage: p
-                    .commander_damage
-                    .iter()
-                    .map(|&(source, amount)| CommanderDamage { source, amount })
-                    .collect(),
-            })
-            .collect(),
+        seats: seat_views(state, house_answered),
         hand,
         // Empty here, in every view, and filled on the way to a socket
         // (`Session::show_hands`): a view an agent answers from never
@@ -578,6 +551,91 @@ pub fn player_view(
             })
             .and_then(|fx| fx.source),
         sorceries_have_flash: sorceries_have_flash(state, seat),
+    }
+}
+
+/// Every seat's public numbers, alike in every view and the spectator's.
+fn seat_views(state: &GameState, house_answered: &[Option<HouseAnswer>]) -> Vec<SeatView> {
+    state
+        .players
+        .iter()
+        .map(|p| SeatView {
+            player: p.id,
+            life: p.life,
+            poison: p.poison,
+            energy: p.energy,
+            hand_count: state.zones.list(ZoneLocation::Hand(p.id)).len() as u32,
+            no_max_hand_size: state.no_max_hand_size(p.id),
+            library_count: state.zones.list(ZoneLocation::Library(p.id)).len() as u32,
+            graveyard_count: state.zones.list(ZoneLocation::Graveyard(p.id)).len() as u32,
+            loss: p.loss.map(loss_cause),
+            house_answered: house_answered.get(p.id.get() as usize).copied().flatten(),
+            mana_pool: mana_pool(state, p.id),
+            commanders: state
+                .commanders
+                .get(p.id.get() as usize)
+                .map_or_else(Vec::new, |list| {
+                    list.iter().map(|c| commander_view(state, c)).collect()
+                }),
+            commander_damage: p
+                .commander_damage
+                .iter()
+                .map(|&(source, amount)| CommanderDamage { source, amount })
+                .collect(),
+        })
+        .collect()
+}
+
+/// The viewer a spectator's objects are built for: no seat at all.
+///
+/// Above [`SeatSet::MAX_SEAT`], so no [`SeatSet`] holds it and no player's
+/// id equals it (`spectator_is_no_seat`). It enters exactly one place,
+/// [`spectator_view`]'s zones, where a face-down object is known only to a
+/// viewer that controls it; nobody controls anything as this id.
+pub const SPECTATOR: PlayerId = PlayerId::new(u8::MAX);
+
+/// The table as a spectator sees it (`docs/protocol.md` §"Spectators").
+///
+/// Its own builder rather than [`player_view`] for some seat: the type has
+/// no field a hand, a question or a looked-at card could travel in, and
+/// nothing here asks which seat is looking except the public-object walk,
+/// which is asked for [`SPECTATOR`], a viewer who controls nothing and is in
+/// no set. `awaiting` is the seat every other seat is told the table waits
+/// for, and `library_reveal_blocked` holds a top back as it does for seats.
+#[must_use]
+pub fn spectator_view(
+    state: &GameState,
+    seq: u64,
+    awaiting: Option<PlayerId>,
+    deciding: SeatSet,
+    library_reveal_blocked: SeatSet,
+    house_answered: &[Option<HouseAnswer>],
+) -> baylee_view::SpectatorView {
+    let nobody = SeatSet::new();
+    baylee_view::SpectatorView {
+        seq,
+        turn: state.turn.number,
+        phase: phase(state.turn.phase),
+        step: step(state.turn.step),
+        active: state.turn.active,
+        awaiting,
+        deciding,
+        monarch: state.monarch,
+        day_night: state.day_night.map(day_night),
+        seats: seat_views(state, house_answered),
+        battlefield: zone(state, ZoneLocation::Battlefield, SPECTATOR, nobody),
+        stack: zone(state, ZoneLocation::Stack, SPECTATOR, nobody),
+        graveyards: per_seat_zone(state, ZoneLocation::Graveyard, SPECTATOR, nobody),
+        exile: per_seat_zone(state, ZoneLocation::Exile, SPECTATOR, nobody),
+        command: per_seat_zone(state, ZoneLocation::Command, SPECTATOR, nobody),
+        combat: combat_view(state),
+        library_tops: state
+            .players
+            .iter()
+            .filter(|p| state.library_top_revealed(p.id) && !library_reveal_blocked.contains(p.id))
+            .filter_map(|p| state.zones.list(ZoneLocation::Library(p.id)).last())
+            .filter_map(|id| public_object(state, *id, SPECTATOR))
+            .collect(),
     }
 }
 

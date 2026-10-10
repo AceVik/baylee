@@ -31,6 +31,7 @@ mod report_refs;
 mod revealed;
 mod seats;
 mod shared_hand;
+mod spectator;
 
 struct Registry;
 impl CardLookup for Registry {

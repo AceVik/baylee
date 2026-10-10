@@ -131,6 +131,13 @@ struct AtTheChoice {
     hand: Vec<ObjectId>,
 }
 
+/// [`at_the_choice`] for a sibling module: the session, the target's hand
+/// and the target's printing.
+pub(super) fn at_the_choice_parts() -> (Session, Vec<ObjectId>, PrintRef) {
+    let table = at_the_choice();
+    (table.session, table.hand, PrintRef::new(TARGETS_PRINT))
+}
+
 fn at_the_choice() -> AtTheChoice {
     let mut session = Session::new(&a_command_table()).expect("a three-seat game");
     session.pump();

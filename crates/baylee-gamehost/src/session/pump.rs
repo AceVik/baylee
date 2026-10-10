@@ -37,6 +37,7 @@ impl Session {
                         out.extend(envelopes.into_iter().map(|env| (seat, env)));
                         out.push((seat, choice_envelope(self.seq, &pending)));
                     }
+                    self.tell_spectators(&mut out);
                 }
                 return out;
             }
@@ -61,6 +62,7 @@ impl Session {
                         out.push((seat, choice_envelope(self.seq, pending)));
                     }
                 }
+                self.tell_spectators(&mut out);
                 return out;
             };
             let action = match &self.seats[player.get() as usize] {
