@@ -14,6 +14,7 @@
 pub mod gateway_info;
 pub mod gateway_list;
 pub mod gateway_use;
+pub mod hosted;
 pub mod library;
 pub mod play;
 pub mod room;
@@ -298,6 +299,10 @@ pub struct GameSeat {
     /// the host's chair ticket. `None` for every other chair.
     #[serde(default)]
     pub delegated_by: Option<String>,
+    /// A hosted model ordered for this chair (`hosted`), as the gateway
+    /// says it stands; `None` for every other chair.
+    #[serde(default)]
+    pub hosted: Option<hosted::HostedChair>,
 }
 
 impl GameSeat {
@@ -726,6 +731,25 @@ pub enum LobbyRequest {
         /// The finished game, or the room opened from it.
         game_id: String,
     },
+    /// `GET /lobby/llm-profiles`: the hosted models the gateway offers.
+    HostedProfiles,
+    /// `POST /lobby/games/{id}/chairs/{seat}/hosted`: the host orders one.
+    OrderHosted {
+        /// The table.
+        game_id: String,
+        /// The chair.
+        seat: u32,
+        /// The profile's id.
+        profile: String,
+    },
+    /// `DELETE /lobby/games/{id}/chairs/{seat}/hosted`: the host takes the
+    /// chair back.
+    CancelHosted {
+        /// The table.
+        game_id: String,
+        /// The chair.
+        seat: u32,
+    },
 }
 
 /// The outcome of a [`LobbyRequest`], handed back by the shell.
@@ -801,6 +825,8 @@ pub enum LobbyEvent {
     Moved,
     /// A seat, and the ticket that proves it.
     Seated(SeatHandover),
+    /// The hosted models the gateway offers.
+    HostedProfiles(Vec<hosted::HostedProfile>),
     /// The request failed, with something worth showing a player.
     Failed(String),
     /// The gateway did not answer at all: no connection, or a proxy saying
@@ -924,6 +950,10 @@ pub struct Lobby {
     room_boards: [TextBuffer; 8],
     room_edit: Option<room::Draft>,
     room_saving: bool,
+    /// The hosted models the gateway last listed.
+    hosted_profiles: Vec<hosted::HostedProfile>,
+    /// Whether that list answered since it was last asked.
+    hosted_listed: bool,
     search: TextBuffer,
     deck_search: TextBuffer,
     /// The settings screen's search ([`Field::SettingsSearch`]).
@@ -2937,6 +2967,10 @@ impl Lobby {
                 Some(LobbyRequest::ListDecks)
             }
             LobbyEvent::LoggedOut => None,
+            LobbyEvent::HostedProfiles(profiles) => {
+                self.hosted_listed_now(profiles);
+                None
+            }
             LobbyEvent::Decks(decks) => {
                 // The selection follows its deck, not its place: the list is
                 // ordered newest save first, so a save moves a deck.

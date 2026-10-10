@@ -786,6 +786,38 @@ messages! {
         en: "Its bridge takes the chair once the room lists it open.",
         de: "Seine Brücke nimmt den Stuhl, sobald der Raum ihn als frei führt.",
     },
+    /// An open chair's entry for a model the gateway runs.
+    HostedEntry { en: "Hosted model", de: "Gateway-Modell" },
+    /// The hosted-model sheet's title.
+    HostedTitle { en: "Hosted model for chair {0}", de: "Gateway-Modell für Platz {0}" },
+    /// Over the hosted-model list.
+    HostedIntro {
+        en: "A model the gateway runs plays this chair. Pick one:",
+        de: "Ein Modell, das das Gateway betreibt, spielt diesen Stuhl. Wähle eines:",
+    },
+    /// While the list is asked for.
+    HostedAsking { en: "Asking the gateway…", de: "Frage das Gateway…" },
+    /// No profile at all.
+    HostedNone {
+        en: "This gateway offers no hosted model now.",
+        de: "Dieses Gateway bietet gerade kein Modell an.",
+    },
+    /// Under an unavailable profile with a known return.
+    HostedBackAt { en: "back from {0}", de: "wieder ab {0}" },
+    /// Under an unavailable profile with no known return.
+    HostedNotNow { en: "not available now", de: "gerade nicht verfügbar" },
+    /// Under the chair while its bridge starts.
+    HostedStarting { en: "Starting…", de: "Startet…" },
+    /// Under the chair once its bridge said ready.
+    HostedReady { en: "Ready", de: "Bereit" },
+    /// Under a chair whose order failed.
+    HostedFailed { en: "The hosted model failed: {0}", de: "Das Gateway-Modell ist ausgefallen: {0}" },
+    /// A failure without a reason.
+    HostedNoReason { en: "no reason given", de: "ohne Angabe" },
+    /// Where the game's data goes.
+    HostedDataGoesTo { en: "Game data goes to {0}", de: "Spieldaten gehen an {0}" },
+    /// Takes a hosted chair back.
+    HostedTakeBack { en: "Take back", de: "Zurücknehmen" },
     /// The in-game panel's title (a debug build only).
     GameLlmTitle {
         en: "Language-model chairs (debug: from the next decision)",

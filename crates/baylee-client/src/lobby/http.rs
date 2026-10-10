@@ -316,6 +316,29 @@ pub(super) fn build(
             ),
             Expect::Seat,
         ),
+        LobbyRequest::HostedProfiles => (
+            ehttp::Request::get(format!("{base}/lobby/llm-profiles")),
+            Expect::HostedProfiles,
+        ),
+        // `202` with the chair's state; the listing that follows says it.
+        LobbyRequest::OrderHosted {
+            game_id,
+            seat,
+            profile,
+        } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/chairs/{seat}/hosted"),
+                &serde_json::json!({ "profile": profile }),
+            ),
+            Expect::Moved,
+        ),
+        LobbyRequest::CancelHosted { game_id, seat } => (
+            ehttp::Request {
+                method: ehttp::Method::DELETE,
+                ..ehttp::Request::get(format!("{base}/lobby/games/{game_id}/chairs/{seat}/hosted"))
+            },
+            Expect::Moved,
+        ),
     };
     (bearer(request, token), expect)
 }
@@ -453,14 +476,6 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
         deck_id: String,
     }
 
-    /// `GET /pool`.
-    #[derive(serde::Deserialize)]
-    struct PoolBody {
-        cards: Vec<baylee_client_core::PoolCard>,
-        #[serde(default)]
-        has_text: bool,
-    }
-
     /// `GET /printings`.
     #[derive(serde::Deserialize)]
     struct PrintingsBody {
@@ -507,13 +522,7 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
         },
         Expect::DeckDeleted => LobbyEvent::DeckDeleted,
         Expect::AccountDeleted => LobbyEvent::AccountDeleted,
-        Expect::Pool => serde_json::from_str::<PoolBody>(body).map_or_else(
-            |_| unreadable(lang, Phrase::ThePool),
-            |b| LobbyEvent::Pool {
-                cards: b.cards,
-                has_text: b.has_text,
-            },
-        ),
+        Expect::Pool => decode_pool(lang, body),
         Expect::Printings => serde_json::from_str::<PrintingsBody>(body).map_or_else(
             |_| unreadable(lang, Phrase::ThePrintings),
             |b| LobbyEvent::Printings {
@@ -550,7 +559,37 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
         // Nothing comes back, so the lobby re-reads the list to find out what
         // the table looks like without us.
         Expect::Left => LobbyEvent::Left,
+        Expect::HostedProfiles => decode_hosted(lang, body),
     }
+}
+
+/// `GET /pool`.
+fn decode_pool(lang: Lang, body: &str) -> LobbyEvent {
+    #[derive(serde::Deserialize)]
+    struct PoolBody {
+        cards: Vec<baylee_client_core::PoolCard>,
+        #[serde(default)]
+        has_text: bool,
+    }
+    serde_json::from_str::<PoolBody>(body).map_or_else(
+        |_| unreadable(lang, Phrase::ThePool),
+        |b| LobbyEvent::Pool {
+            cards: b.cards,
+            has_text: b.has_text,
+        },
+    )
+}
+
+/// `GET /lobby/llm-profiles`: `{"profiles": [...]}`.
+fn decode_hosted(lang: Lang, body: &str) -> LobbyEvent {
+    #[derive(serde::Deserialize)]
+    struct HostedBody {
+        profiles: Vec<client_core::lobby::hosted::HostedProfile>,
+    }
+    serde_json::from_str::<HostedBody>(body).map_or_else(
+        |_| unreadable(lang, Phrase::TheGameList),
+        |b| LobbyEvent::HostedProfiles(b.profiles),
+    )
 }
 
 /// A table query as a query string, ready to append to a URL.

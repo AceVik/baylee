@@ -374,7 +374,10 @@ impl Offline {
             // process, so a client that restarts has lost the game itself and
             // not merely the ticket to it.
             | LobbyRequest::TakeSeat { .. }
-            | LobbyRequest::Rematch { .. } => {
+            | LobbyRequest::Rematch { .. }
+            | LobbyRequest::HostedProfiles
+            | LobbyRequest::OrderHosted { .. }
+            | LobbyRequest::CancelHosted { .. } => {
                 LobbyEvent::Failed("offline play has no gateway to ask".to_string())
             }
         }
@@ -696,6 +699,7 @@ impl Offline {
                     you: at == 0,
                     host: at == 0,
                     delegated_by: None,
+                    hosted: None,
                     deck: chair
                         .deck
                         .as_ref()

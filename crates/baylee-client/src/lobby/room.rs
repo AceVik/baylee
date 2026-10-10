@@ -412,7 +412,9 @@ pub(super) fn draw(
             super::menus::draw(commands, root, kit, anchor, items);
         }
     }
-    if let Some(chair) = state.chair_sheet {
+    if let Some(chair) = state.chair_sheet.filter(|_| state.hosted_sheet) {
+        hosted_sheet(commands, root, state, kit, index, chair);
+    } else if let Some(chair) = state.chair_sheet {
         chair_sheet(commands, root, state, fonts, m, kit, index, chair);
     }
     super::play::sheet_over(commands, root, state, m, kit);
@@ -482,7 +484,13 @@ fn seat_menu(state: &LobbyState, index: usize, seat: u8) -> Vec<MenuItem<'static
         return Vec::new();
     };
     let mut items = Vec::new();
-    let person = chair.kind == SeatKind::Human && chair.taken && chair.delegated_by.is_none();
+    // A hosted model on its way is not a person to hand the room to.
+    let hosted = chair
+        .hosted
+        .as_ref()
+        .is_some_and(client_core::lobby::hosted::HostedChair::standing);
+    let person =
+        chair.kind == SeatKind::Human && chair.taken && chair.delegated_by.is_none() && !hosted;
     if person && !chair.you {
         items.push(super::menus::item(
             Phrase::RoomMakeHost.text(lang),
@@ -631,6 +639,14 @@ fn seat_card(
             super::ai_name(lang, seat.ai.as_deref().unwrap_or("steady")).to_string(),
             Some((Phrase::RoomHouseAi.text(lang).to_string(), tokens::MUTED)),
         )
+    } else if let Some(hosted) = seat.hosted.as_ref().filter(|h| h.standing()) {
+        (
+            hosted.label.clone(),
+            Some((
+                format!("{} · {}", Phrase::HostedEntry.text(lang), hosted.vendor),
+                tokens::MUTED,
+            )),
+        )
     } else if let Some(model) = planned.filter(|_| !seat.taken || seat.delegated_by.is_some()) {
         (
             model.model.clone(),
@@ -693,6 +709,24 @@ fn seat_card(
                 walk(commands, llm);
                 commands.entity(line).add_child(llm);
             }
+            // A model the gateway runs: any platform, registered hosts only.
+            if lobby.may_order_hosted() {
+                let hosted = super::parts::menu_button(
+                    commands,
+                    kit,
+                    Phrase::HostedEntry.text(lang),
+                    Weight::Secondary,
+                    Press::Room(RoomPress::HostedOpen(index, seat.seat)),
+                );
+                walk(commands, hosted);
+                commands.entity(line).add_child(hosted);
+            }
+        }
+        // An order that failed left the chair open: say why.
+        if let Some(failed) = seat.hosted.as_ref().filter(|h| !h.standing()) {
+            let said =
+                super::parts::line(commands, kit, &failed.said(lang), kit.m.small, tokens::GOLD);
+            commands.entity(card).add_child(said);
         }
         return anchor;
     }
@@ -875,6 +909,34 @@ fn seat_card(
         commands.entity(row_).add_children(&[status, edit]);
         commands.entity(card).add_child(row_);
     }
+    // A hosted model: its state and where the game's data goes, for
+    // everyone at the table; Take back for the host.
+    if let Some(hosted) = seat.hosted.as_ref().filter(|h| h.standing()) {
+        let row_ = super::parts::row(commands, kit, true);
+        let said = super::parts::line(commands, kit, &hosted.said(lang), kit.m.small, tokens::INK);
+        let goes = super::parts::line(
+            commands,
+            kit,
+            &hosted.data_goes(lang),
+            kit.m.small,
+            tokens::MUTED,
+        );
+        commands.entity(row_).add_children(&[said, goes]);
+        if game.yours {
+            let back = controls::button(
+                commands,
+                kit,
+                Phrase::HostedTakeBack.text(lang),
+                Weight::Ghost,
+                Live::Yes,
+                None,
+                Press::Room(RoomPress::HostedCancel(index, seat.seat)),
+            );
+            walk(commands, back);
+            commands.entity(row_).add_child(back);
+        }
+        commands.entity(card).add_child(row_);
+    }
     // Life override and starting position: a drawer under the card, "for
     // testing and puzzles".
     let setup = if game.yours {
@@ -1040,6 +1102,105 @@ fn chair_sheet(
     commands.entity(root).add_child(scrim);
 }
 
+/// The hosted-model sheet: the gateway's profiles for an open chair,
+/// available ones first, the rest greyed with when they are back; a press
+/// orders one. Every platform: the bridge runs beside the gateway.
+fn hosted_sheet(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    kit: Kit,
+    index: usize,
+    chair: u32,
+) {
+    let lobby = &state.lobby;
+    let lang = lobby.lang();
+    let column = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px_fixed(kit.m.gap),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let offer = lobby.hosted_offer(super::parts::local_offset());
+    let intro = if !lobby.hosted_listed() {
+        Phrase::HostedAsking
+    } else if offer.is_empty() {
+        Phrase::HostedNone
+    } else {
+        Phrase::HostedIntro
+    };
+    let line = super::parts::line(commands, kit, intro.text(lang), kit.m.text, tokens::MUTED);
+    commands.entity(column).add_child(line);
+    for (at, row) in offer.iter().enumerate() {
+        let item = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: kit.m.px(2.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let press = if row.available {
+            RoomPress::HostedOrder(index, chair, at)
+        } else {
+            RoomPress::HostedNothing
+        };
+        let button = controls::button(
+            commands,
+            kit,
+            &row.words,
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            Press::Room(press),
+        );
+        if !row.available || lobby.busy() {
+            commands
+                .entity(button)
+                .insert(crate::shellkit::controls::Disabled);
+        }
+        super::orders::item(commands, button, &super::orders::CHAIR, "controls", at);
+        commands.entity(item).add_child(button);
+        if let Some(why) = &row.why {
+            let l = super::parts::line(commands, kit, why, kit.m.small, tokens::MUTED);
+            commands.entity(item).add_child(l);
+        }
+        commands.entity(column).add_child(item);
+    }
+    let cancel = controls::button(
+        commands,
+        kit,
+        Phrase::SheetCancel.text(lang),
+        Weight::Secondary,
+        Live::Yes,
+        None,
+        Press::Room(RoomPress::CloseChair),
+    );
+    super::orders::stop(commands, cancel, &super::orders::CHAIR, "cancel");
+    let surface = crate::shellkit::surfaces::sheet_box(
+        commands,
+        kit,
+        crate::shellkit::surfaces::SheetWidth::Medium,
+        &Phrase::HostedTitle.fill(lang, &[&(chair + 1).to_string()]),
+        &[column],
+        &[cancel],
+    );
+    let scrim = crate::shellkit::surfaces::sheet(commands, surface);
+    commands
+        .entity(scrim)
+        .insert(Press::Room(RoomPress::CloseChair));
+    commands
+        .entity(surface)
+        .insert(Press::Shared(SharedPress::PickerNothing));
+    commands.entity(root).add_child(scrim);
+}
+
 fn add_heading(commands: &mut Commands, parent: Entity, fonts: &UiFonts, m: Metrics, text: &str) {
     let e = heading(commands, fonts, m, text);
     commands.entity(parent).add_child(e);
@@ -1174,6 +1335,14 @@ pub(crate) enum RoomPress {
     OpenChair(usize, u32),
     /// Close the chair sheet.
     CloseChair,
+    /// The chair sheet listing the gateway's hosted models for a chair.
+    HostedOpen(usize, u32),
+    /// Order the hosted model at this row of the sheet's offer.
+    HostedOrder(usize, u32, usize),
+    /// Take a hosted chair back before the game.
+    HostedCancel(usize, u32),
+    /// An unavailable row: nothing to order.
+    HostedNothing,
     /// A seat's own starting life: the same drawer as its starting position.
     LifeOverride(u8),
 }
@@ -1367,6 +1536,7 @@ impl RoomPress {
             }
             RoomPress::OpenChair(_, seat) => {
                 state.chair_sheet = Some(seat);
+                state.hosted_sheet = false;
                 // An open chair: the file's default profile, planned now so
                 // the sheet shows its models (as the chip used to).
                 if state.llm.planned(seat).is_none() {
@@ -1378,7 +1548,39 @@ impl RoomPress {
                     );
                 }
             }
-            RoomPress::CloseChair => state.chair_sheet = None,
+            RoomPress::CloseChair => {
+                state.chair_sheet = None;
+                state.hosted_sheet = false;
+            }
+            RoomPress::HostedOpen(_, seat) => {
+                state.chair_sheet = Some(seat);
+                state.hosted_sheet = true;
+                let request = state.lobby.list_hosted();
+                dispatch(state, mailbox, request);
+            }
+            RoomPress::HostedOrder(index, seat, row) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                let offer = state.lobby.hosted_offer(super::parts::local_offset());
+                let profile = offer.get(row).filter(|r| r.available).map(|r| r.id.clone());
+                if let (Some(game), Some(profile)) = (game, profile) {
+                    // Not ours to run: no bridge of this client's here.
+                    state.llm.unplan(seat);
+                    let request = state.lobby.order_hosted(&game, seat, &profile);
+                    if request.is_some() {
+                        state.chair_sheet = None;
+                        state.hosted_sheet = false;
+                    }
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::HostedCancel(index, seat) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.cancel_hosted(&game, seat);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::HostedNothing => {}
             RoomPress::LifeOverride(seat) => {
                 if state.room_setup_seat != Some(seat) {
                     state.room_setup_seat = Some(seat);

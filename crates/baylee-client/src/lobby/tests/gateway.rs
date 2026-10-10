@@ -671,3 +671,58 @@ fn deleting_the_account_is_a_signed_delete_with_a_json_body() {
         ));
     }
 }
+
+/// A hosted model (`docs/protocol.md` §"Hosted language-model seats"):
+/// the list is a `GET`, an order a `POST` naming the profile, taking it
+/// back a `DELETE` on the same chair; the list decodes into its rows.
+#[test]
+fn a_hosted_model_is_listed_ordered_and_taken_back_on_its_routes() {
+    let (list, expect) = build("http://gw", Some("tok"), "en", LobbyRequest::HostedProfiles);
+    assert_eq!(list.method, ehttp::Method::GET);
+    assert_eq!(list.url, "http://gw/lobby/llm-profiles");
+    assert!(matches!(expect, Expect::HostedProfiles));
+    let (order, expect) = build(
+        "http://gw",
+        Some("tok"),
+        "en",
+        LobbyRequest::OrderHosted {
+            game_id: "g1".to_string(),
+            seat: 2,
+            profile: "sonnet".to_string(),
+        },
+    );
+    assert_eq!(order.method, ehttp::Method::POST);
+    assert_eq!(order.url, "http://gw/lobby/games/g1/chairs/2/hosted");
+    assert_eq!(body(&order), serde_json::json!({ "profile": "sonnet" }));
+    assert!(matches!(expect, Expect::Moved));
+    let (back, expect) = build(
+        "http://gw",
+        Some("tok"),
+        "en",
+        LobbyRequest::CancelHosted {
+            game_id: "g1".to_string(),
+            seat: 2,
+        },
+    );
+    assert_eq!(back.method, ehttp::Method::DELETE);
+    assert_eq!(back.url, "http://gw/lobby/games/g1/chairs/2/hosted");
+    assert!(matches!(expect, Expect::Moved));
+
+    let listed = decode(
+        Lang::En,
+        Expect::HostedProfiles,
+        &answer(
+            200,
+            r#"{"profiles": [{"id": "sonnet", "label": "Sonnet", "vendor": "Anthropic",
+                "kind": "api", "model": "claude-sonnet-5-5", "state": "exhausted",
+                "until_unix": 1791800000, "games": 1, "max_games": null, "available": false}]}"#,
+        ),
+    );
+    let LobbyEvent::HostedProfiles(rows) = listed else {
+        panic!("not the list: {listed:?}");
+    };
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].vendor, "Anthropic");
+    assert_eq!(rows[0].until_unix, Some(1_791_800_000));
+    assert!(!rows[0].available);
+}
