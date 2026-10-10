@@ -89,6 +89,9 @@ pub(super) struct ActivationPayment {
     phyrexian: Vec<bool>,
     abilities: Option<(baylee_core::ids::ObjectId, crate::object::AbilityList)>,
     pub(super) previous: Option<Box<PaymentWindow>>,
+    /// Where the window began, to give back what it made if the
+    /// activation is not completed (CR 732.1).
+    opened: Box<super::WindowStart>,
 }
 impl ActivationPayment {
     pub(super) fn fingerprint(&self) -> u64 {
@@ -121,6 +124,8 @@ impl ActivationPayment {
                     .wrapping_mul(31)
                     .wrapping_add(u64::from(window.player.get()) + 1)
             }))
+            .wrapping_mul(31)
+            .wrapping_add(self.opened.fingerprint())
     }
 }
 impl<L: CardLookup> Engine<L> {
@@ -173,6 +178,43 @@ impl<L: CardLookup> Engine<L> {
         )
     }
 
+    /// Whether `player` has a mana ability (or a granted way to make mana)
+    /// it could activate while paying for an ability of `source` (CR
+    /// 601.2g): the payment window's own offer, asked before announcing an
+    /// X it would pay. The source's own mana abilities are not counted: an
+    /// ability whose cost taps it cannot be paid by tapping it for mana, and
+    /// a land whose only other mana is already floating would otherwise be
+    /// asked for an X nothing can pay.
+    pub(super) fn can_make_more_mana(
+        &self,
+        player: PlayerId,
+        source: baylee_core::ids::ObjectId,
+    ) -> bool {
+        let legal = self.compute_legal(player);
+        self.makes_mana_besides(player, &legal, source)
+    }
+
+    /// [`Self::can_make_more_mana`] read off an offer already built.
+    pub(super) fn makes_mana_besides(
+        &self,
+        player: PlayerId,
+        legal: &LegalActions,
+        source: baylee_core::ids::ObjectId,
+    ) -> bool {
+        self.state.granted_colorless_capacity(player) > 0
+            || legal.mana_abilities.iter().any(|&id| id != source)
+            || legal.granted_actions.iter().any(|offer| {
+                matches!(
+                    offer.effect,
+                    crate::choice::GrantedActionKind::AddMana { .. }
+                )
+            })
+            || legal
+                .abilities
+                .iter()
+                .any(|&(id, index)| id != source && self.is_mana_offer(id, index))
+    }
+
     pub(super) fn open_activation_payment(
         &mut self,
         player: PlayerId,
@@ -185,7 +227,9 @@ impl<L: CardLookup> Engine<L> {
             .state
             .source_identity(source)
             .ok_or(EngineError::IllegalAction("activation source left"))?;
+        let opened = Box::new(self.window_start(player));
         let payment = ActivationPayment {
+            opened,
             source,
             ability_index,
             targets,
@@ -221,6 +265,9 @@ impl<L: CardLookup> Engine<L> {
         payment: ActivationPayment,
     ) {
         self.mana_window = payment.previous.map(|window| *window);
+        // An activation its window leaves short is reversed, and the mana
+        // abilities activated for it with it, as a cast's are (CR 732.1;
+        // CR 602.2b follows CR 601.2h for the payment).
         if self.state.source_identity(payment.source.object) != Some(payment.source)
             || !self.can_pay_mana(
                 player,
@@ -228,9 +275,11 @@ impl<L: CardLookup> Engine<L> {
                 &payment.cost,
             )
         {
+            self.give_back_window(player, &payment.opened);
             self.reverse_activation(player);
             return;
         }
+        let opened = payment.opened;
         self.activation_target_players = payment.players;
         self.activation_cost_choices = payment.choices;
         self.activation_second_targets = payment.second;
@@ -249,6 +298,7 @@ impl<L: CardLookup> Engine<L> {
             )
             .is_err()
         {
+            self.give_back_window(player, &opened);
             self.reverse_activation(player);
         }
     }

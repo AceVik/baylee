@@ -804,6 +804,23 @@ impl<L: CardLookup> Engine<L> {
         legal
             .unpaid_abilities
             .retain(|(source, index, _)| legal.abilities.contains(&(*source, *index)));
+        // Except an ability with {X} in its mana cost, while this seat can
+        // still make mana: its X is announced before the mana is made and
+        // the mana is made in its payment window (CR 602.2b, by 601.2b and
+        // 601.2g), so no amount made beforehand is the right one to plan.
+        // It is offered as a cast paid in its window is (`payable`), and an
+        // activation the window leaves short is reversed (CR 732.1).
+        let deferred: Vec<(ObjectId, u32)> = legal
+            .unpaid_abilities
+            .iter()
+            .filter(|(source, _, mana)| {
+                mana.has_variable() && self.makes_mana_besides(player, &legal, *source)
+            })
+            .map(|&(source, index, _)| (source, index))
+            .collect();
+        legal
+            .unpaid_abilities
+            .retain(|(source, index, _)| !deferred.contains(&(*source, *index)));
         legal.abilities.retain(|(source, index)| {
             !legal
                 .unpaid_abilities
@@ -1029,7 +1046,7 @@ impl<L: CardLookup> Engine<L> {
     /// Whether the offered activation `(source, index)` is a mana ability,
     /// asked of the object's own list or, for a granted slot, of the grants
     /// — the one reading both narrowings share.
-    fn is_mana_offer(&self, source: ObjectId, index: u32) -> bool {
+    pub(super) fn is_mana_offer(&self, source: ObjectId, index: u32) -> bool {
         let Some(obj) = self.state.object(source) else {
             return false;
         };
@@ -1919,28 +1936,42 @@ impl<L: CardLookup> Engine<L> {
         // `lints::no_cost_announces_two_different_xs` is what keeps it that
         // way.
         if cost.mana.has_variable() && self.activation_x.is_none() {
-            // Bounded by what the pool can actually pay, which is where an
-            // activation differs from a cast. The cast wizard bounds X by
-            // resources and validates at the end, because a cast that
-            // cannot pay unwinds back to the player; an activation has no
-            // wizard to unwind to — `pay_cost` below would return
-            // `IllegalAction` and the ability would already have been
-            // announced. So the question is the legality, which is where
-            // this engine puts every other one.
-            let upper =
-                casting::spendable_units(&self.state, player, casting::SpendFor::Ability(source))
-                    .saturating_add(self.state.granted_colorless_capacity(player));
-            let max = casting::greatest_affordable(upper, |x| {
-                self.can_plan_activation(
+            // Announced before the mana is made, as a spell's is: an
+            // activation follows CR 601.2b-i (CR 602.2b), so X comes first
+            // and the mana abilities are activated while paying (CR 601.2g),
+            // in the window `open_activation_payment` opens below when the
+            // pool does not already cover the cost. A player who can still
+            // make mana is therefore bounded only by the number type, the
+            // way the cast wizard bounds a cast that pays in its window
+            // (`x_resource_bound`): what the mana abilities could make is not
+            // knowable here (they may sacrifice, ask, or make a dynamic
+            // amount). An X the window cannot pay is reversed with the mana
+            // made for it (`finish_activation_payment`, CR 732.1). Bounding by
+            // the floating pool, as this did, made every {X} activation an
+            // X = 0 for a player whose mana was still in their lands. A
+            // player with no way to make more mana is asked within what the
+            // pool already pays.
+            let max = if self.can_make_more_mana(player, source) {
+                u32::MAX
+            } else {
+                let upper = casting::spendable_units(
+                    &self.state,
                     player,
-                    source,
-                    &Cost {
-                        mana: cost.mana.with_x(x),
-                        parts: cost.parts,
-                    },
-                    0,
+                    casting::SpendFor::Ability(source),
                 )
-            });
+                .saturating_add(self.state.granted_colorless_capacity(player));
+                casting::greatest_affordable(upper, |x| {
+                    self.can_plan_activation(
+                        player,
+                        source,
+                        &Cost {
+                            mana: cost.mana.with_x(x),
+                            parts: cost.parts,
+                        },
+                        0,
+                    )
+                })
+            };
             self.pending_plan = Some(PlanKind::ChooseActivationX {
                 source,
                 ability_index,
@@ -2152,7 +2183,25 @@ impl<L: CardLookup> Engine<L> {
                 return Ok(());
             }
         }
-        if !self.can_plan_activation(player, source, &cost, phyrexian_life)
+        // The mana is the payment window's question when this seat can still
+        // make some (CR 601.2g, by 602.2b): only the rest is asked here, and
+        // the window below is opened for the mana the pool does not cover.
+        let deferred = cost.mana.has_variable()
+            && !self.can_pay_mana(
+                player,
+                casting::SpendFor::Ability(source),
+                &cost.mana.with_x(self.activation_x.unwrap_or(0)),
+            )
+            && self.can_make_more_mana(player, source);
+        let planned = if deferred {
+            Cost {
+                mana: baylee_core::mana::ManaCost::ZERO,
+                parts: cost.parts,
+            }
+        } else {
+            cost
+        };
+        if !self.can_plan_activation(player, source, &planned, phyrexian_life)
             || !self.state.can_pay_life(player, phyrexian_life)
         {
             self.activation_cost_choices.clear();
