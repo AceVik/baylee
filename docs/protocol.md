@@ -88,6 +88,7 @@ secret back in under another spelling.
   "database": true,
   "catalog": { "state": "ready", "cards": true, "projection": true },
   "agents": { "connected": 1, "games": 2 },
+  "admission": "open",
   "games": { "running": 2, "local_running": 2, "waiting": 0, "seats_awaiting_engine": 0 },
   "version": "0.1.0+build.1057 (257eed7a28)",
   "commit": "257eed7a28df650934f50d4ff2557933d25ad713",
@@ -125,6 +126,10 @@ worse than one that says "down": a monitor blocked on a socket reports
 nothing, and nothing is indistinguishable from not-yet-scraped. The catalog
 half is two `EXISTS` rather than `count(*)` — 0.61 ms against 7.47 ms on an
 118 609-printing catalog, and only the count grows with the table.
+
+`admission` says whether a new game may start (§"Holding admission during a
+deploy"): `open`, `held`, or `unmanaged` when the gateway has no
+`BAYLEE_ADMISSION_HOLD`. A gateway from before the field omits it.
 
 `version`, `commit`, `build`, `built_at` and `dirty` are the same
 `baylee_build` constants `GET /source` and `GET /info` serve, written by one
@@ -1718,6 +1723,28 @@ this machine waits for (`scripts/server/baylee-deploy`): replacing this
 machine's agent and engine binary does not end a game an agent elsewhere is
 running. Replacing the gateway still ends every game, local or not, since
 every engine's link runs through it.
+
+### Holding admission during a deploy
+
+`BAYLEE_ADMISSION_HOLD` names a file (an absolute path; anything else refuses
+startup). While that file exists, whoever made it, the gateway orders no
+engine from any agent: `POST /lobby/games` for a one-tap game, a room's
+`/start` and the room a rematch starts all answer `503` with "the server is
+being updated: …", and nothing is left half-started. Games already running
+go on; rooms still open, fill and get ready. `/health` says `admission:
+"held"`. The file is looked at on every start (one `stat`), so it needs no
+signal, and it outlives the gateway's restart, which is the point: a deploy
+with deploy hooks (`docs/deploy-hooks.md`) places it before it drains every
+agent's games, and lifts it only after its last hook has passed, so the new
+gateway admits nothing before then either. A file that cannot be looked at
+(anything but "not found") counts as held. A game the gateway started just
+before the file appeared is already counted in `games.running` when the
+hold is visible: the lobby marks a game playing before it asks for an engine,
+and the check comes with the asking.
+
+Put the file somewhere root owns and the gateway's service user may read
+(`/var/lib/baylee-deploy/admission-hold`, say), not under a `RuntimeDirectory`
+the gateway's unit removes when it stops.
 
 ## Spectators (protocol 26)
 

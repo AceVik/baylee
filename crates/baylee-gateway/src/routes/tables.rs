@@ -301,7 +301,17 @@ pub(crate) fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, J
             game.started_at = None;
         }
         tracing::error!(game_id = id, reason, "could not start a game");
-        return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));
+        return Err(err(StatusCode::SERVICE_UNAVAILABLE, unavailable(reason)));
     }
     Ok(true)
+}
+
+/// What a player is told when no engine was ordered: the admission hold
+/// says so in its own words, everything else is "no engine available".
+pub(crate) fn unavailable(reason: &'static str) -> &'static str {
+    if reason == crate::admission::HELD {
+        reason
+    } else {
+        "no engine available"
+    }
 }

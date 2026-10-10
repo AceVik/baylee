@@ -299,6 +299,12 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<ser
         "seathosts".into(),
         serde_json::json!({ "connected": seathosts, "games": hosted_games }),
     );
+    // Whether a new game may start (`admission.rs`): what a deploy that
+    // drains every agent's games checks before it relies on the hold.
+    body.insert(
+        "admission".into(),
+        state.admission.admission().wire().into(),
+    );
     body.insert(
         "games".into(),
         serde_json::json!({

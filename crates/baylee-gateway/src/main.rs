@@ -8,6 +8,7 @@
 
 mod account;
 mod admin;
+mod admission;
 mod art;
 mod auth;
 mod chair;
@@ -228,6 +229,10 @@ struct AppState {
     /// Where a hosted seat's bridge dials (`BAYLEE_SEATHOST_BRIDGE_URL`,
     /// else this gateway's loopback port).
     seathost_bridge_url: String,
+    /// The file whose existence stops every new game
+    /// (`BAYLEE_ADMISSION_HOLD`, `admission.rs`), for a deploy draining
+    /// every agent's games.
+    admission: admission::Hold,
 }
 
 impl AppState {
@@ -293,6 +298,9 @@ async fn main() {
             .unwrap_or_else(|why| panic!("BAYLEE_WS_LEGACY_TOKENS: {why}"));
     let terms = terms::from_env(std::env::var_os("BAYLEE_TERMS_PATH").as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_TERMS_PATH: {why}"));
+    let admission =
+        admission::Hold::from_env(std::env::var("BAYLEE_ADMISSION_HOLD").ok().as_deref())
+            .unwrap_or_else(|why| panic!("BAYLEE_ADMISSION_HOLD: {why}"));
     let var = |name: &str| std::env::var(name).ok();
     let console = admin::Settings::from_env(
         var("BAYLEE_ADMIN_TOKEN").as_deref(),
@@ -383,6 +391,7 @@ async fn main() {
             .ok()
             .filter(|url| !url.trim().is_empty())
             .unwrap_or_else(|| format!("http://127.0.0.1:{port}")),
+        admission,
     });
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
