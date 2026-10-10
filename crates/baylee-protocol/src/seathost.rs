@@ -35,6 +35,27 @@ pub fn valid_label(text: &str) -> bool {
     (1..=40).contains(&count) && !text.trim().is_empty() && !text.chars().any(char::is_control)
 }
 
+/// The name a hosted chair sits under after `LLM-`: the label's letters,
+/// digits, `-` and `_` (a space as `-`), at most 12, a letter or digit at
+/// each end, so `LLM-…` is a display name the gateway takes; else the
+/// profile id's, else `model`.
+#[must_use]
+pub fn chair_name(label: &str, id: &str) -> String {
+    let fit = |text: &str| {
+        let kept: String = text
+            .chars()
+            .map(|c| if c == ' ' { '-' } else { c })
+            .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
+            .take(12)
+            .collect();
+        let kept = kept.trim_matches(|c: char| !c.is_ascii_alphanumeric());
+        (!kept.is_empty()).then(|| kept.to_string())
+    };
+    fit(label)
+        .or_else(|| fit(id))
+        .unwrap_or_else(|| "model".into())
+}
+
 /// One frame on the link.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -409,6 +430,9 @@ mod tests {
         assert!(valid_label("Claude Sonnet"));
         assert!(!valid_label("  "));
         assert!(!valid_label("a\nb"));
+        assert_eq!(chair_name("Claude Sonnet 5.5", "x"), "Claude-Sonne");
+        assert_eq!(chair_name("—", "opus_1"), "opus_1");
+        assert_eq!(chair_name("…", "."), "model");
     }
 
     #[test]
