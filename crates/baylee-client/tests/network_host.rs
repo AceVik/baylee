@@ -384,6 +384,7 @@ fn ticket(port: u16) -> SeatTicket {
         game_id: GAME.to_string(),
         seat: SEAT,
         seat_token: SEAT_TOKEN.to_string(),
+        watch: false,
     }
 }
 

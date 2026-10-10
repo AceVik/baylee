@@ -682,6 +682,8 @@ impl Offline {
             setup: room.setup.clone(),
             clock: None,
             running_secs: None,
+            spectators_allowed: false,
+            spectators: 0,
             seats: room
                 .chairs
                 .iter()
@@ -1034,6 +1036,7 @@ mod tests {
             password: String::new(),
             clock: None,
             ai: None,
+            spectators: true,
         });
         offline
     }
@@ -1411,6 +1414,7 @@ mod tests {
             password: String::new(),
             clock: None,
             ai: None,
+            spectators: true,
         });
         assert!(matches!(answer, LobbyEvent::Seated(_)), "got {answer:?}");
         let preset = offline.take_started().expect("the duel was built");
@@ -1456,6 +1460,7 @@ mod tests {
             password: String::new(),
             clock: None,
             ai: None,
+            spectators: true,
         });
         assert!(matches!(again, LobbyEvent::Seated(_)), "got {again:?}");
         assert!(offline.take_started().is_some(), "a second duel was built");

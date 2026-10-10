@@ -551,3 +551,36 @@ fn a_restarted_house_game_sits_down_offline() {
     assert!(lobby.offline());
     assert_eq!(*lobby.screen(), Screen::Seated(handover));
 }
+
+/// Watching a table (`docs/protocol.md` §"Spectators") seats the shell as a
+/// spectator: no chair, and the session as what buys the watch socket.
+#[test]
+fn watching_a_table_hands_the_shell_a_spectators_ticket() {
+    let mut lobby = seated_lobby();
+    assert!(lobby.watch_table("g9"));
+    let Screen::Seated(handover) = lobby.screen().clone() else {
+        panic!("seated to watch");
+    };
+    assert!(handover.watching());
+    assert_eq!(handover.game_id, "g9");
+    assert_eq!(handover.seat_token, "tok", "the session, not a seat token");
+    assert!(!lobby.watch_table("g9"), "not twice from the table");
+}
+
+/// A table is watchable while it is played, allows it, and holds no chair
+/// of this player's.
+#[test]
+fn only_a_running_table_that_allows_it_is_watchable() {
+    let mut game = GameSummary {
+        id: "g".to_string(),
+        state: "playing".to_string(),
+        spectators_allowed: true,
+        ..GameSummary::default()
+    };
+    assert!(game.watchable());
+    game.spectators_allowed = false;
+    assert!(!game.watchable());
+    game.spectators_allowed = true;
+    game.state = "waiting".to_string();
+    assert!(!game.watchable());
+}

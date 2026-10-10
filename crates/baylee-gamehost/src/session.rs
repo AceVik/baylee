@@ -23,6 +23,7 @@ mod clocks;
 mod frames;
 mod pump;
 mod resume;
+mod spectators;
 
 /// How many of its policies' answers a seat's view carries (#234): the
 /// latest, so a seat yielding to a long loop is not sent the loop. Their
@@ -236,6 +237,8 @@ pub struct Session {
     /// Per seat, how many declarations the record holds; past
     /// [`MAX_DECLARATIONS`] the rest are refused.
     declarations: Vec<u32>,
+    /// What the spectators have been told, together (`spectators.rs`).
+    gallery: spectators::Gallery,
 }
 
 /// The most declared minds one seat's record holds: a client that changes
@@ -307,6 +310,10 @@ impl Session {
             minds: vec![None; preset.seats.len()],
             unsaid: vec![false; preset.seats.len()],
             declarations: vec![0; preset.seats.len()],
+            gallery: spectators::Gallery {
+                revealed: vec![false; preset.prints.len()],
+                ..spectators::Gallery::default()
+            },
         })
     }
 
@@ -449,7 +456,11 @@ fn clock_answer(pending: Option<&Pending>, action: &PlayerAction) -> ClockAnswer
 /// client that drops a view as not newer still reads the lines beside it. No
 /// lines is one frame with an empty `log_json`.
 fn state_frames(seq: u64, view: &PlayerView, tail: LogTail) -> Vec<Envelope> {
-    let view_json = view_json(view);
+    frames_of(seq, view_json(view), tail)
+}
+
+/// [`state_frames`] for a view already written: a seat's or a spectator's.
+fn frames_of(seq: u64, view_json: Vec<u8>, tail: LogTail) -> Vec<Envelope> {
     let LogTail {
         mut from,
         mut entries,

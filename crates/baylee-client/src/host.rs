@@ -41,6 +41,8 @@ pub enum HostMessage {
     /// to every other seat, a release engine to none (`docs/protocol.md`
     /// §"An AI seat's reasoning").
     AiLog(baylee_protocol::v1::AiLog),
+    /// How many watch this table (`docs/protocol.md` §"Spectators").
+    Spectators(u32),
     /// Human preparation progress and departure relative to receipt, clock corrected.
     Preparing {
         /// Prepared human seats.
@@ -102,6 +104,12 @@ pub trait DuelHost: Send + Sync + 'static {
 
     /// The seat this client plays.
     fn seat(&self) -> PlayerId;
+
+    /// Whether this client only watches (`docs/protocol.md`
+    /// §"Spectators"): it holds no chair and answers nothing.
+    fn watching(&self) -> bool {
+        false
+    }
 
     /// This seat's own decklist, one entry per card, where the host knows it.
     ///
@@ -216,6 +224,7 @@ pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
         v1::envelope::Msg::Error(err) => HostMessage::Failed(err.message),
         v1::envelope::Msg::Curtain(_) => HostMessage::Curtain,
         v1::envelope::Msg::AiLog(ai_log) => HostMessage::AiLog(ai_log),
+        v1::envelope::Msg::Spectators(s) => HostMessage::Spectators(s.count),
         _ => return None,
     })
 }
@@ -228,7 +237,7 @@ pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
 /// are. Nothing is lost for good, either: the book counts the gap the next
 /// tail leaves, and the host tells the whole log again on the next snapshot
 /// or reconnect.
-fn log_tail(json: &[u8]) -> Option<LogTail> {
+pub(crate) fn log_tail(json: &[u8]) -> Option<LogTail> {
     if json.is_empty() {
         return None;
     }

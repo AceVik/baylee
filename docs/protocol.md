@@ -1719,6 +1719,41 @@ machine's agent and engine binary does not end a game an agent elsewhere is
 running. Replacing the gateway still ends every game, local or not, since
 every engine's link runs through it.
 
+## Spectators (protocol 26)
+
+A signed-in player may watch a running table whose host allowed it
+(`allow_spectators` on `POST /lobby/games`, default on; the listing says
+`spectators_allowed` and `spectators`, the count of open watch sockets).
+
+- **Door.** `POST /ws-ticket` with the session and
+  `{"socket":"watch","game":"<id>"}`: `403` at a table that allows no
+  spectators, `409` unless it is playing, `404` for no such game. The ticket
+  opens `/games/{id}/watch?ticket=…&protocol=…`
+  (`baylee_protocol::watch_socket_path`), which asks the same questions
+  again before it upgrades.
+- **One stream.** Every spectator of a game is shown the same thing, so the
+  engine sends one stream (`SpectatorFrame { envelope }`, engine → gateway)
+  and the gateway hands it to every watch socket without decoding it. The
+  gateway tells the engine its count (`SpectatorsChanged { count, joined }`);
+  `joined` asks for a whole snapshot (payload, view, every log line, and an
+  open curtain). A lagging watch socket asks the same.
+- **What it is.** The `StateDelta`'s `view_json` is a `SpectatorView`
+  (`baylee-view`), not a `PlayerView`: a type with no field for a hand, a
+  question, a looked-at card, a clock or a policy. Its objects are built by
+  `gamehost::view::spectator_view` for `SPECTATOR`, an id above
+  `SeatSet::MAX_SEAT` that no player has and no seat set holds, so a
+  face-down object is a blank. The log is told as to that id: every line
+  named to some seats only is `Hidden`. The payload's print table starts
+  empty and grows only with what the spectators were shown, so no decklist
+  leaks through it; `your_seat` is seat 0, the side the table is drawn from.
+  The tests are `crates/baylee-gamehost/src/view/tests/spectator.rs`.
+- **Nothing in.** A spectator answers nothing: the gateway drops whatever a
+  watch socket sends, the engine drops a frame in no chair's name, and
+  `Session::act` refuses a seat that is not one. A spectator is never
+  waited for by the curtain, never on a clock, and may leave at any time.
+- **Seats are told.** Each attached seat is sent `Spectators { count }`
+  (inside its `SeatFrame`) when the count moves and when it attaches.
+
 ## The curtain: prepare together, enter together (#256)
 
 Protocol **4** separates render readiness, a scheduled entrance and permission

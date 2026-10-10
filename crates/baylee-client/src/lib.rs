@@ -854,6 +854,14 @@ pub struct Duel {
     /// door stands in the tray only from then on. Never in a release build,
     /// which has no AI log (`docs/protocol.md` §"An AI seat's reasoning").
     pub ai_log_heard: bool,
+    /// Whether this client only watches the table (`docs/protocol.md`
+    /// §"Spectators"), as its host says.
+    pub watching: bool,
+    /// How many watch the table, as the engine last said.
+    pub spectators: u32,
+    /// A spectator asked to stop watching; `hud::spectators::leave_watching`
+    /// closes the table.
+    pub leave_asked: bool,
     /// What an AI seat's mind said and the AI log has not drawn yet:
     /// filled by `poll_host`, drained by `hud::update_ai_log`. A queue on
     /// the duel rather than a Bevy message, so every harness that runs
@@ -1713,8 +1721,17 @@ fn poll_host(
     if *phase.get() == DuelPhase::Closed {
         return;
     }
+    let watching = host.0.watching();
+    if duel.watching != watching {
+        duel.watching = watching;
+    }
     for message in host.0.poll() {
         match message {
+            HostMessage::Spectators(count) => {
+                if duel.spectators != count {
+                    duel.spectators = count;
+                }
+            }
             HostMessage::Static(statics) => {
                 if let Some(journey) = journey.as_mut() {
                     journey.changed_scene();

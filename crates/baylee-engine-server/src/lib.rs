@@ -97,6 +97,10 @@ pub struct EngineRunner {
     /// Which seats have a live socket. The clock only runs for a seat that
     /// can answer.
     attached: Vec<u8>,
+    /// How many spectator sockets the gateway says are open. Spectators
+    /// are no seat: not in `attached`, never waited for by the curtain,
+    /// never on a clock (`docs/protocol.md` §"Spectators").
+    spectators: u32,
     /// Whether `GameEnded` has already been reported.
     ended: bool,
     /// The next [`v1::GameRecordChunk::seq`] (#315).
@@ -353,6 +357,7 @@ impl EngineRunner {
                 Vec::new()
             }
             Some(v1::envelope::Msg::SeatFrame(frame)) => self.seat_frame(&frame),
+            Some(v1::envelope::Msg::SpectatorsChanged(changed)) => self.spectators_changed(changed),
             Some(v1::envelope::Msg::FlushRecord(flush)) => self.flush_record(flush.nonce),
             _ => Vec::new(),
         }
@@ -607,6 +612,9 @@ impl EngineRunner {
         // points into them, and a seat earns printings as it sees cards, so
         // this is not a payload that "cannot have changed".
         let mut out = vec![seat_frame(seat, &session.game_static_envelope(player))];
+        if self.spectators > 0 {
+            out.push(seat_frame(seat, &frames::spectators(self.spectators)));
+        }
         // Before the curtain the seat is given its table to draw and nothing
         // to answer: pumping here would let the house play its chairs while
         // the other seats are still loading (#256).
@@ -647,6 +655,33 @@ impl EngineRunner {
         out
     }
 
+    /// The gateway's count of spectator sockets moved. Every seat is told
+    /// the number; a spectator who has just arrived is sent the whole
+    /// public table, with the curtain up at once: a spectator is never
+    /// waited for. Moves nothing in the game, so no pump and no clock.
+    fn spectators_changed(&mut self, changed: v1::SpectatorsChanged) -> Vec<Envelope> {
+        self.spectators = changed.count;
+        let Some(session) = self.session.as_mut() else {
+            return Vec::new();
+        };
+        session.set_spectators(changed.count);
+        let mut out: Vec<Envelope> = self
+            .attached
+            .iter()
+            .map(|&seat| seat_frame(seat, &frames::spectators(changed.count)))
+            .collect();
+        if changed.joined {
+            out.extend(
+                session
+                    .spectator_snapshot()
+                    .iter()
+                    .map(frames::spectator_frame),
+            );
+            out.push(frames::spectator_frame(&curtain()));
+        }
+        out
+    }
+
     /// Tags routed envelopes for the seats that can actually receive them.
     ///
     /// A seat with no socket is dropped here rather than one hop later at the
@@ -658,8 +693,15 @@ impl EngineRunner {
     fn route(&self, routed: &[(PlayerId, Envelope)]) -> Vec<Envelope> {
         routed
             .iter()
-            .filter(|(p, _)| self.attached.contains(&p.get()))
-            .map(|(p, env)| seat_frame(p.get(), env))
+            .filter_map(|(p, env)| {
+                if *p == baylee_gamehost::view::SPECTATOR {
+                    (self.spectators > 0).then(|| frames::spectator_frame(env))
+                } else {
+                    self.attached
+                        .contains(&p.get())
+                        .then(|| seat_frame(p.get(), env))
+                }
+            })
             .collect()
     }
 
@@ -669,6 +711,15 @@ impl EngineRunner {
             return Vec::new();
         };
         let player = PlayerId::new(seat);
+        // A frame in no chair's name (a spectator is none) says nothing:
+        // a spectator answers nothing, and the rules are never asked.
+        if self
+            .session
+            .as_ref()
+            .is_some_and(|session| usize::from(seat) >= session.state().players.len())
+        {
+            return Vec::new();
+        }
         let Ok(inner) = <Envelope as prost::Message>::decode(&frame.envelope[..]) else {
             return Vec::new();
         };

@@ -88,6 +88,10 @@ pub(crate) enum PlayPress {
     Sort(TableSort),
     /// Join a listed table (its index in the listing).
     Join(usize),
+    /// Watch a listed table being played (its index in the listing).
+    Watch(usize),
+    /// The sheet: whether spectators may watch.
+    Spectators,
     /// Back to the player's own table, waiting or running.
     Return,
     /// A recent game again, one press (its place in the recent list).
@@ -1251,6 +1255,32 @@ fn table_row(
         orders::item(commands, back, &orders::PLAY, "tables", *walked);
         *walked += 1;
         commands.entity(top).add_child(back);
+    } else if game.watchable() {
+        let words = if game.spectators > 0 {
+            format!(
+                "{} \u{b7} {}",
+                Phrase::Watch.text(lang),
+                Phrase::SpectatorCount.fill(lang, &[&game.spectators.to_string()])
+            )
+        } else {
+            Phrase::Watch.text(lang).to_string()
+        };
+        let watch = controls::button(
+            commands,
+            kit,
+            &words,
+            Weight::Secondary,
+            if lobby.busy() {
+                Live::No(Phrase::VeilTalking.text(lang))
+            } else {
+                Live::Yes
+            },
+            None,
+            Press::Play(PlayPress::Watch(index)),
+        );
+        orders::item(commands, watch, &orders::PLAY, "tables", *walked);
+        *walked += 1;
+        commands.entity(top).add_child(watch);
     } else if game.joinable() {
         if game.locked && !held {
             let password = commands
@@ -1553,6 +1583,29 @@ fn create_sheet(
         ));
     }
     orders::items_of(commands, body[at], &orders::CREATE, "players");
+
+    let spectators = controls::button(
+        commands,
+        kit,
+        &format!(
+            "{} {}",
+            if draft.spectators {
+                '\u{2611}'
+            } else {
+                '\u{2610}'
+            },
+            Phrase::AllowSpectators.text(lang)
+        ),
+        if draft.spectators {
+            Weight::Gold
+        } else {
+            Weight::Secondary
+        },
+        Live::Yes,
+        None,
+        Press::Play(PlayPress::Spectators),
+    );
+    body.push(spectators);
 
     body.push(label(commands, Phrase::SheetTemplate.text(lang)));
     let cards = parts::row(commands, kit, true);
@@ -1866,6 +1919,17 @@ impl PlayPress {
                 if let Some(game) = game {
                     let request = state.lobby.join(&game);
                     dispatch(state, mailbox, request);
+                }
+            }
+            PlayPress::Watch(index) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    state.lobby.watch_table(&game);
+                }
+            }
+            PlayPress::Spectators => {
+                if let Some((draft, _)) = state.play.sheet.as_mut() {
+                    draft.spectators = !draft.spectators;
                 }
             }
             PlayPress::Return => {

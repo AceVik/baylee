@@ -83,6 +83,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 password: String::new(),
                 clock: None,
                 ai: None,
+                spectators: true,
             },
             "POST",
             "http://gw/lobby/games",
@@ -181,11 +182,12 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             password: String::new(),
             clock: None,
             ai: None,
+            spectators: true,
         },
     );
     assert_eq!(
         body(&game),
-        serde_json::json!({ "deck_id": "d1", "mode": "open", "seats": 2, "name": "", "password": "" })
+        serde_json::json!({ "allow_spectators": true, "deck_id": "d1", "mode": "open", "seats": 2, "name": "", "password": "" })
     );
     let (join, _) = build(
         "http://gw",

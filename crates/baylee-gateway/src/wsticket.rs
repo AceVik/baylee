@@ -83,6 +83,11 @@ pub enum Door {
         /// The game in the path.
         game_id: String,
     },
+    /// `/games/{game_id}/watch`: a spectator's socket.
+    Watch {
+        /// The game in the path.
+        game_id: String,
+    },
     /// `POST /lobby/games/{game_id}/chairs/{seat}/redeem`: a chair a host
     /// handed to a seat bridge (`chair.rs`). Not a socket, but the same kind
     /// of secret: single use, short-lived, bound.
@@ -115,6 +120,13 @@ pub enum Grant {
         /// handed out again (`POST /lobby/games/{id}/seat`) opens nothing.
         seat_token_hash: String,
     },
+    /// A spectator's view of one game, asked for with a session.
+    Watch {
+        /// The game.
+        game_id: String,
+        /// SHA-256 of the session token that asked.
+        session: Vec<u8>,
+    },
     /// One open chair of one waiting room, handed by its host to a seat
     /// bridge (`chair.rs`): whoever redeems it sits there as the host's
     /// delegate, with no account of its own.
@@ -134,7 +146,8 @@ impl Grant {
     fn opens(&self, door: &Door) -> bool {
         match (self, door) {
             (Self::Lobby { .. }, Door::Lobby) => true,
-            (Self::Seat { game_id, .. }, Door::Seat { game_id: asked }) => game_id == asked,
+            (Self::Seat { game_id, .. }, Door::Seat { game_id: asked })
+            | (Self::Watch { game_id, .. }, Door::Watch { game_id: asked }) => game_id == asked,
             (
                 Self::Chair { game_id, seat, .. },
                 Door::Chair {
@@ -155,6 +168,7 @@ impl Grant {
                 seat_token_hash, ..
             } => format!("seat:{seat_token_hash}"),
             Self::Chair { host, .. } => format!("chair:{host}"),
+            Self::Watch { session, .. } => format!("watch:{}", hex(session)),
         }
     }
 }

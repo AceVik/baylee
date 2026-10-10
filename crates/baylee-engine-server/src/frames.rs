@@ -13,6 +13,25 @@ pub fn seat_frame(seat: u8, envelope: &Envelope) -> Envelope {
     }
 }
 
+/// One frame for every spectator of the game (`docs/protocol.md`
+/// §"Spectators"): the gateway hands it to each watching socket.
+#[must_use]
+pub fn spectator_frame(envelope: &Envelope) -> Envelope {
+    Envelope {
+        msg: Some(v1::envelope::Msg::SpectatorFrame(v1::SpectatorFrame {
+            envelope: prost::Message::encode_to_vec(envelope),
+        })),
+    }
+}
+
+/// Tells a seat how many people watch its table.
+#[must_use]
+pub fn spectators(count: u32) -> Envelope {
+    Envelope {
+        msg: Some(v1::envelope::Msg::Spectators(v1::Spectators { count })),
+    }
+}
+
 /// The table is open (#256).
 #[must_use]
 pub fn curtain() -> Envelope {

@@ -401,11 +401,9 @@ pub(crate) fn spawn_finish(
             result,
             seat,
             team,
-            losses: duel
-                .view
-                .as_ref()
-                .map(|view| table_losses(lang, view, Some(statics), seat))
-                .unwrap_or_default(),
+            losses: (duel.view.as_ref())
+                .map_or_else(Vec::new, |v| table_losses(lang, v, Some(statics), seat)),
+            watched: spectators_verdict(lang, *result, statics, duel.watching),
         },
     );
 
@@ -450,6 +448,25 @@ struct Said<'a> {
     /// [`table_losses`]: the reader's own loss first, then each other
     /// seat's that is out.
     losses: Vec<String>,
+    /// The verdict as a spectator reads it, who neither won nor lost.
+    watched: Option<String>,
+}
+
+/// Who won, named, for a spectator (`docs/protocol.md` §"Spectators"):
+/// seat 0's verdict would tell them they had won or lost.
+/// `None` for a seat, whose verdict is its own.
+fn spectators_verdict(
+    lang: Lang,
+    result: baylee_engine::win::GameResult,
+    statics: &baylee_view::GameStatic,
+    watching: bool,
+) -> Option<String> {
+    use baylee_engine::win::Victor;
+    watching.then(|| match result.winner {
+        None => Phrase::TheGameIsADraw.text(lang).to_string(),
+        Some(Victor::Player(p)) => Phrase::LogWonOne.fill(lang, &[statics.seat_name(p)]),
+        Some(Victor::Team(n)) => Phrase::TheirTeamWon.fill(lang, &[&n.to_string()]),
+    })
 }
 
 /// The verdict, and the line under it when there is one.
@@ -460,10 +477,11 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
         seat,
         team,
         losses,
+        watched,
     } = said;
     let headline = commands
         .spawn((
-            Text::new(verdict(lang, result, seat, team)),
+            Text::new(watched.unwrap_or_else(|| verdict(lang, result, seat, team))),
             // The one place this client asks a face for a weight, and Faustina
             // is the one it can ask: Alegreya Sans ships as static cuts,
             // where `weight` reaches nothing at all.

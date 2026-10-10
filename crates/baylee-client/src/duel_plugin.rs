@@ -541,6 +541,8 @@ impl Plugin for DuelPlugin {
                     sound::tell_the_cues_the_time.before(poll_host),
                     handle_commands,
                     poll_host,
+                    hud::spectators::sync_spectator_line,
+                    hud::spectators::leave_watching,
                     keep_the_table_connected.run_if(duel_is_live),
                     run_mana_plan,
                     // After the run and before the HUD is built, which is

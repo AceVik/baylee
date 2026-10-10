@@ -466,6 +466,19 @@ async fn pump_engine(
                         // is a seat nobody is waiting at.
                         let _ = outbox.send(seat_frame.envelope);
                     }
+                    // The public table, to every spectator at once
+                    // (`docs/protocol.md` §"Spectators").
+                    Incoming::Msg(v1::envelope::Msg::SpectatorFrame(frame)) => {
+                        let outbox = state
+                            .lobby
+                            .lock()
+                            .games
+                            .get(game_id)
+                            .map(|g| g.spectator_outbox.clone());
+                        if let Some(outbox) = outbox {
+                            let _ = outbox.send(frame.envelope.into());
+                        }
+                    }
                     // Never forwarded: the record is omniscient (#315).
                     Incoming::Msg(v1::envelope::Msg::GameRecordChunk(piece)) => record.take(piece),
                     // A report's ask answered (#323): the piece it asked for

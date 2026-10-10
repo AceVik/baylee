@@ -37,6 +37,10 @@ pub(crate) struct CreateGameBody {
     /// (`AIProfile::NAMED`); `steady` when absent, refused when unknown.
     #[serde(default)]
     ai: Option<String>,
+    /// Whether players who hold no chair may watch (`docs/protocol.md`
+    /// §"Spectators"). On when absent.
+    #[serde(default)]
+    allow_spectators: Option<bool>,
 }
 
 pub(crate) async fn create_game(
@@ -87,6 +91,7 @@ pub(crate) async fn create_game(
             seats[1].deck_name = "Victory".to_string();
             let mut game = LobbyGame::playing(game_id.clone(), seats, preset, auth::now_secs());
             game.house_rules = house_rules;
+            game.allow_spectators = body.allow_spectators.unwrap_or(true);
             state.lobby.lock().games.insert(game_id.clone(), game);
         }
         if let Err(reason) = engine::start_engine(&state, &game_id) {
@@ -125,6 +130,7 @@ pub(crate) async fn create_game(
         }
         game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
         game.house_rules = house_rules;
+        game.allow_spectators = body.allow_spectators.unwrap_or(true);
         if !body.password.is_empty() {
             game.password_hash = Some(auth::token_hash(&body.password));
         }

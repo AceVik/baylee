@@ -67,7 +67,7 @@ pub(super) fn spawn_leave_button(
     // finished game that would have asked a gateway for another of a table
     // it has never heard of. It was floating over the board where nobody
     // looked; the end screen put it in the middle of the sheet.
-    let networked = matches!(state.lobby.screen(), Screen::Seated(handover) if !handover.local);
+    let networked = matches!(state.lobby.screen(), Screen::Seated(handover) if !handover.local && !handover.watching());
     let mut ways: Vec<(&str, Press)> = Vec::new();
     if networked {
         ways.push((

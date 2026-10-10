@@ -199,8 +199,10 @@ pub(super) fn build(
             password,
             clock,
             ai,
+            spectators,
         } => {
             let mut body = serde_json::json!({
+                "allow_spectators": spectators,
                 "deck_id": deck_id,
                 "mode": mode.wire(),
                 "seats": chairs,

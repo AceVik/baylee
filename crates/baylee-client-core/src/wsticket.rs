@@ -38,6 +38,12 @@ pub enum Socket<'a> {
         /// The game.
         game_id: &'a str,
     },
+    /// A spectator's socket (`/games/{game_id}/watch`), bought with the
+    /// session (`docs/protocol.md` §"Spectators").
+    Watch {
+        /// The game.
+        game_id: &'a str,
+    },
 }
 
 impl Socket<'_> {
@@ -47,6 +53,7 @@ impl Socket<'_> {
         match self {
             Self::Lobby => serde_json::json!({ "socket": "lobby" }),
             Self::Seat { game_id } => serde_json::json!({ "socket": "seat", "game": game_id }),
+            Self::Watch { game_id } => serde_json::json!({ "socket": "watch", "game": game_id }),
         }
         .to_string()
     }

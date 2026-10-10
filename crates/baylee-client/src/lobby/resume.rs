@@ -507,10 +507,12 @@ fn snapshot(
                 hash: point.hash,
             })
             .or_else(|| match lobby.screen() {
-                Screen::Seated(handover) if !handover.local => Some(Game::Hosted {
-                    game_id: handover.game_id.clone(),
-                    seat: handover.seat,
-                }),
+                Screen::Seated(handover) if !handover.local && !handover.watching() => {
+                    Some(Game::Hosted {
+                        game_id: handover.game_id.clone(),
+                        seat: handover.seat,
+                    })
+                }
                 _ => None,
             })
     });

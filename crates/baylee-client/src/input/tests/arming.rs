@@ -260,7 +260,7 @@ fn pump(host: &mut LocalHost, duel: &mut crate::Duel) {
             HostMessage::Choice(p) => duel.receive_choice(*p),
             HostMessage::Failed(e) => panic!("the host refused: {e}"),
             HostMessage::Curtain => duel.curtain_up = true,
-            HostMessage::Preparing { .. } | HostMessage::AiLog(_) => {}
+            HostMessage::Preparing { .. } | HostMessage::AiLog(_) | HostMessage::Spectators(_) => {}
         }
     }
     crate::advance_mana_run(duel);
