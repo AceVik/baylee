@@ -2138,7 +2138,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Camel
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // City of Brass
     &[FaceLines {
@@ -2174,7 +2181,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Desert Nomads
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Desert Twister
     &[FaceLines {
         sentences: 1,
@@ -2391,8 +2405,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Merchant Ship
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[None, Some(2)],
+        stackable: 2,
+        lines: &[None, Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -2490,7 +2504,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Sindbad
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Singing Tree
     &[FaceLines {
         sentences: 1,
