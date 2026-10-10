@@ -236,14 +236,15 @@ fn the_release_workflow_signs_before_it_publishes() {
     assert!(publish.contains(".sig"), "{publish}");
     // Only the release build may replace itself (the client's
     // `update::native::is_release_build`): the build step says so, and it
-    // builds the two binaries the package ships, with the whole workspace as
+    // builds the three binaries the package ships (client, launcher and the
+    // LLM seat bridge, since beta.7), with the whole workspace as
     // the selection so their dependencies' features are the workspace's.
     let build =
         std::fs::read_to_string(root().join(".github/workflows/client-packages.yml")).unwrap();
     assert!(
         build.contains("BAYLEE_RELEASE_BUILD: '1'")
             && build.contains(
-                "cargo build --locked --workspace --bin baylee-client --bin baylee-launch --profile dist"
+                "cargo build --locked --workspace --bin baylee-client --bin baylee-launch --bin baylee-seat --profile dist"
             ),
         "{build}"
     );
