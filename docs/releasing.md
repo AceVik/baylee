@@ -11,7 +11,9 @@ never rebuilds the client. The release has one
 archive per desktop target (Linux, Windows x86_64/aarch64 and macOS aarch64),
 each with a `.sha256` and a signature (`.sig`, §"Signing") beside it. Every
 archive holds a permanent launcher (`baylee-client` / `baylee-client.exe`),
-the real client (`baylee-runtime` / `baylee-runtime.exe`), `assets/` (the fonts load from there at run time,
+the real client (`baylee-runtime` / `baylee-runtime.exe`), the seat bridge
+(`baylee-seat` / `baylee-seat.exe`, which seats a language model in a room;
+without it, as in beta.6, the room's Language model is off), `assets/` (the fonts load from there at run time,
 together with their licences),
 `LICENSE`, `NOTICE` and a `README.txt`. `scripts/package-client.sh` builds the
 archive and also runs locally. Beside each archive stand its installers (a

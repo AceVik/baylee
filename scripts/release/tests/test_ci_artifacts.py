@@ -5,6 +5,8 @@ import importlib.util
 import json
 import os
 import re
+import subprocess
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -279,6 +281,61 @@ class Provenance(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ci.names(version, "aarch64-apple-darwin")
 
+
+
+ROOT = Path(__file__).parents[3]
+
+
+class SeatBridgeShips(unittest.TestCase):
+    """beta.6 shipped no `baylee-seat`, so no room offered a language model."""
+
+    VERSION = "0.0.0-test.1"
+    TARGET = "x86_64-unknown-linux-gnu"
+
+    def pack(self, bins):
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in bins:
+                (Path(tmp) / name).write_text(name)
+            return subprocess.run(
+                ["bash", str(ROOT / "scripts/package-client.sh"), tmp, self.TARGET, self.VERSION],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+
+    def test_the_archive_carries_the_seat_bridge_beside_the_client(self):
+        done = self.pack(["baylee-client", "baylee-launch", "baylee-seat"])
+        self.assertEqual(done.returncode, 0, done.stderr)
+        archive = ROOT / done.stdout.strip().splitlines()[-1]
+        try:
+            with tarfile.open(archive) as tar:
+                names = set(tar.getnames())
+        finally:
+            archive.unlink()
+            stage = ROOT / "target/package" / f"baylee-client-{self.VERSION}-{self.TARGET}"
+            subprocess.run(["rm", "-rf", str(stage)], check=True)
+        top = f"baylee-client-{self.VERSION}-{self.TARGET}"
+        for f in ("baylee-client", "baylee-runtime", "baylee-seat"):
+            self.assertIn(f"{top}/{f}", names)
+
+    def test_packing_without_the_seat_bridge_is_refused(self):
+        done = self.pack(["baylee-client", "baylee-launch"])
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("baylee-seat", done.stderr)
+
+    def test_ci_builds_it_and_every_installer_check_needs_it(self):
+        workflow = (ROOT / ".github/workflows/client-packages.yml").read_text()
+        self.assertRegex(workflow, r"cargo build [^\n]*--bin baylee-seat")
+        checks = (ROOT / "scripts/release/check-installers.sh").read_text()
+        for needed in (
+            'need "$mnt/Baylee.app/Contents/MacOS/baylee-seat"',
+            "baylee-seat.exe",
+            "./opt/baylee/baylee-seat$",
+            "need /opt/baylee/baylee-seat",
+        ):
+            self.assertIn(needed, checks.replace("\\.", "."))
+        script = (ROOT / "scripts/package-client.sh").read_text()
+        self.assertIn('codesign --force --sign - "$app/MacOS/$seat"', script)
 
 if __name__ == "__main__":
     unittest.main()
