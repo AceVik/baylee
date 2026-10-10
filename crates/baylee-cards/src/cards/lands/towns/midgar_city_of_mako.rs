@@ -5,9 +5,8 @@
 //! Set: FIN #286 — Final Fantasy | Scryfall ID: 8a837256-6bb4-4a60-962d-d2793548d26c | Oracle ID: 4e34a49d-f031-48ac-a458-97b79124b76c
 //! Face: Midgar, City of Mako —  — Land — Town
 //! Face: Reactor Raid — {2}{B} — Sorcery — Adventure
-// PARTIAL — the land half is built: it enters tapped (EnterModifier::Tapped)
-// and taps for {B}. Reactor Raid's reflexive "If you do" draw has no variant,
-// so that spell ability is off the card — see the NOT SUPPORTED note below.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -17,11 +16,7 @@ card!(
     oracle_id = "4e34a49d-f031-48ac-a458-97b79124b76c",
     scryfall_id = "8a837256-6bb4-4a60-962d-d2793548d26c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Partial(
-        "Reactor Raid's \"If you do, draw two cards\" has no variant — \
-         Effect::MayDo would draw them with nothing to sacrifice — so the \
-         spell ability is off the card; the land half is implemented",
-    ),
+    coverage = Coverage::Implemented,
     faces = &[
         face!(
             name = "Midgar, City of Mako",
@@ -34,16 +29,13 @@ card!(
             mana_cost = mana!("{2}{B}"),
             types = TypeSet::SORCERY,
             subtypes = &[subtypes::spell::ADVENTURE],
+            adventure = true,
+            abilities = &[spell!(&[Effect::PlayerMayPayCostThen {
+                player: PlayerRel::You,
+                cost: &CostPart::Sacrifice(&Filter::ARTIFACT_OR_CREATURE),
+                effect: &Effect::draw(2),
+            }])],
         ),
     ],
     abilities = &[mana_ability!(&[Effect::mana(ManaColor::Black, 1)])],
 );
-
-// NOT SUPPORTED: "You may sacrifice an artifact or creature. If you do, draw
-// two cards." — the draw is conditioned on whether the optional sacrifice
-// happened, and no variant says that. `Effect::PlayerMayPayCostOr` is the
-// other direction ("… unless you <pay>": its effect runs when the price is
-// *not* paid), and an `Effect::MayDo` over `Effect::SacrificeFilter { who:
-// PlayerRel::You, filter: &Filter::ARTIFACT_OR_CREATURE }` plus
-// `Effect::draw(2)` would hand out the two cards on a board with nothing to
-// sacrifice, where the printed card hands out none.

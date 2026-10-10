@@ -132,6 +132,15 @@ pub enum Amount {
         /// Where to count.
         zone: ZoneSel,
     },
+    /// Number of cards in the named player's library, read on resolution.
+    LibrarySize(super::PlayerRel),
+    /// Half a magnitude, with the printed rounding direction.
+    Half {
+        /// Magnitude to halve.
+        base: &'static Amount,
+        /// Round odd values up instead of down.
+        round_up: bool,
+    },
     /// Multiply a magnitude by a nonnegative integer, saturating on overflow.
     Times {
         /// Magnitude to multiply.

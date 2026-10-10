@@ -1662,9 +1662,16 @@ pub enum Effect {
         /// a counter doubler has its say (CR 614.16).
         counters: Option<(CounterKind, u16)>,
     },
-    /// Create a token that gets +P/+T for each filter-matching permanent
-    /// you control (Urza's Saga's Construct; registered as its own
-    /// continuous effect).
+    /// Create a token, then place counters on every token created this way.
+    CreateTokenThenCounters {
+        /// Definition of the token(s) to create.
+        token: &'static TokenDef,
+        /// Counters put on every token created this way.
+        kind: CounterKind,
+        /// Count read after creation, without targeting the new tokens.
+        amount: Amount,
+    },
+    /// Create a token with a static ability scaling its power and toughness.
     CreateTokenPtPerCount {
         /// The token.
         token: &'static TokenDef,
@@ -1875,21 +1882,17 @@ pub enum Effect {
         /// Unpaid consequence.
         effect: &'static Effect,
     },
-    /// "… unless you <pay something that is not mana>."
-    ///
-    /// The sibling of [`Effect::PlayerMayPayOr`] and deliberately not a
-    /// field on it: that one charges generic mana in an amount only
-    /// resolution knows (Esper Sentinel's tax is its own power), which a
-    /// `ManaCost` cannot hold, while this one charges a cost the player pays
-    /// by naming an object — a Karoo land's "return an untapped Plains you
-    /// control", a Command Bridge's "tap an artifact or land". Folding both
-    /// into one variant would mean a price with two halves, and no card in
-    /// this pool prints one.
-    ///
-    /// There is no separate yes-or-no question. The player is asked to name
-    /// what pays, and naming nothing is how they decline — so a cost nobody
-    /// can pay asks nothing at all, which is what a Karoo entering under a
-    /// controller with no untapped Plains should do.
+    /// Optional nonmana payment; run the effect only when it was paid.
+    /// Naming an object pays the cost; choosing none declines it.
+    PlayerMayPayCostThen {
+        /// Player who may pay.
+        player: PlayerRel,
+        /// One optional nonmana cost, chosen at resolution.
+        cost: &'static CostPart,
+        /// Effect performed only after successful payment.
+        effect: &'static Effect,
+    },
+    /// Optional nonmana payment with a fallback if declined.
     PlayerMayPayCostOr {
         /// Who decides.
         player: PlayerRel,

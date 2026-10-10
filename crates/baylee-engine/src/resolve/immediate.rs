@@ -272,6 +272,7 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokenCopyOfTarget { .. }
         | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokenN { .. }
+        | Effect::CreateTokenThenCounters { .. }
         | Effect::CreateTokenPtPerCount { .. }
         | Effect::CreateToken { .. }
         | Effect::CreateTokenFromLinked { .. } => tokens::exec(state, res, op),
@@ -1650,6 +1651,7 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
+        | Effect::PlayerMayPayCostThen { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::PayManaToPreventDamage { .. }
         | Effect::SacrificeChosenByOpponent { .. }

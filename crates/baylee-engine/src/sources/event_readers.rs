@@ -24,8 +24,9 @@ fn reads_amount(value: Amount) -> bool {
     match value {
         Amount::EventLastToughness => true,
         Amount::Difference { left, right } => reads_amount(*left) || reads_amount(*right),
-        Amount::Players(who) => reads_player(who),
-        Amount::Times { base, .. }
+        Amount::Players(who) | Amount::LibrarySize(who) => reads_player(who),
+        Amount::Half { base, .. }
+        | Amount::Times { base, .. }
         | Amount::Plus { base, .. }
         | Amount::Negated(base)
         | Amount::SaturatingSub { base, .. } => reads_amount(*base),
@@ -50,6 +51,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::ExileLibraryAndShuffleHand { player, .. }
         | Effect::ExileGraveyard { player, .. }
         | Effect::BottomCardFromHand { player, .. }
+        | Effect::PlayerMayPayCostThen { player, .. }
         | Effect::PlayerMayPayCostOr { player, .. }
         | Effect::PlayerMayPayManaOr { player, .. }
         | Effect::PlayerMayPayManaThen { player, .. }
@@ -66,6 +68,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::AddCounter { amount, .. }
         | Effect::AddCountersUpTo { amount, .. }
         | Effect::AddCounterFilter { amount, .. }
+        | Effect::CreateTokenThenCounters { amount, .. }
         | Effect::CreateTokenN { amount, .. } => reads_amount(*amount),
         Effect::GainLifeFor { amount, who, .. } | Effect::DrawCardsFor { amount, who, .. } => {
             reads_amount(*amount) || reads_player(*who)

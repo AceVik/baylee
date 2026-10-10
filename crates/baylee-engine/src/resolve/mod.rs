@@ -549,6 +549,13 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             amount2(base, state, you, res).saturating_sub(*subtract)
         }
         Amount::Negated(base) => amount2(base, state, you, res),
+        Amount::LibrarySize(who) => players_of(*who, state, you, res).first().map_or(0, |p| {
+            u32::try_from(state.zones.list(ZoneLocation::Library(*p)).len()).unwrap_or(u32::MAX)
+        }),
+        Amount::Half { base, round_up } => {
+            let n = amount2(base, state, you, res);
+            if *round_up { n.div_ceil(2) } else { n / 2 }
+        }
         Amount::Times { base, factor } => amount2(base, state, you, res).saturating_mul(*factor),
         Amount::Difference { left, right } => {
             amount2(left, state, you, res).saturating_sub(amount2(right, state, you, res))
@@ -1163,6 +1170,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
+        | Effect::PlayerMayPayCostThen { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::PayManaToPreventDamage { .. }
         | Effect::SacrificeChosenByOpponent { .. }

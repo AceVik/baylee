@@ -69,7 +69,8 @@
 /// Raised 33 → 34 for `SacrificeOneThen::then` (Serendib Djinn's "if you
 /// sacrifice an Island this way");
 /// `verb_tests::sacrifice_one_then_body_is_visited`.
-const NESTING_FIELDS: usize = 34;
+// PlayerMayPayCostThen adds the paid branch, covered by the walker test.
+const NESTING_FIELDS: usize = 35;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -108,7 +109,7 @@ const NESTING_FIELDS: usize = 34;
 /// branches. `WhenTargetDiesThisTurn` (Sandals of Abdallah's delayed
 /// "destroy this artifact") is the twenty-ninth (2026-10-10).
 /// `SacrificeOneThen` (Serendib Djinn) is the thirtieth (2026-10-10).
-const CARRYING_VARIANTS: usize = 30;
+const CARRYING_VARIANTS: usize = 31;
 
 /// The floor under the reader itself.
 ///

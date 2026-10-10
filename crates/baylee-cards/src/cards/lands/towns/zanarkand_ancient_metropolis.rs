@@ -5,8 +5,8 @@
 //! Set: FIN #293 — Final Fantasy | Scryfall ID: 881e4c00-3b9a-47a1-bf66-1badda994c88 | Oracle ID: 5f2b3ea8-99ee-47a4-8a1c-4b27478d524c
 //! Face: Zanarkand, Ancient Metropolis —  — Land — Town
 //! Face: Lasting Fayth — {4}{G}{G} — Sorcery — Adventure
-// PARTIAL — the land: it enters tapped and taps for {G}. The adventure half is
-// NOT SUPPORTED; the exact reason is on the back face below.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -23,24 +23,22 @@ card!(
             subtypes = &[subtypes::land::TOWN],
             enter_modifiers = &[EnterModifier::Tapped],
         ),
-        // NOT SUPPORTED: "Create a 1/1 colorless Hero creature token. Put a
-        // +1/+1 counter on it for each land you control." — two things stop it.
-        // A card whose front face is a land cannot be cast as its Adventure
-        // (`can_cast` refuses a land face first), nor played from exile
-        // afterwards. And no effect puts counters on a token the same
-        // resolution created (the Hero token exists): `Effect::AddCounter`
-        // counts onto the first target or onto the source, `AddCounterFilter`
-        // onto every object a filter matches, and `CreateTokenPtPerCount`
-        // grants +P/+T for a count rather than the counters this card prints.
         face!(
             name = "Lasting Fayth",
             mana_cost = mana!("{4}{G}{G}"),
             types = TypeSet::SORCERY,
             subtypes = &[subtypes::spell::ADVENTURE],
+            adventure = true,
+            abilities = &[spell!(&[Effect::CreateTokenThenCounters {
+                token: &crate::generated_tokens::HERO_1_1,
+                kind: CounterKind::P1P1,
+                amount: Amount::CountOf {
+                    filter: &f!(your LAND),
+                    zone: ZoneSel::Battlefield
+                },
+            }])],
         ),
     ],
-    coverage = Coverage::Partial(
-        "Lasting Fayth is unreachable and unwritten: a card whose front face is a land cannot be cast as its Adventure or played from exile afterwards, and no effect puts +1/+1 counters on the token the same resolution created",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)])],
 );

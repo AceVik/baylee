@@ -3,19 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Midgar, City of Mako is a land with an Adventure on its back, and the file
-/// is `Coverage::Partial`: the land half is written and Reactor Raid's
-/// reflexive "If you do, draw two cards" is not. So the two printed sentences
-/// the card *does* carry are what a board can hold it to — "This land enters
-/// tapped" and "{T}: Add {B}" — and both are only worth asserting together,
-/// because a land that entered untapped would also make its mana and read as
-/// fine.
-///
-/// The Adventure half is checked by its absence rather than left unsaid: the
-/// card is played as a land out of hand, and nothing about that offer is a
-/// spell. A second Town is deliberately *not* on the board — an enters-tapped
-/// clause that was really a conditional one would still be tapped here, and
-/// this land prints no condition to be wrong about.
 #[test]
 fn midgar_city_of_mako_enters_tapped_and_makes_the_one_colour_it_prints() {
     let p0 = PlayerId::new(0);
@@ -60,4 +47,60 @@ fn midgar_city_of_mako_enters_tapped_and_makes_the_one_colour_it_prints() {
         "and one mana in total: a Town is not a dual"
     );
     assert!(is_tapped(&engine, land), "its own tap symbol was the cost");
+}
+
+#[test]
+fn reactor_raid_draws_only_for_a_completed_optional_sacrifice() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for sacrifice in [None, Some(false), Some(true)] {
+        let board = if sacrifice.is_some() {
+            vec![index::ORNITHOPTER, forest()]
+        } else {
+            vec![forest()]
+        };
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &board)
+            .hand(0, &[midgar_city_of_mako()])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let before = library_size(&e, p0);
+        let card = begin_town_adventure(&mut e, p0, midgar_city_of_mako(), ManaColor::Black, 3);
+        if let Some(pay) = sacrifice {
+            pass_until(&mut e, |e| {
+                matches!(e.pending(), Pending::ChooseCards { .. })
+            });
+            let Pending::ChooseCards {
+                options, min, max, ..
+            } = e.pending().clone()
+            else {
+                panic!("sacrifice")
+            };
+            let artifact = on_battlefield(&e, p0, index::ORNITHOPTER).unwrap();
+            assert_eq!(options, vec![artifact]);
+            assert_eq!((min, max), (0, 1));
+            e.apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: if pay { vec![artifact] } else { vec![] },
+                },
+            )
+            .unwrap();
+            assert_eq!(
+                e.state().object(artifact).unwrap().zone,
+                if pay {
+                    Zone::Graveyard
+                } else {
+                    Zone::Battlefield
+                }
+            );
+        }
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(
+            library_size(&e, p0),
+            before - if sacrifice == Some(true) { 2 } else { 0 }
+        );
+        assert_adventure_exiled(&e, p0, card);
+    }
 }

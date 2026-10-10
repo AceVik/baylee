@@ -1,6 +1,24 @@
 use super::*;
 
 #[test]
+fn a_nonmana_paid_reward_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::PlayerMayPayCostThen {
+        player: PlayerRel::You,
+        cost: &crate::CostPart::SacrificeSelf,
+        effect: &Effect::DrawCards {
+            amount: Amount::Fixed(2),
+        },
+    }];
+    let mut seen = 0;
+    let mut reward_seen = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        reward_seen |= matches!(effect, Effect::DrawCards { .. });
+    });
+    assert_eq!(seen, 2);
+    assert!(reward_seen);
+}
+
+#[test]
 fn life_payment_fallback_is_visited() {
     static EFFECTS: &[Effect] = &[Effect::PlayerMayPayLifeOr {
         player: PlayerRel::ControllerOfTarget,

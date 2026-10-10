@@ -25,3 +25,42 @@ mod treno_dark_city;
 mod vector_imperial_capital;
 mod windurst_federation_center;
 mod zanarkand_ancient_metropolis;
+
+/// Supply mana for a spell test without adding lands to the board being counted.
+fn fund_adventure(e: &mut Engine<RegistryLookup>, player: PlayerId, color: ManaColor, n: u32) {
+    e.dev_state_mut(player).unwrap().players[player.get() as usize]
+        .mana_pool
+        .add(color, n);
+    e.refresh_offer();
+}
+
+fn begin_town_adventure(
+    e: &mut Engine<RegistryLookup>,
+    player: PlayerId,
+    index: CardIndex,
+    color: ManaColor,
+    n: u32,
+) -> ObjectId {
+    fund_adventure(e, player, color, n);
+    let card = in_hand(e, player, index).unwrap();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority")
+    };
+    assert!(
+        legal.castable.contains(&card),
+        "the Adventure face must be offered"
+    );
+    e.apply(player, PlayerAction::CastSpell { card }).unwrap();
+    card
+}
+
+fn assert_adventure_exiled(e: &Engine<RegistryLookup>, player: PlayerId, card: ObjectId) {
+    assert_eq!(e.state().object(card).unwrap().zone, Zone::Exile);
+    assert_eq!(e.state().object(card).unwrap().face_index, 0);
+    assert!(crate::casting::adventure_permission(
+        e.state(),
+        player,
+        card
+    ));
+    assert!(types(e, card).contains(TypeSet::LAND));
+}

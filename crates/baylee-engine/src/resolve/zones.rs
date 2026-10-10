@@ -387,22 +387,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::GraveyardToHand { target } => {
-            if let Some(&target_id) = moving_objects(state, res, target).first() {
-                let owner = state.object(target_id).map_or(you, |o| o.owner);
-                // CR 903.9b. A commander is in a graveyard to be returned
-                // only because its owner declined 903.9a, and this is a
-                // different question about a different destination.
-                if let Some(pending) =
-                    ask_commander_replace(state, res, &[(target_id, ZoneLocation::Hand(owner))])
-                {
-                    return Some(pending);
-                }
-                let _ = state.move_object(
-                    target_id,
-                    ZoneLocation::Hand(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
+            let moves: Vec<_> = moving_objects(state, res, target)
+                .into_iter()
+                .filter_map(|id| state.object(id).map(|o| (id, ZoneLocation::Hand(o.owner))))
+                .collect();
+            // Ask every commander's owner before moving any selected card.
+            // CR 903.9b is a separate choice from leaving a graveyard (903.9a).
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (id, destination) in moves {
+                let _ = state.move_object(id, destination, ZonePosition::Top, Cause::Effect);
             }
             None
         }
@@ -2056,7 +2051,7 @@ mod arrival_control_tests {
         let in_exile = [
             Rider::Linked { host, until: None },
             Rider::ExiledWith { host, version: 0 },
-            Rider::Adventure,
+            Rider::Adventure(me()),
             Rider::PlayableFromExileFor(me()),
             Rider::Suspend,
             Rider::Rebound,

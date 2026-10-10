@@ -367,7 +367,13 @@ pub(super) fn exec_choice(
             player,
             cost,
             effect,
+        }
+        | Effect::PlayerMayPayCostThen {
+            player,
+            cost,
+            effect,
         } => {
+            let on_payment = matches!(op, Effect::PlayerMayPayCostThen { .. });
             // `players_of` for `PlayerMayPayOr`'s reason: the payer is named
             // relative to the ability, and a Karoo names its own controller
             // where a ward names the caster.
@@ -380,9 +386,14 @@ pub(super) fn exec_choice(
                 // asking would be a prompt with one button on it. The
                 // fallback runs inline through the same door a declined
                 // payment takes.
-                return run_nested(state, res, std::slice::from_ref(effect));
+                return if on_payment {
+                    None
+                } else {
+                    run_nested(state, res, std::slice::from_ref(effect))
+                };
             }
             res.awaiting = Some(AwaitingOp::PlayerMayPayCost {
+                on_payment,
                 player,
                 cost,
                 effect,

@@ -1246,10 +1246,7 @@ impl<L: CardLookup> Engine<L> {
         // object's *current* face, which was still the instant, so Swift
         // Spiral was `{1}{W}` in `LegalActions` every turn and the wizard
         // priced and cast it. CR 715.3d is the rule it broke.
-        let on_adventure = self.state.object(card).is_some_and(|o| {
-            o.zone == crate::zone::Zone::Exile
-                && o.riders.contains(&crate::object::Rider::Adventure)
-        });
+        let on_adventure = casting::adventure_only_permission(&self.state, player, card);
         for (i, _) in casting::castable_back_faces(def, on_adventure) {
             if (defer_mana
                 || casting::affordable(&self.state, player, pool, &back_price(i).with_x(0)))

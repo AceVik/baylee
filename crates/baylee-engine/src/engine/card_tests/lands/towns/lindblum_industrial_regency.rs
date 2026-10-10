@@ -3,10 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Lindblum, Industrial Regency prints `This land enters tapped` and `{T}: Add {R}` on its land face,
-/// alongside the Adventure instant Mage Siege.
-/// The card is marked `Coverage::Partial` because the Adventure token and damage effects are unsupported.
-/// Playing Lindblum enters tapped, untaps on the subsequent turn cycle, and taps for one red mana.
 #[test]
 fn lindblum_industrial_regency_enters_tapped_and_taps_for_red() {
     let p0 = PlayerId::new(0);
@@ -36,4 +32,92 @@ fn lindblum_industrial_regency_enters_tapped_and_taps_for_red() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Red), 1);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn mage_siege_is_an_instant_and_its_wizard_triggers_on_later_noncreature_spells() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .hand(
+            0,
+            &[
+                lindblum_industrial_regency(),
+                lightning_bolt(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_their_main_phase(&mut e, p1);
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    let before = e.state().players[1].life;
+    let card = begin_town_adventure(&mut e, p0, lindblum_industrial_regency(), ManaColor::Red, 3);
+    pass_until(&mut e, stack_is_empty);
+    assert_adventure_exiled(&e, p0, card);
+    let wizard = tokens_of(&e, p0)[0];
+    assert_eq!(pt(&e, wizard), (0, 1));
+    assert_eq!(
+        e.state().players[1].life,
+        before,
+        "the token was not there for its own creation spell"
+    );
+    reach_their_main_phase(&mut e, p0);
+    fund_adventure(&mut e, p0, ManaColor::Green, 1);
+    cast_from_hand(&mut e, p0, llanowar_elves());
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state().players[1].life,
+        before,
+        "creature spells do not trigger it"
+    );
+    fund_adventure(&mut e, p0, ManaColor::Red, 1);
+    cast_from_hand(&mut e, p0, lightning_bolt());
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![p1],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().players[1].life, before - 4);
+}
+
+#[test]
+fn a_stolen_adventure_grants_its_controller_the_land_play_in_its_owners_exile() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .hand(0, &[lindblum_industrial_regency()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let card = begin_town_adventure(&mut e, p0, lindblum_industrial_regency(), ManaColor::Red, 3);
+    // Isolate the resolution rule from the unrelated cost of stealing a spell.
+    e.dev_state_mut(p0)
+        .unwrap()
+        .object_mut(card)
+        .unwrap()
+        .set_controller(p1);
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        e.state()
+            .zones
+            .list(ZoneLocation::Exile(p0))
+            .contains(&card)
+    );
+    assert_adventure_exiled(&e, p1, card);
+    assert!(!crate::casting::adventure_permission(e.state(), p0, card));
+    assert!(!crate::casting::land_card_open(e.state(), p0, card));
+    reach_their_main_phase(&mut e, p1);
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority")
+    };
+    assert!(legal.lands.contains(&card));
+    e.apply(p1, PlayerAction::PlayLand { card }).unwrap();
+    assert_eq!(e.state().object(card).unwrap().controller, p1);
+    assert_eq!(e.state().object(card).unwrap().owner, p0);
 }

@@ -300,6 +300,29 @@ pub static TREASURE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 black Wizard created by Mage Siege, with its noncreature-spell trigger.
+pub static WIZARD_0_1_BLACK: TokenDef = TokenDef {
+    name: "Wizard",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WIZARD],
+    power: Some(0),
+    toughness: Some(1),
+    abilities: &[triggered!(
+        Trigger::SpellCast(&Filter::And(&[
+            Filter::ControlledByYou,
+            Filter::NONCREATURE,
+        ])),
+        &[Effect::DealDamage {
+            amount: baylee_cards_dsl::Amount::Fixed(1),
+            target: baylee_cards_dsl::TargetSpec::Player(baylee_cards_dsl::PlayerRel::EachOpponent),
+        }]
+    )],
+    // TFIN #14; verified against the Scryfall API. Art is fetched by the client.
+    scryfall_id: "187fe54c-7d0c-4225-9d46-3affbead897d",
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is; the index IS the stable token id (art key).
 ///
 /// Append only — an insertion in the middle renumbers every token after it,

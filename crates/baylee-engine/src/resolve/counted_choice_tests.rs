@@ -123,6 +123,15 @@ fn computed_arithmetic_saturates_and_keeps_resolution_context() {
         sample = sample.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
         for x in [0, 1, sample, u32::MAX] {
             res.x = Some(x);
+            for round_up in [false, true] {
+                let half = Amount::Half {
+                    base: &Amount::X,
+                    round_up,
+                };
+                let expected = u32::try_from(u64::from(x).midpoint(u64::from(round_up))).unwrap();
+                assert_eq!(amount2(&half, &state, me(), &res), expected);
+                assert_eq!(eval::amount(&half, &state, me(), source, Some(x)), expected);
+            }
             let scaled = Amount::Times {
                 base: &Amount::X,
                 factor: 3,

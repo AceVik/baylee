@@ -829,6 +829,7 @@ pub(super) fn resume_inner(
             unreachable!("tax choices resume via resume_tax_choice")
         }
         AwaitingOp::PlayerMayPayCost {
+            on_payment,
             player,
             cost,
             effect,
@@ -846,7 +847,7 @@ pub(super) fn resume_inner(
             let paid = chosen
                 .first()
                 .is_some_and(|&chosen| cost_wizard::pay(state, player, cost, chosen).is_ok());
-            if !paid {
+            if paid == on_payment {
                 return run_fallback(state, res, std::slice::from_ref(effect));
             }
         }

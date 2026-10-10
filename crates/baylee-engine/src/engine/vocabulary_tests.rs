@@ -162,7 +162,10 @@ fn every_price_paid_by_naming_an_object_puts_a_menu_up() {
         let faces = def.faces.iter().map(|f| f.abilities);
         for list in core::iter::once(def.abilities).chain(faces) {
             let dump = format!("{list:?}");
-            for (at, _) in dump.match_indices("PlayerMayPayCostOr { ") {
+            for (at, _) in dump
+                .match_indices("PlayerMayPayCostOr { ")
+                .chain(dump.match_indices("PlayerMayPayCostThen { "))
+            {
                 found += 1;
                 let rest = &dump[at..];
                 let price = rest

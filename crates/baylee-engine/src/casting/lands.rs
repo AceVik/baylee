@@ -280,12 +280,20 @@ pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bo
     {
         return true;
     }
-    state.object(card).is_some_and(|obj| {
-        obj.zone_owner == Some(player)
-            && land_zone_open(state, player, obj.zone)
-            && (obj.zone != Zone::Library
-                || state.zones.list(ZoneLocation::Library(player)).last() == Some(&card))
-    })
+    adventure_permission(state, player, card)
+        || state.object(card).is_some_and(|obj| {
+            if obj.zone == Zone::Exile
+                && obj
+                    .riders
+                    .contains(&crate::object::Rider::PlayableFromExileFor(player))
+            {
+                return true;
+            }
+            obj.zone_owner == Some(player)
+                && land_zone_open(state, player, obj.zone)
+                && (obj.zone != Zone::Library
+                    || state.zones.list(ZoneLocation::Library(player)).last() == Some(&card))
+        })
 }
 
 /// Plays a land (special action, no stack).

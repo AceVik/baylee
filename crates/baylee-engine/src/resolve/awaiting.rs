@@ -263,6 +263,8 @@ pub enum AwaitingOp {
     /// A player decides whether to pay a non-mana cost by naming what pays
     /// it ([`Effect::PlayerMayPayCostOr`]). Naming nothing is declining.
     PlayerMayPayCost {
+        /// Run the effect on successful payment instead of refusal.
+        on_payment: bool,
         /// The player deciding.
         player: PlayerId,
         /// The one part they may pay.

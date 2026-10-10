@@ -314,19 +314,35 @@ impl<L: CardLookup> Engine<L> {
                 _ => {}
             }
         }
-        // Adventure + Opposition Agent: cards castable from exile.
-        for &card in self.state.zones.list(ZoneLocation::Exile(player)) {
-            let exiled_castable = self.state.object(card).is_some_and(|o| {
-                o.riders.contains(&crate::object::Rider::Adventure)
-                    || o.riders
-                        .iter()
-                        .any(|r| matches!(r, crate::object::Rider::PlayableFromExileFor(p) if *p == player))
-            });
-            if exiled_castable
-                && casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
-                && self.has_a_legal_target(player, card)
+        // Permission can belong to someone other than the owner, so inspect
+        // each exile zone once, in seat order, without copying any cards.
+        for &card in self.state.players.iter().enumerate().flat_map(|(seat, _)| {
+            self.state
+                .zones
+                .list(ZoneLocation::Exile(PlayerId::new(seat as u8)))
+        }) {
+            let permitted = casting::adventure_permission(&self.state, player, card)
+                || self.state.object(card).is_some_and(|o| {
+                    o.riders
+                        .contains(&crate::object::Rider::PlayableFromExileFor(player))
+                });
+            if !permitted {
+                continue;
+            }
+            if sorcery_timing
+                && casting::has_a_land_drop_left(&self.state, player)
+                && casting::land_card_open(&self.state, player, card)
+                && self
+                    .state
+                    .object(card)
+                    .is_some_and(|o| o.characteristics().types.contains(TypeSet::LAND))
             {
-                legal.castable.push(card);
+                legal.lands.push(card);
+            }
+            match casting::can_cast(&self.state, &self.lookup, player, card) {
+                Ok(()) if self.has_a_legal_target(player, card) => legal.castable.push(card),
+                Err(casting::CastError::NotEnoughMana) => legal.payable.push(card),
+                _ => {}
             }
         }
         // "You may play that card this turn" (Dauthi Voidwalker, Expressive

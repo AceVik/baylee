@@ -473,6 +473,15 @@ pub fn amount_with_context(
         Amount::ConstantMinus { constant, subtract } => {
             constant.saturating_sub(self::amount_with_context(subtract, state, you, context, x))
         }
+        Amount::LibrarySize(who) => players(*who, state, you)
+            .and_then(|p| p.first().copied())
+            .map_or(0, |p| {
+                u32::try_from(state.zones.list(ZoneLocation::Library(p)).len()).unwrap_or(u32::MAX)
+            }),
+        Amount::Half { base, round_up } => {
+            let n = self::amount_with_context(base, state, you, context, x);
+            if *round_up { n.div_ceil(2) } else { n / 2 }
+        }
         Amount::Times { base, factor } => {
             self::amount_with_context(base, state, you, context, x).saturating_mul(*factor)
         }

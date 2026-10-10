@@ -399,10 +399,10 @@ fn the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into() {
         )
         .expect("a permanent bounces to its owner's hand");
     assert!(
-        engine
-            .state()
-            .object(twins)
-            .is_some_and(|o| !o.riders.contains(&crate::object::Rider::Adventure)),
+        engine.state().object(twins).is_some_and(|o| !o
+            .riders
+            .iter()
+            .any(|r| matches!(r, crate::object::Rider::Adventure(_)))),
         "the card left the exile it was on its adventure in, and the rider with it"
     );
     next_own_main(&mut engine, p0);

@@ -86,10 +86,10 @@ fn murderous_rider_swift_end_goes_on_an_adventure_and_the_rider_follows_from_exi
         })
         .expect("the card went on its adventure (CR 715.3d)");
     assert!(
-        engine
-            .state()
-            .object(exiled)
-            .is_some_and(|o| o.riders.contains(&crate::object::Rider::Adventure)),
+        engine.state().object(exiled).is_some_and(|o| o
+            .riders
+            .iter()
+            .any(|r| matches!(r, crate::object::Rider::Adventure(_)))),
         "wearing the rider that says it may be cast from there"
     );
 

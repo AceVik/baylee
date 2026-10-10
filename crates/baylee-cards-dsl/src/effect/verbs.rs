@@ -581,6 +581,7 @@ impl Effect {
                 effect,
             }
             | Effect::PlayerMayPayLifeOr { effect, .. }
+            | Effect::PlayerMayPayCostThen { player: _, cost: _, effect }
             | Effect::PlayerMayPayCostOr {
                 player: _,
                 cost: _,
@@ -724,7 +725,8 @@ impl Effect {
             | Effect::GraveyardToTop { .. }
             | Effect::GraveyardToHand { .. }
             | Effect::GraveyardToBattlefield { .. }
-            | Effect::CreateTokenPtPerCount { .. }
+            | Effect::CreateTokenThenCounters { .. }
+        | Effect::CreateTokenPtPerCount { .. }
             | Effect::CreateToken { .. }
             | Effect::CreateTokenN { .. }
             | Effect::CreateTokenForTargetController { .. }

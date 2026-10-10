@@ -330,10 +330,10 @@ fn the_borrower_flashes_out_of_its_own_adventure_and_then_blocks_a_ground_creatu
         })
         .expect("the card itself went on its adventure (CR 715)");
     assert!(
-        engine
-            .state()
-            .object(exiled)
-            .is_some_and(|o| o.riders.contains(&crate::object::Rider::Adventure)),
+        engine.state().object(exiled).is_some_and(|o| o
+            .riders
+            .iter()
+            .any(|r| matches!(r, crate::object::Rider::Adventure(_)))),
         "wearing the rider that says it may be cast from there"
     );
 

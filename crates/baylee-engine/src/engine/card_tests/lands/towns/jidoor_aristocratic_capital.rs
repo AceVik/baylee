@@ -3,16 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Jidoor is a Town — a land on the front of a card whose back is an
-/// Adventure — and the half worth playing is that the land drop is the land.
-/// "Overture" is a {4}{U}{U} sorcery on the other face, so a card offering
-/// its back out of hand would be a six-mana spell anybody could play for
-/// free as a land, which is exactly the fault twenty-one cards in this pool
-/// had this morning.
-///
-/// The file is `Coverage::Partial` for Overture's own text — "mills half
-/// their library, rounded down" has no `Amount` that halves — and the
-/// Adventure is therefore checked by its absence rather than cast.
 #[test]
 fn jidoor_is_played_as_the_town_and_taps_for_blue() {
     let p0 = PlayerId::new(0);
@@ -50,4 +40,35 @@ fn jidoor_is_played_as_the_town_and_taps_for_blue() {
         1,
         "one blue and nothing else"
     );
+}
+
+#[test]
+fn overture_mills_half_the_target_library_rounded_down() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for mill_first in [0, 1] {
+        let mut e = Duel::new(SEED, forest())
+            .hand(0, &[jidoor_aristocratic_capital()])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        seed_graveyard(&mut e, p1, mill_first);
+        let before = library_size(&e, p1);
+        let own = library_size(&e, p0);
+        let card = begin_town_adventure(
+            &mut e,
+            p0,
+            jidoor_aristocratic_capital(),
+            ManaColor::Blue,
+            6,
+        );
+        let Pending::ChoosePlayer { options, .. } = e.pending() else {
+            panic!("opponent target")
+        };
+        assert_eq!(options.as_slice(), &[p1]);
+        e.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(library_size(&e, p1), before - before / 2);
+        assert_eq!(library_size(&e, p0), own);
+        assert_adventure_exiled(&e, p0, card);
+    }
 }

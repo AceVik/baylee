@@ -803,8 +803,8 @@ pub enum Rider {
     },
     /// Rebound: cast from hand, may be cast again at the next upkeep.
     Rebound,
-    /// On an adventure (may cast the permanent later).
-    Adventure,
+    /// On an adventure; this player may play its non-Adventure face from exile.
+    Adventure(PlayerId),
     /// Foretold (castable for its foretell cost).
     Foretold,
     /// Plotted (castable without paying as a sorcery).
@@ -914,7 +914,7 @@ impl Rider {
         match self {
             Self::Linked { .. }
             | Self::ExiledWith { .. }
-            | Self::Adventure
+            | Self::Adventure(_)
             | Self::PlayableFromExileFor(_)
             | Self::Suspend
             | Self::Rebound

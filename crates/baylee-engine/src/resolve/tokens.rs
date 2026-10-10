@@ -177,6 +177,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             create_tokens_with_text(state, you, token, None, count, res.text);
             None
         }
+        Effect::CreateTokenThenCounters {
+            token,
+            kind,
+            amount,
+        } => {
+            let created = create_tokens_with_text(state, you, token, None, 1, res.text);
+            let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
+            for id in created {
+                crate::replacement::put_counters(state, id, kind, n);
+            }
+            None
+        }
         Effect::CreateTokenPtPerCount {
             token,
             filter,

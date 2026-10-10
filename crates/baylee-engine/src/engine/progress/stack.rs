@@ -981,7 +981,8 @@ impl<L: CardLookup> Engine<L> {
             self.state.switch_face(spell, def, 0);
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Card;
-                obj.riders.push(crate::object::Rider::Adventure);
+                obj.riders
+                    .push(crate::object::Rider::Adventure(obj.controller));
             }
             let _ = self.state.move_object(
                 spell,

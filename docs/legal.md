@@ -860,3 +860,10 @@ The [Scryfall API terms](https://scryfall.com/docs/api) were also re-read:
 “You may not simply repackage, republish, or proxy Scryfall data.”
 The existing attribution, authenticated catalog and original card-image path
 remain in place. Rendering fewer offscreen cards does not change their images.
+
+The completion of Mage Siege adds the central 0/1 black Wizard token definition
+and its verified [TFIN #14 identifier](https://scryfall.com/card/tfin/14/wizard).
+Only the identifier and independently implemented rules enter the repository.
+The existing client image-fetch path and attribution apply; the image-integrity
+rule quoted above from the [Scryfall API terms](https://scryfall.com/docs/api)
+continues to apply to this token too. No image or corpus file is distributed.

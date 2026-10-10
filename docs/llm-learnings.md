@@ -3210,3 +3210,27 @@ land type"; both are convention tests that fire on a first try.
 - Test harness `refresh_offer` rebuilds choices, not conditional static effects.
   Advance a real priority action after changing a fixture's graveyard before
   asserting a conditional projected P/T or keyword.
+
+## 2026-10-11 — partial-card completion: land Adventures
+
+- A land front does not prevent casting its Adventure. Reject the normal land
+  cast while still checking timing, targets and payment of castable back faces.
+- Adventure permission belongs to the controller of the resolving spell, not
+  necessarily its owner. Record that player, inspect every owner's exile zone
+  for permissions, and retain the normal turn and land-drop limits. The rider
+  expires on leaving exile; another independent permission can allow casting
+  the Adventure again.
+- Optional nonmana payment has two distinct outcomes: an unpaid fallback and
+  a paid reward. Share the choice and payment path, and test inability to pay,
+  declining an available payment, and actually paying it.
+- Creating tokens and then placing counters is not entering with counters.
+  Apply token multiplication first, then counter replacement independently to
+  each created token. Do not modify the token's copiable printed 1/1 body.
+- Half-library amounts use integer arithmetic and keep the chosen player's
+  resolution context; differential checks cover odd, even and maximal values.
+- Multi-target graveyard returns must move every legal target. Gather all owner
+  destinations before asking commander replacement questions; selecting only
+  the first target silently weakens cards such as Faith & Grief.
+- Validation: 5,374 engine tests, card/codegen suites, DSL nested-effect walker,
+  and all 3,321 cached card records. Keep new nested effects in the walker and
+  its source-count guard, not merely in the resolver.

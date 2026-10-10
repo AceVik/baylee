@@ -249,31 +249,32 @@ pub fn reduction_amount(
     }
 }
 
-/// The non-front faces that are a way of *casting* the card, in face order.
-///
-/// Two readers ask this — [`can_cast`], deciding whether the card belongs in
-/// `LegalActions`, and the wizard's `cast_options`, listing the ways of
-/// paying once it has been pressed — and every divergence between them is one
-/// of two defects: a card offered and then refused with "no way to cast this
-/// spell", or a card never offered that the player would have paid for.
-///
-/// A land back is *played* rather than cast (CR 305.1) and a disturb back is
-/// cast from the graveyard on its own branch (CR 702.146a), so what is left is
-/// an MDFC's back (CR 712.11b) and an adventure (CR 715). Whether the card may
-/// be cast from where it lies at all is settled before this is asked, so the
-/// only zone question left is the one CR 715.3d asks: a card exiled *on its
-/// adventure* may be cast as the creature and not as the adventure again —
-/// "It can't be cast as an Adventure this way", the rule adds, "although
-/// other effects that allow a player to cast it may allow a player to cast it
-/// as an Adventure". So the gate is the `Adventure` rider the resolution put
-/// on the card *and* the exile it put it in, which is not the same as asking
-/// the zone: an Opposition Agent exile and a commander in the command zone
-/// are effects of exactly that other kind, and a plain "is it in the hand"
-/// test would refuse both the back face the rule grants them. The exile half
-/// is there because nothing takes the rider off again — `move_object` clears
-/// a copy's characteristics (CR 400.7) and leaves the rider list alone — so
-/// a Twining Twins that was cast off its adventure and then bounced would
-/// arrive in the hand still wearing it.
+/// An exiled Adventure grants only its resolved spell's controller permission
+/// to play the normal face. The rider expires when the card leaves exile.
+#[must_use]
+pub fn adventure_permission(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
+    state.object(card).is_some_and(|o| {
+        o.zone == Zone::Exile && o.riders.contains(&crate::object::Rider::Adventure(player))
+    })
+}
+
+/// An independent permission can cast the Adventure again (CR 715.3d).
+#[must_use]
+pub(crate) fn adventure_only_permission(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+) -> bool {
+    adventure_permission(state, player, card)
+        && play_permission(state, player, card).is_none()
+        && state.object(card).is_none_or(|o| {
+            !o.riders
+                .contains(&crate::object::Rider::PlayableFromExileFor(player))
+        })
+}
+
+/// A castable back face: modal or Adventure, excluding land plays, disturb,
+/// and an Adventure cast using only its own resolved Adventure permission.
 pub fn castable_back_faces(
     def: &baylee_cards_dsl::CardDef,
     on_adventure: bool,
@@ -856,9 +857,8 @@ pub(crate) fn can_cast_form_paying(
             .and_then(|c| lookup.card(c.index))
             .is_some_and(|def| def.faces.iter().any(|f| f.disturb));
     // Adventure (CR 715): a card on an adventure may be cast from exile.
-    let on_adventure =
-        obj.zone == Zone::Exile && obj.riders.contains(&crate::object::Rider::Adventure);
-    let adventure_ok = !in_hand && on_adventure;
+    let on_adventure = adventure_only_permission(state, player, card);
+    let adventure_ok = !in_hand && adventure_permission(state, player, card);
     // Opposition Agent: cards exiled by the takeover are playable by the
     // agent from exile.
     let takeover_ok = !in_hand
@@ -904,9 +904,6 @@ pub(crate) fn can_cast_form_paying(
     let projected = form.map(|f| f.project(obj));
     let obj = projected.as_ref().unwrap_or(obj);
     let c = obj.characteristics();
-    if c.types.contains(TypeSet::LAND) {
-        return Err(CastError::BadTiming);
-    }
     // A cast an effect forbids outright (CR 601.3a), asked before timing
     // because the two answers are different and only one of them is true:
     // Silence does not move a spell to sorcery speed, it removes the
@@ -923,7 +920,8 @@ pub(crate) fn can_cast_form_paying(
     // or not at all. A prototype or a disguise is the front, cast another
     // way.
     let printed = obj.card.and_then(|c| lookup.card(c.index));
-    let front_now = timing_allows(state, player, c.types, c.keywords)
+    let front_now = !c.types.contains(TypeSet::LAND)
+        && timing_allows(state, player, c.types, c.keywords)
         && printed.is_none_or(|def| spell_condition_allows(state, player, card, def, 0));
     let a_back_face_now = printed.is_some_and(|def| {
         castable_back_faces(def, on_adventure)

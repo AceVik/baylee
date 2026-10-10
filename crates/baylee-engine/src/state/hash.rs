@@ -1307,7 +1307,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             }
             Rider::AttachmentHostLeft => h.u8(24),
             Rider::Rebound => h.u8(2),
-            Rider::Adventure => h.u8(3),
+            Rider::Adventure(player) => {
+                h.u8(3);
+                h.u8(player.get());
+            }
             Rider::Foretold => h.u8(4),
             Rider::Plotted => h.u8(5),
             Rider::Suspend => h.u8(6),
