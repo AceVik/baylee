@@ -533,12 +533,12 @@ impl Effect {
             | Effect::AtNextEndStep { effects }
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::AtEndOfCombat { about: _, effects } => (effects, NONE),
-            Effect::SacrificeOneThen {
+            Effect::IfCreaturesDiedAtLeast { n: _, then }
+            | Effect::SacrificeOneThen {
                 filter: _,
                 if_it_was: _,
                 then,
-            } => (then, NONE),
-            Effect::IfCreaturesDiedAtLeast { n: _, then }
+            }
             | Effect::ChooseYoursThen { filter: _, then }
             | Effect::IfTargetMatches { filter: _, then }
             | Effect::IfEventObjectMatches { filter: _, then }

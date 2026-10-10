@@ -136,6 +136,7 @@ mod overeager_apprentice;
 mod pearled_unicorn;
 mod pegasus_charger;
 mod phyrexian_broodlings;
+mod phyrexian_gremlins;
 mod phyrexian_rager;
 mod pincher_beetles;
 mod plague_rats;
