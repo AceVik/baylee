@@ -124,7 +124,7 @@ use baylee_client_core::browser::Placement;
 use baylee_client_core::i18n::{Phrase, Refusal};
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::layout::{Seat, TableLayout};
-use baylee_client_core::reconnect::{Retry, Window};
+use baylee_client_core::reconnect::{LinkNote, Retry, Window};
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::{GameStatic, PlayerView};
@@ -781,6 +781,9 @@ pub struct Duel {
     /// 08.10.2026). [`Self::clock`] is the awaited seat's and rings; this
     /// one only counts.
     pub seat_clocks: baylee_client_core::decisionclock::SeatClocks,
+    /// Every other player whose connection is lost, counted between views:
+    /// what the banner over the table draws (`PlayerView::lost`).
+    pub lost_seats: baylee_client_core::lostbanner::LostSeats,
     /// Strikes waiting for their visual presentation, read at snapshot edges.
     pub strikes: Vec<baylee_client_core::strike::Strike>,
     /// This game's log, as far as the host has told it (#262).
@@ -898,7 +901,7 @@ pub struct Duel {
     /// Deliberately not `last_error`: that clears in [`Duel::submit`], a call
     /// a disconnected player cannot make, so the notice would have outlived
     /// the disconnection it described.
-    pub link_note: Option<Phrase>,
+    pub link_note: Option<LinkNote>,
 }
 
 impl Duel {
@@ -1098,6 +1101,7 @@ impl Duel {
         self.clock
             .sync(view.decision_remaining_ms.filter(|_| mine), mine);
         self.seat_clocks.sync(&view.clocks);
+        self.lost_seats.sync(&view.lost);
         self.known_cards.extend(view.cards());
         // My turn beginning brings the camera home (DESIGN-v7 §2.4): an edge
         // read against the view before this one, never a state per frame.
@@ -2433,6 +2437,13 @@ fn keep_the_table_connected(
     // client once, at join, and nothing clears it — which is what makes the
     // window readable at all, since this runs only while the socket is gone.
     let table = Window::of(duel.statics.as_ref());
+    // Whether the engine waits for this seat (another player is here) or
+    // pauses the game: read off the last roster and view, like the window.
+    let here = baylee_client_core::reconnect::others_here(
+        duel.statics.as_ref(),
+        duel.view.as_ref(),
+        host.0.seat(),
+    );
     match host.0.link() {
         // `Local` is a host with no socket to lose, and the schedule must
         // never start on one: an in-process engine would otherwise be
@@ -2456,13 +2467,13 @@ fn keep_the_table_connected(
         // from the same place in both arms — see `link_note`.
         LinkState::Connecting => {
             retry.schedule.stayed_down(time.delta_secs());
-            duel.link_note = Some(link_note(&retry.schedule, table));
+            duel.link_note = Some(link_note(&retry.schedule, table, here));
         }
         // The table said this client speaks another protocol (#271). Only an
         // update on one side changes that, so there is no schedule: the
         // player is told which side is behind, once, and nothing redials.
         LinkState::Refused { table } => {
-            duel.link_note = Some(refusal_note(table));
+            duel.link_note = Some(LinkNote::just(refusal_note(table)));
             if !retry.told {
                 retry.told = true;
                 reports.write(DuelReport::Unreachable);
@@ -2471,13 +2482,13 @@ fn keep_the_table_connected(
         LinkState::Down => {
             retry.schedule.stayed_down(time.delta_secs());
             if retry.schedule.exhausted() {
-                duel.link_note = Some(Phrase::LinkGaveUp);
+                duel.link_note = Some(LinkNote::just(Phrase::LinkGaveUp));
                 if !retry.told {
                     retry.told = true;
                     reports.write(DuelReport::Unreachable);
                 }
             } else {
-                duel.link_note = Some(link_note(&retry.schedule, table));
+                duel.link_note = Some(link_note(&retry.schedule, table, here));
                 if retry.schedule.tick(time.delta_secs()) {
                     // A dial that could not even be started is not a reason
                     // to stop: the schedule has counted the attempt, and the
@@ -2519,12 +2530,13 @@ fn refusal_note(table: u32) -> Phrase {
 /// promises the house will answer for the seat, and at a table that hands no
 /// chair over — or one this client has not been told about — that is not
 /// early, it is a fabrication.
-fn link_note(schedule: &Retry, table: Window) -> Phrase {
-    if schedule.brief(table) {
-        Phrase::LinkLost
-    } else {
-        Phrase::LinkStandIn
-    }
+///
+/// `here` is whether another player was at the table: without one the
+/// engine pauses the game rather than handing the chair over, and the bar
+/// says so (`Phrase::LinkPaused`). The rule is
+/// [`baylee_client_core::reconnect::link_note`]'s.
+fn link_note(schedule: &Retry, table: Window, here: Option<bool>) -> LinkNote {
+    baylee_client_core::reconnect::link_note(schedule, table, here)
 }
 
 /// Sends everything the player has queued.

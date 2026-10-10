@@ -184,6 +184,7 @@ impl Session {
         view.targeting = crate::view::targeting_context(&self.engine, seat);
         view.casting = self.engine.cancellable_cast(seat);
         view.clocks = self.running_clocks();
+        view.lost = self.lost_seats();
         self.show_hands(&mut view, seat);
         let mut out = Vec::new();
         let tail = self.log_tail(seat);
@@ -270,6 +271,7 @@ impl Session {
     /// none; whoever drives it tells it the time before each call that can
     /// write a line.
     pub fn tell_time(&mut self, unix_ms: u64) {
+        self.now_ms = unix_ms;
         self.log.tell_time(unix_ms);
         if let Some(record) = self.record.as_mut() {
             record.tell_time(unix_ms);

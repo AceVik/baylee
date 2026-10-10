@@ -154,6 +154,7 @@ impl Session {
         view.targeting = crate::view::targeting_context(&self.engine, seat);
         view.casting = self.engine.cancellable_cast(seat);
         view.clocks = self.running_clocks();
+        view.lost = self.lost_seats();
         self.show_hands(&mut view, seat);
         let mut out = state_frames(self.seq, &view, log);
         let over = Some(self.engine.pending()).filter(|p| matches!(p, Pending::GameOver(_)));

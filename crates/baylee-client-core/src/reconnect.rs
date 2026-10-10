@@ -32,8 +32,91 @@
 //! and the wording turns no later than the chair changes hands at whatever
 //! table this is.
 
-use baylee_view::GameStatic;
+use crate::i18n::{Lang, Phrase};
+use baylee_core::ids::PlayerId;
+use baylee_view::{GameStatic, PlayerView};
 use std::num::NonZeroU32;
+
+/// What the connection bar says: a sentence, and the table's wait where
+/// the sentence names it ([`Phrase::LinkStandIn`]'s `{0}`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LinkNote {
+    /// The sentence.
+    pub phrase: Phrase,
+    /// The table's reconnect window in seconds, for a sentence that names it.
+    pub wait_secs: Option<u32>,
+}
+
+impl LinkNote {
+    /// A sentence that names no number.
+    #[must_use]
+    pub const fn just(phrase: Phrase) -> Self {
+        Self {
+            phrase,
+            wait_secs: None,
+        }
+    }
+
+    /// The sentence in `lang`.
+    #[must_use]
+    pub fn text(self, lang: Lang) -> String {
+        match self.wait_secs {
+            Some(secs) => self.phrase.fill(lang, &[&crate::decisionclock::mmss(secs)]),
+            None => self.phrase.text(lang).to_owned(),
+        }
+    }
+}
+
+/// Whether another player was at the table when this seat last heard from
+/// it: a chair other than `me` that a person answers (not the house AI, not
+/// held by the house) and whose connection was not lost too
+/// ([`PlayerView::lost`]). What the engine decides by between waiting for a
+/// lost seat and pausing the game (`docs/protocol.md` §"Leaving, and losing
+/// the connection"). `None` while no roster has arrived.
+#[must_use]
+pub fn others_here(
+    statics: Option<&GameStatic>,
+    view: Option<&PlayerView>,
+    me: PlayerId,
+) -> Option<bool> {
+    let statics = statics?;
+    Some(statics.seats.iter().any(|seat| {
+        seat.player != me
+            && !seat.is_ai
+            && !seat.away
+            && !view.is_some_and(|v| v.lost.iter().any(|l| l.seat == seat.player))
+            && !view.is_some_and(|v| {
+                v.seats
+                    .iter()
+                    .any(|s| s.player == seat.player && s.loss.is_some())
+            })
+    }))
+}
+
+/// Which sentence the bar carries while this seat's own link is down.
+///
+/// `LinkLost` while the drop is short (or nothing about the table is
+/// known); then, with another player at the table, `LinkStandIn` naming the
+/// table's wait (`table` is [`Window::Secs`] there, [`Retry::brief`]); with
+/// nobody else, `LinkPaused`: the engine moves nothing until this seat is
+/// back, whatever the window says.
+#[must_use]
+pub fn link_note(schedule: &Retry, table: Window, others_here: Option<bool>) -> LinkNote {
+    if others_here == Some(false) && table != Window::Unknown {
+        return if schedule.brief(Window::Secs(NonZeroU32::MAX)) {
+            LinkNote::just(Phrase::LinkLost)
+        } else {
+            LinkNote::just(Phrase::LinkPaused)
+        };
+    }
+    match table {
+        Window::Secs(secs) if !schedule.brief(table) => LinkNote {
+            phrase: Phrase::LinkStandIn,
+            wait_secs: Some(secs.get()),
+        },
+        _ => LinkNote::just(Phrase::LinkLost),
+    }
+}
 
 /// How long the table holds a seat whose player is gone, as far as this
 /// client knows.
@@ -265,6 +348,73 @@ impl Retry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn roster(others: &[(u8, bool, bool)]) -> GameStatic {
+        let mut statics = crate::test_support::statics(0);
+        for &(player, is_ai, away) in others {
+            statics.seats.push(baylee_view::SeatIdentity {
+                player: PlayerId::new(player),
+                display_name: format!("P{player}"),
+                is_ai,
+                away,
+                team: None,
+            });
+        }
+        statics
+    }
+
+    fn down(secs: f32) -> Retry {
+        let mut retry = Retry::new();
+        retry.stayed_down(secs);
+        retry
+    }
+
+    /// The bar says which of the two rules holds (owner, 10.10.2026): with
+    /// another player at the table the house plays after the table's wait,
+    /// named; alone with the house the game is paused. A short drop says
+    /// neither.
+    #[test]
+    fn the_bar_names_the_wait_or_the_pause() {
+        let three = Window::secs(180);
+        let me = PlayerId::new(0);
+        let human = roster(&[(1, false, false)]);
+        let ai = roster(&[(1, true, false)]);
+        let held = roster(&[(1, false, true)]);
+        let here = others_here(Some(&human), None, me);
+        assert_eq!(here, Some(true));
+        assert_eq!(others_here(Some(&ai), None, me), Some(false));
+        assert_eq!(others_here(Some(&held), None, me), Some(false));
+        assert_eq!(others_here(None, None, me), None);
+
+        assert_eq!(link_note(&down(1.0), three, here).phrase, Phrase::LinkLost);
+        let note = link_note(&down(20.0), three, here);
+        assert_eq!(note.phrase, Phrase::LinkStandIn);
+        assert_eq!(
+            note.text(Lang::En),
+            "Still reconnecting — the table waits 3:00 for you, then the house plays your seat until you are back."
+        );
+        assert_eq!(
+            note.text(Lang::De),
+            "Verbinde weiter — der Tisch wartet 3:00 auf dich, dann übernimmt das Haus deinen Platz, bis du zurück bist."
+        );
+        let alone = others_here(Some(&ai), None, me);
+        assert_eq!(link_note(&down(1.0), three, alone).phrase, Phrase::LinkLost);
+        let paused = link_note(&down(20.0), three, alone);
+        assert_eq!(paused, LinkNote::just(Phrase::LinkPaused));
+        assert_eq!(
+            paused.text(Lang::De),
+            "Verbinde weiter — das Spiel ist pausiert, bis du zurück bist."
+        );
+        // A table that waits forever pauses too, when nobody else is here.
+        assert_eq!(
+            link_note(&down(20.0), Window::Forever, alone).phrase,
+            Phrase::LinkPaused
+        );
+        assert_eq!(
+            link_note(&down(20.0), Window::Forever, here).phrase,
+            Phrase::LinkLost
+        );
+    }
 
     /// The first dial is prompt and every one after it waits longer, up to
     /// the cap. A schedule that started at the cap would make a hiccup look

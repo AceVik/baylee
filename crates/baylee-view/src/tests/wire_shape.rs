@@ -313,7 +313,7 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // a reader of 55 without it ignores it, so 55 still names the shape.
     // `PlayerView::clocks` (and its `SeatClock`) likewise: additive,
     // defaulted, skipped while empty.
-    const RECORDED: (u32, u64) = (56, 8_669_149_901_474_617_809);
+    const RECORDED: (u32, u64) = (56, 14_725_103_676_352_183_217);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

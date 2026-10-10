@@ -163,6 +163,10 @@ pub(super) fn add_present_systems(app: &mut App) {
                     // `place_seat_bars` has just placed, from the same rig.
                     hud::sync_plate_clocks,
                     hud::tick_plate_clocks,
+                    // The banner over the table while another player's
+                    // connection is lost: built once, written once a second.
+                    hud::spawn_lost_banner,
+                    hud::tick_lost_banner,
                     hud::chosen_type::sync.after(table::glide),
                     hud::suspended::sync,
                     hud::describe_phase,

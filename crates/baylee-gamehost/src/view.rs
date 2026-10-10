@@ -471,8 +471,6 @@ pub fn player_view(
     ctx: &SeatContext,
     house_answered: &[Option<HouseAnswer>],
 ) -> PlayerView {
-    let hand = own_hand(state, seat);
-
     PlayerView {
         decision_player: ctx.decision_player,
         controlled_hands: ctx
@@ -493,6 +491,7 @@ pub fn player_view(
         deciding: ctx.deciding,
         decision_remaining_ms: ctx.decision_remaining_ms,
         clocks: Vec::new(),
+        lost: Vec::new(),
         priority_held: ctx.held,
         policy_acts: ctx
             .policy_acts
@@ -530,7 +529,7 @@ pub fn player_view(
                     .collect(),
             })
             .collect(),
-        hand,
+        hand: own_hand(state, seat),
         // Empty here, in every view, and filled on the way to a socket
         // (`Session::show_hands`): a view an agent answers from never
         // passes that way, so no agent is ever handed a teammate's hand.

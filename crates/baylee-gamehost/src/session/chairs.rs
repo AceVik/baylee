@@ -195,6 +195,7 @@ impl Session {
         // — a stand-in that did not know who its allies were would play the
         // seat's own team as an enemy.
         *kind = SeatKind::StandIn(HeuristicAgent::new(AIProfile::default()).with_teams(teams));
+        self.lost.retain(|(s, _)| *s != seat);
         self.roster_changed();
         self.log.note(LogEvent::StandIn { player: seat });
         self.chair_changed(seat, ChairChange::StoodIn);
@@ -216,13 +217,50 @@ impl Session {
             player: seat,
             wait_secs,
         });
+        let until = wait_secs.map(|secs| self.now_ms.saturating_add(u64::from(secs) * 1_000));
+        self.lost.retain(|(s, _)| *s != seat);
+        self.lost.push((seat, until));
+        self.lost.sort_by_key(|(s, _)| s.get());
         true
+    }
+
+    /// When the table stops waiting for `seat`'s lost connection and the
+    /// house sits down (Unix ms, from the loss: `now + wait_secs` as
+    /// [`Session::connection_lost`] was told), or `None` when the seat is
+    /// not lost or the game is paused for it.
+    #[must_use]
+    pub fn reconnect_deadline_ms(&self, seat: PlayerId) -> Option<u64> {
+        self.lost
+            .iter()
+            .find(|(s, _)| *s == seat)
+            .and_then(|(_, until)| *until)
+    }
+
+    /// Every lost player whose chair is still theirs, in seat order, with
+    /// what is left of the table's wait relative to the time last told:
+    /// what every socket's view carries as [`baylee_view::PlayerView::lost`].
+    #[must_use]
+    pub fn lost_seats(&self) -> Vec<baylee_view::LostSeat> {
+        self.lost
+            .iter()
+            .filter(|(seat, _)| {
+                matches!(self.seat_kind(*seat), Some(SeatKind::Human))
+                    && !self.engine.state().has_left(*seat)
+            })
+            .map(|&(seat, until)| baylee_view::LostSeat {
+                seat,
+                remaining_ms: until.map(|until| {
+                    u32::try_from(until.saturating_sub(self.now_ms)).unwrap_or(u32::MAX)
+                }),
+            })
+            .collect()
     }
 
     /// A player whose connection was lost is back before the house took
     /// their chair: the log says so. (A chair the house was holding says it
     /// through [`Session::hand_back`].)
     pub fn connection_back(&mut self, seat: PlayerId) {
+        self.lost.retain(|(s, _)| *s != seat);
         self.log.note(LogEvent::Returned { player: seat });
     }
 
@@ -266,6 +304,7 @@ impl Session {
             return false;
         }
         *kind = SeatKind::Human;
+        self.lost.retain(|(s, _)| *s != seat);
         self.roster_changed();
         self.log.note(LogEvent::Returned { player: seat });
         self.chair_changed(seat, ChairChange::HandedBack);

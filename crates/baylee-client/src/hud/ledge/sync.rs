@@ -177,7 +177,7 @@ pub fn sync_ledge(
         .and_then(|a| super::overlay::armed_label(&duel, lang, a));
     let sentence = revision
         .link_note
-        .map(|note| (note.text(lang).to_string(), true))
+        .map(|note| (note.text(lang), true))
         .or_else(|| {
             revision
                 .error

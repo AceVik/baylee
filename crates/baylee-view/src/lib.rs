@@ -57,7 +57,7 @@ pub use objects::{
     BoardMana, CardIdentity, DamageSourceView, GrantSource, GrantedMana, HandObject, NamedFace,
     ObjectSummaryKey, PublicObject, RulesFace, StackItem, StackText, TokenAbility,
 };
-pub use player_view::{PlayerView, SeatClock, TargetingContext, WordChange};
+pub use player_view::{LostSeat, PlayerView, SeatClock, TargetingContext, WordChange};
 pub use seats::{CommanderDamage, CommanderView, HouseAnswer, LossCause, ManaPoolView, SeatView};
 pub use seen::{Seen, SeenIn};
 pub use shown_hands::{SeatSetting, SharedHand};
@@ -185,6 +185,9 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 56 adds the game log's [`LogEvent::ConnectionLost`] (a player's
 /// connection is gone: the table waits, or is paused), a variant a reader
 /// of 55 cannot parse.
+/// Compatible addition: [`PlayerView::lost`], every player whose connection
+/// is lost and how long the table still waits for them, absent while empty;
+/// a reader of 56 without it ignores it.
 ///
 /// [`SubtypeSet`]: baylee_core::types::SubtypeSet
 pub const VIEW_VERSION: u32 = 56;

@@ -101,7 +101,7 @@ pub struct LedgeRevision {
     /// narrower question of the two.
     pub(super) error: Option<baylee_client_core::i18n::Refusal>,
     /// What the connection has to say, which replaces it first.
-    pub(super) link_note: Option<baylee_client_core::i18n::Phrase>,
+    pub(super) link_note: Option<baylee_client_core::reconnect::LinkNote>,
     /// Whether this seat is being asked at all — the sentence's weight, and
     /// whether there are answers under it.
     pub(super) waiting: bool,

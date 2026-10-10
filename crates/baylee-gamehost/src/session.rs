@@ -188,6 +188,13 @@ pub struct Session {
     policy_counted: Vec<u32>,
     /// How much of the journal the policy windows have read.
     policy_read: usize,
+    /// The wall time as the caller last told it ([`Session::tell_time`]),
+    /// in milliseconds since the Unix epoch.
+    now_ms: u64,
+    /// Players whose connection is lost and whose chair is still theirs,
+    /// with when the table stops waiting (Unix ms), or `None` while the game
+    /// is paused for them. What [`PlayerView::lost`] reports.
+    lost: Vec<(PlayerId, Option<u64>)>,
     /// Which seats have yet to be told that a chair changed hands.
     ///
     /// Not game state, for the same reason `revealed` is not: it is what a
@@ -295,6 +302,8 @@ impl Session {
             policy_acts: vec![Vec::new(); preset.seats.len()],
             policy_counted: vec![0; preset.seats.len()],
             policy_read: 0,
+            now_ms: 0,
+            lost: Vec::new(),
             roster_dirty: vec![false; preset.seats.len()],
             game_id: String::new(),
             names: Vec::new(),

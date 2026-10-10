@@ -168,7 +168,9 @@ fn duel_saying(over: bool, unreachable: bool) -> Duel {
         last_error: Some(baylee_client_core::i18n::Refusal::Verbatim(
             REFUSED.to_string(),
         )),
-        link_note: unreachable.then_some(Phrase::LinkLost),
+        link_note: unreachable.then_some(baylee_client_core::reconnect::LinkNote::just(
+            Phrase::LinkLost,
+        )),
         ..Duel::default()
     };
     // The bar is not drawn at all without a board to draw it over, which

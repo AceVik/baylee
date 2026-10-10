@@ -1244,7 +1244,7 @@ pub struct HudRevision {
     /// The one thing in this struct that changes without the game changing at
     /// all: a socket goes away between snapshots, and the bar has to say so
     /// without waiting for a view that is not coming.
-    link_note: Option<baylee_client_core::i18n::Phrase>,
+    link_note: Option<baylee_client_core::reconnect::LinkNote>,
     /// How much art has arrived, failed or been evicted.
     ///
     /// Same reason as `texts`, one asset later: a hand card is built with
@@ -2226,6 +2226,7 @@ mod finish;
 mod hand;
 pub(crate) mod hint;
 mod ledge;
+pub(crate) mod lostbanner;
 pub(crate) use ledge::ai_log::update_ai_log;
 pub(crate) mod hand_drawer;
 mod motion;
@@ -2287,6 +2288,7 @@ pub use ledge::{
     DecisionClockLabel, LedgeLayout, LedgeRevision, LedgeShelf, count_down_the_decision, sync_ledge,
 };
 pub(crate) use ledge::{Weight as ButtonWeight, answer_sized};
+pub use lostbanner::{spawn_lost_banner, tick_lost_banner};
 pub(crate) use overlay::answer_button;
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
