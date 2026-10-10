@@ -184,7 +184,7 @@ pub(super) fn draw(
             Node {
                 width: percent(100),
                 // A form-wide body on Wide (four tiles a row at 1920, three at
-                // 1180), the collection's width on Vast (up to six, S-14).
+                // 1180), the collection's width on Vast, which adds columns (S-14).
                 max_width: px_fixed(if kit.m.frame == ShellFrame::Vast {
                     kit.m.collection_max
                 } else {
@@ -293,16 +293,21 @@ pub(super) fn draw(
     }
 }
 
-/// The centred grid the tiles flow into: `minmax(320 × factor, 1fr)`,
-/// two on a phone.
+/// A deck tile's width at the default step, before the big-screen scale.
+pub(super) const TILE_WIDTH: f32 = 320.0;
+
+/// The centred grid the tiles flow into: as many `320 × factor` columns as
+/// fit, centred; two on a phone.
 fn grid(commands: &mut Commands, kit: Kit) -> Entity {
     let columns = if kit.m.frame == ShellFrame::Phone {
         vec![RepeatedGridTrack::flex(2, 1.0)]
     } else {
-        vec![RepeatedGridTrack::minmax(
-            GridTrackRepetition::AutoFill,
-            MinTrackSizingFunction::Px(kit.m.scaled(320.0)),
-            MaxTrackSizingFunction::Fraction(1.0),
+        // Fixed tracks, as many as fit, the unused ones collapsed and the
+        // rest centred: a short library stands in the middle of its panel
+        // rather than in its top-left corner (the 4K pass, beta.7).
+        vec![RepeatedGridTrack::px(
+            GridTrackRepetition::AutoFit,
+            kit.m.scaled(TILE_WIDTH),
         )]
     };
     commands
@@ -311,6 +316,7 @@ fn grid(commands: &mut Commands, kit: Kit) -> Entity {
                 display: Display::Grid,
                 width: percent(100),
                 grid_template_columns: columns,
+                justify_content: JustifyContent::Center,
                 column_gap: px_fixed(kit.m.gap),
                 row_gap: px_fixed(kit.m.gap),
                 align_items: AlignItems::Stretch,

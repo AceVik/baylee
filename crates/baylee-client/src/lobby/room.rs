@@ -40,6 +40,32 @@ pub(super) fn draw(
         &game.setup
     };
 
+    // On a Vast window the room stands in a centred column no wider than a
+    // form-like body (`body_max` and its gutters): on a 4K window the seat rows no longer
+    // run the full width with every control at their left end.
+    let body = {
+        let column = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    max_width: if kit.m.frame == ShellFrame::Vast {
+                        px_fixed(kit.m.body_max + 2.0 * kit.m.body)
+                    } else {
+                        Val::Auto
+                    },
+                    align_self: AlignSelf::Center,
+                    flex_grow: 1.0,
+                    min_height: px(0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(root).add_child(column);
+        column
+    };
+
     // ---- the title row, on a plate of its own
     let title = commands
         .spawn((
@@ -64,7 +90,7 @@ pub(super) fn draw(
             BorderColor::all(tokens::BORDER),
         ))
         .id();
-    commands.entity(root).add_child(title);
+    commands.entity(body).add_child(title);
     let back = controls::button(
         commands,
         kit,
@@ -223,7 +249,7 @@ pub(super) fn draw(
             ScrollPosition(Vec2::new(0.0, scroll.get(List::Table))),
         ))
         .id();
-    commands.entity(root).add_child(columns);
+    commands.entity(body).add_child(columns);
     let rail = commands
         .spawn((
             Role::Panel,

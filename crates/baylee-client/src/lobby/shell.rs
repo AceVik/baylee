@@ -108,6 +108,21 @@ impl Metrics {
         }
     }
 
+    /// The same sizes at the shell's big-screen scale
+    /// (`ShellMetrics::scale`), so that the lobby's older parts (its text
+    /// fields) grow with the kit's on a 4K window.
+    pub(crate) fn at_scale(self, scale: f32) -> Self {
+        Self {
+            text: self.text * scale,
+            head: self.head * scale,
+            small: self.small * scale,
+            tap: self.tap * scale,
+            pad: self.pad * scale,
+            gap: self.gap * scale,
+            ..self
+        }
+    }
+
     /// Whether the table screen stacks its two panels instead of pairing them.
     pub(crate) fn stacked(self) -> bool {
         self.frame == Frame::Compact
@@ -203,6 +218,15 @@ pub(super) struct KitDrawn {
     strip: bool,
     /// Tall enough for the front door's full colophon.
     tall: bool,
+    /// The big-screen scale in eighths (`ShellMetrics::scale`): crossing a
+    /// step redraws, as crossing a frame does.
+    scale: u8,
+}
+
+/// A scale in whole eighths (it is stepped in eighths; 1 to 1.75 is 8 to 14).
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // 8..=14
+fn eighths(scale: f32) -> u8 {
+    (scale * 8.0).round() as u8
 }
 
 /// Rebuilds the node tree when the lobby changed, or when the window crossed
@@ -248,6 +272,7 @@ pub(super) fn ui(
         .as_deref()
         .map_or_else(Default::default, |s| s.text_size);
     let shell_m = super::header::kit_metrics(width, height, step, *kit_inputs.0);
+    let metrics = metrics.at_scale(shell_m.scale);
     // Only what the header draws from the kit's side; compared, never read
     // off a change flag (a settings save is not a rebuild).
     let kit_now = KitDrawn {
@@ -256,6 +281,7 @@ pub(super) fn ui(
         input: *kit_inputs.0,
         strip: super::header::seated(&state).is_some(),
         tall: height >= super::front::door::FULL_COLOPHON_HEIGHT,
+        scale: eighths(shell_m.scale),
     };
     let kit_same = kit_drawn.as_ref() == Some(&kit_now);
     if !state.is_changed()

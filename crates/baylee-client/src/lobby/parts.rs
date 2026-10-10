@@ -346,7 +346,13 @@ pub(super) fn key_hint(
         .spawn((
             Role::Mist,
             Node {
-                align_self: AlignSelf::FlexStart,
+                // Under the centred content on a big window, rather than
+                // alone in its bottom-left corner.
+                align_self: if kit.m.frame == ShellFrame::Vast {
+                    AlignSelf::Center
+                } else {
+                    AlignSelf::FlexStart
+                },
                 align_items: AlignItems::Center,
                 column_gap: kit.m.px(6.0),
                 padding: UiRect::axes(kit.m.px(10.0), kit.m.px(4.0)),

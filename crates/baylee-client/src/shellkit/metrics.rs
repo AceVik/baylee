@@ -21,6 +21,30 @@ pub const fn px_fixed(n: f32) -> Val {
     Val::Px(n)
 }
 
+/// The widest window (effective, at the text step) and the tallest one the
+/// shell draws at its own sizes; past them it scales up.
+pub const SCALE_FROM: (f32, f32) = (1920.0, 1080.0);
+/// The most the big-screen scale grows (a 3840-wide window).
+pub const SCALE_MAX: f32 = 1.75;
+
+/// How much larger the shell draws on a big window: a 2560 × 1440 window
+/// reads 1.25, a 3840 × 2160 one 1.75, anything up to 1920 × 1080 (and
+/// every Phone, Compact or Narrow window) 1. Proportional to the smaller of
+/// the width (effective, so a large text step does not scale twice) and the
+/// height over [`SCALE_FROM`], three quarters of the way, and stepped in
+/// eighths so that a resize rebuilds the lobby only when a step is crossed.
+#[must_use]
+pub fn screen_scale(view: Viewport, step: TextSize) -> f32 {
+    if !matches!(Frame::classify(view, step), Frame::Wide | Frame::Vast) {
+        return 1.0;
+    }
+    let wide = view.width / step.factor() / SCALE_FROM.0;
+    let tall = view.height / SCALE_FROM.1;
+    let over = wide.min(tall) - 1.0;
+    let raw = (1.0 + over * 0.75).clamp(1.0, SCALE_MAX);
+    (raw * 8.0).round() / 8.0
+}
+
 /// What a shell screen is sized by.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ShellMetrics {
@@ -30,8 +54,12 @@ pub struct ShellMetrics {
     pub input: InputClass,
     /// The text step.
     pub step: TextSize,
-    /// The step's factor.
+    /// The step's factor times [`Self::scale`]: what every scaled length is
+    /// multiplied by.
     pub factor: f32,
+    /// The big-screen scale ([`screen_scale`]): 1 up to a 1920 × 1080
+    /// window, a step up on the large ones.
+    pub scale: f32,
     /// Screen titles.
     pub h1: f32,
     /// Panel headings (`shell.head`).
@@ -68,7 +96,8 @@ impl ShellMetrics {
     #[must_use]
     pub fn of(view: Viewport, step: TextSize) -> Self {
         let frame = Frame::classify(view, step);
-        let f = step.factor();
+        let scale = screen_scale(view, step);
+        let f = step.factor() * scale;
         let touch = view.input == InputClass::Touch;
         // Today's three rows (`lobby::Metrics::of`), as the default step's (M) values.
         let (h1, head, text, small) = match frame {
@@ -109,6 +138,7 @@ impl ShellMetrics {
             input: view.input,
             step,
             factor: f,
+            scale,
             h1,
             head,
             text,
@@ -182,6 +212,40 @@ mod tests {
         assert_eq!(phone.frame, Frame::Phone);
         assert!((phone.text - 13.0).abs() < 1e-3 && (phone.small - 12.0).abs() < 1e-3);
         assert!((at(844.0, 390.0, TextSize::M, InputClass::Touch).text - 15.0).abs() < 1e-3);
+    }
+
+    /// The big-screen scale: today's sizes up to 1920 × 1080, a step up at
+    /// 2560 × 1440, more at 3840 × 2160, never on a short window, and a large
+    /// text step does not scale a second time.
+    #[test]
+    fn a_big_window_draws_the_shell_a_step_larger() {
+        let p = InputClass::Pointer;
+        for (w, h) in [
+            (1280.0, 800.0),
+            (1708.0, 1032.0),
+            (1920.0, 1080.0),
+            (844.0, 390.0),
+        ] {
+            assert!((at(w, h, TextSize::M, p).scale - 1.0).abs() < 1e-6, "{w}");
+        }
+        let qhd = at(2560.0, 1440.0, TextSize::M, p);
+        assert!((qhd.scale - 1.25).abs() < 1e-6 && (qhd.text - 20.0).abs() < 1e-3);
+        assert!((at(2560.0, 1369.0, TextSize::M, p).scale - 1.25).abs() < 1e-6);
+        let uhd = at(3840.0, 2160.0, TextSize::M, p);
+        assert!((uhd.scale - SCALE_MAX).abs() < 1e-6 && (uhd.text - 28.0).abs() < 1e-3);
+        assert!((at(3840.0, 2089.0, TextSize::M, p).scale - 1.75).abs() < 1e-6);
+        assert!((at(7680.0, 4320.0, TextSize::M, p).scale - SCALE_MAX).abs() < 1e-6);
+        // Wide but short: the height holds it.
+        assert!((at(3840.0, 1080.0, TextSize::M, p).scale - 1.0).abs() < 1e-6);
+        // XL at 2560 is 2022 effective: hardly larger.
+        assert!(at(2560.0, 1440.0, TextSize::Xl, p).scale <= 1.0 + 1e-6);
+        // Monotonic in the width.
+        let mut last = 0.0;
+        for w in (1900..=4000).step_by(20) {
+            let s = at(w as f32, 2160.0, TextSize::M, p).scale;
+            assert!(s >= last, "{w}");
+            last = s;
+        }
     }
 
     /// A finger's target never shrinks below 44 (§2.4, S4-2); a pointer's

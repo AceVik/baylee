@@ -16,11 +16,17 @@ of the PNG). Nothing is composited: the pixels are the ones rendered.
   siblings   no two sibling rows, tiles or list rows intersect
   budget     a button/chip/tab/nav label within its budget (§2.3), en or de
   hit        under Touch every hit wrapper is at least 44 x 44
+  centred    (big screens) the panels under the header stand centred, the
+             two side margins within 3 % of the width of each other, and
+             fill at least 45 % of a window 2560 or wider (the 4K pass) and,
+             but for a collection of tiles, at most 90 %; tiles stand
+             centred in their panel
   contrast   ink >= 7 : 1 and muted >= 4.5 : 1 against the brightest ground
              pixel under every panel and the header; ink >= 7 on a mist plate
 
 usage:
   python3 scripts/shell/check.py gallery OUTDIR   # the WP0b-1 acceptance
+  python3 scripts/shell/check.py centred          # the screen on show now
 """
 import json
 import os
@@ -376,6 +382,43 @@ def check_contrast(nodes, png, width, height):
     return faults, report
 
 
+def check_centred(nodes, width):
+    """The content's panels under the header: centred, and on a big window
+    not a narrow strip (beta.7's 4K pass: Play and Decks hugged the top-left,
+    the room's rows ran the full width with their controls at the left)."""
+    header = [n for n in nodes if n.get("k") == "header"]
+    top = max((n["y"] + n["h"] for n in header), default=0.0)
+    panels = [
+        n for n in nodes
+        if n.get("k") == "panel" and n["y"] >= top - 1 and not hidden(nodes, n)
+        and n["w"] > 0 and n["h"] > 0
+        # A bar edge to edge (the seated strip under the header) is chrome.
+        and not (n["x"] <= 1 and n["w"] >= width - 2)
+    ]
+    if not panels:
+        return ["centred: no panel under the header"]
+    left = min(n["x"] for n in panels)
+    right = width - max(n["x"] + n["w"] for n in panels)
+    faults = []
+    if abs(left - right) > 0.03 * width:
+        faults.append(f"centred: margins {left:.0f} left, {right:.0f} right of {width:.0f}")
+    used = (width - left - right) / width
+    if width >= 2560 and used < 0.45:
+        faults.append(f"centred: the content fills {used:.0%} of {width:.0f}")
+    tiles = [n for n in nodes if n.get("k") == "tile" and not hidden(nodes, n)]
+    # A collection (tiles) takes the window's width and adds columns (S-14);
+    # anything else keeps a form's cap.
+    if width >= 2560 and not tiles and used > 0.9:
+        faults.append(f"centred: a form-like screen runs {used:.0%} of {width:.0f}")
+    if tiles:
+        holder = max(panels, key=lambda n: n["w"])
+        t_left = min(n["x"] for n in tiles) - holder["x"]
+        t_right = holder["x"] + holder["w"] - max(n["x"] + n["w"] for n in tiles)
+        if abs(t_left - t_right) > 0.03 * width:
+            faults.append(f"centred: tiles stand {t_left:.0f} from the panel's left, {t_right:.0f} from its right")
+    return faults
+
+
 def box(n):
     return f"[{n['x']:.0f},{n['y']:.0f} {n['w']:.0f}x{n['h']:.0f}]"
 
@@ -436,6 +479,10 @@ def gallery(outdir):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) >= 2 and sys.argv[1] == "centred":
+        found = check_centred(tree(devctl.state()["shell_nodes"]), devctl.health()["width"])
+        print("\n".join(found) or "centred: 0 faults")
+        sys.exit(1 if found else 0)
     if len(sys.argv) >= 3 and sys.argv[1] == "gallery":
         sys.exit(1 if gallery(sys.argv[2]) else 0)
     print(__doc__)
