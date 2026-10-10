@@ -21,6 +21,7 @@ mod combat_tests;
 mod counters_tests;
 mod mana_tests;
 mod modes_tests;
+mod optional_tests;
 mod payment_tests;
 mod planning_tests;
 mod stack_tests;

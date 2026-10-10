@@ -20,6 +20,7 @@ mod filter;
 mod granted;
 mod held;
 pub mod intelligence;
+mod optional;
 mod policy;
 mod redirect;
 mod restricted;
@@ -475,6 +476,24 @@ impl HeuristicAgent {
                 // Separating piles for an opponent (Fact or Fiction): one
                 // card alone, so whichever pile they take, they do not take
                 // all of them, which is what naming none would hand over.
+                match prompt {
+                    ChoicePrompt::BlockWith { blocker } => {
+                        return PlayerAction::ChooseObjects {
+                            objects: self.reblock(view, blocker, &options),
+                        };
+                    }
+                    ChoicePrompt::LeftPile => {
+                        return PlayerAction::ChooseObjects {
+                            objects: optional::left_pile(view, &options, max),
+                        };
+                    }
+                    ChoicePrompt::CamouflagePile { pile, of } => {
+                        return PlayerAction::ChooseObjects {
+                            objects: optional::camouflage_pile(view, &options, pile, of, max),
+                        };
+                    }
+                    _ => {}
+                }
                 let n = match prompt {
                     // Under an untap limit the answer is what untaps.
                     ChoicePrompt::Delve | ChoicePrompt::Untap => max,
@@ -483,25 +502,8 @@ impl HeuristicAgent {
                     // can cost a flier its evasion, and the menu may hold
                     // two creatures without banding, which one band cannot.
                     // Attacking unbanded is always legal.
-                    // False Orders' re-block: the spell is an attacker's
-                    // trick (a blocker out of the way), and handing the
-                    // creature it moved a new attacker to block undoes it.
-                    // Which block would serve a defender is the combat
-                    // judgement this heuristic leaves to the declaration.
-                    ChoicePrompt::LeaveTapped
-                    | ChoicePrompt::Band { .. }
-                    | ChoicePrompt::BlockWith { .. } => min,
+                    ChoicePrompt::LeaveTapped | ChoicePrompt::Band { .. } => min,
                     ChoicePrompt::FirstPile => max.min(1),
-                    // Raging River: the attacker labels each creature with
-                    // the weaker side, so the even split is the one that
-                    // leaves both sides as strong as they can be.
-                    ChoicePrompt::LeftPile => max / 2,
-                    // Camouflage: an even spread over the piles still to
-                    // fill, so every attacker meets something.
-                    ChoicePrompt::CamouflagePile { pile, of } => {
-                        let left = of.saturating_sub(pile).saturating_add(1).max(1);
-                        max.div_ceil(left)
-                    }
                     _ if max <= 2 => max,
                     _ => min,
                 };
@@ -667,24 +669,12 @@ impl HeuristicAgent {
             Pending::ChooseCastMode {
                 object, options, ..
             } => PlayerAction::ChooseMode(self.cast_mode(view, object, &options)),
-            // Raging River's label: the side that may block this attacker,
-            // so the one with less power in it.
+            // Raging River's label: the side that stops this attacker least.
             Pending::ChoosePile {
                 piles,
-                label: Some(_),
+                label: Some(attacker),
                 ..
-            } => {
-                let power = |pile: &Vec<ObjectId>| -> i32 {
-                    pile.iter()
-                        .filter_map(|&id| view.object(id))
-                        .map(|o| i32::from(o.power.unwrap_or(0)))
-                        .sum()
-                };
-                let weakest = (0..piles.len())
-                    .min_by_key(|&i| power(&piles[i]))
-                    .unwrap_or(0);
-                PlayerAction::ChooseMode(weakest)
-            }
+            } => PlayerAction::ChooseMode(optional::river_label(view, &piles, attacker)),
             Pending::ChoosePile { piles, .. } => PlayerAction::ChooseMode(self.pile(view, &piles)),
             // An order the AI has no opinion on yet: the cards as they were
             // offered, every pile filled to its minimum first. It is always
@@ -728,7 +718,7 @@ impl HeuristicAgent {
             Pending::Arrange { cards, piles, .. } => PlayerAction::Arrange {
                 piles: default_arrangement(&cards, &piles).unwrap_or_else(|| vec![cards.clone()]),
             },
-            Pending::YesNo { prompt, .. } => match prompt {
+            Pending::YesNo { prompt, source, .. } => match prompt {
                 YesNoPrompt::PayLifeOrEnterTapped { amount } | YesNoPrompt::PayLife { amount } => {
                     PlayerAction::YesNo(
                         view.seat(player)
@@ -758,9 +748,9 @@ impl HeuristicAgent {
                 YesNoPrompt::DrawOffer { .. } | YesNoPrompt::SkipTurn { .. } => {
                     PlayerAction::YesNo(false)
                 }
-                // Both yes, for reasons that happen to agree. An optional
-                // effect is written on a card this seat chose to play, so
-                // taking it is the default. And a commander goes home
+                // A "may" is weighed by what the yes does (`optional`).
+                // The rest are yes, for reasons that happen to agree. A
+                // commander goes home
                 // (CR 903.9a) because the command zone is the one zone
                 // nobody can reach into, and the {2} on the next cast is
                 // cheaper than the deck's whole plan being milled or
@@ -775,8 +765,8 @@ impl HeuristicAgent {
                 // this seat's own ability offered to cast (Conduit of
                 // Worlds): the activation was the choice, and a window it
                 // cannot fill casts nothing and costs nothing.
-                YesNoPrompt::MayDo
-                | YesNoPrompt::CommanderZone { .. }
+                YesNoPrompt::MayDo => PlayerAction::YesNo(self.may_do(view, source, context)),
+                YesNoPrompt::CommanderZone { .. }
                 | YesNoPrompt::TopOfLibrary { .. }
                 | YesNoPrompt::Discover { .. }
                 | YesNoPrompt::CastWithoutPaying { .. }
