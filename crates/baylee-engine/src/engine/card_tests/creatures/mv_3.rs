@@ -41,6 +41,7 @@ mod charging_paladin;
 mod coastal_drake;
 mod council_of_advisors;
 mod delney_streetwise_lookout;
+mod desert_nomads;
 mod devout_witness;
 mod diving_griffin;
 mod dogged_hunter;

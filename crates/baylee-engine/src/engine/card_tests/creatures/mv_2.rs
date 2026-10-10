@@ -141,6 +141,7 @@ mod seeker_of_skybreak;
 mod selesnya_evangel;
 mod shimmering_barrier;
 mod silverglade_pathfinder;
+mod sindbad;
 mod skittering_skirge;
 mod skyclave_cleric;
 mod skyshroud_elf;
