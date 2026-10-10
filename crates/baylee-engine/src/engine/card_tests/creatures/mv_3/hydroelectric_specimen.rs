@@ -3,24 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Hydroelectric Specimen ({2}{U}, 1/4 Weird): "Flash. When this creature
-/// enters, you may change the target of target instant or sorcery spell with
-/// a single target to this creature."
-///
-/// The whole card is one play, so it is played as one: the removal is already
-/// on the stack pointing at something else, which is the only board on which
-/// the trigger has a legal target at all — and the only board a creature
-/// without flash could never be cast onto.
-///
-/// Swords to Plowshares is the sharpest reading available, because its two
-/// clauses land on two different players once the target moves. The Elves it
-/// was aimed at are untouched, the Weird that stole the aim is **exiled**
-/// rather than destroyed, and the life goes to the Weird's controller — the
-/// player who redirected it — for the Weird's own power.
-///
-/// This is also the working half of `Coverage::Partial`: one target is
-/// exactly what the printed line asks for, so nothing here is an
-/// approximation.
 #[test]
 fn a_flashed_in_weird_takes_the_swords_that_was_aimed_at_the_elves() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -96,9 +78,6 @@ fn a_flashed_in_weird_takes_the_swords_that_was_aimed_at_the_elves() {
     );
 }
 
-/// "To this creature": the Weird is the only new target, although another
-/// creature is legal for the Swords (#247). The redirect is offered what
-/// the Swords may target **and** what "this creature" names.
 #[test]
 fn the_weird_is_the_only_creature_the_aim_moves_to() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -137,11 +116,6 @@ fn the_weird_is_the_only_creature_the_aim_moves_to() {
     the_weird_takes_the_aim(&mut engine, p0, weird);
 }
 
-/// "Change the target … to this creature" when this creature is no legal
-/// target for the spell (#247): the target stays (CR 115.7a), and nothing is
-/// asked. Ancestral Recall names a player, and a Weird is not one. The
-/// redirect used to offer the Weird anyway, which pointed Ancestral Recall at
-/// a creature and fizzled it.
 #[test]
 fn the_weird_leaves_the_aim_of_a_spell_it_is_no_target_for() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -198,32 +172,8 @@ fn the_weird_leaves_the_aim_of_a_spell_it_is_no_target_for() {
     );
 }
 
-/// The `Coverage::Partial` half: "with a single target" is a clause no
-/// `Filter` can ask about (CR 115.9a, #249).
-///
-/// Curse of the Swine is cast for X = 2 and stands on the stack naming two
-/// creatures, which the printed line excludes from the trigger outright — and
-/// the engine offers it anyway, because `TargetSpec::Spell` can only narrow a
-/// spell by its *printed* characteristics and no `Filter` counts what an
-/// object points at.
-///
-/// Taking it changes nothing, and asks nothing. The redirect used to write one
-/// target where two stood, so the Curse exiled the Weird alone and made one
-/// Boar (#247). "Change the target" is all of them or none (CR 115.7a), and a
-/// spell the card should never have been offered is left alone: both Elves
-/// are exiled, two Boars are made, and the Weird stays.
-///
-/// This is the test that turns red when the gap closes. A trigger with no
-/// legal target is removed from the stack (CR 603.3d), so a `TargetSpec` that
-/// could count targets would leave nothing to choose and
-/// `flash_the_specimen_in` would never see the choice at all.
-///
-/// A **sorcery** is deliberate rather than convenient. The printed line reads
-/// "instant or sorcery", and a sorcery only ever stands on the stack during
-/// its own controller's turn — which is the other thing flash buys and the
-/// board above cannot show, since it never leaves p0's own main phase.
 #[test]
-fn the_weirds_trigger_offers_a_spell_holding_two_targets_and_moves_neither() {
+fn the_weirds_trigger_excludes_a_spell_holding_two_targets() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let elf = llanowar_elves();
     let mine = [island(), island(), island(), elf, elf];
@@ -269,31 +219,22 @@ fn the_weirds_trigger_offers_a_spell_holding_two_targets_and_moves_neither() {
         "and they are the two creatures that were named: {aimed:?}"
     );
 
-    let offered = flash_the_specimen_in(&mut engine, p0, curse);
-    assert_eq!(
-        offered,
-        vec![curse],
-        "NOT SUPPORTED, and this is its exact shape: the printed line reads \
-         \"with a single target\", and a two-target spell is offered anyway"
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
     );
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![curse],
-            },
-        )
-        .unwrap();
-    let weird = on_battlefield(&engine, p0, hydroelectric_specimen()).expect("the Weird landed");
+    cast_from_hand(&mut engine, p0, hydroelectric_specimen());
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { .. })
+        on_battlefield(e, p0, hydroelectric_specimen()).is_some()
     });
-    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let weird = on_battlefield(&engine, p0, hydroelectric_specimen()).unwrap();
     assert!(
-        !matches!(engine.pending(), Pending::ChooseTargets { .. }),
-        "no new target is asked for: the Curse holds two, and \"change the \
-         target\" moves all or none (CR 115.7a), got {:?}",
-        engine.pending()
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "no trigger target is offered"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).as_slice(),
+        &[curse]
     );
     let kept: Vec<ObjectId> = engine
         .state()

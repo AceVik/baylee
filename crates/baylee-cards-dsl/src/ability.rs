@@ -217,6 +217,8 @@ pub enum Condition {
     /// opposite wrong answers — which is the argument for the variant rather
     /// than for a house style.
     GraveyardCountAtLeast(u8),
+    /// At least this many distinct card types among cards in your graveyard.
+    GraveyardTypesAtLeast(u8),
     /// This card is in your graveyard with at least N matching **cards**
     /// above it. The graveyard's order matters (CR 404.1–3); cards below
     /// the source and tokens do not count.
@@ -938,6 +940,9 @@ pub enum CopyMod {
     AddSubtype(baylee_core::ids::SubtypeId),
     /// Grants a keyword ("with haste").
     AddKeyword(crate::KeywordSet),
+    /// Enters tapped only if this copy replacement is chosen. Entry state is
+    /// not a characteristic and does not become part of the copiable values.
+    EnterTapped,
     /// Enters with counters of a kind.
     AddCounter(crate::CounterKind, u16),
     /// Sets power and toughness ("except it's a 4/4", eternalize,

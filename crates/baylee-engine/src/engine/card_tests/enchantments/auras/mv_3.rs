@@ -13,3 +13,5 @@ mod scavenged_weaponry;
 mod strength_of_the_harvest;
 mod tiger_claws;
 mod wanderlust;
+
+mod anti_magic_aura;

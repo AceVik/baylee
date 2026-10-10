@@ -117,7 +117,12 @@ pub fn matches_projected_with_context(
             }),
         Filter::IsToken => obj.card.is_none(),
         Filter::WithSingleTarget => {
-            obj.targets.len() + obj.second_targets().len() + obj.target_players.len() == 1
+            let players = obj.target_players.len()
+                + usize::from(
+                    obj.chosen_player
+                        .is_some_and(|p| !obj.target_players.contains(p)),
+                );
+            obj.targets.len() + obj.second_targets().len() + players == 1
         }
         Filter::HasManaAbility => {
             (chars.has_mana_ability && chars.abilities_lost.is_none() && !chars.rules_text_lost)
@@ -786,6 +791,9 @@ pub fn condition_holds_with_context(
         // a scan. The line above is the same question asked of an opponent
         // and answers `any`, because "an opponent has seven" is true of a
         // table where one of three does.
+        Condition::GraveyardTypesAtLeast(min) => {
+            graveyard_card_types(state, you).bits().count_ones() >= u32::from(min)
+        }
         Condition::GraveyardCountAtLeast(min) => {
             state.zones.list(ZoneLocation::Graveyard(you)).len() >= min as usize
         }
@@ -1038,13 +1046,42 @@ pub(crate) fn attached_for_ability(
     })
 }
 
+/// Distinct card types in one graveyard. A multi-type card contributes every
+/// type; repeated types, supertypes, subtypes, and non-card objects add none.
+pub(crate) fn graveyard_card_types(
+    state: &GameState,
+    player: PlayerId,
+) -> baylee_core::types::TypeSet {
+    use baylee_core::types::TypeSet;
+    state
+        .zones
+        .list(ZoneLocation::Graveyard(player))
+        .iter()
+        .filter_map(|id| state.object(*id).filter(|o| o.is_card()))
+        .fold(TypeSet::EMPTY, |types, card| {
+            types.union(card.characteristics().types)
+        })
+}
+
 /// Protection (CR 702.16): does `object` have protection from a filter
 /// that `source` matches? Checked for damage, targeting, and blocking.
 #[must_use]
 pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> bool {
-    let (Some(obj), Some(src)) = (state.object(object), state.object(source)) else {
+    let Some(src) = state.object(source) else {
         return false;
     };
+    protected_from_object(state, object, src)
+}
+
+fn protected_from_object(
+    state: &GameState,
+    object: ObjectId,
+    src: &crate::object::GameObject,
+) -> bool {
+    let Some(obj) = state.object(object) else {
+        return false;
+    };
+    let source = src.id;
     state.effects.iter().any(|fx| {
         let baylee_cards_dsl::Modifier::ProtectionFrom(f) = fx.modifier else {
             return false;
@@ -1074,9 +1111,21 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
 /// object on the stack.
 #[must_use]
 pub fn untargetable_by_source(state: &GameState, object: ObjectId, source: ObjectId) -> bool {
-    let (Some(obj), Some(src)) = (state.object(object), state.object(source)) else {
+    let Some(src) = state.object(source) else {
         return false;
     };
+    untargetable_by_source_object(state, object, src)
+}
+
+fn untargetable_by_source_object(
+    state: &GameState,
+    object: ObjectId,
+    src: &crate::object::GameObject,
+) -> bool {
+    let Some(obj) = state.object(object) else {
+        return false;
+    };
+    let source = src.id;
     let spell = src.zone == crate::zone::Zone::Stack;
     state.effects.iter().any(|fx| {
         let f = match fx.modifier {
@@ -1352,6 +1401,33 @@ pub fn target_options_with_context(
         .filter(|id| {
             !protected_from(state, *id, this)
                 && !untargetable_by_source(state, *id, this)
+                && !untargetable_by(state, *id, you)
+        })
+        .collect()
+}
+
+/// Cast-offer targeting reads the card as the spell it will become, so zone-
+/// restricted target prohibitions agree with announcement. Project one source
+/// object; the battlefield and effect index remain borrowed.
+#[must_use]
+pub(crate) fn spell_target_options(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    source: ObjectId,
+) -> Vec<ObjectId> {
+    let Some(original) = state.object(source) else {
+        return Vec::new();
+    };
+    let mut spell = original.clone();
+    spell.zone = crate::zone::Zone::Stack;
+    spell.kind = crate::object::ObjectKind::Spell;
+    spell.controller = you;
+    choice_options(spec, state, you, source)
+        .into_iter()
+        .filter(|id| {
+            !protected_from_object(state, *id, &spell)
+                && !untargetable_by_source_object(state, *id, &spell)
                 && !untargetable_by(state, *id, you)
         })
         .collect()

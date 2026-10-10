@@ -3190,3 +3190,23 @@ land type"; both are convention tests that fire on a first try.
 - The English-claim sweep must not treat the coefficient in "gain 2 life for
   each creature" as a fixed total. Keep its event-kind claim and leave the
   multiplier to a behavioral card test.
+
+## 2026-10-11 — partial-card completion: copies, targeting, and delirium
+
+- Completed nine further definitions using copy exceptions, spell-only target
+  restrictions, self-shuffling resolution, and distinct graveyard card types.
+- A cast offer must inspect its source as a spell on the stack, matching the
+  later announcement. Project only that source; borrow the board and effects.
+- Single-target predicates must include a singular chosen player even when the
+  legacy representation does not duplicate it in the multiple-player set.
+  A player-only spell is eligible for Specimen's trigger even though it cannot
+  be redirected to that creature; a two-target spell is ineligible outright.
+- Copy-entry tapped state belongs to the chosen replacement, not the copied
+  characteristics. Declining Vesuva or Echoing Deeps leaves it untapped.
+  Retained activated abilities must remain usable on second-generation copies.
+- Delirium counts the union of types of actual cards in the controller's own
+  graveyard. Multiple types on one card count separately; duplicate types and
+  the opponent's graveyard do not. Test the ability offer and combat requirement.
+- Test harness `refresh_offer` rebuilds choices, not conditional static effects.
+  Advance a real priority action after changing a fixture's graveyard before
+  asserting a conditional projected P/T or keyword.

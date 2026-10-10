@@ -285,6 +285,9 @@ fn create_modified_token_copies(
     // the token multiplier. They must not enter the copied base or ability list.
     for &id in &made {
         for modifier in mods {
+            if matches!(modifier, baylee_cards_dsl::CopyMod::EnterTapped) {
+                state.set_tapped(id, true);
+            }
             if let Some((kind, amount)) =
                 crate::copiable_abilities::copy_entry_counter(modifier, types, res.x.unwrap_or(0))
                 && amount > 0

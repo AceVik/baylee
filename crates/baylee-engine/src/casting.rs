@@ -564,7 +564,7 @@ pub(crate) fn requirement_is_reachable(
         // target for some X (`eval::matches_for_some_x`). Enumerated through
         // the same reader with the filter widened, so what makes a spell or
         // permanent targetable at all is still asked the one way.
-        Some((widened, filter)) => crate::eval::target_options(&widened, state, player, card)
+        Some((widened, filter)) => crate::eval::spell_target_options(&widened, state, player, card)
             .into_iter()
             .filter(|id| {
                 state.object(*id).is_some_and(|o| {
@@ -572,7 +572,7 @@ pub(crate) fn requirement_is_reachable(
                 })
             })
             .count(),
-        None => crate::eval::target_options(&req.spec, state, player, card).len(),
+        None => crate::eval::spell_target_options(&req.spec, state, player, card).len(),
     };
     let players = crate::eval::target_player_options(state, &req.spec, player).len();
     objects + players >= req.min as usize

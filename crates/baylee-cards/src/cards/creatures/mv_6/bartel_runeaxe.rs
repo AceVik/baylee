@@ -2,8 +2,8 @@
 //! Oracle: Vigilance
 //! Oracle: Bartel Runeaxe can't be the target of Aura spells.
 //! Set: ME3 #145 — Masters Edition III | Scryfall ID: 3c635e33-c9f1-4508-986d-c0289921c299 | Oracle ID: 9beccf09-c024-408b-9f84-fe2c7462babb
-// PARTIAL — vigilance is written; the Aura-spell targeting restriction is off
-// the card.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -24,16 +24,12 @@ card!(
         toughness = Some(5),
     ),],
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Partial(
-        "\"can't be the target of Aura spells\" cannot be spelled: \
-         `Modifier::CantBeTargetedBy` asks its filter of the spell or of the \
-         ability's source, so a filter matching an Aura card also stops \
-         abilities of Aura permanents, which the card does not",
-    ),
-    // NOT SUPPORTED: "Bartel Runeaxe can't be the target of Aura spells." —
-    // `Modifier::CantBeTargetedBy(&Filter::HasSubtype(subtypes::enchantment::AURA))`
-    // would also stop activated and triggered abilities whose source is an
-    // Aura permanent, and no filter says "spell only" (at target announcement
-    // a spell is still its owner's card, so `Filter::InZone(ZoneRef::Stack)`
-    // does not match it either).
+    coverage = Coverage::Implemented,
+    abilities = &[static_ability!(
+        Filter::This,
+        Modifier::CantBeTargetedBy(&Filter::And(&[
+            Filter::InZone(ZoneRef::Stack),
+            Filter::HasSubtype(subtypes::enchantment::AURA),
+        ]))
+    )],
 );

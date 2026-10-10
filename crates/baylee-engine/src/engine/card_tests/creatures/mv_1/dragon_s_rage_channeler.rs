@@ -3,12 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Dragon's Rage Channeler` prints `Whenever you cast a noncreature spell, surveil 1.` and `Delirium — As long as there are four or more card types among cards in your graveyard, this creature gets +2/+2, has flying, and attacks each combat if able.`
-///
-/// Marked `Coverage::Partial`, casting a noncreature spell like `lightning_greaves()` triggers surveil 1 via `Trigger::SpellCast`.
-/// The trigger prompts through `Pending::Arrange` with `ArrangePrompt::Surveil`, moving the top card into `ZoneLocation::Graveyard`, while the Delirium stat bonus and `KeywordSet::FLYING` are omitted.
 #[test]
-fn dragon_s_rage_channeler_surveils_on_noncreature_cast_and_omits_delirium() {
+fn dragon_s_rage_channeler_surveils_on_noncreature_cast() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[dragon_s_rage_channeler(), plains(), plains()])
@@ -56,7 +52,67 @@ fn dragon_s_rage_channeler_surveils_on_noncreature_cast_and_omits_delirium() {
     assert_eq!(
         pt(&engine, drc),
         (1, 1),
-        "under `Coverage::Partial` delirium is omitted, body remains 1/1"
+        "one graveyard type does not enable delirium"
     );
     assert!(!keywords(&engine, drc).contains(KeywordSet::FLYING));
+}
+
+#[test]
+fn channeler_delirium_requires_four_types_and_forces_an_attack() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for enabled in [false, true] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[dragon_s_rage_channeler()])
+            .hand(
+                0,
+                &[
+                    index::ORNITHOPTER,
+                    forest(),
+                    island(),
+                    swords_to_plowshares(),
+                ],
+            )
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        for card in [index::ORNITHOPTER, forest(), island()]
+            .into_iter()
+            .chain(enabled.then_some(swords_to_plowshares()))
+        {
+            let id = in_hand(&e, p0, card).unwrap();
+            e.dev_state_mut(p0)
+                .unwrap()
+                .move_object(
+                    id,
+                    ZoneLocation::Graveyard(p0),
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .unwrap();
+        }
+        e.refresh_offer();
+        e.apply(p0, PlayerAction::PassPriority).unwrap();
+        let drc = on_battlefield(&e, p0, dragon_s_rage_channeler()).unwrap();
+        assert_eq!(pt(&e, drc), if enabled { (3, 3) } else { (1, 1) });
+        assert_eq!(keywords(&e, drc).contains(KeywordSet::FLYING), enabled);
+        pass_until(&mut e, |e| {
+            matches!(e.pending(), Pending::ChooseAttackers { .. })
+        });
+        let Pending::ChooseAttackers { required, .. } = e.pending() else {
+            panic!("attackers")
+        };
+        assert_eq!(required.contains(&drc), enabled);
+        let answer = e.apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] });
+        assert_eq!(answer.is_err(), enabled);
+        if enabled {
+            e.apply(
+                p0,
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(drc, Defender::Player(PlayerId::new(1)))],
+                },
+            )
+            .unwrap();
+        }
+    }
 }

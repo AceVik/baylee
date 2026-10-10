@@ -6,15 +6,8 @@
 //! Set: MH3 #240 — Modern Horizons 3 | Scryfall ID: 8689ecd7-e9a6-458b-99d2-6dbaca527f00 | Oracle ID: 573151f0-00d4-4a8a-8a09-745c5f376532
 //! Face: Hydroelectric Specimen — {2}{U} — Creature — Weird
 //! Face: Hydroelectric Laboratory —  — Land
-// PARTIAL — a flash creature that hijacks removal: its enter trigger aims
-// target instant or sorcery on the stack at the Weird itself. The back is an
-// MDFC land reached by the face choice on a land play (CR 712.12), paying 3
-// life to avoid coming in tapped, and taps for {U}.
-// NOT SUPPORTED: "with a single target" (CR 115.9a, #249). No `Filter` asks an
-// object how many targets it has, so `TargetSpec::Spell` can only narrow the
-// spell by its printed characteristics; the trigger therefore also offers a
-// spell with two targets. `Effect::ChangeTarget` moves both or neither
-// (CR 115.7a), and with only this creature to move them to, neither moves.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -43,19 +36,15 @@ card!(
         ),
     ],
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Partial("cannot restrict the target to a spell with a single target"),
+    coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::ETB,
         &[Effect::MayDo {
             effects: &[Effect::ChangeTarget { to: &Filter::This }],
         }],
-        targets = Some(TargetReq::one(TargetSpec::Spell(
-            &Filter::INSTANT_OR_SORCERY
-        )))
+        targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::And(&[
+            Filter::INSTANT_OR_SORCERY,
+            Filter::WithSingleTarget
+        ]))))
     )],
 );
-
-// Engine-level test belongs in baylee-engine (card_tests): flash the Weird in
-// while an opponent's Lightning Bolt targets something else, say yes to the
-// enter trigger, and the Bolt resolves on the Weird; the back face is played
-// as a land, pays 3 life to come in untapped, and taps for {U}.

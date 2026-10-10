@@ -14,6 +14,7 @@ static UPKEEP: AbilityDef = triggered!(
     },
     &[Effect::MayDo {
         effects: &[Effect::BecomeCopyOfTarget {
+            until_eot: false,
             mods: &[CopyMod::KeepColor, CopyMod::KeepResolvingAbility],
         }],
     }],

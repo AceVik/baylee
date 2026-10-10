@@ -481,7 +481,8 @@ pub fn apply_characteristic_exceptions_with_text(
             CopyMod::SetColor(colors) => copied.colors = text.color_words(colors),
             CopyMod::KeepColor => copied.colors = previous.colors,
             CopyMod::NoManaCost => copied.mana_cost = baylee_core::mana::ManaCost::ZERO,
-            CopyMod::AddCounter(..)
+            CopyMod::EnterTapped
+            | CopyMod::AddCounter(..)
             | CopyMod::AddCounterIf(..)
             | CopyMod::AddCounterX(..)
             | CopyMod::KeepOtherAbilities
@@ -617,6 +618,9 @@ pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplicat
         });
     }
     for modifier in mods {
+        if matches!(modifier, CopyMod::EnterTapped) {
+            state.set_tapped(source, true);
+        }
         let counters = copy_entry_counter(modifier, became, x);
         if let Some((kind, amount)) = counters
             && amount > 0

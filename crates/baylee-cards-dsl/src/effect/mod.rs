@@ -1812,6 +1812,8 @@ pub enum Effect {
     CopyThisSpell,
     /// The exact source permanent becomes a copy of the first target.
     BecomeCopyOfTarget {
+        /// Whether the source regains its own characteristics at cleanup.
+        until_eot: bool,
         /// Exceptions that join the resulting copiable values.
         mods: &'static [crate::ability::CopyMod],
     },

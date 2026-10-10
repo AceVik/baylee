@@ -3,16 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Vesuva: "You may have this land enter tapped as a copy of any land on the
-/// battlefield." The copy is what this plays, and the card is
-/// `Coverage::Partial` for the "tapped" half — `AbilityDef::CopyOnEnter`
-/// carries no enter modifier, so what arrives is the copy untapped.
-///
-/// A **Forest** is the land to copy, because the copy has to be readable
-/// from two sides that a wrong answer separates: the types it now has, and
-/// the mana its intrinsic ability makes (CR 305.6, which is a land's type
-/// line and not an ability anybody copied). A Vesuva that took the name and
-/// not the type line would tap for nothing.
 #[test]
 fn vesuva_enters_as_a_copy_of_a_land_on_the_battlefield() {
     let p0 = PlayerId::new(0);
@@ -76,6 +66,9 @@ fn vesuva_enters_as_a_copy_of_a_land_on_the_battlefield() {
         "and the whole type line with it"
     );
 
+    assert!(is_tapped(&engine, copy), "the chosen copy enters tapped");
+    engine.dev_state_mut(p0).unwrap().set_tapped(copy, false);
+    engine.refresh_offer();
     activate(&mut engine, p0, vesuva(), 0);
     assert_eq!(
         engine.state().players[0]
@@ -84,4 +77,31 @@ fn vesuva_enters_as_a_copy_of_a_land_on_the_battlefield() {
         1,
         "and taps for green off the type line it copied (CR 305.6)"
     );
+}
+
+#[test]
+fn vesuva_declining_copy_enters_untapped() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[vesuva()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    seed_graveyard(&mut e, p0, 1);
+    let card = in_hand(&e, p0, vesuva()).unwrap();
+    e.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert!(!is_tapped(&e, on_battlefield(&e, p0, vesuva()).unwrap()));
 }

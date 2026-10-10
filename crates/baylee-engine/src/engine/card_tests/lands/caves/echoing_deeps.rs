@@ -3,10 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Echoing Deeps` is a land with subtype Cave under `Coverage::Partial`.
-/// It prints "You may have this land enter tapped as a copy of any land card in a graveyard, except it's a Cave in addition to its other types."
-/// Under `Coverage::Partial`, it enters untapped as a copy of a graveyard land card, retaining the Cave subtype.
-/// When played while a `forest()` sits in the graveyard, it copies the Forest, gains the Cave subtype, and produces green mana.
 #[test]
 fn echoing_deeps_enters_as_copy_of_graveyard_land_with_cave_subtype() {
     let p0 = PlayerId::new(0);
@@ -53,8 +49,8 @@ fn echoing_deeps_enters_as_copy_of_graveyard_land_with_cave_subtype() {
     let deeps_obj =
         on_battlefield(&engine, p0, echoing_deeps()).expect("Echoing Deeps is on the battlefield");
     assert!(
-        !is_tapped(&engine, deeps_obj),
-        "under `Coverage::Partial` it arrives untapped"
+        is_tapped(&engine, deeps_obj),
+        "the chosen copy enters tapped"
     );
 
     let chars = engine
@@ -75,6 +71,11 @@ fn echoing_deeps_enters_as_copy_of_graveyard_land_with_cave_subtype() {
         "copies the Forest subtype"
     );
 
+    engine
+        .dev_state_mut(p0)
+        .unwrap()
+        .set_tapped(deeps_obj, false);
+    engine.refresh_offer();
     tap_all_mana(&mut engine, p0);
     assert_eq!(
         engine.state().players[0]
@@ -83,4 +84,34 @@ fn echoing_deeps_enters_as_copy_of_graveyard_land_with_cave_subtype() {
         1,
         "copied Forest provides green mana"
     );
+}
+
+#[test]
+fn echoing_deeps_declining_copy_enters_untapped() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[echoing_deeps()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    seed_graveyard(&mut e, p0, 1);
+    let card = in_hand(&e, p0, echoing_deeps()).unwrap();
+    e.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert!(!is_tapped(
+        &e,
+        on_battlefield(&e, p0, echoing_deeps()).unwrap()
+    ));
 }

@@ -36,7 +36,7 @@ pub(super) fn exec_immediate(
             }
             None
         }
-        Effect::BecomeCopyOfTarget { mods } => {
+        Effect::BecomeCopyOfTarget { mods, until_eot } => {
             let source = subjects::source(state, res)?;
             if !subjects::is_current(state, source) {
                 return None;
@@ -55,7 +55,7 @@ pub(super) fn exec_immediate(
                     target,
                     mods,
                     copy_index: loc.map_or(0, |loc| loc.index),
-                    until_eot: false,
+                    until_eot,
                     resolving,
                     text: res.text,
                 },
