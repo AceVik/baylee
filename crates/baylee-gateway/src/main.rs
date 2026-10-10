@@ -26,6 +26,7 @@ mod recordexport;
 mod report;
 mod room;
 mod routes;
+mod seathost;
 mod seatrate;
 mod store;
 mod terms;
@@ -205,6 +206,15 @@ struct AppState {
     /// The terms of use a player accepts (`BAYLEE_TERMS_PATH`, WG-1), read
     /// once at start; `None` when the gateway has none.
     terms: Option<terms::Terms>,
+    /// The seat agents connected now, and their hosted profiles
+    /// (`seathost.rs`); memory only.
+    seathosts: Mutex<seathost::Registry>,
+    /// The secret a seat agent proves itself with
+    /// (`BAYLEE_SEATHOST_TOKEN`); none, and no hosted model is offered.
+    seathost_token: Option<String>,
+    /// Where a hosted seat's bridge dials (`BAYLEE_SEATHOST_BRIDGE_URL`,
+    /// else this gateway's loopback port).
+    seathost_bridge_url: String,
 }
 
 impl AppState {
@@ -273,6 +283,16 @@ async fn main() {
         ],
     )
     .unwrap_or_else(|why| panic!("{why}"));
+    let seathost_token = seathost::token_from_env(
+        var("BAYLEE_SEATHOST_TOKEN").as_deref(),
+        &[
+            var("BAYLEE_AGENT_TOKEN").as_deref(),
+            var("BAYLEE_FEEDBACK_TOKEN").as_deref(),
+            var("BAYLEE_FEEDBACK_KEY").as_deref(),
+            var("BAYLEE_ADMIN_TOKEN").as_deref(),
+        ],
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let db = open_database(&store_path).await;
@@ -333,6 +353,12 @@ async fn main() {
         presence: presence::Presence::default(),
         started_at: auth::now_secs(),
         terms,
+        seathosts: Mutex::new(seathost::Registry::default()),
+        seathost_token,
+        seathost_bridge_url: std::env::var("BAYLEE_SEATHOST_BRIDGE_URL")
+            .ok()
+            .filter(|url| !url.trim().is_empty())
+            .unwrap_or_else(|| format!("http://127.0.0.1:{port}")),
     });
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
@@ -371,6 +397,12 @@ async fn main() {
             "/lobby/games/{id}/chairs/{seat}/redeem",
             post(chair::redeem),
         )
+        .route(
+            "/lobby/games/{id}/chairs/{seat}/hosted",
+            post(seathost::order).delete(seathost::cancel),
+        )
+        .route("/lobby/llm-profiles", get(seathost::profiles))
+        .route("/seathost/ws", get(seathost::socket))
         .route("/lobby/games/{id}/chair", get(chair::status))
         .route("/lobby/games/{id}/chair/leave", post(chair::leave))
         .route("/lobby/games/{id}/chair/ready", post(chair::ready))

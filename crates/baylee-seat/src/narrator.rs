@@ -486,6 +486,22 @@ pub fn strip_reminder(line: &str) -> String {
     line[..open].trim_end().to_string()
 }
 
+/// One other seat in the prefix: its number, its name inside «» where the
+/// mind may know it, and its side. A hosted seat knows nobody's name
+/// (`BridgeConfig::pseudonymous`), and `name` is empty.
+fn seat_line(out: &mut String, seat: usize, name: &str, side: &str) {
+    if name.is_empty() {
+        let side = if side == "opponent" {
+            "an opponent"
+        } else {
+            side
+        };
+        let _ = writeln!(out, "P{} is {side}.", seat + 1);
+    } else {
+        let _ = writeln!(out, "P{} is «{name}», {side}.", seat + 1);
+    }
+}
+
 /// The stable first part of a conversation: the seat, the table and the
 /// deck it brought, its full text or its names as `deck` says, which a
 /// provider caches. A function of the game alone, so it is the same bytes
@@ -515,17 +531,7 @@ pub fn prefix(context: &GameContext, deck_text: DeckText) -> String {
             (Some(a), Some(b)) if a == b => "your teammate",
             _ => "opponent",
         };
-        // A hosted seat knows nobody's name (`BridgeConfig::pseudonymous`).
-        if name.is_empty() {
-            let side = if side == "opponent" {
-                "an opponent"
-            } else {
-                side
-            };
-            let _ = writeln!(out, "P{} is {side}.", seat + 1);
-        } else {
-            let _ = writeln!(out, "P{} is «{name}», {side}.", seat + 1);
-        }
+        seat_line(&mut out, seat, name, side);
     }
     if let Some(secs) = context.decision_secs {
         let _ = writeln!(out, "The table gives each decision {secs} seconds.");

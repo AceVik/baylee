@@ -28,7 +28,7 @@ fn join_args(args: &[&str]) -> Result<Join, clap::Error> {
     let head = ["baylee-seat", "join", "TEST-room"];
     Cli::try_parse_from(head.iter().chain(args)).map(|cli| match cli.command {
         Command::Join(join) => *join,
-        Command::Key(_) => panic!("not a join"),
+        Command::Key(_) | Command::Check(_) => panic!("not a join"),
     })
 }
 
@@ -577,7 +577,7 @@ fn key_args(args: &[&str]) -> KeyArgs {
         .command
     {
         Command::Key(key) => key,
-        Command::Join(_) => panic!("not a key command"),
+        Command::Join(_) | Command::Check(_) => panic!("not a key command"),
     }
 }
 

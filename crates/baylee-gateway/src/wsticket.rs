@@ -126,6 +126,11 @@ pub enum Grant {
         /// The host's account, who answers for the chair. The redemption
         /// checks that it still hosts the room.
         host: String,
+        /// The hosted-model order it was minted for (`seathost.rs`), which
+        /// the gateway minted rather than the host's client: redeemed even
+        /// where hosts may hand no chair over (`BAYLEE_CHAIR_TICKETS=off`),
+        /// and only while the chair still holds that order.
+        order: Option<String>,
     },
 }
 
@@ -615,6 +620,7 @@ mod tests {
             game_id: game.into(),
             seat: at,
             host: host.into(),
+            order: None,
         }
     }
 

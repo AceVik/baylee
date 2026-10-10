@@ -85,6 +85,40 @@ pub struct LobbySeat {
     /// every route that finds "the caller's chair" by account must keep
     /// finding the host's own, not this one.
     pub delegate: Option<Delegate>,
+    /// A model a seat agent runs for this chair, ordered by the room's host
+    /// (`seathost.rs`): pending until its bridge sits in the chair as the
+    /// host's [`Delegate`], then beside it; or, with a `note`, the order
+    /// that failed and left the chair open.
+    pub hosted: Option<HostedChair>,
+}
+
+/// A hosted model ordered for a chair (`seathost.rs`, `docs/protocol.md`
+/// §"Hosted language-model seats").
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HostedChair {
+    /// The gateway's order, which its chair ticket and its seat agent know.
+    pub order: String,
+    /// The seat agent running it.
+    pub host: String,
+    /// The profile's id.
+    pub profile: String,
+    /// What players see.
+    pub label: String,
+    /// Who the game data goes to.
+    pub vendor: String,
+    /// The model.
+    pub model: String,
+    /// Why the order failed, for a chair it left open; `None` while it
+    /// stands.
+    pub note: Option<String>,
+}
+
+impl HostedChair {
+    /// Whether the order still stands (it has not failed).
+    #[must_use]
+    pub const fn standing(&self) -> bool {
+        self.note.is_none()
+    }
 }
 
 /// A seat bridge sitting in a chair on its host's word (`chair.rs`).
@@ -120,13 +154,17 @@ impl LobbySeat {
             team: None,
             joined_seq: None,
             delegate: None,
+            hosted: None,
         }
     }
 
-    /// Whether anybody sits here: a player, or a host's delegate.
+    /// Whether anybody sits here: a player, or a host's delegate, or a
+    /// hosted model ordered for it and on its way.
     #[must_use]
-    pub const fn occupied(&self) -> bool {
-        self.account_id.is_some() || self.delegate.is_some()
+    pub fn occupied(&self) -> bool {
+        self.account_id.is_some()
+            || self.delegate.is_some()
+            || self.hosted.as_ref().is_some_and(HostedChair::standing)
     }
 
     /// Whether the seat is settled enough for the game to start: somebody is
@@ -190,7 +228,7 @@ impl LobbySeat {
     /// another.
     #[must_use]
     pub fn again(&self) -> Self {
-        if self.delegate.is_some() {
+        if self.delegate.is_some() || self.hosted.is_some() {
             let mut open = self.clone();
             open.vacate();
             return open;
@@ -835,6 +873,9 @@ impl Lobby {
                             // Whose seat bridge sits here (`chair.rs`), by
                             // handle; `null` for every other chair.
                             "delegated_by": s.delegate.as_ref().and_then(|d| names.get(&d.by)),
+                            // A model a seat agent runs for this chair
+                            // (`seathost.rs`); `null` for every other chair.
+                            "hosted": crate::seathost::chair_json(s),
                             "you": s.account_id.as_deref() == Some(me),
                             "host": s.account_id.is_some() && s.account_id == g.host,
                             "deck": s.deck_name,
@@ -888,6 +929,7 @@ mod tests {
             team: Some(1),
             joined_seq: Some(joined),
             delegate: None,
+            hosted: None,
         }
     }
 

@@ -119,6 +119,7 @@ pub(crate) async fn mint(
         &id,
         seat,
         host,
+        None,
         Instant::now(),
     )?;
     Ok(Json(serde_json::json!({
@@ -133,12 +134,17 @@ pub(crate) async fn mint(
 /// between the check and the ticket and leave a ticket its revocation
 /// missed. The lock order is the lobby's first, then the store's, and
 /// nothing takes them the other way round.
-fn hand_over(
+///
+/// `order` is a hosted model's order (`seathost.rs`), whose chair is marked
+/// for it already: the ticket is then for that chair while it holds the
+/// order, not for an open one.
+pub(crate) fn hand_over(
     lobby: &lobby::Lobby,
     tickets: &wsticket::Tickets,
     id: &str,
     seat: usize,
     host: String,
+    order: Option<String>,
     now: Instant,
 ) -> Result<String, (StatusCode, Json<ErrorBody>)> {
     let game = lobby
@@ -151,11 +157,15 @@ fn hand_over(
             "only the host hands a chair to a seat bridge",
         ));
     }
-    open_chair(game, seat)?;
+    match &order {
+        Some(order) => ordered_chair(game, seat, order).map(drop)?,
+        None => open_chair(game, seat).map(drop)?,
+    }
     let grant = wsticket::Grant::Chair {
         game_id: id.to_string(),
         seat,
         host,
+        order,
     };
     tickets.issue(grant, now).map_err(|wsticket::Full| {
         tracing::warn!("the chair ticket store is full");
@@ -166,9 +176,37 @@ fn hand_over(
     })
 }
 
+/// The chair `seat` of `game` when the hosted model ordered as `order` may
+/// sit there now: the chair still holds that order, nobody sits in it yet,
+/// and the room is still being arranged.
+pub(crate) fn ordered_chair<'a>(
+    game: &'a lobby::LobbyGame,
+    seat: usize,
+    order: &str,
+) -> Result<&'a lobby::LobbySeat, (StatusCode, Json<ErrorBody>)> {
+    if game.state != lobby::LobbyState::Waiting {
+        return Err(err(StatusCode::CONFLICT, "game already started"));
+    }
+    let chair = game
+        .seats
+        .get(seat)
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such seat"))?;
+    let holds = chair
+        .hosted
+        .as_ref()
+        .is_some_and(|hosted| hosted.standing() && hosted.order == order);
+    if !holds || chair.account_id.is_some() || chair.delegate.is_some() {
+        return Err(err(
+            StatusCode::CONFLICT,
+            "that chair no longer waits for this model",
+        ));
+    }
+    Ok(chair)
+}
+
 /// The chair `seat` of `game` when a seat bridge could sit there now: a
 /// person's chair nobody sits in, at a room still being arranged.
-fn open_chair(
+pub(crate) fn open_chair(
     game: &lobby::LobbyGame,
     seat: usize,
 ) -> Result<&lobby::LobbySeat, (StatusCode, Json<ErrorBody>)> {
@@ -208,9 +246,8 @@ pub(crate) async fn redeem(
     Path((id, seat)): Path<(String, usize)>,
     Json(body): Json<RedeemBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    if !state.chair_tickets_enabled {
-        return Err(err(StatusCode::FORBIDDEN, SWITCHED_OFF));
-    }
+    // `BAYLEE_CHAIR_TICKETS=off` stops a host's own bridges; a hosted
+    // model's ticket, which the gateway minted, is checked below.
     let ip = rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers);
     if !state.chair_limiter.allow(&format!("redeem:{ip}")) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
@@ -238,9 +275,12 @@ pub(crate) async fn redeem(
             tracing::debug!(?why, "a chair ticket opened nothing");
             err(StatusCode::UNAUTHORIZED, TICKET_REFUSED)
         })?;
-    let wsticket::Grant::Chair { host, .. } = grant else {
+    let wsticket::Grant::Chair { host, order, .. } = grant else {
         return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
     };
+    if order.is_none() && !state.chair_tickets_enabled {
+        return Err(err(StatusCode::FORBIDDEN, SWITCHED_OFF));
+    }
     let deck = delegated_deck(&host, body.deck);
     let seat_token = auth::new_token();
     let decide_secs = {
@@ -257,7 +297,10 @@ pub(crate) async fn redeem(
                 "the host who handed this chair over no longer hosts the room",
             ));
         }
-        open_chair(game, seat)?;
+        match &order {
+            Some(order) => ordered_chair(game, seat, order).map(drop)?,
+            None => open_chair(game, seat).map(drop)?,
+        }
         let decide_secs = game.house_rules.decision_timeout_secs;
         let chair = &mut game.seats[seat];
         chair.delegate = Some(lobby::Delegate {
@@ -452,23 +495,23 @@ mod tests {
         let tickets = wsticket::Tickets::new(Duration::from_secs(DEFAULT_SECS));
         let now = Instant::now();
         let mut lobby = room("host");
-        assert!(hand_over(&lobby, &tickets, "g1", 1, "stranger".into(), now).is_err());
+        assert!(hand_over(&lobby, &tickets, "g1", 1, "stranger".into(), None, now).is_err());
         assert!(
-            hand_over(&lobby, &tickets, "g1", 0, "host".into(), now).is_err(),
+            hand_over(&lobby, &tickets, "g1", 0, "host".into(), None, now).is_err(),
             "taken"
         );
-        assert!(hand_over(&lobby, &tickets, "g9", 1, "host".into(), now).is_err());
+        assert!(hand_over(&lobby, &tickets, "g9", 1, "host".into(), None, now).is_err());
         assert_eq!(
             tickets.sweep(now + Duration::from_secs(DEFAULT_SECS)),
             0,
             "none issued"
         );
-        let Ok(ticket) = hand_over(&lobby, &tickets, "g1", 1, "host".into(), now) else {
+        let Ok(ticket) = hand_over(&lobby, &tickets, "g1", 1, "host".into(), None, now) else {
             panic!("issued");
         };
         // The host leaves: the lobby moves first, then its tickets go.
         lobby.games.get_mut("g1").unwrap().host = None;
-        assert!(hand_over(&lobby, &tickets, "g1", 2, "host".into(), now).is_err());
+        assert!(hand_over(&lobby, &tickets, "g1", 2, "host".into(), None, now).is_err());
         let revoked = tickets
             .revoke(|grant| matches!(grant, wsticket::Grant::Chair { host, .. } if host == "host"));
         assert_eq!(revoked, 1);
