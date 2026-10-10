@@ -340,6 +340,7 @@ pub(super) fn proxies(
     shown: Option<Res<crate::table::ShownRig>>,
     dial: Option<Res<crate::dial::DialReport>>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     mut nodes: Query<(&Proxy, &mut Node)>,
 ) {
     if nodes.is_empty() {
@@ -363,7 +364,7 @@ pub(super) fn proxies(
     ) else {
         return;
     };
-    let lens = crate::table::Lens::new(rig, Vec2::new(window.width(), window.height()));
+    let lens = crate::table::Lens::new(rig, crate::hud::scale::space(window, ui.as_deref()));
     let mine = layout
         .on_felt()
         .find(|slot| slot.is_local)
@@ -384,7 +385,10 @@ pub(super) fn proxies(
             for c in &corners[1..] {
                 rect = rect.union_point(*c);
             }
-            Some(rect.intersect(Rect::new(0.0, 0.0, window.width(), window.height())))
+            Some(rect.intersect(Rect::from_corners(
+                Vec2::ZERO,
+                crate::hud::scale::space(window, ui.as_deref()),
+            )))
         });
     let dial = dial.as_deref().and_then(|d| {
         d.centre

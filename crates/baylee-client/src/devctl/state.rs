@@ -29,6 +29,9 @@ type ReportParts<'w, 's> = (
 /// clock around them.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(super) struct Believed<'w, 's> {
+    /// The table's UI scale (`hud::scale`): a node's box is reported in
+    /// logical window pixels, where `/click` presses, not in the UI's units.
+    ui: Option<Res<'w, UiScale>>,
     /// The lobby's rebuild count (`shell_nodes_json`'s companion).
     rebuilds: Option<Res<'w, crate::lobby::UiRebuilds>>,
     /// The report form, for its own redraw count beside the lobby's.
@@ -388,6 +391,13 @@ pub(super) struct Believed<'w, 's> {
     >,
 }
 
+impl Believed<'_, '_> {
+    /// What a node's UI units are multiplied by to be logical window pixels.
+    fn ui(&self) -> f32 {
+        self.ui.as_deref().map_or(1.0, |ui| ui.0)
+    }
+}
+
 /// Every mana source the client can see, and what it believes each one makes.
 ///
 /// The half of the hand's indigo offer that leaves no other trace.
@@ -560,7 +570,7 @@ fn desk_controls_json(believed: &Believed) -> String {
         .desk_controls
         .iter()
         .map(|(press, node, place)| {
-            let scale = node.inverse_scale_factor;
+            let scale = node.inverse_scale_factor * believed.ui();
             let size = node.size() * scale;
             let mid = place.translation * scale;
             format!(
@@ -605,7 +615,7 @@ fn shell_nodes_json(believed: &Believed) -> String {
         let (Some(node), Some(place)) = (node, place) else {
             return;
         };
-        let scale = node.inverse_scale_factor;
+        let scale = node.inverse_scale_factor * believed.ui();
         let size = node.size() * scale;
         let mid = place.translation * scale;
         let mut row = format!(
@@ -695,7 +705,7 @@ fn report_json(believed: &Believed) -> String {
         .1
         .iter()
         .map(|(anchor, node, place)| {
-            let scale = node.inverse_scale_factor;
+            let scale = node.inverse_scale_factor * believed.ui();
             let size = node.size() * scale;
             let mid = place.translation * scale;
             serde_json::json!({
@@ -727,7 +737,7 @@ fn update_buttons_json(believed: &Believed) -> String {
         .update_buttons
         .iter()
         .map(|(button, node, place)| {
-            let scale = node.inverse_scale_factor;
+            let scale = node.inverse_scale_factor * believed.ui();
             let size = node.size() * scale;
             let mid = place.translation * scale;
             format!(
@@ -748,7 +758,7 @@ fn lobby_controls_json(believed: &Believed) -> String {
         .exits
         .iter()
         .map(|(entity, press, marked, node, place)| {
-            let scale = node.inverse_scale_factor;
+            let scale = node.inverse_scale_factor * believed.ui();
             let size = node.size() * scale;
             let mid = place.translation * scale;
             format!(
@@ -805,8 +815,8 @@ pub(super) fn refusal_json(refusal: Option<&Refusal>, lang: Lang) -> String {
 /// bug this endpoint exists to show.
 fn presentation_json(believed: &Believed) -> serde_json::Value {
     let bounds = |node: &ComputedNode, place: &UiGlobalTransform| {
-        let size = node.size() * node.inverse_scale_factor;
-        let mid = place.translation * node.inverse_scale_factor;
+        let size = node.size() * node.inverse_scale_factor * believed.ui();
+        let mid = place.translation * node.inverse_scale_factor * believed.ui();
         serde_json::json!({"x":mid.x-size.x/2.0,"y":mid.y-size.y/2.0,"w":size.x,"h":size.y})
     };
     let legal: Vec<_> = believed
@@ -982,7 +992,8 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
         browser = browser_json(duel),
         shelves = shelves_json(
             shelves,
-            duel.view.as_ref().is_some_and(|v| v.day_night.is_some())
+            duel.view.as_ref().is_some_and(|v| v.day_night.is_some()),
+            believed.ui(),
         ),
         hovered = duel
             .hovered
@@ -1101,7 +1112,7 @@ fn tour_json(believed: &Believed, settings: Option<&ClientSettings>) -> String {
         .tour_controls
         .iter()
         .map(|(press, node, place)| {
-            let mid = place.translation * node.inverse_scale_factor;
+            let mid = place.translation * node.inverse_scale_factor * believed.ui();
             format!(
                 "{{\"press\":{},\"at_x\":{:.1},\"at_y\":{:.1}}}",
                 quoted(&format!("{press:?}")),
@@ -1174,8 +1185,8 @@ fn arrangement_json(believed: &Believed, duel: &Duel) -> String {
         })
         .collect();
     let rect = |(node, place): (&ComputedNode, &UiGlobalTransform)| {
-        let size = node.size() * node.inverse_scale_factor;
-        let mid = place.translation * node.inverse_scale_factor;
+        let size = node.size() * node.inverse_scale_factor * believed.ui();
+        let mid = place.translation * node.inverse_scale_factor * believed.ui();
         serde_json::json!({"x":mid.x-size.x/2.0,"y":mid.y-size.y/2.0,"w":size.x,"h":size.y})
     };
     let glide = glide.as_deref().copied().unwrap_or_default();
@@ -1317,7 +1328,7 @@ fn chips_json(believed: &Believed) -> String {
                 .any(|c| c.player.get() == *seat);
             let (hint, rect) = chip.map_or_else(
                 || ("null".to_string(), "null".to_string()),
-                |(_, hint, node, at)| (quoted(&hint.0), rect_json(node, at)),
+                |(_, hint, node, at)| (quoted(&hint.0), rect_json(node, at, believed.ui())),
             );
             format!(
                 "{{\"seat\":{seat},\"lines\":{lines},\"crown\":{crown},\"hint\":{hint},\"rect\":{rect}}}"
@@ -1329,8 +1340,8 @@ fn chips_json(believed: &Believed) -> String {
 
 /// A UI node's drawn box in logical pixels, `[x, y, w, h]`: its middle and
 /// its unturned size (a turned plate reports the box before the turn).
-fn rect_json(node: &ComputedNode, at: &UiGlobalTransform) -> String {
-    let scale = node.inverse_scale_factor();
+fn rect_json(node: &ComputedNode, at: &UiGlobalTransform, ui: f32) -> String {
+    let scale = node.inverse_scale_factor() * ui;
     let size = node.size() * scale;
     let middle = at.translation * scale;
     format!(
@@ -1364,7 +1375,7 @@ fn plates_json(believed: &Believed) -> String {
                 format!(
                     "{{\"seat\":{seat},\"shown\":{},\"rect\":{},\"lines\":{},\"crown\":{},\"unlimited\":{},\"pool\":{},\"hint\":{},\"steps\":{}}}",
                     node.display != Display::None,
-                    rect_json(computed, at),
+                    rect_json(computed, at, believed.ui()),
                     lines_json(believed, seat, true),
                     marked(crate::hud::PlateMarkKind::Crown),
                     marked(crate::hud::PlateMarkKind::Unlimited),
@@ -1401,7 +1412,7 @@ fn steps_json(believed: &Believed, player: baylee_core::ids::PlayerId) -> String
                 format!(
                     "{{\"shown\":{},\"rect\":{},\"names\":\"{names}\"}}",
                     node.display != Display::None,
-                    rect_json(computed, at)
+                    rect_json(computed, at, believed.ui())
                 )
             },
         )
@@ -1539,7 +1550,7 @@ fn cards_json(believed: &Believed, duel: &Duel, window: Vec2) -> String {
     // arithmetic is also what carries the scroll offset and whatever `touch`
     // has the card doing under the finger.
     let in_the_hand = believed.hand.iter().map(|(visual, computed, place)| {
-        let scale = computed.inverse_scale_factor;
+        let scale = computed.inverse_scale_factor * believed.ui();
         card_row(
             duel,
             "hand",
@@ -1553,7 +1564,7 @@ fn cards_json(believed: &Believed, duel: &Duel, window: Vec2) -> String {
     // box is already in physical pixels — and reports the *row*, not the
     // picture on it, because the row is what answers a click now.
     let on_the_stack = believed.stack.iter().map(|(visual, computed, place)| {
-        let scale = computed.inverse_scale_factor;
+        let scale = computed.inverse_scale_factor * believed.ui();
         card_row(
             duel,
             "stack",
@@ -1602,7 +1613,7 @@ fn buttons_json(believed: &Believed) -> String {
     let mut rows: Vec<String> = Vec::new();
     let mut push =
         |kind: &str, label: String, node: &bevy::ui::ComputedNode, at: Vec2, extra: String| {
-            let scale = node.inverse_scale_factor;
+            let scale = node.inverse_scale_factor * believed.ui();
             let size = node.size() * scale;
             let mid = at * scale;
             rows.push(format!(
@@ -1892,7 +1903,9 @@ fn name_of(duel: &Duel, object: baylee_core::ids::ObjectId) -> String {
 /// on, `along` and `depth` are the projected ledge, and `ink` is what the
 /// depth has to be able to hold. A shelf whose `ink` is close to its `depth`
 /// is a bar about to stand on the creature lane behind it.
-fn shelves_json(shelves: Option<&crate::hud::Shelves>, designated: bool) -> String {
+/// The middle is in logical window pixels (times `ui`); the lengths stay in
+/// the HUD's units, the bar's own.
+fn shelves_json(shelves: Option<&crate::hud::Shelves>, designated: bool, ui: f32) -> String {
     let Some(shelves) = shelves else {
         return "null".to_string();
     };
@@ -1907,8 +1920,8 @@ fn shelves_json(shelves: Option<&crate::hud::Shelves>, designated: bool) -> Stri
                  \"density\":\"{density:?}\",\"box_w\":{bw:.1},\"box_h\":{bh:.1},\
                  \"ink\":{ink:.1}}}",
                 player = player.get(),
-                mx = shelf.middle.x,
-                my = shelf.middle.y,
+                mx = shelf.middle.x * ui,
+                my = shelf.middle.y * ui,
                 along = shelf.along,
                 depth = shelf.depth,
                 tilt = shelf.tilt,

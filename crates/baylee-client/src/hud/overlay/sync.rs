@@ -3,6 +3,13 @@
 #[allow(clippy::wildcard_imports)] // the overlay's shared vocabulary
 use super::*;
 
+/// The fonts, their assets and the UI scale, in one parameter.
+type Lettering<'w> = (
+    Res<'w, UiFonts>,
+    Option<Res<'w, Assets<Font>>>,
+    Option<Res<'w, UiScale>>,
+);
+
 /// Rebuilds the overlay when anything it shows changes.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)] // one retained-UI rebuild, sectioned by comments
@@ -16,7 +23,7 @@ pub fn sync_overlay(
     windows: Query<&Window>,
     // With the font's own asset, which the text faces are fitted by: in one
     // parameter, because the system is at its limit of sixteen.
-    (fonts, font_assets): (Res<UiFonts>, Option<Res<Assets<Font>>>),
+    (fonts, font_assets, ui): Lettering,
     settings: Res<crate::settings::ClientSettings>,
     prefs: Res<crate::prefs::Prefs>,
     texts: Res<crate::cardtext::CardTexts>,
@@ -107,9 +114,8 @@ pub fn sync_overlay(
     // Rounded to whole pixels: a window being dragged reports fractional
     // sizes, and a revision keyed on an `f32` would rebuild the whole tree on
     // a sub-pixel wobble.
-    let canvas = windows
-        .single()
-        .map_or((1200, 800), |w| (w.width() as i32, w.height() as i32));
+    let canvas = crate::hud::scale::window_space(&windows, ui.as_deref())
+        .map_or((1200, 800), |w| (w.x as i32, w.y as i32));
     let number = duel
         .interaction
         .as_ref()
@@ -335,9 +341,8 @@ pub fn sync_overlay(
 
     // ---- bottom: the hand zone (always on top) ---------------------------
     if let Some(statics) = duel.statics.as_ref() {
-        let available = windows
-            .single()
-            .map_or(1200.0, |w| hand_available(w.width()));
+        let available = crate::hud::scale::window_space(&windows, ui.as_deref())
+            .map_or(1200.0, |w| hand_available(w.x));
         let layout = grouped_hand_layout(board.hand.len(), available, &duel.hand_groups);
         let hand_zone = spawn_hand_zone(
             &mut commands,
@@ -389,11 +394,11 @@ pub fn sync_overlay(
                 duel.hovered_at,
             ),
         };
+        let anchor = anchor.map(|(art, at)| (art, at.in_ui(ui.as_deref().map_or(1.0, |ui| ui.0))));
         if let Some((art, anchor)) = anchor {
             let scale = settings.preview_scale;
-            let window = windows.single().map_or(Vec2::new(1200.0, 800.0), |w| {
-                Vec2::new(w.width(), w.height())
-            });
+            let window = crate::hud::scale::window_space(&windows, ui.as_deref())
+                .unwrap_or(Vec2::new(1200.0, 800.0));
             // What the scale slider asked for, and then what this window can
             // actually show: a preview larger than the screen is cut off
             // wherever it is placed, and no amount of arithmetic in

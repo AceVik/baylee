@@ -850,7 +850,7 @@ mod tests {
     /// read off the bytes that would be sent rather than off the struct.
     #[test]
     fn with_nothing_ticked_only_the_build_goes() {
-        let body = json_of(gathered().submission(Kind::Bug, told(), &Consent::default()));
+        let body = json_of(gathered().submission(Kind::Bug, told(), &Consent::nothing()));
         let client = body["client"].as_object().expect("client is an object");
         assert_eq!(client.keys().collect::<Vec<_>>(), ["build"]);
         assert!(
@@ -870,7 +870,7 @@ mod tests {
             Category::Screenshot => "screenshot",
         };
         for category in Category::ALL {
-            let mut consent = Consent::default();
+            let mut consent = Consent::nothing();
             consent.set(category, true);
             let body = json_of(gathered().submission(Kind::Bug, "x", &consent));
             let client = body["client"].as_object().expect("client is an object");
@@ -965,7 +965,7 @@ mod tests {
         ));
         // Unticked, it is not in the report, so there is nothing to refuse.
         gathered
-            .submission(Kind::Bug, "x", &Consent::default())
+            .submission(Kind::Bug, "x", &Consent::nothing())
             .sealed(&token())
             .expect("the system part was not sent");
     }

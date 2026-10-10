@@ -62,8 +62,9 @@
 /// Linked counter cleanup adds a delayed body; its traversal has a behavioral test.
 /// Raised 29 → 30 on 2026-10-07 for `BottomCardFromHand::then` (Vendilion
 /// Clique's "if you do"); `verb_tests::bottom_card_from_hand_body_is_visited`.
-/// Raised 30 → 33 on 2026-10-10: `FlipCoin::won` and `::lost` (the Arabian
-/// Nights coin flips) and `WhenTargetDiesThisTurn::effects` (Sandals of
+/// Raised 30 → 32 for `FlipCoin::won` and `::lost` (Mijae Djinn: "flip a
+/// coin; if you lose the flip, …"); `verb_tests::both_flip_branches_are_visited`.
+/// Raised 32 → 33 for `WhenTargetDiesThisTurn::effects` (Sandals of
 /// Abdallah); `verb_tests::flip_coin_and_dies_this_turn_bodies_are_visited`.
 const NESTING_FIELDS: usize = 33;
 
@@ -99,10 +100,10 @@ const NESTING_FIELDS: usize = 33;
 /// carrier, one branch.
 /// `ScheduleLinkedCounterCleanup` is the twenty-sixth carrier.
 /// `BottomCardFromHand` is the twenty-seventh (2026-10-07): one new
-/// carrier, one branch. `FlipCoin` (Goblin Artisans, the Arabian Nights coin
-/// flips: a won and a lost branch) is the twenty-eighth and
-/// `WhenTargetDiesThisTurn` (Sandals of Abdallah's delayed "destroy this
-/// artifact") the twenty-ninth (2026-10-10).
+/// carrier, one branch.
+/// `FlipCoin` is the twenty-eighth (2026-10-10): one new carrier, two
+/// branches. `WhenTargetDiesThisTurn` (Sandals of Abdallah's delayed
+/// "destroy this artifact") is the twenty-ninth (2026-10-10).
 const CARRYING_VARIANTS: usize = 29;
 
 /// The floor under the reader itself.

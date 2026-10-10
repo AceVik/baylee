@@ -6552,7 +6552,13 @@ the card):
   (`a_fold_leaves_the_table_to_pick_on_and_the_question_standing`). The fold
   belongs to the question it was made on (`client-core::decisionfold`, keyed
   on the view's `seq`), so the next question opens unfolded; folding sends
-  nothing.
+  nothing. What hangs from the drawer is decided from its reading alone
+  (`decisionfold::reconcile`): with no question the pill goes at once and
+  an open sheet runs its way out, whatever ended the question (beta.6: a
+  resolved Path to Exile's and Swords to Plowshares's pill stood for
+  turns), and a pill whose reading changes while it stands is rewritten,
+  never left an empty blob
+  (`a_folded_pill_whose_reading_changes_keeps_its_words`).
 
 ### The creature type (08.10.2026)
 
@@ -8813,7 +8819,9 @@ leaves alone a file another running client holds. The crash courier does
 not carry the record: a record leaves only with a report it was ticked
 for. A browser keeps none. `gather` packs the record once per opening (`LocalRecord::pack`:
 gzip and base64 then, never per keystroke) and the form offers it in a box
-unticked at every opening (`ReportForm::opened`), with "Never offer…"
+ticked at every opening (`ReportForm::opened`; owner, 10.10.2026: every
+box starts ticked and the player takes out what should stay home; a record
+always goes through the confirmation), with "Never offer…"
 beside it (`RecordConsent::Never`, the one standing answer). The record
 never rides under a game id, and `seal` reads its own lines
 (`seal_record`), which the gzip would hide. `report::route` picks the
@@ -9944,6 +9952,24 @@ The host can set 2–8 chairs, teams, five AI profiles, room name, optional pass
 permanents per seat. Commander, 20-life duel and five-basic-land starting templates
 populate these settings. These are starting-state templates, not deck legality
 formats. Planechase is labelled unavailable until its actual rules exist.
+
+A fourth template, **Mixed** (owner, 10.10.2026), opens a table for decks of
+different formats (`RoomSetup.format = mixed`, `docs/protocol.md` §"A mixed
+table"): 20 life for every seat unless Adjust or a seat's own life says
+otherwise, no format warning before a Join (`play::format_warning`), every
+seat's deck marked as fitting (`play::fits`), the Commander chip admitting the
+table, and *Mixed*/*Gemischt* where the list, the room's title and its rules
+rail name a table's format (`play::table_format`, `shelf::format_label`).
+Edit rules over a mixed room reads it back as Mixed, and Apply keeps or clears
+it with the template chosen.
+
+The sheet's clock (create only) is a stepper over the gateway's fourteen
+clocks (`GET /auth/config`, `docs/protocol.md` §"Which clock a table plays
+at"), not a segmented row: fourteen labels fit no phone. It keeps room for the
+widest label (`controls::stepper_room`), stops at both ends
+(`play::step_clock`), and its buttons are not a radio group for the arrows.
+Every clock this build knows has a label and a help line in each language;
+one it does not know shows the wire's name and the gateway's blurb.
 The earliest joined remaining human inherits the host role when the host leaves.
 
 The login's stone frame, Baylee and lantern positions no longer receive pointer

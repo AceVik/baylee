@@ -183,11 +183,13 @@ impl TrayReveal {
 /// Both are read off the panel's own `Node`, which is where a drag has just
 /// written the sheet's position; nothing here asks a `ComputedNode`, so there
 /// is no logical-versus-physical question to get wrong.
+#[allow(clippy::too_many_arguments)] // a Bevy system
 pub fn reveal_tray(
     mut commands: Commands,
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     mut reveal: ResMut<TrayReveal>,
     mut panels: Query<(&Node, &mut UiTransform), With<TrayPanel>>,
     // The same two queries [`sync_tray`] tears the sheet down with, and
@@ -216,7 +218,7 @@ pub fn reveal_tray(
         return;
     }
 
-    let band = band_of(&windows);
+    let band = band_of(&windows, ui.as_deref());
     let target = super::ledge::tray::zones_button_centre(band);
     // Ease-out on the way in, ease-*in* on the way out: a thing arriving
     // slows into place and a thing leaving gathers speed, which is the same
@@ -649,6 +651,7 @@ pub fn sync_tray(
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     texts: Res<crate::cardtext::CardTexts>,
+    ui: Option<Res<UiScale>>,
     mode: Res<crate::face::FaceMode>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
@@ -686,9 +689,8 @@ pub fn sync_tray(
     // Rounded to whole pixels for `HudRevision`'s reason: a window being
     // dragged reports fractional sizes, and a gate keyed on an `f32` would
     // rebuild on a sub-pixel wobble.
-    let canvas = windows
-        .single()
-        .map_or((1200, 800), |w| (w.width() as i32, w.height() as i32));
+    let canvas = super::scale::window_space(&windows, ui.as_deref())
+        .map_or((1200, 800), |w| (w.x as i32, w.y as i32));
     let faces = FaceCtx {
         texts: &texts,
         mode: &mode,
@@ -796,7 +798,7 @@ pub fn sync_tray(
     // play on. A sheet a *question* opened reads no store at all and is
     // centred — `Browser::placement` carries the measurement that says why a
     // clamp was not enough.
-    let band = band_of(&windows);
+    let band = band_of(&windows, ui.as_deref());
     let place = if duel
         .browser
         .compact_targets(view, duel.interaction.as_ref())
@@ -879,11 +881,8 @@ fn reach_in(lit: &[(ObjectId, crate::Reach)], object: ObjectId) -> Option<crate:
 /// sheet in it, the drag clamps against it, and a resized window re-fits to
 /// it. A window that has not been created yet answers with the size the rest
 /// of the overlay falls back to.
-pub(crate) fn band_of(windows: &Query<&Window>) -> (f32, f32) {
-    let (w, h) = windows
-        .single()
-        .map_or((1280.0, 720.0), |window| (window.width(), window.height()));
-    band_in(Vec2::new(w, h))
+pub(crate) fn band_of(windows: &Query<&Window>, ui: Option<&UiScale>) -> (f32, f32) {
+    band_in(super::scale::window_space(windows, ui).unwrap_or(Vec2::new(1280.0, 720.0)))
 }
 
 /// [`band_of`] for a window of this size.

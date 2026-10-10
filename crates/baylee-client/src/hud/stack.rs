@@ -478,6 +478,7 @@ pub fn fold_the_stack(
     prefs: Res<crate::prefs::Prefs>,
     mut fold: ResMut<StackFold>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     duel: Option<Res<Duel>>,
     mut bodies: StackViewportQuery,
     mut panels: Query<&mut Node, (With<StackPanel>, Without<StackViewport>)>,
@@ -508,7 +509,7 @@ pub fn fold_the_stack(
         },
         |w| {
             panel_room(
-                Vec2::new(w.width(), w.height()),
+                crate::hud::scale::space(w, ui.as_deref()),
                 // No table, no drawer to follow: drawn open.
                 duel.as_ref().map_or(1.0, |duel| duel.hand_shown),
                 strip_right(strips.iter()),

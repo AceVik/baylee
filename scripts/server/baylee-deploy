@@ -42,6 +42,32 @@
 # A waiting room nobody starts would hold a deploy forever, so rooms alone
 # stop blocking after BAYLEE_DEPLOY_ROOM_GRACE minutes (60). Running games
 # always block.
+#
+# Deploy hooks (docs/deploy-hooks.md): when /etc/baylee/deploy-hooks.d holds
+# a file named like a hook, the same two halves run as a transaction with
+# three hook phases, through the root-owned dispatcher
+# /usr/local/lib/baylee/run-deploy-hooks (`sudo -n`, nothing but the phase
+# and the full commit):
+#
+#   prepare        the target is resolved to its full commit; nothing is
+#                  installed, stopped or staged before this passes. Exit 75
+#                  ("not ready") keeps the old system and tries the same
+#                  target on the next run.
+#   (stage)        the admission hold goes up (BAYLEE_ADMISSION_HOLD in
+#                  gateway.env: no game starts on any agent), the agent
+#                  stops, agent and engine are installed.
+#   (drain)        every running game, on any agent, has to end; `--force`
+#                  ends them, as without hooks.
+#   before-switch  then the seat bridge and agent, the gateway and the
+#                  browser client are installed and the gateway restarts;
+#                  `/info` has to name the target commit, clean.
+#   after-switch   then the hold comes down, the agent starts and the seat
+#                  agents restart, and the target is recorded as deployed.
+#
+# A failed hook stops the deploy where it is, `--force` or not; the next
+# `baylee-deploy finish` by hand runs prepare again and continues. Where it
+# is stands in $state/transaction, so a timer run after a crash goes on.
+# Without hooks none of this happens and everything is as described above.
 set -euo pipefail
 
 # BAYLEE_DEPLOY_ROOT moves the tree it works in, for its test
@@ -73,6 +99,25 @@ if [ -r /etc/baylee/deploy.env ]; then
 fi
 rustup=${RUSTUP:-$HOME/.cargo/bin/rustup}
 play=$root/web/play
+# Deploy hooks (docs/deploy-hooks.md). The dispatcher and its sudoers rule
+# are installed by a deploy that went through; until one is, a server with
+# hooks refuses to deploy.
+hooks_dir=$etc/deploy-hooks.d
+hooks_bin=/usr/local/lib/baylee/run-deploy-hooks
+hooks_sudoers=/etc/sudoers.d/baylee-deploy-hooks
+txn=$state/transaction
+# Whose the signers file and the keyring must be (root), and how often the
+# new gateway's /info is asked for (once a second).
+trusted_uid=0
+info_tries=20
+if [ -n "${BAYLEE_DEPLOY_ROOT:-}" ]; then
+    # Only for the deploy tests, which run in a scratch tree as whoever runs
+    # them; the dispatcher's own checks have no such switch.
+    hooks_bin=${BAYLEE_DEPLOY_HOOKS_BIN:-$hooks_bin}
+    hooks_sudoers=$root/sudoers.d/baylee-deploy-hooks
+    trusted_uid=${BAYLEE_DEPLOY_TRUSTED_UID:-$trusted_uid}
+    info_tries=${BAYLEE_DEPLOY_INFO_TRIES:-$info_tries}
+fi
 
 log() { echo "baylee-deploy: $*"; logger -t baylee-deploy -- "$*" 2>/dev/null || true; }
 
@@ -109,18 +154,39 @@ stage() {
     local rev=$1 force=${2:-}
     cd "$src"
     git cat-file -e "$rev^{commit}" 2>/dev/null || git fetch -q --tags "$repo"
+    # A tag named by hand is verified as `watch` verifies one; a commit id
+    # is the operator's own choice.
+    if git show-ref --verify -q "refs/tags/$rev"; then
+        verify_tag "$rev" || exit 1
+    fi
+    if hooks_configured && txn_load; then
+        case $t_phase in
+            staged|draining|switching|switched)
+                # Past the point where anything changed: only this target
+                # may go on, and it goes on where it stopped.
+                if [ "$(git rev-parse "$rev^{commit}")" != "$t_target" ]; then
+                    log "a deploy of ${t_target:0:10} is under way ($t_phase); it has to finish first"
+                    exit 1
+                fi
+                finish "$force"
+                return
+                ;;
+        esac
+    fi
     git checkout -q -f --detach "$rev"
     git clean -q -fd -e target -e web/feedback/node_modules
     "$cargo" build --release --locked \
         -p baylee-gateway -p baylee-agent -p baylee-engine-server -p baylee-catalog \
-        -p baylee-feedback -p baylee-seat -p baylee-seathost 2>&1 | tail -1
+        -p baylee-feedback -p baylee-seat -p baylee-seathost -p baylee-deploy-hooks 2>&1 | tail -1
     rev=$(git rev-parse HEAD)
+    if hooks_configured; then
+        stage_with_hooks "$rev" "$force"
+        return
+    fi
 
     rm -rf "$state/staged"
     mkdir -p "$state/staged"
-    cp target/release/{baylee-gateway,baylee-catalog} "$state/staged/"
-    echo "$rev" > "$state/staged/rev"
-    date +%s > "$state/staged/since"
+    stage_files "$rev"
     # Before the agent stops: the wasm build is the long one, and games
     # can still start while it runs.
     play_build
@@ -145,6 +211,379 @@ stage() {
         log "feedback service ${rev:0:10} installed"
     fi
     finish "$force"
+}
+
+# What the stage keeps for finish: the gateway and catalog it installs, the
+# dispatcher and its sudoers rule it installs once the deploy went through,
+# and the seat bridge and agent (installed by finish under deploy hooks).
+stage_files() {
+    cp target/release/{baylee-gateway,baylee-catalog,run-deploy-hooks} "$state/staged/"
+    if [ -f target/release/baylee-seat ]; then
+        cp target/release/{baylee-seat,baylee-seathost} "$state/staged/"
+    fi
+    cp scripts/server/baylee-deploy-hooks.sudoers "$state/staged/"
+    echo "$1" > "$state/staged/rev"
+    date +%s > "$state/staged/since"
+}
+
+# ------------------------------------------------------------ deploy hooks
+
+# Whether this server has deploy hooks: the directory holds a name the
+# dispatcher would run (or cannot be listed, or is a link, which the
+# dispatcher refuses). Names it ignores do not count.
+hooks_configured() {
+    [ -e "$hooks_dir" ] || [ -L "$hooks_dir" ] || return 1
+    [ -L "$hooks_dir" ] && return 0
+    { [ -r "$hooks_dir" ] && [ -x "$hooks_dir" ]; } || return 0
+    local entry
+    for entry in "$hooks_dir"/*; do
+        { [ -e "$entry" ] || [ -L "$entry" ]; } || continue
+        [[ ${entry##*/} =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] && return 0
+    done
+    return 1
+}
+
+# The transaction (target, phase, failed, tag), one KEY=value a line in
+# $txn. Load fails when there is none.
+txn_load() {
+    t_target='' t_phase='' t_failed='' t_tag=''
+    [ -f "$txn" ] || return 1
+    local key value
+    while IFS='=' read -r key value; do
+        case $key in
+            target) t_target=$value ;;
+            phase) t_phase=$value ;;
+            failed) t_failed=$value ;;
+            tag) t_tag=$value ;;
+        esac
+    done < "$txn"
+}
+
+# Written beside and renamed over, so a crash leaves the old or the new.
+txn_save() {
+    printf 'target=%s\nphase=%s\nfailed=%s\ntag=%s\n' \
+        "$t_target" "$t_phase" "$t_failed" "$t_tag" > "$txn.new"
+    mv -f "$txn.new" "$txn"
+}
+
+# Records where the deploy stopped, says why, and stops. Nothing goes on
+# until `baylee-deploy finish` (or `stage`) is run by hand, or, while
+# nothing has changed yet, a newer release replaces the target.
+txn_fail() {
+    t_failed=$1
+    txn_save
+    log "$2"
+    exit 1
+}
+
+# Runs one phase's hooks for the full commit; the dispatcher's own status
+# is the return value (75: not ready, 0: passed). What it prints is
+# neutral: the phase, a hook's place and how it ended.
+run_hooks() {
+    local phase=$1 rev=$2 code=0
+    if [ ! -x "$hooks_bin" ]; then
+        log "deploy hooks are set up in $hooks_dir, but $hooks_bin is not installed (docs/deploy-hooks.md §\"Installing\")"
+        return 1
+    fi
+    sudo -n "$hooks_bin" "$phase" "$rev" || code=$?
+    case $code in
+        0) log "deploy hooks: $phase for ${rev:0:10} passed" ;;
+        75) log "deploy hooks: $phase for ${rev:0:10} is not ready; tried again on the next run" ;;
+        *) log "deploy hooks: $phase for ${rev:0:10} failed (status $code)" ;;
+    esac
+    return "$code"
+}
+
+# The admission hold's path, from the gateway's settings.
+hold_path() {
+    local hold
+    hold=$(sudo sed -n 's/^BAYLEE_ADMISSION_HOLD=//p' "$etc/gateway.env" 2>/dev/null | tail -1) || true
+    hold=${hold%\"}
+    hold=${hold#\"}
+    echo "$hold"
+}
+
+place_hold() {
+    # Made only when missing: an existing directory (the gateway's own
+    # state, say) keeps its owner and mode.
+    [ -d "$(dirname "$1")" ] || sudo install -d -m755 -o root -g root "$(dirname "$1")"
+    sudo install -m644 -o root -g root /dev/null "$1"
+}
+
+lift_hold() { sudo rm -f -- "$1"; }
+
+# "<running anywhere> <waiting> <admission>"; "? ? ?" when the gateway does
+# not answer, and admission "missing" from a gateway too old to say.
+health() {
+    curl -fsS -m 5 "$gateway/health" \
+        | python3 -c 'import sys,json; d=json.load(sys.stdin); g=d["games"]; print(g["running"], g["waiting"], d.get("admission","missing"))' \
+        2>/dev/null || echo "? ? ?"
+}
+
+# Whether the gateway's /info names exactly this commit, built clean.
+info_is() {
+    local said
+    said=$(curl -fsS -m 2 "$gateway/info" 2>/dev/null \
+        | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("commit",""), {True:"dirty",False:"clean"}.get(d.get("dirty"),"unknown"))' \
+        2>/dev/null) || return 1
+    [ "$said" = "$1 clean" ]
+}
+
+# Stage under deploy hooks: read-only checks, prepare, and only then
+# anything that changes the server.
+stage_with_hooks() {
+    local rev=$1 force=$2 hold running waiting admission code=0
+    if ! txn_load || [ "$t_target" != "$rev" ]; then
+        t_tag=${staging_tag:-}
+    fi
+    t_target=$rev t_phase=prepare t_failed=''
+    txn_save
+    hold=$(hold_path)
+    if [ -z "$hold" ]; then
+        txn_fail admission "deploy hooks need BAYLEE_ADMISSION_HOLD in $etc/gateway.env: without it a game could start on another agent while the hooks run (docs/deploy-hooks.md)"
+    fi
+    read -r running waiting admission < <(health)
+    case $admission in
+        open|held) ;;
+        '?')
+            log "waiting for ${rev:0:10}: the gateway does not answer /health"
+            return 0
+            ;;
+        *)
+            txn_fail admission "the running gateway does not honour BAYLEE_ADMISSION_HOLD (/health admission: $admission); deploy once without hooks, then add them (docs/deploy-hooks.md)"
+            ;;
+    esac
+    run_hooks prepare "$rev" || code=$?
+    case $code in
+        0) ;;
+        75) return 0 ;;
+        *) txn_fail prepare "the deploy of ${rev:0:10} stopped before it changed anything" ;;
+    esac
+    t_phase=prepared
+    txn_save
+
+    rm -rf "$state/staged"
+    mkdir -p "$state/staged"
+    stage_files "$rev"
+    play_build
+    place_hold "$hold"
+    log "admission held: no new game starts on any agent until ${rev:0:10} is deployed"
+    sudo systemctl stop baylee-agent
+    sudo install -m755 target/release/{baylee-agent,baylee-engine-server} "$bin/"
+    sudo install -m755 scripts/server/baylee-deploy /usr/local/sbin/baylee-deploy
+    sudo install -m755 scripts/server/baylee-invite /usr/local/sbin/baylee-invite
+    log "staged ${rev:0:10}: agent and engine installed, agent off until the gateway follows"
+    if installed baylee-feedback; then
+        sudo install -m755 target/release/baylee-feedback "$bin/"
+        feedback_web
+        console_token
+        sudo systemctl restart baylee-feedback
+        log "feedback service ${rev:0:10} installed"
+    fi
+    t_phase=staged
+    txn_save
+    finish "$force"
+}
+
+# Finish under deploy hooks: drain every game, before-switch, the gateway,
+# its /info, after-switch, and only then games again.
+finish_with_hooks() {
+    local force=$1 from=$2 rev hold running waiting admission since code=0 need_prepare=''
+    rev=$(cat "$state/staged/rev")
+    since=$(cat "$state/staged/since")
+    if ! txn_load || [ "$t_target" != "$rev" ]; then
+        # Staged before hooks were set up: it has not been prepared.
+        t_target=$rev t_phase=staged t_failed='' t_tag=''
+        need_prepare=1
+        txn_save
+    fi
+    case $t_phase in
+        prepare|prepared)
+            log "the stage of ${rev:0:10} did not complete; staging it again"
+            stage "$rev" "$force"
+            return
+            ;;
+        switching|switched) need_prepare=1 ;;
+    esac
+    if [ -n "$t_failed" ]; then
+        if [ "$from" = watch ]; then
+            log "the deploy of ${rev:0:10} stopped at $t_failed; run 'baylee-deploy finish' once that is fixed"
+            return 0
+        fi
+        need_prepare=1
+    fi
+    hold=$(hold_path)
+    [ -n "$hold" ] || txn_fail admission "deploy hooks need BAYLEE_ADMISSION_HOLD in $etc/gateway.env (docs/deploy-hooks.md)"
+    if [ -n "$need_prepare" ]; then
+        run_hooks prepare "$rev" || code=$?
+        case $code in
+            0) ;;
+            75) return 0 ;;
+            *) txn_fail prepare "the deploy of ${rev:0:10} stopped at prepare" ;;
+        esac
+        t_failed=''
+        t_phase=staged
+        txn_save
+    fi
+
+    place_hold "$hold"
+    if [ "$t_phase" = staged ]; then
+        t_phase=draining
+        txn_save
+    fi
+    read -r running waiting admission < <(health)
+    if [ "$force" != --force ]; then
+        case $admission in
+            held) ;;
+            '?')
+                log "waiting for ${rev:0:10}: the gateway does not answer /health"
+                return 0
+                ;;
+            *) txn_fail drain "the gateway reports admission '$admission' with the hold in place; BAYLEE_ADMISSION_HOLD in $etc/gateway.env is not what it runs with" ;;
+        esac
+        # Every game, on any agent: a hook may stop what a remote engine's
+        # game or a local seat's bridge needs.
+        if [ "$running" != 0 ]; then
+            log "waiting for ${rev:0:10}: $running game(s) running, $waiting waiting"
+            return 0
+        fi
+        if [ "$waiting" != 0 ] && [ $(( $(date +%s) - since )) -lt $(( room_grace * 60 )) ]; then
+            log "waiting for ${rev:0:10}: $waiting room(s) waiting"
+            return 0
+        fi
+    fi
+
+    run_hooks before-switch "$rev" || code=$?
+    case $code in
+        0) ;;
+        75) return 0 ;;
+        *) txn_fail before-switch "the deploy of ${rev:0:10} stopped at before-switch: the gateway was not replaced" ;;
+    esac
+    t_phase=switching
+    txn_save
+    # The bridge a seat agent starts has to speak the new gateway's
+    # protocol; no game starts (the hold) until the seat agents restart.
+    if [ -f /etc/systemd/system/baylee-seathost@.service ] && [ -f "$state/staged/baylee-seat" ]; then
+        sudo install -m755 "$state/staged/"{baylee-seat,baylee-seathost} "$bin/"
+        log "seat agent and bridge ${rev:0:10} installed"
+    fi
+    sudo install -m755 "$state/staged/"{baylee-gateway,baylee-catalog} "$bin/"
+    play_install
+    sudo systemctl restart baylee-gateway
+    local up=''
+    for _ in $(seq "$info_tries"); do
+        if info_is "$rev"; then
+            up=1
+            break
+        fi
+        sleep 1
+    done
+    [ -n "$up" ] || txn_fail switch "the new gateway's /info does not name ${rev:0:10} built clean; the agent and the seat agents stay off"
+    t_phase=switched
+    txn_save
+
+    run_hooks after-switch "$rev" || code=$?
+    case $code in
+        0) ;;
+        75) return 0 ;;
+        *) txn_fail after-switch "the deploy of ${rev:0:10} stopped at after-switch: no game starts, the agent and the seat agents stay off" ;;
+    esac
+    lift_hold "$hold"
+    sudo systemctl start baylee-agent
+    sudo systemctl try-restart 'baylee-seathost@*' 2>/dev/null || true
+    install_dispatcher
+    echo "$rev" > "$state/deployed"
+    rm -rf "$state/staged"
+    rm -f "$txn"
+    log "deployed ${rev:0:10} with deploy hooks (games running: $running, waiting: $waiting${force:+, forced})"
+    curl -fsS -m 5 "$gateway/info"; echo
+}
+
+# The dispatcher and its sudoers rule, from a stage that went through, so
+# the next deploy runs the hooks with this release's dispatcher. The rule
+# is checked by visudo first and left out where it does not validate (a
+# sudo before 1.9.10 knows no argument patterns): the dispatcher checks its
+# own arguments either way.
+install_dispatcher() {
+    [ -f "$state/staged/run-deploy-hooks" ] || return 0
+    sudo install -d -m755 -o root -g root "$(dirname "$hooks_bin")"
+    sudo install -m755 -o root -g root "$state/staged/run-deploy-hooks" "$hooks_bin"
+    [ -f "$state/staged/baylee-deploy-hooks.sudoers" ] || return 0
+    local user rule
+    user=$(id -un)
+    if ! [[ $user =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+        log "the deploy user's name is not one a sudoers rule takes; the deploy hooks' rule is left out"
+        return 0
+    fi
+    rule=$(mktemp)
+    sed "s/@DEPLOY_USER@/$user/g" "$state/staged/baylee-deploy-hooks.sudoers" > "$rule"
+    if sudo visudo -cqf "$rule" >/dev/null 2>&1; then
+        sudo install -d -m750 -o root -g root "$(dirname "$hooks_sudoers")"
+        sudo install -m440 -o root -g root "$rule" "$hooks_sudoers"
+    else
+        log "the deploy hooks' sudoers rule does not validate here; left out (docs/deploy-hooks.md)"
+    fi
+    rm -f "$rule"
+}
+
+# A transaction left from when this server had hooks: its hold comes down
+# with the deploy that went through without them.
+forget_transaction() {
+    [ -f "$txn" ] || return 0
+    local hold
+    hold=$(hold_path)
+    [ -z "$hold" ] || lift_hold "$hold"
+    rm -f "$txn"
+}
+
+# Whether a release tag is signed by a key the operator allows: an SSH
+# allowed-signers file ($etc/release-signers) or an OpenPGP keyring
+# ($etc/release-keyring.gpg), each root's alone, in a directory that is.
+# Neither: a warning, and the tag is taken as before. git runs with an
+# empty GnuPG home (or one holding only that keyring), only that signers
+# file and none of the deploy user's git settings, so no key or signing
+# program of the deploy user's own counts.
+verify_tag() {
+    local tag=$1 signers=$etc/release-signers keyring=$etc/release-keyring.gpg home code=0 file
+    if [ ! -e "$signers" ] && [ ! -e "$keyring" ] && [ ! -L "$signers" ] && [ ! -L "$keyring" ]; then
+        log "release tag $tag is not verified: no $signers or $keyring (docs/deploy-hooks.md §\"Signed release tags\")"
+        return 0
+    fi
+    for file in "$etc" "$signers" "$keyring"; do
+        { [ -e "$file" ] || [ -L "$file" ]; } || continue
+        if ! root_alone "$file"; then
+            log "refusing release tag $tag: $file is a link, or not root's alone"
+            return 1
+        fi
+    done
+    home=$(mktemp -d)
+    if [ -e "$keyring" ] && ! gpg --homedir "$home" --batch --quiet --import "$keyring" >/dev/null 2>&1; then
+        code=1
+    fi
+    if [ "$code" = 0 ]; then
+        [ -e "$signers" ] || signers=/dev/null
+        # The deploy user's own git settings (a signing program, a format)
+        # play no part: only these do.
+        GNUPGHOME=$home GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
+            git -C "$src" -c gpg.program=gpg -c gpg.openpgp.program=gpg \
+            -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$signers" \
+            -c gpg.minTrustLevel=undefined verify-tag "$tag" >/dev/null 2>&1 || code=$?
+    fi
+    gpgconf --homedir "$home" --kill all >/dev/null 2>&1 || true
+    rm -rf "$home"
+    if [ "$code" != 0 ]; then
+        log "refusing release tag $tag: its signature does not verify against $etc/release-signers or $etc/release-keyring.gpg"
+        return 1
+    fi
+    log "release tag $tag: signature verified"
+}
+
+# Owned by the trusted user (root), not a link, not group/other-writable.
+root_alone() {
+    [ -L "$1" ] && return 1
+    local owner mode
+    read -r owner mode < <(stat -c '%u %a' "$1") || return 1
+    [ "$owner" = "$trusted_uid" ] && [ $(( 8#$mode & 8#022 )) = 0 ]
 }
 
 # The admin console's shared token (docs/feedback.md §"The admin console"):
@@ -263,8 +702,12 @@ feedback_web() {
 }
 
 finish() {
-    local force=${1:-}
+    local force=${1:-} from=${2:-hand}
     [ -f "$state/staged/rev" ] || { log "nothing staged"; return 0; }
+    if hooks_configured; then
+        finish_with_hooks "$force" "$from"
+        return
+    fi
     local rev running waiting since
     rev=$(cat "$state/staged/rev")
     read -r running waiting < <(open_games)
@@ -289,19 +732,31 @@ finish() {
     # Under the same wait as the gateway (no local game running): a seat
     # agent's restart lets go of every bridge it runs.
     sudo systemctl try-restart 'baylee-seathost@*' 2>/dev/null || true
+    install_dispatcher
+    forget_transaction
     echo "$rev" > "$state/deployed"
     rm -rf "$state/staged"
     log "deployed ${rev:0:10} (games running: $running, waiting: $waiting${force:+, forced})"
     curl -fsS -m 5 "$gateway/info"; echo
 }
 
+# The newest release tag.
+newest_tag() {
+    git ls-remote --tags --refs "$repo" 'v*' 2>/dev/null \
+        | awk '{sub("refs/tags/","",$2); print $2}' | sort -V | tail -1
+}
+
 watch() {
+    if hooks_configured; then
+        watch_with_hooks
+        return
+    fi
     # The newest release tag; stages it once, the first time it is seen.
     local tag rev
-    tag=$(git ls-remote --tags --refs "$repo" 'v*' 2>/dev/null \
-        | awk '{sub("refs/tags/","",$2); print $2}' | sort -V | tail -1)
+    tag=$(newest_tag)
     if [ -n "$tag" ] && [ "$tag" != "$(cat "$state/last-release" 2>/dev/null)" ]; then
         (cd "$src" && git fetch -q --tags "$repo")
+        verify_tag "$tag" || { echo "$tag" > "$state/last-release"; return 0; }
         rev=$(git -C "$src" rev-parse "$tag^{commit}")
         echo "$tag" > "$state/last-release"
         if [ "$rev" != "$(cat "$state/deployed" 2>/dev/null)" ]; then
@@ -313,10 +768,62 @@ watch() {
     finish
 }
 
+# `watch` under deploy hooks. A transaction that has changed something
+# goes on and nothing else starts; a newer release replaces only a target
+# that has not got past prepare; one that was not ready is tried again.
+watch_with_hooks() {
+    local tag rev
+    if txn_load; then
+        case $t_phase in
+            staged|draining|switching|switched)
+                finish "" watch
+                return
+                ;;
+            prepared)
+                log "the stage of ${t_target:0:10} did not complete; staging it again"
+                stage "$t_target"
+                return
+                ;;
+        esac
+    fi
+    tag=$(newest_tag)
+    if [ -n "$tag" ] && [ "$tag" != "$(cat "$state/last-release" 2>/dev/null)" ]; then
+        (cd "$src" && git fetch -q --tags "$repo")
+        # A refused tag is not tried again every minute: `stage <tag>` by
+        # hand, once the signers are right.
+        verify_tag "$tag" || { echo "$tag" > "$state/last-release"; return 0; }
+        rev=$(git -C "$src" rev-parse "$tag^{commit}")
+        echo "$tag" > "$state/last-release"
+        if [ "$rev" != "$(cat "$state/deployed" 2>/dev/null)" ]; then
+            log "release $tag found"
+            t_target=$rev t_phase=prepare t_failed='' t_tag=$tag
+            txn_save
+            staging_tag=$tag stage "$rev"
+            return
+        fi
+    fi
+    if txn_load && [ "$t_phase" = prepare ]; then
+        if [ -n "$t_failed" ]; then
+            log "the deploy of ${t_target:0:10} stopped at $t_failed before it changed anything; 'baylee-deploy stage ${t_tag:-$t_target}' tries again"
+            return 0
+        fi
+        stage "$t_target"
+        return
+    fi
+    finish "" watch
+}
+
 status() {
     echo "deployed: $(cat "$state/deployed" 2>/dev/null || echo -)"
     echo "staged:   $(cat "$state/staged/rev" 2>/dev/null || echo -)"
     echo "release:  $(cat "$state/last-release" 2>/dev/null || echo -)"
+    if hooks_configured; then
+        if txn_load; then
+            echo "hooks:    ${t_target:0:10} at $t_phase${t_failed:+, stopped at $t_failed}"
+        else
+            echo "hooks:    set up, nothing under way"
+        fi
+    fi
     echo "games:    $(open_games) (running here, waiting)"
     local units=(baylee-gateway baylee-agent)
     installed baylee-feedback && units+=(baylee-feedback)

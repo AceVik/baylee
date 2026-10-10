@@ -275,6 +275,7 @@ pub fn sync_log(
     settings: Res<crate::settings::ClientSettings>,
     texts: Option<Res<crate::cardtext::CardTexts>>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     mut revision: ResMut<LogRevision>,
     mut panel: Query<(Entity, Option<&Children>, &mut LogZoom, &mut Node), With<LogPanel>>,
     mut lists: Query<(Entity, &mut LogFollow), With<LogList>>,
@@ -282,9 +283,8 @@ pub fn sync_log(
     let Ok((panel, standing, mut fold, mut node)) = panel.single_mut() else {
         return;
     };
-    let window = windows.single().map_or(Vec2::new(1280.0, 720.0), |w| {
-        Vec2::new(w.width(), w.height())
-    });
+    let window = crate::hud::scale::window_space(&windows, ui.as_deref())
+        .unwrap_or(Vec2::new(1280.0, 720.0));
     let (width, height) = log_size(log_band(window));
     if node.width != px(width) {
         node.width = px(width);

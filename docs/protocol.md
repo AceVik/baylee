@@ -88,6 +88,7 @@ secret back in under another spelling.
   "database": true,
   "catalog": { "state": "ready", "cards": true, "projection": true },
   "agents": { "connected": 1, "games": 2 },
+  "admission": "open",
   "games": { "running": 2, "local_running": 2, "waiting": 0, "seats_awaiting_engine": 0 },
   "version": "0.1.0+build.1057 (257eed7a28)",
   "commit": "257eed7a28df650934f50d4ff2557933d25ad713",
@@ -125,6 +126,10 @@ worse than one that says "down": a monitor blocked on a socket reports
 nothing, and nothing is indistinguishable from not-yet-scraped. The catalog
 half is two `EXISTS` rather than `count(*)` — 0.61 ms against 7.47 ms on an
 118 609-printing catalog, and only the count grows with the table.
+
+`admission` says whether a new game may start (§"Holding admission during a
+deploy"): `open`, `held`, or `unmanaged` when the gateway has no
+`BAYLEE_ADMISSION_HOLD`. A gateway from before the field omits it.
 
 `version`, `commit`, `build`, `built_at` and `dirty` are the same
 `baylee_build` constants `GET /source` and `GET /info` serve, written by one
@@ -1719,6 +1724,28 @@ machine's agent and engine binary does not end a game an agent elsewhere is
 running. Replacing the gateway still ends every game, local or not, since
 every engine's link runs through it.
 
+### Holding admission during a deploy
+
+`BAYLEE_ADMISSION_HOLD` names a file (an absolute path; anything else refuses
+startup). While that file exists, whoever made it, the gateway orders no
+engine from any agent: `POST /lobby/games` for a one-tap game, a room's
+`/start` and the room a rematch starts all answer `503` with "the server is
+being updated: …", and nothing is left half-started. Games already running
+go on; rooms still open, fill and get ready. `/health` says `admission:
+"held"`. The file is looked at on every start (one `stat`), so it needs no
+signal, and it outlives the gateway's restart, which is the point: a deploy
+with deploy hooks (`docs/deploy-hooks.md`) places it before it drains every
+agent's games, and lifts it only after its last hook has passed, so the new
+gateway admits nothing before then either. A file that cannot be looked at
+(anything but "not found") counts as held. A game the gateway started just
+before the file appeared is already counted in `games.running` when the
+hold is visible: the lobby marks a game playing before it asks for an engine,
+and the check comes with the asking.
+
+Put the file somewhere root owns and the gateway's service user may read
+(`/var/lib/baylee-deploy/admission-hold`, say), not under a `RuntimeDirectory`
+the gateway's unit removes when it stops.
+
 ## Spectators (protocol 26)
 
 A signed-in player may watch a running table whose host allowed it
@@ -3071,14 +3098,29 @@ One allowance for every question a seat is asked — priority, attackers and
 blockers, a discard, the opening hand; the reconnect window is its own clock
 and did not move. There is no `custom` sentinel: a name picks a row and a
 number replaces one field of it, so "blitz but longer to come back" needs no
-sixth preset.
+extra preset.
+
+Since 10.10.2026 (the owner: "many more") there are fourteen, listed in this
+order: the default first, then the fastest to the slowest, then `untimed`. A
+name is never taken back or given another pace, because rooms, rematches and
+older clients name them; no two rows share a pace, because a client names a
+listed table's clock by its numbers (`table_clock_label`).
 
 | name | decide | |
 | --- | --- | --- |
 | `classic` | 180 | the default |
-| `casual` | 600 | the default until 08.10.2026 |
-| `standard` | 120 | |
+| `bullet` | 15 | since 10.10.2026 |
 | `blitz` | 30 | |
+| `rapid` | 45 | since 10.10.2026 |
+| `quick` | 60 | since 10.10.2026 |
+| `brisk` | 90 | since 10.10.2026 |
+| `standard` | 120 | |
+| `relaxed` | 300 | since 10.10.2026 |
+| `casual` | 600 | the default until 08.10.2026 |
+| `leisurely` | 900 | since 10.10.2026 |
+| `patient` | 1200 | since 10.10.2026 |
+| `unhurried` | 1800 | since 10.10.2026 |
+| `marathon` | 3600 | since 10.10.2026; the ceiling below |
 | `untimed` | 0 | no decision clock at all |
 
 The reconnect window is no longer a column (10.10.2026): every clock gets the
@@ -3089,7 +3131,10 @@ and `GET /auth/config` publishes the gateway's value on every row.
 
 `GET /auth/config` publishes this table with a one-line blurb each, so a
 client builds its picker from what the gateway accepts rather than from a
-copy that goes stale.
+copy that goes stale. The Create-table sheet steps through it (a stepper,
+not a row of segments: fourteen do not fit a phone), in the player's words
+for every name the client knows and with the gateway's blurb for one it does
+not.
 
 **Zero is not symmetric, and that is deliberate.** A `decision_timeout_secs`
 of zero is a *choice*: the engine reads it as no deadline (`clock()` returns
@@ -3639,6 +3684,39 @@ pagination. Existing join-order host succession applies unchanged.
 
 Planechase is explicitly unavailable in the UI: this engine has no planar deck
 or planar die, so the room must not advertise it as a playable mode.
+
+### A mixed table
+
+A room has no format of its own: the host's deck names the one a waiting table
+goes by (the listing's per-seat `format`), a player whose deck is of another
+format is warned before joining and in the room (S-4), and nobody is refused
+for it. `setup.format` (`baylee_core::preset::TableFormat`, owner 10.10.2026)
+says so out loud: `"mixed"` is a table for decks of different formats —
+commander, highlander, freeform side by side — where nobody is warned, every
+seat's deck "fits", and the listing and the room name the table's format
+*Mixed*. The Create-table sheet's fourth template opens one.
+
+- **What the game runs as.** Nothing in the rules changes. The game is built as
+  every room's is: each seat's commanders go to the command zone
+  (`SeatSpec::commanders`, whatever the format), `GamePreset::format` is read
+  off the decks as before (Commander if any deck names a commander, which the
+  engine uses only for a default life every room overrides), and every seat
+  starts at the room's explicit `starting_life` and free mulligans, or its own
+  per-seat `life`. The Mixed template opens at 20, the basic game's life
+  (CR 103.4), because no one format's number is the table's; the host can
+  Adjust it, or give a commander deck its 40 as that seat's own life.
+- **Which decks it takes.** Every deck that is legal as itself, which is what
+  every table already takes: the gateway checks a deck when it is saved
+  (`validate_deck`: counts, size, commanders that may lead and lead together)
+  and again when the game is built (`loaded_deck`). A mixed room adds no check
+  and removes none; it only changes what the clients say.
+- **The wire.** Additive: `setup.format` is written only when it is not the
+  default (`"host"`), so a room that never chose one serializes as before, and
+  an unknown word reads as `"host"` (`#[serde(other)]`) rather than refusing
+  the host's edit. No `PROTOCOL_VERSION` or `VIEW_VERSION` change: the engine
+  never sees it. An older client lists a mixed table as the host's format and
+  warns as before; an older host's edit (which drops the field) turns the room
+  back into a host-format room.
 
 ### Starting-card cosmetics and counters (protocol 6)
 

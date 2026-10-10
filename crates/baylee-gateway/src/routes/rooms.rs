@@ -98,7 +98,10 @@ pub(crate) async fn create_game(
         if let Err(reason) = engine::start_engine(&state, &game_id) {
             state.lobby.lock().games.remove(&game_id);
             tracing::error!(game_id, reason, "could not start a game");
-            return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));
+            return Err(err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                super::tables::unavailable(reason),
+            ));
         }
         state.lobby_moved();
         return Ok(Json(serde_json::json!({

@@ -215,6 +215,7 @@ pub(super) fn show_the_preview(
     assets: Option<Res<AssetServer>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     shown: Query<(Entity, &ReportPreview)>,
+    ui: Option<Res<UiScale>>,
 ) {
     let wanted = desk.hover.as_ref().filter(|h| {
         h.held_since
@@ -234,8 +235,11 @@ pub(super) fn show_the_preview(
     let Some(((key, url), at)) = wanted else {
         return;
     };
+    // In the UI's units: over the table they are the window's over its scale.
+    let scale = ui.as_deref().map_or(1.0, |ui| ui.0.max(f32::EPSILON));
+    let at = at / scale;
     let window = windows.single().map_or(Vec2::new(1280.0, 800.0), |w| {
-        Vec2::new(w.width(), w.height())
+        Vec2::new(w.width(), w.height()) / scale
     });
     // Right of the pointer where it fits, else left; never off the window.
     let left = if at.x + 16.0 + PREVIEW.x <= window.x {

@@ -151,6 +151,7 @@ pub fn format_label(lang: Lang, format: &str) -> String {
     match format {
         "commander" => Phrase::FormatCommander.text(lang).to_string(),
         "freeform" | "" => Phrase::FormatFreeform.text(lang).to_string(),
+        super::play::MIXED => Phrase::FormatMixed.text(lang).to_string(),
         other => {
             let mut chars = other.chars();
             chars.next().map_or_else(String::new, |first| {

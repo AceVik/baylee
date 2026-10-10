@@ -198,3 +198,141 @@ async fn configuration_is_host_owned_and_reaches_the_engine() {
     assert!(preset.seats.iter().all(|s| !s.capabilities.dev_commands));
     agent.abort();
 }
+
+/// A mixed table (owner, 10.10.2026): decks of different formats sit down
+/// side by side. The room says `"format":"mixed"` in its setup, which the
+/// listing carries to every client (so none warns about another format),
+/// and the game is built as every room's is: each deck as itself, the
+/// commander deck's leader in the command zone, the other deck without one,
+/// and both at the room's own starting life.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_mixed_table_seats_a_commander_deck_beside_a_freeform_one() {
+    let gateway = spawn_gateway("room-mixed");
+    let port = gateway.port;
+    let (agent, mut presets) = attach_agent_watching(&gateway).await;
+    let host = login(port, "mixedhost", "MixedHost");
+    let guest = login(port, "mixedguest", "MixedGuest");
+    let pool = baylee_cards::pool::rows();
+    let leader = pool
+        .iter()
+        .find(|c| c.commander && c.identity == "G")
+        .expect("this pool has a green commander");
+    let (status, saved) = post(
+        port,
+        &host,
+        "/decks",
+        json!({
+            "name": "Leader",
+            "cards": [format!("1 {}", leader.english_name), "59 Forest"],
+            "commanders": [leader.english_name],
+        }),
+    );
+    assert_eq!(status, 200, "{saved}");
+    let leader_deck = json_field(&saved, "deck_id").to_string();
+    let (status, saved) = post(
+        port,
+        &guest,
+        "/decks",
+        json!({"name":"Sixty", "cards":["40 Forest","20 Swamp"]}),
+    );
+    assert_eq!(status, 200, "{saved}");
+    let sixty = json_field(&saved, "deck_id").to_string();
+
+    let (status, body) = post(
+        port,
+        &host,
+        "/lobby/games",
+        json!({"mode":"open","seats":2,"deck_id":leader_deck}),
+    );
+    assert_eq!(status, 200, "{body}");
+    let id = json_field(&body, "game_id").to_string();
+    let base = format!("/lobby/games/{id}");
+    let mixed = json!({"name":"Anything goes", "chairs":2, "setup":{
+        "starting_life":20, "free_mulligans":1, "format":"mixed"
+    }});
+    assert_eq!(
+        post(port, &host, &format!("{base}/configure"), mixed).0,
+        200
+    );
+    assert_eq!(
+        post(port, &guest, &format!("{base}/join"), json!({"seat":1})).0,
+        200
+    );
+    assert_eq!(
+        post(
+            port,
+            &guest,
+            &format!("{base}/seats/1"),
+            json!({"deck_id":sixty})
+        )
+        .0,
+        200
+    );
+    let (_, listing) = http(
+        port,
+        "GET",
+        &format!("/lobby/games?q={id}"),
+        Some(&guest),
+        "",
+    );
+    let listing: Value = serde_json::from_str(&listing).unwrap();
+    let room = &listing["games"][0];
+    assert_eq!(room["setup"]["format"], "mixed", "{room}");
+    assert_eq!(room["seats"][0]["format"], "commander", "{room}");
+    assert_eq!(room["seats"][1]["format"], "freeform", "{room}");
+    for token in [&host, &guest] {
+        assert_eq!(
+            post(port, token, &format!("{base}/ready"), json!({})).0,
+            200
+        );
+    }
+    assert_eq!(
+        post(port, &host, &format!("{base}/start"), json!({})).0,
+        200
+    );
+    let preset = tokio::time::timeout(std::time::Duration::from_secs(10), presets.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(preset.seats[0].commanders.len(), 1, "the leader leads");
+    assert!(preset.seats[1].commanders.is_empty());
+    assert_eq!(preset.seats[0].deck.len(), 59, "and is not in the library");
+    assert_eq!(preset.seats[1].deck.len(), 60);
+    assert!(
+        preset.seats.iter().all(|s| s.starting_life == Some(20)),
+        "the room's life, for every deck"
+    );
+    agent.abort();
+}
+
+/// A room that never chose a format lists none, and a format word this
+/// gateway does not know is read as the host's rather than refusing the
+/// host's whole edit.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_room_without_a_format_lists_none_and_an_unknown_one_reads_as_the_hosts() {
+    let gateway = spawn_gateway("room-format-word");
+    let port = gateway.port;
+    let host = login(port, "wordhost", "WordHost");
+    let (status, body) = post(port, &host, "/lobby/games", json!({"mode":"open"}));
+    assert_eq!(status, 200, "{body}");
+    let id = json_field(&body, "game_id").to_string();
+    let listed = || {
+        let (_, listing) = http(
+            port,
+            "GET",
+            &format!("/lobby/games?q={id}"),
+            Some(&host),
+            "",
+        );
+        let listing: Value = serde_json::from_str(&listing).unwrap();
+        listing["games"][0]["setup"].clone()
+    };
+    assert!(listed().get("format").is_none(), "{}", listed());
+    let newer = json!({"name":"x", "chairs":2, "setup":{"starting_life":20, "format":"pauper"}});
+    assert_eq!(
+        post(port, &host, &format!("/lobby/games/{id}/configure"), newer).0,
+        200
+    );
+    assert!(listed().get("format").is_none(), "{}", listed());
+    assert_eq!(listed()["starting_life"], 20);
+}

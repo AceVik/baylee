@@ -75,6 +75,7 @@ pub fn send_off(
     duel: Res<crate::Duel>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     roots: Query<Entity, With<DepartRoot>>,
     mut row: Query<
         (
@@ -98,7 +99,7 @@ pub fn send_off(
     let (Some(board), Ok(window)) = (duel.board.as_ref(), windows.single()) else {
         return;
     };
-    let size = Vec2::new(window.width(), window.height());
+    let size = crate::hud::scale::space(window, ui.as_deref());
     let mut root = roots.iter().next();
     for (entity, card, mut node, computed, place) in &mut row {
         if board.hand.iter().any(|held| held.id == card.object) {

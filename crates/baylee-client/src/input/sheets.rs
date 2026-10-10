@@ -50,6 +50,8 @@ pub struct TrayWidgets<'w, 's> {
     /// that maximises to the wrong rectangle.
     pub(super) grow: Query<'w, 's, &'static crate::hud::TrayMaximise>,
     pub(super) windows: Query<'w, 's, &'static Window>,
+    /// The HUD's scale, which the band is measured under.
+    pub(super) ui: Option<Res<'w, UiScale>>,
     pub(super) glide: ResMut<'w, TrayGlide>,
 }
 
@@ -190,6 +192,7 @@ pub fn tray_drag(
     parents: Query<&ChildOf>,
     windows: Query<&Window>,
     mut panels: Query<&mut Node, With<crate::hud::TrayPanel>>,
+    ui: Option<Res<UiScale>>,
     mut duel: ResMut<Duel>,
     mut settings: ResMut<ClientSettings>,
     mut revision: ResMut<crate::hud::TrayRevision>,
@@ -207,7 +210,10 @@ pub fn tray_drag(
         return;
     }
 
-    let cursor = windows.single().ok().and_then(Window::cursor_position);
+    let cursor = windows
+        .single()
+        .ok()
+        .and_then(|w| crate::hud::scale::cursor(w, ui.as_deref()));
     for down in downs.read() {
         // The minimise button and the zone tabs sit *on* the header, so
         // their lineage carries the grip. The specific control claims the
@@ -259,7 +265,7 @@ pub fn tray_drag(
     }
 
     if let (Some(drag), Some(at)) = (duel.tray_drag, cursor) {
-        let band = crate::hud::band_of(&windows);
+        let band = crate::hud::band_of(&windows, ui.as_deref());
         let delta = at - drag.last;
         if delta != Vec2::ZERO {
             let place = settings

@@ -3978,11 +3978,14 @@ messages! {
         de: "Sprache, Anzeige, Tastenbelegung und Daueranweisungen. Keine Namen, Adressen oder Tokens.",
     },
     /// A box: the picture.
-    ReportCatScreenshot { en: "Screenshot", de: "Bildschirmfoto" },
+    ReportCatScreenshot {
+        en: "Picture of the Baylee window",
+        de: "Bild des Baylee-Fensters",
+    },
     /// Under it.
     ReportCatScreenshotHint {
-        en: "The window as it was when you opened this form. It can show other players' names.",
-        de: "Das Fenster, wie es beim Öffnen dieses Formulars aussah. Es kann Namen anderer Spieler zeigen.",
+        en: "Only Baylee's own window, as it was when you opened this form: never your desktop, other programs or other windows. It can show other players' names.",
+        de: "Nur das Baylee-Fenster selbst, wie es beim Öffnen dieses Formulars aussah: nie dein Desktop, andere Programme oder andere Fenster. Es kann Namen anderer Spieler zeigen.",
     },
     /// A box with nothing behind it.
     ReportCatNothing { en: "(nothing to send here)", de: "(hier gibt es nichts zu senden)" },
@@ -4030,8 +4033,8 @@ messages! {
     },
     /// 413, or too large even without the picture.
     ReportTooLarge {
-        en: "The report is too large. Leave out the screenshot or the log and try again.",
-        de: "Der Bericht ist zu groß. Lass das Bildschirmfoto oder das Protokoll weg und versuch es erneut.",
+        en: "The report is too large. Leave out the window picture or the log and try again.",
+        de: "Der Bericht ist zu groß. Lass das Fensterbild oder das Protokoll weg und versuch es erneut.",
     },
     /// 429.
     ReportTooMany {
@@ -4126,8 +4129,8 @@ messages! {
     },
     /// The report was cut to fit.
     ReportTrimmed {
-        en: "To fit the size limit, the screenshot or older log lines were left out.",
-        de: "Um die Größengrenze einzuhalten, wurden das Bildschirmfoto oder ältere Protokollzeilen weggelassen.",
+        en: "To fit the size limit, the window picture or older log lines were left out.",
+        de: "Um die Größengrenze einzuhalten, wurden das Fensterbild oder ältere Protokollzeilen weggelassen.",
     },
     /// Asked once, at the start after a crash.
     CrashAskTitle {
@@ -5069,8 +5072,8 @@ messages! {
     TourT32Title { en: "Attachments", de: "Anhänge" },
     /// Tour step T32's words (TOURS.md §2).
     TourT32Body {
-        en: "Every row under Attachments is a consent your device remembers: system, the table as you see it, your log (other names replaced), settings (without keys), screenshot (may show names). The game's record is offered fresh every time, never pre-ticked. Show what is sent shows you exactly what goes out.",
-        de: "Jede Zeile unter Anhänge ist eine Einwilligung, die sich dein Gerät merkt: System, der Tisch, wie du ihn siehst, dein Protokoll (fremde Namen ersetzt), Einstellungen (ohne Schlüssel), Screenshot (kann Namen zeigen). Die Aufzeichnung des Spiels ist jedes Mal neu zu wählen. Zeigen, was gesendet wird zeigt dir alles.",
+        en: "Every row under Attachments is a consent your device remembers: system, the table as you see it, your log (names replaced), settings (no keys), a picture of the Baylee window only, never your desktop. All start ticked; untick what you'd rather keep. Show what is sent shows it all.",
+        de: "Jede Zeile unter Anhänge ist eine Einwilligung, die dein Gerät sich merkt: System, der Tisch, wie du ihn siehst, dein Protokoll (Namen ersetzt), Einstellungen (ohne Schlüssel), ein Bild nur des Baylee-Fensters, nie des Desktops. Alles ist angehakt; nimm heraus, was du behalten willst.",
     },
     /// Tour step T33's title (TOURS.md §2).
     TourT33Title { en: "Where it goes", de: "Wohin es geht" },
@@ -5299,6 +5302,42 @@ messages! {
     ClockBlitz { en: "blitz", de: "Blitz" },
     /// The `untimed` clock's name.
     ClockUntimed { en: "untimed", de: "ohne Uhr" },
+    /// The `bullet` clock's name: fifteen seconds.
+    ClockBullet { en: "bullet", de: "Bullet" },
+    /// The `rapid` clock's name: forty-five seconds.
+    ClockRapid { en: "rapid", de: "Schnellschach" },
+    /// The `quick` clock's name: one minute.
+    ClockQuick { en: "quick", de: "flott" },
+    /// The `brisk` clock's name: ninety seconds.
+    ClockBrisk { en: "brisk", de: "zügig" },
+    /// The `relaxed` clock's name: five minutes.
+    ClockRelaxed { en: "relaxed", de: "entspannt" },
+    /// The `leisurely` clock's name: fifteen minutes.
+    ClockLeisurely { en: "leisurely", de: "gemächlich" },
+    /// The `patient` clock's name: twenty minutes.
+    ClockPatient { en: "patient", de: "geduldig" },
+    /// The `unhurried` clock's name: half an hour.
+    ClockUnhurried { en: "unhurried", de: "ohne Eile" },
+    /// The `marathon` clock's name: an hour.
+    ClockMarathon { en: "marathon", de: "Marathon" },
+    /// The `bullet` clock's help line.
+    ClockBulletHelp { en: "Fifteen seconds a decision: no time to think twice.", de: "Fünfzehn Sekunden pro Entscheidung: keine Zeit zum Zögern." },
+    /// The `rapid` clock's help line.
+    ClockRapidHelp { en: "Forty-five seconds a decision.", de: "Fünfundvierzig Sekunden pro Entscheidung." },
+    /// The `quick` clock's help line.
+    ClockQuickHelp { en: "One minute a decision.", de: "Eine Minute pro Entscheidung." },
+    /// The `brisk` clock's help line.
+    ClockBriskHelp { en: "Ninety seconds a decision.", de: "Neunzig Sekunden pro Entscheidung." },
+    /// The `relaxed` clock's help line.
+    ClockRelaxedHelp { en: "Five minutes a decision.", de: "Fünf Minuten pro Entscheidung." },
+    /// The `leisurely` clock's help line.
+    ClockLeisurelyHelp { en: "Fifteen minutes a decision.", de: "Fünfzehn Minuten pro Entscheidung." },
+    /// The `patient` clock's help line.
+    ClockPatientHelp { en: "Twenty minutes a decision.", de: "Zwanzig Minuten pro Entscheidung." },
+    /// The `unhurried` clock's help line.
+    ClockUnhurriedHelp { en: "Half an hour a decision.", de: "Eine halbe Stunde pro Entscheidung." },
+    /// The `marathon` clock's help line.
+    ClockMarathonHelp { en: "An hour a decision, the longest there is.", de: "Eine Stunde pro Entscheidung, die längste Uhr." },
     /// The `casual` clock's help line.
     ClockCasualHelp { en: "Ten minutes a decision.", de: "Zehn Minuten pro Entscheidung." },
     /// The `classic` clock's help line.
@@ -5328,6 +5367,8 @@ messages! {
     TemplateDuel { en: "Duel 20", de: "Duell 20" },
     /// A template card: every seat starts with five lands.
     TemplateFiveLand { en: "Five-land start", de: "Fünf Länder" },
+    /// A template card: decks of every format at one table.
+    TemplateMixed { en: "Mixed", de: "Gemischt" },
     /// The rules line: starting life. `{0}` life.
     RulesLife { en: "{0} life", de: "{0} Leben" },
     /// The rules line: one free mulligan. `{0}` the count.
@@ -5336,6 +5377,8 @@ messages! {
     RulesMulliganMany { en: "{0} free mulligans", de: "{0} freie Mulligans" },
     /// The rules line: the five-land start.
     RulesFiveLands { en: "five lands in play", de: "fünf Länder im Spiel" },
+    /// The rules line: a mixed table takes a deck of any format.
+    RulesMixed { en: "decks of any format", de: "Decks jedes Formats" },
     /// The footer hint: Enter on a table row.
     PlayHintJoin { en: "on a row to join", de: "auf einer Zeile: mitspielen" },
     /// Why the starts are off while the player's game runs. `{0}` the table.
@@ -5480,6 +5523,8 @@ messages! {
     FormatCommander { en: "Commander", de: "Commander" },
     /// A deck's format: anything without a commander.
     FormatFreeform { en: "Freeform", de: "Frei" },
+    /// A table's format: decks of every format welcome.
+    FormatMixed { en: "Mixed", de: "Gemischt" },
     /// A deck saved under a minute ago.
     SavedJustNow { en: "saved just now", de: "gerade gespeichert" },
     /// A deck saved minutes ago. `{0}` minutes.

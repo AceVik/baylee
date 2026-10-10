@@ -141,15 +141,13 @@ pub(super) fn keys_press(
 }
 
 /// A choice in one of the Create-table sheet's radio groups (players, the
-/// template, the clock), not a stepper's buttons.
+/// template), not a stepper's buttons (a phone's players, the clock).
 fn radio(stop: &Stop, press: Option<&Press>) -> bool {
     use super::play::PlayPress;
     stop.table == super::orders::CREATE.name
         && matches!(
             press,
-            Some(Press::Play(
-                PlayPress::Players(_) | PlayPress::Template(_) | PlayPress::Clock(_)
-            ))
+            Some(Press::Play(PlayPress::Players(_) | PlayPress::Template(_)))
         )
 }
 

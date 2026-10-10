@@ -116,8 +116,14 @@ impl Agents {
 /// and later thing.
 ///
 /// # Errors
-/// When no agent has room, or when the game is not one that needs an engine.
+/// When no agent has room, or when the game is not one that needs an engine;
+/// [`crate::admission::HELD`] while a deploy holds admission. The callers
+/// mark the game playing before they call this, so a deploy that reads
+/// `/health` after placing the hold counts every game this let through.
 pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
+    if state.admission.held() {
+        return Err(crate::admission::HELD);
+    }
     let engine_token = auth::new_token();
     let (agent_id, local) = {
         let agents = state.agents.lock();

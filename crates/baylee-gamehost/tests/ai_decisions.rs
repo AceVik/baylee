@@ -2295,3 +2295,48 @@ fn a_turned_removal_spell_is_not_aimed_where_this_seats_own_already_is() {
         );
     }
 }
+
+/// Beta.6: the house held Camouflage with mana open all game. It tapped a
+/// Forest for it in the main phase, where its "declare attackers step only"
+/// keeps the engine from taking the cast, and the mana emptied. Now it is
+/// cast after the attack is declared into an untapped blocker, and only then.
+#[test]
+fn the_ai_casts_camouflage_once_it_attacks_into_a_blocker() {
+    let mut preset = position(
+        &["Camouflage"],
+        &["Forest", "Grizzly Bears", "Grizzly Bears"],
+    );
+    preset.seats[1].starting_battlefield = vec![entry("Grizzly Bears")];
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::default());
+    let mut cast_in = None;
+    for seq in 0..300 {
+        let pending = engine.pending().clone();
+        let Some(seat) = pending_player(&pending) else {
+            break;
+        };
+        let view = asked_view(engine.state(), seat, seq, &pending);
+        if view.turn > 1 {
+            break;
+        }
+        let action = match &pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, &pending, &engine.decision_context()),
+        };
+        if seat == PlayerId::new(0) {
+            if matches!(action, PlayerAction::ActivateManaAbility { .. }) {
+                assert_eq!(
+                    view.step,
+                    baylee_view::Step::DeclareAttackers,
+                    "mana tapped early"
+                );
+            }
+            if matches!(action, PlayerAction::CastSpell { .. }) {
+                cast_in = Some(view.step);
+            }
+        }
+        engine.apply(seat, action).expect("legal");
+    }
+    assert_eq!(cast_in, Some(baylee_view::Step::DeclareAttackers));
+}

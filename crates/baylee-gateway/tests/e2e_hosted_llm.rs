@@ -44,6 +44,9 @@ const KEY: &str = "sk-ant-api03-hosted-e2e-never-in-a-log-0123456789";
 /// A whole game, with room to spare.
 const GAME_BUDGET: Duration = Duration::from_secs(600);
 
+/// How long a bridge that lost its chair waits for its `stop_seat`.
+const STOP_GRACE: Duration = Duration::from_secs(30);
+
 /// What the in-process launcher played, by seat agent.
 #[derive(Default)]
 struct Played {
@@ -102,6 +105,7 @@ impl Launcher for InProcess {
                 };
                 bridge::play(&mut link, core, mind, &mut Transcript::memory(), &options).await
             };
+            tokio::pin!(stop);
             tokio::select! {
                 done = play => {
                     match done {
@@ -109,10 +113,22 @@ impl Launcher for InProcess {
                             played.outcomes.lock().unwrap().push(game.stats.outcome);
                             Exit::Ended
                         }
-                        Err(e) => Exit::Failed(Probe::Failing(format!("{e:#}"))),
+                        // A chair taken back or rearranged is vacated as
+                        // `stop_seat` goes out, so the bridge may see its
+                        // chair gone before the stop arrives. A real bridge
+                        // exits either way; this one still waits for the
+                        // stop the gateway owes it, so the count does not
+                        // depend on which arrived first.
+                        Err(e) => match tokio::time::timeout(STOP_GRACE, &mut stop).await {
+                            Ok(Ok(())) => {
+                                *played.stopped.lock().unwrap() += 1;
+                                Exit::Ended
+                            }
+                            _ => Exit::Failed(Probe::Failing(format!("{e:#}"))),
+                        },
                     }
                 }
-                _ = stop => {
+                _ = &mut stop => {
                     *played.stopped.lock().unwrap() += 1;
                     let _ = lobby.leave_chair(&chair).await;
                     Exit::Ended

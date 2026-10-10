@@ -421,3 +421,18 @@ retryable legacy rollback. Run this on each desktop OS. Before release,
 additionally smoke-test the real packaged Bevy app via Finder/Explorer/the
 normal Linux entry, since a test runtime cannot prove GUI activation,
 platform security dialogs, or the macOS bundle's runtime behavior.
+
+## Server deploys
+
+The server deploys itself: a timer runs `baylee-deploy watch` every minute
+(`scripts/server/baylee-deploy`, `.service`, `.timer`), stages the newest
+`v*` tag the first time it sees one, swaps agent and engine at once and the
+gateway once no game of this machine is running; `scripts/deploy.sh` does the
+same for a commit by hand. The script's header describes the two halves.
+
+An operator can run local programs at three fixed points of that deploy
+(`prepare`, `before-switch`, `after-switch`) to keep another service on the
+same machine in lockstep, and can require release tags to be signed by a key
+of their choosing: `docs/deploy-hooks.md` is the contract, including the
+admission hold (`BAYLEE_ADMISSION_HOLD`) a deploy with hooks drains every
+agent's games under, and the dispatcher's exit codes.

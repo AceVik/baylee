@@ -40,6 +40,32 @@ pub(super) fn draw(
         &game.setup
     };
 
+    // On a Vast window the room stands in a centred column no wider than a
+    // form-like body (`body_max` and its gutters): on a 4K window the seat rows no longer
+    // run the full width with every control at their left end.
+    let body = {
+        let column = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    max_width: if kit.m.frame == ShellFrame::Vast {
+                        px_fixed(kit.m.body_max + 2.0 * kit.m.body)
+                    } else {
+                        Val::Auto
+                    },
+                    align_self: AlignSelf::Center,
+                    flex_grow: 1.0,
+                    min_height: px(0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(root).add_child(column);
+        column
+    };
+
     // ---- the title row, on a plate of its own
     let title = commands
         .spawn((
@@ -64,7 +90,7 @@ pub(super) fn draw(
             BorderColor::all(tokens::BORDER),
         ))
         .id();
-    commands.entity(root).add_child(title);
+    commands.entity(body).add_child(title);
     let back = controls::button(
         commands,
         kit,
@@ -104,7 +130,7 @@ pub(super) fn draw(
     super::orders::stop(commands, back, &super::orders::ROOM, "back");
     commands.entity(title).add_children(&[back, heading]);
     if !phone {
-        if let Some(format) = client_core::lobby::play::host_format(game) {
+        if let Some(format) = client_core::lobby::play::table_format(game) {
             let b = super::parts::badge(
                 commands,
                 kit,
@@ -223,7 +249,7 @@ pub(super) fn draw(
             ScrollPosition(Vec2::new(0.0, scroll.get(List::Table))),
         ))
         .id();
-    commands.entity(root).add_child(columns);
+    commands.entity(body).add_child(columns);
     let rail = commands
         .spawn((
             Role::Panel,
@@ -258,7 +284,7 @@ pub(super) fn draw(
     let caption = super::parts::caption(commands, kit, Phrase::RoomRules.text(lang));
     commands.entity(rail).add_child(caption);
     let chairs = draft.map_or(game.seats.len(), |d| d.chairs);
-    let format = client_core::lobby::play::host_format(game).map_or_else(
+    let format = client_core::lobby::play::table_format(game).map_or_else(
         || Phrase::FormatFreeform.text(lang).to_string(),
         |f| client_core::lobby::shelf::format_label(lang, f),
     );
@@ -796,12 +822,13 @@ fn seat_card(
         );
         commands.entity(deck_line).add_children(&[label, deck]);
     }
-    // Fits or not: the seat's deck against the host's (S-4, heuristic 5).
-    let host_format = client_core::lobby::play::host_format(game);
+    // Fits or not: the seat's deck against the table's (S-4, heuristic 5):
+    // the host's format, or every deck at a mixed table.
+    let table_format = client_core::lobby::play::table_format(game);
     if !seat.format.is_empty()
-        && let Some(theirs) = host_format
+        && let Some(theirs) = table_format
     {
-        let chip = if seat.format == theirs {
+        let chip = if client_core::lobby::play::fits(theirs, &seat.format) {
             super::parts::badge(commands, kit, Phrase::RoomFits.text(lang), tokens::ACCENT)
         } else {
             super::parts::badge_with(

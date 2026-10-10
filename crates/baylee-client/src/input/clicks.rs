@@ -351,7 +351,7 @@ pub(super) fn browser_click(
     // which is why an empty `tray_restore` restores to centred rather than to
     // whatever `settings.zone_browser` last was.
     if find_in_lineage(entity, &tray.grow, parents).is_some() {
-        let band = crate::hud::band_of(&tray.windows);
+        let band = crate::hud::band_of(&tray.windows, tray.ui.as_deref());
         let now = tray
             .settings
             .zone_browser

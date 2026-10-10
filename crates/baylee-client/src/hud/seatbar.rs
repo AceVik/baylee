@@ -331,6 +331,7 @@ pub fn measure_shelves(
     duel: Res<Duel>,
     shown: Res<crate::table::ShownRig>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     mut shelves: ResMut<Shelves>,
 ) {
     shelves.0.clear();
@@ -340,7 +341,7 @@ pub fn measure_shelves(
     let Ok(window) = windows.single() else {
         return;
     };
-    let size = Vec2::new(window.width(), window.height());
+    let size = crate::hud::scale::space(window, ui.as_deref());
     let lens = crate::table::Lens::new(rig, size);
     let designated = duel.view.as_ref().is_some_and(|v| v.day_night.is_some());
     for slot in layout.on_felt() {
@@ -365,6 +366,7 @@ pub fn place_seat_bars(
     shown: Res<crate::table::ShownRig>,
     settings: Res<crate::settings::ClientSettings>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
     mut bars: Query<(
         &mut SeatBar,
         &mut Node,
@@ -375,7 +377,7 @@ pub fn place_seat_bars(
     let designated = duel.view.as_ref().is_some_and(|v| v.day_night.is_some());
     let step = settings.text_size.factor();
     let lens = shown.rig().zip(windows.single().ok()).map(|(rig, window)| {
-        crate::table::Lens::new(rig, Vec2::new(window.width(), window.height()))
+        crate::table::Lens::new(rig, crate::hud::scale::space(window, ui.as_deref()))
     });
     for (mut bar, mut node, mut turn, panel) in &mut bars {
         if let Some(panel) = panel {

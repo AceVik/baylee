@@ -149,6 +149,46 @@ pub struct RoomUpdate {
     pub setup: RoomSetup,
 }
 
+/// Which decks a room is for: its table format.
+///
+/// A room has never had a format of its own: the host's deck names the one a
+/// waiting table goes by, a player whose deck is of another format is warned
+/// before joining (S-4) and is not refused, and the game itself decides from
+/// the decks it is dealt ([`GamePreset::format`]). `Mixed` says out loud that
+/// the table is for decks of different formats, so nobody is warned and every
+/// deck fits.
+///
+/// It decides nothing in the rules. A mixed table plays the room's own
+/// starting life and mulligans like every room, each seat's commanders go to
+/// the command zone as they would anywhere ([`SeatSpec::commanders`]), and
+/// every deck is checked as itself, as at every table: by the gateway when it
+/// is saved and again when the game is built.
+///
+/// On the wire it is a lowercase word, written only when it is not the
+/// default, so a room that never chose one serializes as it always did. A
+/// word this build does not know reads as [`TableFormat::Host`]: a newer
+/// client's table is still a table here.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TableFormat {
+    /// Decks of every format are welcome: commander, highlander, freeform,
+    /// side by side.
+    Mixed,
+    /// The host's deck names the table's format (every room before `Mixed`).
+    /// Last, because serde reads an unknown word as the last variant.
+    #[default]
+    #[serde(other)]
+    Host,
+}
+
+impl TableFormat {
+    /// Whether this is the default, which the wire leaves unsaid.
+    #[must_use]
+    pub const fn is_host(&self) -> bool {
+        matches!(self, Self::Host)
+    }
+}
+
 /// Shared room setup, resolved into a game preset before starting.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -159,6 +199,10 @@ pub struct RoomSetup {
     pub free_mulligans: u8,
     /// Per-seat life and extra permanents, indexed by seat.
     pub seats: Vec<RoomSeatSetup>,
+    /// Which decks the room is for. Absent on the wire is
+    /// [`TableFormat::Host`], as every room was before.
+    #[serde(skip_serializing_if = "TableFormat::is_host")]
+    pub format: TableFormat,
 }
 
 impl Default for RoomSetup {
@@ -167,6 +211,7 @@ impl Default for RoomSetup {
             starting_life: 40,
             free_mulligans: 1,
             seats: Vec::new(),
+            format: TableFormat::Host,
         }
     }
 }
@@ -993,6 +1038,33 @@ mod tests {
         assert_eq!(AIProfile::NOVICE.node_budget(), 0);
         assert_eq!(AIProfile::SHARP.node_budget(), 16_384);
         assert_eq!(AIProfile::EXPERT.node_budget(), 262_144);
+    }
+
+    /// A room that chose no format says nothing about one on the wire, a
+    /// mixed one says `"mixed"`, and a word from a newer build reads as the
+    /// host's format rather than refusing the whole room.
+    #[test]
+    fn a_table_format_is_said_only_when_chosen_and_an_unknown_one_reads_as_the_hosts() {
+        let plain = serde_json::to_value(RoomSetup::default()).unwrap();
+        assert!(plain.get("format").is_none(), "{plain}");
+        let mixed = RoomSetup {
+            format: TableFormat::Mixed,
+            ..RoomSetup::default()
+        };
+        let said = serde_json::to_value(&mixed).unwrap();
+        assert_eq!(said["format"], "mixed");
+        let back: RoomSetup = serde_json::from_value(said).unwrap();
+        assert_eq!(back, mixed);
+        let newer: RoomSetup =
+            serde_json::from_str(r#"{"starting_life":20,"format":"pauper"}"#).unwrap();
+        assert_eq!(newer.format, TableFormat::Host);
+        assert_eq!(newer.starting_life, 20);
+        let older: RoomSetup = serde_json::from_str(r#"{"starting_life":30}"#).unwrap();
+        assert_eq!(older.format, TableFormat::Host);
+        assert_eq!(
+            serde_json::from_str::<TableFormat>(r#""host""#).unwrap(),
+            TableFormat::Host
+        );
     }
 
     #[test]

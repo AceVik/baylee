@@ -277,6 +277,58 @@ fn a_folded_questions_pill_goes_when_the_question_does() {
     );
 }
 
+/// A folded pill whose reading changes while its question stands (here the
+/// view stops naming the source; live, the card text arriving in the
+/// player's language or the shelf's centre moving) is rewritten, not
+/// emptied — red when the refill despawned the pill's words and picture
+/// and returned, leaving a bare blob at the window's edge.
+#[test]
+fn a_folded_pill_whose_reading_changes_keeps_its_words() {
+    let (duel, _) = targeting();
+    let mut app = bar_of(duel);
+    app.update();
+    app.world_mut().resource_mut::<Duel>().fold_decision();
+    app.update();
+    app.update();
+    let pill_text = |app: &mut App| -> Vec<String> {
+        let world = app.world_mut();
+        let pill = world
+            .query_filtered::<Entity, With<ledge::drawer::SheetPill>>()
+            .single(world)
+            .expect("one pill");
+        let kids: Vec<Entity> = world
+            .get::<Children>(pill)
+            .map(|c| c.iter().collect())
+            .unwrap_or_default();
+        kids.into_iter()
+            .filter_map(|kid| world.get::<Text>(kid).map(|t| t.0.clone()))
+            .collect()
+    };
+    let before = pill_text(&mut app);
+    assert!(!before.is_empty(), "the pill says its question");
+
+    // The same question, the same snapshot: still folded.
+    app.world_mut()
+        .resource_mut::<Duel>()
+        .view
+        .as_mut()
+        .expect("a view")
+        .targeting = None;
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(
+        count::<ledge::drawer::SheetPill>(&mut app),
+        1,
+        "still folded"
+    );
+    assert_eq!(
+        pill_text(&mut app).len(),
+        before.len(),
+        "the pill still says its question, its mark and its cap"
+    );
+}
+
 /// The fold is the question's: a new snapshot (the game moved on) opens the
 /// next sheet unfolded by itself.
 #[test]

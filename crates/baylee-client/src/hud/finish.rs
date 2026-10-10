@@ -288,6 +288,7 @@ fn settle(node: &mut EntityCommands, paint: Paint) {
 /// here takes them so: a headless test app runs `Startup` without a renderer,
 /// and a screen that panicked rather than drawing nothing would make every
 /// such test a test about the GPU.
+#[allow(clippy::too_many_arguments)] // a Bevy system
 pub(crate) fn spawn_finish(
     mut commands: Commands,
     duel: Res<crate::Duel>,
@@ -296,6 +297,7 @@ pub(crate) fn spawn_finish(
     sheets: Option<Res<UiSheets>>,
     texts: Option<Res<crate::cardtext::CardTexts>>,
     windows: Query<&Window>,
+    ui: Option<Res<UiScale>>,
 ) {
     let (Some(result), Some(fonts)) = (duel.ending(), fonts) else {
         return;
@@ -312,9 +314,8 @@ pub(crate) fn spawn_finish(
     let seat = statics.your_seat;
     let team = duel.my_team();
     let lang = Lang::of(&settings.lang);
-    let (width, height) = windows.iter().next().map_or((1280.0, 720.0), |w| {
-        (w.resolution.width(), w.resolution.height())
-    });
+    let (width, height) = crate::hud::scale::window_space(&windows, ui.as_deref())
+        .map_or((1280.0, 720.0), |w| (w.x, w.y));
 
     let root = commands
         .spawn((

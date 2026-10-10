@@ -171,10 +171,19 @@ const fn category_stop(category: Category) -> &'static str {
 
 /// The kit the sheet is drawn with: the window's size class at the fixed
 /// step (Q-B5).
-pub(super) fn kit_for(fonts: &UiFonts, window: Vec2, input: InputClass, lang: Lang) -> Kit<'_> {
+///
+/// `ui` is the UI scale the sheet is drawn under (the table's, `hud::scale`),
+/// taken back out of the big-screen step.
+pub(super) fn kit_for(
+    fonts: &UiFonts,
+    window: Vec2,
+    input: InputClass,
+    lang: Lang,
+    ui: f32,
+) -> Kit<'_> {
     Kit {
         fonts,
-        m: ShellMetrics::of(
+        m: ShellMetrics::under(
             Viewport {
                 width: window.x,
                 height: window.y,
@@ -182,6 +191,7 @@ pub(super) fn kit_for(fonts: &UiFonts, window: Vec2, input: InputClass, lang: La
                 input,
             },
             TextSize::L,
+            ui,
         ),
         german: lang == Lang::De,
     }
@@ -217,6 +227,7 @@ fn signature(
     route: &Route,
     window: Vec2,
     input: InputClass,
+    ui: f32,
 ) -> u64 {
     let mut hash = std::collections::hash_map::DefaultHasher::new();
     desk.form.send_record.hash(&mut hash);
@@ -253,6 +264,7 @@ fn signature(
     settings.report_attachments_closed.hash(&mut hash);
     settings.lang.hash(&mut hash);
     (window.x as u32, window.y as u32).hash(&mut hash);
+    ui.to_bits().hash(&mut hash);
     (input == InputClass::Touch).hash(&mut hash);
     hash.finish()
 }
@@ -267,6 +279,7 @@ pub(super) fn draw(
     fonts: Option<Res<UiFonts>>,
     input: Option<Res<InputClass>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui: Option<Res<UiScale>>,
     roots: Query<Entity, With<DeskRoot>>,
     column: Query<&ScrollPosition, With<DeskScroll>>,
     mut last: Local<Option<u64>>,
@@ -293,7 +306,14 @@ pub(super) fn draw(
         Vec2::new(w.width(), w.height())
     });
     let input = input.as_deref().copied().unwrap_or(InputClass::Pointer);
-    let now = signature(&desk, &settings, &route, window, input);
+    let now = signature(
+        &desk,
+        &settings,
+        &route,
+        window,
+        input,
+        ui.as_deref().map_or(1.0, |ui| ui.0),
+    );
     if *last == Some(now) && (roots.iter().next().is_some() || !(desk.open || desk.asking)) {
         return;
     }
@@ -309,7 +329,13 @@ pub(super) fn draw(
     desk.redraws += 1;
     desk.drawn_form = desk.open && !desk.form.confirming;
     let lang = Lang::of(&settings.lang);
-    let kit = kit_for(&fonts, window, input, lang);
+    let kit = kit_for(
+        &fonts,
+        window,
+        input,
+        lang,
+        ui.as_deref().map_or(1.0, |ui| ui.0),
+    );
     let surface = if desk.asking && !desk.open {
         Some(crash_question(&mut commands, kit, lang))
     } else if desk.open && desk.form.confirming {
