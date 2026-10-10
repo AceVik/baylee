@@ -476,6 +476,15 @@ succeeded is a `feedback_audit` row, action `gateway.llm.profile.write`,
 `.delete`, `.enable`, `.disable`, `.probe`, `gateway.llm.key.set` or
 `.delete`, detail `<host>/<id>` and nothing else.
 
+The page (`/admin/models`) asks again every 5 seconds while visible: the
+seat agents (connected, local, load against capacity), each profile once
+with a row per seat agent holding it (state with "until", games, spend
+against caps, key, last error), its actions (switch, probe, edit, key,
+delete), an assignment grid (ticking copies a definition to a seat agent
+with `PUT`, never a key; unticking deletes there), and the `gateway.llm.*`
+audit rows. Deleting, unassigning and forgetting a key ask once more. The
+key field is a password field, cleared as it is sent.
+
 Several gateways are not configured yet: the routes would take a
 `?gateway=<name>` and the two settings a list of `name=url` pairs, as
 `FEEDBACK_GATEWAY_TOKENS` does.
