@@ -1942,14 +1942,14 @@ mod tests {
             LogEvent::LoopDetected { .. } => 27,
             LogEvent::DayNight { .. } => 28,
             LogEvent::Banded { .. } => 30,
-            LogEvent::CoinFlipped { .. } => 33,
+            LogEvent::CoinFlipped { .. } => 34,
             LogEvent::CardsKept { .. } => 31,
             LogEvent::BecameMonarch { .. } => 32,
             LogEvent::ConnectionLost { .. } => 33,
         }
     }
 
-    const VARIANTS: usize = 34;
+    const VARIANTS: usize = 35;
 
     /// Every kind of line, about `player`, with every answer, cause, zone and
     /// counter a line can carry.
