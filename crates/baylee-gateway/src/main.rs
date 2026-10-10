@@ -18,6 +18,7 @@ mod handle;
 mod invite;
 mod lobby;
 mod mail;
+mod metrics;
 mod namebook;
 mod pool;
 mod presence;
@@ -28,6 +29,7 @@ mod room;
 mod routes;
 mod seathost;
 mod seatrate;
+mod sets;
 mod store;
 mod terms;
 mod texts;
@@ -117,6 +119,9 @@ struct AppState {
     /// a game whose agent went away is a game whose engine either reports its
     /// own end or stops existing.
     agents: Mutex<engine::Agents>,
+    /// The server metrics the admin console shows (`metrics.rs`): an hour
+    /// of samples in memory, and the public routes' request counter.
+    metrics: metrics::Metrics,
     /// Fires whenever anything in the lobby changed, so `/lobby/ws` can push
     /// instead of every client asking every two seconds.
     ///
@@ -324,6 +329,7 @@ async fn main() {
         lobby_changed: tokio::sync::broadcast::channel(16).0,
         departed: tokio::sync::broadcast::channel(16).0,
         agents: Mutex::new(engine::Agents::default()),
+        metrics: metrics::Metrics::default(),
         agent_token,
         engine_url: std::env::var("BAYLEE_ENGINE_URL")
             .unwrap_or_else(|_| format!("ws://127.0.0.1:{port}/engine/ws")),
@@ -364,6 +370,7 @@ async fn main() {
     account::sweep_pictures(&state).await;
     spawn_cleanup(state.clone());
     spawn_ticket_sweep(state.clone());
+    metrics::spawn(state.clone());
     if let (Some(settings), Some((listener, admin_port))) = (&console, console_listener) {
         admin::serve(listener, state.clone(), settings);
         // Before `BAYLEE_PORT_FILE`, which says the gateway is up: whoever
@@ -441,6 +448,11 @@ async fn main() {
             )),
         )
         .route("/images/{id}", get(cosmetics::serve))
+        // Inside the CORS layer, so a preflight is not a request served.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            metrics::count,
+        ))
         .layer(axum::middleware::from_fn(cors))
         .with_state(state);
 

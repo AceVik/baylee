@@ -1,9 +1,11 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import type { Summary } from "./api";
-import { applyChange, ReportList } from "./ReportList";
+import { applyChange, LIST_REFRESH_MS, ReportList } from "./ReportList";
+import { Toasts } from "./reports/pieces";
+import { forgetSeen, isSeen } from "./reports/seen";
 import { useRoute } from "./router";
 import { serve, summary } from "./test-utils";
 
@@ -22,14 +24,25 @@ const reports: Summary[] = [
   summary({ id: "id-3", text: "Third report", kind: "feedback", status: "resolved", reporter: "cccc" }),
 ];
 
-/** The list page as the app mounts it, following the URL. */
+/** The list page as the app mounts it, following the URL, with the toasts the app draws. */
 function Page() {
   const route = useRoute();
-  return route.page === "list" ? <ReportList search={route.search} /> : <p>report {route.page === "report" ? route.id : ""}</p>;
+  return (
+    <>
+      {route.page === "list" ? <ReportList search={route.search} /> : <p>report {route.page === "report" ? route.id : ""}</p>}
+      <Toasts lang="en" />
+    </>
+  );
 }
 
 function start(total = reports.length) {
   return serve((call) => {
+    const one = /^\/ui\/api\/reports\/([^/?]+)$/.exec(call.url)?.[1];
+    if (one !== undefined) {
+      const found = reports.find((r) => r.id === one);
+      return found ? { body: { ...found, client: {} } } : { status: 404, body: { error: "no such report" } };
+    }
+    if (call.url.endsWith("/audit")) return { body: [] };
     if (call.url === "/ui/api/facets")
       return {
         body: {
@@ -114,8 +127,8 @@ describe("the report list", () => {
     expect(lastQuery(calls).get("reporter")).toBe("bbbb");
   });
 
-  test("j and k move the selection, Enter opens it, / goes to the search", async () => {
-    start();
+  test("j and k move the cursor, Enter opens the drawer, o the page, / goes to the search", async () => {
+    const calls = start();
     render(<Page />);
     const rows = await screen.findAllByRole("row");
     expect(rows[1]?.getAttribute("aria-selected")).toBe("true");
@@ -130,9 +143,77 @@ describe("the report list", () => {
     await act(async () => {
       (document.activeElement as HTMLElement).blur();
     });
+    // Enter opens the report beside the list and asks for it; Escape shuts it.
+    expect(screen.queryByTestId("drawer")).toBeNull();
     await userEvent.keyboard("{Enter}");
+    expect(await screen.findByTestId("drawer")).toBeTruthy();
+    expect(calls.some((c) => c.url === "/ui/api/reports/id-2")).toBe(true);
+    expect(window.location.pathname).toBe("/");
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByTestId("drawer")).toBeNull();
+    // o opens its page.
+    await userEvent.keyboard("o");
     expect(window.location.pathname).toBe("/r/id-2");
     expect(await screen.findByText("report id-2")).toBeTruthy();
+  });
+
+  test("x selects under the cursor, a selects the page, and a status is set on every selected report", async () => {
+    const calls = start();
+    render(<Page />);
+    await screen.findAllByRole("row");
+    await userEvent.keyboard("x");
+    expect(screen.getByRole("toolbar", { name: "1 selected" })).toBeTruthy();
+    await userEvent.keyboard("a");
+    expect(screen.getByRole("toolbar", { name: "3 selected" })).toBeTruthy();
+    await userEvent.selectOptions(screen.getByLabelText("Set status"), "triaged");
+    await waitFor(() => {
+      expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(3);
+    });
+    expect(calls.filter((c) => c.method === "PATCH").map((c) => c.body)).toEqual([
+      { status: "triaged" },
+      { status: "triaged" },
+      { status: "triaged" },
+    ]);
+    expect(await screen.findByText("3 report(s) set to Triaged.")).toBeTruthy();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+
+  test("a new report arriving in a quiet refresh is announced, not slid under the cursor", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let list = reports;
+    serve((call) => {
+      if (call.url === "/ui/api/facets") return { body: { gateways: [], statuses: [], kinds: [], reporters: [] } };
+      if (call.url.startsWith("/ui/api/reports")) return { body: { total: list.length, reports: list } };
+      return undefined;
+    });
+    render(<Page />);
+    expect(await screen.findAllByRole("row")).toHaveLength(4);
+    list = [summary({ id: "id-0", text: "Just in", reporter: "dddd" }), ...reports];
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(LIST_REFRESH_MS + 50);
+    });
+    expect(await screen.findByText("1 new report(s) since you looked")).toBeTruthy();
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+    await userEvent.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.getAllByRole("row")).toHaveLength(5);
+    expect(screen.getByText("Just in")).toBeTruthy();
+    vi.useRealTimers();
+  });
+
+  test("a row opened once is no longer marked unread", async () => {
+    forgetSeen();
+    start();
+    render(<Page />);
+    const rows = await screen.findAllByRole("row");
+    expect(rows[1]?.className).toContain("unread");
+    // The third report is resolved: never unread.
+    expect(rows[3]?.className ?? "").not.toContain("unread");
+    await userEvent.keyboard("{Enter}");
+    await screen.findByTestId("drawer");
+    expect(screen.getAllByRole("row")[1]?.className ?? "").not.toContain("unread");
+    expect(isSeen("id-1")).toBe(true);
+    forgetSeen();
   });
 
   test("keys typed into a field are the field's, not the list's", async () => {

@@ -130,6 +130,24 @@ Urheber- und Medienrecht.
    back is the one card image a client would be tempted to bundle: it never
    changes and every game needs it.
 
+   **The feedback service's admin UI shows card pictures, and fetches none
+   of them** (beta.7, 10.10.2026). A report names cards (`[Lightning
+   Bolt]`, `docs/feedback.md` §"References in the text") and the set
+   progress page lists a set's cards; the admin's browser loads each
+   picture straight from Scryfall's own image host (`cards.scryfall.io`,
+   `web/feedback/src/reports/scryfall.ts`), the URL built from the
+   printing's id alone, under the same clause as the client's art: "You
+   may not simply repackage, republish, or proxy Scryfall data". The
+   service never fetches, stores, caches or passes on a card image, so it
+   is neither a proxy nor a mirror; its CSP names that host as the one
+   foreign image source and nothing else (`crates/baylee-feedback/src/web.rs`,
+   `scryfall_is_the_one_foreign_origin_and_only_for_images`), `connect-src`
+   stays `'self'` so the page cannot call Scryfall's API, and its referrer
+   policy is `no-referrer`, so Scryfall sees a card id and nothing of a
+   report. The pictures are seen by signed-in admins only, with "Image:
+   Scryfall" under each, and are loaded on hover or on opening a set's list,
+   never in bulk.
+
    **Nothing we paint lies on a card image** (#274). Scryfall asks that an
    image is not covered, cropped, tinted or stamped, and the artist's name
    and the © line run along its bottom edge. #274 drew each print whole in

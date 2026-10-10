@@ -4,17 +4,17 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
-import type { Day } from "../api";
 import { formatCount, formatDay, t, type Lang } from "../i18n";
 
-type Numeric = "registered" | "guests" | "started" | "finished" | "players";
-
-export interface Series {
-  key: Numeric;
+export interface Series<K extends string = string> {
+  key: K;
   label: string;
   /** `c1` or `c2`: the chart's two validated hues. */
   hue: "c1" | "c2";
 }
+
+/** One UTC day with a number under each series key. */
+export type DayOf<K extends string> = { day: string } & Record<K, number>;
 
 const HEIGHT = 140;
 const GAP = 2;
@@ -35,9 +35,15 @@ function bar(x: number, y: number, w: number, h: number): string {
   return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
 }
 
-function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
+/**
+ * The plot's real width, measured. Nothing is drawn until it is: a plot
+ * drawn at a guessed width before the first measurement can be wider than
+ * a phone and leave the page scrolling sideways. Where nothing measures
+ * (a test's DOM) the guess stands.
+ */
+export function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(600);
+  const [width, setWidth] = useState(() => (typeof ResizeObserver === "undefined" ? 600 : 0));
   useEffect(() => {
     const el = ref.current;
     if (el === null || typeof ResizeObserver === "undefined") return;
@@ -53,7 +59,7 @@ function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
   return [ref, width];
 }
 
-export function DayChart({
+export function DayChart<K extends string>({
   lang,
   title,
   days,
@@ -61,8 +67,8 @@ export function DayChart({
 }: {
   lang: Lang;
   title: string;
-  days: Day[];
-  series: Series[];
+  days: DayOf<K>[];
+  series: Series<K>[];
 }) {
   const id = useId();
   const [ref, width] = useWidth();

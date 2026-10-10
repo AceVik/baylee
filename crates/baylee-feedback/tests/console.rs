@@ -88,7 +88,10 @@ async fn stub() -> Stub {
                     }
                     ("GET", "/admin/invites") => axum::Json(serde_json::json!([])).into_response(),
                     ("GET", path)
-                        if path == "/admin/live" || path.starts_with("/admin/accounts") =>
+                        if path == "/admin/live"
+                            || path == "/admin/metrics"
+                            || path.starts_with("/admin/sets")
+                            || path.starts_with("/admin/accounts") =>
                     {
                         axum::Json(serde_json::json!({})).into_response()
                     }
@@ -318,6 +321,9 @@ async fn nothing_reaches_the_gateway_without_a_session() {
         ("GET", "/ui/api/admin/invites", None),
         ("GET", "/ui/api/admin/audit", None),
         ("GET", "/ui/api/admin/live", None),
+        ("GET", "/ui/api/admin/metrics", None),
+        ("GET", "/ui/api/admin/sets", None),
+        ("GET", "/ui/api/admin/sets/lea", None),
         ("GET", "/ui/api/admin/accounts", None),
         ("GET", &format!("/ui/api/admin/accounts/{KEY_ID}"), None),
         ("POST", "/ui/api/admin/invites", Some("{}")),
@@ -390,6 +396,9 @@ async fn the_people_pages_pass_on_only_the_fields_they_read() {
         "/ui/api/admin/live".to_owned(),
         "/ui/api/admin/accounts?q=Al%20ice&kind=guest&online=true&offset=50&limit=25".to_owned(),
         format!("/ui/api/admin/accounts/{KEY_ID}"),
+        "/ui/api/admin/metrics".to_owned(),
+        "/ui/api/admin/sets".to_owned(),
+        "/ui/api/admin/sets/LEA".to_owned(),
     ] {
         let answer = service
             .call("GET", &path, &with_cookie(&cookie), None)
@@ -400,6 +409,9 @@ async fn the_people_pages_pass_on_only_the_fields_they_read() {
         "/ui/api/admin/accounts?admin=1",
         "/ui/api/admin/accounts?limit=-1",
         "/ui/api/admin/accounts/nobody",
+        "/ui/api/admin/sets/a-b",
+        "/ui/api/admin/sets/%2e%2e",
+        "/ui/api/admin/sets/toolongforaset",
     ] {
         let answer = service
             .call("GET", refused, &with_cookie(&cookie), None)
@@ -413,6 +425,10 @@ async fn the_people_pages_pass_on_only_the_fields_they_read() {
             "/admin/live".to_owned(),
             "/admin/accounts?q=Al%20ice&kind=guest&online=true&offset=50&limit=25".to_owned(),
             format!("/admin/accounts/{KEY_ID}"),
+            "/admin/metrics".to_owned(),
+            "/admin/sets".to_owned(),
+            // Lower-cased here, so the gateway sees one spelling.
+            "/admin/sets/lea".to_owned(),
         ]
     );
     service.close().await;

@@ -1172,6 +1172,7 @@ dependencies = [
  "lettre",
  "parking_lot",
  "prost",
+ "rustix 1.1.5",
  "sea-orm",
  "serde",
  "serde_json",

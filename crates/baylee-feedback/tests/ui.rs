@@ -644,6 +644,7 @@ async fn every_ui_route_refuses_without_a_session() {
     let routes = [
         ("GET", "/ui/api/me".to_owned(), None),
         ("GET", "/ui/api/facets".to_owned(), None),
+        ("GET", "/ui/api/stats".to_owned(), None),
         ("GET", "/ui/api/reports".to_owned(), None),
         ("GET", format!("/ui/api/reports/{id}"), None),
         ("GET", format!("/ui/api/reports/{id}/record"), None),
@@ -838,6 +839,37 @@ async fn the_list_filters_and_pages_on_the_server() {
         facets["statuses"],
         serde_json::json!([{ "value": "new", "count": 4 }])
     );
+
+    // Per day and kind, the last 30 days only: a fresh bug and a fresh
+    // crash land on today, by day then kind, after whichever of the four
+    // above still fall in the window (none older than 30 days does).
+    service
+        .hand_in(GATEWAY, report("crash", "dddd", "it fell over", false))
+        .await;
+    service
+        .hand_in(US, report("bug", "dddd", "it fell over again", false))
+        .await;
+    let stats = service
+        .call("GET", "/ui/api/stats", &[("cookie", cookie.clone())], None)
+        .await
+        .json();
+    assert_eq!(stats["days"], 30);
+    let rows = stats["rows"].as_array().unwrap();
+    let today = rows[rows.len() - 1]["day"].as_str().unwrap().to_owned();
+    assert!(today.len() == 10 && today.starts_with("20"), "{stats}");
+    let todays: Vec<(&str, i64)> = rows
+        .iter()
+        .filter(|r| r["day"] == today.as_str())
+        .map(|r| (r["kind"].as_str().unwrap(), r["count"].as_i64().unwrap()))
+        .collect();
+    assert_eq!(todays, [("bug", 1), ("crash", 1)], "{stats}");
+    assert!(
+        rows.iter()
+            .all(|r| r["day"].as_str().unwrap() >= "2026-09-10"),
+        "a report older than the window: {stats}"
+    );
+    let days: Vec<&str> = rows.iter().map(|r| r["day"].as_str().unwrap()).collect();
+    assert!(days.windows(2).all(|w| w[0] <= w[1]), "{stats}");
     service.close().await;
 }
 

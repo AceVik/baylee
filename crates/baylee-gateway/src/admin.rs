@@ -168,6 +168,9 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
     Router::new()
         .route("/admin/stats", get(stats))
         .route("/admin/live", get(live))
+        .route("/admin/metrics", get(metrics))
+        .route("/admin/sets", get(sets))
+        .route("/admin/sets/{code}", get(one_set))
         .route("/admin/accounts", get(list_accounts))
         .route("/admin/accounts/{id}", get(one_account))
         .route("/admin/invites", get(list_invites).post(create_invites))
@@ -619,6 +622,47 @@ fn tables_now(app: &crate::AppState) -> Vec<TableNow> {
             .then(a.id.cmp(&b.id))
     });
     tables
+}
+
+/// `GET /admin/metrics`: the last hour of server samples (`metrics.rs`),
+/// nothing per person.
+async fn metrics(State(console): State<Admin>) -> Json<serde_json::Value> {
+    let app = &console.app;
+    let uptime = crate::auth::now_secs().saturating_sub(app.started_at);
+    Json(
+        app.metrics
+            .snapshot(&iso(OffsetDateTime::now_utc()), uptime),
+    )
+}
+
+/// `GET /admin/sets`: how far the pool is through each set, in release
+/// order (`sets.rs`).
+async fn sets() -> Json<serde_json::Value> {
+    let whole = crate::sets::pool_totals();
+    Json(serde_json::json!({
+        "at": iso(OffsetDateTime::now_utc()),
+        "version": baylee_build::short(),
+        "corpus": whole.total,
+        "pool": {
+            "cards": whole.implemented + whole.partial + whole.unimplemented,
+            "implemented": whole.implemented,
+            "partial": whole.partial,
+            "unimplemented": whole.unimplemented,
+            "absent": whole.absent,
+        },
+        "sets": crate::sets::all(),
+    }))
+}
+
+/// `GET /admin/sets/{code}`: one set's cards and how far each is.
+async fn one_set(Path(code): Path<String>) -> Result<Json<serde_json::Value>, Refusal> {
+    if code.len() > 8 || !code.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return Err(err(StatusCode::BAD_REQUEST, "not a set code"));
+    }
+    let set = crate::sets::one(&code).ok_or_else(|| err(StatusCode::NOT_FOUND, "no such set"))?;
+    let mut json = serde_json::to_value(set).unwrap_or_default();
+    json["cards"] = serde_json::to_value(crate::sets::cards(set)).unwrap_or_default();
+    Ok(Json(json))
 }
 
 /// `GET /admin/live`: who is here now and at which table, by handle.
