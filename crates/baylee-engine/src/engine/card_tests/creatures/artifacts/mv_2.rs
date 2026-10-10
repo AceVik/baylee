@@ -5,6 +5,7 @@ use super::*;
 
 mod arcbound_ravager;
 mod baleful_strix;
+mod battering_ram;
 mod copper_myr;
 mod coretapper;
 mod gold_myr;

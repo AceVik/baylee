@@ -227,6 +227,7 @@ mod wind_drake;
 mod windseeker_centaur;
 mod wirewood_savage;
 mod wood_elves;
+mod xenic_poltergeist;
 mod xira_arien;
 mod ydwen_efreet;
 mod zombie_master;
