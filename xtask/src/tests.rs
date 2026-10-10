@@ -89,6 +89,35 @@ fn a_mana_spending_permission_needs_no_separate_may_question() {
     assert_eq!(tally.optional_clauses, 2);
 }
 
+#[test]
+fn a_flash_permission_is_an_optional_casting_offer() {
+    let payload = serde_json::json!({
+        "oracle_text": "You may cast spells this turn as though they had flash."
+    });
+    let mut tally = super::PrintingTally::default();
+    let mut problems = 0;
+    for (name, expected) in [
+        ("Borne Upon a Wind", 0),
+        ("Alchemist's Refuge", 0),
+        ("Emergence Zone", 0),
+        ("Winding Canyons", 0),
+        ("Fog", 1),
+    ] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered fixture");
+        super::check_optional_clauses_are_offered(
+            "fixture",
+            def,
+            &payload,
+            &mut tally,
+            &mut problems,
+        );
+        assert_eq!(problems, expected, "{name}");
+    }
+    assert_eq!(tally.optional_clauses, 5);
+}
+
 /// "You control enchanted creature" is the change of control, not a
 /// filter the card forgot: Control Magic passes the scope check with no
 /// exception written for it, and a card that says "you control" with

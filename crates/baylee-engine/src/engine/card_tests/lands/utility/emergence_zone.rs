@@ -4,7 +4,6 @@
 use super::*;
 
 /// Emergence Zone: "{T}: Add {C}." / "{1}, {T}, Sacrifice this land: You may cast spells this turn as though they had flash."
-/// Under `Coverage::Partial`, the timing grant applies to sorceries rather than all spell types.
 /// Activating ability 1 sacrifices Emergence Zone, paying {1} from a Forest and sending the land to the graveyard.
 #[test]
 fn emergence_zone_sacrifices_to_grant_flash() {

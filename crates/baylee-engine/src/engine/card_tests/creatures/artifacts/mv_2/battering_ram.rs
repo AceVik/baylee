@@ -185,3 +185,47 @@ fn battering_ram_blocking_triggers_nothing_and_has_no_banding() {
         "the friendly Wall, not blocking, is not destroyed"
     );
 }
+
+mod local_regressions {
+    //! Printed card behavior through the real engine.
+    #[allow(clippy::wildcard_imports)]
+    use super::*;
+
+    #[test]
+    fn ram_destroys_only_walls_that_block_it_and_only_at_end_of_combat() {
+        use baylee_core::generated::index;
+        for guard in [angelic_wall(), giant_spider()] {
+            let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+            let mut e = Duel::new(SEED, forest())
+                .battlefield(0, &[index::BATTERING_RAM])
+                .battlefield(1, &[guard])
+                .start();
+            keep_mulligans(&mut e);
+            reach_main_phase(&mut e, p0);
+            let ram = on_battlefield(&e, p0, index::BATTERING_RAM).unwrap();
+            let blocker = on_battlefield(&e, p1, guard).unwrap();
+            attack_and_collect_blocks(&mut e, ram, p1);
+            assert!(keywords(&e, ram).contains(KeywordSet::BANDING));
+            e.apply(
+                p1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(blocker, ram)],
+                },
+            )
+            .unwrap();
+            pass_until(&mut e, |e| {
+                e.state().turn.step == crate::turn::Step::CombatEnd
+            });
+            assert_eq!(e.state().object(blocker).unwrap().zone, Zone::Battlefield);
+            pass_until(&mut e, |e| e.state().turn.phase == Phase::SecondMain);
+            assert_eq!(
+                e.state().object(blocker).unwrap().zone,
+                if guard == angelic_wall() {
+                    Zone::Graveyard
+                } else {
+                    Zone::Battlefield
+                }
+            );
+        }
+    }
+}

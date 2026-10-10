@@ -290,6 +290,8 @@ pub enum Modifier {
     /// declaration of blockers, CR 509.1b, read against each blocker as it
     /// stands; the filter's "you" is the effect's controller.
     CantBeBlockedBy(&'static crate::Filter),
+    /// This permanent can't block creatures matching the filter.
+    CantBlock(&'static crate::Filter),
     /// The affected creature can't attack unless the defending player
     /// controls a permanent the filter matches (Sea Serpent: "can't attack
     /// unless defending player controls an Island"). A restriction on the
@@ -439,6 +441,9 @@ pub enum Modifier {
     /// The controller may cast sorcery spells as though they had flash
     /// (Teferi, Time Raveler +1).
     SorceriesHaveFlash,
+    /// Permission to cast all spells (`None`), or spells of a listed type,
+    /// whenever an instant could be cast. Does not grant a keyword.
+    SpellsHaveFlash(Option<TypeSet>),
     /// Players may spend mana as though it were mana of any color
     /// (Mycosynth Lattice).
     ManaIsAnyColor,
@@ -799,6 +804,7 @@ impl Modifier {
             | Self::PreventDamageFromIt
             | Self::PreventDamageFrom(_)
             | Self::CombatDamageCantBePrevented
+            | Self::CantBlock(_)
             | Self::CantBeBlockedBy(_)
             | Self::CantAttackUnlessDefenderControls(_)
             | Self::LandwalkMatching(_)
@@ -816,6 +822,7 @@ impl Modifier {
             | Self::AttacksDespiteDefender
             | Self::AttacksAsThoughHaste
             | Self::PlayerHexproof
+            | Self::SpellsHaveFlash(_)
             | Self::SorceriesHaveFlash
             | Self::ManaIsAnyColor
             | Self::SpendManaAs { .. }
@@ -1206,6 +1213,7 @@ mod tests {
             Modifier::PreventDamageFromIt,
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
+            Modifier::CantBlock(&Filter::CREATURE),
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::LandwalkMatching(&Filter::LAND),
@@ -1219,6 +1227,8 @@ mod tests {
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,
+            Modifier::SpellsHaveFlash(None),
+            Modifier::SpellsHaveFlash(Some(TypeSet::CREATURE)),
             Modifier::SorceriesHaveFlash,
             Modifier::ManaIsAnyColor,
             Modifier::SpendManaAs {

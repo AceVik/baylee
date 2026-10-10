@@ -277,3 +277,57 @@ mod witch_s_clinic;
 mod witch_s_cottage;
 mod yavimaya_hollow;
 mod zhalfirin_void;
+
+#[test]
+fn flash_lands_unlock_their_printed_spell_types_until_cleanup() {
+    use baylee_cards_dsl::KeywordSet;
+    for (land, scope) in [
+        (alchemist_s_refuge(), None),
+        (winding_canyons(), Some(TypeSet::CREATURE)),
+        (emergence_zone(), None),
+    ] {
+        let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[land])
+            .hand(0, &[llanowar_elves()])
+            .start();
+        keep_mulligans(&mut e);
+        reach_their_main_phase(&mut e, p1);
+        pass_until(
+            &mut e,
+            |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+        );
+        let pool = &mut e.dev_state_mut(p0).unwrap().players[0].mana_pool;
+        pool.add(ManaColor::Green, 3);
+        pool.add(ManaColor::Blue, 1);
+        e.refresh_offer();
+        activate(&mut e, p0, land, 1);
+        pass_until(&mut e, stack_is_empty);
+        assert!(crate::casting::timing_allows(
+            e.state(),
+            p0,
+            TypeSet::CREATURE,
+            KeywordSet::EMPTY
+        ));
+        assert_eq!(
+            crate::casting::timing_allows(e.state(), p0, TypeSet::ARTIFACT, KeywordSet::EMPTY),
+            scope.is_none()
+        );
+        pass_until(
+            &mut e,
+            |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+        );
+        let card = in_hand(&e, p0, llanowar_elves()).unwrap();
+        e.apply(p0, PlayerAction::CastSpell { card }).unwrap();
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(e.state().object(card).unwrap().zone, Zone::Battlefield);
+        reach_their_main_phase(&mut e, p0);
+        reach_their_main_phase(&mut e, p1);
+        assert!(!crate::casting::timing_allows(
+            e.state(),
+            p0,
+            TypeSet::CREATURE,
+            KeywordSet::EMPTY
+        ));
+    }
+}

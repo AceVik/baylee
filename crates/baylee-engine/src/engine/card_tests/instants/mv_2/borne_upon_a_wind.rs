@@ -3,13 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Borne Upon a Wind ({1}{U}, instant): "You may cast spells this turn as
-/// though they had flash. Draw a card." The flash grant is the card's
-/// `Coverage::Partial` gap — no modifier hands out a turn-long casting
-/// permission — so this plays the half that is written, off two Islands in a
-/// first main phase. The draw is asserted on the *card* rather than on a
-/// count: the object that was on top of the library is the one that arrives
-/// in hand, which is what tells a draw from a spell that merely left the hand.
 #[test]
 fn borne_upon_a_wind_draws_the_top_card_and_lands_in_the_graveyard() {
     let p0 = PlayerId::new(0);
@@ -68,4 +61,40 @@ fn borne_upon_a_wind_draws_the_top_card_and_lands_in_the_graveyard() {
         "the spell left the hand and one card replaced it — a draw of zero \
          would leave one fewer"
     );
+}
+
+#[test]
+fn borne_allows_the_creature_it_draws_to_be_cast_this_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, llanowar_elves())
+        .hand(0, &[borne_upon_a_wind()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_their_main_phase(&mut e, p1);
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    let drawn = *e
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p0))
+        .last()
+        .unwrap();
+    let pool = &mut e.dev_state_mut(p0).unwrap().players[0].mana_pool;
+    pool.add(ManaColor::Blue, 2);
+    pool.add(ManaColor::Green, 1);
+    e.refresh_offer();
+    let wind = in_hand(&e, p0, borne_upon_a_wind()).unwrap();
+    e.apply(p0, PlayerAction::CastSpell { card: wind }).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(drawn).unwrap().zone, Zone::Hand);
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    e.apply(p0, PlayerAction::CastSpell { card: drawn })
+        .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(drawn).unwrap().zone, Zone::Battlefield);
 }

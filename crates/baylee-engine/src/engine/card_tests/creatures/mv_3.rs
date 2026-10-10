@@ -232,3 +232,5 @@ mod xira_arien;
 mod ydwen_efreet;
 mod zombie_master;
 mod zuran_spellcaster;
+
+mod brazen_borrower;

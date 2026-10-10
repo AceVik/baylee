@@ -3234,3 +3234,16 @@ land type"; both are convention tests that fire on a first try.
 - Validation: 5,374 engine tests, card/codegen suites, DSL nested-effect walker,
   and all 3,321 cached card records. Keep new nested effects in the walker and
   its source-count guard, not merely in the resolver.
+
+## 2026-10-11 — partial-card completion: flash and directional combat rules
+
+- Casting as though a spell had flash is a player permission, not a keyword
+  applied to the cards present when the effect resolves. Keep the affected set
+  open so the card drawn by Borne Upon a Wind can use its permission. Type-scoped
+  grants use a compact type mask; Teferi's prohibition still takes precedence.
+- Blocking restrictions have a direction: Brazen Borrower's restriction applies
+  to the blocker and reads the attacker. Share the pair scan with restrictions
+  that instead apply to attackers and read their blockers.
+- "Becomes blocked by" fires for each matching blocker and never when the source
+  blocks. "Blocks" already exists; Elder Land Wurm's old Partial explanation was
+  stale. Test permanent keyword loss across cleanup and reset on a zone change.

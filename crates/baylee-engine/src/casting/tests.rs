@@ -846,3 +846,48 @@ fn a_land_is_played_from_the_hand_and_from_a_graveyard_only_by_permission() {
         "the permission is its controller's"
     );
 }
+
+#[test]
+fn flash_permissions_obey_type_scope_player_scope_and_prohibitions() {
+    for allowed in [None, Some(TypeSet::CREATURE)] {
+        let mut state = state();
+        main_phase_of(&mut state, them());
+        register(&mut state, me(), Modifier::SpellsHaveFlash(allowed));
+        for types in [
+            TypeSet::CREATURE,
+            TypeSet::ARTIFACT,
+            TypeSet::ENCHANTMENT,
+            TypeSet::SORCERY,
+            TypeSet::PLANESWALKER,
+            TypeSet::BATTLE,
+            TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+        ] {
+            assert_eq!(
+                timing_allows(&state, me(), types, no_keywords()),
+                allowed.is_none() || types.intersects(TypeSet::CREATURE)
+            );
+        }
+        // A different player has no grant when the stack is occupied.
+        let name = state.names.intern("Spell on stack");
+        state.create_bare(me(), ObjectKind::Spell, name, ZoneLocation::Stack);
+        assert!(!timing_allows(
+            &state,
+            them(),
+            TypeSet::CREATURE,
+            no_keywords()
+        ));
+        register(&mut state, them(), Modifier::OpponentsCastAsSorcery);
+        assert!(!timing_allows(
+            &state,
+            me(),
+            TypeSet::CREATURE,
+            no_keywords()
+        ));
+        assert!(!timing_allows(
+            &state,
+            me(),
+            TypeSet::INSTANT,
+            no_keywords()
+        ));
+    }
+}

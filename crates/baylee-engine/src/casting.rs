@@ -615,13 +615,17 @@ pub(crate) fn timing_allows(
     // — Snapcaster Mage, Restoration Angel, the whole free-spell cycle.
     let is_instant =
         types.contains(TypeSet::INSTANT) || keywords.contains(baylee_cards_dsl::KeywordSet::FLASH);
-    // Teferi +1: your sorceries have flash until your next turn.
-    let sorcery_flash = types.contains(TypeSet::SORCERY)
-        && state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::SorceriesHaveFlash)
-                && fx.controller == player
-        });
-    if teferi_lock || (!is_instant && !sorcery_flash) {
+    let granted_flash = state.effects.iter().any(|fx| {
+        fx.controller == player
+            && match fx.modifier {
+                baylee_cards_dsl::Modifier::SorceriesHaveFlash => types.contains(TypeSet::SORCERY),
+                baylee_cards_dsl::Modifier::SpellsHaveFlash(allowed) => {
+                    allowed.is_none_or(|mask| types.intersects(mask))
+                }
+                _ => false,
+            }
+    });
+    if teferi_lock || (!is_instant && !granted_flash) {
         let main_phase = matches!(state.turn.phase, Phase::FirstMain | Phase::SecondMain);
         return main_phase && state.turn.active == player && state.zones.stack_is_empty();
     }

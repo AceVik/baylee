@@ -3,11 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Winding Canyons: "{T}: Add {C}." / "{2}, {T}: You may cast creature spells this turn as though they had flash."
-/// Under `Coverage::Partial`, granting flash to creature spells in hand is unsupported and omitted.
-/// The land taps to produce {C} and offers no second ability.
 #[test]
-fn winding_canyons_taps_for_colorless_and_omits_creature_flash_ability() {
+fn winding_canyons_taps_for_colorless() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(133, forest())
         .battlefield(0, &[winding_canyons()])
@@ -31,6 +28,6 @@ fn winding_canyons_taps_for_colorless_and_omits_creature_flash_ability() {
             .abilities
             .iter()
             .any(|(s, ai)| *s == canyons && *ai == 1),
-        "no second ability is offered"
+        "the tapped land cannot pay the tap cost"
     );
 }

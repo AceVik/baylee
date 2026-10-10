@@ -3457,7 +3457,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Elder Land Wurm
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Elder Spawn
     &[FaceLines {
         sentences: 2,
@@ -7900,8 +7907,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Winding Canyons
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -25907,8 +25914,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Alchemist's Refuge
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -35138,7 +35145,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 3,
             stackable: 0,
-            lines: &[],
+            lines: &[None],
             modes: &[],
             alternatives: &[],
         },

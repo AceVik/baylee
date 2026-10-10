@@ -843,11 +843,19 @@ pub fn can_block(
     // "Can't be blocked by creatures with power 2 or less" (CR 509.1b):
     // the attacker's restriction, asked of this blocker.
     if state.effects.iter().any(|fx| {
-        let baylee_cards_dsl::Modifier::CantBeBlockedBy(f) = fx.modifier else {
-            return false;
+        let (filter, affected, other, source) = match fx.modifier {
+            baylee_cards_dsl::Modifier::CantBeBlockedBy(filter) => (filter, a, b, attacker),
+            baylee_cards_dsl::Modifier::CantBlock(filter) => (filter, b, a, blocker),
+            _ => return false,
         };
-        crate::effects::applies_to(state, fx, a)
-            && crate::eval::matches(f, state, b, fx.controller, fx.source.unwrap_or(attacker))
+        crate::effects::applies_to(state, fx, affected)
+            && crate::eval::matches(
+                filter,
+                state,
+                other,
+                fx.controller,
+                fx.source.unwrap_or(source),
+            )
     }) {
         return false;
     }

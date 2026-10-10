@@ -15,6 +15,7 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "PAST/forest-dragon", text: include_str!("../../../../data/decks/precon/PAST/forest-dragon.txt") },
     Precon { key: "PAST/fungus-master", text: include_str!("../../../../data/decks/precon/PAST/fungus-master.txt") },
     Precon { key: "PAST/great-druid", text: include_str!("../../../../data/decks/precon/PAST/great-druid.txt") },
+    Precon { key: "PAST/guardian-of-the-tusk", text: include_str!("../../../../data/decks/precon/PAST/guardian-of-the-tusk.txt") },
     Precon { key: "PAST/high-priest", text: include_str!("../../../../data/decks/precon/PAST/high-priest.txt") },
     Precon { key: "PAST/merfolk-shaman", text: include_str!("../../../../data/decks/precon/PAST/merfolk-shaman.txt") },
     Precon { key: "PAST/nether-fiend", text: include_str!("../../../../data/decks/precon/PAST/nether-fiend.txt") },

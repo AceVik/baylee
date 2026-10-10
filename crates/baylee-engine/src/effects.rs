@@ -160,6 +160,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PreventDamageFromIt
         | Modifier::PreventDamageFrom(_)
         | Modifier::CombatDamageCantBePrevented
+        | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::LandwalkMatching(_)
@@ -174,6 +175,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::NoMaxHandSize
         | Modifier::SkipUntapStep { .. }
         | Modifier::PlayerHexproof
+        | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash
         | Modifier::ManaIsAnyColor
         | Modifier::SpendManaAs { .. }
@@ -1043,6 +1045,7 @@ mod tests {
             Modifier::PreventDamageFromIt,
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
+            Modifier::CantBlock(&Filter::CREATURE),
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::LandwalkMatching(&Filter::LAND),
@@ -1066,6 +1069,7 @@ mod tests {
             Modifier::AttacksDespiteDefender,
             Modifier::AttacksAsThoughHaste,
             Modifier::PlayerHexproof,
+            Modifier::SpellsHaveFlash(None),
             Modifier::SorceriesHaveFlash,
             Modifier::ManaIsAnyColor,
             Modifier::SpendManaAs {
@@ -1115,7 +1119,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            85,
+            87,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1176,10 +1180,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_four_modifiers_lock_a_set_and_fifty_one_do_not() {
+    fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (34, 51));
+        assert_eq!((locking, all.len() - locking), (34, 53));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

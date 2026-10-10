@@ -353,6 +353,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "min: 0",
         "PayLifeOrEnterTapped",
         "PlayerMayPayCostOr",
+        "PlayerMayPayCostThen",
         "PlayerMayPayOr",
         "PlayerMayPayThen",
         "PlayerMayPayManaOr",
@@ -381,6 +382,9 @@ pub(crate) fn check_optional_clauses_are_offered(
         "PermanentOfEachTypeFromGraveyard",
         "CastPermanentSpellsFromGraveyard",
         "CastSpellsFromGraveyard",
+        // The player may use the permission on a later casting decision.
+        "SpellsHaveFlash",
+        "SorceriesHaveFlash",
         "MillMayTakeOne",
         "RevealTopOnePerType",
         "ExileTopMayCast",

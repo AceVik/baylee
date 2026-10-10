@@ -186,22 +186,10 @@ fn a_landing_borg_queen_assimilates_their_creature_card_and_pumps_only_artifact_
 /// would still bounce the artifact and still pass a test that only looked
 /// at the artifact.
 ///
-/// Then the other half of `Coverage::Partial`, and the reason the card
-/// carries it. "This creature can block only creatures with flying" is not
-/// enforced: `combat::can_block` reads the attacker's flying and
-/// unblockable and the blocker's flying and reach, and nothing in the
-/// engine names the attackers a given blocker may be paired with. (Menace
-/// is not in that list and was never a pairing question: CR 702.111b
-/// restricts the whole declaration, so it is counted in
-/// `Engine::declare_blockers` — #156.) So a 1/1
-/// ground Elf attacks and the Borrower is offered against it, which the
-/// printed line forbids. The assertion is written to say so and to break
-/// the day it stops being true — a blocker with no legal attacker is
-/// dropped from the offer entirely, so when the restriction lands, this
-/// test fails and `Coverage::Partial` is what gets flipped.
+/// The later ground attacker is excluded from the Borrower's block offer.
 #[test]
 #[allow(clippy::too_many_lines)] // scenario script — step-by-step readability
-fn the_borrower_flashes_out_of_its_own_adventure_and_then_blocks_a_ground_creature() {
+fn the_borrower_flashes_out_of_its_adventure_but_cannot_block_a_ground_creature() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(47, island())
         .hand(0, &[brazen_borrower()])
@@ -360,7 +348,7 @@ fn the_borrower_flashes_out_of_its_own_adventure_and_then_blocks_a_ground_creatu
     assert_eq!(pt(&engine, borrower), (3, 1), "a 3/1 Faerie Rogue");
     assert!(
         keywords(&engine, borrower).contains(baylee_cards_dsl::KeywordSet::FLYING),
-        "and flying, the half of the evasion the engine does read"
+        "and flying"
     );
     assert_eq!(
         engine.state().turn.active,
@@ -417,23 +405,21 @@ fn the_borrower_flashes_out_of_its_own_adventure_and_then_blocks_a_ground_creatu
             other => panic!("unexpected while reaching blockers: {other:?}"),
         }
     };
-    let Some(offered) = blockers.iter().find(|o| o.blocker == borrower) else {
-        panic!(
-            "the Borrower was offered no attacker at all — either it is not being \
-             read as an untapped creature, or the restriction below has been \
-             implemented and this half of the test is the one to rewrite: \
-             {blockers:?}"
-        )
-    };
     assert!(
-        offered.attackers.contains(&theirs),
-        "the printed line is `This creature can block only creatures with flying` \
-         and the attacker on offer is a ground Elf. `combat::can_block` reads the \
-         attacker's flying and unblockable and the blocker's flying and reach, \
-         and no `Modifier` names the attackers one blocker may be paired \
-         with — which is exactly what `Coverage::Partial` promises a player here. \
-         The day this fires, the pairing has learned to say it and the card is no \
-         longer Partial: {blockers:?}"
+        !blockers
+            .iter()
+            .any(|o| o.blocker == borrower && o.attackers.contains(&theirs))
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(borrower, theirs)],
+                }
+            )
+            .is_err(),
+        "a forged ground block is refused too"
     );
 }
 

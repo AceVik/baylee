@@ -1229,6 +1229,7 @@ fn apply(
         | Modifier::PreventDamageFromIt
         | Modifier::PreventDamageFrom(_)
         | Modifier::CombatDamageCantBePrevented
+        | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::LandwalkMatching(_)
@@ -1246,6 +1247,7 @@ fn apply(
         | Modifier::PlayerHexproof
         | Modifier::GrantActivated { .. }
         | Modifier::GrantStatic { .. }
+        | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash
         | Modifier::GrantTriggered { .. }
         | Modifier::ManaIsAnyColor
