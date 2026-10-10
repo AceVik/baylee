@@ -244,12 +244,38 @@ fn later_puts_the_notice_away_and_release_notes_open_the_page() {
     assert_eq!(toasts(&mut app), 0);
 }
 
+/// The two toggles' settings, check first.
+fn switches(app: &mut App) -> Vec<bool> {
+    let mut q = app.world_mut().query::<(&Readout, &Children)>();
+    let mut toggles = Vec::new();
+    for (readout, children) in q.iter(app.world()) {
+        for child in children {
+            if let Some(motion) = app
+                .world()
+                .get::<crate::shellkit::controls::ToggleMotion>(*child)
+            {
+                toggles.push((*readout == Readout::Install, motion.on));
+            }
+        }
+    }
+    toggles.sort_unstable();
+    toggles.into_iter().map(|(_, on)| on).collect()
+}
+
 #[test]
 fn the_switches_flip_this_devices_choice_and_tell_the_thread() {
     let mut app = headless();
     app.world_mut()
         .run_system_once(|mut commands: Commands, fonts: Res<UiFonts>| {
-            controls(&mut commands, &fonts, Metrics::of(1280.0), Lang::En);
+            let kit = crate::shellkit::controls::Kit {
+                fonts: &fonts,
+                m: crate::shellkit::metrics::ShellMetrics::of(
+                    crate::shellkit::size::Viewport::desktop(1280.0, 800.0),
+                    crate::shellkit::size::TextSize::M,
+                ),
+                german: false,
+            };
+            controls(&mut commands, kit, Metrics::of(1280.0), Lang::En);
         })
         .expect("the controls build");
     app.update();
@@ -258,12 +284,10 @@ fn the_switches_flip_this_devices_choice_and_tell_the_thread() {
         UpdatePrefs::default(),
         "both on by default"
     );
-    assert_eq!(
-        texts(&mut app).iter().filter(|t| *t == "on").count(),
-        2,
-        "{:?}",
-        texts(&mut app)
-    );
+    // The kit's toggles, as every other section draws a switch: no boxed
+    // "on" text.
+    assert_eq!(switches(&mut app), [true, true]);
+    assert!(!texts(&mut app).iter().any(|t| t == "on"));
 
     let check = button(&mut app, &UpdateButton::ToggleCheck);
     click(&mut app, check);
@@ -277,7 +301,7 @@ fn the_switches_flip_this_devices_choice_and_tell_the_thread() {
     );
     assert_eq!(requests(&mut app), [UpdateRequest::Prefs(prefs)]);
     app.update();
-    assert_eq!(texts(&mut app).iter().filter(|t| *t == "off").count(), 1);
+    assert_eq!(switches(&mut app), [false, true]);
 
     let install = button(&mut app, &UpdateButton::ToggleInstall);
     click(&mut app, install);

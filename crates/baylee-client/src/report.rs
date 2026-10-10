@@ -53,12 +53,10 @@ pub(crate) use field::{DeskBox, DeskCaret, DeskSuggest, DeskSuggestMeta, DeskTex
 /// The form's buttons: `devctl`'s `desk_controls` row, and the pointer's
 /// shape over them (`shellkit::pointer`).
 pub(crate) use form::DeskPress;
+#[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub(crate) use form::DeskRoot;
 #[cfg(test)]
 pub(crate) use form::DeskScroll;
-#[cfg(not(any(test, all(feature = "dev-control", not(target_arch = "wasm32")))))]
-pub(crate) use form::{REPORT, REPORT_CONFIRM};
-#[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub(crate) use form::{REPORT, REPORT_CONFIRM, ReportAnchor};
 #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub(crate) use refs::ReportPreview;
@@ -336,10 +334,17 @@ fn keys(
     focus: Option<Res<bevy::input_focus::InputFocus>>,
     visible: Option<Res<bevy::input_focus::InputFocusVisible>>,
     stops: Query<&crate::shellkit::focus::Stop>,
+    tour: Option<Res<crate::tour::TourDesk>>,
 ) {
     desk.swallow = false;
     keys::take_the_paste(&mut desk);
-    if desk.asking {
+    // A tour step narrated over the form has its keys: Enter and → move
+    // the tour on, not into the text. Folding the bubble gives them back.
+    let narrated = tour.as_deref().is_some_and(|t| {
+        t.shown()
+            .is_some_and(baylee_client_core::tour::Run::narrates_over_the_form)
+    });
+    if desk.asking || (desk.open && narrated) {
         typed.clear();
         return;
     }

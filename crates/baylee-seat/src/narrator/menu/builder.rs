@@ -831,6 +831,9 @@ impl Builder<'_, '_> {
                 let keep = if min == 0 { " Choose no targets to keep this target." } else { "" };
                 self.line(format!("QUESTION: Target {} of {of} for {what} is {current}. Choose a new target.{keep}", u64::from(index) + 1));
             },
+            TargetPrompt::CopyOf => self.line(format!(
+                "QUESTION: Choose what {what} enters as a copy of (a choice, not a target), or none."
+            )),
             TargetPrompt::Convoke => self.line(format!(
                 "QUESTION: Convoke: choose creatures to tap to help pay for {what} (each pays {{1}} \
                  or one mana of its colour)."

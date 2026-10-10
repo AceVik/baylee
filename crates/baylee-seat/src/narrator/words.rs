@@ -199,6 +199,9 @@ pub fn subtypes(subtypes: baylee_core::types::SubtypeSet) -> String {
 pub fn choice_prompt(prompt: ChoicePrompt) -> String {
     match prompt {
         ChoicePrompt::CommandCard => "Choose the card the affected player must play".into(),
+        ChoicePrompt::NewHost { .. } => {
+            "Choose a permanent to move the Aura onto (not a target), or none to leave it".into()
+        }
         ChoicePrompt::CastFaceDown {
             x,
             paid,

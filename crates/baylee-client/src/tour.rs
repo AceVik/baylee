@@ -229,8 +229,11 @@ fn keys(
     if desk.swallow {
         desk.swallow = false;
     }
+    // Over the report form the narrating bubble has the keys before the
+    // form (its text took Enter, and T32 could not be left by key).
+    let over_form = desk.shown().is_some_and(Run::narrates_over_the_form);
     if !desk.shown().is_some_and(Run::holds_keyboard)
-        || report.is_some_and(|r| r.holds_keyboard())
+        || (!over_form && report.is_some_and(|r| r.holds_keyboard()))
         || overlay.is_some_and(|o| crate::shellkit::overlay::holds(&o))
     {
         return;

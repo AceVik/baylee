@@ -2199,6 +2199,28 @@ messages! {
         en: "permanents to leave tapped",
         de: "bleibende Karten, die getappt bleiben",
     },
+    /// permanent to move {0} onto (an Aura's new host, Kudzu): not a target
+    NounNewHostFor {
+        en: "permanent to move {0} onto",
+        de: "bleibende Karte, an die {0} wandert",
+    },
+    /// permanents to move {0} onto
+    NounNewHostsFor {
+        en: "permanents to move {0} onto",
+        de: "bleibende Karten, an die {0} wandert",
+    },
+    /// The Aura of a new-host question, where it cannot be named.
+    NounTheAura { en: "the Aura", de: "die Aura" },
+    /// permanent to copy (enter as a copy): a choice, not a target
+    NounPermanentToCopy {
+        en: "permanent to copy",
+        de: "bleibende Karte, die kopiert wird",
+    },
+    /// permanents to copy
+    NounPermanentsToCopy {
+        en: "permanents to copy",
+        de: "bleibende Karten, die kopiert werden",
+    },
     /// permanent to untap
     NounPermanentToUntap {
         en: "permanent to untap",
@@ -4772,8 +4794,8 @@ messages! {
     TourT8Title { en: "Cancel cast", de: "Abbrechen" },
     /// Tour step T8's words (TOURS.md §2).
     TourT8Body {
-        en: "While the questions or the paying are still open, the last answer in the bar is Cancel cast (Esc): the card comes back to your hand and tapped lands untap. Play a card now and cancel it.",
-        de: "Solange die Fragen oder das Bezahlen offen sind, steht ganz rechts in der Leiste Abbrechen (Esc): Die Karte kommt zurück auf die Hand, getippte Länder enttappen. Spiel jetzt eine Karte und brich ab.",
+        en: "While the questions or the paying are still open, the last answer in the bar is Cancel cast (Esc): the card comes back to your hand and tapped lands untap. Play a card now and cancel it; with nothing castable yet, go on with Next.",
+        de: "Solange die Fragen oder das Bezahlen offen sind, steht ganz rechts in der Leiste Abbrechen (Esc): Die Karte kommt zurück auf die Hand, getippte Länder enttappen. Spiel jetzt eine Karte und brich ab; ist noch nichts spielbar, geht es mit Weiter.",
     },
     /// Tour step T9's title (TOURS.md §2).
     TourT9Title { en: "Several abilities", de: "Mehrere Fähigkeiten" },

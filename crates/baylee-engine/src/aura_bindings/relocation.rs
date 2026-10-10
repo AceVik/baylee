@@ -81,7 +81,7 @@ pub(crate) fn destroy_event_and_offer(
         options,
         min: 0,
         max: 1,
-        prompt: ChoicePrompt::Generic,
+        prompt: ChoicePrompt::NewHost { aura: aura.object },
         total: None,
     })
 }
