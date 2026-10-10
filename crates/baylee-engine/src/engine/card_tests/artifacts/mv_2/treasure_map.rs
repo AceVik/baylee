@@ -3,17 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Treasure Map` // `Treasure Cove` (`Coverage::Partial`): "{1}, {T}: Scry 1. Put a landmark
-/// counter on this artifact. Then if there are three or more landmark counters on it, remove
-/// those counters, transform this artifact, and create three Treasure tokens. // {T}: Add {C}.
-/// {T}, Sacrifice a Treasure: Draw a card."
-///
-/// Under `Coverage::Partial`, the counter-count branch and the transform are omitted: no
-/// effect removes counters, and nothing transforms a permanent in place (#206). The front-face
-/// `{1}, {T}: Scry 1. Put a landmark counter on this artifact.` is written. The test activates
-/// ability 0, answers the scry arrangement (`ArrangePrompt::Scry`) to bottom the top card, and
-/// verifies the bottomed card, the tapped state, the landmark counter, and that `Treasure Map`
-/// remains on face 0.
 #[test]
 fn treasure_map_activates_to_scry_one_and_put_a_landmark_counter() {
     let p0 = PlayerId::new(0);
@@ -74,17 +63,12 @@ fn treasure_map_activates_to_scry_one_and_put_a_landmark_counter() {
     assert_eq!(
         engine.state().object(map).map(|o| o.face_index),
         Some(0),
-        "map remains on face 0 under Coverage::Partial"
+        "the first landmark does not transform"
     );
 }
 
-/// `Treasure Map` activated on three of its controller's turns carries three landmark
-/// counters, and — with the three-counter clause unwritten — that is all: no Treasures and no
-/// transform. That is the reason the clause stays off whole: its Treasures, written without
-/// the counter removal and the transform in front of them, would be made by every activation
-/// from the third on.
 #[test]
-fn treasure_map_gathers_three_landmark_counters_and_stops_there() {
+fn treasure_map_transforms_once_removes_counters_and_creates_three_treasures() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(268, forest())
         .battlefield(0, &[forest(), forest(), treasure_map()])
@@ -106,20 +90,58 @@ fn treasure_map_gathers_three_landmark_counters_and_stops_there() {
         pass_until(&mut engine, stack_is_empty);
         assert_eq!(
             counters_on(&engine, map, baylee_cards_dsl::counters::LANDMARK),
-            activation,
+            if activation == 3 { 0 } else { activation },
             "one landmark counter per activation"
         );
-        // Out of this turn, so the next walk finds the next one.
         pass_until(&mut engine, |e| e.state().turn.active != p0);
     }
 
     assert!(
-        tokens_of(&engine, p0).is_empty(),
-        "no Treasure is made while the clause in front of it is unwritten"
+        tokens_of(&engine, p0).len() == 3,
+        "three Treasures are made on the third activation"
     );
     assert_eq!(
         engine.state().object(map).map(|o| o.face_index),
-        Some(0),
-        "and the map is still the map"
+        Some(1),
+        "the map is now Treasure Cove"
     );
+}
+
+#[test]
+fn treasure_map_removes_all_landmarks_and_doubles_only_the_created_treasures() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                treasure_map(),
+                forest(),
+                baylee_core::generated::index::DOUBLING_SEASON,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let map = on_battlefield(&e, p0, treasure_map()).unwrap();
+    let version = e.state().object(map).unwrap().version;
+    let state = e.dev_state_mut(p0).unwrap();
+    crate::replacement::put_counters(state, map, baylee_cards_dsl::counters::LANDMARK, 1);
+    crate::replacement::put_counters(state, map, CounterKind::P1P1, 1);
+    tap_all_mana_but(&mut e, p0, Some(treasure_map()));
+    activate(&mut e, p0, treasure_map(), 0);
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::Arrange { .. }));
+    let Pending::Arrange { cards, .. } = e.pending().clone() else {
+        unreachable!()
+    };
+    e.apply(p0, look_answer(&cards, &[])).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        counters_on(&e, map, baylee_cards_dsl::counters::LANDMARK),
+        0
+    );
+    assert_eq!(counters_on(&e, map, CounterKind::P1P1), 2);
+    assert_eq!(tokens_of(&e, p0).len(), 6);
+    assert_eq!(e.state().object(map).unwrap().version, version);
+    assert_eq!(e.state().object(map).unwrap().face_index, 1);
+    assert!(is_tapped(&e, map));
 }

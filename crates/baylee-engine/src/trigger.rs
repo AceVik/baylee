@@ -2267,6 +2267,9 @@ fn matches(
                 ..
             },
         ) => *object == source && state.object(*object).is_some_and(|o| o.alt_cast),
+        (Trigger::PlaysAnotherLand, GameEvent::LandPlayed { player, object }) => {
+            *player == you && *object != source
+        }
         (Trigger::Draws(rel), GameEvent::CardsDrawn { player, .. })
         | (Trigger::PlaysLand(rel), GameEvent::LandPlayed { player, .. }) => match rel {
             PlayerRel::You => *player == you,

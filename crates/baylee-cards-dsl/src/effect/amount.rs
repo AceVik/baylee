@@ -132,6 +132,22 @@ pub enum Amount {
         /// Where to count.
         zone: ZoneSel,
     },
+    /// Multiply a magnitude by a nonnegative integer, saturating on overflow.
+    Times {
+        /// Magnitude to multiply.
+        base: &'static Amount,
+        /// Nonnegative multiplier.
+        factor: u32,
+    },
+    /// Subtract one magnitude from another, flooring the result at zero.
+    Difference {
+        /// Minuend.
+        left: &'static Amount,
+        /// Subtrahend.
+        right: &'static Amount,
+    },
+    /// Number of players still in the game matching this relation.
+    Players(super::PlayerRel),
     /// Another amount with a constant added to it: Muscle Burst's "3 plus
     /// the number of cards named Muscle Burst in all graveyards".
     ///

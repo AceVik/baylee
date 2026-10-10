@@ -77,7 +77,9 @@ impl<L: CardLookup> Engine<L> {
         self.state.ability_fires.clear();
         self.loyalty_used_this_turn.clear();
         let active = self.state.turn.active;
-        self.state.players[active.get() as usize].lands_played_this_turn = 0;
+        for player in &mut self.state.players {
+            player.lands_played_this_turn = 0;
+        }
         self.state.turn.phase = Phase::Beginning;
         self.state.turn.step = Step::Untap;
         self.combat_declared = CombatDeclared::None;

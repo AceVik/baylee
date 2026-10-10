@@ -189,6 +189,7 @@ pub fn matches_projected_with_context(
         // the object as it last existed there, and `trigger::departed_matches`
         // hands in that object, counters and all.
         Filter::HasCounter(kind) => obj.counters.get(*kind) > 0,
+        Filter::CountersAtLeast(kind, n) => obj.counters.get(*kind) >= *n,
         Filter::MatchesChosenTypeOfSource => state
             .object(this)
             .and_then(|src| src.chosen_subtype)
@@ -467,6 +468,15 @@ pub fn amount_with_context(
         Amount::ConstantMinus { constant, subtract } => {
             constant.saturating_sub(self::amount_with_context(subtract, state, you, context, x))
         }
+        Amount::Times { base, factor } => {
+            self::amount_with_context(base, state, you, context, x).saturating_mul(*factor)
+        }
+        Amount::Difference { left, right } => {
+            self::amount_with_context(left, state, you, context, x)
+                .saturating_sub(self::amount_with_context(right, state, you, context, x))
+        }
+        Amount::Players(who) => players(*who, state, you)
+            .map_or(0, |seats| u32::try_from(seats.len()).unwrap_or(u32::MAX)),
         Amount::DoubleX => x.unwrap_or(0).saturating_mul(2),
         Amount::XPlusCommanderCasts => {
             x.unwrap_or(0)
@@ -635,6 +645,7 @@ pub fn condition_holds_with_context(
     let source = context.source;
     match condition {
         Condition::YourTurn => state.turn.active == you,
+        Condition::LifeAtMost(n) => state.players[you.get() as usize].life <= n,
         Condition::APlayerHasMostLife => most_life(state).is_some(),
         // The announced X on the source, where `cast_wizard` writes it and
         // where `Filter::CmcAtMostX` reads it.

@@ -447,11 +447,16 @@ fn at(words: &[String], index: usize) -> &str {
 /// noun, a verb at the head of the sentence, and a word anywhere in it.
 fn claims_in(line: &Line) -> Vec<Claim> {
     let words = words(&line.body);
+    // "Gain 2 life for each creature" promises a product, not the fixed 2.
+    // Keep the kind of event, but leave its unknown multiplier unmeasured.
+    let scaled = words
+        .windows(2)
+        .any(|pair| pair[0] == "for" && pair[1] == "each");
     let mut out = Vec::new();
     let mut claim = |kind: Kind, amount: Option<u16>| {
         out.push(Claim {
             kind,
-            amount,
+            amount: amount.filter(|_| !scaled),
             conditional: line.conditional,
             superseded: line.superseded,
             sentence: line.body.clone(),
@@ -1070,6 +1075,10 @@ fn the_vocabulary_reads_the_sentences_it_was_written_for() {
         vec![(Kind::Damage, Some(3), false)]
     );
     assert_eq!(found("Draw a card."), vec![(Kind::Draw, Some(1), false)]);
+    assert_eq!(
+        found("You gain 2 life for each creature you control."),
+        vec![(Kind::GainLife, None, true)]
+    );
     assert_eq!(
         found("You gain 2 life."),
         vec![(Kind::GainLife, Some(2), false)]

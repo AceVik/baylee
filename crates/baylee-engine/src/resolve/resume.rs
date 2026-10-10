@@ -326,8 +326,11 @@ pub(super) fn resume_inner(
                 }
             }
         }
-        AwaitingOp::PutOntoBattlefield => {
+        AwaitingOp::PutOntoBattlefield { tapped } => {
             for &card in chosen {
+                if tapped {
+                    state.set_tapped(card, true);
+                }
                 if let Some(obj) = state.object_mut(card) {
                     obj.kind = ObjectKind::Permanent;
                     obj.set_controller(res.controller);

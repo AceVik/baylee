@@ -93,3 +93,58 @@ fn a_search_for_more_than_the_library_holds_finds_what_is_there() {
     assert_eq!(options, cards);
     assert_eq!((min, max), (1, 1));
 }
+
+#[test]
+fn computed_arithmetic_saturates_and_keeps_resolution_context() {
+    use baylee_cards_dsl::Amount;
+    let (mut state, _) = library_of(0);
+    let mut res = mine(Effect::draw(0));
+    let name = state.names.intern("Amount source");
+    let source = state.create_bare(me(), ObjectKind::Card, name, ZoneLocation::Battlefield);
+    res.source = source;
+    let name = state.names.intern("Amount target");
+    let target = state.create_bare(me(), ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+    state.object_mut(target).unwrap().base_mut().power = Some(7);
+    res.targets.push(target);
+    let nested = Amount::Difference {
+        left: &Amount::Times {
+            base: &Amount::TargetPower,
+            factor: 3,
+        },
+        right: &Amount::Fixed(4),
+    };
+    assert_eq!(amount2(&nested, &state, me(), &res), 17);
+    assert_eq!(
+        amount2(&Amount::Negated(&Amount::TargetPower), &state, me(), &res),
+        7
+    );
+    let mut sample = 1_u32;
+    for _ in 0..10_000 {
+        sample = sample.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        for x in [0, 1, sample, u32::MAX] {
+            res.x = Some(x);
+            let scaled = Amount::Times {
+                base: &Amount::X,
+                factor: 3,
+            };
+            let difference = Amount::Difference {
+                left: &Amount::Fixed(4),
+                right: &Amount::X,
+            };
+            let expected = u32::try_from(u64::from(x) * 3).unwrap_or(u32::MAX);
+            assert_eq!(amount2(&scaled, &state, me(), &res), expected);
+            assert_eq!(
+                eval::amount(&scaled, &state, me(), source, Some(x)),
+                expected
+            );
+            assert_eq!(
+                amount2(&difference, &state, me(), &res),
+                4_u32.saturating_sub(x)
+            );
+            assert_eq!(
+                eval::amount(&difference, &state, me(), source, Some(x)),
+                4_u32.saturating_sub(x)
+            );
+        }
+    }
+}

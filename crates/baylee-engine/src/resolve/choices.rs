@@ -202,6 +202,7 @@ pub(super) fn exec_choice(
             })
         }
         Effect::PutFromHandOntoBattlefield {
+            tapped,
             filter,
             mana_value,
             optional,
@@ -225,7 +226,7 @@ pub(super) fn exec_choice(
             if options.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::PutOntoBattlefield);
+            res.awaiting = Some(AwaitingOp::PutOntoBattlefield { tapped });
             Some(Pending::ChooseCards {
                 player: you,
                 options,

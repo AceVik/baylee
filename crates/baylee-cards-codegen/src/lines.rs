@@ -648,6 +648,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
         // Fastbond, "Whenever you play a land".
         T::PlaysLand(_) => &["play a land"],
+        T::PlaysAnotherLand => &["play another land"],
         T::Attacks(_) | T::OneOrMoreAttack(_) => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
         // Cockatrice, "Whenever this creature blocks or becomes blocked by

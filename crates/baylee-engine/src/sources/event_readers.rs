@@ -23,9 +23,12 @@ fn reads_target(value: TargetSpec) -> bool {
 fn reads_amount(value: Amount) -> bool {
     match value {
         Amount::EventLastToughness => true,
-        Amount::Plus { base, .. } | Amount::Negated(base) | Amount::SaturatingSub { base, .. } => {
-            reads_amount(*base)
-        }
+        Amount::Difference { left, right } => reads_amount(*left) || reads_amount(*right),
+        Amount::Players(who) => reads_player(who),
+        Amount::Times { base, .. }
+        | Amount::Plus { base, .. }
+        | Amount::Negated(base)
+        | Amount::SaturatingSub { base, .. } => reads_amount(*base),
         _ => false,
     }
 }

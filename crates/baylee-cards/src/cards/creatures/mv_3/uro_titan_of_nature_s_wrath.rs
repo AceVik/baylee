@@ -22,6 +22,7 @@ static GROW: &[Effect] = &[
     Effect::gain_life(3),
     Effect::draw(1),
     Effect::PutFromHandOntoBattlefield {
+        tapped: false,
         filter: &Filter::LAND,
         mana_value: None,
         optional: true,

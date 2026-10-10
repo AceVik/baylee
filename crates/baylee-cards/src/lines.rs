@@ -690,6 +690,7 @@ mod tests {
             [
                 "Huntmaster of the Fells",
                 "Archangel Avacyn",
+                "Arguel's Blood Fast",
                 "Conqueror's Galleon",
                 "Thaumatic Compass",
                 "Treasure Map",

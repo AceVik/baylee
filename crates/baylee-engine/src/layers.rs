@@ -824,6 +824,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
         | Filter::AttackedThisTurn
+        | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::AttachedToSource

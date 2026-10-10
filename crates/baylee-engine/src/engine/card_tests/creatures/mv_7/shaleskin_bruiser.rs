@@ -3,16 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Shaleskin Bruiser: the trample it keeps, and the pump it refuses by name.
-///
-/// `Coverage::Partial` here is about an `Amount` that multiplies a count, so
-/// what a game can show is the 4/4 body with trample — and, on a board with
-/// two other attacking Beasts, that it is still a 4/4 afterwards. The second
-/// half is the honest half of a refusal: a card that quietly pumped by one
-/// per Beast instead of three would read as "nearly right" and is the thing
-/// the `NOT SUPPORTED` note says was refused rather than approximated.
 #[test]
-fn shaleskin_bruiser_tramples_and_does_not_grow_beside_other_beasts() {
+fn shaleskin_bruiser_counts_other_attacking_beasts_once_on_resolution() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(393, forest())
         .battlefield(0, &[shaleskin_bruiser(), shaleskin_bruiser()])
@@ -56,10 +48,9 @@ fn shaleskin_bruiser_tramples_and_does_not_grow_beside_other_beasts() {
         )
         .expect("both Beasts attack");
 
-    assert_eq!(
-        pt(&engine, beasts[0]),
-        (4, 4),
-        "the attack trigger is off the card, so a 4/4 attacks as a 4/4 — and \
-         an approximation of +1/+0 per Beast would show up here as a 5/4"
-    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, beasts[0]), (7, 4));
+    assert_eq!(pt(&engine, beasts[1]), (7, 4));
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert_eq!(pt(&engine, beasts[0]), (4, 4));
 }

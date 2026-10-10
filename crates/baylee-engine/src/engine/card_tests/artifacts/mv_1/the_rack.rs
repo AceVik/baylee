@@ -66,3 +66,36 @@ fn the_rack_ignores_its_controllers_upkeep() {
     assert_eq!(engine.state().players[0].life, 20);
     assert_eq!(engine.state().players[1].life, 20, "p1 had 3+ cards");
 }
+
+mod local_regressions {
+    //! Printed rules exercised through the real game driver.
+
+    #[allow(clippy::wildcard_imports)]
+    use super::*;
+
+    #[test]
+    fn upkeep_damage_is_the_printed_constant_minus_the_current_hand_size() {
+        let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+        let card = baylee_core::generated::index::THE_RACK;
+        for cards in [0_usize, 2, 4, 7] {
+            let mut e = Duel::new(SEED, forest())
+                .battlefield(0, &[card])
+                .hand(1, &vec![forest(); cards])
+                .start();
+            keep_mulligans(&mut e);
+            pass_until(&mut e, |e| {
+                matches!(e.pending(), Pending::ChoosePlayer { .. })
+            });
+            e.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
+            reach_main_phase(&mut e, p0);
+            pass_until(&mut e, |e| {
+                e.state().turn.active == p1 && !stack_is_empty(e)
+            });
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(
+                e.state().players[1].life,
+                20 - (3_i32 - i32::try_from(cards).unwrap()).max(0)
+            );
+        }
+    }
+}

@@ -435,6 +435,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::NotTargetedByAnotherNamed(_)
         // The engine's counter kind against the view's wire kind, and the
         // translation is gamehost's; `baylee-ai` refuses it for that reason.
+        | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
         | Filter::InZone(_) => return None,
     })

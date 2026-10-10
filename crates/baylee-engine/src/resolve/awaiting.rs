@@ -128,7 +128,10 @@ pub enum AwaitingOp {
     },
     /// After `PutFromHandOntoBattlefield`: the chosen card goes onto the
     /// battlefield under the resolving controller's control.
-    PutOntoBattlefield,
+    PutOntoBattlefield {
+        /// Entry state captured by the effect.
+        tapped: bool,
+    },
     /// After `DiscardUpToThenDraw`: the chosen cards are discarded and as
     /// many are drawn.
     DiscardThenDraw,

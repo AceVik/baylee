@@ -335,6 +335,8 @@ pub enum Effect {
     /// land drop is spent. `mana_value` is read as the effect begins, as
     /// [`Effect::SearchLibraryOf`]'s is.
     PutFromHandOntoBattlefield {
+        /// Whether the chosen permanent enters tapped.
+        tapped: bool,
         /// What may be put.
         filter: &'static Filter,
         /// A mana-value bound read at resolution, on top of `filter`.

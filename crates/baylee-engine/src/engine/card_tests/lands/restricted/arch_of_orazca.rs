@@ -1,42 +1,38 @@
-//! `cards/lands/restricted/arch_of_orazca.rs`, played.
+//! Printed rules exercised through the real game driver.
 
-#[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
+#[allow(clippy::wildcard_imports)]
 use super::*;
 
-/// Arch of Orazca prints Ascend, `{{T}}: Add {{C}}.`, and `{{5}}, {{T}}: Draw a card.
-/// Activate only if you have the city's blessing.`
-///
-/// Under `Coverage::Partial`, Ascend and the city's blessing activation are omitted
-/// because no rule or condition tracks the blessing. This test establishes a board
-/// with ten permanents, verifies that only the mana ability is offered rather than
-/// an ungated draw ability, and confirms tapping it produces one colorless mana.
 #[test]
-fn arch_of_orazca_offers_only_mana_ability_with_ten_permanents() {
+fn arch_of_orazca_requires_ten_permanents_then_keeps_the_blessing() {
     let p0 = PlayerId::new(0);
-    let mut board = vec![arch_of_orazca()];
-    board.extend(std::iter::repeat_n(forest(), 10));
-
-    let mut engine = Duel::new(SEED, forest()).battlefield(0, &board).start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let arch = on_battlefield(&engine, p0, arch_of_orazca()).expect("arch on battlefield");
-
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    assert_eq!(
-        legal.abilities.iter().filter(|(id, _)| *id == arch).count(),
-        1,
-        "only ability 0 is offered under Coverage::Partial"
-    );
-
-    activate(&mut engine, p0, arch_of_orazca(), 0);
-    assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Colorless),
-        1
-    );
-    assert!(is_tapped(&engine, arch));
+    for lands in [8, 9] {
+        let mut board = vec![arch_of_orazca()];
+        board.extend(std::iter::repeat_n(forest(), lands));
+        let mut e = Duel::new(SEED, forest()).battlefield(0, &board).start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let arch = on_battlefield(&e, p0, arch_of_orazca()).unwrap();
+        tap_all_mana_but(&mut e, p0, Some(arch_of_orazca()));
+        if lands == 8 {
+            assert!(
+                e.apply(
+                    p0,
+                    PlayerAction::ActivateAbility {
+                        source: arch,
+                        ability_index: 1
+                    }
+                )
+                .is_err()
+            );
+        } else {
+            let other = on_battlefield(&e, p0, forest()).unwrap();
+            bury(&mut e, &[other]);
+            e.refresh_offer();
+            let before = library_size(&e, p0);
+            activate(&mut e, p0, arch_of_orazca(), 1);
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(library_size(&e, p0), before - 1);
+        }
+    }
 }

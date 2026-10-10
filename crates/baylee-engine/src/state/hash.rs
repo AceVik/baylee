@@ -1487,6 +1487,11 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::PutIntoGraveyardThisTurn => h.u8(35),
         F::AttackedThisTurn => h.u8(44),
         F::ControlledSinceTurnBegan => h.u8(45),
+        F::CountersAtLeast(kind, n) => {
+            h.u8(51);
+            hash_counter(h, *kind);
+            h.u16(*n);
+        }
         F::HasCounter(kind) => {
             h.u8(36);
             hash_counter(h, *kind);

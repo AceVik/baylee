@@ -6,8 +6,8 @@
 //! Set: INR #287 — Innistrad Remastered | Scryfall ID: 5fbc6091-a161-45b0-9932-543b569caaee | Oracle ID: 04eeb9ad-5c59-411b-8809-db8349838588
 //! Face: Westvale Abbey —  — Land
 //! Face: Ormendahl, Profane Prince —  — Legendary Creature — Demon
-// PARTIAL — {T}: Add {C}, the Human Cleric line and Ormendahl's printed
-// keyword line; the transform is not expressible (see NOT SUPPORTED below).
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
@@ -27,9 +27,6 @@ card!(
             subtypes = &[subtypes::creature::DEMON],
             power = Some(9),
             toughness = Some(7),
-            // A back face states only what it prints (CR 702.145a's rule read
-            // the other way round): Ormendahl's four keywords, none of them
-            // shared with the land side.
             keywords = KeywordSet::FLYING
                 .union(KeywordSet::LIFELINK)
                 .union(KeywordSet::INDESTRUCTIBLE)
@@ -37,10 +34,7 @@ card!(
             castable_from_hand = false,
         ),
     ],
-    coverage = Coverage::Partial(
-        "\"Sacrifice five creatures: Transform this land\": no effect transforms \
-         a permanent in place",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
@@ -49,12 +43,17 @@ card!(
                 token: &generated_tokens::HUMAN_CLERIC_1_1_WHITE_BLACK
             }]
         ),
-        // NOT SUPPORTED: "{5}, {T}, Sacrifice five creatures: Transform this
-        // land, then untap it." — the cost is sayable (five
-        // `Sacrifice(&Filter::YOUR_CREATURE)` parts), but no effect
-        // transforms a permanent in place: `Effect::ExileSelfReturnAsFace`
-        // exiles it and returns a new object (CR 400.7), which is not how
-        // CR 701.27a transforms — the permanent would lose its counters, its
-        // attachments and "then untap it" would read the wrong object.
+        activated!(
+            cost!(
+                "{5}",
+                TapSelf,
+                Sacrifice(&Filter::CREATURE),
+                Sacrifice(&Filter::CREATURE),
+                Sacrifice(&Filter::CREATURE),
+                Sacrifice(&Filter::CREATURE),
+                Sacrifice(&Filter::CREATURE)
+            ),
+            &[Effect::TransformSource, Effect::UntapSelf]
+        ),
     ],
 );

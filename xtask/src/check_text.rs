@@ -685,6 +685,10 @@ pub(crate) const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
         "Reflecting Pool",
         "\"any type a land you control could produce\" is its own mana rule",
     ),
+    (
+        "Horizon of Progress",
+        "ManaSource::LandColor with mine=true scopes the same mana rule as Reflecting Pool",
+    ),
     ("Exotic Orchard", "the same rule, read across the table"),
     ("Fellwar Stone", "the same rule, read across the table"),
     (

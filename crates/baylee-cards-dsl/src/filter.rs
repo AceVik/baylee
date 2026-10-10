@@ -157,6 +157,8 @@ pub enum Filter {
     /// clears them, so the card in the graveyard has none by the time a dies
     /// trigger asks.
     HasCounter(crate::CounterKind),
+    /// The candidate has at least this many counters of the specified kind.
+    CountersAtLeast(crate::CounterKind, u16),
     /// Has the subtype the SOURCE object chose as it entered ("the chosen
     /// type" — Roaming Throne, Reflections of Littjara, Cavern of Souls).
     MatchesChosenTypeOfSource,

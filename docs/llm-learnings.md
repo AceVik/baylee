@@ -3170,3 +3170,23 @@ land type"; both are convention tests that fire on a first try.
   leaving combat in response, an optional zero-target choice, and a target that
   becomes illegal. These cases distinguish resolution instructions from an
   intervening-if condition or a state trigger.
+
+## 2026-10-11 — partial-card completion: arithmetic and transformation thresholds
+
+- Completed fourteen more cards with counted choices, ascend, land-play events,
+  transformation thresholds, conditional mana, and arithmetic amounts.
+- Arithmetic wrappers must preserve resolution context. Scaling or subtracting
+  an amount that reads a target or paid cost cannot fall through to the static
+  evaluator. Differential checks cover 40,000 values including overflow bounds.
+- A land-play count belongs to the current turn, not the player's last turn.
+  Reset every seat's count on turn advancement; River of Tears demonstrates
+  the difference when untapped and activated during an opponent's turn.
+- Playing a land and putting one onto the battlefield are different events.
+  City of Traitors excludes its own play and ignores Horizon of Progress's
+  tapped placement, which also does not consume a land drop.
+- Test transform thresholds through the real ability and preserve object
+  identity. Treasure Map with Doubling Season removes all four landmarks,
+  retains unrelated counters, stays tapped, and creates six Treasures.
+- The English-claim sweep must not treat the coefficient in "gain 2 life for
+  each creature" as a fixed total. Keep its event-kind claim and leave the
+  multiplier to a behavioral card test.

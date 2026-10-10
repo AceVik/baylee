@@ -8955,7 +8955,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -15684,7 +15684,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Shaleskin Bruiser
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -29360,8 +29367,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Blighted Steppe
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -30450,8 +30457,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 3,
-            stackable: 1,
-            lines: &[Some(0), Some(1)],
+            stackable: 2,
+            lines: &[Some(0), Some(1), Some(2)],
             modes: &[],
             alternatives: &[],
         },
@@ -32155,15 +32162,15 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 2,
-            stackable: 1,
-            lines: &[Some(0)],
+            stackable: 2,
+            lines: &[Some(0), Some(1)],
             modes: &[],
             alternatives: &[],
         },
         FaceLines {
             sentences: 3,
-            stackable: 0,
-            lines: &[Some(1)],
+            stackable: 1,
+            lines: &[Some(1), Some(2)],
             modes: &[],
             alternatives: &[],
         },
@@ -32590,8 +32597,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Arch of Orazca
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -47199,8 +47206,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Fomori Vault
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -47825,8 +47832,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Horizon of Progress
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(0), Some(2)],
+        stackable: 2,
+        lines: &[Some(0), Some(2), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -52837,8 +52844,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Big Apple, 3 a.m.
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

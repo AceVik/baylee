@@ -3,17 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Westvale Abbey's front face is a colourless land with two written lines:
-/// "`{T}`: Add `{C}`" and "`{5}`, `{T}`, Pay 1 life: Create a 1/1 white and
-/// black Human Cleric creature token." Both are played, a turn apart because
-/// they share the one tap symbol, and every part of the second price is read
-/// where it lands: the `{5}` out of a pool only the tapped Forests filled (the
-/// offer is claimed with the mana already floating, since `can_afford` reads
-/// the pool and not the lands), the `{T}` as a status change on the Abbey, and
-/// the life as a life total one lower. The Cleric is read only once the stack
-/// has emptied — making a token is no mana ability — and both of its printed
-/// colours are asserted, because a token that was merely white would still
-/// fill the body and the name.
 #[test]
 #[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
 fn westvale_abbey_taps_for_colorless_and_sells_a_life_for_a_black_white_cleric() {
@@ -49,10 +38,6 @@ fn westvale_abbey_taps_for_colorless_and_sells_a_life_for_a_black_white_cleric()
         "and nothing floats before anything is tapped"
     );
 
-    // Ability 0 is the printed "{T}: Add {C}": a fixed colourless, so nothing
-    // is asked on the way and the mana is in the pool the moment it is
-    // activated (CR 605.3b). Pressed by hand, because `tap_all_mana` takes
-    // this very line (#159) and the tap belongs to the token below.
     activate(&mut engine, p0, westvale_abbey(), 0);
     assert!(
         !matches!(engine.pending(), Pending::ChooseColor { .. }),
@@ -74,9 +59,6 @@ fn westvale_abbey_taps_for_colorless_and_sells_a_life_for_a_black_white_cleric()
         "CR 605.3b: a mana ability uses no stack, so nothing is waiting"
     );
 
-    // The tap is spent, so the token line needs the untap step: across the
-    // opponent's turn and back, where the pool emptied with the step that
-    // ended (CR 500.5) and the Abbey is standing again.
     reach_their_main_phase(&mut engine, p1);
     assert!(
         walk_to_own_main(&mut engine, p0),
@@ -92,8 +74,6 @@ fn westvale_abbey_taps_for_colorless_and_sells_a_life_for_a_black_white_cleric()
         "and the pool the {{C}} was in is gone"
     );
 
-    // Six Forests are exactly the {5} the ability charges, and the Abbey is
-    // kept back: `tap_all_mana` would have spent the very {T} under test.
     tap_all_mana_but(&mut engine, p0, Some(westvale_abbey()));
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
@@ -106,9 +86,6 @@ fn westvale_abbey_taps_for_colorless_and_sells_a_life_for_a_black_white_cleric()
         "and nobody has paid a life yet"
     );
 
-    // `LegalActions::abilities` is filtered through `can_afford`, and that
-    // reads the pool rather than the untapped lands — so the claim about the
-    // offer is made with the mana already floating.
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -178,5 +155,46 @@ fn westvale_abbey_taps_for_colorless_and_sells_a_life_for_a_black_white_cleric()
     assert!(
         on_battlefield(&engine, p0, westvale_abbey()).is_some(),
         "the price was a tap and no sacrifice, so the Abbey stays to make another"
+    );
+}
+
+#[test]
+fn westvale_abbey_sacrifices_five_real_creatures_and_untaps_the_same_object() {
+    let p0 = PlayerId::new(0);
+    let mut board = vec![westvale_abbey()];
+    board.extend([forest(); 5]);
+    board.extend([llanowar_elves(); 5]);
+    let mut e = Duel::new(SEED, forest()).battlefield(0, &board).start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let abbey = on_battlefield(&e, p0, westvale_abbey()).unwrap();
+    let version = e.state().object(abbey).unwrap().version;
+    tap_all_mana_but(&mut e, p0, Some(westvale_abbey()));
+    activate(&mut e, p0, westvale_abbey(), 2);
+    for _ in 0..5 {
+        let Pending::ChooseCards { options, .. } = e.pending().clone() else {
+            panic!("{:?}", e.pending())
+        };
+        e.apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    }
+    assert_eq!(e.state().zones.list(ZoneLocation::Graveyard(p0)).len(), 5);
+    pass_until(&mut e, stack_is_empty);
+    let object = e.state().object(abbey).unwrap();
+    assert_eq!((object.version, object.face_index), (version, 1));
+    assert_eq!(pt(&e, abbey), (9, 7));
+    assert!(!is_tapped(&e, abbey));
+    assert!(
+        keywords(&e, abbey).contains(
+            KeywordSet::HASTE
+                .union(KeywordSet::FLYING)
+                .union(KeywordSet::LIFELINK)
+                .union(KeywordSet::INDESTRUCTIBLE)
+        )
     );
 }

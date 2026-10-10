@@ -113,6 +113,8 @@ pub enum Condition {
     AttackedOrBlockedThisCombat,
     /// It is the current controller's turn (not necessarily the owner's).
     YourTurn,
+    /// The controller has at most this many life.
+    LifeAtMost(i32),
     /// "If no spells were cast last turn" — by any player (the Innistrad
     /// werewolves). There was no last turn at the first upkeep of the game,
     /// so the sentence is false there, as daybound's own check is skipped.
@@ -465,6 +467,8 @@ pub enum Trigger {
     /// allows, and never a land an effect puts onto the battlefield, which
     /// is not played. The relation names whose play: `You` for "you".
     PlaysLand(crate::effect::PlayerRel),
+    /// The controller plays a land other than this permanent (not a land put into play).
+    PlaysAnotherLand,
     /// "Whenever you tap [a permanent matching the filter] for mana"
     /// (Badgermole Cub): its controller activates a mana ability of it with
     /// {T} in the cost (CR 106.12), and that ability resolves and produces

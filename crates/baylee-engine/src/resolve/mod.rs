@@ -548,6 +548,14 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::SaturatingSub { base, subtract } => {
             amount2(base, state, you, res).saturating_sub(*subtract)
         }
+        Amount::Negated(base) => amount2(base, state, you, res),
+        Amount::Times { base, factor } => amount2(base, state, you, res).saturating_mul(*factor),
+        Amount::Difference { left, right } => {
+            amount2(left, state, you, res).saturating_sub(amount2(right, state, you, res))
+        }
+        Amount::Players(who) => {
+            u32::try_from(players_of(*who, state, you, res).len()).unwrap_or(u32::MAX)
+        }
         other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
     }
 }

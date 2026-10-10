@@ -2,7 +2,7 @@
 //! Oracle: At the beginning of each player's upkeep, this enchantment deals X damage to that player, where X is 4 minus the number of cards in their hand.
 //! Set: ME3 #111 — Masters Edition III | Scryfall ID: ad43358a-6369-4b8b-a0b7-f8ba07c1bf39 | Oracle ID: 868f4ab2-a846-4ad0-8720-95fd234dd36b
 // IMPLEMENTED — each upkeep, 4 minus the active player's hand
-// (Amount::ConstantMinus) to that player.
+// (Amount::Difference) to that player.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -24,9 +24,9 @@ card!(
             whose: PlayerRel::EachPlayer,
         },
         &[Effect::DealDamage {
-            amount: Amount::ConstantMinus {
-                constant: 4,
-                subtract: &Amount::CountOf {
+            amount: Amount::Difference {
+                left: &Amount::Fixed(4),
+                right: &Amount::CountOf {
                     filter: &Filter::Any,
                     zone: ZoneSel::HandActivePlayer
                 },

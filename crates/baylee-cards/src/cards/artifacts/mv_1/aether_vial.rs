@@ -34,6 +34,7 @@ card!(
         activated!(
             Cost::TAP,
             &[Effect::PutFromHandOntoBattlefield {
+                tapped: false,
                 filter: &Filter::CREATURE,
                 mana_value: Some(ManaValueBound {
                     cmp: ManaValueCmp::Exactly,

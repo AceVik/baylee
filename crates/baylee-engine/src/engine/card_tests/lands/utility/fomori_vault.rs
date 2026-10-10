@@ -1,17 +1,12 @@
-//! `cards/lands/utility/fomori_vault.rs`, played.
+//! Printed rules exercised through the real game driver.
 
-#[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
+#[allow(clippy::wildcard_imports)]
 use super::*;
 
-/// Fomori Vault prints `{{T}}: Add {{C}}.` and `{{3}}, {{T}}, Discard a card: Look at the top X cards of your library, where X is the number of artifacts you control. Put one of those cards into your hand and the rest on the bottom of your library in a random order.`
-///
-/// Under `Coverage::Partial`, the second ability is omitted because X is a dynamically computed artifact count while the DSL pick effect expects a fixed count.
-/// With `{{3}}` floating from three `forest()` lands, an artifact on the battlefield (`quiet_artifact()`), a card in hand to discard (`plains()`), and Fomori Vault untapped, ability 1 is not offered in `legal.abilities`.
-/// Activating ability 0 adds one colorless mana to `pool.available(ManaColor::Colorless)`.
 #[test]
-fn fomori_vault_taps_for_colorless_and_omits_artifact_count_ability() {
+fn fomori_vault_discards_then_counts_artifacts_at_resolution() {
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, forest())
+    let mut e = Duel::new(SEED, forest())
         .battlefield(
             0,
             &[
@@ -20,41 +15,51 @@ fn fomori_vault_taps_for_colorless_and_omits_artifact_count_ability() {
                 forest(),
                 forest(),
                 quiet_artifact(),
+                quiet_artifact(),
             ],
         )
+        .battlefield(1, &[quiet_artifact()])
         .hand(0, &[plains()])
         .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let vault = on_battlefield(&engine, p0, fomori_vault()).expect("fomori vault on battlefield");
-
-    // Float the three Forests and the Sol Ring's {{C}}{{C}} while keeping
-    // Fomori Vault untapped — five, and the omitted ability charges three.
-    tap_mana_except(&mut engine, p0, vault);
-    assert_eq!(engine.state().players[0].mana_pool.total(), 5);
-    assert!(!is_tapped(&engine, vault));
-
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending());
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let vault = on_battlefield(&e, p0, fomori_vault()).unwrap();
+    let discarded = in_hand(&e, p0, plains()).unwrap();
+    tap_all_mana_but(&mut e, p0, Some(fomori_vault()));
+    activate(&mut e, p0, fomori_vault(), 1);
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![discarded],
+        },
+    )
+    .unwrap();
+    assert!(is_tapped(&e, vault));
+    assert_eq!(e.state().object(discarded).unwrap().zone, Zone::Graveyard);
+    let before = library_size(&e, p0);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = e.pending().clone()
+    else {
+        unreachable!()
     };
-    assert!(
-        legal.abilities.contains(&(vault, 0)),
-        "ability 0 ({{T}}: Add {{C}}) is offered"
-    );
-    assert!(
-        !legal.abilities.contains(&(vault, 1)),
-        "with {{3}} floating, an artifact controlled, a card in hand, and vault untapped, ability 1 is omitted under `Coverage::Partial`"
-    );
-
-    activate(&mut engine, p0, fomori_vault(), 0);
-    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!((options.len(), min, max), (2, 1, 1));
+    let kept = options[1];
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![kept],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(kept).unwrap().zone, Zone::Hand);
+    assert_eq!(library_size(&e, p0), before - 1);
     assert_eq!(
-        pool.available(ManaColor::Colorless),
-        3,
-        "the vault's one, on top of the Sol Ring's two"
+        e.state().zones.list(ZoneLocation::Library(p0)).first(),
+        Some(&options[0])
     );
-    assert_eq!(pool.available(ManaColor::Green), 3);
-    assert_eq!(pool.total(), 6);
-    assert!(is_tapped(&engine, vault));
 }

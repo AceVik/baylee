@@ -418,6 +418,12 @@ impl HeuristicAgent {
             Amount::ConstantMinus { constant, subtract } => {
                 (i64::from(constant) - self.count(view, origin, *subtract, aim, x)?).max(0)
             }
+            Amount::Times { base, factor } => self
+                .count(view, origin, *base, aim, x)?
+                .saturating_mul(i64::from(factor)),
+            Amount::Difference { left, right } => (self.count(view, origin, *left, aim, x)?
+                - self.count(view, origin, *right, aim, x)?)
+            .max(0),
             Amount::CountOf { filter, zone } => self.count_of(view, origin, filter, zone)?,
             Amount::DistinctColorsAmong(filter) => i64::from(
                 view.battlefield
