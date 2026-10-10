@@ -2122,7 +2122,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Bottle of Suleiman
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Brass Man
     &[FaceLines {
         sentences: 2,
@@ -2362,7 +2369,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Mijae Djinn
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Oasis
@@ -2469,7 +2483,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Ydwen Efreet
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Amulet of Kroog
     &[FaceLines {
         sentences: 1,
@@ -2498,11 +2519,18 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Argothian Treefolk
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
         lines: &[None],
         modes: &[],
         alternatives: &[],
     }],
-    &[],
     &[],
     // Artifact Blast
     &[FaceLines {
@@ -2524,7 +2552,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 4,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[None, None, None, None],
         modes: &[],
         alternatives: &[],
     }],
