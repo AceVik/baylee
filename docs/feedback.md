@@ -46,7 +46,8 @@ The body, frozen:
 `local_record` is a game the client ran in its own process (against the
 house), which no gateway keeps a record of: the client writes the same
 JSON Lines a hosted game's engine does (`baylee_gamehost::record`) and
-attaches it only when the player ticked it for that report. The gateway
+attaches it only when its box is ticked for that report (ticked at each
+opening of the form; the player may untick it, and the confirmation names it). The gateway
 cannot vouch for it and does not pretend to: it checks that it is base64
 of something that starts as gzip and is at most 4 MiB, and passes it on
 marked `record_origin: "client"`. A report carries a `game_id` or a

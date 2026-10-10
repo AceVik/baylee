@@ -3978,11 +3978,14 @@ messages! {
         de: "Sprache, Anzeige, Tastenbelegung und Daueranweisungen. Keine Namen, Adressen oder Tokens.",
     },
     /// A box: the picture.
-    ReportCatScreenshot { en: "Screenshot", de: "Bildschirmfoto" },
+    ReportCatScreenshot {
+        en: "Picture of the Baylee window",
+        de: "Bild des Baylee-Fensters",
+    },
     /// Under it.
     ReportCatScreenshotHint {
-        en: "The window as it was when you opened this form. It can show other players' names.",
-        de: "Das Fenster, wie es beim Öffnen dieses Formulars aussah. Es kann Namen anderer Spieler zeigen.",
+        en: "Only Baylee's own window, as it was when you opened this form: never your desktop, other programs or other windows. It can show other players' names.",
+        de: "Nur das Baylee-Fenster selbst, wie es beim Öffnen dieses Formulars aussah: nie dein Desktop, andere Programme oder andere Fenster. Es kann Namen anderer Spieler zeigen.",
     },
     /// A box with nothing behind it.
     ReportCatNothing { en: "(nothing to send here)", de: "(hier gibt es nichts zu senden)" },
@@ -4030,8 +4033,8 @@ messages! {
     },
     /// 413, or too large even without the picture.
     ReportTooLarge {
-        en: "The report is too large. Leave out the screenshot or the log and try again.",
-        de: "Der Bericht ist zu groß. Lass das Bildschirmfoto oder das Protokoll weg und versuch es erneut.",
+        en: "The report is too large. Leave out the window picture or the log and try again.",
+        de: "Der Bericht ist zu groß. Lass das Fensterbild oder das Protokoll weg und versuch es erneut.",
     },
     /// 429.
     ReportTooMany {
@@ -4126,8 +4129,8 @@ messages! {
     },
     /// The report was cut to fit.
     ReportTrimmed {
-        en: "To fit the size limit, the screenshot or older log lines were left out.",
-        de: "Um die Größengrenze einzuhalten, wurden das Bildschirmfoto oder ältere Protokollzeilen weggelassen.",
+        en: "To fit the size limit, the window picture or older log lines were left out.",
+        de: "Um die Größengrenze einzuhalten, wurden das Fensterbild oder ältere Protokollzeilen weggelassen.",
     },
     /// Asked once, at the start after a crash.
     CrashAskTitle {
@@ -5069,8 +5072,8 @@ messages! {
     TourT32Title { en: "Attachments", de: "Anhänge" },
     /// Tour step T32's words (TOURS.md §2).
     TourT32Body {
-        en: "Every row under Attachments is a consent your device remembers: system, the table as you see it, your log (other names replaced), settings (without keys), screenshot (may show names). The game's record is offered fresh every time, never pre-ticked. Show what is sent shows you exactly what goes out.",
-        de: "Jede Zeile unter Anhänge ist eine Einwilligung, die sich dein Gerät merkt: System, der Tisch, wie du ihn siehst, dein Protokoll (fremde Namen ersetzt), Einstellungen (ohne Schlüssel), Screenshot (kann Namen zeigen). Die Aufzeichnung des Spiels ist jedes Mal neu zu wählen. Zeigen, was gesendet wird zeigt dir alles.",
+        en: "Every row under Attachments is a consent your device remembers: system, the table as you see it, your log (names replaced), settings (no keys), a picture of the Baylee window only, never your desktop. All start ticked; untick what you'd rather keep. Show what is sent shows it all.",
+        de: "Jede Zeile unter Anhänge ist eine Einwilligung, die dein Gerät sich merkt: System, der Tisch, wie du ihn siehst, dein Protokoll (Namen ersetzt), Einstellungen (ohne Schlüssel), ein Bild nur des Baylee-Fensters, nie des Desktops. Alles ist angehakt; nimm heraus, was du behalten willst.",
     },
     /// Tour step T33's title (TOURS.md §2).
     TourT33Title { en: "Where it goes", de: "Wohin es geht" },

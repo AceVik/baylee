@@ -2,10 +2,14 @@
 //!
 //! One switch per [`Category`], and one more for crash reports, which the
 //! client sends by itself and therefore must have been told it may. Every
-//! switch starts off: a player who never opened the form has allowed
-//! nothing, and a crash report is asked about once ([`CrashConsent::Unasked`])
-//! rather than assumed. The client keeps this in its per-device settings
-//! file, so un-ticking a box (or answering "don't send") is the revocation.
+//! category starts ticked (owner, 10.10.2026: a report should carry all it
+//! can unless the player takes something out); nothing leaves the device
+//! before the player presses Send, the form shows each box and "Show what
+//! is sent" shows every byte. A crash report, which goes without a press,
+//! is still asked about once ([`CrashConsent::Unasked`]) rather than
+//! assumed. The client keeps this in its per-device settings file, so
+//! un-ticking a box (or answering "don't send") is the revocation, and a
+//! file that already holds an answer keeps it.
 //!
 //! A game's record is different again ([`RecordConsent`]): it holds every
 //! seat's cards, hidden ones too, so a standing yes would be a standing
@@ -120,7 +124,7 @@ pub enum RecordConsent {
 }
 
 /// The player's standing answers about reports, on this device.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 #[expect(
     clippy::struct_excessive_bools,
@@ -144,15 +148,40 @@ pub struct Consent {
     pub record: RecordConsent,
 }
 
+impl Default for Consent {
+    /// Every category ticked, crash reports unasked, records offered.
+    fn default() -> Self {
+        Self::everything()
+    }
+}
+
 impl Consent {
-    /// Every box ticked; crash reports untouched. For tests and previews.
+    /// Every box ticked; crash reports unasked.
     #[must_use]
     pub fn everything() -> Self {
-        let mut all = Self::default();
-        for category in Category::ALL {
-            all.set(category, true);
+        Self {
+            system: true,
+            game: true,
+            log: true,
+            settings: true,
+            screenshot: true,
+            crashes: CrashConsent::Unasked,
+            record: RecordConsent::Ask,
         }
-        all
+    }
+
+    /// No box ticked; crash reports unasked.
+    #[must_use]
+    pub fn nothing() -> Self {
+        Self {
+            system: false,
+            game: false,
+            log: false,
+            settings: false,
+            screenshot: false,
+            crashes: CrashConsent::Unasked,
+            record: RecordConsent::Ask,
+        }
     }
 
     /// Whether `category` may be sent.
@@ -188,15 +217,26 @@ impl Consent {
 mod tests {
     use super::*;
 
-    /// A device that was never asked has allowed nothing, and a settings
-    /// file written before this field existed reads as that device.
+    /// A device that was never asked starts with every box ticked, and a
+    /// settings file written before this field existed reads as that
+    /// device; a crash report is still asked about first.
     #[test]
-    fn nothing_is_allowed_until_it_is_ticked() {
+    fn every_box_starts_ticked_and_crashes_are_asked() {
         let consent = Consent::default();
-        assert!(Category::ALL.iter().all(|c| !consent.allows(*c)));
+        assert!(Category::ALL.iter().all(|c| consent.allows(*c)));
         assert_eq!(consent.crashes, CrashConsent::Unasked);
         let read: Consent = serde_json::from_str("{}").expect("an empty object reads");
         assert_eq!(read, consent);
+    }
+
+    /// An answer a settings file already holds is kept: a box the player
+    /// unticked stays unticked.
+    #[test]
+    fn a_stored_untick_is_kept() {
+        let read: Consent =
+            serde_json::from_str(r#"{"screenshot": false}"#).expect("a partial object reads");
+        assert!(!read.allows(Category::Screenshot));
+        assert!(read.allows(Category::Log));
     }
 
     /// A settings file from before the record's answer offers the box, and
@@ -254,7 +294,7 @@ mod tests {
     #[test]
     fn each_box_is_its_own_switch_and_survives_a_round_trip() {
         for category in Category::ALL {
-            let mut consent = Consent::default();
+            let mut consent = Consent::nothing();
             consent.toggle(category);
             for other in Category::ALL {
                 assert_eq!(consent.allows(other), other == category);

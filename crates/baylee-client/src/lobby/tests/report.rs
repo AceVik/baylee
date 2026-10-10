@@ -371,18 +371,19 @@ fn a_paste_lands_in_the_box_cut_to_the_limit() {
     assert!(!desk(&app).form().over_limit());
 }
 
-/// A box ticks and clears on a click, and the answer is kept in the
-/// device's settings, where the next form reads it.
+/// Every box starts ticked, clears and ticks on a click, and the answer is
+/// kept in the device's settings, where the next form reads it.
 #[test]
-fn a_ticked_box_is_kept_in_the_settings() {
+fn an_unticked_box_is_kept_in_the_settings() {
     let mut app = with_settings();
     open_form(&mut app);
     for category in Category::ALL {
         assert!(
-            !app.world()
+            app.world()
                 .resource::<ClientSettings>()
                 .reports
-                .allows(category)
+                .allows(category),
+            "{category:?} starts ticked"
         );
         click_desk(
             &mut app,
@@ -390,11 +391,11 @@ fn a_ticked_box_is_kept_in_the_settings() {
             |p| matches!(p, DeskPress::Toggle(c) if *c == category),
         );
         assert!(
-            app.world()
+            !app.world()
                 .resource::<ClientSettings>()
                 .reports
                 .allows(category),
-            "{category:?} did not tick"
+            "{category:?} did not clear"
         );
     }
     // Shut and opened again, the boxes are as they were left.
@@ -405,11 +406,11 @@ fn a_ticked_box_is_kept_in_the_settings() {
         matches!(p, DeskPress::Toggle(Category::Log))
     });
     let consent = &app.world().resource::<ClientSettings>().reports;
+    assert!(consent.allows(Category::Log), "a tick is kept too");
     assert!(
-        !consent.allows(Category::Log),
+        !consent.allows(Category::System),
         "un-ticking is the revocation"
     );
-    assert!(consent.allows(Category::System));
 }
 
 /// A tick or a kind is redrawn in place, never the whole form (§10 #9 of
@@ -946,11 +947,11 @@ fn a_direct_report_is_confirmed_before_it_goes() {
     assert!(baylee_client_core::bugreport::is_device_id(&device));
 }
 
-/// A game hosted here offers its record, unticked at every opening; a
+/// A game hosted here offers its record, ticked again at every opening; a
 /// ticked record is confirmed with what it shows, and "never" takes the
 /// box away and is kept.
 #[test]
-fn a_local_games_record_is_offered_unticked_and_never_remembered() {
+fn a_local_games_record_is_offered_ticked_and_never_remembered() {
     let mut app = with_settings();
     service(&mut app, Some(SERVICE));
     let host = crate::host::house_duel().expect("the house duel builds");
@@ -961,20 +962,19 @@ fn a_local_games_record_is_offered_unticked_and_never_remembered() {
         words.contains(Phrase::ReportRecordBox.text(Lang::En)),
         "{words}"
     );
-    assert!(!desk(&app).form().send_record, "unticked when it opens");
+    assert!(desk(&app).form().send_record, "ticked when it opens");
 
     click_desk(&mut app, "the record", |p| matches!(p, DeskPress::Record));
-    assert!(desk(&app).form().send_record);
+    assert!(!desk(&app).form().send_record);
     click_desk(&mut app, "close", |p| matches!(p, DeskPress::Close));
     open_form(&mut app);
-    assert!(!desk(&app).form().send_record, "unticked at every opening");
+    assert!(desk(&app).form().send_record, "ticked at every opening");
     assert_eq!(
         app.world().resource::<ClientSettings>().reports.record,
         RecordConsent::Ask,
-        "a yes is kept nowhere"
+        "an answer is kept nowhere"
     );
 
-    click_desk(&mut app, "the record", |p| matches!(p, DeskPress::Record));
     keys(&mut app, [typed('x')]);
     click_desk(&mut app, "send", |p| matches!(p, DeskPress::Send));
     let kilobytes = desk_mut(&mut app)
@@ -1034,7 +1034,7 @@ fn a_tick_keeps_the_form_where_it_was_scrolled() {
         q.single_mut(app.world_mut()).expect("one form column").y = 64.0;
     }
     click_desk(&mut app, "the record", |p| matches!(p, DeskPress::Record));
-    assert!(desk(&app).form().send_record, "the tick landed");
+    assert!(!desk(&app).form().send_record, "the click landed");
     let scrolled = panel_scroll(&mut app);
     assert!((scrolled - 64.0).abs() < f32::EPSILON, "{scrolled}");
 

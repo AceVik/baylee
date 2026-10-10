@@ -8813,7 +8813,9 @@ leaves alone a file another running client holds. The crash courier does
 not carry the record: a record leaves only with a report it was ticked
 for. A browser keeps none. `gather` packs the record once per opening (`LocalRecord::pack`:
 gzip and base64 then, never per keystroke) and the form offers it in a box
-unticked at every opening (`ReportForm::opened`), with "Never offer…"
+ticked at every opening (`ReportForm::opened`; owner, 10.10.2026: every
+box starts ticked and the player takes out what should stay home; a record
+always goes through the confirmation), with "Never offer…"
 beside it (`RecordConsent::Never`, the one standing answer). The record
 never rides under a game id, and `seal` reads its own lines
 (`seal_record`), which the gzip would hide. `report::route` picks the
