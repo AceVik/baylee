@@ -304,6 +304,12 @@ fn pump(
     keywords: baylee_cards_dsl::KeywordSet,
     duration: baylee_cards_dsl::Duration,
 ) {
+    // CR 611.2b: "for as long as this remains tapped" that is already over
+    // as the pump would begin does nothing.
+    if duration == baylee_cards_dsl::Duration::WhileSourceTapped && !source_still_tapped(state, res)
+    {
+        return;
+    }
     let timestamp = state.next_timestamp();
     for filter in filters {
         let mut fx = crate::effects::ContinuousEffect {

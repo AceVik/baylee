@@ -992,6 +992,28 @@ impl<L: CardLookup> Engine<L> {
 /// control, which moves nothing.
 fn end_control_durations(state: &mut crate::state::GameState) {
     use baylee_cards_dsl::Duration;
+    // "For as long as [the source] remains tapped" (CR 611.2b) ends with
+    // the tap, here as the control half does with control.
+    let untapped: Vec<ObjectId> = state
+        .effects
+        .iter()
+        .filter(|fx| matches!(fx.duration, Duration::WhileSourceTapped))
+        .filter_map(|fx| {
+            let source = fx.source?;
+            let still = state.object(source).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && o.status.contains(crate::object::Status::TAPPED)
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+            });
+            (!still).then_some(source)
+        })
+        .collect();
+    if !untapped.is_empty() {
+        state.effects.remove_where(|fx| {
+            matches!(fx.duration, Duration::WhileSourceTapped)
+                && fx.source.is_some_and(|s| untapped.contains(&s))
+        });
+    }
     let lost: Vec<(ObjectId, PlayerId)> = state
         .effects
         .iter()

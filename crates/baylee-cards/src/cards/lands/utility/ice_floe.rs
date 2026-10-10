@@ -2,8 +2,9 @@
 //! Oracle: You may choose not to untap this land during your untap step.
 //! Oracle: {T}: Tap target creature without flying that's attacking you. It doesn't untap during its controller's untap step for as long as this land remains tapped.
 //! Set: ME2 #232 — Masters Edition II | Scryfall ID: 9a974983-b9aa-4f12-8279-2e74089f7f31 | Oracle ID: cfaaead2-09e8-47cb-9e39-8570b8d8de86
-// PARTIAL — the untap-step choice (Modifier::MayChooseNotToUntap) and the tap
-// are built; the lock that keeps the creature down has no duration.
+// IMPLEMENTED — the untap-step choice, the tap, and the lock that keeps the
+// creature down for as long as this land remains tapped
+// (Modifier::DoesNotUntap, Duration::WhileSourceTapped).
 
 use baylee_cards_dsl::prelude::*;
 
@@ -21,16 +22,19 @@ card!(
     oracle_id = "cfaaead2-09e8-47cb-9e39-8570b8d8de86",
     scryfall_id = "9a974983-b9aa-4f12-8279-2e74089f7f31",
     faces = &[face!(name = "Ice Floe", types = TypeSet::LAND,),],
-    coverage = Coverage::Partial(
-        "\"It doesn't untap during its controller's untap step for as long as this land remains tapped\": no Duration says while the source stays tapped, and WhileSourceOnBattlefield would keep the creature down after the land untaps"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         static_ability!(Filter::This, Modifier::MayChooseNotToUntap),
-        // NOT SUPPORTED: It doesn't untap during its controller's untap step
-        // for as long as this land remains tapped.
         activated!(
             Cost::TAP,
-            &[Effect::TapTarget],
+            &[
+                Effect::TapTarget,
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::DoesNotUntap,
+                    Duration::WhileSourceTapped
+                ),
+            ],
             target = Some(TargetSpec::Object(&ATTACKING_NONFLYER))
         ),
     ],

@@ -681,6 +681,7 @@ impl GameState {
                 matches!(
                     fx.duration,
                     baylee_cards_dsl::Duration::WhileYouControlSource
+                        | baylee_cards_dsl::Duration::WhileSourceTapped
                 ) && fx.source == Some(id)
             });
         }

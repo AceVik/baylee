@@ -375,6 +375,21 @@ pub(crate) fn this_to_affect(state: &GameState, res: &Resolution) -> Option<Obje
 /// battlefield while its ability waited froze its power onto it
 /// (`GameObject::source_power_lki`), and that record outlives a blink, which
 /// brings back a new object (CR 400.7) under the same id.
+/// Whether the source is the tapped permanent it was when the ability was
+/// put on the stack, for a "for as long as this remains tapped" about to
+/// begin (CR 611.2b).
+fn source_still_tapped(state: &GameState, res: &Resolution) -> bool {
+    let never_left = state
+        .object(res.on_stack)
+        .is_none_or(|o| o.source_power_lki.is_none());
+    never_left
+        && state.object(res.source).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield
+                && o.status.contains(crate::object::Status::TAPPED)
+                && !o.status.contains(crate::object::Status::PHASED_OUT)
+        })
+}
+
 fn source_still_yours(state: &GameState, res: &Resolution, you: PlayerId) -> bool {
     let never_left = state
         .object(res.on_stack)

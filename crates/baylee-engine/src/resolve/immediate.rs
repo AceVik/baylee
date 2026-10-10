@@ -778,6 +778,11 @@ pub(super) fn exec_immediate(
             duration: baylee_cards_dsl::Duration::WhileYouControlSource,
             ..
         } if !source_still_yours(state, res, you) => None,
+        // … and so does a "for as long as this remains tapped".
+        Effect::CreateContinuousEffect {
+            duration: baylee_cards_dsl::Duration::WhileSourceTapped,
+            ..
+        } if !source_still_tapped(state, res) => None,
         Effect::CreateContinuousEffect {
             layer,
             filter,
