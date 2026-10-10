@@ -1054,6 +1054,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-deploy-hooks"
+version = "0.1.0-beta.7"
+dependencies = [
+ "rustix 1.1.5",
+]
+
+[[package]]
 name = "baylee-engine"
 version = "0.1.0-beta.7"
 dependencies = [
