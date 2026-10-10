@@ -126,21 +126,58 @@ pub(crate) struct TableSeats {
     /// Counts every change the in-game panel draws, so it rebuilds only on
     /// one.
     pub(crate) revision: u64,
+    /// What a test says this client offers, over [`offer`] (a test opens
+    /// no store, so it would always be `Absent`).
+    #[cfg(test)]
+    pub(crate) offer_in_test: Option<Offer>,
 }
 
-/// Whether this client can seat a language model at all: a desktop, its
-/// store opened (never in a test), and a bridge beside it.
-pub(crate) fn available() -> bool {
+/// What a room's open chair offers for a language model.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Offer {
+    /// Nothing: not a desktop build, or no settings store (a test), where
+    /// no bridge could ever run.
+    Absent,
+    /// The control, drawn off with its reason: a desktop whose install
+    /// lacks the bridge (beta.6's packages shipped none).
+    Missing,
+    /// The control, live. With no profile in the settings file yet, its
+    /// sheet says so and leads to Settings › Language models.
+    Ready,
+}
+
+impl Offer {
+    /// The offer of a build that is or is not a desktop with its store
+    /// open, and finds its bridge or not.
+    pub(crate) fn of(desktop_with_store: bool, bridge: bool) -> Self {
+        match (desktop_with_store, bridge) {
+            (false, _) => Self::Absent,
+            (true, false) => Self::Missing,
+            (true, true) => Self::Ready,
+        }
+    }
+}
+
+/// What this client offers: a desktop, its store opened (never in a test),
+/// and a bridge beside it.
+pub(crate) fn offer() -> Offer {
     #[cfg(not(target_arch = "wasm32"))]
     {
         use std::sync::OnceLock;
         static FOUND: OnceLock<bool> = OnceLock::new();
-        crate::seatpanel::DESKTOP
-            && crate::settings::store_is_open()
-            && *FOUND.get_or_init(|| crate::seatbin::program().is_some())
+        let desk = crate::seatpanel::DESKTOP && crate::settings::store_is_open();
+        Offer::of(
+            desk,
+            desk && *FOUND.get_or_init(|| crate::seatbin::program().is_some()),
+        )
     }
     #[cfg(target_arch = "wasm32")]
-    false
+    Offer::Absent
+}
+
+/// Whether this client can seat a language model at all.
+pub(crate) fn available() -> bool {
+    offer() == Offer::Ready
 }
 
 /// The provider's address variable on this machine (the bridge inherits it).
@@ -160,6 +197,16 @@ fn env_base(profile: &Profile) -> Option<String> {
 }
 
 impl TableSeats {
+    /// What an open chair of a room this client hosts offers.
+    #[cfg_attr(not(test), allow(clippy::unused_self))]
+    pub(crate) fn offer(&self) -> Offer {
+        #[cfg(test)]
+        if let Some(offer) = self.offer_in_test {
+            return offer;
+        }
+        offer()
+    }
+
     /// What the chair plays, when a language model is planned there.
     pub(crate) fn planned(&self, chair: u32) -> Option<&ChairModel> {
         self.seating.chair(chair).map(|p| &p.model)
@@ -332,9 +379,8 @@ impl TableSeats {
                     self.seating
                         .plan(chair, ChairModel::of(&name, &profile), None);
                     open_it = true;
-                } else {
-                    self.said
-                        .insert(chair, no_profile_line(self.file_refused()));
+                } else if let Some(line) = no_profile_line(self.file_refused()) {
+                    self.said.insert(chair, line);
                 }
             }
             LlmPress::Profile(at) => {
@@ -726,12 +772,12 @@ impl TableSeats {
     }
 }
 
-/// The line under a chair whose file gives no profile.
-fn no_profile_line(refused: Option<&str>) -> String {
-    refused.map_or_else(
-        || "no language-model profile yet: add one under Settings".to_string(),
-        |why| format!("the settings file cannot be used: {why}"),
-    )
+/// The line under a chair whose file gives no profile because it cannot be
+/// read. A file without a profile has none: the chair's sheet then shows
+/// its own guide (`Phrase::RoomNoModel`) and leads to Settings › Language
+/// models.
+fn no_profile_line(refused: Option<&str>) -> Option<String> {
+    refused.map(|why| format!("the settings file cannot be used: {why}"))
 }
 
 /// Compares the room this client hosts with its language-model chairs,
@@ -796,6 +842,16 @@ pub(crate) fn reconcile(mut state: bevy::prelude::ResMut<crate::lobby::LobbyStat
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A desktop always offers the chair: live with its bridge, off (with
+    /// its reason) without; a build with no store never.
+    #[test]
+    fn a_desktop_offers_the_chair_whether_or_not_its_bridge_is_there() {
+        assert_eq!(Offer::of(true, true), Offer::Ready);
+        assert_eq!(Offer::of(true, false), Offer::Missing);
+        assert_eq!(Offer::of(false, true), Offer::Absent);
+        assert_eq!(Offer::of(false, false), Offer::Absent);
+    }
 
     /// A chair planned to play the file's one profile.
     fn planned() -> TableSeats {

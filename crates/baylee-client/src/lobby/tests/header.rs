@@ -101,10 +101,10 @@ fn answered(app: &mut App) {
 }
 
 /// DESIGN-v5 §5: an empty chair offers AI to the host on every build, and
-/// Language model only where a bridge can be spawned (`tableseats::
-/// available`: a desktop build with its store open and `baylee-seat`
-/// beside it; never wasm, Android or iOS, never a test). The control is
-/// present or absent, never drawn with a tag.
+/// Language model only on a desktop build with its store open
+/// (`tableseats::offer`; never wasm, Android or iOS, never a test): there
+/// live, or off with its reason where `baylee-seat` is missing (the tests
+/// below). Elsewhere it is absent, never drawn with a tag.
 #[test]
 fn an_empty_chair_offers_a_language_model_only_where_one_can_sit() {
     let mut app = seated_as(true);
@@ -115,12 +115,93 @@ fn an_empty_chair_offers_a_language_model_only_where_one_can_sit() {
         .iter()
         .filter(|p| matches!(p, Press::Room(RoomPress::OpenChair(..))))
         .count();
-    assert!(!crate::tableseats::available(), "a test opens no store");
+    assert_eq!(
+        crate::tableseats::offer(),
+        crate::tableseats::Offer::Absent,
+        "a test opens no store"
+    );
     assert_eq!(llm, 0, "no Language model button where none can sit");
     assert!(
         !labels(&mut app).iter().any(|l| l.contains("desktop")),
         "and no tag saying why"
     );
+}
+
+/// The room as a desktop build offers it: `offer` stands for what
+/// `tableseats::offer` would find (a test opens no store).
+fn hosting_with(offer: crate::tableseats::Offer) -> App {
+    let mut app = seated_as(true);
+    answered(&mut app);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .llm
+        .offer_in_test = Some(offer);
+    app.update();
+    app
+}
+
+fn opens_chair(p: &Press) -> bool {
+    matches!(p, Press::Room(RoomPress::OpenChair(_, 3)))
+}
+
+/// Disabled controls carrying a press this predicate accepts.
+fn off_presses(app: &mut App, pick: impl Fn(&Press) -> bool) -> usize {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&Press, With<crate::shellkit::controls::Disabled>>();
+    query.iter(app.world()).filter(|p| pick(p)).count()
+}
+
+/// A desktop with its bridge offers the open chair a language model, live,
+/// whether or not a profile is set up yet (the chair's sheet guides then).
+#[test]
+fn a_desktop_with_its_bridge_offers_a_language_model() {
+    let mut app = hosting_with(crate::tableseats::Offer::Ready);
+    assert_eq!(
+        presses(&mut app).iter().filter(|p| opens_chair(p)).count(),
+        1
+    );
+    assert_eq!(off_presses(&mut app, opens_chair), 0);
+}
+
+/// The beta.6 fault: a desktop whose install lacks `baylee-seat` drew no
+/// Language model at all. It now draws it off, saying why.
+#[test]
+fn a_desktop_without_its_bridge_shows_the_language_model_off_with_why() {
+    let mut app = hosting_with(crate::tableseats::Offer::Missing);
+    assert_eq!(
+        presses(&mut app).iter().filter(|p| opens_chair(p)).count(),
+        0,
+        "nothing to press"
+    );
+    assert_eq!(off_presses(&mut app, opens_chair), 1, "but drawn, off");
+    let why = Phrase::RoomNoBridge.text(Lang::En);
+    assert!(
+        labels(&mut app).iter().any(|l| l == why),
+        "its reason is drawn"
+    );
+}
+
+/// A chair's sheet with no profile in the settings file explains profiles
+/// and keys, and its Set up leads to Settings › Language models.
+#[test]
+fn a_chair_without_a_profile_leads_to_the_language_model_settings() {
+    let mut app = hosting_with(crate::tableseats::Offer::Ready);
+    // Opened as `OpenChair` opens it, without reading this machine's file.
+    app.world_mut().resource_mut::<LobbyState>().chair_sheet = Some(3);
+    app.update();
+    let guide = Phrase::RoomNoModel.text(Lang::En);
+    assert!(labels(&mut app).iter().any(|l| l == guide), "the guide");
+    tap_control(&mut app, "Set up a model", |p| {
+        *p == Press::Room(RoomPress::SetUpModel)
+    });
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.settings_open());
+    assert_eq!(
+        state.settings_section(),
+        baylee_client_core::settings_map::Section::LanguageModels
+    );
+    assert_eq!(state.chair_sheet, None);
 }
 
 /// DESIGN-v5 §5 "Leaving": the host's Leave hands the table on, so it is
