@@ -2624,6 +2624,21 @@ impl Duel {
             .filter(|card| legal.castable.contains(&card.id) || legal.lands.contains(&card.id))
             .count()
     }
+
+    /// Whether a spell in my hand can be cast now (a land drop cannot be
+    /// cancelled: the table tour's T8 asks for a cast).
+    #[must_use]
+    pub fn a_spell_is_castable(&self) -> bool {
+        let (Some(view), Some(legal)) = (
+            self.view.as_ref(),
+            self.interaction
+                .as_ref()
+                .and_then(Interaction::legal_actions),
+        ) else {
+            return false;
+        };
+        view.hand.iter().any(|card| legal.castable.contains(&card.id))
+    }
 }
 
 /// A tear under way ([`Duel::tear`]).

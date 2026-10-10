@@ -121,6 +121,29 @@ fn a_cast_try_it_parks_over_the_opening_hands_and_comes_back() {
     let run = desk.shown().expect("T8 is drawn again");
     assert_eq!(run.current().id, "T8");
     assert_eq!(run.mode, Mode::Try);
+    // With no spell castable (09.10.: turn 1, no mana) T8 never waits on
+    // it: its Next is live.
+    let castable = app.world().resource::<Duel>().a_spell_is_castable();
+    assert_eq!(run.primary_live(), !castable || run.held);
+}
+
+/// T8 over a hand with nothing castable: Next works at once.
+#[test]
+fn t8_with_nothing_castable_lets_the_player_go_on() {
+    let mut app = table();
+    keep(&mut app);
+    let mut run = Run::chapter(Tour::Table, 0, false, 2).expect("the table tour");
+    let mut tours = baylee_client_core::tour::Tours::default();
+    while run.current().id != "T8" {
+        run.next(&mut tours);
+    }
+    app.world_mut().resource_mut::<super::TourDesk>().run = Some(run);
+    // Nothing is castable for this seat: no priority, or no mana.
+    app.world_mut().resource_mut::<Duel>().interaction = None;
+    app.update();
+    let run = desk(&app).shown().expect("T8 stands");
+    assert_eq!(run.current().id, "T8");
+    assert!(run.primary_live(), "T8 waited on a cast that cannot be made");
 }
 
 /// T32 stands over the open report form (09.10.: Enter went to the form's

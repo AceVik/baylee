@@ -176,6 +176,15 @@ pub(super) fn tours(
             };
         }
         watch.cast_seen |= view.casting.is_some();
+        // Nothing to cast (turn 1, no mana): T8 never waits on what cannot
+        // be done; its Next is live and its words say so (09.10.).
+        if check == Check::CastCancelled
+            && !watch.cast_seen
+            && !run.held
+            && !duel.a_spell_is_castable()
+        {
+            run.hold();
+        }
         watch.visit_seen |= duel.visiting.is_some();
         let done = match check {
             Check::CastCancelled => watch.cast_seen && view.casting.is_none(),

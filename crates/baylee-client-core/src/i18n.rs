@@ -4772,8 +4772,8 @@ messages! {
     TourT8Title { en: "Cancel cast", de: "Abbrechen" },
     /// Tour step T8's words (TOURS.md §2).
     TourT8Body {
-        en: "While the questions or the paying are still open, the last answer in the bar is Cancel cast (Esc): the card comes back to your hand and tapped lands untap. Play a card now and cancel it.",
-        de: "Solange die Fragen oder das Bezahlen offen sind, steht ganz rechts in der Leiste Abbrechen (Esc): Die Karte kommt zurück auf die Hand, getippte Länder enttappen. Spiel jetzt eine Karte und brich ab.",
+        en: "While the questions or the paying are still open, the last answer in the bar is Cancel cast (Esc): the card comes back to your hand and tapped lands untap. Play a card now and cancel it; with nothing castable yet, go on with Next.",
+        de: "Solange die Fragen oder das Bezahlen offen sind, steht ganz rechts in der Leiste Abbrechen (Esc): Die Karte kommt zurück auf die Hand, getippte Länder enttappen. Spiel jetzt eine Karte und brich ab; ist noch nichts spielbar, geht es mit Weiter.",
     },
     /// Tour step T9's title (TOURS.md §2).
     TourT9Title { en: "Several abilities", de: "Mehrere Fähigkeiten" },
