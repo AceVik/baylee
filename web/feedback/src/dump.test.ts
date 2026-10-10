@@ -124,24 +124,26 @@ describe("the text's references", () => {
     const refs = readRefs({
       refs: {
         cards: [
-          { text: "Island", card: 7, zone: "battlefield", owner: 0, print: { scryfall_id: "not-an-id" } },
-          { text: "Opt", card: 9, print: { scryfall_id: "e3285e6b-3e79-4d7c-bf96-d920f973b80b" } },
+          { text: "Island", at: [0, 8], card: 7, zone: "battlefield", owner: 0, print: { scryfall_id: "not-an-id" } },
+          { text: "Opt", at: [9, "x"], card: 9, print: { scryfall_id: "e3285e6b-3e79-4d7c-bf96-d920f973b80b" } },
         ],
         players: [{ text: "Ada#00a1", seat: 2 }],
       },
     });
     expect(refs).toEqual({
       cards: [
-        { text: "Island", card: 7, zone: "battlefield", owner: 0, scryfall: null },
+        { text: "Island", at: [0, 8], card: 7, zone: "battlefield", owner: 0, scryfallId: null, scryfall: null },
         {
           text: "Opt",
+          at: null,
           card: 9,
           zone: null,
           owner: null,
+          scryfallId: "e3285e6b-3e79-4d7c-bf96-d920f973b80b",
           scryfall: "https://scryfall.com/card/e3285e6b-3e79-4d7c-bf96-d920f973b80b",
         },
       ],
-      players: [{ text: "Ada#00a1", seat: 2 }],
+      players: [{ text: "Ada#00a1", at: null, seat: 2 }],
     });
   });
 

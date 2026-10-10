@@ -48,9 +48,15 @@ are the strictest there are (`strict`, `noUncheckedIndexedAccess`,
 ## What it may load
 
 Everything is bundled and served from the service's own origin: no CDN, no
-web font (system fonts only), no analytics or telemetry. The service's CSP
-(`default-src 'self'`, no inline script, images also as `data:` for a
-report's screenshot) holds the page to that.
+web font (system fonts only), no analytics or telemetry. The one thing the
+page loads from anywhere else is the picture of a card: a card a report
+names, or a card on the set progress page, is fetched by the admin's
+browser straight from Scryfall's image host (`src/reports/scryfall.ts`,
+`docs/legal.md` §3), never through the service, which neither proxies nor
+caches it. The service's CSP (`default-src 'self'`, no inline script,
+images also as `data:` for a report's screenshot and from
+`cards.scryfall.io`, `connect-src 'self'` so nothing calls Scryfall's API)
+holds the page to that.
 
 ## Dependencies and their licences
 
@@ -85,16 +91,42 @@ reaches the built page.
 
 ## Using it
 
-- The list: newest first, 50 a page, filtered by kind, status, gateway,
-  pseudonym, text, a range of days (UTC) and whether a game record is
-  attached. The filters live in the URL, so a filtered view is a link.
-  `j`/`k` (or the arrows) move, `Enter` opens, `/` goes to the search.
-  A pseudonym in a row, or in "Reporters by number of reports", filters by
-  it.
-- A report: what the player wrote, a crash, the screenshot, the player's
-  game log, the table as they saw it, system and settings, and the whole
-  `client` object as a folding tree; the game record's size and
-  completeness and a download. `Escape` goes back to the list.
+- The list: newest first, 50 a page. Views along the top (Inbox = new,
+  Triaged, In progress, Resolved, All, each with its count), a search of
+  the text, and under "Filters" the kind, status, gateway, pseudonym, a
+  range of days (UTC) and whether a game record is attached. The filters
+  live in the URL, so a filtered view is a link. Times are local, as "5
+  minutes ago" with the exact time as the title. A report in `new` that was
+  never opened on this device is marked unread (kept in `localStorage`,
+  per device; the service keeps no such state). The list is asked again
+  every 30 seconds while the page is visible: changes to the rows shown are
+  applied, and new reports are announced ("3 new reports since you looked
+  · Show") rather than slid under the cursor; Refresh shows a spinner and
+  "Updated hh:mm", and a refresh that fails is a toast.
+  `j`/`k` (or the arrows) move the cursor, `Enter` opens the report in a
+  drawer beside the list (over it on a narrow screen), `o` opens its page,
+  `x` selects, `a` selects the page, `1`–`6` set the status of the
+  selection (or of the report under the cursor), `r` refreshes, `c` copies
+  the link, `e` exports the page (or the selection) as CSV, `/` goes to
+  the search, `Esc` closes the drawer or clears the selection, `?` lists
+  them. A selection shows a bar: set a status on all of them (one audited
+  change each), copy their ids, export them, mark them read. A reporter is
+  shown as an alias derived from the pseudonym (`src/reports/alias.ts`:
+  two words, a hue and the pseudonym's first four characters), the same in
+  every row; clicking it filters by them. The alias is derived in the
+  browser, never resolved to an account: the pseudonym exists so that this
+  service does not know who wrote a report (`docs/feedback.md` §"The
+  gateway"), and the UI keeps it that way.
+- A report (the drawer and the page `/r/{id}` show the same): what the
+  player wrote with each card it names as a chip (its Scryfall page, its
+  picture on hover, "Image: Scryfall") and each player as a seat, where in
+  the game it was written (turn, phase and step, seat, the question the
+  engine was asking, what the client held unsent, the last refusal), a
+  crash, the screenshot, the player's game log, the table as they saw it,
+  system and settings, the whole `client` object as a folding tree, the
+  game record's size and completeness and a download, and the history.
+  Copy the link, the id or a plain-text summary. `Escape` goes back to the
+  list.
 - Triage: the status; the GitHub issue, linked by number or URL; a button
   that opens GitHub's new-issue page with a neutral technical summary the
   admin writes in the field above it (empty until they do: no personal
@@ -125,5 +157,5 @@ reaches the built page.
     (never the key, which is kept only as a hash), revoked after a second
     question; the latest console changes.
 
-  In German when the browser asks for German, else English; the rest of
-  the UI is English only.
+  The admin area and the reports (since beta.7) are in German when the
+  browser asks for German, else English; the sign-in form is English only.

@@ -52,16 +52,43 @@ describe("references in the text", () => {
     };
     start(report);
     render(<ReportDetail id={id} />);
-    expect(await screen.findByText("cast [Lightning Bolt] at [@steady 1], not [x]")).toBeTruthy();
-    const refs = section("References");
+    const refs = within(await screen.findByRole("region", { name: "References" }));
     expect(refs.getByText("Lightning Bolt")).toBeTruthy();
     expect(refs.getByText(/stack/)).toBeTruthy();
     const link = refs.getByRole("link", { name: "Scryfall" });
     expect(link.getAttribute("href")).toBe(`https://scryfall.com/card/${bolt}`);
-    expect(refs.getByText("steady 1")).toBeTruthy();
-    // A bracket the player typed stays a bracket: nothing in the text is a link.
+    expect(refs.getByText("@steady 1")).toBeTruthy();
+    // In the text each resolved reference is a chip in its place: the card
+    // links to its Scryfall page, the player is a seat, and `[x]`, which
+    // the client resolved to nothing, stays the bracket the player typed.
     const text = section("What the player wrote");
-    expect(text.queryAllByRole("link")).toHaveLength(0);
+    const chip = text.getByRole("link", { name: "Lightning Bolt" });
+    expect(chip.getAttribute("href")).toBe(`https://scryfall.com/card/${bolt}`);
+    expect(chip.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(text.getByText("@steady 1")).toBeTruthy();
+    expect(text.getByText(/, not \[x\]$/)).toBeTruthy();
+    expect(text.queryAllByRole("link")).toHaveLength(1);
+    // The picture comes straight from Scryfall's image host, only on
+    // hover, and only after the card's id was checked to be one.
+    expect(text.queryByRole("img")).toBeNull();
+    await userEvent.hover(chip);
+    const picture = text.getByRole("img");
+    expect(picture.getAttribute("src")).toBe(`https://cards.scryfall.io/normal/front/e/3/${bolt}.jpg`);
+    expect(text.getByText("Image: Scryfall")).toBeTruthy();
+    await userEvent.unhover(chip);
+    expect(text.queryByRole("img")).toBeNull();
+  });
+
+  test("a reference whose range does not say what the text says there stays text", async () => {
+    const report = fullReport({ text: "cast [Lightning Bolt] twice" });
+    report.client["refs"] = {
+      cards: [{ text: "Lightning Bolt", at: [0, 16], card: 1234, print: { scryfall_id: bolt } }],
+      players: [],
+    };
+    start(report);
+    render(<ReportDetail id={id} />);
+    expect(await screen.findByText("cast [Lightning Bolt] twice")).toBeTruthy();
+    expect(section("What the player wrote").queryAllByRole("link")).toHaveLength(0);
   });
 
   test("a report naming nothing has no such section, and an odd id makes no link", async () => {
@@ -106,9 +133,36 @@ describe("a full report", () => {
     expect(everything.getByText(/12 characters of base64/)).toBeTruthy();
     expect(section("History").getByText(/viktor: status triaged/)).toBeTruthy();
     expect(screen.getByText("0.1.0-beta.1 (3f9a1c7e21)")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "5bdc0e1f9a7c33aa" }).getAttribute("href")).toBe(
-      "/?reporter=5bdc0e1f9a7c33aa",
-    );
+    // The reporter is an alias derived from the pseudonym (`alias.ts`), the
+    // pseudonym itself its accessible name; it filters the list by it.
+    const reporter = screen.getByRole("button", { name: "5bdc0e1f9a7c33aa" });
+    expect(reporter.textContent).toContain("5bdc");
+    expect(reporter.textContent).not.toContain("5bdc0e1f");
+    await userEvent.click(reporter);
+    expect(window.location.search).toBe("?reporter=5bdc0e1f9a7c33aa");
+  });
+
+  test("says where in the game the report was written", async () => {
+    const report = fullReport();
+    report.client["game"] = {
+      table: { seat: 1, seq: 42, when: "Turn 7 · main 1" },
+      view: { turn: 7, active: 0, seat: 1, awaiting: 1, players: [{}, {}] },
+      pending: { ChooseAttackers: { player: 1, options: [1, 2, 3] } },
+      holding: { selected: 2, armed: "Play Swamp", mana_run: false, outbox: 1, last_error: "not your turn" },
+    };
+    start(report);
+    render(<ReportDetail id="x" />);
+    await screen.findByText("The Swamp untapped by itself.");
+    const table = section("At the table");
+    expect(table.getByText("turn 7, seat 0's")).toBeTruthy();
+    expect(table.getByText("Turn 7 · main 1")).toBeTruthy();
+    expect(table.getByText("1 · 2 players")).toBeTruthy();
+    expect(table.getByText("Choose attackers")).toBeTruthy();
+    expect(table.getByText(/player: 1 · options: 3/)).toBeTruthy();
+    expect(table.getByText(/waiting for seat 1/)).toBeTruthy();
+    expect(table.getByText("armed: Play Swamp · 2 selected · 1 unsent")).toBeTruthy();
+    expect(table.getByText("not your turn")).toBeTruthy();
+    expect(table.getByText("sequence 42")).toBeTruthy();
   });
 
   test("a folded part of the tree unfolds", async () => {

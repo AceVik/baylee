@@ -213,9 +213,13 @@ a reference and has no entry; a report whose text names nothing has no
 The client builds it (`client-core::bugreport::refs::refs_for`) from the
 candidates the form offered: at a table only the seat's own view
 (`refs::candidates`, never a library, another hand or a face-down card),
-elsewhere the compiled pool. The admin UI lists them under the text, each
-card with a link to its Scryfall page; the text itself is shown as
-written.
+elsewhere the compiled pool. The admin UI draws each resolved reference as
+a chip in its place in the text (a card linking to its Scryfall page, with
+its picture on hover; a player as a seat), lists them under the text, and
+leaves a bracket the client resolved to nothing, or whose range does not
+say what the text says there, as the text the player wrote. A card's
+picture is loaded by the admin's browser straight from Scryfall's image
+host, never through this service (`docs/legal.md` §3; §"Headers" below).
 
 `scripts/server/feedback-direct.caddy` is the proxy's part: the route
 alone on the public site, its body bounded before the service reads it, no
@@ -279,6 +283,23 @@ status, its GitHub issue, and deletion. The page is built from `web/feedback`
 (React, TypeScript; `web/feedback/README.md`) into static files the service
 serves itself from `FEEDBACK_WEB_DIR`. Unset, the service serves no page and
 `/` stays `404`; a directory without an `index.html` refuses to start.
+
+What the list does (beta.7; the README has the keys): views by status,
+search and filters in the URL, a drawer that opens a report beside the
+list, a selection that sets a status on several reports (one `PATCH` and
+one audit row each; there is no bulk route), a quiet refresh every 30
+seconds that announces new reports instead of moving the rows, an export
+of what is shown as CSV made in the browser, and an unread marker kept in
+the browser's `localStorage` only (the service keeps no per-admin state).
+**A reporter is never resolved to an account.** The pseudonym is an HMAC
+the gateway makes so that this service cannot know who wrote a report
+(§"The gateway" above, `docs/privacy.md`); asking the gateway's console to
+turn it back into a name would undo that promise in one request, so the UI
+does not, and the gateway's console has no such route. The UI shows an
+alias derived in the browser from the pseudonym itself (two words, a hue,
+its first four characters; `web/feedback/src/reports/alias.ts`), which is
+stable per reporter and per gateway and says nothing more than the hex
+does.
 
 ### Admins: `baylee-feedback admin …`
 
@@ -425,10 +446,15 @@ Several gateways are not configured yet: the routes would take a
 
 Every answer of the service, page, file or JSON, carries
 `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src
-'self'; img-src 'self' data:; font-src 'self'; connect-src 'self';
-object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors
-'none'` (`data:` images for a report's screenshot, which is a PNG in the
-report), `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+'self'; img-src 'self' data: https://cards.scryfall.io; font-src 'self';
+connect-src 'self'; object-src 'none'; base-uri 'none'; form-action
+'self'; frame-ancestors 'none'` (`data:` images for a report's screenshot,
+which is a PNG in the report; `cards.scryfall.io` for the picture of a card
+a report names or a set lists, which the admin's browser fetches from
+Scryfall itself and this service never touches, `docs/legal.md` §3 — an
+image source only, as `connect-src` stays `'self'`), `X-Frame-Options:
+DENY`, `Referrer-Policy: no-referrer` (so Scryfall sees a card id and
+nothing of a report),
 `X-Content-Type-Options: nosniff`, and same-origin opener and resource
 policies. JSON is `Cache-Control: no-store`. Files under `assets/` (named by
 their hash) are `public, max-age=31536000, immutable`, the rest `no-cache`.

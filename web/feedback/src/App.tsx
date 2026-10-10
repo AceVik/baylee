@@ -6,6 +6,7 @@ import { browserLang, t } from "./i18n";
 import { Login } from "./Login";
 import { ReportDetail } from "./ReportDetail";
 import { ReportList } from "./ReportList";
+import { Toasts } from "./reports/pieces";
 import { listPath, navigate, useRoute } from "./router";
 
 type Auth = { state: "checking" } | { state: "out" } | { state: "in"; name: string; console: boolean };
@@ -130,10 +131,11 @@ export function App() {
           search={route.page === "admin" ? route.search : undefined}
         />
       ) : route.page === "report" ? (
-        <ReportDetail id={route.id} key={route.id} />
+        <ReportDetail id={route.id} key={route.id} lang={lang} />
       ) : (
-        <ReportList search={route.page === "list" ? route.search : ""} />
+        <ReportList search={route.page === "list" ? route.search : ""} lang={lang} />
       )}
+      <Toasts lang={lang} />
     </>
   );
 }
