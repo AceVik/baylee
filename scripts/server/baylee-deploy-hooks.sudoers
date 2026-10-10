@@ -1,0 +1,13 @@
+# The deploy user's one way to run the deploy hooks (docs/deploy-hooks.md).
+# Installed as /etc/sudoers.d/baylee-deploy-hooks (0440 root:root) by
+# baylee-deploy, from the release it deployed, with @DEPLOY_USER@ replaced
+# by the user it runs as, and only after `visudo -c` accepted it. The
+# argument pattern needs sudo 1.9.10 or newer; an older sudo refuses the
+# file, it is left out, and the dispatcher's own check of its arguments
+# (exit 64) is what stands.
+#
+# Only the dispatcher, only as root, only with a phase and a full lowercase
+# commit; a clean environment and a fixed PATH. The dispatcher reads no
+# environment anyway, and its hooks get PATH and LANG only.
+Defaults!/usr/local/lib/baylee/run-deploy-hooks env_reset, !setenv, secure_path="/usr/sbin:/usr/bin:/sbin:/bin"
+@DEPLOY_USER@ ALL=(root) NOPASSWD: /usr/local/lib/baylee/run-deploy-hooks ^(prepare|before-switch|after-switch) [0-9a-f]{40}$
