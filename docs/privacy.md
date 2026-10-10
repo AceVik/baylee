@@ -33,6 +33,7 @@ the pointers, because line numbers move.
 | Client settings | the player's device | until the player removes them | the player; a guest's token at sign-out |
 | A report the player sends | leaves the device for the gateway (`POST /reports`), or, signed in nowhere, for the feedback service (`POST /client/reports`) | see [Reports](#reports-and-crash-reports-309-310-314) | — |
 | Record of a game the client hosted (against the house) | the player's device, `records/` beside the settings (native only) | the last 20 games, at most 64 MiB together | the client, oldest first; the player |
+| Anonymous offline count: one random value per offline game, nothing else (`POST /client/alive`) | leaves the device for the feedback service once a minute while a game it hosts runs; kept in the service's memory | 150 s after the last beat; a restart forgets it | switching "Send anonymous usage count" off (Settings › Privacy & Data; default on); no feedback service known sends nothing |
 | Device id for direct reports (random) | the player's device, `client-settings.json` (`report_device`) | until the player removes it | the player |
 | Which terms version this device accepted at each gateway (a copy) | the player's device, `client-settings.json` (`terms`, by gateway address) | until the next acceptance there replaces it | the player |
 | Game record | Postgres, written by the gateway (#315) | without a time limit | nothing |
@@ -329,6 +330,12 @@ service's UI).
   idle keys in a sweep that runs inside the next check made after a window
   has passed.
 - No IP address is written to the database or to a log line.
+- The feedback service's allowance for the offline count (`POST
+  /client/alive`, 300 per address and 120 000 in all per hour) is keyed by
+  address in memory as the direct reports' is, and never written down. The
+  count itself is a map from each game's random value to when it was last
+  heard, in memory, emptied 150 s after a game's last beat
+  (`docs/feedback.md` §"Offline now").
 
 ## Games (agent and engine)
 

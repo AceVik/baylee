@@ -275,6 +275,10 @@ pub struct LobbyGame {
     pub outboxes: Vec<broadcast::Sender<Bytes>>,
     /// When the game was created (unix seconds).
     pub created_at: u64,
+    /// When the game started playing (unix seconds): the moment its seats
+    /// were decided and its engine ordered. `None` while it waits. The
+    /// listing says how long a running table has been going from this.
+    pub started_at: Option<u64>,
     /// When the game ended (unix seconds), for the cleanup grace period.
     pub finished_at: Option<u64>,
     /// SHA-256 of the room's password, if the host set one.
@@ -404,6 +408,7 @@ impl LobbyGame {
             state: LobbyState::Playing,
             seats,
             preset: Some(preset),
+            started_at: Some(created_at),
             ..Self::blank(id, created_at)
         }
     }
@@ -426,6 +431,7 @@ impl LobbyGame {
             ready: watch::channel(false).0,
             outboxes: Vec::new(),
             created_at,
+            started_at: None,
             finished_at: None,
             password_hash: None,
             next_seq: 0,
@@ -773,6 +779,7 @@ impl Lobby {
                   anywhere in the crate"
     )]
     fn row(&self, g: &LobbyGame, me: &str, names: &HashMap<String, String>) -> serde_json::Value {
+        let now = crate::auth::now_secs();
         serde_json::json!({
                     "id": g.id,
                     "name": g.name,
@@ -802,6 +809,13 @@ impl Lobby {
                     // `200`, and leave the player looking at a chair that
                     // still says it is not ready.
                     "rematch": g.parent.is_some(),
+                    // How long a running table has been going, in seconds as
+                    // of this answer; `null` for a room still waiting. A
+                    // span rather than the start instant, so a client whose
+                    // clock is off still reads the right number.
+                    "running_secs": g.started_at
+                        .filter(|_| g.state == LobbyState::Playing)
+                        .map(|at| now.saturating_sub(at)),
                     // What pace this table plays at, stated once, here.
                     //
                     // The limit is *not* sent to a seat during a game — see

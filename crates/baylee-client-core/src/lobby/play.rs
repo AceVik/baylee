@@ -69,6 +69,22 @@ fn span(lang: Lang, secs: u32) -> String {
     }
 }
 
+/// How long a running table has been going, compact: "12 min",
+/// "1 h 5 min". Whole minutes only: the listing is a snapshot, and
+/// seconds would be wrong the moment they were drawn.
+#[must_use]
+pub fn running_label(lang: Lang, secs: u64) -> String {
+    let minutes = secs / 60;
+    if minutes < 60 {
+        Phrase::RunningMinutes.fill(lang, &[&minutes.to_string()])
+    } else {
+        Phrase::RunningHours.fill(
+            lang,
+            &[&(minutes / 60).to_string(), &(minutes % 60).to_string()],
+        )
+    }
+}
+
 /// A clock's label in the segmented control: "casual · 10 min". A name
 /// this client knows is said in its language (C3-27); one it does not is
 /// the wire's word.
@@ -622,6 +638,28 @@ impl Lobby {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_running_table_reads_in_minutes_then_hours() {
+        use super::running_label;
+        use crate::i18n::Lang;
+        assert_eq!(running_label(Lang::En, 0), "0 min");
+        assert_eq!(running_label(Lang::En, 12 * 60 + 59), "12 min");
+        assert_eq!(running_label(Lang::En, 65 * 60), "1 h 5 min");
+        assert_eq!(running_label(Lang::De, 65 * 60), "1 Std. 5 Min.");
+        assert_eq!(running_label(Lang::De, 3 * 60), "3 Min.");
+    }
+
+    #[test]
+    fn a_listing_row_reads_running_secs_and_an_older_gateway_omits_it() {
+        let row: super::GameSummary =
+            serde_json::from_str(r#"{"id":"g","state":"playing","running_secs":725}"#)
+                .expect("row");
+        assert_eq!(row.running_secs, Some(725));
+        let old: super::GameSummary =
+            serde_json::from_str(r#"{"id":"g","state":"playing"}"#).expect("row");
+        assert_eq!(old.running_secs, None);
+    }
+
     use super::*;
     use crate::lobby::GameSeat;
 

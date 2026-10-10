@@ -287,6 +287,7 @@ pub(crate) fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, J
         prints = table_prints(&preset);
         game.preset = Some(preset);
         game.state = LobbyState::Playing;
+        game.started_at = Some(auth::now_secs());
     }
     // Outside the lobby lock: it spawns a task rather than doing the work, but
     // a mutex held across anything that touches the network is how a lobby
@@ -297,6 +298,7 @@ pub(crate) fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, J
         if let Some(game) = lobby.games.get_mut(id) {
             game.state = LobbyState::Waiting;
             game.preset = None;
+            game.started_at = None;
         }
         tracing::error!(game_id = id, reason, "could not start a game");
         return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));

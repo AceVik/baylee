@@ -4,7 +4,7 @@
 
 import { useCallback, useState } from "react";
 
-import { api, SignedOut, type Facets, type Live, type Since, type Stats } from "../api";
+import { api, SignedOut, type Facets, type Live, type Offline, type Since, type Stats } from "../api";
 import { formatBytes, formatCount, formatDuration, t, type Lang } from "../i18n";
 import { adminPath } from "../router";
 import { DayChart } from "./Chart";
@@ -28,11 +28,13 @@ function Headline({
   stats,
   facets,
   live,
+  offline,
 }: {
   lang: Lang;
   stats: Stats;
   facets: Facets | null;
   live: Live | null;
+  offline: Offline | null;
 }) {
   const n = (v: number) => formatCount(lang, v);
   // The live list counts a chair at a waiting table too, as the Live page
@@ -58,6 +60,15 @@ function Headline({
         to={adminPath("live")}
         sub={t(lang, "kpi.gamesSub", { waiting: n(stats.games.waiting) })}
       />
+      {offline !== null && (
+        <Kpi
+          live
+          label={t(lang, "kpi.offline")}
+          value={n(offline.offline_now)}
+          testId="offline"
+          sub={t(lang, "kpi.offlineSub")}
+        />
+      )}
       <Kpi
         label={t(lang, "kpi.accounts")}
         value={n(stats.accounts.registered + stats.guests.live)}
@@ -259,6 +270,7 @@ export function Overview({ lang }: { lang: Lang }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [facets, setFacets] = useState<Facets | null>(null);
   const [live, setLive] = useState<Live | null>(null);
+  const [offline, setOffline] = useState<Offline | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -276,6 +288,12 @@ export function Overview({ lang }: { lang: Lang }) {
       .then(setLive)
       .catch(() => {
         // The overview reads without the tables.
+      });
+    api.admin
+      .offline()
+      .then(setOffline)
+      .catch(() => {
+        // Nor without the offline count.
       });
     api
       .facets()
@@ -307,7 +325,7 @@ export function Overview({ lang }: { lang: Lang }) {
       {stats === null && error === null && <div className="skeleton" aria-hidden="true" />}
       {stats !== null && (
         <>
-          <Headline lang={lang} stats={stats} facets={facets} live={live} />
+          <Headline lang={lang} stats={stats} facets={facets} live={live} offline={offline} />
           <Charts lang={lang} stats={stats} />
           {open.length > 0 && (
             <Panel

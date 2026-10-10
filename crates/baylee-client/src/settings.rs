@@ -186,6 +186,15 @@ pub struct ClientSettings {
     /// reads every tour on and nothing seen.
     #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
     pub tours: baylee_client_core::tour::Tours,
+    /// Whether this device sends the anonymous offline count while a game
+    /// it hosts itself runs (`client_core::usage`). On unless switched
+    /// off; a file from before it reads on.
+    #[serde(default = "yes")]
+    pub usage_count: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl Default for ClientSettings {
@@ -211,6 +220,7 @@ impl Default for ClientSettings {
             terms: std::collections::BTreeMap::new(),
             report_attachments_closed: false,
             tours: baylee_client_core::tour::Tours::default(),
+            usage_count: true,
         }
     }
 }
@@ -750,6 +760,7 @@ mod tests {
                     .collect(),
                 ..baylee_client_core::tour::Tours::default()
             },
+            usage_count: false,
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");

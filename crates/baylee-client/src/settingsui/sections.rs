@@ -587,6 +587,13 @@ pub(crate) fn privacy(out: &mut Out, view: &View) {
         Press::Settings(SettingsPress::Crash(all[i]))
     });
     out.row(Row::CrashReports, control);
+    let usage = view.settings.is_none_or(|s| s.usage_count);
+    let control = out.toggle(
+        "usage-count",
+        usage,
+        Press::Settings(SettingsPress::UsageCount),
+    );
+    out.row(Row::UsageCount, control);
     let report = out.button(
         "report-problem",
         Phrase::ReportOpen.text(lang),

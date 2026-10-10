@@ -279,6 +279,7 @@ pub(crate) fn install(app: &mut App) {
         // run on: open, the form has the keys either way, and the frame it
         // closes on is swallowed by `swallow`.
         .add_systems(Update, keys.run_if(resource_exists::<ClientSettings>))
+        .add_systems(Update, beat_while_offline)
         .add_systems(
             Update,
             (
@@ -667,6 +668,41 @@ pub(crate) fn route(lobby: Option<&LobbyState>, settings: &ClientSettings) -> Ro
         session(lobby).map(|(gateway, _)| gateway).as_deref(),
         service.as_deref(),
     )
+}
+
+/// The anonymous offline count (`client_core::usage`): one beat a minute
+/// while a game this client hosts itself runs and the setting is on, to the
+/// feedback service it knows; nothing otherwise. Real time, so pausing the
+/// virtual clock changes nothing.
+pub(crate) fn beat_while_offline(
+    time: Res<Time<Real>>,
+    host: Option<Res<crate::InstalledHost>>,
+    settings: Option<Res<ClientSettings>>,
+    mut beats: Local<baylee_client_core::usage::Beats>,
+) {
+    let offline = host.is_some_and(|h| h.0.link() == crate::host::LinkState::Local);
+    let Some(settings) = settings else {
+        return;
+    };
+    let service = bugreport::feedback_service(settings.feedback_url.as_deref(), BUILT_FEEDBACK_URL);
+    let Some(url) =
+        baylee_client_core::usage::beat_url(settings.usage_count, service.as_deref(), offline)
+    else {
+        // Forget the game's value too when the game is gone.
+        let _ = beats.due(0.0, false, offline, || [0; 16]);
+        return;
+    };
+    let fresh = || {
+        let mut random = [0u8; 16];
+        let _ = getrandom::fill(&mut random);
+        random
+    };
+    let Some(body) = beats.due(time.elapsed_secs_f64(), true, true, fresh) else {
+        return;
+    };
+    let mut request = ehttp::Request::post(&url, body.into_bytes());
+    request.headers = ehttp::Headers::new(&[("Content-Type", "application/json")]);
+    crate::transport::fetch(request, |_| {});
 }
 
 /// The session the report is sent with, and the gateway it belongs to.

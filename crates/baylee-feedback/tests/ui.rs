@@ -120,6 +120,7 @@ impl Service {
             Some(READ),
             Some(ADMIN_TOKEN),
         )
+        .and_then(|c| c.with_direct_key("direct-key-0000000001"))
         .expect("config");
         let app = baylee_feedback::app_with(
             Arc::new(baylee_feedback::AppState {
@@ -1163,4 +1164,71 @@ async fn without_a_web_dir_there_is_no_page() {
     );
     assert!(Ui::default().with_web_dir(empty.join("nope")).is_err());
     let _ = std::fs::remove_dir_all(empty);
+}
+
+async fn offline(service: &Service, cookie: &str) -> u64 {
+    let answer = service
+        .call(
+            "GET",
+            "/ui/api/admin/offline",
+            &[("cookie", cookie.to_owned())],
+            None,
+        )
+        .await;
+    assert_eq!(answer.status, 200);
+    answer.json()["offline_now"].as_u64().expect("a count")
+}
+
+async fn beat(service: &Service, body: &str) -> u16 {
+    service
+        .call("POST", "/client/alive", &[], Some(body.to_owned()))
+        .await
+        .status
+}
+
+/// `POST /client/alive` (`docs/feedback.md` §"Offline now"): a game counts
+/// once however often it beats, is gone a TTL after its last beat, and the
+/// body is the one random field: anything more is refused, not counted.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn offline_games_are_counted_anonymously_and_expire() {
+    let service = Service::start("alive", None).await;
+    let cookie = service.login().await;
+    let one = r#"{"game":"0123456789abcdef0123456789abcdef"}"#.to_owned();
+    let two = r#"{"game":"fedcba9876543210fedcba9876543210"}"#.to_owned();
+
+    assert_eq!(offline(&service, &cookie).await, 0);
+    assert_eq!(beat(&service, &one).await, 204);
+    assert_eq!(beat(&service, &one).await, 204);
+    assert_eq!(beat(&service, &two).await, 204);
+    assert_eq!(offline(&service, &cookie).await, 2, "one per game");
+
+    // Anything that could name someone is refused and not counted.
+    for refused in [
+        r#"{"game":"0123456789abcdef0123456789abcdef","device":"0123456789abcdef0123456789abcdef"}"#,
+        r#"{"game":"someone@example.com"}"#,
+        "{}",
+        "",
+    ] {
+        assert_eq!(beat(&service, refused).await, 400, "{refused}");
+    }
+    assert_eq!(offline(&service, &cookie).await, 2);
+
+    // One keeps beating, the other stops; a TTL later only one is left.
+    service.hands.advance(Duration::seconds(100));
+    assert_eq!(beat(&service, &one).await, 204);
+    service.hands.advance(Duration::seconds(100));
+    assert_eq!(
+        offline(&service, &cookie).await,
+        1,
+        "the silent game expired"
+    );
+    service.hands.advance(Duration::seconds(100));
+    assert_eq!(offline(&service, &cookie).await, 0);
+
+    // Signed out, the number is not shown.
+    let answer = service
+        .call("GET", "/ui/api/admin/offline", &[], None)
+        .await;
+    assert_eq!(answer.status, 401);
+    service.close().await;
 }

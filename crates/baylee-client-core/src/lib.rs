@@ -106,6 +106,7 @@ pub mod touch;
 pub mod tour;
 pub mod type_names;
 pub mod typechooser;
+pub mod usage;
 pub mod userdirs;
 pub mod wsticket;
 pub mod zones;
