@@ -623,8 +623,7 @@ pub(crate) fn updates(out: &mut Out, view: &View) {
     // The updater draws its own switches (`update::controls`), the
     // `CheckAutomatically` row's among them; a settings row here as well
     // said the same words over an empty control (beta.6 QA).
-    if let Some(controls) = crate::update::controls(out.commands, out.kit.fonts, view.metrics, lang)
-    {
+    if let Some(controls) = crate::update::controls(out.commands, out.kit, view.metrics, lang) {
         out.commands.entity(out.column).add_child(controls);
     }
 }

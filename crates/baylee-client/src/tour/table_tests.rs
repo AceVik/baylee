@@ -143,7 +143,10 @@ fn t8_with_nothing_castable_lets_the_player_go_on() {
     app.update();
     let run = desk(&app).shown().expect("T8 stands");
     assert_eq!(run.current().id, "T8");
-    assert!(run.primary_live(), "T8 waited on a cast that cannot be made");
+    assert!(
+        run.primary_live(),
+        "T8 waited on a cast that cannot be made"
+    );
 }
 
 /// T32 stands over the open report form (09.10.: Enter went to the form's

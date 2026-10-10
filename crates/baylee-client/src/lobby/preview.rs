@@ -469,10 +469,15 @@ fn place_clear(at: Vec2, canvas: Vec2, bubble: Option<Rect>) -> Rect {
     let right_of_pointer = clamp(at.x + 24.0);
     let left_of_bubble = clamp(bubble.min.x - width - 12.0);
     let right_of_bubble = clamp(bubble.max.x + 12.0);
-    [right_of_pointer, left_of_pointer, right_of_bubble, left_of_bubble]
-        .into_iter()
-        .find(|r| r.intersect(bubble).is_empty())
-        .unwrap_or(first)
+    [
+        right_of_pointer,
+        left_of_pointer,
+        right_of_bubble,
+        left_of_bubble,
+    ]
+    .into_iter()
+    .find(|r| r.intersect(bubble).is_empty())
+    .unwrap_or(first)
 }
 
 /// Where the preview of a row the pointer came onto at `at` stands, in a

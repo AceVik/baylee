@@ -2637,7 +2637,9 @@ impl Duel {
         ) else {
             return false;
         };
-        view.hand.iter().any(|card| legal.castable.contains(&card.id))
+        view.hand
+            .iter()
+            .any(|card| legal.castable.contains(&card.id))
     }
 }
 
