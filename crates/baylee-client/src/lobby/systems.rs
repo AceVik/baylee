@@ -229,7 +229,7 @@ pub(super) fn poll(
             }) {
             Some(host) => {
                 state.connected = true;
-                commands.insert_resource(InstalledHost(Box::new(host)));
+                commands.insert_resource(host.into_installed());
                 opens.write(DuelCommand::Open);
             }
             None => state

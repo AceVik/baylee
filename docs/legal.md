@@ -848,3 +848,15 @@ line itself, the offer is a press on the same line. The third-party
 licences (Alegreya Sans, Faustina, Font Awesome, Mana — OFL 1.1; MTGJSON
 — MIT; the Rust crates, under their own) are now named in the client
 itself (About, N4-8), not only in `NOTICE`.
+
+
+### Performance and partial-card completion review (2026-10-11)
+
+The [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were re-read for this work; the owner decision of 2026-10-02 above remains the
+basis for rules implementation. This work changes executable rules, tests and
+rendering workload without adding artwork, fonts, audio or corpus files.
+The [Scryfall API terms](https://scryfall.com/docs/api) were also re-read:
+“You may not simply repackage, republish, or proxy Scryfall data.”
+The existing attribution, authenticated catalog and original card-image path
+remain in place. Rendering fewer offscreen cards does not change their images.

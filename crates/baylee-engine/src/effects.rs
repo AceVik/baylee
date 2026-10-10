@@ -338,10 +338,13 @@ impl EffectTable {
 
     /// Whether an identity is still registered, including a phased-out effect.
     pub(crate) fn contains(&self, id: EffectId) -> bool {
+        // Active effects stay in registration/id order through every mutation.
+        // Pruning provenance asks this once per effect: a linear membership
+        // test made every completed rally trigger quadratic in prior triggers.
         self.effects
-            .iter()
-            .chain(&self.parked)
-            .any(|effect| effect.id == id)
+            .binary_search_by_key(&id, |effect| effect.id)
+            .is_ok()
+            || self.parked.iter().any(|effect| effect.id == id)
     }
 
     /// All active effects as a slice, so callers can address them by index.
@@ -738,6 +741,41 @@ mod tests {
             duration: Duration::UntilEndOfTurn,
             filter,
             modifier,
+        }
+    }
+
+    #[test]
+    fn indexed_membership_matches_reference_after_registration_removal_and_phasing() {
+        let mut table = EffectTable::default();
+        let mut seed = 731_u64;
+        for step in 0..600 {
+            seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            let source = ObjectId::new((seed >> 32) as u32 % 13, 0);
+            let mut fx = effect(
+                source,
+                EffectFilter::Dsl(&Filter::Any),
+                Modifier::AddKeyword(baylee_cards_dsl::KeywordSet::HASTE),
+            );
+            if step % 3 != 0 {
+                fx.origin = EffectOrigin::Static;
+            }
+            table.register(fx);
+            if step % 7 == 0 {
+                table.follow_phasing(|id| (id.slot() + step) % 3 == 0);
+            }
+            if step % 11 == 0 {
+                table.remove_where(|fx| (fx.id.get() + step) % 5 == 0);
+            }
+            assert!(table.effects.windows(2).all(|pair| pair[0].id < pair[1].id));
+            for id in 0..=table.next_id {
+                let id = EffectId::new(id);
+                let reference = table
+                    .effects
+                    .iter()
+                    .chain(&table.parked)
+                    .any(|fx| fx.id == id);
+                assert_eq!(table.contains(id), reference, "step {step}, {id:?}");
+            }
         }
     }
 

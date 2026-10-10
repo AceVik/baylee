@@ -11,20 +11,25 @@ use baylee_engine::state::GameState;
 use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::{CardIdentity, CounterEntry, ObjectStatus, PublicObject, TargetRef};
 
+pub(super) type SourceReferences =
+    std::collections::BTreeMap<baylee_core::ids::DamageSourceRef, Vec<ObjectId>>;
+
 pub(super) fn exact_object_view_with_access(
     state: &GameState,
     seat: PlayerId,
     source: baylee_core::ids::DamageSourceRef,
     controlled: SeatSet,
+    references: &SourceReferences,
 ) -> Option<baylee_view::DamageSourceView> {
     let viewer = entitled_viewer(state.source_object(source)?, seat, controlled);
-    exact_object_view(state, viewer, source)
+    exact_object_view(state, viewer, source, references)
 }
 
 fn exact_object_view(
     state: &GameState,
     seat: PlayerId,
     source: baylee_core::ids::DamageSourceRef,
+    references: &SourceReferences,
 ) -> Option<baylee_view::DamageSourceView> {
     let obj = state.source_object(source)?;
     let known = may_know_card(obj, seat)
@@ -60,7 +65,7 @@ fn exact_object_view(
         is_current: state
             .object(source.object)
             .is_some_and(|o| o.version == source.version),
-        referenced_by: state.source_referenced_by(source),
+        referenced_by: references.get(&source).cloned().unwrap_or_default(),
         colors: if known || !obj.zone.is_hidden_by_default() {
             chars.colors
         } else {
@@ -90,6 +95,7 @@ pub(super) fn target_objects(
     seat: PlayerId,
     pending: Option<&Pending>,
     ctx: &SeatContext,
+    references: &SourceReferences,
 ) -> Vec<baylee_view::DamageSourceView> {
     let mut targets = std::collections::BTreeSet::new();
     for grant in state
@@ -147,7 +153,7 @@ pub(super) fn target_objects(
     targets
         .into_iter()
         .filter_map(|source| {
-            exact_object_view_with_access(state, seat, source, ctx.controlled_players)
+            exact_object_view_with_access(state, seat, source, ctx.controlled_players, references)
         })
         .collect()
 }

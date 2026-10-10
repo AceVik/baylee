@@ -210,7 +210,7 @@ fn start(
                         seat_token: String::new(),
                         local: true,
                     });
-                commands.insert_resource(InstalledHost(Box::new(host)));
+                commands.insert_resource(host.into_installed());
                 if let Some(look) = wanted.table.clone() {
                     commands.insert_resource(LookToRestore { look, held: false });
                 }
@@ -434,6 +434,7 @@ fn show_the_note(
 #[allow(clippy::too_many_arguments)] // one snapshot, of everything the player sees
 fn restart_on_request(
     mut requests: MessageReader<crate::update::UpdateRequest>,
+    mut queued: Local<bool>,
     state: Res<LobbyState>,
     duel: Option<Res<crate::Duel>>,
     host: Option<Res<InstalledHost>>,
@@ -442,12 +443,15 @@ fn restart_on_request(
     place: Option<ResMut<crate::update::UpdatePlace>>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    if !requests
+    *queued |= requests
         .read()
-        .any(|r| *r == crate::update::UpdateRequest::RestartNow)
-    {
+        .any(|r| *r == crate::update::UpdateRequest::RestartNow);
+    // A local worker may still be appending the action being resolved.
+    // Keep the request until its record and restart hash are complete.
+    if !*queued || host.as_ref().is_some_and(|host| host.0.busy()) {
         return;
     }
+    *queued = false;
     let mut random = [0u8; 16];
     let _ = getrandom::fill(&mut random);
     let at_table = phase.is_some_and(|p| *p.get() != DuelPhase::Closed);

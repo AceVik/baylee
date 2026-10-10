@@ -80,9 +80,7 @@ fn graveyard_trigger_zone_uses_the_cards_owner_and_only_its_graveyard() {
                 ZoneLocation::Battlefield if active == them() => {
                     Some((2, 0, them(), Some(version)))
                 }
-                ZoneLocation::Graveyard(_) if active == me() => {
-                    Some((1, 1, me(), Some(version)))
-                }
+                ZoneLocation::Graveyard(_) if active == me() => Some((1, 1, me(), Some(version))),
                 _ => None,
             };
             assert_eq!(
@@ -352,9 +350,8 @@ fn being_dealt_damage_is_one_event_per_combat_step_and_counts_all_of_it() {
         departure: None,
     };
     let you = Trigger::PlayerDealtDamage(PlayerRel::You);
-    let fired = |batch: &[JournalEntry], at: usize| {
-        hits(&you, &batch[at].event, batch, &state, aura, me())
-    };
+    let fired =
+        |batch: &[JournalEntry], at: usize| hits(&you, &batch[at].event, batch, &state, aura, me());
 
     let combat = vec![
         entry(1, dealt(bear, them(), 1, true)),

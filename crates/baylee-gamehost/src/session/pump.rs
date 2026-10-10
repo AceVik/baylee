@@ -8,6 +8,20 @@ use baylee_protocol::v1::Envelope;
 use baylee_view::{ClockAnswer, HouseAnswer, LogEvent, PolicyAct, PolicyAnswer};
 
 impl Session {
+    /// Whether the house still owes an answer after a bounded pump. A local
+    /// host must keep pumping instead of waiting for input from a human who
+    /// has not received a question yet.
+    #[must_use]
+    pub fn needs_pump(&self) -> bool {
+        self.engine.awaited().iter().any(|seat| {
+            !self
+                .seats
+                .get(seat.get() as usize)
+                .is_some_and(SeatKind::answers_over_socket)
+                && self.engine.pending_for(seat).is_some()
+        })
+    }
+
     /// Drains AI-controlled pendings, then returns per-seat envelopes:
     /// a fresh hidden-information view for every human seat plus a
     /// choice request for every seat being asked (or game over for

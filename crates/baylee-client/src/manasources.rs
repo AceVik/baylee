@@ -685,11 +685,11 @@ pub fn table_mana(view: &PlayerView) -> [f32; 5] {
                 }
             }
         }
-        for index in 0..ability_count(view, object.id) {
+        for (index, ability) in printed_abilities(object).iter().enumerate() {
             let Ok(index) = u32::try_from(index) else {
                 continue;
             };
-            let Some(source) = printed_source(view, object.id, index) else {
+            let Some(source) = mana_ability(view, object.id, index, ability) else {
                 continue;
             };
             for color in source.colors {

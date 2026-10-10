@@ -377,3 +377,98 @@ baseline that hour was 21.1 W.
 - **DPI.** Both monitors are at 150 % here, so a move between different
   scales was not tried; moving the window between the two relays it out
   (2560 → 1707 logical wide) and back.
+
+
+## Ally trigger storms (2026-10-11)
+
+The regression fixture uses real Wartime Protestors and Doubling Season:
+Aang and Katara create 3,000 Allies from 1,500 tapped artifacts, producing
+3,001 stack objects. Every Ally must finish with exactly two +1/+1 counters
+and haste. `rally_stress` checks those outcomes and prints the deterministic
+final hash, so dropping work cannot masquerade as an optimization.
+
+Measured on the M1 Max, Rust 1.99, optimized Criterion benches (ten samples,
+one second warmup, two seconds measurement):
+
+| Operation | Before | After |
+| --- | ---: | ---: |
+| Reproject 1,000 objects with individual haste effects | 2.433 ms | 0.520 ms |
+| Reproject 3,000 objects with individual haste effects | 22.240 ms | 1.566 ms |
+| Build the client board with 1,000 distinct stack targets | 1.133 ms | 0.503 ms |
+| Build the client board with 3,000 distinct stack targets | 13.215 ms | 1.484 ms |
+
+The layer plan indexes exact-object effects after dependency sorting and
+merges their ranks with global effects. Conditional animation retains the
+complete type-layer path. Trigger scanning and legal-action enumeration
+select relevant effect kinds once per pass. Provenance membership uses the
+active effects' existing sorted identities, and view construction inverts
+stack references once. Differential tests retain the original linear paths
+as independent references, including stale incarnations and phasing.
+
+The native local host serializes synchronous engine work on a dedicated
+thread. UI submission and polling never wait for it; replies have bounded
+backpressure and carry only new record bytes. A restart waits for a completed
+checkpoint, and a house turn that exhausts the session's pump budget keeps
+running on the worker. Tests compare actual worker play and record replay
+against the synchronous host. The browser still uses its synchronous local
+host; the algorithmic and rendering changes apply there too.
+
+The renderer creates entities only for cards inside a row's visible window.
+The complete board model remains available for navigation and targeting.
+Scroll arrivals take their current pose instead of replaying a zone-entry
+animation. Mana decorations iterate the current object's printed abilities
+instead of looking that object up repeatedly.
+
+In the captured stress view, a native **debug** client at 1,600 × 938 logical
+pixels, scale 2, dropped from 13,119 to 1,293 entities. The measured main-update
+p50 fell from 258.2 to 34.9 ms. These are development-build observations during
+local development, not release FPS promises or a controlled GPU benchmark.
+
+Reproduce the engine and board benches with:
+
+```sh
+cargo bench -p baylee-engine --bench basics -- rally/
+cargo bench -p baylee-client-core --features test-support --bench client -- storm/
+cargo run -p baylee-gamehost --example rally_stress --profile ci-release -- 1500 /tmp/rally.json
+cargo build -p baylee-client --features dev-control
+BAYLEE_DEV_CONTROL=28777 BAYLEE_DEV_SNAPSHOT=/tmp/rally.json target/debug/baylee-client
+```
+
+`BAYLEE_DEV_SNAPSHOT` is native/dev-control only. It loads `(GameStatic,
+PlayerView)` as a read-only spectator host for repeatable renderer profiling.
+Use `/window`, `/perf`, `/state`, `/pointer`, `/scroll` and `/screenshot` to
+hold the resolution fixed and inspect the live client. The live scroll check
+advanced the visible Ally IDs from 1625–1669 to 1825–1869, retaining exactly
+45 Ally cards while all 3,001 stack entries stayed in the model.
+
+### Bitmaps: measured ASM and portable reduction
+
+`scripts/perf/bitmap-kernels.rs` compares the former short-circuit loop,
+branchless integer reduction, a first-word/reduction hybrid, and explicit
+AArch64 NEON assembly, x86-64 SSE2 intrinsics or Wasm `simd128`. Each kernel
+is compared on 100,000 deterministic input pairs plus every single-bit
+position. Production uses the **safe hybrid**, shared directly with this
+experiment: the explicit vector kernels did not justify replacing it.
+
+Median nanoseconds per 1,024-bit intersection, seven runs on AArch64:
+
+| Input | Former loop | Reduction | Production hybrid | NEON ASM |
+| --- | ---: | ---: | ---: | ---: |
+| Disjoint | 6.338 | 3.531 | 3.779 | 3.496 |
+| Hit distributed over the words | 5.042 | 3.489 | 3.683 | 3.492 |
+| First-word hit | 1.285 | 3.471 | 1.275 | 3.470 |
+
+The hybrid keeps the common early exit and lets LLVM vectorize the remaining
+integer reduction. Handwritten ASM performs similarly to the full reduction,
+but loses badly on early hits. The same correctness checks ran under x86-64
+Rosetta and in Node's Wasm runtime; Rosetta timings are not native x86 hardware
+measurements. No relaxed SIMD or floating-point arithmetic enters rules code.
+
+```sh
+rustc -O --edition 2024 scripts/perf/bitmap-kernels.rs -o /tmp/bitmap-arm
+/tmp/bitmap-arm
+rustc -O --edition 2024 --target x86_64-apple-darwin scripts/perf/bitmap-kernels.rs -o /tmp/bitmap-x86
+/tmp/bitmap-x86
+rustc -O --edition 2024 --target wasm32-unknown-unknown -C target-feature=+simd128 --crate-type cdylib scripts/perf/bitmap-kernels.rs -o /tmp/bitmap.wasm
+node -e 'const fs=require("fs"); WebAssembly.instantiate(fs.readFileSync("/tmp/bitmap.wasm")).then(({instance})=>{if(instance.exports.verify()!==0)process.exitCode=1})'
+```

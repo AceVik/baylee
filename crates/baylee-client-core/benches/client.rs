@@ -13,6 +13,9 @@ use baylee_view::PlayerView;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::{hint::black_box, sync::Arc};
 
+#[path = "client/storm.rs"]
+mod storm;
+
 fn music(c: &mut Criterion) {
     // Each tune is settled into the score first: the opening seconds play
     // fewer voices.
@@ -155,5 +158,5 @@ fn layout(c: &mut Criterion) {
     }
 }
 
-criterion_group!(benches, music, view, felt, layout);
+criterion_group!(benches, music, view, felt, layout, storm::bench);
 criterion_main!(benches);

@@ -51,8 +51,8 @@ mod entry;
 mod motion;
 mod sentence;
 
-use cards::*;
-use entry::*;
+use cards::{spawn_stack_card, spawn_stack_sentence, spawn_stack_targets, stack_face};
+use entry::{bar_colours, fill_bar, spawn_controls, spawn_stack_entry};
 pub use motion::ease_the_stack_in;
 pub(super) use sentence::*;
 

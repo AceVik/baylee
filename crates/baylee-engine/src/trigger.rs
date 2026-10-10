@@ -1470,6 +1470,18 @@ fn collect_for_objects(
     all_kinds: bool,
     triggers: &mut Vec<PendingTrigger>,
 ) {
+    // Most temporary effects only change stats or keywords. Select grants
+    // once per scan, not once for every permanent in a token army.
+    let granted: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> = state
+        .effects
+        .iter()
+        .filter(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::GrantTriggered { .. }
+            )
+        })
+        .collect();
     for &permanent in objects {
         // The look-back applies only to sources that left during this
         // event batch. A card already in a graveyard has no battlefield
@@ -1679,7 +1691,7 @@ fn collect_for_objects(
         }
         // Granted triggered abilities (class levels): continuous effects
         // carrying GrantTriggered that apply to this permanent.
-        for fx in state.effects.iter() {
+        for &fx in &granted {
             let baylee_cards_dsl::Modifier::GrantTriggered {
                 trigger,
                 effects,

@@ -9,6 +9,52 @@ use baylee_core::ids::CardIndex;
 use baylee_core::preset::{FormatId, GamePreset, HouseRules, SeatController, SeatSpec};
 
 const P: PlayerId = PlayerId::new(0);
+
+#[test]
+fn reverse_stack_index_matches_each_reference_query() {
+    let mut state = game();
+    let sources: Vec<_> = (0..71)
+        .map(|_| {
+            let id = object(&mut state, ZoneLocation::Battlefield, ObjectKind::Permanent);
+            identity(state.object(id).unwrap())
+        })
+        .collect();
+    for n in 0..1_000 {
+        let id = object(&mut state, ZoneLocation::Stack, ObjectKind::AbilityOnStack);
+        let holder = identity(state.object(id).unwrap());
+        let a = sources[n % sources.len()];
+        let b = sources[(n * 17) % sources.len()];
+        let refs = BTreeMap::from([
+            (Slot::Source, a),
+            (Slot::Target(0), a),
+            (Slot::Second(0), a),
+            (Slot::Event, b),
+        ]);
+        state.source_memory.stack.insert(holder, refs);
+        if n % 2 == 0 {
+            state.source_memory.event_readers.insert(holder);
+        }
+        // Stale holders must disappear; stale sources remain exact references.
+        if n % 11 == 0 {
+            state.object_mut(id).unwrap().version += 1;
+        }
+        if n % 13 == 0 {
+            state.object_mut(id).unwrap().zone = Zone::Graveyard;
+        }
+    }
+    let index = state.stack_source_references();
+    for source in sources {
+        assert_eq!(
+            index.get(&source).cloned().unwrap_or_default(),
+            state.source_referenced_by(source)
+        );
+        let newer = DamageSourceRef {
+            version: source.version + 1,
+            ..source
+        };
+        assert!(!index.contains_key(&newer));
+    }
+}
 struct NoCards;
 impl CardLookup for NoCards {
     fn card(&self, _: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {

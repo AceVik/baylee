@@ -130,6 +130,11 @@ pub fn sync_scene(
 
     let wanted = placements(&duel);
     let mut live: HashSet<ObjectId> = HashSet::new();
+    let hidden: HashSet<_> = wanted
+        .iter()
+        .filter(|p| !p.shown)
+        .map(|p| p.object)
+        .collect();
     // What is standing in a fan this frame, and which pile it came out of.
     // Rebuilt every frame rather than kept, because a fan is open for exactly
     // as long as the pointer is on it and the answer is never carried over.
@@ -155,15 +160,20 @@ pub fn sync_scene(
             .and_then(|(fonts, assets)| assets.get(&fonts.text)),
     );
 
+    let objects = duel
+        .view
+        .as_ref()
+        .map(baylee_client_core::board::Lookup::new);
     let mut hovered_offer = false;
-    for placement in &wanted {
+    // The lane model keeps every object for targeting and keyboard navigation.
+    // The scene owns entities only for its visible scroll window.
+    for placement in wanted.iter().filter(|p| p.shown) {
         live.insert(placement.object);
 
         // A card either wears its art or its own text, never both — text on
         // top of artwork is unreadable at any zoom.
         let show_face = face::wants_face(&mode, &settings, textures, placement.art);
-        let object = duel
-            .view
+        let object = objects
             .as_ref()
             .and_then(|view| view.object(placement.object));
 
@@ -345,27 +355,28 @@ pub fn sync_scene(
                     // Appears wherever it is coming from and settles onto its
                     // mark; `glide` does the rest, and a player who has turned
                     // motion off gets the target on the very first frame.
-                    entrance_from(
-                        pile_stand(
-                            &duel,
-                            // A card the fan is lifting comes out of its own
-                            // pile, which is where it has been lying all
-                            // along. Asked first, because `moves` has nothing
-                            // to say about a card that has not moved and the
-                            // generic entrance would drop it out of the air
-                            // onto a mark it is supposed to have risen to.
-                            placement
-                                .fan
-                                .and_then(|(_, kind)| place_of(kind, placement.slot.player))
-                                .or_else(|| {
-                                    moves
-                                        .iter()
-                                        .find(|m| m.object == placement.object)
-                                        .and_then(|m| m.from)
-                                }),
-                        ),
-                        &transform,
-                    ),
+                    if placement.fan.is_some() || moves.iter().any(|m| m.object == placement.object)
+                    {
+                        entrance_from(
+                            pile_stand(
+                                &duel,
+                                placement
+                                    .fan
+                                    .and_then(|(_, kind)| place_of(kind, placement.slot.player))
+                                    .or_else(|| {
+                                        moves
+                                            .iter()
+                                            .find(|m| m.object == placement.object)
+                                            .and_then(|m| m.from)
+                                    }),
+                            ),
+                            &transform,
+                        )
+                    } else {
+                        // Scrolling reveals a card already on the table; it
+                        // must not replay a battlefield entrance.
+                        transform
+                    },
                     Motion { target: transform },
                     CardRest(resting),
                     shown_as(placement.shown),
@@ -506,6 +517,12 @@ pub fn sync_scene(
             if let Some(shell) = index.shells.remove(&id) {
                 shell.despawn(&mut commands);
             }
+            if hidden.contains(&id) {
+                // Scrolling is not a zone change. Remove the hidden entity and
+                // its children immediately; the full board still owns the card.
+                commands.entity(entity).despawn();
+                continue;
+            }
             // A stale id with no move behind it did not leave anywhere: it is
             // a graveyard's old top card, covered by the one that landed on
             // it this frame, or a group that re-keyed when its lowest-id
@@ -569,7 +586,11 @@ pub fn sync_scene(
     // cardboard under a copy — and none of those is on the table, so none of
     // them was being touched at all. The zone dialog's rows are the one thing
     // neither list holds, and `hud::tray` touches those itself.
-    let mut visible: Vec<ImageKey> = wanted.iter().filter_map(|p| p.art).collect();
+    let mut visible: Vec<ImageKey> = wanted
+        .iter()
+        .filter(|p| p.shown)
+        .filter_map(|p| p.art)
+        .collect();
     if let Some(board) = duel.board.as_ref() {
         visible.extend(board.required_images());
     }

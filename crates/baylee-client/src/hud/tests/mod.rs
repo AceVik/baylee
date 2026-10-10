@@ -69,7 +69,8 @@ fn a_text_span_never_takes_the_hover_from_the_control_it_is_in() {
             ),
         ),
         ("hud/slip.rs", include_str!("../slip.rs")),
-        ("hud/stack.rs", include_str!("../stack.rs")),
+        ("hud/stack/entry.rs", include_str!("../stack/entry.rs")),
+        ("hud/stack/cards.rs", include_str!("../stack/cards.rs")),
         ("hud/seatbar.rs", include_str!("../seatbar.rs")),
         ("hud/tray.rs", include_str!("../tray.rs")),
     ];

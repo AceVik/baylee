@@ -152,7 +152,7 @@ pub(super) fn tours(
                     crate::host::LocalHost::new(&preset, baylee_core::ids::PlayerId::new(0), &refs)
                 })
             {
-                commands.insert_resource(crate::InstalledHost(Box::new(host)));
+                commands.insert_resource(host.into_installed());
                 opens.write(crate::DuelCommand::Open);
                 desk.practice = true;
             }

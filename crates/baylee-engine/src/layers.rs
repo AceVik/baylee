@@ -35,6 +35,8 @@ use baylee_core::types::{SubtypeSet, TypeSet};
 use smallvec::SmallVec;
 use std::sync::Arc;
 
+mod index;
+
 /// Number of layers (CR 613.1 sublayers included).
 const LAYER_COUNT: usize = LAYERS.len();
 
@@ -80,6 +82,8 @@ pub struct LayerPlan {
     /// A conditional animation needs actual, changing type-layer matches
     /// rather than the conservative order shared by other projections.
     conditional_animation: bool,
+    /// Exact-object effects are visited only by the object they name.
+    index: Option<index::EffectIndex>,
 }
 
 impl LayerPlan {
@@ -92,6 +96,7 @@ impl LayerPlan {
             conditional_animation: effects
                 .iter()
                 .any(|fx| matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact)),
+            index: None,
         };
         if effects.is_empty() {
             return plan;
@@ -118,6 +123,7 @@ impl LayerPlan {
             }
             plan.spans[layer as usize] = (start, end);
         }
+        plan.index = index::EffectIndex::build(effects, &plan.ordered);
         plan
     }
 
@@ -141,6 +147,30 @@ impl LayerPlan {
         let (start, end) = self.spans[layer as usize];
         &self.ordered[start as usize..end as usize]
     }
+
+    fn candidates(&self, layer: Layer, id: ObjectId) -> index::Candidates<'_> {
+        // Conditional type dependencies are recomputed against the whole
+        // bucket by next_type_effect; keep its reference path unchanged.
+        if let Some(index) = &self.index
+            && !(layer == Layer::Type && self.conditional_animation)
+        {
+            let (start, end) = self.spans[layer as usize];
+            let (global, local) = index.ranks(id, start, end);
+            index::Candidates::Indexed {
+                ordered: &self.ordered,
+                global,
+                local,
+            }
+        } else {
+            index::Candidates::All(self.layer(layer).iter())
+        }
+    }
+
+    fn may_affect(&self, id: ObjectId) -> bool {
+        self.index
+            .as_ref()
+            .map_or_else(|| !self.is_empty(), |index| index.may_affect(id))
+    }
 }
 
 /// Whether an object needs the layer machinery at all.
@@ -153,7 +183,7 @@ impl LayerPlan {
 /// refresh proportional to the board rather than to the decks.
 #[must_use]
 pub fn needs_projection(state: &GameState, plan: &LayerPlan, obj: &GameObject) -> bool {
-    !plan.is_empty()
+    plan.may_affect(obj.id)
         || eval::live_context(state, obj.id).text != crate::text_changes::TextChangeMap::IDENTITY
         || !obj.counters.is_empty()
         || obj.base.keywords.contains(KeywordSet::CHANGELING)
@@ -208,7 +238,7 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
         } else {
             SmallVec::new()
         };
-        for &ordered_idx in plan.layer(layer) {
+        for ordered_idx in plan.candidates(layer, obj.id) {
             let idx = if dynamic_types {
                 next_type_effect(state, obj, &c, all, &mut remaining)
             } else {

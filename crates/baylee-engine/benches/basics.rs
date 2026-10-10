@@ -12,6 +12,9 @@ use baylee_engine::engine::Engine;
 use baylee_engine::state::{CardLookup, GameState};
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
+#[path = "basics/rally.rs"]
+mod rally;
+
 struct RegistryLookup;
 
 impl CardLookup for RegistryLookup {
@@ -516,6 +519,7 @@ criterion_group!(
     bench_token_board,
     bench_leave_battlefield,
     bench_stack_drain,
-    bench_wide_attack
+    bench_wide_attack,
+    rally::bench
 );
 criterion_main!(basics);

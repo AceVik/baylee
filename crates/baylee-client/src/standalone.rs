@@ -241,6 +241,10 @@ fn primary_window() -> Window {
 /// sign in somewhere else would be the worst possible answer to "the network
 /// is down".
 fn seated_host() -> Result<Option<Box<dyn DuelHost>>, String> {
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    if let Some(host) = crate::host::snapshot::from_env()? {
+        return Ok(Some(host));
+    }
     let Some(ticket) = SeatTicket::discover() else {
         return Ok(None);
     };

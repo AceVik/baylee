@@ -15,6 +15,12 @@ use baylee_gamehost::Session;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::{GameStatic, LogTail, PlayerView};
 
+#[cfg(not(target_arch = "wasm32"))]
+mod background;
+
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+pub(crate) mod snapshot;
+
 /// Something a host tells the client.
 #[derive(Clone, Debug)]
 pub enum HostMessage {
@@ -168,6 +174,12 @@ pub trait DuelHost: Send + Sync + 'static {
     fn resume_point(&self) -> Option<ResumePoint> {
         None
     }
+
+    /// Whether local rules work is still writing the game record. A restart
+    /// must wait for its completed checkpoint without blocking the renderer.
+    fn busy(&self) -> bool {
+        false
+    }
 }
 
 /// What a restart needs to rebuild a game this client hosts
@@ -272,6 +284,18 @@ pub struct LocalHost {
 }
 
 impl LocalHost {
+    /// Installs the local rules engine behind the renderer's non-blocking seam.
+    /// Native clients run it on one dedicated worker; browser builds retain
+    /// the synchronous host until a worker transport is available there.
+    #[must_use]
+    pub fn into_installed(self) -> crate::InstalledHost {
+        #[cfg(not(target_arch = "wasm32"))]
+        let host: Box<dyn DuelHost> = Box::new(background::BackgroundHost::new(self));
+        #[cfg(target_arch = "wasm32")]
+        let host: Box<dyn DuelHost> = Box::new(self);
+        crate::InstalledHost(host)
+    }
+
     /// Starts a game from a preset, with the local player on `seat`.
     ///
     /// Returns `None` when the preset does not produce a playable game — a
@@ -416,6 +440,8 @@ impl DuelHost for LocalHost {
         let opens = opening.is_some();
         if let Some(statics) = opening {
             out.extend(host_message(statics));
+        }
+        if opens || self.session.needs_pump() {
             self.session.tell_time(wall_ms());
             let routed = self.session.pump();
             self.absorb(routed);
@@ -475,6 +501,10 @@ impl DuelHost for LocalHost {
             names: self.names.clone(),
             hash: self.hash(),
         })
+    }
+
+    fn busy(&self) -> bool {
+        self.session.needs_pump()
     }
 }
 

@@ -184,7 +184,7 @@ fn historical_target_keeps_its_name_but_never_points_at_a_returned_object() {
     assert_eq!(target.name.as_deref(), Some("Original Bears"));
     assert_eq!(target.object(), None);
     assert!(!target.is_current);
-    assert!(!individual_objects(&view).contains_key(&ObjectId::new(1, 0)));
+    assert!(!individual_objects(&view, &Lookup::new(&view)).contains_key(&ObjectId::new(1, 0)));
     view.target_objects.clear();
     let missing = model(&view);
     assert_eq!(missing.stack[0].targets[0].name, None);

@@ -6,6 +6,8 @@
 use crate::ids::SubtypeId;
 use serde::{Deserialize, Serialize};
 
+mod bitmap;
+
 /// Const-friendly string equality (`str` cannot be matched in const fn).
 pub(crate) const fn str_eq(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
@@ -481,20 +483,13 @@ impl SubtypeSet {
 
     /// Whether the two sets share at least one subtype.
     ///
-    /// Word-wise: eight `AND`s instead of one probe per subtype id. The
-    /// naive loop over [`COUNT`](crate::generated::subtypes::COUNT) ids was
-    /// 500+ iterations for a question eight instructions answer.
+    /// The first word short-circuits common creature types. The remaining
+    /// words reduce with integer AND/OR, allowing portable vectorization
+    /// without fifteen unpredictable branches on disjoint sets.
     #[inline]
     #[must_use]
     pub const fn intersects(self, other: Self) -> bool {
-        let mut i = 0;
-        while i < SUBTYPE_WORDS {
-            if self.0[i] & other.0[i] != 0 {
-                return true;
-            }
-            i += 1;
-        }
-        false
+        bitmap::intersects(&self.0, &other.0)
     }
 
     /// Number of subtypes in the set.

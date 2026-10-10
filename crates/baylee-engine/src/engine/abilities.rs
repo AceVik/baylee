@@ -401,6 +401,18 @@ impl<L: CardLookup> Engine<L> {
         // through one or two of them.
         let grants: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> =
             crate::effects::grants(&self.state).collect();
+        let artifact_locks: SmallVec<[PlayerId; 4]> = self
+            .state
+            .effects
+            .iter()
+            .filter_map(|fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::CantActivateArtifacts
+                )
+                .then_some(fx.controller)
+            })
+            .collect();
         // A phased-out permanent is treated as though it does not exist
         // (CR 702.26b): nothing it has is offered, a mana ability included.
         for id in self.state.battlefield_seen() {
@@ -410,7 +422,8 @@ impl<L: CardLookup> Engine<L> {
             // an exception to one. What it does *not* stop is a cast, which
             // is why this is two guards and not a `continue`: the Prepared
             // rider below offers a spell.
-            let locked = self.artifact_activations_are_locked(id);
+            let locked =
+                self.artifact_activations_are_locked_by(id, artifact_locks.iter().copied());
             if !locked
                 && !casting::intrinsic_mana_choices(&self.state, &self.lookup, player, id)
                     .is_empty()
@@ -1140,18 +1153,27 @@ impl<L: CardLookup> Engine<L> {
     /// are on the *other* seat's board, and that seat was still being offered
     /// every one of them.
     pub(crate) fn artifact_activations_are_locked(&self, id: ObjectId) -> bool {
-        let Some(obj) = self.state.object(id) else {
-            return false;
-        };
-        obj.characteristics()
-            .types
-            .contains(baylee_core::types::TypeSet::ARTIFACT)
-            && self.state.effects.iter().any(|fx| {
+        self.artifact_activations_are_locked_by(
+            id,
+            self.state.effects.iter().filter_map(|fx| {
                 matches!(
                     fx.modifier,
                     baylee_cards_dsl::Modifier::CantActivateArtifacts
-                ) && self.state.is_opponent(obj.controller, fx.controller)
-            })
+                )
+                .then_some(fx.controller)
+            }),
+        )
+    }
+
+    fn artifact_activations_are_locked_by(
+        &self,
+        id: ObjectId,
+        mut controllers: impl Iterator<Item = PlayerId>,
+    ) -> bool {
+        self.state.object(id).is_some_and(|obj| {
+            obj.characteristics().types.contains(TypeSet::ARTIFACT)
+                && controllers.any(|controller| self.state.is_opponent(obj.controller, controller))
+        })
     }
 
     /// Whether a printed "activate only once each turn" has already been

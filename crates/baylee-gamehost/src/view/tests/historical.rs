@@ -228,10 +228,16 @@ fn historical_source_projection_retains_a_ceased_tokens_registry_identity() {
         choice: SourceChoiceId::new(10),
         options,
     };
-    let row = damage_sources(&state, player, Some(&pending), &SeatContext::default())
-        .into_iter()
-        .find(|r| r.source == source)
-        .unwrap();
+    let row = damage_sources(
+        &state,
+        player,
+        Some(&pending),
+        &SeatContext::default(),
+        &state.stack_source_references(),
+    )
+    .into_iter()
+    .find(|r| r.source == source)
+    .unwrap();
     assert!(!row.is_current);
     assert!(row.card.is_none());
     assert_eq!(row.name, "Soldier");
@@ -308,7 +314,13 @@ fn historical_source_projection_uses_its_own_visibility_not_the_returned_cards_i
             choice: SourceChoiceId::new(4),
             options,
         };
-        let rows = damage_sources(&state, viewer, Some(&pending), &SeatContext::default());
+        let rows = damage_sources(
+            &state,
+            viewer,
+            Some(&pending),
+            &SeatContext::default(),
+            &state.stack_source_references(),
+        );
         let row = rows.iter().find(|row| row.source == source).unwrap();
         assert!(!row.is_current);
         assert_eq!(row.zone, baylee_view::LogZone::Battlefield);
@@ -317,7 +329,14 @@ fn historical_source_projection_uses_its_own_visibility_not_the_returned_cards_i
         assert_eq!(row.name == "Face-down", originally_face_down);
         assert_eq!(row.referenced_by, vec![ability]);
         assert!(
-            damage_sources(&state, controller, Some(&pending), &SeatContext::default()).is_empty()
+            damage_sources(
+                &state,
+                controller,
+                Some(&pending),
+                &SeatContext::default(),
+                &state.stack_source_references()
+            )
+            .is_empty()
         );
     }
 }

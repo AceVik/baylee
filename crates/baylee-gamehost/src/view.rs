@@ -225,6 +225,7 @@ fn damage_sources(
     seat: PlayerId,
     pending: Option<&Pending>,
     ctx: &SeatContext,
+    references: &object::SourceReferences,
 ) -> Vec<baylee_view::DamageSourceView> {
     let Some(Pending::ChooseDamageSource {
         player, options, ..
@@ -238,7 +239,7 @@ fn damage_sources(
     options
         .iter()
         .filter_map(|&source| {
-            exact_object_view_with_access(state, seat, source, ctx.controlled_players)
+            exact_object_view_with_access(state, seat, source, ctx.controlled_players, references)
         })
         .collect()
 }
@@ -471,6 +472,7 @@ pub fn player_view(
     ctx: &SeatContext,
     house_answered: &[Option<HouseAnswer>],
 ) -> PlayerView {
+    let references = state.stack_source_references();
     PlayerView {
         decision_player: ctx.decision_player,
         controlled_hands: ctx
@@ -522,8 +524,8 @@ pub fn player_view(
         command: per_seat_zone(state, ZoneLocation::Command, seat, ctx.controlled_players),
         combat: combat_view(state),
         looking_at: looking_at(state, seat, pending, ctx),
-        damage_sources: damage_sources(state, seat, pending, ctx),
-        target_objects: target_objects(state, seat, pending, ctx),
+        damage_sources: damage_sources(state, seat, pending, ctx, &references),
+        target_objects: target_objects(state, seat, pending, ctx, &references),
         library_tops: state
             .players
             .iter()

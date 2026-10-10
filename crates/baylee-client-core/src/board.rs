@@ -37,6 +37,9 @@ use baylee_core::types::{SupertypeSet, TypeSet};
 use baylee_view::{CounterEntry, ObjectStatus, PlayerView, PublicObject, RulesFace, TargetRef};
 use std::collections::{HashMap, HashSet};
 
+mod lookup;
+pub use lookup::Lookup;
+
 /// Keyword bits the client renders as icons.
 ///
 /// Mirrors `baylee_cards_dsl::KeywordSet`; a test pins the two together so a
@@ -1020,7 +1023,7 @@ pub struct BoardModel {
 }
 
 fn stack_art(
-    view: &PlayerView,
+    lookup: &Lookup<'_>,
     object: &PublicObject,
     kind: StackKind,
     reg: Registry<'_>,
@@ -1062,7 +1065,7 @@ fn stack_art(
         } => token
             .map(|t| ImageKey::token(t.token, ArtSize::Small))
             .or_else(|| {
-                view.object(source).and_then(|s| {
+                lookup.object(source).and_then(|s| {
                     let key = art_of(s, ArtSize::Small, reg)?;
                     let own = s.card.zip(rules).is_some_and(|(c, r)| c.index == r.card);
                     Some(text.filter(|_| own).map_or(key, |t| ImageKey {
@@ -1104,7 +1107,8 @@ impl BoardModel {
         roster: &[baylee_view::SeatIdentity],
         reg: Registry<'_>,
     ) -> Self {
-        let individual = individual_objects(view);
+        let lookup = Lookup::new(view);
+        let individual = individual_objects(view, &lookup);
         let tucked = tucked_under(view);
 
         let ring = std::iter::once(view.seat)
@@ -1151,7 +1155,7 @@ impl BoardModel {
                     },
                     _ => StackKind::Spell,
                 };
-                let art = stack_art(view, o, kind, reg);
+                let art = stack_art(&lookup, o, kind, reg);
                 StackItem {
                     id: o.id,
                     name: o.name.clone(),
@@ -1160,7 +1164,7 @@ impl BoardModel {
                     targets: o
                         .targets
                         .iter()
-                        .map(|t| stack_target(view, *t, reg))
+                        .map(|t| stack_target(&lookup, *t))
                         .collect(),
                     art,
                     depth: depth_base - 1 - i,
@@ -1681,9 +1685,9 @@ fn fanned(object: &PublicObject) -> FannedCard {
 }
 
 /// Resolves a target handle into something drawable.
-fn stack_target(view: &PlayerView, what: TargetRef, _reg: Registry<'_>) -> StackTarget {
+fn stack_target(lookup: &Lookup<'_>, what: TargetRef) -> StackTarget {
     let object = match what {
-        TargetRef::Object(source) => view.target_object(source),
+        TargetRef::Object(source) => lookup.target(source),
         TargetRef::Player(_) => None,
     };
     StackTarget {
@@ -1698,7 +1702,7 @@ fn stack_target(view: &PlayerView, what: TargetRef, _reg: Registry<'_>) -> Stack
 }
 
 /// Objects that must never be merged into a group.
-fn individual_objects(view: &PlayerView) -> HashMap<ObjectId, Individual> {
+fn individual_objects(view: &PlayerView, lookup: &Lookup<'_>) -> HashMap<ObjectId, Individual> {
     let mut map = HashMap::new();
     for a in &view.combat.attackers {
         map.insert(a.creature, Individual::Attacking);
@@ -1718,8 +1722,8 @@ fn individual_objects(view: &PlayerView) -> HashMap<ObjectId, Individual> {
     for item in &view.stack {
         for target in &item.targets {
             if let TargetRef::Object(source) = target
-                && view
-                    .target_object(*source)
+                && lookup
+                    .target(*source)
                     .is_some_and(|target| target.is_current)
             {
                 map.entry(source.object).or_insert(Individual::Targeted);

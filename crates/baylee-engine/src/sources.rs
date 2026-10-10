@@ -118,6 +118,35 @@ impl GameState {
             .collect()
     }
 
+    /// All public stack references, indexed once for a complete view.
+    ///
+    /// Equivalent to asking [`Self::source_referenced_by`] for every source,
+    /// without scanning the whole stack again for each Ally target. Holder
+    /// order and exact incarnations are preserved; repeated slots on one
+    /// holder contribute it once, as the single-source query does.
+    #[must_use]
+    pub fn stack_source_references(&self) -> BTreeMap<DamageSourceRef, Vec<ObjectId>> {
+        let mut result: BTreeMap<_, Vec<_>> = BTreeMap::new();
+        for (holder, refs) in &self.source_memory.stack {
+            if !self
+                .object(holder.object)
+                .is_some_and(|o| o.zone == Zone::Stack && o.version == holder.version)
+            {
+                continue;
+            }
+            for (slot, source) in refs {
+                if *slot == Slot::Event && !self.source_memory.event_readers.contains(holder) {
+                    continue;
+                }
+                let holders = result.entry(*source).or_default();
+                if holders.last() != Some(&holder.object) {
+                    holders.push(holder.object);
+                }
+            }
+        }
+        result
+    }
+
     pub(crate) fn next_source_choice(&mut self) -> SourceChoiceId {
         let id = self.source_memory.next_choice;
         self.source_memory.next_choice =

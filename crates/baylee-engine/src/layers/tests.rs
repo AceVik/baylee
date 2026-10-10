@@ -4,16 +4,13 @@ use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::EffectId;
 use baylee_core::types::TypeSet;
 
+mod indexed;
+
 static ANY_F: Filter = Filter::Any;
 static READS_TYPE: Filter = Filter::HasType(TypeSet::ARTIFACT);
 static READS_KW: Filter = Filter::HasKeyword(KeywordSet::FLYING);
 
-fn fx(
-    id: u32,
-    timestamp: u64,
-    filter: &'static Filter,
-    modifier: Modifier,
-) -> ContinuousEffect {
+fn fx(id: u32, timestamp: u64, filter: &'static Filter, modifier: Modifier) -> ContinuousEffect {
     ContinuousEffect {
         id: EffectId::new(id),
         source: None,

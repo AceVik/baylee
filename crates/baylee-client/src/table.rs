@@ -16,9 +16,9 @@
 //! # Redrawing
 //!
 //! [`sync_scene`] diffs the board model against the entities that exist and
-//! touches only what changed. A board that did not change costs one hash lookup
-//! per card and no allocation, which is what keeps a 300-permanent commander
-//! table at frame rate on a phone.
+//! touches only what changed. The model retains the whole board, while scene
+//! entities and their text, badges and shells cover only the visible row windows.
+//! Scrolling reveals an existing permanent without replaying its entrance.
 
 use crate::Duel;
 use crate::badgemat::BadgeMaterial;
