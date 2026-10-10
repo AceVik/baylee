@@ -1941,3 +1941,365 @@ table.accounts .num {
     display: none;
   }
 }
+
+/* The server (Live): tiles with a line of the last hour under each. */
+.live-layout .live-server,
+.live-layout .live-pool {
+  grid-column: 1 / -1;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 0.6rem;
+}
+
+.metric {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.6rem 0.7rem 0.4rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-value {
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spark {
+  width: 100%;
+  height: 36px;
+  margin-top: 0.3rem;
+}
+
+.spark svg {
+  display: block;
+  overflow: visible;
+}
+
+.spark-line {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.spark-line.c1,
+.spark-dot.c1 {
+  stroke: var(--c1);
+  fill: var(--c1);
+}
+
+.spark-line.c1 {
+  fill: none;
+}
+
+.spark-line.c2,
+.spark-dot.c2 {
+  stroke: var(--c2);
+  fill: var(--c2);
+}
+
+.spark-line.c2 {
+  fill: none;
+}
+
+.metric-games {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.metric-game {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) auto auto minmax(6rem, 1fr);
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.metric-game:last-child {
+  border-bottom: 0;
+}
+
+.metric-game-id {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.metric-game-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.metric-game .spark {
+  margin-top: 0;
+  height: 24px;
+}
+
+/* The pool's progress: a stacked bar of the four buckets. */
+.progress {
+  display: flex;
+  width: 100%;
+  height: 0.6rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+}
+
+.progress-implemented,
+.swatch.progress-implemented {
+  background: var(--ok);
+}
+
+.progress-partial,
+.swatch.progress-partial {
+  background: var(--c2);
+}
+
+.progress-unimplemented,
+.swatch.progress-unimplemented {
+  background: var(--info);
+}
+
+.progress-absent,
+.swatch.progress-absent {
+  background: var(--border);
+}
+
+.pool-summary .big {
+  margin-bottom: 0.4rem;
+}
+
+.legend-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  font-size: 0.85rem;
+}
+
+.legend-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.set-rows {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+}
+
+.set-row {
+  display: grid;
+  grid-template-columns: 4rem auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+}
+
+.set-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.sets-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+table.sets {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.sets th,
+table.sets td {
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+table.sets th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+table.sets tbody tr:hover {
+  background: var(--selected);
+}
+
+table.sets tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+table.sets .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+table.sets .set-bar {
+  width: 14rem;
+  min-width: 10rem;
+}
+
+table.sets td.set-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.set-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.set-card {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(8rem, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.set-card-name {
+  min-width: 0;
+}
+
+.set-card-type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.set-card-note {
+  grid-column: 1 / -1;
+}
+
+.segmented.chips {
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.panel .build {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .set-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .set-card-type {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+  .metric-game {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .metric-game .spark {
+    grid-column: 1 / -1;
+  }
+  /* The sets table becomes a list of cards, as the accounts table does. */
+  table.sets thead {
+    display: none;
+  }
+  table.sets,
+  table.sets tbody {
+    display: block;
+  }
+  table.sets tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem 0.5rem;
+    padding: 0.7rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+  }
+  table.sets td {
+    padding: 0;
+    border: 0;
+    font-size: 0.85rem;
+    min-width: 0;
+    white-space: normal;
+  }
+  table.sets td.set-no {
+    display: none;
+  }
+  table.sets td.set-name {
+    grid-column: 1 / -1;
+    font-size: 1rem;
+  }
+  table.sets td:not(.set-name)::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  table.sets .num {
+    text-align: left;
+  }
+  table.sets .set-bar,
+  table.sets td.set-bar {
+    grid-column: 1 / -1;
+    width: auto;
+    min-width: 0;
+    display: block;
+  }
+  table.sets td.set-bar .progress-wrap {
+    margin: 0.2rem 0;
+  }
+}

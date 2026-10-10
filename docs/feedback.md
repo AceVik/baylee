@@ -385,12 +385,21 @@ no report text).
 ### The admin console (`/ui/api/admin/…`)
 
 The UI's admin area shows one gateway: its **Overview** (`/admin`:
-headline numbers, a month of days as charts, the open tables and every
-count), **Live** (`/admin/live`: who is online and where, every waiting and
-running table with its chairs, the agents; every 5 seconds), **Accounts**
-(`/admin/accounts`: searched, filtered and sorted in the query string;
-`/admin/accounts/{id}`: one account, its decks and latest games) and
-**Beta keys** (`/admin/keys`), so the owner needs a shell for none of it.
+headline numbers, a month of days as charts, the reports' bugs and crashes
+among them, the open tables, every count, and whether the gateway and this
+service answer, with their builds), **Live** (`/admin/live`: who is online
+and where, every waiting and running table with its chairs, the agents,
+and the server's last hour: CPU, memory, disk, network, requests, sockets,
+uptime and each engine process on that machine, as `GET /admin/metrics`
+samples it, `docs/protocol.md` §"The admin console"; every 5 seconds),
+**Sets** (`/admin/sets`: how far the pool is through each set in release
+order, from the gateway's ledger and compiled pool; `/admin/sets/{code}`:
+one set's cards, each a chip to its Scryfall page with its picture on
+hover from Scryfall's host, as a report's card chips are, `docs/legal.md`
+§3), **Accounts** (`/admin/accounts`: searched, filtered and sorted in the
+query string; `/admin/accounts/{id}`: one account, its decks and latest
+games) and **Beta keys** (`/admin/keys`), so the owner needs a shell for
+none of it.
 A sidebar on a wide screen, a tab bar at the bottom of a phone. The
 service passes each request on to the gateway's admin console
 (`docs/protocol.md` §"The admin console") with the gateway's token, which

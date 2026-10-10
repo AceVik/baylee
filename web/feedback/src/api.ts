@@ -212,6 +212,112 @@ export interface Live {
   agents: LiveAgent[];
 }
 
+/** One engine process in a sample of the server metrics. */
+export interface GameSample {
+  game_id: string;
+  pid: number;
+  /** Cores used over the interval; null on a process's first sample. */
+  cpu: number | null;
+  /** Resident memory in bytes. */
+  rss: number;
+}
+
+/** One point of the server metrics; `null` where the host could not say. */
+export interface MetricSample {
+  at: number;
+  cpu: number | null;
+  load1: number | null;
+  mem_used: number | null;
+  disk_used: number | null;
+  net_in: number | null;
+  net_out: number | null;
+  sockets: number | null;
+  requests: number;
+  games: GameSample[];
+}
+
+/** `GET /ui/api/admin/metrics`: the last hour of the gateway's machine. */
+export interface Metrics {
+  at: string;
+  interval_secs: number;
+  keep: number;
+  platform: string;
+  cores: number;
+  process_uptime_secs: number;
+  host: {
+    uptime_secs: number | null;
+    mem_total: number | null;
+    disk_total: number | null;
+    disk_path: string;
+    load: [number, number, number] | null;
+  };
+  now: MetricSample | null;
+  history: {
+    at: number[];
+    cpu: (number | null)[];
+    load1: (number | null)[];
+    mem_used: (number | null)[];
+    disk_used: (number | null)[];
+    net_in: (number | null)[];
+    net_out: (number | null)[];
+    sockets: (number | null)[];
+    requests: number[];
+  };
+  games: { game_id: string; pid: number; cpu: (number | null)[]; rss: (number | null)[] }[];
+}
+
+export const COVERAGES = ["implemented", "partial", "unimplemented", "absent"] as const;
+export type Coverage = (typeof COVERAGES)[number];
+
+/** One set's progress: the cards first printed in it, by how far each is. */
+export interface SetProgress {
+  code: string;
+  position: number;
+  total: number;
+  implemented: number;
+  partial: number;
+  unimplemented: number;
+  absent: number;
+}
+
+/** `GET /ui/api/admin/sets`. */
+export interface SetsOverview {
+  at: string;
+  version: string;
+  corpus: number;
+  pool: { cards: number; implemented: number; partial: number; unimplemented: number; absent: number };
+  sets: SetProgress[];
+}
+
+/** One card of a set. */
+export interface SetCard {
+  index: number;
+  name: string;
+  coverage: Coverage;
+  note: string | null;
+  type_line: string;
+  scryfall_id: string | null;
+  oracle_id: string;
+}
+
+/** `GET /ui/api/admin/sets/{code}`. */
+export interface SetDetail extends SetProgress {
+  cards: SetCard[];
+}
+
+/** `GET /ui/api/stats`: reports per UTC day and kind, the last 30 days. */
+export interface ReportStats {
+  days: number;
+  rows: { day: string; kind: string; count: number }[];
+}
+
+/** `GET /health` of the service itself: no session needed. */
+export interface Health {
+  ok: boolean;
+  version: string;
+  source: string;
+}
+
 export const ACCOUNT_KINDS = ["all", "registered", "guest"] as const;
 export type AccountKind = (typeof ACCOUNT_KINDS)[number];
 export const ACCOUNT_SORTS = ["newest", "oldest", "name", "games", "active"] as const;
@@ -491,6 +597,8 @@ export const api = {
     await request("POST", "/ui/api/logout");
   },
   facets: () => json<Facets>("GET", "/ui/api/facets"),
+  stats: () => json<ReportStats>("GET", "/ui/api/stats"),
+  health: () => json<Health>("GET", "/health"),
   reports: (filter: Filter) => {
     const query = filterQuery(filter);
     return json<Listing>("GET", `/ui/api/reports?limit=${PAGE_SIZE}${query ? `&${query}` : ""}`);
@@ -506,6 +614,9 @@ export const api = {
   admin: {
     stats: () => json<Stats>("GET", "/ui/api/admin/stats"),
     live: () => json<Live>("GET", "/ui/api/admin/live"),
+    metrics: () => json<Metrics>("GET", "/ui/api/admin/metrics"),
+    sets: () => json<SetsOverview>("GET", "/ui/api/admin/sets"),
+    set: (code: string) => json<SetDetail>("GET", `/ui/api/admin/sets/${encodeURIComponent(code)}`),
     accounts: (filter: AccountFilter) => {
       const query = accountQuery(filter);
       return json<AccountPage>(

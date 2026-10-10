@@ -139,14 +139,30 @@ reaches the built page.
   `docs/feedback.md` §"The admin console"), a sidebar on a wide screen and
   a tab bar under the thumb on a phone:
   - Overview (`/admin`): headline tiles (online, games running, accounts,
-    new today, games today, new reports), three 30-day bar charts (games,
-    players, new accounts and guests; hover, touch or arrow keys for a
-    day, and a table view), the open tables, and every count the gateway
-    keeps; asked again every 15 seconds while the page is visible and not
-    while it is hidden.
+    new today, games today, new reports), four 30-day bar charts (reports,
+    with bugs and crashes apart; games; players; new accounts and guests;
+    hover, touch or arrow keys for a day, and a table view), the open
+    tables, every count the gateway keeps, and a Services panel: whether
+    the gateway answered and how fast, its build, and this service's
+    build (`/health`); asked again every 15 seconds while the page is
+    visible and not while it is hidden.
   - Live (`/admin/live`): who is online and where, every waiting and
-    running table with its chairs, decks and readiness, and the agents;
-    every 5 seconds.
+    running table with its chairs, decks and readiness, the agents, and
+    the server: CPU (with the load averages), memory, disk, network in and
+    out, requests a second and open sockets, how long the gateway and the
+    host have been up, each with the last hour as a line
+    (`src/admin/Server.tsx`), and every engine process on that machine
+    with its cores and memory; a value the host could not say (anything
+    off `/proc` on a Mac) is a dash. Every 5 seconds. Under it the pool's
+    progress in short, with the sets being worked on.
+  - Sets (`/admin/sets`, `src/admin/Sets.tsx`): how far this build is
+    through each set, from the gateway's ledger and compiled pool, in
+    release order (sortable by size, by completeness, by what is left;
+    unfinished only; a set code to find one), each as a bar of
+    implemented, partial, stub and not started; a set counts the cards
+    first printed in it. One set (`/admin/sets/{code}`): its cards as
+    chips, each linking to its Scryfall page with its picture on hover,
+    filtered by how far each is and by name.
   - Accounts (`/admin/accounts`): search by name, username or `#tag`,
     registered or guests, online only, five orders, 50 a page, all in the
     query string; a table on a desktop, cards on a phone. One account

@@ -1,12 +1,15 @@
 // Live (`/admin/live`): who is online and where, every open and running
-// table with its chairs, and the agents that run the games, asked again
-// every five seconds while the page is visible.
+// table with its chairs, the agents that run the games, the server's last
+// hour and the pool's progress, asked again every five seconds while the
+// page is visible (the pool every two minutes: it changes with a deploy).
 
 import { useCallback, useState } from "react";
 
-import { api, SignedOut, type Live as LiveData, type LiveTable, type OnlinePlayer } from "../api";
+import { api, SignedOut, type Live as LiveData, type LiveTable, type Metrics, type OnlinePlayer } from "../api";
 import { formatAgo, formatCount, t, type Lang } from "../i18n";
 import { adminPath } from "../router";
+import { ServerPanel } from "./Server";
+import { PoolPanel } from "./Sets";
 import { Badge, describe, Freshness, Link, LIVE_MS, Panel, useNow, useVisibleInterval } from "./shared";
 
 type TableFilter = "all" | "waiting" | "playing";
@@ -123,6 +126,7 @@ function PlayerItem({ lang, player }: { lang: Lang; player: OnlinePlayer }) {
 
 export function Live({ lang }: { lang: Lang }) {
   const [live, setLive] = useState<LiveData | null>(null);
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<TableFilter>("all");
   const [search, setSearch] = useState("");
@@ -136,6 +140,12 @@ export function Live({ lang }: { lang: Lang }) {
       })
       .catch((e: unknown) => {
         if (!(e instanceof SignedOut)) setError(describe(lang, e));
+      });
+    api.admin
+      .metrics()
+      .then(setMetrics)
+      .catch(() => {
+        // The page reads without the server's numbers (an older gateway).
       });
   }, [lang]);
   const shown = useVisibleInterval(load, LIVE_MS);
@@ -257,6 +267,8 @@ export function Live({ lang }: { lang: Lang }) {
               </ul>
             )}
           </Panel>
+          {metrics !== null && <ServerPanel lang={lang} metrics={metrics} />}
+          <PoolPanel lang={lang} />
         </div>
       )}
     </>

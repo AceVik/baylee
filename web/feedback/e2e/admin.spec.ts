@@ -24,8 +24,8 @@ const SIZES: Size[] = [
 ];
 
 const WORDS = {
-  "de-DE": { tab: "Admin", registered: "Registrierte Konten", accounts: "Konten", live: "Live" },
-  "en-GB": { tab: "Admin", registered: "Registered accounts", accounts: "Accounts", live: "Live" },
+  "de-DE": { tab: "Admin", registered: "Registrierte Konten", accounts: "Konten", live: "Live", sets: "Sets" },
+  "en-GB": { tab: "Admin", registered: "Registered accounts", accounts: "Accounts", live: "Live", sets: "Sets" },
 } as const;
 
 /** Fails the test on any script error or policy violation in the page. */
@@ -51,8 +51,13 @@ async function noSideways(page: Page) {
   const widths = await page.evaluate(() => ({
     page: document.documentElement.scrollWidth,
     window: document.documentElement.clientWidth,
+    // What sticks out, so a failure names it.
+    beyond: [...document.querySelectorAll("body *")]
+      .filter((el) => el.getBoundingClientRect().right > document.documentElement.clientWidth + 1 && el.closest(".sections") === null)
+      .map((el) => el.outerHTML.slice(0, 100))
+      .slice(0, 8),
   }));
-  expect(widths.page, "horizontal scroll").toBeLessThanOrEqual(widths.window);
+  expect(widths.page, `horizontal scroll: ${widths.beyond.join("\n")}`).toBeLessThanOrEqual(widths.window);
   // Nor is anything wider than its own card: a card's overflow hides under
   // its neighbour and never shows as a page that scrolls.
   const spilled = await page.evaluate(() =>
@@ -126,9 +131,38 @@ for (const size of SIZES) {
       await page.getByRole("navigation", { name: /sections|Bereiche/ }).getByRole("link", { name: words.live }).click();
       await expect(page).toHaveURL(/\/admin\/live$/);
       await expect(page.getByRole("region", { name: /Agent/ })).toBeVisible();
+      // The server: its first sample is taken as the gateway starts, so the
+      // tiles are there; what the host could not say is a dash, not a zero.
+      const server = page.getByRole("region", { name: "Server" });
+      await expect(server.getByTestId("m-req")).toBeVisible();
+      await expect(server.getByTestId("m-up")).toBeVisible();
+      // The pool: the sets being worked on, Alpha among them or done.
+      await expect(page.getByTestId("pool-implemented")).toBeVisible();
       await noSideways(page);
       await fingerSized(page);
       if (dir) await page.screenshot({ path: `${dir}/live-${size.name}.png`, fullPage: true });
+      // The sets: every set in release order, and one set's cards with
+      // their pictures from Scryfall's host, never from this service.
+      await page.getByRole("navigation", { name: /sections|Bereiche/ }).getByRole("link", { name: words.sets }).click();
+      await expect(page).toHaveURL(/\/admin\/sets$/);
+      const first = page.getByTestId("set").first();
+      await expect(first).toContainText("LEA");
+      await noSideways(page);
+      await fingerSized(page);
+      if (dir) {
+        await page.screenshot({ path: `${dir}/sets-${size.name}.png`, fullPage: true });
+        await page.screenshot({ path: `${dir}/sets-${size.name}-viewport.png` });
+      }
+      await first.getByRole("link").click();
+      await expect(page).toHaveURL(/\/admin\/sets\/lea$/);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("LEA");
+      const bolt = page.getByTestId("set-card").filter({ hasText: "Lightning Bolt" }).first();
+      await expect(bolt.getByRole("link")).toHaveAttribute("href", /^https:\/\/scryfall\.com\/card\//);
+      await noSideways(page);
+      if (dir) {
+        await page.screenshot({ path: `${dir}/set-lea-${size.name}.png`, fullPage: true });
+        await page.screenshot({ path: `${dir}/set-lea-${size.name}-viewport.png` });
+      }
       expect(problems).toEqual([]);
     });
   });
