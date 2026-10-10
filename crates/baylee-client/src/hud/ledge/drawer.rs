@@ -40,6 +40,7 @@
 use super::*;
 
 use baylee_client_core::Prompt;
+use baylee_client_core::decisionfold::{Asked, Fate, Hung, reconcile};
 use baylee_engine::choice::Pending;
 
 mod attack;
@@ -270,30 +271,37 @@ pub fn sync_drawer(
         .chords(baylee_client_core::prefs::Action::FoldDecision)
         .first()
         .map(baylee_client_core::prefs::Chord::display);
-    let shut = next.empty();
-    // At most one, and it is the panel. `Option` rather than a loop because
-    // everything below asks what state that one panel is in.
-    let hanging = standing
-        .into_iter()
-        .flatten()
-        .copied()
-        .next()
-        .map(|panel| (panel, zooms.get(panel).is_ok_and(|z| z.closing)));
-    // Whether the tree is showing an open drawer *right now*. A panel on its
-    // way out is not one: the reading it belonged to is already gone, and it
-    // is on screen only because §7 gives the drawer a way out as well as a
-    // way in.
-    let open = hanging.is_some_and(|(_, closing)| !closing);
-    // A fold swaps the panel for the pill and back: a different thing
-    // hangs there, so the one hanging goes and the other opens.
     let folded = next.head.as_ref().is_some_and(|h| h.folded);
-    let hanging = hanging.filter(|(panel, _)| pills.contains(*panel) == folded);
+    let asked = if next.empty() {
+        Asked::Nothing
+    } else if folded {
+        Asked::Pill
+    } else {
+        Asked::Sheet
+    };
+    // Everything hanging from the root, as what it is, decided from the
+    // reading alone (`decisionfold::reconcile`): whatever ended the last
+    // question — a press, a key, a target picked under the pill, the stack
+    // resolving, a resync — what hung for it stands for this reading or goes.
+    let kids: Vec<Entity> = standing.into_iter().flatten().copied().collect();
+    let hung: Vec<Hung> = kids
+        .iter()
+        .map(|&kid| {
+            if pills.contains(kid) {
+                Hung::Pill
+            } else if zooms.get(kid).is_ok_and(|z| z.closing) {
+                Hung::Leaving
+            } else {
+                Hung::Sheet
+            }
+        })
+        .collect();
+    let plan = reconcile(asked, &hung);
     // The second half is the same guard the shelf carries and is here for the
     // same reason turned the other way up: a node spawned afresh with the
     // revision still describing the panel that used to hang off it. The tree
-    // agrees with the reading when an open panel is exactly what a non-empty
-    // reading asked for.
-    if *revision == next && open != shut {
+    // agrees with the reading when exactly what the reading asks stands.
+    if *revision == next && plan.settled() {
         return;
     }
     *revision = next;
@@ -309,81 +317,65 @@ pub fn sync_drawer(
             node.justify_content = JustifyContent::Center;
         }
     }
-    if shut {
-        // Sent away rather than despawned. `zoom_the_drawer` is what takes it
-        // off the tree, at the end of the movement — and until then its rows
-        // are still pickable, which is safe because `input::pick_choice`
-        // re-resolves every click against the *current* interaction and
-        // answers nothing when there is none.
-        if let Some((panel, _)) = hanging
-            && let Ok(mut zoom) = zooms.get_mut(panel)
-        {
-            zoom.closing = true;
-            zoom.t = 0.0;
-        }
-        // A folded sheet's pill has no way out to run: its question was
-        // answered (or the game moved on) while it was folded, and the
-        // filter above, which reads `folded` off the empty reading, never
-        // hands it here. It goes now, or it stands forever.
-        for kid in standing.into_iter().flatten() {
-            if pills.contains(*kid) {
-                commands.entity(*kid).despawn();
-            }
-        }
-        return;
-    }
 
-    // An open panel is kept and refilled. Only its contents changed — the
-    // drawer did not open again, and a question that gained a line must not
-    // make the whole thing pop a second time.
-    let panel = match hanging {
-        Some((panel, false)) => {
-            commands.entity(panel).despawn_related::<Children>();
-            panel
-        }
-        // Nothing there, or something leaving. A panel that was on its way
-        // out cannot be caught and turned round: its `t` runs on the closing
-        // span and against the closing curve, so it goes and a fresh one
-        // opens in its place on the same frame.
-        was => {
-            if let Some((leaving, _)) = was {
-                commands.entity(leaving).despawn();
+    let mut kept = None;
+    for (&kid, fate) in kids.iter().zip(&plan.fates) {
+        match fate {
+            Fate::Keep => {}
+            // Kept and refilled. Only its contents changed — the drawer did
+            // not open again, and a question that gained a line must not
+            // make the whole thing pop a second time. A pill is rewritten
+            // too: emptied and left, it was a bare blob over the table.
+            Fate::Refill => {
+                commands.entity(kid).despawn_related::<Children>();
+                kept = Some(kid);
             }
-            // A pill or a panel standing in the other's place goes too.
-            for kid in standing.into_iter().flatten() {
-                if Some(*kid) != was.map(|(p, _)| p) {
-                    commands.entity(*kid).despawn();
+            // Sent away rather than despawned. `zoom_the_drawer` is what
+            // takes it off the tree, at the end of the movement — and until
+            // then its rows are still pickable, which is safe because
+            // `input::pick_choice` re-resolves every click against the
+            // *current* interaction and answers nothing when there is none.
+            Fate::SendAway => {
+                if let Ok(mut zoom) = zooms.get_mut(kid) {
+                    zoom.closing = true;
+                    zoom.t = 0.0;
                 }
             }
-            if folded {
-                let picture =
-                    picture_of(&revision, &duel, textures.as_deref_mut(), assets.as_deref());
-                hang_the_pill(&mut commands, &fonts, &revision, picture, root);
-                return;
-            }
-            spawn_panel(
-                &mut commands,
-                root,
-                cloth
-                    .as_deref_mut()
-                    .and_then(|cloth| cloth.drawer(materials.as_deref_mut())),
-            )
+            // A pill has no way out to run, and a panel on its way out
+            // cannot be caught and turned round: its `t` runs on the closing
+            // span and against the closing curve, so it goes and a fresh one
+            // opens in its place on the same frame.
+            Fate::Despawn => commands.entity(kid).despawn(),
         }
-    };
-
-    if folded {
-        // The pill says what it said; nothing under it changed.
-        return;
     }
+
     let picture = picture_of(&revision, &duel, textures.as_deref_mut(), assets.as_deref());
-    fill_panel(
-        &mut commands,
-        &fonts,
-        lang,
-        (&revision, &duel),
-        panel,
-        picture,
-    );
+    match asked {
+        Asked::Nothing => {}
+        Asked::Pill => match kept {
+            Some(pill) => refill_the_pill(&mut commands, &fonts, &revision, picture, pill),
+            None => hang_the_pill(&mut commands, &fonts, &revision, picture, root),
+        },
+        Asked::Sheet => {
+            let panel = kept.unwrap_or_else(|| {
+                spawn_panel(
+                    &mut commands,
+                    root,
+                    cloth
+                        .as_deref_mut()
+                        .and_then(|cloth| cloth.drawer(materials.as_deref_mut())),
+                )
+            });
+            fill_panel(
+                &mut commands,
+                &fonts,
+                lang,
+                (&revision, &duel),
+                panel,
+                picture,
+            );
+        }
+    }
 }
 
 /// Writes the open sheet: its head, the lines, the stepper, the type
@@ -560,6 +552,28 @@ fn hang_the_pill(
         },
     ));
     commands.entity(root).add_child(pill);
+}
+
+/// Rewrites a standing pill (its children already gone) for a reading that
+/// changed while it stood folded: the same pill, no second arrival.
+fn refill_the_pill(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    revision: &DrawerRevision,
+    picture: Option<Handle<Image>>,
+    pill: Entity,
+) {
+    let Some(head) = revision.head.as_ref() else {
+        return;
+    };
+    sheet::fill_pill(
+        commands,
+        fonts,
+        head,
+        picture,
+        revision.fold_cap.as_deref(),
+        pill,
+    );
 }
 
 /// The source's picture for the sheet's head, when the view names a source
