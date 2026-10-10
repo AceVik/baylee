@@ -78,6 +78,7 @@ impl Plugin for ShellKitPlugin {
             .add_systems(PreUpdate, size::follow_the_input)
             .add_systems(Update, (face_follows_the_text_size, hold_the_keyboard));
         controls::install(app);
+        header::install(app);
         focus::install(app);
         keys::install(app);
         overlay::install(app);

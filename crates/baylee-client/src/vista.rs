@@ -673,4 +673,70 @@ struct Globals { time: f32 };
         let prelude = format!("{prelude}{}", include_str!("shaders/noise.wgsl"));
         crate::cardmat::tests::check_wgsl(include_str!("shaders/vista.wgsl"), &prelude);
     }
+
+    /// The lobby's world (Baylee's fireflies are drawn from its clock,
+    /// `portal.z`, and only while `view.w`, its energy, is not zero), painted
+    /// for `frames` frames of 50 ms; the last params, and each frame's clock.
+    fn lobby_world(reduce_motion: bool, frames: usize) -> (VistaParams, Vec<f32>) {
+        use bevy::time::TimeUpdateStrategy;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_millis(50),
+            ))
+            .insert_resource(Assets::<VistaMaterial>::default())
+            .insert_resource(FrontScene {
+                shown: false,
+                ..FrontScene::default()
+            })
+            .init_resource::<Gaze>()
+            .add_systems(Update, paint);
+        let mut prefs = crate::prefs::Prefs::default();
+        prefs.edit().reduce_motion = reduce_motion;
+        app.insert_resource(prefs);
+        let handle = app
+            .world_mut()
+            .resource_mut::<Assets<VistaMaterial>>()
+            .add(VistaMaterial {
+                params: VistaParams::default(),
+                sanctuary: Handle::default(),
+                guardian: Handle::default(),
+                lantern: Handle::default(),
+                frame: Handle::default(),
+            });
+        app.world_mut().spawn((
+            Vista::Interior,
+            Settled::default(),
+            ComputedNode {
+                size: Vec2::new(1708.0, 1032.0),
+                ..ComputedNode::default()
+            },
+            MaterialNode(handle.clone()),
+            Visibility::Inherited,
+        ));
+        let mut clock = Vec::new();
+        for _ in 0..frames {
+            app.update();
+            let materials = app.world().resource::<Assets<VistaMaterial>>();
+            clock.push(materials.get(&handle).expect("painted").params.portal.z);
+        }
+        let materials = app.world().resource::<Assets<VistaMaterial>>();
+        (materials.get(&handle).expect("painted").params, clock)
+    }
+
+    /// Reduced motion stops Baylee's fireflies entirely: the lobby's world
+    /// has no energy (the shader draws no mote then, only her still glow)
+    /// and its clock stands. And the counter-test: with motion allowed the
+    /// motes have energy and their clock runs, by the frame's delta.
+    #[test]
+    #[allow(clippy::float_cmp)] // a stopped clock and zero energy are exact
+    fn reduced_motion_stops_the_lobby_fireflies() {
+        let (still, clock) = lobby_world(true, 8);
+        assert_eq!(still.view.w, 0.0, "{still:?}");
+        assert!(clock.iter().all(|t| *t == clock[0]), "{clock:?}");
+        let (moving, clock) = lobby_world(false, 8);
+        assert_eq!(moving.view.w, 1.0, "{moving:?}");
+        assert!(clock.windows(2).skip(2).all(|w| w[1] > w[0]), "{clock:?}");
+        assert_eq!(moving.gate_b.w, 1.0, "the interior draws Baylee at home");
+    }
 }

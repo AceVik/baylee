@@ -2,6 +2,11 @@
 //! components: what a screen hands in decides what they say, the frame
 //! decides how much of it fits.
 //!
+//! The brand is the logo (Baylee on the lockup's moon), never a wordmark in
+//! text: [`BrandMark`] stands at the header's height and wears the lockup's
+//! cut nearest its drawn height in physical pixels ([`sharpen_brand`]), so it
+//! is crisp at every scale; its accessible name is the brand's word.
+//!
 //! - **Wide / Vast:** brand, the build's short form, the three nav pills,
 //!   the gateway pill with its name and counts, the bell, the account pill.
 //! - **Compact / Narrow:** the same, the gateway pill a dot, the account
@@ -46,7 +51,8 @@ impl Reach {
 
 /// What the header shows.
 pub struct HeaderLook<'a> {
-    /// "Baylee".
+    /// "Baylee": the logo's accessible name (the logo is drawn, not
+    /// written).
     pub brand: &'a str,
     /// The build's short form (`0.1.0-beta.5`), beside the brand on Wide and
     /// Vast only.
@@ -120,15 +126,7 @@ where
             BackgroundColor(tokens::PANEL),
         ))
         .id();
-    let brand = commands
-        .spawn((
-            Text::new(look.brand),
-            tf_bold(kit.fonts, m.head),
-            TextColor(tokens::INK),
-            TextLayout::no_wrap(),
-            Pickable::IGNORE,
-        ))
-        .id();
+    let brand = brand_mark(commands, m.header, look.brand);
     commands.entity(bar).add_child(brand);
     if roomy {
         let build = label(commands, kit, look.build, m.small, tokens::MUTED);
@@ -198,6 +196,92 @@ where
         commands.entity(bar).add_child(account);
     }
     bar
+}
+
+/// The lockup's width over its height (the trimmed master, 1928 × 809).
+pub const LOGO_ASPECT: f32 = 1928.0 / 809.0;
+
+/// How much of the header's height the logo stands in.
+pub const LOGO_SHARE: f32 = 0.80;
+
+/// The header's brand: the logo, as an image. Its picture is set by
+/// [`sharpen_brand`] after layout (no texture until then: a frame of the
+/// default white square would flash on every rebuild otherwise).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct BrandMark;
+
+/// The lockup's cuts, by height in pixels, smallest first.
+pub const LOGO_CUTS: [(f32, &str); 3] = [
+    (48.0, "brand/baylee-logo-48.png"),
+    (96.0, "brand/baylee-logo-96.png"),
+    (192.0, "brand/baylee-logo-192.png"),
+];
+
+/// The cuts, loaded once.
+#[derive(Resource, Clone)]
+pub struct BrandArt(pub [Handle<Image>; 3]);
+
+/// Which cut draws a logo `physical` pixels high: the smallest at least as
+/// tall (a downsample by under two, never an upsample), else the largest.
+#[must_use]
+pub fn cut_for(physical: f32) -> usize {
+    LOGO_CUTS
+        .iter()
+        .position(|(h, _)| *h >= physical - 0.5)
+        .unwrap_or(LOGO_CUTS.len() - 1)
+}
+
+/// The brand mark for a header `header` pixels tall, named `name` for
+/// assistive technology. The builder's own header wears it too.
+pub fn brand_mark(commands: &mut Commands, header: f32, name: &str) -> Entity {
+    let height = (header * LOGO_SHARE).round();
+    let mut node = accesskit::Node::new(accesskit::Role::Image);
+    node.set_label(name);
+    commands
+        .spawn((
+            BrandMark,
+            Name::new(name.to_string()),
+            bevy::a11y::AccessibilityNode(node),
+            ImageNode {
+                color: Color::NONE,
+                ..default()
+            },
+            Node {
+                width: px_fixed((height * LOGO_ASPECT).round()),
+                height: px_fixed(height),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+/// Gives each brand mark the cut its drawn height asks for, after layout and
+/// before the frame is drawn; writes only when the cut changes.
+pub fn sharpen_brand(
+    art: Option<Res<BrandArt>>,
+    mut marks: Query<(&ComputedNode, &mut ImageNode), With<BrandMark>>,
+) {
+    let Some(art) = art else {
+        return;
+    };
+    for (computed, mut image) in &mut marks {
+        let handle = &art.0[cut_for(computed.size().y)];
+        if image.image != *handle || image.color != Color::WHITE {
+            image.image = handle.clone();
+            image.color = Color::WHITE;
+        }
+    }
+}
+
+/// Loads the cuts and keeps the marks sharp.
+pub(super) fn install(app: &mut App) {
+    if let Some(assets) = app.world().get_resource::<AssetServer>() {
+        let art = BrandArt(LOGO_CUTS.map(|(_, path)| assets.load(path)));
+        app.insert_resource(art);
+    }
+    app.add_systems(PostUpdate, sharpen_brand.after(bevy::ui::UiSystems::Layout));
 }
 
 /// The gateway pill on Wide and Vast: the reach dot, the name (or address)

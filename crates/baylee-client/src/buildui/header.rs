@@ -61,17 +61,10 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
     let mut kids: Vec<Entity> = Vec::new();
 
     // The brand, as the shell's header has it; a phone's header is too
-    // short for the wordmark (§2.7).
+    // short for the logo (§2.7).
     if !phone {
-        let brand = commands
-            .spawn((
-                Text::new(Phrase::AppName.text(lang)),
-                tf_bold(kit.fonts, m.head),
-                TextColor(tokens::INK),
-                TextLayout::no_wrap(),
-                Pickable::IGNORE,
-            ))
-            .id();
+        let brand =
+            crate::shellkit::header::brand_mark(commands, m.header, Phrase::AppName.text(lang));
         kids.push(brand);
         if roomy {
             kids.push(words(

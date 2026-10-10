@@ -126,6 +126,34 @@ fn fireflies(p: vec2<f32>, t: f32, scale: f32, depth: f32, rush: f32) -> vec3<f3
     return mix(GOLD, MOON * 1.7, smoothstep(0.5, 1.1, depth)) * light;
 }
 
+// Baylee's own fireflies in the lobby: a few motes circling her slowly on
+// wide ellipses, each bobbing and twinkling on its own phase. `at` is the
+// pixel relative to her middle, in screen heights; `h` her height. Analytic,
+// uniforms only: the clock is the world's (`portal.z`), which stands still
+// with reduced motion, and the caller drops the motes entirely then.
+const HOME_MOTES: i32 = 18;
+fn home_fireflies(at: vec2<f32>, h: f32, t: f32) -> vec3<f32> {
+    var light = vec3<f32>(0.0);
+    for (var i = 0; i < HOME_MOTES; i = i + 1) {
+        let n = f32(i);
+        let a = hash2(vec2<f32>(n, 3.17));
+        let b = hash2(vec2<f32>(n, 11.9));
+        let c = hash2(vec2<f32>(n, 27.3));
+        let turn = select(-1.0, 1.0, a > 0.5);
+        let angle = a * TAU + t * (0.05 + 0.08 * b) * turn;
+        let reach = vec2<f32>(h * (0.42 + 0.55 * c), h * (0.30 + 0.32 * b));
+        let bob = vec2<f32>(sin(t * (0.37 + 0.2 * c) + b * TAU) * 0.012,
+            sin(t * (0.23 + 0.17 * a) + c * TAU) * 0.020);
+        let pos = vec2<f32>(cos(angle), sin(angle) * 0.85 - 0.12) * reach + bob;
+        let d = at - pos;
+        let r2 = dot(d, d);
+        let twinkle = 0.25 + 0.75 * pow(0.5 + 0.5 * sin(t * (0.7 + 0.9 * c) + a * TAU), 3.0);
+        let core = exp(-r2 * 140000.0) * 0.85 + exp(-r2 * 5200.0) * 0.07;
+        light += mix(GOLD * 1.25, vec3<f32>(0.85, 0.95, 0.55), b * 0.6) * core * twinkle;
+    }
+    return light;
+}
+
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let aspect = max(params.view.z, 0.01);
@@ -282,6 +310,28 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     rgb = mix(rgb, MOON * 0.55, params.hour.y * 0.28);
     // The editor lives in the same garden, with a calm reading light.
     rgb *= 1.0 - interior * 0.32;
+
+    // In the lobby Baylee sits on the terrace, centred under the content and
+    // in front of the world's darkening, in a soft warm glow with her own
+    // fireflies. Wide windows only; a phone has no floor to spare.
+    let home = interior * wide;
+    if home > 0.0 {
+        let home_h = 0.30;
+        let home_foot = vec2<f32>(aspect * 0.5, 0.968);
+        let middle = home_foot - vec2<f32>(0.0, home_h * 0.5);
+        let breath = 0.92 + 0.08 * sin(t * 0.45);
+        rgb += GOLD * bell(p - middle, vec2<f32>(home_h * 0.95, home_h * 0.70)) * 0.11 * breath * home;
+        let home_uv = (p - home_foot) / vec2<f32>(home_h * 0.75, home_h) + vec2<f32>(0.5, 1.0);
+        let inside = step(0.0, home_uv.x) * step(home_uv.x, 1.0) * step(0.0, home_uv.y) * step(home_uv.y, 1.0);
+        rgb *= 1.0 - 0.6 * home * bell(p - home_foot + vec2<f32>(0.0, 0.010), vec2<f32>(0.11, 0.013));
+        let sprite = textureSample(guardian, guardian_sampler, clamp(home_uv, vec2<f32>(0.0), vec2<f32>(1.0)));
+        rgb = mix(rgb, sprite.rgb * vec3<f32>(0.80, 0.80, 0.82), sprite.a * inside * home);
+        // Motes only while the world moves: none at all when it stands still.
+        let near = length((p - middle) / vec2<f32>(home_h * 1.25, home_h * 0.95));
+        if energy > 0.0 && near < 1.4 {
+            rgb += home_fireflies(p - middle, home_h, t) * energy * home;
+        }
+    }
 
     // Successful authentication accelerates into the painted world. Light
     // streaks converge at the destination; a feathered aperture reveals the

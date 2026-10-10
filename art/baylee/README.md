@@ -10,6 +10,7 @@ as a mascot was given on 26 September 2026.
 | Runtime asset, under `crates/baylee-client/assets/` | Source and use |
 | --- | --- |
 | `brand/baylee-logo.png` | Transparent 1942 × 809 title lockup; generated from the owner's cat reference |
+| `brand/baylee-logo-{48,96,192}.png` | Lanczos downsamples of the lockup (trimmed) at 48, 96 and 192 px high: the shell header's brand mark picks the one nearest its drawn height in physical pixels, so it stays crisp at every scale |
 | `brand/baylee-icon.png` | 1254 × 1254 icon master; generated using the logo as identity reference |
 | `brand/favicon-32.png` | Mechanical downsample for browser tabs |
 | `brand/apple-touch-icon.png` | 180 × 180 browser home-screen icon |

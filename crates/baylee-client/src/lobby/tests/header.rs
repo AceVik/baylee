@@ -640,3 +640,36 @@ fn the_sheets_choices_are_chosen_by_the_arrows_and_enter_opens() {
     assert!(state.play.sheet.is_none(), "Enter opened the table");
     assert!(state.lobby.busy(), "the table was asked for");
 }
+
+/// The header's brand is the logo, an image named "Baylee" for assistive
+/// technology, and no text node says the brand any more.
+#[test]
+fn the_header_wears_the_logo_and_no_wordmark() {
+    let mut app = seated();
+    let mut marks = app
+        .world_mut()
+        .query_filtered::<(&ImageNode, &bevy::a11y::AccessibilityNode), With<crate::shellkit::header::BrandMark>>();
+    let found: Vec<_> = marks
+        .iter(app.world())
+        .map(|(_, a11y)| a11y.label().map(str::to_string))
+        .collect();
+    assert_eq!(found, vec![Some("Baylee".to_string())]);
+    let mut texts = app.world_mut().query::<&Text>();
+    assert!(
+        texts.iter(app.world()).all(|t| t.0 != "Baylee"),
+        "a text node still says the brand"
+    );
+}
+
+/// The logo's cut is the smallest at least as tall as it is drawn, and the
+/// largest past that: never stretched up from a small one.
+#[test]
+fn the_logo_picks_the_cut_its_height_asks_for() {
+    use crate::shellkit::header::cut_for;
+    assert_eq!(cut_for(36.0), 0);
+    assert_eq!(cut_for(48.0), 0);
+    assert_eq!(cut_for(49.0), 1);
+    assert_eq!(cut_for(90.0), 1);
+    assert_eq!(cut_for(150.0), 2);
+    assert_eq!(cut_for(400.0), 2);
+}
