@@ -64,7 +64,9 @@ async fn stub() -> Stub {
             async move {
                 log.lock().unwrap().push(Seen {
                     method: method.to_string(),
-                    path: uri.path().to_owned(),
+                    path: uri
+                        .path_and_query()
+                        .map_or_else(|| uri.path().to_owned(), ToString::to_string),
                     headers: headers
                         .iter()
                         .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_owned()))
@@ -85,6 +87,11 @@ async fn stub() -> Stub {
                             .into_response()
                     }
                     ("GET", "/admin/invites") => axum::Json(serde_json::json!([])).into_response(),
+                    ("GET", path)
+                        if path == "/admin/live" || path.starts_with("/admin/accounts") =>
+                    {
+                        axum::Json(serde_json::json!({})).into_response()
+                    }
                     ("POST", "/admin/invites") => (
                         StatusCode::CREATED,
                         axum::Json(serde_json::json!({
@@ -296,6 +303,9 @@ async fn nothing_reaches_the_gateway_without_a_session() {
         ("GET", "/ui/api/admin/stats", None),
         ("GET", "/ui/api/admin/invites", None),
         ("GET", "/ui/api/admin/audit", None),
+        ("GET", "/ui/api/admin/live", None),
+        ("GET", "/ui/api/admin/accounts", None),
+        ("GET", &format!("/ui/api/admin/accounts/{KEY_ID}"), None),
         ("POST", "/ui/api/admin/invites", Some("{}")),
         ("DELETE", &format!("/ui/api/admin/invites/{KEY_ID}"), None),
     ] {
@@ -353,6 +363,44 @@ async fn a_signed_in_admin_reaches_the_gateway_with_the_services_token_and_name(
     }
     assert_eq!(seen[0].path, "/admin/stats");
     assert_eq!(seen[1].path, "/admin/invites");
+    service.close().await;
+    gw.server.abort();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_people_pages_pass_on_only_the_fields_they_read() {
+    let gw = stub().await;
+    let service = Service::start("people", Some(&gw.url)).await;
+    let cookie = service.login().await;
+    for path in [
+        "/ui/api/admin/live".to_owned(),
+        "/ui/api/admin/accounts?q=Al%20ice&kind=guest&online=true&offset=50&limit=25".to_owned(),
+        format!("/ui/api/admin/accounts/{KEY_ID}"),
+    ] {
+        let answer = service
+            .call("GET", &path, &with_cookie(&cookie), None)
+            .await;
+        assert_eq!(answer.status, 200, "{path}: {}", answer.text());
+    }
+    for refused in [
+        "/ui/api/admin/accounts?admin=1",
+        "/ui/api/admin/accounts?limit=-1",
+        "/ui/api/admin/accounts/nobody",
+    ] {
+        let answer = service
+            .call("GET", refused, &with_cookie(&cookie), None)
+            .await;
+        assert_eq!(answer.status, 400, "{refused}: {}", answer.text());
+    }
+    let seen: Vec<String> = gw.seen().into_iter().map(|s| s.path).collect();
+    assert_eq!(
+        seen,
+        [
+            "/admin/live".to_owned(),
+            "/admin/accounts?q=Al%20ice&kind=guest&online=true&offset=50&limit=25".to_owned(),
+            format!("/admin/accounts/{KEY_ID}"),
+        ]
+    );
     service.close().await;
     gw.server.abort();
 }

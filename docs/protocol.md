@@ -2096,7 +2096,8 @@ door, key or no key.
 ## The admin console
 
 What a gateway's operator asks of it without a shell: how busy it is, in
-counts, and its closed-beta keys. Meant for one caller, the feedback
+counts and by day, who is online and at which table, its accounts, and its
+closed-beta keys. Meant for one caller, the feedback
 service's Overview on the same machine (`docs/feedback.md` §"The admin
 console"), which signs its admins in itself; the gateway takes no player's
 session here and knows no admin.
@@ -2140,6 +2141,9 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | route | answer |
 | --- | --- |
 | `GET /admin/stats` | the numbers below |
+| `GET /admin/live` | who is here now and where, below |
+| `GET /admin/accounts` | a page of accounts, below; `?q=` (part of a username or display name, a `#tag` in hex, or an id; at most 100 characters), `kind=all\|registered\|guest`, `sort=newest\|oldest\|name\|games\|active`, `online=true` (only accounts with a lobby socket or a chair), `offset`, `limit` (1–200, default 50); anything else in them `400` |
+| `GET /admin/accounts/{id}` | one account, below; `404` for none, `400` for an id that is not a UUID |
 | `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
 | `POST /admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}`, `invite create`'s flags as fields, read by the command's own parser (the same defaults, bounds and refusals, word for word, as `400 {"error"}`); unknown fields are `400`. `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`: the one time the keys exist outside the hand they are given to. Made in one transaction by the function `invite create` uses |
 | `DELETE /admin/invites/{id}` | revokes as `invite revoke` does: `204`; `404 {"error":"no key <id> that is not revoked already"}`; `400` for an id that is not a UUID. The row stays, revoked, as it does there |
@@ -2151,22 +2155,26 @@ at `info` (so `RUST_LOG=info` must reach it): `admin=<name>`,
 note, which may name a person. Reads are not audited.
 
 **The numbers** (`GET /admin/stats`) are counts and sums only, one SQL
-statement (`baylee_db::stats`) and the gateway's memory; no field can hold
-a name, an id, an address or anything per person:
+statement (`baylee_db::stats`), one for the days (`baylee_db::console::daily`)
+and the gateway's memory; no field can hold a name, an id, an address or
+anything per person:
 
 ```json
 {
   "at": "2026-10-08T12:00:00Z",
-  "gateway": { "name": "Baylee EU", "registration": "invite", "version": "…", "commit": "…", "build": 2648, "built_at": "…", "dirty": false },
+  "gateway": { "name": "Baylee EU", "registration": "invite", "version": "…", "commit": "…", "build": 2648, "built_at": "…", "dirty": false,
+               "uptime_secs": 86400, "terms": true, "mail": false },
   "accounts": { "registered": 41, "with_email": 3, "confirmed_email": 2, "admitted_by_key": 40,
-                "created": { "today_utc": 1, "last_7d": 6, "last_30d": 41 } },
-  "guests": { "enabled": true, "live": 7, "cap": 1000 },
+                "created": { "today_utc": 1, "last_7d": 6, "last_30d": 41 }, "decks": 77 },
+  "guests": { "enabled": true, "live": 7, "cap": 1000, "created": { "today_utc": 2, "last_7d": 5, "last_30d": 7 } },
   "online": { "players": 9, "in_lobby": 6, "seated": 4, "sessions_live": 52, "accounts_signed_in": 44 },
   "games": { "running": 2, "local_running": 2, "waiting": 1, "seats_awaiting_engine": 0,
              "recorded": 310, "started": { "today_utc": 4, "last_7d": 30, "last_30d": 310 },
-             "finished": 301, "finished_since": { "today_utc": 3, "last_7d": 29, "last_30d": 301 } },
+             "finished": 301, "finished_since": { "today_utc": 3, "last_7d": 29, "last_30d": 301 },
+             "record_bytes": 52428800, "avg_secs_30d": 1260 },
   "agents": { "connected": 1, "local": 1, "capacity": null, "games": 2 },
-  "invites": { "total": 50, "active": 9, "used_up": 30, "expired": 6, "revoked": 5, "uses_left": 11, "admitted": 40 }
+  "invites": { "total": 50, "active": 9, "used_up": 30, "expired": 6, "revoked": 5, "uses_left": 11, "admitted": 40 },
+  "daily": [ { "day": "2026-09-10", "registered": 1, "guests": 0, "started": 12, "finished": 11, "players": 5 }, … ]
 }
 ```
 
@@ -2187,6 +2195,50 @@ a name, an id, an address or anything per person:
   of them has none.
 - `invites.uses_left` sums the uses of the keys that still admit somebody;
   `admitted` counts the existing accounts a key let in.
+- `daily` is the last 30 UTC days, oldest first, today last: accounts and
+  guests made that day that still exist, records started and finished, and
+  the accounts that sat in a game started that day. `guests.created` counts
+  the same way: a purged guest is not counted. `decks` counts players' own
+  decks; `avg_secs_30d` is the mean length of the games finished in the
+  last 30 days (`0` for none); `uptime_secs` how long this process has
+  served.
+
+**People** (`/admin/live`, `/admin/accounts`), since the owner asked to
+see who plays (09.10.2026). These name accounts: by handle (`Name#tag`),
+username and id. They never answer a password hash, a token or its hash,
+an e-mail address (only whether there is one and whether it was
+confirmed), a deck's cards or a record's bytes (`baylee_db::console`).
+
+- `GET /admin/live`: `{"at", "players": [{"id", "handle", "guest",
+  "in_lobby", "playing", "waiting"}], "tables": [{"id", "name", "state",
+  "host", "host_id", "created_at", "locked", "rematch", "decide_secs",
+  "engine", "engine_local", "agent", "seats": [{"seat", "kind", "ai",
+  "account_id", "player", "guest", "bridge", "bridged_by", "deck",
+  "format", "ready", "team"}]}], "agents": [{"id", "name", "local",
+  "capacity", "games"}]}`. `players` is every account with a lobby socket
+  open or a chair at a waiting or running table; `playing` and `waiting`
+  are the table's id. `tables` are the waiting rooms first, then the
+  running games, newest first. `locked` says whether a room has a
+  password, never what.
+- `GET /admin/accounts`: `{"total", "online", "accounts": [{"id",
+  "username", "display_name", "tag", "handle", "guest", "created_at",
+  "has_email", "confirmed", "lang", "by_key", "key_note", "terms_version",
+  "decks", "games", "sessions", "active_at", "in_lobby", "playing",
+  "online"}]}`. `games` counts the records the account sat in; `sessions`
+  its live sessions; `active_at` its latest session's expiry less the
+  session's lifetime, the last renewal: the account was active then, or
+  up to a renewal interval (6 hours, a guest's a day) later. No
+  sign-in time is stored, so this is the closest the store can say.
+  `key_note` is the note of the key that admitted it.
+- `GET /admin/accounts/{id}`: the same row, `in_lobby`, `online` and
+  `table` (`{"id", "name", "state"}` of the table it sits at, or `null`),
+  with `confirmed_at`, `terms_accepted_at`, `deck_list` (`[{"id", "name",
+  "format", "cards", "version", "updated_at"}]`, newest change first;
+  `cards` sums the main deck's lines' counts) and
+  `recent_games` (the latest 25: `[{"game_id", "started_at", "ended_at",
+  "complete", "seat", "chairs": [{"seat", "player", "guest"}]}]`, a chair
+  no account holds, the house's or a deleted account's, with `player`
+  `null`).
 
 ## Terms of use (WG-1)
 

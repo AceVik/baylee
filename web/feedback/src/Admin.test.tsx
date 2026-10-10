@@ -75,6 +75,29 @@ afterEach(() => {
 });
 
 describe("the overview", () => {
+  test("draws a month of days and says each one on hover and in a table", async () => {
+    const daily = Array.from({ length: 30 }, (_, i) => ({
+      day: `2026-09-${String(i + 1).padStart(2, "0")}`,
+      registered: i === 29 ? 4 : 0,
+      guests: i === 29 ? 2 : 1,
+      started: i,
+      finished: 0,
+      players: 2,
+    }));
+    serve((call) => (call.url === "/ui/api/admin/stats" ? { body: stats({ daily }) } : undefined));
+    render(<Admin lang="en" />);
+    const chart = await screen.findByRole("figure", { name: "Games started per day" });
+    expect(chart.textContent).toContain("435 in 30 days");
+    const range = within(chart).getByRole("slider");
+    range.focus();
+    expect(range.getAttribute("aria-valuetext")).toBe("30 Sept: Games 29");
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(within(chart).getByRole("status").textContent).toContain("Games: 28");
+    const accounts = screen.getByRole("figure", { name: "New accounts per day" });
+    expect(within(accounts).getAllByText("Registered").length).toBeGreaterThan(0);
+    expect(within(accounts).getAllByRole("row")).toHaveLength(31);
+  });
+
   test("shows the gateway's numbers, in English or German", async () => {
     start();
     const { unmount } = render(<Admin lang="en" />);
@@ -91,8 +114,8 @@ describe("the overview", () => {
 
   test("makes keys, shows them once, and forgets them when done", async () => {
     const calls = start();
-    render(<Admin lang="en" />);
-    await screen.findByTestId("registered");
+    render(<Admin lang="en" section="keys" />);
+    await screen.findAllByTestId("invite");
     await userEvent.clear(screen.getByLabelText("How many"));
     await userEvent.type(screen.getByLabelText("How many"), "2");
     await userEvent.selectOptions(screen.getByLabelText("Expires"), "7d");
@@ -123,15 +146,14 @@ describe("the overview", () => {
       if (call.url === "/ui/api/admin/audit") return { body: [] };
       return { body: stats() };
     });
-    render(<Admin lang="en" />);
-    await screen.findByTestId("registered");
-    await userEvent.click(screen.getByRole("button", { name: "Make keys" }));
+    render(<Admin lang="en" section="keys" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Make keys" }));
     expect((await screen.findByRole("alert")).textContent).toBe('--uses takes 1 to 1000, not "0"');
   });
 
   test("revoking asks once more", async () => {
     const calls = start();
-    render(<Admin lang="en" />);
+    render(<Admin lang="en" section="keys" />);
     await userEvent.click(await screen.findByRole("button", { name: "Revoke… for Max" }));
     await userEvent.click(screen.getByRole("button", { name: "Keep it" }));
     expect(calls.some((c) => c.method === "DELETE")).toBe(false);
@@ -145,6 +167,149 @@ describe("the overview", () => {
       expect(screen.getByTestId("invite").textContent).toContain("revoked");
     });
     expect(screen.queryByRole("button", { name: /Revoke/ })).toBeNull();
+  });
+});
+
+describe("the people pages", () => {
+  const row = {
+    id: "0199cccc-0000-7000-8000-000000000001",
+    username: "alice",
+    display_name: "Alice",
+    tag: 1,
+    handle: "Alice#0001",
+    guest: false,
+    created_at: "2026-10-01T10:00:00Z",
+    has_email: false,
+    confirmed: false,
+    lang: "de",
+    by_key: true,
+    key_note: "for Alice",
+    terms_version: null,
+    decks: 2,
+    games: 7,
+    sessions: 1,
+    active_at: "2026-10-08T11:00:00Z",
+    in_lobby: false,
+    playing: true,
+    online: true,
+  };
+
+  test("the accounts are searched in the query string and listed by handle", async () => {
+    const calls = serve((call) =>
+      call.url.startsWith("/ui/api/admin/accounts")
+        ? { body: { total: 1, online: 1, accounts: [row] } }
+        : undefined,
+    );
+    window.history.replaceState(null, "", "/admin/accounts?kind=registered");
+    render(<Admin lang="en" section="accounts" search="?kind=registered" />);
+    const item = await screen.findByTestId("account");
+    expect(item.textContent).toContain("Alice#0001");
+    expect(item.textContent).toContain("in a game");
+    expect(item.textContent).toContain("beta key");
+    expect(calls[0]?.url).toBe("/ui/api/admin/accounts?limit=50&kind=registered");
+    expect(screen.getByRole("button", { name: "Registered" }).getAttribute("aria-pressed")).toBe("true");
+    await userEvent.type(screen.getByRole("searchbox", { name: "Search accounts" }), "ali");
+    await waitFor(() => {
+      expect(window.location.search).toBe("?q=ali&kind=registered");
+    });
+  });
+
+  test("one account shows its decks and games, and nothing of a deck's cards", async () => {
+    serve((call) =>
+      call.url === `/ui/api/admin/accounts/${row.id}`
+        ? {
+            body: {
+              ...row,
+              terms_accepted_at: null,
+              confirmed_at: null,
+              table: { id: "g1", name: "Kitchen table", state: "playing" },
+              deck_list: [
+                { id: "d1", name: "Woods", format: "commander", cards: 100, version: 3, updated_at: "2026-10-02T10:00:00Z" },
+              ],
+              recent_games: [
+                {
+                  game_id: "g0",
+                  started_at: "2026-10-05T10:00:00Z",
+                  ended_at: "2026-10-05T10:42:00Z",
+                  complete: true,
+                  seat: 0,
+                  chairs: [
+                    { seat: 0, player: "Alice#0001", guest: false },
+                    { seat: 1, player: null, guest: null },
+                  ],
+                },
+              ],
+            },
+          }
+        : undefined,
+    );
+    render(<Admin lang="en" section="accounts" id={row.id} />);
+    expect(await screen.findByRole("heading", { name: "Alice#0001" })).toBeTruthy();
+    expect(screen.getByText("Woods")).toBeTruthy();
+    expect(screen.getByText(/100 cards/)).toBeTruthy();
+    expect(screen.getByText("Kitchen table")).toBeTruthy();
+    expect(screen.getByText("House AI or no account")).toBeTruthy();
+    expect(screen.getByText(/lasted 42/)).toBeTruthy();
+    expect(screen.getByText("for Alice")).toBeTruthy();
+  });
+
+  test("a gone account says so", async () => {
+    serve(() => ({ status: 404, body: { error: "no such account" } }));
+    render(<Admin lang="de" section="accounts" id="0199cccc-0000-7000-8000-000000000009" />);
+    expect((await screen.findByRole("alert")).textContent).toBe("Dieses Konto gibt es nicht (mehr).");
+  });
+
+  test("live shows who is where and every table's chairs", async () => {
+    serve((call) =>
+      call.url === "/ui/api/admin/live"
+        ? {
+            body: {
+              at: "2026-10-08T12:00:00Z",
+              players: [
+                { id: row.id, handle: "Alice#0001", guest: false, in_lobby: true, playing: null, waiting: "g1" },
+                { id: "x", handle: "Visitor#0003", guest: true, in_lobby: true, playing: null, waiting: null },
+              ],
+              tables: [
+                {
+                  id: "g1",
+                  name: "Kitchen table",
+                  state: "waiting",
+                  host: "Alice#0001",
+                  host_id: row.id,
+                  created_at: "2026-10-08T11:55:00Z",
+                  locked: true,
+                  rematch: false,
+                  decide_secs: 180,
+                  engine: false,
+                  engine_local: false,
+                  agent: null,
+                  seats: [
+                    { seat: 0, kind: "human", ai: null, account_id: row.id, player: "Alice#0001", guest: false, bridge: null, bridged_by: null, deck: "Woods", format: "commander", ready: true, team: null },
+                    { seat: 1, kind: "ai", ai: "sharp", account_id: null, player: null, guest: null, bridge: null, bridged_by: null, deck: "", format: null, ready: true, team: null },
+                    { seat: 2, kind: "human", ai: null, account_id: null, player: null, guest: null, bridge: null, bridged_by: null, deck: "", format: null, ready: false, team: null },
+                  ],
+                },
+              ],
+              agents: [],
+            },
+          }
+        : undefined,
+    );
+    render(<Admin lang="en" section="live" />);
+    const players = await screen.findAllByTestId("online-player");
+    expect(players.map((p) => p.textContent)).toEqual([
+      expect.stringContaining("Alice#0001"),
+      expect.stringContaining("Visitor#0003guest"),
+    ]);
+    const table = screen.getByTestId("table");
+    expect(table.textContent).toContain("Kitchen table");
+    expect(table.textContent).toContain("2 of 3 chairs taken");
+    expect(table.textContent).toContain("House AI · sharp");
+    expect(table.textContent).toContain("open chair");
+    expect(table.textContent).toContain("password");
+    expect(screen.getByText("No agent is connected: no new game can start.")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: /playing/ }));
+    expect(screen.queryByTestId("table")).toBeNull();
   });
 });
 

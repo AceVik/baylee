@@ -24,8 +24,8 @@ const SIZES: Size[] = [
 ];
 
 const WORDS = {
-  "de-DE": { tab: "Übersicht", registered: "Registrierte Konten", make: "Schlüssel erzeugen" },
-  "en-GB": { tab: "Overview", registered: "Registered accounts", make: "Make keys" },
+  "de-DE": { tab: "Admin", registered: "Registrierte Konten", accounts: "Konten", live: "Live" },
+  "en-GB": { tab: "Admin", registered: "Registered accounts", accounts: "Accounts", live: "Live" },
 } as const;
 
 /** Fails the test on any script error or policy violation in the page. */
@@ -56,7 +56,7 @@ async function noSideways(page: Page) {
   // Nor is anything wider than its own card: a card's overflow hides under
   // its neighbour and never shows as a page that scrolls.
   const spilled = await page.evaluate(() =>
-    [...document.querySelectorAll(".admin-page .card, .admin-page .invite")]
+    [...document.querySelectorAll(".admin-page .card, .admin-page .invite, .admin-page .panel, .admin-page .kpi")]
       .filter((el) => el.scrollWidth > el.clientWidth + 1)
       .map((el) => el.textContent?.slice(0, 40)),
   );
@@ -66,7 +66,11 @@ async function noSideways(page: Page) {
 /** Every visible control in the console is at least 44 px high. */
 async function fingerSized(page: Page) {
   const small = await page.evaluate(() =>
-    [...document.querySelectorAll(".bar a, .bar button, .admin-page button, .admin-page input, .admin-page select")]
+    [
+      ...document.querySelectorAll(
+        ".bar a, .bar button, .sections a, .admin-page button, .admin-page input, .admin-page select",
+      ),
+    ]
       .filter((el) => (el as HTMLElement).offsetParent !== null)
       .map((el) => ({ el: el.outerHTML.slice(0, 80), h: el.getBoundingClientRect().height }))
       .filter(({ h }) => h < 44),
@@ -94,7 +98,7 @@ for (const size of SIZES) {
       await expect(page).toHaveURL(/\/admin$/);
       await expect(page.getByTestId("registered")).toHaveText(new RegExp(`^2 ${words.registered}$`));
       await expect(page.getByTestId("agents")).toBeVisible();
-      await expect(page.getByRole("button", { name: words.make })).toBeVisible();
+      await expect(page.getByRole("figure").first()).toBeVisible();
       await noSideways(page);
       await fingerSized(page);
       // A reload lands on the overview again: it is a page of its own.
@@ -108,6 +112,23 @@ for (const size of SIZES) {
         await page.emulateMedia({ colorScheme: other });
         await page.screenshot({ path: `${dir}/overview-${size.name}-${other}.png`, fullPage: true });
       }
+      // The accounts: the seeded players, by handle, and one of them in full.
+      await page.getByRole("navigation", { name: /sections|Bereiche/ }).getByRole("link", { name: words.accounts }).click();
+      await expect(page).toHaveURL(/\/admin\/accounts$/);
+      await expect(page.getByTestId("account")).toHaveCount(2);
+      await noSideways(page);
+      await fingerSized(page);
+      await page.getByTestId("account").first().getByRole("link").click();
+      await expect(page).toHaveURL(/\/admin\/accounts\/[0-9a-f-]{36}$/);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^player\d#/);
+      await noSideways(page);
+      // Live: nobody plays in the e2e, and it says so.
+      await page.getByRole("navigation", { name: /sections|Bereiche/ }).getByRole("link", { name: words.live }).click();
+      await expect(page).toHaveURL(/\/admin\/live$/);
+      await expect(page.getByRole("region", { name: /Agent/ })).toBeVisible();
+      await noSideways(page);
+      await fingerSized(page);
+      if (dir) await page.screenshot({ path: `${dir}/live-${size.name}.png`, fullPage: true });
       expect(problems).toEqual([]);
     });
   });
@@ -119,8 +140,10 @@ test.describe("keys", () => {
   test("are made, shown once, let a player in, and are revoked", async ({ page }) => {
     const problems = watch(page);
     await signIn(page);
-    await page.getByRole("link", { name: "Overview" }).click();
+    await page.getByRole("link", { name: "Admin" }).click();
     await expect(page.getByTestId("keys-active")).toBeVisible();
+    await page.getByRole("link", { name: "Beta keys" }).first().click();
+    await expect(page).toHaveURL(/\/admin\/keys$/);
 
     await page.getByLabel("How many").fill("2");
     await page.getByLabel("Expires").selectOption("7d");

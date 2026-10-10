@@ -346,6 +346,130 @@ async fn the_numbers_count_what_happened_and_name_nobody() {
     agent.abort();
 }
 
+/// The accounts, one account and the live view name players (owner,
+/// 09.10.2026), and never a secret: no password hash, token, session hash
+/// or e-mail address.
+#[tokio::test(flavor = "multi_thread")]
+async fn accounts_and_tables_are_listed_by_handle_and_nothing_secret() {
+    let c = console("admin_accounts", &[]);
+    let port = c.gw.port;
+    let _agent = common::attach_agent(&c.gw).await;
+    let alice = common::login(port, "alice", "Alice");
+    let _bob = common::login(port, "bob", "Bob");
+    let (status, guest) = http(
+        port,
+        "POST",
+        "/auth/guest",
+        None,
+        r#"{"display_name":"Visitor"}"#,
+    );
+    assert_eq!(status, 200, "{guest}");
+    let deck = r#"{"name":"Woods","cards":["40 Forest","20 Swamp"]}"#;
+    let (status, body) = http(port, "POST", "/decks", Some(&alice), deck);
+    assert_eq!(status, 200, "{body}");
+    let deck_id = common::json_field(&body, "deck_id").to_owned();
+    let room = format!(r#"{{"deck_id":"{deck_id}","seats":2,"name":"Kitchen table"}}"#);
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&alice), &room);
+    assert_eq!(status, 200, "{body}");
+    let game_id = common::json_field(&body, "game_id").to_owned();
+
+    let (status, body) = admin(&c, "GET", "/admin/accounts", "");
+    assert_eq!(status, 200, "{body}");
+    let all = json(&body);
+    assert_eq!(all["total"], 3, "{all}");
+    assert_eq!(all["online"], 1, "Alice sits at a table: {all}");
+    let rows = all["accounts"].as_array().unwrap();
+    assert_eq!(rows[0]["display_name"], "Visitor", "newest first: {all}");
+    let alice_row = rows.iter().find(|r| r["username"] == "alice").unwrap();
+    assert_eq!(alice_row["decks"], 1, "{alice_row}");
+    assert_eq!(alice_row["sessions"], 1, "{alice_row}");
+    assert_eq!(alice_row["online"], true, "{alice_row}");
+    assert_eq!(alice_row["guest"], false, "{alice_row}");
+    assert!(alice_row["active_at"].is_string(), "{alice_row}");
+    assert!(
+        alice_row["handle"]
+            .as_str()
+            .is_some_and(|h| h.starts_with("Alice#")),
+        "{alice_row}"
+    );
+    for secret in ["password", "token", "hash", "\"email\""] {
+        assert!(!body.contains(secret), "{secret} in {body}");
+    }
+
+    let (_, body) = admin(&c, "GET", "/admin/accounts?kind=guest", "");
+    let guests = json(&body);
+    assert_eq!(guests["total"], 1, "{guests}");
+    assert_eq!(guests["accounts"][0]["guest"], true, "{guests}");
+    let (_, body) = admin(&c, "GET", "/admin/accounts?online=true", "");
+    assert_eq!(json(&body)["total"], 1, "{body}");
+    let (_, body) = admin(&c, "GET", "/admin/accounts?q=BO&sort=name", "");
+    let found = json(&body);
+    assert_eq!(found["total"], 1, "{found}");
+    assert_eq!(found["accounts"][0]["username"], "bob", "{found}");
+    let (_, body) = admin(
+        &c,
+        "GET",
+        "/admin/accounts?limit=1&offset=1&sort=oldest",
+        "",
+    );
+    let page = json(&body);
+    assert_eq!(page["total"], 3, "{page}");
+    assert_eq!(page["accounts"][0]["username"], "bob", "{page}");
+    for bad in ["?kind=admins", "?sort=a.id", "?limit=x"] {
+        let (status, body) = admin(&c, "GET", &format!("/admin/accounts{bad}"), "");
+        assert_eq!(status, 400, "{bad}: {body}");
+    }
+
+    let id = alice_row["id"].as_str().unwrap();
+    let (status, body) = admin(&c, "GET", &format!("/admin/accounts/{id}"), "");
+    assert_eq!(status, 200, "{body}");
+    let detail = json(&body);
+    assert_eq!(detail["deck_list"][0]["name"], "Woods", "{detail}");
+    assert_eq!(detail["deck_list"][0]["cards"], 60, "{detail}");
+    assert_eq!(detail["table"]["id"], game_id.as_str(), "{detail}");
+    assert_eq!(detail["table"]["state"], "waiting", "{detail}");
+    assert!(!body.contains("Forest"), "no deck's cards: {body}");
+    let (status, _) = admin(
+        &c,
+        "GET",
+        "/admin/accounts/0199aaaa-0000-7000-8000-000000000001",
+        "",
+    );
+    assert_eq!(status, 404);
+    let (status, _) = admin(&c, "GET", "/admin/accounts/nobody", "");
+    assert_eq!(status, 400);
+
+    live_and_days(&c, &game_id);
+}
+
+/// The live view and the days, with Alice's room open at `game_id`.
+fn live_and_days(c: &Console, game_id: &str) {
+    let (status, body) = admin(c, "GET", "/admin/live", "");
+    assert_eq!(status, 200, "{body}");
+    let live = json(&body);
+    let table = &live["tables"][0];
+    assert_eq!(table["name"], "Kitchen table", "{live}");
+    assert_eq!(table["state"], "waiting", "{live}");
+    assert!(
+        table["host"]
+            .as_str()
+            .is_some_and(|h| h.starts_with("Alice#")),
+        "{live}"
+    );
+    assert_eq!(table["seats"].as_array().unwrap().len(), 2, "{live}");
+    assert_eq!(live["players"][0]["waiting"], game_id, "{live}");
+    assert_eq!(live["agents"].as_array().unwrap().len(), 1, "{live}");
+
+    let (_, body) = admin(c, "GET", "/admin/stats", "");
+    let stats = json(&body);
+    assert_eq!(stats["accounts"]["decks"], 1, "{stats}");
+    assert_eq!(stats["guests"]["created"]["today_utc"], 1, "{stats}");
+    let daily = stats["daily"].as_array().unwrap();
+    assert_eq!(daily.len(), 30, "{stats}");
+    assert_eq!(daily[29]["registered"], 2, "today is last: {stats}");
+    assert_eq!(daily[29]["guests"], 1, "{stats}");
+}
+
 #[test]
 fn a_change_names_its_admin_and_is_refused_in_the_commands_words() {
     let c = console("admin_orders", &[]);

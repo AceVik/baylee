@@ -4,6 +4,11 @@
 //! `BAYLEE_ADMIN_TOKEN`, which never leaves this service.
 //!
 //! - `GET /ui/api/admin/stats`: the gateway's numbers, as it sends them.
+//! - `GET /ui/api/admin/live`: who is online and the tables open now.
+//! - `GET /ui/api/admin/accounts?q=&kind=&sort=&online=&offset=&limit=`:
+//!   a page of accounts; the query is read into those six fields and
+//!   written out again.
+//! - `GET /ui/api/admin/accounts/{id}`: one account, its decks and games.
 //! - `GET /ui/api/admin/invites`: its closed-beta keys, never a key.
 //! - `POST /ui/api/admin/invites` `{uses?, expires?, note?, count?}`: makes
 //!   keys and answers them, the one time they are shown.
@@ -103,6 +108,9 @@ impl Gateway {
 pub(crate) fn routes() -> Router<Shared> {
     Router::new()
         .route("/ui/api/admin/stats", get(stats))
+        .route("/ui/api/admin/live", get(live))
+        .route("/ui/api/admin/accounts", get(accounts))
+        .route("/ui/api/admin/accounts/{id}", get(account))
         .route("/ui/api/admin/invites", get(invites).post(create))
         .route("/ui/api/admin/invites/{id}", delete(revoke))
         .route("/ui/api/admin/audit", get(audit))
@@ -253,6 +261,97 @@ async fn stats(State(shared): State<Shared>, headers: HeaderMap) -> Result<Respo
     ask(&gateway, "GET", "/admin/stats".into(), &admin, None)
         .await
         .map(answer)
+}
+
+async fn live(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/live".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+/// What `GET /ui/api/admin/accounts` takes, and all it passes on.
+#[derive(Deserialize, Default)]
+#[serde(default, deny_unknown_fields)]
+struct AccountsQuery {
+    q: Option<String>,
+    kind: Option<String>,
+    sort: Option<String>,
+    online: Option<bool>,
+    offset: Option<u32>,
+    limit: Option<u32>,
+}
+
+/// `text` with every byte but the unreserved ones percent-encoded.
+fn encoded(text: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::with_capacity(text.len());
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            out.push(char::from(byte));
+        } else {
+            let _ = write!(out, "%{byte:02X}");
+        }
+    }
+    out
+}
+
+impl AccountsQuery {
+    /// The gateway's query string, built from the fields alone.
+    fn path(&self) -> String {
+        let mut pairs: Vec<String> = Vec::new();
+        for (key, value) in [("q", &self.q), ("kind", &self.kind), ("sort", &self.sort)] {
+            if let Some(value) = value.as_deref().filter(|v| !v.is_empty()) {
+                pairs.push(format!("{key}={}", encoded(value)));
+            }
+        }
+        if let Some(online) = self.online {
+            pairs.push(format!("online={online}"));
+        }
+        if let Some(offset) = self.offset {
+            pairs.push(format!("offset={offset}"));
+        }
+        if let Some(limit) = self.limit {
+            pairs.push(format!("limit={limit}"));
+        }
+        if pairs.is_empty() {
+            "/admin/accounts".into()
+        } else {
+            format!("/admin/accounts?{}", pairs.join("&"))
+        }
+    }
+}
+
+async fn accounts(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    query: Result<axum::extract::Query<AccountsQuery>, axum::extract::rejection::QueryRejection>,
+) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let axum::extract::Query(query) =
+        query.map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a search for accounts"))?;
+    ask(&gateway, "GET", query.path(), &admin, None)
+        .await
+        .map(answer)
+}
+
+async fn account(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let id =
+        Uuid::parse_str(&id).map_err(|_| refuse(StatusCode::BAD_REQUEST, "not an account's id"))?;
+    ask(
+        &gateway,
+        "GET",
+        format!("/admin/accounts/{id}"),
+        &admin,
+        None,
+    )
+    .await
+    .map(answer)
 }
 
 async fn invites(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
@@ -436,6 +535,23 @@ mod tests {
         }
         assert!(Gateway::new("http://127.0.0.1", &"x".repeat(31)).is_err());
         assert!(Gateway::new("http://127.0.0.1", &format!("{TOKEN} x")).is_err());
+    }
+
+    #[test]
+    fn an_account_search_passes_on_its_six_fields_and_nothing_else() {
+        assert_eq!(AccountsQuery::default().path(), "/admin/accounts");
+        let query = AccountsQuery {
+            q: Some("Al ice#af&x=1".into()),
+            kind: Some("guest".into()),
+            sort: Some(String::new()),
+            online: Some(true),
+            offset: Some(50),
+            limit: Some(25),
+        };
+        assert_eq!(
+            query.path(),
+            "/admin/accounts?q=Al%20ice%23af%26x%3D1&kind=guest&online=true&offset=50&limit=25"
+        );
     }
 
     #[test]

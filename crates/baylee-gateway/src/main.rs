@@ -199,6 +199,9 @@ struct AppState {
     /// The accounts with a lobby socket open, as a count for
     /// `GET /lobby/stats` (`presence.rs`); memory only.
     presence: presence::Presence,
+    /// When this process started serving (unix seconds), for the admin
+    /// console's uptime.
+    started_at: u64,
     /// The terms of use a player accepts (`BAYLEE_TERMS_PATH`, WG-1), read
     /// once at start; `None` when the gateway has none.
     terms: Option<terms::Terms>,
@@ -328,6 +331,7 @@ async fn main() {
         chair_tickets_enabled: switched_on(std::env::var("BAYLEE_CHAIR_TICKETS").ok().as_deref()),
         names: namebook::NameBook::default(),
         presence: presence::Presence::default(),
+        started_at: auth::now_secs(),
         terms,
     });
     // Before serving, so it is done by the time anybody can upload (#301).

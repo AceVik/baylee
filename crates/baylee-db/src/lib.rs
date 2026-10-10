@@ -65,6 +65,7 @@
 
 pub mod accounts;
 pub mod confirmations;
+pub mod console;
 pub mod entity;
 pub mod guests;
 pub mod import;

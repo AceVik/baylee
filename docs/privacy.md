@@ -16,7 +16,7 @@ the pointers, because line numbers move.
 | Guest account | Postgres `account` (`guest`) | until its last session lapses, 29–30 days after its last request | the sweep, or signing out |
 | Session | Postgres `session_token` (hash only) | 12 h (account) / 30 days (guest), sliding | the sweep, use after expiry, signing out |
 | Closed beta key (#317) | Postgres `invite` (hash only), and which key admitted an account (`account.invite_id`) | until the operator removes the row | SQL by the operator; revoking only closes it |
-| Admin console numbers (counts only) | nowhere: counted per request | — | — |
+| Admin console numbers, and its lists of accounts and who is online | nowhere: read per request from the rows and memory above | — | — |
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
@@ -180,6 +180,30 @@ admins on its Overview.
   `baylee_gateway::audit`: the admin's name (an operator's, not a
   player's), the action and key ids; never a key, the token, or a key's
   note.
+
+## The admin console's lists of people
+
+`GET /admin/accounts`, `/admin/accounts/{id}` and `/admin/live` (owner,
+09.10.2026: the operator wants to see who plays), on the same loopback
+listener and shown to the same admins (Accounts and Live in the feedback
+service's UI).
+
+- **What they reveal:** per account its id, username, display name and
+  tag, whether it is a guest, when it was made, its language, whether it
+  has an address and whether that was confirmed (never the address),
+  whether a key admitted it and that key's note, the terms version and
+  when it was accepted, how many decks, recorded games and live sessions
+  it has, its decks' names, formats, sizes and versions (never their
+  cards), its latest 25 recorded games with the handles of the others at
+  the table, and whether it is in the lobby or at which table now. "Last
+  active" is derived from the latest session's expiry, which the store
+  already keeps; no sign-in time, IP or device is stored or answered.
+- **Kept:** nowhere new. Every answer is read from the rows and memory
+  listed above at each request; neither the gateway nor the feedback
+  service stores it, logs it, or audits reads.
+- **Seen by:** the feedback service's signed-in admins only. The
+  gateway's e2e test holds the answers free of password hashes, tokens
+  and addresses.
 
 ## Confirmation mail
 

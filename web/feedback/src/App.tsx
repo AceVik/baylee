@@ -123,7 +123,12 @@ export function App() {
         </button>
       </header>
       {onAdmin ? (
-        <Admin lang={lang} />
+        <Admin
+          lang={lang}
+          section={route.page === "admin" ? route.section : "overview"}
+          id={route.page === "admin" ? route.id : undefined}
+          search={route.page === "admin" ? route.search : undefined}
+        />
       ) : route.page === "report" ? (
         <ReportDetail id={route.id} key={route.id} />
       ) : (
