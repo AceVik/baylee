@@ -242,12 +242,17 @@ fn show_frame_rate(
     time: Res<Time<Real>>,
     in_use: Res<InUse>,
     fonts: Option<Res<crate::hud::UiFonts>>,
-    mut counters: Query<(Entity, &mut Text), With<FrameRateCounter>>,
+    mut counters: Query<(Entity, &mut Text, &mut Node), With<FrameRateCounter>>,
     mut average: Local<(f32, f32)>,
+    tiles: Query<(
+        &crate::lobby::front::door::CornerTile,
+        &ComputedNode,
+        &UiGlobalTransform,
+    )>,
 ) {
     let want = in_use.0.show_frame_rate;
     if !want {
-        for (entity, _) in &counters {
+        for (entity, ..) in &counters {
             commands.entity(entity).despawn();
         }
         return;
@@ -261,7 +266,17 @@ fn show_frame_rate(
     };
     *since += dt;
     let said = format!("{:.1} ms \u{b7} {:.0} fps", *mean * 1000.0, 1.0 / *mean);
-    if let Ok((_, mut text)) = counters.single_mut() {
+    // Under the front door's top-left tile, never on it (beta.6: the
+    // counter sat on the source tile).
+    let top = tiles
+        .iter()
+        .filter(|(tile, ..)| tile.corner == crate::lobby::front::door::Corner::Left)
+        .map(|(_, node, at)| frame_rate_top(node, at))
+        .fold(4.0_f32, f32::max);
+    if let Ok((_, mut text, mut node)) = counters.single_mut() {
+        if node.top != Val::Px(top) {
+            node.top = Val::Px(top);
+        }
         if *since >= 0.5 && text.0 != said {
             *since = 0.0;
             text.0 = said;
@@ -280,13 +295,20 @@ fn show_frame_rate(
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(4.0),
-            top: Val::Px(4.0),
+            top: Val::Px(top),
             padding: UiRect::axes(Val::Px(6.0), Val::Px(2.0)),
             ..default()
         },
         GlobalZIndex(crate::shellkit::tokens::z::VEIL + 5),
         Pickable::IGNORE,
     ));
+}
+
+/// The counter's top below a tile: the tile's bottom edge in logical
+/// pixels, plus a little air.
+fn frame_rate_top(node: &ComputedNode, at: &UiGlobalTransform) -> f32 {
+    let scale = node.inverse_scale_factor;
+    at.translation.y * scale + node.size().y * scale / 2.0 + 4.0
 }
 
 /// Whether ambient surfaces stand still: the player asked for no motion, or

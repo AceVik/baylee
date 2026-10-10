@@ -687,6 +687,12 @@ pub enum ChoicePrompt {
     },
     /// Choose the card a controlled player must play if able.
     CommandCard,
+    /// Choose a new permanent for an Aura already on the battlefield to be
+    /// attached to (Kudzu's move); none leaves it where it is. Not a target.
+    NewHost {
+        /// The Aura that moves.
+        aura: baylee_core::ids::ObjectId,
+    },
     /// Choose a permanent that this player sacrifices; the chooser may be
     /// an opponent, and the choice does not target the permanent.
     SacrificeFor {
@@ -995,6 +1001,9 @@ pub enum TargetPrompt {
     /// convoke (CR 702.51a), artifacts and creatures for a paid waterbend
     /// (CR 701.67a). `options` says which.
     Convoke,
+    /// Choose what a permanent enters as a copy of (CR 614.12a):
+    /// a choice, not a target (Vesuvan Doppelganger's "any creature").
+    CopyOf,
 }
 
 /// What a [`Pending::YesNo`] asks.

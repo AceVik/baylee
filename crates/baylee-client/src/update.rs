@@ -803,10 +803,11 @@ pub(crate) fn menu_line(
 /// compiled in.
 pub(crate) fn controls(
     commands: &mut Commands,
-    fonts: &UiFonts,
+    kit: crate::shellkit::controls::Kit,
     metrics: Metrics,
     lang: Lang,
 ) -> Option<Entity> {
+    let fonts = kit.fonts;
     if cfg!(any(
         target_arch = "wasm32",
         target_os = "android",
@@ -840,7 +841,7 @@ pub(crate) fn controls(
             Readout::Install,
         ),
     ] {
-        let line = switch_line(commands, fonts, metrics, lang, switch);
+        let line = switch_line(commands, kit, metrics, lang, switch);
         commands.entity(root).add_child(line);
     }
     let line = lobby::row(commands, metrics, true);
@@ -880,14 +881,17 @@ pub(crate) fn controls(
     Some(root)
 }
 
-/// One of the two switches: its label and why, and the button showing it.
+/// One of the two switches: its label and why, and the kit's toggle, as
+/// every other settings section draws a switch (beta.6: it was a boxed
+/// "on").
 fn switch_line(
     commands: &mut Commands,
-    fonts: &UiFonts,
+    kit: crate::shellkit::controls::Kit,
     metrics: Metrics,
     lang: Lang,
     (label, why, action, readout): (Phrase, Phrase, UpdateButton, Readout),
 ) -> Entity {
+    let fonts = kit.fonts;
     let line = lobby::row(commands, metrics, false);
     let words = commands
         .spawn((
@@ -912,15 +916,7 @@ fn switch_line(
         ))
         .id();
     let stop = update_stop(&action);
-    let switch = our_button(commands, fonts, metrics, "", action);
-    commands.entity(switch).insert(stop);
-    commands.entity(switch).with_child((
-        Text::new(Phrase::SwitchOn.text(lang)),
-        tf(fonts, metrics.text),
-        TextColor(palette::INK),
-        readout,
-        Pickable::IGNORE,
-    ));
+    let switch = crate::shellkit::controls::toggle(commands, kit, true, (action, stop, readout));
     commands.entity(line).add_children(&[words, switch]);
     line
 }
@@ -982,21 +978,27 @@ fn show_settings(
     notice: Res<UpdateNotice>,
     settings: Option<Res<ClientSettings>>,
     mut texts: Query<(&mut Text, &Readout)>,
+    switches: Query<(&Readout, &Children), Without<Text>>,
+    mut toggles: Query<&mut crate::shellkit::controls::ToggleMotion>,
 ) {
-    let lang = settings.map_or(Lang::En, |s| Lang::of(&s.lang));
-    let switch = |on: bool| {
-        if on {
-            Phrase::SwitchOn
-        } else {
-            Phrase::SwitchOff
+    for (readout, children) in &switches {
+        let on = match readout {
+            Readout::Check => prefs.check,
+            Readout::Install => prefs.install,
+            Readout::Status => continue,
+        };
+        for child in children {
+            if let Ok(mut motion) = toggles.get_mut(*child)
+                && motion.on != on
+            {
+                motion.on = on;
+            }
         }
-        .text(lang)
-        .to_owned()
-    };
+    }
+    let lang = settings.map_or(Lang::En, |s| Lang::of(&s.lang));
     for (mut text, readout) in &mut texts {
         let value = match readout {
-            Readout::Check => switch(prefs.check),
-            Readout::Install => switch(prefs.install),
+            Readout::Check | Readout::Install => continue,
             Readout::Status => match notice.asked {
                 None => String::new(),
                 Some(Asked::Checking) => Phrase::UpdateChecking.text(lang).to_owned(),
