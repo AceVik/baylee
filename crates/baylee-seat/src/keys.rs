@@ -16,17 +16,30 @@
 //! changes its mind mid-game find the new profile's key, and a bridge
 //! started from a terminal use the key the client kept.
 
-use baylee_client_core::llmseat::keys::{KeyEntry, KeyStore, MemoryKeys, SERVICE, STORE_ENV};
+use baylee_client_core::llmseat::keys::{
+    FILE_STORE_PREFIX, FileKeys, KeyEntry, KeyStore, MemoryKeys, SERVICE, STORE_ENV,
+};
 use std::sync::Arc;
 
 /// The store this machine has, unless `env` turns it off ([`STORE_ENV`]
 /// `off`): the one the bridge and `baylee-seat key` open.
 #[must_use]
 pub fn store(env: &dyn Fn(&str) -> Option<String>) -> Arc<dyn KeyStore> {
-    if env(STORE_ENV).is_some_and(|v| v.trim() == "off") {
+    let chosen = env(STORE_ENV);
+    let chosen = chosen.as_deref().map(str::trim);
+    if chosen == Some("off") {
         return Arc::new(MemoryKeys::unavailable(&format!(
             "{STORE_ENV}=off: keys come from the environment only"
         )));
+    }
+    // A directory store, for a server with no session bus (a seat agent's).
+    if let Some(dir) = chosen.and_then(|v| v.strip_prefix(FILE_STORE_PREFIX)) {
+        if dir.is_empty() {
+            return Arc::new(MemoryKeys::unavailable(&format!(
+                "{STORE_ENV}=file: names no directory"
+            )));
+        }
+        return Arc::new(FileKeys::new(dir));
     }
     os()
 }

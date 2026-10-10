@@ -28,6 +28,7 @@
 //! [`bridge::play`] runs them all against a gateway.
 
 pub mod bridge;
+pub mod canary;
 pub mod cli;
 pub mod config;
 pub mod deck;

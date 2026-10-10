@@ -515,7 +515,17 @@ pub fn prefix(context: &GameContext, deck_text: DeckText) -> String {
             (Some(a), Some(b)) if a == b => "your teammate",
             _ => "opponent",
         };
-        let _ = writeln!(out, "P{} is «{name}», {side}.", seat + 1);
+        // A hosted seat knows nobody's name (`BridgeConfig::pseudonymous`).
+        if name.is_empty() {
+            let side = if side == "opponent" {
+                "an opponent"
+            } else {
+                side
+            };
+            let _ = writeln!(out, "P{} is {side}.", seat + 1);
+        } else {
+            let _ = writeln!(out, "P{} is «{name}», {side}.", seat + 1);
+        }
     }
     if let Some(secs) = context.decision_secs {
         let _ = writeln!(out, "The table gives each decision {secs} seconds.");
