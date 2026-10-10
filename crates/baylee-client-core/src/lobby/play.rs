@@ -5,7 +5,7 @@
 
 use super::{GameMode, GameSummary, Lobby, LobbyRequest, SeatKind};
 use crate::i18n::{Lang, Phrase};
-use baylee_core::preset::{RoomSeatSetup, RoomSetup};
+use baylee_core::preset::{RoomSeatSetup, RoomSetup, TableFormat};
 use serde::Deserialize;
 
 /// One clock a room may be opened at, as `GET /auth/config` lists them.
@@ -37,27 +37,58 @@ pub struct TableClock {
     pub reconnect_secs: u32,
 }
 
-/// The five clocks a client of this build knows by name, with their
-/// labels, used when the gateway has not said (an older one) — the same
-/// five `GET /auth/config` lists today, the default (`classic`, three
-/// minutes) first.
+/// The clocks a client of this build knows by name, used when the gateway
+/// has not said (an older one): the ones `GET /auth/config` lists today, in
+/// its order — the default (`classic`, three minutes) first, then fifteen
+/// seconds to an hour, then `untimed` (owner, 10.10.2026).
 #[must_use]
 pub fn known_clocks() -> Vec<ClockPreset> {
     [
-        ("classic", 180, 60),
-        ("casual", 600, 60),
-        ("standard", 120, 60),
-        ("blitz", 30, 30),
-        ("untimed", 0, 60),
+        ("classic", 180),
+        ("bullet", 15),
+        ("blitz", 30),
+        ("rapid", 45),
+        ("quick", 60),
+        ("brisk", 90),
+        ("standard", 120),
+        ("relaxed", 300),
+        ("casual", 600),
+        ("leisurely", 900),
+        ("patient", 1200),
+        ("unhurried", 1800),
+        ("marathon", 3600),
+        ("untimed", 0),
     ]
     .into_iter()
-    .map(|(name, decide, reconnect)| ClockPreset {
+    .map(|(name, decide)| ClockPreset {
         name: name.to_string(),
         decide_secs: decide,
-        reconnect_secs: reconnect,
+        reconnect_secs: 60,
         blurb: String::new(),
     })
     .collect()
+}
+
+/// A clock's name and help line in this client's words, by its wire name;
+/// `None` for one it does not know.
+fn clock_words(name: &str) -> Option<(Phrase, Phrase)> {
+    Some(match name {
+        "classic" => (Phrase::ClockClassic, Phrase::ClockClassicHelp),
+        "bullet" => (Phrase::ClockBullet, Phrase::ClockBulletHelp),
+        "blitz" => (Phrase::ClockBlitz, Phrase::ClockBlitzHelp),
+        "rapid" => (Phrase::ClockRapid, Phrase::ClockRapidHelp),
+        "quick" => (Phrase::ClockQuick, Phrase::ClockQuickHelp),
+        "brisk" => (Phrase::ClockBrisk, Phrase::ClockBriskHelp),
+        "standard" => (Phrase::ClockStandard, Phrase::ClockStandardHelp),
+        "relaxed" => (Phrase::ClockRelaxed, Phrase::ClockRelaxedHelp),
+        "casual" => (Phrase::ClockCasual, Phrase::ClockCasualHelp),
+        "leisurely" => (Phrase::ClockLeisurely, Phrase::ClockLeisurelyHelp),
+        "patient" => (Phrase::ClockPatient, Phrase::ClockPatientHelp),
+        "unhurried" => (Phrase::ClockUnhurried, Phrase::ClockUnhurriedHelp),
+        "marathon" => (Phrase::ClockMarathon, Phrase::ClockMarathonHelp),
+        "untimed" => (Phrase::ClockUntimed, Phrase::ClockUntimedHelp),
+        _ => return None,
+    })
 }
 
 /// How long a decision may take, in words: "10 min", "30 s".
@@ -90,14 +121,10 @@ pub fn running_label(lang: Lang, secs: u64) -> String {
 /// the wire's word.
 #[must_use]
 pub fn clock_label(lang: Lang, clock: &ClockPreset) -> String {
-    let name = match clock.name.as_str() {
-        "classic" => Phrase::ClockClassic.text(lang),
-        "casual" => Phrase::ClockCasual.text(lang),
-        "standard" => Phrase::ClockStandard.text(lang),
-        "blitz" => Phrase::ClockBlitz.text(lang),
-        "untimed" => return Phrase::ClockUntimed.text(lang).to_string(),
-        other => other,
-    };
+    if clock.name == "untimed" {
+        return Phrase::ClockUntimed.text(lang).to_string();
+    }
+    let name = clock_words(&clock.name).map_or(clock.name.as_str(), |(name, _)| name.text(lang));
     if clock.decide_secs == 0 {
         return name.to_string();
     }
@@ -108,13 +135,23 @@ pub fn clock_label(lang: Lang, clock: &ClockPreset) -> String {
 /// gateway's blurb for one we do not.
 #[must_use]
 pub fn clock_help(lang: Lang, clock: &ClockPreset) -> String {
-    match clock.name.as_str() {
-        "classic" => Phrase::ClockClassicHelp.text(lang).to_string(),
-        "casual" => Phrase::ClockCasualHelp.text(lang).to_string(),
-        "standard" => Phrase::ClockStandardHelp.text(lang).to_string(),
-        "blitz" => Phrase::ClockBlitzHelp.text(lang).to_string(),
-        "untimed" => Phrase::ClockUntimedHelp.text(lang).to_string(),
-        _ => clock.blurb.clone(),
+    clock_words(&clock.name).map_or_else(
+        || clock.blurb.clone(),
+        |(_, help)| help.text(lang).to_string(),
+    )
+}
+
+/// Where the sheet's clock stepper lands from `at` in a list of `count`:
+/// one step `later` (slower, further down the gateway's list) or back,
+/// held at both ends. A list this long is a stepper, not a row of segments
+/// (fourteen clocks do not fit a phone's width).
+#[must_use]
+pub fn step_clock(at: usize, count: usize, later: bool) -> usize {
+    let last = count.saturating_sub(1);
+    if later {
+        (at + 1).min(last)
+    } else {
+        at.min(last).saturating_sub(1)
     }
 }
 
@@ -150,7 +187,8 @@ pub struct TableFilter {
     pub no_password: bool,
     /// Leave out tables where every other chair is the house AI.
     pub hide_ai_only: bool,
-    /// Only tables whose host brought a Commander deck.
+    /// Only tables whose host brought a Commander deck, and mixed tables,
+    /// which take one.
     pub commander: bool,
     /// Only two-chair tables.
     pub duel: bool,
@@ -234,7 +272,7 @@ impl TableFilter {
         (!self.open_seats || game.joinable())
             && (!self.no_password || !game.locked)
             && (!self.hide_ai_only || !ai_only)
-            && (!self.commander || host_format(game) == Some("commander"))
+            && (!self.commander || table_format(game).is_some_and(|f| fits(f, "commander")))
             && (!self.duel || game.seats.len() == 2)
     }
 }
@@ -248,6 +286,29 @@ pub fn host_format(game: &GameSummary) -> Option<&str> {
         .find(|s| s.host)
         .map(|s| s.format.as_str())
         .filter(|f| !f.is_empty())
+}
+
+/// The table format's word: [`MIXED`] for a mixed table, else
+/// [`host_format`]. What the list, the room's title and its rules rail say.
+#[must_use]
+pub fn table_format(game: &GameSummary) -> Option<&str> {
+    match game.setup.format {
+        TableFormat::Mixed => Some(MIXED),
+        TableFormat::Host => host_format(game),
+    }
+}
+
+/// The word [`table_format`] says for a mixed table, which
+/// [`super::shelf::format_label`] names in the player's language.
+pub const MIXED: &str = "mixed";
+
+/// Whether a deck of format `deck` fits a table of format `table`: a mixed
+/// table takes every deck, any other the decks of its own format (the room's
+/// chip and the warning before a Join, S-4). A deck that does not fit is
+/// warned about, never refused.
+#[must_use]
+pub fn fits(table: &str, deck: &str) -> bool {
+    table == MIXED || table == deck
 }
 
 /// How the tables list is ordered.
@@ -296,11 +357,11 @@ pub fn table_order(games: &[GameSummary], filter: TableFilter, sort: TableSort) 
 
 /// The line before a Join when the next game's deck does not fit the table
 /// (S-4): the host brought a deck of another format. Join still works — the
-/// room lets the player pick another deck.
+/// room lets the player pick another deck. A mixed table warns nobody.
 #[must_use]
 pub fn format_warning(lang: Lang, mine: &str, game: &GameSummary) -> Option<String> {
-    let theirs = host_format(game)?;
-    if mine.is_empty() || mine == theirs || game.seated() {
+    let theirs = table_format(game)?;
+    if mine.is_empty() || fits(theirs, mine) || game.seated() {
         return None;
     }
     Some(Phrase::PlayFormatWarning.fill(
@@ -348,7 +409,7 @@ pub struct RecentGame {
 /// How many recent games Play keeps.
 pub const RECENT_KEPT: usize = 5;
 
-/// The three starting templates of the Create-table sheet.
+/// The starting templates of the Create-table sheet: its game types.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Template {
     /// 40 life.
@@ -358,11 +419,17 @@ pub enum Template {
     Duel,
     /// 20 life, every seat starts with one of each basic land in play.
     FiveLand,
+    /// Decks of every format at one table ([`TableFormat::Mixed`]): nobody
+    /// is warned about their deck's format. 20 life for everyone, the basic
+    /// game's (CR 103.4), because no one format's number is the table's;
+    /// Adjust, or a seat's own life in the room, gives a commander deck its
+    /// 40.
+    Mixed,
 }
 
 impl Template {
     /// Every template, in the sheet's order.
-    pub const ALL: [Self; 3] = [Self::Commander, Self::Duel, Self::FiveLand];
+    pub const ALL: [Self; 4] = [Self::Commander, Self::Duel, Self::FiveLand, Self::Mixed];
 
     /// Its card's title.
     #[must_use]
@@ -371,6 +438,7 @@ impl Template {
             Self::Commander => Phrase::TemplateCommander,
             Self::Duel => Phrase::TemplateDuel,
             Self::FiveLand => Phrase::TemplateFiveLand,
+            Self::Mixed => Phrase::TemplateMixed,
         }
     }
 
@@ -379,7 +447,16 @@ impl Template {
     pub const fn life(self) -> i32 {
         match self {
             Self::Commander => 40,
-            Self::Duel | Self::FiveLand => 20,
+            Self::Duel | Self::FiveLand | Self::Mixed => 20,
+        }
+    }
+
+    /// The table format it opens.
+    #[must_use]
+    pub const fn format(self) -> TableFormat {
+        match self {
+            Self::Mixed => TableFormat::Mixed,
+            Self::Commander | Self::Duel | Self::FiveLand => TableFormat::Host,
         }
     }
 }
@@ -451,6 +528,7 @@ impl TableDraft {
             starting_life: self.life.clamp(1, 999),
             free_mulligans: self.mulligans.min(7),
             seats: Vec::new(),
+            format: self.template.format(),
         };
         if self.template == Template::FiveLand {
             setup.seats = (0..self.players)
@@ -482,6 +560,10 @@ impl TableDraft {
         if self.template == Template::FiveLand {
             line.push_str(" · ");
             line.push_str(Phrase::RulesFiveLands.text(lang));
+        }
+        if self.template == Template::Mixed {
+            line.push_str(" · ");
+            line.push_str(Phrase::RulesMixed.text(lang));
         }
         line
     }
@@ -587,9 +669,10 @@ impl Lobby {
         let draft = self.room_edit.as_ref().filter(|d| d.host)?;
         let setup = &draft.update.setup;
         let lands = !setup.seats.is_empty() && setup.seats.iter().all(|s| s.permanents.len() == 5);
-        let template = match (setup.starting_life, lands) {
-            (_, true) => Template::FiveLand,
-            (20, false) => Template::Duel,
+        let template = match (setup.format, setup.starting_life, lands) {
+            (TableFormat::Mixed, ..) => Template::Mixed,
+            (_, _, true) => Template::FiveLand,
+            (_, 20, false) => Template::Duel,
             _ => Template::Commander,
         };
         Some(TableDraft {
@@ -613,6 +696,7 @@ impl Lobby {
         update.chairs = table.players.clamp(super::MIN_CHAIRS, super::MAX_CHAIRS);
         update.setup.starting_life = table.life.clamp(1, 999);
         update.setup.free_mulligans = table.mulligans.min(7);
+        update.setup.format = table.template.format();
         update
             .setup
             .seats
@@ -774,11 +858,34 @@ mod tests {
     #[test]
     fn clock_labels_are_german_under_de_and_the_wire_s_for_an_unknown_one() {
         let clocks = known_clocks();
+        let by = |name: &str| {
+            clocks
+                .iter()
+                .find(|c| c.name == name)
+                .unwrap_or_else(|| panic!("{name}"))
+        };
         assert_eq!(clock_label(Lang::En, &clocks[0]), "classic · 3 min");
         assert_eq!(clock_label(Lang::De, &clocks[0]), "klassisch · 3 Min.");
-        assert_eq!(clock_label(Lang::De, &clocks[1]), "gemütlich · 10 Min.");
-        assert_eq!(clock_label(Lang::De, &clocks[3]), "Blitz · 30 s");
-        assert_eq!(clock_label(Lang::De, &clocks[4]), "ohne Uhr");
+        assert_eq!(clock_label(Lang::De, by("casual")), "gemütlich · 10 Min.");
+        assert_eq!(clock_label(Lang::De, by("blitz")), "Blitz · 30 s");
+        assert_eq!(clock_label(Lang::De, by("untimed")), "ohne Uhr");
+        assert_eq!(clock_label(Lang::En, by("bullet")), "bullet · 15 s");
+        assert_eq!(clock_label(Lang::En, by("brisk")), "brisk · 90 s");
+        assert_eq!(clock_label(Lang::De, by("marathon")), "Marathon · 60 Min.");
+        // Every clock this build knows is said in both languages, with a
+        // help line of its own rather than the gateway's English blurb.
+        for clock in &clocks {
+            for lang in [Lang::En, Lang::De] {
+                assert!(!clock_label(lang, clock).is_empty(), "{}", clock.name);
+                assert!(!clock_help(lang, clock).is_empty(), "{}", clock.name);
+            }
+            assert_ne!(
+                clock_help(Lang::De, clock),
+                clock_help(Lang::En, clock),
+                "{}",
+                clock.name
+            );
+        }
         let odd = ClockPreset {
             name: "glacial".into(),
             decide_secs: 1800,
@@ -818,7 +925,101 @@ mod tests {
         );
         assert_eq!(clocks[draft.clock].decide_secs, 180);
         let names: Vec<&str> = clocks.iter().map(|c| c.name.as_str()).collect();
-        assert_eq!(names, ["classic", "casual", "standard", "blitz", "untimed"]);
+        assert_eq!(
+            names,
+            [
+                "classic",
+                "bullet",
+                "blitz",
+                "rapid",
+                "quick",
+                "brisk",
+                "standard",
+                "relaxed",
+                "casual",
+                "leisurely",
+                "patient",
+                "unhurried",
+                "marathon",
+                "untimed",
+            ],
+            "the gateway's list, in its order (`clock::PRESETS`)"
+        );
+    }
+
+    /// Fourteen clocks are a stepper, and it stops at both ends.
+    #[test]
+    fn the_clock_stepper_walks_the_list_and_stops_at_its_ends() {
+        let count = known_clocks().len();
+        assert_eq!(step_clock(0, count, true), 1);
+        assert_eq!(step_clock(1, count, false), 0);
+        assert_eq!(step_clock(0, count, false), 0);
+        assert_eq!(step_clock(count - 1, count, true), count - 1);
+        assert_eq!(step_clock(99, count, false), count - 2, "out of range");
+        assert_eq!(step_clock(0, 0, true), 0, "no clocks at all");
+    }
+
+    /// A mixed table (owner, 10.10.2026) is said as such, warns nobody
+    /// about their deck's format, fits every deck in the room, and passes
+    /// the Commander chip, because it takes a Commander deck.
+    #[test]
+    fn a_mixed_table_warns_nobody_and_fits_every_deck() {
+        let mut pod = table("pod", &[(SeatKind::Human, true, true, "commander")], false);
+        assert!(format_warning(Lang::En, "freeform", &pod).is_some());
+        pod.setup.format = TableFormat::Mixed;
+        assert_eq!(table_format(&pod), Some(MIXED));
+        assert_eq!(host_format(&pod), Some("commander"), "the host's is kept");
+        for mine in ["freeform", "commander", "highlander"] {
+            assert_eq!(format_warning(Lang::En, mine, &pod), None, "{mine}");
+            assert!(fits(MIXED, mine));
+        }
+        assert!(!fits("commander", "freeform"));
+        assert_eq!(super::super::shelf::format_label(Lang::En, MIXED), "Mixed");
+        assert_eq!(
+            super::super::shelf::format_label(Lang::De, MIXED),
+            "Gemischt"
+        );
+        let mut f = TableFilter::default();
+        f.toggle(Chip::Commander);
+        let mut sixty = table("sixty", &[(SeatKind::Human, true, true, "freeform")], false);
+        assert!(!f.admits(&sixty));
+        sixty.setup.format = TableFormat::Mixed;
+        assert!(f.admits(&sixty), "a mixed table takes a Commander deck");
+        // A room that predates table formats reads as it always did.
+        let old: GameSummary =
+            serde_json::from_str(r#"{"id":"g","state":"waiting","setup":{"starting_life":40}}"#)
+                .expect("row");
+        assert_eq!(old.setup.format, TableFormat::Host);
+    }
+
+    #[test]
+    fn the_mixed_template_opens_a_mixed_table_at_twenty_life() {
+        let mut d = TableDraft::default();
+        assert_eq!(d.setup().format, TableFormat::Host);
+        d.pick(Template::Mixed);
+        let setup = d.setup();
+        assert_eq!(setup.format, TableFormat::Mixed);
+        assert_eq!(setup.starting_life, 20);
+        assert!(setup.seats.is_empty());
+        assert_eq!(d.players, 4, "Mixed keeps the chairs");
+        assert_eq!(
+            d.summary(Lang::En),
+            "20 life · 1 free mulligan · decks of any format"
+        );
+        assert_eq!(Template::ALL.len(), 4);
+        for template in Template::ALL {
+            assert_ne!(
+                template.phrase().text(Lang::De),
+                "",
+                "{template:?} has a German name"
+            );
+        }
+        d.pick(Template::Duel);
+        assert_eq!(
+            d.setup().format,
+            TableFormat::Host,
+            "picking back clears it"
+        );
     }
 
     #[test]

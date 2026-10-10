@@ -141,7 +141,7 @@ async fn a_clock_nobody_offers_is_refused_and_says_what_there_is() {
         http(port, "POST", "/lobby/games", Some(&token), &body)
     };
 
-    let (status, body) = room(",\"clock\":\"bullet\"");
+    let (status, body) = room(",\"clock\":\"glacial\"");
     assert_eq!(status, 400, "an unknown clock: {body}");
     assert!(
         body.contains("blitz") && body.contains("casual"),
@@ -189,7 +189,22 @@ async fn the_gateway_publishes_the_clocks_it_will_accept() {
     // room screen before anybody has signed in.
     let (status, body) = http(gw.port, "GET", "/auth/config", None, "");
     assert_eq!(status, 200, "config: {body}");
-    for name in ["classic", "casual", "standard", "blitz", "untimed"] {
+    for name in [
+        "classic",
+        "bullet",
+        "blitz",
+        "rapid",
+        "quick",
+        "brisk",
+        "standard",
+        "relaxed",
+        "casual",
+        "leisurely",
+        "patient",
+        "unhurried",
+        "marathon",
+        "untimed",
+    ] {
         assert!(body.contains(name), "{name} is not offered: {body}");
     }
     // Every published clock has to be one the validator accepts, or the menu
@@ -199,6 +214,9 @@ async fn the_gateway_publishes_the_clocks_it_will_accept() {
         body.contains("\"decide_secs\":180"),
         "the default clock is not in the menu: {body}"
     );
+    // The fastest and the slowest pace the bounds allow are on the menu too.
+    assert!(body.contains("\"decide_secs\":15,"), "{body}");
+    assert!(body.contains("\"decide_secs\":3600,"), "{body}");
 }
 
 /// The room's clock reaches the *seat*, not only the engine — the whole

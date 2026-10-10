@@ -565,7 +565,7 @@ fn the_bell_rings_when_somebody_sits_down() {
 }
 
 /// `KEYBOARD.md` W2 steps 3-6: in the Create-table sheet the arrows choose
-/// along a radio group (players, template, clock), and Enter on a choice is
+/// along a radio group (players, template), and Enter on a choice is
 /// Open table.
 #[test]
 fn the_sheets_choices_are_chosen_by_the_arrows_and_enter_opens() {
