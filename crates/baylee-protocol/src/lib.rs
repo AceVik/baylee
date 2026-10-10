@@ -279,7 +279,9 @@ mod tests {
         // 22: False Orders' re-block, a `ChoicePrompt` variant likewise.
         // 23: Raging River's division prompt, a variant likewise.
         // 24: Camouflage's pile prompt, likewise.
-        assert_eq!(PROTOCOL_VERSION, 24);
+        // 26: spectators (25 is another branch's): `SpectatorsChanged`,
+        // `SpectatorFrame`, `Spectators`, `/games/{id}/watch`.
+        assert_eq!(PROTOCOL_VERSION, 26);
     }
 
     #[test]

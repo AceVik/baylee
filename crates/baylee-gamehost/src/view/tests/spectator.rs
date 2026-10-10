@@ -71,7 +71,7 @@ fn hidden_ids(state: &baylee_engine::state::GameState) -> Vec<ObjectId> {
         .players
         .iter()
         .flat_map(|p| {
-            let mut ids = state.zones.list(ZoneLocation::Hand(p.id)).to_vec();
+            let mut ids = state.zones.list(ZoneLocation::Hand(p.id)).clone();
             ids.extend(state.zones.list(ZoneLocation::Library(p.id)));
             ids
         })
@@ -218,7 +218,7 @@ fn a_teammates_shared_hand_is_a_count_to_a_spectator() {
         .state()
         .zones
         .list(ZoneLocation::Hand(PlayerId::new(0)))
-        .to_vec();
+        .clone();
     assert!(!hand.is_empty());
     let visible = ids_in(&sent.view);
     assert!(
@@ -298,7 +298,7 @@ fn a_spectator_is_never_shown_what_a_seat_is_looking_at() {
         .state()
         .zones
         .list(ZoneLocation::Hand(PlayerId::new(0)))
-        .to_vec();
+        .clone();
     let sent = watched(&mut session);
     let visible = ids_in(&sent.view);
     assert!(hand.iter().all(|id| !visible.contains(id)));
