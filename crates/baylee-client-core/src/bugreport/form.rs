@@ -164,9 +164,13 @@ pub struct ReportForm {
     pub preview: bool,
     /// What the last send had to leave out to fit.
     pub trimmed: Trimmed,
-    /// Whether this report carries the local game's record: ticked for
-    /// this report alone, cleared at every opening ([`Self::opened`]) and
-    /// kept nowhere else.
+    /// Whether this report carries the local game's record: for this
+    /// report alone, ticked again at every opening ([`Self::opened`]) like
+    /// every other box, and kept nowhere else. It goes only where the
+    /// player has not said "never" ([`RecordConsent::Never`]), and always
+    /// through the confirmation.
+    ///
+    /// [`RecordConsent::Never`]: super::RecordConsent::Never
     pub send_record: bool,
     /// Whether the confirmation is up ([`Self::needs_confirmation`]).
     pub confirming: bool,
@@ -215,11 +219,11 @@ impl ReportForm {
         self.chars() > MAX_TEXT_CHARS
     }
 
-    /// The form was opened: the record's box starts unticked and no
+    /// The form was opened: the record's box starts ticked and no
     /// confirmation is up, whatever the last opening left. What was typed
     /// stays.
     pub fn opened(&mut self) {
-        self.send_record = false;
+        self.send_record = true;
         self.confirming = false;
     }
 
@@ -413,7 +417,7 @@ impl ReportForm {
                 self.text.clear();
                 self.picked.clear();
                 self.preview = false;
-                self.send_record = false;
+                self.send_record = true;
                 self.status = Status::Sent(id);
             }
             Outcome::Refused(refusal) => self.status = Status::Failed(refusal),
@@ -854,7 +858,7 @@ mod tests {
             }),
             ..Gathered::default()
         };
-        let mut consent = Consent::default();
+        let mut consent = Consent::nothing();
         let form = form("hello");
         let without = form.preview_text(&gathered, &consent, Via::Gateway);
         assert!(without.contains("9.9.9") && without.contains("hello"));
@@ -877,15 +881,16 @@ mod tests {
 
     const DEVICE: &str = "0123456789abcdef0123456789abcdef";
 
-    /// The record's yes is this report's alone: every opening clears it,
-    /// and so does a received report.
+    /// The record's box is this report's alone: every opening ticks it
+    /// again, whatever the last one left, and so does a received report;
+    /// a record still goes only through the confirmation.
     #[test]
-    fn the_records_box_is_unticked_at_every_opening() {
+    fn the_records_box_is_ticked_at_every_opening() {
         let mut form = form("it broke");
-        form.send_record = true;
+        form.send_record = false;
         form.confirming = true;
         form.opened();
-        assert!(!form.send_record && !form.confirming);
+        assert!(form.send_record && !form.confirming);
         assert_eq!(form.text.text(), "it broke", "the words stay");
 
         form.send_record = true;
@@ -894,10 +899,7 @@ mod tests {
         form.prepare(&local(), &Consent::default(), &[], Via::Gateway)
             .expect("confirmed");
         form.answered(201, r#"{"report_id":"r-1"}"#);
-        assert!(
-            !form.send_record,
-            "a sent record is not offered as sent again"
-        );
+        assert!(form.send_record, "the next report starts ticked again");
     }
 
     /// A report carrying a record, and any report straight to the service,

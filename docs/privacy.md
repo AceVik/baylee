@@ -642,8 +642,10 @@ report once it has it is theirs to describe.
   text, and a name the player typed goes as typed. `#` offers only cards
   the seat's own view shows face up outside other players' hands
   (`bugreport::refs`), so no reference can name a hidden card.
-- **What, if ticked** (one box each, `bugreport::Category`, all off until
-  the player ticks them):
+- **What, if ticked** (one box each, `bugreport::Category`; since
+  10.10.2026 every box starts ticked on a device that holds no answer yet
+  (owner), and the player unticks what should stay home; nothing leaves
+  before Send, and "Show what is sent" shows every byte):
   - *System and hardware:* platform (OS/architecture), logical CPU count,
     graphics adapter and backend, window size and scale, interface
     language.
@@ -658,13 +660,17 @@ report once it has it is theirs to describe.
     the number (not the addresses) of saved gateways, and the account's
     preferences (key bindings, standing answers, automation). Never the
     username, a gateway address or a token.
-  - *Screenshot:* a PNG of the window as it was when the form opened, at
-    most 1280 pixels wide. It shows whatever was on screen, which can
-    include other players' names; the box says so. Native builds only.
-- **The record of a game hosted here**, only when the player ticks
-  "Attach the whole record of this game" for this one report: the box
-  starts unticked at every opening of the form and the yes is kept
-  nowhere. Its sentence says what it is: every move from the shuffle on,
+  - *Picture of the Baylee window* (`Category::Screenshot`): a PNG of the
+    client's own window as it was when the form opened (Bevy's
+    `Screenshot::primary_window`, the frame the client rendered), at most
+    1280 pixels wide. Never the desktop, other programs or other windows;
+    the box says so. It can include other players' names; the box says
+    that too. Native builds only.
+- **The record of a game hosted here**, only when "Attach the whole
+  record of this game" is ticked for this one report: the box starts
+  ticked at every opening of the form (owner, 10.10.2026), a report
+  carrying it always goes through the confirmation that names it, and the
+  answer is kept nowhere. Its sentence says what it is: every move from the shuffle on,
   so every seat's cards, hidden ones too (hands, libraries, face-down
   cards), and no name. "Never offer to attach a game's record" is the one
   standing answer (`RecordConsent::Never`, per device). Sent gzipped, at
