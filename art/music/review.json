@@ -8,8 +8,8 @@
     "original441: original PCM, cubic playback"
   ],
   "output_rate": 48000,
-  "focused_music_tests": 29,
-  "strict_native_clippy": "passed before final quality pass",
+  "focused_music_tests": 31,
+  "strict_native_clippy": "passed on final bank implementation, all targets, dev-control, -D warnings",
   "rounds": [
     {
       "round": "round1",
@@ -78,6 +78,161 @@
           "tour_complete": true
         }
       ]
+    },
+    {
+      "round": "final",
+      "renders": 90,
+      "movement_seconds": 180,
+      "peak": 0.5298165678977966,
+      "max_step": 0.08397919684648514,
+      "suites": [
+        {
+          "theme": "ember",
+          "peak": 0.5298165678977966,
+          "tour_complete": true
+        },
+        {
+          "theme": "glass",
+          "peak": 0.4832629859447479,
+          "tour_complete": true
+        },
+        {
+          "theme": "thorn",
+          "peak": 0.4867551326751709,
+          "tour_complete": true
+        },
+        {
+          "theme": "tide",
+          "peak": 0.4655444622039795,
+          "tour_complete": true
+        },
+        {
+          "theme": "star",
+          "peak": 0.4540741741657257,
+          "tour_complete": true
+        }
+      ]
     }
-  ]
+  ],
+  "client_core_and_client_tests": {
+    "passed": 3220,
+    "ignored": 8,
+    "failed": 0,
+    "scope": "all targets, dev-control; before final bank pruning, followed by 31 focused music tests"
+  },
+  "active_pcm_bytes": 6595212,
+  "historical_pcm_bytes": 19577282,
+  "decoded_original_bytes": 13190424,
+  "studio_cache_bytes": 36730796,
+  "studio_cached_pitches": 135,
+  "benchmark": {
+    "audio_seconds": 150,
+    "baseline_seconds": [
+      0.92602,
+      0.922102,
+      0.924704
+    ],
+    "baseline_median": 0.924704,
+    "prepare_seconds": 0.232756,
+    "profile": "ci-release",
+    "scope": "End-to-end runtime, including changed faster compositions. Preparation and file I/O excluded from render timing.",
+    "Studio48": {
+      "seconds": [
+        0.538377,
+        0.533976,
+        0.532617
+      ],
+      "median": 0.533976,
+      "reduction_percent": 42.25438626847078
+    },
+    "Original441": {
+      "seconds": [
+        0.582915,
+        0.579742,
+        0.581438
+      ],
+      "median": 0.581438,
+      "reduction_percent": 37.12171678720975
+    }
+  },
+  "reference_analysis": {
+    "scope": "Only duration, level envelope and spectral statistics; no audio copied or melody transcribed. Not a listening review.",
+    "files": [
+      {
+        "reference": "01-Risen Title Theme.mp3",
+        "duration": 54.52,
+        "source_rate": 44100,
+        "rms_db": -13.756603240966797,
+        "one_second_level_10_90_percentiles_db": [
+          -24.46903896331787,
+          -10.325649070739745
+        ],
+        "centroid_median_hz": 1333.6908959671964,
+        "eight_second_rms_db": [
+          -17.89,
+          -16.14,
+          -11.96,
+          -12.23,
+          -10.94,
+          -13.82,
+          -29.53
+        ]
+      },
+      {
+        "reference": "06-The Harbor City.mp3",
+        "duration": 143.72,
+        "source_rate": 44100,
+        "rms_db": -11.906805992126465,
+        "one_second_level_10_90_percentiles_db": [
+          -23.774923706054686,
+          -7.793374633789063
+        ],
+        "centroid_median_hz": 1081.5218001482233,
+        "eight_second_rms_db": [
+          -10.11,
+          -8.31,
+          -10.53,
+          -9.35,
+          -13.58,
+          -14.84,
+          -14.77,
+          -11.08,
+          -9.54,
+          -10.71,
+          -11.61,
+          -11.54,
+          -10.61,
+          -12.41,
+          -17.04,
+          -21.34,
+          -18.71,
+          -39.41
+        ]
+      }
+    ]
+  },
+  "native_build": "passed; existing macOS debug-linker unwind-table warning",
+  "wasm_check": "passed; two existing tableseats.rs dead-code warnings",
+  "native_settings": {
+    "selection_and_persistence_combinations": 10,
+    "live_preview_requests": 80,
+    "screenshots": [
+      [
+        1440,
+        1000
+      ],
+      [
+        900,
+        850
+      ]
+    ],
+    "keyboard": "Tab from theme enters sample-bank row; Right moves focus, Enter selects Original441; Studio restored",
+    "invalid_bank": "rejected"
+  },
+  "production_binary_audit": {
+    "included_pcm_signatures": 51,
+    "excluded_historical_pcm_signatures": 82,
+    "method": "96-byte interior signatures checked in the linked native executable"
+  },
+  "format_and_diff": "cargo fmt --all -- --check and git diff --check passed"
 }

@@ -66,7 +66,7 @@ fn bank_pcm_matches_the_pinned_licensed_manifest() {
         Instrument::CelloShort,
     ] {
         let family = family(instrument);
-        for def in &bank::BANK[family.first..family.first + family.len] {
+        for def in &ACTIVE[family.first..family.first + family.len] {
             let row = rows
                 .as_array()
                 .unwrap()
@@ -93,23 +93,70 @@ fn bank_pcm_matches_the_pinned_licensed_manifest() {
     }
 }
 
-
 #[test]
 fn studio_pitch_conversion_matches_a_known_sine_without_phase_steps() {
-    let pcm: Vec<u8> = (0..SOURCE_RATE).flat_map(|i| {
-        let wave = (std::f64::consts::TAU*440.0*f64::from(i)/f64::from(SOURCE_RATE)).sin()*0.4;
-        ((wave*32767.0).round() as i16).to_le_bytes()
-    }).collect();
-    let def = Def { name: "test-sine", pcm: Box::leak(pcm.into_boxed_slice()),
-        midi: 69, cents: 0.0, looped: None, kind: Kind::Pluck,
-        attack: 0.0, release: 0.1, room_send: 0.0 };
-    for pitch in [57,70,81] {
-        let clip = prepare_clip(&def,pitch);
-        let frequency = 440.0*2.0_f64.powf((f64::from(pitch)-69.0)/12.0);
-        let error = (1000..11000).map(|i| {
-            let expected = (std::f64::consts::TAU*frequency*i as f64/f64::from(RATE)).sin()*0.4;
-            (f64::from(clip.data[i])-expected).powi(2)
-        }).sum::<f64>()/10000.0;
-        assert!(error.sqrt()<0.0001, "pitch {pitch}: rms error {}", error.sqrt());
+    let pcm: Vec<u8> = (0..SOURCE_RATE)
+        .flat_map(|i| {
+            let wave =
+                (std::f64::consts::TAU * 440.0 * f64::from(i) / f64::from(SOURCE_RATE)).sin() * 0.4;
+            ((wave * 32767.0).round() as i16).to_le_bytes()
+        })
+        .collect();
+    let def = Def {
+        name: "test-sine",
+        pcm: Box::leak(pcm.into_boxed_slice()),
+        midi: 69,
+        cents: 0.0,
+        looped: None,
+        kind: Kind::Pluck,
+        attack: 0.0,
+        release: 0.1,
+        room_send: 0.0,
+    };
+    for pitch in [57, 70, 81] {
+        let clip = prepare_clip(&def, pitch);
+        let frequency = 440.0 * 2.0_f64.powf((f64::from(pitch) - 69.0) / 12.0);
+        let error = (1000..11000)
+            .map(|i| {
+                let expected =
+                    (std::f64::consts::TAU * frequency * i as f64 / f64::from(RATE)).sin() * 0.4;
+                (f64::from(clip.data[i]) - expected).powi(2)
+            })
+            .sum::<f64>()
+            / 10000.0;
+        assert!(
+            error.sqrt() < 0.0001,
+            "pitch {pitch}: rms error {}",
+            error.sqrt()
+        );
+    }
+}
+
+#[test]
+fn only_the_active_palette_is_embedded_and_decoded() {
+    let bytes: usize = ACTIVE.iter().map(|def| def.pcm.len()).sum();
+    let historical: usize = bank::BANK.iter().map(|def| def.pcm.len()).sum();
+    eprintln!(
+        "active PCM: {bytes} bytes / historical {historical}; decoded {} bytes",
+        bytes * 2
+    );
+    assert_eq!(ACTIVE.len(), 51);
+    assert!(bytes < historical / 2);
+    assert_eq!(
+        originals().iter().map(|pcm| pcm.len() * 4).sum::<usize>(),
+        bytes * 2
+    );
+    for (source, selected) in SOURCES.iter().zip(FAMILIES_BY_SOURCE) {
+        assert_eq!(source.len, selected.len);
+        for i in 0..source.len {
+            assert_eq!(
+                bank::BANK[source.first + i].name,
+                ACTIVE[selected.first + i].name
+            );
+            assert_eq!(
+                bank::BANK[source.first + i].pcm,
+                ACTIVE[selected.first + i].pcm
+            );
+        }
     }
 }

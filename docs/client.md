@@ -7236,6 +7236,8 @@ and trombone retain their recorded articulation; lyre is our own string model.
 The continuous output device runs at 48 kHz in both cases. Bank changes affect
 new notes on the next pulse and preserve held notes, position and room tails.
 
+Only the 51 active recordings enter the runtime bank (6.6 MB of PCM, selected
+at compile time without modifying the historical generated manifest).
 Only pitches actually used by the score are cached for Studio; only used
 families are decoded for Original. Preparation happens before the audio player
 starts, never at a scene or bank change. Polyphony and event arrays are bounded;

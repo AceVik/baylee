@@ -37,6 +37,14 @@ The benchmark prepares outside the timed render, runs 150 seconds of combat
 music three times per bank and reports preparation separately. It has no file
 I/O in the timed section. Comparisons include the changed score's workload.
 
+Measured on this Mac, optimized `ci-release`, three runs: median 0.534 seconds
+(Studio) / 0.581 seconds (Original) for 150 seconds of music, versus 0.925
+seconds for the earlier model score. These are whole-score comparisons, not
+isolated resampler benchmarks. Preparation: 0.233 seconds. The active PCM
+payload is 6,595,212 bytes, selected at compile time from the historical
+19,577,282-byte bank; decoded Original PCM is 13,190,424 bytes, and 135 cached
+Studio pitches occupy 36,730,796 bytes. No additional sound files are fetched.
+
 Live development preview (no change to saved settings):
 
 ```sh
@@ -54,7 +62,13 @@ old volume/theme settings when the new bank field is absent.
 
 The environment does not accept audio input: reviews use score inspection,
 signal analysis and runtime tests, **not a claimed subjective listening pass**.
-The local audition page supplies both banks and the successive render rounds.
+Three rounds per suite/bank were rendered: 16-second sketches, 64-second
+balance checks, and 180-second complete-form excerpts, each with transition
+tours. Round two removed always-on saturation and softened psaltery transients;
+round three distinguished the harbour motif further and interpolated sinc
+phases to suppress conversion steps. The final 90 files peak below 0.530;
+all ten tours retain the promptly dismissed draw cue.
+The local audition page supplies both banks and all three render rounds.
 `review.json` records actual checks and measurements. The old model-only audit
 is retained as `review-models.json`, with its original scope/date.
 

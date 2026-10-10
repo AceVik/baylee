@@ -1,7 +1,7 @@
 //! Five original suites in B♭ Dorian, performed by one persistent orchestra.
 //! Composition is in `manuscript`; arranging is a pure, bounded note scheduler.
 //! Scene/theme changes are admitted on the next
-//! eighth (about 0.2–0.53 seconds). Result cues finish before leaving the result.
+//! eighth (about 0.18–0.35 seconds). Result cues finish before leaving the result.
 #![allow(
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,

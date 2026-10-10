@@ -26,6 +26,7 @@ pub(in crate::music) enum Kind {
 }
 /// ABI retained for the historical, generated bank. Metadata also serves audits.
 #[allow(dead_code)]
+#[derive(Clone, Copy)]
 pub(in crate::music) struct Def {
     pub name: &'static str,
     pub pcm: &'static [u8],
@@ -42,27 +43,74 @@ pub(in crate::music) struct Family {
     pub first: usize,
     pub len: usize,
 }
+// Select at compile time: unused historical drums, organs, pipes and winds
+// never become references in the runtime bank or its binary payload.
+const SOURCES: [Family; 10] = [
+    bank::HARP,
+    bank::PSALTERY,
+    bank::VIOLIN,
+    bank::VIOLAS,
+    bank::CELLO,
+    bank::CONTRABASS,
+    bank::TROMBONE,
+    bank::VIOLINS_SPIC,
+    bank::VIOLAS_SPIC,
+    bank::CELLOS_SPIC,
+];
+const ACTIVE: [Def; 51] = {
+    let mut selected = [bank::BANK[0]; 51];
+    let mut family = 0;
+    let mut count = 0;
+    while family < SOURCES.len() {
+        let source = SOURCES[family];
+        let mut note = 0;
+        while note < source.len {
+            selected[count] = bank::BANK[source.first + note];
+            note += 1;
+            count += 1;
+        }
+        family += 1;
+    }
+    assert!(count == selected.len());
+    selected
+};
+const FAMILIES_BY_SOURCE: [Family; 10] = {
+    let mut families = [Family { first: 0, len: 0 }; 10];
+    let mut i = 0;
+    let mut first = 0;
+    while i < families.len() {
+        families[i] = Family {
+            first,
+            len: SOURCES[i].len,
+        };
+        first += SOURCES[i].len;
+        i += 1;
+    }
+    families
+};
+
 impl Family {
     fn nearest(self, pitch: u8) -> usize {
         (self.first..self.first + self.len)
-            .min_by_key(|&i| bank::BANK[i].midi.abs_diff(pitch))
+            .min_by_key(|&i| ACTIVE[i].midi.abs_diff(pitch))
             .expect("nonempty family")
     }
 }
 fn family(instrument: Instrument) -> Family {
-    match instrument {
-        Instrument::Harp | Instrument::Lyre => bank::HARP,
-        Instrument::Zither => bank::PSALTERY,
-        Instrument::Violin => bank::VIOLIN,
-        Instrument::Viola => bank::VIOLAS,
-        Instrument::Cello => bank::CELLO,
-        Instrument::Bass => bank::CONTRABASS,
-        Instrument::Trombone => bank::TROMBONE,
-        Instrument::ViolinShort => bank::VIOLINS_SPIC,
-        Instrument::ViolaShort => bank::VIOLAS_SPIC,
-        Instrument::CelloShort => bank::CELLOS_SPIC,
-    }
+    FAMILIES_BY_SOURCE[match instrument {
+        Instrument::Harp | Instrument::Lyre => 0,
+        Instrument::Zither => 1,
+        Instrument::Violin => 2,
+        Instrument::Viola => 3,
+        Instrument::Cello => 4,
+        Instrument::Bass => 5,
+        Instrument::Trombone => 6,
+        Instrument::ViolinShort => 7,
+        Instrument::ViolaShort => 8,
+        Instrument::CelloShort => 9,
+    }]
 }
+
 fn key(instrument: Instrument, pitch: u8) -> usize {
     instrument as usize * PITCHES + usize::from(pitch.clamp(LOW, 88) - LOW)
 }
@@ -131,8 +179,8 @@ fn prepare_clip(def: &Def, pitch: u8) -> Clip {
         data.push(
             samples
                 .iter()
-                .zip(kernels[phase].iter().zip(kernels[phase+1].iter()))
-                .map(|(sample, (left,right))| sample * (left + (right-left)*blend))
+                .zip(kernels[phase].iter().zip(kernels[phase + 1].iter()))
+                .map(|(sample, (left, right))| sample * (left + (right - left) * blend))
                 .sum(),
         );
     }
@@ -190,7 +238,7 @@ fn clips() -> &'static [Option<Clip>] {
                 needed.then(|| {
                     let pitch = LOW + (i % PITCHES) as u8;
                     prepare_clip(
-                        &bank::BANK[family(instruments[i / PITCHES]).nearest(pitch)],
+                        &ACTIVE[family(instruments[i / PITCHES]).nearest(pitch)],
                         pitch,
                     )
                 })
@@ -204,34 +252,16 @@ pub(super) fn prepare() {
 }
 
 /// Decode only the ten used acoustic families, once, outside playback.
-fn originals() -> &'static [Option<Box<[f32]>>] {
-    static ORIGINALS: OnceLock<Vec<Option<Box<[f32]>>>> = OnceLock::new();
+fn originals() -> &'static [Box<[f32]>] {
+    static ORIGINALS: OnceLock<Vec<Box<[f32]>>> = OnceLock::new();
     ORIGINALS.get_or_init(|| {
-        let families = [
-            bank::HARP,
-            bank::PSALTERY,
-            bank::VIOLIN,
-            bank::VIOLAS,
-            bank::CELLO,
-            bank::CONTRABASS,
-            bank::TROMBONE,
-            bank::VIOLINS_SPIC,
-            bank::VIOLAS_SPIC,
-            bank::CELLOS_SPIC,
-        ];
-        bank::BANK
+        ACTIVE
             .iter()
-            .enumerate()
-            .map(|(i, def)| {
-                families
-                    .iter()
-                    .any(|f| (f.first..f.first + f.len).contains(&i))
-                    .then(|| {
-                        (0..def.pcm.len() / 2)
-                            .map(|frame| decode(def, frame))
-                            .collect::<Vec<_>>()
-                            .into_boxed_slice()
-                    })
+            .map(|def| {
+                (0..def.pcm.len() / 2)
+                    .map(|frame| decode(def, frame))
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice()
             })
             .collect()
     })
@@ -338,7 +368,7 @@ impl Voice {
         samples: SampleSet,
     ) -> Self {
         let sample = family(instrument).nearest(pitch);
-        let def = &bank::BANK[sample];
+        let def = &ACTIVE[sample];
         let reader = if samples == SampleSet::Studio48 {
             clips()[key(instrument, pitch)]
                 .as_ref()
@@ -348,9 +378,7 @@ impl Voice {
         }
         .unwrap_or_else(|| Reader::Original {
             def,
-            raw: originals()[sample]
-                .as_ref()
-                .expect("used family is decoded"),
+            raw: &originals()[sample],
             at: 0.0,
             step: rate(def, pitch),
         });
