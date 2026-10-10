@@ -82,7 +82,7 @@ struct Clip {
 }
 fn kernel(step: f64) -> Vec<[f32; TAPS]> {
     let cutoff = 0.94 / step.max(1.0);
-    (0..PHASES)
+    (0..=PHASES)
         .map(|phase| {
             let mut row = [0.0; TAPS];
             for (tap, value) in row.iter_mut().enumerate() {
@@ -124,13 +124,15 @@ fn prepare_clip(def: &Def, pitch: u8) -> Clip {
     for i in 0..length {
         let position = i as f64 * step;
         let at = position as usize;
-        let phase = ((position - at as f64) * PHASES as f64) as usize;
+        let exact_phase = (position - at as f64) * PHASES as f64;
+        let phase = exact_phase as usize;
+        let blend = (exact_phase - phase as f64) as f32;
         let samples = &padded[at..at + TAPS];
         data.push(
             samples
                 .iter()
-                .zip(kernels[phase].iter())
-                .map(|(x, k)| x * k)
+                .zip(kernels[phase].iter().zip(kernels[phase+1].iter()))
+                .map(|(sample, (left,right))| sample * (left + (right-left)*blend))
                 .sum(),
         );
     }
