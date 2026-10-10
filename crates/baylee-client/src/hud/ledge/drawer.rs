@@ -321,6 +321,15 @@ pub fn sync_drawer(
             zoom.closing = true;
             zoom.t = 0.0;
         }
+        // A folded sheet's pill has no way out to run: its question was
+        // answered (or the game moved on) while it was folded, and the
+        // filter above, which reads `folded` off the empty reading, never
+        // hands it here. It goes now, or it stands forever.
+        for kid in standing.into_iter().flatten() {
+            if pills.contains(*kid) {
+                commands.entity(*kid).despawn();
+            }
+        }
         return;
     }
 
