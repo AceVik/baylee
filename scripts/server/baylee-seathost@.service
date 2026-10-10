@@ -1,0 +1,59 @@
+# A seat agent (docs/llm-seat.md §"A hosted seat"), one instance per OS
+# user: `baylee-seathost@main.service` runs as `baylee-llm-main` with its
+# home, CLI sign-ins and key directory in /var/lib/baylee-llm/main.
+# Installed once to /etc/systemd/system/; not stopped by `baylee-deploy
+# stage` (its children are live games): restart it when no hosted game runs.
+#
+# Once per instance, as root:
+#   useradd --system --home-dir /var/lib/baylee-llm/main --create-home \
+#     --shell /usr/sbin/nologin --groups baylee baylee-llm-main
+#   chmod 0700 /var/lib/baylee-llm/main
+#   install -m 0640 -o root -g baylee-llm-main /dev/null /etc/baylee/seathost-main.env
+# and in that file:
+#   BAYLEE_SEATHOST_TOKEN=<the gateway's BAYLEE_SEATHOST_TOKEN>
+#   BAYLEE_SEATHOST_CAPACITY=4
+# A CLI is signed in as that user: sudo -u baylee-llm-main -H claude login
+[Unit]
+Description=Baylee: seat agent %i (hosted language-model seats)
+After=network-online.target baylee-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=baylee-llm-%i
+Group=baylee-llm-%i
+SupplementaryGroups=baylee
+ExecStart=/opt/baylee/bin/baylee-seathost
+EnvironmentFile=/etc/baylee/seathost-%i.env
+Environment=HOME=/var/lib/baylee-llm/%i
+Environment=BAYLEE_SEATHOST_NAME=%i
+Environment=BAYLEE_SEATHOST_STATE=/var/lib/baylee-llm/%i/state
+Environment=BAYLEE_KEY_STORE=file:/var/lib/baylee-llm/%i/keys
+Environment=BAYLEE_GATEWAY=unix:/run/baylee/gateway.sock
+Environment=BAYLEE_SEATHOST_BRIDGE_GATEWAY=http://127.0.0.1:28766
+Environment=BAYLEE_SEAT_BIN=/opt/baylee/bin/baylee-seat
+Environment=TZ=UTC
+Environment=RUST_LOG=info
+Restart=on-failure
+RestartSec=5
+# One long game may still be playing when it is told to stop.
+KillMode=mixed
+TimeoutStopSec=2h
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/baylee-llm/%i /run/baylee
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+# No MemoryDenyWriteExecute: a CLI on node needs its JIT.
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target

@@ -79,4 +79,7 @@ baylee-view.workspace = true
 # test that two of them play a whole game through this gateway. Its lobby
 # and socket code are the ones its binary runs.
 baylee-seat.workspace = true
+# A seat agent (hosted language-model seats), in process, with a launcher
+# that plays its bridges in process too.
+baylee-seathost.workspace = true
 tokio-tungstenite.workspace = true

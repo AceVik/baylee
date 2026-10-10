@@ -662,6 +662,83 @@ itself); a seat that renamed itself mid-game would need its own message
 from the gateway to the engine. A release bridge reads no orders and a release client
 draws no panel.
 
+## A hosted seat
+
+A model the *gateway's operator* runs for any registered player, on any
+platform: the bridge runs beside a **seat agent** (`baylee-seathost`) on the
+operator's machine instead of on the host's, and the host only picks it in
+the room (`docs/protocol.md` §"Hosted language-model seats" has the routes
+and frames). Everything below the choice is the bridge as this document
+describes it.
+
+- **The seat agent** dials the gateway's `/seathost/ws` with
+  `BAYLEE_SEATHOST_TOKEN` (on its unix socket when on the same machine, the
+  only way a key may be sent to it), under a stable name
+  (`BAYLEE_SEATHOST_NAME`). Several may be connected, on several machines;
+  a profile of the same id on several is one offer, and each order goes to
+  the least busy one that has room.
+- **Its profiles** are `hosted.json` in its state directory
+  (`BAYLEE_SEATHOST_STATE`): per id a label, a vendor, `enabled`, and the
+  settings file's own profile (`provider`, `model`, …: an API with a key, or
+  a CLI signed in as the seat agent's user). Optional per profile, each off
+  when absent: `max_games` (games at once), `caps` (the settings file's
+  four caps, kept in the profile's **own** spend book,
+  `spend/<id>.json`, so one profile's spend never stops another) and
+  `canary` (a paid check, below). Which profiles a seat agent runs is
+  written through the admin console (`PUT /admin/llm/seathosts/{name}/
+  profiles/{id}`), which the gateway passes to that seat agent and keeps
+  nowhere; the file may also be edited by hand, read at start. Every
+  refusal of the settings file holds: a key or key-shaped value in any
+  field refuses the profile.
+- **Keys** are in the seat agent's key store, `BAYLEE_KEY_STORE=file:<dir>`
+  (`llmseat::keys::FileKeys`: one file per entry, named as the OS store's
+  account, the directory `0700`, each file `0600`, written through a temp
+  file, and a file another user may read or owns refused rather than
+  read). The bridges it starts read the same store, as on a desktop. The
+  console may set or forget a key, write-only: it goes over the unix socket
+  into the store, and nothing ever answers it back (the listing says `kept`
+  or `absent`). `baylee-seat key set --profile <id> --config <file>` as the
+  seat agent's user does the same on the machine.
+- **A chair.** For each order the seat agent writes a settings file that
+  holds the profile alone (its caps as the file's) and starts
+  `baylee-seat join <room> --chair <n> --chair-ticket --tethered --hosted
+  --config … --profile <id> --ledger spend/<id>.json --name <label>` with
+  the gateway's chair ticket as stdin's first line. `--hosted` names no
+  player to the model: the prompt's prefix says `P2 is an opponent`, never a
+  display name, because the other players did not choose the provider. A
+  stop from the gateway closes the bridge's stdin, and a tethered bridge
+  gives its chair back.
+- **States** (reported whole on every change, never derived by the
+  gateway): `available`; `busy` (at `max_games` or the seat agent at its
+  capacity); `exhausted` until the next UTC day or month when the
+  profile's book reached a cap, or until the provider's stated time, or a
+  backoff of 5, 10, 20, 40, then 60 minutes when it named none (a good game
+  starts it over); `probing`; `needs_login` (a CLI's login check says
+  signed out; checked again hourly); `failing` (its check failed; checked
+  again hourly, and at once after any change); `disabled`.
+- **Checks.** `baylee-seat check --profile <id> --config <file>` runs the
+  bridge's free check (`Mind::check`: the model's entry, the model list, a
+  CLI's login status) and prints one JSON line, `{"ok":true}` or
+  `{"ok":false,"cause":"signed_out|limited|failing","error":…}`. With
+  `--canary` it also asks the model one real question (a colour of two on
+  an empty board, `baylee_seat::canary`), which costs a call and is the
+  only way to see a spent credit or a used-up subscription window; the
+  seat agent asks it only when an admin presses *probe* on a profile with
+  `canary: true`.
+- **Debug bridges.** A debug `baylee-seat` shows the model's reasoning to
+  the whole table (§"The AI log"); `baylee-seat --version` says `debug` or
+  `release`, and a release seat agent refuses to start with a debug bridge.
+- **Who may order one**: a host signed in to a registered account; a guest
+  is refused (`403`).
+
+Running one (`scripts/server/baylee-seathost@.service`): its own OS user
+per instance (`baylee-llm-<name>`) whose home holds the CLIs' sign-ins and
+the key directory, `BAYLEE_GATEWAY=unix:/run/baylee/gateway.sock`,
+`BAYLEE_SEATHOST_BRIDGE_GATEWAY=http://127.0.0.1:28766` (bridges speak
+HTTP), `BAYLEE_SEAT_BIN` beside it by default. On `SIGTERM` it reports
+every profile `disabled`, refuses new chairs, and exits when its bridges'
+games are over.
+
 ## A dev table
 
 `cargo run -p xtask -- dev-table --bridge profile:<name>` seats the bridge

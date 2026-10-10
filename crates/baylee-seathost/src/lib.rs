@@ -288,6 +288,12 @@ impl Host {
         self.report_all();
     }
 
+    /// Where its profiles, books and runs are.
+    #[must_use]
+    pub fn state_dir(&self) -> &Path {
+        &self.config.state_dir
+    }
+
     /// Bridges playing now.
     #[must_use]
     pub fn live(&self) -> usize {
