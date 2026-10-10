@@ -463,7 +463,6 @@ pub(in crate::hud) fn spawn_pill(
     (fold, cap): (MenuAction, Option<&str>),
     margin: UiRect,
 ) -> Entity {
-    let (_, _, ink) = PANEL_KEY;
     let pill = commands
         .spawn((
             SheetPill,
@@ -492,6 +491,23 @@ pub(in crate::hud) fn spawn_pill(
             }]),
         ))
         .id();
+    fill_pill(commands, fonts, head, picture, cap, pill);
+    pill
+}
+
+/// Writes the pill's contents into `pill` (which holds none): the source's
+/// picture, the question, the restore mark and its cap. Its own function so
+/// a pill whose reading changed while it stood is rewritten in place rather
+/// than left empty.
+pub(in crate::hud) fn fill_pill(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    head: &Head,
+    picture: Option<Handle<Image>>,
+    cap: Option<&str>,
+    pill: Entity,
+) {
+    let (_, _, ink) = PANEL_KEY;
     if let Some(source) = head.source {
         let thumb = thumbnail(commands, source.object, picture, PILL_THUMB_W, PILL_THUMB_H);
         // Inside the pill the picture is part of the press: the pill restores.
@@ -536,5 +552,4 @@ pub(in crate::hud) fn spawn_pill(
             .id();
         commands.entity(pill).add_child(legend);
     }
-    pill
 }

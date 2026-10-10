@@ -6552,7 +6552,13 @@ the card):
   (`a_fold_leaves_the_table_to_pick_on_and_the_question_standing`). The fold
   belongs to the question it was made on (`client-core::decisionfold`, keyed
   on the view's `seq`), so the next question opens unfolded; folding sends
-  nothing.
+  nothing. What hangs from the drawer is decided from its reading alone
+  (`decisionfold::reconcile`): with no question the pill goes at once and
+  an open sheet runs its way out, whatever ended the question (beta.6: a
+  resolved Path to Exile's and Swords to Plowshares's pill stood for
+  turns), and a pill whose reading changes while it stands is rewritten,
+  never left an empty blob
+  (`a_folded_pill_whose_reading_changes_keeps_its_words`).
 
 ### The creature type (08.10.2026)
 
