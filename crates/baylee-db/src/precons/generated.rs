@@ -9,6 +9,7 @@ use super::Precon;
 /// The decks the house offers, in key order.
 #[rustfmt::skip]
 pub static PLAYABLE: &[Precon] = &[
+    Precon { key: "ITP/kazz-s-second-deck", text: include_str!("../../../../data/decks/precon/ITP/kazz-s-second-deck.txt") },
     Precon { key: "ITP/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/ITP/zakk-s-first-deck.txt") },
     Precon { key: "PAST/conjurer", text: include_str!("../../../../data/decks/precon/PAST/conjurer.txt") },
     Precon { key: "PAST/forest-dragon", text: include_str!("../../../../data/decks/precon/PAST/forest-dragon.txt") },
@@ -16,8 +17,10 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "PAST/great-druid", text: include_str!("../../../../data/decks/precon/PAST/great-druid.txt") },
     Precon { key: "PAST/high-priest", text: include_str!("../../../../data/decks/precon/PAST/high-priest.txt") },
     Precon { key: "PAST/merfolk-shaman", text: include_str!("../../../../data/decks/precon/PAST/merfolk-shaman.txt") },
+    Precon { key: "PAST/nether-fiend", text: include_str!("../../../../data/decks/precon/PAST/nether-fiend.txt") },
     Precon { key: "PAST/summoner", text: include_str!("../../../../data/decks/precon/PAST/summoner.txt") },
     Precon { key: "PAST/troll-shaman", text: include_str!("../../../../data/decks/precon/PAST/troll-shaman.txt") },
     Precon { key: "PAST/winged-stallion", text: include_str!("../../../../data/decks/precon/PAST/winged-stallion.txt") },
+    Precon { key: "RQS/kazz-s-second-deck", text: include_str!("../../../../data/decks/precon/RQS/kazz-s-second-deck.txt") },
     Precon { key: "RQS/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/RQS/zakk-s-first-deck.txt") },
 ];

@@ -469,7 +469,7 @@ ISD/hold-the-line	ISD	Event Deck	2011-10-28	Hold The Line	75	no
 ISD/repel-the-dark	ISD	Intro Pack	2011-09-30	Repel the Dark	60	no
 ISD/spectral-legions	ISD	Intro Pack	2011-09-30	Spectral Legions	60	no
 ITP/kazz-s-first-deck	ITP	Intro Pack	1996-12-31	Kazz's First Deck	30	no
-ITP/kazz-s-second-deck	ITP	Intro Pack	1996-12-31	Kazz's Second Deck	30	no
+ITP/kazz-s-second-deck	ITP	Intro Pack	1996-12-31	Kazz's Second Deck	30	yes
 ITP/zakk-s-first-deck	ITP	Intro Pack	1996-12-31	Zakk's First Deck	30	yes
 ITP/zakk-s-second-deck	ITP	Intro Pack	1996-12-31	Zakk's Second Deck	30	no
 JOU/fates-foreseen	JOU	Intro Pack	2014-05-02	Fates Foreseen	60	no
@@ -838,7 +838,7 @@ PAST/mandurang	PAST	Shandalar Enemy Deck	1997-04-01	Mandurang	75	no
 PAST/merfolk-shaman	PAST	Shandalar Enemy Deck	1997-04-01	Merfolk Shaman	60	yes
 PAST/mind-stealer	PAST	Shandalar Enemy Deck	1997-04-01	Mind Stealer	66	no
 PAST/necromancer	PAST	Shandalar Enemy Deck	1997-04-01	Necromancer	63	no
-PAST/nether-fiend	PAST	Shandalar Enemy Deck	1997-04-01	Nether Fiend	64	no
+PAST/nether-fiend	PAST	Shandalar Enemy Deck	1997-04-01	Nether Fiend	64	yes
 PAST/paladin	PAST	Shandalar Enemy Deck	1997-04-01	Paladin	63	no
 PAST/priestess	PAST	Shandalar Enemy Deck	1997-04-01	Priestess	68	no
 PAST/prismat	PAST	Shandalar Enemy Deck	1997-04-01	Prismat	62	no
@@ -970,7 +970,7 @@ ROE/levelers-glory	ROE	Intro Pack	2010-04-23	Levelers' Glory	41	no
 ROE/levelers-scorn	ROE	Intro Pack	2010-04-23	Levelers Scorn	41	no
 ROE/totem-power	ROE	Intro Pack	2010-04-23	Totem Power	41	no
 RQS/kazz-s-first-deck	RQS	Intro Pack	1996-06-10	Kazz's First Deck	30	no
-RQS/kazz-s-second-deck	RQS	Intro Pack	1996-06-10	Kazz's Second Deck	26	no
+RQS/kazz-s-second-deck	RQS	Intro Pack	1996-06-10	Kazz's Second Deck	26	yes
 RQS/zakk-s-first-deck	RQS	Intro Pack	1996-06-10	Zakk's First Deck	30	yes
 RQS/zakk-s-second-deck	RQS	Intro Pack	1996-06-10	Zakk's Second Deck	26	no
 RTR/azorius-advance	RTR	Intro Pack	2012-10-05	Azorius Advance	60	no
