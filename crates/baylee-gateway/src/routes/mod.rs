@@ -18,6 +18,7 @@ mod table_view;
 mod tables;
 mod terms;
 mod tickets;
+mod watch;
 
 pub(crate) use catalog::*;
 pub(crate) use deck_lines::*;
@@ -34,3 +35,4 @@ pub(crate) use stats::*;
 pub(crate) use table_view::*;
 pub(crate) use tables::*;
 pub(crate) use tickets::*;
+pub(crate) use watch::*;

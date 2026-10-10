@@ -50,7 +50,11 @@ pub(crate) async fn game_ws(
                 })
                 .map(|s| s.seat)
                 .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?,
-            Some(wsticket::Grant::Lobby { .. } | wsticket::Grant::Chair { .. }) => {
+            Some(
+                wsticket::Grant::Lobby { .. }
+                | wsticket::Grant::Chair { .. }
+                | wsticket::Grant::Watch { .. },
+            ) => {
                 return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
             }
             None => {

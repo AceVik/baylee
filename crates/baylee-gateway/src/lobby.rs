@@ -307,6 +307,15 @@ pub struct LobbyGame {
     /// room where all of them said so and nobody could press start would be
     /// stuck for no reason anyone at the table could see.
     pub parent: Option<String>,
+    /// Whether people who hold no chair may watch the table
+    /// (`docs/protocol.md` §"Spectators"). The host's choice; on unless
+    /// they say otherwise.
+    pub allow_spectators: bool,
+    /// What the engine sends every spectator, one stream for all of them.
+    pub spectator_outbox: broadcast::Sender<Bytes>,
+    /// How many spectator sockets are open: the listing's count and the
+    /// number the seats are told.
+    pub watching: u32,
 }
 
 impl LobbyGame {
@@ -431,6 +440,9 @@ impl LobbyGame {
             next_seq: 0,
             rematch: None,
             parent: None,
+            allow_spectators: true,
+            spectator_outbox: broadcast::channel(OUTBOX_DEPTH).0,
+            watching: 0,
         }
     }
 
@@ -471,6 +483,7 @@ impl LobbyGame {
             password_hash: parent.password_hash.clone(),
             next_seq: parent.next_seq,
             parent: Some(parent.id.clone()),
+            allow_spectators: parent.allow_spectators,
             ..Self::blank(id, created_at)
         }
     }
@@ -783,6 +796,9 @@ impl Lobby {
                     // a password, and nothing else about it belongs on a
                     // listing every signed-in player can read.
                     "locked": g.password_hash.is_some(),
+                    // Whether a player may watch it, and how many do.
+                    "spectators_allowed": g.allow_spectators,
+                    "spectators": g.watching,
                     // Whether the room could start if the host said so. It is
                     // the host's button, but every player can see why it is
                     // not lit yet.

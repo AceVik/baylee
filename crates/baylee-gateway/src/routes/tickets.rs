@@ -59,6 +59,12 @@ pub(crate) enum TicketFor {
         /// The game.
         game: String,
     },
+    /// `/games/{game}/watch`, proven by the session; refused `403` at a
+    /// table that allows no spectators.
+    Watch {
+        /// The game.
+        game: String,
+    },
 }
 
 /// `POST /ws-ticket` — trade a bearer token for a ticket to open one socket
@@ -79,6 +85,22 @@ pub(crate) async fn ws_ticket(
             let bearer = bearer_token(&headers).unwrap_or_default();
             wsticket::Grant::Lobby {
                 account_id: session.account_id,
+                session: auth::token_digest(bearer),
+            }
+        }
+        TicketFor::Watch { game } => {
+            authed_session(&state, &headers).await?;
+            let bearer = bearer_token(&headers).unwrap_or_default();
+            {
+                let lobby = state.lobby.lock();
+                let table = lobby
+                    .games
+                    .get(&game)
+                    .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+                super::may_watch(table)?;
+            }
+            wsticket::Grant::Watch {
+                game_id: game,
                 session: auth::token_digest(bearer),
             }
         }

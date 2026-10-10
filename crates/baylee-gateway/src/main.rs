@@ -50,7 +50,7 @@ use routes::{
     list_games, listing, listing_page, lobby_stats, lobby_ws, own_deck, parse_deck_lines,
     put_settings, rematch, seat_names, seat_of_token, set_ready, set_seat, source, source_url,
     spend_ticket, start_room, table_prints, take_seat, try_start, validate_deck,
-    validate_the_dev_board, ws_ticket,
+    validate_the_dev_board, watch_ws, ws_ticket,
 };
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
@@ -373,6 +373,7 @@ async fn main() {
         .route("/ws-ticket", post(ws_ticket))
         .route("/lobby/ws", get(lobby_ws))
         .route("/games/{id}/ws", get(game_ws))
+        .route("/games/{id}/watch", get(watch_ws))
         .route("/games/{id}/cosmetics", get(game_cosmetics))
         // The control and engine planes. Neither carries a player's traffic
         // and neither accepts a player's token; see `engine.rs`.
