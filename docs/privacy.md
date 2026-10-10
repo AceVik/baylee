@@ -642,6 +642,10 @@ report once it has it is theirs to describe.
   text, and a name the player typed goes as typed. `#` offers only cards
   the seat's own view shows face up outside other players' hands
   (`bugreport::refs`), so no reference can name a hidden card.
+- **Every attachment starts selected (owner, 10.10.2026).** Each box below
+  and the game record's box are pre-ticked when the report form opens; the
+  player can untick any of them before pressing Send, and only what is
+  still ticked then is sent.
 - **What, if ticked** (one box each, `bugreport::Category`; since
   10.10.2026 every box starts ticked on a device that holds no answer yet
   (owner), and the player unticks what should stay home; nothing leaves

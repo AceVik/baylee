@@ -43,6 +43,12 @@ The body, frozen:
 }
 ```
 
+Every attachment a report can carry (system details, the table, the game
+log, settings, the picture of the Baylee window, and a local record) starts
+selected when the form opens (owner, 10.10.2026); the player can untick any
+of them before sending, and only what is still ticked is sent
+(`docs/privacy.md` §"Reports and crash reports").
+
 `local_record` is a game the client ran in its own process (against the
 house), which no gateway keeps a record of: the client writes the same
 JSON Lines a hosted game's engine does (`baylee_gamehost::record`) and

@@ -304,7 +304,9 @@ hold_path() {
 }
 
 place_hold() {
-    sudo install -d -m755 -o root -g root "$(dirname "$1")"
+    # Made only when missing: an existing directory (the gateway's own
+    # state, say) keeps its owner and mode.
+    [ -d "$(dirname "$1")" ] || sudo install -d -m755 -o root -g root "$(dirname "$1")"
     sudo install -m644 -o root -g root /dev/null "$1"
 }
 
