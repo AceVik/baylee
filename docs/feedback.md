@@ -363,6 +363,7 @@ route below is `401`.
 | `PATCH /ui/api/reports/{id}` | `{"status"?, "issue"?}`: `issue` a positive number links, `null` unlinks, absent leaves it; answers the report |
 | `DELETE /ui/api/reports/{id}` | `204` |
 | `GET /ui/api/facets` | `{gateways, statuses, kinds, reporters}`, each `[{"value","count"}]`; the 50 busiest reporters |
+| `GET /ui/api/stats` | `{"days": 30, "rows": [{"day", "kind", "count"}]}`: reports per UTC day and kind over the last 30 days, by day then kind, for the overview's chart of bugs and crashes; counts only |
 | `POST /ui/api/login`, `POST /ui/api/logout` | above |
 | `/ui/api/admin/…` | the admin console, below |
 
@@ -399,6 +400,9 @@ the browser never sees:
 | --- | --- |
 | `GET /ui/api/admin/stats` | the gateway's `GET /admin/stats`, as it answers |
 | `GET /ui/api/admin/live` | the gateway's `GET /admin/live` |
+| `GET /ui/api/admin/metrics` | the gateway's `GET /admin/metrics`: the last hour of server samples (`docs/protocol.md` §"The admin console") |
+| `GET /ui/api/admin/sets` | the gateway's `GET /admin/sets`: how far the pool is through each set |
+| `GET /ui/api/admin/sets/{code}` | the gateway's `GET /admin/sets/{code}`, the code lower-cased; `400` unless it is one to eight letters and digits |
 | `GET /ui/api/admin/accounts` | the gateway's `GET /admin/accounts`; the query is read into `q`, `kind`, `sort`, `online`, `offset`, `limit` and written out again (anything else `400`) |
 | `GET /ui/api/admin/accounts/{id}` | the gateway's `GET /admin/accounts/{id}`; `400` for an id that is not a UUID |
 | `GET /ui/api/admin/invites` | its keys, newest first; never a key |
