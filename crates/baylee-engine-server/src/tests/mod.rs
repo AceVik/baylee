@@ -3,6 +3,7 @@ use super::*;
 mod clocks;
 mod curtain;
 mod record;
+mod spectators;
 mod views;
 
 /// The one clock a duel with one human seat can have running.

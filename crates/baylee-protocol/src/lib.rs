@@ -13,7 +13,9 @@ pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
 /// Version 24 carries Camouflage's piles (`ChoicePrompt::CamouflagePile`).
-pub const PROTOCOL_VERSION: u32 = 24;
+/// Version 26 adds spectators (`SpectatorsChanged`, `SpectatorFrame`,
+/// `Spectators`, `/games/{id}/watch`); 25 is another branch's.
+pub const PROTOCOL_VERSION: u32 = 26;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -57,6 +59,13 @@ pub fn version_refusal(who: &str, theirs: u32) -> Option<String> {
 #[must_use]
 pub fn seat_socket_path(game_id: &str, ticket: &str) -> String {
     format!("/games/{game_id}/ws?ticket={ticket}&protocol={PROTOCOL_VERSION}")
+}
+
+/// A spectator's socket on `game_id`, opened with a ticket for
+/// `{"socket":"watch","game":"<id>"}` (`docs/protocol.md` §"Spectators").
+#[must_use]
+pub fn watch_socket_path(game_id: &str, ticket: &str) -> String {
+    format!("/games/{game_id}/watch?ticket={ticket}&protocol={PROTOCOL_VERSION}")
 }
 
 /// Where a room's host asks for a chair ticket for its seat bridge:

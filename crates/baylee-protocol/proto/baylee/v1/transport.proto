@@ -332,6 +332,25 @@ message SeatAttached {
 }
 
 // Gateway → engine: a seat's socket closed.
+// Gateway → engine: how many spectator sockets are open now. `joined` when
+// one has just opened: the engine answers with a whole spectator snapshot.
+message SpectatorsChanged {
+  uint32 count = 1;
+  bool joined = 2;
+}
+
+// Engine → gateway: one encoded player-facing Envelope for every spectator
+// of the game (the public view, its log, the end). Never decoded by the
+// gateway; nothing comes back the other way.
+message SpectatorFrame {
+  bytes envelope = 1;
+}
+
+// Engine → seat (inside a SeatFrame): how many people are watching.
+message Spectators {
+  uint32 count = 1;
+}
+
 message SeatDetached {
   uint32 seat = 1;
 }
@@ -444,6 +463,10 @@ message Envelope {
     // the game's record and shown to nobody. An engine from before it drops
     // it; no client is ever sent one.
     SeatMind seat_mind = 34;
+    // Spectators (docs/protocol.md §"Spectators", protocol 26).
+    SpectatorsChanged spectators_changed = 35;
+    SpectatorFrame spectator_frame = 36;
+    Spectators spectators = 37;
   }
 
 }
