@@ -1,24 +1,65 @@
-# Baylee's score: the sample bank and its provenance
+# Five original suites in B♭ Dorian
 
-The score is Baylee's own composition and code
-(`crates/baylee-client-core/src/music/`, AGPL-3.0-only): a modal score around
-B♭ for old instruments, performed live by one sampler and one musical clock
-(`docs/client.md` §"One orchestra follows the player"). This directory holds
-what the recordings it plays are made from and how.
+The active score is `crates/baylee-client-core/src/music/score/`: five original
+manuscripts, each arranged for all eight situations. The active orchestra uses
+**our own instrument models at native 48 kHz**, not samples. Models approximate
+harp, zither, lyre, violin, viola, cello, bowed bass and trombone; they should
+not be described as real acoustic recordings. Code/compositions follow the
+repository's AGPL-3.0-only licence. No additional sound-library terms apply.
 
-| File | What it is |
-|---|---|
-| `prepare.py` | Rebuilds the bank: downloads every recording at its pinned commit, checks its SHA-256, writes the mono 44,100 Hz PCM16 files under `crates/baylee-client-core/assets/orchestra/`, this `samples.json`, and the generated table `crates/baylee-client-core/src/music/bank.rs`. |
-| `samples.json` | One row per shipped recording: source, path, revision, the original's SHA-256 and size, how it was made mono, its measured pitch and cents, the loop, attack/release/room, and the prepared PCM's SHA-256. |
-| `avoid.json` | The openings of tunes the score must not echo, as directed semitone intervals, each with its source and whether it was read from a fetched public-domain notation. |
-| `originality.py` | The composer's check: every melody against every opening, six shared intervals in a row fail. The test `no_melody_echoes_a_tune_we_must_not` runs the same check in CI. |
-
-Rebuild (needs numpy and ffmpeg; from the repository root):
+## Audition
 
 ```sh
-uv run --with numpy python3 art/music/prepare.py
+cargo run --release -p baylee-client-core --example music_demo -- /tmp/baylee-dorian 180
 python3 art/music/originality.py
 ```
+
+Forty PCM24 stereo WAVs, five off-beat transition tours, and a JSON measurement
+report come from the exact runtime renderer, before the client's master gain
+and cue ducking. Native rate is 48,000 Hz. `ember`, `glass`, `thorn`, `tide`,
+`star` correspond to Glutpfad, Mondglas, Dornenkrone, Nebelhafen, Sternfall.
+Movement names are title, lobby, standard, combat, endgame, victory, defeat,
+draw. The tours also exercise combat cancellation and result dismissal.
+
+Originality checks compare written melodies against `avoid.json`'s existing
+interval signatures. They catch six consecutive shared intervals; they do not
+establish legal or musical originality against all music in existence.
+
+## Live preview (dev-control only)
+
+With the client running on a dedicated development port:
+
+```sh
+curl -s -X POST localhost:28770/music -d '{"theme":"star","movement":"endgame"}'
+curl -s -X POST localhost:28770/music -d '{"auto":true}'
+```
+
+The first command overrides the director, with the ordinary musical transition
+and existing volume controls. The second restores game-driven music. It does
+not change saved settings. `/state` reports the requested `score`; the WAV
+render's `measurements.json` reports the actually admitted musical position.
+The route exists only in dev-control builds and still binds only to loopback.
+
+## Composition review, 10 October 2026
+
+The review environment can render PCM and inspect scores/signals but does not
+accept audio input. Therefore these passes are **not claimed as listening
+reviews**. Listening files are supplied for human review.
+
+1. Original manuscripts and eight-movement orchestration for each suite; render
+   each movement and the transitions at 48 kHz. First model pass: 16-second
+   excerpts per movement and 64-second tours.
+2. Different harmonic routes and cue contours per suite; clearer compound
+   metre and phrasing. Re-render all five suites and compare measurements.
+3. Final balance/transition corrections and complete-form render; numerical
+   headroom, tuning, interval, instrumentation and interruption tests.
+
+## Historical recordings (not used by the active score)
+
+The remainder documents the previous bank for reproducibility. Its files are
+retained but are no longer embedded into the score. The preparation script is
+**not** a way to regenerate the current score; it regenerates the old 44.1-kHz
+bank. Do not present these sources as meeting the new ≥48-kHz source brief.
 
 ## The three sources (all CC0 1.0; `docs/legal.md` §5 quotes each)
 

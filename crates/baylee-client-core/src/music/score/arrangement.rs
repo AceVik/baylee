@@ -2,7 +2,7 @@
 use super::{Movement, Theme, manuscript::Bar};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Instrument {
+pub(in crate::music) enum Instrument {
     Harp,
     Zither,
     Lyre,
@@ -28,7 +28,7 @@ impl Instrument {
             Self::Trombone => -0.06,
         }
     }
-    pub(super) const fn short(self) -> bool {
+    pub(in crate::music) const fn short(self) -> bool {
         matches!(
             self,
             Self::ViolinShort | Self::ViolaShort | Self::CelloShort
@@ -104,32 +104,76 @@ const AB: Chord = Chord(56, 4, 7);
 const CM: Chord = Chord(60, 3, 7);
 const GDIM: Chord = Chord(55, 3, 6);
 
-pub(super) fn chord(movement: Movement, bar: u32) -> Chord {
-    let index = (bar % 16) as usize;
+/// Each suite has its own harmonic route; all tavern chords are strictly
+/// Dorian. The chromatic colours belong to the dramatic movements only.
+pub(super) fn chord(theme: Theme, movement: Movement, bar: u32) -> Chord {
+    let b = (bar % 8) as usize;
+    let home = match theme {
+        Theme::Ember => [BBM, EB, FM, DB, BBM, AB, EB, BBM],
+        Theme::Glass => [BBM, CM, DB, EB, FM, AB, EB, BBM],
+        Theme::Thorn => [BBM, EB, AB, DB, GDIM, FM, EB, BBM],
+        Theme::Tide => [BBM, EB, FM, DB, EB, CM, AB, BBM],
+        Theme::Star => [BBM, GDIM, FM, DB, EB, AB, CM, BBM],
+    };
     match movement {
-        Movement::Combat => [BBM, BB, EB, EBM, BBM, BB, EB, EBM][index % 8],
-        Movement::Endgame => [
-            BBM, EB, FM, AUG, BB, AB, EB, BBM, GDIM, CM, DB, FM, EB, EBM, AUG, BB,
-        ][index],
-        Movement::Victory => [
-            BB, EB, FM, DB, BB, AB, EB, BB, EB, CM, DB, FM, EB, CM, BB, BB,
-        ][index],
-        Movement::Defeat => [
-            BBM, EB, FM, DB, BBM, AB, EB, BBM, GDIM, CM, DB, FM, EBM, CM, FM, BBM,
-        ][index],
-        Movement::Draw => [
-            BBM, BB, FM, DB, BB, BBM, EB, EBM, BBM, BB, CM, DB, EB, EBM, AUG, BBM,
-        ][index],
-        Movement::Title => [
-            BBM, EB, FM, AUG, BBM, AB, EB, BBM, GDIM, CM, DB, FM, EB, CM, AUG, BBM,
-        ][index],
-        Movement::Lobby | Movement::Standard => {
-            if movement == Movement::Standard && index == 14 {
+        Movement::Lobby => home[b],
+        Movement::Standard => {
+            if bar % 16 == 14 {
                 AUG
             } else {
-                [BBM, EB, FM, DB, BBM, AB, EB, BBM][index % 8]
+                home[b]
             }
         }
+        Movement::Title => {
+            if bar % 16 == 3 || bar % 16 == 14 || (bar % 32 >= 16 && b == 6) {
+                AUG
+            } else {
+                home[b]
+            }
+        }
+        Movement::Combat => {
+            (match theme {
+                Theme::Ember => [BBM, BB, EB, EBM, BBM, BB, EB, EBM],
+                Theme::Glass => [BBM, BB, CM, EBM, BB, BBM, EB, EBM],
+                Theme::Thorn => [BBM, BB, AB, EBM, BB, BBM, EB, EBM],
+                Theme::Tide => [BBM, BB, FM, EBM, EB, BB, EBM, BBM],
+                Theme::Star => [BBM, BB, EB, EBM, BB, BBM, EBM, EB],
+            })[b]
+        }
+        Movement::Endgame => match b {
+            3 | 6 => AUG,
+            4 => BB,
+            7 => {
+                if bar % 16 == 15 {
+                    BB
+                } else {
+                    BBM
+                }
+            }
+            _ => home[b],
+        },
+        Movement::Victory => {
+            (match theme {
+                Theme::Ember => [BB, EB, AB, BB, EB, CM, AB, BB],
+                Theme::Glass => [BB, CM, EB, AB, BB, EB, AB, BB],
+                Theme::Thorn => [BB, EB, AB, EB, BB, AB, EB, BB],
+                Theme::Tide => [BB, EB, AB, BB, EB, AB, CM, BB],
+                Theme::Star => [BB, EB, CM, AB, EB, BB, AB, BB],
+            })[b]
+        }
+        Movement::Defeat => {
+            if b == 6 {
+                EBM
+            } else {
+                home[b]
+            }
+        }
+        Movement::Draw => match b {
+            0 | 5 => BBM,
+            1 | 4 => BB,
+            3 | 6 => EBM,
+            _ => home[b],
+        },
     }
 }
 
@@ -188,8 +232,8 @@ fn line(theme: Theme, movement: Movement, bar: u32) -> Bar {
                 pages.title
             }
         }
-        Movement::Lobby => pages.tavern,
-        Movement::Standard => pages.table,
+        Movement::Lobby | Movement::Victory => pages.tavern,
+        Movement::Standard | Movement::Defeat => pages.table,
         Movement::Combat => pages.combat,
         Movement::Endgame => {
             if local % 16 < 8 {
@@ -198,8 +242,6 @@ fn line(theme: Theme, movement: Movement, bar: u32) -> Bar {
                 pages.title
             }
         }
-        Movement::Victory => pages.tavern,
-        Movement::Defeat => pages.table,
         Movement::Draw => {
             if local % 16 < 8 {
                 pages.table
@@ -224,7 +266,11 @@ fn melody(
     let Some((pitch, length)) = onset(line(theme, movement, bar), tick) else {
         return;
     };
-    let pitch = colour(pitch, harmony);
+    let pitch = if movement == Movement::Victory && pitch % 12 == 1 {
+        pitch + 1
+    } else {
+        colour(pitch, harmony)
+    };
     let length = f32::from(length) * 0.94;
     let pluck = match theme {
         Theme::Glass | Theme::Star => Harp,
@@ -232,7 +278,11 @@ fn melody(
         _ => Lyre,
     };
     let (voice, pitch, gain) = match movement {
-        Movement::Title => (Violin, pitch, 0.28),
+        Movement::Title => (
+            Violin,
+            pitch,
+            if theme == Theme::Ember { 0.30 } else { 0.28 },
+        ),
         Movement::Lobby => (if bar % 16 < 8 { Lyre } else { pluck }, pitch, 0.32),
         Movement::Standard => (if bar % 16 < 8 { pluck } else { Lyre }, pitch, 0.34),
         Movement::Combat => (ViolinShort, pitch, 0.30),
@@ -255,13 +305,13 @@ fn melody(
                 } * arc,
                 Role::Melody,
             );
-            if tick == 0 && bar % 4 == 0 {
+            if tick == 0 && bar.is_multiple_of(4) {
                 out.add(Lyre, pitch, 1.8, 0.26 * arc, Role::Accent);
             }
         }
         Movement::Victory => out.add(Trombone, pitch - 12, length, 0.16 * arc, Role::Melody),
         Movement::Standard if bar % 4 == 2 => {
-            out.add(Harp, pitch - 12, length, 0.11 * arc, Role::Melody)
+            out.add(Harp, pitch - 12, length, 0.11 * arc, Role::Melody);
         }
         Movement::Lobby if bar % 8 == 6 => out.add(Violin, pitch, length, 0.10 * arc, Role::Melody),
         _ => {}
@@ -271,13 +321,14 @@ fn melody(
 fn accompaniment(
     out: &mut Notes,
     movement: Movement,
+    theme: Theme,
     bar: u32,
     tick: u8,
-    ticks: u8,
     harmony: Chord,
     arc: f32,
 ) {
     use Instrument::{Bass, Cello, Harp, Lyre, Trombone, Viola, Zither};
+    let ticks = theme.ticks();
     let Chord(root, third, fifth) = harmony;
     let quiet = matches!(
         movement,
@@ -289,14 +340,20 @@ fn accompaniment(
             Cello,
             near(root, 49),
             length,
-            if quiet { 0.10 } else { 0.14 } * arc,
+            if movement == Movement::Lobby && theme == Theme::Glass {
+                0.075
+            } else if quiet {
+                0.10
+            } else {
+                0.14
+            } * arc,
             Role::Bass,
         );
         // No pizzicato bass anywhere, including combat.
         if !quiet {
             out.add(Bass, near(root, 36), length, 0.12 * arc, Role::Bass);
         }
-        if movement != Movement::Lobby || bar % 2 == 0 {
+        if movement != Movement::Lobby || bar.is_multiple_of(2) {
             out.add(
                 Viola,
                 near(root + third, 61),
@@ -327,8 +384,20 @@ fn accompaniment(
             );
         }
     }
-    let stride = if movement == Movement::Defeat { 4 } else { 2 };
-    if tick.is_multiple_of(stride) && !(quiet && tick + 2 >= ticks) {
+    let stride = if movement == Movement::Defeat {
+        4
+    } else if theme == Theme::Tide {
+        3
+    } else {
+        2
+    };
+    if tick.is_multiple_of(stride)
+        && !(quiet && tick + 2 >= ticks)
+        && !(matches!(theme, Theme::Glass | Theme::Star)
+            && movement == Movement::Lobby
+            && bar % 4 == 3
+            && tick > 0)
+    {
         let steps = [0, fifth, third + 12, fifth, 12];
         let note = root + steps[usize::from(tick / 2) % steps.len()];
         let family = if movement == Movement::Lobby && bar % 2 == 1 {
@@ -358,7 +427,8 @@ fn drive(out: &mut Notes, theme: Theme, movement: Movement, tick: u8, harmony: C
         return;
     }
     let Chord(root, third, fifth) = harmony;
-    let strong = tick == 0
+    let strong = (theme == Theme::Thorn && (tick == 3 || tick == 6))
+        || tick == 0
         || tick
             == if theme == Theme::Tide {
                 3
@@ -375,7 +445,7 @@ fn drive(out: &mut Notes, theme: Theme, movement: Movement, tick: u8, harmony: C
         if strong { 0.24 } else { 0.14 } * arc,
         Role::Rhythm,
     );
-    if strong || tick % 2 == 0 {
+    if strong || tick.is_multiple_of(2) {
         out.add(
             CelloShort,
             near(root, 48),
@@ -396,9 +466,25 @@ fn cue(out: &mut Notes, theme: Theme, movement: Movement, tick: u8) {
         return;
     };
     let pitch = match movement {
-        Movement::Victory => [58, 65, 74, 82][index],
-        Movement::Defeat => [77, 73, 65, 58][index],
-        _ => [61, 65, 69, 73][index],
+        Movement::Victory => {
+            (match theme {
+                Theme::Ember => [58, 65, 74, 82],
+                Theme::Glass => [65, 70, 79, 82],
+                Theme::Thorn => [58, 70, 77, 86],
+                Theme::Tide => [63, 70, 77, 82],
+                Theme::Star => [58, 67, 77, 82],
+            })[index]
+        }
+        Movement::Defeat => {
+            (match theme {
+                Theme::Ember => [77, 73, 65, 58],
+                Theme::Glass => [79, 75, 65, 58],
+                Theme::Thorn => [82, 77, 61, 58],
+                Theme::Tide => [75, 70, 65, 58],
+                Theme::Star => [80, 73, 63, 58],
+            })[index]
+        }
+        _ => [61, 65, 57, 69, 61][theme as usize] + index as u8 * 4,
     };
     let length = if index == 3 {
         f32::from(span - 3) - 0.2
@@ -447,9 +533,9 @@ pub(super) fn notes(theme: Theme, movement: Movement, bar: u32, tick: u8) -> Not
     // AABA dynamics: statement, more intimate repeat, development, homecoming.
     let section = (local % 32 / 8) as usize;
     let arc = [0.90, 0.76, 1.0, 0.87][section] * [0.91, 0.97, 1.0, 0.90][(local % 4) as usize];
-    let harmony = chord(movement, local % 16);
+    let harmony = chord(theme, movement, local % 16);
     melody(&mut out, theme, movement, bar, tick, arc, harmony);
-    accompaniment(&mut out, movement, local, tick, theme.ticks(), harmony, arc);
+    accompaniment(&mut out, movement, theme, local, tick, harmony, arc);
     drive(&mut out, theme, movement, tick, harmony, arc);
     out
 }

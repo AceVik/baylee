@@ -245,11 +245,21 @@ Urheber- und Medienrecht.
    (#292)"); no tracking. As a private, GitHub-hosted open-source project
    no Impressum is required (no commercial/public telemedia service).
 5. **Audio:** interface/gameplay cues remain original computed PCM in
-   `crates/baylee-client/src/sound.rs`. The continuous music is an original
-   composition (`crates/baylee-client-core/src/music/`, AGPL), performed from
-   CC0 recordings of real instruments and one synthesised plucked string of
-   our own (a Karplus–Strong lute). Since music v2 (08.10.2026) the bank
-   holds recordings from exactly three CC0 sources, each pinned to a commit:
+   `crates/baylee-client/src/sound.rs`. The five-suite score (10.10.2026) is
+   newly composed for Baylee, with original instrument models at native 48 kHz
+   (`crates/baylee-client-core/src/music/`, AGPL-3.0-only). It uses no external
+   recordings, no upsampled 44.1-kHz source, and no Wizards music. The
+   [Wizards Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy),
+   re-read 10.10.2026, says: “Don’t use Wizards’ Video or Music in your Fan Content.”
+   This change affects only original audio and its settings labels; it adds no
+   card images, symbols, fonts or Scryfall API use. The Scryfall API terms page
+   returned HTTP 403 on this audit; existing image/API obligations elsewhere
+   in this document continue to apply, without claiming fresh verification.
+
+   **Historical sample bank, inactive since the five-suite score:** retained
+   for provenance and reproducibility, not compiled into the active player.
+   Its 44.1-kHz recordings are unsuitable for the owner's native ≥48-kHz brief.
+   The original pinned CC0 sources and notices below still apply to those files:
    - **VCSL** (Versilian Community Sample Library, Versilian Studios LLC),
      [github.com/sgossner/VCSL](https://github.com/sgossner/VCSL) at
      `c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e`. Its README at that commit:
@@ -293,8 +303,8 @@ Urheber- und Medienrecht.
    (VSCO 2 CE's), `LICENSE-CC0-VCSL.txt`, `LICENSE-CC0-FreePats.txt` (each
    source's own file, byte for byte) and `NOTICE` naming the three sources
    and their recordists, which CC0 does not require and we keep anyway. A
-   test (`bank_is_complete_and_embedded`) holds every row to one of these
-   three sources at the revision pinned here. The piano, oboe, orchestral
+   former bank test checked every row against these pinned sources; the active
+   model renderer instead tests tuning, spectral tables and bounded playback. The piano, oboe, orchestral
    strings, timpani, snare and suspended cymbal of the earlier VSCO 2 CE bank
    left with music v2 (owner, 08.10.2026).
    Considered and **not used**: the Polyphone soundfont “Early European
@@ -309,7 +319,8 @@ Urheber- und Medienrecht.
    style may be emulated, a work may not. No theme, ostinato or chord
    progression of any film or game score is quoted or paraphrased; the
    best-known ones are on the avoid list as interval shapes, checked against
-   every melody and every bass and ostinato line. `art/music/avoid.json` holds the openings of
+   the independently notated melodic phrases (a limited resemblance check,
+   not proof that no existing music is similar). `art/music/avoid.json` holds the openings of
    tunes we must not echo, as directed intervals, and a test fails any score
    melody that shares six of them in a row. No game soundtrack, melody or
    recording from Wizards or Blizzard is used.

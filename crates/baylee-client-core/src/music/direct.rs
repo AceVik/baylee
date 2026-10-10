@@ -6,10 +6,8 @@
 //! exactly as a hosted one does, so both sound the same by construction.
 //!
 //! The answer is a [`ScoreRequest`], packed into one `u64` that the audio
-//! thread reads atomically ([`super::ScoreControl`]). One-off accents (a hunt,
-//! the monarch changing, a big spell, the table's arrival) travel as small
-//! counters rather than flags: a counter that moved is an accent, and an
-//! accent can never be lost or played twice by a read that came early or late.
+//! thread reads atomically ([`super::ScoreControl`]). Legacy event counters remain packed for diagnostics. The current suites
+//! use combat/tension for movements and compose their accents in the score.
 #![allow(clippy::cast_precision_loss)] // small board counts and life totals
 use baylee_core::ids::PlayerId;
 use baylee_core::types::TypeSet;
@@ -62,22 +60,22 @@ impl Ending {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Scene {
-    /// The front door: B♭ Lydian, the alto recorder alone.
+    /// The title screen: the full B♭ Dorian suite.
     #[default]
     FrontDoor = 0,
-    /// The lobby: B♭ Lydian with its ostinato.
+    /// The lobby: a relaxed Dorian tavern arrangement.
     Lobby = 1,
-    /// Deck building: B♭ Ionian, ostinato and drone only.
+    /// Deck building shares the relaxed Dorian tavern.
     Build = 2,
     /// A table opening: the arrival.
     Opening = 3,
-    /// A game: calm, tension, the hunt or the climax, by [`ScoreRequest::tension`].
+    /// A game: standard, combat or endgame, by pressure and combat state.
     Table = 4,
     /// The victory, in B♭.
     Victory = 5,
-    /// The draw: an open fifth on F.
+    /// The draw: augmented cue, then major/minor ambiguity.
     Draw = 6,
-    /// The defeat, in G Aeolian.
+    /// The defeat: falling cue, then a B♭-centred lament.
     Defeat = 7,
 }
 

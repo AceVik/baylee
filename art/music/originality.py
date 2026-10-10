@@ -3,7 +3,7 @@
     python3 art/music/originality.py        # from the repository root
 
 No run of six or more directed semitone intervals in any melody of
-`crates/baylee-client-core/src/music/score/melodies.rs` may coincide with the
+`crates/baylee-client-core/src/music/score/manuscript.rs` may coincide with the
 opening of a tune in `avoid.json` (any of its settings), transposed anywhere.
 The same check runs in CI as the test `no_melody_echoes_a_tune_we_must_not`;
 this script is the composer's, printing the closest call for every melody.
@@ -19,37 +19,16 @@ import sys
 from pathlib import Path
 
 RUN = 6
-MELODIES = Path("crates/baylee-client-core/src/music/score/melodies.rs")
+MELODIES = Path("crates/baylee-client-core/src/music/score/manuscript.rs")
 AVOID = Path("art/music/avoid.json")
 
 
-def note_values(text):
-    values = {}
-    for m in re.finditer(r"pub\(super\) const ([A-Z0-9]+): u8 = (\d+);", text):
-        values[m.group(1)] = int(m.group(2))
-    return values
-
-
 def melodies(text):
-    """Each `const NAME: Phrase = &[ ... ];` as its list of pitches."""
-    values = note_values(text)
+    """Original numeric MIDI manuscripts, with rests removed."""
     out = {}
-    for m in re.finditer(r"pub\(super\) const ([A-Z_0-9]+): Phrase = &\[(.*?)\n\];", text, re.S):
-        out[m.group(1)] = [values[n] for n in re.findall(r"\(([A-Z0-9]+), \d+\)", m.group(2)) if n in values]
-    calls = re.search(r"pub\(super\) const CALLS: &\[Phrase\] = &\[(.*?)\n\];", text, re.S).group(1)
-    # Each call is one top-level `&[...]` of the table, however rustfmt wrapped it.
-    depth, start, k = 0, None, 0
-    for i, ch in enumerate(calls):
-        if ch == "[":
-            depth += 1
-            if depth == 1:
-                start = i
-        elif ch == "]":
-            depth -= 1
-            if depth == 0:
-                k += 1
-                call = calls[start:i]
-                out[f"CALL_{k}"] = [values[n] for n in re.findall(r"\(([A-Z0-9]+), \d+\)", call)]
+    for m in re.finditer(r"const ([A-Z_0-9]+): Phrase = &\[(.*?)\n\];", text, re.S):
+        out[m.group(1)] = [int(n) for n in re.findall(r"\((\d+), \d+\)", m.group(2)) if int(n)]
+    assert len(out) == 25, f"expected 25 complete phrases, found {len(out)}"
     return out
 
 

@@ -1,7 +1,7 @@
-//! Five original suites in B♭ Dorian, performed by one persistent sampler.
+//! Five original suites in B♭ Dorian, performed by one persistent orchestra.
 //! Composition is in `manuscript`; arranging is a pure, bounded note scheduler.
 //! Scene/theme changes are admitted on the next
-//! eighth (at most half a second). Result cues finish before leaving the result.
+//! eighth (about 0.2–0.53 seconds). Result cues finish before leaving the result.
 #![allow(
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
@@ -9,14 +9,14 @@
 )]
 // Bounded MIDI, tick and audio-frame arithmetic.
 use super::{
-    RATE, ScoreRequest, bank,
+    RATE, ScoreRequest,
     orchestra::{BLOCK, Orchestra, Touch},
 };
 use std::sync::{
     Arc,
     atomic::{AtomicU64, Ordering},
 };
-mod arrangement;
+pub(super) mod arrangement;
 mod manuscript;
 mod part;
 mod themes;
@@ -62,6 +62,7 @@ pub struct Tune {
     eighth: f64,
     target: f64,
     started: bool,
+    pending_result: Option<ScoreRequest>,
     ahead: Vec<[f32; 2]>,
     scratch: Box<[f32; BLOCK]>,
     ahead_read: usize,
@@ -98,6 +99,7 @@ impl Tune {
             eighth,
             target: eighth,
             started: false,
+            pending_result: None,
             ahead: vec![[0.0; 2]; BLOCK],
             scratch: Box::new([0.0; BLOCK]),
             ahead_read: BLOCK,
@@ -111,7 +113,10 @@ impl Tune {
     }
 
     fn admit(&mut self) {
-        let request = self.control.get();
+        let request = self
+            .pending_result
+            .take()
+            .unwrap_or_else(|| self.control.get());
         let movement = Movement::wanted(request, self.position.movement);
         let protected =
             self.position.movement.ending() && self.position.phrase_bar == 0 && self.tick < 4;
@@ -130,8 +135,20 @@ impl Tune {
     }
 
     fn transport(&mut self) {
+        // Observe brief result screens between musical pulses. Otherwise a
+        // dismissal before the next pulse could erase the attention cue.
+        let request = self.control.get();
+        let wanted = Movement::wanted(request, self.position.movement);
+        if wanted.ending() && wanted != self.position.movement {
+            self.pending_result = Some(request);
+        }
         if self.until_tick > 0.0 {
             return;
+        }
+        if self.tick == self.position.theme.ticks() {
+            self.tick = 0;
+            self.position.bar += 1;
+            self.position.phrase_bar = self.position.phrase_bar.saturating_add(1);
         }
         self.admit();
         let notes = arrangement::notes(
@@ -150,38 +167,10 @@ impl Tune {
                     0.045
                 })
                 .release(if note.instrument.short() { 0.10 } else { 0.28 });
-            if note.instrument == arrangement::Instrument::Lyre {
-                self.orchestra
-                    .lute(note.pitch, length, note.gain, note.instrument.pan(), 0.58);
-            } else {
-                let family = match note.instrument {
-                    arrangement::Instrument::Harp => bank::HARP,
-                    arrangement::Instrument::Zither => bank::PSALTERY,
-                    arrangement::Instrument::Violin => bank::VIOLIN,
-                    arrangement::Instrument::Viola => bank::VIOLAS,
-                    arrangement::Instrument::Cello => bank::CELLO,
-                    arrangement::Instrument::Bass => bank::CONTRABASS,
-                    arrangement::Instrument::Trombone => bank::TROMBONE,
-                    arrangement::Instrument::ViolinShort => bank::VIOLINS_SPIC,
-                    arrangement::Instrument::ViolaShort => bank::VIOLAS_SPIC,
-                    arrangement::Instrument::CelloShort => bank::CELLOS_SPIC,
-                    arrangement::Instrument::Lyre => unreachable!("modelled string above"),
-                };
-                self.orchestra.note(
-                    family.nearest(note.pitch),
-                    note.pitch,
-                    length,
-                    note.gain,
-                    touch,
-                );
-            }
+            self.orchestra
+                .note(note.instrument, note.pitch, length, note.gain, touch);
         }
         self.tick += 1;
-        if self.tick == self.position.theme.ticks() {
-            self.tick = 0;
-            self.position.bar += 1;
-            self.position.phrase_bar = self.position.phrase_bar.saturating_add(1);
-        }
         self.until_tick += f64::from(RATE) * self.eighth;
     }
     fn advance(&mut self) {

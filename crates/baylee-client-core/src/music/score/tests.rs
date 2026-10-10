@@ -295,3 +295,93 @@ fn the_fifth_suite_survives_packing_and_old_settings_migrate() {
         assert!((level.volume() - 0.7).abs() < 1e-6);
     }
 }
+
+#[test]
+fn a_result_dismissed_before_the_next_pulse_still_gets_its_cue() {
+    for theme in Theme::ALL {
+        let control = Arc::new(ScoreControl::default());
+        control.set(Movement::Standard.request(theme));
+        let mut tune = Tune::with_control(control.clone());
+        tune.frame();
+        control.set(Movement::Draw.request(theme));
+        tune.render(&mut [[0.0; 2]; 256]);
+        control.set(Movement::Lobby.request(theme));
+        let mut out = vec![[0.0; 2]; RATE as usize / 2];
+        tune.render(&mut out);
+        assert_eq!(
+            tune.position.movement,
+            Movement::Draw,
+            "{theme:?}: cue was lost"
+        );
+        render_seconds(&mut tune, 3);
+        assert_eq!(tune.position.movement, Movement::Lobby);
+    }
+}
+
+#[test]
+fn no_melody_echoes_a_tune_we_must_not() {
+    let avoid: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../../art/music/avoid.json"))
+            .expect("interval signatures");
+    let mut checked = 0;
+    for theme in Theme::ALL {
+        let pages = theme.pages();
+        for phrase in [
+            pages.title,
+            pages.answer,
+            pages.tavern,
+            pages.table,
+            pages.combat,
+        ] {
+            let pitches: Vec<_> = phrase
+                .iter()
+                .flat_map(|bar| bar.iter())
+                .filter(|n| n.0 > 0)
+                .map(|n| i64::from(n.0))
+                .collect();
+            let ours: Vec<_> = pitches.windows(2).map(|w| w[1] - w[0]).collect();
+            for tune in avoid.as_array().expect("avoid list") {
+                let mut settings = vec![&tune["intervals"]];
+                if let Some(alts) = tune["alt_intervals"].as_array() {
+                    settings.extend(alts);
+                }
+                for setting in settings {
+                    let Some(intervals) = setting.as_array() else {
+                        continue;
+                    };
+                    let theirs: Vec<_> = intervals
+                        .iter()
+                        .map(|v| v.as_i64().expect("semitones"))
+                        .collect();
+                    for run in ours.windows(6) {
+                        assert!(
+                            !theirs.windows(6).any(|other| other == run),
+                            "{theme:?}: {}",
+                            tune["name"]
+                        );
+                    }
+                }
+            }
+            checked += 1;
+        }
+    }
+    assert_eq!(checked, 25);
+}
+
+#[test]
+fn each_tavern_is_strictly_dorian_with_a_distinct_harmonic_route() {
+    let mut routes = Vec::new();
+    for theme in Theme::ALL {
+        let mut route = Vec::new();
+        for bar in 0..8 {
+            let arrangement::Chord(root, third, fifth) =
+                arrangement::chord(theme, Movement::Lobby, bar);
+            route.push((root, third, fifth));
+            for pitch in [root, root + third, root + fifth] {
+                assert!([10, 0, 1, 3, 5, 7, 8].contains(&(pitch % 12)));
+            }
+        }
+        assert!(!routes.contains(&route));
+        routes.push(route);
+    }
+}

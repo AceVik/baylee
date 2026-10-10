@@ -1,15 +1,9 @@
-//! Baylee's continuous adaptive score: an original modal score around B♭,
-//! performed from CC0 recordings of old instruments (recorders, bowed and
-//! plucked psaltery, folk harp, bagpipe, frame drums, davul, bells; VCSL,
-//! VSCO 2 CE, `FreePats`) and one synthesised lute, by one sampler and one
-//! musical clock, from the front door to the table and its ending. Scene
-//! changes alter future notes at bar lines; held notes and the room continue.
-//! No track is stopped or crossfaded. Everything plays offline: the bank is
-//! in the binary, and the drivers read only the [`PlayerView`].
-//!
-//! [`PlayerView`]: baylee_view::PlayerView
+//! Five original suites in B♭ Dorian, with eight adaptive movements each.
+//! Original bowed, plucked and brass instrument models render natively at 48 kHz.
+//! One persistent orchestra admits scene changes on the next eighth-note pulse;
+//! releases and room tails bridge the change, and tempo moves continuously.
+//! No recordings or external sound assets are used by this score.
 
-mod bank;
 mod direct;
 mod orchestra;
 mod score;
@@ -62,15 +56,14 @@ impl MusicTheme {
     }
 }
 
-/// Stereo output sample rate, and the bank's.
-pub const RATE: u32 = 44_100;
+/// Native stereo synthesis and output sample rate.
+pub const RATE: u32 = 48_000;
 /// Interleaved left and right channels.
 pub const CHANNELS: u16 = 2;
 
-/// Read the embedded sample bank's table once before starting the audio
-/// device.
+/// Prepare band-limited instrument tables before starting the audio device.
 pub fn prepare() {
-    orchestra::instruments();
+    orchestra::prepare();
 }
 
 /// How loud the front door's music is, as this device remembers it.
@@ -126,7 +119,7 @@ impl MusicLevel {
         self.theme
     }
 
-    /// Chooses a theme: heard from the next bar line, no restart.
+    /// Chooses a theme: heard from the next musical pulse, no restart.
     pub const fn set_theme(&mut self, theme: MusicTheme) {
         self.theme = theme;
     }
@@ -204,7 +197,7 @@ mod tests {
         assert_eq!(
             older.theme(),
             MusicTheme::Rotating,
-            "a file from before the themes rotates through all four"
+            "a file from before the themes rotates through all five"
         );
     }
 
