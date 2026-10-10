@@ -172,6 +172,15 @@ pub enum Amount {
         /// The constant subtracted.
         subtract: u32,
     },
+    /// A constant minus a nonnegative amount, with zero as the floor: the
+    /// reverse of [`Self::SaturatingSub`] (The Rack and Storm World: "3 minus
+    /// the number of cards in their hand").
+    ConstantMinus {
+        /// The constant.
+        constant: u32,
+        /// The amount subtracted from it.
+        subtract: &'static Amount,
+    },
 }
 
 impl Amount {

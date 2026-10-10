@@ -449,6 +449,9 @@ pub fn amount_with_context(
         Amount::SaturatingSub { base, subtract } => {
             self::amount_with_context(base, state, you, context, x).saturating_sub(*subtract)
         }
+        Amount::ConstantMinus { constant, subtract } => {
+            constant.saturating_sub(self::amount_with_context(subtract, state, you, context, x))
+        }
         Amount::DoubleX => x.unwrap_or(0).saturating_mul(2),
         Amount::XPlusCommanderCasts => {
             x.unwrap_or(0)
