@@ -2630,8 +2630,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Ashnod's Battle Gear
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -3003,8 +3003,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Tawnos's Weaponry
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
