@@ -220,8 +220,15 @@ fn read(table: &[f32], phase: f64) -> f32 {
     let mix = (phase - at as f64) as f32;
     table[at] + (table[at + 1] - table[at]) * mix
 }
+#[derive(Clone, Copy)]
+enum Source {
+    Tone(&'static Timbre),
+    Drum(&'static [f32]),
+}
 struct Voice {
-    index: usize,
+    source: Source,
+    chorus: bool,
+    phase_two: f64,
     phase: f64,
     step: f64,
     age: u32,
@@ -247,7 +254,9 @@ impl Voice {
             0.12
         };
         Self {
-            index,
+            source: tone.map_or_else(|| Source::Drum(&bank().drums[index - TONES]), Source::Tone),
+            chorus: instrument == Instrument::Pad,
+            phase_two: SIZE as f64 * 0.17,
             phase: 0.0,
             step: bank().steps[usize::from(pitch.clamp(28, 88))],
             age: 0,
@@ -280,17 +289,28 @@ impl Voice {
         if self.envelope < 0.0001 {
             return None;
         }
-        let value = if self.index < TONES {
-            let tone = &bank().tones[self.index];
-            let body = read(&tone.body, self.phase);
-            let bright = read(&tone.bright, self.phase);
-            self.phase += self.step;
-            if self.phase >= SIZE as f64 {
-                self.phase -= SIZE as f64;
+        let value = match self.source {
+            Source::Tone(tone) => {
+                let body = read(&tone.body, self.phase);
+                let bright = read(&tone.bright, self.phase);
+                self.phase += self.step;
+                if self.phase >= SIZE as f64 {
+                    self.phase -= SIZE as f64;
+                }
+                let note = body + (bright - body) * self.colour;
+                if self.chorus {
+                    // A second, very gently detuned body gives the ambient bed movement.
+                    let other = read(&tone.body, self.phase_two);
+                    self.phase_two += self.step * 1.0015;
+                    if self.phase_two >= SIZE as f64 {
+                        self.phase_two -= SIZE as f64;
+                    }
+                    note * 0.72 + other * 0.28
+                } else {
+                    note
+                }
             }
-            body + (bright - body) * self.colour
-        } else {
-            *bank().drums[self.index - TONES].get(self.age as usize)?
+            Source::Drum(data) => *data.get(self.age as usize)?,
         };
         let attack = (self.age as f32 / self.attack).min(1.0);
         let value = value * self.envelope * attack;

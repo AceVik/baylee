@@ -334,3 +334,32 @@ fn activity_decays_and_a_repeated_snapshot_is_not_counted() {
     );
     assert!(memory.activity.abs() < f32::EPSILON && memory.seq.is_none());
 }
+
+#[test]
+fn rotation_never_repeats_or_skips_when_arrival_counters_wrap() {
+    for seed in [0, 1, 14, 240, 255] {
+        let mut memory = Memory::seeded(seed);
+        for game in 0..600 {
+            let lobby = direct(
+                Place::Lobby,
+                None,
+                None,
+                MusicTheme::Rotating,
+                &mut memory,
+                0.016,
+            );
+            assert_eq!(
+                lobby.theme,
+                Theme::ALL[(usize::from(seed) + game) % Theme::ALL.len()]
+            );
+            direct(
+                Place::Opening,
+                None,
+                None,
+                MusicTheme::Rotating,
+                &mut memory,
+                0.016,
+            );
+        }
+    }
+}

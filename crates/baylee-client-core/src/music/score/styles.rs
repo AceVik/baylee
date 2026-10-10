@@ -135,11 +135,21 @@ pub(super) fn notes(theme: Theme, movement: Movement, bar: u32, tick: u8) -> Not
         } else {
             0.91
         };
+        let answering = movement == Movement::Title && (8..16).contains(&(local % 32));
+        let response_gain = if answering {
+            match lead {
+                Instrument::Flute => 0.80,
+                Instrument::Bell | Instrument::Violin => 0.90,
+                _ => 0.95,
+            }
+        } else {
+            1.0
+        };
         out.add(
             lead,
             pitch,
             length * breath,
-            if quiet { 0.29 } else { 0.38 } * arc * accent,
+            if quiet { 0.29 } else { 0.38 } * arc * accent * response_gain,
             Role::Melody,
         );
         // The B section answers in another colour; the coda opens the register.

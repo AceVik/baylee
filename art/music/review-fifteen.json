@@ -1,0 +1,748 @@
+{
+  "date": "2026-10-10",
+  "branch": "codex/dorian-five-scores",
+  "scope": "Ten further complete suites, retaining the five existing Dorian suites. Each suite has eight game movements; recorded-source bank choices remain available.",
+  "suite_count": 15,
+  "new_suite_count": 10,
+  "new_suites": [
+    {
+      "id": "velvet",
+      "name": "Samtnacht",
+      "genre": "Klavier-Nocturne",
+      "key": "d-Moll",
+      "meter": "4/4",
+      "bpm": 108,
+      "ticks": 8,
+      "description": "Ein leiser Sprung zur Terz, eine lange Antwort und eine offene linke Hand. Das Thema wächst zum Kammerduett.",
+      "colour": "#cdb8ed",
+      "old": false,
+      "motif": "D5 (2/8) · A4 (1/8) · F5 (3/8) · D5 (2/8) | D5 (3/8) · F4 (1/8) · F5 (2/8) · Pause (2/8)"
+    },
+    {
+      "id": "copper",
+      "name": "Kupferwerk",
+      "genre": "Barocke Kammermusik",
+      "key": "D-Dur",
+      "meter": "3/4",
+      "bpm": 128,
+      "ticks": 6,
+      "description": "Cembalofiguren, ein antwortender Geigenbogen und ein dreiteiliger Continuo. Ein beweglicher, heller Tanz.",
+      "colour": "#e1ad78",
+      "old": false,
+      "motif": "D5 (1/8) · Ges5 (1/8) · A4 (1/8) · D5 (1/8) · A5 (2/8) | Des5 (2/8) · A4 (1/8) · E4 (1/8) · Des4 (2/8)"
+    },
+    {
+      "id": "juniper",
+      "name": "Wacholderreigen",
+      "genre": "Folk-Jig",
+      "key": "G-Dur",
+      "meter": "6/8",
+      "bpm": 144,
+      "ticks": 6,
+      "description": "Eine Flötenweise mit kurzen Auftakten, Gitarrenschlägen und Geigenantworten. Sechs Achtel schwingen in zwei Gruppen.",
+      "colour": "#b5d08e",
+      "old": false,
+      "motif": "G4 (1/8) · D5 (1/8) · H4 (1/8) · G4 (2/8) · D4 (1/8) | E4 (1/8) · G4 (2/8) · C5 (1/8) · E5 (2/8)"
+    },
+    {
+      "id": "lagoon",
+      "name": "Lagunenlicht",
+      "genre": "Bossa Nova",
+      "key": "F-Dur",
+      "meter": "4/4",
+      "bpm": 132,
+      "ticks": 8,
+      "description": "Die Melodie setzt zwischen den Schlägen ein. Vorgezogene Gitarrenakkorde, weicher Bass und leichtes Schlagzeug halten die Bewegung.",
+      "colour": "#80d2c7",
+      "old": false,
+      "motif": "Pause (1/8) · F5 (2/8) · A5 (1/8) · C5 (3/8) · F5 (1/8) | F5 (1/8) · Pause (1/8) · D5 (2/8) · A4 (1/8) · F4 (3/8)"
+    },
+    {
+      "id": "lantern",
+      "name": "Laternenwalzer",
+      "genre": "Jazzwalzer",
+      "key": "Es-Dur",
+      "meter": "3/4 · Swing",
+      "bpm": 138,
+      "ticks": 6,
+      "description": "Ein E-Piano lässt im Thema bewusst Platz. Klavierakkorde auf zwei und drei, geshuffelte Achtel und eine dezente Rhythmusgruppe.",
+      "colour": "#efb2a4",
+      "old": false,
+      "motif": "G5 (2/8) · Pause (1/8) · B4 (1/8) · Es5 (2/8) | G4 (1/8) · Es4 (1/8) · C5 (3/8) · Pause (1/8)"
+    },
+    {
+      "id": "neon",
+      "name": "Neonpfad",
+      "genre": "Synthwave",
+      "key": "c-Moll",
+      "meter": "4/4",
+      "bpm": 126,
+      "ticks": 8,
+      "description": "Ein langer Ruf mit kurzer Antwort über Achtelbass, warmen Flächen und klarer Backbeat-Rhythmik.",
+      "colour": "#ed9acd",
+      "old": false,
+      "motif": "C5 (3/8) · G5 (1/8) · Es5 (1/8) · Pause (1/8) · C5 (2/8) | Es4 (2/8) · As4 (3/8) · C5 (1/8) · Es4 (2/8)"
+    },
+    {
+      "id": "circuit",
+      "name": "Pixelsturm",
+      "genre": "Chiptune",
+      "key": "e-Moll",
+      "meter": "4/4",
+      "bpm": 156,
+      "ticks": 8,
+      "description": "Ein springender Pulswellen-Hook, kurze Arpeggien und tiefe Dreiecksklänge. Knapp, schnell und bewusst elektronisch.",
+      "colour": "#97c8f7",
+      "old": false,
+      "motif": "E5 (1/8) · Pause (1/8) · H5 (1/8) · E5 (1/8) · G5 (2/8) · H4 (2/8) | C5 (2/8) · E5 (1/8) · G5 (1/8) · C5 (1/8) · G4 (1/8) · E4 (2/8)"
+    },
+    {
+      "id": "mosaic",
+      "name": "Mosaik",
+      "genre": "Marimba-Minimalismus",
+      "key": "A-Dur",
+      "meter": "7/8",
+      "bpm": 144,
+      "ticks": 7,
+      "description": "Zwei Marimbafiguren greifen im 2+2+3-Takt ineinander. Ein Siebenerbogen verschiebt die Gewichte; Glocken setzen seltene Lichtpunkte.",
+      "colour": "#e7d180",
+      "old": false,
+      "motif": "A4 (2/8) · E4 (2/8) · Des5 (1/8) · E5 (2/8) | As5 (1/8) · E5 (2/8) · H4 (2/8) · As4 (2/8)"
+    },
+    {
+      "id": "orbit",
+      "name": "Umlaufbahn",
+      "genre": "Schwebender Ambient",
+      "key": "Des-Dur",
+      "meter": "4/4",
+      "bpm": 116,
+      "ticks": 8,
+      "description": "Lange Glockentöne, warme Flächen und vereinzelte Harfenantworten. Der Puls läuft weiter, während die Oberfläche viel Raum lässt.",
+      "colour": "#a9bce5",
+      "old": false,
+      "motif": "As5 (5/8) · Des5 (1/8) · F5 (2/8) | F4 (4/8) · Des5 (3/8) · Pause (1/8)"
+    },
+    {
+      "id": "iron",
+      "name": "Eisenpuls",
+      "genre": "Orchester-Breakbeat",
+      "key": "g-Moll",
+      "meter": "4/4",
+      "bpm": 146,
+      "ticks": 8,
+      "description": "Ein Posaunenruf trifft auf versetzte kurze Streicher, Synthbass und gebrochene Schlagzeugfiguren. Im Endgame öffnet sich das Register.",
+      "colour": "#e39a82",
+      "old": false,
+      "motif": "G4 (1/8) · G4 (2/8) · D4 (1/8) · D5 (3/8) · B4 (1/8) | B4 (1/8) · Es5 (3/8) · G5 (2/8) · Pause (2/8)"
+    }
+  ],
+  "audio_input_supported": false,
+  "subjective_listening_performed": false,
+  "review_method": "Authored-score inspection, signal measurements, runtime renders, unit/integration checks and live client controls. No claim of subjective listening or legal guarantee of originality.",
+  "rounds": [
+    {
+      "id": "round1",
+      "changes": "Ten authored two-bar motifs, contrasting B sections, fifty phrases and ten distinct accompaniments; eleven original pitched patches and three synthesized percussion voices.",
+      "renders": 180,
+      "movement_seconds": 16,
+      "tour_seconds": 64,
+      "peak": 0.4516996145248413,
+      "max_adjacent_step": 0.10414964705705643,
+      "tours_with_all_ten_changes": 20
+    },
+    {
+      "id": "round2",
+      "changes": "Palette loudness balance, weak-beat phrasing, cadence breaths and answering instruments; interrupted attacks release from their attained level.",
+      "renders": 180,
+      "movement_seconds": 64,
+      "tour_seconds": 64,
+      "peak": 0.42184826731681824,
+      "max_adjacent_step": 0.10228365659713745,
+      "tours_with_all_ten_changes": 20
+    },
+    {
+      "id": "final",
+      "changes": "Answering-voice balance, subtle detuned pad body, voice-local immutable source references; a rotation cursor independent of wrapping arrival counters.",
+      "renders": 180,
+      "movement_seconds": 96,
+      "tour_seconds": 64,
+      "peak": 0.41946032643318176,
+      "max_adjacent_step": 0.10228365659713745,
+      "tours_with_all_ten_changes": 20
+    }
+  ],
+  "old_five_preservation": {
+    "manuscript_unchanged": true,
+    "arrangement_behavior_unchanged": true,
+    "preview_files_reused_without_modification": true,
+    "baseline_checks": [
+      {
+        "file": "studio48/thorn-draw.wav",
+        "pcm_sha256": "ab8743cc9f7c18b7562eaad9b75d2c84445efe20bcc4d5eecb227f44b7729686",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/ember-endgame.wav",
+        "pcm_sha256": "f7e1df664551af085a03eb3dc673e205b3f2711facfd83536c1d832bd0f5b08d",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/star-transitions.wav",
+        "pcm_sha256": "65bbc09d5ed09738b0e5258d938cb35a91388a799e2f0869c40d75c8b576fc35",
+        "bytes": 18432000
+      },
+      {
+        "file": "studio48/thorn-lobby.wav",
+        "pcm_sha256": "89c9ff0412a2fccbe2f1d38cb69c547c9215995b6c7e3e5dee6a70c8d913237c",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/tide-endgame.wav",
+        "pcm_sha256": "01edb6ebc51f0c9d341bedf44a86bfd76c020e0c9864bd9e03889606aa2e013c",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/tide-defeat.wav",
+        "pcm_sha256": "779e55f8cf14b9de5878356c6204bf5c394885b440d8ce2240e862ebeb7db788",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/glass-defeat.wav",
+        "pcm_sha256": "cd4962170db84aa7fef6347ff6c2c61b9fe80514202d327c923802c5abdbdd4f",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/thorn-defeat.wav",
+        "pcm_sha256": "6a03d98b02081444169c6f3b90f749992495b7e3c5c9abc32b0750869c9bb725",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/thorn-title.wav",
+        "pcm_sha256": "2e530c3ffca94327dfe12f121f8e8f52c9245ef42a322acf0fb4b99e9790f5b5",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/thorn-victory.wav",
+        "pcm_sha256": "fd6643b7d1537a180f8b146c3cb902b7d0d8ab8e4283ef14ffb4a541a6596c9e",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/ember-standard.wav",
+        "pcm_sha256": "118212a0c3cd12b31e82a7b4657c249aae5c2fa5e834f0bdb031334bec9f42dc",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/tide-standard.wav",
+        "pcm_sha256": "66a23a6daa00af5789519bacc65002c6587b466bb3dc7daca6e6278cfaac26f5",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/thorn-endgame.wav",
+        "pcm_sha256": "9a367f8b844623623a50b8f6a89222e16fd7242469f01a404691fd54e7edb8e9",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/tide-transitions.wav",
+        "pcm_sha256": "ea1642639b108679e6d34c7b4cecee19825dba39bcf60205f73914146b427f2b",
+        "bytes": 18432000
+      },
+      {
+        "file": "studio48/ember-lobby.wav",
+        "pcm_sha256": "808fe6743b219983d9fae700ea7792ed14af11c584de22a0634b2bf5c37f22bb",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/ember-victory.wav",
+        "pcm_sha256": "0c73cfc71be87f16304d33634f5a05a67139d3c664297084d141b06c1da96af1",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/ember-combat.wav",
+        "pcm_sha256": "98afdd040982188c6dde5485af62d3a7da4e5535d24c96feb5d3b96f35441fe7",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/star-defeat.wav",
+        "pcm_sha256": "d7fb8abf0eb967dc8641d07e5f63bdf3351ed9ba6dae41d4c084c98678279aa2",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/tide-victory.wav",
+        "pcm_sha256": "d6d7d9ee2e3829f0b2e327c710533e063db058cfbf181807b912aea4edbf16db",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/ember-title.wav",
+        "pcm_sha256": "5c505985d7f6cdb706d33dfe05e8367eb3db76ebd3e592ed7b9655d2658dd6e9",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/thorn-transitions.wav",
+        "pcm_sha256": "73e0feb0ddcb8f5da1355d731ab79c436d608be1f5933c376968e2439a5bbcbe",
+        "bytes": 18432000
+      },
+      {
+        "file": "studio48/star-draw.wav",
+        "pcm_sha256": "823eed51447d2689fa170898b7d72481fe6e6f037b18af486baea9f6202a3db7",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/thorn-combat.wav",
+        "pcm_sha256": "b677fd7e967edca6ac3440966be10c53724057789e9f14d347e3bd4ec2ec2c1d",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/ember-draw.wav",
+        "pcm_sha256": "fe9fc62e50e623eac66f54a14994369b7635c2bde4e64c95d7849b15d340634e",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/glass-combat.wav",
+        "pcm_sha256": "a4990a21a6e1c461499ca07d77140d069316e834012fd6972620a687d6b743ce",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/tide-combat.wav",
+        "pcm_sha256": "c2bda6d2d247dcdf4cb04c3a5f9c41d382202d58a5e6c35de0c16bd0905d5d68",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/star-lobby.wav",
+        "pcm_sha256": "23c028ca0aeeec59e7ead36ffb5567627545b8b52f55e59a3e21c234c8c825a4",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/ember-transitions.wav",
+        "pcm_sha256": "7805fdc4b1bb47ae7ba39f89a5ecfec72b1b1caf0e2af35bc0d3ba2ae8a686c9",
+        "bytes": 18432000
+      },
+      {
+        "file": "studio48/glass-standard.wav",
+        "pcm_sha256": "8cbeac6e4ca1f5ee4f8bca2ef1af5c6646a7538cd00bffd81bbbb645d1f21374",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/star-victory.wav",
+        "pcm_sha256": "f420d6e34f360e020ee8d91367826b22628039d7676d7a69041e8fce7c1bcafd",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/glass-title.wav",
+        "pcm_sha256": "625e56470a41aa0d1c19f0e2f8d88159b0a198e936da44287e84a35d8966908c",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/star-title.wav",
+        "pcm_sha256": "9b3090e4a59b7838672a08eb6090f03fc3b0886542df4387d1188a78862a4a9c",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/glass-lobby.wav",
+        "pcm_sha256": "4c59465236baed1dc19e6e943064a80e6ce84138983d0d6325b5d10f3ed83543",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/glass-victory.wav",
+        "pcm_sha256": "15d5766caf81b362093b96b6496d19be538954334e5650dc03ec66445a484da1",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/star-standard.wav",
+        "pcm_sha256": "3299cf5affa7e36a65c8bd9e30fef689762b91c849fd9ca88f81fdd37af0d9cb",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/glass-endgame.wav",
+        "pcm_sha256": "4474b9f0e244235488dce2644f18c0092ae58f7b5905760b3b1ec3f0b49fc7d2",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/tide-title.wav",
+        "pcm_sha256": "e35409c007effe0bd3665c0e9cf13c7ee8164bda56aaef8b89ffc7d3b64ffdfc",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/thorn-standard.wav",
+        "pcm_sha256": "b51f415d6822cef0fc87fe34faa93e4ada89ca51e6da96103e898baaf097faa9",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/tide-draw.wav",
+        "pcm_sha256": "08f79d82e3343d23677333d01a95459fb81cebf08f2256e5d0edbf0c4a973dff",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/ember-defeat.wav",
+        "pcm_sha256": "9f1ad82a39f753c6a926d8201898bbdb9b79e2fd7ba9b58cb092968f6e9f3409",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/tide-lobby.wav",
+        "pcm_sha256": "c2f70d46f96f105397f8812f8599e4e0e815b2f692a108da4ec8b2c053f709fc",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/glass-transitions.wav",
+        "pcm_sha256": "62e4866fbdfc2ad094e4a1317db9563bab7d6308f1bcf693a7be1873c2af170c",
+        "bytes": 18432000
+      },
+      {
+        "file": "studio48/star-combat.wav",
+        "pcm_sha256": "ce3c78c61663082d132a749feef957986b6ff4178f3bff55534bab3d250e3775",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/star-endgame.wav",
+        "pcm_sha256": "2339bdaa305be34eeeb8ed889635116591310a577f9cccecb63c51c705a779f3",
+        "bytes": 1152000
+      },
+      {
+        "file": "studio48/glass-draw.wav",
+        "pcm_sha256": "df8bd616791131418c512e2755c56e0d8e37693a9f3cf6c5516ffb69510f3056",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/thorn-draw.wav",
+        "pcm_sha256": "8667d5389bbe6c0c6aabef51d10a2ccfc6de405ac9a1451fe4c1d17e215fe632",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/ember-endgame.wav",
+        "pcm_sha256": "60b76aa7cbfd1780b09a6855170081cc00645de58bbfa5c2a7741e7152b439e6",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/star-transitions.wav",
+        "pcm_sha256": "3c7e2e6a57dbf870e231bb2b8641275bc1b90b73ad2fe098c0719b55db77203a",
+        "bytes": 18432000
+      },
+      {
+        "file": "original441/thorn-lobby.wav",
+        "pcm_sha256": "1239f516238e003a12db747463a93e9eb1c8b22517b2fc1900eeadb11aa3c63b",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/tide-endgame.wav",
+        "pcm_sha256": "a08a1312feb0bad6c930e64f6e121ef47c0ea27d84f25ddcf27b04f8c622c9f1",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/tide-defeat.wav",
+        "pcm_sha256": "8d7378f9274d22459b532779064895894a0435497287a279e13849ded5db8e16",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/glass-defeat.wav",
+        "pcm_sha256": "6ca293eea9c82f6a2a534bf54b39a3f9b6053c114c187d6778a7e9323b8fe0c2",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/thorn-defeat.wav",
+        "pcm_sha256": "f337b25cc9b4f52764a3f7235592811c8370ffcd5cd8cf2395ad7835039b295f",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/thorn-title.wav",
+        "pcm_sha256": "7d2cc66b892e3893dbebe472f8a0c5047be0e32aa33fa77eb6dc1632cdf6cfc0",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/thorn-victory.wav",
+        "pcm_sha256": "6b62c55ea41a5cbb308e0590057a956063179ca9a3a3b5ad97bff0a8884fefbd",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/ember-standard.wav",
+        "pcm_sha256": "d9df3be39004c4ea9d270a557b9140394447dc4e6083a49cccb5a24169165b36",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/tide-standard.wav",
+        "pcm_sha256": "c0445e8bb6836dbeacac075b89b676099c332f02408a93466b4e9c9f37203e34",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/thorn-endgame.wav",
+        "pcm_sha256": "636527d5ca51bc807e6e0566d3078cf0b43b75a4adc2068465273fea761f3c6f",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/tide-transitions.wav",
+        "pcm_sha256": "84657a4ab4e481f3125ea41e22c0bf44482af39001c9120d187b46f6b5f9a76f",
+        "bytes": 18432000
+      },
+      {
+        "file": "original441/ember-lobby.wav",
+        "pcm_sha256": "fb5102315210b80c4dcb755be590b787ba23e94493999cb0306dea9d42a8051d",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/ember-victory.wav",
+        "pcm_sha256": "d3394cfdc4e0fa9c11d276c45c3ae475d19ca2c970e9ccb168f7b8ee234f91da",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/ember-combat.wav",
+        "pcm_sha256": "2dc484e58d1bab84fd1a65ae016d2d1f6b720f5888459c310ed34d259901fe30",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/star-defeat.wav",
+        "pcm_sha256": "f8b869e03444d1a249e4210da0fc466f397adf1d947aad0ffe85048310b7baf8",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/tide-victory.wav",
+        "pcm_sha256": "cfa12ccd224bdac3a368cb2d6ebadbe7d35f22b211b2d1f63de8a703d1f6b4b9",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/ember-title.wav",
+        "pcm_sha256": "8e955869ec9ecc6af4f3204128257b02cb0446e20ff5e5f90f0154b8cd728432",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/thorn-transitions.wav",
+        "pcm_sha256": "f8dd9e9ef576cfa9009f91fcc1621727b228277fe0ff1252a1e759038cf711ef",
+        "bytes": 18432000
+      },
+      {
+        "file": "original441/star-draw.wav",
+        "pcm_sha256": "e11b15363de855ca44200f39654969e6420a8742b8f67fecbcb8c0561f3a7471",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/thorn-combat.wav",
+        "pcm_sha256": "8e7272f404ba6a0e6dbfdd265ecd44283b0dc6c0a324e68de7704282d5370f8c",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/ember-draw.wav",
+        "pcm_sha256": "b094db57aa29509b5488d85639b8c243d5f3f9b0666fced0af893603dccafbdf",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/glass-combat.wav",
+        "pcm_sha256": "63dfa9227db373385e104ad90953c6a8b9da474b3762df980d5ac1f8fa75cbd7",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/tide-combat.wav",
+        "pcm_sha256": "c880c806fdc8f48c0c14ae4863358fa9c87e5aca52cf2534087feda9b1bef4d2",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/star-lobby.wav",
+        "pcm_sha256": "413acc478adc7f1890e80b297f5ffda8e309a5bc14237816ae3ae2f531320538",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/ember-transitions.wav",
+        "pcm_sha256": "2680b3c9ce41dbb6a9674f57dfff357461132fd83b520cb21dfcc7d291375a77",
+        "bytes": 18432000
+      },
+      {
+        "file": "original441/glass-standard.wav",
+        "pcm_sha256": "acfbcb3c8bfb4ba212f1adb24fe28c112142e0b3c3ddf2b009a00dd07dbb8fa5",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/star-victory.wav",
+        "pcm_sha256": "3469bb976e6471303a4a095f8e9524718c51da9cde666991ade9587e04cef07c",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/glass-title.wav",
+        "pcm_sha256": "4d07f0e95bd5709c1b6d8a7d4e743980be5cc4e96f8911636e1af0902aa4ec96",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/star-title.wav",
+        "pcm_sha256": "75326b326dc422738c93179e1f7bd1350fda33e04e8655c878735e5c3805d64f",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/glass-lobby.wav",
+        "pcm_sha256": "ec8f0ffa1ae8ebbe1d3eb61f43704d8fe863ec905851edbb7a272c2211a1a1d6",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/glass-victory.wav",
+        "pcm_sha256": "d003960781838ff88bc6c6dd483225864a96a697bcb8b95ec0035e59689042ba",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/star-standard.wav",
+        "pcm_sha256": "b7813b2c65eb9766a05b11fc0576e8427e809faba0a90d59bbf746f5dc011f52",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/glass-endgame.wav",
+        "pcm_sha256": "36635bdb6183b7c2913255d477ede54a8c661b289e19c1d174e2d85ef6586e8b",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/tide-title.wav",
+        "pcm_sha256": "6fe03f8a31093532d178c2d8ffcdb3da28b8c98412d9df5299f66905b00cdf96",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/thorn-standard.wav",
+        "pcm_sha256": "31260c5f6b0e4db74da1ac81d6ea227766e291866f6d4b6d5fc9757616ca0644",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/tide-draw.wav",
+        "pcm_sha256": "353f2c37cc8114e4a9164789f350fe5fcee4be037317dbea7be226bd1aafb780",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/ember-defeat.wav",
+        "pcm_sha256": "f3001d86f1e3684845dd8a13a0a283b63617005537f11f20e825274fc3456b41",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/tide-lobby.wav",
+        "pcm_sha256": "25463c99537cfd147029b7432c58c877cf72aea8616a275fa2518f8f94191e2a",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/glass-transitions.wav",
+        "pcm_sha256": "eb1b1708e5be19e64e43cb76c9431e35cdd39582bb4f80d776338447e2993680",
+        "bytes": 18432000
+      },
+      {
+        "file": "original441/star-combat.wav",
+        "pcm_sha256": "bc540cf9c5939de66ab690e69d23758dec5d207817485e0de7fa5384cf198a3a",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/star-endgame.wav",
+        "pcm_sha256": "93b9cc5844a1295e174e94886612b1500bb429aab8a3726ba91abf9eccf90621",
+        "bytes": 1152000
+      },
+      {
+        "file": "original441/glass-draw.wav",
+        "pcm_sha256": "3fe084c7f71d275327454900034d6f0c68bdd36fdb8c08dffe41c0cdb906b5e9",
+        "bytes": 1152000
+      }
+    ],
+    "baseline_extent": "4 seconds of each of 80 movement/bank combinations; full 64 seconds of all ten transition tours; byte-identical PCM."
+  },
+  "technology": {
+    "native_output_hz": 48000,
+    "preview_bits": 24,
+    "recorded_sources_hz": 44100,
+    "recorded_source_licenses": "Existing pinned VCSL / VSCO 2 CE CC0 recordings only; no new recordings or external synthesizer presets.",
+    "new_synthesis": "Eleven original band-limited additive patches, three original deterministic synthesized drums, native 48 kHz. Modelled instruments, not new acoustic studio recordings.",
+    "bank_semantics": "Studio48 prepares recorded pitches with sinc interpolation; Original441 reads original PCM with cubic interpolation. Synthesis is unchanged by bank choice; all-synth arrangements are identical across banks.",
+    "polyphony_limits": {
+      "recorded": 96,
+      "lyre": 24,
+      "new_synth": 64
+    },
+    "new_synth_wave_and_drum_data_bytes": 343512,
+    "studio_pitched_clips": 195,
+    "studio_cached_float_bytes": 49907064,
+    "original_decoded_bytes": 13190424,
+    "active_embedded_recording_bytes": 6595212
+  },
+  "performance": {
+    "profile": "ci-release, Apple M1 Max; no live client, audio encoding or file I/O in the timed benchmark. Three runs per group/bank. Whole-composition workload, not an isolated microbenchmark.",
+    "prepare_seconds": 0.310979,
+    "groups": {
+      "dorian/Studio48": {
+        "audio_seconds": 150,
+        "runs_seconds": [
+          0.541709,
+          0.537072,
+          0.538577
+        ],
+        "median_seconds": 0.538577,
+        "realtime_cpu_fraction": 0.003590513333333333
+      },
+      "dorian/Original441": {
+        "audio_seconds": 150,
+        "runs_seconds": [
+          0.583868,
+          0.58063,
+          0.582291
+        ],
+        "median_seconds": 0.582291,
+        "realtime_cpu_fraction": 0.00388194
+      },
+      "new/Studio48": {
+        "audio_seconds": 300,
+        "runs_seconds": [
+          1.04301,
+          1.032906,
+          1.047358
+        ],
+        "median_seconds": 1.04301,
+        "realtime_cpu_fraction": 0.0034767
+      },
+      "new/Original441": {
+        "audio_seconds": 300,
+        "runs_seconds": [
+          1.0499,
+          1.043906,
+          1.047444
+        ],
+        "median_seconds": 1.047444,
+        "realtime_cpu_fraction": 0.00349148
+      }
+    }
+  },
+  "validation": {
+    "client_packages_all_targets": {
+      "passed": 3229,
+      "ignored": 8,
+      "failed": 0,
+      "scope_note": "Complete client and client-core gate, followed by focused checks after expanding renderer coverage and fixing the rotation counter."
+    },
+    "focused_music_tests": {
+      "passed": 40,
+      "failed": 0
+    },
+    "clippy": "Both affected crates, all targets, dev-control, -D warnings: passed.",
+    "native_build": "passed; existing debug linker unwind-size warning",
+    "wasm_check": "passed; two existing tableseats dead-code warnings",
+    "live_settings_combinations": 32,
+    "live_preview_requests": 240,
+    "keyboard": "Arrow/Enter selects the last theme and rotation; Tab reaches bank; Arrow/Enter changes and persists bank.",
+    "viewports": [
+      [
+        1440,
+        1100
+      ],
+      [
+        900,
+        850
+      ]
+    ],
+    "artifact_audio_links": 810,
+    "new_final_files": 180,
+    "final_format": "Every new final file verified as stereo 48 kHz / 24-bit FLAC, 96-second movements or 64-second tours. All 20 final titles decode bit-identically to runtime PCM24 WAVs.",
+    "javascript_syntax": "passed",
+    "originality_check": "All 75 phrases passed the existing limited six-interval comparison to the listed openings; injected positive control fires. Not a comprehensive originality guarantee.",
+    "final_director_tests": {
+      "passed": 8,
+      "failed": 0,
+      "scope": "After the final defensive conversion cleanup; includes 600 successive games at five different seeds."
+    }
+  },
+  "sources_checked": [
+    "https://company.wizards.com/en/legal/fancontentpolicy",
+    "https://versilian-studios.com/vsco-community/",
+    "https://versilian-studios.com/vcsl/",
+    "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/README.md"
+  ],
+  "copyrighted_reference_audio_copied": false,
+  "third_party_melodies_or_loops_used": false,
+  "source_sha256": {
+    "crates/baylee-client-core/src/music/score/manuscript.rs": "7b7d3f8b87deeae7a2d9acac74986cd5039be784c5e165eb3fff5d3a2dcb72d2",
+    "crates/baylee-client-core/src/music/score/styles/manuscript.rs": "9ca132e91cd24e0bd0830c1dfafe552cbe8547f9b455b2dccad5d3b097525657",
+    "crates/baylee-client-core/src/music/score/styles/rhythm.rs": "d5f82f9714c22a40f299e0e6226fff0e8a32d108eabb743926a10104e1a8d0bf",
+    "crates/baylee-client-core/src/music/orchestra/synth.rs": "2d78333b567d5b9f03159f0d50ff7fbb101c293e6a7eaeb341bf8627652e25a1"
+  }
+}

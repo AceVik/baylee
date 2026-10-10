@@ -227,9 +227,8 @@ pub struct Memory {
     spells: u8,
     arrivals: u8,
     opening: bool,
-    /// Where "rotating" starts: a different theme each run of the client,
-    /// then the next at every table that opens.
-    seed: u8,
+    /// Current suite in the rotation, independent of wrapping cue counters.
+    rotation: u8,
 }
 
 impl Memory {
@@ -237,7 +236,7 @@ impl Memory {
     #[must_use]
     pub fn seeded(seed: u8) -> Self {
         Self {
-            seed,
+            rotation: u8::try_from(usize::from(seed) % Theme::ALL.len()).unwrap_or_default(),
             ..Self::default()
         }
     }
@@ -312,6 +311,8 @@ pub fn direct(
     let mut request = ScoreRequest::default();
     if place == Place::Opening && !memory.opening {
         memory.arrivals = memory.arrivals.wrapping_add(1);
+        memory.rotation =
+            u8::try_from((usize::from(memory.rotation) + 1) % Theme::ALL.len()).unwrap_or_default();
     }
     memory.opening = place == Place::Opening;
     request.scene = match place {
@@ -323,10 +324,10 @@ pub fn direct(
     };
     if !matches!(place, Place::Table | Place::Finished | Place::Opening) {
         // A game left behind: the next one starts from nothing.
-        let (arrivals, seed) = (memory.arrivals, memory.seed);
+        let (arrivals, rotation) = (memory.arrivals, memory.rotation);
         *memory = Memory {
             arrivals,
-            seed,
+            rotation,
             ..Memory::default()
         };
     }
@@ -387,7 +388,7 @@ pub fn direct(
     request.monarchs = memory.monarchs;
     request.spells = memory.spells;
     request.arrivals = memory.arrivals;
-    request.theme = theme.pick(memory.seed.wrapping_add(memory.arrivals));
+    request.theme = theme.pick(memory.rotation);
     request
 }
 

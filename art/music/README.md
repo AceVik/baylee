@@ -63,6 +63,18 @@ payload is 6,595,212 bytes, selected at compile time from the historical
 19,577,282-byte bank; decoded Original PCM is 13,190,424 bytes, and 135 cached
 Studio pitches occupy 36,730,796 bytes. No additional sound files are fetched.
 
+Final fifteen-suite check: 300 seconds across the ten new combat arrangements
+render in median **1.043 s (Studio)** / **1.047 s (Original)**. The original
+five still render 150 seconds in **0.539 / 0.582 s**. Preparation is **0.311 s**;
+195 cached recorded pitches occupy **49,907,064 bytes**. Original decoded PCM
+and embedded recordings are unchanged. New synthesized wave/percussion data
+add **343,512 bytes**. These are local whole-score measurements, not a promise
+for every device. The new final renders peak below **0.420**, with all twenty
+tours completing their ten changes. The 90 baseline PCM checks for the old five
+are byte-identical. All 32 suite/rotation-bank selections persisted in the live
+client; all 240 preview requests and compact-window keyboard navigation passed.
+Automatic rotation remains sequential even when the arrival cue counter wraps.
+
 Live development preview (no change to saved settings):
 
 ```sh

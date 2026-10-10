@@ -1,5 +1,5 @@
 use super::*;
-const ALL: [Instrument; 8] = [
+const ALL: [Instrument; 22] = [
     Instrument::Violin,
     Instrument::Viola,
     Instrument::Cello,
@@ -8,6 +8,20 @@ const ALL: [Instrument; 8] = [
     Instrument::Harp,
     Instrument::Zither,
     Instrument::Lyre,
+    Instrument::Piano,
+    Instrument::Clav,
+    Instrument::Flute,
+    Instrument::Guitar,
+    Instrument::ElectricPiano,
+    Instrument::AnalogLead,
+    Instrument::ChipLead,
+    Instrument::Marimba,
+    Instrument::Bell,
+    Instrument::Pad,
+    Instrument::SynthBass,
+    Instrument::Kick,
+    Instrument::Snare,
+    Instrument::Hat,
 ];
 /// The block renderer is the frame renderer, bit for bit: the same notes
 /// started at the same frames, rendered both ways over many runs of uneven

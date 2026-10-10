@@ -3,7 +3,7 @@
     python3 art/music/originality.py        # from the repository root
 
 No run of six or more directed semitone intervals in any melody of
-`crates/baylee-client-core/src/music/score/manuscript.rs` may coincide with the
+the original and `styles/manuscript.rs` score books (75 phrases total) may coincide with the
 opening of a tune in `avoid.json` (any of its settings), transposed anywhere.
 The same check runs in CI as the test `no_melody_echoes_a_tune_we_must_not`;
 this script is the composer's, printing the closest call for every melody.
