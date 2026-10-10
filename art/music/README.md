@@ -1,4 +1,4 @@
-# Five thematic suites in B♭ Dorian
+# Fifteen suites: five Dorian originals plus ten contrasting styles
 
 Five independently composed two-bar title themes, each developed into eight
 movements. See `score/manuscript.rs` and the table in `docs/client.md` for
@@ -6,6 +6,22 @@ motifs, phrase structure, instrumentation and faster tempos. The revised score
 uses consonant major/minor triads; augmented/diminished chords and chromatic
 neighbours have been removed. The user's Risen files are private references,
 never copied, transcribed into the score or distributed.
+
+## Ten further compositions
+
+The original five remain intact. `score/styles/manuscript.rs` adds ten independent
+two-bar themes and fifty authored phrases; `styles/rhythm.rs` supplies separate
+accompaniment idioms. Piano nocturne, baroque chamber, folk jig, bossa nova,
+jazz waltz, synthwave, chiptune, marimba minimalism, ambient and orchestral
+breakbeat each have all eight movements. The table in `docs/client.md` gives
+keys and tempos. `Theme::DORIAN` and `Theme::EXPLORATIONS` keep the two sets
+explicit; settings and automatic rotation cover all fifteen.
+
+`orchestra/synth.rs` supplies eleven original additive patches and three original
+percussion sounds. These are native 48-kHz models, not sampled acoustic instruments
+or imported synthesizer presets. Recorded layers continue to use only the same
+51 pinned CC0 recordings. Bank selection affects recordings only; native models
+sound the same under either setting. Output is always stereo 48 kHz.
 
 ## Two sound banks for every suite
 
@@ -30,14 +46,16 @@ cargo run --profile ci-release -p baylee-client-core --example music_bench
 python3 art/music/originality.py
 ```
 
-The demo renders the exact runtime code: 80 movement files and ten off-beat
+The demo renders the exact runtime code: 240 movement files and 30 off-beat
 transition tours, PCM24 stereo, in `studio48` / `original441` folders. JSON
 records source/output rates, peaks, RMS, adjacent steps, and admitted changes.
 The benchmark prepares outside the timed render, runs 150 seconds of combat
-music three times per bank and reports preparation separately. It has no file
+music three times per bank for the original group, then 300 seconds for the
+new ten. Append `new` or `dorian` after demo seconds to render only that group.
+Preparation is reported separately. It has no file
 I/O in the timed section. Comparisons include the changed score's workload.
 
-Measured on this Mac, optimized `ci-release`, three runs: median 0.534 seconds
+Before the ten-style extension, measured on this Mac, optimized `ci-release`, three runs: median 0.534 seconds
 (Studio) / 0.581 seconds (Original) for 150 seconds of music, versus 0.925
 seconds for the earlier model score. These are whole-score comparisons, not
 isolated resampler benchmarks. Preparation: 0.233 seconds. The active PCM
@@ -62,13 +80,15 @@ old volume/theme settings when the new bank field is absent.
 
 The environment does not accept audio input: reviews use score inspection,
 signal analysis and runtime tests, **not a claimed subjective listening pass**.
-Three rounds per suite/bank were rendered: 16-second sketches, 64-second
+For the original five, three rounds per suite/bank were rendered: 16-second sketches, 64-second
 balance checks, and 180-second complete-form excerpts, each with transition
 tours. Round two removed always-on saturation and softened psaltery transients;
 round three distinguished the harbour motif further and interpolated sinc
 phases to suppress conversion steps. The final 90 files peak below 0.530;
 all ten tours retain the promptly dismissed draw cue.
-The local audition page supplies both banks and all three render rounds.
+The local audition pages supply both banks and all three render rounds.
+The ten-style extension uses 16/64/96-second rounds plus 64-second tours.
+`review-fifteen.json` records its checks, preservation evidence and measurements.
 `review.json` records actual checks and measurements. The old model-only audit
 is retained as `review-models.json`, with its original scope/date.
 

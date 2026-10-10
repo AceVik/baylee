@@ -264,6 +264,14 @@ impl Voice {
             room: tone.map_or(0.025, |t| t.room),
         }
     }
+    fn release(&mut self) {
+        if !self.releasing {
+            // Freeze the attained attack level: an interrupted pad cannot bloom later.
+            self.envelope *= (self.age as f32 / self.attack).min(1.0);
+            self.attack = 1.0;
+            self.releasing = true;
+        }
+    }
     fn next(&mut self) -> Option<[f32; 2]> {
         if self.wait > 0 {
             self.wait -= 1;
@@ -289,7 +297,7 @@ impl Voice {
         self.age += 1;
         self.colour *= self.colour_decay;
         if self.age >= self.hold {
-            self.releasing = true;
+            self.release();
         }
         self.envelope *= if self.releasing {
             self.release
@@ -327,7 +335,7 @@ impl Synth {
     }
     pub(super) fn release(&mut self) {
         for voice in &mut self.voices {
-            voice.releasing = true;
+            voice.release();
         }
     }
     pub(super) fn frame(&mut self, out: &mut [f32; 2], send: &mut f32) {
@@ -403,5 +411,25 @@ mod tests {
             synth.render(&mut out, &mut feed);
         }
         assert!(synth.voices.is_empty());
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn interrupted_attacks_and_repeated_releases_never_revive() {
+    for delay in [0, 17, 1000, 12000] {
+        let mut voice = Voice::new(Instrument::Pad, 60, 2.0, [1.0; 2], Touch::at(0.0));
+        for _ in 0..delay {
+            voice.next();
+        }
+        let attained = voice.envelope * (voice.age as f32 / voice.attack).min(1.0);
+        voice.release();
+        assert!((voice.envelope - attained).abs() < 1e-7);
+        for _ in 0..2000 {
+            let before = voice.envelope;
+            voice.release();
+            voice.next();
+            assert!(voice.envelope <= before);
+        }
     }
 }

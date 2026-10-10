@@ -71,6 +71,22 @@ fn cue(out: &mut Notes, theme: Theme, movement: Movement, tick: u8) {
         Role::Melody,
     );
 }
+fn balance(theme: Theme, out: &mut Notes) {
+    let gain = match theme {
+        Theme::Velvet | Theme::Circuit => 1.0,
+        Theme::Copper => 1.28,
+        Theme::Juniper => 0.85,
+        Theme::Lagoon | Theme::Orbit => 0.96,
+        Theme::Lantern => 0.97,
+        Theme::Neon => 0.86,
+        Theme::Mosaic => 1.04,
+        Theme::Iron => 0.87,
+        _ => unreachable!("new palettes only"),
+    };
+    for note in &mut out.events[..out.len] {
+        note.gain *= gain;
+    }
+}
 pub(super) fn notes(theme: Theme, movement: Movement, bar: u32, tick: u8) -> Notes {
     let mut out = Notes {
         events: [arrangement::EMPTY; 24],
@@ -78,6 +94,7 @@ pub(super) fn notes(theme: Theme, movement: Movement, bar: u32, tick: u8) -> Not
     };
     if movement.ending() && bar == 0 {
         cue(&mut out, theme, movement, tick);
+        balance(theme, &mut out);
         return out;
     }
     let local = if movement.ending() { bar - 1 } else { bar };
@@ -94,6 +111,8 @@ pub(super) fn notes(theme: Theme, movement: Movement, bar: u32, tick: u8) -> Not
         let pitch = colour(pitch, p.harmony[local as usize % 8], harmony);
         let lead = if movement == Movement::Defeat {
             p.comp
+        } else if movement == Movement::Title && (8..16).contains(&(local % 32)) {
+            p.accent
         } else {
             p.lead
         };
@@ -108,11 +127,19 @@ pub(super) fn notes(theme: Theme, movement: Movement, bar: u32, tick: u8) -> Not
             } else {
                 0.93
             };
+        let breath = if local % 4 == 3 { 0.84 } else { 1.0 };
+        let accent = if tick == 0 {
+            1.05
+        } else if tick.is_multiple_of(2) {
+            0.97
+        } else {
+            0.91
+        };
         out.add(
             lead,
             pitch,
-            length,
-            if quiet { 0.29 } else { 0.38 } * arc,
+            length * breath,
+            if quiet { 0.29 } else { 0.38 } * arc * accent,
             Role::Melody,
         );
         // The B section answers in another colour; the coda opens the register.
@@ -129,5 +156,6 @@ pub(super) fn notes(theme: Theme, movement: Movement, bar: u32, tick: u8) -> Not
         }
     }
     rhythm::accompany(&mut out, theme, movement, local, tick, harmony, arc);
+    balance(theme, &mut out);
     out
 }

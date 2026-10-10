@@ -7183,9 +7183,10 @@ counted cues exist to do.
 
 ### One orchestra follows the player
 
-Five newly composed suites (10 October 2026), all centred on **B♭ Dorian**
+Fifteen original suites (10 October 2026) are available. The first five remain
+unchanged, centred on **B♭ Dorian**
 (B♭ C D♭ E♭ F G A♭), are selected in **Settings → Audio → Music theme**.
-The sixth choice, Rotating, advances through all five between games. Settings
+The sixteenth choice, Rotating, advances through all fifteen between games. Settings
 from the previous four-theme score migrate by serde aliases without losing
 volume or mute. English and German labels are supplied.
 
@@ -7196,6 +7197,42 @@ volume or mute. English and German labels are supplied.
 | Dornenkrone / Thorn Crown | 4/4, quarter = 124 | Repeated-note call, short–short–long march rhythm |
 | Nebelhafen / Mist Harbour | 6/8, dotted quarter = 92 | Lilting 1+2 cells, lyre-led flowing line |
 | Sternfall / Starfall | 5/4, quarter = 120 | Long descending octave arc and spacious answer |
+
+The ten additional suites use the owner's explicit artistic freedom for different
+keys, instrumentation and styles. The original five keep their score and sound.
+The settings selector wraps named buttons while retaining one composite keyboard
+stop (arrows choose focus, Enter selects); labels are available in German/English.
+
+| Additional suite | Style / tonal centre | Metre / title tempo |
+|---|---|---|
+| Samtnacht / Velvet Night | Piano nocturne, D minor | 4/4, quarter = 108 |
+| Kupferwerk / Copperwork | Baroque chamber, D major | 3/4, quarter = 128 |
+| Wacholderreigen / Juniper | Folk jig, G major | 6/8, quarter = 144 |
+| Lagunenlicht / Lagoon Light | Bossa nova, F major | 4/4, quarter = 132 |
+| Laternenwalzer / Lanterns | Jazz waltz, E-flat major | 3/4, quarter = 138; 59:41 swung eighths |
+| Neonpfad / Neon Path | Synthwave, C minor | 4/4, quarter = 126 |
+| Pixelsturm / Pixelstorm | Chiptune, E minor | 4/4, quarter = 156 |
+| Mosaik / Mosaic | Marimba minimalism, A major | 7/8, quarter = 144 |
+| Umlaufbahn / Orbit | Bell/pad ambient, D-flat major | 4/4, quarter = 116 |
+| Eisenpuls / Iron Pulse | Orchestral breakbeat, G minor | 4/4, quarter = 146 |
+
+`music/score/styles/manuscript.rs` supplies fifty further authored phrases;
+`styles/rhythm.rs` gives each style its own accompaniment. Every title has an
+original two-bar motif, answer, return, cadence and contrasting B section.
+All ten provide the same eight game movements, with consonant triads and
+independent ascending/descending/open-fifth result cues. Jazz colour comes from
+rhythm, voicing and timbre here: no dissonant seventh/altered chords are added.
+Native 48-kHz additive synthesis supplies eleven original pitched patches and
+three percussion voices. Harmonic tables stop below 16 kHz at the highest score
+pitch; attacks, spectral decay and instrument-specific releases give each patch
+its own articulation. These are modelled instruments, not new studio recordings.
+No third-party synthesizer preset or loop is used. The bank setting changes
+recorded voices only; wholly synthesized arrangements sound identical in both.
+The new pool is capped at 64 voices beside the existing 96 recorded voices and
+24 lyre strings, with no allocation or I/O during admission/rendering.
+
+The original five's eight situations retain the requested medieval/orchestral
+instrument groups. Their manuscript and arrangements are described below.
 
 `music/score/manuscript.rs` contains the original, independently notated
 melodies, with eighth-note durations and explicit rests. Each title opens with
@@ -7226,7 +7263,7 @@ voices release from their current level, and the tempo eases over three
 seconds. No WAV is restarted and no full bar/phrase must finish. A fast
 succession of changes cannot revive a voice already in release.
 
-**Sound banks:** all five suites are available in both Settings → Audio →
+**Sound banks:** all fifteen suites are available in both Settings → Audio →
 Instrument sound choices. **Studio 48 kHz** prepares each composed pitch with
 32-tap Blackman-windowed sinc interpolation before playback. **Original
 44.1 kHz** reads the existing mono PCM bank with cubic interpolation. Both use
@@ -7253,9 +7290,10 @@ Render the **same renderer used by the client**, for review or regression:
 ```sh
 cargo run --release -p baylee-client-core --example music_demo -- /tmp/baylee-music 180
 python3 art/music/originality.py
+# Append `new` or `dorian` after the seconds argument to render only that group.
 ```
 
-This writes eighty stereo PCM24/48-kHz WAVs and ten transition tours, in
+This writes 240 stereo PCM24/48-kHz WAVs and 30 transition tours, in
 `studio48` and `original441` directories. Those names describe the sample banks,
 not different output-device rates. Tours
 request changes deliberately off-beat, including leaving combat and dismissing
