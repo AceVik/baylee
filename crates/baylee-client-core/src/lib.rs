@@ -77,6 +77,7 @@ pub mod ledge;
 pub mod lifeflash;
 pub mod llmseat;
 pub mod lobby;
+pub mod lostbanner;
 pub mod manapip;
 pub mod manaplan;
 pub mod manapool;

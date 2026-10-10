@@ -81,6 +81,11 @@ fn app_with(state: LinkState, table: Window) -> (App, Arc<Mutex<LinkState>>, Arc
                 Window::Secs(secs) => Some(secs.get()),
                 Window::Unknown | Window::Forever => None,
             };
+            // Another player at the table, as at every table these tests
+            // were written for: the engine waits for this seat rather than
+            // pausing (`a_player_alone_with_the_house_is_told_the_game_is_paused`
+            // is the other case).
+            statics.seats.push(opponent(false));
             Some(statics)
         }
     };
@@ -102,6 +107,48 @@ fn app_with(state: LinkState, table: Window) -> (App, Arc<Mutex<LinkState>>, Arc
     (app, link, dials)
 }
 
+/// Seat 1, a player or the house AI.
+fn opponent(is_ai: bool) -> baylee_view::SeatIdentity {
+    baylee_view::SeatIdentity {
+        player: PlayerId::new(1),
+        display_name: "Mia".to_owned(),
+        is_ai,
+        away: false,
+        team: None,
+    }
+}
+
+/// Alone with the house the engine pauses the game instead of handing the
+/// chair over (owner, 10.10.2026), and the bar says so; with another player
+/// it names the table's wait.
+#[test]
+fn a_player_alone_with_the_house_is_told_the_game_is_paused() {
+    let (mut app, _link, _dials) = app_with(LinkState::Down, ORDINARY);
+    advance(&mut app, Retry::PATIENCE + 1.0);
+    let note = app.world().resource::<Duel>().link_note.expect("a note");
+    assert_eq!(note.phrase, Phrase::LinkStandIn);
+    assert_eq!(note.wait_secs, Some(60), "the table's wait is named");
+
+    let (mut app, _link, _dials) = app_with(LinkState::Down, ORDINARY);
+    app.world_mut()
+        .resource_mut::<Duel>()
+        .statics
+        .as_mut()
+        .expect("told")
+        .seats[1] = opponent(true);
+    advance(&mut app, 0.1);
+    assert_eq!(
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
+        Some(Phrase::LinkLost),
+        "a hiccup is still a hiccup"
+    );
+    advance(&mut app, Retry::PATIENCE + 1.0);
+    assert_eq!(
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
+        Some(Phrase::LinkPaused)
+    );
+}
+
 /// Moves the clock on and runs one frame.
 fn advance(app: &mut App, seconds: f32) {
     app.world_mut()
@@ -121,7 +168,7 @@ fn a_table_that_drops_is_dialled_again_without_anyone_asking() {
     advance(&mut app, 0.1);
     assert_eq!(*dials.lock().unwrap(), 0, "not instantly");
     assert_eq!(
-        app.world().resource::<Duel>().link_note,
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
         Some(Phrase::LinkLost),
         "but the player is told at once"
     );
@@ -141,7 +188,10 @@ fn a_local_host_is_never_dialled() {
         advance(&mut app, 5.0);
     }
     assert_eq!(*dials.lock().unwrap(), 0);
-    assert_eq!(app.world().resource::<Duel>().link_note, None);
+    assert_eq!(
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
+        None
+    );
 }
 
 /// A dial in flight is not a reason to dial again. Without this the
@@ -160,7 +210,7 @@ fn a_dial_in_flight_is_left_alone_but_still_counts() {
     let (mut app, _link, dials) = app_with(LinkState::Connecting, ORDINARY);
     advance(&mut app, 0.1);
     assert_eq!(
-        app.world().resource::<Duel>().link_note,
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
         Some(Phrase::LinkLost),
         "a dial that has just gone out is still a hiccup"
     );
@@ -169,7 +219,7 @@ fn a_dial_in_flight_is_left_alone_but_still_counts() {
     }
     assert_eq!(*dials.lock().unwrap(), 0, "it is already dialling");
     assert_eq!(
-        app.world().resource::<Duel>().link_note,
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
         Some(Phrase::LinkStandIn),
         "a minute inside one dial is not a hiccup, whatever the schedule did"
     );
@@ -188,7 +238,7 @@ fn the_sentence_does_not_flicker_as_dials_come_and_go() {
     let (mut app, link, _dials) = app_with(LinkState::Down, ORDINARY);
     advance(&mut app, Retry::PATIENCE + 1.0);
     assert_eq!(
-        app.world().resource::<Duel>().link_note,
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
         Some(Phrase::LinkStandIn),
         "the drop has outlived its patience"
     );
@@ -197,14 +247,14 @@ fn the_sentence_does_not_flicker_as_dials_come_and_go() {
         *link.lock().unwrap() = LinkState::Connecting;
         advance(&mut app, 0.1);
         assert_eq!(
-            app.world().resource::<Duel>().link_note,
+            app.world().resource::<Duel>().link_note.map(|n| n.phrase),
             Some(Phrase::LinkStandIn),
             "a dial going out took the bar back to the first sentence"
         );
         *link.lock().unwrap() = LinkState::Down;
         advance(&mut app, 0.1);
         assert_eq!(
-            app.world().resource::<Duel>().link_note,
+            app.world().resource::<Duel>().link_note.map(|n| n.phrase),
             Some(Phrase::LinkStandIn),
             "and the wait after it took the bar back"
         );
@@ -227,7 +277,7 @@ fn a_table_that_cannot_be_reached_stops_and_says_so() {
         "it stopped where the schedule said it would"
     );
     assert_eq!(
-        app.world().resource::<Duel>().link_note,
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
         Some(Phrase::LinkGaveUp)
     );
 
@@ -258,7 +308,7 @@ fn a_table_that_refused_the_protocol_is_never_dialled_again() {
         }
         assert_eq!(*dials.lock().unwrap(), 0, "a refusal is not an outage");
         assert_eq!(
-            app.world().resource::<Duel>().link_note,
+            app.world().resource::<Duel>().link_note.map(|n| n.phrase),
             Some(said),
             "a table speaking {table}"
         );
@@ -284,7 +334,10 @@ fn a_table_that_comes_back_clears_the_notice_and_the_schedule() {
 
     *link.lock().unwrap() = LinkState::Up;
     advance(&mut app, 0.1);
-    assert_eq!(app.world().resource::<Duel>().link_note, None);
+    assert_eq!(
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
+        None
+    );
     assert_eq!(*dials.lock().unwrap(), during, "and stopped dialling");
 
     // The *next* drop is a hiccup again, not the outage this one became.
@@ -293,7 +346,7 @@ fn a_table_that_comes_back_clears_the_notice_and_the_schedule() {
     *link.lock().unwrap() = LinkState::Down;
     advance(&mut app, 0.1);
     assert_eq!(
-        app.world().resource::<Duel>().link_note,
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
         Some(Phrase::LinkLost),
         "the new drop inherited the old one's outage"
     );
@@ -327,7 +380,7 @@ fn a_table_that_holds_the_chair_forever_never_announces_the_house() {
     for frame in 0..30 {
         advance(&mut app, 1.0);
         assert_eq!(
-            app.world().resource::<Duel>().link_note,
+            app.world().resource::<Duel>().link_note.map(|n| n.phrase),
             Some(Phrase::LinkLost),
             "second {frame} of an outage at a table that waits forever"
         );
@@ -346,7 +399,7 @@ fn a_client_that_was_never_told_its_table_promises_nothing() {
     let (mut app, _link, _dials) = app_with(LinkState::Down, Window::Unknown);
     advance(&mut app, Retry::PATIENCE + 20.0);
     assert_eq!(
-        app.world().resource::<Duel>().link_note,
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
         Some(Phrase::LinkLost)
     );
 }
@@ -364,13 +417,13 @@ fn a_five_second_table_turns_the_wording_at_five_and_not_at_eight() {
     let (mut app, _link, _dials) = app_with(LinkState::Down, Window::secs(5));
     advance(&mut app, 4.0);
     assert_eq!(
-        app.world().resource::<Duel>().link_note,
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
         Some(Phrase::LinkLost),
         "four seconds is still inside a five-second window"
     );
     advance(&mut app, 2.0);
     assert_eq!(
-        app.world().resource::<Duel>().link_note,
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
         Some(Phrase::LinkStandIn),
         "six seconds is past it, whatever PATIENCE says"
     );

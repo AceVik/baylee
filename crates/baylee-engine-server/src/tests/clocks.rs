@@ -288,6 +288,77 @@ fn a_chair_nobody_is_sitting_in_goes_to_the_house() {
     assert!(log_text(&out, 1).contains(r#"{"StandIn":{"player":0}}"#));
 }
 
+/// The reconnect window counts from the loss, and the seat still here is
+/// told on the wire how much of it is left (`PlayerView::lost`): ten
+/// seconds after the loss a thirty-second window has twenty left, on the
+/// engine's clock and in the view alike, and the entry is gone once the
+/// player is back.
+#[test]
+fn the_reconnect_window_counts_from_the_loss_and_rides_the_view() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &two_humans_window(60, 30));
+    sit_both(&mut runner);
+    let lost_at = 1_000_000;
+    runner.tell_time(lost_at);
+    let out = detach(&mut runner, 0);
+    let view = last_view(&out, 1).expect("the seat still here is shown the loss");
+    assert_eq!(
+        view.lost,
+        vec![baylee_view::LostSeat {
+            seat: PlayerId::new(0),
+            remaining_ms: Some(30_000),
+        }]
+    );
+    let wire = frames(&out)
+        .into_iter()
+        .find_map(|(s, msg)| match msg {
+            v1::envelope::Msg::StateDelta(delta) if s == 1 => {
+                Some(String::from_utf8(delta.view_json).expect("json"))
+            }
+            _ => None,
+        })
+        .expect("a view went to seat 1");
+    assert!(
+        wire.contains(r#""lost":[{"seat":0,"remaining_ms":30000}]"#),
+        "{wire}"
+    );
+
+    runner.tell_time(lost_at + 10_000);
+    let clock = clock_of(&runner, 0).expect("the chair is on the reconnect clock");
+    assert_eq!(clock.what, Deadline::StandIn);
+    assert_eq!(clock.secs, 20, "the window counts from the loss");
+    runner.tell_time(lost_at + 31_000);
+    assert_eq!(
+        clock_of(&runner, 0).map(|c| c.secs),
+        Some(1),
+        "a window already out still fires, at once"
+    );
+
+    let back = attach(&mut runner, 0);
+    let view = last_view(&back, 1).expect("the return is shown");
+    assert!(view.lost.is_empty(), "back is not lost: {:?}", view.lost);
+}
+
+/// A lost player with nobody else at the table is paused, not counted
+/// down: the entry carries no time.
+#[test]
+fn a_paused_loss_carries_no_countdown() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &two_humans_window(60, 30));
+    sit_both(&mut runner);
+    detach(&mut runner, 1);
+    detach(&mut runner, 0);
+    let session = runner.session().expect("built");
+    let lost = session.lost_seats();
+    assert!(
+        lost.contains(&baylee_view::LostSeat {
+            seat: PlayerId::new(0),
+            remaining_ms: None,
+        }),
+        "{lost:?}"
+    );
+}
+
 /// The same race the decision clock has, in the other direction: the
 /// socket may come back between the timer firing and this being called,
 /// and a player who is at the table must not have their chair taken.

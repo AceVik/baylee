@@ -2802,9 +2802,39 @@ messages! {
     /// The German says it in the present, which is not a drift: German
     /// present carries the near future, and "wird … antworten" reads as a
     /// prediction where the English "will" reads as a rule.
+    ///
+    /// Since 10.10.2026 the house sits down only while another player is at
+    /// the table, after the table's wait (`{0}`, m:ss, counted from the
+    /// loss); alone with the house the game pauses instead
+    /// ([`Phrase::LinkPaused`]).
     LinkStandIn {
-        en: "Still reconnecting — the house will answer for your seat until you are back.",
-        de: "Verbinde weiter — das Haus übernimmt deinen Platz, bis du zurück bist.",
+        en: "Still reconnecting — the table waits {0} for you, then the house plays your seat until you are back.",
+        de: "Verbinde weiter — der Tisch wartet {0} auf dich, dann übernimmt das Haus deinen Platz, bis du zurück bist.",
+    },
+    /// Still reconnecting, at a table with no other player: nothing moves
+    /// until this seat is back.
+    LinkPaused {
+        en: "Still reconnecting — the game is paused until you are back.",
+        de: "Verbinde weiter — das Spiel ist pausiert, bis du zurück bist.",
+    },
+    /// The banner over the table while another player's connection is lost:
+    /// `{0}` the player, `{1}` what is left of the table's wait (m:ss),
+    /// ticking once a second.
+    LostWaiting {
+        en: "{0} lost the connection – waiting {1}",
+        de: "{0} hat die Verbindung verloren – warte {1}",
+    },
+    /// The banner while a lost player's game is paused (nobody else at the
+    /// table but this seat's own view, e.g. a teammate's spectator).
+    LostPaused {
+        en: "{0} lost the connection – the game is paused until they are back",
+        de: "{0} hat die Verbindung verloren – das Spiel ist pausiert, bis die Verbindung zurück ist",
+    },
+    /// The banner once the wait is out: the house plays the chair until its
+    /// player is back.
+    LostHousePlays {
+        en: "The house AI plays for {0}",
+        de: "Die Haus-KI spielt für {0}",
     },
     /// The table cannot be reached. Rejoin from the lobby.
     ///

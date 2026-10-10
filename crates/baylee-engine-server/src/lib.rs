@@ -271,7 +271,7 @@ impl EngineRunner {
             // paused rather than handed to the house (owner, 10.10.2026).
             && self.another_player_here(session, Some(seat))
         {
-            (Deadline::StandIn, session.reconnect_window_secs())
+            (Deadline::StandIn, self.stand_in_secs(session, seat))
         } else {
             return None;
         };
@@ -283,6 +283,26 @@ impl EngineRunner {
             what,
             seq: session.asked_at(seat)?,
             secs,
+        })
+    }
+
+    /// What is left of `seat`'s reconnect window, in whole seconds rounded
+    /// up: counted from the **loss** ([`Session::reconnect_deadline_ms`]),
+    /// not from the question the seat is asked next, so a player lost
+    /// between questions is waited for the window once and every view's
+    /// countdown ([`baylee_view::PlayerView::lost`]) names the same moment.
+    /// At least one second, because zero means no clock at all: a window
+    /// already past fires on the next turn of the loop. A seat with no
+    /// recorded loss (lost before the curtain, or while the game was paused)
+    /// gets the whole window from its question.
+    fn stand_in_secs(&self, session: &Session, seat: PlayerId) -> u32 {
+        let window = session.reconnect_window_secs();
+        if window == 0 {
+            return 0;
+        }
+        session.reconnect_deadline_ms(seat).map_or(window, |until| {
+            let left = until.saturating_sub(self.now).div_ceil(1_000);
+            u32::try_from(left).unwrap_or(window).clamp(1, window)
         })
     }
 

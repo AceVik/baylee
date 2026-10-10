@@ -64,6 +64,7 @@ fn view(seats: u8) -> PlayerView {
         deciding: SeatSet::new(),
         decision_remaining_ms: None,
         clocks: Vec::new(),
+        lost: Vec::new(),
         priority_held: false,
         policy_acts: Vec::new(),
         monarch: None,

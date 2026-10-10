@@ -2791,8 +2791,18 @@ said, so the gateway waits:
     `LogEvent::Returned`). The window is the table's
     `reconnect_window_secs`: what the room named, else
     `BAYLEE_RECONNECT_SECS` on the gateway (default **180 s**, owner
-    10.10.2026; `10..=3600`). It counts from when the seat is asked, so it is
-    at most the line's number after the loss.
+    10.10.2026; `10..=3600`). It counts from the **loss**
+    (`Session::reconnect_deadline_ms`; the engine arms the seat's
+    `Deadline::StandIn` with what is left of it whenever the seat is asked),
+    and every seat still here is shown it live: `PlayerView::lost`
+    (`LostSeat { seat, remaining_ms }`, relative to the view like
+    `PlayerView::clocks`; `None` while paused) draws a banner over the table,
+    "… lost the connection – waiting 2:41", ticking once a second, then "the
+    house AI plays for …" once the window is out, gone when they are back.
+    The lost player's own client says which of the two it is: the house
+    plays after the wait while another player is at the table
+    (`Phrase::LinkStandIn`), the game is paused otherwise
+    (`Phrase::LinkPaused`).
   - With **nobody else at the table** (only AI chairs, or every other
     player gone too) the game **pauses**: no decision clock, no reconnect
     window, and the house moves nothing, so the table stands at the lost

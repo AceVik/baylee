@@ -31,6 +31,20 @@ pub struct SeatClock {
     pub remaining_ms: u32,
 }
 
+/// A player whose connection is lost, as [`PlayerView::lost`] tells it
+/// (`docs/protocol.md` §"Leaving, and losing the connection").
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct LostSeat {
+    /// The seat whose socket is gone.
+    pub seat: PlayerId,
+    /// How long the table still waits before the house plays the chair, in
+    /// milliseconds from the moment the view was built: relative, for
+    /// [`PlayerView::decision_remaining_ms`]'s reason (a client's clock is
+    /// never a rules question). `None` while nobody else is at the table and
+    /// the game is paused until the player is back.
+    pub remaining_ms: Option<u32>,
+}
+
 // ---------------------------------------------------------------------- view
 
 /// The complete, hidden-information-filtered state of a game as one seat sees
@@ -166,6 +180,14 @@ pub struct PlayerView {
     /// Additive: absent on the wire while empty, and read as empty when absent.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub clocks: Vec<SeatClock>,
+    /// Every player whose connection is lost and whose chair the house has
+    /// not taken yet, in seat order, with how long the table still waits.
+    /// A seat leaves the list when it is back, or when the house sits down
+    /// (then the roster says `away`). Empty in every view handed to an agent.
+    ///
+    /// Additive: absent on the wire while empty, and read as empty when absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lost: Vec<LostSeat>,
     /// Whether *this* seat has a standing order that is withholding its own
     /// priority — "let the stack resolve", "not this turn", and so on.
     ///
