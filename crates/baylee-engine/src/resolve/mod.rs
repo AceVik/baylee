@@ -448,6 +448,23 @@ impl Resolution {
 }
 
 /// Amount evaluation with target context ([`Amount::TargetPower`]).
+/// What a cost sacrificed, as `object`'s payment recorded it (CR 608.2h):
+/// its mana value, power or toughness for the three `Sacrificed*` amounts,
+/// 0 for none and for a negative power or toughness.
+pub(crate) fn sacrificed_amount(object: Option<&GameObject>, amount: &Amount) -> u32 {
+    let Some(lki) = object
+        .and_then(|o| o.paid.as_ref())
+        .and_then(|p| p.sacrificed_lki)
+    else {
+        return 0;
+    };
+    match amount {
+        Amount::SacrificedPower => u32::try_from(lki.power).unwrap_or(0),
+        Amount::SacrificedToughness => u32::try_from(lki.toughness).unwrap_or(0),
+        _ => lki.mana_value,
+    }
+}
+
 pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> u32 {
     match amount {
         Amount::SourcePower => state
@@ -488,11 +505,9 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .map_or(0, GameObject::event_amount),
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
-        Amount::SacrificedManaValue => state
-            .object(res.on_stack)
-            .and_then(|o| o.paid.as_ref())
-            .and_then(|p| p.sacrificed_mana_value)
-            .unwrap_or(0),
+        Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
+            sacrificed_amount(state.object(res.on_stack), amount)
+        }
         Amount::ManaSpentToCast => state
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
@@ -1052,7 +1067,7 @@ fn copy_spell(
     let face_index = from.face_index;
     let paid = from.paid.as_ref().map(|paid| {
         Box::new(crate::object::PaidRecord {
-            sacrificed_mana_value: paid.sacrificed_mana_value,
+            sacrificed_lki: paid.sacrificed_lki,
             sacrificed: paid.sacrificed,
             source_after_cost: paid.source_after_cost,
             tapped: paid.tapped,

@@ -773,7 +773,10 @@ fn hash_object_situation(
     hash_rider_situation(h, obj, state, position);
     // What was paid is part of what the spell will do: Neoform after a
     // two-drop and after a five-drop are two different futures.
-    h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
+    let sacrificed = obj.paid.as_ref().and_then(|p| p.sacrificed_lki);
+    h.option_u32(sacrificed.map(|s| s.mana_value));
+    h.u32(sacrificed.map_or(0, |s| s.power as u32));
+    h.u32(sacrificed.map_or(0, |s| s.toughness as u32));
     h.u32(obj.paid.as_ref().map_or(0, |p| p.mana_spent));
     h.u8(obj.paid.as_ref().map_or(0, |p| p.colors_spent.bits()));
     for amount in obj.paid.as_ref().map_or([0; 6], |p| p.mana_types_spent) {

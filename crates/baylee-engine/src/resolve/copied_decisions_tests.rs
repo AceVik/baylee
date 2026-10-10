@@ -99,7 +99,11 @@ fn spell_copy_keeps_damage_division_and_nonmana_cost_information_but_spends_no_m
     );
     state.object_mut(original).unwrap().paid = Some(Box::new(PaidRecord {
         source_after_cost: None,
-        sacrificed_mana_value: Some(3),
+        sacrificed_lki: Some(crate::object::SacrificedLki {
+            mana_value: 3,
+            power: 2,
+            toughness: 4,
+        }),
         sacrificed: Some((target, 0)),
         mana_spent: 5,
         colors_spent: ColorSet::ALL,
@@ -118,7 +122,11 @@ fn spell_copy_keeps_damage_division_and_nonmana_cost_information_but_spends_no_m
     )
     .unwrap();
     let paid = state.object(copy).unwrap().paid.as_ref().unwrap();
-    assert_eq!(paid.sacrificed_mana_value, Some(3));
+    assert_eq!(
+        paid.sacrificed_lki
+            .map(|s| (s.mana_value, s.power, s.toughness)),
+        Some((3, 2, 4))
+    );
     assert_eq!(paid.tapped, Some((target, 0)));
     assert_eq!(paid.mana_spent, 0);
     assert_eq!(paid.colors_spent, ColorSet::EMPTY);

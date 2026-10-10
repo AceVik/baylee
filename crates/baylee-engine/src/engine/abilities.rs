@@ -2958,10 +2958,10 @@ impl<L: CardLookup> Engine<L> {
                     // battlefield (CR 608.2h), so before it goes.
                     if matches!(part, CostPart::Sacrifice(_)) {
                         paid.sacrificed = self.state.object(card).map(|o| (card, o.version));
-                        paid.sacrificed_mana_value = self
+                        paid.sacrificed_lki = self
                             .state
                             .object(card)
-                            .map(|o| o.characteristics().mana_value());
+                            .map(crate::object::SacrificedLki::of);
                     }
                     // "The tapped creature" (station, CR 702.184a): which
                     // object, so its power can be read as the effect applies
