@@ -6,7 +6,7 @@
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
 )]
-use baylee_client_core::music::{Movement, RATE, ScoreControl, Theme, Tune};
+use baylee_client_core::music::{Movement, RATE, SampleSet, ScoreControl, Theme, Tune};
 use std::{
     io::{self, Write},
     path::Path,
@@ -30,13 +30,19 @@ fn wav_header(out: &mut impl Write, frames: u32) -> io::Result<()> {
 }
 fn render(
     dir: &Path,
+    samples: SampleSet,
     theme: Theme,
     name: &str,
     seconds: u32,
     script: &[(f64, Movement)],
 ) -> io::Result<serde_json::Value> {
     let control = Arc::new(ScoreControl::default());
-    control.set(script[0].1.request(theme));
+    let request = |movement: Movement| {
+        let mut r = movement.request(theme);
+        r.samples = samples;
+        r
+    };
+    control.set(request(script[0].1));
     let mut tune = Tune::with_control(control.clone());
     let started = std::time::Instant::now();
     let filename = format!("{}-{name}.wav", theme.name());
@@ -53,7 +59,7 @@ fn render(
     while done < frames {
         let now = f64::from(done) / f64::from(RATE);
         while next < script.len() && script[next].0 <= now {
-            control.set(script[next].1.request(theme));
+            control.set(request(script[next].1));
             next += 1;
         }
         let run = (frames - done).min(256) as usize;
@@ -82,7 +88,7 @@ fn render(
     let rms_db = 20.0 * (power / f64::from(frames * 2)).sqrt().log10();
     eprintln!("{filename}: peak={peak:.3}, rms={rms_db:.1} dBFS, max-step={jump:.3}");
     Ok(
-        serde_json::json!({"file":filename,"rate":RATE,"bits":24,"seconds":seconds,
+        serde_json::json!({"file":filename,"samples":samples,"source_rate":44100,"rate":RATE,"bits":24,"seconds":seconds,
         "render_seconds":started.elapsed().as_secs_f64(),"peak":peak,"rms_db":rms_db,"max_step":jump,"transitions":changes,"last_position":tune.position()}),
     )
 }
@@ -96,32 +102,37 @@ fn main() -> io::Result<()> {
         .clamp(4, 180);
     std::fs::create_dir_all(dir)?;
     let mut report = Vec::new();
-    for theme in Theme::ALL {
-        for movement in Movement::ALL {
-            report.push(render(
-                dir,
-                theme,
-                movement.name(),
-                seconds,
-                &[(0.0, movement)],
-            )?);
+    for samples in SampleSet::ALL {
+        let dir = &dir.join(samples.name());
+        std::fs::create_dir_all(dir)?;
+        for theme in Theme::ALL {
+            for movement in Movement::ALL {
+                report.push(render(
+                    dir,
+                    samples,
+                    theme,
+                    movement.name(),
+                    seconds,
+                    &[(0.0, movement)],
+                )?);
+            }
+            // Deliberately off-beat changes: all routes including combat cancellation
+            // and a result dismissed while its attention cue still speaks.
+            let tour = [
+                (0.0, Movement::Title),
+                (7.13, Movement::Lobby),
+                (14.27, Movement::Standard),
+                (21.41, Movement::Combat),
+                (28.53, Movement::Standard),
+                (31.79, Movement::Endgame),
+                (39.17, Movement::Victory),
+                (46.31, Movement::Lobby),
+                (49.57, Movement::Defeat),
+                (56.81, Movement::Draw),
+                (57.07, Movement::Lobby),
+            ];
+            report.push(render(dir, samples, theme, "transitions", 64, &tour)?);
         }
-        // Deliberately off-beat changes: all routes including combat cancellation
-        // and a result dismissed while its attention cue still speaks.
-        let tour = [
-            (0.0, Movement::Title),
-            (7.13, Movement::Lobby),
-            (14.27, Movement::Standard),
-            (21.41, Movement::Combat),
-            (28.53, Movement::Standard),
-            (31.79, Movement::Endgame),
-            (39.17, Movement::Victory),
-            (46.31, Movement::Lobby),
-            (49.57, Movement::Defeat),
-            (56.81, Movement::Draw),
-            (57.07, Movement::Lobby),
-        ];
-        report.push(render(dir, theme, "transitions", 64, &tour)?);
     }
     std::fs::write(
         dir.join("measurements.json"),

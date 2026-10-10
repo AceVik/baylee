@@ -1,9 +1,12 @@
 //! Five original suites in B♭ Dorian, with eight adaptive movements each.
-//! Original bowed, plucked and brass instrument models render natively at 48 kHz.
+//! CC0 acoustic recordings, with studio 48-kHz or original 44.1-kHz banks.
 //! One persistent orchestra admits scene changes on the next eighth-note pulse;
 //! releases and room tails bridge the change, and tempo moves continuously.
-//! No recordings or external sound assets are used by this score.
+//! Recorded source rate is 44.1 kHz in both banks; studio preparation resamples
+//! and tunes before playback. The lyre is our own native 48-kHz string model.
 
+#[allow(dead_code)] // Historical generated bank retains unused documented families.
+mod bank;
 mod direct;
 mod orchestra;
 mod score;
@@ -56,7 +59,31 @@ impl MusicTheme {
     }
 }
 
-/// Native stereo synthesis and output sample rate.
+/// Recorded sound bank, independent of the musical suite. Output remains 48 kHz.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[repr(u8)]
+pub enum SampleSet {
+    /// Windowed-sinc preparation at every used pitch, cached at 48 kHz.
+    #[default]
+    Studio48 = 0,
+    /// Original 44.1-kHz PCM, cubic playback at the continuous output rate.
+    Original441 = 1,
+}
+impl SampleSet {
+    /// Settings order.
+    pub const ALL: [Self; 2] = [Self::Studio48, Self::Original441];
+    /// Stable development-control and file name.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Studio48 => "studio48",
+            Self::Original441 => "original441",
+        }
+    }
+}
+
+/// Continuous stereo output rate, independent of the selected sample bank.
 pub const RATE: u32 = 48_000;
 /// Interleaved left and right channels.
 pub const CHANNELS: u16 = 2;
@@ -80,6 +107,7 @@ pub struct MusicLevel {
     muted: bool,
     /// The theme (absent from a file older than the themes: the default).
     theme: MusicTheme,
+    samples: SampleSet,
 }
 
 impl Default for MusicLevel {
@@ -90,6 +118,7 @@ impl Default for MusicLevel {
             volume: 0.5,
             muted: false,
             theme: MusicTheme::default(),
+            samples: SampleSet::default(),
         }
     }
 }
@@ -122,6 +151,16 @@ impl MusicLevel {
     /// Chooses a theme: heard from the next musical pulse, no restart.
     pub const fn set_theme(&mut self, theme: MusicTheme) {
         self.theme = theme;
+    }
+
+    /// The sample bank, available for every suite.
+    #[must_use]
+    pub const fn samples(self) -> SampleSet {
+        self.samples
+    }
+    /// Change timbre at the next pulse without restarting the score.
+    pub const fn set_samples(&mut self, samples: SampleSet) {
+        self.samples = samples;
     }
 
     /// Whether the player silenced it.

@@ -13,7 +13,7 @@ use baylee_core::ids::PlayerId;
 use baylee_core::types::TypeSet;
 use baylee_view::{ObjectStatus, PlayerView};
 
-use super::{MusicTheme, Theme};
+use super::{MusicTheme, SampleSet, Theme};
 
 /// Where the player is: the screens outside a game, and a game's phases.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -73,7 +73,7 @@ pub enum Scene {
     Table = 4,
     /// The victory, in B♭.
     Victory = 5,
-    /// The draw: augmented cue, then major/minor ambiguity.
+    /// The draw: open-fifth cue, then major/minor ambiguity.
     Draw = 6,
     /// The defeat: falling cue, then a B♭-centred lament.
     Defeat = 7,
@@ -137,6 +137,8 @@ pub struct ScoreRequest {
     pub turn_seat: u8,
     /// The theme to sing.
     pub theme: Theme,
+    /// Recorded sound bank, independent of the theme.
+    pub samples: SampleSet,
 }
 
 impl ScoreRequest {
@@ -166,6 +168,7 @@ impl ScoreRequest {
             | u64::from(self.arrivals & 15) << 33
             | u64::from(self.turn_seat & 7) << 37
             | u64::from(self.theme as u8 & 7) << 40
+            | u64::from(self.samples as u8) << 43
     }
 
     /// The request a word holds.
@@ -189,7 +192,12 @@ impl ScoreRequest {
             spells: nibble(29),
             arrivals: nibble(33),
             turn_seat: nibble(37) & 7,
-            theme: Theme::of(nibble(40)),
+            theme: Theme::of(nibble(40) & 7),
+            samples: if bit(43) {
+                SampleSet::Original441
+            } else {
+                SampleSet::Studio48
+            },
         }
     }
 }

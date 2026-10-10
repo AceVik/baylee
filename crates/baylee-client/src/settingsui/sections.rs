@@ -396,6 +396,20 @@ pub(crate) fn audio(out: &mut Out, view: &View) {
         Press::Settings(SettingsPress::PickMusicTheme(themes[i]))
     });
     out.row(Row::MusicTheme, control);
+    let samples = baylee_client_core::music::SampleSet::ALL;
+    let chosen = view
+        .settings
+        .map_or_else(baylee_client_core::music::SampleSet::default, |s| {
+            s.music.samples()
+        });
+    let names = labels(
+        lang,
+        &[Phrase::MusicSamplesStudio, Phrase::MusicSamplesOriginal],
+    );
+    let control = out.seg("music-samples", &names, index(&samples, &chosen), |i| {
+        Press::Settings(SettingsPress::PickMusicSamples(samples[i]))
+    });
+    out.row(Row::MusicSamples, control);
     let control = out.slider("effects", percent(effects), Volume::Effects);
     out.row(Row::Effects, control);
     let control = out.toggle(

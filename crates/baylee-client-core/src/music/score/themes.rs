@@ -57,7 +57,7 @@ impl Theme {
         }
     }
     /// Eighth-note pulses: 4/4, 3/4, 4/4, 6/8 or 5/4.
-    pub(super) const fn ticks(self) -> u8 {
+    pub(in crate::music) const fn ticks(self) -> u8 {
         match self {
             Self::Ember | Self::Thorn => 8,
             Self::Glass | Self::Tide => 6,
@@ -66,21 +66,21 @@ impl Theme {
     }
     pub(super) fn eighth(self, movement: Movement) -> f64 {
         let quarter = match self {
-            Self::Ember => 88.0,
-            Self::Glass => 84.0,
-            Self::Thorn => 98.0,
-            Self::Tide => 92.0,
-            Self::Star => 96.0,
+            Self::Ember => 112.0,
+            Self::Glass => 132.0,
+            Self::Thorn => 124.0,
+            Self::Tide => 138.0,
+            Self::Star => 120.0,
         };
         let pace = match movement {
             Movement::Title => 1.0,
-            Movement::Lobby => 0.82,
-            Movement::Standard => 0.88,
-            Movement::Combat => 1.36,
+            Movement::Lobby => 0.88,
+            Movement::Standard => 0.96,
+            Movement::Combat => 1.18,
             Movement::Endgame => 1.13,
             Movement::Victory => 1.14,
-            Movement::Defeat => 0.68,
-            Movement::Draw => 0.81,
+            Movement::Defeat => 0.78,
+            Movement::Draw => 0.90,
         };
         30.0 / (quarter * pace)
     }

@@ -87,6 +87,7 @@ fn a_request_packs_into_one_word() {
         arrivals: 7,
         turn_seat: 5,
         theme: Theme::Tide,
+        samples: SampleSet::Original441,
     };
     assert_eq!(ScoreRequest::unpack(request.pack()), request);
     let nan = ScoreRequest {

@@ -5962,6 +5962,15 @@ messages! {
     /// Audio: suite five.
     MusicThemeStar { en: "Starfall", de: "Sternfall" },
     /// Audio: a different suite each game.
+    /// Recorded instrument bank.
+    RowMusicSamples { en: "Instrument sound", de: "Instrumentenklang" },
+    /// Source and playback rates of the banks.
+    HelpMusicSamples { en: "Both banks use CC0 recordings made at 44.1 kHz. Studio prepares a high-quality 48 kHz bank; the alternative plays the original bank", de: "Beide Banken nutzen CC0-Aufnahmen mit 44,1 kHz. Studio bereitet sie hochwertig für 48 kHz auf; die Alternative spielt die Originalbank" },
+    /// Prepared 48-kHz sound.
+    MusicSamplesStudio { en: "Studio · 48 kHz", de: "Studio · 48 kHz" },
+    /// Original 44.1-kHz recordings.
+    MusicSamplesOriginal { en: "Original · 44.1 kHz", de: "Original · 44,1 kHz" },
+    /// Change suite between games.
     MusicThemeRotating { en: "Rotating", de: "Wechselnd" },
     /// Audio: the music's volume.
     HelpMusic { en: "Music throughout the title screen, lobby and game", de: "Musik für Titelbildschirm, Lobby und Spiel" },

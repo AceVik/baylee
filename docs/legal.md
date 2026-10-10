@@ -245,21 +245,39 @@ Urheber- und Medienrecht.
    (#292)"); no tracking. As a private, GitHub-hosted open-source project
    no Impressum is required (no commercial/public telemedia service).
 5. **Audio:** interface/gameplay cues remain original computed PCM in
-   `crates/baylee-client/src/sound.rs`. The five-suite score (10.10.2026) is
-   newly composed for Baylee, with original instrument models at native 48 kHz
-   (`crates/baylee-client-core/src/music/`, AGPL-3.0-only). It uses no external
-   recordings, no upsampled 44.1-kHz source, and no Wizards music. The
-   [Wizards Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy),
-   re-read 10.10.2026, says: “Don’t use Wizards’ Video or Music in your Fan Content.”
-   This change affects only original audio and its settings labels; it adds no
-   card images, symbols, fonts or Scryfall API use. The Scryfall API terms page
-   returned HTTP 403 on this audit; existing image/API obligations elsewhere
-   in this document continue to apply, without claiming fresh verification.
+   `crates/baylee-client/src/sound.rs`. The revised five-suite score
+   (10.10.2026) is newly composed for Baylee (AGPL-3.0-only), with five
+   original two-bar themes. No melody or recording from the user's two Risen
+   references is reproduced or distributed. Those private files were used
+   only as reference context and for non-expressive signal statistics;
+   no listening claim or legal-originality guarantee is made.
 
-   **Historical sample bank, inactive since the five-suite score:** retained
-   for provenance and reproducibility, not compiled into the active player.
-   Its 44.1-kHz recordings are unsuitable for the owner's native ≥48-kHz brief.
-   The original pinned CC0 sources and notices below still apply to those files:
+   The player now uses the pinned **CC0 acoustic recordings** below for
+   harp, plucked psaltery, violin, viola, cello, bowed bass and trombone.
+   The lyre is our own plucked-string model. Every suite supports both banks:
+   **Studio 48 kHz** (32-tap windowed-sinc preparation and pitch correction)
+   and **Original 44.1 kHz** (original PCM with cubic playback). Both have
+   **44.1-kHz recorded sources**; the 48-kHz bank is resampled, not native
+   48-kHz recording. Output remains continuous at 48 kHz. This distinction
+   is stated in Settings and the audition page. The user's revision explicitly
+   requested the 44.1-kHz alternative; the implementation's main-bank
+   assumption was explained in the chat pending their source preference.
+
+   The [Wizards Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy),
+   re-read 10.10.2026, says: “Don’t use Wizards’ Video or Music in your Fan Content.”
+   No Wizards audio is used. This change adds no images, symbols, fonts or
+   Scryfall API use. Both Scryfall terms URLs failed to load during this audit;
+   existing image/API obligations continue, without claiming fresh verification.
+   The publisher's [VSCO original-WAV page](https://versilian-studios.com/vsco-community/),
+   checked 10.10.2026, states: “Licensed under CC0 (Creative Commons Zero) you can do whatever
+   you want with these samples.” The [VCSL publisher page](https://versilian-studios.com/vcsl/)
+   also identifies its collection as CC0. Source licences and recordist notices
+   remain shipped beside the bank. Tests verify every active recording against
+   its existing SHA-256, source revision and 44.1-kHz manifest entry.
+
+   **Pinned recording sources:** the full historical bank remains intact;
+   only the named acoustic families are used in the revised score. Unused
+   instruments listed below are retained for provenance, not arranged into it.
    - **VCSL** (Versilian Community Sample Library, Versilian Studios LLC),
      [github.com/sgossner/VCSL](https://github.com/sgossner/VCSL) at
      `c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e`. Its README at that commit:

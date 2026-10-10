@@ -101,16 +101,6 @@ fn the_lute_sounds_its_pitch() {
 }
 
 #[test]
-fn native_model_tables_are_finite_periodic_and_bounded() {
-    assert_eq!(RATE, 48_000);
-    for wave in bowed::tables() {
-        assert!(wave.iter().all(|x| x.is_finite() && x.abs() <= 0.621));
-        assert!((wave[0] - wave[2048]).abs() < f32::EPSILON);
-        let rms = (wave.iter().map(|x| x * x).sum::<f32>() / 2049.0).sqrt();
-        assert!(rms > 0.1 && rms < 0.5, "{rms}");
-    }
-}
-#[test]
 fn releasing_an_already_releasing_voice_does_not_raise_its_level() {
     let mut orchestra = Orchestra::default();
     orchestra.note(Instrument::Violin, 70, 0.08, 0.4, Touch::at(0.0));

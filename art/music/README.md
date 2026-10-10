@@ -1,69 +1,77 @@
-# Five original suites in B♭ Dorian
+# Five thematic suites in B♭ Dorian
 
-The active score is `crates/baylee-client-core/src/music/score/`: five original
-manuscripts, each arranged for all eight situations. The active orchestra uses
-**our own instrument models at native 48 kHz**, not samples. Models approximate
-harp, zither, lyre, violin, viola, cello, bowed bass and trombone; they should
-not be described as real acoustic recordings. Code/compositions follow the
-repository's AGPL-3.0-only licence. No additional sound-library terms apply.
+Five independently composed two-bar title themes, each developed into eight
+movements. See `score/manuscript.rs` and the table in `docs/client.md` for
+motifs, phrase structure, instrumentation and faster tempos. The revised score
+uses consonant major/minor triads; augmented/diminished chords and chromatic
+neighbours have been removed. The user's Risen files are private references,
+never copied, transcribed into the score or distributed.
 
-## Audition
+## Two sound banks for every suite
+
+- **Studio · 48 kHz:** real VCSL/VSCO 2 CE recordings, prepared at every used
+  pitch with 32-tap windowed-sinc resampling. Natural attacks and sustain loops;
+  bowed bass throughout. Prepared floating-point frames make playback cheap.
+- **Original · 44.1 kHz:** the existing mono PCM16 recordings, decoded once,
+  played with cubic interpolation at the same continuous 48-kHz output rate.
+
+Both banks derive from **44.1-kHz recordings**, not native 48-kHz source audio.
+Higher output rate does not add information missing from a recording. The
+quality improvement over the previous version comes mainly from real acoustic
+articulation replacing static oscillator timbres, plus resampling, phrasing,
+and a linear mix. Lyre remains an original native 48-kHz string model.
+All shipped recordings are CC0; composition/code use AGPL-3.0-only.
+
+## Audition and measure
 
 ```sh
-cargo run --release -p baylee-client-core --example music_demo -- /tmp/baylee-dorian 180
+cargo run --profile ci-release -p baylee-client-core --example music_demo -- /tmp/baylee-music 180
+cargo run --profile ci-release -p baylee-client-core --example music_bench
 python3 art/music/originality.py
 ```
 
-Forty PCM24 stereo WAVs, five off-beat transition tours, and a JSON measurement
-report come from the exact runtime renderer, before the client's master gain
-and cue ducking. Native rate is 48,000 Hz. `ember`, `glass`, `thorn`, `tide`,
-`star` correspond to Glutpfad, Mondglas, Dornenkrone, Nebelhafen, Sternfall.
-Movement names are title, lobby, standard, combat, endgame, victory, defeat,
-draw. The tours also exercise combat cancellation and result dismissal.
+The demo renders the exact runtime code: 80 movement files and ten off-beat
+transition tours, PCM24 stereo, in `studio48` / `original441` folders. JSON
+records source/output rates, peaks, RMS, adjacent steps, and admitted changes.
+The benchmark prepares outside the timed render, runs 150 seconds of combat
+music three times per bank and reports preparation separately. It has no file
+I/O in the timed section. Comparisons include the changed score's workload.
 
-Originality checks compare written melodies against `avoid.json`'s existing
-interval signatures. They catch six consecutive shared intervals; they do not
-establish legal or musical originality against all music in existence.
-
-## Live preview (dev-control only)
-
-With the client running on a dedicated development port:
+Live development preview (no change to saved settings):
 
 ```sh
-curl -s -X POST localhost:28770/music -d '{"theme":"star","movement":"endgame"}'
+curl -s -X POST localhost:28770/music -d '{"theme":"star","movement":"endgame","samples":"studio48"}'
+curl -s -X POST localhost:28770/music -d '{"theme":"star","movement":"endgame","samples":"original441"}'
 curl -s -X POST localhost:28770/music -d '{"auto":true}'
 ```
 
-The first command overrides the director, with the ordinary musical transition
-and existing volume controls. The second restores game-driven music. It does
-not change saved settings. `/state` reports the requested `score`; the WAV
-render's `measurements.json` reports the actually admitted musical position.
-The route exists only in dev-control builds and still binds only to loopback.
+Omitting `samples` selects Studio. Invalid names are rejected. `/state` reports
+requested theme/bank; the export reports the actual musical position.
+Both settings rows support pointer and keyboard, persist per device, and keep
+old volume/theme settings when the new bank field is absent.
 
-## Composition review, 10 October 2026
+## Review
 
-The review environment can render PCM and inspect scores/signals but does not
-accept audio input. Therefore these passes are **not claimed as listening
-reviews**. Listening files are supplied for human review.
+The environment does not accept audio input: reviews use score inspection,
+signal analysis and runtime tests, **not a claimed subjective listening pass**.
+The local audition page supplies both banks and the successive render rounds.
+`review.json` records actual checks and measurements. The old model-only audit
+is retained as `review-models.json`, with its original scope/date.
 
-1. Original manuscripts and eight-movement orchestration for each suite; render
-   each movement and the transitions at 48 kHz. First model pass: 16-second
-   excerpts per movement and 64-second tours.
-2. Different harmonic routes and cue contours per suite; clearer compound
-   metre and phrasing. Re-render all five suites and compare measurements.
-3. Final balance/transition corrections and complete-form render; numerical
-   headroom, tuning, interval, instrumentation and interruption tests.
+The five titles develop two-bar themes through statement, answer, return,
+cadence and a contrasting bridge; tavern and table movements quote those themes
+in quieter registers. Major/minor changes alter the melody and harmony together.
+Every arranged pitch is tested against its intended triad, with separate
+rising/falling/open-fifth result-cue checks. `avoid.json` is only a limited
+interval-signature check against its listed openings; passing is not a claim
+of legal originality against all existing music.
 
-Validation results and per-suite measurements are kept in `review.json`.
-The final 45 renders peak at 0.4773 (more than 6 dB below full scale); every
-transition tour retains its quickly dismissed draw cue after the third pass.
+## Recording provenance and reproduction
 
-## Historical recordings (not used by the active score)
-
-The remainder documents the previous bank for reproducibility. Its files are
-retained but are no longer embedded into the score. The preparation script is
-**not** a way to regenerate the current score; it regenerates the old 44.1-kHz
-bank. Do not present these sources as meeting the new ≥48-kHz source brief.
+The existing generated bank and preparation script are unchanged. The following
+sections describe all retained source assets; the active score uses only the
+families named above. The preparation script regenerates source PCM at 44.1 kHz;
+it does not generate compositions or turn them into native 48-kHz recordings.
 
 ## The three sources (all CC0 1.0; `docs/legal.md` §5 quotes each)
 
@@ -117,20 +125,3 @@ Each source's licence file ships beside the bank, byte for byte, with a
   (`bank_is_complete_and_embedded`) holds every row to its embedded bytes,
   every `.pcm` to a row, every source to the three above at the revisions
   `docs/legal.md` pins, and the whole under 20 MB.
-
-## The melodies
-
-Every melody is written for Baylee (`score/melodies.rs`): the table's theme
-and its variants in C Dorian, the front door's in B♭ Lydian, tension's line
-and the chanter's answer in G Aeolian, the hunt and three horn calls in F,
-the climax in G Aeolian, and the three endings. The styles the brief names
-(British and Slavic folk, medieval European music, fantasy scores) are
-references in words only. `avoid.json` holds 23 openings; 17 were read from
-fetched public-domain notation on 08.10.2026 (thesession.org, Mutopia,
-Wikipedia's scores, ABC collections; Korobeiniki, Scarborough Fair, Skye
-Boat Song, Loch Lomond, Auld Lang Syne, Kalinka, Palästinalied and the
-Saltarello in every setting the sources disagree on). Ederlezi's notation was
-not found, and the five film and game themes are interval shapes only, never
-a recording or a score: those six are marked `verified: false`.
-
-To hear it: `cargo run --release -p baylee-client-core --example music_demo -- <dir>`.

@@ -20,7 +20,7 @@ pub enum Movement {
     Victory,
     /// A descending attention cue followed by a slow lament.
     Defeat,
-    /// An augmented cue followed by major/minor ambiguity.
+    /// An open-fifth cue followed by major/minor ambiguity.
     Draw,
 }
 

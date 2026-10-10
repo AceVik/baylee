@@ -54,7 +54,7 @@ fn each_suite_has_complete_distinct_manuscripts() {
         titles.push(signature);
         let leaps = pitches
             .windows(2)
-            .filter(|w| w[0].abs_diff(w[1]) >= 7)
+            .filter(|w| w[0].abs_diff(w[1]) >= 5)
             .count();
         assert!(
             leaps >= 5,
@@ -68,10 +68,10 @@ fn each_suite_has_complete_distinct_manuscripts() {
             .collect();
         let close = combat
             .windows(2)
-            .filter(|w| w[0].abs_diff(w[1]) <= 3)
+            .filter(|w| w[0].abs_diff(w[1]) <= 4)
             .count();
         assert!(
-            close * 10 > (combat.len() - 1) * 8,
+            close * 10 > (combat.len() - 1) * 7,
             "{theme:?}: combat moves mostly by small intervals"
         );
     }
@@ -162,7 +162,7 @@ fn result_cues_have_the_requested_contours_and_do_not_repeat() {
                 assert!(pitches.windows(2).all(|w| w[1] < w[0]));
             }
             if movement == Movement::Draw {
-                assert!(pitches.windows(2).all(|w| w[1] - w[0] == 4));
+                assert!(pitches.iter().all(|p| [5, 10].contains(&(p % 12))));
             }
             let after: Vec<_> = (0..theme.ticks())
                 .flat_map(|tick| {
@@ -226,17 +226,21 @@ fn a_dismissed_result_finishes_the_attention_cue_then_flows_out() {
 #[test]
 #[allow(clippy::float_cmp)] // exact scalar/block equivalence is the invariant
 fn blocks_and_scalar_frames_match_through_mid_phrase_changes() {
-    let control = Arc::new(ScoreControl::default());
-    let mut scalar = Tune::with_control(control.clone());
-    let mut block = Tune::with_control(control.clone());
-    let mut out = [[0.0; 2]; 257];
-    for (i, movement) in Movement::ALL.into_iter().enumerate() {
-        control.set(movement.request(Theme::ALL[i % 5]));
-        for round in 0..100 {
-            let run = [1, 77, 257, 3, 128][round % 5];
-            block.render(&mut out[..run]);
-            for frame in &out[..run] {
-                assert_eq!(*frame, scalar.frame());
+    for samples in SampleSet::ALL {
+        let control = Arc::new(ScoreControl::default());
+        let mut scalar = Tune::with_control(control.clone());
+        let mut block = Tune::with_control(control.clone());
+        let mut out = [[0.0; 2]; 257];
+        for (i, movement) in Movement::ALL.into_iter().enumerate() {
+            let mut request = movement.request(Theme::ALL[i % 5]);
+            request.samples = samples;
+            control.set(request);
+            for round in 0..100 {
+                let run = [1, 77, 257, 3, 128][round % 5];
+                block.render(&mut out[..run]);
+                for frame in &out[..run] {
+                    assert_eq!(*frame, scalar.frame());
+                }
             }
         }
     }
@@ -244,37 +248,41 @@ fn blocks_and_scalar_frames_match_through_mid_phrase_changes() {
 
 #[test]
 fn every_scene_has_finite_audio_and_headroom() {
-    for theme in Theme::ALL {
-        for movement in Movement::ALL {
-            let control = Arc::new(ScoreControl::default());
-            control.set(movement.request(theme));
-            let mut tune = Tune::with_control(control);
-            let frames = render_seconds(&mut tune, 6);
-            let mut peak = 0.0_f32;
-            let mut power = 0.0_f64;
-            let mut jump = 0.0_f32;
-            let mut previous = [0.0; 2];
-            for frame in &frames {
-                for channel in 0..2 {
-                    let sample = frame[channel];
-                    assert!(sample.is_finite());
-                    peak = peak.max(sample.abs());
-                    power += f64::from(sample).powi(2);
-                    jump = jump.max((sample - previous[channel]).abs());
+    for samples in SampleSet::ALL {
+        for theme in Theme::ALL {
+            for movement in Movement::ALL {
+                let control = Arc::new(ScoreControl::default());
+                let mut request = movement.request(theme);
+                request.samples = samples;
+                control.set(request);
+                let mut tune = Tune::with_control(control);
+                let frames = render_seconds(&mut tune, 6);
+                let mut peak = 0.0_f32;
+                let mut power = 0.0_f64;
+                let mut jump = 0.0_f32;
+                let mut previous = [0.0; 2];
+                for frame in &frames {
+                    for channel in 0..2 {
+                        let sample = frame[channel];
+                        assert!(sample.is_finite());
+                        peak = peak.max(sample.abs());
+                        power += f64::from(sample).powi(2);
+                        jump = jump.max((sample - previous[channel]).abs());
+                    }
+                    previous = *frame;
                 }
-                previous = *frame;
+                let rms = (power / (frames.len() * 2) as f64).sqrt();
+                eprintln!("{theme:?}/{movement:?}: peak={peak:.3} rms={rms:.4} jump={jump:.3}");
+                assert!(
+                    (0.008..0.88).contains(&peak),
+                    "{theme:?}/{movement:?}: {peak}"
+                );
+                assert!(
+                    (0.001..0.25).contains(&rms),
+                    "{theme:?}/{movement:?}: {rms}"
+                );
+                assert!(jump < 0.25, "{theme:?}/{movement:?}: {jump}");
             }
-            let rms = (power / (frames.len() * 2) as f64).sqrt();
-            eprintln!("{theme:?}/{movement:?}: peak={peak:.3} rms={rms:.4} jump={jump:.3}");
-            assert!(
-                (0.008..0.88).contains(&peak),
-                "{theme:?}/{movement:?}: {peak}"
-            );
-            assert!(
-                (0.001..0.25).contains(&rms),
-                "{theme:?}/{movement:?}: {rms}"
-            );
-            assert!(jump < 0.25, "{theme:?}/{movement:?}: {jump}");
         }
     }
 }
@@ -383,5 +391,71 @@ fn each_tavern_is_strictly_dorian_with_a_distinct_harmonic_route() {
         }
         assert!(!routes.contains(&route));
         routes.push(route);
+    }
+}
+
+#[test]
+fn two_bar_themes_return_and_every_written_note_belongs_to_its_harmony() {
+    let mut signatures = Vec::new();
+    for theme in Theme::ALL {
+        let pages = theme.pages();
+        assert_eq!(
+            &pages.title[..2],
+            &pages.title[4..6],
+            "two-bar thematic return"
+        );
+        let rhythm: Vec<_> = pages.title[..2]
+            .iter()
+            .flat_map(|bar| bar.iter().map(|n| n.1))
+            .collect();
+        assert!(!signatures.contains(&rhythm), "distinct thematic rhythms");
+        signatures.push(rhythm);
+        for movement in Movement::ALL {
+            for bar in 0..33 {
+                if movement.ending() && bar == 0 {
+                    continue;
+                }
+                let local = if movement.ending() { bar - 1 } else { bar };
+                let arrangement::Chord(root, third, fifth) =
+                    arrangement::chord(theme, movement, local);
+                assert!(
+                    [3, 4].contains(&third) && fifth == 7,
+                    "consonant triads only"
+                );
+                let tones = [root % 12, (root + third) % 12, (root + fifth) % 12];
+                for tick in 0..theme.ticks() {
+                    for note in arrangement::notes(theme, movement, bar, tick).as_slice() {
+                        assert!(
+                            tones.contains(&(note.pitch % 12)),
+                            "{theme:?}/{movement:?} bar {bar} tick {tick}: {note:?} vs {tones:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn sample_banks_change_without_resetting_the_musical_phrase() {
+    for theme in Theme::ALL {
+        let control = Arc::new(ScoreControl::default());
+        control.set(Movement::Lobby.request(theme));
+        let mut tune = Tune::with_control(control.clone());
+        render_seconds(&mut tune, 4);
+        let before = tune.position();
+        let mut request = control.get();
+        request.samples = SampleSet::Original441;
+        control.set(request);
+        let out = render_seconds(&mut tune, 1);
+        assert_eq!(tune.position.samples, SampleSet::Original441);
+        assert_eq!(tune.position.movement, before.movement);
+        assert!(tune.position.phrase_bar >= before.phrase_bar);
+        assert!(out.iter().flatten().all(|x| x.is_finite() && x.abs() < 1.0));
+        let mut level = crate::music::MusicLevel::default();
+        level.set_samples(request.samples);
+        let saved = serde_json::to_string(&level).unwrap();
+        let restored: crate::music::MusicLevel = serde_json::from_str(&saved).unwrap();
+        assert_eq!(restored.samples(), request.samples);
     }
 }

@@ -7191,52 +7191,60 @@ volume or mute. English and German labels are supplied.
 
 | Suite | Metre / title tempo | Identity |
 |---|---|---|
-| Glutpfad / Ember Path | 4/4, quarter = 88 | Spacious fourths and fifths, warm sustained answers |
-| Mondglas / Moon Glass | 3/4, quarter = 84 | Answering sixths, light harp and three-beat motion |
-| Dornenkrone / Thorn Crown | 4/4, quarter = 98 | Dotted calls, terse rests, insistent combat strings |
-| Nebelhafen / Mist Harbour | 6/8, dotted quarter ≈ 61 | Rolling compound pulse, intimate tavern melody |
-| Sternfall / Starfall | 5/4, quarter = 96 | Broad 3+2 arcs and octave-spanning statements |
+| Glutpfad / Ember Path | 4/4, quarter = 112 | Broad fifth call, violin-led answering phrase |
+| Mondglas / Moon Glass | 3/4, quarter = 132 | Falling arpeggio and rising answer, harp-led waltz |
+| Dornenkrone / Thorn Crown | 4/4, quarter = 124 | Repeated-note call, short–short–long march rhythm |
+| Nebelhafen / Mist Harbour | 6/8, dotted quarter = 92 | Lilting 1+2 cells, lyre-led flowing line |
+| Sternfall / Starfall | 5/4, quarter = 120 | Long descending octave arc and spacious answer |
 
 `music/score/manuscript.rs` contains the original, independently notated
-melodies, with eighth-note durations and explicit rests. No melody from the
-previous implementation is reused. Each suite has title, answer, tavern,
+melodies, with eighth-note durations and explicit rests. Each title opens with
+a two-bar motif: answer, recognizable return and cadence make an eight-bar
+period. The 32-bar title form uses statement, intimate repeat, a developed
+bridge and return. Tavern/table arrangements subtly quote that suite’s motif. Each suite has title, answer, tavern,
 standard-game and combat phrases. These develop into eight movements:
 
-- Title: wide intervals, augmented harmony, all four instrument groups.
+- Title: wide intervals, consonant triads, all four instrument groups.
 - Lobby/deckbuilder: sparse Dorian tavern music, plucks with cello/viola.
 - Standard: lyre/harp/zither melodies and bowed accompaniment.
-- Combat: close intervals and dissonant neighbours, short bowed ostinati,
+- Combat: repeated notes and close thirds, short bowed ostinati,
   major/minor mixture; trombone sits behind the strings.
 - Endgame: wide thematic returns, stronger strings and brass, plucked accents.
 - Victory: rising attention cue, then bright thematic music.
 - Defeat: falling attention cue, then a slower cello lament.
-- Draw: augmented attention cue, then major/minor ambiguity.
+- Draw: open-fifth attention cue, then consecutive major/minor colours.
 
 The pure director reads the screen and `PlayerView` only. Combat is combat;
 endgame uses high tension, lethal pressure or imminent defeat with hysteresis
 on tension. No network, rule-engine changes or hidden information enter audio.
 
 **Transitions** are admitted at the next eighth pulse, normally within about
-0.2–0.53 seconds, including a settings theme change. The short four-note result
+0.18–0.35 seconds, including a settings theme change. The short four-note result
 cue can finish before a dismissal; another result can interrupt it. One
 persistent `AudioPlayer`, sample clock and room continue throughout. Existing
 voices release from their current level, and the tempo eases over three
 seconds. No WAV is restarted and no full bar/phrase must finish. A fast
 succession of changes cannot revive a voice already in release.
 
-**Sound generation:** original instrument models at native **48,000 Hz**, with
-stereo output. Harp, zither and lyre use tuned plucked-string waveguides; violin,
-viola, cello, bowed contrabass and trombone use band-limited harmonic excitation
-and body resonances. These are modelled timbres, **not recordings of those
-instruments**. No 44.1-kHz recording is upsampled or used in the active score.
-The old CC0 sample bank and its provenance remain as historical source assets,
-but `bank.rs` is no longer compiled or embedded. No samples are fetched.
+**Sound banks:** all five suites are available in both Settings → Audio →
+Instrument sound choices. **Studio 48 kHz** prepares each composed pitch with
+32-tap Blackman-windowed sinc interpolation before playback. **Original
+44.1 kHz** reads the existing mono PCM bank with cubic interpolation. Both use
+real CC0 recordings originally made at 44.1 kHz (VCSL/VSCO 2 CE), not native
+48-kHz recordings. The harp, plucked psaltery, violin, viola, cello, bowed bass
+and trombone retain their recorded articulation; lyre is our own string model.
+The continuous output device runs at 48 kHz in both cases. Bank changes affect
+new notes on the next pulse and preserve held notes, position and room tails.
 
-Tables, voices and delay lines are allocated before playback. Polyphony is
-bounded; the callback has no file I/O, locks or allocation. Scalar and block
-renderers are checked for bit-identical output. A soft ceiling, continuous
-releases and a stereo room preserve headroom and tails. Existing master/music
-volume, mute, background policy and priority-cue ducking remain in effect.
+Only pitches actually used by the score are cached for Studio; only used
+families are decoded for Original. Preparation happens before the audio player
+starts, never at a scene or bank change. Polyphony and event arrays are bounded;
+rendering has no file I/O or new allocations. Studio reads one prepared frame
+per voice; Original interpolates four already-decoded frames, with a guarded
+loop-boundary path. Scalar/block equivalence, loop seams, the resampler's
+stopband, source hashes, harmonic compatibility and bank persistence are tested.
+The normal mix stays linear; a safety knee acts only above 0.85 amplitude.
+Existing master/music volume, background mute and priority-cue ducking apply.
 
 Render the **same renderer used by the client**, for review or regression:
 
@@ -7245,7 +7253,9 @@ cargo run --release -p baylee-client-core --example music_demo -- /tmp/baylee-mu
 python3 art/music/originality.py
 ```
 
-This writes forty stereo PCM24/48-kHz WAVs and five transition tours. Tours
+This writes eighty stereo PCM24/48-kHz WAVs and ten transition tours, in
+`studio48` and `original441` directories. Those names describe the sample banks,
+not different output-device rates. Tours
 request changes deliberately off-beat, including leaving combat and dismissing
 a result during its cue. `measurements.json` records actual admitted positions,
 peak, RMS, maximum adjacent-sample step and format. These are pre-master offline

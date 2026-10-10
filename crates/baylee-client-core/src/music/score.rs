@@ -9,7 +9,7 @@
 )]
 // Bounded MIDI, tick and audio-frame arithmetic.
 use super::{
-    RATE, ScoreRequest,
+    RATE, SampleSet, ScoreRequest,
     orchestra::{BLOCK, Orchestra, Touch},
 };
 use std::sync::{
@@ -43,6 +43,8 @@ impl ScoreControl {
 pub struct Position {
     /// Suite currently performed.
     pub theme: Theme,
+    /// Bank currently admitted for new notes.
+    pub samples: SampleSet,
     /// Arrangement currently performed.
     pub movement: Movement,
     /// Absolute bars completed; never reset by a scene change.
@@ -90,6 +92,7 @@ impl Tune {
             orchestra: Orchestra::default(),
             position: Position {
                 theme: request.theme,
+                samples: request.samples,
                 movement,
                 bar: 0,
                 phrase_bar: 0,
@@ -129,6 +132,7 @@ impl Tune {
                 self.position.phrase_bar = 0;
                 self.tick = 0;
             }
+            self.position.samples = request.samples;
             self.target = self.position.theme.eighth(movement);
         }
         self.started = true;
@@ -167,8 +171,14 @@ impl Tune {
                     0.045
                 })
                 .release(if note.instrument.short() { 0.10 } else { 0.28 });
-            self.orchestra
-                .note(note.instrument, note.pitch, length, note.gain, touch);
+            self.orchestra.note_with_samples(
+                note.instrument,
+                note.pitch,
+                length,
+                note.gain,
+                touch,
+                self.position.samples,
+            );
         }
         self.tick += 1;
         self.until_tick += f64::from(RATE) * self.eighth;

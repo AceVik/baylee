@@ -40,6 +40,8 @@ pub(crate) enum SettingsPress {
     PickSound(baylee_client_core::cue::Loudness),
     /// Choose the music's theme (per device; heard from the next bar).
     PickMusicTheme(baylee_client_core::music::MusicTheme),
+    /// Recorded instrument bank.
+    PickMusicSamples(baylee_client_core::music::SampleSet),
     /// Put weather in the air over the table, or take it away.
     PickAtmosphere(baylee_client_core::atmosphere::Atmosphere),
     /// Turn one step of the phase rail red or green.
@@ -177,6 +179,17 @@ fn device(
     changed
 }
 
+fn music_choice(
+    settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
+    update: impl FnOnce(&mut baylee_client_core::music::MusicLevel),
+) -> bool {
+    device(settings, |settings| {
+        let before = settings.music;
+        update(&mut settings.music);
+        before != settings.music
+    })
+}
+
 impl SettingsPress {
     /// A press on a device row (Graphics, Audio, Display, Privacy): the
     /// settings file written when it differs, and whether it changed —
@@ -217,11 +230,12 @@ impl SettingsPress {
                 s.audio.priority_cue = !s.audio.priority_cue;
                 true
             }),
-            SettingsPress::PickMusicTheme(theme) => device(settings, |s| {
-                let differs = s.music.theme() != theme;
-                s.music.set_theme(theme);
-                differs
-            }),
+            SettingsPress::PickMusicSamples(samples) => {
+                music_choice(settings, |music| music.set_samples(samples))
+            }
+            SettingsPress::PickMusicTheme(theme) => {
+                music_choice(settings, |music| music.set_theme(theme))
+            }
             SettingsPress::TableLean(lean) => device(settings, |s| {
                 let differs = s.table.lean != lean;
                 s.table.lean = lean;
@@ -495,6 +509,7 @@ impl SettingsPress {
             | SettingsPress::Ambient(_)
             | SettingsPress::MuteUnfocused
             | SettingsPress::PriorityCue
+            | SettingsPress::PickMusicSamples(_)
             | SettingsPress::PickMusicTheme(_)
             | SettingsPress::TableLean(_)
             | SettingsPress::VisitCamera(_)

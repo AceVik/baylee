@@ -190,7 +190,7 @@ fn perform(
     let theme = settings
         .as_ref()
         .map_or_else(music::MusicTheme::default, |s| s.music.theme());
-    let request = direction(
+    let mut request = direction(
         phase.map_or(DuelPhase::Closed, |p| *p.get()),
         lobby.as_deref().map(|lobby| lobby.lobby.screen()),
         duel.as_deref(),
@@ -198,6 +198,9 @@ fn perform(
         memory,
         dt,
     );
+    request.samples = settings
+        .as_ref()
+        .map_or_else(music::SampleSet::default, |s| s.music.samples());
     #[cfg(feature = "dev-control")]
     let request = audition.as_ref().map_or(request, |preview| preview.0);
     conductor.control.set(request);

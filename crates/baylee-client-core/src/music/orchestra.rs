@@ -1,6 +1,5 @@
-//! Original instrument models, generated directly at 48 kHz; no recordings.
-//! Bowed strings and brass use band-limited, body-filtered excitation; plucked
-//! strings use tuned waveguides. Preparation allocates; rendering never does.
+//! Recorded orchestra and our modelled lyre, sharing one continuous room.
+//! Studio resampling is prepared before playback; both banks render allocation-free.
 #![allow(
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
@@ -8,13 +7,14 @@
 )]
 // MIDI pitches, buffer indices and bounded audio amplitudes.
 use super::{RATE, score::arrangement::Instrument};
-mod bowed;
+mod sampled;
+pub(super) use sampled::{Def, Family, Kind};
 mod plucked;
-use bowed::Voice;
 use plucked::{Lute, STRINGS};
+use sampled::Voice;
 
 pub(super) fn prepare() {
-    bowed::tables();
+    sampled::prepare();
 }
 /// How a note is touched beyond its pitch, length and level.
 #[derive(Clone, Copy, Debug)]
@@ -125,6 +125,7 @@ fn panned(gain: f32, pan: f32) -> [f32; 2] {
     ]
 }
 impl Orchestra {
+    #[cfg(test)]
     pub(super) fn note(
         &mut self,
         instrument: Instrument,
@@ -133,10 +134,25 @@ impl Orchestra {
         gain: f32,
         touch: Touch,
     ) {
-        if matches!(
+        self.note_with_samples(
             instrument,
-            Instrument::Harp | Instrument::Zither | Instrument::Lyre
-        ) {
+            pitch,
+            seconds,
+            gain,
+            touch,
+            super::SampleSet::Studio48,
+        );
+    }
+    pub(super) fn note_with_samples(
+        &mut self,
+        instrument: Instrument,
+        pitch: u8,
+        seconds: f32,
+        gain: f32,
+        touch: Touch,
+        samples: super::SampleSet,
+    ) {
+        if instrument == Instrument::Lyre {
             // A free voice normally exists; deterministic stealing is a last resort.
             let slot = self
                 .strings
@@ -150,17 +166,12 @@ impl Orchestra {
                         .map_or(0, |(i, _)| i)
                 });
             self.plucks = self.plucks.wrapping_add(1);
-            let (bright, decay) = match instrument {
-                Instrument::Harp => (0.64, 0.9992),
-                Instrument::Zither => (0.24, 0.9986),
-                _ => (0.80, 0.9955),
-            };
             self.strings[slot].pluck(
                 pitch,
                 seconds,
                 panned(gain * 1.8, touch.pan),
-                bright,
-                decay,
+                0.80,
+                0.9955,
                 self.plucks,
             );
         } else if self.voices.len() < POLYPHONY {
@@ -170,6 +181,7 @@ impl Orchestra {
                 seconds,
                 panned(gain, touch.pan),
                 touch,
+                samples,
             ));
         }
     }
@@ -194,8 +206,15 @@ impl Orchestra {
         std::array::from_fn(|i| {
             let input = dry[i] + wet[i] * WET;
             self.tilt[i] += (input - self.tilt[i]) * 0.29;
-            let x = (input - 0.25 * (input - self.tilt[i])) * 1.15;
-            x / (1.0 + x.abs())
+            let x = (input - 0.25 * (input - self.tilt[i])) * 0.92;
+            // Linear throughout the score's normal range; no always-on distortion.
+            // The safety knee only catches pathological voice pileups above -1.4 dB.
+            let over = x.abs() - 0.85;
+            if over <= 0.0 {
+                x
+            } else {
+                x.signum() * (0.85 + 0.15 * over / (0.15 + over))
+            }
         })
     }
     pub(super) fn frame(&mut self) -> [f32; 2] {

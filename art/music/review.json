@@ -1,174 +1,81 @@
 {
   "date": "2026-10-10",
-  "base": "8b69a85a6",
-  "brief_key": "Bb Dorian",
-  "listening_review": "Unavailable: this session does not accept audio input. Score and signal review only.",
-  "audio_source": "Original models, native 48000 Hz; no external samples.",
-  "tests": {
-    "client_and_core_all_targets": {
-      "passed": 3215,
-      "ignored": 8
-    },
-    "focused_audio": 25,
-    "native_clippy": "passed with -D warnings",
-    "wasm_check": "passed; two existing dead-code warnings in tableseats.rs",
-    "native_settings": "all six options selected and persisted; 1440 and 900 pixel layouts checked",
-    "live_auditions": 40
-  },
+  "revision": "thematic-recorded-score",
+  "listening_review": "Unavailable: no audio-input support. Score, signal and runtime review only.",
+  "source": "Pinned CC0 VCSL / VSCO 2 CE recordings at 44100 Hz; native 48000 Hz modeled lyre.",
+  "banks": [
+    "studio48: 32-tap sinc preparation at used pitches",
+    "original441: original PCM, cubic playback"
+  ],
+  "output_rate": 48000,
+  "focused_music_tests": 29,
+  "strict_native_clippy": "passed before final quality pass",
   "rounds": [
     {
       "round": "round1",
-      "renders": 45,
+      "renders": 90,
       "movement_seconds": 16,
-      "tour_seconds": 64,
-      "rate": 48000,
-      "bits": 24,
-      "max_peak": 0.4607170820236206,
-      "max_adjacent_step": 0.15750765800476074,
+      "peak": 0.3984132409095764,
+      "max_step": 0.17432816326618195,
       "suites": [
         {
           "theme": "ember",
-          "peak": 0.44802790880203247,
-          "rms_db_range": [
-            -23.587680202383645,
-            -20.464848758616373
-          ]
+          "peak": 0.3984132409095764,
+          "tour_complete": true
         },
         {
           "theme": "glass",
-          "peak": 0.4607170820236206,
-          "rms_db_range": [
-            -23.953527493776512,
-            -20.14603980091231
-          ]
+          "peak": 0.3765972852706909,
+          "tour_complete": true
         },
         {
           "theme": "thorn",
-          "peak": 0.4544006288051605,
-          "rms_db_range": [
-            -24.229652074297082,
-            -20.432029293794123
-          ]
+          "peak": 0.3782810568809509,
+          "tour_complete": true
         },
         {
           "theme": "tide",
-          "peak": 0.45396631956100464,
-          "rms_db_range": [
-            -23.33601234347625,
-            -20.237281163462754
-          ]
+          "peak": 0.36786097288131714,
+          "tour_complete": true
         },
         {
           "theme": "star",
-          "peak": 0.4567895233631134,
-          "rms_db_range": [
-            -24.189187376396255,
-            -20.769985171842773
-          ]
+          "peak": 0.3620821237564087,
+          "tour_complete": true
         }
       ]
     },
     {
       "round": "round2",
-      "renders": 45,
-      "movement_seconds": 32,
-      "tour_seconds": 64,
-      "rate": 48000,
-      "bits": 24,
-      "max_peak": 0.4751458466053009,
-      "max_adjacent_step": 0.16065911948680878,
+      "renders": 90,
+      "movement_seconds": 64,
+      "peak": 0.5298165678977966,
+      "max_step": 0.08395085483789444,
       "suites": [
         {
           "theme": "ember",
-          "peak": 0.44802790880203247,
-          "rms_db_range": [
-            -23.965362090623223,
-            -20.787930821179653
-          ]
+          "peak": 0.5298165678977966,
+          "tour_complete": true
         },
         {
           "theme": "glass",
-          "peak": 0.4264487028121948,
-          "rms_db_range": [
-            -24.249647083356123,
-            -20.524860457337468
-          ]
+          "peak": 0.48327964544296265,
+          "tour_complete": true
         },
         {
           "theme": "thorn",
-          "peak": 0.4651110768318176,
-          "rms_db_range": [
-            -24.367898147134124,
-            -20.843628753617978
-          ]
+          "peak": 0.4867551326751709,
+          "tour_complete": true
         },
         {
           "theme": "tide",
-          "peak": 0.42911505699157715,
-          "rms_db_range": [
-            -24.232219026123953,
-            -20.829746466553818
-          ]
+          "peak": 0.4655444622039795,
+          "tour_complete": true
         },
         {
           "theme": "star",
-          "peak": 0.4751458466053009,
-          "rms_db_range": [
-            -24.019144814478615,
-            -21.038950571328808
-          ]
-        }
-      ]
-    },
-    {
-      "round": "round3",
-      "renders": 45,
-      "movement_seconds": 180,
-      "tour_seconds": 64,
-      "rate": 48000,
-      "bits": 24,
-      "max_peak": 0.4773024320602417,
-      "max_adjacent_step": 0.11603554338216782,
-      "suites": [
-        {
-          "theme": "ember",
-          "peak": 0.46229439973831177,
-          "rms_db_range": [
-            -25.4208321742004,
-            -20.352738053210295
-          ]
-        },
-        {
-          "theme": "glass",
-          "peak": 0.43456166982650757,
-          "rms_db_range": [
-            -25.655233094408455,
-            -19.988509249962704
-          ]
-        },
-        {
-          "theme": "thorn",
-          "peak": 0.47165048122406006,
-          "rms_db_range": [
-            -25.76696370945594,
-            -20.30815093704266
-          ]
-        },
-        {
-          "theme": "tide",
-          "peak": 0.44298601150512695,
-          "rms_db_range": [
-            -25.538997165356975,
-            -20.44345730011259
-          ]
-        },
-        {
-          "theme": "star",
-          "peak": 0.4773024320602417,
-          "rms_db_range": [
-            -25.522998427535004,
-            -20.577402508686763
-          ]
+          "peak": 0.4540799558162689,
+          "tour_complete": true
         }
       ]
     }
