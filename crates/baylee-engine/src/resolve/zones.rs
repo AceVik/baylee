@@ -91,6 +91,7 @@ pub(super) fn spec_object(
         TargetSpec::Object(_)
         | TargetSpec::ObjectOfEachOpponent(_)
         | TargetSpec::OpponentOrObject(_)
+        | TargetSpec::PlayerOrObject(_)
         | TargetSpec::ObjectControlledBy(..)
         | TargetSpec::ObjectOfEventPlayer(_)
         | TargetSpec::Spell(_)
@@ -557,6 +558,37 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 prompt: ChoicePrompt::Generic,
                 total: None,
             })
+        }
+        Effect::GraveyardToLibraryBottom { player } => {
+            let players = players_of(player, state, you, res);
+            let mut cards: Vec<_> = players
+                .into_iter()
+                .filter(|p| !state.has_left(*p))
+                .flat_map(|p| state.zones.list(ZoneLocation::Graveyard(p)).iter().copied())
+                .collect();
+            let moves: Vec<_> = cards
+                .iter()
+                .filter_map(|&card| {
+                    state
+                        .object(card)
+                        .map(|o| (card, ZoneLocation::Library(o.owner)))
+                })
+                .collect();
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            state.rng.shuffle(&mut cards);
+            for card in cards {
+                if let Some(owner) = state.object(card).map(|o| o.owner) {
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Library(owner),
+                        ZonePosition::Bottom,
+                        Cause::Effect,
+                    );
+                }
+            }
+            None
         }
         Effect::ShuffleGraveyardIntoLibrary => {
             let graveyard: Vec<ObjectId> = state.zones.list(ZoneLocation::Graveyard(you)).clone();

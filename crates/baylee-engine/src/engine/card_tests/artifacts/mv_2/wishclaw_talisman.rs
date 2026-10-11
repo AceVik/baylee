@@ -169,3 +169,43 @@ fn wishclaw_is_usable_during_its_controllers_turn_even_with_a_nonempty_stack() {
         .is_err()
     );
 }
+
+#[test]
+fn wishclaw_controller_chooses_which_opponent_receives_it() {
+    use baylee_core::generated::index;
+    let (p0, p2) = (PlayerId::new(0), PlayerId::new(2));
+    let mut e = Duel::table(SEED, forest(), 3)
+        .battlefield(0, &[index::WISHCLAW_TALISMAN, index::FOREST])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    tap_all_mana(&mut e, p0);
+    let talisman = on_battlefield(&e, p0, index::WISHCLAW_TALISMAN).unwrap();
+    e.dev_state_mut(p0)
+        .unwrap()
+        .object_mut(talisman)
+        .unwrap()
+        .counters
+        .set(baylee_cards_dsl::counters::WISH, 1);
+    e.refresh_offer();
+    activate(&mut e, p0, index::WISHCLAW_TALISMAN, 0);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = e.pending() else {
+        unreachable!()
+    };
+    let card = options[0];
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![card],
+        },
+    )
+    .unwrap();
+    assert!(matches!(e.pending(), Pending::ChoosePlayer { .. }));
+    e.apply(p0, PlayerAction::ChoosePlayer(p2)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(talisman).unwrap().controller, p2);
+    assert_eq!(e.state().object(card).unwrap().zone, Zone::Hand);
+}

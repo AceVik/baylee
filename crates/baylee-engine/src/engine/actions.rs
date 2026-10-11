@@ -499,11 +499,14 @@ impl<L: CardLookup> Engine<L> {
                 if self.resolution.as_ref().is_some_and(|r| {
                     matches!(
                         r.awaiting,
-                        Some(resolve::AwaitingOp::ControlRotation { .. })
+                        Some(
+                            resolve::AwaitingOp::ControlRotation { .. }
+                                | resolve::AwaitingOp::ControlRecipient { .. }
+                        )
                     )
                 }) {
                     let mut res = self.resolution.take().expect("rotation suspended");
-                    match resolve::resume_control_rotation(&mut self.state, &mut res, chosen) {
+                    match resolve::resume_control_choice(&mut self.state, &mut res, chosen) {
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
                             self.pending = pending;

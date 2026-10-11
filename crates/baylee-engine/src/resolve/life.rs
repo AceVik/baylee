@@ -594,7 +594,7 @@ fn recipients(
             .collect(),
         // "Target opponent or planeswalker": one choice over both lists, so
         // whichever half it landed in is dealt to.
-        TargetSpec::OpponentOrObject(_) => res
+        TargetSpec::OpponentOrObject(_) | TargetSpec::PlayerOrObject(_) => res
             .targets
             .first()
             .copied()

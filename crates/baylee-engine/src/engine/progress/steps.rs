@@ -610,18 +610,13 @@ impl<L: CardLookup> Engine<L> {
     /// (`Engine::apply`) performs the discard and then 514.2 itself.
     pub(crate) fn cleanup_step(&mut self) -> bool {
         let active = self.state.turn.active;
-        // Reliquary Tower & co.: no maximum hand size for this player.
-        let no_max = self.state.no_max_hand_size(active);
-        let max_hand = if no_max {
-            i32::MAX
-        } else {
-            7i32 + i32::from(self.state.players[active.get() as usize].hand_modifier)
-        };
-        let hand_size = self.state.zones.list(ZoneLocation::Hand(active)).len() as i32;
-        if hand_size > max_hand {
+        let hand_size = self.state.zones.list(ZoneLocation::Hand(active)).len();
+        if let Some(max_hand) = self.state.maximum_hand_size(active)
+            && hand_size > max_hand
+        {
             self.pending = Pending::DiscardChoice {
                 player: active,
-                count: (hand_size - max_hand) as u8,
+                count: u8::try_from(hand_size - max_hand).unwrap_or(u8::MAX),
             };
             self.awaiting_answer = true;
             return true;

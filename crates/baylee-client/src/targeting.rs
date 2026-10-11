@@ -738,6 +738,7 @@ mod tests {
                         | TargetSpec::AnyPlayer
                         | TargetSpec::AnyOpponent
                         | TargetSpec::OpponentOrObject(_)
+                        | TargetSpec::PlayerOrObject(_)
                         | TargetSpec::AnyTarget
                         | TargetSpec::ThisObject
                         | TargetSpec::EventObject => {

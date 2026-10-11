@@ -6,6 +6,11 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// The chosen new controller of one remembered permanent.
+    ControlRecipient {
+        /// Permanent incarnation affected by the pending instruction.
+        subject: baylee_core::ids::DamageSourceRef,
+    },
     /// The public graveyard card is selected during resolution.
     ChosenGraveyard {
         /// Where it goes.

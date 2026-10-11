@@ -1295,6 +1295,7 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
             | TargetSpec::AnyPlayer
             | TargetSpec::AnyOpponent
             | TargetSpec::OpponentOrObject(_)
+            | TargetSpec::PlayerOrObject(_)
     ) {
         return Vec::new();
     }
@@ -1377,7 +1378,7 @@ fn objects_of_a_player(
     match *spec {
         // The object half of "target opponent or [filter]"; the opponents
         // come from `target_player_options`, offered beside it.
-        TargetSpec::OpponentOrObject(filter) => {
+        TargetSpec::OpponentOrObject(filter) | TargetSpec::PlayerOrObject(filter) => {
             choice_options_with_context(&TargetSpec::Object(filter), state, you, context)
         }
         TargetSpec::ObjectControlledBy(filter, player) => {
@@ -1583,6 +1584,7 @@ pub fn choice_options_with_context(
             .collect(),
         TargetSpec::ObjectOfEachOpponent(filter) => opponents_objects(filter, state, you, context),
         TargetSpec::OpponentOrObject(_)
+        | TargetSpec::PlayerOrObject(_)
         | TargetSpec::ObjectControlledBy(..)
         | TargetSpec::ObjectOfFirstTargetsPlayer(_)
         | TargetSpec::ObjectOfEventPlayer(_) => objects_of_a_player(spec, state, you, context),
@@ -1696,6 +1698,7 @@ pub fn targeted_players(obj: &GameObject, spec: &TargetSpec) -> baylee_core::ids
             | TargetSpec::AnyPlayer
             | TargetSpec::AnyOpponent
             | TargetSpec::OpponentOrObject(_)
+            | TargetSpec::PlayerOrObject(_)
     ) {
         players = obj.target_players;
         if let Some(player) = obj.chosen_player {

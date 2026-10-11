@@ -696,6 +696,7 @@ impl Effect {
             | Effect::ReturnChosenToHand { .. }
             | Effect::UntapChosen { .. }
             | Effect::DrainAllCountersIntoSelf
+            | Effect::GraveyardToLibraryBottom { .. }
             | Effect::ShuffleGraveyardIntoLibrary
             | Effect::ShuffleIntoLibrary { .. }
             | Effect::ShuffleLibrary { .. }

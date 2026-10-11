@@ -1471,13 +1471,48 @@ impl GameState {
 }
 
 impl GameState {
-    /// Whether an active effect removes this player's maximum hand size.
+    /// The latest applicable hand-size setting, or the normal seven-card limit.
+    /// Removing the maximum is itself a timestamped setting (CR 613.11).
+    #[must_use]
+    pub fn maximum_hand_size(&self, player: PlayerId) -> Option<usize> {
+        use baylee_cards_dsl::Modifier;
+        let setting = self
+            .effects
+            .iter()
+            .filter_map(|fx| {
+                let value = match fx.modifier {
+                    Modifier::NoMaxHandSize if fx.controller == player => None,
+                    Modifier::ChosenPlayerMaxHandSize(size)
+                        if fx
+                            .source
+                            .and_then(|id| self.object(id))
+                            .and_then(crate::object::GameObject::chosen_opponent)
+                            == Some(player) =>
+                    {
+                        Some(usize::from(size))
+                    }
+                    _ => return None,
+                };
+                Some((fx.timestamp, fx.id, value))
+            })
+            .max_by_key(|(timestamp, id, _)| (*timestamp, *id));
+        setting.map_or_else(
+            || {
+                Some(
+                    usize::try_from(
+                        7i32 + i32::from(self.players[player.get() as usize].hand_modifier),
+                    )
+                    .unwrap_or(0),
+                )
+            },
+            |(_, _, value)| value,
+        )
+    }
+
+    /// Whether the currently applicable setting removes this player's limit.
     #[must_use]
     pub fn no_max_hand_size(&self, player: PlayerId) -> bool {
-        self.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::NoMaxHandSize)
-                && fx.controller == player
-        })
+        self.maximum_hand_size(player).is_none()
     }
 
     /// The side a seat plays for (CR 102.3).

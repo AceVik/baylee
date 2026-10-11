@@ -2717,7 +2717,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Cursed Rack
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Damping Field
     &[FaceLines {
         sentences: 1,
@@ -3179,7 +3186,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Al-abara's Carpet
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Alabaster Potion
     &[FaceLines {
         sentences: 3,
@@ -4308,9 +4322,9 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Relic Bind
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[Some(2), Some(3)],
         alternatives: &[],
     }],
     // Remove Enchantments
@@ -25823,8 +25837,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Stensia Bloodhall
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -31918,8 +31932,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Sunscorched Desert
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -38957,8 +38971,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Endurance
     &[FaceLines {
         sentences: 4,
-        stackable: 1,
-        lines: &[None],
+        stackable: 2,
+        lines: &[None, Some(2)],
         modes: &[],
         alternatives: &[Some(3)],
     }],

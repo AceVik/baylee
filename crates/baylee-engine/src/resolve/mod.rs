@@ -110,7 +110,7 @@ mod controller_of_target_tests;
 #[cfg(test)]
 mod copied_decisions_tests;
 
-pub use control::resume_control_rotation;
+pub use control::resume_control_choice;
 pub(crate) use life::{refresh_damage, resume_damage};
 /// Which colours a mana source can produce right now, at this board.
 ///

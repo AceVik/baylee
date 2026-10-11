@@ -1247,6 +1247,8 @@ fn apply(
         | Modifier::CantBeAttackedExceptBy { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+            | Modifier::PreventAllDamageFromIt
+            | Modifier::PreventDamageToYouFrom(_)
         | Modifier::PreventCombatDamageFrom(_)
         | Modifier::PreventDamageFrom(_)
         | Modifier::CombatDamageCantBePrevented
@@ -1263,6 +1265,7 @@ fn apply(
         | Modifier::CountersPreventDamage(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
+            | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::ProtectionFrom(_)
         | Modifier::GrantsFlashback
         | Modifier::PlayerHexproof

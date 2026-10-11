@@ -47,3 +47,5 @@ mod wand_of_the_elements;
 mod weakstone;
 
 mod life_matrix;
+
+mod cursed_rack;

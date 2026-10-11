@@ -28,6 +28,12 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Put all cards in the named player's graveyard on their library bottom,
+    /// randomizing those cards without disturbing the existing library.
+    GraveyardToLibraryBottom {
+        /// Whose graveyard is moved.
+        player: PlayerRel,
+    },
     /// Choose a card from your graveyard during resolution, then move it.
     /// Earlier instructions (notably mill) happen before the card is chosen.
     ChooseFromYourGraveyard {

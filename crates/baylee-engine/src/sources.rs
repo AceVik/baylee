@@ -798,6 +798,8 @@ fn is_prevention(modifier: &Modifier) -> bool {
         modifier,
         Modifier::PreventDamageToIt
             | Modifier::PreventDamageFromIt
+            | Modifier::PreventAllDamageFromIt
+            | Modifier::PreventDamageToYouFrom(_)
             | Modifier::PreventCombatDamageFrom(_)
             | Modifier::PreventDamageFrom(_)
             | Modifier::RedirectDamageToYou(_)

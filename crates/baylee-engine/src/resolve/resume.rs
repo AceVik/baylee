@@ -820,6 +820,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::LandMana { .. }
         | AwaitingOp::TextReplacement { .. }
         | AwaitingOp::ControlRotation { .. }
+        | AwaitingOp::ControlRecipient { .. }
         | AwaitingOp::Damage(_)
         | AwaitingOp::ManaForDamage { .. }
         | AwaitingOp::DamagePayment { .. }

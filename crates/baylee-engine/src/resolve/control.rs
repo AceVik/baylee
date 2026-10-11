@@ -6,6 +6,52 @@ use super::{AwaitingOp, Flow, Pending, PlayerId, Resolution, gain_control, run};
 use crate::state::GameState;
 use baylee_core::types::TypeSet;
 
+/// An opponent is chosen on resolution, independently of targetability.
+pub(super) fn change(
+    state: &mut GameState,
+    res: &mut Resolution,
+    relation: baylee_cards_dsl::PlayerRel,
+) -> Option<Pending> {
+    let subject =
+        super::subjects::this(state, res).filter(|r| super::subjects::on_battlefield(state, *r))?;
+    let options = super::players_of(relation, state, res.controller, res);
+    match options.as_slice() {
+        [] => None,
+        [only] => {
+            gain_control(state, &[(subject.object, *only)]);
+            None
+        }
+        _ => {
+            res.awaiting = Some(AwaitingOp::ControlRecipient { subject });
+            Some(Pending::ChoosePlayer {
+                player: res.controller,
+                options,
+            })
+        }
+    }
+}
+
+/// Resume a selected control transfer or a table rotation.
+///
+/// # Panics
+/// If no control choice is suspended.
+#[must_use]
+pub fn resume_control_choice(
+    state: &mut GameState,
+    res: &mut Resolution,
+    player: PlayerId,
+) -> Flow {
+    if let Some(AwaitingOp::ControlRecipient { subject }) = res.awaiting {
+        res.awaiting = None;
+        if !state.has_left(player) && super::subjects::on_battlefield(state, subject) {
+            gain_control(state, &[(subject.object, player)]);
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
+    resume_control_rotation(state, res, player)
+}
+
 pub(super) fn ask(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
     let seats: Vec<_> = state
         .players

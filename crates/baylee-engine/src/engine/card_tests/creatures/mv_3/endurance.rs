@@ -14,8 +14,8 @@ use super::*;
 /// leave the hand for *exile* and not the graveyard, the three Forests stay
 /// untapped because the printed {1}{G}{G} was never paid, and the Elemental
 /// that lands a moment later is eaten by its own enters-evoked trigger, with
-/// flash and reach projected onto it while it is there. The unsupported enter
-/// trigger asks nothing: no target choice interrupts the walk at all.
+/// flash and reach projected onto it while it is there. Decline the optional
+/// graveyard target before resolving its sacrifice trigger.
 #[allow(clippy::too_many_lines)] // flash, the cost menu, the exile it pays with, and the trigger after it
 #[test]
 fn endurance_flashes_in_on_its_evoke_cost_and_is_sacrificed_by_its_own_trigger() {
@@ -118,6 +118,19 @@ fn endurance_flashes_in_on_its_evoke_cost_and_is_sacrificed_by_its_own_trigger()
     assert!(kw.contains(KeywordSet::FLASH), "flash");
     assert!(kw.contains(KeywordSet::REACH), "reach");
 
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
     // "When this creature enters [evoked], sacrifice it."
     pass_until(&mut engine, |e| {
         on_battlefield(e, p0, endurance()).is_none() && stack_is_empty(e)
@@ -150,4 +163,46 @@ fn endurance_flashes_in_on_its_evoke_cost_and_is_sacrificed_by_its_own_trigger()
         3,
         "the printed {{1}}{{G}}{{G}} was never paid: evoke is a *different* cost"
     );
+}
+
+#[test]
+fn endurance_randomizes_only_the_targeted_graveyard_on_the_library_bottom() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[endurance()])
+        .hand(
+            1,
+            &[index::GRIZZLY_BEARS, index::MIND_STONE, index::MOUNTAIN],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let mut grave = vec![
+        hand_to_graveyard(&mut e, p1, index::GRIZZLY_BEARS),
+        hand_to_graveyard(&mut e, p1, index::MIND_STONE),
+        hand_to_graveyard(&mut e, p1, index::MOUNTAIN),
+    ];
+    let library = e.state().zones.list(ZoneLocation::Library(p1)).clone();
+    cast_from_hand(&mut e, p0, endurance());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![p1],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    let after = e.state().zones.list(ZoneLocation::Library(p1));
+    assert_eq!(&after[3..], &library);
+    let mut bottom = after[..3].to_vec();
+    bottom.sort_unstable();
+    grave.sort_unstable();
+    assert_eq!(bottom, grave);
+    assert!(e.state().zones.list(ZoneLocation::Graveyard(p1)).is_empty());
 }

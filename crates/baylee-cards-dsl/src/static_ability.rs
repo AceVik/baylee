@@ -654,6 +654,12 @@ pub enum Modifier {
     /// replacement, beside it, is what does. A land card is played and not
     /// cast (CR 305.9), so it gets nothing from this.
     CastSpellsFromGraveyard,
+    /// Prevent all combat and noncombat damage from the affected permanent.
+    PreventAllDamageFromIt,
+    /// Prevent all damage to the effect's controller from matching sources.
+    PreventDamageToYouFrom(&'static Filter),
+    /// Set the opponent chosen as this source entered to this hand-size limit.
+    ChosenPlayerMaxHandSize(u8),
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -816,6 +822,8 @@ impl Modifier {
             | Self::CantBeAttackedExceptBy { .. }
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
+            | Self::PreventAllDamageFromIt
+            | Self::PreventDamageToYouFrom(_)
             | Self::PreventCombatDamageFrom(_)
             | Self::PreventDamageFrom(_)
             | Self::CombatDamageCantBePrevented
@@ -832,6 +840,7 @@ impl Modifier {
             | Self::CountersPreventDamage(_)
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
+            | Self::ChosenPlayerMaxHandSize(_)
             | Self::SkipUntapStep { .. }
             | Self::UntapAtMost { .. }
             | Self::AttacksDespiteDefender
@@ -1230,6 +1239,8 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::PreventAllDamageFromIt,
+            Modifier::PreventDamageToYouFrom(&Filter::CREATURE),
             Modifier::PreventCombatDamageFrom(&Filter::ARTIFACT),
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
@@ -1246,6 +1257,7 @@ mod tests {
             Modifier::CountersPreventDamage(crate::CounterKind::P1P1),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
+            Modifier::ChosenPlayerMaxHandSize(4),
             Modifier::PlayerHexproof,
             Modifier::SpellsHaveFlash(None),
             Modifier::SpellsHaveFlash(Some(TypeSet::CREATURE)),

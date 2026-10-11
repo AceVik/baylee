@@ -177,6 +177,8 @@ pub enum TargetSpec {
     /// "matches everything on the battlefield" produces cards that cannot
     /// point at a player and still call themselves implemented.
     AnyTarget,
+    /// A player or a permanent matching the filter, chosen from one union.
+    PlayerOrObject(&'static Filter),
 }
 
 /// How many targets an ability/spell requires.

@@ -223,6 +223,7 @@ pub(crate) fn check_player_targets_match_the_printing(
         "TargetSpec::AnyOpponent",
         "TargetSpec::AnyTarget",
         "TargetSpec::OpponentOrObject",
+        "TargetSpec::PlayerOrObject",
     ]
     .iter()
     .any(|spec| content.contains(spec))

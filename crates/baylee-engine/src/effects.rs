@@ -160,6 +160,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBeAttackedExceptBy { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+            | Modifier::PreventAllDamageFromIt
+            | Modifier::PreventDamageToYouFrom(_)
         | Modifier::PreventCombatDamageFrom(_)
         | Modifier::PreventDamageFrom(_)
         | Modifier::CombatDamageCantBePrevented
@@ -176,6 +178,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CountersPreventDamage(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
+            | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::SkipUntapStep { .. }
         | Modifier::PlayerHexproof
         | Modifier::SpellsHaveFlash(_)
@@ -1059,6 +1062,8 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::PreventAllDamageFromIt,
+            Modifier::PreventDamageToYouFrom(&Filter::CREATURE),
             Modifier::PreventCombatDamageFrom(&Filter::ARTIFACT),
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
@@ -1075,6 +1080,7 @@ mod tests {
             Modifier::CountersPreventDamage(baylee_cards_dsl::CounterKind::P1P1),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
+            Modifier::ChosenPlayerMaxHandSize(4),
             Modifier::SkipUntapStep {
                 who: PlayerRel::EachPlayer,
             },
@@ -1136,7 +1142,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            90,
+            93,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1200,7 +1206,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (35, 55));
+        assert_eq!((locking, all.len() - locking), (35, 58));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

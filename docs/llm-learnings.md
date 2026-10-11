@@ -3383,3 +3383,24 @@ land type"; both are convention tests that fire on a first try.
   any counter from +1/+1 counters, any commander from your commander, and
   your-turn permission from sorcery timing. Spire's first strike follows its
   current controller's turn; oil removal is a cost, so replacements do not double it.
+
+### Completion batch 16 — exact target unions and rule effects (2026-10-11)
+
+- Complete Axelrod Gunnarson, Sunscorched Desert, Stensia Bloodhall, and
+  Relic Bind with a player-or-filtered-permanent target union. The player
+  side includes self and teammates; the object side excludes creatures and
+  battles. A modal trigger chooses its mode before targets, not at resolution.
+- Kry Shield and Al-abara's Carpet prevent noncombat damage too; Glyph of
+  Destruction can use the existing unfiltered damage-to-object prevention.
+  Preserve normal prevention ordering and source incarnation/LKI behavior.
+- Endurance randomizes only the targeted graveyard's cards on the library
+  bottom. Ask command-zone replacements before any movement or random draw.
+  Its optional target also appears when the creature was evoked.
+- Cursed Rack's maximum and Reliquary Tower's absence of a maximum follow
+  timestamp order (CR 613.11). The latest applicable setting wins; leaving
+  the battlefield exposes the earlier setting again, including at cleanup.
+- Rainbow Vale schedules its control transfer for the next end step, with
+  an untargeted opponent choice on resolution. Correct the shared transfer
+  for Wishclaw Talisman at multiplayer tables and reject a new incarnation.
+- Tests that need triggers must perform the actual tap ability: set_tapped
+  updates status and projections, while its caller owns the journal event.
