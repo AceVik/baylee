@@ -182,9 +182,13 @@ fn loop_signature_distinguishes_the_departed_spell_decisions_a_live_trigger_can_
     let target = object(&mut state, ZoneLocation::Battlefield, ObjectKind::Permanent);
     state.object_mut(spell).unwrap().targets.push(target);
     state.object_mut(spell).unwrap().x_value = 3;
-    state
-        .divided
-        .push((spell, vec![(state.source_identity(target).unwrap(), 3)]));
+    state.divided.push((
+        spell,
+        vec![(
+            crate::choice::TargetRef::Object(state.source_identity(target).unwrap()),
+            3,
+        )],
+    ));
     refers(&mut state, reference);
     move_to(&mut state, spell, ZoneLocation::Graveyard(P));
     state.prune_damage_sources();

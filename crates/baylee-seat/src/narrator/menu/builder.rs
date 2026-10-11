@@ -1049,7 +1049,10 @@ impl Builder<'_, '_> {
                 left,
             } => format!(
                 "Divide the damage: how much goes to {} (target {} of {of})? {left} is left to divide",
-                table.named(*target),
+                match target {
+                    baylee_core::ids::TargetRef::Object(reference) => table.named(reference.object),
+                    baylee_core::ids::TargetRef::Player(player) => self.player_label(*player),
+                },
                 u16::from(*index) + 1
             ),
         };

@@ -993,3 +993,14 @@ The [current Comprehensive Rules](https://media.wizards.com/2026/downloads/Magic
 provide the rules basis: 603.10a for pre-departure abilities, 702.93a and
 702.79a for return-keyword counter conditions, 400.7 for incarnation identity,
 and 611.2e for characteristic changes applied simultaneously with entry.
+
+Batch 37 completes the existing Fire // Ice, Pyrotechnics and Shatterskull
+Smashing printings with original rules code and unchanged identifying
+headers. No new assets or corpus source are distributed; the existing
+policy review and owner authorization above still apply.
+The primary [Zendikar Rising release notes](https://magic.wizards.com/en/news/feature/zendikar-rising-release-notes-2020-09-10)
+state: “If X is 6 or more, you divide twice X damage”. Accordingly, the
+engine announces the doubled total before costs, preserves each chosen
+share through copying and retargeting, and never redistributes an illegal
+target's lost share. CR 601.2d, 603.3d, 608.2b and 707.10 govern the shared
+implementation, checked against the current published rules cited above.

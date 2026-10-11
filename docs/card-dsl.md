@@ -2294,13 +2294,18 @@ Effects:
   choose, nothing happens (CR 609.3). `then` holds only effects that ask
   nothing, which is `lints::chosen_then_fault`; today that means
   `CreateContinuousEffect`.
-- **`Effect::DealDamageDivided { amount }`** is "deals N damage divided as
-  you choose among any number of targets" (Fury). The division is asked as
-  the triggered ability goes on the stack, one share per target
-  (`Pending::ChooseNumber` with `NumberPrompt::DivideDamage`), and the last
-  target takes the rest. A target that is illegal at resolution gets
-  nothing, and its share goes to nobody (CR 608.2b). Only a triggered
-  ability may divide (`lints::every_divided_damage_is_a_trigger_that_can_divide`).
+- **`Effect::DealDamageDivided { amount }`** announces a distribution before
+  a spell's costs are paid (CR 601.2d), or as a triggered ability is put on
+  the stack (603.3d). `DivisionAmount::Fixed(n)` supplies a printed total;
+  `XDoubleFrom(threshold)` supplies X, doubled when the announced X reaches
+  the threshold. Each chosen target gets at least one; target-count offers
+  respect the available total, including X = 0. Zero targets ask no question.
+  `NumberPrompt::DivideDamage` identifies an exact object or a player. The
+  last target takes the remainder. Illegal targets lose their shares without
+  redistribution (608.2b); copies preserve all shares, including when a new
+  player target replaces an object or vice versa (707.10, 115.7f).
+  The shape lint admits one top-level distribution on a spell or a fixed
+  object-only triggered distribution; unsupported nesting remains rejected.
 - **`Effect::Discover { mana_value }`** is discover N (Trumpeting
   Carnosaur, CR 701.57a). The cast is offered after the resolution, before
   anyone gets priority. A modal spell cast this way picks its mode, and a

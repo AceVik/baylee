@@ -18,11 +18,8 @@ pub(super) fn divisions_in(effects: &'static [Effect]) -> usize {
 /// Whether an ability that divides damage sits where the engine asks the
 /// division, and how not.
 ///
-/// `Engine::ask_trigger_division` asks it only as a triggered ability is put
-/// on the stack, reads it off the ability's own top-level list, and asks one
-/// share per target with each at least 1 (CR 601.2d). So the effect is a
-/// top-level op of a `Triggered` ability that targets, once, and the ability
-/// asks for no more targets than there is damage to give each of them one.
+/// Spells announce division before costs; triggers announce it on the stack.
+/// Both read one top-level instruction and assign at least one per target.
 pub(super) fn division_fault(ability: &AbilityDef) -> Option<&'static str> {
     let found: usize = resolving_lists(ability)
         .iter()
@@ -31,13 +28,16 @@ pub(super) fn division_fault(ability: &AbilityDef) -> Option<&'static str> {
     if found == 0 {
         return None;
     }
-    let AbilityDef::Triggered {
-        effects, targets, ..
-    } = ability
-    else {
-        return Some("divides damage outside a triggered ability, where nothing asks the division");
+    let (effects, targets, trigger) = match ability {
+        AbilityDef::Triggered {
+            effects, targets, ..
+        } => (effects, targets, true),
+        AbilityDef::Spell {
+            effects, targets, ..
+        } => (effects, targets, false),
+        _ => return Some("divides damage where no announcement stage asks the division"),
     };
-    let amounts: Vec<u32> = effects
+    let amounts: Vec<baylee_cards_dsl::DivisionAmount> = effects
         .iter()
         .filter_map(|effect| match effect {
             Effect::DealDamageDivided { amount } => Some(*amount),
@@ -53,7 +53,13 @@ pub(super) fn division_fault(ability: &AbilityDef) -> Option<&'static str> {
     let Some(req) = targets else {
         return Some("divides damage among no targets");
     };
-    if req.max == 0 || u32::from(req.max) > amounts[0] {
+    if trigger && !objects_only(req.spec) {
+        return Some("triggered division currently requires object targets");
+    }
+    if trigger && !matches!(amounts[0], baylee_cards_dsl::DivisionAmount::Fixed(_)) {
+        return Some("a triggered distribution needs a fixed announced total");
+    }
+    if req.max == 0 || (trigger && u32::from(req.max) > amounts[0].total(0)) {
         return Some("asks for more targets than there is damage to give each one");
     }
     None

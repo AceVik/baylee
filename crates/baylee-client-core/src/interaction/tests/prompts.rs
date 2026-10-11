@@ -120,7 +120,10 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         min: 1,
         max: 2,
         reason: baylee_engine::choice::NumberPrompt::DivideDamage {
-            target: obj(1),
+            target: baylee_core::ids::TargetRef::Object(baylee_core::ids::DamageSourceRef {
+                object: obj(1),
+                version: 0,
+            }),
             index: 0,
             of: 3,
             left: 4,

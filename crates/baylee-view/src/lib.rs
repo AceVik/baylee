@@ -202,7 +202,8 @@ pub use turn::{DayNight, Phase, Step};
 ///
 /// [`SubtypeSet`]: baylee_core::types::SubtypeSet
 /// Version 60 adds flying, shadow, indestructible and hone counter kinds.
-pub const VIEW_VERSION: u32 = 60;
+/// Version 61 identifies divided-damage recipients as exact objects or players.
+pub const VIEW_VERSION: u32 = 61;
 
 // ------------------------------------------------------------------- targets
 

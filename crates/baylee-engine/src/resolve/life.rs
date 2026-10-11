@@ -444,17 +444,24 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                 .iter()
                 .find(|(id, _)| *id == res.on_stack)
                 .map_or(&[][..], |(_, shares)| shares.as_slice());
-            res.targets
+            shares
                 .iter()
-                .filter_map(|id| {
-                    shares
-                        .iter()
-                        .find(|(target, _)| {
-                            target.object == *id && state.source_identity(*id) == Some(*target)
-                        })
-                        .map(|(_, n)| {
-                            assignment(state, res, res.source, DamageTarget::Object(*id), *n)
-                        })
+                .filter_map(|(target, n)| {
+                    let target = match *target {
+                        crate::choice::TargetRef::Object(reference)
+                            if res.targets.contains(&reference.object)
+                                && state.source_identity(reference.object) == Some(reference) =>
+                        {
+                            DamageTarget::Object(reference.object)
+                        }
+                        crate::choice::TargetRef::Player(player)
+                            if res.target_players.contains(player) =>
+                        {
+                            DamageTarget::Player(player)
+                        }
+                        _ => return None,
+                    };
+                    Some(assignment(state, res, res.source, target, *n))
                 })
                 .collect()
         }

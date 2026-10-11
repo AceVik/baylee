@@ -3,14 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Fire // Ice (`Coverage::Partial`): Ice reads "Tap target permanent. Draw a
-/// card." — this is the implemented half. Fire ("deals 2 damage divided as you
-/// choose among one or two targets") is not supported because the DSL cannot
-/// divide an amount among targets.
-///
-/// The test casts Ice, confirms the permanent it targets becomes tapped and
-/// that exactly one card is drawn. The stack is also checked to be empty
-/// afterward — Ice is an instant and belongs in the graveyard.
+/// The Ice face taps its permanent and draws exactly one card.
 #[test]
 fn ice_taps_a_permanent_and_draws_a_card() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -27,11 +20,6 @@ fn ice_taps_a_permanent_and_draws_a_card() {
 
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
 
-    // Cast Ice (face 1) off floating mana. The face question is asked only
-    // when there is a choice to make, and here there is not: Fire divides an
-    // amount among targets, which the DSL cannot say, so Ice is the only
-    // castable half and the engine goes straight to its target. Answering a
-    // question nobody asked is how this test first failed.
     cast_from_hand(&mut engine, p0, fire());
     if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
         let ice_slot = options

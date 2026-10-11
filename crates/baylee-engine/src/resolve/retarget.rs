@@ -322,8 +322,8 @@ fn write(state: &mut GameState, retarget: &Retarget) {
                 .was
                 .iter()
                 .enumerate()
-                .find(|(_, (group, aim))| *group == 0 && *aim == Aim::Object(*target))
-                && let Some(Aim::Object(new)) = retarget.now[slot]
+                .find(|(_, (group, aim))| *group == 0 && *aim == *target)
+                && let Some(new) = retarget.now[slot]
             {
                 *target = new;
             }
@@ -617,6 +617,78 @@ mod tests {
         );
     }
     #[test]
+    fn copied_divisions_follow_object_player_swaps_without_changing_amounts() {
+        let mut state =
+            GameState::from_preset(&preset(410, &[]), &SyntheticLookup::new(vec![])).unwrap();
+        let player = PlayerId::new(0);
+        let opponent = PlayerId::new(1);
+        let name = state.names.intern("divided spell");
+        let spell = state.create_bare(player, ObjectKind::Spell, name, ZoneLocation::Stack);
+        let target = state.create_bare(
+            opponent,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        state.object_mut(target).unwrap().base_mut().types = baylee_core::types::TypeSet::CREATURE;
+        let reference = state.source_identity(target).unwrap();
+        let object = state.object_mut(spell).unwrap();
+        object.target_req = Some(TargetReq::up_to(TargetSpec::AnyTarget, 4));
+        object.targets.push(target);
+        object.target_players.insert(opponent);
+        let original_shares = vec![(Aim::Object(reference), 3), (Aim::Player(opponent), 1)];
+        state.divided.push((spell, original_shares.clone()));
+        let original = state.source_identity(spell).unwrap();
+        let copy = crate::resolve::copy_spell(
+            &mut state,
+            original,
+            player,
+            &[],
+            crate::text_changes::TextChangeMap::IDENTITY,
+        )
+        .unwrap();
+        assert_eq!(
+            state.divided.iter().find(|(id, _)| *id == copy).unwrap().1,
+            original_shares
+        );
+        let choice = Retarget {
+            spell: copy,
+            change_to: None,
+            was: vec![(0, Aim::Object(reference)), (0, Aim::Player(opponent))],
+            now: vec![Some(Aim::Player(opponent)), Some(Aim::Object(reference))],
+            copy: true,
+        };
+        write(&mut state, &choice);
+        assert_eq!(
+            state.divided.iter().find(|(id, _)| *id == copy).unwrap().1,
+            vec![(Aim::Player(opponent), 3), (Aim::Object(reference), 1)]
+        );
+        assert_eq!(
+            state.divided.iter().find(|(id, _)| *id == spell).unwrap().1,
+            original_shares
+        );
+        assert_eq!(state.recorded_stack_target(copy, 0), Some(reference));
+        let copy_ref = state.source_identity(copy).unwrap();
+        let copied_again = crate::resolve::copy_spell(
+            &mut state,
+            copy_ref,
+            player,
+            &[],
+            crate::text_changes::TextChangeMap::IDENTITY,
+        )
+        .unwrap();
+        assert_eq!(
+            state
+                .divided
+                .iter()
+                .find(|(id, _)| *id == copied_again)
+                .unwrap()
+                .1,
+            vec![(Aim::Player(opponent), 3), (Aim::Object(reference), 1)]
+        );
+    }
+
+    #[test]
     fn staged_swaps_preserve_targets_and_require_a_legal_completion() {
         let mut state =
             GameState::from_preset(&preset(410, &[]), &SyntheticLookup::new(vec![])).unwrap();
@@ -661,7 +733,10 @@ mod tests {
         );
         assert!(can_finish(&state, &choice, Aim::Object(a_ref)));
         choice.now.push(Some(Aim::Object(a_ref)));
-        state.divided.push((spell, vec![(a_ref, 3), (b_ref, 1)]));
+        state.divided.push((
+            spell,
+            vec![(Aim::Object(a_ref), 3), (Aim::Object(b_ref), 1)],
+        ));
         write(&mut state, &choice);
         assert_eq!(
             state.object(spell).unwrap().targets.as_slice(),
@@ -670,7 +745,7 @@ mod tests {
         );
         assert_eq!(
             state.divided[0].1,
-            vec![(b_ref, 3), (a_ref, 1)],
+            vec![(Aim::Object(b_ref), 3), (Aim::Object(a_ref), 1)],
             "each fixed damage share moves with its slot"
         );
         choice.now.clear();

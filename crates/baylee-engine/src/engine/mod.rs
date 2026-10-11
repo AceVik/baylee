@@ -1123,6 +1123,16 @@ impl<L: CardLookup> Engine<L> {
     pub fn snapshot_hash(&self) -> u64 {
         let base = self.state.snapshot_hash();
         let mut extra = self.trigger_scan_seq;
+        if let Some(wizard) = &self.cast_wizard {
+            // Partial distributions already constrain the next answer and
+            // must survive replay/resync comparisons before payment.
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(wizard.division.len() as u64);
+            for share in &wizard.division {
+                extra = extra.wrapping_mul(31).wrapping_add(u64::from(*share));
+            }
+        }
         for references in self
             .cast_wizard
             .as_ref()

@@ -4317,7 +4317,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Pyrotechnics
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Quagmire
     &[FaceLines {
         sentences: 1,
@@ -14021,7 +14028,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[],
+            lines: &[None],
             modes: &[],
             alternatives: &[],
         },
@@ -37488,7 +37495,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[],
+            lines: &[None],
             modes: &[],
             alternatives: &[],
         },

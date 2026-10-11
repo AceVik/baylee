@@ -636,8 +636,20 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
         if let Some(shares) = state.source_memory.divisions.get(&reference) {
             h.usize(shares.len());
             for (target, amount) in shares {
-                h.u32(position(target.object));
-                h.u8(moves_since(state.object(target.object), target.version));
+                match target {
+                    baylee_core::ids::TargetRef::Object(reference) => {
+                        h.u8(0);
+                        h.u32(position(reference.object));
+                        h.u8(moves_since(
+                            state.object(reference.object),
+                            reference.version,
+                        ));
+                    }
+                    baylee_core::ids::TargetRef::Player(player) => {
+                        h.u8(1);
+                        h.u8(player.get());
+                    }
+                }
                 h.u32(*amount);
             }
         } else {

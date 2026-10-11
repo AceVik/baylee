@@ -1069,15 +1069,10 @@ pub struct GameState {
     /// question with an entry here: `snapshot_hash` reads it, and
     /// `loop_signature`, taken only at priority grants, has nothing to read.
     pub discovered: Vec<(PlayerId, ObjectId, u32)>,
-    /// The announced division of each ability on the stack that deals
-    /// damage "divided as you choose" (CR 601.2d): its targets, each with
-    /// its share. Written as the ability is put on the stack
-    /// (`Engine::ask_trigger_division`) and read as it resolves; an entry
-    /// whose object has left the stack is dropped as the next resolution
-    /// ends. Off the object because no other object has one, and
-    /// `tests/footprint.rs` holds `GameObject` to its size. Nothing copies a
-    /// triggered ability, so no copy has to carry one (CR 115.7f).
-    pub divided: Vec<(ObjectId, Vec<(baylee_core::ids::DamageSourceRef, u32)>)>,
+    /// Announced damage shares for live spells and abilities. Exact targets
+    /// prevent a later incarnation receiving the old object's damage.
+    /// `SourceMemory` retains these decisions while a departed spell can be copied.
+    pub divided: Vec<(ObjectId, Vec<(baylee_core::ids::TargetRef, u32)>)>,
     /// Copies of synthetic abilities made by the resolution in progress, as
     /// `(original, copy)` (CR 707.10).
     ///

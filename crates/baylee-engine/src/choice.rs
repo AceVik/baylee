@@ -947,8 +947,8 @@ pub enum NumberPrompt {
     /// chosen. The last target takes the rest and is not asked, and each
     /// target is given at least 1, which is what `min` and `max` say.
     DivideDamage {
-        /// The target this share goes to.
-        target: ObjectId,
+        /// The exact object or player this share goes to.
+        target: TargetRef,
         /// Its place among the targets, from 0.
         index: u8,
         /// How many targets share the damage.

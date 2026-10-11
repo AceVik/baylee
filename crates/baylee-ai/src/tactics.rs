@@ -257,7 +257,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 m.benefit = -1;
             }
             Effect::DealDamageDivided { amount: n } => {
-                m.damage = *n;
+                m.damage = n.total(x);
                 m.benefit = -1;
             }
             Effect::Blink { .. }
@@ -696,7 +696,7 @@ impl HeuristicAgent {
             });
         }
         if let Some(total) = context.effects.iter().find_map(|e| match e {
-            Effect::DealDamageDivided { amount } => Some(*amount),
+            Effect::DealDamageDivided { amount } => Some(amount.total(context.x)),
             _ => None,
         }) {
             return Some(self.divided_targets(view, offer, total));
@@ -718,7 +718,10 @@ impl HeuristicAgent {
     /// own unless the count demands it.
     fn divided_targets(&self, view: &PlayerView, offer: Offer<'_>, total: u32) -> PlayerAction {
         let Offer {
-            objects, min, max, ..
+            objects,
+            players,
+            min,
+            max,
         } = offer;
         let mut hostile: Vec<&PublicObject> = objects
             .iter()
@@ -741,17 +744,32 @@ impl HeuristicAgent {
         {
             chosen.push(o.id);
         }
+        let mut chosen_players = Vec::new();
+        if left > 0
+            && chosen.len() < usize::try_from(max).unwrap_or(usize::MAX)
+            && let Some(player) = players.iter().find(|p| self.hostile(**p, view.seat))
+        {
+            chosen_players.push(*player);
+        }
         for id in objects {
-            if chosen.len() >= usize::try_from(min).unwrap_or(usize::MAX) {
+            if chosen.len() + chosen_players.len() >= usize::try_from(min).unwrap_or(usize::MAX) {
                 break;
             }
             if !chosen.contains(id) {
                 chosen.push(*id);
             }
         }
+        for player in players {
+            if chosen.len() + chosen_players.len() >= usize::try_from(min).unwrap_or(usize::MAX) {
+                break;
+            }
+            if !chosen_players.contains(player) {
+                chosen_players.push(*player);
+            }
+        }
         PlayerAction::ChooseTargets {
             objects: chosen,
-            players: Vec::new(),
+            players: chosen_players,
         }
     }
 

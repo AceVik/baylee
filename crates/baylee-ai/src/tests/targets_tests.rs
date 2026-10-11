@@ -33,7 +33,12 @@ fn a_divided_share_is_what_finishes_the_target() {
                 min: 1,
                 max: 3,
                 reason: NumberPrompt::DivideDamage {
-                    target,
+                    target: baylee_core::ids::TargetRef::Object(
+                        baylee_core::ids::DamageSourceRef {
+                            object: target,
+                            version: 0,
+                        },
+                    ),
                     index: 0,
                     of: 2,
                     left: 4,
@@ -95,7 +100,9 @@ fn divided_damage_is_aimed_at_what_it_can_finish() {
     use baylee_cards_dsl::Effect;
     use baylee_engine::engine::DecisionContext;
     let (me, them) = (PlayerId::new(0), PlayerId::new(1));
-    let effects = [Effect::DealDamageDivided { amount: 4 }];
+    let effects = [Effect::DealDamageDivided {
+        amount: baylee_cards_dsl::DivisionAmount::Fixed(4),
+    }];
     let context = DecisionContext {
         effects: &effects,
         ..Default::default()
@@ -560,4 +567,57 @@ fn a_warded_spell_is_paid_for_instead_of_being_countered() {
         PlayerAction::YesNo(false),
         "and let go when they do not"
     );
+}
+
+#[test]
+fn divided_damage_can_target_a_player_on_an_empty_battlefield() {
+    use baylee_cards_dsl::{DivisionAmount, Effect};
+    use baylee_engine::{choice::NumberPrompt, engine::DecisionContext};
+    let v = view(0, &[20, 20], vec![]);
+    let opponent = PlayerId::new(1);
+    let ai = HeuristicAgent::new(AIProfile::EXPERT);
+    let effects = [Effect::DealDamageDivided {
+        amount: DivisionAmount::Fixed(4),
+    }];
+    let action = ai.act_with_context(
+        &v,
+        &Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![],
+            player_options: vec![v.seat, opponent],
+            min: 0,
+            max: 2,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        },
+        &DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        },
+    );
+    assert_eq!(
+        action,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![opponent]
+        }
+    );
+    for (target, expected) in [(opponent, 3), (v.seat, 1)] {
+        assert_eq!(
+            ai.act(
+                &v,
+                &Pending::ChooseNumber {
+                    player: v.seat,
+                    min: 1,
+                    max: 3,
+                    reason: NumberPrompt::DivideDamage {
+                        target: baylee_core::ids::TargetRef::Player(target),
+                        index: 0,
+                        of: 2,
+                        left: 4
+                    },
+                }
+            ),
+            PlayerAction::ChooseNumber(expected)
+        );
+    }
 }

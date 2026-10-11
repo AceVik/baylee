@@ -63,7 +63,7 @@ pub(crate) struct SourceMemory {
     pub(crate) next_choice: u64,
     pub(crate) stack: BTreeMap<DamageSourceRef, BTreeMap<Slot, DamageSourceRef>>,
     /// Announcement decisions survive with the exact spell/ability being copied.
-    pub(crate) divisions: BTreeMap<DamageSourceRef, Vec<(DamageSourceRef, u32)>>,
+    pub(crate) divisions: BTreeMap<DamageSourceRef, Vec<(baylee_core::ids::TargetRef, u32)>>,
     effects: BTreeMap<EffectId, DamageSourceRef>,
     event_readers: BTreeSet<DamageSourceRef>,
     /// Written only by a successful permanent-spell resolution.

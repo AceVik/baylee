@@ -653,9 +653,17 @@ impl HeuristicAgent {
                 // A share of a division: what the target needs to die, if it
                 // is an opponent's, within what the question allows; the
                 // least for anything else.
-                baylee_engine::choice::NumberPrompt::DivideDamage { target, .. } => {
-                    self.damage_share(view, target, min, max)
-                }
+                baylee_engine::choice::NumberPrompt::DivideDamage { target, .. } => match target {
+                    baylee_core::ids::TargetRef::Object(reference) => {
+                        self.damage_share(view, reference.object, min, max)
+                    }
+                    baylee_core::ids::TargetRef::Player(player)
+                        if self.hostile(player, view.seat) =>
+                    {
+                        max
+                    }
+                    baylee_core::ids::TargetRef::Player(_) => min,
+                },
                 // A creature's combat damage divided among two or more
                 // (CR 510.1c–d, 702.22j–k): what finishes each creature in
                 // turn, and the last takes the rest.

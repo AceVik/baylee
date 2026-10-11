@@ -95,7 +95,9 @@ impl<L: CardLookup> Engine<L> {
             return None;
         };
         effects.iter().find_map(|effect| match effect {
-            baylee_cards_dsl::Effect::DealDamageDivided { amount } => Some(*amount),
+            baylee_cards_dsl::Effect::DealDamageDivided { amount } => {
+                Some(amount.total(obj.x_value))
+            }
             _ => None,
         })
     }

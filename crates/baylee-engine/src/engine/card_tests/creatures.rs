@@ -4564,7 +4564,9 @@ fn fury_share(
     assert_eq!(
         reason,
         crate::choice::NumberPrompt::DivideDamage {
-            target,
+            target: crate::choice::TargetRef::Object(
+                engine.state().source_identity(target).unwrap()
+            ),
             index,
             of,
             left

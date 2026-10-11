@@ -63,13 +63,15 @@ impl<L: CardLookup> Engine<L> {
                 .enumerate()
                 .map(|(index, share)| {
                     (
-                        self.state
-                            .recorded_target_reference(
-                                on_stack,
-                                false,
-                                u32::try_from(index).expect("target slot"),
-                            )
-                            .expect("announced target"),
+                        crate::choice::TargetRef::Object(
+                            self.state
+                                .recorded_target_reference(
+                                    on_stack,
+                                    false,
+                                    u32::try_from(index).expect("target slot"),
+                                )
+                                .expect("announced target"),
+                        ),
                         share,
                     )
                 })
@@ -83,7 +85,11 @@ impl<L: CardLookup> Engine<L> {
         let after = u32::try_from(targets.len() - asked - 1).unwrap_or(u32::MAX);
         let max = left.saturating_sub(after).max(1);
         let reason = crate::choice::NumberPrompt::DivideDamage {
-            target: targets[asked],
+            target: crate::choice::TargetRef::Object(
+                self.state
+                    .source_identity(targets[asked])
+                    .expect("announced target"),
+            ),
             index: u8::try_from(asked).unwrap_or(u8::MAX),
             of: u8::try_from(targets.len()).unwrap_or(u8::MAX),
             left,

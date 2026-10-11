@@ -4005,3 +4005,33 @@ land type"; both are convention tests that fire on a first try.
   All 3,321 printing validations, table reproducibility, formatting and
   workspace/all-targets clippy with dev controls pass. Original Partial
   inventory: 278 completed, 262 remaining.
+
+### Partial completion batch 37 — announced damage distributions
+
+- Completed Fire // Ice, Pyrotechnics and Shatterskull Smashing together.
+  First extracted the trigger-division code unchanged into its own module
+  and committed the move after 14 Fury-related tests passed.
+- Casts now choose all targets and positive damage shares before paying
+  costs. Fixed totals and threshold-doubled X use one announcement type;
+  X = 0/1 bounds the number of targets and zero targets never open a prompt.
+  The doubled Shatterskull total is divided directly, permitting odd shares.
+- Retain exact object-or-player targets through payment, resolution and
+  copies. Retargeting moves each unchanged share with its original slot,
+  including object/player swaps; illegal or blinked targets lose their
+  damage instead of giving it to another target. Pending allocations enter
+  replay fingerprints and cancelled casts leave no allocation behind.
+- Updated the AI's target and number decisions, narrator and shared client
+  prompt. Wire version 61 reflects the new recipient shape. Do not assume
+  an enum imported from the engine changes the view's own shape fingerprint.
+- The generic card-claim sweep joins both faces' Oracle text. One cast
+  button is not a promise to perform every face: Fire need not draw Ice's
+  card. The presence check requires a single face; numeric checks remain,
+  and a negative single-face test still catches a missing promised draw.
+- Validation: all 5,653 engine tests pass (two intentional ignores), including
+  every positive composition of four, mixed recipients, X boundaries,
+  cancellation, illegal answers, replay distinction, copies and retargeting.
+  Also passed: 235 AI, 134 cards, 72 DSL, 275 codegen, 42 view, 1,561
+  client-core (one ignored), 248 host (two ignored), and 223 seat tests;
+  all 3,321 printing validations, table reproducibility, formatting and
+  workspace/all-targets clippy with dev controls. Original Partial inventory:
+  281 completed, 259 remaining.

@@ -843,7 +843,12 @@ fn examine(card: CardIndex, blob: &str) -> (Vec<String>, Tally) {
     // happens now.
     let one_button = played.only_the_cast
         && played.resolved
-        && baylee_cards::by_index(card).is_some_and(|def| !super::testkit::is_permanent(def));
+        && baylee_cards::by_index(card).is_some_and(|def| {
+            // Headers join every face's Oracle text. One cast button can
+            // still select just one of several faces (Fire versus Ice), so
+            // it does not promise the other faces' unconditional effects.
+            def.faces.len() == 1 && !super::testkit::is_permanent(def)
+        });
     if one_button {
         tally.single += 1;
     }
@@ -1194,4 +1199,22 @@ fn entering_counters_have_their_own_printed_amount() {
     assert_eq!(claims[0].kind, Kind::Counters);
     assert_eq!(claims[0].amount, Some(7));
     assert!(!claims[0].conditional);
+}
+
+#[test]
+fn a_split_spell_does_not_promise_the_other_faces_unconditional_effects() {
+    use baylee_core::generated::index;
+    let (wrong, tally) = examine(
+        index::FIRE,
+        "Fire deals 2 damage divided as you choose among one or two targets.\nTap target permanent.\nDraw a card.",
+    );
+    assert!(tally.played > 0);
+    assert!(wrong.is_empty(), "{wrong:?}");
+    // A real unconditional single-face promise must still be enforced.
+    let (wrong, _) = examine(index::LIGHTNING_BOLT, "Draw a card.");
+    assert!(
+        wrong
+            .iter()
+            .any(|message| message.contains("nothing in the journal is a Draw"))
+    );
 }

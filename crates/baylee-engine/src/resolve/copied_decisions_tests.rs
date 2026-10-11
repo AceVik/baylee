@@ -25,7 +25,10 @@ fn copying_a_departed_spell_uses_its_recorded_incarnation_and_target_references(
     let old_spell = state.source_identity(original).unwrap();
     state.object_mut(original).unwrap().targets.push(target);
     state.object_mut(original).unwrap().x_value = 7;
-    state.divided.push((original, vec![(old_target, 7)]));
+    state.divided.push((
+        original,
+        vec![(crate::choice::TargetRef::Object(old_target), 7)],
+    ));
     state
         .move_object(
             target,
@@ -63,7 +66,10 @@ fn copying_a_departed_spell_uses_its_recorded_incarnation_and_target_references(
     assert!(!state.divided.iter().any(|(id, _)| *id == original));
     state.divided.push((
         original,
-        vec![(state.source_identity(replacement).unwrap(), 2)],
+        vec![(
+            crate::choice::TargetRef::Object(state.source_identity(replacement).unwrap()),
+            2,
+        )],
     ));
     let copy = copy_spell(
         &mut state,
@@ -80,7 +86,7 @@ fn copying_a_departed_spell_uses_its_recorded_incarnation_and_target_references(
     assert_ne!(state.source_identity(original), Some(old_spell));
     assert_eq!(
         state.divided.iter().find(|(id, _)| *id == copy).unwrap().1,
-        vec![(old_target, 7)]
+        vec![(crate::choice::TargetRef::Object(old_target), 7)]
     );
 }
 
@@ -111,7 +117,10 @@ fn spell_copy_keeps_damage_division_and_nonmana_cost_information_but_spends_no_m
         ..PaidRecord::default()
     }));
     let target_ref = state.source_identity(target).unwrap();
-    state.divided.push((original, vec![(target_ref, 4)]));
+    state.divided.push((
+        original,
+        vec![(crate::choice::TargetRef::Object(target_ref), 4)],
+    ));
     let original_ref = state.source_identity(original).unwrap();
     let copy = copy_spell(
         &mut state,
@@ -132,6 +141,6 @@ fn spell_copy_keeps_damage_division_and_nonmana_cost_information_but_spends_no_m
     assert_eq!(paid.colors_spent, ColorSet::EMPTY);
     assert_eq!(
         state.divided.iter().find(|(id, _)| *id == copy).unwrap().1,
-        vec![(target_ref, 4)]
+        vec![(crate::choice::TargetRef::Object(target_ref), 4)]
     );
 }

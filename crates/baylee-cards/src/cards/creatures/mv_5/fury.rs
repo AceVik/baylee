@@ -39,7 +39,9 @@ card!(
         // (CR 601.2d).
         triggered!(
             Trigger::ETB,
-            &[Effect::DealDamageDivided { amount: 4 }],
+            &[Effect::DealDamageDivided {
+                amount: baylee_cards_dsl::DivisionAmount::Fixed(4)
+            }],
             targets = Some(TargetReq::up_to(
                 TargetSpec::Object(&Filter::CREATURE_OR_PLANESWALKER),
                 4

@@ -16,6 +16,7 @@ use crate::choice::{
 use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec};
 use baylee_core::mana::ManaCost;
 
+mod division;
 mod permissions;
 mod pricing;
 use pricing::FrozenReduction;
@@ -34,6 +35,8 @@ const MASKED_FACE: baylee_cards_dsl::FaceDef = baylee_cards_dsl::FaceDef {
 /// Where the wizard currently is.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum WizardStage {
+    /// Distribute damage after targets and before any costs (CR 601.2d).
+    DivideDamage,
     /// Choosing a cast mode (skip when only one option).
     ChooseMode,
     /// Choosing X.
@@ -83,6 +86,8 @@ pub(crate) struct CastWizard {
     pub reduction: Option<FrozenReduction>,
     /// Exact announced identities, preserved across all later cost payments.
     pub target_references: crate::sources::TargetReferences,
+    /// Shares in canonical target order (objects, then players).
+    pub division: Vec<u32>,
     /// Chosen targets.
     pub targets: SmallVec<[ObjectId; 2]>,
     /// Targets chosen for the second instance of the word, kept apart for
@@ -197,6 +202,12 @@ impl CastWizard {
                     .wrapping_mul(31)
                     .wrapping_add(u64::from(target.generation()));
             }
+        }
+        hash = hash
+            .wrapping_mul(31)
+            .wrapping_add(self.division.len() as u64);
+        for share in &self.division {
+            hash = hash.wrapping_mul(31).wrapping_add(u64::from(*share));
         }
         let seats = self
             .target_players
@@ -315,6 +326,7 @@ impl<L: CardLookup> Engine<L> {
             option: None,
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
+            division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -377,6 +389,7 @@ impl<L: CardLookup> Engine<L> {
             option: Some(CastModeKind::Normal),
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
+            division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -488,6 +501,7 @@ impl<L: CardLookup> Engine<L> {
             option: Some(CastModeKind::Miracle),
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
+            division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -614,6 +628,7 @@ impl<L: CardLookup> Engine<L> {
             option,
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
+            division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -680,6 +695,7 @@ impl<L: CardLookup> Engine<L> {
             option: if single { option } else { None },
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
+            division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -748,6 +764,7 @@ impl<L: CardLookup> Engine<L> {
             option: Some(CastModeKind::Normal),
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
+            division: Vec::new(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -1600,6 +1617,7 @@ impl<L: CardLookup> Engine<L> {
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }
+            WizardStage::DivideDamage => self.advance_damage_division(wizard),
             WizardStage::Targets => {
                 let Some(req) = self.wizard_target_req(&wizard) else {
                     let mut wizard = wizard;
@@ -1608,6 +1626,9 @@ impl<L: CardLookup> Engine<L> {
                     return self.advance_cast_wizard();
                 };
                 let (min, max) = req.bounds(wizard.x);
+                let max = self
+                    .wizard_divided_amount(&wizard)
+                    .map_or(max, |total| max.min(total));
                 let spec = req.spec;
                 if matches!(spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent) {
                     let mut wizard = wizard;
@@ -1677,7 +1698,7 @@ impl<L: CardLookup> Engine<L> {
                 // that doesn't.
                 let Some(req) = self.wizard_second_target_req(&wizard) else {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::PitchChoice;
+                    wizard.stage = WizardStage::DivideDamage;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 };
@@ -1690,7 +1711,7 @@ impl<L: CardLookup> Engine<L> {
                     // "Up to one" with nothing to point at: the empty answer
                     // is the only one, for the reason the first stage gives.
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::PitchChoice;
+                    wizard.stage = WizardStage::DivideDamage;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
@@ -2826,6 +2847,7 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state
             .bind_target_references(card, &wizard.target_references);
+        self.store_damage_division(wizard);
         // CR 722.3c: announcing or cancelling never spends the designation.
         if let Some(source) = prepared_source {
             self.state.unprepare(source);

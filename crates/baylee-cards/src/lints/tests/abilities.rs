@@ -128,7 +128,7 @@ fn mana_abilities_meet_all_current_activation_criteria() {
 /// than damage (CR 601.2d). Fury is why the sweep exists; a walk that
 /// found no division has stopped reaching it.
 #[test]
-fn every_divided_damage_is_a_trigger_that_can_divide() {
+fn every_divided_damage_has_an_announcement_stage() {
     let (mut wrong, mut found) = (Vec::new(), 0_usize);
     for def in crate::all() {
         let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
@@ -151,11 +151,17 @@ fn every_divided_damage_is_a_trigger_that_can_divide() {
 #[test]
 fn a_division_fault_fires_on_each_bad_shape() {
     use crate::dsl::ability::Trigger;
-    const DIVIDE: &[Effect] = &[Effect::DealDamageDivided { amount: 4 }];
+    const DIVIDE: &[Effect] = &[Effect::DealDamageDivided {
+        amount: baylee_cards_dsl::DivisionAmount::Fixed(4),
+    }];
     const IN_A_MAY: &[Effect] = &[Effect::MayDo { effects: DIVIDE }];
     const TWICE: &[Effect] = &[
-        Effect::DealDamageDivided { amount: 2 },
-        Effect::DealDamageDivided { amount: 2 },
+        Effect::DealDamageDivided {
+            amount: baylee_cards_dsl::DivisionAmount::Fixed(2),
+        },
+        Effect::DealDamageDivided {
+            amount: baylee_cards_dsl::DivisionAmount::Fixed(2),
+        },
     ];
     let targets = |max| {
         Some(TargetReq::up_to(
@@ -173,20 +179,20 @@ fn a_division_fault_fires_on_each_bad_shape() {
         condition: None,
     };
     assert_eq!(division_fault(&trigger(DIVIDE, targets(4))), None);
+    assert_eq!(
+        division_fault(&AbilityDef::Spell {
+            effects: DIVIDE,
+            targets: targets(4),
+            second_targets: None,
+            condition: None,
+        }),
+        None
+    );
     for (shape, ability) in [
         ("no targets", trigger(DIVIDE, None)),
         ("more targets than damage", trigger(DIVIDE, targets(5))),
         ("inside a may", trigger(IN_A_MAY, targets(4))),
         ("twice", trigger(TWICE, targets(2))),
-        (
-            "on a spell",
-            AbilityDef::Spell {
-                effects: DIVIDE,
-                targets: targets(4),
-                second_targets: None,
-                condition: None,
-            },
-        ),
     ] {
         assert!(
             division_fault(&ability).is_some(),

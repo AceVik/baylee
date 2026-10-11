@@ -450,11 +450,12 @@ impl<L: CardLookup> Engine<L> {
                     }
                     _ => {}
                 }
-                // And the wizard asks two numbers, told apart by where it
-                // stands: X (CR 107.3) before the kicker, and how many times
-                // replicate is paid (CR 702.56a) after it.
+                // Casting numbers are distinguished by the stage: X,
+                // replicate payments, and each announced damage share.
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
-                if wizard.stage == cast_wizard::WizardStage::Replicate {
+                if wizard.stage == cast_wizard::WizardStage::DivideDamage {
+                    wizard.division.push(n);
+                } else if wizard.stage == cast_wizard::WizardStage::Replicate {
                     wizard.replicated = u8::try_from(n).unwrap_or(u8::MAX);
                     wizard.stage = cast_wizard::WizardStage::Targets;
                 } else {
@@ -669,7 +670,7 @@ impl<L: CardLookup> Engine<L> {
                         // every shape that prints one, so no seat is kept.
                         wizard.target_references.second = self.state.capture_target_group(&objects);
                         wizard.second_targets = objects.into_iter().collect();
-                        wizard.stage = cast_wizard::WizardStage::PitchChoice;
+                        wizard.stage = cast_wizard::WizardStage::DivideDamage;
                     } else {
                         wizard.target_references.first = self.state.capture_target_group(&objects);
                         wizard.targets = objects.into_iter().collect();
