@@ -927,3 +927,11 @@ supply the corresponding colored mana abilities. CR 604.3, 502.1 and 722.3a
 were checked in the current Comprehensive Rules for CDAs, simultaneous phasing
 and preparation. This batch adds no assets, printing identifiers or corpus
 scripts; the existing policy review and explicit owner decision remain applicable.
+
+The preparation correction follows CR 722.2b, 722.3 and 722.3c in the
+[2026-09-25 Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt).
+Prepare characteristics are copiable, the physical card cannot be cast using
+its inset characteristics, and the designated permanent creates a persistent
+copy in exile. Fatehold Chronologist / Peer Review and Emeritus of Woe keep
+their existing printings; this correction adds no art, external scripts or
+other assets. The policy review and owner decision above remain applicable.

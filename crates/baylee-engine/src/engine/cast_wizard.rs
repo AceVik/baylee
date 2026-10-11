@@ -2422,6 +2422,7 @@ impl<L: CardLookup> Engine<L> {
         // Total mana: option cost (with X) + kicker mana when taken.
         let mut total = wizard_total_cost(face, wizard);
         let player = wizard.player;
+        let prepared_source = self.state.prepared_copy_source(wizard.card);
         // Delve (CR 702.66) and convoke (CR 702.51) each pay for {1} of the
         // generic part, so the count comes off the cost before anything is
         // paid — but the exiling and the tapping happen *after* the mana
@@ -2823,6 +2824,10 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state
             .bind_target_references(card, &wizard.target_references);
+        // CR 722.3c: announcing or cancelling never spends the designation.
+        if let Some(source) = prepared_source {
+            self.state.unprepare(source);
+        }
         self.state.journal.record(GameEvent::SpellCast {
             object: card,
             player,

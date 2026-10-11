@@ -34,6 +34,7 @@ card!(
     abilities = &[
         AbilityDef::Prepared {
             card: DEMONIC_TUTOR,
+            face: 0,
         },
         triggered!(
             Trigger::StepBegin {

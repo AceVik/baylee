@@ -240,6 +240,18 @@ pub(super) fn public_object(
             face: obj.face_index,
         }),
         rules: obj.printed_face().filter(|_| known).map(rules_face),
+        prepared_spell: obj
+            .riders
+            .contains(&baylee_engine::object::Rider::Prepared)
+            .then(|| state.prepared_copy(id))
+            .flatten()
+            .and_then(|copy| state.object(copy))
+            .and_then(|copy| {
+                copy.card.map(|card| baylee_view::RulesFace {
+                    card: card.index,
+                    face: copy.face_index,
+                })
+            }),
         name: public_name(state, obj, seat),
         controller: obj.controller,
         owner: obj.owner,

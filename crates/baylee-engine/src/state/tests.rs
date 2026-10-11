@@ -921,7 +921,7 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
                 free: true,
                 cast_only: false,
                 spell_types: None,
-                window: baylee_cards_dsl::PlayWindow::ThisTurn,
+                window: baylee_cards_dsl::PlayWindow::ThisTurn.into(),
             });
         }),
         ("delayed", |s, _| {

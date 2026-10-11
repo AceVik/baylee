@@ -3811,3 +3811,38 @@ land type"; both are convention tests that fire on a first try.
   implementation still needs the current CR 722.3c copy lifetime and ordinary
   cast/payment flow. It currently reads a live printed face at casting time,
   so copied preparation creatures and restrictions need shared engine work.
+
+### Preparation correction before batch 32 (2026-10-11)
+
+- CR 722.3c creates the prepare spell's copy in exile when the permanent
+  becomes prepared, not when its controller later casts. Preserve that
+  independent copy across turn changes and changes to the source's copiable
+  values. A source version, designation and phasing state bound its lifetime;
+  the permission follows the source's current controller, not the copy's owner.
+- Reuse ordinary exile casting and the complete casting wizard. Targets,
+  cancellation, cost adjustments, restricted mana, spend riders and cast
+  triggers must not acquire a separate preparation implementation. Consume
+  the designation only at the successful cast. Re-preparing an already
+  prepared permanent never replenishes a removed copy.
+- The immutable rules cache must admit linked spell definitions even when no
+  deck contains those cards. Admission follows the registry seam and handles
+  self-links/cycles without recursion or duplicate work.
+- Preparation metadata needs both card and face. Fatehold Chronologist's
+  inset Peer Review was incorrectly castable from hand, and its preparation
+  referred back to the creature. The physical card now casts only the
+  creature; its exiled copy has only Peer Review's characteristics and price.
+  Copies of prepare spells retain that spell identity too.
+- Carry the frozen prepare spell into the public view, rather than deriving
+  it again from the source's current rules. Prepared and unprepared twins,
+  or twins with different exiled spells, must not collapse into one group.
+  The optional defaulted field is wire-compatible (view version 58).
+- Expire permissions with one stable retain pass, reusing the vector. Removing
+  each expired element individually shifts the remaining entries repeatedly
+  when many copies expire together.
+- Validation: 5,597 engine tests pass (two intentional ignores), plus
+  134 card, 71 DSL and 275 codegen tests. After the final lifetime/copy edits,
+  eight preparation and twelve spell-copy regressions pass; host view tests
+  pass 120, native ability labels 18, client core 1,560 (one ignore), and the
+  view suite 42. Codegen tables, all 3,321 printing validations, formatting
+  and workspace/all-targets clippy with dev controls pass. The added view
+  field is explicitly checked for decoding old JSON and for grouping.

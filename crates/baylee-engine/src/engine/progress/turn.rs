@@ -76,10 +76,13 @@ impl<L: CardLookup> Engine<L> {
         self.state.play_permissions.retain_mut(|permission| {
             use baylee_cards_dsl::PlayWindow;
             if permission.player == new_active {
+                use crate::state::PlayLifetime;
                 match permission.window {
-                    PlayWindow::UntilYourNextTurn => return false,
-                    PlayWindow::ThroughYourNextTurn => permission.window = PlayWindow::ThisTurn,
-                    PlayWindow::ThisTurn => {}
+                    PlayLifetime::Turns(PlayWindow::UntilYourNextTurn) => return false,
+                    PlayLifetime::Turns(PlayWindow::ThroughYourNextTurn) => {
+                        permission.window = PlayWindow::ThisTurn.into();
+                    }
+                    PlayLifetime::Turns(PlayWindow::ThisTurn) | PlayLifetime::Prepared(_) => {}
                 }
             }
             true

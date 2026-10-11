@@ -363,11 +363,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     EnterModifier::Prepared => {
-                        if let Some(obj) = self.state.object_mut(id)
-                            && !obj.riders.contains(&crate::object::Rider::Prepared)
-                        {
-                            obj.riders.push(crate::object::Rider::Prepared);
-                        }
+                        self.state.prepare(id);
                     }
                     EnterModifier::ChooseSubtype
                     | EnterModifier::ChooseSubtypeFrom(_)

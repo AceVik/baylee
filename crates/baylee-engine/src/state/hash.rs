@@ -1366,6 +1366,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(p.get());
             }
             Rider::Prepared => h.u8(10),
+            Rider::PrepareSpellFace(face) => {
+                h.u8(42);
+                h.u8(*face);
+            }
             Rider::SpellCopy => h.u8(11),
             Rider::ExileInsteadOfGraveyard => h.u8(12),
             Rider::ExiledWith { host, version } => {

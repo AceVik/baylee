@@ -678,7 +678,7 @@ impl<L: CardLookup> Engine<L> {
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
         let arena = &self.state.arena;
         self.state.play_permissions.retain(|permission| {
-            permission.window != baylee_cards_dsl::PlayWindow::ThisTurn
+            permission.window != baylee_cards_dsl::PlayWindow::ThisTurn.into()
                 && arena
                     .get(permission.card)
                     .is_some_and(|o| o.version == permission.version)

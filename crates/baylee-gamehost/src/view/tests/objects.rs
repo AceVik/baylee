@@ -305,3 +305,45 @@ fn a_permanent_phased_out_indirectly_is_shown_as_phased_out() {
         );
     }
 }
+
+#[test]
+fn prepared_view_uses_the_exiled_spells_face_after_its_permanent_changes() {
+    use baylee_core::generated::index;
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_battlefield = vec![DeckEntry {
+        card: index::FATEHOLD_CHRONOLOGIST,
+        print: PrintRef::new(0),
+    }];
+    let engine = Engine::new(&preset, Registry).unwrap();
+    let mut state = engine.state().clone();
+    let source = state
+        .battlefield_seen()
+        .find(|id| {
+            state.object(*id).is_some_and(|object| {
+                object
+                    .card
+                    .is_some_and(|card| card.index == index::FATEHOLD_CHRONOLOGIST)
+            })
+        })
+        .unwrap();
+    let copy = state.prepared_copy(source).unwrap();
+    let other = baylee_cards::by_index(index::EMERITUS_OF_WOE).unwrap();
+    state.object_mut(source).unwrap().take_abilities(
+        baylee_engine::object::AbilityList::from_static(
+            other.abilities,
+            PrintedFace::new(other.index, 0),
+            None,
+        ),
+    );
+    for seat in [PlayerId::new(0), PlayerId::new(1)] {
+        let view = player_view(&state, seat, 0, None, &SeatContext::default(), &[]);
+        assert_eq!(
+            view.object(source).unwrap().prepared_spell,
+            Some(RulesFace {
+                card: index::FATEHOLD_CHRONOLOGIST,
+                face: 1,
+            })
+        );
+        assert_eq!(view.object(copy).unwrap().name, "Peer Review");
+    }
+}

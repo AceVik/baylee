@@ -1124,6 +1124,13 @@ fn copy_spell(
         tokens::apply_copy_mod_with_text(&mut base, m, text);
     }
     let ts = state.next_timestamp();
+    let prepare_spell = state.source_object(original).and_then(|object| {
+        object
+            .riders
+            .iter()
+            .find(|rider| matches!(rider, crate::object::Rider::PrepareSpellFace(_)))
+            .copied()
+    });
     let id = state.arena.insert_with(|oid| {
         let mut obj = GameObject::new_bare(oid, you, ObjectKind::Spell, base);
         obj.timestamp = ts;
@@ -1154,6 +1161,9 @@ fn copy_spell(
         // the marker necessary — without it the copy resolved into a
         // graveyard and stayed there as a second, real card.
         obj.riders.push(crate::object::Rider::SpellCopy);
+        if let Some(rider) = prepare_spell {
+            obj.riders.push(rider);
+        }
     }
     state.put_new_spell_on_stack(id);
     state.copy_source_references(original, id);

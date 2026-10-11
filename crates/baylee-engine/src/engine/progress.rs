@@ -323,6 +323,7 @@ impl<L: CardLookup> Engine<L> {
             let moved =
                 stale || self.state.characteristics_generation != self.state.effects.generation;
             self.state.refresh_characteristics();
+            self.state.sync_prepared_copies();
             if self.state.award_enduring_stories() {
                 continue;
             }

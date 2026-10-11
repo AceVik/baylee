@@ -764,8 +764,10 @@ pub enum AbilityDef {
     /// cast a copy of the linked spell card; doing so removes the marker
     /// (Emeritus of Woe & co.).
     Prepared {
-        /// The linked spell card.
+        /// The definition containing the prepare spell.
         card: baylee_core::ids::CardIndex,
+        /// The prepare spell face within that definition.
+        face: u8,
     },
     /// Echo (CR 702.30): at your next upkeep after this enters, pay the
     /// cost or sacrifice it.
@@ -1289,6 +1291,7 @@ mod tests {
             },
             AbilityDef::Prepared {
                 card: baylee_core::ids::CardIndex::new(1),
+                face: 0,
             },
             AbilityDef::Echo {
                 cost: baylee_core::mana::ManaCost::ZERO,

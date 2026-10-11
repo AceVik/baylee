@@ -287,6 +287,12 @@ fn summary_key_ignores_counter_ordering() {
 fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
     type Change = (&'static str, fn(&mut PublicObject));
     const CHANGES: &[Change] = &[
+        ("prepared spell", |object| {
+            object.prepared_spell = Some(RulesFace {
+                card: CardIndex::new(1),
+                face: 0,
+            });
+        }),
         ("card", |o| {
             o.card = Some(CardIdentity {
                 index: CardIndex::new(7),
@@ -401,5 +407,30 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
         "the key prints {named} fields and this test changes \
          {} of them: {printed}",
         CHANGES.len() - 1
+    );
+}
+
+#[test]
+fn prepared_copies_with_different_spells_do_not_group_with_each_other_or_unprepared_twins() {
+    let plain = obj(1, 0);
+    let mut prepared = plain.clone();
+    prepared.prepared_spell = Some(RulesFace {
+        card: CardIndex::new(1),
+        face: 0,
+    });
+    assert_ne!(plain.summary_key(), prepared.summary_key());
+    let mut other = prepared.clone();
+    other.prepared_spell.as_mut().unwrap().face = 1;
+    assert_ne!(prepared.summary_key(), other.summary_key());
+}
+
+#[test]
+fn an_older_object_without_prepare_metadata_still_decodes() {
+    let object = obj(1, 0);
+    let json = serde_json::to_value(&object).unwrap();
+    assert!(json.get("prepared_spell").is_none());
+    assert_eq!(
+        serde_json::from_value::<PublicObject>(json).unwrap(),
+        object
     );
 }

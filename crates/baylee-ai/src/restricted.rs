@@ -78,6 +78,7 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         id,
         card: Some(held.card),
         rules: None,
+        prepared_spell: None,
         name: held.name.clone(),
         controller: baylee_client_core::decision::resource_player(view),
         owner: baylee_client_core::decision::resource_player(view),

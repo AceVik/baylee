@@ -27,7 +27,7 @@ fn grant_permission(
             free,
             cast_only,
             spell_types: None,
-            window: baylee_cards_dsl::PlayWindow::ThisTurn,
+            window: baylee_cards_dsl::PlayWindow::ThisTurn.into(),
         });
     }
 }
@@ -99,7 +99,7 @@ pub(super) fn exile_top_to_play(
                     free: play.free,
                     cast_only: play.spell_types.is_some(),
                     spell_types: play.spell_types,
-                    window: play.window,
+                    window: play.window.into(),
                 });
             }
         }

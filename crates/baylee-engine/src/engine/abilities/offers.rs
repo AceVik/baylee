@@ -443,32 +443,14 @@ impl<L: CardLookup> Engine<L> {
             if obj.controller != player {
                 continue;
             }
-            // Prepared (Emeritus of Woe): a prepared permanent may cast
-            // a copy of its linked spell — synthetic index `choice::PREPARED_CAST`.
-            if obj.riders.contains(&crate::object::Rider::Prepared) {
-                let linked = obj.card.and_then(|c| {
-                    let face = obj.face_index as usize;
-                    self.lookup.card(c.index).and_then(|def| {
-                        def.abilities_for_face(face).iter().find_map(|a| match a {
-                            AbilityDef::Prepared { card } => Some(*card),
-                            _ => None,
-                        })
-                    })
-                });
-                if let Some(linked_card) = linked {
-                    let castable = self.lookup.card(linked_card).is_some_and(|spell_def| {
-                        self.prepared_cast_is_timely(player, spell_def)
-                            && casting::affordable(
-                                &self.state,
-                                player,
-                                &self.state.players[player.get() as usize].mana_pool,
-                                &self.prepared_spell_price(player, spell_def),
-                            )
-                    });
-                    if castable {
-                        legal.abilities.push((id, crate::choice::PREPARED_CAST));
-                    }
-                }
+            // Keep the permanent's prepared-spell button as a shortcut to the
+            // same exile copy and casting wizard used by ordinary spell offers.
+            if obj.riders.contains(&crate::object::Rider::Prepared)
+                && let Some(copy) = self.state.prepared_copy(id)
+                && casting::can_cast(&self.state, &self.lookup, player, copy).is_ok()
+                && self.has_a_legal_target(player, copy)
+            {
+                legal.abilities.push((id, crate::choice::PREPARED_CAST));
             }
             // Karn's lock reaches the grants below as well: an ability a
             // continuous effect gave an artifact is an activated ability of

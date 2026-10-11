@@ -372,7 +372,7 @@ fn gloom_play_permission_and_paid_effect_cast_each_charge_once() {
                 free: true,
                 cast_only: true,
                 spell_types: None,
-                window: baylee_cards_dsl::PlayWindow::ThisTurn,
+                window: baylee_cards_dsl::PlayWindow::ThisTurn.into(),
             });
             add_mana(&mut e, p, ManaColor::Colorless, 2);
             assert!(!priority_offer(&e).castable.contains(&card));

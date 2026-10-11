@@ -534,8 +534,23 @@ pub struct AbilityResolved {
     pub times: u32,
 }
 
+/// Runtime lifetime of a permission to play an exact object.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum PlayLifetime {
+    /// Expires with the benefiting player's actual turns.
+    Turns(baylee_cards_dsl::PlayWindow),
+    /// The exact permanent must remain present and prepared (CR 722.3c).
+    Prepared(baylee_core::ids::DamageSourceRef),
+}
+
+impl From<baylee_cards_dsl::PlayWindow> for PlayLifetime {
+    fn from(window: baylee_cards_dsl::PlayWindow) -> Self {
+        Self::Turns(window)
+    }
+}
+
 /// Permission to play one exact card incarnation (CR 400.7).
-/// Its lifetime is independent of its source and of per-turn counters.
+/// Its lifetime is independent of per-turn counters.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct PlayPermission {
     /// Who may play it.
@@ -554,8 +569,8 @@ pub struct PlayPermission {
     pub cast_only: bool,
     /// Type restriction on the spell being cast, not the card's front face.
     pub spell_types: Option<baylee_core::types::TypeSet>,
-    /// Lifetime measured against `player`'s actual turns.
-    pub window: baylee_cards_dsl::PlayWindow,
+    /// Turn-based expiry or the prepared permanent granting access.
+    pub window: PlayLifetime,
 }
 
 impl PerTurn {

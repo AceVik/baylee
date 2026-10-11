@@ -396,6 +396,7 @@ impl PlayerView {
                 .rules
                 .into_iter()
                 .chain(ability)
+                .chain(object.prepared_spell)
                 .chain(granted)
                 .map(|r| r.card)
         });

@@ -551,8 +551,9 @@ fn unasked(view: &PlayerView, asked: &HashSet<CardIndex>) -> Vec<CardIndex> {
 /// The link is printed on the card that names it, so asking for it tells the
 /// gateway nothing the view did not already say.
 fn wanted(view: &PlayerView) -> impl Iterator<Item = CardIndex> + '_ {
-    view.cards()
-        .flat_map(|card| std::iter::once(card).chain(crate::abilities::prepared_spell(card)))
+    view.cards().flat_map(|card| {
+        std::iter::once(card).chain(crate::abilities::prepared_spell(card).map(|spell| spell.card))
+    })
 }
 
 /// Files the answer when it arrives.

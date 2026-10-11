@@ -336,6 +336,9 @@ pub(crate) fn run_with_sagas(
         // Saruman's own reminder text says so.
         let is_a_copy = obj.riders.contains(&crate::object::Rider::SpellCopy)
             && obj.zone != crate::zone::Zone::Stack;
+        if state.prepared_copy_source(id).is_some() {
+            continue; // CR 722.3c: a prepared copy is allowed to remain in exile.
+        }
         if !(is_token_like || is_a_copy) || obj.zone == crate::zone::Zone::Battlefield {
             continue; // an emblem, a spell still on the stack, or it went back
         }

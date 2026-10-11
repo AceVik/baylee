@@ -990,20 +990,7 @@ pub(super) fn exec_immediate(
             } else {
                 res.source
             };
-            // CR 722.3a: the alternate characteristics must exist, even when
-            // ability-removing effects prevent using the printed rules text.
-            let has_spell = state.printed_ability_list(target).is_some_and(|list| {
-                list.abilities
-                    .iter()
-                    .any(|ability| matches!(ability, baylee_cards_dsl::AbilityDef::Prepared { .. }))
-            });
-            if has_spell
-                && let Some(obj) = state.object_mut(target)
-                && obj.zone == crate::zone::Zone::Battlefield
-                && !obj.riders.contains(&crate::object::Rider::Prepared)
-            {
-                obj.riders.push(crate::object::Rider::Prepared);
-            }
+            state.prepare(target);
             None
         }
         Effect::ProtectionFromChosenColor { duration } => {

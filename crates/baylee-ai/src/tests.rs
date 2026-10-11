@@ -89,6 +89,7 @@ fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         id,
         card: None,
         rules: None,
+        prepared_spell: None,
         name: "Creature".into(),
         controller,
         owner: controller,

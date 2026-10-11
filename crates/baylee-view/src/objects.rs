@@ -227,6 +227,9 @@ pub struct PublicObject {
     /// token (which [`Self::token`] names) and an emblem.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rules: Option<RulesFace>,
+    /// The existing exiled prepare copy, frozen even if this permanent changes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prepared_spell: Option<RulesFace>,
     /// Projected name. Present even when `card` is `None`, so tokens and
     /// face-down permanents still render a label ("Soldier", "Face-down").
     pub name: String,
@@ -553,6 +556,7 @@ impl PublicObject {
         counters.sort_by_key(|c| (format!("{:?}", c.kind), c.count));
         ObjectSummaryKey {
             card: self.card.map(|c| (c.index, c.face)),
+            prepared_spell: self.prepared_spell,
             token: self.token,
             name: self.name.clone(),
             controller: self.controller,
@@ -589,6 +593,7 @@ impl PublicObject {
 #[allow(clippy::struct_excessive_bools)] // independent public facts, not states of one machine
 pub struct ObjectSummaryKey {
     card: Option<(CardIndex, u8)>,
+    prepared_spell: Option<RulesFace>,
     /// A token has no `card`, so without this a Soldier with lifelink and
     /// the plain Soldier another set prints group by name alone — and every
     /// token merges, however roomy its row.
@@ -642,6 +647,7 @@ pub struct ObjectSummaryKey {
 impl core::hash::Hash for ObjectSummaryKey {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.card.hash(state);
+        self.prepared_spell.hash(state);
         self.token.hash(state);
         self.name.hash(state);
         self.controller.hash(state);

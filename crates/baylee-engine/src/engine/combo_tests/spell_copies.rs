@@ -256,6 +256,16 @@ fn a_prepared_cast_is_the_second_spell_saruman_copies() {
         )
         .unwrap();
     advance_until(&mut engine, |e| spells_on_the_stack(e, p0) == 2);
+    for &id in engine.state().zones.list(ZoneLocation::Stack) {
+        let object = engine.state().object(id).unwrap();
+        if object.kind == crate::object::ObjectKind::Spell {
+            assert!(
+                object
+                    .riders
+                    .contains(&crate::object::Rider::PrepareSpellFace(0))
+            );
+        }
+    }
     assert_eq!(
         spells_on_the_stack(&engine, p0),
         2,

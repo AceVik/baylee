@@ -42,6 +42,7 @@ static SNAPPER_ABILITIES: &[AbilityDef] = &[free(
 static STUDY_ABILITIES: &[AbilityDef] = &[
     AbilityDef::Prepared {
         card: CardIndex::new(LESSON),
+        face: 0,
     },
     free(&[Effect::BecomePrepared], None),
 ];

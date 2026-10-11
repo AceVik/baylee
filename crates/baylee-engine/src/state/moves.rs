@@ -518,8 +518,12 @@ impl GameState {
                 obj.deathtouched = false;
                 obj.regeneration_shields = 0;
                 obj.attached_to = None;
-                obj.riders
-                    .retain(|r| *r != crate::object::Rider::AttachmentHostLeft);
+                obj.riders.retain(|rider| {
+                    !matches!(
+                        rider,
+                        crate::object::Rider::AttachmentHostLeft | crate::object::Rider::Prepared
+                    )
+                });
                 // A name chosen as it entered belongs to that permanent
                 // (CR 400.7): a Pithing Needle bounced and cast again names
                 // again, and nothing in between names anything.

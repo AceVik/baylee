@@ -76,6 +76,7 @@ impl GameState {
         // CR 702.26f: even phasing out and back in before the next
         // projection cannot revive a duration tracking this permanent.
         self.expire_source_durations();
+        self.sync_prepared_copies();
         self.invalidate_projections();
     }
 
@@ -127,6 +128,12 @@ impl GameState {
     /// Phases `id` in, and with it everything that phased out indirectly
     /// attached to it, transitively.
     pub(crate) fn phase_in(&mut self, id: ObjectId) {
+        if !self.object(id).is_some_and(|object| {
+            object.zone == crate::zone::Zone::Battlefield
+                && object.status.contains(Status::PHASED_OUT)
+        }) {
+            return;
+        }
         let mut coming = vec![id];
         let mut next = 0;
         while let Some(&host) = coming.get(next) {
@@ -158,5 +165,9 @@ impl GameState {
             }
         }
         self.invalidate_projections();
+        self.refresh_characteristics();
+        for source in coming {
+            self.create_prepared_copy(source);
+        }
     }
 }

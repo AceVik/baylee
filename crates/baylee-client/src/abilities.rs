@@ -915,21 +915,26 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
 /// The spell a prepared permanent casts a copy of (`AbilityDef::Prepared`),
 /// read off the card its abilities are printed on.
 #[must_use]
-pub fn prepared_of(view: &PlayerView, object: ObjectId) -> Option<baylee_core::ids::CardIndex> {
-    prepared_spell(view.object(object)?.rules?.card)
+pub fn prepared_of(view: &PlayerView, object: ObjectId) -> Option<baylee_view::RulesFace> {
+    let object = view.object(object)?;
+    object
+        .prepared_spell
+        .or_else(|| prepared_spell(object.rules?.card))
 }
 
 /// The spell `card` is linked to by `AbilityDef::Prepared`, if it has one.
 ///
-/// Off the card's own list, as the suspend cost is read: the prepared cards
-/// are single-faced and keep the link there.
+/// The metadata includes the inset face when both spells share a definition.
 #[must_use]
-pub fn prepared_spell(card: baylee_core::ids::CardIndex) -> Option<baylee_core::ids::CardIndex> {
+pub fn prepared_spell(card: baylee_core::ids::CardIndex) -> Option<baylee_view::RulesFace> {
     baylee_cards::by_index(card)?
         .abilities
         .iter()
         .find_map(|ability| match ability {
-            AbilityDef::Prepared { card } => Some(*card),
+            AbilityDef::Prepared { card, face } => Some(baylee_view::RulesFace {
+                card: *card,
+                face: *face,
+            }),
             _ => None,
         })
 }
@@ -967,15 +972,22 @@ fn unlock_label(lang: Lang, view: &PlayerView, object: ObjectId, half: u8) -> St
 
 fn prepared_label(view: &PlayerView, object: ObjectId) -> String {
     prepared_of(view, object)
-        .and_then(baylee_cards::by_index)
-        .map(|def| def.name().to_string())
+        .and_then(|spell| {
+            baylee_cards::by_index(spell.card)?
+                .faces
+                .get(usize::from(spell.face))
+        })
+        .map(|face| face.name.to_string())
         .unwrap_or_default()
 }
 
-/// What casting a copy of `spell` costs: its front face's printed mana cost,
+/// What casting a copy of `spell` costs: its selected face's printed mana cost,
 /// as symbols. `None` for a spell with no mana cost.
-fn spell_cost(spell: baylee_core::ids::CardIndex) -> Option<String> {
-    let cost = baylee_cards::by_index(spell)?.faces.first()?.mana_cost;
+fn spell_cost(spell: baylee_view::RulesFace) -> Option<String> {
+    let cost = baylee_cards::by_index(spell.card)?
+        .faces
+        .get(usize::from(spell.face))?
+        .mana_cost;
     (!cost.is_empty()).then(|| cost.to_string())
 }
 
@@ -1001,12 +1013,15 @@ pub fn prepared_words(
         return None;
     }
     let spell = prepared_of(view, object)?;
-    let said = if texts.get(spell, 0).is_some_and(|text| text.lang != "en") {
+    let said = if texts
+        .get(spell.card, spell.face)
+        .is_some_and(|text| text.lang != "en")
+    {
         crate::cardtext::Said::Localized
     } else {
         crate::cardtext::Said::Oracle
     };
-    let text = texts.face(spell, 0)?;
+    let text = texts.face(spell.card, spell.face)?;
     let mut blocks = vec![TextBlock::Rules(text.name)];
     blocks.extend(baylee_client_core::card_face::split_blocks(
         &text.oracle_text,
@@ -1833,7 +1848,13 @@ mod tests {
             .with_battlefield(0, [crate::registry_printed(1, 0, "Emeritus of Woe")])
             .build();
         let tutor = baylee_cards::decks::by_name("Demonic Tutor").expect("in the pool");
-        assert_eq!(prepared_of(&view, id), Some(tutor));
+        assert_eq!(
+            prepared_of(&view, id),
+            Some(baylee_view::RulesFace {
+                card: tutor,
+                face: 0
+            })
+        );
 
         let i = offering(vec![(id, PREPARED_CAST)], vec![]);
         let out = options(Lang::En, &view, &i, id);
@@ -1891,6 +1912,28 @@ mod tests {
         };
         assert_eq!(prepared_words(&german, &view, id, &other), None);
     }
+    #[test]
+    fn an_inset_prepare_spell_uses_its_own_name_price_and_frozen_text() {
+        let id = ObjectId::new(1, 0);
+        let chronologist = baylee_core::generated::index::FATEHOLD_CHRONOLOGIST;
+        let mut creature = token(1, 0, "Frog copy", 1, 1);
+        creature.prepared_spell = Some(baylee_view::RulesFace {
+            card: chronologist,
+            face: 1,
+        });
+        // No backing card or printed rules are needed: the host describes the
+        // existing exiled copy even after this permanent copies something else.
+        let view = ViewBuilder::new(2).with_battlefield(0, [creature]).build();
+        let interaction = offering(vec![(id, PREPARED_CAST)], vec![]);
+        let out = options(Lang::En, &view, &interaction, id);
+        assert_eq!(out[0].label, "Peer Review");
+        assert_eq!(out[0].cost.as_deref(), Some("{2}{W/U}"));
+        let (blocks, _) =
+            prepared_words(&crate::cardtext::CardTexts::default(), &view, id, &out[0]).unwrap();
+        assert_eq!(blocks[0], TextBlock::Rules("Peer Review".into()));
+        assert!(view.cards().any(|card| card == chronologist));
+    }
+
     /// A Chromatic Lantern's land, as it actually arrives: the engine offers
     /// the grant *and* the view says what it makes. Both halves of the
     /// chooser then have something to say about the same tap, and for one

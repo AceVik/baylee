@@ -68,6 +68,7 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         id: ObjectId::new(slot, 0),
         card: None,
         rules: None,
+        prepared_spell: None,
         name: name.to_string(),
         controller: PlayerId::new(controller),
         owner: PlayerId::new(controller),

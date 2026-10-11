@@ -3240,3 +3240,13 @@ the entering and leaving sets are captured before either changes.
 `Effect::BecomeTargetPrepared` prepares the selected permanent only if it has
 a prepare spell. `BecomePrepared` applies the same rule to the source. Neither
 adds another prepared designation to an already prepared permanent.
+
+`AbilityDef::Prepared { card, face }` points at the exact prepare-spell face.
+It can reference a separate spell definition or an inset face of the same card;
+the latter is not a cast mode of the physical card. Gaining the designation
+creates that face's copy in exile immediately (CR 722.3c), with independent
+characteristics and the usual casting wizard, targets, costs and mana riders.
+`PlayLifetime::Prepared` ties the permission to the permanent's exact zone
+incarnation; control changes transfer permission, and phasing out ends it.
+Phasing in prepared creates a new copy. Only a successful cast unprepares the
+permanent; cancelling preserves the designation and the exiled copy.

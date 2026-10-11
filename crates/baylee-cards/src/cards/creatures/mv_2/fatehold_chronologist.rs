@@ -43,5 +43,6 @@ card!(
     ],
     abilities = &[AbilityDef::Prepared {
         card: index::FATEHOLD_CHRONOLOGIST,
+        face: 1,
     }],
 );

@@ -1,6 +1,7 @@
 //! Prospective spell permissions and prices for exiled cards.
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::state::CardLookup;
 
 /// Evaluate an exile permission against the prospective spell (CR 601.3e).
 /// With no such permission, the other zone permissions retain their own rules.
@@ -14,6 +15,24 @@ pub(crate) fn permitted_spell_types(
     let Some(object) = state.object(card) else {
         return false;
     };
+    // A prepare spell's copy has exactly one set of characteristics. The
+    // physical preparation card cannot be cast as its inset spell (CR 722.3).
+    if let Some(frozen) = object.riders.iter().find_map(|rider| match rider {
+        crate::object::Rider::PrepareSpellFace(face) => Some(usize::from(*face)),
+        _ => None,
+    }) {
+        return face == frozen;
+    }
+    if let Some(def) = object.card.and_then(|card| state.bases.card(card.index))
+        && def.abilities.iter().any(|ability| {
+            matches!(ability,
+                baylee_cards_dsl::AbilityDef::Prepared { card, face: prepared_face }
+                    if *card == def.index && usize::from(*prepared_face) == face
+            )
+        })
+    {
+        return false;
+    }
     if object.zone == Zone::Hand
         || (face == 0 && adventure_permission(state, player, card))
         || object

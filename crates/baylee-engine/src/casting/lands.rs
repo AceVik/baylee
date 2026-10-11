@@ -256,11 +256,13 @@ pub fn play_permission(
     card: ObjectId,
 ) -> Option<crate::state::PlayPermission> {
     let version = state.object(card)?.version;
-    state
-        .play_permissions
-        .iter()
-        .copied()
-        .find(|p| p.player == player && p.card == card && p.version == version)
+    state.play_permissions.iter().copied().find(|p| {
+        let controller = match p.window {
+            crate::state::PlayLifetime::Prepared(source) => state.prepared_controller(source),
+            crate::state::PlayLifetime::Turns(_) => Some(p.player),
+        };
+        controller == Some(player) && p.card == card && p.version == version
+    })
 }
 
 /// The zone permission plus the particular card restriction. A library

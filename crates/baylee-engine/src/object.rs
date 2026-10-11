@@ -851,6 +851,8 @@ pub enum Rider {
     EntryP1P1(u32),
     /// The permanent has the prepared marker (Emeritus of Woe & co.).
     Prepared,
+    /// This copy has only the indicated prepare spell's characteristics.
+    PrepareSpellFace(u8),
     /// May be played from exile by the given player, spending mana of
     /// any color (Opposition Agent's search takeover).
     PlayableFromExileFor(PlayerId),
@@ -960,6 +962,7 @@ impl Rider {
             | Self::ExileInsteadOfGraveyard
             | Self::Uncounterable
             | Self::Prepared
+            | Self::PrepareSpellFace(_)
             | Self::ChosenOpponent(_)
             | Self::SpellCopy
             // How the spell was cast, written before it moves to the stack:

@@ -345,6 +345,38 @@ impl GameState {
         base
     }
 
+    /// Preparation can refer to a spell that no deck contains. Admit its rules
+    /// through the same lookup seam before resolution needs the immutable cache.
+    fn admit_linked_rules(
+        &mut self,
+        def: &'static CardDef,
+        lookup: &impl CardLookup,
+    ) -> Result<(), SetupError> {
+        if self.bases.rules.contains_key(&def.index) {
+            return Ok(());
+        }
+        let mut pending = vec![def];
+        while let Some(def) = pending.pop() {
+            if Arc::make_mut(&mut self.bases)
+                .rules
+                .insert(def.index, def)
+                .is_some()
+            {
+                continue;
+            }
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    if let baylee_cards_dsl::AbilityDef::Prepared { card, .. } = ability
+                        && !self.bases.rules.contains_key(card)
+                    {
+                        pending.push(lookup.card(*card).ok_or(SetupError::UnknownCard(*card))?);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn create_card(
         &mut self,
         owner: PlayerId,
@@ -354,6 +386,7 @@ impl GameState {
         let def = lookup
             .card(entry.card)
             .ok_or(SetupError::UnknownCard(entry.card))?;
+        self.admit_linked_rules(def, lookup)?;
         self.graveyard_order.enabled |= crate::graveyard_order::card_reads_order(def);
         let base = self.card_base(def, entry.card);
         let card = CardRef {
