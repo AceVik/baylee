@@ -1711,6 +1711,7 @@ mod player_control;
 #[cfg(test)]
 mod player_control_tests;
 mod progress;
+mod spend_riders;
 // Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).
 #[cfg(any(test, feature = "fuzz"))]
 mod invariants;
