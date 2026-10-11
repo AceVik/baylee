@@ -28,3 +28,5 @@ mod serum_visions;
 mod steelshaper_s_gift;
 mod stream_of_life;
 mod thoughtseize;
+
+mod winter_blast;

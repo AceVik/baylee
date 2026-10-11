@@ -8,3 +8,5 @@ mod myr_matrix;
 mod the_hive;
 
 mod al_abara_s_carpet;
+
+mod ring_of_immortals;

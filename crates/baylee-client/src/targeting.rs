@@ -443,6 +443,8 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::HasCounter(_)
         | Filter::IsCommander
         | Filter::HasAdventure
+        | Filter::ActivatedAbilityFrom(_)
+        | Filter::TargetsPermanentYouControl
         | Filter::HasRampage
         | Filter::HasAnyCounter
         | Filter::Enchanted

@@ -1653,6 +1653,9 @@ impl<L: CardLookup> Engine<L> {
         if let Some(identity) = self.state.source_identity(id) {
             self.state.text_changes.set(identity, granted.text);
         }
+        if let Some(object) = self.state.object_mut(id) {
+            object.riders.push(crate::object::Rider::GrantedActivated);
+        }
         self.synthetic_fx.insert(id, granted.effects);
         self.state
             .zones

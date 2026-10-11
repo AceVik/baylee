@@ -16,6 +16,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::DealDamageEvenly { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::DealDamage { .. }
+        | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageToAttached { .. }
         | Effect::DealDamageDivided { .. }
         | Effect::Fight { .. }
@@ -548,6 +549,19 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                 )]
             })
             .unwrap_or_default(),
+        Effect::DealDamageToMatchingTargets { amount, filter } => {
+            let amount = amount2(&amount, state, you, res);
+            res.targets
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|object| {
+                        eval::matches_with_context(filter, state, object, you, res.rule_context())
+                    })
+                })
+                .map(|id| assignment(state, res, res.source, DamageTarget::Object(id), amount))
+                .collect()
+        }
         Effect::DealDamageEach { amount, filter } => {
             let n = amount2(&amount, state, you, res);
             state

@@ -11,8 +11,11 @@ use super::Precon;
 pub static PLAYABLE: &[Precon] = &[
     Precon { key: "ITP/kazz-s-second-deck", text: include_str!("../../../../data/decks/precon/ITP/kazz-s-second-deck.txt") },
     Precon { key: "ITP/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/ITP/zakk-s-first-deck.txt") },
+    Precon { key: "ITP/zakk-s-second-deck", text: include_str!("../../../../data/decks/precon/ITP/zakk-s-second-deck.txt") },
+    Precon { key: "PAST/ape-lord", text: include_str!("../../../../data/decks/precon/PAST/ape-lord.txt") },
     Precon { key: "PAST/centaur-shaman", text: include_str!("../../../../data/decks/precon/PAST/centaur-shaman.txt") },
     Precon { key: "PAST/conjurer", text: include_str!("../../../../data/decks/precon/PAST/conjurer.txt") },
+    Precon { key: "PAST/elvish-magi", text: include_str!("../../../../data/decks/precon/PAST/elvish-magi.txt") },
     Precon { key: "PAST/forest-dragon", text: include_str!("../../../../data/decks/precon/PAST/forest-dragon.txt") },
     Precon { key: "PAST/fungus-master", text: include_str!("../../../../data/decks/precon/PAST/fungus-master.txt") },
     Precon { key: "PAST/great-druid", text: include_str!("../../../../data/decks/precon/PAST/great-druid.txt") },
@@ -26,4 +29,5 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "PAST/winged-stallion", text: include_str!("../../../../data/decks/precon/PAST/winged-stallion.txt") },
     Precon { key: "RQS/kazz-s-second-deck", text: include_str!("../../../../data/decks/precon/RQS/kazz-s-second-deck.txt") },
     Precon { key: "RQS/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/RQS/zakk-s-first-deck.txt") },
+    Precon { key: "RQS/zakk-s-second-deck", text: include_str!("../../../../data/decks/precon/RQS/zakk-s-second-deck.txt") },
 ];

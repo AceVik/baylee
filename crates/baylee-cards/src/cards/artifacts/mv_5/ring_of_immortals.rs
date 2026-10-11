@@ -1,12 +1,8 @@
 //! Ring of Immortals — {5} — Artifact
 //! Oracle: {3}, {T}: Counter target instant or Aura spell that targets a permanent you control.
 //! Set: LEG #293 — Legends | Scryfall ID: 61706102-67fd-4167-bd7d-ec6da41db362 | Oracle ID: 468a8c2e-0cc2-4108-809d-42ca1eb25ff2
-// PARTIAL — nothing is built: the spell's own targets cannot be asked.
-// NOT SUPPORTED: "{3}, {T}: Counter target instant or Aura spell that
-// targets a permanent you control." — no `Filter` predicate reads a spell's
-// targets (`Filter::WithSingleTarget` counts them and nothing matches what
-// they are), so the restriction cannot be stated; dropping it would counter
-// any instant or Aura spell.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -19,8 +15,16 @@ card!(
         mana_cost = mana!("{5}"),
         types = TypeSet::ARTIFACT,
     ),],
-    coverage = Coverage::Partial(
-        "no Filter predicate reads a spell's targets, so \"targets a permanent \
-         you control\" cannot be stated",
-    ),
+    coverage = Coverage::Implemented,
+    abilities = &[activated!(
+        cost!("{3}", TapSelf),
+        &[Effect::CounterTargetSpell],
+        target = Some(TargetSpec::Spell(&Filter::And(&[
+            Filter::Or(&[
+                Filter::HasType(TypeSet::INSTANT),
+                Filter::HasSubtype(baylee_core::generated::subtypes::enchantment::AURA)
+            ]),
+            Filter::TargetsPermanentYouControl
+        ])))
+    ),],
 );

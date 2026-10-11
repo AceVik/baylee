@@ -874,6 +874,7 @@ fn hash_rider_situation(
     departure.hash(h);
     for rider in &obj.riders {
         match rider {
+            crate::object::Rider::GrantedActivated => h.u8(62),
             crate::object::Rider::AbilitySourceVersion(version) => {
                 h.u8(21);
                 h.boolean(
@@ -1324,6 +1325,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 version.hash(h);
                 power.hash(h);
             }
+            Rider::GrantedActivated => h.u8(62),
             Rider::AbilitySourceVersion(version) => {
                 h.u8(21);
                 version.hash(h);
@@ -1543,6 +1545,11 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::HasAdventure => h.u8(58),
         F::PowerAtMostSourcePower => h.u8(59),
         F::AttackingYou => h.u8(60),
+        F::TargetsPermanentYouControl => h.u8(61),
+        F::ActivatedAbilityFrom(filter) => {
+            h.u8(62);
+            filter_hash(h, filter);
+        }
         F::HasAnyCounter => h.u8(52),
         F::Enchanted => h.u8(53),
         F::BlockingSource => h.u8(54),

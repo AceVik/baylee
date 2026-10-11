@@ -471,7 +471,7 @@ ISD/spectral-legions	ISD	Intro Pack	2011-09-30	Spectral Legions	60	no
 ITP/kazz-s-first-deck	ITP	Intro Pack	1996-12-31	Kazz's First Deck	30	no
 ITP/kazz-s-second-deck	ITP	Intro Pack	1996-12-31	Kazz's Second Deck	30	yes
 ITP/zakk-s-first-deck	ITP	Intro Pack	1996-12-31	Zakk's First Deck	30	yes
-ITP/zakk-s-second-deck	ITP	Intro Pack	1996-12-31	Zakk's Second Deck	30	no
+ITP/zakk-s-second-deck	ITP	Intro Pack	1996-12-31	Zakk's Second Deck	30	yes
 JOU/fates-foreseen	JOU	Intro Pack	2014-05-02	Fates Foreseen	60	no
 JOU/mortals-of-myth	JOU	Intro Pack	2014-05-02	Mortals of Myth	60	no
 JOU/pantheon-s-power	JOU	Intro Pack	2014-05-02	Pantheon's Power	60	no
@@ -808,7 +808,7 @@ P02/spellweaver	P02	Theme Deck	1998-06-24	Spellweaver	40	no
 P02/the-nightstalkers	P02	Theme Deck	1998-06-24	The Nightstalkers	40	no
 PAST/aga-galneer	PAST	Shandalar Enemy Deck	1997-04-01	Aga Galneer	69	no
 PAST/alt-a-kesh	PAST	Shandalar Enemy Deck	1997-04-01	Alt-A-Kesh	62	no
-PAST/ape-lord	PAST	Shandalar Enemy Deck	1997-04-01	Ape Lord	60	no
+PAST/ape-lord	PAST	Shandalar Enemy Deck	1997-04-01	Ape Lord	60	yes
 PAST/arch-angel	PAST	Shandalar Enemy Deck	1997-04-01	Arch Angel	66	no
 PAST/arzakon	PAST	Shandalar Enemy Deck	1997-04-01	Arzakon	138	no
 PAST/astral-visionary	PAST	Shandalar Enemy Deck	1997-04-01	Astral Visionary	66	no
@@ -823,7 +823,7 @@ PAST/crusader	PAST	Shandalar Enemy Deck	1997-04-01	Crusader	72	no
 PAST/dracur	PAST	Shandalar Enemy Deck	1997-04-01	Dracur	67	no
 PAST/druid	PAST	Shandalar Enemy Deck	1997-04-01	Druid	65	no
 PAST/elementalist	PAST	Shandalar Enemy Deck	1997-04-01	Elementalist	66	no
-PAST/elvish-magi	PAST	Shandalar Enemy Deck	1997-04-01	Elvish Magi	65	no
+PAST/elvish-magi	PAST	Shandalar Enemy Deck	1997-04-01	Elvish Magi	65	yes
 PAST/enchantress	PAST	Shandalar Enemy Deck	1997-04-01	Enchantress	68	no
 PAST/forest-dragon	PAST	Shandalar Enemy Deck	1997-04-01	Forest Dragon	69	yes
 PAST/fungus-master	PAST	Shandalar Enemy Deck	1997-04-01	Fungus Master	64	yes
@@ -972,7 +972,7 @@ ROE/totem-power	ROE	Intro Pack	2010-04-23	Totem Power	41	no
 RQS/kazz-s-first-deck	RQS	Intro Pack	1996-06-10	Kazz's First Deck	30	no
 RQS/kazz-s-second-deck	RQS	Intro Pack	1996-06-10	Kazz's Second Deck	26	yes
 RQS/zakk-s-first-deck	RQS	Intro Pack	1996-06-10	Zakk's First Deck	30	yes
-RQS/zakk-s-second-deck	RQS	Intro Pack	1996-06-10	Zakk's Second Deck	26	no
+RQS/zakk-s-second-deck	RQS	Intro Pack	1996-06-10	Zakk's Second Deck	26	yes
 RTR/azorius-advance	RTR	Intro Pack	2012-10-05	Azorius Advance	60	no
 RTR/creep-and-conquer	RTR	Event Deck	2012-10-26	Creep and Conquer	75	no
 RTR/golgari-growth	RTR	Intro Pack	2012-10-05	Golgari Growth	60	no

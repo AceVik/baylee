@@ -183,3 +183,5 @@ mod lesser_werewolf;
 mod willow_satyr;
 
 mod emiel_the_blessed;
+
+mod ayesha_tanaka;

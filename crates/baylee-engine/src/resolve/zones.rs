@@ -1210,6 +1210,30 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::RandomGraveyardToHand { filter } => {
+            let options: Vec<_> = state
+                .zones
+                .list(ZoneLocation::Graveyard(you))
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|object| {
+                        eval::matches_with_context(filter, state, object, you, res.rule_context())
+                    })
+                })
+                .collect();
+            if !options.is_empty() {
+                let chosen = options[state.rng.below(options.len() as u64) as usize];
+                return super::graveyard_choice::place(
+                    state,
+                    res,
+                    &[chosen],
+                    SearchDest::Hand,
+                    false,
+                );
+            }
+            None
+        }
         Effect::DiscardRandom { who, count } => {
             let count = amount2(&count, state, you, res) as usize;
             if count == 0 {

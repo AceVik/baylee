@@ -3579,3 +3579,24 @@ land type"; both are convention tests that fire on a first try.
   its four-case regression then passed, giving 5,529 effective passing engine tests.
   Also passing: 1,563 client, 1,557 client-core, 244 gamehost, 134 cards, 275 codegen
   and 69 DSL tests. The arithmetic property test additionally checks summed counts.
+
+### Card completion batch 24 — stack predicates and event-time graveyard observers
+
+- Complete Rust, Ayesha Tanaka, Avoid Fate, Ring of Immortals, Winter Blast,
+  Haunted Fengraf and Sword of the Meek. Ability counters distinguish activated
+  abilities from triggers, and evaluate the source's current characteristics or
+  its exact departed incarnation. Granted activations retain their ability kind.
+- A spell targeting your permanent reads the current target identity and controller
+  (CR 115.9b). A target becoming illegal does not stop being a target, but a card
+  leaving and returning is a different object. Both target groups participate.
+- Sword's return and attachment retain separate identities. Untargeted attachment
+  ignores shroud; a departed creature or Sword is never replaced by its new
+  incarnation. Graveyard observers only see events during their own stay there,
+  including an event before they subsequently leave in the same mutation batch.
+- Winter Blast damages only flying creatures among its still-legal chosen targets.
+  Fengraf samples the current eligible graveyard cards with the seeded game RNG;
+  the selected card is retained across a command-zone replacement question.
+- All 5,538 engine tests pass, with two intentionally ignored tests. Regression
+  coverage includes changed controllers, departed activated sources, triggers
+  excluded from activated-ability counters, source blink, untargeted shroud,
+  event ordering, paid/refused white mana, and deterministic random selection.

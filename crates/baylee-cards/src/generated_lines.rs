@@ -3253,7 +3253,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Avoid Fate
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Axelrod Gunnarson
     &[FaceLines {
         sentences: 2,
@@ -3262,7 +3269,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Ayesha Tanaka
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Backfire
@@ -4382,7 +4396,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Ring of Immortals
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Riven Turnbull
     &[FaceLines {
         sentences: 1,
@@ -4407,7 +4428,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Rust
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Sea Kings' Blessing
     &[FaceLines {
         sentences: 1,
@@ -21484,8 +21512,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Sword of the Meek
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[None, Some(1)],
+        stackable: 2,
+        lines: &[None, Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -26010,8 +26038,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Haunted Fengraf
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

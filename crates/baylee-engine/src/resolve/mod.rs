@@ -20,6 +20,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
 use smallvec::SmallVec;
 
+mod attachments;
 mod chosen;
 mod control;
 mod counters;

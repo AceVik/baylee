@@ -759,6 +759,8 @@ impl Effect {
         | Effect::CreateTokenPtPerCount { .. }
             | Effect::CreateToken { .. }
             | Effect::CreateTokensFor { .. }
+            | Effect::DealDamageToMatchingTargets { .. }
+            | Effect::RandomGraveyardToHand { .. }
             | Effect::MoveCounterToEvent { .. }
             | Effect::DetachSource
             | Effect::CreateTokenN { .. }

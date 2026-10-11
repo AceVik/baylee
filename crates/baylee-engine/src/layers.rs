@@ -815,6 +815,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         Filter::HasRampage | Filter::HasManaAbility => {
             matches!(layer, Layer::Ability | Layer::Type)
         }
+        Filter::ActivatedAbilityFrom(filter) => could_change_match(modifier, filter, layer),
+        Filter::TargetsPermanentYouControl => matches!(layer, Layer::Control),
         Filter::Any
         | Filter::IsCommander
         | Filter::HasAdventure

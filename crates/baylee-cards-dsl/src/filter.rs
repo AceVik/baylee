@@ -70,6 +70,10 @@ pub enum Filter {
     /// a target once in all, counting every instance of "target" and every
     /// player (CR 115.9a).
     WithSingleTarget,
+    /// An activated ability on the stack, whose exact source matches this filter.
+    ActivatedAbilityFrom(&'static Filter),
+    /// A spell or ability targeting a currently existing permanent you control.
+    TargetsPermanentYouControl,
     /// Has an activated or triggered mana ability, whether or not it can
     /// currently be activated. Includes intrinsic and granted abilities.
     HasManaAbility,

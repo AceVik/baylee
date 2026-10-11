@@ -769,6 +769,8 @@ pub enum Rider {
     TriggerSourceVersion(u32),
     /// Source incarnation captured when its ability went on the stack.
     AbilitySourceVersion(u32),
+    /// A granted activated ability whose synthetic body has no printed ability index.
+    GrantedActivated,
     /// The graveyard incarnation of an Aura whose ability triggered on its
     /// host leaving the battlefield, where the Aura went at the same time or
     /// by a state-based action (CR 400.7f): the object "this card" still
@@ -933,7 +935,8 @@ impl Rider {
             | Self::Foretold
             | Self::Plotted => true,
             // About the stack or the battlefield, not exile.
-            Self::EventObjectIdentity(..)
+            Self::GrantedActivated
+            | Self::EventObjectIdentity(..)
             | Self::AbilitySourceVersion(_)
             | Self::SourceAuraSuccessor(_)
             | Self::SourceAttachmentLki(..)

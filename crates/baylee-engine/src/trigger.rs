@@ -372,66 +372,109 @@ fn graveyard_triggers(
     events: &[crate::event::JournalEntry],
     triggers: &mut Vec<PendingTrigger>,
 ) {
-    for seat in 0..state.players.len() {
-        let owner = PlayerId::new(seat as u8);
-        for &source in state.zones.list(ZoneLocation::Graveyard(owner)) {
-            let Some(object) = state.object(source).filter(|o| o.is_card()) else {
+    for object in graveyard_observers(state, events) {
+        let source = object.id;
+        let owner = object.owner;
+        let current = state.object_or_departed(source).unwrap_or(object);
+        let list = object.ability_list(lookup);
+        for (index, ability) in list.abilities.iter().enumerate() {
+            let Some(firing) = triggered_parts(ability) else {
                 continue;
             };
-            let list = object.ability_list(lookup);
-            for (index, ability) in list.abilities.iter().enumerate() {
-                let Some(firing) = triggered_parts(ability) else {
-                    continue;
-                };
-                let context = ability_context(state, object, &list, index);
-                if firing.zone != TriggerZone::Graveyard
-                    || !condition_matches(state, firing.condition, owner, context)
-                {
+            let context = ability_context(state, object, &list, index);
+            if firing.zone != TriggerZone::Graveyard
+                || !condition_matches(state, firing.condition, owner, context)
+            {
+                continue;
+            }
+            for entry in events {
+                let at_event = source_at_event(state, current, events, entry, false);
+                if at_event.zone != Zone::Graveyard || at_event.version != object.version {
                     continue;
                 }
-                for entry in events {
-                    let hit = hits_with_context(
-                        firing.trigger,
-                        &entry.event,
-                        events,
-                        state,
-                        context,
-                        owner,
-                    );
-                    // These replacements describe triggered abilities of
-                    // permanents (CR 109.2). A graveyard card is not one,
-                    // even though its last controller is still stored.
-                    for _ in 0..hit {
-                        triggers.push(PendingTrigger {
+                let hit =
+                    hits_with_context(firing.trigger, &entry.event, events, state, context, owner);
+                // These replacements describe triggered abilities of
+                // permanents (CR 109.2). A graveyard card is not one,
+                // even though its last controller is still stored.
+                for _ in 0..hit {
+                    triggers.push(PendingTrigger {
+                        source,
+                        text: TextChangeMap::IDENTITY,
+                        source_version: Some(object.version),
+                        event_object_identity: event_object_for(
+                            firing.trigger,
+                            &entry.event,
                             source,
-                            text: TextChangeMap::IDENTITY,
-                            source_version: Some(object.version),
-                            event_object_identity: None,
-                            counter_source_version: None,
-                            ability_index: index as u32,
-                            abilities: Some(list.clone()),
-                            controller: owner,
-                            timestamp: object.timestamp,
-                            event_object: event_object_for(firing.trigger, &entry.event, source),
-                            event_mana_value: None,
-                            event_departure: entry
-                                .departure
-                                .as_ref()
-                                .map(|d| (d.controller, d.toughness)),
-                            event_mana: produced_mana(&entry.event, events),
-                            event_amount: event_damage_of(firing.trigger, &entry.event, events),
-                            event_player: event_player_of(&entry.event),
-                            implicit_target: None,
-                            synthetic_effects: None,
-                            synthetic_target: None,
-                            once_per_turn: firing.once_per_turn,
-                            chosen_mode: None,
-                        });
-                    }
+                        )
+                        .and_then(|id| state.event_object_identity(id, entry.seq)),
+                        counter_source_version: None,
+                        ability_index: index as u32,
+                        abilities: Some(list.clone()),
+                        controller: owner,
+                        timestamp: object.timestamp,
+                        event_object: event_object_for(firing.trigger, &entry.event, source),
+                        event_mana_value: None,
+                        event_departure: entry
+                            .departure
+                            .as_ref()
+                            .map(|d| (d.controller, d.toughness)),
+                        event_mana: produced_mana(&entry.event, events),
+                        event_amount: event_damage_of(firing.trigger, &entry.event, events),
+                        event_player: event_player_of(&entry.event),
+                        implicit_target: None,
+                        synthetic_effects: None,
+                        synthetic_target: None,
+                        once_per_turn: firing.once_per_turn,
+                        chosen_mode: None,
+                    });
                 }
             }
         }
     }
+}
+
+/// Include graveyard incarnations which left later in this mutation batch.
+/// A card moved to the graveyard after an event must not observe that earlier event.
+fn graveyard_observers<'a>(
+    state: &'a GameState,
+    events: &[crate::event::JournalEntry],
+) -> Vec<&'a crate::object::GameObject> {
+    let mut objects: Vec<_> = (0..state.players.len())
+        .flat_map(|seat| {
+            state
+                .zones
+                .list(ZoneLocation::Graveyard(PlayerId::new(seat as u8)))
+                .iter()
+        })
+        .filter_map(|id| state.object(*id))
+        .filter(|object| object.is_card())
+        .collect();
+    for entry in events {
+        let GameEvent::ZoneChanged {
+            object,
+            from: Zone::Graveyard,
+            ..
+        } = entry.event
+        else {
+            continue;
+        };
+        let Some(current) = state.object_or_departed(object) else {
+            continue;
+        };
+        let after = source_at_event(state, current, events, entry, false);
+        if let Some(before) = state.source_object(baylee_core::ids::DamageSourceRef {
+            object,
+            version: after.version.wrapping_sub(1),
+        }) && before.zone == Zone::Graveyard
+            && before.is_card()
+        {
+            objects.push(before);
+        }
+    }
+    objects.sort_unstable_by_key(|object| (object.id, object.version));
+    objects.dedup_by_key(|object| (object.id, object.version));
+    objects
 }
 
 /// Replicate's copies, one entry for each payment the trigger can copy for:

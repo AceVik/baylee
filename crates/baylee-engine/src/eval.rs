@@ -3,6 +3,8 @@
 //! All evaluation is pure read access to [`GameState`]; `you` is the
 //! ability/spell controller, `this` its source object.
 
+mod stack_filters;
+
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
 use crate::text_changes::{RuleContext, TextChangeMap};
@@ -116,6 +118,16 @@ pub fn matches_projected_with_context(
                     })
             }),
         Filter::IsToken => obj.card.is_none(),
+        Filter::ActivatedAbilityFrom(filter) => {
+            stack_filters::activated_source_matches(filter, state, obj, you, context)
+        }
+        Filter::TargetsPermanentYouControl => {
+            obj.targets.iter().chain(obj.second_targets()).any(|id| {
+                state.object(*id).is_some_and(|target| {
+                    target.zone == Zone::Battlefield && target.controller == you
+                }) && state.targets_current_object(obj.id, *id)
+            })
+        }
         Filter::WithSingleTarget => {
             let players = obj.target_players.len()
                 + usize::from(

@@ -68,6 +68,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::DealDamageToTargetController { amount, .. }
         | Effect::DealDamageToAttached { amount, .. }
         | Effect::DealDamageEach { amount, .. }
+        | Effect::DealDamageToMatchingTargets { amount, .. }
         | Effect::Scry { amount, .. }
         | Effect::Surveil { amount, .. }
         | Effect::AddMana { amount, .. }

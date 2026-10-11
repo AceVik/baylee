@@ -161,11 +161,7 @@ impl HeuristicAgent {
             // Three cases, two of which the view cannot tell apart; the
             // header has the reason. `card` is asked second because a
             // registry token never carries one.
-            Filter::IsToken => match (object.token, object.card) {
-                (Some(_), _) => Some(true),
-                (None, Some(_)) => Some(false),
-                (None, None) => None,
-            },
+            Filter::IsToken => public_token_identity(object),
             Filter::ControlledByYou => Some(object.controller == view.seat),
             Filter::ControlledByOpponent => Some(self.hostile(object.controller, view.seat)),
             Filter::ControlledByActivePlayer => Some(object.controller == view.active),
@@ -250,6 +246,8 @@ impl HeuristicAgent {
         | Filter::NotTargetedByAnotherNamed(_)
         | Filter::IsCommander
         | Filter::HasAdventure
+        | Filter::ActivatedAbilityFrom(_)
+        | Filter::TargetsPermanentYouControl
         | Filter::HasRampage
         | Filter::HasAnyCounter
         | Filter::Enchanted
@@ -548,6 +546,15 @@ impl HeuristicAgent {
             }
             _ => None,
         }))
+    }
+}
+
+/// A registered token is known; an anonymous copy's public identity is not.
+fn public_token_identity(object: &PublicObject) -> Option<bool> {
+    match (object.token, object.card) {
+        (Some(_), _) => Some(true),
+        (None, Some(_)) => Some(false),
+        (None, None) => None,
     }
 }
 

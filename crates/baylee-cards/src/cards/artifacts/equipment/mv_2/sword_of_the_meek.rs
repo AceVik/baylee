@@ -3,7 +3,8 @@
 //! Oracle: Equip {2}
 //! Oracle: Whenever a 1/1 creature you control enters, you may return this card from your graveyard to the battlefield, then attach it to that creature.
 //! Set: 2XM #299 — Double Masters | Scryfall ID: 5a0c2773-3205-4ac4-b31c-c54fb06fdd7c | Oracle ID: 215c287d-56a5-46da-b49e-8524b6d320a4
-// PARTIAL — equipped creature gets +1/+2 and equip {2}; the graveyard return-and-attach trigger is not expressible.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -18,20 +19,27 @@ card!(
         types = TypeSet::ARTIFACT,
         subtypes = &[subtypes::artifact::EQUIPMENT],
     ),],
-    coverage = Coverage::Partial(
-        "the return-and-attach trigger has to work while this card is in the \
-         graveyard, and triggered abilities fire only from the battlefield (the \
-         graveyard is scanned only to look back for leaves and dies triggers)"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         static_ability!(Filter::AttachedToBySource, Modifier::ModifyPT(1, 2)),
         equip!("{2}"),
-        // NOT SUPPORTED: "Whenever a 1/1 creature you control enters, you may
-        // return this card from your graveyard to the battlefield, then attach
-        // it to that creature." — AbilityDef::Triggered functions only on the
-        // battlefield. The rest is sayable: a 1/1 is Power/ToughnessAtLeast and
-        // AtMost 1, and the body is MayDo { GraveyardToBattlefield(ThisObject),
-        // AttachSelf } on an EventObject target; none of it fires from the
-        // graveyard.
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::And(&[
+                Filter::YOUR_CREATURE,
+                Filter::PowerAtLeast(1),
+                Filter::PowerAtMost(1),
+                Filter::ToughnessAtLeast(1),
+                Filter::ToughnessAtMost(1)
+            ])),
+            &[Effect::MayDo {
+                effects: &[
+                    Effect::reanimate(TargetSpec::ThisObject),
+                    Effect::AttachSelf {
+                        target: TargetSpec::EventObject
+                    }
+                ]
+            }],
+            zone = TriggerZone::Graveyard
+        ),
     ],
 );

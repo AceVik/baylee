@@ -184,6 +184,7 @@ pub(super) fn exec_immediate(
         | Effect::GainLifeDoubleX
         | Effect::LoseLife { .. }
         | Effect::DealDamage { .. }
+        | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::DealDamageEvenly { .. }
         | Effect::Fight { .. }
@@ -238,6 +239,7 @@ pub(super) fn exec_immediate(
         | Effect::EqualizeHands
         | Effect::DiscardForPlayers { .. }
         | Effect::DiscardRandom { .. }
+        | Effect::RandomGraveyardToHand { .. }
         | Effect::DiscardHand { .. }
         | Effect::ShuffleIntoLibrary { .. }
         | Effect::ShuffleLibrary { .. }
@@ -1756,24 +1758,8 @@ pub(super) fn exec_immediate(
             }
             None
         }
-        Effect::AttachSelf { .. } => {
-            // A resolving Aura spell carries its intended attachment into
-            // the entry check. An Aura already on the battlefield cannot
-            // move to a forbidden host (CR 303.4j).
-            if let Some(&host) = res.targets.first()
-                && state.object(res.source).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield
-                        && o.characteristics()
-                            .subtypes
-                            .contains(baylee_core::generated::subtypes::enchantment::AURA)
-                })
-                && !eval::permits_enchantment(state, host, res.source)
-            {
-                return None;
-            }
-            if let Some(&target_id) = res.targets.first() {
-                state.attach(res.source, target_id);
-            }
+        Effect::AttachSelf { target } => {
+            super::attachments::attach(state, res, target);
             None
         }
         Effect::GrantSubtype { .. } => None, // M2 (continuous effects)

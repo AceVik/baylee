@@ -5722,4 +5722,5 @@ fn cast_saying_nothing(card: CardIndex, land: CardIndex, lands: usize) -> Zone {
 }
 mod hack_mana_routes;
 
+mod counter_helpers;
 mod history_helpers;

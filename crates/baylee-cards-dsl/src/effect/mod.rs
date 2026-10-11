@@ -28,6 +28,18 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Deal damage only to chosen object targets which match at resolution.
+    DealDamageToMatchingTargets {
+        /// Damage per matching target.
+        amount: Amount,
+        /// Additional resolution-time condition.
+        filter: &'static Filter,
+    },
+    /// Return a uniformly chosen matching card from your graveyard to your hand.
+    RandomGraveyardToHand {
+        /// Eligible cards, evaluated when the instruction resolves.
+        filter: &'static Filter,
+    },
     /// Create tokens under each named player's control.
     CreateTokensFor {
         /// Who creates the tokens.

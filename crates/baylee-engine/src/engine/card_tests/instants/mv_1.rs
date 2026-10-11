@@ -97,3 +97,7 @@ mod touch_of_darkness;
 mod indestructible_aura;
 
 mod glyph_of_destruction;
+
+mod rust;
+
+mod avoid_fate;
