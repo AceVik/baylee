@@ -1314,6 +1314,7 @@ fn apply(
         | Modifier::BlocksEachAttackerIfAble
         | Modifier::RedirectDamageToYou(_)
         | Modifier::CountersPreventDamage(_)
+        | Modifier::OpponentsSearchTop(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
             | Modifier::ChosenPlayerMaxHandSize(_)

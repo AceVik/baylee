@@ -33,7 +33,11 @@ fn rampant_growth_searches_and_puts_basic_land_onto_battlefield_tapped() {
         panic!("expected ChooseCards prompt, got {:?}", engine.pending());
     };
     assert_eq!(prompt, ChoicePrompt::SearchLibrary);
-    assert_eq!((min, max), (1, 1), "searches for exactly one basic land");
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
+    );
     assert!(!options.is_empty(), "library contains basic lands");
 
     let picked_land = options[0];

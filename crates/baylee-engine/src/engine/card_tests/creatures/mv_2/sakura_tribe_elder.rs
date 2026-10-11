@@ -78,7 +78,11 @@ fn sakura_tribe_elder_sacrifices_itself_for_a_basic_land_that_arrives_tapped() {
         crate::choice::ChoicePrompt::SearchLibrary,
         "a tutor and not a scry or a discard"
     );
-    assert_eq!((min, max), (1, 1), "the search is not optional");
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
+    );
     assert!(!options.is_empty(), "the library holds basic lands to find");
     let in_library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
     for id in &options {

@@ -45,6 +45,9 @@ fn path_to_exile_offers_the_ramp_to_the_creatures_controller() {
         .expect("Path points at the creature");
 
     for _ in 0..8 {
+        if let Pending::YesNo { player, .. } = engine.pending().clone() {
+            engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+        }
         if matches!(engine.pending(), Pending::ChooseCards { .. }) {
             break;
         }
@@ -138,6 +141,10 @@ fn path_to_exile_shuffles_the_library_its_victim_searched() {
             },
         )
         .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     let Pending::ChooseCards {
         player, options, ..
     } = pass_to_card_choice(&mut engine)

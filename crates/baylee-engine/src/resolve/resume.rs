@@ -136,6 +136,7 @@ pub(super) fn resume_inner(
             }
         }
         AwaitingOp::SearchLibrary {
+            inspected: _,
             finds: _,
             reveal: _,
             library,
@@ -147,6 +148,7 @@ pub(super) fn resume_inner(
             }
         }
         AwaitingOp::SearchLibrary {
+            inspected: _,
             finds,
             reveal,
             library,
@@ -905,6 +907,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }
         | AwaitingOp::PayEnergy { .. }
+        | AwaitingOp::MaySearchBasicLand { .. }
         | AwaitingOp::MayDo { .. }
         | AwaitingOp::CascadeCast { .. }
         | AwaitingOp::CastTarget { .. }

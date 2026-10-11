@@ -1853,9 +1853,8 @@ fn a_land_that_searches(
 /// The count and the tapping are read off the compiled `finds` rather than
 /// asserted as constants, so the day a `Find` in one of these cards changes
 /// the test follows the card instead of arguing with it. What is fixed here
-/// is the sentence around them: the search offers exactly as many as it
-/// finds, no fewer (none of the eleven prints "up to"), and every card named
-/// arrives.
+/// is the maximum that can be found; CR 701.23b permits finding fewer.
+/// Every card actually selected must arrive.
 #[test]
 fn a_land_that_searches_puts_what_it_found_onto_the_battlefield() {
     for (i, (oracle, fills, _)) in SEARCHES_THE_LIBRARY.iter().enumerate() {
@@ -1869,8 +1868,8 @@ fn a_land_that_searches_puts_what_it_found_onto_the_battlefield() {
         let want = u8::try_from(finds.len()).expect("a handful at most");
         assert_eq!(
             (min, max),
-            (want, want),
-            "{oracle} prints no \"up to\", so the search is for all {want} of them"
+            (0, want),
+            "CR 701.23b permits finding fewer cards of a stated quality"
         );
         let chosen: Vec<ObjectId> = options.iter().copied().take(finds.len()).collect();
         assert_eq!(
@@ -1923,9 +1922,8 @@ fn a_land_that_searches_puts_what_it_found_onto_the_battlefield() {
 /// The independent reading of the filter, and the reason it is a second
 /// test: the test above fills the library with sixty cards the filter
 /// accepts, so a `SearchLibrary` that ignored its filter entirely would
-/// pass it every time. Here nothing matches, the search asks no question at
-/// all (CR 701.23b), and the land is still gone — a filter that let the
-/// wrong basic through would put a question up instead.
+/// pass it every time. Here nothing matches: the player may inspect the library but
+/// no card is selectable. The land has already been sacrificed.
 #[test]
 fn a_land_that_searches_finds_nothing_outside_its_own_filter() {
     let mut checked = 0;
@@ -1937,10 +1935,15 @@ fn a_land_that_searches_finds_nothing_outside_its_own_filter() {
         let card = card_index(oracle);
         let seed = 1040 + u64::try_from(i).expect("eleven rows");
         let (mut engine, _) = a_land_that_searches(seed, card, basic(refuses));
-        assert!(
-            reach_the_search(&mut engine).is_none(),
-            "{oracle} offered a search over a library of sixty {refuses}, which it does not name"
-        );
+        let (options, min, max) = reach_the_search(&mut engine).expect("library inspection");
+        assert!(options.is_empty(), "{oracle} cannot find any {refuses}");
+        assert_eq!((min, max), (0, 0));
+        engine
+            .apply(
+                PlayerId::new(0),
+                PlayerAction::ChooseObjects { objects: vec![] },
+            )
+            .unwrap();
     }
     assert_eq!(
         checked, 10,

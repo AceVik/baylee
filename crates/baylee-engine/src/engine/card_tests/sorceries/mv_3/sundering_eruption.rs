@@ -52,6 +52,9 @@ fn sundering_eruption_destroys_land_and_gives_opponent_tapped_basic() {
         .unwrap();
 
     for _ in 0..8 {
+        if let Pending::YesNo { player, .. } = engine.pending().clone() {
+            engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+        }
         if matches!(engine.pending(), Pending::ChooseCards { .. }) {
             break;
         }

@@ -54,7 +54,11 @@ fn maestros_theater_sacrifices_itself_fetches_a_basic_and_gains_one_life() {
     // The filler deck is Swamps, so there must be options.
     assert!(!options.is_empty(), "the library holds fetchable basics");
     // The search finds exactly one card (mandatory, not optional).
-    assert_eq!((min, max), (1, 1), "exactly one basic is fetched");
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
+    );
 
     let found = options[0];
     engine

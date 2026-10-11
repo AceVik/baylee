@@ -299,7 +299,14 @@ pub fn pass_until(
             // For the surveil that is "keep everything on top", which is the
             // answer that leaves the library exactly as a test that walked
             // past a surveil land expected to find it.
+            // A zero-result search is also an acknowledgement, with no selected card.
             Pending::ChooseCards {
+                player,
+                max: 0,
+                prompt: crate::choice::ChoicePrompt::SearchLibrary,
+                ..
+            }
+            | Pending::ChooseCards {
                 player,
                 prompt: crate::choice::ChoicePrompt::LeaveTapped,
                 ..

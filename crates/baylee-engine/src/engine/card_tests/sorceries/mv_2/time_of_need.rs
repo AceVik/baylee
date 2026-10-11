@@ -55,9 +55,8 @@ fn time_of_need_searches_a_legendary_creature_out_of_the_library_into_hand() {
     );
     assert_eq!(
         (min, max),
-        (1, 1),
-        "\"a legendary creature card\" is one card, and the printing is not \
-         optional"
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
     );
     let in_library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
     for id in &options {

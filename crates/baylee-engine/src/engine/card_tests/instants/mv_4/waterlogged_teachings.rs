@@ -33,7 +33,11 @@ fn waterlogged_teachings_searches_library_for_instant_to_hand() {
     else {
         panic!("expected search prompt, got {:?}", engine.pending())
     };
-    assert_eq!((min, max), (1, 1), "mandatory search for one card");
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
+    );
     let found = *options
         .first()
         .expect("the library is full of Counterspells");

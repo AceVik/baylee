@@ -2156,7 +2156,9 @@ messages! {
         en: "cards to put into their owner's graveyard",
         de: "Karten, die in den Friedhof ihres Besitzers kommen",
     },
-    /// A private hand inspection is acknowledged without choosing a card.
+    /// A private library inspection is acknowledged without choosing a card.
+    InspectLibrary { en: "Inspect the library cards, then confirm without selecting any.", de: "Sieh dir die Bibliothekskarten an und bestätige ohne Auswahl." },
+    /// Private hand inspection.
     InspectHand {
         en: "Look at the hand, then confirm when finished",
         de: "Sieh dir die Hand an und bestätige, wenn du fertig bist",

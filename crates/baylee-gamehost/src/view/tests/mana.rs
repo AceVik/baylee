@@ -157,15 +157,12 @@ fn a_forest_needs_no_projection() {
     assert_eq!(plains.colors, vec![ManaColor::White]);
 }
 
-/// The second board-dependent source, folded into the same field so that
-/// the two are never resolved on different sides of the wire. A Command
-/// Tower with no commander at the table is the offline house duel, where
-/// colourless is what the engine's own fallback leaves.
+/// No commander supplies no color to Command Tower. The projection must not
+/// invent colorless mana that the engine cannot actually produce.
 #[test]
-fn a_command_tower_at_a_table_with_no_commander_is_colorless() {
+fn a_command_tower_at_a_table_with_no_commander_produces_nothing() {
     let (_, view) = board(&[command_tower()], &[]);
-    let tower = projection(&view, "Command Tower").expect("the fallback is still an answer");
-    assert_eq!(tower.colors, vec![ManaColor::Colorless]);
+    assert!(projection(&view, "Command Tower").is_none());
 }
 
 /// And at a Commander table it is the commanders' identity — seat 0 has

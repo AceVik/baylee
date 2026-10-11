@@ -53,8 +53,8 @@ fn natures_lore_fetches_a_forest_onto_the_battlefield_untapped() {
     );
     assert_eq!(
         (min, max),
-        (1, 1),
-        "one card, and the search is not optional"
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
     );
     assert_eq!(
         options.len(),

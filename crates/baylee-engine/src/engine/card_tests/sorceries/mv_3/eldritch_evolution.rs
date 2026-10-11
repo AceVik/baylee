@@ -57,7 +57,7 @@ fn eldritch_evolution_bounds_its_search_by_the_sacrificed_creature() {
     let Pending::ChooseCards { options, min, .. } = pass_to_card_choice(&mut engine) else {
         unreachable!("the helper returns only a card choice")
     };
-    assert_eq!(min, 1);
+    assert_eq!(min, 0, "CR 701.23b permits failing to find");
     assert_eq!(
         options.len(),
         library_before,

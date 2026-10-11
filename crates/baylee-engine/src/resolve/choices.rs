@@ -13,11 +13,24 @@ pub(super) fn exec_choice(
     let you = res.controller;
     match op {
         Effect::ChooseOne { choices } => {
+            // CR 608.2d and 701.26b: an optional untap cannot replace a scry
+            // when the original permanent is gone or already untapped.
+            let choices: Vec<_> = choices
+                .iter()
+                .filter(|effect| {
+                    !matches!(effect, Effect::UntapSelf)
+                        || subjects::source(state, res).is_some_and(|source| {
+                            subjects::on_battlefield(state, source)
+                                && state.object(source.object).is_some_and(|object| {
+                                    object.status.contains(crate::object::Status::TAPPED)
+                                })
+                        })
+                })
+                .collect();
             if choices.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::ChooseEffect { choices });
-            Some(Pending::ChooseCastMode {
+            let pending = Pending::ChooseCastMode {
                 player: you,
                 object: res.source,
                 options: choices
@@ -29,7 +42,9 @@ pub(super) fn exec_choice(
                         cost: baylee_core::mana::ManaCost::ZERO,
                     })
                     .collect(),
-            })
+            };
+            res.awaiting = Some(AwaitingOp::ChooseEffect { choices });
+            Some(pending)
         }
         Effect::PayManaToPreventDamage { player, amount } => {
             let player = players_of(player, state, you, res).first().copied()?;
@@ -485,49 +500,15 @@ pub(super) fn exec_choice(
             })
         }
         Effect::OptionalBasicLandSearchFor { player } => {
-            // Ashiok, Dream Render: opponents can't search libraries.
-            if state.effects.iter().any(|fx| {
-                matches!(fx.modifier, baylee_cards_dsl::Modifier::OpponentsCantSearch)
-                    && state.is_opponent(fx.controller, you)
-            }) {
-                return None;
-            }
             let player = players_of(player, state, you, res).first().copied()?;
-            let options: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Library(player))
-                .iter()
-                .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
-                        o.characteristics()
-                            .types
-                            .contains(baylee_core::types::TypeSet::LAND)
-                            && o.characteristics()
-                                .supertypes
-                                .contains(baylee_core::types::SupertypeSet::BASIC)
-                    })
-                })
-                .copied()
-                .collect();
-            if options.is_empty() {
+            if !search::allowed(state, res, player, player) {
                 return None;
             }
-            // Onto the battlefield, where everyone sees it anyway.
-            // The searcher's own library, and theirs to shuffle.
-            res.awaiting = Some(AwaitingOp::SearchLibrary {
-                finds: ONTO_BATTLEFIELD_TAPPED,
-                reveal: false,
-                library: player,
-                receiver: player,
-                split: None,
-            });
-            Some(Pending::ChooseCards {
+            res.awaiting = Some(AwaitingOp::MaySearchBasicLand { player });
+            Some(Pending::YesNo {
                 player,
-                options,
-                min: 0,
-                max: 1,
-                prompt: ChoicePrompt::SearchLibrary,
-                total: None,
+                prompt: YesNoPrompt::MayDo,
+                source: resolving_ability(state, res),
             })
         }
         Effect::AddMana { .. } => mana::exec(state, res, op),

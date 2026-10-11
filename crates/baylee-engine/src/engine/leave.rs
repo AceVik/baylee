@@ -314,6 +314,7 @@ impl<L: CardLookup> Engine<L> {
         if !their_own
             && let Some(res) = &mut self.resolution
             && let Some(AwaitingOp::SearchTakeover {
+                ref inspected,
                 agent,
                 finds,
                 reveal,
@@ -325,6 +326,7 @@ impl<L: CardLookup> Engine<L> {
             && let Pending::ChooseCards { player: asked, .. } = &mut self.pending
         {
             res.awaiting = Some(AwaitingOp::SearchLibrary {
+                inspected: inspected.clone(),
                 finds,
                 reveal,
                 library,

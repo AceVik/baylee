@@ -377,6 +377,8 @@ pub enum Modifier {
     /// The effect's opponents can't search libraries (Ashiok, Dream
     /// Render).
     OpponentsCantSearch,
+    /// Opponents search only the top N cards of any library they search.
+    OpponentsSearchTop(u8),
     /// The controller has no maximum hand size (Reliquary Tower).
     NoMaxHandSize,
     /// These players skip their untap steps (Stasis: `EachPlayer`). A skip
@@ -878,6 +880,7 @@ impl Modifier {
             | Self::BlocksEachAttackerIfAble
             | Self::RedirectDamageToYou(_)
             | Self::CountersPreventDamage(_)
+            | Self::OpponentsSearchTop(_)
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
             | Self::ChosenPlayerMaxHandSize(_)
@@ -1320,6 +1323,7 @@ mod tests {
             Modifier::RedirectDamageToYou(&Filter::CREATURE),
             Modifier::CountersPreventDamage(crate::CounterKind::P1P1),
             Modifier::OpponentsCantSearch,
+            Modifier::OpponentsSearchTop(4),
             Modifier::NoMaxHandSize,
             Modifier::ChosenPlayerMaxHandSize(4),
             Modifier::PlayerHexproof,

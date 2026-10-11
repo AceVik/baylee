@@ -207,6 +207,10 @@ fn equilibrium_path_to_exile_uses_the_searcher_and_preserves_entry_tapped_status
     cast_with_floating(&mut e, P0, index::PATH_TO_EXILE);
     choose(&mut e, P0, vec![elf]);
     pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::YesNo { player: P1, .. })
+    });
+    e.apply(P1, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut e, |e| {
         matches!(
             e.pending(),
             Pending::ChooseCards {

@@ -35,14 +35,13 @@ fn a_library_card_is_not_an_artifact_under_mycosynth_lattice() {
         .apply(PlayerId::new(1), PlayerAction::PassPriority)
         .unwrap();
 
-    // The library is nothing but Forests (the filler), so a correct search
-    // finds nothing and the engine asks nothing. Under the old reading every
-    // card in it was an artifact and the whole library was on the list.
+    // Inspecting the library is legal; treating its Forests as artifacts is not.
     assert!(
-        !matches!(engine.pending(), Pending::ChooseCards { .. }),
-        "the tutor offered a search among Forests: {:?}",
-        engine.pending()
+        matches!(engine.pending(), Pending::ChooseCards { options, min: 0, max: 0, .. } if options.is_empty())
     );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
     let land = on_battlefield(&engine, p0, plains()).expect("plains deployed");
     assert!(
         types(&engine, land).intersects(TypeSet::ARTIFACT),

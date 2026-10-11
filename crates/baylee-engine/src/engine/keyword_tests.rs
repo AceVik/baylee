@@ -919,6 +919,13 @@ fn a_taxed_seat_may_make_its_mana_after_the_question() {
 
     for _ in 0..20 {
         match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            } => {
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
             Pending::ChooseCards { player, .. } => engine
                 .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
                 .expect("Path offers its controller a basic-land search"),
@@ -1035,6 +1042,13 @@ fn a_colour_asking_source_pays_the_tax_it_was_tapped_for() {
 
     for _ in 0..20 {
         match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            } => {
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
             Pending::ChooseCards { player, .. } => engine
                 .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
                 .expect("Path offers its controller a basic-land search"),
@@ -1173,6 +1187,13 @@ fn ward_paid_lets_the_spell_through_and_costs_the_mana() {
     // proving itself alive.
     for _ in 0..20 {
         match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            } => {
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
             Pending::ChooseCards { player, .. } => engine
                 .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
                 .expect("the search may be declined"),

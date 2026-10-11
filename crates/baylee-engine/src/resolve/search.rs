@@ -66,8 +66,67 @@ pub(super) fn most_found(
     most.min(matching)
 }
 
-/// Opens a library search: the question, or nothing when there is nothing
-/// to find or nobody may search.
+/// Ashiok reaches only a search by an opposing spell/ability's own controller.
+pub(super) fn allowed(
+    state: &GameState,
+    res: &Resolution,
+    library: PlayerId,
+    searcher: PlayerId,
+) -> bool {
+    if state.has_left(searcher) || state.has_left(library) {
+        return false;
+    }
+    !(searcher == res.controller
+        && library == res.controller
+        && state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::OpponentsCantSearch)
+                && state.is_opponent(fx.controller, res.controller)
+        }))
+}
+
+pub(super) fn basic_land(
+    state: &mut GameState,
+    res: &mut Resolution,
+    player: PlayerId,
+) -> Option<Pending> {
+    begin_search(
+        state,
+        res,
+        Search {
+            library: player,
+            searcher: player,
+            filter: &baylee_cards_dsl::Filter::BASIC_LAND,
+            bound: None,
+            finds: &[baylee_cards_dsl::Find::BATTLEFIELD_TAPPED],
+            count: None,
+            distinct_names: false,
+            split: None,
+            optional: true,
+        },
+    )
+}
+
+fn inspected_cards(state: &GameState, library: PlayerId, searcher: PlayerId) -> Vec<ObjectId> {
+    let library_cards = state.zones.list(ZoneLocation::Library(library));
+    let limit = state
+        .effects
+        .iter()
+        .filter_map(|fx| {
+            if let baylee_cards_dsl::Modifier::OpponentsSearchTop(n) = fx.modifier {
+                state
+                    .is_opponent(fx.controller, searcher)
+                    .then_some(usize::from(n))
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap_or(library_cards.len());
+    library_cards.iter().rev().take(limit).copied().collect()
+}
+
+/// Opens a search and exposes exactly the permitted library segment.
+/// Empty libraries and prohibited searches need no inspection acknowledgement.
 pub(super) fn begin_search(
     state: &mut GameState,
     res: &mut Resolution,
@@ -84,19 +143,7 @@ pub(super) fn begin_search(
         split,
         optional,
     } = search;
-    // Ashiok, Dream Render: "spells and abilities your opponents control
-    // can't cause their controller to search their library". The one
-    // search it reaches is the controller's own of their own library — a
-    // Boseiju that makes *its victim* search, or a Bribery through someone
-    // else's library, is not that sentence.
-    let you = res.controller;
-    if searcher == you
-        && library == you
-        && state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::OpponentsCantSearch)
-                && state.is_opponent(fx.controller, you)
-        })
-    {
+    if !allowed(state, res, library, searcher) {
         return None;
     }
     // Opposition Agent: an opponent of the searching player takes the
@@ -121,17 +168,17 @@ pub(super) fn begin_search(
                 .map(|fx| fx.controller)
         })
         .flatten();
-    let mut options: Vec<ObjectId> = state
-        .zones
-        .list(ZoneLocation::Library(library))
+    let inspected = inspected_cards(state, library, searcher);
+    let mut options: Vec<ObjectId> = inspected
         .iter()
+        .rev()
+        .copied()
         .filter(|id| {
-            state.object(**id).is_some_and(|o| {
+            state.object(*id).is_some_and(|o| {
                 eval::matches_with_context(filter, state, o, searcher, res.rule_context())
                     && within(o, bound)
             })
         })
-        .copied()
         .collect();
     if distinct_names {
         let mut seen: Vec<baylee_core::ids::NameRef> = Vec::new();
@@ -146,25 +193,21 @@ pub(super) fn begin_search(
             true
         });
     }
-    if options.is_empty() {
-        // Hidden zone: failing to find is always legal (CR 701.23b).
+    if inspected.is_empty() {
         finish_shuffle(state, res, library);
         return None;
     }
-    // How many cards this search may produce, and how few it may settle
-    // for: "up to two" is optional with two finds, "search for a basic land
-    // card" is one find and mandatory.
     let want = u8::try_from(most_found(count, finds, options.len())).unwrap_or(u8::MAX);
-    if want == 0 {
-        // "Up to X" with X = 0: the library is searched and nothing can be
-        // found, which is a search that ends in a shuffle and asks nobody.
-        finish_shuffle(state, res, library);
-        return None;
-    }
-    let least = if optional { 0 } else { want };
+    // CR 701.23b: a hidden-zone search with a stated quality may fail to find.
+    let least = if optional || !matches!(filter, baylee_cards_dsl::Filter::Any) {
+        0
+    } else {
+        want
+    };
     let reveal = reveals(filter, finds);
     let player = if let Some(agent) = takeover {
         res.awaiting = Some(AwaitingOp::SearchTakeover {
+            inspected,
             agent,
             finds,
             reveal,
@@ -174,6 +217,7 @@ pub(super) fn begin_search(
         agent
     } else {
         res.awaiting = Some(AwaitingOp::SearchLibrary {
+            inspected,
             finds,
             reveal,
             library,
@@ -365,4 +409,21 @@ pub(super) fn finish_shuffle(state: &mut GameState, res: &Resolution, library: P
     ) {
         state.shuffle_library(library);
     }
+}
+
+/// Consent precedes inspection; declining never shuffles the library.
+pub(super) fn resume_consent(
+    state: &mut GameState,
+    res: &mut Resolution,
+    answer: bool,
+) -> Option<Flow> {
+    let Some(AwaitingOp::MaySearchBasicLand { player }) = res.awaiting else {
+        return None;
+    };
+    res.awaiting = None;
+    let since = state.journal.last_seq();
+    if answer && let Some(pending) = basic_land(state, res, player) {
+        return Some(next_choice(state, res, since, pending));
+    }
+    Some(finish_choice(state, res, since))
 }

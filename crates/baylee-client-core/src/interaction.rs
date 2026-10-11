@@ -876,7 +876,8 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounCardsFromGraveyard,
         ),
         ChoicePrompt::NewHost { .. } => (Phrase::NounNewHostFor, Phrase::NounNewHostsFor),
-        ChoicePrompt::LookAtHand
+        ChoicePrompt::LookAtLibrary
+        | ChoicePrompt::LookAtHand
         | ChoicePrompt::Delve
         | ChoicePrompt::OneOfType { .. }
         | ChoicePrompt::CastFaceDown { .. }
@@ -910,6 +911,9 @@ fn cards_line(
         }
         .text(lang)
         .to_owned();
+    }
+    if reason == ChoicePrompt::LookAtLibrary {
+        return Phrase::InspectLibrary.text(lang).to_owned();
     }
     if reason == ChoicePrompt::LookAtHand {
         return Phrase::InspectHand.text(lang).to_owned();

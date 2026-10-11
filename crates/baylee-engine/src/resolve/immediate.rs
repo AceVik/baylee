@@ -1330,6 +1330,13 @@ pub(super) fn exec_immediate(
             });
             one_per_type(state, res, top, 0)
         }
+        Effect::LookAtTopOf { player, count } => {
+            super::top_card::inspect(state, res, player, count)
+        }
+        Effect::RevealTopIf { filter, find } => {
+            super::top_card::reveal_if(state, res, filter, find);
+            None
+        }
         Effect::LookAtTopMayTake { filter, rest } => {
             super::top_card::start(state, res, filter, rest)
         }

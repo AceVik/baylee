@@ -21388,7 +21388,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Aven Mindcensor
+    &[FaceLines {
+        sentences: 3,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -22484,8 +22491,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Moonring Island
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -33986,8 +33993,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Isolated Watchtower
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

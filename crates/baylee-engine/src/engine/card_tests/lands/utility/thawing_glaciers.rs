@@ -57,7 +57,11 @@ fn thawing_glaciers_enters_tapped_and_fetches_basic_land_tapped() {
         panic!("expected SearchLibrary prompt, got {:?}", engine.pending());
     };
     assert_eq!(prompt, ChoicePrompt::SearchLibrary);
-    assert_eq!((min, max), (1, 1));
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
+    );
     assert!(!options.is_empty(), "library contains basic land filler");
 
     let chosen = options[0];

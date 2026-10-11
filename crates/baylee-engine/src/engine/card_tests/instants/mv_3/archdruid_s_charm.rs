@@ -51,7 +51,10 @@ fn archdruids_charm_puts_a_found_land_onto_the_battlefield_tapped_and_a_creature
         let Pending::ChooseCards { options, min, .. } = engine.pending().clone() else {
             unreachable!("the predicate just matched");
         };
-        assert_eq!(min, 1, "no \"up to\": the charm finds a card if it can");
+        assert_eq!(
+            min, 0,
+            "CR 701.23b permits failing to find a card of a stated quality"
+        );
         options
     };
     let revealed = |engine: &Engine<RegistryLookup>| -> Vec<Vec<ObjectId>> {

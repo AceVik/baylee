@@ -98,6 +98,7 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::ExileTopMayCast { .. }
         | Effect::ExileTopToPlay { .. }
         | Effect::RevealTopOnePerType { .. }
+        | Effect::RevealTopIf { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::PayLifeOrPutBackDrawn { .. }
         | Effect::PutTargetOnBottomOfLibrary

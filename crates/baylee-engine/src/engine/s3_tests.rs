@@ -196,7 +196,11 @@ fn a_fetchland_puts_its_land_in_untapped() {
         panic!("expected search choice, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (1, 1));
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
+    );
     // Every option is an Island or Swamp (library is island/forest).
     assert!(!options.is_empty());
     for opt in &options {

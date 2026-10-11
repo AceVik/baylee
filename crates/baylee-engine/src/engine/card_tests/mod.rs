@@ -36,6 +36,7 @@ mod land_equilibrium;
 mod lands;
 mod legends_ids;
 mod legends_kit;
+mod library_choices;
 mod planeswalkers;
 mod radiation;
 mod rules;

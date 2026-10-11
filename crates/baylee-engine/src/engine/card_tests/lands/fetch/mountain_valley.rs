@@ -85,8 +85,8 @@ fn mountain_valley_enters_tapped_and_trades_itself_for_a_forest_onto_the_battlef
         reach_the_search(&mut engine).expect("the Valley's one ability searches");
     assert_eq!(
         (min, max),
-        (1, 1),
-        "one card, and the search is not optional"
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
     );
     assert_eq!(
         options.len(),

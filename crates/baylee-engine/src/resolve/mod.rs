@@ -438,10 +438,6 @@ static EARTHBEND_RETURN: &[Effect] = &[Effect::ReturnToBattlefieldTapped {
     target: TargetSpec::EventObject,
 }];
 
-/// The one destination Path to Exile's basic-land search uses.
-static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
-    &[baylee_cards_dsl::effect::Find::BATTLEFIELD_TAPPED];
-
 /// The first target's characteristics, as the effect asking is entitled to
 /// see them (CR 608.2h).
 ///

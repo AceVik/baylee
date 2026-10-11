@@ -609,8 +609,8 @@ fn a_creature_tutor_passes_over_sixty_forests_and_leaves_the_elf_on_top() {
     );
     assert_eq!(
         (min, max),
-        (1, 1),
-        "one creature card, and the search is not optional"
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
     );
 
     engine

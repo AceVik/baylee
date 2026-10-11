@@ -3,7 +3,6 @@
 //! Oracle: Flying
 //! Oracle: If an opponent would search a library, that player searches the top four cards of that library instead.
 //! Set: CLB #688 — Commander Legends: Battle for Baldur's Gate | Scryfall ID: d4cf468f-4e9d-4551-a0ed-10bd6a2316ad | Oracle ID: d9517c5d-66d0-4178-96fb-a8c04f311ad8
-// PARTIAL — flash, flying; library search restriction to top four cards is not in the DSL.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -14,7 +13,7 @@ card!(
     scryfall_id = "d4cf468f-4e9d-4551-a0ed-10bd6a2316ad",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage = Coverage::Partial("library search restriction to top four cards is not supported"),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aven Mindcensor",
         mana_cost = mana!("{2}{W}"),
@@ -23,7 +22,8 @@ card!(
         power = Some(2),
         toughness = Some(1),
     ),],
-    abilities = &[
-        // NOT SUPPORTED: If an opponent would search a library, that player searches the top four cards of that library instead.
-    ],
+    abilities = &[static_ability!(
+        Filter::Any,
+        Modifier::OpponentsSearchTop(4)
+    )],
 );

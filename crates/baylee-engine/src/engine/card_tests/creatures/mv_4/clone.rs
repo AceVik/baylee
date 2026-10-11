@@ -53,9 +53,8 @@ fn the_rectors_enchantment_arrives_only_when_it_exiles_itself() {
     };
     assert_eq!(
         (min, max),
-        (1, 1),
-        "\"search your library for an enchantment card\" finds one card and \
-         is not an \"up to\""
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
     );
     let found = *options
         .first()

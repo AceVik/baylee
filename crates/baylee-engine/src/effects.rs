@@ -182,6 +182,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BlocksEachAttackerIfAble
         | Modifier::RedirectDamageToYou(_)
         | Modifier::CountersPreventDamage(_)
+        | Modifier::OpponentsSearchTop(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
             | Modifier::ChosenPlayerMaxHandSize(_)
@@ -1157,6 +1158,7 @@ mod tests {
             Modifier::RedirectDamageToYou(&Filter::CREATURE),
             Modifier::CountersPreventDamage(baylee_cards_dsl::CounterKind::P1P1),
             Modifier::OpponentsCantSearch,
+            Modifier::OpponentsSearchTop(4),
             Modifier::NoMaxHandSize,
             Modifier::ChosenPlayerMaxHandSize(4),
             Modifier::SkipUntapStep {
@@ -1221,7 +1223,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            103,
+            104,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1285,7 +1287,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (37, 66));
+        assert_eq!((locking, all.len() - locking), (37, 67));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

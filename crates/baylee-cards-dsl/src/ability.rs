@@ -139,6 +139,10 @@ pub enum Condition {
     OpponentControlCountAtMost(&'static Filter, u32),
     /// An opponent controls more matching permanents than you do.
     OpponentControlsMore(&'static Filter),
+    /// An opponent controls at least N more matching permanents than you.
+    OpponentControlsMoreBy(&'static Filter, u32),
+    /// This player did not start the game, independent of the current turn.
+    NotStartingPlayer,
     /// At least this many of the named card types occur in your graveyard.
     GraveyardTypesAmongAtLeast {
         /// Card types that contribute to the count.

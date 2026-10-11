@@ -763,6 +763,8 @@ impl Effect {
             | Effect::DiscardRandom { .. }
             | Effect::DiscardHand { .. }
             | Effect::RevealHandDiscard { .. }
+            | Effect::LookAtTopOf { .. }
+            | Effect::RevealTopIf { .. }
             | Effect::LookAtChosenHand
             | Effect::AllGraveyardCreaturesToBattlefield
             | Effect::GraveyardAllToHand { .. }

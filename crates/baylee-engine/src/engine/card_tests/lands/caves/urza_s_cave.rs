@@ -99,7 +99,11 @@ fn urza_s_cave_fetches_a_land_tapped_and_sacrifices_itself() {
         ChoicePrompt::SearchLibrary,
         "\"Search your library for a land card\" is a filtered browse"
     );
-    assert_eq!((min, max), (1, 1), "\"a land card\" is exactly one");
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
+    );
     assert!(
         !options.is_empty(),
         "the backing deck is Forests, so the search has a land to offer"

@@ -63,9 +63,9 @@ fn nyleas_intervention_fetches_up_to_x_lands_into_the_hand() {
     );
 }
 
-/// With X = 0 the search finds nothing and asks nobody.
+/// With X = 0 the library may still be inspected, but no card can be found.
 #[test]
-fn nyleas_intervention_for_x_zero_asks_nothing() {
+fn nyleas_intervention_for_x_zero_allows_inspection_but_finds_nothing() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[forest(), forest()])
@@ -75,6 +75,17 @@ fn nyleas_intervention_for_x_zero_asks_nothing() {
     reach_main_phase(&mut engine, p0);
     let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     cast_nyleas(&mut engine, p0, 0, 0);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    assert!(matches!(
+        engine.pending(),
+        Pending::ChooseCards { min: 0, max: 0, .. }
+    ));
+    assert!(!engine.inspected_cards().is_empty());
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert!(!matches!(engine.pending(), Pending::ChooseCards { .. }));
     assert_eq!(

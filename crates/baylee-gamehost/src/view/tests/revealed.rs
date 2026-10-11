@@ -250,3 +250,71 @@ fn a_filtered_inspection_shows_all_six_only_to_the_chooser_then_reveals_only_the
         .collect();
     assert_eq!(reveals, vec![vec![bolt]]);
 }
+
+#[test]
+fn mindcensor_search_exposes_only_the_top_four_to_the_searcher_including_nonmatches() {
+    use baylee_engine::{event::Cause, zone::ZonePosition};
+    let me = PlayerId::new(0);
+    let them = PlayerId::new(1);
+    let mut preset = mixed_print_preset();
+    preset.seats[0].deck = vec![entry("Island"); 60];
+    preset.seats[0].starting_hand = Some(vec![entry("Lightning Bolt")]);
+    preset.seats[0].starting_battlefield = vec![entry("Evolving Wilds")];
+    preset.seats[1].starting_battlefield = vec![entry("Aven Mindcensor")];
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let view = settle(&mut engine, None);
+    let bolt = view
+        .hand
+        .iter()
+        .find(|o| o.name == "Lightning Bolt")
+        .unwrap()
+        .id;
+    let source = view
+        .battlefield
+        .iter()
+        .find(|o| o.controller == me)
+        .unwrap()
+        .id;
+    engine
+        .dev_state_mut(me)
+        .unwrap()
+        .move_object(
+            bolt,
+            ZoneLocation::Library(me),
+            ZonePosition::Top,
+            Cause::Setup,
+        )
+        .unwrap();
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    for _ in 0..8 {
+        let Pending::Priority { player, .. } = engine.pending() else {
+            break;
+        };
+        engine.apply(*player, PlayerAction::PassPriority).unwrap();
+    }
+    let Pending::ChooseCards { options, .. } = engine.pending() else {
+        panic!("search");
+    };
+    assert_eq!(options.len(), 3);
+    assert!(!options.contains(&bolt));
+    let view = seen_by(&engine, me);
+    assert_eq!(view.looking_at.len(), 4);
+    assert!(
+        view.looking_at
+            .iter()
+            .any(|o| o.id == bolt && o.name == "Lightning Bolt")
+    );
+    assert!(seen_by(&engine, them).looking_at.is_empty());
+    engine
+        .apply(me, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    assert!(seen_by(&engine, me).looking_at.is_empty());
+}

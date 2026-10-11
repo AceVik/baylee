@@ -1156,6 +1156,20 @@ pub enum Effect {
     /// The resolving controller privately looks at the chosen player's hand.
     /// Nothing is revealed to the other players and no card changes zones.
     LookAtChosenHand,
+    /// Privately inspect the top cards without moving or reordering them.
+    LookAtTopOf {
+        /// Library to inspect; the resolving controller is the viewer.
+        player: PlayerRel,
+        /// Maximum number of top cards.
+        count: u8,
+    },
+    /// Reveal the top card; move it only if it matches the printed condition.
+    RevealTopIf {
+        /// Matching characteristics.
+        filter: &'static Filter,
+        /// Destination and entry state of a match.
+        find: Find,
+    },
     /// Each player in `who` discards their whole hand (Wheel of Fortune:
     /// "each player discards their hand"). Nobody chooses: every card goes,
     /// and each is a discard of its own (CR 701.9a), as the journal says.

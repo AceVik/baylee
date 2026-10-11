@@ -191,3 +191,65 @@ pub(super) fn take_commander(
     }
     None
 }
+
+/// Viewing is a private acknowledgement, never a public reveal or a reorder.
+pub(super) fn inspect(
+    state: &GameState,
+    res: &mut Resolution,
+    who: PlayerRel,
+    count: u8,
+) -> Option<Pending> {
+    let player = players_of(who, state, res.controller, res)
+        .first()
+        .copied()?;
+    let options: Vec<_> = state
+        .zones
+        .list(ZoneLocation::Library(player))
+        .iter()
+        .rev()
+        .take(usize::from(count))
+        .copied()
+        .collect();
+    if options.is_empty() {
+        return None;
+    }
+    res.awaiting = Some(AwaitingOp::InspectHand);
+    Some(Pending::ChooseCards {
+        player: res.controller,
+        options,
+        min: 0,
+        max: 0,
+        prompt: ChoicePrompt::LookAtLibrary,
+        total: None,
+    })
+}
+
+pub(super) fn reveal_if(
+    state: &mut GameState,
+    res: &Resolution,
+    filter: &'static Filter,
+    find: baylee_cards_dsl::Find,
+) {
+    let player = res.controller;
+    let Some(&card) = state.zones.list(ZoneLocation::Library(player)).last() else {
+        return;
+    };
+    state.journal.record(GameEvent::Revealed {
+        player,
+        cards: vec![card],
+    });
+    if !state
+        .object(card)
+        .is_some_and(|o| eval::matches_with_context(filter, state, o, player, res.rule_context()))
+    {
+        return;
+    }
+    // The card remains in place on a nonmatch, rather than being moved to the same zone.
+    if find.tapped && find.dest == SearchDest::Battlefield {
+        state.restore_tapped(card, true);
+    }
+    put_found(state, player, card, find.dest);
+    if let Some((kind, n)) = find.counter {
+        crate::entry::put_counters(state, player, card, kind, n);
+    }
+}

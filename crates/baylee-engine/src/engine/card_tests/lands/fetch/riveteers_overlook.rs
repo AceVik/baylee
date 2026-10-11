@@ -52,7 +52,11 @@ fn riveteers_overlook_sacrifices_itself_fetches_a_basic_and_gains_one_life() {
     );
     // Filler deck is Swamps — there will be hits.
     assert!(!options.is_empty(), "the library holds fetchable basics");
-    assert_eq!((min, max), (1, 1), "exactly one basic is fetched");
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "CR 701.23b permits failing to find a card of a stated quality"
+    );
 
     let found = options[0];
     engine

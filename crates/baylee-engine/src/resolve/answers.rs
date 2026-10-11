@@ -380,16 +380,12 @@ pub(super) fn resume_yes_no_inner(
     res: &mut Resolution,
     answer: bool,
 ) -> Flow {
-    if let Some(flow) = resume_selected_commander(state, res, answer) {
-        return flow;
-    }
-    if let Some(flow) = graveyard_choice::resume_commander(state, res, answer) {
-        return flow;
-    }
-    if let Some(flow) = resume_cast_question(state, res, answer) {
-        return flow;
-    }
-    if let Some(flow) = super::proliferate::resume_player(state, res, answer) {
+    if let Some(flow) = super::search::resume_consent(state, res, answer)
+        .or_else(|| resume_selected_commander(state, res, answer))
+        .or_else(|| graveyard_choice::resume_commander(state, res, answer))
+        .or_else(|| resume_cast_question(state, res, answer))
+        .or_else(|| super::proliferate::resume_player(state, res, answer))
+    {
         return flow;
     }
     if let Some(AwaitingOp::PayEnergy { amount, effect }) = res.awaiting {
@@ -766,7 +762,7 @@ pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: 
     let Some(AwaitingOp::ChooseEffect { choices }) = res.awaiting.take() else {
         panic!("effect choice suspended");
     };
-    let selected = choices.get(index).expect("offered choice");
+    let selected = *choices.get(index).expect("offered choice");
     let flow = run_fallback(state, res, std::slice::from_ref(selected));
     subjects::flush(state, res);
     flow

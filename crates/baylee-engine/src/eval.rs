@@ -943,7 +943,13 @@ pub fn condition_holds_with_context(
         // ability's controller: "an opponent controls four or more lands"
         // asks the question of each seat in turn, and a filter evaluated
         // with the asker's seat would read `ControlledByYou` backwards.
-        Condition::OpponentControlsMore(filter) => {
+        Condition::NotStartingPlayer => state.starting_player != you,
+        Condition::OpponentControlsMore(filter) | Condition::OpponentControlsMoreBy(filter, _) => {
+            let minimum = if let Condition::OpponentControlsMoreBy(_, n) = condition {
+                usize::try_from(n).unwrap_or(usize::MAX)
+            } else {
+                1
+            };
             let mut counts = vec![0usize; state.players.len()];
             for id in state.battlefield_seen() {
                 if let Some(object) = state.object(id)
@@ -956,7 +962,7 @@ pub fn condition_holds_with_context(
             let yours = counts.get(usize::from(you.get())).copied().unwrap_or(0);
             counts.iter().enumerate().any(|(seat, &count)| {
                 u8::try_from(seat).is_ok_and(|seat| state.is_opponent(PlayerId::new(seat), you))
-                    && count > yours
+                    && count >= yours.saturating_add(minimum)
             })
         }
         Condition::GraveyardTypesAmongAtLeast { types, minimum } => {

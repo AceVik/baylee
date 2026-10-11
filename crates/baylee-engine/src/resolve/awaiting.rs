@@ -124,7 +124,7 @@ pub enum AwaitingOp {
     /// An inline choice asked by the resolving instruction.
     ChooseEffect {
         /// The still-available branches, in displayed order.
-        choices: &'static [Effect],
+        choices: Vec<&'static Effect>,
     },
     /// Optional face-down cast from the resolving ability controller's hand.
     MaskedCast,
@@ -202,6 +202,11 @@ pub enum AwaitingOp {
 
     /// A private inspection; the empty acknowledgement changes no cards.
     InspectHand,
+    /// Optional search consent, before revealing any private library cards.
+    MaySearchBasicLand {
+        /// The player permitted to search their own library.
+        player: PlayerId,
+    },
     /// A land whose linked counters this source has not yet removed.
     LinkedCounterCleanup {
         /// Source incarnation.
@@ -221,6 +226,8 @@ pub enum AwaitingOp {
     /// three empty the library instead — so a flag here could only ever be a
     /// way to leak the library order by accident.
     SearchLibrary {
+        /// Exact library segment visible while this search is pending.
+        inspected: Vec<ObjectId>,
         /// Where each found card goes, in order.
         finds: &'static [baylee_cards_dsl::effect::Find],
         /// Whether the found cards are shown to everyone first.
@@ -435,6 +442,8 @@ pub enum AwaitingOp {
     /// After a taken-over search: the found card goes to exile playable
     /// by the agent (Opposition Agent).
     SearchTakeover {
+        /// Exact library segment visible while this search is pending.
+        inspected: Vec<ObjectId>,
         /// The player taking the search over.
         agent: PlayerId,
         /// The search's own [`AwaitingOp::SearchLibrary`] fields, for the
