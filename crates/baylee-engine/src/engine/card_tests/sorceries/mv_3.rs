@@ -37,3 +37,5 @@ mod volcanic_eruption;
 mod wheel_of_fortune;
 mod winter_s_grasp;
 mod yawgmoth_s_will;
+
+mod jovial_evil;

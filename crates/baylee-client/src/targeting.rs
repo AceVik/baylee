@@ -439,6 +439,8 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // translation is gamehost's; `baylee-ai` refuses it for that reason.
         | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
+        | Filter::IsCommander
+        | Filter::HasAdventure
         | Filter::HasRampage
         | Filter::HasAnyCounter
         | Filter::Enchanted

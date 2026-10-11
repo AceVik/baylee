@@ -549,6 +549,14 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             amount2(base, state, you, res).saturating_sub(*subtract)
         }
         Amount::Negated(base) => amount2(base, state, you, res),
+        Amount::HandSize(who) => players_of(*who, state, you, res).first().map_or(0, |p| {
+            u32::try_from(state.zones.list(ZoneLocation::Hand(*p)).len()).unwrap_or(u32::MAX)
+        }),
+        Amount::ControlledCount { who, filter } => players_of(*who, state, you, res)
+            .first()
+            .map_or(0, |controller| {
+                eval::count_controlled_by(state, *controller, you, filter, res.rule_context())
+            }),
         Amount::LibrarySize(who) => players_of(*who, state, you, res).first().map_or(0, |p| {
             u32::try_from(state.zones.list(ZoneLocation::Library(*p)).len()).unwrap_or(u32::MAX)
         }),

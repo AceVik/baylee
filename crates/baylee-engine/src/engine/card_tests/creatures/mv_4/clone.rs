@@ -1508,3 +1508,44 @@ fn emry_permission_is_scoped_and_countering_the_artifact_does_not_exile_it() {
         "the returned card is a new object"
     );
 }
+
+/// Adventure's alternative characteristics are copiable values (CR 715.2b).
+#[test]
+fn an_adventure_copied_on_entry_is_recognized_until_the_copy_leaves() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::BRAZEN_BORROWER])
+        .hand(0, &[index::CLONE])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    give_mana(&mut e, p0, ManaColor::Blue, 4);
+    let original = on_battlefield(&e, p0, index::BRAZEN_BORROWER).unwrap();
+    let copied = in_hand(&e, p0, index::CLONE).unwrap();
+    cast_from_hand(&mut e, p0, index::CLONE);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![original],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    let has_adventure = |e: &Engine<RegistryLookup>, id| {
+        crate::eval::matches(
+            &baylee_cards_dsl::Filter::HasAdventure,
+            e.state(),
+            e.state().object(id).unwrap(),
+            p0,
+            id,
+        )
+    };
+    assert!(has_adventure(&e, copied));
+    bury(&mut e, &[copied]);
+    assert!(!has_adventure(&e, copied));
+    assert!(has_adventure(&e, original));
+}

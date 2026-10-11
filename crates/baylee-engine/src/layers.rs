@@ -813,6 +813,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
             matches!(layer, Layer::Ability | Layer::Type)
         }
         Filter::Any
+        | Filter::IsCommander
+        | Filter::HasAdventure
         | Filter::Named(_)
         | Filter::This
         | Filter::Another

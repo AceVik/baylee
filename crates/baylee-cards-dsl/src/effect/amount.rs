@@ -136,6 +136,17 @@ pub enum Amount {
     },
     /// Number of cards in the named player's library, read on resolution.
     LibrarySize(super::PlayerRel),
+    /// Number of cards in the named player's hand.
+    HandSize(super::PlayerRel),
+    /// Number of matching permanents the named player controls.
+    ControlledCount {
+        /// Controller relative to the resolving ability.
+        who: super::PlayerRel,
+        /// Permanent characteristics to count.
+        filter: &'static Filter,
+    },
+    /// Greatest mana value among your designated commanders, in any zone.
+    GreatestCommanderManaValue,
     /// Half a magnitude, with the printed rounding direction.
     Half {
         /// Magnitude to halve.

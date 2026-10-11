@@ -3298,3 +3298,20 @@ land type"; both are convention tests that fire on a first try.
   outside the battlefield; a later +1/+1 modifier is not equivalent.
 - Search destinations must match the card: these two land-destruction searches
   put basics onto the battlefield untapped, unlike Path to Exile's search.
+
+### Completion batch 11 — commander and Adventure identity (2026-10-11)
+
+- Forge of Heroes, Sanctum of Eternity, Cactus Preserve, Edgewall Inn,
+  Jovial Evil, and Storm Seeker now include their previously missing clauses.
+- Commanderness belongs to the designated object in any zone. Ownership,
+  current control, and command-zone presence are independent questions:
+  Sanctum must retrieve an owned commander an opponent controls; Cactus
+  must count a commander in hand as well as the one in the command zone.
+- Adventure eligibility follows the retained copiable face, including a
+  Clone until it changes zones (CR 715.2b), not a name match. Public consumers
+  leave these authoritative predicates unknown rather than guessing.
+- Player-dependent counts use the resolution's chosen player and current
+  board or hand, including at a table with three players. Recursive numeric
+  wrappers must preserve that context instead of falling back to the caster.
+- `bury` destroys battlefield permanents. For a hand/graveyard fixture,
+  use the zone-movement door and assert the actual starting zone.

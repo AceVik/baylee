@@ -194,6 +194,15 @@ pub fn matches_projected_with_context(
         // the object as it last existed there, and `trigger::departed_matches`
         // hands in that object, counters and all.
         Filter::HasCounter(kind) => obj.counters.get(*kind) > 0,
+        Filter::IsCommander => state
+            .commanders
+            .iter()
+            .flatten()
+            .any(|c| c.object == obj.id),
+        Filter::HasAdventure => obj
+            .printed_face()
+            .and_then(|face| crate::state::CardLookup::card(state.bases.as_ref(), face.card()))
+            .is_some_and(|def| def.faces.iter().any(|f| f.adventure)),
         Filter::HasRampage => {
             let printed = chars.abilities_lost.is_none()
                 && !chars.rules_text_lost
@@ -510,6 +519,25 @@ pub fn amount_with_context(
         Amount::ConstantMinus { constant, subtract } => {
             constant.saturating_sub(self::amount_with_context(subtract, state, you, context, x))
         }
+        Amount::GreatestCommanderManaValue => state
+            .commanders
+            .get(you.get() as usize)
+            .into_iter()
+            .flatten()
+            .filter_map(|commander| state.object(commander.object))
+            .map(|object| object.characteristics().mana_value())
+            .max()
+            .unwrap_or(0),
+        Amount::HandSize(who) => players(*who, state, you)
+            .and_then(|p| p.first().copied())
+            .map_or(0, |p| {
+                u32::try_from(state.zones.list(ZoneLocation::Hand(p)).len()).unwrap_or(u32::MAX)
+            }),
+        Amount::ControlledCount { who, filter } => players(*who, state, you)
+            .and_then(|p| p.first().copied())
+            .map_or(0, |controller| {
+                count_controlled_by(state, controller, you, filter, context)
+            }),
         Amount::LibrarySize(who) => players(*who, state, you)
             .and_then(|p| p.first().copied())
             .map_or(0, |p| {
@@ -537,36 +565,8 @@ pub fn amount_with_context(
                     .copied()
                     .unwrap_or(0)
         }
-        Amount::DistinctColorsAmong(filter) => {
-            let mut colors = baylee_core::color::ColorSet::EMPTY;
-            for id in state.battlefield_seen() {
-                if let Some(obj) = state.object(id)
-                    && matches_with_context(filter, state, obj, you, context)
-                {
-                    colors = colors.union(obj.characteristics().colors);
-                }
-            }
-            u32::from(colors.len())
-        }
-        // `SubtypeSet::BASIC_LANDS` is CR 305.6's five and is already the
-        // pool's one spelling of them, so this asks that set rather than
-        // writing a sixth list of Plains/Island/Swamp/Mountain/Forest.
-        // Union first and intersect once: a domain count is over *types*,
-        // so two Forests are one and a Tundra is two.
-        Amount::BasicLandTypesAmong(filter) => {
-            let mut seen = baylee_core::types::SubtypeSet::EMPTY;
-            for id in state.battlefield_seen() {
-                if let Some(obj) = state.object(id)
-                    && matches_with_context(filter, state, obj, you, context)
-                {
-                    seen.union_with(obj.characteristics().subtypes);
-                }
-            }
-            baylee_core::types::SubtypeSet::BASIC_LANDS
-                .iter()
-                .filter(|t| seen.contains(*t))
-                .count() as u32
-        }
+        Amount::DistinctColorsAmong(filter) => distinct_colors(state, you, filter, context),
+        Amount::BasicLandTypesAmong(filter) => basic_land_types(state, you, filter, context),
         Amount::BlockersBeyondFirst => {
             u32::try_from(state.combat.blocker_count(this).saturating_sub(1)).unwrap_or(u32::MAX)
         }
@@ -606,6 +606,40 @@ pub fn amount_with_context(
             .unwrap_or(0),
         Amount::CountOf { filter, zone } => count_in_zone(filter, *zone, state, you, context),
     }
+}
+
+fn distinct_colors(state: &GameState, you: PlayerId, filter: &Filter, context: RuleContext) -> u32 {
+    let mut colors = baylee_core::color::ColorSet::EMPTY;
+    for id in state.battlefield_seen() {
+        if let Some(obj) = state.object(id)
+            && matches_with_context(filter, state, obj, you, context)
+        {
+            colors = colors.union(obj.characteristics().colors);
+        }
+    }
+    u32::from(colors.len())
+}
+
+fn basic_land_types(
+    state: &GameState,
+    you: PlayerId,
+    filter: &Filter,
+    context: RuleContext,
+) -> u32 {
+    let mut seen = baylee_core::types::SubtypeSet::EMPTY;
+    for id in state.battlefield_seen() {
+        if let Some(obj) = state.object(id)
+            && matches_with_context(filter, state, obj, you, context)
+        {
+            seen.union_with(obj.characteristics().subtypes);
+        }
+    }
+    // Domain counts distinct types, not lands: union before intersecting
+    // with CR 305.6's shared set of basic land types.
+    baylee_core::types::SubtypeSet::BASIC_LANDS
+        .iter()
+        .filter(|t| seen.contains(*t))
+        .count() as u32
 }
 
 /// Counts matching objects in the selected zone from this ability's perspective.
@@ -1692,6 +1726,28 @@ pub fn stack_target_options(
     let mut objects = target_options_with_context(spec, state, you, context);
     objects.retain(|id| *id != obj.id);
     (objects, target_player_options(state, spec, you))
+}
+
+pub(crate) fn count_controlled_by(
+    state: &GameState,
+    controller: PlayerId,
+    you: PlayerId,
+    filter: &Filter,
+    context: RuleContext,
+) -> u32 {
+    u32::try_from(
+        state
+            .battlefield_view()
+            .iter()
+            .filter(|id| {
+                state.object(**id).is_some_and(|object| {
+                    object.controller == controller
+                        && matches_with_context(filter, state, object, you, context)
+                })
+            })
+            .count(),
+    )
+    .unwrap_or(u32::MAX)
 }
 
 #[cfg(test)]

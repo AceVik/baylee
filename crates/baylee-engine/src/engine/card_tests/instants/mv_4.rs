@@ -20,3 +20,5 @@ mod sudden_strength;
 mod waterlogged_teachings;
 
 mod rapid_fire;
+
+mod storm_seeker;

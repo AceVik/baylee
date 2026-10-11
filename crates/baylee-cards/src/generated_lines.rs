@@ -3900,7 +3900,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Jovial Evil
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Karakas
     &[FaceLines {
@@ -4406,7 +4413,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Storm Seeker
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Storm World
     &[FaceLines {
         sentences: 1,
@@ -33728,8 +33742,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Forge of Heroes
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -35206,8 +35220,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Sanctum of Eternity
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -44961,8 +44975,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Edgewall Inn
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 1,
+        lines: &[Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -47252,8 +47266,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Cactus Preserve
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

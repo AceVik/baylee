@@ -3,17 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Forge of Heroes prints two lines and writes one: `{T}: Add {C}`, while the
-/// commander line ("choose target commander that entered this turn", then a
-/// +1/+1 or loyalty counter) is the `Coverage::Partial` gap with no DSL shape,
-/// so the half that exists is the half played. The scenario runs it end to
-/// end: the land is dropped with a real `PlayLand` — standing, because the
-/// card prints no enters-tapped clause — tapped for its own mana, and the {C}
-/// is then actually *spent*, a {1} Sol Ring cast out of the pool, which is what
-/// separates mana that is usable from a number that only moved. The colour is
-/// the load-bearing assertion: the whole backing deck is Forests, so green in
-/// the pool would be the filler's mana wearing the Forge's name, and `{C}` is
-/// colourless by definition (CR 105.4).
+/// The Forge's colorless mana pays for a real Sol Ring spell.
 #[test]
 fn forge_of_heroes_taps_for_colourless_mana_that_pays_for_a_one_cost_spell() {
     let p0 = PlayerId::new(0);
@@ -75,4 +65,51 @@ fn forge_of_heroes_taps_for_colourless_mana_that_pays_for_a_one_cost_spell() {
         on_battlefield(&engine, p0, forge_of_heroes()).is_some(),
         "the land itself is untouched by the tap that paid for the artifact"
     );
+}
+
+#[test]
+fn forge_marks_a_commander_that_entered_this_turn_by_its_current_card_types() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for (card, color, n, kind, initial) in [
+        (
+            index::SAVANNAH_LIONS,
+            ManaColor::White,
+            1,
+            CounterKind::P1P1,
+            0,
+        ),
+        (
+            index::JACE_THE_MIND_SCULPTOR,
+            ManaColor::Blue,
+            4,
+            CounterKind::Loyalty,
+            3,
+        ),
+    ] {
+        let mut e = Duel::new(SEED, forest())
+            .commander(0, &[card])
+            .battlefield(0, &[forge_of_heroes(), quiet_creature()])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let commander = e.state().commanders[0][0].object;
+        let other = on_battlefield(&e, p0, quiet_creature()).unwrap();
+        e.dev_state_mut(p0).unwrap().players[0]
+            .mana_pool
+            .add(color, n);
+        e.refresh_offer();
+        e.apply(p0, PlayerAction::CastSpell { card: commander })
+            .unwrap();
+        pass_until(&mut e, stack_is_empty);
+        activate(&mut e, p0, forge_of_heroes(), 1);
+        let Pending::ChooseTargets { options, .. } = e.pending() else {
+            unreachable!()
+        };
+        assert!(options.contains(&commander));
+        assert!(!options.contains(&other));
+        aim_at(&mut e, p0, commander);
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(counters_on(&e, commander, kind), initial + 1);
+    }
 }

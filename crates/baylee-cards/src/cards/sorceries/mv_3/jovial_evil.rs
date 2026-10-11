@@ -1,8 +1,8 @@
 //! Jovial Evil — {2}{B} — Sorcery
 //! Oracle: Jovial Evil deals X damage to target opponent, where X is twice the number of white creatures that player controls.
 //! Set: LEG #109 — Legends | Scryfall ID: c993c74c-a574-423b-81c8-96b0a7a6e529 | Oracle ID: 274c5367-f02e-44a0-be8a-5ed03c831bda
-// PARTIAL — the whole spell is off the card: X cannot be computed from the
-// targeted player's board.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -16,16 +16,21 @@ card!(
         mana_cost = mana!("{2}{B}"),
         types = TypeSet::SORCERY,
     ),],
-    coverage = Coverage::Partial(
-        "X cannot be computed: no Amount doubles a counted quantity and no \
-         Filter reads the permanents controlled by the player the first target \
-         names",
-    ),
-    // NOT SUPPORTED: "Jovial Evil deals X damage to target opponent, where X
-    // is twice the number of white creatures that player controls." — the
-    // target is writable (`TargetSpec::AnyOpponent`), but no `Amount` doubles
-    // a counted quantity (`Amount::DoubleX` doubles the announced X, and this
-    // spell announces none), and no `Filter` reads the board of the player a
-    // target names, so X has nothing to count.
-    abilities = &[],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::DealDamage {
+            amount: Amount::Times {
+                base: &Amount::ControlledCount {
+                    who: PlayerRel::Chosen,
+                    filter: &Filter::And(&[
+                        Filter::CREATURE,
+                        Filter::HasColor(ColorSet::of(Color::White))
+                    ])
+                },
+                factor: 2
+            },
+            target: TargetSpec::AnyOpponent
+        }],
+        targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
+    )],
 );

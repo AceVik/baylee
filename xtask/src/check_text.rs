@@ -690,6 +690,10 @@ pub(crate) const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
         "\"any type a land you control could produce\" is its own mana rule",
     ),
     (
+        "Cactus Preserve",
+        "its mana rule uses the same owned-land scope as Reflecting Pool; the animation affects itself",
+    ),
+    (
         "Horizon of Progress",
         "ManaSource::LandColor with mine=true scopes the same mana rule as Reflecting Pool",
     ),

@@ -2,9 +2,9 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use baylee_core::color::{Color, ColorSet};
 
 /// Cactus Preserve: "This land enters tapped." / "{T}: Add one mana of any type that a land you control could produce." / "{3}: Until end of turn, this land becomes an X/X green Plant creature..."
-/// Under `Coverage::Partial`, the `{3}` animation is omitted because no amount reads commander mana values.
 /// Playing this land causes it to enter tapped, and after untapping on a subsequent turn it produces red mana matching a controlled Mountain.
 #[test]
 fn cactus_preserve_enters_tapped_and_taps_for_controlled_land_color() {
@@ -30,4 +30,45 @@ fn cactus_preserve_enters_tapped_and_taps_for_controlled_land_color() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Red), 1);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn cactus_preserve_animates_using_the_greatest_commander_mana_value() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .commander(0, &[index::GABRIEL_ANGELFIRE, index::SAVANNAH_LIONS])
+        .battlefield(0, &[cactus_preserve(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let largest = e.state().commanders[0][0].object;
+    e.dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            largest,
+            ZoneLocation::Hand(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    let land = on_battlefield(&e, p0, cactus_preserve()).unwrap();
+    tap_mana_except(&mut e, p0, land);
+    activate(&mut e, p0, cactus_preserve(), 1);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(pt(&e, land), (7, 7));
+    assert!(keywords(&e, land).contains(KeywordSet::REACH));
+    let c = e.state().object(land).unwrap().characteristics();
+    assert!(c.types.contains(TypeSet::CREATURE));
+    assert!(c.types.contains(TypeSet::LAND));
+    assert_eq!(c.colors, ColorSet::of(Color::Green));
+    reach_their_main_phase(&mut e, p1);
+    assert!(
+        !e.state()
+            .object(land)
+            .unwrap()
+            .characteristics()
+            .types
+            .contains(TypeSet::CREATURE)
+    );
 }

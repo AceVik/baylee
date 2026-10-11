@@ -13,6 +13,10 @@ use baylee_core::types::{SupertypeSet, TypeSet};
 /// A predicate over game objects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Filter {
+    /// The card has been designated as a commander, in any zone (CR 903.3).
+    IsCommander,
+    /// Has the alternative characteristics of an Adventure, including copies (CR 715.2).
+    HasAdventure,
     /// Every object matches.
     Any,
     /// The source object itself.
