@@ -29,6 +29,7 @@ mod graveyard_choice;
 mod life;
 pub(crate) mod linked_counters;
 mod mana;
+mod reanimation;
 mod reflexive;
 mod retarget;
 pub(crate) mod subjects;
