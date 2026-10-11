@@ -356,8 +356,11 @@ pub(super) fn announce(
                     .iter()
                     .find(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(m) if m == mode))
                     .unwrap_or_else(|| panic!("no mode {mode} in {options:?}"));
-                e.apply(player, PlayerAction::ChooseMode(usize::from(o.index)))
-                    .unwrap();
+                e.apply(
+                    player,
+                    PlayerAction::ChooseMode(usize::try_from(o.index).unwrap()),
+                )
+                .unwrap();
             }
             Pending::ChooseNumber { player, .. } => {
                 e.apply(player, PlayerAction::ChooseNumber(x)).unwrap();

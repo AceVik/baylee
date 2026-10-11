@@ -472,7 +472,7 @@ impl<L: CardLookup> Engine<L> {
                     .filter(|(_, mode)| self.mode_is_choosable(&t, mode))
                     .enumerate()
                     .map(|(position, (mode_index, _))| CastModeDesc {
-                        index: position as u8,
+                        index: position as u32,
                         kind: CastModeKind::Mode(mode_index),
                         cost: baylee_core::mana::ManaCost::ZERO,
                     })

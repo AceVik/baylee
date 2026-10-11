@@ -7,7 +7,7 @@ use baylee_core::generated::{index, subtypes};
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
-fn prepared(
+pub(super) fn prepared(
     hand: &[CardIndex],
     mine: &[CardIndex],
     theirs: &[CardIndex],

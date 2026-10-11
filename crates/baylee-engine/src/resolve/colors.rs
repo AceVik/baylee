@@ -67,7 +67,7 @@ pub(super) fn choose(
             .iter()
             .enumerate()
             .map(|(index, colors)| CastModeDesc {
-                index: u8::try_from(index).expect("at most 31 combinations"),
+                index: u32::try_from(index).expect("at most 31 combinations"),
                 kind: CastModeKind::Colors(*colors),
                 cost: ManaCost::ZERO,
             })

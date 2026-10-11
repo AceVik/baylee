@@ -281,6 +281,7 @@ pub(super) fn exec_immediate(
         Effect::ModifySource { .. }
         | Effect::SetSourcePTFromTarget { .. }
         | Effect::SetSourceToughness { .. }
+        | Effect::MoveCounter { .. }
         | Effect::MoveCounterToEvent { .. }
         | Effect::AddCounterSource { .. }
         | Effect::AddCounter { .. }

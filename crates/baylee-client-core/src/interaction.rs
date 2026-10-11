@@ -1112,7 +1112,16 @@ pub fn counter_label(kind: baylee_engine::object::CounterKind, lang: Lang) -> St
         CounterKind::Flying => Phrase::LogCountersFlying.text(lang).to_owned(),
         CounterKind::Shadow => Phrase::LogCountersShadow.text(lang).to_owned(),
         CounterKind::Indestructible => Phrase::LogCountersIndestructible.text(lang).to_owned(),
-        CounterKind::Custom(_) => Phrase::LogCountersOther.text(lang).to_owned(),
+        CounterKind::Custom(id) => {
+            let noun = Phrase::LogCountersOther.text(lang);
+            baylee_cards_dsl::counters::ASSIGNED
+                .iter()
+                .find(|(_, assigned)| *assigned == kind)
+                .map_or_else(
+                    || format!("{noun} ({id})"),
+                    |(name, _)| format!("{name} {noun}"),
+                )
+        }
     }
 }
 
@@ -2853,6 +2862,12 @@ fn cast_choice_headline(options: &[CastModeDesc], lang: Lang) -> String {
             .all(|option| matches!(option.kind, baylee_engine::choice::CastModeKind::Colors(_)))
     {
         Phrase::ChooseColours
+    } else if !options.is_empty()
+        && options
+            .iter()
+            .all(|option| matches!(option.kind, baylee_engine::choice::CastModeKind::Counter(_)))
+    {
+        Phrase::ChooseCounterKind
     } else {
         Phrase::ChooseHowToCast
     };

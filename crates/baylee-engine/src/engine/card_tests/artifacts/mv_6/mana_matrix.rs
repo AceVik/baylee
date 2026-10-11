@@ -53,7 +53,10 @@ fn mana_matrix_prices_spree_modes_as_one_total_cost() {
         .find(|option| option.kind == crate::choice::CastModeKind::Modes(3))
         .unwrap();
     assert_eq!(option.cost, baylee_core::mana!("{W}"));
-    e.apply(p0, PlayerAction::ChooseMode(usize::from(option.index)))
-        .unwrap();
+    e.apply(
+        p0,
+        PlayerAction::ChooseMode(usize::try_from(option.index).unwrap()),
+    )
+    .unwrap();
     assert_eq!(e.state().players[0].mana_pool.total(), 0);
 }

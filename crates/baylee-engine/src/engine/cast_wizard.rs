@@ -840,7 +840,7 @@ impl<L: CardLookup> Engine<L> {
                         )
                     {
                         options.push(CastModeDesc {
-                            index: u8::try_from(options.len()).unwrap_or(u8::MAX),
+                            index: u32::try_from(options.len()).unwrap_or(u32::MAX),
                             kind: CastModeKind::Modes(set),
                             cost,
                         });
@@ -855,7 +855,7 @@ impl<L: CardLookup> Engine<L> {
                     && casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
                 {
                     options.push(CastModeDesc {
-                        index: u8::try_from(options.len()).unwrap_or(u8::MAX),
+                        index: u32::try_from(options.len()).unwrap_or(u32::MAX),
                         kind: CastModeKind::Mode(i),
                         cost,
                     });
@@ -992,7 +992,7 @@ impl<L: CardLookup> Engine<L> {
                     && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
                 {
                     options.push(CastModeDesc {
-                        index: (options.len()) as u8,
+                        index: (options.len()) as u32,
                         kind: CastModeKind::Face(i),
                         cost: back_price(i),
                     });
@@ -1035,7 +1035,7 @@ impl<L: CardLookup> Engine<L> {
             let fodder = casting::escape_exile_options(&self.state, player, card).len();
             if afford(&escape.cost.with_x(0)) && fodder >= usize::from(escape.exile) {
                 options.push(CastModeDesc {
-                    index: options.len() as u8,
+                    index: options.len() as u32,
                     kind: CastModeKind::Escape,
                     cost: price(escape.cost),
                 });
@@ -1059,7 +1059,7 @@ impl<L: CardLookup> Engine<L> {
             }
             if afford(&flashback.with_x(0)) {
                 options.push(CastModeDesc {
-                    index: options.len() as u8,
+                    index: options.len() as u32,
                     kind: CastModeKind::Flashback,
                     cost: price(flashback),
                 });
@@ -1122,7 +1122,7 @@ impl<L: CardLookup> Engine<L> {
                 || casting::ordinary_targets_reachable(&self.state, def, player, card))
         {
             options.push(CastModeDesc {
-                index: options.len() as u8,
+                index: options.len() as u32,
                 kind: CastModeKind::Normal,
                 cost: price(normal_cost),
             });
@@ -1133,7 +1133,7 @@ impl<L: CardLookup> Engine<L> {
                 && casting::requirement_is_reachable(Some(req), &self.state, player, card)
             {
                 options.push(CastModeDesc {
-                    index: options.len() as u8,
+                    index: options.len() as u32,
                     kind: CastModeKind::Kicked,
                     cost: price(cost),
                 });
@@ -1151,7 +1151,7 @@ impl<L: CardLookup> Engine<L> {
             .is_ok()
         {
             options.push(CastModeDesc {
-                index: options.len() as u8,
+                index: options.len() as u32,
                 kind: CastModeKind::Prototype,
                 cost: casting::face_adjustment(
                     &self.state,
@@ -1177,7 +1177,7 @@ impl<L: CardLookup> Engine<L> {
             .is_ok()
             {
                 options.push(CastModeDesc {
-                    index: options.len() as u8,
+                    index: options.len() as u32,
                     kind: CastModeKind::Disguise,
                     cost: casting::face_adjustment(
                         &self.state,
@@ -1217,7 +1217,7 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             }
             options.push(CastModeDesc {
-                index: (options.len()) as u8,
+                index: (options.len()) as u32,
                 kind: CastModeKind::Alternative(i),
                 cost: price(alt.cost.mana),
             });
@@ -1236,7 +1236,7 @@ impl<L: CardLookup> Engine<L> {
             };
             if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card)) {
                 options.push(CastModeDesc {
-                    index: (options.len()) as u8,
+                    index: (options.len()) as u32,
                     kind: CastModeKind::Dash,
                     cost: taxed.mana,
                 });
@@ -1266,7 +1266,7 @@ impl<L: CardLookup> Engine<L> {
                 && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
             {
                 options.push(CastModeDesc {
-                    index: (options.len()) as u8,
+                    index: (options.len()) as u32,
                     kind: CastModeKind::Face(i),
                     cost: back_price(i),
                 });
@@ -1292,7 +1292,7 @@ impl<L: CardLookup> Engine<L> {
                         )
                     {
                         options.push(CastModeDesc {
-                            index: (options.len()) as u8,
+                            index: (options.len()) as u32,
                             kind: CastModeKind::Modes(set),
                             cost: price(cost),
                         });
@@ -1313,7 +1313,7 @@ impl<L: CardLookup> Engine<L> {
                     && casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
                 {
                     options.push(CastModeDesc {
-                        index: (options.len()) as u8,
+                        index: (options.len()) as u32,
                         kind: CastModeKind::Mode(i),
                         cost: price(cost),
                     });
@@ -1369,7 +1369,7 @@ impl<L: CardLookup> Engine<L> {
             });
         }
         for (i, option) in options.iter_mut().enumerate() {
-            option.index = u8::try_from(i).unwrap_or(u8::MAX);
+            option.index = u32::try_from(i).expect("cast option index fits the protocol");
         }
         if options.is_empty() {
             return Err(EngineError::IllegalAction("no way to cast this spell"));

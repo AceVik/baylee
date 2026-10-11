@@ -132,7 +132,16 @@ pub enum Effect {
         /// How many tokens each player creates.
         amount: Amount,
     },
-    /// Move one counter from this permanent to the entering creature (CR 122.5).
+    /// Move one counter between two specified permanents (CR 122.5).
+    MoveCounter {
+        /// Permanent losing the counter.
+        from: TargetSlot,
+        /// Permanent receiving the counter.
+        to: TargetSlot,
+        /// A fixed kind, or choose one that can be moved on resolution.
+        kind: Option<CounterKind>,
+    },
+    /// Move a specified counter from this source to the event permanent.
     MoveCounterToEvent {
         /// The kind removed from the source and put onto the event permanent.
         kind: CounterKind,

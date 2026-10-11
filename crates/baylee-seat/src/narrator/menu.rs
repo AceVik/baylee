@@ -1155,6 +1155,13 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::Flashback => format!("Cast it with flashback for {cost}"),
         CastModeKind::Dash => format!("Cast it with dash for {cost}"),
         CastModeKind::Escape => format!("Cast it with escape for {cost}"),
+        CastModeKind::Counter(kind) => format!(
+            "Choose {}",
+            baylee_client_core::interaction::counter_label(
+                kind,
+                baylee_client_core::i18n::Lang::En
+            )
+        ),
         CastModeKind::Colors(colors) => {
             use baylee_core::color::Color;
             let names = [

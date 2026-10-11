@@ -371,6 +371,9 @@ impl CastMenu {
     /// Built on demand rather than stored beside [`Self::modes`]: two copies
     /// of one list are two things that can disagree, and this one is cheap —
     /// it is read only while the chooser stands.
+    ///
+    /// # Panics
+    /// If more than `u32::MAX` casting options were constructed.
     #[must_use]
     pub fn prompt(&self) -> baylee_client_core::interaction::Prompt {
         baylee_client_core::interaction::Prompt::CastMode {
@@ -386,7 +389,7 @@ impl CastMenu {
                     // finally asks, because the engine's index is a position
                     // in a list built against the pool at that instant — the
                     // very pool this chooser is about to change.
-                    index: u8::try_from(i).unwrap_or(u8::MAX),
+                    index: u32::try_from(i).expect("option index fits the protocol"),
                     kind: m.kind,
                     cost: m.cost,
                 })

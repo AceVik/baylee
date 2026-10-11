@@ -858,6 +858,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ProtectionColor { .. }
         | AwaitingOp::LandwalkChoice { .. }
         | AwaitingOp::Colors { .. }
+        | AwaitingOp::MoveCounter { .. }
         | AwaitingOp::Counters { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }

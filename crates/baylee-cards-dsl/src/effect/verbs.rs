@@ -831,6 +831,7 @@ impl Effect {
             | Effect::CreateTokensFor { .. }
             | Effect::DealDamageToMatchingTargets { .. }
             | Effect::RandomGraveyardToHand { .. }
+            | Effect::MoveCounter { .. }
             | Effect::MoveCounterToEvent { .. }
             | Effect::ReconfigureAttach
             | Effect::DetachSource

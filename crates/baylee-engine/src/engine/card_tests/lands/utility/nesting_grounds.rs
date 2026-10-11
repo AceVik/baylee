@@ -4,7 +4,6 @@
 use super::*;
 
 /// Nesting Grounds: "{T}: Add {C}." / "{1}, {T}: Move a counter from target permanent you control onto a second target permanent. Activate only as a sorcery."
-/// Under `Coverage::Partial`, moving counters between permanents is unsupported, leaving only the mana ability.
 /// Activating ability 0 adds one colorless mana to the pool and taps the land.
 #[test]
 fn nesting_grounds_taps_for_colorless_mana() {

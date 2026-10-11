@@ -52,6 +52,7 @@ mod discard;
 mod river;
 pub use discard::{DiscardReveal, DiscardThen};
 use discard::{discard_or_ask, resume_discard_destination};
+mod counter_move;
 mod immediate;
 mod permissions;
 mod piles;

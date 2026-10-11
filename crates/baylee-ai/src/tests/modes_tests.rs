@@ -10,7 +10,7 @@ fn edict_modes() -> Vec<baylee_engine::choice::CastModeDesc> {
     use baylee_engine::choice::{CastModeDesc, CastModeKind};
     (0..3)
         .map(|i| CastModeDesc {
-            index: u8::try_from(i).unwrap(),
+            index: u32::try_from(i).unwrap(),
             kind: CastModeKind::Mode(i),
             cost: baylee_core::mana::ManaCost::ZERO,
         })
@@ -100,7 +100,7 @@ fn a_spell_of_several_modes_takes_the_set_that_reaches_the_most() {
     let them = PlayerId::new(1);
     let options: Vec<CastModeDesc> = (1..16_u8)
         .map(|set| CastModeDesc {
-            index: set - 1,
+            index: u32::from(set - 1),
             kind: CastModeKind::Modes(set),
             cost: baylee_core::mana::ManaCost::parse("{4}{W}{W}"),
         })
@@ -153,7 +153,7 @@ fn a_spree_spell_buys_the_mode_that_saves_its_own_creature() {
     let (me, them) = (PlayerId::new(0), PlayerId::new(1));
     let options: Vec<CastModeDesc> = (1..8_u8)
         .map(|set| CastModeDesc {
-            index: set - 1,
+            index: u32::from(set - 1),
             kind: CastModeKind::Modes(set),
             cost: baylee_core::mana::ManaCost::ZERO,
         })
@@ -213,7 +213,7 @@ fn choose_two_leaves_out_a_tap_with_nothing_to_tap() {
         .into_iter()
         .enumerate()
         .map(|(index, set)| CastModeDesc {
-            index: u8::try_from(index).unwrap(),
+            index: u32::try_from(index).unwrap(),
             kind: CastModeKind::Modes(set),
             cost: baylee_core::mana::ManaCost::parse("{1}{U}{U}{U}"),
         })

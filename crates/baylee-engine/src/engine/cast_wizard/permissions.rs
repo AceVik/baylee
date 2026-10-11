@@ -28,7 +28,7 @@ impl<L: CardLookup> Engine<L> {
                 && casting::free_face_affordable(&self.state, player, card, def, face)
             {
                 options.push(CastModeDesc {
-                    index: u8::try_from(options.len()).unwrap_or(u8::MAX),
+                    index: u32::try_from(options.len()).unwrap_or(u32::MAX),
                     kind: CastModeKind::Face(face),
                     cost: casting::free_face_price(&self.state, player, card, def, face),
                 });

@@ -74,6 +74,8 @@ macro_rules! messages {
 }
 
 messages! {
+    /// A resolving effect asks which kind of counter to move.
+    ChooseCounterKind { en: "Choose a counter kind", de: "Wähle eine Markensorte" },
     /// Hold Shift to turn the preview.
     PreviewTurn { en: "Turn over", de: "Drehen" },
     /// Hold Alt/Option for the alternative preview.

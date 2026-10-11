@@ -880,6 +880,7 @@ fn cast_label(
 ) -> String {
     use baylee_engine::choice::CastModeKind as K;
     match kind {
+        K::Counter(kind) => baylee_client_core::interaction::counter_label(kind, lang),
         K::Colors(colors) => {
             use baylee_core::color::Color;
             [
@@ -1389,7 +1390,7 @@ mod tests {
     fn a_pathways_two_land_faces_are_two_different_buttons() {
         let (view, object) = pathway_in_hand();
         let desc = |face: usize| CastModeDesc {
-            index: u8::try_from(face).expect("a face index"),
+            index: u32::try_from(face).expect("a face index"),
             kind: CastModeKind::PlayLandFace(face),
             cost: ManaCost::ZERO,
         };
@@ -1692,7 +1693,7 @@ mod tests {
                     .iter()
                     .enumerate()
                     .map(|(i, kind)| CastModeDesc {
-                        index: u8::try_from(i).expect("a small list"),
+                        index: u32::try_from(i).expect("a small list"),
                         kind: *kind,
                         cost: ManaCost::ZERO,
                     })

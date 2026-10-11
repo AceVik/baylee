@@ -291,3 +291,44 @@ fn choosing_colors_is_described_as_a_resolution_choice_and_submits_the_offered_i
     assert!(i.choose_index(0));
     assert_eq!(i.confirm(), Some(PlayerAction::ChooseMode(0)));
 }
+
+#[test]
+fn counter_kind_choice_uses_named_rows_and_preserves_large_indices() {
+    use baylee_engine::choice::{CastModeDesc, CastModeKind};
+    let options = (0_u16..300)
+        .map(|kind| CastModeDesc {
+            index: u32::from(kind),
+            kind: CastModeKind::Counter(baylee_cards_dsl::CounterKind::Custom(kind)),
+            cost: baylee_core::mana::ManaCost::ZERO,
+        })
+        .collect();
+    let mut i = interaction(Pending::ChooseCastMode {
+        player: me(),
+        object: obj(1),
+        options,
+    });
+    for lang in [Lang::En, Lang::De] {
+        assert_eq!(
+            i.prompt().headline(lang, Turn::Mine, None, false),
+            Phrase::ChooseCounterKind.text(lang)
+        );
+    }
+    assert!(i.choose_index(299));
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseMode(299)));
+}
+
+#[test]
+fn named_custom_counters_remain_distinguishable_in_the_counter_chooser() {
+    for lang in [Lang::En, Lang::De] {
+        let names: Vec<_> = baylee_cards_dsl::counters::ASSIGNED
+            .iter()
+            .map(|(name, kind)| {
+                let label = counter_label(*kind, lang);
+                assert!(label.contains(name));
+                label
+            })
+            .collect();
+        let unique: std::collections::BTreeSet<_> = names.iter().collect();
+        assert_eq!(unique.len(), names.len());
+    }
+}

@@ -19,6 +19,7 @@
 //! plain token was in.
 
 mod counters;
+pub(crate) use counters::{can_move_counter, move_counter};
 pub use counters::{
     counter_multiplier, put_counters, put_counters_by, record_counters, record_counters_by,
     remove_counters,

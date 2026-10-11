@@ -6,6 +6,15 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// A selected pair of permanents waiting for the counter kind to move.
+    MoveCounter {
+        /// Exact source of the counter.
+        from: baylee_core::ids::DamageSourceRef,
+        /// Exact destination.
+        to: baylee_core::ids::DamageSourceRef,
+        /// Kinds that could legally be moved when asked.
+        kinds: Vec<baylee_cards_dsl::CounterKind>,
+    },
     /// Counter-bearing permanent and player selections, committed together.
     Proliferate(Box<super::proliferate::Selection>),
     /// Optional energy payment, with unpaid fallback.

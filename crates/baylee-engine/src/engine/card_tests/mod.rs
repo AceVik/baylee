@@ -24,6 +24,7 @@
 
 mod alpha_completion_review;
 mod artifacts;
+mod counter_movement;
 mod counter_resources;
 mod creatures;
 mod enchantments;

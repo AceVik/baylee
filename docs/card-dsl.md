@@ -3375,3 +3375,12 @@ positive placements, once per recipient/event rather than once per counter.
 kind, including placements made before that triggered ability was present.
 Counter costs and entry placements also record this history; removing counters
 or a placement reduced to zero cannot trigger it.
+
+`Effect::MoveCounter { from, to, kind }` removes one counter and places it on a
+second permanent as a single all-or-nothing instruction (CR 122.5). Both ends
+use `TargetSlot`; `kind: None` asks for a movable counter kind during resolution.
+The choice uses named rows and 32-bit option indices. A fixed kind skips the
+question. Exact incarnations, phasing, absence of the counter, identical objects
+and a destination counter cap are checked before removal. Counter-doubling
+replacements apply to placement on the destination, never to removal from the
+source. `MoveCounterToEvent` shares this checked path.

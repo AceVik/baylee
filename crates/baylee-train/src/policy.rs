@@ -114,6 +114,7 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         CastModeKind::Dash => 11,
         CastModeKind::Escape => 12,
         CastModeKind::Colors(_) => 13,
+        CastModeKind::Counter(_) => 14,
     }
 }
 

@@ -619,7 +619,7 @@ impl Pending {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CastModeDesc {
     /// Option index (answered via `PlayerAction::ChooseMode`).
-    pub index: u8,
+    pub index: u32,
     /// Which kind of cast this is.
     pub kind: CastModeKind,
     /// The mana part to pay with this option.
@@ -629,6 +629,8 @@ pub struct CastModeDesc {
 /// The kind of a cast option.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum CastModeKind {
+    /// A counter kind chosen during resolution, not a spell mode.
+    Counter(baylee_cards_dsl::CounterKind),
     /// A combination of colors chosen during effect resolution, not a cast mode.
     Colors(baylee_core::color::ColorSet),
     /// Printed cost.

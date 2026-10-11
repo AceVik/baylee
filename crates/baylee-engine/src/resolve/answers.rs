@@ -731,6 +731,11 @@ pub(super) fn resume_targets_inner(
 /// The engine must validate the chosen option against the pending question.
 pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: usize) -> Flow {
     subjects::begin_resume(state, res);
+    if matches!(res.awaiting, Some(AwaitingOp::MoveCounter { .. })) {
+        let flow = counter_move::resume(state, res, index);
+        subjects::flush(state, res);
+        return flow;
+    }
     if matches!(res.awaiting, Some(AwaitingOp::Colors { .. })) {
         let flow = colors::resume(state, res, index);
         subjects::flush(state, res);

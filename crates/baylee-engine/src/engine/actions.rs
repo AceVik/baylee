@@ -202,7 +202,7 @@ impl<L: CardLookup> Engine<L> {
                     let options = land_faces
                         .iter()
                         .map(|&i| crate::choice::CastModeDesc {
-                            index: i as u8,
+                            index: i as u32,
                             kind: crate::choice::CastModeKind::PlayLandFace(i),
                             cost: baylee_core::mana::ManaCost::ZERO,
                         })
@@ -270,6 +270,7 @@ impl<L: CardLookup> Engine<L> {
                         Some(
                             resolve::AwaitingOp::ChooseEffect { .. }
                                 | resolve::AwaitingOp::Colors { .. }
+                                | resolve::AwaitingOp::MoveCounter { .. }
                         )
                     )
                 }) {

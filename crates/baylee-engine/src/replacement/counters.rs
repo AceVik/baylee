@@ -191,3 +191,37 @@ pub fn remove_counters(
     }
     taken
 }
+
+/// CR 122.5: both halves must be possible, for the exact battlefield objects.
+pub(crate) fn can_move_counter(
+    state: &GameState,
+    from: DamageSourceRef,
+    to: DamageSourceRef,
+    kind: baylee_cards_dsl::CounterKind,
+) -> bool {
+    if from.object == to.object || counter_limits::room(state, to.object, kind) == Some(0) {
+        return false;
+    }
+    let current = |reference: DamageSourceRef| {
+        state.object(reference.object).filter(|object| {
+            object.version == reference.version
+                && object.zone == crate::zone::Zone::Battlefield
+                && !object.status.contains(crate::object::Status::PHASED_OUT)
+        })
+    };
+    current(from).is_some_and(|object| object.counters.get(kind) > 0) && current(to).is_some()
+}
+
+/// Moving removes one counter; destination placement still applies replacements.
+pub(crate) fn move_counter(
+    state: &mut GameState,
+    by: PlayerId,
+    from: DamageSourceRef,
+    to: DamageSourceRef,
+    kind: baylee_cards_dsl::CounterKind,
+) {
+    if can_move_counter(state, from, to, kind) {
+        remove_counters(state, from.object, kind, 1);
+        put_counters_by(state, by, to.object, kind, 1);
+    }
+}

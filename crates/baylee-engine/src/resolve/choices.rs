@@ -24,7 +24,7 @@ pub(super) fn exec_choice(
                     .iter()
                     .enumerate()
                     .map(|(i, _)| crate::choice::CastModeDesc {
-                        index: u8::try_from(i).expect("at most 256 choices"),
+                        index: u32::try_from(i).expect("at most 256 choices"),
                         kind: crate::choice::CastModeKind::Mode(i),
                         cost: baylee_core::mana::ManaCost::ZERO,
                     })
