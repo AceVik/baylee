@@ -377,6 +377,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "ExtraLandDrops",
         "ChooseExiledToPlay",
         "LookAtTopKeepBottomPlay",
+        "LookAtTopFind",
         "LookAtTopMayPut",
         "DiscardUpToThenDraw",
         "PermanentOfEachTypeFromGraveyard",

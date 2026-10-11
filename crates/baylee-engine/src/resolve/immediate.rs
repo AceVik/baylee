@@ -1234,6 +1234,46 @@ pub(super) fn exec_immediate(
             });
             one_per_type(state, res, top, 0)
         }
+        Effect::LookAtTopFind {
+            count,
+            filter,
+            random,
+        } => {
+            let top: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .take(usize::from(count))
+                .copied()
+                .collect();
+            if top.is_empty() {
+                return None;
+            }
+            let options: Vec<ObjectId> = top
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
+                })
+                .collect();
+            let max = u8::from(!options.is_empty());
+            res.awaiting = Some(AwaitingOp::DigRest {
+                rest: top,
+                reveal: true,
+                random,
+            });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 0,
+                max,
+                prompt: ChoicePrompt::PutIntoHand,
+                total: None,
+            })
+        }
         Effect::LookAtTopPick {
             count,
             pick,
@@ -1261,6 +1301,7 @@ pub(super) fn exec_immediate(
             let pick = pick.min(u8::try_from(top.len()).unwrap_or(u8::MAX));
             res.awaiting = Some(AwaitingOp::DigRest {
                 rest: top.clone(),
+                reveal: false,
                 random,
             });
             Some(Pending::ChooseCards {

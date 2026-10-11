@@ -193,6 +193,16 @@ pub enum Effect {
         /// (CR 800.4a).
         owner_control: bool,
     },
+    /// Look privately, optionally reveal one matching card into your hand,
+    /// then put the rest on the bottom in the stated order.
+    LookAtTopFind {
+        /// Number of cards inspected.
+        count: u8,
+        /// What the revealed card must match.
+        filter: &'static Filter,
+        /// Random order rather than the controller's chosen order.
+        random: bool,
+    },
     /// Look at the top `count` cards of your library; put `pick` of them
     /// into your hand and the rest on the bottom — in any order (Dig
     /// Through Time), or in a random order when `random` (Memory Deluge,

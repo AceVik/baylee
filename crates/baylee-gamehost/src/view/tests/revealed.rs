@@ -149,3 +149,104 @@ fn the_revealed_card_is_hidden_again_once_it_is_back_in_the_library() {
         assert!(!named, "{seat:?}'s view names the Bolt");
     }
 }
+
+#[test]
+fn a_filtered_inspection_shows_all_six_only_to_the_chooser_then_reveals_only_the_pick() {
+    use baylee_engine::{
+        event::{Cause, GameEvent},
+        zone::{ZoneLocation, ZonePosition},
+    };
+    let me = PlayerId::new(0);
+    let them = PlayerId::new(1);
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_hand = Some(vec![entry("Silundi Vision"), entry("Lightning Bolt")]);
+    preset.seats[0].starting_battlefield = vec![entry("Island"); 3];
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let view = settle(&mut engine, None);
+    let bolt = view
+        .hand
+        .iter()
+        .find(|o| o.name == "Lightning Bolt")
+        .unwrap()
+        .id;
+    engine
+        .dev_state_mut(me)
+        .unwrap()
+        .move_object(
+            bolt,
+            ZoneLocation::Library(me),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    let source = view
+        .hand
+        .iter()
+        .find(|o| o.name == "Silundi Vision")
+        .unwrap()
+        .id;
+    for land in view.battlefield.iter().filter(|o| o.controller == me) {
+        engine
+            .apply(me, PlayerAction::ActivateManaAbility { source: land.id })
+            .unwrap();
+    }
+    engine
+        .apply(me, PlayerAction::CastSpell { card: source })
+        .unwrap();
+    for _ in 0..8 {
+        if let Pending::Priority { player, .. } = engine.pending() {
+            engine.apply(*player, PlayerAction::PassPriority).unwrap();
+        } else {
+            break;
+        }
+    }
+    let Pending::ChooseCards { options, .. } = engine.pending() else {
+        panic!("filtered inspection")
+    };
+    assert_eq!(options, &vec![bolt]);
+    assert_eq!(seen_by(&engine, me).looking_at.len(), 6);
+    assert!(seen_by(&engine, them).looking_at.is_empty());
+    let hash = engine.snapshot_hash();
+    let wrong = *engine
+        .inspected_cards()
+        .iter()
+        .find(|id| **id != bolt)
+        .unwrap();
+    assert!(
+        engine
+            .apply(
+                me,
+                PlayerAction::ChooseObjects {
+                    objects: vec![wrong]
+                }
+            )
+            .is_err()
+    );
+    assert_eq!(engine.snapshot_hash(), hash);
+    let seq = engine.state().journal.last_seq();
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![bolt],
+            },
+        )
+        .unwrap();
+    assert!(seen_by(&engine, me).looking_at.is_empty());
+    assert!(seen_by(&engine, them).looking_at.is_empty());
+    let reveals: Vec<_> = engine
+        .state()
+        .journal
+        .entries()
+        .iter()
+        .filter(|e| e.seq > seq)
+        .filter_map(|e| {
+            if let GameEvent::Revealed { cards, .. } = &e.event {
+                Some(cards.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(reveals, vec![vec![bolt]]);
+}

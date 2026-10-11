@@ -3,17 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Search for Azcanta` // `Azcanta, the Sunken Ruin` (`Coverage::Partial`):
-/// "At the beginning of your upkeep, surveil 1. Then if you have seven or more cards in your
-/// graveyard, you may transform `Search for Azcanta`. // `{{T}}`: Add `{{U}}`. `{{2}}{{U}}`, `{{T}}`: Look
-/// at the top four cards of your library. You may reveal a noncreature, nonland card from among
-/// them and put it into your hand. Put the rest on the bottom of your library in any order."
-///
-/// Under `Coverage::Partial`, the transform clause and the back face's card-selection ability
-/// are omitted, while the upkeep surveil 1 trigger is implemented. The test advances to upkeep,
-/// intercepts the surveil 1 arrangement (`ArrangePrompt::Surveil`), chooses to put the top
-/// card into the graveyard, verifies the card arrives in the graveyard, and confirms that
-/// `Search for Azcanta` remains on face 0.
 #[test]
 fn search_for_azcanta_surveils_at_upkeep_and_remains_on_face_zero() {
     let p0 = PlayerId::new(0);
@@ -68,4 +57,73 @@ fn search_for_azcanta_surveils_at_upkeep_and_remains_on_face_zero() {
         1,
         "the surveilled card was put into the graveyard"
     );
+}
+
+#[test]
+fn azcanta_checks_seven_after_surveilling_then_offers_transform_and_filtered_search() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for accept in [false, true] {
+        let mut e = Duel::new(104, forest())
+            .battlefield(0, &[search_for_azcanta(), island(), island(), island()])
+            .hand(0, &[index::LIGHTNING_BOLT, index::GRIZZLY_BEARS])
+            .start();
+        keep_mulligans(&mut e);
+        seed_graveyard(&mut e, p0, 6);
+        pass_until(&mut e, |e| {
+            matches!(
+                e.pending(),
+                Pending::Arrange {
+                    prompt: ArrangePrompt::Surveil,
+                    ..
+                }
+            )
+        });
+        let Pending::Arrange { cards, .. } = e.pending().clone() else {
+            unreachable!()
+        };
+        e.apply(p0, look_answer(&cards, &cards)).unwrap();
+        assert!(matches!(e.pending(), Pending::YesNo { .. }));
+        e.apply(p0, PlayerAction::YesNo(accept)).unwrap();
+        pass_until(&mut e, stack_is_empty);
+        let azcanta = on_battlefield(&e, p0, search_for_azcanta()).unwrap();
+        assert_eq!(
+            e.state().object(azcanta).unwrap().face_index,
+            u8::from(accept)
+        );
+        if !accept {
+            continue;
+        }
+        reach_main_phase(&mut e, p0);
+        let bolt = hand_to_library_top(&mut e, p0, index::LIGHTNING_BOLT);
+        hand_to_library_top(&mut e, p0, index::GRIZZLY_BEARS);
+        tap_mana_except(&mut e, p0, azcanta);
+        activate(&mut e, p0, search_for_azcanta(), 1);
+        pass_until(&mut e, |e| {
+            matches!(e.pending(), Pending::ChooseCards { .. })
+        });
+        let Pending::ChooseCards {
+            options, min, max, ..
+        } = e.pending()
+        else {
+            unreachable!()
+        };
+        assert_eq!(options, &vec![bolt]);
+        assert_eq!((*min, *max), (0, 1));
+        assert_eq!(e.inspected_cards().len(), 4);
+        e.apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bolt],
+            },
+        )
+        .unwrap();
+        let Pending::Arrange { cards, .. } = e.pending().clone() else {
+            panic!("choose bottom order")
+        };
+        e.apply(p0, PlayerAction::Arrange { piles: vec![cards] })
+            .unwrap();
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(e.state().object(bolt).unwrap().zone, Zone::Hand);
+    }
 }

@@ -438,7 +438,17 @@ pub(super) fn resume_inner(
                 grant_play(state, res.controller, card, free);
             }
         }
-        AwaitingOp::DigRest { rest, random } => {
+        AwaitingOp::DigRest {
+            rest,
+            reveal,
+            random,
+        } => {
+            if reveal && !chosen.is_empty() {
+                state.journal.record(GameEvent::Revealed {
+                    player: res.controller,
+                    cards: chosen.to_vec(),
+                });
+            }
             for &card in chosen {
                 let _ = state.move_object(
                     card,

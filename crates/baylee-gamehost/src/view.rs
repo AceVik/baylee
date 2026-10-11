@@ -345,6 +345,9 @@ pub fn decision_player_for<L: baylee_engine::state::CardLookup>(
 /// the two that should go red when the next field arrives.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SeatContext<'a> {
+    /// All privately inspected cards, including ineligible picks. Visible
+    /// only to the current choice's resource player and controlling actor.
+    pub inspected_cards: &'a [ObjectId],
     /// The resource owner of the current decision, even when another player answers.
     pub decision_player: Option<PlayerId>,
     /// Other players whose private information this viewer may inspect (CR 720.4).

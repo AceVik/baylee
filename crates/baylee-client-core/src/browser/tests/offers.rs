@@ -383,3 +383,35 @@ fn compact_target_offers_are_complete_small_and_never_select_for_the_player() {
         assert!(it.selected().next().is_none());
     }
 }
+
+#[test]
+fn a_filtered_private_inspection_displays_ineligible_cards_without_selecting_them() {
+    let view = ViewBuilder::new(2)
+        .with_looking_at(
+            (10..16)
+                .map(|id| printed(id, 0, "Inspected card", 1))
+                .collect(),
+        )
+        .build();
+    let it = Interaction::new(
+        Pending::ChooseCards {
+            player: me(),
+            options: vec![obj(12)],
+            min: 0,
+            max: 1,
+            prompt: ChoicePrompt::PutIntoHand,
+            total: None,
+        },
+        me(),
+    );
+    let mut browser = Browser::new();
+    browser.follow(&view, Some(&it));
+    let rows = browser.rows(&view, Some(&it), Names::projected());
+    assert_eq!(rows.len(), 6);
+    let selectable: Vec<_> = rows
+        .iter()
+        .filter(|r| r.standing.selectable)
+        .map(|r| r.id)
+        .collect();
+    assert_eq!(selectable, vec![obj(12)]);
+}

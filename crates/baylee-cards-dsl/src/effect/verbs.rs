@@ -594,6 +594,7 @@ impl Effect {
             | Effect::Exile { .. }
             | Effect::Blink { .. }
             | Effect::LookAtTopPick { .. }
+            | Effect::LookAtTopFind { .. }
             | Effect::LookAtTopKeepBottomPlay { .. }
             | Effect::ChooseExiledToPlay { .. }
             | Effect::PayLifeOrPutBackDrawn { .. }

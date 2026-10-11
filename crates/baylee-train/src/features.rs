@@ -299,6 +299,7 @@ pub fn seat_view(
             held: engine.automation(seat).hold.suppresses(),
             owed: owed_payment(engine),
             library_reveal_blocked: engine.library_reveal_blocked(),
+            inspected_cards: engine.inspected_cards(),
             decision_remaining_ms: None,
             policy_acts: &[],
         },

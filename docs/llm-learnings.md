@@ -3333,3 +3333,17 @@ land type"; both are convention tests that fire on a first try.
 - Named matrix counters share the central counter registry. The granted
   regeneration ability outlives the Matrix and consumes real counters;
   Doubling Season multiplies placement, never the removal cost.
+
+### Completion batch 13 — filtered private library inspection (2026-10-11)
+
+- Silundi Vision, Growing Rites of Itlimoc, Search for Azcanta, Monumental
+  Henge, Lupinflower Village, and Memorial to Unity use an optional filtered
+  pick, reveal only the selected card, and respect random versus chosen
+  bottom ordering. Short libraries and empty eligible sets remain answerable.
+- A list of legal picks is not the list of inspected cards. The resolving
+  continuation retains all inspected cards; the host exposes that slice only
+  to the choice's entitled seats. Client browser rows already distinguish
+  visible from selectable cards. Test both the private view and forged picks.
+- Search for Azcanta's current Oracle header explicitly says surveil. Keep
+  that keyword event, test the graveyard threshold after the surveil, and
+  ask the optional transformation before granting its land-face ability.

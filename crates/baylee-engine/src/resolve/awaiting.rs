@@ -418,6 +418,8 @@ pub enum AwaitingOp {
     DigRest {
         /// The looked-at cards not chosen.
         rest: Vec<ObjectId>,
+        /// The selected card is public before it changes zones.
+        reveal: bool,
         /// "In a random order" rather than the player's.
         random: bool,
     },

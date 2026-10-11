@@ -36,6 +36,7 @@ impl Session {
                 held: self.engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
                 library_reveal_blocked: self.engine.library_reveal_blocked(),
+                inspected_cards: self.engine.inspected_cards(),
                 decision_remaining_ms: None,
                 // What a policy answered is told to the seat's player; it is
                 // not an input to a decision.
@@ -146,6 +147,7 @@ impl Session {
                 held: self.engine.automation(seat).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
                 library_reveal_blocked: self.engine.library_reveal_blocked(),
+                inspected_cards: self.engine.inspected_cards(),
                 decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
                 policy_acts: &self.policy_acts,
             },

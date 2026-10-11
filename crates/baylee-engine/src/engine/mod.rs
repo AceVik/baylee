@@ -959,6 +959,20 @@ impl<L: CardLookup> Engine<L> {
         &self.pending
     }
 
+    /// Cards privately inspected during the current filtered selection,
+    /// including cards that cannot be selected. Hosts must apply the same
+    /// entitlement as `information_pending_for` before exposing this slice.
+    #[must_use]
+    pub fn inspected_cards(&self) -> &[ObjectId] {
+        if !matches!(self.pending, Pending::ChooseCards { .. }) {
+            return &[];
+        }
+        match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
+            Some(resolve::AwaitingOp::DigRest { rest, .. }) => rest,
+            _ => &[],
+        }
+    }
+
     /// Read-only state access (tests, debugging, dev mode).
     #[must_use]
     pub fn state(&self) -> &GameState {

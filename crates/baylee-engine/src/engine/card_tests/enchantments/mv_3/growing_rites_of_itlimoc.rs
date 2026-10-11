@@ -3,18 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Growing Rites of Itlimoc` // `Itlimoc, Cradle of the Sun` (`Coverage::Partial`):
-/// "When `Growing Rites of Itlimoc` enters, look at the top four cards of your library. You may
-/// reveal a creature card from among them and put it into your hand. Put the rest on the bottom
-/// of your library in any order. At the beginning of your end step, if you control four or more
-/// creatures, transform `Growing Rites of Itlimoc`. // `{{T}}`: Add `{{G}}`. `{{T}}`: Add `{{G}}` for
-/// each creature you control."
-///
-/// Under `Coverage::Partial`, the enter look-at-four trigger is omitted, while the end-step
-/// transform trigger and the back face's mana abilities are implemented. The test sets up four
-/// controlled creatures, advances to the end step where the transform condition is met, verifies
-/// the enchantment transforms into the legendary land `Itlimoc, Cradle of the Sun` on face 1,
-/// and activates Itlimoc's second mana ability to produce green mana equal to the creature count.
 #[test]
 fn growing_rites_of_itlimoc_transforms_at_four_creatures_and_taps_for_creature_count() {
     let p0 = PlayerId::new(0);
@@ -67,5 +55,66 @@ fn growing_rites_of_itlimoc_transforms_at_four_creatures_and_taps_for_creature_c
             .available(ManaColor::Green),
         4,
         "Itlimoc added four green mana for the four creatures controlled"
+    );
+}
+
+#[test]
+fn growing_rites_reveals_only_a_creature_and_lets_you_order_the_rest() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(
+            0,
+            &[
+                growing_rites_of_itlimoc(),
+                index::GRIZZLY_BEARS,
+                index::LIGHTNING_BOLT,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let bear = hand_to_library_top(&mut e, p0, index::GRIZZLY_BEARS);
+    hand_to_library_top(&mut e, p0, index::LIGHTNING_BOLT);
+    cast_from_hand(&mut e, p0, growing_rites_of_itlimoc());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = e.pending()
+    else {
+        unreachable!()
+    };
+    assert_eq!(options, &vec![bear]);
+    assert_eq!((*min, *max), (0, 1));
+    let looked = e.inspected_cards().to_vec();
+    assert_eq!(looked.len(), 4);
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![bear],
+        },
+    )
+    .unwrap();
+    let Pending::Arrange { cards, .. } = e.pending().clone() else {
+        panic!("the controller orders the other three")
+    };
+    assert_eq!(cards.len(), 3);
+    let ordered: Vec<_> = cards.into_iter().rev().collect();
+    e.apply(
+        p0,
+        PlayerAction::Arrange {
+            piles: vec![ordered.clone()],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(bear).unwrap().zone, Zone::Hand);
+    assert!(
+        ordered
+            .iter()
+            .all(|id| e.state().zones.list(ZoneLocation::Library(p0))[..3].contains(id))
     );
 }

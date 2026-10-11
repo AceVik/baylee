@@ -128,6 +128,7 @@ fn seen_by(engine: &Engine<Registry>, seat: PlayerId) -> baylee_view::PlayerView
         decision_player: decision_player_for(engine, seat),
         controlled_players: engine.controlled_players(seat),
         library_reveal_blocked: engine.library_reveal_blocked(),
+        inspected_cards: engine.inspected_cards(),
         ..SeatContext::default()
     };
     player_view(

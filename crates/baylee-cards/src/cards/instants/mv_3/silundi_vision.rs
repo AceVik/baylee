@@ -5,19 +5,12 @@
 //! Set: ZNR #80 — Zendikar Rising | Scryfall ID: 11568cdf-6148-494c-8b98-f5ca5797d775 | Oracle ID: b0182ca0-f353-4012-9121-6f4ac9f7a046
 //! Face: Silundi Vision — {2}{U} — Instant
 //! Face: Silundi Isle —  — Land
-// PARTIAL — Silundi Isle is complete: it enters tapped and taps for {U}.
-// Silundi Vision's look is Effect::LookAtTopPick, which cannot carry the
-// printed restriction on what may be revealed.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
 static SILUNDI_ISLE_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])];
-
-// NOT SUPPORTED: "You may reveal an instant or sorcery card from among them
-// and put it into your hand. Put the rest on the bottom of your library in a
-// random order." Effect::LookAtTopPick { count, pick } has no filter — it
-// hands over any `pick` of the cards looked at — and it bottoms the rest in
-// the order the player chose rather than at random.
 
 card!(
     index = index::SILUNDI_VISION,
@@ -37,14 +30,10 @@ card!(
             abilities = SILUNDI_ISLE_MANA,
         ),
     ],
-    coverage = Coverage::Partial(
-        "Silundi Vision: only an instant or sorcery card may be revealed, and \
-         the rest go to the bottom in a random order; Effect::LookAtTopPick \
-         has no filter and bottoms the rest by choice"
-    ),
-    abilities = &[spell!(&[Effect::LookAtTopPick {
-        count: Amount::Fixed(6),
-        pick: 1,
-        random: false,
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::LookAtTopFind {
+        count: 6,
+        filter: &Filter::INSTANT_OR_SORCERY,
+        random: true
     }])],
 );

@@ -121,10 +121,10 @@ pub(super) const fn shown_elsewhere(obj: &GameObject, seat: PlayerId) -> bool {
 /// The hidden cards this seat is being shown, if any.
 ///
 /// The entitlement rule is one sentence and it is the whole safety argument:
-/// **an object the engine asks you about is an object you may see.** A search
+/// **a choice or private inspection is visible only to its entitled seats.** A search
 /// is only offered to the searcher, a scry only to the scrying player, and
-/// the engine has already filtered both down to what that player is allowed
-/// to look at — so this function adds no judgement of its own beyond checking
+/// the engine also retains inspected cards that cannot be selected. Neither
+/// route is a public reveal; this function checks
 /// that the question is addressed to `seat`.
 ///
 /// It is deliberately not a memory. The list is rebuilt from the outstanding
@@ -142,7 +142,13 @@ pub(super) fn looking_at(
     if pending_player(pending) != Some(seat) && ctx.awaiting != Some(seat) {
         return Vec::new();
     }
-    offered(pending)
+    let shown = if matches!(pending, Pending::ChooseCards { .. }) && !ctx.inspected_cards.is_empty()
+    {
+        ctx.inspected_cards.to_vec()
+    } else {
+        offered(pending)
+    };
+    shown
         .into_iter()
         .filter(|id| {
             state.object(*id).is_some_and(|obj| {

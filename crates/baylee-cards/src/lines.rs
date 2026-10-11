@@ -697,6 +697,7 @@ mod tests {
                 "Archangel Avacyn",
                 "Arguel's Blood Fast",
                 "Conqueror's Galleon",
+                "Search for Azcanta",
                 "Thaumatic Compass",
                 "Treasure Map",
                 "Vance's Blasting Cannons",
