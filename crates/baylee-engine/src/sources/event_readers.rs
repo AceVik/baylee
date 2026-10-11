@@ -128,6 +128,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::ReorderTopLibraryOf { who, .. }
         | Effect::TapAllOf { who, .. }
         | Effect::LoseUnspentMana { who, .. }
+        | Effect::ExileTopToPlay { who, .. }
         | Effect::ExileTopMayCast { who, .. } => reads_player(*who),
         Effect::DiscardRandom { who, count, .. } => reads_player(*who) || reads_amount(*count),
         Effect::Reflexive { target, .. }

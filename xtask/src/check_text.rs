@@ -312,6 +312,8 @@ pub(crate) fn check_player_targets_match_the_printing(
 /// - "until end of turn, you may cast that card" (Ragavan, Nimble Pilferer)
 ///   — `ExileTopMayCast`, which leaves a cast-only permission: the
 ///   `ChooseExiledToPlay` argument, the card is cast or it is not.
+///   `ExileTopToPlay` generalizes this to either casting or land plays and
+///   to windows ending on the player's next turn; each action is still optional.
 /// - "instead you may skip that draw" (Island Sanctuary) and "you may skip
 ///   your next turn" (Time Vault) — `MaySkipDrawStepDraw` and
 ///   `SkipTurnToUntapSelf`, replacements whose `YesNo` the engine asks
@@ -393,6 +395,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "MillMayTakeOne",
         "RevealTopOnePerType",
         "ExileTopMayCast",
+        "ExileTopToPlay",
         "MaySkipDrawStepDraw",
         "SkipTurnToUntapSelf",
         "MayDiscardToLibraryTop",

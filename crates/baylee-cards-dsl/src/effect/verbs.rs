@@ -679,6 +679,7 @@ impl Effect {
             | Effect::UntapAll { .. }
             | Effect::RegenerateAll { .. }
             | Effect::ExileTopMayCast { .. }
+        | Effect::ExileTopToPlay { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::ExileAndReturnAtEndStep

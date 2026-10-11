@@ -257,8 +257,7 @@ pub fn play_permission(
 ) -> Option<crate::state::PlayPermission> {
     let version = state.object(card)?.version;
     state
-        .per_turn
-        .playable
+        .play_permissions
         .iter()
         .copied()
         .find(|p| p.player == player && p.card == card && p.version == version)
@@ -273,8 +272,7 @@ pub fn play_permission(
 pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
     let version = state.object(card).map(|o| o.version);
     if state
-        .per_turn
-        .playable
+        .play_permissions
         .iter()
         .any(|p| p.player == player && p.card == card && Some(p.version) == version && !p.cast_only)
     {

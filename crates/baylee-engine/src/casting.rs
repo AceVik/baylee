@@ -21,6 +21,7 @@ use smallvec::SmallVec;
 mod intrinsic;
 mod lands;
 mod payment;
+mod permissions;
 mod pricing;
 #[cfg(test)]
 pub(crate) use pricing::spell_increase;
@@ -30,6 +31,7 @@ mod tests;
 pub use intrinsic::*;
 pub use lands::*;
 pub(crate) use payment::*;
+pub(crate) use permissions::*;
 pub(crate) use pricing::{activation_increase, face_adjustment, face_increase, spell_adjustment};
 pub use pricing::{
     commander_tax, convoke_sources, delve_sources, keyword_reduction, mana_is_wild, mana_spending,
@@ -498,10 +500,10 @@ pub(crate) fn face_timing_allows(
     def: &baylee_cards_dsl::CardDef,
     face: usize,
 ) -> bool {
-    def.faces
-        .get(face)
-        .is_some_and(|f| timing_allows(state, player, f.types, def.keywords_for_face(face)))
-        && spell_condition_allows(state, player, card, def, face)
+    def.faces.get(face).is_some_and(|f| {
+        timing_allows(state, player, f.types, def.keywords_for_face(face))
+            && permitted_spell_types(state, player, card, f.types, face)
+    }) && spell_condition_allows(state, player, card, def, face)
 }
 
 /// "Cast this spell only [when]" (CR 506.7; Berserk's "only before the
@@ -773,6 +775,7 @@ pub(crate) fn can_cast_form_paying(
     // way.
     let printed = obj.card.and_then(|c| lookup.card(c.index));
     let front_now = !c.types.contains(TypeSet::LAND)
+        && permitted_spell_types(state, player, card, c.types, 0)
         && timing_allows(state, player, c.types, c.keywords)
         && printed.is_none_or(|def| spell_condition_allows(state, player, card, def, 0));
     let a_back_face_now = printed.is_some_and(|def| {
@@ -857,13 +860,24 @@ pub(crate) fn can_cast_form_paying(
         } else {
             probe(&ManaCost::ZERO)
         };
-        return if payable {
+        let back_payable = printed.is_some_and(|def| {
+            castable_back_faces(def, on_adventure).any(|(face, _)| {
+                face_timing_allows(state, player, card, def, face)
+                    && face_has_a_legal_target(state, lookup, player, card, face)
+                    && free_face_affordable(state, player, card, def, face)
+            })
+        });
+        return if (front_now && payable) || back_payable {
             Ok(())
         } else {
             Err(CastError::NotEnoughMana)
         };
     }
     let probe_back = |def: &baylee_cards_dsl::CardDef, i: usize| {
+        let restricted = planning_pool(state, player, SpendFor::SpellOnFace(card, i), 0);
+        let pool = restricted
+            .as_ref()
+            .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
         let face = &def.faces[i];
         let adjustment = face_adjustment(state, player, card, def, i, None);
         let tax = adjustment.increase;

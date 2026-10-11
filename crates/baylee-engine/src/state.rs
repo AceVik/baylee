@@ -469,9 +469,6 @@ pub struct PerTurn {
     /// (CR 400.7) and is no longer one of them. Written by
     /// [`GameState::draw_cards`] and nothing else.
     pub drawn: Vec<(ObjectId, u32)>,
-    /// Permissions to play a particular card this turn (Dauthi Voidwalker,
-    /// Expressive Iteration). See [`PlayPermission`].
-    pub playable: Vec<PlayPermission>,
     /// How many times each ability of each object has resolved this turn
     /// (Nissa, Resurgent Animist's "the second time this ability has
     /// resolved this turn"). Written by the stack's resolution of an
@@ -537,16 +534,8 @@ pub struct AbilityResolved {
     pub times: u32,
 }
 
-/// "You may play that card this turn" — a permission an effect gives one
-/// player for one card, wherever it lies (CR 305.1 plays a land from the
-/// hand; this widens it for one object).
-///
-/// It lives in [`PerTurn`] rather than on the object as a rider because
-/// "this turn" is exactly the lifetime `PerTurn::reset` gives it, and it
-/// names the object's `version` because the permission is for that object
-/// and no later one: once the card is cast, played or moved it is a new
-/// object (CR 400.7) and the permission is spent, which the version compare
-/// says without anyone having to remove the entry.
+/// Permission to play one exact card incarnation (CR 400.7).
+/// Its lifetime is independent of its source and of per-turn counters.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct PlayPermission {
     /// Who may play it.
@@ -563,6 +552,10 @@ pub struct PlayPermission {
     /// (CR 601.1a), and this permission is the second half only, so a land
     /// exiled under it stays where it is (a land is never cast, CR 305.9).
     pub cast_only: bool,
+    /// Type restriction on the spell being cast, not the card's front face.
+    pub spell_types: Option<baylee_core::types::TypeSet>,
+    /// Lifetime measured against `player`'s actual turns.
+    pub window: baylee_cards_dsl::PlayWindow,
 }
 
 impl PerTurn {
@@ -585,7 +578,6 @@ impl PerTurn {
             drew_in_draw_step: false,
             entered_battlefield: Vec::new(),
             drawn: Vec::new(),
-            playable: Vec::new(),
             resolved: Vec::new(),
             graveyard_plays: Vec::new(),
             entered_graveyard: Vec::new(),
@@ -652,7 +644,6 @@ impl PerTurn {
         self.creatures_died = 0;
         self.entered_battlefield.clear();
         self.drawn.clear();
-        self.playable.clear();
         self.resolved.clear();
         self.graveyard_plays.clear();
         self.entered_graveyard.clear();
@@ -804,6 +795,8 @@ pub struct GameState {
     /// Bowmasters): noncreature spells cast and cards drawn per player this
     /// turn, reset at every turn start.
     pub per_turn: PerTurn,
+    /// Exact-card play permissions, some lasting across several turns.
+    pub play_permissions: Vec<PlayPermission>,
     /// Registered delayed triggers (suspend finishes, pact payments).
     pub delayed: Vec<DelayedTrigger>,
     /// Lands marked by a particular source incarnation; survives its departure.
@@ -1239,6 +1232,7 @@ impl GameState {
             turn,
             combat,
             per_turn,
+            play_permissions,
             delayed,
             counter_links,
             ltb_versions,
@@ -1324,6 +1318,7 @@ impl GameState {
             ("state.turn", format!("{turn:?}")),
             ("state.combat", format!("{combat:?}")),
             ("state.per_turn", format!("{per_turn:?}")),
+            ("state.play_permissions", format!("{play_permissions:?}")),
             ("state.delayed", format!("{delayed:?}")),
             ("state.counter_links", format!("{counter_links:?}")),
             ("state.ltb_versions", format!("{ltb_versions:?}")),

@@ -3,9 +3,8 @@
 //! Oracle: Tap an untapped artifact you control: Add {U}.
 //! Oracle: {5}: Shuffle your library, then exile the top card. Until end of turn, you may play that card without paying its mana cost.
 //! Set: CMM #130 — Commander Masters | Scryfall ID: 7b7a348a-51f7-4dc5-8fe7-1c70fea5e050 | Oracle ID: e87906d2-db1a-4e19-b910-adb4eb339945
-// PARTIAL — ETB creates a 0/0 Construct artifact creature with +1/+1 per
-// artifact you control; tapping an untapped artifact you control adds {U};
-// the {5} shuffle/exile/cast activation has no Effect variant.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -18,10 +17,7 @@ card!(
     scryfall_id = "7b7a348a-51f7-4dc5-8fe7-1c70fea5e050",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Partial(
-        "the {5} activation is not expressible: playing an exiled card without \
-         paying its mana cost has no Effect",
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Urza, Lord High Artificer",
         mana_cost = mana!("{2}{U}{U}"),
@@ -45,9 +41,22 @@ card!(
             cost!(TapOther(&Filter::YOUR_ARTIFACT)),
             &[Effect::mana(ManaColor::Blue, 1)]
         ),
-        // NOT SUPPORTED: "{5}: Shuffle your library, then exile the top card.
-        // Until end of turn, you may play that card without paying its mana
-        // cost." — no Effect grants temporary permission to play an exiled
-        // card without paying its mana cost.
+        activated!(
+            cost!("{5}"),
+            &[
+                Effect::ShuffleLibrary {
+                    who: PlayerRel::You
+                },
+                Effect::ExileTopToPlay {
+                    who: PlayerRel::You,
+                    play: ExilePlay {
+                        count: 1,
+                        window: PlayWindow::ThisTurn,
+                        free: true,
+                        spell_types: None,
+                    }
+                },
+            ]
+        ),
     ],
 );

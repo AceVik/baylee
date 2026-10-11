@@ -365,16 +365,15 @@ fn gloom_play_permission_and_paid_effect_cast_each_charge_once() {
             .unwrap();
         let version = e.state.object(card).unwrap().version;
         if free {
-            e.state
-                .per_turn
-                .playable
-                .push(crate::state::PlayPermission {
-                    player: p,
-                    card,
-                    version,
-                    free: true,
-                    cast_only: true,
-                });
+            e.state.play_permissions.push(crate::state::PlayPermission {
+                player: p,
+                card,
+                version,
+                free: true,
+                cast_only: true,
+                spell_types: None,
+                window: baylee_cards_dsl::PlayWindow::ThisTurn,
+            });
             add_mana(&mut e, p, ManaColor::Colorless, 2);
             assert!(!priority_offer(&e).castable.contains(&card));
             add_mana(&mut e, p, ManaColor::Colorless, 1);

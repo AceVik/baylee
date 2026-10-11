@@ -73,6 +73,17 @@ impl<L: CardLookup> Engine<L> {
             matches!(fx.duration, baylee_cards_dsl::Duration::UntilYourNextTurn)
                 && fx.controller == new_active
         });
+        self.state.play_permissions.retain_mut(|permission| {
+            use baylee_cards_dsl::PlayWindow;
+            if permission.player == new_active {
+                match permission.window {
+                    PlayWindow::UntilYourNextTurn => return false,
+                    PlayWindow::ThroughYourNextTurn => permission.window = PlayWindow::ThisTurn,
+                    PlayWindow::ThisTurn => {}
+                }
+            }
+            true
+        });
         self.state.per_turn.reset();
         self.state.per_turn.untapped_lands_at_start =
             u32::try_from(untapped_lands).unwrap_or(u32::MAX);

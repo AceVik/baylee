@@ -86,6 +86,7 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::Cascade
         | Effect::Discover { .. }
         | Effect::ExileTopMayCast { .. }
+        | Effect::ExileTopToPlay { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::PayLifeOrPutBackDrawn { .. }

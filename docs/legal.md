@@ -898,3 +898,12 @@ against the official rulings served by [Scryfall](https://api.scryfall.com/cards
 and against CR 105.4, 303.4m and 608.2h. Public hand browsing uses the existing
 card text and image paths; this batch introduces no assets or copied scripts.
 The policy review and explicit owner decision above continue to apply.
+
+Batch 29 completes Urza, Lord High Artificer, Cori Mountain Monastery and Nivix,
+Aerie of the Firemind. Nivix's duration and normal payment/timing restrictions
+were checked against the official rulings served by
+[Scryfall](https://api.scryfall.com/cards/a025a42d-cbcc-4bd2-9331-5c7dc677da20/rulings).
+The current Comprehensive Rules supply 400.7, 514.2, 601.3e and 614.10a for exact
+card identity, cleanup, alternate spell characteristics and skipped turns.
+No media, printing identifiers or corpus scripts are added. The existing policy
+review and explicit owner decision continue to apply.

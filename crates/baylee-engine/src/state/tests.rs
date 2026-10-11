@@ -913,13 +913,15 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
                 types: baylee_core::types::TypeSet::LAND,
             });
         }),
-        ("per_turn.playable", |s, id| {
-            s.per_turn.playable.push(PlayPermission {
+        ("play_permissions", |s, id| {
+            s.play_permissions.push(PlayPermission {
                 player: PlayerId::new(0),
                 card: id,
                 version: 0,
                 free: true,
                 cast_only: false,
+                spell_types: None,
+                window: baylee_cards_dsl::PlayWindow::ThisTurn,
             });
         }),
         ("delayed", |s, _| {

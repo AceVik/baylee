@@ -23,7 +23,7 @@ impl<L: CardLookup> Engine<L> {
         // behind to unwind.
         let cast =
             crate::casting::face_has_a_legal_target(&self.state, &self.lookup, controller, card, 0)
-                && self.start_permitted_free_cast(controller, card).is_ok();
+                && self.start_free_cast(controller, card).is_ok();
         if !cast && let Some(owner) = in_exile(&self.state) {
             // "…that weren't cast on the bottom of your library."
             let _ = self.state.move_object(

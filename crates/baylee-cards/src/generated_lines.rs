@@ -20232,8 +20232,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Nivix, Aerie of the Firemind
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -35104,8 +35104,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Urza, Lord High Artificer
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(0), Some(1)],
+        stackable: 2,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50499,8 +50499,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Cori Mountain Monastery
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

@@ -16,6 +16,7 @@ use crate::choice::{
 use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec};
 use baylee_core::mana::ManaCost;
 
+mod permissions;
 mod pricing;
 use pricing::FrozenReduction;
 
@@ -667,21 +668,12 @@ impl<L: CardLookup> Engine<L> {
         }
         // The modes a free cast may choose, as `start_free_cast` offers them
         // (`free_modes`): each at no cost, a spree's sets with their own.
-        let modal_only = casting::modes_are_the_only_way(def, 0);
-        let options = if modal_only {
-            self.free_modes(player, card, def)
-        } else {
-            self.free_normal_options(player, card)
-        };
+        let options = self.permitted_free_options(player, card, def);
         if options.is_empty() {
             return Err(EngineError::IllegalAction("no way to cast this spell"));
         }
         let single = options.len() <= 1;
-        let option = if modal_only {
-            options.first().map(|o| o.kind)
-        } else {
-            Some(CastModeKind::Normal)
-        };
+        let option = options.first().map(|o| o.kind);
         let wizard = CastWizard {
             card,
             player,
@@ -1243,6 +1235,15 @@ impl<L: CardLookup> Engine<L> {
         // priced and cast it. CR 715.3d is the rule it broke.
         let on_adventure = casting::adventure_only_permission(&self.state, player, card);
         for (i, _) in casting::castable_back_faces(def, on_adventure) {
+            let restricted = casting::planning_pool(
+                &self.state,
+                player,
+                casting::SpendFor::SpellOnFace(card, i),
+                0,
+            );
+            let pool = restricted
+                .as_ref()
+                .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
             if (defer_mana
                 || casting::affordable(&self.state, player, pool, &back_price(i).with_x(0)))
                 && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
@@ -1309,8 +1310,9 @@ impl<L: CardLookup> Engine<L> {
         // offered as the Adventure alone. Renumbered, because an option's
         // index is its place in this list.
         let front = obj.characteristics();
-        let front_now = (commanded
-            || casting::timing_allows(&self.state, player, front.types, front.keywords))
+        let front_now = casting::permitted_spell_types(&self.state, player, card, front.types, 0)
+            && (commanded
+                || casting::timing_allows(&self.state, player, front.types, front.keywords))
             && casting::spell_condition_allows(&self.state, player, card, def, 0);
         options.retain(|o| match o.kind {
             CastModeKind::PlayLandFace(_) => true,
@@ -2943,6 +2945,7 @@ fn spend_for(wizard: &CastWizard, face: &baylee_cards_dsl::FaceDef) -> casting::
         return casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Disguise);
     }
     match wizard.option {
+        Some(CastModeKind::Face(face)) => casting::SpendFor::SpellOnFace(wizard.card, face),
         Some(CastModeKind::Prototype) => casting::SpendFor::SpellAs(
             wizard.card,
             casting::SpellForm::Prototype(face.prototype.expect("prototype option")),

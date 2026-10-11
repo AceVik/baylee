@@ -20,12 +20,14 @@ fn grant_permission(
     cast_only: bool,
 ) {
     if let Some(version) = state.object(card).map(|o| o.version) {
-        state.per_turn.playable.push(crate::state::PlayPermission {
+        state.play_permissions.push(crate::state::PlayPermission {
             player,
             card,
             version,
             free,
             cast_only,
+            spell_types: None,
+            window: baylee_cards_dsl::PlayWindow::ThisTurn,
         });
     }
 }
@@ -63,6 +65,43 @@ pub(super) fn exile_top_may_cast(
                 }))
         {
             grant_permission(state, you, top, false, true);
+        }
+    }
+    None
+}
+
+/// Exile up to the requested count; empty libraries never cause a draw loss.
+pub(super) fn exile_top_to_play(
+    state: &mut GameState,
+    res: &Resolution,
+    who: PlayerRel,
+    play: baylee_cards_dsl::ExilePlay,
+) -> Option<Pending> {
+    for player in players_of(who, state, res.controller, res) {
+        for _ in 0..play.count {
+            let Some(&card) = state.zones.list(ZoneLocation::Library(player)).last() else {
+                break;
+            };
+            if state
+                .move_object(
+                    card,
+                    ZoneLocation::Exile(player),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .is_ok()
+                && let Some(object) = state.object(card)
+            {
+                state.play_permissions.push(crate::state::PlayPermission {
+                    player: res.controller,
+                    card,
+                    version: object.version,
+                    free: play.free,
+                    cast_only: play.spell_types.is_some(),
+                    spell_types: play.spell_types,
+                    window: play.window,
+                });
+            }
         }
     }
     None

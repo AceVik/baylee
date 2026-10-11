@@ -3722,3 +3722,36 @@ land type"; both are convention tests that fire on a first try.
 - Keep the same package selection, including baylee-seat, in following test
   builds. Adding its test dependencies changed feature unification and rebuilt
   Bevy once (2m43s); subsequent builds reused dependencies (33–43s).
+
+### Card completion batch 29 — exile play windows and prospective spell faces
+
+- Complete Urza, Lord High Artificer, Cori Mountain Monastery and Nivix, Aerie
+  of the Firemind using one exile/play operation. Permissions retain the exact
+  card incarnation and expire either this cleanup, at the next actual own turn
+  start, or in that next turn's cleanup. Skipped turns do not consume a window;
+  extra turns do. Both snapshot hashing and diagnostic fingerprints include
+  the permissions separately from per-turn counters.
+- A mixed spell/land card had its cast offer suppressed whenever its land face
+  was playable. Offer the two independently. Nivix restricts the prospective
+  spell face, allowing an instant Adventure without permitting its creature
+  front. Urza offers both castable faces with zero mana cost and correct taxes;
+  a single legal back face stays that face instead of defaulting to Normal.
+- Restricted mana and spend riders previously inspected the front face during
+  some back-face casts. Share a prospective-object reader between these paths,
+  borrowing normal objects and projecting only alternate forms. Both the paid
+  and waived-cost probes now use the same face as the actual payment.
+- The full regression run caught cascade calling the priority-time free-cast
+  entry point. Route cascade through the existing resolution-time entry point;
+  its creature cast remains legal while the cascade and original spell occupy
+  the stack. Keep alternate-face projection out of the common mana path when
+  the pool contains no restricted or rider-bearing mana.
+- All 5,577 engine tests pass (two intentional ignores), including printed card
+  scenarios, extra/skipped turn boundaries, source departure, incarnation
+  changes, dual land/spell offers, Adventures, free-cast taxes and the existing
+  cascade regressions. Card/DSL/codegen suites pass (134/70/275); workspace
+  clippy passes with dev controls. The generated ability table has 4,461 lines.
+- The nested-effect guard and all 3,321 printing/header validations pass.
+  Register the new operation in the optional-clause validator: its permission
+  is optional because the player may later play the card or leave it exiled,
+  not because exiling itself prompts for confirmation. Format and xtask lints
+  pass after that validator update.

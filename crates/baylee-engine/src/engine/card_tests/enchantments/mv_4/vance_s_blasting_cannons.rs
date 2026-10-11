@@ -99,8 +99,7 @@ fn cannons_exiles_at_upkeep_and_cast_permission_expires_and_never_plays_lands() 
         } else {
             assert!(
                 !e.state()
-                    .per_turn
-                    .playable
+                    .play_permissions
                     .iter()
                     .any(|permission| permission.card == top)
             );

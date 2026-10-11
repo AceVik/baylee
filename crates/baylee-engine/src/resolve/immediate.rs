@@ -1622,6 +1622,9 @@ pub(super) fn exec_immediate(
         // owner's exile face up, and the controller may cast it this turn.
         // A permission for that object and no later one (`PlayPermission`),
         // so a card that moves again is not cast under it (CR 400.7).
+        Effect::ExileTopToPlay { who, play } => {
+            permissions::exile_top_to_play(state, res, who, play)
+        }
         Effect::ExileTopMayCast { who, nonland_only } => {
             permissions::exile_top_may_cast(state, res, who, nonland_only)
         }

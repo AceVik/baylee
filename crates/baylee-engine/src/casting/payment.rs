@@ -200,6 +200,8 @@ impl SpellForm {
 pub(crate) enum SpendFor {
     /// Casting this spell (CR 601.2h).
     Spell(ObjectId),
+    /// A different face announced before the card physically reaches the stack.
+    SpellOnFace(ObjectId, usize),
     /// An announced prototype or face-down creature.
     SpellAs(ObjectId, SpellForm),
     /// Activating an ability of this source (CR 602.2b, CR 113.7).
@@ -207,6 +209,39 @@ pub(crate) enum SpendFor {
     /// Anything else that costs mana: suspend (a special action, CR 116.2f),
     /// an "unless you pay", echo, a pact. No restriction names these.
     Other,
+}
+
+/// Borrow the ordinary spell; clone only an alternative projection needed by mana rules.
+fn spending_object(
+    state: &GameState,
+    what: SpendFor,
+) -> Option<std::borrow::Cow<'_, crate::object::GameObject>> {
+    use crate::state::CardLookup;
+    use std::borrow::Cow;
+    let (card, form, face) = match what {
+        SpendFor::Spell(card) | SpendFor::Ability(card) => (card, None, None),
+        SpendFor::SpellAs(card, form) => (card, Some(form), None),
+        SpendFor::SpellOnFace(card, face) => (card, None, Some(face)),
+        SpendFor::Other => return None,
+    };
+    let original = state.object(card)?;
+    if let Some(form) = form {
+        return Some(Cow::Owned(form.project(original)));
+    }
+    if let Some(face) = face {
+        let def = state.bases.card(original.card?.index)?;
+        def.faces.get(face)?;
+        let mut projected = original.clone();
+        projected.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+            def,
+            face,
+            original.base.name,
+        ));
+        projected.cache.clear();
+        projected.face_index = u8::try_from(face).ok()?;
+        return Some(Cow::Owned(projected));
+    }
+    Some(Cow::Borrowed(original))
 }
 
 /// The restricted mana in `player`'s pool that may pay for `what`, in pool
@@ -222,24 +257,24 @@ pub(super) fn admitted(
     player: PlayerId,
     what: SpendFor,
 ) -> SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]> {
-    let (card, form, ability) = match what {
-        SpendFor::Spell(card) => (card, None, false),
-        SpendFor::SpellAs(card, form) => (card, Some(form), false),
-        SpendFor::Ability(source) => (source, None, true),
-        SpendFor::Other => return SmallVec::new(),
-    };
-    let Some(original) = state.object(card) else {
+    if state.players[usize::from(player.get())]
+        .mana_pool
+        .restricted()
+        .is_empty()
+    {
+        return SmallVec::new();
+    }
+    let Some(spell) = spending_object(state, what) else {
         return SmallVec::new();
     };
-    let projected = form.map(|f| f.project(original));
-    let spell = projected.as_ref().unwrap_or(original);
+    let ability = matches!(what, SpendFor::Ability(_));
     state.players[player.get() as usize]
         .mana_pool
         .restricted()
         .iter()
         .filter_map(|mana| {
             let provenance = state.restriction_info.get(&mana.restriction.0)?;
-            provenance.admits(state, spell, ability).then_some((
+            provenance.admits(state, &spell, ability).then_some((
                 *mana,
                 provenance.context.source,
                 provenance.restriction.rider,
@@ -260,23 +295,26 @@ pub(super) fn ridden_for(
     player: PlayerId,
     what: SpendFor,
 ) -> SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]> {
-    let (card, form) = match what {
-        SpendFor::Spell(card) => (card, None),
-        SpendFor::SpellAs(card, form) => (card, Some(form)),
-        _ => return SmallVec::new(),
-    };
-    let Some(original) = state.object(card) else {
+    if matches!(what, SpendFor::Ability(_) | SpendFor::Other) {
+        return SmallVec::new();
+    }
+    if state.players[usize::from(player.get())]
+        .mana_pool
+        .ridden()
+        .is_empty()
+    {
+        return SmallVec::new();
+    }
+    let Some(spell) = spending_object(state, what) else {
         return SmallVec::new();
     };
-    let projected = form.map(|f| f.project(original));
-    let spell = projected.as_ref().unwrap_or(original);
     state.players[player.get() as usize]
         .mana_pool
         .ridden()
         .iter()
         .filter_map(|mana| {
             let provenance = state.restriction_info.get(&mana.restriction.0)?;
-            provenance.admits(state, spell, false).then_some((
+            provenance.admits(state, &spell, false).then_some((
                 *mana,
                 provenance.context.source,
                 provenance.restriction.rider,
@@ -423,7 +461,7 @@ pub(crate) fn pay_mana_restricting_generic(
 ) -> Option<SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>> {
     let obligation = state.constrained_payment(player).cloned();
     let is_selected_spell = obligation.as_ref().is_some_and(|payment| match what {
-        SpendFor::Spell(card) | SpendFor::SpellAs(card, _) => {
+        SpendFor::Spell(card) | SpendFor::SpellAs(card, _) | SpendFor::SpellOnFace(card, _) => {
             payment.card.object == card && state.source_identity(card) == Some(payment.card)
         }
         _ => false,

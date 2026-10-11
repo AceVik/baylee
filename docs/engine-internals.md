@@ -1851,3 +1851,20 @@ mana and its spend riders. Gamehost exposes the matrix in `ManaPoolView` so
 automatic plans can choose Plains for a red requirement while respecting white
 requirements elsewhere in that cost. The player-facing pool still contains
 white mana; this is a payment permission, not a conversion ability.
+
+### Timed permissions for exiled cards
+
+`GameState::play_permissions` records the benefiting player and the exact card
+incarnation. It lives outside `PerTurn`: Nivix lasts until that player's next
+turn begins; Cori Mountain Monastery lasts through that turn's cleanup. Actual
+turn starts advance these windows after skip replacements, so skipped turns do
+not consume them and extra turns do. Cleanup expires all `ThisTurn` permissions
+and prunes entries whose card has changed incarnation (CR 400.7, 514.2, 614.10a).
+
+An optional spell-type restriction is evaluated against the face being cast,
+including Adventure characteristics (CR 601.3e). A cast-only permission cannot
+play a land. An unrestricted play permission can offer both spell and land
+faces, subject to ordinary timing and land limits. Waiving the mana cost does
+not waive cost increases or additional costs. Restricted mana and spend riders
+also inspect the prospective spell face during both the offer and payment;
+creature-only mana cannot pay the tax on a noncreature Adventure.

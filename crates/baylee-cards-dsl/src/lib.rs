@@ -45,9 +45,9 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, ColorSubject, CounterKind, Effect, ExileUntil, Find, LookRest, ManaRestriction,
-    ManaSource, ManaUse, ManaValueBound, ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest,
-    SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef, ZoneSel,
+    Amount, ColorSubject, CounterKind, Effect, ExilePlay, ExileUntil, Find, LookRest,
+    ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel,
+    ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{

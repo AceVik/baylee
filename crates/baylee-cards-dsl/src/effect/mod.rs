@@ -15,6 +15,7 @@ use baylee_core::types::{SupertypeSet, TypeSet};
 mod amount;
 mod counters;
 mod mana;
+mod play;
 mod search;
 mod targets;
 mod verbs;
@@ -22,12 +23,20 @@ mod verbs;
 pub use amount::*;
 pub use counters::*;
 pub use mana::*;
+pub use play::*;
 pub use search::*;
 pub use targets::*;
 
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Exile top library cards and grant the controller a timed play permission.
+    ExileTopToPlay {
+        /// Whose library supplies the cards.
+        who: PlayerRel,
+        /// The number of cards and the resulting permissions.
+        play: ExilePlay,
+    },
     /// Choose one or more colors during resolution and replace the recipient's colors.
     ChooseColors {
         /// Which permanent changes.

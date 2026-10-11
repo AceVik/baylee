@@ -199,8 +199,7 @@ impl<L: CardLookup> Engine<L> {
         .collect();
         cards.extend(
             self.state
-                .per_turn
-                .playable
+                .play_permissions
                 .iter()
                 .filter(|p| p.player == player)
                 .map(|p| p.card),
@@ -351,7 +350,7 @@ impl<L: CardLookup> Engine<L> {
         // permissions rather than a zone. A land is a land drop like any
         // other (CR 305.2), asked by `casting::play_land` through
         // `land_card_open`, which reads the same permission.
-        for permission in &self.state.per_turn.playable {
+        for permission in &self.state.play_permissions {
             let card = permission.card;
             if permission.player != player
                 || casting::play_permission(&self.state, player, card).is_none()
@@ -372,14 +371,15 @@ impl<L: CardLookup> Engine<L> {
             // A permission to cast and not to play (Ragavan) opens no land
             // drop, and a land it names is not cast either (CR 305.9): the
             // castable probe below says so for it.
-            if plays_as_land && !permission.cast_only {
-                if sorcery_timing
-                    && casting::has_a_land_drop_left(&self.state, player)
-                    && !legal.lands.contains(&card)
-                {
-                    legal.lands.push(card);
-                }
-            } else if !legal.castable.contains(&card)
+            if plays_as_land
+                && !permission.cast_only
+                && sorcery_timing
+                && casting::has_a_land_drop_left(&self.state, player)
+                && !legal.lands.contains(&card)
+            {
+                legal.lands.push(card);
+            }
+            if !legal.castable.contains(&card)
                 && casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
                 && self.has_a_legal_target(player, card)
             {

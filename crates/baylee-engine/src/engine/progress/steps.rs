@@ -660,6 +660,13 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
+        let arena = &self.state.arena;
+        self.state.play_permissions.retain(|permission| {
+            permission.window != baylee_cards_dsl::PlayWindow::ThisTurn
+                && arena
+                    .get(permission.card)
+                    .is_some_and(|o| o.version == permission.version)
+        });
         // Every prevention shield says "this turn" (`crate::prevention`).
         self.state.shields.clear();
         self.state.granted_actions.clear();

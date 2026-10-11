@@ -29,6 +29,7 @@ impl GameState {
             turn,
             combat,
             per_turn,
+            play_permissions,
             delayed,
             counter_links,
             ltb_versions,
@@ -146,6 +147,7 @@ impl GameState {
         monarch.hash(&mut h);
         starting_player.hash(&mut h);
         per_turn.hash(&mut h);
+        play_permissions.hash(&mut h);
         delayed.hash(&mut h);
         counter_links.hash(&mut h);
         ltb_versions.hash(&mut h);
