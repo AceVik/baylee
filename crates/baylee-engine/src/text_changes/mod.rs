@@ -220,6 +220,9 @@ impl TextChangeMap {
             },
             Modifier::AddKeyword(keywords) => Modifier::AddKeyword(self.keywords(keywords)),
             Modifier::RemoveKeyword(keywords) => Modifier::RemoveKeyword(self.keywords(keywords)),
+            Modifier::BlockableWithoutLandwalk(keywords) => {
+                Modifier::BlockableWithoutLandwalk(self.keywords(keywords))
+            }
             Modifier::AddKeywordIfCountersAtLeast {
                 kind,
                 at_least,

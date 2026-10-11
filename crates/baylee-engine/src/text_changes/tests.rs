@@ -32,6 +32,10 @@ fn replacements_compose_in_order_and_preserve_semantic_families() {
         map.keywords(KeywordSet::FORESTWALK.union(KeywordSet::FLYING)),
         KeywordSet::ISLANDWALK.union(KeywordSet::FLYING)
     );
+    assert_eq!(
+        map.modifier(Modifier::BlockableWithoutLandwalk(KeywordSet::FORESTWALK)),
+        Modifier::BlockableWithoutLandwalk(KeywordSet::ISLANDWALK)
+    );
     assert_eq!(map.color_word(Color::Green), Color::Green);
 }
 

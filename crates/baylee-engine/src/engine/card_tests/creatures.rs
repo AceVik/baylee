@@ -7,6 +7,7 @@ use crate::choice::ChoicePrompt;
 
 mod artifacts;
 mod enchantments;
+mod landwalk_permissions;
 mod legends_a;
 mod legends_b;
 mod mv_1;

@@ -304,6 +304,11 @@ pub enum Modifier {
     CantBlock(&'static crate::Filter),
     /// Extra effective power only while saddling Mounts or crewing Vehicles.
     CrewSaddlePowerBonus(i16),
+    /// Ignore the named basic landwalk abilities only when declaring blockers.
+    BlockableWithoutLandwalk(KeywordSet),
+    /// This effect's controller may target opponents and their creatures as
+    /// though they did not have hexproof; no keyword is removed (CR 609.4).
+    IgnoreOpponentsHexproof,
     /// The affected creature can't attack unless the defending player
     /// controls a permanent the filter matches (Sea Serpent: "can't attack
     /// unless defending player controls an Island"). A restriction on the
@@ -846,6 +851,8 @@ impl Modifier {
             | Self::PreventCombatDamageFrom(_)
             | Self::PreventDamageFrom(_)
             | Self::CombatDamageCantBePrevented
+            | Self::BlockableWithoutLandwalk(_)
+            | Self::IgnoreOpponentsHexproof
             | Self::CrewSaddlePowerBonus(_)
             | Self::CantBlock(_)
             | Self::CantBeBlockedBy(_)

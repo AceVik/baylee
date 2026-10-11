@@ -3274,3 +3274,12 @@ supplements artifact types already present in CR 205.3g but absent from its API.
 `CrewSaddlePowerBonus` only when the source is a Mount; crew uses the bonus only
 for a Vehicle. The bonus never changes combat power. The saddled designation
 is not copiable and expires on departure or cleanup (CR 702.171b).
+
+`BlockableWithoutLandwalk(keywords)` ignores the named basic landwalk abilities
+only for blocking. It neither removes the abilities nor overrides other evasion.
+Text changes map the land-type words in the keyword mask as usual.
+`IgnoreOpponentsHexproof` permits only the effect controller's spells and
+abilities to target their opponents and their opponents' creatures through
+hexproof. It is a continuing rules permission: new creatures are included,
+shroud remains effective, and noncreature permanents keep their hexproof
+restriction. Player hexproof blocks only opposing spells and abilities.

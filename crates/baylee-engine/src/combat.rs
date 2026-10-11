@@ -731,6 +731,34 @@ pub fn controls_land_of_type(state: &GameState, player: PlayerId, subtype: Subty
     })
 }
 
+/// Landwalk is read against this defender's lands; an as-though permission
+/// ignores only its named walks while deciding whether the creature can block.
+fn basic_landwalk_prevents_blocking(
+    state: &GameState,
+    attacker: &GameObject,
+    defending: PlayerId,
+) -> bool {
+    let keywords = attacker.characteristics().keywords;
+    let mut walks = LANDWALKS.iter().fold(K::EMPTY, |all, (walk, land)| {
+        if keywords.contains(*walk) && controls_land_of_type(state, defending, *land) {
+            all.union(*walk)
+        } else {
+            all
+        }
+    });
+    if walks.is_empty() {
+        return false;
+    }
+    for effect in state.effects.iter() {
+        if let baylee_cards_dsl::Modifier::BlockableWithoutLandwalk(ignored) = effect.modifier
+            && crate::effects::applies_to(state, effect, attacker)
+        {
+            walks = walks.difference(ignored);
+        }
+    }
+    !walks.is_empty()
+}
+
 /// Whether `defending` may block `attacker` with `blocker` (keyword
 /// restrictions included): only a creature attacking that player or one of
 /// their planeswalkers (CR 509.1a, 802.4a).
@@ -792,10 +820,7 @@ pub fn can_block(
     // controls a land of that type — that player's lands and nobody
     // else's, read as they are now (a land an effect made an Island is
     // one).
-    if LANDWALKS
-        .iter()
-        .any(|(walk, land)| kw(a, *walk) && controls_land_of_type(state, defending, *land))
-    {
+    if basic_landwalk_prevents_blocking(state, a, defending) {
         return false;
     }
     // The rest of the family (desertwalk, CR 702.14c): a land the effect's

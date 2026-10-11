@@ -674,6 +674,10 @@ pub(crate) fn check_search_tapped_matches_text(slug: &str, content: &str, proble
 /// Every entry here is a sentence the DSL says another way, and naming the
 /// way is the point: an exception with no reason is a card nobody looked at.
 pub(crate) const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
+    (
+        "Detection Tower",
+        "IgnoreOpponentsHexproof scopes the permission to its controller's spells and abilities, their opponents and those opponents' creatures",
+    ),
     ("Bleachbone Verge", "an Condition, not a filter"),
     ("Mox Opal", "metalcraft is an Condition"),
     (

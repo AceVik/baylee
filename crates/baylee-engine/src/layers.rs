@@ -1309,6 +1309,8 @@ fn apply(
             | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::ProtectionFrom(_)
         | Modifier::GrantsFlashback
+        | Modifier::BlockableWithoutLandwalk(_)
+        | Modifier::IgnoreOpponentsHexproof
         | Modifier::CrewSaddlePowerBonus(_)
         | Modifier::BoastTwice
         | Modifier::PlayerHexproof

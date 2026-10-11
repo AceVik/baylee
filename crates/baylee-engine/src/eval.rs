@@ -1365,6 +1365,15 @@ fn untargetable_by_source_object(
     })
 }
 
+/// A rule permission with a continuing set: new opponents' creatures are
+/// covered too, and losing the resolving source does not end the permission.
+fn ignores_opponents_hexproof(state: &GameState, you: PlayerId) -> bool {
+    state.effects.iter().any(|effect| {
+        effect.controller == you
+            && effect.modifier == baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof
+    })
+}
+
 /// Hexproof (CR 702.11b) and shroud (CR 702.18a): does `object` refuse to
 /// be targeted by a spell or ability `you` control?
 ///
@@ -1385,10 +1394,15 @@ pub fn untargetable_by(state: &GameState, object: ObjectId, you: PlayerId) -> bo
     if keywords.contains(baylee_cards_dsl::KeywordSet::SHROUD) {
         return true;
     }
-    // Hexproof stops opponents only (CR 702.11a), so a teammate may
+    // Hexproof stops opponents only (CR 702.11b), so a teammate may
     // target it — and in a game with no teams that is everyone else.
     keywords.contains(baylee_cards_dsl::KeywordSet::HEXPROOF)
         && state.is_opponent(obj.controller, you)
+        && !(obj
+            .characteristics()
+            .types
+            .contains(baylee_core::types::TypeSet::CREATURE)
+            && ignores_opponents_hexproof(state, you))
 }
 
 /// Whether rules-modifying effects permit this Aura to enchant the host.
@@ -1428,6 +1442,19 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
         spec,
         TargetSpec::AnyOpponent | TargetSpec::OpponentOrObject(_)
     );
+    // Build the small seat set once instead of rescanning all effects for
+    // each potential player target.
+    let mut protected = baylee_core::ids::SeatSet::new();
+    let mut ignores_hexproof = false;
+    for effect in state.effects.iter() {
+        match effect.modifier {
+            baylee_cards_dsl::Modifier::PlayerHexproof => protected.insert(effect.controller),
+            baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof if effect.controller == you => {
+                ignores_hexproof = true;
+            }
+            _ => {}
+        }
+    }
     state
         .players
         .iter()
@@ -1441,12 +1468,8 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
             if opponents_only && !state.is_opponent(p.id, you) {
                 return false;
             }
-            // Player hexproof (Everybody Lives!): can't be targeted by spells
-            // or abilities at all.
-            !state.effects.iter().any(|fx| {
-                matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayerHexproof)
-                    && fx.controller == p.id
-            })
+            // Player hexproof also stops only opponents (CR 702.11c).
+            !state.is_opponent(p.id, you) || ignores_hexproof || !protected.contains(p.id)
         })
         .map(|p| p.id)
         .collect()

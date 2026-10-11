@@ -3911,3 +3911,22 @@ land type"; both are convention tests that fire on a first try.
   completed, 276 remaining.
   Focused table reproducibility, formatting and workspace/all-targets clippy
   with dev controls also pass after the final corrections.
+
+### Partial-card completion batch 34 (2026-10-11)
+
+- Completed Ur-Drago, Lord Magnus and Detection Tower with scoped as-though
+  permissions. Preserve landwalk and hexproof on the affected objects: the
+  permission changes blocking or targeting, not the object's abilities.
+- Tower's permission belongs to its activating controller and covers opposing
+  players and creatures, including creatures or hexproof arriving later. It
+  neither bypasses shroud nor opens hexproof noncreature permanents. Its effect
+  survives the land and ends at cleanup. Text changes map the named landwalks.
+- Player hexproof now excludes only opponents' targeting: the protected player
+  and teammates retain permission. Collect player protections and the caster's
+  permission in one effect pass instead of scanning effects for each player.
+- Validation: all 5,620 engine tests pass (two intentional ignores), plus 134
+  card, 71 DSL and 275 codegen tests. After extracting the blocking helper,
+  the 38 combat tests and four Tower/landwalk regressions pass again. All
+  3,321 printing validations, table reproducibility, formatting and workspace
+  all-targets clippy with dev controls pass. Original Partial inventory: 267
+  completed, 273 remaining.

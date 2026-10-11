@@ -959,3 +959,12 @@ including the noncopiable, temporary saddled designation and payment-only
 Pilot power bonus. Only rules data and existing printing identifiers are added;
 no artwork or external scripts are copied. The policy review, Scryfall terms
 and explicit owner decision above remain applicable.
+
+Batch 34 completes the existing Ur-Drago, Lord Magnus and Detection Tower
+printings. CR 609.4 in the
+[current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt)
+states: “This applies only to the stated effect.” Their as-though permissions
+therefore leave the landwalk and hexproof abilities intact. CR 702.11b-c and
+702.14c define the affected targeting and blocking restrictions. No assets,
+printing identifiers or external scripts are added; the policy review and
+explicit owner decision recorded above continue to apply.
