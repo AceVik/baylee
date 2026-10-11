@@ -54,7 +54,10 @@ fn the_filter_answers_the_name_on_the_row_and_the_one_under_it() {
         "Swamp" => Some("Sumpf".to_string()),
         _ => None,
     };
-    let names = Names { shown: &german };
+    let names = Names {
+        shown: &german,
+        ..Names::projected()
+    };
     let found = |needle: &str| {
         let mut b = Browser::new();
         b.set_filter(needle);
@@ -99,7 +102,10 @@ fn the_panel_alphabetises_and_searches_in_the_readers_own_letters() {
             same => same.to_string(),
         })
     };
-    let names = Names { shown: &german };
+    let names = Names {
+        shown: &german,
+        ..Names::projected()
+    };
 
     let mut b = Browser::new();
     b.sort_by(SortKey::Name);

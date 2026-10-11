@@ -297,3 +297,5 @@ fn settle(engine: &mut Engine<Registry>, aim: Option<ObjectId>) -> PlayerView {
     }
     panic!("seat 0 never came back to its main phase");
 }
+
+mod public_reveals;

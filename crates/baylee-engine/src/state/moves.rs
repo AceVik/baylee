@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
+use crate::object::Status;
 
 impl GameState {
     /// Returns every exiled card whose link `ends` says has ended to the
@@ -289,11 +290,34 @@ impl GameState {
     #[must_use]
     pub fn library_top_revealed(&self, player: PlayerId) -> bool {
         self.effects.iter().any(|fx| {
-            fx.controller == player
-                && matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealLibraryTop)
+            (matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::RevealAllLibraryTops
+            ) || (fx.controller == player
+                && matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealLibraryTop)))
                 && fx.source.is_none_or(|source| {
-                    self.object(source)
-                        .is_some_and(|o| o.zone == Zone::Battlefield)
+                    self.object(source).is_some_and(|o| {
+                        o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+                    })
+                })
+        })
+    }
+
+    /// Whether continuous rules reveal this player's entire hand publicly.
+    #[must_use]
+    pub fn hand_revealed(&self, player: PlayerId) -> bool {
+        !self.has_left(player) && self.hands_revealed()
+    }
+
+    /// Whether a continuous rule makes every player's hand public.
+    #[must_use]
+    pub fn hands_revealed(&self) -> bool {
+        self.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealAllHands)
+                && fx.source.is_none_or(|source| {
+                    self.object(source).is_some_and(|o| {
+                        o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+                    })
                 })
         })
     }

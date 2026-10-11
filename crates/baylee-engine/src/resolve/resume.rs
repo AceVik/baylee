@@ -880,6 +880,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ManaChoice { .. }
         | AwaitingOp::ProtectionColor { .. }
         | AwaitingOp::LandwalkChoice { .. }
+        | AwaitingOp::Colors { .. }
         | AwaitingOp::Counters { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }

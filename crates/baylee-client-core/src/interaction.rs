@@ -532,7 +532,7 @@ impl Prompt {
                 number_line(lang, *min, *max, *reason, &name)
             }
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
-            Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
+            Self::CastMode { options, .. } => cast_choice_headline(options, lang),
             Self::ChoosePile { label: None, .. } => {
                 Phrase::ChoosePileForHand.text(lang).to_string()
             }
@@ -2827,4 +2827,17 @@ impl Interaction {
                 .map_or_else(Vec::new, |a| a.amounts().to_vec()),
         }
     }
+}
+
+fn cast_choice_headline(options: &[CastModeDesc], lang: Lang) -> String {
+    let phrase = if !options.is_empty()
+        && options
+            .iter()
+            .all(|option| matches!(option.kind, baylee_engine::choice::CastModeKind::Colors(_)))
+    {
+        Phrase::ChooseColours
+    } else {
+        Phrase::ChooseHowToCast
+    };
+    phrase.text(lang).to_string()
 }

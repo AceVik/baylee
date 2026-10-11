@@ -97,6 +97,7 @@ fn masked_card_selection_uses_the_entitled_controlled_hand() {
     view.awaiting = Some(view.seat);
     view.decision_player = Some(subject);
     view.controlled_hands.push(baylee_view::SharedHand {
+        public: false,
         player: subject,
         cards: vec![hand_card(1, "Shivan Dragon")],
     });

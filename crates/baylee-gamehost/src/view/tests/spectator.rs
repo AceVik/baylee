@@ -334,6 +334,7 @@ fn a_spectator_view_carries_exactly_the_public_fields() {
             "library_tops",
             "monarch",
             "phase",
+            "revealed_hands",
             "seats",
             "seq",
             "stack",

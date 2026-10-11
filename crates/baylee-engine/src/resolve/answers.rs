@@ -720,6 +720,11 @@ pub(super) fn resume_targets_inner(
 /// The engine must validate the chosen option against the pending question.
 pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: usize) -> Flow {
     subjects::begin_resume(state, res);
+    if matches!(res.awaiting, Some(AwaitingOp::Colors { .. })) {
+        let flow = colors::resume(state, res, index);
+        subjects::flush(state, res);
+        return flow;
+    }
     let Some(AwaitingOp::ChooseEffect { choices }) = res.awaiting.take() else {
         panic!("effect choice suspended");
     };

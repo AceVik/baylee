@@ -65,6 +65,7 @@ fn raw_option_cost(
         Some(CastModeKind::Dash) => face.dash.expect("dash"),
         Some(CastModeKind::Escape) => face.escape.expect("escape").cost,
         Some(CastModeKind::PlayLandFace(_)) => ManaCost::ZERO,
+        Some(CastModeKind::Colors(_)) => unreachable!("resolution choices are not spell costs"),
         Some(CastModeKind::Mode(index)) => def
             .abilities_for_face(0)
             .iter()

@@ -493,13 +493,16 @@ impl Session {
             return;
         }
         let [shown, sharing, requests, requested] = self.hands_told(seat);
-        view.shared_hands = shown
-            .iter()
-            .map(|owner| SharedHand {
-                player: owner,
-                cards: crate::view::own_hand(self.engine.state(), owner),
-            })
-            .collect();
+        for owner in shown.iter() {
+            if !view.shared_hands.iter().any(|hand| hand.player == owner) {
+                view.shared_hands.push(SharedHand {
+                    public: false,
+                    player: owner,
+                    cards: crate::view::own_hand(self.engine.state(), owner),
+                });
+            }
+        }
+        view.shared_hands.sort_by_key(|hand| hand.player);
         view.hand_shared_with = sharing;
         view.hand_requests = requests;
         view.hand_requested = requested;

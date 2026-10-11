@@ -49,3 +49,5 @@ mod weakstone;
 mod life_matrix;
 
 mod cursed_rack;
+
+mod alchor_s_tomb;

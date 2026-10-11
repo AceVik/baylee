@@ -44,3 +44,5 @@ mod wild_growth;
 mod spirit_link;
 
 mod backfire;
+
+mod dream_coat;

@@ -220,3 +220,42 @@ fn a_seat_on_no_team_has_nobody_to_ask_or_show() {
         "and changes nothing"
     );
 }
+
+#[test]
+fn public_hands_survive_private_sharing_and_are_also_available_to_agents() {
+    let p0 = PlayerId::new(0);
+    let mut preset = teamed_preset([Some(1), Some(1), Some(2), Some(2)]);
+    preset.seats[0].capabilities.dev_commands = true;
+    preset.seats[0].starting_battlefield.push(DeckEntry {
+        card: baylee_core::generated::index::REVELATION,
+        print: PrintRef::new(0),
+    });
+    let mut session = a_kept_table_from(preset, [false, false, false, true]);
+    show_to(&mut session, 1, &[0]).unwrap();
+    for seat in (0..4).map(PlayerId::new) {
+        assert_eq!(
+            hands_shown(&seat_view(&session, seat)),
+            (0..4)
+                .map(PlayerId::new)
+                .filter(|p| *p != seat)
+                .collect::<Vec<_>>()
+        );
+    }
+    let source = session.state().zones.list(ZoneLocation::Battlefield)[0];
+    session
+        .engine
+        .dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            source,
+            ZoneLocation::Graveyard(p0),
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
+        )
+        .unwrap();
+    assert_eq!(
+        hands_shown(&seat_view(&session, p0)),
+        vec![PlayerId::new(1)]
+    );
+    assert!(hands_shown(&seat_view(&session, PlayerId::new(3))).is_empty());
+}

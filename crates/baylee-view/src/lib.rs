@@ -193,8 +193,12 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 57 adds the game log's [`LogEvent::CoinFlipped`] (CR 705), a
 /// variant a reader of 56 cannot parse.
 ///
+/// Version 58 adds resolution color combinations to the engine's choice enum;
+/// older clients cannot decode that choice. Public hand reveals add defaulted
+/// fields to the player/spectator views and preserve their disclosure origin.
+///
 /// [`SubtypeSet`]: baylee_core::types::SubtypeSet
-pub const VIEW_VERSION: u32 = 57;
+pub const VIEW_VERSION: u32 = 58;
 
 // ------------------------------------------------------------------- targets
 

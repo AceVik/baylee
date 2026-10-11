@@ -105,6 +105,7 @@ fn controlled_segment_uses_subject_hand_and_drops_it_when_control_ends() {
         .build()
         .hand;
     view.controlled_hands.push(baylee_view::SharedHand {
+        public: false,
         player: PlayerId::new(1),
         cards: controlled,
     });

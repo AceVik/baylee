@@ -265,7 +265,13 @@ impl<L: CardLookup> Engine<L> {
                 if *p == player =>
             {
                 if self.resolution.as_ref().is_some_and(|res| {
-                    matches!(res.awaiting, Some(resolve::AwaitingOp::ChooseEffect { .. }))
+                    matches!(
+                        res.awaiting,
+                        Some(
+                            resolve::AwaitingOp::ChooseEffect { .. }
+                                | resolve::AwaitingOp::Colors { .. }
+                        )
+                    )
                 }) {
                     let mut res = self.resolution.take().expect("effect choice suspended");
                     match resolve::resume_effect_choice(&mut self.state, &mut res, index) {

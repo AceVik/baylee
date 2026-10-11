@@ -726,6 +726,7 @@ mod tests {
             .build();
         view.library_tops = vec![printed(19, 1, "Top Card", 19)];
         view.shared_hands = vec![SharedHand {
+            public: false,
             player: PlayerId::new(1),
             cards: ViewBuilder::new(2)
                 .with_hand(vec![("Shared Secret", 2, 20)])

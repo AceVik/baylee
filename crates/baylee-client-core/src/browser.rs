@@ -28,6 +28,8 @@
 //! way [`BoardModel`](crate::BoardModel) derives lanes from a view. Two
 //! copies of a selection cannot disagree if there is only one.
 
+mod shown_hands;
+
 use baylee_core::color::Color;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::types::{SupertypeSet, TypeSet};
@@ -63,6 +65,8 @@ pub enum BrowseZone {
     Exile(PlayerId),
     /// A seat's command zone.
     Command(PlayerId),
+    /// Another seat's hand, visible by a game rule or teammate sharing.
+    ShownHand(PlayerId),
     /// This seat's own hand, for a question about cards still in it
     /// (Library of Leng's discard): never a tab, since the hand is on the
     /// table already, only the zone its rows name.
@@ -75,7 +79,7 @@ impl BrowseZone {
     pub fn seat(self) -> Option<PlayerId> {
         match self {
             Self::Looking | Self::Battlefield | Self::Stack | Self::Hand => None,
-            Self::Graveyard(p) | Self::Exile(p) | Self::Command(p) => Some(p),
+            Self::Graveyard(p) | Self::Exile(p) | Self::Command(p) | Self::ShownHand(p) => Some(p),
         }
     }
 
@@ -114,6 +118,11 @@ impl BrowseZone {
             Self::Exile(p) => pile(&view.exile, p),
             Self::Command(p) => pile(&view.command, p),
             Self::Hand => view.hand.len(),
+            Self::ShownHand(p) => view
+                .shared_hands
+                .iter()
+                .find(|hand| hand.player == p)
+                .map_or(0, |hand| hand.cards.len()),
         }
     }
 
@@ -127,7 +136,7 @@ impl BrowseZone {
             Self::Graveyard(_) => Phrase::BrowseGraveyard,
             Self::Exile(_) => Phrase::BrowseExile,
             Self::Command(_) => Phrase::BrowseCommand,
-            Self::Hand => Phrase::BrowseHand,
+            Self::Hand | Self::ShownHand(_) => Phrase::BrowseHand,
         }
     }
 }
@@ -232,6 +241,8 @@ pub struct Names<'a> {
     /// the stack whose source has no text, or a client running against a
     /// gateway with no catalog behind it. The projected name stands.
     pub shown: &'a dyn Fn(&PublicObject) -> Option<String>,
+    /// Localized hand-card names, returning `None` without a catalog.
+    pub hand: &'a dyn Fn(&baylee_view::HandObject) -> Option<String>,
 }
 
 /// The answer a caller with no card text in reach has: none at all.
@@ -253,7 +264,10 @@ impl Names<'_> {
     #[must_use]
     pub fn projected() -> Names<'static> {
         static SHOWN: fn(&PublicObject) -> Option<String> = nothing_shown;
-        Names { shown: &SHOWN }
+        Names {
+            shown: &SHOWN,
+            hand: &|_| None,
+        }
     }
 }
 
@@ -1559,6 +1573,13 @@ fn zones_of(view: &PlayerView) -> Vec<BrowseZone> {
         if view.command.get(i).is_some_and(|z| !z.is_empty()) {
             out.push(BrowseZone::Command(seat));
         }
+        if view
+            .shared_hands
+            .iter()
+            .any(|hand| hand.player == seat && !hand.cards.is_empty())
+        {
+            out.push(BrowseZone::ShownHand(seat));
+        }
     }
     out
 }
@@ -1592,6 +1613,9 @@ impl Browser {
             if !self.shows(zone) {
                 continue;
             }
+            out.extend(shown_hands::rows(
+                view, zone, mine, &query, self.open, names,
+            ));
             for object in objects_in(view, zone) {
                 let shown = (names.shown)(object).unwrap_or_else(|| object.name.clone());
                 // Both names are in the facts, because they are two ways of
@@ -1861,7 +1885,7 @@ fn objects_in(view: &PlayerView, zone: BrowseZone) -> &[PublicObject] {
         BrowseZone::Command(p) => pile(&view.command, p),
         // A hand holds `HandObject`s, not public objects: `Browser::rows`
         // draws the hand cards an arrangement asks about by itself.
-        BrowseZone::Hand => &[],
+        BrowseZone::Hand | BrowseZone::ShownHand(_) => &[],
     }
 }
 

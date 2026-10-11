@@ -26,11 +26,12 @@ pub fn hand(view: &PlayerView) -> &[HandObject] {
         .map_or(&[], |h| h.cards.as_slice())
 }
 
-/// All hands explicitly entitled to this view, for identifying an offered card.
+/// All visible hands, for identification and previews; this grants no control.
 pub fn known_cards(view: &PlayerView) -> impl Iterator<Item = &HandObject> {
     view.hand
         .iter()
         .chain(view.controlled_hands.iter().flat_map(|h| &h.cards))
+        .chain(view.shared_hands.iter().flat_map(|h| &h.cards))
 }
 
 #[cfg(test)]

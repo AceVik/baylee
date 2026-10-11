@@ -587,6 +587,11 @@ pub(super) fn exec_immediate(
             });
             None
         }
+        Effect::ChooseColors {
+            subject,
+            max,
+            duration,
+        } => colors::choose(state, res, subject, max, duration),
         Effect::ChooseSourceLandwalk { duration } => Some(landwalk::choose(res, duration)),
         Effect::AtNextUpkeep { effects } => {
             state.delayed.push(crate::state::DelayedTrigger {

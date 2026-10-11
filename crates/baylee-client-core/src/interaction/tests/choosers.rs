@@ -264,3 +264,30 @@ fn inspecting_a_hand_needs_only_confirmation_and_never_selects_cards() {
         );
     }
 }
+
+#[test]
+fn choosing_colors_is_described_as_a_resolution_choice_and_submits_the_offered_index() {
+    use baylee_core::{
+        color::{Color, ColorSet},
+        mana::ManaCost,
+    };
+    use baylee_engine::choice::{CastModeDesc, CastModeKind};
+    let mut i = interaction(Pending::ChooseCastMode {
+        player: me(),
+        object: obj(1),
+        options: vec![CastModeDesc {
+            index: 0,
+            kind: CastModeKind::Colors(ColorSet::of(Color::Blue)),
+            cost: ManaCost::ZERO,
+        }],
+    });
+    for lang in [Lang::En, Lang::De] {
+        assert_eq!(
+            i.prompt().headline(lang, Turn::Mine, None, false),
+            Phrase::ChooseColours.text(lang)
+        );
+    }
+    assert!(!i.choose_index(1));
+    assert!(i.choose_index(0));
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseMode(0)));
+}

@@ -629,6 +629,7 @@ impl Effect {
             | Effect::PutFromHandOnTop { .. }
             | Effect::ModifyTargets { .. }
             | Effect::ModifySource { .. }
+            | Effect::ChooseColors { .. }
             | Effect::ChooseSourceLandwalk { .. }
             | Effect::SetSourcePTFromTarget { .. }
             | Effect::SetSourceToughness { .. }

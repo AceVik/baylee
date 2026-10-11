@@ -192,6 +192,15 @@ pub enum TargetSpec {
     PlayerOrObject(&'static Filter),
 }
 
+/// The permanent whose colors an instruction changes.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ColorSubject {
+    /// The explicitly targeted permanent.
+    Target,
+    /// The source's currently attached host, with departure LKI when needed.
+    Attached,
+}
+
 /// How many targets an ability/spell requires.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct TargetReq {

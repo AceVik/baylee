@@ -277,7 +277,9 @@ pub fn activate(duel: &mut Duel, object: ObjectId, whole: bool) -> Answer {
 /// Explain a refused hand-card gesture using facts visible to this seat.
 fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
     let view = duel.view.as_ref()?;
-    let card = baylee_client_core::decision::known_cards(view).find(|card| card.id == object)?;
+    let card = baylee_client_core::decision::hand(view)
+        .iter()
+        .find(|card| card.id == object)?;
     if crate::targeting::provably_targetless(view, card.card) {
         return Some(Phrase::CardHasNoTarget);
     }

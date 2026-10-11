@@ -482,6 +482,7 @@ pub fn player_view(
             .controlled_players
             .iter()
             .map(|player| baylee_view::SharedHand {
+                public: false,
                 player,
                 cards: own_hand(state, player),
             })
@@ -508,10 +509,9 @@ pub fn player_view(
         day_night: state.day_night.map(day_night),
         seats: seat_views(state, house_answered),
         hand: own_hand(state, seat),
-        // Empty here, in every view, and filled on the way to a socket
-        // (`Session::show_hands`): a view an agent answers from never
-        // passes that way, so no agent is ever handed a teammate's hand.
-        shared_hands: Vec::new(),
+        // Rules-revealed hands are public, including to agents. Optional
+        // teammate sharing is added separately on the socket path.
+        shared_hands: revealed_hands(state, Some(seat)),
         hand_shared_with: SeatSet::new(),
         hand_requests: SeatSet::new(),
         hand_requested: SeatSet::new(),
@@ -601,7 +601,7 @@ pub const SPECTATOR: PlayerId = PlayerId::new(u8::MAX);
 /// The table as a spectator sees it (`docs/protocol.md` §"Spectators").
 ///
 /// Its own builder rather than [`player_view`] for some seat: the type has
-/// no field a hand, a question or a looked-at card could travel in, and
+/// no field a private hand, a question or a looked-at card could travel in, and
 /// nothing here asks which seat is looking except the public-object walk,
 /// which is asked for [`SPECTATOR`], a viewer who controls nothing and is in
 /// no set. `awaiting` is the seat every other seat is told the table waits
@@ -633,6 +633,7 @@ pub fn spectator_view(
         exile: per_seat_zone(state, ZoneLocation::Exile, SPECTATOR, nobody),
         command: per_seat_zone(state, ZoneLocation::Command, SPECTATOR, nobody),
         combat: combat_view(state),
+        revealed_hands: revealed_hands(state, None),
         library_tops: state
             .players
             .iter()
@@ -641,6 +642,23 @@ pub fn spectator_view(
             .filter_map(|id| public_object(state, *id, SPECTATOR))
             .collect(),
     }
+}
+
+/// Public continuous information, not a one-time reveal or a sharing setting.
+fn revealed_hands(state: &GameState, exclude: Option<PlayerId>) -> Vec<baylee_view::SharedHand> {
+    if !state.hands_revealed() {
+        return Vec::new();
+    }
+    state
+        .players
+        .iter()
+        .filter(|player| Some(player.id) != exclude && !state.has_left(player.id))
+        .map(|player| baylee_view::SharedHand {
+            public: true,
+            player: player.id,
+            cards: own_hand(state, player.id),
+        })
+        .collect()
 }
 
 /// Teferi, Time Raveler's +1 for `seat`: its sorceries may be cast as though

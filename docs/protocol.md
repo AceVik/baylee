@@ -1205,17 +1205,19 @@ question.
 
 **The view** carries four fields, all of them per viewer:
 
-- `shared_hands`: the teammates' hands this seat is shown, each as
-  `SharedHand { player, cards }`, where `cards` are the `HandObject`s the
-  owner's own view has;
+- `shared_hands`: hands revealed by rules or voluntarily shown by teammates,
+  each as `SharedHand { player, cards, public }`, where `cards` are the
+  `HandObject`s the owner's own view has. `public` defaults to false for older
+  frames and marks rule-based visibility (for example, Revelation);
 - `hand_shared_with`: whom this seat shows its hand to;
 - `hand_requests`: the teammates asking this seat, not yet answered;
 - `hand_requested`: the teammates this seat has asked, not yet answered.
 
-A hand is in a view only while all of these hold: the owner shows it to that
+Voluntary sharing requires all of these: the owner shows the hand to that
 seat, the two are on one team, and both are still in a game that is still
-going. Every other hand, this one's for everybody else as well, stays a
-count in `SeatView::hand_count`. Its printings reach the seat in a
+going. A rule-based reveal independently makes the hand public. The union
+contains each owner once; ending the rule reveal preserves any voluntary
+sharing still in force. A hidden hand stays a count in `SeatView::hand_count`. Its printings reach the seat in a
 `GameStaticMsg` before the view that shows them. That includes a seat coming
 back from away, which may be sent a read-only snapshot.
 
@@ -1231,11 +1233,11 @@ back from away, which may be sent a read-only snapshot.
   player does. Released back to the house, it follows the first rule: every
   share made to it is withdrawn, and every request waiting on it is accepted.
 
-**No agent is handed any of it.** Only views on their way to a socket carry
-the four fields (`Session::show_hands`). The view an agent answers from is
-built by `Session::agent_view`, which never fills them, so a chair the house
-holds for an absent player is played from exactly what it was played from
-before hands could be shown (`docs/house-ai.md`).
+**Agents receive public reveals, but no voluntary disclosures.**
+`Session::agent_view` includes only rule-revealed `shared_hands` and leaves
+the three sharing/request sets empty. `Session::show_hands` adds voluntary
+shares on the socket path. The seat bridge's `house_view` retains entries
+marked `public` while removing voluntary shares (`docs/house-ai.md`).
 
 **The game log is unchanged.** Showing a hand shows the cards it holds now,
 not how they got there, so a teammate is not retold the lines naming
@@ -1765,8 +1767,10 @@ A signed-in player may watch a running table whose host allowed it
   `joined` asks for a whole snapshot (payload, view, every log line, and an
   open curtain). A lagging watch socket asks the same.
 - **What it is.** The `StateDelta`'s `view_json` is a `SpectatorView`
-  (`baylee-view`), not a `PlayerView`: a type with no field for a hand, a
-  question, a looked-at card, a clock or a policy. Its objects are built by
+  (`baylee-view`), not a `PlayerView`: a type with no field for a private hand,
+  a question, a looked-at card, a clock or a policy. `revealed_hands` holds
+  only continuously public hands and defaults to an empty list in older
+  frames. The client presents these through the existing zone browser. Its objects are built by
   `gamehost::view::spectator_view` for `SPECTATOR`, an id above
   `SeatSet::MAX_SEAT` that no player has and no seat set holds, so a
   face-down object is a blank. The log is told as to that id: every line

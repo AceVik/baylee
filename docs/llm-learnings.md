@@ -3689,3 +3689,36 @@ land type"; both are convention tests that fire on a first try.
 - After removing that unrelated file-count ceiling, all 15 phasing checks pass:
   5,563 effective passing engine tests. All 134 card tests and the 3,321-card
   printing/header validation pass after regenerating the ability-line table.
+
+### Card completion batch 28 — public information and resolution color choices
+
+- Complete Field of Dreams, Revelation, Dream Coat and Alchor's Tomb. The
+  color choice happens during resolution: all 31 nonempty combinations for
+  Dream Coat, and five single colors for the Tomb. Both replace colors
+  indefinitely. An Aura's departed ability retains its attachment's exact
+  last-known identity; returning hosts never inherit stale changes.
+- Reveal all library tops and hands through rules modifiers. Public hand
+  visibility survives optional teammate sharing and reaches spectators and
+  agents. A defaulted disclosure flag lets the seat bridge strip voluntary
+  shares while keeping public knowledge. Ending a reveal removes those
+  cards from the next view; it does not erase a still-valid teammate share.
+- Shared/public hands were never exposed by the client's zone browser.
+  Add a small browser module with localized names, original-name search,
+  previews and printed facts. Merely seeing a card never grants control.
+  Scan the reveal effects once per view, before copying any hand cards.
+- The phasing regression caught a stale visibility query between phasing out
+  and rebuilding statics. Test the source's phased-out status directly, as
+  well as its battlefield presence. The two new phasing tests now pass;
+  together with the broad run this yields 5,570 passing engine tests (two
+  intentional ignores), including all color combinations and once-per-turn
+  limits. The existing Courser of Kruphix scenario still passes.
+- Broad checks passed 1,559 client-core tests and 247 host tests. After the
+  browser cleanup and translation fix, all 58 browser tests, the choice and
+  control regressions, eight public-view tests and 40 view tests pass. Card,
+  DSL and codegen suites pass (134/70/275); the nested-effect guard and the
+  3,321-card printing/header validation also pass. Workspace clippy passes
+  with dev controls. Bump VIEW_VERSION to 58 for the new choice variant and
+  pin the updated wire shape; older sharing frames default to private.
+- Keep the same package selection, including baylee-seat, in following test
+  builds. Adding its test dependencies changed feature unification and rebuilt
+  Bevy once (2m43s); subsequent builds reused dependencies (33–43s).

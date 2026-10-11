@@ -880,6 +880,21 @@ fn cast_label(
 ) -> String {
     use baylee_engine::choice::CastModeKind as K;
     match kind {
+        K::Colors(colors) => {
+            use baylee_core::color::Color;
+            [
+                (Color::White, Phrase::ColorWhite),
+                (Color::Blue, Phrase::ColorBlue),
+                (Color::Black, Phrase::ColorBlack),
+                (Color::Red, Phrase::ColorRed),
+                (Color::Green, Phrase::ColorGreen),
+            ]
+            .into_iter()
+            .filter(|(color, _)| colors.contains(*color))
+            .map(|(_, phrase)| phrase.text(lang))
+            .collect::<Vec<_>>()
+            .join(" + ")
+        }
         K::Normal => String::new(),
         K::Kicked => Phrase::CastKicked.text(lang).to_string(),
         K::Alternative(i) => {
@@ -2458,5 +2473,36 @@ mod exact_target_tests {
             ),
             Phrase::PreviousTarget.text(Lang::De)
         );
+    }
+}
+
+#[cfg(test)]
+mod color_choice_tests {
+    use super::*;
+    use baylee_core::color::{Color, ColorSet};
+    #[test]
+    fn color_combinations_have_localized_labels_without_casting_costs() {
+        let colors = baylee_engine::choice::CastModeKind::Colors(ColorSet::from_slice(&[
+            Color::White,
+            Color::Black,
+            Color::Green,
+        ]));
+        for lang in [Lang::En, Lang::De] {
+            let expected = [Phrase::ColorWhite, Phrase::ColorBlack, Phrase::ColorGreen]
+                .map(|p| p.text(lang))
+                .join(" + ");
+            assert_eq!(
+                cast_label(
+                    colors,
+                    lang,
+                    ObjectId::new(0, 0),
+                    FaceNames {
+                        view: None,
+                        texts: None
+                    }
+                ),
+                expected
+            );
+        }
     }
 }

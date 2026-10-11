@@ -629,6 +629,8 @@ pub struct CastModeDesc {
 /// The kind of a cast option.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum CastModeKind {
+    /// A combination of colors chosen during effect resolution, not a cast mode.
+    Colors(baylee_core::color::ColorSet),
     /// Printed cost.
     Normal,
     /// Printed cost plus kicker, chosen before its replacement targets.

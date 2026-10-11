@@ -167,6 +167,10 @@ pub enum Modifier {
     PlayLandsFromLibraryTop,
     /// All players can see the top card of the controller's library.
     RevealLibraryTop,
+    /// All players can see the top card of every library.
+    RevealAllLibraryTops,
+    /// All players play with their hands revealed.
+    RevealAllHands,
     /// The effect's controller may play this many lands beyond the one the
     /// rules allow (Exploration: 1; Azusa: 2).
     ///
@@ -813,6 +817,8 @@ impl Modifier {
             | Self::CastPermanentSpellsFromGraveyard
             | Self::PermanentOfEachTypeFromGraveyard
             | Self::PlayLandsFromLibraryTop
+            | Self::RevealAllLibraryTops
+            | Self::RevealAllHands
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
@@ -1243,6 +1249,8 @@ mod tests {
             Modifier::PermanentOfEachTypeFromGraveyard,
             Modifier::PlayLandsFromLibraryTop,
             Modifier::RevealLibraryTop,
+            Modifier::RevealAllLibraryTops,
+            Modifier::RevealAllHands,
             Modifier::ExtraLandDrops(2),
             Modifier::OpponentsCastAsSorcery,
             Modifier::CantActivate,

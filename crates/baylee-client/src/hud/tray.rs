@@ -1299,18 +1299,27 @@ pub(super) fn spawn_tray(
     // and the texts and so has nowhere to live but the call.
     let shown =
         |object: &baylee_view::PublicObject| Some(crate::face::name_of(object, view, faces.texts));
-    let mut rows = browser.rows(view, interaction, Names { shown: &shown });
-    // A card still in the hand (Library of Leng's discard) is named as the
-    // hand names it: in the player's language where the text is in, else
-    // the printed name.
+    let hand_name = |card: &baylee_view::HandObject| {
+        let text = faces.texts.face(card.card.index, card.card.face);
+        Some(baylee_client_core::card_face::shown_name(&card.name, text.as_ref()).to_string())
+    };
+    let mut rows = browser.rows(
+        view,
+        interaction,
+        Names {
+            shown: &shown,
+            hand: &hand_name,
+        },
+    );
+    // Own-hand arrangement rows are not browser tabs but use the same wording.
     for row in rows
         .iter_mut()
         .filter(|row| row.zone == baylee_client_core::BrowseZone::Hand)
     {
-        if let Some(card) = view.hand.iter().find(|h| h.id == row.id) {
-            let text = faces.texts.face(card.card.index, card.card.face);
-            row.name =
-                baylee_client_core::card_face::shown_name(&card.name, text.as_ref()).to_string();
+        if let Some(card) = baylee_client_core::decision::known_cards(view).find(|h| h.id == row.id)
+            && let Some(name) = hand_name(card)
+        {
+            row.name = name;
         }
     }
     // The sheet's own cards are on no table and in no board model — a library
@@ -2541,7 +2550,11 @@ fn spawn_row(
     commands.entity(slot).add_child(pips);
 
     // ---- the type line ----
-    let built = view.object(row.id).map(|o| faces.facts(o));
+    let built = view.object(row.id).map(|o| faces.facts(o)).or_else(|| {
+        baylee_client_core::decision::known_cards(view)
+            .find(|h| h.id == row.id)
+            .map(|h| crate::face::of_hand(h, faces.texts))
+    });
     let types = built
         .as_ref()
         .map_or_else(String::new, |f| f.type_line.clone());
@@ -2856,7 +2869,11 @@ fn spawn_cost(
             Pickable::IGNORE,
         ))
         .id();
-    let built = view.object(row.id).map(|o| faces.facts(o));
+    let built = view.object(row.id).map(|o| faces.facts(o)).or_else(|| {
+        baylee_client_core::decision::known_cards(view)
+            .find(|h| h.id == row.id)
+            .map(|h| crate::face::of_hand(h, faces.texts))
+    });
     for symbol in built.iter().flat_map(|face| face.cost.iter()) {
         let pip = crate::manaui::spawn_pip(
             commands,

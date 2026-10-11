@@ -891,3 +891,10 @@ Giant Slug definitions using the current Comprehensive Rules, including
 603.7b-e for delayed triggers and 612.1/612.3 for text and granted abilities.
 It adds no media, printing identifiers, copied scripts or external assets;
 the policy review and owner decision recorded above continue to apply.
+
+Batch 28 completes Field of Dreams, Revelation, Dream Coat and Alchor's Tomb.
+Dream Coat's permanent color change and allowed combinations were checked
+against the official rulings served by [Scryfall](https://api.scryfall.com/cards/07edbbf4-c3d6-4ec1-ae9b-4ae202fb6998/rulings),
+and against CR 105.4, 303.4m and 608.2h. Public hand browsing uses the existing
+card text and image paths; this batch introduces no assets or copied scripts.
+The policy review and explicit owner decision above continue to apply.

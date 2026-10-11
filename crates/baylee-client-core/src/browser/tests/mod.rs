@@ -63,3 +63,5 @@ fn drawn_on_the_table(view: &PlayerView) -> Vec<ObjectId> {
     ids.extend(board.hand.iter().map(|c| c.id));
     ids
 }
+
+mod shown_hands;

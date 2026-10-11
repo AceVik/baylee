@@ -22,6 +22,7 @@ use smallvec::SmallVec;
 
 mod attachments;
 mod chosen;
+mod colors;
 mod control;
 mod counters;
 mod equalize;

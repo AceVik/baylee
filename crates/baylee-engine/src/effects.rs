@@ -144,6 +144,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CastPermanentSpellsFromGraveyard
         | Modifier::PermanentOfEachTypeFromGraveyard
         | Modifier::PlayLandsFromLibraryTop
+        | Modifier::RevealAllLibraryTops
+        | Modifier::RevealAllHands
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
@@ -1054,6 +1056,8 @@ mod tests {
             Modifier::PermanentOfEachTypeFromGraveyard,
             Modifier::PlayLandsFromLibraryTop,
             Modifier::RevealLibraryTop,
+            Modifier::RevealAllLibraryTops,
+            Modifier::RevealAllHands,
             Modifier::ExtraLandDrops(2),
             Modifier::CantActivateArtifacts,
             Modifier::CantActivate,
@@ -1163,7 +1167,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            95,
+            97,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1227,7 +1231,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (36, 59));
+        assert_eq!((locking, all.len() - locking), (36, 61));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

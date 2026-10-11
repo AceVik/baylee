@@ -249,18 +249,13 @@ pub struct PlayerView {
     pub seats: Vec<SeatView>,
     /// The viewing seat's hand.
     pub hand: Vec<HandObject>,
-    /// The teammates' hands this seat is being shown, in seat order (#265).
+    /// Other hands revealed by game rules or voluntarily shown by teammates,
+    /// in seat order, with each owner present at most once.
     ///
-    /// Teammates may review each other's hands at any time (CR 808.5, CR
-    /// 809.7, CR 810.5). Here that is the owner's choice: a hand is in this
-    /// list only while its owner shows it to this seat
-    /// ([`SeatSetting::ShareHand`]), the two are on one team and both are
-    /// still in the game. Every other hand is a count in
-    /// [`SeatView::hand_count`], this one's as well.
-    ///
-    /// Empty in every view an agent answers from, as are the three sets
-    /// below: a seat the house plays is handed what it was handed before
-    /// hands could be shown.
+    /// Public reveals are also visible to agents and spectators. Voluntary
+    /// sharing requires a living teammate and [`SeatSetting::ShareHand`], and
+    /// is excluded from agent views. A hand disappears when neither source
+    /// of visibility applies; hidden hands expose only their count.
     ///
     /// [`SeatSetting::ShareHand`]: crate::SeatSetting::ShareHand
     pub shared_hands: Vec<SharedHand>,

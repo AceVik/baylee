@@ -28,6 +28,15 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Choose one or more colors during resolution and replace the recipient's colors.
+    ChooseColors {
+        /// Which permanent changes.
+        subject: ColorSubject,
+        /// At most this many of the five colors, and at least one (CR 105.4).
+        max: u8,
+        /// How long the chosen colors replace the old ones.
+        duration: super::Duration,
+    },
     /// Choose a basic land type now; this exact source gains that landwalk.
     ChooseSourceLandwalk {
         /// The granted keyword's lifetime.

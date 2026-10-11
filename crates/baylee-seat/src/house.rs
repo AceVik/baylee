@@ -97,9 +97,33 @@ impl Mind for HouseMind {
 pub fn house_view(mut view: PlayerView) -> PlayerView {
     view.decision_remaining_ms = None;
     view.policy_acts.clear();
-    view.shared_hands.clear();
+    view.shared_hands.retain(|hand| hand.public);
     view.hand_shared_with = SeatSet::new();
     view.hand_requests = SeatSet::new();
     view.hand_requested = SeatSet::new();
     view
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::test_support::ViewBuilder;
+    use baylee_core::ids::PlayerId;
+    #[test]
+    fn house_keeps_public_reveals_and_drops_voluntary_hand_sharing() {
+        let mut view = ViewBuilder::new(3).build();
+        for (player, public) in [(1, true), (2, false)] {
+            view.shared_hands.push(baylee_view::SharedHand {
+                player: PlayerId::new(player),
+                public,
+                cards: ViewBuilder::new(3)
+                    .with_hand(vec![("Forest", 1, u32::from(player))])
+                    .build()
+                    .hand,
+            });
+        }
+        let view = house_view(view);
+        assert_eq!(view.shared_hands.len(), 1);
+        assert_eq!(view.shared_hands[0].player, PlayerId::new(1));
+    }
 }

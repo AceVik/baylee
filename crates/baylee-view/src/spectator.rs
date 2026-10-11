@@ -1,10 +1,11 @@
 //! What a spectator is shown: the table as nobody in particular sees it.
 //!
 //! A type of its own rather than a [`PlayerView`] with fields left empty,
-//! because a field that does not exist cannot carry a hand. Everything here
+//! because private hands have no place in this type. Everything here
 //! is what every seat at the table already sees alike: the public zones, the
 //! life totals and counts, combat, and a library top only while it is
-//! revealed to everyone. No hand (only counts), no library, no face-down
+//! revealed to everyone. Continuously revealed hands are also public. No private
+//! hand (only counts), no library, no face-down
 //! card's identity, no question, no clock, nothing a choice put in front of
 //! one seat. `docs/protocol.md` §"Spectators".
 
@@ -53,6 +54,9 @@ pub struct SpectatorView {
     pub combat: CombatView,
     /// Library tops revealed to the whole table.
     pub library_tops: Vec<PublicObject>,
+    /// Hands revealed to everyone by a continuous rule, never private sharing.
+    #[serde(default)]
+    pub revealed_hands: Vec<crate::SharedHand>,
 }
 
 impl SpectatorView {
@@ -89,7 +93,7 @@ impl SpectatorView {
             day_night: self.day_night,
             seats: self.seats,
             hand: Vec::new(),
-            shared_hands: Vec::new(),
+            shared_hands: self.revealed_hands,
             hand_shared_with: SeatSet::new(),
             hand_requests: SeatSet::new(),
             hand_requested: SeatSet::new(),

@@ -6,6 +6,15 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// The recipient and offered color combinations are frozen at this instruction.
+    Colors {
+        /// Exact recipient incarnation.
+        target: baylee_core::ids::DamageSourceRef,
+        /// Combination selected by the indexed answer.
+        options: Vec<baylee_core::color::ColorSet>,
+        /// Lifetime of the color replacement.
+        duration: baylee_cards_dsl::Duration,
+    },
     /// A resolving choice, independent of any as-enters chosen subtype.
     LandwalkChoice {
         /// The granted keyword's lifetime.

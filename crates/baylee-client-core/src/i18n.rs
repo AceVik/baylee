@@ -2397,6 +2397,8 @@ messages! {
     ChooseCardName { en: "Choose a card name", de: "Wähle einen Kartennamen" },
     /// Choose a colour
     ChooseColour { en: "Choose a colour", de: "Wähle eine Farbe" },
+    /// One or several colours selected during resolution.
+    ChooseColours { en: "Choose the colour or colours", de: "Wähle die Farbe oder Farben" },
     /// Counter amount chosen while an effect resolves.
     ChooseCounters { en: "How many {0}? ({1}–{2})", de: "Wie viele {0}? ({1}–{2})" },
     /// Counter amount with the recipient named.

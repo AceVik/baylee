@@ -1138,6 +1138,21 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::Flashback => format!("Cast it with flashback for {cost}"),
         CastModeKind::Dash => format!("Cast it with dash for {cost}"),
         CastModeKind::Escape => format!("Cast it with escape for {cost}"),
+        CastModeKind::Colors(colors) => {
+            use baylee_core::color::Color;
+            let names = [
+                (Color::White, "white"),
+                (Color::Blue, "blue"),
+                (Color::Black, "black"),
+                (Color::Red, "red"),
+                (Color::Green, "green"),
+            ]
+            .into_iter()
+            .filter_map(|(color, name)| colors.contains(color).then_some(name))
+            .collect::<Vec<_>>()
+            .join(" + ");
+            format!("Choose {names}")
+        }
     }
 }
 

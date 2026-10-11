@@ -1256,6 +1256,8 @@ fn apply(
         | Modifier::CastSpellsFromGraveyard
         | Modifier::PermanentOfEachTypeFromGraveyard
         | Modifier::PlayLandsFromLibraryTop
+        | Modifier::RevealAllLibraryTops
+        | Modifier::RevealAllHands
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
