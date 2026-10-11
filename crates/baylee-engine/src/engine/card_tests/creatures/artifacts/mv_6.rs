@@ -9,3 +9,5 @@ mod limestone_golem;
 mod malachite_golem;
 mod the_reaper_king_no_more;
 mod triskelion;
+
+mod urza_s_avenger;

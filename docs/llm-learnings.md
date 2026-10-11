@@ -3347,3 +3347,24 @@ land type"; both are convention tests that fire on a first try.
 - Search for Azcanta's current Oracle header explicitly says surveil. Keep
   that keyword event, test the graveyard threshold after the surveil, and
   ask the optional transformation before granting its land-face ability.
+
+### Completion batch 14 — continuously bounded durations (2026-10-11)
+
+- Complete Phyrexian Gremlins, Old Man of the Sea, Willow Satyr, Rubinia
+  Soulsinger, Ice Floe, Tawnos's Weaponry, and Ashnod's Battle Gear through
+  one duration that records its control and relative-power restrictions.
+  Untapping, departure, and phasing end it immediately, including a change
+  reversed before the next projection. An expired effect never resumes.
+- Check duration conditions after characteristics settle, then reproject
+  after removing expired effects. Old Man's control change can itself raise
+  its recipient's power via an anthem. An effect that cannot start must not
+  briefly change control before being removed. A derived table hint skips
+  lifetime scans on boards without these effects; removed IDs are sorted.
+- Ice Floe targets the actual attacked player, excluding another player's
+  attackers and flying creatures at multiplayer tables. Keeping Floe tapped
+  must prevent its target's next untap, not merely show a leave-tapped prompt.
+- Urza's Avenger chooses a keyword on resolution and shrinks on every use,
+  even when choosing an ability it already has. Inline labels apply to
+  activated abilities as well as triggers. Osai Vultures places one carrion
+  counter per qualifying end step, independently of the number of deaths;
+  replacement effects multiply placement, not its two-counter activation cost.

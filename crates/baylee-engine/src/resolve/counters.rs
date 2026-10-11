@@ -39,6 +39,9 @@ fn modify_source(
     };
     let timestamp = state.next_timestamp();
     let filter = crate::effects::EffectFilter::object(state, source.object);
+    if !state.source_duration_holds(duration, res.source, res.controller, filter) {
+        return;
+    }
     state.effects.register(crate::effects::ContinuousEffect {
         id: baylee_core::ids::EffectId::new(0),
         source: Some(res.source),
@@ -364,7 +367,10 @@ fn pump(
 ) {
     // CR 611.2b: "for as long as this remains tapped" that is already over
     // as the pump would begin does nothing.
-    if duration == baylee_cards_dsl::Duration::WhileSourceTapped && !source_still_tapped(state, res)
+    if matches!(
+        duration,
+        baylee_cards_dsl::Duration::WhileSourceTapped { .. }
+    ) && !source_still_tapped(state, res)
     {
         return;
     }

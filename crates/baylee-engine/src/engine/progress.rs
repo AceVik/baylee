@@ -19,7 +19,7 @@ use baylee_core::preset::LoopPolicy;
 mod delayed;
 mod entering;
 mod lifetimes;
-use lifetimes::{emblem_statics, end_control_durations, forget_effects_on_moved_objects};
+use lifetimes::{emblem_statics, forget_effects_on_moved_objects};
 mod stack;
 mod statics;
 mod steps;

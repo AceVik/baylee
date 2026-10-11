@@ -2439,8 +2439,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Old Man of the Sea
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -3055,7 +3055,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Urza's Avenger
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Urza's Chalice
     &[FaceLines {
         sentences: 1,
@@ -4112,7 +4119,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Osai Vultures
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Palladia-Mors
     &[FaceLines {
         sentences: 2,
@@ -4346,8 +4360,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Rubinia Soulsinger
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -4779,8 +4793,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Willow Satyr
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],

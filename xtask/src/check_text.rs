@@ -350,6 +350,7 @@ pub(crate) fn check_optional_clauses_are_offered(
     // else's — it is the one `min` field in the whole DSL.
     const OFFERS_A_CHOICE: &[&str] = &[
         "MayDo",
+        "MayChooseNotToUntap",
         "min: 0",
         "PayLifeOrEnterTapped",
         "PlayerMayPayCostOr",

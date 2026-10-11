@@ -77,7 +77,6 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .effects
             .remove_where(|effect| stale.contains(&effect.id));
-        end_control_durations(&mut self.state);
         forget_effects_on_moved_objects(&mut self.state);
         // Collect statics of permanents not yet registered (then apply,
         // so the borrow of `state` ends before mutation).

@@ -237,6 +237,11 @@ pub struct InlineModes {
 /// sentence. See [`InlineModes`].
 pub static MODES_PRINTED_INLINE: &[InlineModes] = &[
     InlineModes {
+        card: baylee_core::generated::index::URZA_S_AVENGER,
+        face: 0,
+        words: &["banding", "flying", "first strike", "trample"],
+    },
+    InlineModes {
         card: baylee_core::generated::index::GABRIEL_ANGELFIRE,
         face: 0,
         words: &["flying", "first strike", "trample", "rampage 3"],
@@ -835,7 +840,11 @@ mod tests {
             let abilities = def.abilities_for_face(face);
             let modes = super::face_modes(abilities);
             let inline_choices = abilities.iter().find_map(|ability| {
-                let baylee_cards_dsl::AbilityDef::Triggered { effects, .. } = ability else {
+                let (baylee_cards_dsl::AbilityDef::Triggered { effects, .. }
+                | baylee_cards_dsl::AbilityDef::Activated { effects, .. }
+                | baylee_cards_dsl::AbilityDef::ActivatedConditional { effects, .. }
+                | baylee_cards_dsl::AbilityDef::Spell { effects, .. }) = ability
+                else {
                     return None;
                 };
                 effects.iter().find_map(|effect| match effect {

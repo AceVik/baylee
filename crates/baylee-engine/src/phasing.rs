@@ -73,6 +73,9 @@ impl GameState {
                 phased_out: true,
             });
         }
+        // CR 702.26f: even phasing out and back in before the next
+        // projection cannot revive a duration tracking this permanent.
+        self.expire_source_durations();
         self.invalidate_projections();
     }
 

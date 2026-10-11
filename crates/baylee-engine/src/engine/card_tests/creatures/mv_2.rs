@@ -193,3 +193,5 @@ mod zulaport_cutthroat;
 mod priest_of_yawgmoth;
 
 mod wall_of_tombstones;
+
+mod osai_vultures;

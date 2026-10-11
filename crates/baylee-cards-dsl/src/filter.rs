@@ -264,6 +264,10 @@ pub enum Filter {
     ToughnessLessThanSourcePower,
     /// Is in the given zone (cross-zone effects like Maskwood Nexus).
     InZone(ZoneRef),
+    /// Power no greater than the source's power, including equality.
+    PowerAtMostSourcePower,
+    /// Attacking the effect controller directly, not their planeswalkers.
+    AttackingYou,
 }
 
 /// Zone references for filters (engine zones, DSL view).

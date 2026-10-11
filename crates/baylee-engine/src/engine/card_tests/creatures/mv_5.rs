@@ -118,3 +118,5 @@ mod zuberi_golden_feather;
 mod the_wretched;
 
 mod aerathi_berserker;
+
+mod rubinia_soulsinger;

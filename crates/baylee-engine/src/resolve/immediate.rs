@@ -791,7 +791,7 @@ pub(super) fn exec_immediate(
         } if !source_still_yours(state, res, you) => None,
         // … and so does a "for as long as this remains tapped".
         Effect::CreateContinuousEffect {
-            duration: baylee_cards_dsl::Duration::WhileSourceTapped,
+            duration: baylee_cards_dsl::Duration::WhileSourceTapped { .. },
             ..
         } if !source_still_tapped(state, res) => None,
         Effect::CreateContinuousEffect {
@@ -800,6 +800,14 @@ pub(super) fn exec_immediate(
             modifier,
             duration,
         } => {
+            if matches!(
+                duration,
+                baylee_cards_dsl::Duration::WhileSourceTapped { .. }
+            ) && !subjects::source(state, res)
+                .is_some_and(|source| subjects::on_battlefield(state, source))
+            {
+                return None;
+            }
             let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
                 // Nothing to become anything: the ability said "target" and
                 // was activated with none, or its object is gone, so this
@@ -811,6 +819,9 @@ pub(super) fn exec_immediate(
             };
             let timestamp = state.next_timestamp();
             for filter in filters {
+                if !state.source_duration_holds(duration, res.source, you, filter) {
+                    continue;
+                }
                 state.effects.register(crate::effects::ContinuousEffect {
                     id: baylee_core::ids::EffectId::new(0),
                     source: Some(res.source),
@@ -836,6 +847,14 @@ pub(super) fn exec_immediate(
             {
                 return None;
             }
+            if matches!(
+                duration,
+                baylee_cards_dsl::Duration::WhileSourceTapped { .. }
+            ) && !subjects::source(state, res)
+                .is_some_and(|source| subjects::on_battlefield(state, source))
+            {
+                return None;
+            }
             let timestamp = state.next_timestamp();
             for &target in &res.targets {
                 let Some(object) = state.object(target) else {
@@ -850,6 +869,9 @@ pub(super) fn exec_immediate(
                     continue;
                 }
                 let filter = crate::effects::EffectFilter::object(state, target);
+                if !state.source_duration_holds(duration, res.source, you, filter) {
+                    continue;
+                }
                 state.effects.register(crate::effects::ContinuousEffect {
                     id: baylee_core::ids::EffectId::new(0),
                     source: Some(res.source),

@@ -10,6 +10,15 @@ impl GameState {
     /// # Panics
     /// Internal invariant violations (zone objects always exist).
     pub fn refresh_characteristics(&mut self) {
+        loop {
+            self.refresh_characteristics_once();
+            if !self.expire_source_durations() {
+                break;
+            }
+        }
+    }
+
+    fn refresh_characteristics_once(&mut self) {
         crate::resolve::linked_counters::expire(self);
         // Both halves of the stack shortcut below fail silently — an id
         // left in the subset is projected after its object is gone, a spell

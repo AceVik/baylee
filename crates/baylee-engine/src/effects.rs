@@ -276,11 +276,17 @@ pub struct EffectTable {
     /// Monotone performance hint; false proves there is no counter duration.
     /// Derived cache only, with no effect on rules or snapshot identity.
     may_have_counter_duration: bool,
+    /// Derived monotone hint: ordinary boards need no source-duration scan.
+    may_have_source_duration: bool,
     /// Bumped on every add/remove — the projection cache key.
     pub generation: u64,
 }
 
 impl EffectTable {
+    pub(crate) fn may_have_source_duration(&self) -> bool {
+        self.may_have_source_duration
+    }
+
     pub(crate) fn may_have_counter_duration(&self) -> bool {
         self.may_have_counter_duration
     }
@@ -291,6 +297,10 @@ impl EffectTable {
         self.next_id += 1;
         fx.id = id;
         self.may_have_counter_duration |= matches!(fx.duration, Duration::WhileCounterRemains(_));
+        self.may_have_source_duration |= matches!(
+            fx.duration,
+            Duration::WhileYouControlSource | Duration::WhileSourceTapped { .. }
+        );
         self.effects.push(fx);
         self.generation += 1;
         id
@@ -446,6 +456,7 @@ impl EffectTable {
             parked,
             next_id,
             may_have_counter_duration: _,
+            may_have_source_duration: _,
             generation,
         } = self;
         (effects, parked, *next_id, *generation)

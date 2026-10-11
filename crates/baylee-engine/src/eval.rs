@@ -142,6 +142,10 @@ pub fn matches_projected_with_context(
         // A lookup and not a scan: this arm runs once per object whenever a
         // filter is walked over the battlefield (`CombatState`'s doc).
         Filter::Attacking => state.combat.is_attacking(obj.id),
+        Filter::AttackingYou => state.combat.attackers().iter().any(|attacker| {
+            attacker.creature == obj.id
+                && attacker.defending == baylee_core::ids::Defender::Player(you)
+        }),
         // CR 702.22: in the source's band, which the attack declared.
         Filter::BandedWithSource => {
             obj.id != this
@@ -308,6 +312,11 @@ pub fn matches_projected_with_context(
         // way and for the same reason.
         Filter::PowerAtLeast(n) => chars.power.is_some_and(|p| p >= *n),
         Filter::PowerAtMost(n) => chars.power.is_some_and(|p| p <= *n),
+        Filter::PowerAtMostSourcePower => chars.power.is_some_and(|power| {
+            state
+                .object(this)
+                .is_some_and(|source| power <= source.characteristics().power.unwrap_or(0))
+        }),
         Filter::PowerLessThanSourcePower => below_source_power(chars.power, state, this),
         Filter::ToughnessLessThanSourcePower => below_source_power(chars.toughness, state, this),
         Filter::InZone(z) => {
@@ -732,6 +741,7 @@ pub fn condition_holds_with_context(
 ) -> bool {
     let source = context.source;
     match condition {
+        Condition::CreaturesDiedThisTurnAtLeast(n) => state.per_turn.creatures_died >= n,
         Condition::YourTurn => state.turn.active == you,
         Condition::LifeAtMost(n) => state.players[you.get() as usize].life <= n,
         Condition::APlayerHasMostLife => most_life(state).is_some(),

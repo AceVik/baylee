@@ -2,8 +2,8 @@
 //! Oracle: You may choose not to untap this artifact during your untap step.
 //! Oracle: {2}, {T}: Target creature you control gets +2/-2 for as long as this artifact remains tapped.
 //! Set: 4ED #296 — Fourth Edition | Scryfall ID: 0bc11285-0891-4cc3-a056-b698911166c7 | Oracle ID: b5a390fd-2864-4481-84b4-41e8fac91a80
-// IMPLEMENTED — the untap-step choice, and the +2/-2 for as long as this
-// artifact remains tapped (Duration::WhileSourceTapped).
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -21,11 +21,12 @@ card!(
         static_ability!(Filter::This, Modifier::MayChooseNotToUntap),
         activated!(
             cost!("{2}", TapSelf),
-            &[Effect::PumpTarget {
-                power: Amount::Fixed(2),
-                toughness: Amount::NegXFixed(2),
-                keywords: KeywordSet::EMPTY,
-                duration: Duration::WhileSourceTapped,
+            &[Effect::ModifyTargets {
+                modifier: Modifier::ModifyPT(2, -2),
+                duration: Duration::WhileSourceTapped {
+                    control: false,
+                    power_limited: false
+                }
             }],
             target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE))
         ),

@@ -338,6 +338,8 @@ pub enum Condition {
     /// spell cast from a graveyard with escape, or the permanent that spell
     /// became, and has not left the battlefield since (CR 702.138b).
     Escaped,
+    /// At least this many creatures died during the current turn.
+    CreaturesDiedThisTurnAtLeast(u32),
 }
 
 /// Trigger conditions for triggered abilities.

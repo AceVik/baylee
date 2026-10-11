@@ -21,6 +21,7 @@ use rustc_hash::FxHashMap;
 mod discard;
 mod draw_offer;
 mod hash;
+mod lifetimes;
 mod moves;
 mod projection;
 mod setup;
@@ -1982,6 +1983,15 @@ impl GameState {
             obj.status.insert(crate::object::Status::TAPPED);
         } else {
             obj.status.remove(crate::object::Status::TAPPED);
+        }
+        if !tapped && self.effects.may_have_source_duration() {
+            self.effects.remove_where(|effect| {
+                effect.source == Some(id)
+                    && matches!(
+                        effect.duration,
+                        baylee_cards_dsl::Duration::WhileSourceTapped { .. }
+                    )
+            });
         }
         self.board_state_changed();
         true

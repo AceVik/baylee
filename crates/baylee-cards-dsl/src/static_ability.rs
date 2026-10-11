@@ -897,12 +897,6 @@ pub enum Duration {
     /// effect would begin never starts, and the effect does nothing — the
     /// source left while the ability waited, or is somebody else's.
     WhileYouControlSource,
-    /// "For as long as this artifact remains tapped" (Ashnod's Battle Gear,
-    /// Tawnos's Weaponry, CR 611.2b): over once the source untaps, phases
-    /// out or leaves the battlefield, whoever controls it. A duration that
-    /// is already over as the effect would begin never starts — the source
-    /// untapped while the ability waited.
-    WhileSourceTapped,
     /// Until end of turn (cleanup).
     UntilEndOfTurn,
     /// Until end of combat.
@@ -944,6 +938,14 @@ pub enum Duration {
     /// controller's next upkeep step begins (CR 503), after that turn's
     /// untap step, so the effect still stands through it.
     UntilYourNextUpkeep,
+    /// Ends permanently when the source untaps or phases out (CR 611.2b,
+    /// 702.26f); optional restrictions also track control and relative power.
+    WhileSourceTapped {
+        /// The effect controller must keep controlling the source.
+        control: bool,
+        /// The affected object's power must not exceed the source's power.
+        power_limited: bool,
+    },
 }
 
 /// Replacement rules and trigger modification (CR 614; Doubling Season,

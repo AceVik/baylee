@@ -420,6 +420,8 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::CmcAtMostColorsSpent
         // Against the source's power, and the source here is a card that
         // has not been cast.
+        | Filter::AttackingYou
+        | Filter::PowerAtMostSourcePower
         | Filter::PowerLessThanSourcePower
         | Filter::ToughnessLessThanSourcePower
         // When a permanent arrived is history, and a view carries no

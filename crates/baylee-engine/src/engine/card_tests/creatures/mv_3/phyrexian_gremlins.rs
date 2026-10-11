@@ -121,3 +121,34 @@ fn phyrexian_gremlins_dying_releases_the_artifact() {
     reach_their_main_phase(&mut engine, p1);
     assert!(!is_tapped(&engine, ring), "nothing holds it down any more");
 }
+
+mod local_regressions {
+    //! Printed behavior and adversarial resolution cases.
+    #[allow(clippy::wildcard_imports)]
+    use super::*;
+    use baylee_core::generated::index;
+
+    #[test]
+    fn gremlins_tap_still_happens_if_the_lock_cannot_start() {
+        let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+        for untap_before_resolution in [false, true] {
+            let mut e = Duel::new(SEED, forest())
+                .battlefield(0, &[index::PHYREXIAN_GREMLINS])
+                .battlefield(1, &[index::MIND_STONE])
+                .start();
+            keep_mulligans(&mut e);
+            reach_main_phase(&mut e, p0);
+            let source = on_battlefield(&e, p0, index::PHYREXIAN_GREMLINS).unwrap();
+            let target = on_battlefield(&e, p1, index::MIND_STONE).unwrap();
+            activate(&mut e, p0, index::PHYREXIAN_GREMLINS, 1);
+            aim_at(&mut e, p0, target);
+            if untap_before_resolution {
+                e.dev_state_mut(p0).unwrap().set_tapped(source, false);
+            }
+            pass_until(&mut e, stack_is_empty);
+            assert!(is_tapped(&e, target));
+            reach_their_main_phase(&mut e, p1);
+            assert_eq!(is_tapped(&e, target), !untap_before_resolution);
+        }
+    }
+}

@@ -2,9 +2,8 @@
 //! Oracle: You may choose not to untap this creature during your untap step.
 //! Oracle: {T}: Tap target artifact. It doesn't untap during its controller's untap step for as long as this creature remains tapped.
 //! Set: ATQ #18 — Antiquities | Scryfall ID: 21a985a9-5612-4844-982e-fd1aa6249770 | Oracle ID: 407a0761-7ccc-4607-8df6-e744d30a81a0
-// IMPLEMENTED — the untap-step choice, the tap, and the lock that keeps the
-// artifact down for as long as this creature remains tapped
-// (Modifier::DoesNotUntap, Duration::WhileSourceTapped).
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -29,11 +28,13 @@ card!(
             Cost::TAP,
             &[
                 Effect::TapTarget,
-                Effect::continuous(
-                    &Filter::This,
-                    Modifier::DoesNotUntap,
-                    Duration::WhileSourceTapped
-                ),
+                Effect::ModifyTargets {
+                    modifier: Modifier::DoesNotUntap,
+                    duration: Duration::WhileSourceTapped {
+                        control: false,
+                        power_limited: false
+                    }
+                }
             ],
             target = Some(TargetSpec::Object(&Filter::ARTIFACT))
         ),

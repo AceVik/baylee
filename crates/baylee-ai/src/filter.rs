@@ -235,6 +235,8 @@ impl HeuristicAgent {
             | Filter::CmcAtMostX
             | Filter::CmcExactlyX
             | Filter::CmcAtMostColorsSpent
+            | Filter::AttackingYou
+            | Filter::PowerAtMostSourcePower
             | Filter::PowerLessThanSourcePower
             | Filter::ToughnessLessThanSourcePower
             | Filter::EnteredThisTurn

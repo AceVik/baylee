@@ -770,6 +770,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::ToughnessAtLeast(_)
         | Filter::PowerAtLeast(_)
         | Filter::PowerAtMost(_)
+        | Filter::PowerAtMostSourcePower
         | Filter::PowerLessThanSourcePower
         | Filter::ToughnessLessThanSourcePower => {
             matches!(
@@ -825,6 +826,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::OwnedByYou
         | Filter::Tapped
         | Filter::Untapped
+        | Filter::AttackingYou
         | Filter::Attacking
         | Filter::BandedWithSource
         | Filter::NotTargetedByAnotherNamed(_)

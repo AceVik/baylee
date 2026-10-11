@@ -121,3 +121,52 @@ fn ashnod_s_battle_gear_ends_when_it_untaps() {
     assert!(!is_tapped(&engine, gear), "the Gear untapped");
     assert_eq!(pt(&engine, giant), (3, 3), "the pump is gone");
 }
+
+mod local_regressions {
+    //! Printed behavior and adversarial resolution cases.
+    #[allow(clippy::wildcard_imports)]
+    use super::*;
+    use baylee_core::generated::index;
+
+    #[test]
+    fn tapped_artifact_pump_ends_on_the_first_untap() {
+        let p0 = PlayerId::new(0);
+        for untap_before_resolution in [false, true] {
+            let mut e = Duel::new(SEED, forest())
+                .battlefield(
+                    0,
+                    &[
+                        index::ASHNOD_S_BATTLE_GEAR,
+                        giant_spider(),
+                        forest(),
+                        forest(),
+                    ],
+                )
+                .start();
+            keep_mulligans(&mut e);
+            reach_main_phase(&mut e, p0);
+            let source = on_battlefield(&e, p0, index::ASHNOD_S_BATTLE_GEAR).unwrap();
+            let target = on_battlefield(&e, p0, giant_spider()).unwrap();
+            tap_all_mana(&mut e, p0);
+            activate(&mut e, p0, index::ASHNOD_S_BATTLE_GEAR, 1);
+            aim_at(&mut e, p0, target);
+            if untap_before_resolution {
+                e.dev_state_mut(p0).unwrap().set_tapped(source, false);
+            }
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(
+                pt(&e, target),
+                if untap_before_resolution {
+                    (2, 4)
+                } else {
+                    (4, 2)
+                }
+            );
+            let state = e.dev_state_mut(p0).unwrap();
+            state.set_tapped(source, false);
+            state.set_tapped(source, true);
+            state.refresh_characteristics();
+            assert_eq!(pt(&e, target), (2, 4));
+        }
+    }
+}

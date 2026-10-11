@@ -246,3 +246,7 @@ mod enchanted_being;
 mod time_elemental;
 
 mod gaea_s_avenger;
+
+mod old_man_of_the_sea;
+
+mod phyrexian_gremlins;
