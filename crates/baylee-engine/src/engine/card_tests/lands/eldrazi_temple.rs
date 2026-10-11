@@ -3,9 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Eldrazi Temple: "{T}: Add {C}." / "{T}: Add {C}{C}. Spend this mana only to cast colorless Eldrazi spells or activate abilities of colorless Eldrazi."
-/// Under `Coverage::Partial`, activating ability 1 adds two restricted colorless mana for colorless Eldrazi spells.
-/// The restricted mana appears in `pool.restricted()` rather than general available colorless mana.
 #[test]
 fn eldrazi_temple_adds_restricted_colorless_mana() {
     let p0 = PlayerId::new(0);

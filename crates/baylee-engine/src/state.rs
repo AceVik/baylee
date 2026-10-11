@@ -845,16 +845,8 @@ pub struct GameState {
     /// returned card has entered, with its as-it-enters choices and statics
     /// in place, and before any state-based action looks at the board.
     pub(crate) reanimation_finishes: Vec<crate::aura_bindings::ReanimationFinish>,
-    /// Restriction-id → (source, spell filter, spend rider) for
-    /// restricted mana in players' pools (Cavern, Path of Ancestry).
-    pub restriction_info: rustc_hash::FxHashMap<
-        u32,
-        (
-            ObjectId,
-            &'static baylee_cards_dsl::Filter,
-            baylee_cards_dsl::SpendRider,
-        ),
-    >,
+    /// Each mana batch retains its restriction and its producing ability's choices.
+    pub restriction_info: rustc_hash::FxHashMap<u32, crate::mana_provenance::ManaProvenance>,
     /// Next restriction id to hand out (0 = unrestricted sentinel).
     pub next_restriction_id: u32,
     /// Times each player cast a commander from the command zone this

@@ -131,6 +131,7 @@ fn no_face_asks_two_questions_as_it_enters() {
     // entered the pool carrying a question this sweep could not see.
     let asks = |m: &EnterModifier| match m {
         EnterModifier::ChooseSubtype
+        | EnterModifier::ChooseSubtypeFrom(_)
         | EnterModifier::ChooseBasicLandType
         | EnterModifier::ChooseCardName
         | EnterModifier::ChooseColor

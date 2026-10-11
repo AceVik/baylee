@@ -3,17 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Secluded Courtyard prints `As this land enters, choose a creature type.`,
-/// `{{T}}: Add {{C}}.`, and `{{T}}: Add one mana of any color. Spend this mana only
-/// to cast a creature spell of the chosen type or activate an ability of a creature
-/// source of the chosen type.`
-///
-/// Under `Coverage::Partial`, the any-color mana pays for creature spells of the
-/// chosen type only: its activated-ability half has no shape, and restricted mana
-/// pays for no activation. Playing the land prompts for a creature subtype
-/// via `Pending::ChooseSubtype`. Activating ability 1 prompts for a color choice
-/// via `Pending::ChooseColor` and produces one restricted mana in `pool.restricted()`
-/// rather than `pool.available()`.
 #[test]
 fn secluded_courtyard_chooses_subtype_and_produces_restricted_mana() {
     let p0 = PlayerId::new(0);

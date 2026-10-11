@@ -167,18 +167,22 @@ pub(super) fn add_to(
         state.numeric_failure = Some("mana production exceeds u32 per color");
         return;
     }
-    if let Some(ManaRestriction {
-        filter,
-        rider,
-        restricts,
-        until_end_of_turn,
-    }) = restriction
-    {
+    if let Some(restriction) = restriction {
+        let ManaRestriction {
+            restricts,
+            until_end_of_turn,
+            ..
+        } = restriction;
         let id = state.next_restriction_id;
         state.next_restriction_id += 1;
-        state
-            .restriction_info
-            .insert(id, (res.source, filter, rider));
+        let provenance = crate::mana_provenance::ManaProvenance {
+            context: res.rule_context(),
+            restriction,
+            chosen_subtype: state
+                .damage_source(res.source, super::source_version(state, res))
+                .and_then(|object| object.chosen_subtype),
+        };
+        state.restriction_info.insert(id, provenance);
         let mana = baylee_core::mana::RestrictedMana {
             color,
             amount,

@@ -404,6 +404,20 @@ impl Effect {
     /// At compile time, when applied to anything but a mana effect.
     #[must_use]
     pub const fn restricted(self, filter: &'static Filter, rider: SpendRider) -> Self {
+        self.restricted_for(filter, rider, super::ManaUse::Spells)
+    }
+
+    /// Restrict mana to matching spells, activated sources, or both (CR 106.6).
+    ///
+    /// # Panics
+    /// At compile time if this is not a mana-production effect.
+    #[must_use]
+    pub const fn restricted_for(
+        self,
+        filter: &'static Filter,
+        rider: SpendRider,
+        uses: super::ManaUse,
+    ) -> Self {
         let Self::AddMana {
             source,
             amount,
@@ -418,6 +432,7 @@ impl Effect {
             amount,
             combination,
             restriction: Some(ManaRestriction {
+                uses,
                 filter,
                 rider,
                 restricts: true,
@@ -454,6 +469,7 @@ impl Effect {
             amount,
             combination,
             restriction: Some(ManaRestriction {
+                uses: super::ManaUse::Spells,
                 filter,
                 rider,
                 restricts: false,

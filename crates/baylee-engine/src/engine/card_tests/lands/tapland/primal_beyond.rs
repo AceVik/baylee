@@ -3,9 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Primal Beyond: "As this land enters, you may reveal an Elemental card from your hand..." / "{T}: Add {C}." / "{T}: Add one mana of any color. Spend this mana only to cast an Elemental spell..."
-/// Under `Coverage::Partial`, the reveal-from-hand enter clause is omitted, and restricted mana applies to spells only.
-/// Activating ability 1 produces one restricted mana of any chosen color in `pool.restricted()` rather than general available mana.
 #[test]
 fn primal_beyond_produces_restricted_elemental_mana() {
     let p0 = PlayerId::new(0);

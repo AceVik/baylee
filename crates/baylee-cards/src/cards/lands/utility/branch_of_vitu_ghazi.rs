@@ -27,6 +27,7 @@ card!(
                 amount: Amount::Fixed(2),
                 combination: false,
                 restriction: Some(baylee_cards_dsl::ManaRestriction {
+                    uses: baylee_cards_dsl::ManaUse::Spells,
                     filter: &Filter::Any,
                     rider: SpendRider::None,
                     restricts: false,

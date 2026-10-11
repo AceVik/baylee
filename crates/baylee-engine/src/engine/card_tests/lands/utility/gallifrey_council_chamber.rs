@@ -3,9 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Gallifrey Council Chamber: "When Gallifrey Council Chamber enters, surveil 1." / "{T}: Add {C}." / "{T}: Add one mana of any color. Spend this mana only to cast a Time Lord or Alien spell..."
-/// Under `Coverage::Partial`, the spend restriction applies to spells only and not activations.
-/// Playing this land resolves its surveil trigger, and activating ability 2 produces restricted mana in `pool.restricted()`.
 #[test]
 fn gallifrey_council_chamber_surveils_and_produces_restricted_mana() {
     let p0 = PlayerId::new(0);

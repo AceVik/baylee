@@ -229,18 +229,19 @@ impl GameState {
         ltb_controllers.hash(&mut h);
         ltb_powers.hash(&mut h);
         synthetic_copies.hash(&mut h);
-        hash_unordered(
-            &mut h,
-            restriction_info.iter(),
-            |(id, (source, filter, rider))| {
-                let mut one = Hasher::new();
-                id.hash(&mut one);
-                source.hash(&mut one);
-                filter_hash(&mut one, filter);
-                rider.hash(&mut one);
-                one.finish()
-            },
-        );
+        hash_unordered(&mut h, restriction_info.iter(), |(id, provenance)| {
+            let mut one = Hasher::new();
+            id.hash(&mut one);
+            provenance.context.hash(&mut one);
+            provenance.chosen_subtype.hash(&mut one);
+            let restriction = provenance.restriction;
+            filter_hash(&mut one, restriction.filter);
+            restriction.uses.hash(&mut one);
+            restriction.rider.hash(&mut one);
+            restriction.restricts.hash(&mut one);
+            restriction.until_end_of_turn.hash(&mut one);
+            one.finish()
+        });
         next_restriction_id.hash(&mut h);
         // Seventeen bytes an entry, digested in one call: a streaming state
         // set up per entry costs more than the entry does.

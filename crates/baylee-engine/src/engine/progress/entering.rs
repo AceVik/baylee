@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
+use baylee_core::generated::subtypes::land::{FOREST, ISLAND, MOUNTAIN, PLAINS, SWAMP};
 
 impl<L: CardLookup> Engine<L> {
     /// Applies as-it-enters-the-battlefield modifiers to permanents that
@@ -364,6 +365,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseSubtypeFrom(_)
                     | EnterModifier::ChooseBasicLandType
                     | EnterModifier::ChooseCardName
                     | EnterModifier::ChooseColor
@@ -446,16 +448,17 @@ impl<L: CardLookup> Engine<L> {
         use baylee_cards_dsl::EnterModifier;
         match modifier {
             EnterModifier::ChooseOpponent => self.ask_enter_opponent(id, controller),
-            EnterModifier::ChooseSubtype | EnterModifier::ChooseBasicLandType => {
-                use baylee_core::generated::subtypes::land::{
-                    FOREST, ISLAND, MOUNTAIN, PLAINS, SWAMP,
-                };
+            EnterModifier::ChooseSubtype
+            | EnterModifier::ChooseSubtypeFrom(_)
+            | EnterModifier::ChooseBasicLandType => {
                 // A basic land type is one of the five (CR 205.3i), in the
                 // order the rule names them, and nothing else.
-                let options = if matches!(modifier, EnterModifier::ChooseBasicLandType) {
-                    vec![PLAINS, ISLAND, SWAMP, MOUNTAIN, FOREST]
-                } else {
-                    (0..=349).map(baylee_core::ids::SubtypeId::new).collect()
+                let options = match modifier {
+                    EnterModifier::ChooseBasicLandType => {
+                        vec![PLAINS, ISLAND, SWAMP, MOUNTAIN, FOREST]
+                    }
+                    EnterModifier::ChooseSubtypeFrom(types) => types.to_vec(),
+                    _ => (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
                 };
                 self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
                 self.pending = Pending::ChooseSubtype {

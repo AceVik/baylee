@@ -3479,3 +3479,23 @@ land type"; both are convention tests that fire on a first try.
   price. Card, DSL, client-core and gamehost suites passed. All client tests
   passed after rerunning the sandbox-blocked loopback tests with local-network
   access. Generic-price differential coverage checks 13,824 integer cases.
+
+### Card completion batch 20 — restricted mana for activated sources
+
+- Complete Eldrazi Temple, Crucible of the Spirit Dragon, Secluded Courtyard,
+  Primal Beyond, Base Camp, Gallifrey Council Chamber, Eclipsed Realms,
+  Sunken Citadel and Castle Garenbrig. One payment-kind enum distinguishes
+  spells, activated sources, and either. Ordinary payments remain excluded.
+- Match an activated ability's actual source, including a land card being
+  channeled from hand. The same admitted pool feeds legal offers and payment;
+  failed payments leave both ordinary and restricted units untouched.
+- Mana retains the producing ability's wording and chosen creature type.
+  Reading the live land again was wrong after it left and returned with a
+  different choice. The new regression spends Construct mana after Courtyard
+  returns choosing Elf, and rejects using that mana for an Elf spell.
+- Eclipsed Realms offers exactly its eight printed creature types. Invalid
+  answers preserve the state. Starting battlefield fixtures also owe their
+  as-it-enters questions after mulligans; answer these before passing priority.
+- Existing suites passed: 5,499 engine, 1,563 client, 1,557 client-core, 244
+  gamehost, 135 card, 275 codegen and 69 DSL tests. All 1,098 land tests then
+  passed, including the three new adversarial cases spanning the nine cards.

@@ -51,12 +51,25 @@ pub enum ManaSource {
     ChosenOr(&'static [ManaColor]),
 }
 
+/// Whether a restriction names the spell being cast or an activated ability's source.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ManaUse {
+    /// Only casting matching spells.
+    Spells,
+    /// Only activating abilities of matching sources, in any zone.
+    Abilities,
+    /// Either matching spells or abilities of matching sources.
+    SpellsOrAbilities,
+}
+
 /// What produced mana may be spent on (Cavern of Souls), or what spending
 /// it on something does (Path of Ancestry), CR 106.6.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct ManaRestriction {
-    /// The spells the rider fires on, and while [`Self::restricts`] the only
-    /// ones the mana may pay for.
+    /// Which kind of payment the filter admits.
+    pub uses: ManaUse,
+    /// The spell or activated source that must match for restricted payments.
+    /// A rider alone fires only when the admitted payment matches.
     pub filter: &'static Filter,
     /// What happens when it is spent on a matching spell.
     pub rider: SpendRider,

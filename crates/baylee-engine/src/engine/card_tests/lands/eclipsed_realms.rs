@@ -2,10 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use baylee_core::generated::subtypes::creature;
 
-/// Eclipsed Realms: "As this land enters, choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk." / "{T}: Add {C}." / "{T}: Add one mana of any color..."
-/// Under `Coverage::Partial`, the printed spend restriction and restricted list of eight creature types are omitted.
-/// Playing this land asks for a subtype choice as it enters, and activating ability 1 adds one mana of any chosen color.
 #[test]
 fn eclipsed_realms_chooses_subtype_on_entry_and_produces_colored_mana() {
     let p0 = PlayerId::new(0);
@@ -22,6 +20,27 @@ fn eclipsed_realms_chooses_subtype_on_entry_and_produces_colored_mana() {
         panic!("expected subtype choice, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
+    assert_eq!(
+        options,
+        vec![
+            creature::ELEMENTAL,
+            creature::ELF,
+            creature::FAERIE,
+            creature::GIANT,
+            creature::GOBLIN,
+            creature::KITHKIN,
+            creature::MERFOLK,
+            creature::TREEFOLK
+        ]
+    );
+    let before = engine.state().snapshot_hash();
+    assert!(
+        engine
+            .apply(p0, PlayerAction::ChooseSubtype(creature::CONSTRUCT))
+            .is_err()
+    );
+    assert_eq!(engine.state().snapshot_hash(), before);
+
     engine
         .apply(p0, PlayerAction::ChooseSubtype(options[0]))
         .unwrap();

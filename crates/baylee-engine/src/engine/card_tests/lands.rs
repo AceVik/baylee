@@ -4157,3 +4157,5 @@ fn answer_target(engine: &mut Engine<RegistryLookup>, object: ObjectId, refused:
         )
         .expect("the target came from the offer");
 }
+
+mod mana_scope;

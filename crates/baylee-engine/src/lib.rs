@@ -42,6 +42,7 @@ pub mod casting;
 
 /// Mana payment legality and auto-payment.
 pub mod mana_pay;
+pub mod mana_provenance;
 
 /// Structured combat state machine.
 pub mod combat;

@@ -3,14 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Castle Garenbrig is `Coverage::Partial`: "This land enters tapped unless
-/// you control a Forest" and "{T}: Add {G}" are written, while the restricted
-/// `{2}{G}{G}, {T}: Add six {G}` is not. The modifier's two branches need two
-/// boards, so each is played once — with a Forest under the same seat the
-/// land arrives untapped and its own tap is the only green in the pool (the
-/// Forest named as the source kept back), and with the Forest on the *other*
-/// side of the table it arrives tapped, which is what separates "you control
-/// a Forest" from "there is a Forest somewhere on the battlefield".
 #[test]
 fn castle_garenbrig_enters_untapped_with_a_forest_of_its_own_and_taps_for_one_green() {
     let p0 = PlayerId::new(0);

@@ -198,13 +198,7 @@ pub(crate) enum SpendFor {
     /// An announced prototype or face-down creature.
     SpellAs(ObjectId, SpellForm),
     /// Activating an ability of this source (CR 602.2b, CR 113.7).
-    Ability(
-        #[expect(
-            dead_code,
-            reason = "no restriction the DSL can write names an ability yet"
-        )]
-        ObjectId,
-    ),
+    Ability(ObjectId),
     /// Anything else that costs mana: suspend (a special action, CR 116.2f),
     /// an "unless you pay", echo, a pact. No restriction names these.
     Other,
@@ -215,18 +209,19 @@ pub(crate) enum SpendFor {
 ///
 /// An entry counts when its own filter matches the spell. The rider is not
 /// consulted: it changes what the spell becomes once the mana is spent,
-/// never whether the mana may be spent. A spell restriction admits no
-/// ability. The walk is over the pool's list and never over the map, which
+/// never whether the mana may be spent. Ability restrictions match the
+/// actual source, including sources outside the battlefield. The walk is over the pool's list and never over the map, which
 /// is keyed by a hash.
 pub(super) fn admitted(
     state: &GameState,
     player: PlayerId,
     what: SpendFor,
 ) -> SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]> {
-    let (card, form) = match what {
-        SpendFor::Spell(card) => (card, None),
-        SpendFor::SpellAs(card, form) => (card, Some(form)),
-        _ => return SmallVec::new(),
+    let (card, form, ability) = match what {
+        SpendFor::Spell(card) => (card, None, false),
+        SpendFor::SpellAs(card, form) => (card, Some(form), false),
+        SpendFor::Ability(source) => (source, None, true),
+        SpendFor::Other => return SmallVec::new(),
     };
     let Some(original) = state.object(card) else {
         return SmallVec::new();
@@ -238,9 +233,12 @@ pub(super) fn admitted(
         .restricted()
         .iter()
         .filter_map(|mana| {
-            let &(source, filter, rider) = state.restriction_info.get(&mana.restriction.0)?;
-            crate::eval::matches(filter, state, spell, player, source)
-                .then_some((*mana, source, rider))
+            let provenance = state.restriction_info.get(&mana.restriction.0)?;
+            provenance.admits(state, spell, player, ability).then_some((
+                *mana,
+                provenance.context.source,
+                provenance.restriction.rider,
+            ))
         })
         .collect()
 }
@@ -272,9 +270,12 @@ pub(super) fn ridden_for(
         .ridden()
         .iter()
         .filter_map(|mana| {
-            let &(source, filter, rider) = state.restriction_info.get(&mana.restriction.0)?;
-            crate::eval::matches(filter, state, spell, player, source)
-                .then_some((*mana, source, rider))
+            let provenance = state.restriction_info.get(&mana.restriction.0)?;
+            provenance.admits(state, spell, player, false).then_some((
+                *mana,
+                provenance.context.source,
+                provenance.restriction.rider,
+            ))
         })
         .collect()
 }

@@ -45,9 +45,9 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, CounterKind, Effect, ExileUntil, Find, ManaRestriction, ManaSource, ManaValueBound,
-    ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
-    TargetSpec, TokenDef, ZoneSel,
+    Amount, CounterKind, Effect, ExileUntil, Find, ManaRestriction, ManaSource, ManaUse,
+    ManaValueBound, ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq,
+    TargetSlot, TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{
@@ -546,6 +546,8 @@ pub enum EnterModifier {
     /// "As this enters, choose a creature type" (Roaming Throne,
     /// Reflections of Littjara, Cavern of Souls).
     ChooseSubtype,
+    /// Choose one of this explicitly printed list of creature types.
+    ChooseSubtypeFrom(&'static [baylee_core::ids::SubtypeId]),
     /// As this permanent enters, choose an opponent (Black Vise).
     ChooseOpponent,
     /// "As this enters, choose a basic land type" (Phantasmal Terrain): one

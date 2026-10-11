@@ -401,6 +401,7 @@ mod tests {
             amount: Amount::Fixed(1),
             combination: false,
             restriction: Some(ManaRestriction {
+                uses: crate::ManaUse::Spells,
                 filter: &ALLY,
                 rider: SpendRider::None,
                 restricts: true,

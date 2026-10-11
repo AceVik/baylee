@@ -954,7 +954,7 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
         }),
         ("restriction_info", |s, id| {
             s.restriction_info
-                .insert(1, (id, &Filter::Any, SpendRider::None));
+                .insert(1, (id, &Filter::Any, SpendRider::None).into());
         }),
         ("next_restriction_id", |s, _| s.next_restriction_id += 1),
         ("ltb_abilities", |s, id| {
