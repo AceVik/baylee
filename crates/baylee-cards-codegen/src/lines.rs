@@ -638,6 +638,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::ExiledFromBattlefield(_) => &["exiled"],
         T::DealsCombatDamageToPlayer(_)
         | T::DealsCombatDamageToOpponent(_)
+        | T::DealsDamageToPlayer { .. }
         | T::DealsDamageToOpponent(_)
         | T::DealsDamage(_)
         | T::DealtDamage(_) => &["damage"],
@@ -768,6 +769,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::ExiledFromBattlefield(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)
         | Trigger::DealsCombatDamageToOpponent(filter)
+        | Trigger::DealsDamageToPlayer { source: filter, .. }
         | Trigger::DealsDamageToOpponent(filter)
         | Trigger::DealsDamage(filter)
         | Trigger::DealtDamage(filter)

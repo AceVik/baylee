@@ -161,6 +161,13 @@ pub enum Amount {
         /// Nonnegative multiplier.
         factor: u32,
     },
+    /// Add two magnitudes, saturating only if the result exceeds the engine's numeric range.
+    Sum {
+        /// First magnitude.
+        left: &'static Amount,
+        /// Second magnitude.
+        right: &'static Amount,
+    },
     /// Subtract one magnitude from another, flooring the result at zero.
     Difference {
         /// Minuend.

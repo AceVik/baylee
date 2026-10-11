@@ -72,7 +72,6 @@
 // PlayerMayPayCostThen adds the paid branch, covered by the walker test.
 // ChooseOne carries every inline resolution branch, covered by its walker test.
 // IfTargetHadType carries its retained-information branch; walker tested.
-const NESTING_FIELDS: usize = 39;
 // Both IfTargetMatchesElse branches are exercised by both_target_match_branches_are_visited.
 const NESTING_FIELDS: usize = 39;
 

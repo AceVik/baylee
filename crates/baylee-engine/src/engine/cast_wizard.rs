@@ -2781,6 +2781,13 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         self.apply_spend_riders(player, wizard.card, &spent_riders);
+        if self.state.object(card).is_some_and(|object| {
+            object.characteristics().types.intersects(
+                baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY),
+            )
+        }) {
+            self.state.per_turn.instant_or_sorcery_cast[usize::from(player.get())] = true;
+        }
         // Per-turn tracking for conditional triggers (Esper Sentinel).
         if !wizard.masked
             && !matches!(wizard.option, Some(CastModeKind::Disguise))

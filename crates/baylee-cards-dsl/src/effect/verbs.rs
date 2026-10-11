@@ -655,6 +655,7 @@ impl Effect {
             | Effect::DestroyEventThenMayReattach { .. }
             | Effect::SacrificeEvent
             | Effect::SacrificeAmountOrLose { .. }
+            | Effect::Poison { .. }
             | Effect::LoseGame
             | Effect::ReanimateEnchanted
             | Effect::PutTargetOnBottomOfLibrary

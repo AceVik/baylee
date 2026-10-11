@@ -310,6 +310,7 @@ impl GameState {
         // present battlefield is identical, so it distinguishes situations.
         h.u32(self.per_turn.untapped_lands_at_start);
         self.live_damage_pairs(&position).hash(&mut h);
+        self.hash_turn_history(&mut h, &position);
         h.u8(self.monarch.map_or(255, PlayerId::get));
         // The designation is rules-visible and a loop that flips it is a
         // loop that changes what daybound permanents are (CR 731). The
@@ -419,6 +420,40 @@ impl GameState {
         // even if the visible board and counter totals are identical.
         self.counter_links.hash(&mut h);
         h.finish()
+    }
+
+    fn hash_turn_history(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        self.per_turn.revolt.hash(h);
+        self.per_turn.instant_or_sorcery_cast.hash(h);
+        let mut attacked: Vec<_> = self
+            .per_turn
+            .attacked
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .map(|(id, version, player)| {
+                (
+                    player,
+                    position(id),
+                    moves_since(self.object_or_departed(id), version),
+                )
+            })
+            .collect();
+        attacked.sort_unstable();
+        attacked.hash(h);
+        let mut damaged: Vec<_> = self
+            .per_turn
+            .player_damage
+            .iter()
+            .filter(|(source, _)| {
+                self.object(source.object)
+                    .is_some_and(|object| object.version == source.version)
+            })
+            .map(|(source, player)| (position(source.object), *player))
+            .collect();
+        damaged.sort_unstable();
+        damaged.hash(h);
     }
 
     /// Every zone, in a fixed order — the canonical ordering object

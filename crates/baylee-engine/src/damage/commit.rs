@@ -25,6 +25,7 @@ impl DamageWork {
             }
             match part.view.recipient {
                 DamageTarget::Player(player) => {
+                    state.record_player_damage(part.view.source, part.source_version, player);
                     state.damage_player(
                         part.view.source,
                         player,

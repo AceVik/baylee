@@ -5,18 +5,10 @@ use super::*;
 
 /// Hall of Oracles prints `{{T}}: Add {{C}}.`, `{{1}}, {{T}}: Add one mana of any color.`, and `{{T}}: Put a +1/+1 counter on target creature. Activate only as a sorcery and only if you've cast an instant or sorcery spell this turn.`
 ///
-/// Under `Coverage::Partial`, both mana abilities are implemented while the counter-granting ability is omitted because the cast-spell gate has no condition representation.
-/// With one green mana floating from a `forest()`, a creature present (`quiet_creature()`), and Hall of Oracles untapped, ability 2 is not offered in `legal.abilities`.
-/// The negative is about the ability being **absent**, and it is worth
-/// saying what would make it stop meaning that: the printed ability costs
-/// only `{{T}}`, so it would appear here the day it is written — unless it
-/// is written with its "only if you've cast an instant or sorcery spell
-/// this turn" gate, which nothing on this board has done. Whoever closes
-/// the gap casts a spell in this test first, or the pin passes for the
-/// third reason rather than the first.
+/// Without an instant or sorcery cast this turn, only the mana abilities are offered.
 /// Activating ability 1 filters the floating mana through `Pending::ChooseColor` into one blue mana.
 #[test]
-fn hall_of_oracles_filters_mana_and_omits_counter_ability() {
+fn hall_of_oracles_filters_mana_before_an_instant_or_sorcery_is_cast() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[hall_of_oracles(), forest(), quiet_creature()])
@@ -28,7 +20,7 @@ fn hall_of_oracles_filters_mana_and_omits_counter_ability() {
         on_battlefield(&engine, p0, hall_of_oracles()).expect("hall of oracles on battlefield");
 
     // Float the Forest and the Elves' own {{G}} while keeping Hall of
-    // Oracles untapped: two, and the omitted ability charges nothing but a
+    // Oracles untapped: two, and the counter ability charges nothing but a
     // tap, so the floating price is the {{1}} of ability 1.
     tap_mana_except(&mut engine, p0, hall);
     assert_eq!(
@@ -52,7 +44,7 @@ fn hall_of_oracles_filters_mana_and_omits_counter_ability() {
     );
     assert!(
         !legal.abilities.contains(&(hall, 2)),
-        "ability 2 is omitted under `Coverage::Partial`"
+        "ability 2 requires an instant or sorcery cast this turn"
     );
 
     activate(&mut engine, p0, hall_of_oracles(), 1);
@@ -75,4 +67,66 @@ fn hall_of_oracles_filters_mana_and_omits_counter_ability() {
     assert_eq!(pool.available(ManaColor::Blue), 1);
     assert_eq!(pool.total(), 2);
     assert!(is_tapped(&engine, hall));
+}
+
+#[test]
+fn hall_counts_a_cast_even_when_countered_but_not_an_artifact_or_a_previous_turn() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for spell in [index::DARK_RITUAL, index::MIND_STONE] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(
+                0,
+                &[
+                    hall_of_oracles(),
+                    index::GRIZZLY_BEARS,
+                    index::DOUBLING_SEASON,
+                ],
+            )
+            .hand(0, &[spell])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let hall = on_battlefield(&e, p0, hall_of_oracles()).unwrap();
+        let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+        e.dev_state_mut(p0).unwrap().players[0]
+            .mana_pool
+            .add(ManaColor::Black, 2);
+        e.refresh_offer();
+        let Pending::Priority { legal, .. } = e.pending() else {
+            panic!("priority")
+        };
+        assert!(!legal.abilities.contains(&(hall, 2)));
+        cast_with_floating(&mut e, p0, spell);
+        let card = *e.state().zones.list(ZoneLocation::Stack).last().unwrap();
+        e.dev_state_mut(p0)
+            .unwrap()
+            .move_object(
+                card,
+                ZoneLocation::Graveyard(p0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        e.refresh_offer();
+        let Pending::Priority { legal, .. } = e.pending() else {
+            panic!("priority")
+        };
+        assert_eq!(
+            legal.abilities.contains(&(hall, 2)),
+            spell == index::DARK_RITUAL
+        );
+        if spell == index::DARK_RITUAL {
+            activate(&mut e, p0, hall_of_oracles(), 2);
+            aim_at(&mut e, p0, bear);
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(counters_on(&e, bear, CounterKind::P1P1), 2);
+        }
+        reach_their_main_phase(&mut e, p1);
+        reach_their_main_phase(&mut e, p0);
+        let Pending::Priority { legal, .. } = e.pending() else {
+            panic!("priority")
+        };
+        assert!(!legal.abilities.contains(&(hall, 2)));
+    }
 }

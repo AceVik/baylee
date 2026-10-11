@@ -23,7 +23,9 @@ fn reads_target(value: TargetSpec) -> bool {
 fn reads_amount(value: Amount) -> bool {
     match value {
         Amount::EventLastToughness => true,
-        Amount::Difference { left, right } => reads_amount(*left) || reads_amount(*right),
+        Amount::Sum { left, right } | Amount::Difference { left, right } => {
+            reads_amount(*left) || reads_amount(*right)
+        }
         Amount::Players(who) | Amount::LibrarySize(who) => reads_player(who),
         Amount::Half { base, .. }
         | Amount::Times { base, .. }
@@ -74,9 +76,9 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::AddCounterFilter { amount, .. }
         | Effect::CreateTokenThenCounters { amount, .. }
         | Effect::CreateTokenN { amount, .. } => reads_amount(*amount),
-        Effect::GainLifeFor { amount, who, .. } | Effect::DrawCardsFor { amount, who, .. } => {
-            reads_amount(*amount) || reads_player(*who)
-        }
+        Effect::Poison { amount, who }
+        | Effect::GainLifeFor { amount, who, .. }
+        | Effect::DrawCardsFor { amount, who, .. } => reads_amount(*amount) || reads_player(*who),
         Effect::Exile { target, .. }
         | Effect::Blink { target, .. }
         | Effect::RedirectNextFromChosenSource { target, .. }

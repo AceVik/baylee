@@ -576,6 +576,9 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             if *round_up { n.div_ceil(2) } else { n / 2 }
         }
         Amount::Times { base, factor } => amount2(base, state, you, res).saturating_mul(*factor),
+        Amount::Sum { left, right } => {
+            amount2(left, state, you, res).saturating_add(amount2(right, state, you, res))
+        }
         Amount::Difference { left, right } => {
             amount2(left, state, you, res).saturating_sub(amount2(right, state, you, res))
         }
@@ -730,8 +733,15 @@ pub(super) fn players_of(
                 })
             })
             .or_else(|| {
-                res.event_object
-                    .and_then(|id| state.last_known_controller(id))
+                res.event_object.and_then(|id| {
+                    if let Some((version, _)) = event_object_identity(state, res) {
+                        state
+                            .damage_source(id, Some(version))
+                            .map(|object| object.controller)
+                    } else {
+                        state.last_known_controller(id)
+                    }
+                })
             })
             .filter(|seat| !state.has_left(*seat))
             .into_iter()

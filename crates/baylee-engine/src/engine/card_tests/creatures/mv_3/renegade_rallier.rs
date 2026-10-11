@@ -3,28 +3,29 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Renegade Rallier — {1}{G}{W} 3/2 Human Warrior. Its printed enter trigger
-/// is a revolt trigger: return a permanent card with mana value 2 or less from
-/// your graveyard to the battlefield only "if a permanent left the battlefield
-/// under your control this turn". That intervening-if (CR 603.4) is the
-/// `Coverage::Partial` gap and the reason this board is built to leave nothing:
-/// two Forests sit in the graveyard and a Dark Ritual has just resolved into
-/// it, so the Rallier's own arrival is the turn's only event — and the trigger
-/// asks for a target anyway.
-///
-/// The menu is the second half of the proof: the two Forests are offered and
-/// the instant is not, so "permanent card" (CR 110.4a) is read and not merely
-/// the mana-value cap.
+/// Revolt returns a cheap permanent card, after one of your permanents left.
+/// An instant in the same graveyard is never a legal target.
 #[test]
-fn renegade_rallier_reanimates_a_cheap_permanent_card_with_nothing_having_left_the_battlefield() {
+fn renegade_rallier_reanimates_a_cheap_permanent_card_after_revolt() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(83, forest())
-        .battlefield(0, &[forest(), forest(), plains(), swamp()])
+        .battlefield(0, &[forest(), forest(), forest(), plains(), swamp()])
         .hand(0, &[renegade_rallier(), dark_ritual()])
         .start();
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
+    let departed = on_battlefield(&engine, p0, forest()).unwrap();
+    engine
+        .dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            departed,
+            ZoneLocation::Hand(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
     // Two cards the trigger may take, off the top of a deck of Forests.
     seed_graveyard(&mut engine, p0, 2);
 
@@ -43,12 +44,11 @@ fn renegade_rallier_reanimates_a_cheap_permanent_card_with_nothing_having_left_t
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
 
-    // Revolt's condition is not merely unread on this board: every permanent
-    // that was here before is still here, and the Rallier is the only addition.
+    // After the earlier departure, resolving Rallier adds just Rallier.
     let now = engine.state().zones.list(ZoneLocation::Battlefield);
     assert!(
         board_before.iter().all(|id| now.contains(id)),
-        "no permanent left the battlefield under p0's control this turn"
+        "no further permanent leaves during the cast"
     );
     assert_eq!(
         now.len(),
@@ -120,4 +120,52 @@ fn renegade_rallier_reanimates_a_cheap_permanent_card_with_nothing_having_left_t
     let rallier =
         on_battlefield(&engine, p0, renegade_rallier()).expect("the Rallier is on the table");
     assert_eq!(pt(&engine, rallier), (3, 2), "and it is the printed 3/2");
+}
+
+#[test]
+fn revolt_requires_your_departure_in_this_turn_and_not_phasing_or_milling() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for case in 0..4 {
+        let mut e = Duel::new(SEED, forest())
+            .hand(0, &[renegade_rallier()])
+            .battlefield(0, &[index::GRIZZLY_BEARS])
+            .battlefield(1, &[index::GRIZZLY_BEARS])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        seed_graveyard(&mut e, p0, 2);
+        let bear =
+            on_battlefield(&e, if case == 1 { p1 } else { p0 }, index::GRIZZLY_BEARS).unwrap();
+        if case == 1 || case == 3 {
+            bury(&mut e, &[bear]);
+        }
+        if case == 2 {
+            e.dev_state_mut(p0)
+                .unwrap()
+                .object_mut(bear)
+                .unwrap()
+                .status
+                .insert(crate::object::Status::PHASED_OUT);
+        }
+        if case == 3 {
+            reach_their_main_phase(&mut e, p1);
+            reach_their_main_phase(&mut e, p0);
+        }
+        let before = e.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+        for color in [ManaColor::Green, ManaColor::White] {
+            e.dev_state_mut(p0).unwrap().players[0]
+                .mana_pool
+                .add(color, 2);
+        }
+        e.refresh_offer();
+        cast_with_floating(&mut e, p0, renegade_rallier());
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(
+            e.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+            before,
+            "case {case}"
+        );
+        assert!(!e.state().per_turn.revolt[0]);
+    }
 }

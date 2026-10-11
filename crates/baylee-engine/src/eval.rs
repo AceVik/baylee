@@ -185,7 +185,11 @@ pub fn matches_projected_with_context(
         // `arrival_tests::a_permanent_entered_this_turn_only_on_the_turn_it_was_played`
         // asserts both halves of what makes it unnecessary.
         Filter::EnteredThisTurn => state.per_turn.entered_battlefield.contains(&obj.id),
-        Filter::AttackedThisTurn => state.per_turn.attacked.contains(&(obj.id, obj.version)),
+        Filter::AttackedThisTurn => state
+            .per_turn
+            .attacked
+            .iter()
+            .any(|&(id, version, _)| id == obj.id && version == obj.version),
         Filter::ControlledSinceTurnBegan => {
             obj.zone == crate::zone::Zone::Battlefield
                 && state
@@ -559,6 +563,8 @@ pub fn amount_with_context(
         Amount::Times { base, factor } => {
             self::amount_with_context(base, state, you, context, x).saturating_mul(*factor)
         }
+        Amount::Sum { left, right } => self::amount_with_context(left, state, you, context, x)
+            .saturating_add(self::amount_with_context(right, state, you, context, x)),
         Amount::Difference { left, right } => {
             self::amount_with_context(left, state, you, context, x)
                 .saturating_sub(self::amount_with_context(right, state, you, context, x))
@@ -751,6 +757,39 @@ pub fn condition_holds_with_context(
 ) -> bool {
     let source = context.source;
     match condition {
+        Condition::Revolt => state.per_turn.revolt[usize::from(you.get())],
+        Condition::CastInstantOrSorceryThisTurn => {
+            state.per_turn.instant_or_sorcery_cast[usize::from(you.get())]
+        }
+        Condition::AttackedWithAtLeast(minimum) => {
+            let mut seen = std::collections::BTreeSet::new();
+            state
+                .per_turn
+                .attacked
+                .iter()
+                .filter(|&&(id, version, player)| player == you && seen.insert((id, version)))
+                .take(minimum as usize)
+                .count()
+                == minimum as usize
+        }
+        Condition::SourceDamagedOpponentThisTurn => state.object(source).is_some_and(|object| {
+            state
+                .per_turn
+                .player_damage
+                .iter()
+                .any(|(identity, player)| {
+                    identity.object == source
+                        && identity.version == object.version
+                        && state.is_opponent(*player, you)
+                })
+        }),
+        Condition::OpponentPoisonAtLeast(minimum) => state
+            .players
+            .iter()
+            .any(|player| state.is_opponent(player.id, you) && player.poison >= minimum),
+        Condition::AmountAtLeast(amount, minimum) => {
+            amount_with_context(&amount, state, you, context, None) >= minimum
+        }
         Condition::CreaturesDiedThisTurnAtLeast(n) => state.per_turn.creatures_died >= n,
         Condition::YourTurn => state.turn.active == you,
         Condition::LifeAtMost(n) => state.players[you.get() as usize].life <= n,

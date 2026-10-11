@@ -412,6 +412,13 @@ impl GameState {
             });
         }
         let departure = departure.or_else(|| self.departure_snapshot(id));
+        if from_zone == Zone::Battlefield
+            && to.zone() != Zone::Battlefield
+            && let Some(object) = self.object(id)
+        {
+            let controller = object.controller;
+            self.per_turn.revolt[usize::from(controller.get())] = true;
+        }
         self.remember_damage_source(id);
         let previous_source = self.source_identity(id);
         self.zones.remove(id, from_loc);

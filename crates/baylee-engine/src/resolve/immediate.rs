@@ -26,6 +26,14 @@ pub(super) fn exec_immediate(
         Effect::SacrificeAmountOrLose { filter, amount } => {
             sacrifice_amount_or_lose(state, res, filter, &amount)
         }
+        Effect::Poison { who, amount } => {
+            let amount = amount2(&amount, state, you, res);
+            for player in players_of(who, state, you, res) {
+                let counters = &mut state.players[usize::from(player.get())].poison;
+                *counters = counters.saturating_add(u16::try_from(amount).unwrap_or(u16::MAX));
+            }
+            None
+        }
         Effect::LoseGame => {
             let _ = sba::lose_by_effect(state, you);
             None

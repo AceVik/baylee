@@ -860,6 +860,19 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
     type Mutation = (&'static str, fn(&mut GameState, ObjectId));
     let mutations: &[Mutation] = &[
         ("per_turn", |s, _| s.per_turn.creatures_died += 1),
+        ("per_turn.revolt", |s, _| s.per_turn.revolt[0] = true),
+        ("per_turn.instant_or_sorcery_cast", |s, _| {
+            s.per_turn.instant_or_sorcery_cast[0] = true;
+        }),
+        ("per_turn.player_damage", |s, id| {
+            s.per_turn.player_damage.insert((
+                baylee_core::ids::DamageSourceRef {
+                    object: id,
+                    version: 0,
+                },
+                PlayerId::new(1),
+            ));
+        }),
         ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
         ("per_turn.untapped_lands_at_start", |s, _| {
             s.per_turn.untapped_lands_at_start = 3;
@@ -880,7 +893,7 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
             s.per_turn.cant_regenerate.push((id, 0));
         }),
         ("per_turn.attacked", |s, id| {
-            s.per_turn.attacked.push((id, 0));
+            s.per_turn.attacked.push((id, 0, PlayerId::new(0)));
         }),
         ("combat.participants", |s, id| {
             s.combat.participants.push((id, 0));
@@ -1339,4 +1352,65 @@ fn one_spelling_is_one_name() {
     // not a search box.
     assert_ne!(names.intern("lightning bolt"), bolt);
     assert_ne!(names.intern("Lightning Bolt "), bolt);
+}
+
+#[test]
+fn turn_history_distinguishes_legal_actions_and_counts_each_attacker_once_per_player() {
+    use baylee_cards_dsl::Condition;
+    let mut state = GameState::from_preset(&make_preset(9), &RegistryLookup).unwrap();
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let name = state.names.intern("Historical attacker");
+    let a = state.create_bare(p0, ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+    let b = state.create_bare(p1, ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+    let first = state.object(a).unwrap().version;
+    let second = state.object(b).unwrap().version;
+    let baseline = state.loop_signature();
+    state.per_turn.revolt[0] = true;
+    assert_ne!(state.loop_signature(), baseline);
+    state.per_turn.reset();
+    assert_eq!(state.loop_signature(), baseline);
+    state.per_turn.instant_or_sorcery_cast[0] = true;
+    assert_ne!(state.loop_signature(), baseline);
+    state.per_turn.reset();
+    state.per_turn.attacked.push((a, first, p0));
+    let one = state.loop_signature();
+    assert_ne!(one, baseline);
+    state.per_turn.attacked.push((a, first, p0));
+    assert_eq!(
+        state.loop_signature(),
+        one,
+        "another combat with the same creature is one creature"
+    );
+    assert!(!crate::eval::condition_holds(
+        &state,
+        p0,
+        a,
+        Condition::AttackedWithAtLeast(2)
+    ));
+    state.per_turn.attacked.push((b, second, p1));
+    assert!(!crate::eval::condition_holds(
+        &state,
+        p0,
+        a,
+        Condition::AttackedWithAtLeast(2)
+    ));
+    state.per_turn.attacked.push((b, second, p0));
+    assert!(crate::eval::condition_holds(
+        &state,
+        p0,
+        a,
+        Condition::AttackedWithAtLeast(2)
+    ));
+    state.per_turn.reset();
+    state.record_player_damage(a, Some(first), p1);
+    assert_ne!(state.loop_signature(), baseline);
+    assert!(crate::eval::condition_holds(
+        &state,
+        p0,
+        a,
+        Condition::SourceDamagedOpponentThisTurn
+    ));
+    state.per_turn.reset();
+    assert_eq!(state.loop_signature(), baseline);
 }

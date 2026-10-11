@@ -704,6 +704,13 @@ pub enum Effect {
     /// "You lose the game" (CR 104.3e; Lich's leave trigger). Not stopped by
     /// a life total above 0, only by an effect saying the player can't lose.
     LoseGame,
+    /// The named players receive poison counters; this is not damage.
+    Poison {
+        /// Recipients relative to the resolution.
+        who: PlayerRel,
+        /// Number of counters.
+        amount: Amount,
+    },
     /// Animate Dead's enter trigger: "if it's on the battlefield, it loses
     /// 'enchant creature card in a graveyard' and gains 'enchant creature
     /// put onto the battlefield with this Aura.' Return enchanted creature

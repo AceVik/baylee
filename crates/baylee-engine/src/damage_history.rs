@@ -44,6 +44,26 @@ pub(crate) struct BattlefieldDeparture {
 }
 
 impl GameState {
+    /// Damage facts follow the actual source incarnation, including departed sources.
+    pub(crate) fn record_player_damage(
+        &mut self,
+        source: ObjectId,
+        version: Option<u32>,
+        player: baylee_core::ids::PlayerId,
+    ) {
+        if let Some(version) = version.or_else(|| self.object(source).map(|object| object.version))
+        {
+            let record = (
+                baylee_core::ids::DamageSourceRef {
+                    object: source,
+                    version,
+                },
+                player,
+            );
+            self.per_turn.player_damage.insert(record);
+        }
+    }
+
     /// Recover the identity at an event even if its object moved again in
     /// the same resolution before the trigger scan.
     pub(crate) fn event_object_identity(&self, id: ObjectId, seq: u64) -> Option<(u32, i16)> {

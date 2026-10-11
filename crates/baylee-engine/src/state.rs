@@ -420,6 +420,12 @@ pub struct PerTurn {
     /// Untapped lands controlled by this turn's active player at its start,
     /// before untapping or phasing; independent of any source's presence.
     pub untapped_lands_at_start: u32,
+    /// Whether a permanent left under each player's control this turn.
+    pub revolt: Vec<bool>,
+    /// Whether each player cast an instant or sorcery this turn.
+    pub instant_or_sorcery_cast: Vec<bool>,
+    /// Source incarnations and players they actually damaged this turn.
+    pub player_damage: std::collections::BTreeSet<(baylee_core::ids::DamageSourceRef, PlayerId)>,
     /// Noncreature spells cast this turn, per player.
     pub noncreature_spells: Vec<u32>,
     /// Cards drawn this turn, per player.
@@ -492,7 +498,7 @@ pub struct PerTurn {
     /// version (`Filter::AttackedThisTurn`, CR 508.1): written by
     /// `Engine::declare_attackers` and nothing else, so a creature put onto
     /// the battlefield attacking is not in it (CR 508.4).
-    pub attacked: Vec<(ObjectId, u32)>,
+    pub attacked: Vec<(ObjectId, u32, PlayerId)>,
 }
 
 /// One card played or cast from a graveyard under a
@@ -563,6 +569,9 @@ impl PerTurn {
     pub fn new(players: usize) -> Self {
         Self {
             untapped_lands_at_start: 0,
+            revolt: vec![false; players],
+            instant_or_sorcery_cast: vec![false; players],
+            player_damage: std::collections::BTreeSet::new(),
             noncreature_spells: vec![0; players],
             spells_cast: vec![0; players],
             no_more_spells: vec![false; players],
@@ -627,6 +636,9 @@ impl PerTurn {
     /// Resets all counters (called at every turn start).
     pub fn reset(&mut self) {
         self.untapped_lands_at_start = 0;
+        self.revolt.fill(false);
+        self.instant_or_sorcery_cast.fill(false);
+        self.player_damage.clear();
         self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
         self.draws.iter_mut().for_each(|v| *v = 0);
         self.drew_in_draw_step = false;

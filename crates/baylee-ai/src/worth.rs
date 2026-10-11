@@ -421,6 +421,9 @@ impl HeuristicAgent {
             Amount::Times { base, factor } => self
                 .count(view, origin, *base, aim, x)?
                 .saturating_mul(i64::from(factor)),
+            Amount::Sum { left, right } => self
+                .count(view, origin, *left, aim, x)?
+                .saturating_add(self.count(view, origin, *right, aim, x)?),
             Amount::Difference { left, right } => (self.count(view, origin, *left, aim, x)?
                 - self.count(view, origin, *right, aim, x)?)
             .max(0),

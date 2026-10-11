@@ -11,6 +11,7 @@ use super::Precon;
 pub static PLAYABLE: &[Precon] = &[
     Precon { key: "ITP/kazz-s-second-deck", text: include_str!("../../../../data/decks/precon/ITP/kazz-s-second-deck.txt") },
     Precon { key: "ITP/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/ITP/zakk-s-first-deck.txt") },
+    Precon { key: "PAST/centaur-shaman", text: include_str!("../../../../data/decks/precon/PAST/centaur-shaman.txt") },
     Precon { key: "PAST/conjurer", text: include_str!("../../../../data/decks/precon/PAST/conjurer.txt") },
     Precon { key: "PAST/forest-dragon", text: include_str!("../../../../data/decks/precon/PAST/forest-dragon.txt") },
     Precon { key: "PAST/fungus-master", text: include_str!("../../../../data/decks/precon/PAST/fungus-master.txt") },
@@ -19,6 +20,7 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "PAST/high-priest", text: include_str!("../../../../data/decks/precon/PAST/high-priest.txt") },
     Precon { key: "PAST/merfolk-shaman", text: include_str!("../../../../data/decks/precon/PAST/merfolk-shaman.txt") },
     Precon { key: "PAST/nether-fiend", text: include_str!("../../../../data/decks/precon/PAST/nether-fiend.txt") },
+    Precon { key: "PAST/saltrem-tor", text: include_str!("../../../../data/decks/precon/PAST/saltrem-tor.txt") },
     Precon { key: "PAST/summoner", text: include_str!("../../../../data/decks/precon/PAST/summoner.txt") },
     Precon { key: "PAST/troll-shaman", text: include_str!("../../../../data/decks/precon/PAST/troll-shaman.txt") },
     Precon { key: "PAST/winged-stallion", text: include_str!("../../../../data/decks/precon/PAST/winged-stallion.txt") },

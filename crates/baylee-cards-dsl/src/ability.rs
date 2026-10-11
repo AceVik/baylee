@@ -108,6 +108,18 @@ pub enum StepKind {
 /// as it resolves.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Condition {
+    /// A permanent left the battlefield under your control this turn.
+    Revolt,
+    /// You cast an instant or sorcery spell this turn, even if countered.
+    CastInstantOrSorceryThisTurn,
+    /// You declared at least this many distinct creature incarnations as attackers this turn.
+    AttackedWithAtLeast(u32),
+    /// This incarnation dealt damage to an opponent of its current controller this turn.
+    SourceDamagedOpponentThisTurn,
+    /// At least one opponent has this many poison counters.
+    OpponentPoisonAtLeast(u16),
+    /// An evaluated magnitude meets the printed lower bound.
+    AmountAtLeast(crate::Amount, u32),
     /// At least one opponent controls at most this many matching permanents.
     OpponentControlCountAtMost(&'static Filter, u32),
     /// An opponent controls more matching permanents than you do.
@@ -424,6 +436,13 @@ pub enum Trigger {
     /// to and the amount ride on the trigger, as on
     /// [`Self::DealsCombatDamageToOpponent`].
     DealsDamageToOpponent(&'static Filter),
+    /// A matching source deals positive damage to a player named by the relation.
+    DealsDamageToPlayer {
+        /// Source filter, evaluated with the triggering ability's controller.
+        source: &'static Filter,
+        /// Recipient relative to the triggering ability's controller.
+        player: crate::PlayerRel,
+    },
     /// A source matching the filter deals damage, combat or not, to any
     /// player or permanent (El-Hajjâj: "whenever this creature deals damage,
     /// you gain that much life"). Once per damage event, and once for a

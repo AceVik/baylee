@@ -1934,7 +1934,10 @@ impl<L: CardLookup> Engine<L> {
             // "If it attacked this turn" (CR 508.1): this declaration is the
             // one way a creature attacks, so it is the one writer.
             if let Some(version) = self.state.object(creature).map(|o| o.version) {
-                self.state.per_turn.attacked.push((creature, version));
+                self.state
+                    .per_turn
+                    .attacked
+                    .push((creature, version, player));
                 self.state.combat.participants.push((creature, version));
             }
         }

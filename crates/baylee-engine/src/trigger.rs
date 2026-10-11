@@ -1101,6 +1101,13 @@ fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> O
             },
         ) => Some(*blocker),
         (
+            Trigger::DealsDamageToPlayer { .. },
+            GameEvent::DamageDealt {
+                source: damage_source,
+                ..
+            },
+        ) => *damage_source,
+        (
             Trigger::BlocksOrBecomesBlockedBy(_),
             GameEvent::BecameBlocker {
                 object: blocker,
@@ -2137,6 +2144,24 @@ fn matches(
                 && state
                     .object(*damage_source)
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        (
+            Trigger::DealsDamageToPlayer {
+                source: filter,
+                player: who,
+            },
+            GameEvent::DamageDealt {
+                source: Some(damage_source),
+                target: crate::event::DamageTarget::Player(player),
+                amount,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && eval::players(*who, state, you).is_some_and(|players| players.contains(player))
+                && state.object(*damage_source).is_some_and(|object| {
+                    eval::matches_with_context(filter, state, object, you, context)
+                })
         }
         (
             Trigger::DealsDamageToOpponent(filter),

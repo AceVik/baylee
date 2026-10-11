@@ -132,6 +132,16 @@ fn computed_arithmetic_saturates_and_keeps_resolution_context() {
                 assert_eq!(amount2(&half, &state, me(), &res), expected);
                 assert_eq!(eval::amount(&half, &state, me(), source, Some(x)), expected);
             }
+            let sum = Amount::Sum {
+                left: &Amount::X,
+                right: &Amount::Fixed(13),
+            };
+            let expected_sum = u32::try_from(u64::from(x) + 13).unwrap_or(u32::MAX);
+            assert_eq!(amount2(&sum, &state, me(), &res), expected_sum);
+            assert_eq!(
+                eval::amount(&sum, &state, me(), source, Some(x)),
+                expected_sum
+            );
             let scaled = Amount::Times {
                 base: &Amount::X,
                 factor: 3,

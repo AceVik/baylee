@@ -3555,3 +3555,27 @@ land type"; both are convention tests that fire on a first try.
 - Regression suites pass: 5,520 engine, 1,563 client, 1,557 client-core, 244
   gamehost, 134 cards, 275 codegen and 69 DSL tests. Additional graft coverage
   tests a creature that leaves and returns before the old trigger resolves.
+
+### Card completion batch 23 — per-turn history and damage recipients
+
+- Complete Renegade Rallier, Minas Tirith, Hall of Oracles, Whirling Dervish,
+  Cavernous Maw, The Seedcore, Pit Scorpion and Backfire. Historical conditions
+  record successful actions, rather than guessing from the current board.
+- Revolt records the controller immediately before departure. Casting an instant
+  or sorcery counts even when it is countered. Attacking counts distinct creature
+  incarnations per declaring player, including creatures which subsequently leave.
+  Repeated attacks by one creature count once. Every fact resets with the turn.
+- Source damage history retains the exact incarnation and actual recipient after
+  prevention. The end-step condition checks the current controller's opponents.
+  Poison from an ability is separate from combat damage and from permanent counters.
+- Snapshot and loop hashes include the facts which change legal actions. Canonical
+  attack hashing deduplicates before replacing identities with zone positions,
+  so distinct departed attackers cannot collapse into a single nonexistent object.
+- A damage trigger which refers to the damaging creature must retain that event
+  object, its incarnation and the damage amount. Backfire reads its live controller
+  on resolution, or its last controller when that incarnation has left. Tests
+  cover both control changes and a card leaving and returning before resolution.
+- Broad regression suites passed with 5,528 engine tests before the Backfire fix;
+  its four-case regression then passed, giving 5,529 effective passing engine tests.
+  Also passing: 1,563 client, 1,557 client-core, 244 gamehost, 134 cards, 275 codegen
+  and 69 DSL tests. The arithmetic property test additionally checks summed counts.
