@@ -1,7 +1,8 @@
 //! Mana Matrix — {6} — Artifact
 //! Oracle: Instant and enchantment spells you cast cost {2} less to cast.
 //! Set: ME4 #213 — Masters Edition IV | Scryfall ID: 0c69b20a-34f8-4c61-babe-1d3221c28a07 | Oracle ID: 256cea34-4691-4367-a789-17d15460f664
-// PARTIAL — the static cost reducer is off the card.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -14,13 +15,12 @@ card!(
         mana_cost = mana!("{6}"),
         types = TypeSet::ARTIFACT,
     ),],
-    coverage = Coverage::Partial(
-        "instant and enchantment spells you cast cost {2} less to cast has no \
-         Modifier that reduces a cost"
-    ),
-    // NOT SUPPORTED: "Instant and enchantment spells you cast cost {2} less
-    // to cast." — no `Modifier` reduces a spell's cost
-    // (`Modifier::SpellsCostMore` is the only cost modifier and it raises
-    // one), and `CostReduction` is read off the spell being cast itself,
-    // never off another permanent's static ability.
+    coverage = Coverage::Implemented,
+    abilities = &[static_ability!(
+        Filter::And(&[
+            Filter::ControlledByYou,
+            Filter::Or(&[Filter::HasType(TypeSet::INSTANT), Filter::ENCHANTMENT])
+        ]),
+        Modifier::SpellsCostLess(2)
+    )],
 );

@@ -3458,3 +3458,24 @@ land type"; both are convention tests that fire on a first try.
   DSL regression suites passed in the preceding broad run; the changed
   resolver and card paths were then rerun. The nested-effect carrier guard
   checks both new branches (38 fields across 33 carrier variants).
+
+### Card completion batch 19 — total casting costs
+
+- Complete Geist of Saint Thalia, Planar Gate, Mana Matrix, Eye of Ugin,
+  and Hagra Mauling with shared generic-cost adjustments. Match the projected
+  stack face/form; add increases before reductions and never remove colored
+  requirements. Hagra checks each opponent separately, excluding teammates.
+- Freeze the selected option's reduction before mana payments. Preserve credit
+  left after the fixed generic portion so it can reduce X, extra targets,
+  kicker, or replicate. Reconstruct the raw alternative cost, not the normal
+  face's price. Spree modes form one total; two X symbols do not double a
+  static discount. A monotone binary search bounds replicate payments.
+- Eye of Ugin exposed Devoid being applied only on the battlefield. Its
+  characteristic-defining color applies in every zone (CR 702.114a), including
+  the projected spell used for pricing. Keep the printed layer effect for
+  battlefield ordering against other color changes.
+- Regression coverage: 5,499 engine tests passed, including Walking Ballista,
+  Gloom, modal additional costs and a replicate discount exceeding the fixed
+  price. Card, DSL, client-core and gamehost suites passed. All client tests
+  passed after rerunning the sandbox-blocked loopback tests with local-network
+  access. Generic-price differential coverage checks 13,824 integer cases.

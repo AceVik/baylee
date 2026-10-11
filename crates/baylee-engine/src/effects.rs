@@ -130,7 +130,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // plays under. Teferi's `SorceriesHaveFlash` is the clearest of
         // them — it is about its controller's spells, and a set of objects
         // fixed at resolution would mean the cards in hand at that moment.
-        Modifier::SpellsCostMore(_)
+        Modifier::SpellsCostLess(_)
+        | Modifier::SpellsCostMore(_)
         | Modifier::AbilitiesCostMore(_)
         | Modifier::LegendRuleOff
         // Two permissions, and CR 611.2c locks a set only for an effect
@@ -1029,6 +1030,7 @@ mod tests {
                 &Filter::ControlledByYou,
             )),
             Modifier::SwitchPT,
+            Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
             Modifier::AbilitiesCostMore(3),
             Modifier::LegendRuleOff,
@@ -1146,7 +1148,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            94,
+            95,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1210,7 +1212,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (36, 58));
+        assert_eq!((locking, all.len() - locking), (36, 59));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

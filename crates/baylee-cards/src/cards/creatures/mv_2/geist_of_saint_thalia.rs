@@ -2,7 +2,8 @@
 //! Oracle: Flying
 //! Oracle: Noncreature spells you cast cost {1} less to cast.
 //! Set: FRA #214 — Reality Fracture | Scryfall ID: 9c334530-0880-46b5-a358-9603eee3cecf | Oracle ID: ef32a4a9-14e2-4738-b4c2-53ce5e1d2a53
-// PARTIAL — flying only; there is no cost-reducer vocabulary in the DSL.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -23,11 +24,9 @@ card!(
         toughness = Some(2),
     ),],
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Partial(
-        "Noncreature spells you cast cost {1} less to cast: no Modifier or Effect \
-         variant reduces a spell's cost, and CostReduction carries only \
-         NotStartingPlayer"
-    ),
+    coverage = Coverage::Implemented,
+    abilities = &[static_ability!(
+        Filter::And(&[Filter::ControlledByYou, Filter::Not(&Filter::CREATURE)]),
+        Modifier::SpellsCostLess(1)
+    )],
 );
-
-// NOT SUPPORTED: Noncreature spells you cast cost {1} less to cast.

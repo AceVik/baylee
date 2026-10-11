@@ -779,7 +779,9 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("YouControl(")
         || built.contains("WhileYouControlSource")
         || built.contains("GainControl");
-    let filters_theirs = compares_controllers || built.contains("ControlledByOpponent");
+    let filters_theirs = compares_controllers
+        || built.contains("ControlledByOpponent")
+        || built.contains("OpponentControlCountAtMost(");
 
     if says_you && !filters_you {
         println!(

@@ -466,3 +466,66 @@ fn paid_damage_preserves_large_x_through_damage_history_and_capped_life_gain() {
         );
     }
 }
+
+#[test]
+fn replicate_uses_unspent_generic_reduction_in_the_offer_and_the_payment() {
+    static ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::spell!(&[Effect::GainLife {
+        amount: Amount::Fixed(1)
+    }])];
+    let template = synthetic::land(98_003, "Replicate discount probe", &[]);
+    let definition = Box::leak(Box::new(CardDef {
+        faces: Box::leak(Box::new([FaceDef {
+            name: "Replicate discount probe",
+            mana_cost: ManaCost::parse("{U}"),
+            types: TypeSet::INSTANT,
+            replicate: Some(ManaCost::parse("{1}")),
+            cost_reduction: Some(CostReduction::PerCount {
+                amount: Amount::Fixed(3),
+                each: 1,
+            }),
+            ..FaceDef::DEFAULT
+        }])),
+        abilities: ABILITIES,
+        ..*template
+    }));
+    let player = PlayerId::new(0);
+    let mut preset = synthetic::preset(51, &[]);
+    preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        card: definition.index,
+        print: PrintRef::new(0),
+    }]);
+    let mut engine = Engine::new(&preset, SyntheticLookup::new(vec![definition])).unwrap();
+    synthetic::keep_mulligans(&mut engine);
+    for _ in 0..30 {
+        if matches!(engine.pending(),Pending::Priority{player:p,..} if *p==player) {
+            break;
+        }
+        let pending = engine.pending().clone();
+        assert!(synthetic::walk_past(&mut engine, &pending));
+    }
+    engine.state.players[0].mana_pool.add(ManaColor::Blue, 1);
+    engine.refresh_offer();
+    let card = engine.state.zones.list(ZoneLocation::Hand(player))[0];
+    engine
+        .apply(player, PlayerAction::CastSpell { card })
+        .unwrap();
+    assert!(matches!(
+        engine.pending(),
+        Pending::ChooseNumber {
+            min: 0,
+            max: 3,
+            reason: NumberPrompt::Replicate { .. },
+            ..
+        }
+    ));
+    engine.apply(player, PlayerAction::ChooseNumber(3)).unwrap();
+    assert_eq!(engine.state.players[0].mana_pool.total(), 0);
+    for _ in 0..40 {
+        if engine.state.zones.list(ZoneLocation::Stack).is_empty() {
+            break;
+        }
+        let pending = engine.pending().clone();
+        assert!(synthetic::walk_past(&mut engine, &pending));
+    }
+    assert_eq!(engine.state.players[0].life, 24);
+}

@@ -225,6 +225,13 @@ pub enum CostPart {
 /// determined (CR 601.2f; CR 602.2b for an ability).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum CostReduction {
+    /// A self-reduction whose condition is checked while fixing total cost.
+    If {
+        /// Intervening condition at cost determination, not at resolution.
+        condition: crate::Condition,
+        /// Generic mana removed after increases.
+        amount: u32,
+    },
     /// Costs {N} less if you weren't the starting player.
     NotStartingPlayer(u32),
     /// "Costs {`each`} less … for each …": `each` generic mana per unit of

@@ -173,6 +173,11 @@ pub fn reduction_amount(
     source: ObjectId,
 ) -> u32 {
     match reduction {
+        Some(baylee_cards_dsl::CostReduction::If { condition, amount })
+            if crate::eval::condition_holds(state, player, source, condition) =>
+        {
+            amount
+        }
         Some(baylee_cards_dsl::CostReduction::NotStartingPlayer(n))
             if player != state.starting_player =>
         {
@@ -213,20 +218,41 @@ pub fn commander_tax(state: &GameState, player: PlayerId, card: ObjectId) -> u32
         .map_or(0, |c| c.casts.saturating_mul(2))
 }
 
-/// Increases are rules effects: match the spell as it will exist on the stack,
-/// including its chosen face/form and continuous color changes. A white cost
-/// on an alternative mode does not make a black spell white.
-pub(crate) fn spell_increase(
+/// Generic adjustments combine before clamping: increases first (CR 601.2f).
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct SpellAdjustment {
+    pub increase: u32,
+    pub reduction: u32,
+}
+impl SpellAdjustment {
+    pub(crate) fn price(self, raw: ManaCost, printed_reduction: u32) -> ManaCost {
+        raw.with_more_generic(self.increase)
+            .with_less_generic(self.reduction.saturating_add(printed_reduction))
+    }
+}
+
+fn has_spell_adjustments(state: &GameState) -> bool {
+    state.effects.iter().any(|fx| {
+        matches!(
+            fx.modifier,
+            baylee_cards_dsl::Modifier::SpellsCostMore(_)
+                | baylee_cards_dsl::Modifier::SpellsCostLess(_)
+        )
+    })
+}
+
+/// Match the projected stack characteristics, including alternative faces.
+pub(crate) fn spell_adjustment(
     state: &GameState,
     player: PlayerId,
     object: &crate::object::GameObject,
-) -> u32 {
-    if !state
-        .effects
-        .iter()
-        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::SpellsCostMore(_)))
-    {
-        return commander_tax(state, player, object.id);
+) -> SpellAdjustment {
+    let mut adjustment = SpellAdjustment {
+        increase: commander_tax(state, player, object.id),
+        reduction: 0,
+    };
+    if !has_spell_adjustments(state) {
+        return adjustment;
     }
     let mut spell = object.clone();
     spell.zone = Zone::Stack;
@@ -235,38 +261,39 @@ pub(crate) fn spell_increase(
     spell.cache.clear();
     let projected = crate::layers::recompute(state, &spell);
     spell.base = std::sync::Arc::new(projected.characteristics);
-    state
-        .effects
-        .iter()
-        .filter_map(|fx| match fx.modifier {
-            baylee_cards_dsl::Modifier::SpellsCostMore(n)
-                if crate::effects::applies_to(state, fx, &spell) =>
-            {
-                Some(n)
+    for effect in state.effects.iter() {
+        let slot = match effect.modifier {
+            baylee_cards_dsl::Modifier::SpellsCostMore(amount) => {
+                (&mut adjustment.increase, amount)
             }
-            _ => None,
-        })
-        .fold(commander_tax(state, player, object.id), u32::saturating_add)
+            baylee_cards_dsl::Modifier::SpellsCostLess(amount) => {
+                (&mut adjustment.reduction, amount)
+            }
+            _ => continue,
+        };
+        if crate::effects::applies_to(state, effect, &spell) {
+            *slot.0 = slot.0.saturating_add(slot.1);
+        }
+    }
+    adjustment
 }
 
-/// The total generic increase for a particular printed face or casting form.
-pub(crate) fn face_increase(
+pub(crate) fn face_adjustment(
     state: &GameState,
     player: PlayerId,
     card: ObjectId,
     def: &baylee_cards_dsl::CardDef,
     face: usize,
     form: Option<SpellForm>,
-) -> u32 {
-    if !state
-        .effects
-        .iter()
-        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::SpellsCostMore(_)))
-    {
-        return commander_tax(state, player, card);
+) -> SpellAdjustment {
+    if !has_spell_adjustments(state) {
+        return SpellAdjustment {
+            increase: commander_tax(state, player, card),
+            reduction: 0,
+        };
     }
     let Some(object) = state.object(card) else {
-        return 0;
+        return SpellAdjustment::default();
     };
     let mut spell = object.clone();
     spell.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
@@ -279,7 +306,27 @@ pub(crate) fn face_increase(
     if let Some(form) = form {
         spell = form.project(&spell);
     }
-    spell_increase(state, player, &spell)
+    spell_adjustment(state, player, &spell)
+}
+
+/// The public view still reports positive taxes separately from printed costs.
+#[cfg(test)]
+pub(crate) fn spell_increase(
+    state: &GameState,
+    player: PlayerId,
+    object: &crate::object::GameObject,
+) -> u32 {
+    spell_adjustment(state, player, object).increase
+}
+pub(crate) fn face_increase(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    def: &baylee_cards_dsl::CardDef,
+    face: usize,
+    form: Option<SpellForm>,
+) -> u32 {
+    face_adjustment(state, player, card, def, face, form).increase
 }
 
 /// Additional generic mana for activating an ability of this object. The
@@ -301,4 +348,30 @@ pub(crate) fn activation_increase(state: &GameState, source: ObjectId) -> u32 {
             _ => None,
         })
         .fold(0, u32::saturating_add)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn generic_adjustments_match_integer_reference_without_reducing_colored_symbols() {
+        for base in 0..24u32 {
+            for increase in 0..12u32 {
+                for reduction in 0..48u32 {
+                    let cost = ManaCost::parse("{U}{B}").with_more_generic(base);
+                    let adjusted = SpellAdjustment {
+                        increase,
+                        reduction,
+                    }
+                    .price(cost, 0);
+                    assert_eq!(
+                        adjusted.generic_total(),
+                        (base + increase).saturating_sub(reduction)
+                    );
+                    assert_eq!(adjusted.colors(), cost.colors());
+                    assert_eq!(adjusted.cmc(), adjusted.generic_total() + 2);
+                }
+            }
+        }
+    }
 }

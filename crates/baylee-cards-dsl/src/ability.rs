@@ -108,6 +108,8 @@ pub enum StepKind {
 /// as it resolves.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Condition {
+    /// At least one opponent controls at most this many matching permanents.
+    OpponentControlCountAtMost(&'static Filter, u32),
     /// An opponent controls more matching permanents than you do.
     OpponentControlsMore(&'static Filter),
     /// At least this many of the named card types occur in your graveyard.

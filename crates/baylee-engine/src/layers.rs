@@ -1245,7 +1245,8 @@ fn apply(
             c.abilities_lost = Some(Characteristics::lost_at(fx.timestamp));
         }
         // Handled by SBAs/legality checks, not by characteristics.
-        Modifier::SpellsCostMore(_)
+        Modifier::SpellsCostLess(_)
+        | Modifier::SpellsCostMore(_)
         | Modifier::AbilitiesCostMore(_)
         | Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard

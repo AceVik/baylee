@@ -1501,9 +1501,10 @@ impl<L: CardLookup> Engine<L> {
     ) -> baylee_core::mana::ManaCost {
         let base = crate::object::Characteristics::from_face(def, 0, crate::state::NAMELESS);
         let spell = GameObject::new_bare(ObjectId::NO_SOURCE, player, ObjectKind::Spell, base);
-        def.faces[0]
-            .mana_cost
-            .with_more_generic(casting::spell_increase(&self.state, player, &spell))
+        casting::spell_adjustment(&self.state, player, &spell).price(
+            def.faces[0].mana_cost,
+            casting::printed_reduction(&self.state, &def.faces[0], player, ObjectId::NO_SOURCE),
+        )
     }
 
     /// Prepared cast (Emeritus of Woe): pays the linked spell's cost,

@@ -23,12 +23,14 @@ mod lands;
 mod payment;
 mod pricing;
 #[cfg(test)]
+pub(crate) use pricing::spell_increase;
+#[cfg(test)]
 mod tests;
 
 pub use intrinsic::*;
 pub use lands::*;
 pub(crate) use payment::*;
-pub(crate) use pricing::{activation_increase, face_increase, spell_increase};
+pub(crate) use pricing::{activation_increase, face_adjustment, face_increase, spell_adjustment};
 pub use pricing::{
     commander_tax, convoke_sources, delve_sources, keyword_reduction, mana_is_wild, mana_spending,
     printed_reduction, reduction_amount, waterbend_sources,
@@ -806,9 +808,10 @@ pub(crate) fn can_cast_form_paying(
     // of casting the card — printed cost, alternative cost and mode alike
     // (CR 601.2f) — which is why it is folded into each probe below rather
     // than into the first one.
-    let tax = spell_increase(state, player, obj);
+    let adjustment = spell_adjustment(state, player, obj);
+    let tax = adjustment.increase;
     if let Some(form) = form {
-        return if affordable(state, player, pool, &form.cost().with_more_generic(tax)) {
+        return if affordable(state, player, pool, &adjustment.price(form.cost(), 0)) {
             Ok(())
         } else {
             Err(CastError::NotEnoughMana)
@@ -818,10 +821,12 @@ pub(crate) fn can_cast_form_paying(
     // the same probes the tax does and in the other direction. Read off the
     // printed face: a granted convoke does not exist.
     let printed_face = printed.map(|def| &def.faces[0]);
-    let reduction = printed_face.map_or(0, |face| {
-        keyword_reduction(state, face, player, card)
-            .saturating_add(printed_reduction(state, face, player, card))
-    });
+    let reduction = adjustment
+        .reduction
+        .saturating_add(printed_face.map_or(0, |face| {
+            keyword_reduction(state, face, player, card)
+                .saturating_add(printed_reduction(state, face, player, card))
+        }));
     let probe = |cost: &ManaCost| {
         affordable(
             state,
@@ -860,8 +865,11 @@ pub(crate) fn can_cast_form_paying(
     }
     let probe_back = |def: &baylee_cards_dsl::CardDef, i: usize| {
         let face = &def.faces[i];
-        let tax = face_increase(state, player, card, def, i, None);
-        let reduction = printed_reduction(state, face, player, card)
+        let adjustment = face_adjustment(state, player, card, def, i, None);
+        let tax = adjustment.increase;
+        let reduction = adjustment
+            .reduction
+            .saturating_add(printed_reduction(state, face, player, card))
             .saturating_add(keyword_reduction(state, face, player, card));
         affordable(
             state,

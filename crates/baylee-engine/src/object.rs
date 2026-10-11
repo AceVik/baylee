@@ -536,6 +536,15 @@ impl Characteristics {
                 }
             }
         }
+        // CR 702.114a: devoid defines color in every zone. Retain the
+        // printed static for battlefield layer ordering, and make the
+        // copiable base colorless for cards/spells outside that registry.
+        let devoid = def.abilities_for_face(face).iter().any(|ability| {
+            matches!(ability, baylee_cards_dsl::AbilityDef::Static(rule)
+                if rule.filter == baylee_cards_dsl::Filter::This
+                    && rule.condition.is_none()
+                    && rule.modifier == baylee_cards_dsl::Modifier::SetColor(ColorSet::EMPTY))
+        });
         Self {
             name,
             mana_cost: f.mana_cost,
@@ -543,7 +552,11 @@ impl Characteristics {
             // indicator printed on it. The union rather than an either/or,
             // because the two never coexist on a printed face and a card
             // that somehow stated both should be the sum, not one of them.
-            colors: f.mana_cost.colors().union(f.color_indicator),
+            colors: if devoid {
+                ColorSet::EMPTY
+            } else {
+                f.mana_cost.colors().union(f.color_indicator)
+            },
             types: f.types,
             supertypes: f.supertypes,
             subtypes,

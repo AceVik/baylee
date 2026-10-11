@@ -3,11 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Eye of Ugin prints `Colorless Eldrazi spells you cast cost {2} less to cast` and `{7}, {T}: Search
-/// your library for a colorless creature card, reveal it, put it into your hand, then shuffle.`
-/// The card is marked `Coverage::Partial` because static spell cost reductions are not expressible.
-/// Backed by a library of `walking_ballista` cards and seven `forest` lands providing seven floating mana,
-/// activating ability index 0 searches a colorless creature into hand and taps Eye of Ugin.
 #[test]
 fn eye_of_ugin_searches_colorless_creature_into_hand() {
     let p0 = PlayerId::new(0);
@@ -70,4 +65,43 @@ fn eye_of_ugin_searches_colorless_creature_into_hand() {
 
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().object(chosen).unwrap().zone, Zone::Hand);
+}
+
+#[test]
+fn eye_prices_a_devoid_eldrazi_from_its_stack_characteristics() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[eye_of_ugin()])
+        .hand(0, &[index::DROWNER_OF_TRUTH, index::WALKING_BALLISTA])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let state = e.dev_state_mut(p0).unwrap();
+    state.players[0].mana_pool.add(ManaColor::Green, 2);
+    state.players[0].mana_pool.add(ManaColor::Colorless, 3);
+    e.refresh_offer();
+    cast_with_floating(&mut e, p0, index::DROWNER_OF_TRUTH);
+    assert_eq!(e.state().players[0].mana_pool.total(), 0);
+    assert_eq!(
+        e.state()
+            .object(*e.state().zones.list(ZoneLocation::Stack).last().unwrap())
+            .unwrap()
+            .characteristics()
+            .colors,
+        baylee_core::color::ColorSet::EMPTY
+    );
+}
+#[test]
+fn eye_does_not_discount_a_colorless_non_eldrazi() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[eye_of_ugin()])
+        .hand(0, &[index::WALKING_BALLISTA])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    cast_with_floating(&mut e, p0, index::WALKING_BALLISTA);
+    assert!(matches!(e.pending(), Pending::ChooseNumber { max: 0, .. }));
 }

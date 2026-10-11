@@ -18,6 +18,9 @@ use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec}
 use baylee_core::ids::NameRef;
 use baylee_core::mana::ManaCost;
 
+mod pricing;
+use pricing::FrozenReduction;
+
 /// The current replicate-copy limit. Ordinary X choices are bounded by
 /// resources, never this limit.
 pub(crate) const REPLICATE_CEILING: u32 = 50;
@@ -77,6 +80,8 @@ pub(crate) struct CastWizard {
     pub player: PlayerId,
     /// Chosen cast option.
     pub option: Option<CastModeKind>,
+    /// Reductions frozen after selecting a casting form, before mana payments.
+    pub reduction: Option<FrozenReduction>,
     /// Exact announced identities, preserved across all later cost payments.
     pub target_references: crate::sources::TargetReferences,
     /// Chosen targets.
@@ -165,6 +170,17 @@ impl CastWizard {
             .wrapping_add(self.chosen_player.map_or(0, |p| u64::from(p.get()) + 1))
             .wrapping_mul(2)
             .wrapping_add(u64::from(self.paying == casting::Paying::DuringTheCast));
+        hash = hash
+            .wrapping_mul(2)
+            .wrapping_add(u64::from(self.reduction.is_some()));
+        if let Some(reduction) = self.reduction {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(reduction.total));
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(reduction.remainder));
+        }
         for targets in [
             self.targets.as_slice(),
             self.second_targets.as_slice(),
@@ -298,6 +314,7 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: None,
+            reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
@@ -353,15 +370,13 @@ impl<L: CardLookup> Engine<L> {
         {
             return Err(EngineError::IllegalAction("casting prohibited"));
         }
-        let cost = ManaCost::ZERO.with_more_generic(casting::spell_increase(
-            &self.state,
-            player,
-            &projected,
-        ));
+        let cost =
+            casting::spell_adjustment(&self.state, player, &projected).price(ManaCost::ZERO, 0);
         self.cast_wizard = Some(CastWizard {
             card,
             player,
             option: Some(CastModeKind::Normal),
+            reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
@@ -472,6 +487,7 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: Some(CastModeKind::Miracle),
+            reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
@@ -513,20 +529,10 @@ impl<L: CardLookup> Engine<L> {
         else {
             return cost;
         };
-        cost.with_more_generic(casting::face_increase(
-            &self.state,
-            player,
-            card,
-            def,
-            0,
-            None,
-        ))
-        .with_less_generic(casting::printed_reduction(
-            &self.state,
-            &def.faces[0],
-            player,
-            card,
-        ))
+        casting::face_adjustment(&self.state, player, card, def, 0, None).price(
+            cost,
+            casting::printed_reduction(&self.state, &def.faces[0], player, card),
+        )
     }
 
     fn free_normal_options(&self, player: PlayerId, card: ObjectId) -> Vec<CastModeDesc> {
@@ -607,6 +613,7 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option,
+            reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
@@ -681,6 +688,7 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: if single { option } else { None },
+            reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
@@ -748,6 +756,7 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: Some(CastModeKind::Normal),
+            reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
@@ -934,28 +943,14 @@ impl<L: CardLookup> Engine<L> {
         // it lands on every way of casting the card, an alternative cost
         // included (CR 601.2f) — and on the affordability probes too, or a
         // mode would be offered that the player then cannot pay for.
-        let tax = casting::face_increase(&self.state, player, card, def, 0, None);
-        let price = |cost: ManaCost| {
-            cost.with_more_generic(tax)
-                .with_less_generic(casting::printed_reduction(&self.state, face, player, card))
-        };
+        let adjustment = casting::face_adjustment(&self.state, player, card, def, 0, None);
+        let printed_reduction = casting::printed_reduction(&self.state, face, player, card);
+        let price = |cost: ManaCost| adjustment.price(cost, printed_reduction);
         let back_price = |i: usize| {
-            def.faces[i]
-                .mana_cost
-                .with_more_generic(casting::face_increase(
-                    &self.state,
-                    player,
-                    card,
-                    def,
-                    i,
-                    None,
-                ))
-                .with_less_generic(casting::printed_reduction(
-                    &self.state,
-                    &def.faces[i],
-                    player,
-                    card,
-                ))
+            casting::face_adjustment(&self.state, player, card, def, i, None).price(
+                def.faces[i].mana_cost,
+                casting::printed_reduction(&self.state, &def.faces[i], player, card),
+            )
         };
         // Convoke (CR 702.51a) pays {1} per untapped creature and
         // delve (CR 702.66a) pays {1} per card exiled from the graveyard, so
@@ -1151,14 +1146,15 @@ impl<L: CardLookup> Engine<L> {
             options.push(CastModeDesc {
                 index: options.len() as u8,
                 kind: CastModeKind::Prototype,
-                cost: prototype.cost.with_more_generic(casting::face_increase(
+                cost: casting::face_adjustment(
                     &self.state,
                     player,
                     card,
                     def,
                     0,
                     Some(casting::SpellForm::Prototype(prototype)),
-                )),
+                )
+                .price(prototype.cost, printed_reduction),
             });
         }
         if face.disguise.is_some() {
@@ -1176,14 +1172,15 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: options.len() as u8,
                     kind: CastModeKind::Disguise,
-                    cost: cost.with_more_generic(casting::face_increase(
+                    cost: casting::face_adjustment(
                         &self.state,
                         player,
                         card,
                         def,
                         0,
                         Some(casting::SpellForm::Disguise),
-                    )),
+                    )
+                    .price(cost, 0),
                 });
             }
         }
@@ -1412,17 +1409,16 @@ impl<L: CardLookup> Engine<L> {
         .filter(|(applies, _)| *applies)
         .map(|(_, n)| u32::try_from(*n).unwrap_or(u32::MAX))
         .fold(0_u32, u32::saturating_add);
-        let before = wizard_total_cost(face, wizard);
-        (1..=REPLICATE_CEILING)
-            .take_while(|n| {
-                self.can_pay_mana(
-                    player,
-                    spend_for(wizard, face),
-                    &before.combine_n(cost, *n).with_less_generic(help),
-                )
-            })
-            .last()
-            .unwrap_or(0)
+        let before = wizard_total_before_reduction(face, wizard);
+        let reduction =
+            help.saturating_add(wizard.reduction.map_or(0, |reduction| reduction.remainder));
+        casting::greatest_affordable(REPLICATE_CEILING, |n| {
+            self.can_pay_mana(
+                player,
+                spend_for(wizard, face),
+                &before.combine_n(cost, n).with_less_generic(reduction),
+            )
+        })
     }
 
     /// Drives the wizard forward until it needs an answer or finishes.
@@ -1512,9 +1508,13 @@ impl<L: CardLookup> Engine<L> {
 
     #[allow(clippy::too_many_lines)]
     fn advance_cast_wizard_inner(&mut self) -> Result<(), EngineError> {
-        let Some(wizard) = self.cast_wizard.clone() else {
+        let Some(mut wizard) = self.cast_wizard.clone() else {
             return Ok(());
         };
+        if wizard.option.is_some() && wizard.reduction.is_none() {
+            wizard.reduction = Some(self.frozen_spell_reduction(&wizard));
+            self.cast_wizard = Some(wizard.clone());
+        }
         if let Some(CastModeKind::PlayLandFace(face)) = wizard.option {
             let def = self
                 .state
@@ -2340,12 +2340,7 @@ impl<L: CardLookup> Engine<L> {
         let mut bound =
             casting::spendable_units(&self.state, wizard.player, spend_for(wizard, face))
                 .saturating_add(self.state.granted_colorless_capacity(wizard.player))
-                .saturating_add(casting::printed_reduction(
-                    &self.state,
-                    face,
-                    wizard.player,
-                    wizard.card,
-                ));
+                .saturating_add(wizard.reduction.map_or(0, |reduction| reduction.remainder));
         for (enabled, count) in [
             (
                 face.delve,
@@ -2383,16 +2378,7 @@ impl<L: CardLookup> Engine<L> {
         if restricted_color.is_none() && face.extra_target_cost == 0 {
             return (total, None);
         }
-        let reduction = casting::printed_reduction(&self.state, face, wizard.player, wizard.card);
-        let fixed = (if wizard.free {
-            0
-        } else {
-            face.mana_cost.generic_total()
-        })
-        .saturating_add(self.state.object(wizard.card).map_or(0, |o| {
-            casting::spell_increase(&self.state, wizard.player, o)
-        }));
-        let total = total.with_less_generic(reduction.saturating_sub(fixed));
+        let reduction = wizard.reduction.map_or(0, |reduction| reduction.total);
         let restricted = wizard
             .x
             .saturating_sub(reduction)
@@ -2960,6 +2946,14 @@ fn phyrexian_life(wizard: &CastWizard) -> i32 {
 /// taken is part of what delve may pay for, and X likewise (`with_x` turns
 /// the variable into generic mana before this is read).
 fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> ManaCost {
+    wizard_total_before_reduction(face, wizard)
+        .with_less_generic(wizard.reduction.map_or(0, |reduction| reduction.remainder))
+}
+
+fn wizard_total_before_reduction(
+    face: &baylee_cards_dsl::FaceDef,
+    wizard: &CastWizard,
+) -> ManaCost {
     let mut total = wizard_cost(wizard);
     let players = wizard.target_players.len()
         + usize::from(

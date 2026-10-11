@@ -65,6 +65,8 @@ pub const LAYERS: [Layer; 11] = [
 pub enum Modifier {
     /// Generic cost increase for spells matching the static ability's filter.
     SpellsCostMore(u32),
+    /// Matching spells cost this much less generic mana after all increases.
+    SpellsCostLess(u32),
     /// Generic cost increase for activated abilities of matching objects.
     AbilitiesCostMore(u32),
     /// Adds types (Mycosynth Lattice: "all permanents are artifacts").
@@ -803,7 +805,8 @@ impl Modifier {
             | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
-            Self::SpellsCostMore(_)
+            Self::SpellsCostLess(_)
+            | Self::SpellsCostMore(_)
             | Self::AbilitiesCostMore(_)
             | Self::LegendRuleOff
             | Self::PlayLandsFromGraveyard
@@ -1220,6 +1223,7 @@ mod tests {
     #[test]
     fn a_rules_modifying_effect_changes_no_characteristic_and_parks_on_text() {
         for modifier in [
+            Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
             Modifier::AbilitiesCostMore(3),
             Modifier::LegendRuleOff,

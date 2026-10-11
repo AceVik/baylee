@@ -871,6 +871,21 @@ pub fn condition_holds_with_context(
             (graveyard_card_types(state, you).bits() & types.bits()).count_ones()
                 >= u32::from(minimum)
         }
+        Condition::OpponentControlCountAtMost(filter, maximum) => {
+            let mut counts = vec![0u32; state.players.len()];
+            for id in state.battlefield_seen() {
+                if let Some(object) = state.object(id)
+                    && matches_with_context(filter, state, object, you, context)
+                    && let Some(count) = counts.get_mut(usize::from(object.controller.get()))
+                {
+                    *count = count.saturating_add(1);
+                }
+            }
+            counts.iter().enumerate().any(|(seat, &count)| {
+                u8::try_from(seat).is_ok_and(|seat| state.is_opponent(PlayerId::new(seat), you))
+                    && count <= maximum
+            })
+        }
         Condition::OpponentControlCount(filter, min) => (0..state.players.len())
             .map(|i| PlayerId::new(i as u8))
             .filter(|id| state.is_opponent(*id, you))
