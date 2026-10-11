@@ -2265,7 +2265,11 @@ messages! {
         en: "permanents to untap",
         de: "bleibende Karten, die enttappt werden",
     },
-    /// card to reveal
+    /// Optional disclosure of one already selected discard.
+    NounDiscardToReveal { en: "discard to reveal with Nephalia Academy (others stay hidden)", de: "abgeworfene Karte, die Nephalia Academy aufdeckt (andere bleiben verdeckt)" },
+    /// Optional disclosure of several already selected discards.
+    NounDiscardsToReveal { en: "discards to reveal with Nephalia Academy (others stay hidden)", de: "abgeworfene Karten, die Nephalia Academy aufdeckt (andere bleiben verdeckt)" },
+    /// Card to reveal.
     NounCardToReveal { en: "card to reveal", de: "Karte, die aufgedeckt wird" },
     /// cards to reveal
     NounCardsToReveal { en: "cards to reveal", de: "Karten, die aufgedeckt werden" },

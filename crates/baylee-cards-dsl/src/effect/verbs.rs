@@ -672,6 +672,8 @@ impl Effect {
             | Effect::RevealAndSeparate { .. }
             | Effect::LookAtTopMayPut { .. }
             | Effect::DiscardUpToThenDraw { .. }
+            | Effect::Connive { .. }
+            | Effect::Recruit { .. }
             | Effect::SearchLibraryOrGraveyard { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::ModifyTargets { .. }
@@ -750,6 +752,7 @@ impl Effect {
             | Effect::EqualizePermanents { .. }
             | Effect::EqualizeHands
             | Effect::DiscardForPlayers { .. }
+            | Effect::DiscardEachOrDraw { .. }
             | Effect::DiscardRandom { .. }
             | Effect::DiscardHand { .. }
             | Effect::RevealHandDiscard { .. }
@@ -778,6 +781,7 @@ impl Effect {
             | Effect::BecomePrepared
             | Effect::GainLifeDoubleX
             | Effect::SearchLibrary { .. }
+            | Effect::SearchLibraryBeforeShuffle { .. }
             | Effect::Scry { .. }
             | Effect::Surveil { .. }
             | Effect::ScryFor { .. }

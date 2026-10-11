@@ -49,6 +49,11 @@ pub(super) fn exec_choice(
             filter,
             finds,
             optional,
+        }
+        | Effect::SearchLibraryBeforeShuffle {
+            filter,
+            finds,
+            optional,
         } => begin_search(
             state,
             res,

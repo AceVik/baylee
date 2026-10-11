@@ -1802,10 +1802,7 @@ impl<L: CardLookup> Engine<L> {
                 }
                 let since = self.state.journal.last_seq();
                 for card in objects {
-                    self.state.journal.record(GameEvent::Discarded {
-                        object: card,
-                        player,
-                    });
+                    self.state.record_discard(card, player, None, true);
                     self.state.move_object(
                         card,
                         ZoneLocation::Graveyard(player),

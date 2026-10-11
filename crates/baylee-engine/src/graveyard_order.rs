@@ -232,6 +232,7 @@ mod tests {
             subject: crate::resolve::SubjectContext::default(),
             text: crate::text_changes::TextChangeMap::IDENTITY,
             retarget_left: None,
+            loot: None,
         };
         (state, res)
     }

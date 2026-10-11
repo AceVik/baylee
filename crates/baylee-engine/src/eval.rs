@@ -1003,6 +1003,12 @@ pub fn condition_holds_with_context(
         Condition::HandSizeAtMost(max) => {
             state.zones.list(ZoneLocation::Hand(you)).len() <= max as usize
         }
+        Condition::APlayerHandSizeAtMost(n) => (0..state.players.len())
+            .map(|seat| PlayerId::new(seat as u8))
+            .any(|player| {
+                !state.has_left(player)
+                    && state.zones.list(ZoneLocation::Hand(player)).len() <= usize::from(n)
+            }),
         Condition::HandSizeExactly(n) => {
             state.zones.list(ZoneLocation::Hand(you)).len() == n as usize
         }

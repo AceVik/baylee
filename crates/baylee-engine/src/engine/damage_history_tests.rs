@@ -70,6 +70,7 @@ fn execute(
         text: crate::text_changes::TextChangeMap::IDENTITY,
         event_mana: None,
         retarget_left: None,
+        loot: None,
     };
     assert!(matches!(
         crate::resolve::run(&mut e.state, &mut res),

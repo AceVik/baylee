@@ -658,6 +658,7 @@ fn resolve(
         text: crate::text_changes::TextChangeMap::IDENTITY,
         event_mana: None,
         retarget_left: None,
+        loot: None,
     };
     if let crate::resolve::Flow::Wait(pending) = crate::resolve::run(state, &mut res) {
         return Err(format!(

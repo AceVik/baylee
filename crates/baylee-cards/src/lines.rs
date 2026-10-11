@@ -718,6 +718,7 @@ mod tests {
                 "Mirrorhall Mimic",
                 "Fable of the Mirror-Breaker",
                 "Sheoldred",
+                "Aclazotz, Deepest Betrayal",
                 "Dowsing Device",
                 "Grasping Shadows",
                 "Ojer Kaslem, Deepest Growth",

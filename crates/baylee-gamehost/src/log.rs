@@ -389,7 +389,7 @@ impl GameLog {
             // says only that the caster thought for a while.
             | GameEvent::CastCancelled { .. }
             // The creating effect and resulting stack entries already identify copies.
-            | GameEvent::SpellCopied { .. }
+            | GameEvent::SpellCopied { .. } | GameEvent::Connived { .. }
             // The board says which attackers nothing blocks, and an ability
             // it set off has its own line.
             | GameEvent::AttackerBlocked { .. }
@@ -534,7 +534,7 @@ impl GameLog {
                     vec![sees],
                 );
             }
-            GameEvent::SpellCast { object, player } => {
+            GameEvent::SpellCast { object, player, .. } => {
                 let from = came_from(state, *object, came);
                 let (spell, sees) = self.refer(state, *object);
                 self.push(
@@ -560,7 +560,7 @@ impl GameLog {
                 let (spell, sees) = self.refer(state, *object);
                 self.push(LogEvent::Countered { spell }, vec![sees]);
             }
-            GameEvent::Discarded { object, player } => {
+            GameEvent::Discarded { object, player, known, .. } => {
                 // Into a graveyard, where everyone sees it (the move that
                 // follows is this same line, and is not written twice). A
                 // card Library of Leng put on top of a library instead was
@@ -571,7 +571,7 @@ impl GameLog {
                 let in_library = state
                     .object(*object)
                     .is_some_and(|o| o.zone == Zone::Library);
-                let sees = if in_library {
+                let sees = if in_library && !known {
                     Sees::Only(std::iter::once(*player).collect())
                 } else {
                     Sees::Everyone

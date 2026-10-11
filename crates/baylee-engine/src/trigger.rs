@@ -6,7 +6,9 @@
 //! order. Same-controller ordering currently follows timestamp; the
 //! player-facing ordering choice is M2 (documented in engine-internals).
 
+mod discarded;
 mod return_keywords;
+
 pub(crate) use return_keywords::return_keyword_counts;
 
 use crate::eval;
@@ -225,6 +227,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     graveyard_triggers(state, lookup, events, &mut triggers);
     monarch_triggers(state, events, &mut triggers);
     cast_this_spell_triggers(state, lookup, events, &mut triggers);
+    discarded::collect(state, lookup, events, &mut triggers);
     watch_triggers(state, events, &mut triggers);
     cast_copy_triggers(state, events, &mut triggers);
     collect_departed(state, lookup, events, &mut triggers);
@@ -583,7 +586,7 @@ fn cast_copy_triggers(
             *moves.entry(object).or_default() += 1;
             continue;
         }
-        let GameEvent::SpellCast { object, player } = entry.event else {
+        let GameEvent::SpellCast { object, player, .. } = entry.event else {
             continue;
         };
         before = before.saturating_sub(1);
@@ -1175,6 +1178,7 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         GameEvent::ZoneChanged { object, .. }
         | GameEvent::SpellCast { object, .. }
         | GameEvent::SpellCopied { object, .. }
+        | GameEvent::Discarded { object, .. }
         | GameEvent::AbilityTriggered { object, .. }
         | GameEvent::BecameTarget { object, .. }
         | GameEvent::PlayerBecameTarget { object, .. }
@@ -1211,6 +1215,7 @@ fn targeting(
         GameEvent::SpellCast {
             object,
             player: controller,
+            ..
         }
         | GameEvent::AbilityTriggered {
             object, controller, ..
@@ -1234,7 +1239,7 @@ fn cast_this_spell_triggers(
     triggers: &mut Vec<PendingTrigger>,
 ) {
     for entry in events {
-        let GameEvent::SpellCast { object, player } = entry.event else {
+        let GameEvent::SpellCast { object, player, .. } = entry.event else {
             continue;
         };
         let Some(spell) = state.object(object).filter(|o| o.zone == Zone::Stack) else {
@@ -1448,6 +1453,7 @@ fn targeted_by_opponent(
         GameEvent::SpellCast {
             object,
             player: controller,
+            ..
         }
         | GameEvent::AbilityTriggered {
             object, controller, ..
@@ -1597,7 +1603,7 @@ fn collect_for_objects(
             .contains(baylee_cards_dsl::KeywordSet::PROWESS)
         {
             for entry in events {
-                if let GameEvent::SpellCast { object, player } = &entry.event
+                if let GameEvent::SpellCast { object, player, .. } = &entry.event
                     && *player == obj.controller
                     && state.object(*object).is_some_and(|spell| {
                         !spell
@@ -2223,21 +2229,31 @@ fn matches(
         | (Trigger::SpellCastOrCopied(filter), GameEvent::SpellCopied { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
-        (Trigger::NthSpellCast { n, filter }, GameEvent::SpellCast { object, player }) => {
-            // The per-turn counter is bumped before the event is journalled,
-            // so it already includes the spell this event is about: the nth
-            // spell is exactly the one that makes the count reach n. Copies
-            // are put on the stack rather than cast, and so never count.
-            let count = state
-                .per_turn
-                .spells_cast
-                .get(player.get() as usize)
-                .copied()
-                .unwrap_or(0);
-            count == u32::from(*n)
+        (Trigger::NthSpellCast { n, filter }, GameEvent::SpellCast { object, number, .. }) => {
+            *number == u32::from(*n)
                 && state
                     .object(*object)
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        (
+            Trigger::Discarded { who, filter },
+            GameEvent::Discarded {
+                object,
+                version,
+                player,
+                known: true,
+                ..
+            },
+        ) => {
+            eval::players(*who, state, you).is_some_and(|players| players.contains(player))
+                && state
+                    .source_object(baylee_core::ids::DamageSourceRef {
+                        object: *object,
+                        version: *version,
+                    })
+                    .is_some_and(|card| {
+                        eval::matches_with_context(filter, state, card, you, context)
+                    })
         }
         (Trigger::BecomesTarget, _) => targeting(event, state, source).is_some(),
         (Trigger::Ward, _) => targeting(event, state, source)
@@ -2361,7 +2377,7 @@ fn matches(
                     .object(*object)
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
-        (Trigger::FirstNoncreatureSpellCast(rel), GameEvent::SpellCast { object, player }) => {
+        (Trigger::FirstNoncreatureSpellCast(rel), GameEvent::SpellCast { object, player, .. }) => {
             let player_matches = match rel {
                 PlayerRel::You => *player == you,
                 PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*player, you),

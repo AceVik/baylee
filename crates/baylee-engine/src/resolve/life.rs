@@ -1290,6 +1290,7 @@ mod tests {
             text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
+            loot: None,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,
             awaiting: None,

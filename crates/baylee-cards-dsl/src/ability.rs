@@ -210,6 +210,8 @@ pub enum Condition {
     /// threshold below, so the count is a parameter rather than a fixed
     /// nought and nothing here may read the word.
     HandSizeAtMost(u8),
+    /// At least one player still in the game has at most N cards in hand.
+    APlayerHandSizeAtMost(u8),
     /// The controller has played at least N lands this turn (CR 305.2).
     /// Fastbond's "if it wasn't the first land you played this turn" is 2:
     /// a trigger on the play is collected after the land it is about was
@@ -375,6 +377,16 @@ pub enum Condition {
 /// Trigger conditions for triggered abilities.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Trigger {
+    /// A player discards a matching card with defined characteristics.
+    Discarded {
+        /// The discarding player, relative to this ability's controller.
+        who: crate::PlayerRel,
+        /// The discarded card's characteristics in hand (CR 701.9c).
+        filter: &'static Filter,
+    },
+    /// An opponent's spell or ability causes this hand card to be discarded.
+    /// Functions from the hand under CR 113.6k; `EventPlayer` is that opponent.
+    DiscardedThisByOpponent,
     /// This permanent is turned face up (not transformed or entering).
     TurnedFaceUp,
     /// "Whenever this creature transforms into [this face]" (CR 701.27e):

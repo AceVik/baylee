@@ -147,6 +147,50 @@ fn a_change_of_control_is_the_you_control_the_text_says() {
     assert_eq!(problems, 1, "no filter and no change of control");
 }
 
+#[test]
+fn an_opponents_discard_effect_is_a_controller_restriction() {
+    let payload = serde_json::json!({
+        "oracle_text": "If a spell or ability an opponent controls causes you to discard a card."
+    });
+    for (name, expected) in [("Nephalia Academy", 0), ("Psychic Purge", 0), ("Fog", 1)] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered fixture");
+        let mut problems = 0;
+        super::check_scope_matches_the_text(
+            "fixture",
+            "Not An Exception",
+            def,
+            &payload,
+            &mut problems,
+        );
+        assert_eq!(problems, expected, "{name}");
+    }
+}
+
+#[test]
+fn a_revealed_discard_replacement_offers_its_optional_choice() {
+    let payload = serde_json::json!({
+        "oracle_text": "You may reveal that card and put it on top of your library instead."
+    });
+    for (name, expected) in [("Nephalia Academy", 0), ("Psychic Purge", 1)] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered fixture");
+        let mut problems = 0;
+        let mut tally = super::PrintingTally::default();
+        super::check_optional_clauses_are_offered(
+            "fixture",
+            def,
+            &payload,
+            &mut tally,
+            &mut problems,
+        );
+        assert_eq!(problems, expected, "{name}");
+        assert_eq!(tally.optional_clauses, 1);
+    }
+}
+
 /// A batch is allowed to write the cards it asked for and nothing else.
 ///
 /// Codegen rewrites every machine-owned card on every run, so a rewrite is

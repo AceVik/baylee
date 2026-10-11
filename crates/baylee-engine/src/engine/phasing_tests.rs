@@ -156,6 +156,7 @@ fn resolve_now(
         text: crate::text_changes::TextChangeMap::IDENTITY,
         event_mana: None,
         retarget_left: None,
+        loot: None,
     };
     assert!(
         matches!(

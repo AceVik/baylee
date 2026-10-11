@@ -2540,6 +2540,7 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::SacrificeSelf
                     | CostPart::Sacrifice(_)
                     | CostPart::Discard(_)
+                    | CostPart::DiscardRandom
                     | CostPart::DiscardSelf
                     | CostPart::ExileSelf
                     | CostPart::ReturnSelfToHand
@@ -2603,6 +2604,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::UntapSelf
                 | CostPart::SacrificeSelf
                 | CostPart::Discard(_)
+                | CostPart::DiscardRandom
                 | CostPart::TapOther(_)
                 | CostPart::Crew(_)
                 | CostPart::Saddle(_)
@@ -2855,6 +2857,7 @@ impl<L: CardLookup> Engine<L> {
         self.state.journal.record(GameEvent::SpellCast {
             object: card,
             player,
+            number: self.state.per_turn.spells_cast_by(player),
         });
         self.cast_wizard = None;
         if !self.finish_nested_cast() {

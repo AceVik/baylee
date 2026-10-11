@@ -1187,6 +1187,18 @@ fn alternative_parts_payable(
 ) -> bool {
     use baylee_cards_dsl::CostPart;
     parts.iter().all(|part| match part {
+        CostPart::DiscardRandom => {
+            state
+                .zones
+                .list(ZoneLocation::Hand(player))
+                .iter()
+                .filter(|id| **id != card)
+                .count()
+                >= parts
+                    .iter()
+                    .filter(|part| matches!(part, CostPart::DiscardRandom))
+                    .count()
+        }
         CostPart::PayLife(n) => state.can_pay_life(player, i32::from(*n)),
         CostPart::ExileFromHand(filter) => !pitchable(state, player, card, filter).is_empty(),
         // The same question `can_afford` asks of an activation, asked of the

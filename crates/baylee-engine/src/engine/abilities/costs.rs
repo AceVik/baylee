@@ -126,6 +126,23 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
+                CostPart::DiscardRandom => {
+                    let needed = cost
+                        .parts
+                        .iter()
+                        .filter(|part| {
+                            matches!(
+                                part,
+                                CostPart::DiscardRandom
+                                    | CostPart::Discard(_)
+                                    | CostPart::DiscardSelf
+                            )
+                        })
+                        .count();
+                    if self.state.zones.list(ZoneLocation::Hand(player)).len() < needed {
+                        return false;
+                    }
+                }
                 CostPart::PayLife(n) => {
                     if !self.state.can_pay_life(player, i32::from(*n)) {
                         return false;
@@ -353,12 +370,18 @@ impl<L: CardLookup> Engine<L> {
                 CostPart::UntapSelf => {
                     self.state.set_tapped(source, false);
                 }
+                CostPart::DiscardRandom => {
+                    let hand = self.state.zones.list(ZoneLocation::Hand(player));
+                    if hand.is_empty() {
+                        return Err(EngineError::IllegalAction("no card to discard at random"));
+                    }
+                    let at = self.state.rng.below(hand.len() as u64) as usize;
+                    let card = self.state.zones.list(ZoneLocation::Hand(player))[at];
+                    self.state.discard_card(card, player, Cause::Cost, None);
+                }
                 CostPart::DiscardSelf => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);
-                    self.state.journal.record(GameEvent::Discarded {
-                        object: source,
-                        player,
-                    });
+                    self.state.record_discard(source, player, None, true);
                     self.state.move_object(
                         source,
                         ZoneLocation::Graveyard(owner),

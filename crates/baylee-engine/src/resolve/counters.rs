@@ -538,6 +538,7 @@ mod pump_tests {
             text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
+            loot: None,
         }
     }
 

@@ -33,6 +33,7 @@ mod landwalk;
 pub use landwalk::resume_with_subtype;
 mod life;
 pub(crate) mod linked_counters;
+pub mod loot;
 mod mana;
 mod reanimation;
 mod reflexive;
@@ -49,7 +50,7 @@ mod awaiting;
 mod choices;
 mod discard;
 mod river;
-pub use discard::DiscardThen;
+pub use discard::{DiscardReveal, DiscardThen};
 use discard::{discard_or_ask, resume_discard_destination};
 mod immediate;
 mod permissions;
@@ -241,6 +242,8 @@ pub struct Resolution {
     /// copiable values while it is there — so nothing would read a snapshot
     /// of the second.
     pub retarget_left: Option<usize>,
+    /// Connive/recruit state held while their draws may be replaced.
+    pub loot: Option<Box<loot::Loot>>,
 }
 
 impl Resolution {
@@ -270,6 +273,7 @@ impl Resolution {
                 self.countered_source,
                 self.text,
                 self.retarget_left,
+                &self.loot,
             ),
         ));
         hash = hash
@@ -940,7 +944,8 @@ fn order_before_continuing(
 
 /// Counted copies retain one instruction across every target-choice suspension.
 fn advance_program(res: &mut Resolution) {
-    if !matches!(res.effects.get(res.pc), Some(Effect::CopyThisSpell { amount: Amount::Fixed(n) }) if *n > 0)
+    if res.loot.is_none()
+        && !matches!(res.effects.get(res.pc), Some(Effect::CopyThisSpell { amount: Amount::Fixed(n) }) if *n > 0)
     {
         res.pc += 1;
     }
@@ -1011,6 +1016,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
     let op = res.text.effect_immediate(op);
     let pending = match op {
         Effect::SearchLibrary { .. }
+        | Effect::SearchLibraryBeforeShuffle { .. }
         | Effect::Scry { .. }
         | Effect::Surveil { .. }
         | Effect::ScryFor { .. }
@@ -1169,6 +1175,7 @@ fn run_nested_with(
         text: res.text,
         event_mana: res.event_mana,
         retarget_left: None,
+        loot: None,
     };
     let flow = run(state, &mut nested);
     res.subject = nested.subject.clone();
@@ -1176,6 +1183,7 @@ fn run_nested_with(
         Flow::Complete => None,
         Flow::Wait(pending) => {
             res.awaiting = nested.awaiting;
+            res.loot = nested.loot;
             let tail = nested.effects.split_off(nested.pc);
             res.effects.splice(res.pc..=res.pc, tail);
             Some(pending)

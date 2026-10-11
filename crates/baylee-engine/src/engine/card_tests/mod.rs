@@ -5739,3 +5739,5 @@ mod death_returns;
 mod divided_spells;
 
 mod storm;
+
+mod looting;

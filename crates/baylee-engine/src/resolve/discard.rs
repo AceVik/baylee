@@ -50,7 +50,7 @@ pub(super) fn ask_discard_destination(
     discards: &[(ObjectId, PlayerId)],
     then: DiscardThen,
 ) -> Option<Pending> {
-    let (player, cards) = next_asked(state, discards)?;
+    let (player, cards) = next_asked(state, discards, res.controller)?;
     let n = u32::try_from(cards.len()).unwrap_or(u32::MAX);
     res.awaiting = Some(AwaitingOp::DiscardDestination {
         discards: discards.to_vec(),
@@ -73,11 +73,14 @@ pub(super) fn ask_discard_destination(
 fn next_asked(
     state: &GameState,
     discards: &[(ObjectId, PlayerId)],
+    controller: PlayerId,
 ) -> Option<(PlayerId, Vec<ObjectId>)> {
     let player = discards
         .iter()
         .find(|(card, player)| {
-            !state.discard_answered(*card) && state.discard_top_source(*player).is_some()
+            !state.discard_answered(*card)
+                && (state.discard_top_source(*player).is_some()
+                    || state.discard_reveal_source(*player, controller).is_some())
         })
         .map(|&(_, player)| player)?;
     let cards = discards
@@ -99,16 +102,48 @@ pub(super) fn resume_discard_destination(
     then: DiscardThen,
     piles: &[Vec<ObjectId>],
 ) -> Flow {
-    let since = state.journal.last_seq();
-    if let Some((_, asked)) = next_asked(state, discards) {
+    if let Some((player, asked)) = next_asked(state, discards, res.controller) {
         let top = piles.get(1).cloned().unwrap_or_default();
-        let graveyard: Vec<ObjectId> = asked
-            .iter()
-            .copied()
-            .filter(|card| !top.contains(card))
+        let top_set: std::collections::BTreeSet<_> = top.iter().copied().collect();
+        let graveyard: Vec<_> = asked
+            .into_iter()
+            .filter(|card| !top_set.contains(card))
             .collect();
-        state.record_discard_answers(&graveyard, &top);
+        let academy = state
+            .discard_reveal_source(player, res.controller)
+            .is_some();
+        if academy && !top.is_empty() && state.discard_top_source(player).is_some() {
+            return offer_reveal(
+                state,
+                res,
+                DiscardReveal {
+                    player,
+                    discards: discards.to_vec(),
+                    then,
+                    graveyard,
+                    top,
+                    revealed: std::collections::BTreeSet::new(),
+                    answered: 0,
+                },
+            );
+        }
+        let revealed = if academy {
+            top_set
+        } else {
+            std::collections::BTreeSet::new()
+        };
+        state.record_discard_answers(&graveyard, &top, &revealed);
     }
+    after_destinations(state, res, discards, then)
+}
+
+fn after_destinations(
+    state: &mut GameState,
+    res: &mut Resolution,
+    discards: &[(ObjectId, PlayerId)],
+    then: DiscardThen,
+) -> Flow {
+    let since = state.journal.last_seq();
     if let Some(pending) = ask_discard_destination(state, res, discards, then.clone()) {
         return Flow::Wait(pending);
     }
@@ -116,7 +151,7 @@ pub(super) fn resume_discard_destination(
         DiscardThen::Cards => {
             for &(card, player) in discards {
                 if state.zones.list(ZoneLocation::Hand(player)).contains(&card) {
-                    state.discard_card(card, player, Cause::Effect);
+                    state.discard_card(card, player, Cause::Effect, Some(res.controller));
                 }
             }
             state.forget_discard_answers();
@@ -143,69 +178,162 @@ pub(super) fn discard_or_ask(
         return Some(pending);
     }
     for &(card, player) in discards {
-        state.discard_card(card, player, Cause::Effect);
+        state.discard_card(card, player, Cause::Effect, Some(res.controller));
     }
     None
 }
 
-/// Resume each player's chosen discard, preserving replacement questions.
-#[allow(clippy::too_many_arguments)] // the existing continuation's captured operands
+/// Freeze participants and inability before choices, in APNAP order.
+pub(super) fn start_chain(
+    state: &mut GameState,
+    res: &mut Resolution,
+    who: PlayerRel,
+    count: u8,
+    reward_unable: bool,
+) -> Option<Pending> {
+    if count == 0 {
+        return None;
+    }
+    let mut remaining = players_of(who, state, res.controller, res);
+    remaining.retain(|player| !state.has_left(*player));
+    let seats = state.players.len();
+    remaining.sort_by_key(|player| {
+        (usize::from(player.get()) + seats - usize::from(state.turn.active.get())) % seats
+    });
+    let draws = if reward_unable {
+        remaining
+            .iter()
+            .filter(|p| state.zones.list(ZoneLocation::Hand(**p)).is_empty())
+            .count() as u32
+    } else {
+        0
+    };
+    remaining.retain(|player| !state.zones.list(ZoneLocation::Hand(*player)).is_empty());
+    remaining.reverse();
+    next_in_chain(state, res, count, remaining, Vec::new(), draws)
+}
+
+#[allow(clippy::too_many_arguments)] // frozen continuation operands
 pub(super) fn resume_chain(
     state: &mut GameState,
     res: &mut Resolution,
     player: PlayerId,
     count: u8,
     remaining: Vec<PlayerId>,
+    mut selected: Vec<(ObjectId, PlayerId)>,
+    draws: u32,
     chosen: &[ObjectId],
     since: u64,
 ) -> Flow {
-    let discards: Vec<(ObjectId, PlayerId)> = chosen.iter().map(|&card| (card, player)).collect();
-    // Library of Leng, before anything moves; the answer comes back
-    // here with the same cards.
-    if let Some(question) = super::discard::ask_discard_destination(
-        state,
-        res,
-        &discards,
-        DiscardThen::Choice {
-            op: Box::new(AwaitingOp::DiscardChain {
-                player,
-                count,
-                remaining: remaining.clone(),
-            }),
-            chosen: chosen.to_vec(),
-        },
-    ) {
-        return next_choice(state, res, since, question);
+    selected.extend(chosen.iter().map(|card| (*card, player)));
+    if let Some(pending) = next_in_chain(state, res, count, remaining, selected, draws) {
+        next_choice(state, res, since, pending)
+    } else {
+        finish_choice(state, res, since)
     }
-    for &(card, player) in &discards {
-        state.discard_card(card, player, Cause::Effect);
-    }
-    let mut remaining = remaining;
-    while let Some(player) = remaining.first().copied() {
-        remaining.remove(0);
-        let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(player)).clone();
-        if hand.is_empty() {
+}
+
+fn next_in_chain(
+    state: &mut GameState,
+    res: &mut Resolution,
+    count: u8,
+    mut remaining: Vec<PlayerId>,
+    selected: Vec<(ObjectId, PlayerId)>,
+    draws: u32,
+) -> Option<Pending> {
+    while let Some(player) = remaining.pop() {
+        let options = state.zones.list(ZoneLocation::Hand(player)).clone();
+        if options.is_empty() || state.has_left(player) {
             continue;
         }
-        let n = (count as usize).min(hand.len()) as u8;
+        let n = usize::from(count).min(options.len()) as u8;
         res.awaiting = Some(AwaitingOp::DiscardChain {
             player,
             count,
             remaining,
+            selected,
+            draws,
         });
-        return next_choice(
-            state,
-            res,
-            since,
-            Pending::ChooseCards {
-                player,
-                options: hand,
-                min: n,
-                max: n,
-                prompt: ChoicePrompt::Generic,
-                total: None,
-            },
-        );
+        return Some(Pending::ChooseCards {
+            player,
+            options,
+            min: n,
+            max: n,
+            prompt: ChoicePrompt::Generic,
+            total: None,
+        });
     }
-    finish_choice(state, res, since)
+    if let Some(question) = ask_discard_destination(
+        state,
+        res,
+        &selected,
+        DiscardThen::Choice {
+            op: Box::new(AwaitingOp::DiscardChain {
+                player: res.controller,
+                count,
+                remaining,
+                selected: selected.clone(),
+                draws,
+            }),
+            chosen: Vec::new(),
+        },
+    ) {
+        return Some(question);
+    }
+    for (card, player) in selected {
+        if state.zones.list(ZoneLocation::Hand(player)).contains(&card) {
+            state.discard_card(card, player, Cause::Effect, Some(res.controller));
+        }
+    }
+    state.forget_discard_answers();
+    if draws > 0 {
+        state.draw_cards(res.controller, draws as usize);
+    }
+    None
+}
+
+/// Optional public disclosure when both library replacement effects apply.
+#[derive(Clone, Debug)]
+pub struct DiscardReveal {
+    player: PlayerId,
+    discards: Vec<(ObjectId, PlayerId)>,
+    then: DiscardThen,
+    graveyard: Vec<ObjectId>,
+    top: Vec<ObjectId>,
+    revealed: std::collections::BTreeSet<ObjectId>,
+    answered: usize,
+}
+
+pub(super) fn resume_reveal(
+    state: &mut GameState,
+    res: &mut Resolution,
+    mut choice: DiscardReveal,
+    chosen: &[ObjectId],
+) -> Flow {
+    choice.revealed.extend(chosen.iter().copied());
+    choice.answered = choice
+        .answered
+        .saturating_add(usize::from(u8::MAX))
+        .min(choice.top.len());
+    offer_reveal(state, res, choice)
+}
+
+fn offer_reveal(state: &mut GameState, res: &mut Resolution, choice: DiscardReveal) -> Flow {
+    if choice.answered < choice.top.len() && !state.has_left(choice.player) {
+        let end = (choice.answered + usize::from(u8::MAX)).min(choice.top.len());
+        let options = choice.top[choice.answered..end].to_vec();
+        let max = options.len() as u8;
+        let player = choice.player;
+        res.awaiting = Some(AwaitingOp::RevealDiscard(Box::new(choice)));
+        return Flow::Wait(Pending::ChooseCards {
+            player,
+            options,
+            min: 0,
+            max,
+            prompt: ChoicePrompt::RevealDiscard,
+            total: None,
+        });
+    }
+    state.record_discard_answers(&choice.graveyard, &choice.top, &choice.revealed);
+    after_destinations(state, res, &choice.discards, choice.then)
 }

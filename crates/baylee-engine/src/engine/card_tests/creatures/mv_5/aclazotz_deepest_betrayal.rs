@@ -3,16 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Aclazotz, Deepest Betrayal` // `Temple of the Dead` (`Coverage::Partial`):
-/// "Flying, lifelink. Whenever `Aclazotz` attacks, each opponent discards a card. For each opponent
-/// who can't, you draw a card. Whenever an opponent discards a land card, create a 1/1 black Bat
-/// creature token with flying. When `Aclazotz` dies, return it to the battlefield tapped and transformed
-/// under its owner's control. // `{{T}}`: Add `{{B}}`. `{{2}}{{B}}`, `{{T}}`: Transform this land."
-///
-/// Under `Coverage::Partial`, the draw rider, bat token creation on land discard, and dies-return are omitted,
-/// while `KeywordSet::FLYING`, `KeywordSet::LIFELINK`, and the attack-trigger `Effect::DiscardForPlayers` are implemented.
-/// The test declares `Aclazotz` as an attacker against an opponent holding a card, answers the resulting
-/// `Pending::ChooseCards` discard prompt, and confirms that combat damage deals 4 damage and gains 4 life via lifelink.
+/// Aclazotz attacks, forces a discard and deals flying/lifelink combat damage.
 #[test]
 fn aclazotz_attacks_to_cause_discard_and_gains_life_from_combat_damage() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));

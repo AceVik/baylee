@@ -3,20 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Ledger Shredder prints `{1}{U}` for a 1/3 flying Bird Advisor, and the
-/// connive trigger — "whenever a player casts their second spell each turn"
-/// — is the half this printing does not have.
-///
-/// So two spells are cast in one first main phase, which is exactly the
-/// second spell the missing trigger is about, and the Bird is a 1/3 with no
-/// counter on it when the stack clears. The keyword the card *does* print is
-/// played rather than read: a turn later the Shredder and a ground Elves
-/// attack together, and the blocker the opponent's own Elves is offered for
-/// is the ground attacker and never the flier — flying is a pairing question
-/// (CR 509.1b), and an offer that simply omitted the Bird would say the same
-/// on a board holding nothing that could block anything at all.
+/// A Shredder cast as the second spell was not yet on the battlefield
+/// to see its own casting. It still flies over a ground blocker.
 #[test]
-fn ledger_shredder_flies_over_the_ground_and_never_connives() {
+fn ledger_shredder_does_not_see_its_own_cast_and_flies_over_the_ground() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(6111, forest())
         .battlefield(0, &[island(), island(), forest()])
@@ -43,9 +33,7 @@ fn ledger_shredder_flies_over_the_ground_and_never_connives() {
     assert_eq!(
         pt(&engine, shredder),
         (1, 3),
-        "two spells in one turn and the Bird is untouched: the second-spell \
-         connive is the `Coverage::Partial` gap, so no card was drawn and no \
-         +1/+1 counter landed"
+        "it was not yet on the battlefield when the second spell was cast"
     );
 
     // A turn has to turn before either of them may attack.

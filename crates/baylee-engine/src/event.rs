@@ -222,6 +222,8 @@ pub enum GameEvent {
         object: ObjectId,
         /// The casting player.
         player: PlayerId,
+        /// This player's spell number this turn, frozen at casting.
+        number: u32,
     },
     /// A copy of a spell was put on the stack, without being cast (CR 707.10).
     SpellCopied {
@@ -273,7 +275,20 @@ pub enum GameEvent {
     Discarded {
         /// The card.
         object: ObjectId,
-        /// The player.
+        /// Its exact incarnation in the hand.
+        version: u32,
+        /// The discarding player.
+        player: PlayerId,
+        /// Controller of the spell or ability causing the discard; no cost or cleanup.
+        by: Option<PlayerId>,
+        /// Whether its characteristics are defined (CR 701.9c).
+        known: bool,
+    },
+    /// A permanent completed conniving (CR 701.50f); this is not a cast or draw.
+    Connived {
+        /// The permanent's exact incarnation, possibly departed.
+        object: baylee_core::ids::DamageSourceRef,
+        /// Its controller when instructed to connive.
         player: PlayerId,
     },
     /// A card was cycled: discarded to pay the cost of its own cycling

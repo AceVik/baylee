@@ -60,7 +60,8 @@ pub const fn step_id(phase: Phase, step: Step) -> &'static str {
 /// A positive list, so `every_keyword_a_card_prints_has_a_name` holds it
 /// to the pool: a keyword a card carries and this table lacks fails there
 /// rather than going silent on a board.
-pub const KEYWORDS: [(KeywordSet, &str); 49] = [
+pub const KEYWORDS: [(KeywordSet, &str); 50] = [
+    (KeywordSet::STORM, "storm"),
     (KeywordSet::FLYING, "flying"),
     (KeywordSet::FIRST_STRIKE, "first strike"),
     (KeywordSet::DOUBLE_STRIKE, "double strike"),
@@ -220,6 +221,7 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         } => format!(
             "Choose a creature to cast face down, or choose none to decline. X = {x}; actual total mana paid (white, blue, black, red, green, colorless): {paid:?}; fixed activation cost: {fixed_cost}"
         ),
+        ChoicePrompt::RevealDiscard => "Choose discards to reveal with Nephalia Academy; unselected cards use Library of Leng and stay hidden".into(),
         ChoicePrompt::SearchLibrary => "Search your library: choose the cards to find".into(),
         ChoicePrompt::PutBackOnTop => "Choose the cards to put back on top of your library".into(),
         ChoicePrompt::Wish => "Choose a card from outside the game".into(),

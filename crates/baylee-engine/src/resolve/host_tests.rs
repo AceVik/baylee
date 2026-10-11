@@ -47,6 +47,7 @@ fn resolved(effects: &'static [Effect]) -> (GameState, ObjectId, ObjectId) {
         text: crate::text_changes::TextChangeMap::IDENTITY,
         event_mana: None,
         retarget_left: None,
+        loot: None,
     };
     assert!(matches!(run(&mut state, &mut res), Flow::Complete));
     (state, host, other)

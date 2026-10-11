@@ -187,6 +187,7 @@ mod tests {
                 text: crate::text_changes::TextChangeMap::IDENTITY,
                 event_mana: None,
                 retarget_left: None,
+                loot: None,
             };
             let Flow::Wait(Pending::ChoosePlayer { options, .. }) = run(&mut state, &mut res)
             else {

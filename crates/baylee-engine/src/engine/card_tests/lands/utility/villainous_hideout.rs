@@ -4,7 +4,6 @@
 use super::*;
 
 /// Villainous Hideout: "{T}: Add {C}." / "{T}: Add one mana of any color. Spend this mana only to cast a Villain spell..." / "{3}, {T}: Target Villain you control connives."
-/// Under `Coverage::Partial`, the connive ability is omitted because connive has no effect representation.
 /// Activating ability 1 adds one restricted mana of any chosen color to `pool.restricted()`.
 #[test]
 fn villainous_hideout_adds_restricted_villain_mana() {

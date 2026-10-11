@@ -54,6 +54,7 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::Sacrifice(_)
         | CostPart::PayLife(_)
         | CostPart::Discard(_)
+        | CostPart::DiscardRandom
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
@@ -80,6 +81,8 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::DrawCardsFor { .. }
         | Effect::DrawRevealDiscardUnless { .. }
         | Effect::DiscardUpToThenDraw { .. }
+        | Effect::Connive { .. }
+        | Effect::Recruit { .. }
         | Effect::LookAtTopPick { .. }
         | Effect::LookAtTopKeepBottomPlay { .. }
         | Effect::RevealAndSeparate { .. }
@@ -115,7 +118,9 @@ fn moves_library(effect: &Effect) -> bool {
             matched, otherwise, ..
         } => outside_library(matched.dest) || outside_library(*otherwise),
         Effect::SearchLibraryUpTo { find, .. } => outside_library(find.dest),
-        Effect::SearchLibrary { finds, .. } | Effect::SearchLibraryOf { finds, .. } => {
+        Effect::SearchLibrary { finds, .. }
+        | Effect::SearchLibraryBeforeShuffle { finds, .. }
+        | Effect::SearchLibraryOf { finds, .. } => {
             finds.iter().any(|find| outside_library(find.dest))
         }
         // Scry, reordering, revealing and shuffling alone do not move a card

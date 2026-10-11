@@ -148,7 +148,7 @@ pub(super) fn begin_search(
     }
     if options.is_empty() {
         // Hidden zone: failing to find is always legal (CR 701.23b).
-        state.shuffle_library(library);
+        finish_shuffle(state, res, library);
         return None;
     }
     // How many cards this search may produce, and how few it may settle
@@ -158,7 +158,7 @@ pub(super) fn begin_search(
     if want == 0 {
         // "Up to X" with X = 0: the library is searched and nothing can be
         // found, which is a search that ends in a shuffle and asks nobody.
-        state.shuffle_library(library);
+        finish_shuffle(state, res, library);
         return None;
     }
     let least = if optional { 0 } else { want };
@@ -355,4 +355,14 @@ pub(super) fn search_library_for_one(
             optional: false,
         },
     )
+}
+
+/// A few spells explicitly postpone the shuffle past another instruction.
+pub(super) fn finish_shuffle(state: &mut GameState, res: &Resolution, library: PlayerId) {
+    if !matches!(
+        res.effects.get(res.pc),
+        Some(Effect::SearchLibraryBeforeShuffle { .. })
+    ) {
+        state.shuffle_library(library);
+    }
 }

@@ -705,6 +705,9 @@ pub enum ChoicePrompt {
     RemoveLandCounters,
     /// Privately inspect the offered hand, then acknowledge without selecting.
     LookAtHand,
+    /// Of cards already assigned to the library, reveal these through Nephalia
+    /// Academy; unselected cards use Library of Leng and stay hidden.
+    RevealDiscard,
     /// Library search (tutor/fetch).
     SearchLibrary,
     /// Put cards from your hand on top of your library (chosen order).

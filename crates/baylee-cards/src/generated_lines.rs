@@ -2708,7 +2708,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Coral Helm
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Crumble
     &[FaceLines {
         sentences: 1,
@@ -4304,8 +4311,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Psychic Purge
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[Some(1), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -30974,7 +30981,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[Some(1)],
+        lines: &[Some(1), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -41508,7 +41515,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Ledger Shredder
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -45828,15 +45842,15 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 4,
-            stackable: 1,
-            lines: &[Some(1)],
+            stackable: 3,
+            lines: &[Some(1), Some(2), Some(3)],
             modes: &[],
             alternatives: &[],
         },
         FaceLines {
             sentences: 3,
-            stackable: 0,
-            lines: &[Some(1)],
+            stackable: 1,
+            lines: &[Some(1), Some(2)],
             modes: &[],
             alternatives: &[],
         },
@@ -48518,8 +48532,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Spymaster's Vault
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -54739,8 +54753,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Villainous Hideout
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0), Some(1)],
+        stackable: 1,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

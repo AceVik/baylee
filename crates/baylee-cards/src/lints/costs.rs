@@ -26,6 +26,7 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         // is still there.
         CostPart::Sacrifice(_)
         | CostPart::Discard(_)
+        | CostPart::DiscardRandom
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
@@ -52,6 +53,7 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::PutCounterSelf { .. }
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
+        | CostPart::DiscardRandom
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)

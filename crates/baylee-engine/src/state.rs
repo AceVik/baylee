@@ -833,14 +833,14 @@ pub struct GameState {
     pub draws_to_offer: std::collections::VecDeque<(PlayerId, u32)>,
     /// Library of Leng's answers for cards an effect is about to discard
     /// (`ReplacementRule::MayDiscardToLibraryTop`): `None` for the
-    /// graveyard, `Some(rank)` for the top of the library, rank 0 the top
+    /// graveyard, `Some((rank, reveal))` for the library, rank 0 the top
     /// card. Asked before the discard and spent by it
     /// (`GameState::discard_card`), like `commander_redirect`.
-    pub discard_answers: Vec<(ObjectId, Option<u16>)>,
+    pub discard_answers: Vec<(ObjectId, Option<(usize, bool)>)>,
     /// The cards of the latest answer already put on top of a library, with
     /// their ranks, so the next one goes in under the ones it was ranked
     /// below. Cleared with each new answer.
-    pub discards_on_top: Vec<(ObjectId, u16)>,
+    pub discards_on_top: Vec<(ObjectId, usize)>,
     /// Queued extra turns (CR 500.7), in the order they will be taken: the
     /// most recently created at the front. The front player takes the next
     /// turn instead of the normal successor.

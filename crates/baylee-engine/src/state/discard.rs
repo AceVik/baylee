@@ -20,18 +20,37 @@ impl GameState {
     /// The Library of Leng `player` controls, if any: on the battlefield,
     /// not phased out, and still theirs.
     pub(crate) fn discard_top_source(&self, player: PlayerId) -> Option<ObjectId> {
+        self.discard_replacement_source(player, ReplacementRule::MayDiscardToLibraryTop)
+    }
+
+    /// Nephalia Academy only replaces discards caused by an opponent's effect.
+    pub(crate) fn discard_reveal_source(&self, player: PlayerId, by: PlayerId) -> Option<ObjectId> {
+        if !self.is_opponent(by, player) {
+            return None;
+        }
+        self.discard_replacement_source(
+            player,
+            ReplacementRule::MayRevealOpponentDiscardToLibraryTop,
+        )
+    }
+
+    fn discard_replacement_source(
+        &self,
+        player: PlayerId,
+        rule: ReplacementRule,
+    ) -> Option<ObjectId> {
         if self.has_left(player) {
             return None;
         }
         self.replacement_rules
             .iter()
-            .filter(|r| r.rule == ReplacementRule::MayDiscardToLibraryTop && r.controller == player)
+            .filter(|r| r.rule == rule && r.controller == player)
             .map(|r| r.source)
-            .find(|s| {
-                self.object(*s).is_some_and(|o| {
-                    o.zone == Zone::Battlefield
-                        && o.controller == player
-                        && !o.status.contains(Status::PHASED_OUT)
+            .find(|source| {
+                self.object(*source).is_some_and(|object| {
+                    object.zone == Zone::Battlefield
+                        && object.controller == player
+                        && !object.status.contains(Status::PHASED_OUT)
                 })
             })
     }
@@ -44,14 +63,19 @@ impl GameState {
     /// Writes down `player`'s arrangement of cards they are about to
     /// discard: `graveyard` as printed, `top` onto their library, listed
     /// top first.
-    pub(crate) fn record_discard_answers(&mut self, graveyard: &[ObjectId], top: &[ObjectId]) {
+    pub(crate) fn record_discard_answers(
+        &mut self,
+        graveyard: &[ObjectId],
+        top: &[ObjectId],
+        revealed: &std::collections::BTreeSet<ObjectId>,
+    ) {
         self.discards_on_top.clear();
         for &card in graveyard {
             self.discard_answers.push((card, None));
         }
         for (rank, &card) in top.iter().enumerate() {
             self.discard_answers
-                .push((card, Some(u16::try_from(rank).unwrap_or(u16::MAX))));
+                .push((card, Some((rank, revealed.contains(&card)))));
         }
     }
 
@@ -67,19 +91,30 @@ impl GameState {
     /// where Library of Leng's answer says so, on top of their library.
     /// Only an effect's discard has an answer; a cost's or the cleanup
     /// step's never does.
-    pub(crate) fn discard_card(&mut self, card: ObjectId, player: PlayerId, cause: Cause) {
+    pub(crate) fn discard_card(
+        &mut self,
+        card: ObjectId,
+        player: PlayerId,
+        cause: Cause,
+        by: Option<PlayerId>,
+    ) -> Option<baylee_core::types::TypeSet> {
         let owner = self.object(card).map_or(player, |o| o.owner);
         let answer = self
             .discard_answers
             .iter()
             .position(|(c, _)| *c == card)
             .map(|at| self.discard_answers.remove(at).1);
-        self.journal.record(GameEvent::Discarded {
-            object: card,
-            player,
-        });
+        let reveal = matches!(answer, Some(Some((_, true)))) && cause == Cause::Effect;
+        if reveal {
+            self.journal.record(GameEvent::Revealed {
+                player,
+                cards: vec![card],
+            });
+        }
+        let known = reveal || !matches!(answer, Some(Some(_))) || cause != Cause::Effect;
+        let types = self.record_discard(card, player, by, known);
         match answer {
-            Some(Some(rank)) if cause == Cause::Effect => {
+            Some(Some((rank, _))) if cause == Cause::Effect => {
                 let library = ZoneLocation::Library(owner);
                 // Under every card of this answer already placed that was
                 // ranked above it: the pile lies as it was listed.
@@ -105,5 +140,28 @@ impl GameState {
                 );
             }
         }
+        types
+    }
+
+    /// Record the hand incarnation before its move; undefined characteristics
+    /// cannot satisfy a nonland check merely because they are not known lands.
+    pub(crate) fn record_discard(
+        &mut self,
+        card: ObjectId,
+        player: PlayerId,
+        by: Option<PlayerId>,
+        known: bool,
+    ) -> Option<baylee_core::types::TypeSet> {
+        let object = self.object(card)?;
+        let version = object.version;
+        let types = known.then_some(object.characteristics().types);
+        self.journal.record(GameEvent::Discarded {
+            object: card,
+            version,
+            player,
+            by,
+            known,
+        });
+        types
     }
 }

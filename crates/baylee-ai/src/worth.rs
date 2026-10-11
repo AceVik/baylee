@@ -1482,6 +1482,18 @@ impl HeuristicAgent {
                     .filter(|h| h.id != origin.id && hand_matches(filter, h) == Some(true))
                     .map(|h| card_value(&h.id).max(0) + 50)
                     .min()?,
+                CostPart::DiscardRandom => {
+                    let (sum, count) = view.hand.iter().filter(|card| card.id != origin.id).fold(
+                        (0_i64, 0_i64),
+                        |(sum, n), card| {
+                            (sum.saturating_add(card_value(&card.id).max(0) + 50), n + 1)
+                        },
+                    );
+                    if count == 0 {
+                        return None;
+                    }
+                    sum / count
+                }
                 CostPart::DiscardSelf => card_value(&origin.id).max(0),
                 CostPart::ExileSelf => origin
                     .object

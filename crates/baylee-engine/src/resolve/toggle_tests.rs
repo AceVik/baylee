@@ -44,6 +44,7 @@ fn a_toggled_target_becomes_what_it_was_not() {
             text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
+            loot: None,
         };
         assert!(matches!(run(&mut state, &mut res), Flow::Complete));
         assert_eq!(tapped(&state, target), !was);

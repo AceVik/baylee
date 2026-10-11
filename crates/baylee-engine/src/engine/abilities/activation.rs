@@ -756,6 +756,7 @@ impl<L: CardLookup> Engine<L> {
                 text: activated_text,
                 event_mana: None,
                 retarget_left: None,
+                loot: None,
             };
             let flow = resolve::run(&mut self.state, &mut res);
             #[cfg(test)]

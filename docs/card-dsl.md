@@ -458,7 +458,8 @@ express at all yet.
   fetchland was the same word three times.
 
   The parts: `TapSelf`, `UntapSelf`, `SacrificeSelf`, `Sacrifice(filter)`,
-  `Discard(filter)`, `DiscardSelf` (cycling), `PayLife(n)`, `PayLifeX`,
+  `Discard(filter)`, `DiscardSelf` (cycling), `DiscardRandom` (one random
+  hand card, activation costs only), `PayLife(n)`, `PayLifeX`,
   `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`,
   `TapOther(filter)` (the convoke lands, Earthcraft),
   `Saddle(n)` (written by `saddle!(n)`, the same power payment at sorcery speed),
@@ -3325,3 +3326,27 @@ abilities to target their opponents and their opponents' creatures through
 hexproof. It is a continuing rules permission: new creatures are included,
 shroud remains effective, and noncreature permanents keep their hexproof
 restriction. Player hexproof blocks only opposing spells and abilities.
+
+`Connive { amount }` and `Recruit { token }` finish replacement-aware draws
+before asking for discards. Connive uses the permanent's last controller when
+it has departed, keeps its exact incarnation, and rewards only known nonland
+cards. Large discard choices use bounded menus without moving any card between
+menus. Connive zero causes no action or connive event.
+
+`Trigger::Discarded { who, filter }` reads the card's hand incarnation, including
+cost discards. `DiscardedThisByOpponent` functions from the hand and preserves
+the causing spell/ability's controller as `EventPlayer`. An unrevealed discard
+into a hidden zone cannot satisfy a characteristic-based condition (CR 701.9c).
+`MayRevealOpponentDiscardToLibraryTop` offers Nephalia Academy's replacement
+only for opposing effects. When Library of Leng also applies, the player chooses
+which cards are revealed without changing their chosen library order.
+
+`DiscardEachOrDraw { who }` makes each player discard one and draws for each
+unable player. This and `DiscardForPlayers` gather private selections in APNAP
+order before moving any of the cards. `SearchLibraryBeforeShuffle` postpones the
+ordinary search shuffle; its enclosing program must include `ShuffleLibrary`
+after any intervening effects, as Gamble does after its random discard.
+`CostPart::DiscardRandom` pays one random hand card atomically, with no player
+selection and no Library of Leng/Nephalia Academy replacement. It is supported
+as an activation cost; the spell-cost vocabulary guard still rejects unsupported
+uses as a printed alternative or mandatory additional spell cost.

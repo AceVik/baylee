@@ -4,7 +4,6 @@
 use super::*;
 
 /// Spymaster's Vault: "This land enters tapped unless you control a Swamp." / "{T}: Add {B}." / "{B}, {T}: Target creature you control connives X..."
-/// Under `Coverage::Partial`, the connive ability is omitted because connive has no effect in the `DSL`.
 /// Controlling a Swamp allows Spymaster's Vault to enter untapped and immediately tap for black mana.
 #[test]
 fn spymaster_s_vault_enters_untapped_with_swamp_and_taps_for_black() {

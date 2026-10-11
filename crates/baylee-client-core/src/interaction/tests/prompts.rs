@@ -1364,3 +1364,24 @@ fn saddle_question_names_its_power_cost_in_both_languages() {
         assert!(text.contains(name) && text.contains(power), "{text}");
     }
 }
+
+#[test]
+fn discard_replacement_prompt_explains_the_public_disclosure_choice() {
+    for lang in [Lang::En, Lang::De] {
+        let prompt = interaction(Pending::ChooseCards {
+            player: me(),
+            options: vec![obj(2)],
+            min: 0,
+            max: 1,
+            prompt: ChoicePrompt::RevealDiscard,
+            total: None,
+        });
+        let line = prompt.prompt().headline(lang, Turn::Mine, None, false);
+        assert!(line.contains("Nephalia Academy"));
+        assert!(line.contains(if lang == Lang::De {
+            "verdeckt"
+        } else {
+            "hidden"
+        }));
+    }
+}

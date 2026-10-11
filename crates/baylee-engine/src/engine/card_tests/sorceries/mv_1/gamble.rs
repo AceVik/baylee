@@ -6,12 +6,9 @@ use super::*;
 /// Gamble — {R} sorcery: "Search your library for a card, put that card into your
 /// hand, discard a card at random, then shuffle."
 ///
-/// Discarding a card at random is the `Coverage::Partial` gap because no random discard
-/// effect exists in the DSL. This scenario proves the search half: casting Gamble offers
-/// a mandatory search (min: 1, max: 1) from the library directly into the player's
-/// hand, and the card stays in hand without being discarded.
+/// With no other hand card, the tutored card is necessarily discarded.
 #[test]
-fn gamble_searches_library_for_a_card_to_hand_without_random_discard() {
+fn gamble_discards_its_only_hand_card_after_searching() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[mountain()])
@@ -70,13 +67,13 @@ fn gamble_searches_library_for_a_card_to_hand_without_random_discard() {
 
     assert_eq!(
         engine.state().object(chosen).map(|o| o.zone),
-        Some(Zone::Hand),
-        "the searched card arrived in hand"
+        Some(Zone::Graveyard),
+        "the searched card was the only possible random discard"
     );
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
-        1,
-        "hand holds exactly the tutored card and no random discard occurred"
+        0,
+        "Gamble discarded the tutored card"
     );
     assert_eq!(
         library_size(&engine, p0),

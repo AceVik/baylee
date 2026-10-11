@@ -3912,6 +3912,7 @@ fn phase_out_specialist(engine: &mut Engine<RegistryLookup>, specialist: ObjectI
         text: crate::text_changes::TextChangeMap::IDENTITY,
         event_mana: None,
         retarget_left: None,
+        loot: None,
     };
     assert!(matches!(
         crate::resolve::run(state, &mut res),

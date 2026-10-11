@@ -399,6 +399,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "MaySkipDrawStepDraw",
         "SkipTurnToUntapSelf",
         "MayDiscardToLibraryTop",
+        "MayRevealOpponentDiscardToLibraryTop",
         "TargetMayBlockAttackerOfChoice",
         "CastFaceDownUsingSpentX",
     ];
@@ -792,7 +793,11 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("GainControl");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
-        || built.contains("OpponentControlCountAtMost(");
+        || built.contains("OpponentControlCountAtMost(")
+        // These restrict the controller of the effect causing a discard,
+        // rather than the controller of a permanent selected by a filter.
+        || built.contains("DiscardedThisByOpponent")
+        || built.contains("MayRevealOpponentDiscardToLibraryTop");
 
     if says_you && !filters_you {
         println!(

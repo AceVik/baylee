@@ -25,6 +25,15 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::RevealDiscard(choice) => {
+            return super::discard::resume_reveal(state, res, *choice, chosen);
+        }
+        AwaitingOp::Loot(loot) => {
+            if let Some(pending) = super::loot::resume(state, res, loot, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
+
         AwaitingOp::Fabricate {
             source,
             count,
@@ -104,7 +113,7 @@ pub(super) fn resume_inner(
             // For a find that leaves the library (Cultivate's battlefield and
             // hand) the order is unobservable: the card is gone either way,
             // and the rest is a shuffled library in both readings.
-            state.shuffle_library(library);
+            search::finish_shuffle(state, res, library);
             // Positional: the first card found takes the first destination.
             // Cultivate names the battlefield first and the hand second, and
             // finding only one card then puts that one onto the battlefield —
@@ -310,7 +319,7 @@ pub(super) fn resume_inner(
             }
             let mut discarded = 0;
             for &(card, _) in &held {
-                state.discard_card(card, you, Cause::Effect);
+                state.discard_card(card, you, Cause::Effect, Some(res.controller));
                 discarded += 1;
             }
             if discarded > 0 {
@@ -612,7 +621,7 @@ pub(super) fn resume_inner(
         AwaitingOp::NewTargets(_) => {
             unreachable!("a change of targets resumes via resume_targets")
         }
-        AwaitingOp::SearchTakeover { agent, .. } => {
+        AwaitingOp::SearchTakeover { agent, library, .. } => {
             for &card in chosen {
                 let _ = state.move_object(
                     card,
@@ -625,6 +634,7 @@ pub(super) fn resume_inner(
                         .push(crate::object::Rider::PlayableFromExileFor(agent));
                 }
             }
+            search::finish_shuffle(state, res, library);
         }
         AwaitingOp::Equalize(selection) => {
             if let Some(pending) = equalize::resume(state, res, *selection, chosen) {
@@ -635,9 +645,11 @@ pub(super) fn resume_inner(
             player,
             count,
             remaining,
+            selected,
+            draws,
         } => {
             return super::discard::resume_chain(
-                state, res, player, count, remaining, chosen, since,
+                state, res, player, count, remaining, selected, draws, chosen, since,
             );
         }
         AwaitingOp::DestroyChosen { filter, remaining } => {

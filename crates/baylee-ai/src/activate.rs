@@ -259,6 +259,7 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::SacrificeSelf
             | CostPart::Sacrifice(_)
             | CostPart::Discard(_)
+                    | CostPart::DiscardRandom
             | CostPart::DiscardSelf
             | CostPart::ExileSelf
             | CostPart::ExileFromHand(_)

@@ -1,0 +1,1243 @@
+{
+  "baseline_commit": "fae22d0f9",
+  "original_partial_count": 540,
+  "completed_before_plan": 284,
+  "remaining_at_start": 256,
+  "note": "Mechanism-based work packages; order and boundaries may change when shared prerequisites are found. Completion requires every printed clause and behavioral validation.",
+  "batches": [
+    {
+      "batch": 39,
+      "title": "Discard events, recruit and connive",
+      "status": "completed",
+      "cards": [
+        {
+          "name": "Nephalia Academy",
+          "path": "crates/baylee-cards/src/cards/lands/nephalia_academy.rs"
+        },
+        {
+          "name": "Lake-town Lookout",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_1/lake_town_lookout.rs"
+        },
+        {
+          "name": "Aclazotz, Deepest Betrayal // Temple of the Dead",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_5/aclazotz_deepest_betrayal.rs"
+        },
+        {
+          "name": "Ledger Shredder",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/ledger_shredder.rs"
+        },
+        {
+          "name": "Spymaster's Vault",
+          "path": "crates/baylee-cards/src/cards/lands/check/spymaster_s_vault.rs"
+        },
+        {
+          "name": "Villainous Hideout",
+          "path": "crates/baylee-cards/src/cards/lands/utility/villainous_hideout.rs"
+        },
+        {
+          "name": "Psychic Purge",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_1/psychic_purge.rs"
+        },
+        {
+          "name": "Gamble",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_1/gamble.rs"
+        },
+        {
+          "name": "Coral Helm",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/coral_helm.rs"
+        }
+      ]
+    },
+    {
+      "batch": 40,
+      "title": "Player counters, energy and proliferation",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Yawgmoth, Thran Physician",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/yawgmoth_thran_physician.rs"
+        },
+        {
+          "name": "Hapatra, Vizier of Poisons",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/hapatra_vizier_of_poisons.rs"
+        },
+        {
+          "name": "Brad Boimler, Eager Ensign",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/brad_boimler_eager_ensign.rs"
+        },
+        {
+          "name": "Rush of Inspiration // Crackling Falls",
+          "path": "crates/baylee-cards/src/cards/instants/mv_3/rush_of_inspiration.rs"
+        },
+        {
+          "name": "Diamond City",
+          "path": "crates/baylee-cards/src/cards/lands/restricted/diamond_city.rs"
+        },
+        {
+          "name": "Mariposa Military Base",
+          "path": "crates/baylee-cards/src/cards/lands/utility/mariposa_military_base.rs"
+        },
+        {
+          "name": "HELIOS One",
+          "path": "crates/baylee-cards/src/cards/lands/utility/helios_one.rs"
+        },
+        {
+          "name": "Aether Hub",
+          "path": "crates/baylee-cards/src/cards/lands/utility/aether_hub.rs"
+        },
+        {
+          "name": "Nesting Grounds",
+          "path": "crates/baylee-cards/src/cards/lands/utility/nesting_grounds.rs"
+        },
+        {
+          "name": "Karn's Bastion",
+          "path": "crates/baylee-cards/src/cards/lands/utility/karn_s_bastion.rs"
+        },
+        {
+          "name": "Suppression Ray // Orderly Plaza",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_5/suppression_ray.rs"
+        },
+        {
+          "name": "U.S.S. Enterprise-D, Galaxy-Class",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/u_s_s_enterprise_d_galaxy_class.rs"
+        }
+      ]
+    },
+    {
+      "batch": 41,
+      "title": "Counted costs and activation limits",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Liliana the Repentant",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/liliana_the_repentant.rs"
+        },
+        {
+          "name": "Barad-dûr",
+          "path": "crates/baylee-cards/src/cards/lands/legendary/barad_dur.rs"
+        },
+        {
+          "name": "Lair of the Hydra",
+          "path": "crates/baylee-cards/src/cards/lands/manlands/lair_of_the_hydra.rs"
+        },
+        {
+          "name": "Tomb of Urami",
+          "path": "crates/baylee-cards/src/cards/lands/pain/tomb_of_urami.rs"
+        },
+        {
+          "name": "Secluded Starforge",
+          "path": "crates/baylee-cards/src/cards/lands/utility/secluded_starforge.rs"
+        },
+        {
+          "name": "Springjack Pasture",
+          "path": "crates/baylee-cards/src/cards/lands/utility/springjack_pasture.rs"
+        },
+        {
+          "name": "War Room",
+          "path": "crates/baylee-cards/src/cards/lands/utility/war_room.rs"
+        },
+        {
+          "name": "Nykthos, Shrine to Nyx",
+          "path": "crates/baylee-cards/src/cards/lands/utility/nykthos_shrine_to_nyx.rs"
+        },
+        {
+          "name": "Voodoo Doll",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_6/voodoo_doll.rs"
+        }
+      ]
+    },
+    {
+      "batch": 42,
+      "title": "Entry replacements and sacrifices",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Lotus Vale",
+          "path": "crates/baylee-cards/src/cards/lands/lotus_vale.rs"
+        },
+        {
+          "name": "Lake of the Dead",
+          "path": "crates/baylee-cards/src/cards/lands/lake_of_the_dead.rs"
+        },
+        {
+          "name": "Scorched Ruins",
+          "path": "crates/baylee-cards/src/cards/lands/scorched_ruins.rs"
+        },
+        {
+          "name": "Mold Demon",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_7/mold_demon.rs"
+        },
+        {
+          "name": "Wood Elemental",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/wood_elemental.rs"
+        },
+        {
+          "name": "Serendib Djinn",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/serendib_djinn.rs"
+        },
+        {
+          "name": "Balduvian Trading Post",
+          "path": "crates/baylee-cards/src/cards/lands/utility/balduvian_trading_post.rs"
+        },
+        {
+          "name": "Heart of Yavimaya",
+          "path": "crates/baylee-cards/src/cards/lands/utility/heart_of_yavimaya.rs"
+        },
+        {
+          "name": "Kjeldoran Outpost",
+          "path": "crates/baylee-cards/src/cards/lands/utility/kjeldoran_outpost.rs"
+        },
+        {
+          "name": "Sheltered Valley",
+          "path": "crates/baylee-cards/src/cards/lands/utility/sheltered_valley.rs"
+        },
+        {
+          "name": "Soldevi Excavations",
+          "path": "crates/baylee-cards/src/cards/lands/utility/soldevi_excavations.rs"
+        },
+        {
+          "name": "Mox Diamond",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_0/mox_diamond.rs"
+        },
+        {
+          "name": "Land Equilibrium",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/land_equilibrium.rs"
+        }
+      ]
+    },
+    {
+      "batch": 43,
+      "title": "Library choices and related finds",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Aven Mindcensor",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/aven_mindcensor.rs"
+        },
+        {
+          "name": "Petra Sphinx",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_5/petra_sphinx.rs"
+        },
+        {
+          "name": "Nebuchadnezzar",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_5/nebuchadnezzar.rs"
+        },
+        {
+          "name": "Shapeshifter",
+          "path": "crates/baylee-cards/src/cards/creatures/artifacts/mv_6/shapeshifter.rs"
+        },
+        {
+          "name": "Primal Clay",
+          "path": "crates/baylee-cards/src/cards/creatures/artifacts/mv_4/primal_clay.rs"
+        },
+        {
+          "name": "Moonring Island",
+          "path": "crates/baylee-cards/src/cards/lands/restricted/moonring_island.rs"
+        },
+        {
+          "name": "Isolated Watchtower",
+          "path": "crates/baylee-cards/src/cards/lands/restricted/isolated_watchtower.rs"
+        },
+        {
+          "name": "Fabled Passage",
+          "path": "crates/baylee-cards/src/cards/lands/fetch/fabled_passage.rs"
+        },
+        {
+          "name": "Elven Passage",
+          "path": "crates/baylee-cards/src/cards/lands/fetch/elven_passage.rs"
+        },
+        {
+          "name": "Petrified Hamlet",
+          "path": "crates/baylee-cards/src/cards/lands/utility/petrified_hamlet.rs"
+        },
+        {
+          "name": "Forsaken Crossroads",
+          "path": "crates/baylee-cards/src/cards/lands/utility/forsaken_crossroads.rs"
+        },
+        {
+          "name": "Field of Ruin",
+          "path": "crates/baylee-cards/src/cards/lands/utility/field_of_ruin.rs"
+        },
+        {
+          "name": "Myriad Landscape",
+          "path": "crates/baylee-cards/src/cards/lands/utility/myriad_landscape.rs"
+        },
+        {
+          "name": "Turntimber Symbiosis // Turntimber, Serpentine Wood",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_7/turntimber_symbiosis.rs"
+        },
+        {
+          "name": "Visions",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_1/visions.rs"
+        },
+        {
+          "name": "Drafna's Restoration",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_1/drafna_s_restoration.rs"
+        },
+        {
+          "name": "Transmute Artifact",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_2/transmute_artifact.rs"
+        },
+        {
+          "name": "Drop of Honey",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_1/drop_of_honey.rs"
+        },
+        {
+          "name": "Sidequest: Catch a Fish // Cooking Campsite",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_3/sidequest_catch_a_fish.rs"
+        }
+      ]
+    },
+    {
+      "batch": 44,
+      "title": "Hideaway and hidden linked exile",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Clive's Hideaway",
+          "path": "crates/baylee-cards/src/cards/lands/towns/clive_s_hideaway.rs"
+        },
+        {
+          "name": "Spinerock Knoll",
+          "path": "crates/baylee-cards/src/cards/lands/utility/spinerock_knoll.rs"
+        },
+        {
+          "name": "Howltooth Hollow",
+          "path": "crates/baylee-cards/src/cards/lands/utility/howltooth_hollow.rs"
+        },
+        {
+          "name": "Mosswort Bridge",
+          "path": "crates/baylee-cards/src/cards/lands/utility/mosswort_bridge.rs"
+        },
+        {
+          "name": "Windbrisk Heights",
+          "path": "crates/baylee-cards/src/cards/lands/utility/windbrisk_heights.rs"
+        },
+        {
+          "name": "Shelldock Isle",
+          "path": "crates/baylee-cards/src/cards/lands/utility/shelldock_isle.rs"
+        },
+        {
+          "name": "Knowledge Vault",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/knowledge_vault.rs"
+        }
+      ]
+    },
+    {
+      "batch": 45,
+      "title": "Casting permissions and alternative zones",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Kess, Dissident Mage",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/kess_dissident_mage.rs"
+        },
+        {
+          "name": "Ojer Pakpatiq, Deepest Epoch // Temple of Cyclical Time",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/ojer_pakpatiq_deepest_epoch.rs"
+        },
+        {
+          "name": "Theorist's Proxy",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/theorist_s_proxy.rs"
+        },
+        {
+          "name": "Mistrise Village",
+          "path": "crates/baylee-cards/src/cards/lands/check/mistrise_village.rs"
+        },
+        {
+          "name": "Throne of Makindi",
+          "path": "crates/baylee-cards/src/cards/lands/utility/throne_of_makindi.rs"
+        },
+        {
+          "name": "Bloodsoaked Insight // Sanguine Morass",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_7/bloodsoaked_insight.rs"
+        },
+        {
+          "name": "Open Communications",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_1/open_communications.rs"
+        },
+        {
+          "name": "Agadeem's Awakening // Agadeem, the Undercrypt",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_3/agadeem_s_awakening.rs"
+        },
+        {
+          "name": "Mizzix's Mastery",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_4/mizzix_s_mastery.rs"
+        },
+        {
+          "name": "Underworld Breach",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_2/underworld_breach.rs"
+        },
+        {
+          "name": "Welcome to . . . // Jurassic Park",
+          "path": "crates/baylee-cards/src/cards/enchantments/sagas/mv_3/welcome_to.rs"
+        },
+        {
+          "name": "North Star",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/north_star.rs"
+        },
+        {
+          "name": "Ring of Ma'rûf",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_5/ring_of_ma_ruf.rs"
+        },
+        {
+          "name": "Tarrian's Journal // The Tomb of Aclazotz",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_2/tarrian_s_journal.rs"
+        }
+      ]
+    },
+    {
+      "batch": 46,
+      "title": "Restricted mana and expenditure provenance",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Watermarket",
+          "path": "crates/baylee-cards/src/cards/lands/watermarket.rs"
+        },
+        {
+          "name": "Brotherhood Headquarters",
+          "path": "crates/baylee-cards/src/cards/lands/brotherhood_headquarters.rs"
+        },
+        {
+          "name": "Secret Base",
+          "path": "crates/baylee-cards/src/cards/lands/secret_base.rs"
+        },
+        {
+          "name": "Underdome",
+          "path": "crates/baylee-cards/src/cards/lands/underdome.rs"
+        },
+        {
+          "name": "Cryptic Spires",
+          "path": "crates/baylee-cards/src/cards/lands/tapland/cryptic_spires.rs"
+        },
+        {
+          "name": "Pit of Offerings",
+          "path": "crates/baylee-cards/src/cards/lands/caves/pit_of_offerings.rs"
+        },
+        {
+          "name": "Sunken Palace",
+          "path": "crates/baylee-cards/src/cards/lands/caves/sunken_palace.rs"
+        },
+        {
+          "name": "Interplanar Beacon",
+          "path": "crates/baylee-cards/src/cards/lands/utility/interplanar_beacon.rs"
+        },
+        {
+          "name": "Plaza of Harmony",
+          "path": "crates/baylee-cards/src/cards/lands/utility/plaza_of_harmony.rs"
+        },
+        {
+          "name": "Avengers Tower",
+          "path": "crates/baylee-cards/src/cards/lands/utility/avengers_tower.rs"
+        },
+        {
+          "name": "The Everflowing Well // The Myriad Pools",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/the_everflowing_well.rs"
+        },
+        {
+          "name": "Primal Amulet // Primal Wellspring",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/primal_amulet.rs"
+        },
+        {
+          "name": "Agatha's Soul Cauldron",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_2/agatha_s_soul_cauldron.rs"
+        }
+      ]
+    },
+    {
+      "batch": 47,
+      "title": "Activation authority and prices",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Clergy of the Holy Nimbus",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_1/clergy_of_the_holy_nimbus.rs"
+        },
+        {
+          "name": "Derevi, Empyrial Tactician",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/derevi_empyrial_tactician.rs"
+        },
+        {
+          "name": "Ifh-Bíff Efreet",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/ifh_biff_efreet.rs"
+        },
+        {
+          "name": "Rhystic Cave",
+          "path": "crates/baylee-cards/src/cards/lands/utility/rhystic_cave.rs"
+        },
+        {
+          "name": "Land's Edge",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_3/land_s_edge.rs"
+        },
+        {
+          "name": "Armageddon Clock",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_6/armageddon_clock.rs"
+        },
+        {
+          "name": "Power Artifact",
+          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_2/power_artifact.rs"
+        }
+      ]
+    },
+    {
+      "batch": 48,
+      "title": "Activation, entry and turn event predicates",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Ichneumon Druid",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/ichneumon_druid.rs"
+        },
+        {
+          "name": "Lilypad Village",
+          "path": "crates/baylee-cards/src/cards/lands/restricted/lilypad_village.rs"
+        },
+        {
+          "name": "Oscorp Industries",
+          "path": "crates/baylee-cards/src/cards/lands/utility/oscorp_industries.rs"
+        },
+        {
+          "name": "Havengul Laboratory // Havengul Mystery",
+          "path": "crates/baylee-cards/src/cards/lands/utility/havengul_laboratory.rs"
+        },
+        {
+          "name": "Valakut, the Molten Pinnacle",
+          "path": "crates/baylee-cards/src/cards/lands/utility/valakut_the_molten_pinnacle.rs"
+        },
+        {
+          "name": "Legion's Landing // Adanto, the First Fort",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_1/legion_s_landing.rs"
+        },
+        {
+          "name": "Storm the Vault // Vault of Catlacan",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/storm_the_vault.rs"
+        },
+        {
+          "name": "Haunting Wind",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/haunting_wind.rs"
+        },
+        {
+          "name": "Powerleech",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_2/powerleech.rs"
+        },
+        {
+          "name": "Imprison",
+          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_1/imprison.rs"
+        },
+        {
+          "name": "Artifact Possession",
+          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_3/artifact_possession.rs"
+        },
+        {
+          "name": "Urza's Miter",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/urza_s_miter.rs"
+        },
+        {
+          "name": "Brass's Tunnel-Grinder // Tecutlan, the Searing Rift",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/brass_s_tunnel_grinder.rs"
+        },
+        {
+          "name": "Thousand Moons Smithy // Barracks of the Thousand",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/thousand_moons_smithy.rs"
+        }
+      ]
+    },
+    {
+      "batch": 49,
+      "title": "Delayed turn and untap effects",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Undiscovered Paradise",
+          "path": "crates/baylee-cards/src/cards/lands/undiscovered_paradise.rs"
+        },
+        {
+          "name": "Nafs Asp",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_1/nafs_asp.rs"
+        },
+        {
+          "name": "Giant Turtle",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/giant_turtle.rs"
+        },
+        {
+          "name": "Wall of Dust",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/wall_of_dust.rs"
+        },
+        {
+          "name": "Telekinesis",
+          "path": "crates/baylee-cards/src/cards/instants/mv_2/telekinesis.rs"
+        },
+        {
+          "name": "Frostwalk Bastion",
+          "path": "crates/baylee-cards/src/cards/lands/manlands/frostwalk_bastion.rs"
+        },
+        {
+          "name": "Skyline Cascade",
+          "path": "crates/baylee-cards/src/cards/lands/utility/skyline_cascade.rs"
+        },
+        {
+          "name": "Mystifying Maze",
+          "path": "crates/baylee-cards/src/cards/lands/utility/mystifying_maze.rs"
+        },
+        {
+          "name": "Magosi, the Waterveil",
+          "path": "crates/baylee-cards/src/cards/lands/utility/magosi_the_waterveil.rs"
+        },
+        {
+          "name": "Thawing Glaciers",
+          "path": "crates/baylee-cards/src/cards/lands/utility/thawing_glaciers.rs"
+        }
+      ]
+    },
+    {
+      "batch": 50,
+      "title": "Combat and damage history",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Abu Ja'far",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_1/abu_ja_far.rs"
+        },
+        {
+          "name": "Brine Hag",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/brine_hag.rs"
+        },
+        {
+          "name": "Blazing Effigy",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/blazing_effigy.rs"
+        },
+        {
+          "name": "Wall of Caltrops",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/wall_of_caltrops.rs"
+        },
+        {
+          "name": "Feint",
+          "path": "crates/baylee-cards/src/cards/instants/mv_1/feint.rs"
+        },
+        {
+          "name": "Glyph of Reincarnation",
+          "path": "crates/baylee-cards/src/cards/instants/mv_1/glyph_of_reincarnation.rs"
+        },
+        {
+          "name": "Glyph of Doom",
+          "path": "crates/baylee-cards/src/cards/instants/mv_1/glyph_of_doom.rs"
+        },
+        {
+          "name": "Glyph of Delusion",
+          "path": "crates/baylee-cards/src/cards/instants/mv_1/glyph_of_delusion.rs"
+        },
+        {
+          "name": "Glyph of Life",
+          "path": "crates/baylee-cards/src/cards/instants/mv_1/glyph_of_life.rs"
+        },
+        {
+          "name": "Reincarnation",
+          "path": "crates/baylee-cards/src/cards/instants/mv_3/reincarnation.rs"
+        },
+        {
+          "name": "Infinite Authority",
+          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_3/infinite_authority.rs"
+        }
+      ]
+    },
+    {
+      "batch": 51,
+      "title": "Multiplayer relations and control changes",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Rohgahh of Kher Keep",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_6/rohgahh_of_kher_keep.rs"
+        },
+        {
+          "name": "Cuombajj Witches",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/cuombajj_witches.rs"
+        },
+        {
+          "name": "Hurkyl's Recall",
+          "path": "crates/baylee-cards/src/cards/instants/mv_2/hurkyl_s_recall.rs"
+        },
+        {
+          "name": "Arid Archway",
+          "path": "crates/baylee-cards/src/cards/lands/deserts/arid_archway.rs"
+        },
+        {
+          "name": "The Black Gate",
+          "path": "crates/baylee-cards/src/cards/lands/gates/the_black_gate.rs"
+        },
+        {
+          "name": "Secret Tunnel",
+          "path": "crates/baylee-cards/src/cards/lands/caves/secret_tunnel.rs"
+        },
+        {
+          "name": "Restless Fortress",
+          "path": "crates/baylee-cards/src/cards/lands/manlands/restless_fortress.rs"
+        },
+        {
+          "name": "Hive of the Eye Tyrant",
+          "path": "crates/baylee-cards/src/cards/lands/manlands/hive_of_the_eye_tyrant.rs"
+        },
+        {
+          "name": "Contested War Zone",
+          "path": "crates/baylee-cards/src/cards/lands/pain/contested_war_zone.rs"
+        },
+        {
+          "name": "Stardew Valley",
+          "path": "crates/baylee-cards/src/cards/lands/utility/stardew_valley.rs"
+        },
+        {
+          "name": "Mount Doom",
+          "path": "crates/baylee-cards/src/cards/lands/utility/mount_doom.rs"
+        },
+        {
+          "name": "Typhoon",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_3/typhoon.rs"
+        },
+        {
+          "name": "Juxtapose",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_4/juxtapose.rs"
+        },
+        {
+          "name": "Mirror Universe",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_6/mirror_universe.rs"
+        },
+        {
+          "name": "Gauntlets of Chaos",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_5/gauntlets_of_chaos.rs"
+        }
+      ]
+    },
+    {
+      "batch": 52,
+      "title": "Layered restrictions and protection",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Johan",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_6/johan.rs"
+        },
+        {
+          "name": "Wall of Shadows",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/wall_of_shadows.rs"
+        },
+        {
+          "name": "Archon of Emeria",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/archon_of_emeria.rs"
+        },
+        {
+          "name": "Guardian Beast",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/guardian_beast.rs"
+        },
+        {
+          "name": "Bronze Horse",
+          "path": "crates/baylee-cards/src/cards/creatures/artifacts/mv_7/bronze_horse.rs"
+        },
+        {
+          "name": "Teferi's Protection",
+          "path": "crates/baylee-cards/src/cards/instants/mv_3/teferi_s_protection.rs"
+        },
+        {
+          "name": "Prahv, Spires of Order",
+          "path": "crates/baylee-cards/src/cards/lands/utility/prahv_spires_of_order.rs"
+        },
+        {
+          "name": "Glacial Chasm",
+          "path": "crates/baylee-cards/src/cards/lands/utility/glacial_chasm.rs"
+        },
+        {
+          "name": "Arcane Lighthouse",
+          "path": "crates/baylee-cards/src/cards/lands/utility/arcane_lighthouse.rs"
+        },
+        {
+          "name": "Hammerheim",
+          "path": "crates/baylee-cards/src/cards/lands/utility/hammerheim.rs"
+        },
+        {
+          "name": "Titania's Song",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/titania_s_song.rs"
+        },
+        {
+          "name": "Kismet",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/kismet.rs"
+        },
+        {
+          "name": "The One Ring",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/the_one_ring.rs"
+        }
+      ]
+    },
+    {
+      "batch": 53,
+      "title": "Banding families and combat constraints",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Master of the Hunt",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/master_of_the_hunt.rs"
+        },
+        {
+          "name": "Shelkin Brownie",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/shelkin_brownie.rs"
+        },
+        {
+          "name": "Marble Priest",
+          "path": "crates/baylee-cards/src/cards/creatures/artifacts/mv_5/marble_priest.rs"
+        },
+        {
+          "name": "Tolaria",
+          "path": "crates/baylee-cards/src/cards/lands/utility/tolaria.rs"
+        },
+        {
+          "name": "Caverns of Despair",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/caverns_of_despair.rs"
+        }
+      ]
+    },
+    {
+      "batch": 54,
+      "title": "Land types and mana production",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Riftstone Portal",
+          "path": "crates/baylee-cards/src/cards/lands/riftstone_portal.rs"
+        },
+        {
+          "name": "Quarum Trench Gnomes",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/quarum_trench_gnomes.rs"
+        },
+        {
+          "name": "Gond Gate",
+          "path": "crates/baylee-cards/src/cards/lands/gates/gond_gate.rs"
+        },
+        {
+          "name": "Thran Portal",
+          "path": "crates/baylee-cards/src/cards/lands/gates/thran_portal.rs"
+        },
+        {
+          "name": "Unstable Frontier",
+          "path": "crates/baylee-cards/src/cards/lands/utility/unstable_frontier.rs"
+        }
+      ]
+    },
+    {
+      "batch": 55,
+      "title": "Attacking tokens and combat keywords",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Floral Spuzzem",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/floral_spuzzem.rs"
+        },
+        {
+          "name": "Chocobo Camp",
+          "path": "crates/baylee-cards/src/cards/lands/legendary/chocobo_camp.rs"
+        },
+        {
+          "name": "Fire Nation Palace",
+          "path": "crates/baylee-cards/src/cards/lands/check/fire_nation_palace.rs"
+        },
+        {
+          "name": "Arena of Glory",
+          "path": "crates/baylee-cards/src/cards/lands/check/arena_of_glory.rs"
+        },
+        {
+          "name": "Dalkovan Encampment",
+          "path": "crates/baylee-cards/src/cards/lands/check/dalkovan_encampment.rs"
+        },
+        {
+          "name": "Den of the Bugbear",
+          "path": "crates/baylee-cards/src/cards/lands/manlands/den_of_the_bugbear.rs"
+        },
+        {
+          "name": "Restless Anchorage",
+          "path": "crates/baylee-cards/src/cards/lands/manlands/restless_anchorage.rs"
+        },
+        {
+          "name": "Inkmoth Nexus",
+          "path": "crates/baylee-cards/src/cards/lands/manlands/inkmoth_nexus.rs"
+        }
+      ]
+    },
+    {
+      "batch": 56,
+      "title": "Linked incarnations and return effects",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Firestorm Phoenix",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_6/firestorm_phoenix.rs"
+        },
+        {
+          "name": "Stangg",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_6/stangg.rs"
+        },
+        {
+          "name": "Tetravus",
+          "path": "crates/baylee-cards/src/cards/creatures/artifacts/mv_6/tetravus.rs"
+        },
+        {
+          "name": "Spikefield Hazard // Spikefield Cave",
+          "path": "crates/baylee-cards/src/cards/instants/mv_1/spikefield_hazard.rs"
+        },
+        {
+          "name": "Northampton Farm",
+          "path": "crates/baylee-cards/src/cards/lands/utility/northampton_farm.rs"
+        },
+        {
+          "name": "All Hallow's Eve",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_4/all_hallow_s_eve.rs"
+        },
+        {
+          "name": "Profane Procession // Tomb of the Dusk Rose",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_3/profane_procession.rs"
+        },
+        {
+          "name": "Oubliette",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_3/oubliette.rs"
+        },
+        {
+          "name": "Takklemaggot",
+          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_4/takklemaggot.rs"
+        },
+        {
+          "name": "Tawnos's Coffin",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/tawnos_s_coffin.rs"
+        }
+      ]
+    },
+    {
+      "batch": 57,
+      "title": "Damage replacement, redirection and measured results",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Ali from Cairo",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/ali_from_cairo.rs"
+        },
+        {
+          "name": "Ojer Axonil, Deepest Might // Temple of Power",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/ojer_axonil_deepest_might.rs"
+        },
+        {
+          "name": "Shimian Night Stalker",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_5/shimian_night_stalker.rs"
+        },
+        {
+          "name": "Mishra's War Machine",
+          "path": "crates/baylee-cards/src/cards/creatures/artifacts/mv_7/mishra_s_war_machine.rs"
+        },
+        {
+          "name": "Reverberation",
+          "path": "crates/baylee-cards/src/cards/instants/mv_4/reverberation.rs"
+        },
+        {
+          "name": "Silhouette",
+          "path": "crates/baylee-cards/src/cards/instants/mv_2/silhouette.rs"
+        },
+        {
+          "name": "Eye for an Eye",
+          "path": "crates/baylee-cards/src/cards/instants/mv_2/eye_for_an_eye.rs"
+        },
+        {
+          "name": "Backdraft",
+          "path": "crates/baylee-cards/src/cards/instants/mv_2/backdraft.rs"
+        },
+        {
+          "name": "Reverse Polarity",
+          "path": "crates/baylee-cards/src/cards/instants/mv_2/reverse_polarity.rs"
+        },
+        {
+          "name": "Syphon Soul",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_3/syphon_soul.rs"
+        },
+        {
+          "name": "Hellfire",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_5/hellfire.rs"
+        },
+        {
+          "name": "Equinox",
+          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_1/equinox.rs"
+        },
+        {
+          "name": "Nova Pentacle",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/nova_pentacle.rs"
+        },
+        {
+          "name": "Forethought Amulet",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_5/forethought_amulet.rs"
+        }
+      ]
+    },
+    {
+      "batch": 58,
+      "title": "Draw replacements and dredge",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Golgari Thug",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/golgari_thug.rs"
+        },
+        {
+          "name": "Dakmor Salvage",
+          "path": "crates/baylee-cards/src/cards/lands/tapland/dakmor_salvage.rs"
+        },
+        {
+          "name": "Chains of Mephistopheles",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_2/chains_of_mephistopheles.rs"
+        },
+        {
+          "name": "Aladdin's Lamp",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_10/aladdin_s_lamp.rs"
+        }
+      ]
+    },
+    {
+      "batch": 59,
+      "title": "Variable hand operations and turn history",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Valakut Awakening // Valakut Stoneforge",
+          "path": "crates/baylee-cards/src/cards/instants/mv_3/valakut_awakening.rs"
+        },
+        {
+          "name": "Recall",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_1/recall.rs"
+        },
+        {
+          "name": "Winds of Change",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_1/winds_of_change.rs"
+        },
+        {
+          "name": "Eureka",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_4/eureka.rs"
+        },
+        {
+          "name": "Magnetic Mountain",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_3/magnetic_mountain.rs"
+        },
+        {
+          "name": "Arboria",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/arboria.rs"
+        },
+        {
+          "name": "Cyclone",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/cyclone.rs"
+        }
+      ]
+    },
+    {
+      "batch": 60,
+      "title": "Attachment and selected object relations",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Remove Enchantments",
+          "path": "crates/baylee-cards/src/cards/instants/mv_1/remove_enchantments.rs"
+        },
+        {
+          "name": "Enchantment Alteration",
+          "path": "crates/baylee-cards/src/cards/instants/mv_1/enchantment_alteration.rs"
+        },
+        {
+          "name": "Jihad",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_3/jihad.rs"
+        },
+        {
+          "name": "Invoke Prejudice",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/invoke_prejudice.rs"
+        },
+        {
+          "name": "The Abyss",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/the_abyss.rs"
+        },
+        {
+          "name": "Pyramids",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_6/pyramids.rs"
+        },
+        {
+          "name": "Triassic Egg",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/triassic_egg.rs"
+        }
+      ]
+    },
+    {
+      "batch": 61,
+      "title": "Face-down casting and mutate",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Zoetic Cavern",
+          "path": "crates/baylee-cards/src/cards/lands/zoetic_cavern.rs"
+        },
+        {
+          "name": "Gemrazer",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/gemrazer.rs"
+        }
+      ]
+    },
+    {
+      "batch": 62,
+      "title": "Transform and meld progressions",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Ojer Kaslem, Deepest Growth // Temple of Cultivation",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_5/ojer_kaslem_deepest_growth.rs"
+        },
+        {
+          "name": "Golden Guardian // Gold-Forge Garrison",
+          "path": "crates/baylee-cards/src/cards/creatures/artifacts/mv_4/golden_guardian.rs"
+        },
+        {
+          "name": "Hostile Hostel // Creeping Inn",
+          "path": "crates/baylee-cards/src/cards/lands/utility/hostile_hostel.rs"
+        },
+        {
+          "name": "Argoth, Sanctum of Nature",
+          "path": "crates/baylee-cards/src/cards/lands/utility/argoth_sanctum_of_nature.rs"
+        },
+        {
+          "name": "Hanweir Battlements",
+          "path": "crates/baylee-cards/src/cards/lands/utility/hanweir_battlements.rs"
+        },
+        {
+          "name": "Grist, the Hunger Tide",
+          "path": "crates/baylee-cards/src/cards/planeswalkers/mv_3/grist_the_hunger_tide.rs"
+        },
+        {
+          "name": "Path of Mettle // Metzali, Tower of Triumph",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_2/path_of_mettle.rs"
+        }
+      ]
+    },
+    {
+      "batch": 63,
+      "title": "Speed designation",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Muraganda Raceway",
+          "path": "crates/baylee-cards/src/cards/lands/muraganda_raceway.rs"
+        },
+        {
+          "name": "Amonkhet Raceway",
+          "path": "crates/baylee-cards/src/cards/lands/utility/amonkhet_raceway.rs"
+        },
+        {
+          "name": "Avishkar Raceway",
+          "path": "crates/baylee-cards/src/cards/lands/utility/avishkar_raceway.rs"
+        }
+      ]
+    },
+    {
+      "batch": 64,
+      "title": "Special payment procedures",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Whir of Invention",
+          "path": "crates/baylee-cards/src/cards/instants/mv_3/whir_of_invention.rs"
+        },
+        {
+          "name": "Archway of Innovation",
+          "path": "crates/baylee-cards/src/cards/lands/check/archway_of_innovation.rs"
+        },
+        {
+          "name": "Sword of the Ages",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_6/sword_of_the_ages.rs"
+        },
+        {
+          "name": "Jandor's Ring",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_6/jandor_s_ring.rs"
+        }
+      ]
+    },
+    {
+      "batch": 65,
+      "title": "Coin flips, die rolls, dungeons and explore",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Goblin Artisans",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_1/goblin_artisans.rs"
+        },
+        {
+          "name": "Dungeon Descent",
+          "path": "crates/baylee-cards/src/cards/lands/utility/dungeon_descent.rs"
+        },
+        {
+          "name": "Underdark Rift",
+          "path": "crates/baylee-cards/src/cards/lands/utility/underdark_rift.rs"
+        },
+        {
+          "name": "Twists and Turns // Mycoid Maze",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_1/twists_and_turns.rs"
+        }
+      ]
+    },
+    {
+      "batch": 66,
+      "title": "Explicit victory and draw results",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Maze's End",
+          "path": "crates/baylee-cards/src/cards/lands/utility/maze_s_end.rs"
+        },
+        {
+          "name": "Divine Intervention",
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_8/divine_intervention.rs"
+        }
+      ]
+    },
+    {
+      "batch": 67,
+      "title": "Pregame, printing-sensitive and nonstandard cards",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Gemstone Caverns",
+          "path": "crates/baylee-cards/src/cards/lands/gemstone_caverns.rs"
+        },
+        {
+          "name": "R&D's Secret Lair",
+          "path": "crates/baylee-cards/src/cards/lands/r_d_s_secret_lair.rs"
+        },
+        {
+          "name": "City of Ass",
+          "path": "crates/baylee-cards/src/cards/lands/tapland/city_of_ass.rs"
+        },
+        {
+          "name": "Urza's Fun House",
+          "path": "crates/baylee-cards/src/cards/lands/utility/urza_s_fun_house.rs"
+        },
+        {
+          "name": "Golgothian Sylex",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/golgothian_sylex.rs"
+        },
+        {
+          "name": "City in a Bottle",
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_2/city_in_a_bottle.rs"
+        }
+      ]
+    },
+    {
+      "batch": 68,
+      "title": "Copies controlled by resolution participants",
+      "status": "pending",
+      "cards": [
+        {
+          "name": "Chain Lightning",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_1/chain_lightning.rs"
+        },
+        {
+          "name": "Sevinne's Reclamation",
+          "path": "crates/baylee-cards/src/cards/sorceries/mv_3/sevinne_s_reclamation.rs"
+        }
+      ]
+    }
+  ]
+}

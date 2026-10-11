@@ -475,6 +475,18 @@ pub static SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// Recruit's 1/1 white Human Soldier (CR 701.70a), THOB token 2.
+pub static HUMAN_SOLDIER_1_1_WHITE: TokenDef = TokenDef {
+    name: "Human Soldier",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HUMAN, creature::SOLDIER],
+    power: Some(1),
+    toughness: Some(1),
+    scryfall_id: "6007af81-4541-4b55-90ea-03d365362ae5",
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is; the index IS the stable token id (art key).
 ///
 /// Append only — an insertion in the middle renumbers every token after it,

@@ -6,6 +6,8 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Discard choices for connive or recruit, including replacement resumes.
+    Loot(Box<loot::Loot>),
     /// The recipient and offered color combinations are frozen at this instruction.
     Colors {
         /// Exact recipient incarnation.
@@ -432,6 +434,10 @@ pub enum AwaitingOp {
         count: u8,
         /// Players still to choose.
         remaining: Vec<PlayerId>,
+        /// Private choices accumulated before any card moves.
+        selected: Vec<(ObjectId, PlayerId)>,
+        /// Cards the resolving controller draws for players unable to discard.
+        draws: u32,
     },
     /// After `DestroyChosenForPlayers`: destroy the chosen permanent
     /// (respects indestructible), then ask the next remaining player.
@@ -602,6 +608,9 @@ pub enum AwaitingOp {
     /// A player with a Library of Leng arranges cards an effect is about to
     /// make them discard (`resolve::discard`): what is discarded, by whom,
     /// and what runs once every such player has answered.
+    /// Choose which top-of-library discards Academy reveals when Leng also applies.
+    RevealDiscard(Box<super::DiscardReveal>),
+    /// Arrange the destination of discards before they move.
     DiscardDestination {
         /// Every card the instruction discards, with its discarding player.
         discards: Vec<(ObjectId, PlayerId)>,

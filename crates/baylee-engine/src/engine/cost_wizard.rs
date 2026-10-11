@@ -320,10 +320,7 @@ pub(crate) fn pay(
         _ => ZoneLocation::Graveyard(owner),
     };
     if matches!(part, CostPart::Discard(_)) {
-        state.journal.record(GameEvent::Discarded {
-            object: chosen,
-            player,
-        });
+        state.record_discard(chosen, player, None, true);
     }
     state.move_object(chosen, to, ZonePosition::Top, Cause::Cost)?;
     Ok(())

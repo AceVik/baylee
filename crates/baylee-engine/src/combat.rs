@@ -2954,6 +2954,7 @@ mod tests {
             text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
+            loot: None,
         };
         let _ = crate::resolve::run(state, &mut res);
         assert!(

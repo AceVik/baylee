@@ -4062,3 +4062,38 @@ land type"; both are convention tests that fire on a first try.
   validations, generated-table reproducibility, formatting and workspace
   all-targets clippy with dev controls pass. Original Partial inventory:
   284 completed, 256 remaining.
+
+### Partial completion batch 39 — discard provenance, connive and recruit
+
+- Completed Nephalia Academy, Lake-town Lookout, Aclazotz, Ledger Shredder,
+  Spymaster's Vault, Villainous Hideout, Psychic Purge, Gamble and Coral Helm.
+  The remaining 256 original Partial cards were assigned exactly once to
+  30 mechanism-based packages in `partial-card-batches.json` (39 through 68).
+- Discard events retain the hand incarnation, causing controller and whether
+  the card's characteristics are known. Academy's revealed replacement and
+  Library of Leng's hidden replacement must differ, including when both are
+  available. Cost discards are events but do not gain effect-only replacements.
+  Psychic Purge uses its hand ability and the actual causing opponent.
+- Connive and recruit share a counted continuation: draw first, choose all
+  discards before moving any, apply discard replacements, and reward known
+  nonlands. Menus are chunked without imposing a 255-card rules limit. Source
+  departure retains its controller but cannot place counters on a later copy.
+- Multi-player discard instructions gather choices in APNAP order before
+  moving cards simultaneously. Freeze empty-hand rewards at instruction start.
+  The cast event now freezes the per-player spell ordinal, so Shredder does
+  not read a later total when events are processed together.
+- Gamble delays its search shuffle until after the random discard. Coral Helm
+  has a seeded, atomic random discard cost; affordability checks consume no
+  random numbers. This cost is currently supported for activations only and
+  guarded against use as a spell's additional or alternative cost.
+- Cross-crate changes need full enum checks before test builds. Imported
+  engine prompts require a wire version bump even when the view's local
+  structural fingerprint stays unchanged. Update both the version and its
+  recorded fixture. The extended seat suite also caught the previous batch's
+  missing Storm narrator label.
+- Validation: 5,675 engine (two ignored), 1,562 client-core (one ignored),
+  248 host (two ignored), 235 AI, 134 cards, 72 DSL, 275 codegen, 42 view,
+  223 seat and 59 xtask tests pass; the DSL contract integration test passes.
+  All 3,321 printing validations, generated-table reproducibility, formatting
+  and workspace/all-targets clippy with dev controls pass. Original Partial
+  inventory: 293 completed, 247 remaining.

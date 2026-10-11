@@ -241,6 +241,7 @@ pub(super) fn exec_immediate(
         | Effect::EqualizePermanents { .. }
         | Effect::EqualizeHands
         | Effect::DiscardForPlayers { .. }
+        | Effect::DiscardEachOrDraw { .. }
         | Effect::DiscardRandom { .. }
         | Effect::RandomGraveyardToHand { .. }
         | Effect::DiscardHand { .. }
@@ -389,6 +390,8 @@ pub(super) fn exec_immediate(
             }
             super::discard::discard_or_ask(state, res, &[(card, you)])
         }
+        Effect::Connive { amount } => loot::start(state, res, amount, None),
+        Effect::Recruit { token } => loot::start(state, res, Amount::Fixed(1), Some(token)),
         Effect::DrawCardsFor { amount, who } => {
             let n = amount2(&amount, state, you, res) as usize;
             for player in players_of(who, state, you, res) {
@@ -1807,6 +1810,7 @@ pub(super) fn exec_immediate(
         }
         Effect::GrantSubtype { .. } => None, // M2 (continuous effects)
         Effect::SearchLibrary { .. }
+        | Effect::SearchLibraryBeforeShuffle { .. }
         | Effect::Scry { .. }
         | Effect::Surveil { .. }
         | Effect::ScryFor { .. }

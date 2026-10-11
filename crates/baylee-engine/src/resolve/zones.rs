@@ -1035,30 +1035,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::EqualizePermanents { filter } => equalize::start(state, res, Some(filter)),
         Effect::EqualizeHands => equalize::start(state, res, None),
         Effect::DiscardForPlayers { who, count } => {
-            let players = players_of(who, state, you, res);
-            let mut remaining: Vec<PlayerId> = players
-                .iter()
-                .copied()
-                .filter(|p| !state.zones.list(ZoneLocation::Hand(*p)).is_empty())
-                .collect();
-            let player = remaining.first().copied()?;
-            remaining.remove(0);
-            let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(player)).clone();
-            let n = (count as usize).min(hand.len()) as u8;
-            res.awaiting = Some(AwaitingOp::DiscardChain {
-                player,
-                count,
-                remaining,
-            });
-            Some(Pending::ChooseCards {
-                player,
-                options: hand,
-                min: n,
-                max: n,
-                prompt: ChoicePrompt::Generic,
-                total: None,
-            })
+            discard::start_chain(state, res, who, count, false)
         }
+        Effect::DiscardEachOrDraw { who } => discard::start_chain(state, res, who, 1, true),
         Effect::LookAtChosenHand => {
             let player = res.chosen_player?;
             let options = state.zones.list(ZoneLocation::Hand(player)).clone();
@@ -1100,6 +1079,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 player,
                 count: 1,
                 remaining: Vec::new(),
+                selected: Vec::new(),
+                draws: 0,
             });
             Some(Pending::ChooseCards {
                 player: you,
@@ -1574,6 +1555,7 @@ mod arrival_control_tests {
             text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
+            loot: None,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,
             awaiting: None,

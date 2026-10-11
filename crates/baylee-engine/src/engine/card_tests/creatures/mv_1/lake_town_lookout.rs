@@ -5,8 +5,8 @@ use super::*;
 
 /// `Lake-town Lookout` prints `When this creature dies, recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)`
 ///
-/// Marked `Coverage::Partial`, its death trigger fires `Trigger::Dies` with `Effect::draw(1)` and `Effect::DiscardForPlayers`.
-/// When destroyed by `heroes_downfall()`, the controller draws a card, answers `Pending::ChooseCards` to discard a card via `PlayerAction::ChooseObjects`, and under `Coverage::Partial` no Soldier creature token is created.
+/// A discarded land creates no token. The nonland and replacement branches
+/// are covered alongside connive in `card_tests::looting`.
 #[test]
 fn lake_town_lookout_dies_draws_and_discards_without_token() {
     let p0 = PlayerId::new(0);
@@ -84,6 +84,6 @@ fn lake_town_lookout_dies_draws_and_discards_without_token() {
     pass_until(&mut engine, stack_is_empty);
     assert!(
         tokens_of(&engine, p0).is_empty(),
-        "under `Coverage::Partial` recruit token creation is omitted"
+        "recruit does not reward a discarded land"
     );
 }

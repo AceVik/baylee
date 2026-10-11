@@ -500,6 +500,18 @@ pub enum Effect {
         /// The most that may be discarded.
         count: u8,
     },
+    /// The current subject connives this many times in one action (CR 701.50d).
+    /// Its controller draws, discards, then places counters for known nonlands.
+    Connive {
+        /// Cards drawn and discarded; zero causes no connive event.
+        amount: Amount,
+    },
+    /// Recruit (CR 701.70a): draw, discard, and create the supplied Human Soldier
+    /// token if a known nonland card was discarded.
+    Recruit {
+        /// The standard 1/1 white Human Soldier token.
+        token: &'static TokenDef,
+    },
     /// Put cards from your hand on top of your library, in the order they
     /// were chosen (Brainstorm-style).
     PutFromHandOnTop {
@@ -1091,6 +1103,12 @@ pub enum Effect {
         /// How many cards.
         count: u8,
     },
+    /// Each named player discards one card; you draw for each who cannot.
+    /// All discard selections precede the simultaneous discards (CR 101.4).
+    DiscardEachOrDraw {
+        /// Who must discard.
+        who: PlayerRel,
+    },
     /// The chosen player reveals their entire hand; this spell's controller
     /// chooses one matching card for that player to discard (Thoughtseize).
     /// If none match, reveal the hand without asking an impossible choice.
@@ -1555,6 +1573,16 @@ pub enum Effect {
         /// many cards may be found.
         finds: &'static [Find],
         /// Whether you may find fewer than `finds.len()` ("up to", "you may").
+        optional: bool,
+    },
+    /// Search without the implicit shuffle: the effect list must place its
+    /// explicit shuffle after intervening instructions (Gamble).
+    SearchLibraryBeforeShuffle {
+        /// What to find.
+        filter: &'static Filter,
+        /// Where each card goes.
+        finds: &'static [Find],
+        /// Whether fewer cards may be found.
         optional: bool,
     },
     /// Scry N.

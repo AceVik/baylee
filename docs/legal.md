@@ -1013,3 +1013,16 @@ permission above still cover this work. The primary
 checked in the published text, define the storm cast trigger and earlier-spell
 count in 702.40a, and distinguish copying from casting in 707.10. Each copy
 retains its original decisions and offers independent target changes.
+
+Batch 39 completes the existing nine discard/connive/recruit printings with
+original rules code and their identifying headers retained. The existing fan
+policy review and recorded owner permission above still apply. The only added
+presentation metadata is the identifier for the matching white 1/1 Human Soldier,
+[THOB token 2](https://scryfall.com/card/thob/2/human-soldier), verified against
+Scryfall's API on 2026-10-11. No image or corpus source is added to the repository.
+The [published Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt)
+state in 701.50e: “If a permanent would connive 0, no connive event occurs.”
+Sections 701.50a–f and 701.70a govern connive and recruit, 701.9c governs undefined
+characteristics of unrevealed hidden-zone discards, 113.6k allows hand discard
+triggers, and 101.4 governs simultaneous choices and actions. These sections were
+read in the published text rather than inferred from reminder text.

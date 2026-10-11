@@ -278,6 +278,7 @@ impl<L: CardLookup> Engine<L> {
             let mut res = crate::resolve::Resolution {
                 event_mana: t.event_mana,
                 retarget_left: None,
+                loot: None,
                 source: t.source,
                 on_stack: t.source,
                 controller: t.controller,

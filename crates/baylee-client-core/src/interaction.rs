@@ -851,6 +851,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::CamouflagePile { .. } => {
             (Phrase::NounCreatureForPile, Phrase::NounCreaturesForPile)
         }
+        ChoicePrompt::RevealDiscard => (Phrase::NounDiscardToReveal, Phrase::NounDiscardsToReveal),
         ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
         ChoicePrompt::PutIntoHand => (Phrase::NounCardToHand, Phrase::NounCardsToHand),
         ChoicePrompt::PutOnBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),

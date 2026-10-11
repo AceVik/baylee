@@ -1080,6 +1080,8 @@ pub enum ReplacementRule {
     /// the library this way is not revealed (CR 701.9c). A cost's discard
     /// and the cleanup step's (CR 514.1) are no effect's and are not asked.
     MayDiscardToLibraryTop,
+    /// Opponent-caused effect discards may be revealed and put on the library.
+    MayRevealOpponentDiscardToLibraryTop,
 }
 
 #[cfg(test)]

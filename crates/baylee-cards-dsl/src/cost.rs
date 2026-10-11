@@ -18,6 +18,8 @@ pub enum CostPart {
     PayLife(u16),
     /// Discard a card matching the filter (choice at payment).
     Discard(&'static Filter),
+    /// Discard one uniformly selected hand card during atomic payment.
+    DiscardRandom,
     /// Tap an untapped permanent matching the filter (choice at payment).
     ///
     /// The source is not it: `{T}` is [`CostPart::TapSelf`], and most of the

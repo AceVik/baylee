@@ -213,6 +213,7 @@ fn dauthi_does_not_outlive_a_destroy_all_instruction_in_the_same_resolution() {
         text: crate::text_changes::TextChangeMap::IDENTITY,
         event_mana: None,
         retarget_left: None,
+        loot: None,
     };
     assert!(matches!(
         crate::resolve::run(&mut e.state, &mut res),
