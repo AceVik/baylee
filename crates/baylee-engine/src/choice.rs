@@ -678,6 +678,8 @@ pub enum CastModeKind {
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ChoicePrompt {
+    /// Choose permanents to receive another counter of every kind already present.
+    Proliferate,
     /// Optional creature from hand, cast face down under the resolving effect.
     CastFaceDown {
         /// Announced X; only this much of the paid mana can justify the card.
@@ -1018,6 +1020,16 @@ pub enum TargetPrompt {
 /// What a [`Pending::YesNo`] asks.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum YesNoPrompt {
+    /// Add another counter of each kind already on this player.
+    ProliferatePlayer {
+        /// Counter recipient, not the deciding player.
+        player: PlayerId,
+    },
+    /// Pay energy counters.
+    PayEnergy {
+        /// Number of counters.
+        amount: u16,
+    },
     /// "You may pay N life; if you don't, this enters tapped" (shocklands).
     PayLifeOrEnterTapped {
         /// Life to pay.
@@ -1165,7 +1177,9 @@ impl YesNoPrompt {
     #[must_use]
     pub const fn declining_does_nothing(self) -> bool {
         match self {
-            Self::PayLifeOrEnterTapped { .. }
+            Self::ProliferatePlayer { .. }
+            | Self::PayEnergy { .. }
+            | Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
             | Self::PayTax { .. }
             | Self::PayMana { .. }
@@ -2473,7 +2487,32 @@ mod choice_tests {
                 yes_no(YesNoPrompt::SkipTurn { source: object() }),
                 no.clone(),
             ),
+            (yes_no(YesNoPrompt::PayEnergy { amount: 2 }), no.clone()),
+            (
+                yes_no(YesNoPrompt::ProliferatePlayer { player: p }),
+                no.clone(),
+            ),
             (yes_no(YesNoPrompt::Generic), no),
+            (
+                Pending::ChooseManaAbility {
+                    player: p,
+                    choice: ManaChoiceId {
+                        source: baylee_core::ids::DamageSourceRef {
+                            object: object(),
+                            version: 1,
+                        },
+                        step: 1,
+                    },
+                    options: vec![ManaAbilityChoice {
+                        source: baylee_core::ids::DamageSourceRef {
+                            object: object(),
+                            version: 1,
+                        },
+                        ability_index: Some(0),
+                    }],
+                },
+                None,
+            ),
             (yes_no(YesNoPrompt::CommanderZone { card: object() }), None),
             // Declining a pact's payment loses the game, so nobody's clock
             // declines it for them.
@@ -2660,7 +2699,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 20 + 18;
+    const KINDS: usize = 41;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -2690,6 +2729,8 @@ mod choice_tests {
             Pending::ChooseCardName { .. } => 16,
             Pending::YesNo { prompt, .. } => {
                 17 + match prompt {
+                    YesNoPrompt::PayEnergy { .. } => 22,
+                    YesNoPrompt::ProliferatePlayer { .. } => 23,
                     YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
                     YesNoPrompt::Kicker => 1,
                     YesNoPrompt::PayTax { .. } => 2,
@@ -2915,7 +2956,9 @@ mod choice_tests {
         fn expected(prompt: YesNoPrompt) -> bool {
             match prompt {
                 YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } => true,
-                YesNoPrompt::PayLifeOrEnterTapped { .. }
+                YesNoPrompt::PayEnergy { .. }
+                | YesNoPrompt::ProliferatePlayer { .. }
+                | YesNoPrompt::PayLifeOrEnterTapped { .. }
                 | YesNoPrompt::Kicker
                 | YesNoPrompt::PayTax { .. }
                 | YesNoPrompt::PayMana { .. }

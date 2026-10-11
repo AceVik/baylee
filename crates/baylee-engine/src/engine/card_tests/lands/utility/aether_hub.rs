@@ -4,7 +4,6 @@
 use super::*;
 
 /// Aether Hub: "When this land enters, you get {E}." / "{T}: Add {C}." / "{T}, Pay {E}: Add one mana of any color."
-/// Under `Coverage::Partial`, energy counters on players and paying energy are omitted.
 /// Activating the land's implemented ability adds {C} to the mana pool and leaves it tapped.
 #[test]
 fn aether_hub_taps_for_colorless_mana() {

@@ -1179,6 +1179,7 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::SpellCast { object, .. }
         | GameEvent::SpellCopied { object, .. }
         | GameEvent::Discarded { object, .. }
+        | GameEvent::CounterChanged { object, .. }
         | GameEvent::AbilityTriggered { object, .. }
         | GameEvent::BecameTarget { object, .. }
         | GameEvent::PlayerBecameTarget { object, .. }
@@ -2187,6 +2188,34 @@ fn matches(
                 && eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
                 && (!*is_combat || first_combat_damage_to(event, batch, *target))
         }
+        (
+            Trigger::CountersPlaced {
+                filter,
+                kind,
+                by,
+                first_this_turn,
+            },
+            GameEvent::CounterChanged {
+                object,
+                version,
+                kind: changed,
+                old,
+                new,
+                by: Some(placer),
+                first_this_turn: first,
+            },
+        ) => {
+            new > old
+                && changed == kind
+                && (!first_this_turn || *first)
+                && eval::players(*by, state, you).is_some_and(|players| players.contains(placer))
+                && state
+                    .source_object(baylee_core::ids::DamageSourceRef {
+                        object: *object,
+                        version: *version,
+                    })
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
         // CR 714.2b's window, "was less than N and became at least N",
         // asked of the source's own counters.
         (
@@ -2196,6 +2225,7 @@ fn matches(
                 kind: changed,
                 old,
                 new,
+                ..
             },
         ) => *object == source && changed == kind && *old < u16::from(*n) && u16::from(*n) <= *new,
         (

@@ -272,15 +272,13 @@ impl<L: CardLookup> Engine<L> {
                         version: self.state.object(card).map_or(0, |o| o.version),
                     },
                 ));
-            } else if let Some(obj) = self.state.object_mut(card) {
-                obj.counters
-                    .set(baylee_cards_dsl::CounterKind::Time, remaining - 1);
-                self.state.journal.record(GameEvent::CounterChanged {
-                    object: card,
-                    kind: baylee_cards_dsl::CounterKind::Time,
-                    old: remaining,
-                    new: remaining - 1,
-                });
+            } else {
+                crate::replacement::remove_counters(
+                    &mut self.state,
+                    card,
+                    baylee_cards_dsl::CounterKind::Time,
+                    1,
+                );
             }
         }
         // Delayed triggers registered for this upkeep.

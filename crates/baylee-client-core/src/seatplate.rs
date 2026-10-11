@@ -45,6 +45,8 @@ pub enum Detail {
     Poison(u16),
     /// Energy counters (only when not zero).
     Energy(u16),
+    /// Radiation counters (only when nonzero).
+    Rad(u16),
     /// The most combat damage one commander has dealt the seat (only when
     /// not zero): the number CR 903.10a's twenty-one is counted against.
     Commander(u16),
@@ -75,7 +77,7 @@ impl Detail {
             | Self::Library(count)
             | Self::Graveyard(count)
             | Self::Exile(count) => count.to_string(),
-            Self::Poison(n) | Self::Energy(n) | Self::Commander(n) => n.to_string(),
+            Self::Poison(n) | Self::Energy(n) | Self::Rad(n) | Self::Commander(n) => n.to_string(),
         }
     }
 
@@ -96,6 +98,7 @@ impl Detail {
             Self::Graveyard(_) => Phrase::PlateGraveyard.fill(lang, &[&n]),
             Self::Exile(_) => Phrase::PlateExile.fill(lang, &[&n]),
             Self::Poison(_) => Phrase::PlatePoison.fill(lang, &[&n]),
+            Self::Rad(_) => Phrase::PlateRad.fill(lang, &[&n]),
             Self::Energy(_) => Phrase::PlateEnergy.fill(lang, &[&n]),
             Self::Commander(_) => Phrase::PlateCommander.fill(lang, &[&n]),
         }
@@ -148,6 +151,7 @@ impl SeatPlate {
         for (n, detail) in [
             (seat.poison, Detail::Poison(seat.poison)),
             (seat.energy, Detail::Energy(seat.energy)),
+            (seat.rad, Detail::Rad(seat.rad)),
             (commander, Detail::Commander(commander)),
         ] {
             if n > 0 {

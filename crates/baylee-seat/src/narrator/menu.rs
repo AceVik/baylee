@@ -913,6 +913,12 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("pay {cost}"),
             "don't pay, and lose the game".into(),
         ),
+        YesNoPrompt::PayEnergy { amount } => (
+            format!("Pay {amount} energy counters?"),
+            "pay".into(),
+            "do not pay".into(),
+        ),
+        YesNoPrompt::ProliferatePlayer { player } => proliferate_words(*player),
         YesNoPrompt::PayLife { amount } => (
             format!("Pay {amount} life?"),
             format!("pay {amount} life"),
@@ -980,6 +986,17 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         ),
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+fn proliferate_words(player: PlayerId) -> (String, String, String) {
+    (
+        format!(
+            "Give {} another counter of each kind already present?",
+            Table::player_id(player)
+        ),
+        "proliferate".into(),
+        "skip this player".into(),
+    )
 }
 
 fn commander_replace_words(

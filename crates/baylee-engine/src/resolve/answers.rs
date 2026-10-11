@@ -58,7 +58,7 @@ pub(super) fn resume_with_number_inner(
             .unwrap_or(u16::MAX)
             .saturating_mul(crate::replacement::counter_multiplier(state, target))
             .min(room);
-        crate::replacement::record_counters(state, target, kind, count);
+        crate::replacement::record_counters_by(state, res.controller, target, kind, count);
     }
     res.pc += 1;
     run(state, res)
@@ -369,6 +369,17 @@ pub(super) fn resume_yes_no_inner(
     }
     if let Some(flow) = resume_cast_question(state, res, answer) {
         return flow;
+    }
+    if let Some(flow) = super::proliferate::resume_player(state, res, answer) {
+        return flow;
+    }
+    if let Some(AwaitingOp::PayEnergy { amount, effect }) = res.awaiting {
+        res.awaiting = None;
+        if answer && state.pay_energy(res.controller, u32::from(amount)) {
+            res.pc += 1;
+            return run(state, res);
+        }
+        return run_fallback(state, res, std::slice::from_ref(effect));
     }
     if let Some(AwaitingOp::PlayerMayPayLife {
         player,

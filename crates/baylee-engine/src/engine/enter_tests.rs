@@ -654,6 +654,7 @@ fn a_spell_cast_for_x_enters_with_that_many_counters() {
                 kind: CounterKind::P1P1,
                 old: 0,
                 new: 2,
+                ..
             } if object == id
         )),
         "the X announced as the spell was cast never reached its entry \

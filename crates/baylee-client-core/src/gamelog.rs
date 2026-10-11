@@ -439,7 +439,9 @@ impl Writer<'_> {
             }
         }
         let times = match entry.event {
-            LogEvent::Life { .. } | LogEvent::Counters { .. } => 1,
+            LogEvent::Life { .. } | LogEvent::Counters { .. } | LogEvent::PlayerCounters { .. } => {
+                1
+            }
             _ => entry.repeat.max(1),
         };
         LogLine {
@@ -936,6 +938,21 @@ impl Writer<'_> {
                     vec![Self::count(old), Self::count(new)],
                 )
             }
+            LogEvent::PlayerCounters {
+                player,
+                kind,
+                old,
+                new,
+            } => self.about(
+                *player,
+                Phrase::LogPlayerCountersYou,
+                Phrase::LogPlayerCounters,
+                vec![
+                    Self::count(new),
+                    self.counters(*kind, *new),
+                    Self::count(old),
+                ],
+            ),
             LogEvent::Counters {
                 object,
                 kind,
@@ -1936,6 +1953,7 @@ mod tests {
             LogEvent::Created { .. } => 14,
             LogEvent::Damage { .. } => 15,
             LogEvent::Life { .. } => 16,
+            LogEvent::PlayerCounters { .. } => 35,
             LogEvent::Counters { .. } => 17,
             LogEvent::Attacked { .. } => 18,
             LogEvent::Blocked { .. } => 19,
@@ -1957,7 +1975,7 @@ mod tests {
         }
     }
 
-    const VARIANTS: usize = 35;
+    const VARIANTS: usize = 36;
 
     /// Every kind of line, about `player`, with every answer, cause, zone and
     /// counter a line can carry.
@@ -1965,6 +1983,12 @@ mod tests {
     fn every_line_about(player: PlayerId) -> Vec<LogEvent> {
         let card = bolt(3);
         let mut out = vec![
+            LogEvent::PlayerCounters {
+                player,
+                kind: CounterKind::Energy,
+                old: 1,
+                new: 2,
+            },
             LogEvent::TurnStarted { active: player },
             LogEvent::Mulliganed { player },
             LogEvent::Kept { player, cards: 1 },
@@ -2285,6 +2309,7 @@ mod tests {
                 ..
             }
             | LogEvent::Life { player, .. }
+            | LogEvent::PlayerCounters { player, .. }
             | LogEvent::Attacked {
                 defending: Defender::Player(player),
                 ..

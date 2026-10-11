@@ -330,6 +330,7 @@ impl GameState {
             h.i32(p.life);
             h.u16(p.poison);
             h.u16(p.energy);
+            h.u16(p.rad);
             h.boolean(p.enduring_story);
             h.boolean(p.citys_blessing);
             h.i8(p.hand_modifier);
@@ -456,6 +457,18 @@ impl GameState {
             .collect();
         damaged.sort_unstable();
         damaged.hash(h);
+        let mut placements: Vec<_> = self
+            .per_turn
+            .counter_placements
+            .iter()
+            .filter(|(source, _)| {
+                self.object(source.object)
+                    .is_some_and(|o| o.version == source.version)
+            })
+            .map(|(source, kind)| (position(source.object), *kind))
+            .collect();
+        placements.sort_unstable();
+        placements.hash(h);
     }
 
     /// Every zone, in a fixed order — the canonical ordering object
@@ -1026,6 +1039,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         life,
         poison,
         energy,
+        rad,
         enduring_story,
         citys_blessing,
         mana_pool,
@@ -1044,6 +1058,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     life.hash(h);
     poison.hash(h);
     energy.hash(h);
+    rad.hash(h);
     enduring_story.hash(h);
     citys_blessing.hash(h);
     mana_pool.hash(h);

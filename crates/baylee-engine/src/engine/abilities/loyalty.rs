@@ -219,22 +219,22 @@ impl<L: CardLookup> Engine<L> {
         }
         let price = self.activation_price(player, source, &Cost::FREE, None);
         self.pay_cost(player, source, &price, &[], 0)?;
-        let new = if cost >= 0 {
-            old.saturating_add(cost as u16)
+        if cost >= 0 {
+            crate::replacement::record_counters_by(
+                &mut self.state,
+                player,
+                source,
+                baylee_cards_dsl::CounterKind::Loyalty,
+                cost as u16,
+            );
         } else {
-            old - (-cost) as u16
-        };
-        {
-            let obj = self.state.object_mut(source).expect("walker exists");
-            obj.counters
-                .set(baylee_cards_dsl::CounterKind::Loyalty, new);
+            crate::replacement::remove_counters(
+                &mut self.state,
+                source,
+                baylee_cards_dsl::CounterKind::Loyalty,
+                (-cost) as u16,
+            );
         }
-        self.state.journal.record(GameEvent::CounterChanged {
-            object: source,
-            kind: baylee_cards_dsl::CounterKind::Loyalty,
-            old,
-            new,
-        });
         self.loyalty_used_this_turn.push(source);
         // Targets first if required.
         if targets.is_empty()

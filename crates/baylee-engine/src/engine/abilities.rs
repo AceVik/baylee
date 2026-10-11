@@ -60,6 +60,8 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::PayLife(_)
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
+        | CostPart::PayEnergy(_)
+        | CostPart::PayEnergyX
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
@@ -96,6 +98,8 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
+        | CostPart::PayEnergy(_)
+        | CostPart::PayEnergyX
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)

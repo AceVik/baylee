@@ -382,3 +382,48 @@ fn a_time_counter_is_not_a_delay_on_a_card_that_is_not_counting_down() {
          clock the land's controller is winding up"
     );
 }
+
+#[test]
+fn proliferate_selects_net_beneficial_permanents_and_player_counters() {
+    use baylee_engine::choice::{ChoicePrompt, YesNoPrompt};
+    let mine = PlayerId::new(0);
+    let theirs = PlayerId::new(1);
+    let mut helpful = permanent(obj(1), mine, 3);
+    helpful.counters = vec![baylee_view::CounterEntry {
+        kind: baylee_view::CounterKind::PLUS_ONE,
+        count: 1,
+    }];
+    let mut harmful = permanent(obj(2), mine, 4);
+    harmful.counters = vec![baylee_view::CounterEntry {
+        kind: baylee_view::CounterKind::MINUS_ONE,
+        count: 1,
+    }];
+    let mut enemy = permanent(obj(3), theirs, 5);
+    enemy.counters = harmful.counters.clone();
+    let mut view = view(0, &[20, 20], vec![helpful, harmful, enemy]);
+    let pending = Pending::ChooseCards {
+        player: mine,
+        options: vec![obj(1), obj(2), obj(3)],
+        min: 0,
+        max: 3,
+        prompt: ChoicePrompt::Proliferate,
+        total: None,
+    };
+    assert_eq!(
+        agent().act(&view, &pending),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(1), obj(3)]
+        }
+    );
+    view.seats[0].energy = 1;
+    view.seats[1].poison = 9;
+    let ask = |player| Pending::YesNo {
+        player: mine,
+        prompt: YesNoPrompt::ProliferatePlayer { player },
+        source: None,
+    };
+    assert_eq!(agent().act(&view, &ask(mine)), PlayerAction::YesNo(true));
+    assert_eq!(agent().act(&view, &ask(theirs)), PlayerAction::YesNo(true));
+    view.seats[0].poison = 9;
+    assert_eq!(agent().act(&view, &ask(mine)), PlayerAction::YesNo(false));
+}

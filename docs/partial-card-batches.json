@@ -51,7 +51,7 @@
     {
       "batch": 40,
       "title": "Player counters, energy and proliferation",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Yawgmoth, Thran Physician",
@@ -101,6 +101,15 @@
           "name": "U.S.S. Enterprise-D, Galaxy-Class",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_3/u_s_s_enterprise_d_galaxy_class.rs"
         }
+      ],
+      "completed_cards": [
+        "Yawgmoth, Thran Physician",
+        "Hapatra, Vizier of Poisons",
+        "Rush of Inspiration // Crackling Falls",
+        "HELIOS One",
+        "Aether Hub",
+        "Karn's Bastion",
+        "U.S.S. Enterprise-D, Galaxy-Class"
       ]
     },
     {

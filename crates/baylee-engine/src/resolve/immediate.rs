@@ -15,6 +15,7 @@ pub(super) fn exec_immediate(
 ) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::Proliferate => super::proliferate::start(state, res),
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
         Effect::DestroyEventThenMayReattach { to } => {
             crate::aura_bindings::destroy_event_and_offer(state, res, to)
@@ -26,11 +27,19 @@ pub(super) fn exec_immediate(
         Effect::SacrificeAmountOrLose { filter, amount } => {
             sacrifice_amount_or_lose(state, res, filter, &amount)
         }
-        Effect::Poison { who, amount } => {
+        Effect::Poison { who, amount } | Effect::Energy { who, amount } => {
             let amount = amount2(&amount, state, you, res);
+            let kind = if matches!(op, Effect::Poison { .. }) {
+                baylee_cards_dsl::CounterKind::Poison
+            } else {
+                baylee_cards_dsl::CounterKind::Energy
+            };
             for player in players_of(who, state, you, res) {
-                let counters = &mut state.players[usize::from(player.get())].poison;
-                *counters = counters.saturating_add(u16::try_from(amount).unwrap_or(u16::MAX));
+                state.change_player_counters(
+                    player,
+                    kind,
+                    i32::try_from(amount).unwrap_or(i32::MAX),
+                );
             }
             None
         }
@@ -951,7 +960,13 @@ pub(super) fn exec_immediate(
                     modifier,
                 });
             }
-            crate::replacement::put_counters(state, land, baylee_cards_dsl::CounterKind::P1P1, n);
+            crate::replacement::put_counters_by(
+                state,
+                res.controller,
+                land,
+                baylee_cards_dsl::CounterKind::P1P1,
+                n,
+            );
             // The delayed trigger, controlled by whoever controlled this
             // ability and sourced where it is (CR 603.7d, 603.7e). Created
             // after the counters, so nothing that happened before it can
@@ -1825,6 +1840,7 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
+        | Effect::MayPayEnergyOr { .. }
         | Effect::ChooseOne { .. }
         | Effect::PlayerMayPayCostThen { .. }
         | Effect::PlayerMayPayCostOr { .. }

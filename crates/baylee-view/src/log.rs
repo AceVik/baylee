@@ -361,6 +361,17 @@ pub enum LogEvent {
         /// After.
         new: i32,
     },
+    /// Counters on a player changed.
+    PlayerCounters {
+        /// Recipient.
+        player: PlayerId,
+        /// Kind.
+        kind: CounterKind,
+        /// Before.
+        old: u16,
+        /// After.
+        new: u16,
+    },
     /// Counters on an object changed.
     Counters {
         /// The object.
@@ -493,6 +504,7 @@ impl LogEvent {
             | Self::ConnectionLost { .. }
             | Self::Returned { .. }
             | Self::Life { .. }
+            | Self::PlayerCounters { .. }
             | Self::Shuffled { .. }
             | Self::BecameMonarch { .. }
             | Self::DiceRolled { .. }
@@ -547,6 +559,7 @@ impl LogEvent {
             | Self::ConnectionLost { .. }
             | Self::Returned { .. }
             | Self::Life { .. }
+            | Self::PlayerCounters { .. }
             | Self::Shuffled { .. }
             | Self::BecameMonarch { .. }
             | Self::DiceRolled { .. }

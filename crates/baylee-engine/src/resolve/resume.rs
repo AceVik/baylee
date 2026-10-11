@@ -25,6 +25,11 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::Proliferate(selection) => {
+            if let Some(pending) = super::proliferate::objects(state, res, *selection, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::RevealDiscard(choice) => {
             return super::discard::resume_reveal(state, res, *choice, chosen);
         }
@@ -177,7 +182,13 @@ pub(super) fn resume_inner(
                                 .object(card)
                                 .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
                         {
-                            crate::replacement::put_counters(state, card, kind, n);
+                            crate::replacement::put_counters_by(
+                                state,
+                                res.controller,
+                                card,
+                                kind,
+                                n,
+                            );
                         }
                     }
                 }
@@ -850,6 +861,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::Counters { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }
+        | AwaitingOp::PayEnergy { .. }
         | AwaitingOp::MayDo { .. }
         | AwaitingOp::CascadeCast { .. }
         | AwaitingOp::CastTarget { .. }

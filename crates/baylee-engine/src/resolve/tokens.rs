@@ -73,8 +73,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 obj.base_mut().subtypes.insert(subtype);
                 obj.cache.clear();
             }
-            crate::replacement::put_counters(
+            crate::replacement::put_counters_by(
                 state,
+                res.controller,
                 target_id,
                 baylee_cards_dsl::CounterKind::P1P1,
                 amount,
@@ -229,7 +230,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let created = create_tokens_with_text(state, you, token, None, 1, res.text);
             let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
             for id in created {
-                crate::replacement::put_counters(state, id, kind, n);
+                crate::replacement::put_counters_by(state, res.controller, id, kind, n);
             }
             None
         }
@@ -365,7 +366,7 @@ fn create_modified_token_copies(
                 crate::copiable_abilities::copy_entry_counter(modifier, types, res.x.unwrap_or(0))
                 && amount > 0
             {
-                crate::replacement::put_counters(state, id, kind, amount);
+                crate::replacement::put_counters_by(state, res.controller, id, kind, amount);
             }
         }
     }

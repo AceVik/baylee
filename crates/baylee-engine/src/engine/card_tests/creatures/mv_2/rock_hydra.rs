@@ -137,6 +137,7 @@ fn rock_hydra_s_counters_prevent_one_point_of_damage_each() {
                     kind: CounterKind::P1P1,
                     old: 3,
                     new: 0,
+                    ..
                 } if object == hydra
             )),
         "all three counters were removed absorbing the Bolt's damage \

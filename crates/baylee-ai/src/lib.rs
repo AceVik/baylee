@@ -22,6 +22,7 @@ mod held;
 pub mod intelligence;
 mod optional;
 mod policy;
+mod proliferate;
 mod redirect;
 mod restricted;
 pub mod search;
@@ -443,6 +444,19 @@ impl HeuristicAgent {
                 {
                     return PlayerAction::ChooseObjects { objects };
                 }
+                if prompt == ChoicePrompt::Proliferate {
+                    return PlayerAction::ChooseObjects {
+                        objects: options
+                            .iter()
+                            .copied()
+                            .filter(|id| {
+                                view.object(*id)
+                                    .is_some_and(|o| self.proliferate_object(view, o) > 0)
+                            })
+                            .take(usize::from(max))
+                            .collect(),
+                    };
+                }
                 if let Some(objects) = self.select_cards(view, &options, min, max, prompt) {
                     return PlayerAction::ChooseObjects { objects };
                 }
@@ -732,6 +746,10 @@ impl HeuristicAgent {
                         view.seat(player)
                             .is_some_and(|s| s.life > i32::from(amount) + 5),
                     )
+                }
+                YesNoPrompt::PayEnergy { amount } => PlayerAction::YesNo(view.seat(player).is_some_and(|seat| seat.energy >= amount)),
+                YesNoPrompt::ProliferatePlayer { player: recipient } => {
+                    PlayerAction::YesNo(self.proliferate_player(view, recipient) > 0)
                 }
                 YesNoPrompt::Miracle { card } => PlayerAction::YesNo(Self::miracle(view, card)),
                 // What refusing a tax costs is not the same question for

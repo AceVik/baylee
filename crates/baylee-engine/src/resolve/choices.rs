@@ -365,6 +365,17 @@ pub(super) fn exec_choice(
                 source: resolving_ability(state, res),
             })
         }
+        Effect::MayPayEnergyOr { amount, effect } => {
+            if state.players[usize::from(you.get())].energy < amount {
+                return run_nested(state, res, std::slice::from_ref(effect));
+            }
+            res.awaiting = Some(AwaitingOp::PayEnergy { amount, effect });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::PayEnergy { amount },
+                source: resolving_ability(state, res),
+            })
+        }
         Effect::PlayerMayPayLifeOr {
             player,
             life,

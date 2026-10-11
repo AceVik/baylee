@@ -557,3 +557,27 @@ fn mana_retention_preserves_restrictions_and_spend_riders() {
     assert!(ordinary.until_end_of_turn);
     assert_eq!(ordinary.rider, SpendRider::None);
 }
+
+#[test]
+fn energy_payment_fallback_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::MayPayEnergyOr {
+        amount: 2,
+        effect: &Effect::DiscardRandom {
+            who: PlayerRel::You,
+            count: Amount::Fixed(1),
+        },
+    }];
+    let mut seen = 0;
+    let mut discard_seen = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        discard_seen |= matches!(
+            effect,
+            Effect::DiscardRandom {
+                who: PlayerRel::You,
+                count: Amount::Fixed(1)
+            }
+        );
+    });
+    assert_eq!(seen, 2);
+    assert!(discard_seen);
+}

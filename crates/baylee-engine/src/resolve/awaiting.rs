@@ -6,6 +6,15 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Counter-bearing permanent and player selections, committed together.
+    Proliferate(Box<super::proliferate::Selection>),
+    /// Optional energy payment, with unpaid fallback.
+    PayEnergy {
+        /// Counters to pay.
+        amount: u16,
+        /// Consequence of declining.
+        effect: &'static Effect,
+    },
     /// Discard choices for connive or recruit, including replacement resumes.
     Loot(Box<loot::Loot>),
     /// The recipient and offered color combinations are frozen at this instruction.

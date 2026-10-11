@@ -23,6 +23,7 @@ mod draw_offer;
 mod hash;
 mod lifetimes;
 mod moves;
+mod player_counters;
 mod projection;
 mod setup;
 #[cfg(test)]
@@ -56,6 +57,8 @@ pub struct Player {
     pub poison: u16,
     /// Energy counters.
     pub energy: u16,
+    /// Radiation counters (CR 728).
+    pub rad: u16,
     /// Persistent designation earned through storied (CR 702.195).
     pub enduring_story: bool,
     /// The city's blessing, earned through ascend and kept for the rest of
@@ -457,6 +460,9 @@ pub struct PerTurn {
     /// Creatures that died this turn, all players (Emeritus of Woe's
     /// re-prepare condition).
     pub creatures_died: u32,
+    /// Positive counter placements, keyed by exact recipient and kind.
+    pub counter_placements:
+        std::collections::BTreeSet<(baylee_core::ids::DamageSourceRef, CounterKind)>,
     /// What entered the battlefield this turn, in arrival order
     /// (`Filter::EnteredThisTurn`). Written where a `ZoneChanged` into the
     /// battlefield is journaled: [`GameState::move_object`] and a token's
@@ -589,6 +595,7 @@ impl PerTurn {
             damage_dealt_to: vec![0; players],
             permanent_damage: Vec::new(),
             creatures_died: 0,
+            counter_placements: std::collections::BTreeSet::new(),
             draws: vec![0; players],
             drew_in_draw_step: false,
             entered_battlefield: Vec::new(),
@@ -657,6 +664,7 @@ impl PerTurn {
         self.damage_dealt_to.iter_mut().for_each(|v| *v = 0);
         self.permanent_damage.clear();
         self.creatures_died = 0;
+        self.counter_placements.clear();
         self.entered_battlefield.clear();
         self.drawn.clear();
         self.resolved.clear();

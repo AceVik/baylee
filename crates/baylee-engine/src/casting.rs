@@ -1187,6 +1187,7 @@ fn alternative_parts_payable(
 ) -> bool {
     use baylee_cards_dsl::CostPart;
     parts.iter().all(|part| match part {
+        CostPart::PayEnergy(_) | CostPart::PayEnergyX => false,
         CostPart::DiscardRandom => {
             state
                 .zones

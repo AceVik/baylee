@@ -85,6 +85,9 @@ pub struct SeatView {
     pub poison: u16,
     /// Energy counters.
     pub energy: u16,
+    /// Radiation counters.
+    #[serde(default)]
+    pub rad: u16,
     /// Cards in hand. Contents are only in [`PlayerView::hand`], and only for
     /// the viewing seat.
     ///

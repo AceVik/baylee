@@ -572,6 +572,7 @@ fn seat_views(state: &GameState, house_answered: &[Option<HouseAnswer>]) -> Vec<
             life: p.life,
             poison: p.poison,
             energy: p.energy,
+            rad: p.rad,
             hand_count: state.zones.list(ZoneLocation::Hand(p.id)).len() as u32,
             no_max_hand_size: state.no_max_hand_size(p.id),
             library_count: state.zones.list(ZoneLocation::Library(p.id)).len() as u32,

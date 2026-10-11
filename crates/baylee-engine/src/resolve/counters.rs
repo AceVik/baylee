@@ -84,7 +84,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 if remove {
                     crate::replacement::remove_counters(state, reference.object, kind, amount);
                 } else {
-                    crate::replacement::put_counters(state, reference.object, kind, amount);
+                    crate::replacement::put_counters_by(
+                        state,
+                        res.controller,
+                        reference.object,
+                        kind,
+                        amount,
+                    );
                 }
             }
             None
@@ -164,7 +170,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     .is_some_and(|o| o.counters.get(kind) > 0)
             {
                 crate::replacement::remove_counters(state, source.object, kind, 1);
-                crate::replacement::put_counters(state, target.object, kind, 1);
+                crate::replacement::put_counters_by(state, res.controller, target.object, kind, 1);
             }
             None
         }
@@ -172,7 +178,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let source = subjects::source(state, res)?;
             if subjects::on_battlefield(state, source) {
                 let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
-                crate::replacement::put_counters(state, source.object, kind, n);
+                crate::replacement::put_counters_by(state, res.controller, source.object, kind, n);
             }
             None
         }
@@ -226,12 +232,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     if subjects::target(state, res, target)
                         .is_some_and(|reference| subjects::is_current(state, reference))
                     {
-                        crate::replacement::put_counters(state, target, kind, n);
+                        crate::replacement::put_counters_by(state, res.controller, target, kind, n);
                     }
                 }
             } else {
                 let target = this_to_affect(state, res)?;
-                crate::replacement::put_counters(state, target, kind, n);
+                crate::replacement::put_counters_by(state, res.controller, target, kind, n);
             }
             None
         }
@@ -263,7 +269,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // is asked of each permanent the counters land on, so a board
             // holding one of mine and one of theirs gets two answers.
             for id in objects {
-                crate::replacement::put_counters(state, id, kind, n);
+                crate::replacement::put_counters_by(state, res.controller, id, kind, n);
             }
             None
         }
@@ -282,7 +288,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .filter(|(_, n)| *n > 0)
                 .collect();
             for (id, n) in objects {
-                crate::replacement::put_counters(state, id, kind, n);
+                crate::replacement::put_counters_by(state, res.controller, id, kind, n);
             }
             None
         }
@@ -307,8 +313,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // also skipped the journal entry, so nothing downstream could
             // see the counters land.
             if drained > 0 {
-                crate::replacement::put_counters(
+                crate::replacement::put_counters_by(
                     state,
+                    res.controller,
                     res.source,
                     baylee_cards_dsl::CounterKind::P1P1,
                     drained,

@@ -2541,6 +2541,8 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::Sacrifice(_)
                     | CostPart::Discard(_)
                     | CostPart::DiscardRandom
+                    | CostPart::PayEnergy(_)
+                    | CostPart::PayEnergyX
                     | CostPart::DiscardSelf
                     | CostPart::ExileSelf
                     | CostPart::ReturnSelfToHand
@@ -2605,6 +2607,8 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::SacrificeSelf
                 | CostPart::Discard(_)
                 | CostPart::DiscardRandom
+                | CostPart::PayEnergy(_)
+                | CostPart::PayEnergyX
                 | CostPart::TapOther(_)
                 | CostPart::Crew(_)
                 | CostPart::Saddle(_)

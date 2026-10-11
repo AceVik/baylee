@@ -150,7 +150,7 @@ fn return_card(
             .object(id)
             .is_some_and(|o| o.zone == Zone::Battlefield)
     {
-        crate::replacement::put_counters(state, id, kind, n);
+        crate::replacement::put_counters_by(state, controller, id, kind, n);
     }
 }
 

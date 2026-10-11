@@ -3350,3 +3350,28 @@ after any intervening effects, as Gamble does after its random discard.
 selection and no Library of Leng/Nephalia Academy replacement. It is supported
 as an activation cost; the spell-cost vocabulary guard still rejects unsupported
 uses as a printed alternative or mandatory additional spell cost.
+
+### Player counters, energy payments and proliferation
+
+`Effect::Energy { who, amount }` gives player counters; these never enter a mana
+pool and survive phase changes. The activation cost parts `PayEnergy` (fixed amount) and
+`PayEnergyX` require exact payment. The latter announces X before targets, so
+`Filter::CmcExactlyX` uses the paid amount (HELIOS One). Spell costs reject these
+activation-only parts. `Effect::MayPayEnergyOr { amount, effect }` asks during
+resolution if the fixed payment is affordable, and runs its fallback on refusal
+or insufficient energy. Earlier instructions have already happened when asked.
+
+`Effect::Proliferate` chooses counter-bearing permanents without targeting, then
+players. It gathers all choices before putting one more counter of every kind
+present on each chosen recipient. Bounded choice pages keep the UI manageable
+without imposing a 255-permanent rules limit. Poison, energy and radiation totals
+are public, journalled player resources; permanent-only replacements do not
+multiply them.
+
+`Trigger::CountersPlaced { filter, kind, by, first_this_turn }` observes actual
+positive placements, once per recipient/event rather than once per counter.
+`by` tests the placing player independently of the recipient's controller. With
+`first_this_turn`, history is keyed by exact permanent incarnation and counter
+kind, including placements made before that triggered ability was present.
+Counter costs and entry placements also record this history; removing counters
+or a placement reduced to zero cannot trigger it.

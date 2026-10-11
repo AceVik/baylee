@@ -204,7 +204,9 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 60 adds flying, shadow, indestructible and hone counter kinds.
 /// Version 61 identifies divided-damage recipients as exact objects or players.
 /// Version 62 adds an explicit reveal choice for competing discard replacements.
-pub const VIEW_VERSION: u32 = 62;
+/// Version 63 adds energy-payment/proliferate prompts, radiation totals and
+/// the public log's player-counter changes.
+pub const VIEW_VERSION: u32 = 63;
 
 // ------------------------------------------------------------------- targets
 

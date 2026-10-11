@@ -2,7 +2,7 @@
 
 use super::{counter_effects, counter_limits, eval};
 use crate::{event::GameEvent, state::GameState};
-use baylee_core::ids::ObjectId;
+use baylee_core::ids::{DamageSourceRef, ObjectId, PlayerId};
 
 /// How many times over counters put on `target` are actually put on it
 /// (CR 614.16).
@@ -53,8 +53,23 @@ pub fn put_counters(
     kind: baylee_cards_dsl::CounterKind,
     n: u16,
 ) {
+    let Some(by) = state.object(id).map(|o| o.controller) else {
+        return;
+    };
+    put_counters_by(state, by, id, kind, n);
+}
+
+/// Resolving effects name the player placing the counters, independently of
+/// the recipient's controller (CR 122.6a, Hapatra).
+pub fn put_counters_by(
+    state: &mut GameState,
+    by: PlayerId,
+    id: ObjectId,
+    kind: baylee_cards_dsl::CounterKind,
+    n: u16,
+) {
     let n = n.saturating_mul(counter_multiplier(state, id));
-    record_counters(state, id, kind, n);
+    record_counters_by(state, by, id, kind, n);
 }
 
 /// The same door with the multiplying replacements left out: `n` counters
@@ -75,18 +90,45 @@ pub fn record_counters(
     kind: baylee_cards_dsl::CounterKind,
     n: u16,
 ) {
+    let Some(by) = state.object(id).map(|o| o.controller) else {
+        return;
+    };
+    record_counters_by(state, by, id, kind, n);
+}
+
+/// Records an actual placement with its placing player; no effect-only multiplier.
+pub fn record_counters_by(
+    state: &mut GameState,
+    by: PlayerId,
+    id: ObjectId,
+    kind: baylee_cards_dsl::CounterKind,
+    n: u16,
+) {
     let n = counter_limits::room(state, id, kind).map_or(n, |room| n.min(room));
-    if let Some(obj) = state.object_mut(id) {
-        let old = obj.counters.get(kind);
-        let new = obj.counters.add(kind, n);
-        state.journal.record(GameEvent::CounterChanged {
-            object: id,
+    let Some(obj) = state.object_mut(id) else {
+        return;
+    };
+    let (old, version) = (obj.counters.get(kind), obj.version);
+    let new = obj.counters.add(kind, n);
+    let placed = new > old;
+    let first_this_turn = placed
+        && state.per_turn.counter_placements.insert((
+            DamageSourceRef {
+                object: id,
+                version,
+            },
             kind,
-            old,
-            new,
-        });
-    }
-    if n > 0 {
+        ));
+    state.journal.record(GameEvent::CounterChanged {
+        object: id,
+        version,
+        by: placed.then_some(by),
+        first_this_turn,
+        kind,
+        old,
+        new,
+    });
+    if placed {
         counter_effects::placed(state, id, kind);
     }
     state.invalidate_projections();
@@ -120,12 +162,16 @@ pub fn remove_counters(
 ) -> u16 {
     let mut taken = 0;
     if let Some(obj) = state.object_mut(id) {
+        let version = obj.version;
         let old = obj.counters.get(kind);
         taken = old.min(n);
         let new = old - taken;
         obj.counters.set(kind, new);
         state.journal.record(GameEvent::CounterChanged {
             object: id,
+            version,
+            by: None,
+            first_this_turn: false,
             kind,
             old,
             new,

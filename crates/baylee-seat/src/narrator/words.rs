@@ -221,6 +221,7 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         } => format!(
             "Choose a creature to cast face down, or choose none to decline. X = {x}; actual total mana paid (white, blue, black, red, green, colorless): {paid:?}; fixed activation cost: {fixed_cost}"
         ),
+        ChoicePrompt::Proliferate => "Choose permanents to give one additional counter of each kind already present".into(),
         ChoicePrompt::RevealDiscard => "Choose discards to reveal with Nephalia Academy; unselected cards use Library of Leng and stay hidden".into(),
         ChoicePrompt::SearchLibrary => "Search your library: choose the cards to find".into(),
         ChoicePrompt::PutBackOnTop => "Choose the cards to put back on top of your library".into(),

@@ -1,7 +1,7 @@
 //! Commit all results only after every replacement decision has finished.
 
 use super::{CounterKind, DamageTarget, DamageWork, GameState, KeywordSet, Part};
-use crate::event::{Cause, GameEvent};
+use crate::event::Cause;
 use baylee_core::types::TypeSet;
 
 impl DamageWork {
@@ -95,19 +95,12 @@ impl Part {
             .object(target)
             .is_some_and(|o| o.characteristics().types.contains(TypeSet::PLANESWALKER))
         {
-            let old = state
-                .object(target)
-                .map_or(0, |o| o.counters.get(CounterKind::Loyalty));
-            let new = old.saturating_sub(u16::try_from(n).unwrap_or(u16::MAX));
-            if let Some(obj) = state.object_mut(target) {
-                obj.counters.set(CounterKind::Loyalty, new);
-            }
-            state.journal.record(GameEvent::CounterChanged {
-                object: target,
-                kind: CounterKind::Loyalty,
-                old,
-                new,
-            });
+            crate::replacement::remove_counters(
+                state,
+                target,
+                CounterKind::Loyalty,
+                u16::try_from(n).unwrap_or(u16::MAX),
+            );
         } else if let Some(obj) = state.object_mut(target) {
             obj.damage = obj
                 .damage

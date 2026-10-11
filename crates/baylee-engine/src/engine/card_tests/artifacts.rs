@@ -452,27 +452,10 @@ fn station_the_enterprise_d(
     options
 }
 
-/// "Station (Tap another creature you control: Put charge counters equal to
-/// its power on this Spacecraft. Station only as a sorcery.)" — the half of
-/// this `Coverage::Partial` that is written, and beside it the half that is
-/// not.
-///
-/// The crew is a 7/5, so a count of seven is the only answer that reads the
-/// creature's power at all: one would mean a counter per station, and five
-/// that toughness was read instead. The Elves across the table are the
-/// counter-half of "you control" and your own Elves are there so an empty
-/// exclusion is not an empty board.
-///
-/// The gap is the printed trigger: "Whenever one or more charge counters are
-/// put on U.S.S. Enterprise-D for the first time each turn, exile the top
-/// card of your library. You may play that card this turn." No `Trigger`
-/// fires on counters being put on an object and no `Effect` grants
-/// permission to play a card out of exile, so the line is left off the card
-/// entirely and this station must move neither the library nor exile. It is
-/// asserted rather than merely noted so that the day a counter trigger
-/// exists, this goes red and `Coverage::Partial` is what gets revisited.
+/// Station taps a friendly creature and places counters equal to its power.
+/// The first placement of the turn also exiles the top card to play this turn.
 #[test]
-fn stationing_the_enterprise_d_taps_its_crew_for_that_creatures_power_and_exiles_nothing() {
+fn stationing_the_enterprise_d_taps_its_crew_and_exiles_the_top_card() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let (mut engine, ship, crew, elves) = an_enterprise_d_with_a_crew(61);
@@ -512,14 +495,13 @@ fn stationing_the_enterprise_d_taps_its_crew_for_that_creatures_power_and_exiles
 
     assert_eq!(
         library_size(&engine, p0),
-        library,
-        "the first-time-each-turn trigger is the `Coverage::Partial` gap: \
-         counters went on and the top of the library stayed where it was"
+        library - 1,
+        "the first counter placement triggers the library exile"
     );
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Exile(p0)).len(),
-        exiled,
-        "and nothing was exiled for you to play this turn"
+        exiled + 1,
+        "one card was exiled for you to play this turn"
     );
 }
 

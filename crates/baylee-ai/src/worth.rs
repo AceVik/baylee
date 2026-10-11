@@ -1265,6 +1265,24 @@ impl HeuristicAgent {
                 let t = i32::try_from(count(*toughness)?).unwrap_or(0);
                 self.pump(view, &objects, (p, t, keywords.bits()), *duration)
             }
+            Effect::Proliferate => {
+                view.battlefield
+                    .iter()
+                    .map(|o| self.proliferate_object(view, o).max(0))
+                    .sum::<i64>()
+                    + view
+                        .seats
+                        .iter()
+                        .map(|p| self.proliferate_player(view, p.player).max(0))
+                        .sum::<i64>()
+            }
+            Effect::Energy { who, amount } => {
+                let n = count(*amount)?;
+                self.players(view, *who, aim)?
+                    .into_iter()
+                    .map(|p| if self.hostile(p, me) { -40 * n } else { 40 * n })
+                    .sum()
+            }
             Effect::AddCounter { kind, amount } => match subject {
                 Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
                 None => 0,
@@ -1454,7 +1472,7 @@ impl HeuristicAgent {
                     Some(o) if makes_mana(o) => Self::mana_price(view),
                     _ => 0,
                 },
-                CostPart::UntapSelf | CostPart::PayLifeX => 0,
+                CostPart::UntapSelf | CostPart::PayLifeX | CostPart::PayEnergyX => 0,
                 CostPart::SacrificeSelf => {
                     let o = origin.object?;
                     // What is spent is the permanent as a source of mana or
@@ -1482,6 +1500,7 @@ impl HeuristicAgent {
                     .filter(|h| h.id != origin.id && hand_matches(filter, h) == Some(true))
                     .map(|h| card_value(&h.id).max(0) + 50)
                     .min()?,
+                CostPart::PayEnergy(n) => i64::from(*n) * 25,
                 CostPart::DiscardRandom => {
                     let (sum, count) = view.hand.iter().filter(|card| card.id != origin.id).fold(
                         (0_i64, 0_i64),

@@ -212,6 +212,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
             life: *life,
             poison: 0,
             energy: 0,
+            rad: 0,
             hand_count: 0,
             no_max_hand_size: false,
             library_count: 40,

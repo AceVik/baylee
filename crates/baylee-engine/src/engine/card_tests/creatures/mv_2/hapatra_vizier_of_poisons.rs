@@ -3,20 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Hapatra, Vizier of Poisons ({B}{G}, a 2/2) prints two triggers and the
-/// pool implements one of them: "Whenever Hapatra deals combat damage to a
-/// player, you may put a -1/-1 counter on target creature."
-///
-/// Nothing short of connecting can fire it, so the test attacks with her and
-/// picks the target off the menu the trigger publishes — which has to hold a
-/// creature on *each* side of the table, because the card says "target
-/// creature" and not "you control". Sheoldred the Apocalypse is the creature
-/// pointed at precisely because a 4/5 survives one -1/-1: the counter is then
-/// read where it landed — one `CounterKind::M1M1` and a projected 3/4 — rather
-/// than inferred from a 1/1 that had to die for it. The request's `min` of 0
-/// is the printed "you may": the counter is optional, and the second,
-/// Snake-making trigger has no `Trigger` variant at all, which is the
-/// `Coverage::Partial` gap this test does not pretend to cross.
+/// The target is mandatory when the combat trigger is stacked; placing the
+/// counter is optional only as it resolves (CR 603.3d, 608.2d).
 #[allow(clippy::too_many_lines)] // a combat played to damage, which is where the trigger lives
 #[test]
 fn hapatra_marks_the_creature_she_points_at_when_she_connects() {
@@ -104,9 +92,8 @@ fn hapatra_marks_the_creature_she_points_at_when_she_connects() {
     assert_eq!(player, p0, "the controller of the trigger chooses");
     assert_eq!(
         (min, max),
-        (0, 1),
-        "\"you may put a -1/-1 counter on target creature\": one target, and \
-         taking none of them is legal"
+        (1, 1),
+        "the trigger chooses exactly one target; the counter is optional later"
     );
     assert!(
         options.contains(&victim) && options.contains(&mine),
@@ -120,6 +107,10 @@ fn hapatra_marks_the_creature_she_points_at_when_she_connects() {
             },
         )
         .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(

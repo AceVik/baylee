@@ -2999,7 +2999,17 @@ messages! {
     PlateExile { en: "{0} in exile", de: "{0} im Exil" },
     /// Poison counters on a seat.
     PlatePoison { en: "{0} poison", de: "{0} Gift" },
-    /// Energy counters on a seat.
+    /// Public radiation counter total.
+    PlateRad { en: "{0} radiation", de: "{0} Strahlung" },
+    /// Optional energy payment.
+    PayEnergy { en: "Pay {0} energy counters?", de: "{0} Energiemarken bezahlen?" },
+    /// Proliferate adds every counter kind, including harmful ones.
+    ProliferatePlayer { en: "Give {0} one additional counter of each kind already present?", de: "{0} eine weitere Marke jeder bereits vorhandenen Sorte geben?" },
+    /// Singular proliferate selection.
+    NounProliferatePermanent { en: "permanent to give one more counter of each kind", de: "bleibende Karte, die eine weitere Marke jeder Sorte erhält" },
+    /// Plural proliferate selection.
+    NounProliferatePermanents { en: "permanents to give one more counter of each kind", de: "bleibende Karten, die eine weitere Marke jeder Sorte erhalten" },
+    /// Public energy counter total.
     PlateEnergy { en: "{0} energy", de: "{0} Energie" },
     /// The most combat damage one commander has dealt a seat.
     PlateCommander { en: "{0} commander damage", de: "{0} Kommandeurschaden" },
@@ -3796,9 +3806,11 @@ messages! {
         en: "{0} went to {2} life (from {1})",
         de: "{0} hatte danach {2} Lebenspunkte (vorher {1})",
     },
-    /// Counters on a permanent changed. `{1}` is the permanent, `{2}` how
-    /// many there are now, `{3}` the counter noun for that many, `{4}` how
-    /// many there were.
+    /// The reading player's public counter total changed.
+    LogPlayerCountersYou { en: "{7} went to {1} {2} (from {3})", de: "{7} hattest danach {1} {2} (vorher {3})" },
+    /// Another player's public counter total changed.
+    LogPlayerCounters { en: "{0} went to {1} {2} (from {3})", de: "{0} hatte danach {1} {2} (vorher {3})" },
+    /// Counters on a permanent changed: object, new count, counter noun, old count.
     LogCounters { en: "{1} went to {2} {3} (from {4})", de: "{1} hatte danach {2} {3} (vorher {4})" },
     /// One +X/+Y counter. `{0}` is X and `{1}` is Y.
     LogCounterPlus { en: "+{0}/+{1} counter", de: "+{0}/+{1}-Marke" },

@@ -32,6 +32,22 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Choose any counter-bearing permanents and players, then add one of each kind (CR 701.34).
+    Proliferate,
+    /// Give the named players energy counters (CR 107.14).
+    Energy {
+        /// Recipients.
+        who: PlayerRel,
+        /// Number of energy counters.
+        amount: Amount,
+    },
+    /// Offer a fixed energy payment; perform the fallback when unpaid.
+    MayPayEnergyOr {
+        /// Energy to pay.
+        amount: u16,
+        /// Unpaid consequence.
+        effect: &'static Effect,
+    },
     /// Exile top library cards and grant the controller a timed play permission.
     ExileTopToPlay {
         /// Whose library supplies the cards.

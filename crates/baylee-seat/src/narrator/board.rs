@@ -33,6 +33,9 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
         if seat.poison > 0 {
             facts.push(format!("poison {}", seat.poison));
         }
+        if seat.rad > 0 {
+            facts.push(format!("radiation {}", seat.rad));
+        }
         if seat.energy > 0 {
             facts.push(format!("energy {}", seat.energy));
         }

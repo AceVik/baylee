@@ -46,8 +46,11 @@ impl<L: CardLookup> Engine<L> {
                     })
                     .sum()
             });
-            let counters = &mut self.state.players[usize::from(player.get())].poison;
-            *counters = counters.saturating_add(toxic);
+            self.state.change_player_counters(
+                player,
+                baylee_cards_dsl::CounterKind::Poison,
+                i32::from(toxic),
+            );
         }
     }
 

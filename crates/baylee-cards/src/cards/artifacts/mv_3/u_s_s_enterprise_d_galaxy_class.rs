@@ -3,25 +3,6 @@
 //! Oracle: Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 7+.)
 //! Oracle: 7+ | Flying, vigilance
 //! Set: TRK #273 — Star Trek | Scryfall ID: 057a4413-6a17-491e-bfd7-6cd427b1a442 | Oracle ID: d95af032-3efd-40c7-8229-ade9d974934f
-// PARTIAL — station (tap another creature you control as the cost, put its
-// power in charge counters on this Spacecraft, only as a sorcery), the
-// artifact creature at 7+, and the 7+ flying and vigilance: the mode the
-// card is played for, written as CR 702.184a spells the keyword.
-// NOT SUPPORTED: "Whenever one or more charge counters are put on
-// U.S.S. Enterprise-D for the first time each turn, exile the top card of
-// your library. You may play that card this turn." Two gaps, either of
-// which alone would hold it. No `Trigger` variant fires on counters being
-// put on an object — the enum reaches `EntersBattlefield`, `Dies`,
-// `BecomesTapped`, `StepBegin` and eleven more, and not one of them is
-// about a counter; `once_per_turn = true` would carry "for the first time
-// each turn" the day such a trigger exists. And no `Effect` grants
-// permission to play a card from exile: the nearest are `Effect::Exile`,
-// which needs a target and grants nothing, and `Effect::LookAtTopPick`,
-// which puts the pick into hand instead. Written with the exile half
-// alone the ability would bury the top of your library and never hand it
-// back — a card the printing does not describe rather than a weaker one —
-// so the whole trigger is left off and the Spacecraft plays as though the
-// line were not printed.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -39,7 +20,7 @@ card!(
         power = Some(4),
         toughness = Some(5),
     ),],
-    coverage = Coverage::Partial("the charge-counter trigger is not written"),
+    coverage = Coverage::Implemented,
     abilities = &[
         // Station (CR 702.184a): "Tap another untapped creature you
         // control: Put a number of charge counters on this permanent equal
@@ -70,6 +51,23 @@ card!(
                 at_least: 7,
                 keywords: KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
             }
+        ),
+        triggered!(
+            Trigger::CountersPlaced {
+                filter: &Filter::This,
+                kind: CounterKind::Charge,
+                by: PlayerRel::EachPlayer,
+                first_this_turn: true
+            },
+            &[Effect::ExileTopToPlay {
+                who: PlayerRel::You,
+                play: ExilePlay {
+                    count: 1,
+                    window: PlayWindow::ThisTurn,
+                    free: false,
+                    spell_types: None
+                }
+            }],
         ),
     ],
 );

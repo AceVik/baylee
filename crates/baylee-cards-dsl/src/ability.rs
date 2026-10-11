@@ -494,6 +494,17 @@ pub enum Trigger {
     /// the event's object, so `PlayerRel::ControllerOfEvent` is "that
     /// land's controller".
     BecomesTapped(&'static Filter),
+    /// One positive placement, optionally restricted to its first occurrence this turn.
+    CountersPlaced {
+        /// Receiving permanent.
+        filter: &'static Filter,
+        /// Kind placed.
+        kind: crate::CounterKind,
+        /// Player doing the placing, not necessarily the recipient's controller.
+        by: crate::PlayerRel,
+        /// Match only the first placement of this kind on this incarnation.
+        first_this_turn: bool,
+    },
     /// The count of a kind of counter on the source rises from below `n`
     /// to `n` or more — the window CR 714.2b writes out for a chapter
     /// symbol, asked of any kind.

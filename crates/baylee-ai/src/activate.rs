@@ -260,6 +260,8 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::Sacrifice(_)
             | CostPart::Discard(_)
                     | CostPart::DiscardRandom
+        | CostPart::PayEnergy(_)
+        | CostPart::PayEnergyX
             | CostPart::DiscardSelf
             | CostPart::ExileSelf
             | CostPart::ExileFromHand(_)

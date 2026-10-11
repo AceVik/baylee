@@ -3,12 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Karn's Bastion prints `{T}: Add {C}` and `{4}, {T}: Proliferate.`
-/// The card is marked `Coverage::Partial` because the `DSL` does not support proliferate.
-/// With four `forest` lands floating four mana and Karn's Bastion untapped, the engine offers only
-/// ability index 0 for colorless mana and never the proliferate ability, tapping for `{C}` cleanly.
+/// Both printed abilities are offered when four mana is available; the mana
+/// ability still resolves immediately and spends none of that floating mana.
 #[test]
-fn karns_bastion_taps_for_colorless_and_omits_proliferate_ability() {
+fn karns_bastion_offers_both_abilities_and_taps_for_colorless() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[forest(), forest(), forest(), forest()])
@@ -37,7 +35,7 @@ fn karns_bastion_taps_for_colorless_and_omits_proliferate_ability() {
         .copied()
         .filter(|(source, _)| *source == land)
         .collect();
-    assert_eq!(offered, vec![(land, 0)]);
+    assert_eq!(offered, vec![(land, 0), (land, 1)]);
 
     activate(&mut engine, p0, karn_s_bastion(), 0);
     let pool = &engine.state().players[0].mana_pool;

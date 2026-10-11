@@ -4097,3 +4097,34 @@ land type"; both are convention tests that fire on a first try.
   All 3,321 printing validations, generated-table reproducibility, formatting
   and workspace/all-targets clippy with dev controls pass. Original Partial
   inventory: 293 completed, 247 remaining.
+
+### Partial completion batch 40 — counter foundation (package in progress)
+
+- Centralized player energy/radiation changes and exact energy payments. Poison
+  effects and toxic use the same journalled player-counter path. Energy gained
+  by a player is unaffected by Doubling Season's permanent-only replacement.
+- Proliferate collects all permanent/player choices before updating anything;
+  pages of 255 are a presentation limit, not a rules limit. A 257-permanent
+  regression guards that distinction. Selection is not targeting, so shroud
+  does not exclude a permanent. Every kind on a chosen recipient increases.
+- Counter events retain the placing player, the recipient's incarnation and
+  whether this was its first actual placement of that kind this turn. Avoid
+  interpreting that last clause as once-per-turn on the ability: an earlier
+  placement without the ability still consumes "first". Hapatra also reacts
+  to costs, once per event; its combat trigger targets before the optional
+  placement is chosen during resolution.
+- Exhaustive question/log test tables need unique discriminants and real rows.
+  Merely adding a match arm can collide with an older number and leave the
+  new choice untested while the coverage assertion passes.
+- This foundation covers Yawgmoth, Hapatra, Rush of Inspiration, HELIOS One,
+  Aether Hub, Karn's Bastion and U.S.S. Enterprise-D. The package still includes
+  Brad Boimler, Diamond City, Nesting Grounds, Mariposa Military Base and
+  Suppression Ray; it is not complete until their remaining clauses pass.
+- Validation of this foundation: 5,685 engine tests pass (two intentional
+  ignores), with all ten counter regressions and the choice taxonomy rerun
+  after cleanup. The 236 AI, 134 cards, 73 DSL, 275 codegen, 42 view,
+  248 host (two ignores), and 223 seat tests pass. Client core's full run
+  exposed only the new log wording defects; all 35 log tests pass after their
+  fix. The DSL nesting contract, generated-table reproducibility, 3,321-card
+  validation, formatting and workspace all-targets clippy with dev controls
+  pass. Original Partial inventory: 300 completed, 240 remaining.

@@ -132,6 +132,23 @@ pub enum GameEvent {
     CounterChanged {
         /// The object.
         object: ObjectId,
+        /// Exact incarnation receiving or losing counters.
+        version: u32,
+        /// Player placing counters; removal has no placing player.
+        by: Option<PlayerId>,
+        /// First positive placement of this kind on this incarnation this turn.
+        first_this_turn: bool,
+        /// Counter kind.
+        kind: CounterKind,
+        /// Previous amount.
+        old: u16,
+        /// New amount.
+        new: u16,
+    },
+    /// A player gained or spent counters.
+    PlayerCountersChanged {
+        /// Recipient.
+        player: PlayerId,
         /// Counter kind.
         kind: CounterKind,
         /// Previous amount.

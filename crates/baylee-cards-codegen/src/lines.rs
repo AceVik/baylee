@@ -651,6 +651,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // Badgermole Cub, "Whenever you tap a creature for mana".
         T::TappedForMana { .. } => &["for mana"],
         // Druid Class, "When this Class becomes level 3".
+        T::CountersPlaced { .. } => &["counter"],
         T::CountersReach { .. } => &["becomes level"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
         // Fastbond, "Whenever you play a land".

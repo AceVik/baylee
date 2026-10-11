@@ -647,6 +647,7 @@ impl Effect {
                 cost: _,
                 effect,
             }
+            | Effect::MayPayEnergyOr { effect, .. }
             | Effect::PlayerMayPayLifeOr { effect, .. }
             | Effect::PlayerMayPayCostThen { player: _, cost: _, effect }
             | Effect::PlayerMayPayCostOr {
@@ -709,6 +710,8 @@ impl Effect {
             | Effect::SacrificeEvent
             | Effect::SacrificeAmountOrLose { .. }
             | Effect::Poison { .. }
+            | Effect::Energy { .. }
+            | Effect::Proliferate
             | Effect::LoseGame
             | Effect::ReanimateEnchanted
             | Effect::PutTargetOnBottomOfLibrary

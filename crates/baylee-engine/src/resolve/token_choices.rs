@@ -57,8 +57,9 @@ pub(super) fn finish_fabricate(
             .object(source.object)
             .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
     {
-        crate::replacement::put_counters(
+        crate::replacement::put_counters_by(
             state,
+            res.controller,
             source.object,
             baylee_cards_dsl::CounterKind::P1P1,
             count,

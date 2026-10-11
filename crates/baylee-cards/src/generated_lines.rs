@@ -31172,8 +31172,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Aether Hub
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(0), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -31925,8 +31925,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Hapatra, Vizier of Poisons
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -34678,8 +34678,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Karn's Bastion
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -35171,8 +35171,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Yawgmoth, Thran Physician
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[None, Some(1)],
+        stackable: 2,
+        lines: &[None, Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -47268,8 +47268,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // HELIOS One
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), Some(1), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -55486,8 +55486,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // U.S.S. Enterprise-D, Galaxy-Class
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(1), None, None],
+        stackable: 2,
+        lines: &[Some(1), None, None, Some(0)],
         modes: &[],
         alternatives: &[],
     }],

@@ -55,6 +55,8 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::PayLife(_)
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
+        | CostPart::PayEnergy(_)
+        | CostPart::PayEnergyX
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)

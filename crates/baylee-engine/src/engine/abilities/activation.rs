@@ -259,14 +259,19 @@ impl<L: CardLookup> Engine<L> {
         // Reached only through the offer guard in `apply`, which refuses an
         // ability `legal.abilities` does not carry, so nobody is asked a
         // number for an activation `can_afford` has already ruled out.
-        if let Some(kind) = counter_x_part(&cost)
+        let counter_bound = counter_x_part(&cost).map(|kind| {
+            self.state
+                .object(source)
+                .map_or(0, |o| o.counters.get(kind))
+        });
+        let energy_bound = cost
+            .parts
+            .contains(&CostPart::PayEnergyX)
+            .then(|| self.state.players[usize::from(player.get())].energy);
+        if let Some(max) = counter_bound.or(energy_bound)
             && self.activation_x.is_none()
         {
-            let max = u32::from(
-                self.state
-                    .object(source)
-                    .map_or(0, |o| o.counters.get(kind)),
-            );
+            let max = u32::from(max);
             self.pending_plan = Some(PlanKind::ChooseActivationX {
                 source,
                 ability_index,

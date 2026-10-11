@@ -40,6 +40,7 @@ impl GameState {
                     life: s.starting_life.unwrap_or(default_life),
                     poison: 0,
                     energy: 0,
+                    rad: 0,
                     enduring_story: false,
                     citys_blessing: false,
                     mana_pool: ManaPool::new(),

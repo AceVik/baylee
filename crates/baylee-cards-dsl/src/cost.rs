@@ -20,6 +20,10 @@ pub enum CostPart {
     Discard(&'static Filter),
     /// Discard one uniformly selected hand card during atomic payment.
     DiscardRandom,
+    /// Pay energy counters from the activating player.
+    PayEnergy(u16),
+    /// Announce X and pay that many energy counters.
+    PayEnergyX,
     /// Tap an untapped permanent matching the filter (choice at payment).
     ///
     /// The source is not it: `{T}` is [`CostPart::TapSelf`], and most of the

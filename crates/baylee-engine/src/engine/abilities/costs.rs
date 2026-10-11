@@ -126,6 +126,22 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
+                CostPart::PayEnergy(_) => {
+                    let required: u32 = cost
+                        .parts
+                        .iter()
+                        .filter_map(|part| {
+                            if let CostPart::PayEnergy(n) = part {
+                                Some(u32::from(*n))
+                            } else {
+                                None
+                            }
+                        })
+                        .sum();
+                    if u32::from(self.state.players[usize::from(player.get())].energy) < required {
+                        return false;
+                    }
+                }
                 CostPart::DiscardRandom => {
                     let needed = cost
                         .parts
@@ -248,7 +264,8 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::ReturnSelfToHand
                 | CostPart::RemoveCounterSelfX { .. }
                 | CostPart::PutCounterSelf { .. }
-                | CostPart::PayLifeX => {}
+                | CostPart::PayLifeX
+                | CostPart::PayEnergyX => {}
             }
         }
         true
@@ -462,8 +479,24 @@ impl<L: CardLookup> Engine<L> {
                 // there — a cost is neither. Doubling Season is the pool's
                 // only such replacement and prints exactly that wording, so
                 // this is the measured answer and not a cautious one.
+                CostPart::PayEnergy(n) => {
+                    if !self.state.pay_energy(player, u32::from(*n)) {
+                        return Err(EngineError::IllegalAction("not enough energy"));
+                    }
+                }
+                CostPart::PayEnergyX => {
+                    if !self.state.pay_energy(player, x) {
+                        return Err(EngineError::IllegalAction("not enough energy"));
+                    }
+                }
                 CostPart::PutCounterSelf { kind, n } => {
-                    crate::replacement::record_counters(&mut self.state, source, *kind, *n);
+                    crate::replacement::record_counters_by(
+                        &mut self.state,
+                        player,
+                        source,
+                        *kind,
+                        *n,
+                    );
                 }
                 CostPart::RemoveCounterSelfX { kind } => {
                     let want = u16::try_from(x).unwrap_or(u16::MAX);

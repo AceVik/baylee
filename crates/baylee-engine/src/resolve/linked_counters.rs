@@ -84,7 +84,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     continue;
                 };
                 let old = state.object(land).map_or(0, |o| o.counters.get(kind));
-                crate::replacement::put_counters(state, land, kind, 1);
+                crate::replacement::put_counters_by(state, res.controller, land, kind, 1);
                 let count = state.object(land).map_or(0, |o| o.counters.get(kind));
                 if count > old {
                     let link = ledger(state, res.source, version, kind);

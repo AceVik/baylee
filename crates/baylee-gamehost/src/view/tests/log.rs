@@ -765,6 +765,9 @@ fn a_face_down_permanent_is_named_as_the_view_shows_it() {
         .insert(baylee_engine::object::Status::FACE_DOWN);
     state.journal.record(GameEvent::CounterChanged {
         object: land,
+        version: state.object(land).unwrap().version,
+        by: Some(me),
+        first_this_turn: true,
         kind: baylee_cards_dsl::CounterKind::Charge,
         old: 0,
         new: 1,

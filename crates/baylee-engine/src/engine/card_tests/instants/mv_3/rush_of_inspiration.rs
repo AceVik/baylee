@@ -3,14 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Rush of Inspiration // Crackling Falls (`Coverage::Partial`): "Draw two
-/// cards. Then discard a card at random unless you pay {E}{E}. // This land
-/// enters tapped. {T}: Add {U} or {R}."
-///
-/// Under `Coverage::Partial`, the energy payment and random discard are not
-/// expressible in the DSL, but the "draw two cards" effect is implemented.
-/// The test casts Rush of Inspiration off three Islands and verifies the
-/// caster's hand grows by one card after spending the spell.
+/// Without energy the spell draws two, then discards one at random.
 #[test]
 fn rush_of_inspiration_draws_two_cards() {
     let p0 = PlayerId::new(0);
@@ -28,9 +21,8 @@ fn rush_of_inspiration_draws_two_cards() {
 
     let hand_after = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     assert_eq!(
-        hand_after,
-        hand_before + 1,
-        "casting costs one card from hand and draws two cards, giving a net gain of one"
+        hand_after, hand_before,
+        "the spell and random discard cost two cards, and two are drawn"
     );
     assert!(
         in_graveyard(&engine, p0, rush_of_inspiration()).is_some(),

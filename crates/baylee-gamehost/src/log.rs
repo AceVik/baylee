@@ -447,6 +447,7 @@ impl GameLog {
                 kind,
                 old,
                 new,
+                ..
             } => {
                 let (object, sees) = self.refer(state, *object);
                 self.push(
@@ -458,6 +459,9 @@ impl GameLog {
                     },
                     vec![sees],
                 );
+            }
+            GameEvent::PlayerCountersChanged { player, kind, old, new } => {
+                self.push(LogEvent::PlayerCounters { player: *player, kind: counter(*kind), old: *old, new: *new }, vec![]);
             }
             GameEvent::LifeChanged {
                 player, old, new, ..

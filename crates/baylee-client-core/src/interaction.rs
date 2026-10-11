@@ -851,6 +851,10 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::CamouflagePile { .. } => {
             (Phrase::NounCreatureForPile, Phrase::NounCreaturesForPile)
         }
+        ChoicePrompt::Proliferate => (
+            Phrase::NounProliferatePermanent,
+            Phrase::NounProliferatePermanents,
+        ),
         ChoicePrompt::RevealDiscard => (Phrase::NounDiscardToReveal, Phrase::NounDiscardsToReveal),
         ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
         ChoicePrompt::PutIntoHand => (Phrase::NounCardToHand, Phrase::NounCardsToHand),
@@ -1163,6 +1167,10 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
     match question {
         YesNoPrompt::PayLifeOrEnterTapped { amount } => {
             Phrase::PayLifeOrTapped.fill(lang, &[&amount.to_string()])
+        }
+        YesNoPrompt::PayEnergy { amount } => Phrase::PayEnergy.fill(lang, &[&amount.to_string()]),
+        YesNoPrompt::ProliferatePlayer { player } => {
+            Phrase::ProliferatePlayer.fill(lang, &[&seat_name(lang, statics, player)])
         }
         YesNoPrompt::Kicker => Phrase::PayAdditionalCost.text(lang).to_string(),
         YesNoPrompt::PayLife { amount } => Phrase::PayLife.fill(lang, &[&amount.to_string()]),

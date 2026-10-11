@@ -1026,3 +1026,14 @@ Sections 701.50a–f and 701.70a govern connive and recruit, 701.9c governs unde
 characteristics of unrevealed hidden-zone discards, 113.6k allows hand discard
 triggers, and 101.4 governs simultaneous choices and actions. These sections were
 read in the published text rather than inferred from reminder text.
+
+Batch 40's counter foundation extends existing card printings with original
+rules code and retains their identifying headers. The fan-policy review and
+recorded owner permission above continue to apply; no art, font, audio or corpus
+source is introduced. Counter behaviour was checked against the
+[published Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt):
+122.6a assigns the placing player, 701.34a defines proliferate, and 614.16 limits
+replacements worded around effects to the relevant placement events. The
+[Modern Horizons 3 release notes](https://magic.wizards.com/en/news/feature/modern-horizons-3-release-notes)
+confirm that energy is a persistent player counter resource and that a payment
+requires the specified number of counters.

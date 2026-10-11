@@ -127,8 +127,9 @@ fn choose_or_finish(
                 state.numeric_failure = Some("connive counter amount exceeds the supported range");
                 return None;
             };
-            crate::replacement::put_counters(
+            crate::replacement::put_counters_by(
                 state,
+                res.controller,
                 source.object,
                 baylee_cards_dsl::CounterKind::P1P1,
                 nonlands,

@@ -19,7 +19,10 @@
 //! plain token was in.
 
 mod counters;
-pub use counters::{counter_multiplier, put_counters, record_counters, remove_counters};
+pub use counters::{
+    counter_multiplier, put_counters, put_counters_by, record_counters, record_counters_by,
+    remove_counters,
+};
 
 mod counter_effects;
 pub(crate) mod counter_limits;

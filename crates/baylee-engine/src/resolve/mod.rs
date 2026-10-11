@@ -55,6 +55,7 @@ use discard::{discard_or_ask, resume_discard_destination};
 mod immediate;
 mod permissions;
 mod piles;
+pub mod proliferate;
 use permissions::grant_play;
 mod resume;
 mod search;
@@ -1030,6 +1031,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayThen { .. }
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
+        | Effect::MayPayEnergyOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::ChooseOne { .. }
         | Effect::PlayerMayPayCostThen { .. }
