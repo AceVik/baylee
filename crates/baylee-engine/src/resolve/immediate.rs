@@ -819,6 +819,45 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::ModifyTargets { modifier, duration } => {
+            if (matches!(modifier, baylee_cards_dsl::Modifier::GainControl) && state.has_left(you))
+                || (matches!(duration, baylee_cards_dsl::Duration::WhileYouControlSource)
+                    && !source_still_yours(state, res, you))
+            {
+                return None;
+            }
+            let timestamp = state.next_timestamp();
+            for &target in &res.targets {
+                let Some(object) = state.object(target) else {
+                    continue;
+                };
+                if object.status.contains(crate::object::Status::PHASED_OUT)
+                    || res.target_lki.as_ref().is_some_and(|lki| {
+                        lki.iter()
+                            .any(|old| old.id == target && old.version != object.version)
+                    })
+                {
+                    continue;
+                }
+                let filter = crate::effects::EffectFilter::object(state, target);
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: you,
+                    origin: crate::effects::EffectOrigin::Resolution,
+                    layer: modifier.layer(),
+                    timestamp,
+                    duration,
+                    filter,
+                    modifier,
+                });
+            }
+            if matches!(modifier, baylee_cards_dsl::Modifier::GrantStatic { .. }) {
+                state.refresh_characteristics();
+                crate::effects::sync_granted_statics(state);
+            }
+            None
+        }
         Effect::Earthbend(n) => {
             // CR 701.66a, in the order the rule says it. The land is the
             // first target, still on the battlefield — a target that became

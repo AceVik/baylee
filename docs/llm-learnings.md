@@ -3279,3 +3279,22 @@ land type"; both are convention tests that fire on a first try.
 - Choosing a keyword while an ability resolves (Gabriel Angelfire) is not
   announcing a modal ability. Keep the choice inside the resolution, after
   opponents have had priority, and walk every possible branch for coverage.
+
+### Completion batch 10 — target sets and resolution costs (2026-10-11)
+
+- Eleven more partial definitions now carry every printed clause: the five
+  plural color spells, Disciple of Freyalise, Forsaken City, Restless Vents,
+  Demolition Field, Ghost Quarter, and Gaea's Avenger.
+- A plural continuous-effect instruction binds each surviving target to its
+  incarnation. Do not reuse the existing singular `Filter::This` binding:
+  that would silently modify only the first target. Test partial illegality,
+  untouched bystanders, and cleanup with creatures of different colors.
+- Resolution-time sacrifice payments retain last known characteristics on the
+  resolving stack object, through the same `PaidRecord` read by existing
+  `SacrificedPower` amounts. Declining payment must draw nothing.
+- Hand exile is available to resolution-time cost choices without rerouting
+  the casting wizard's already-paid pitch costs through activation payment.
+- A characteristic-defining count with an offset stays in layer 7a and works
+  outside the battlefield; a later +1/+1 modifier is not equivalent.
+- Search destinations must match the card: these two land-destruction searches
+  put basics onto the battlefield untapped, unlike Path to Exile's search.

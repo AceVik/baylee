@@ -2767,7 +2767,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Gaea's Avenger
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Gate to Phyrexia
     &[FaceLines {
         sentences: 1,
@@ -3470,7 +3477,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Dwarven Song
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Elder Land Wurm
     &[FaceLines {
         sentences: 2,
@@ -3743,7 +3757,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Heaven's Gate
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Hell Swarm
     &[FaceLines {
         sentences: 1,
@@ -4296,7 +4317,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Sea Kings' Blessing
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Seeker
     &[FaceLines {
@@ -4412,7 +4440,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Sylvan Paradise
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Syphon Soul
     &[FaceLines {
         sentences: 1,
@@ -4514,7 +4549,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Touch of Darkness
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Transmutation
     &[FaceLines {
         sentences: 1,
@@ -13467,8 +13509,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Forsaken City
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[None, Some(2)],
+        stackable: 1,
+        lines: &[None, Some(2), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -46048,8 +46090,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Restless Vents
     &[FaceLines {
         sentences: 4,
-        stackable: 1,
-        lines: &[Some(1), Some(2)],
+        stackable: 2,
+        lines: &[Some(1), Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -47786,8 +47828,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 1,
-            stackable: 0,
-            lines: &[],
+            stackable: 1,
+            lines: &[Some(0)],
             modes: &[],
             alternatives: &[],
         },

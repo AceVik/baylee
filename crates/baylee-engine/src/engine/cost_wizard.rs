@@ -166,7 +166,9 @@ pub(crate) fn options_with_context(
             (ZoneLocation::Battlefield, true, false)
         }
         CostPart::TapOther(_) => (ZoneLocation::Battlefield, true, true),
-        CostPart::Discard(_) => (ZoneLocation::Hand(player), false, false),
+        CostPart::Discard(_) | CostPart::ExileFromHand(_) => {
+            (ZoneLocation::Hand(player), false, false)
+        }
         CostPart::ExileFromGraveyard(_) => (ZoneLocation::Graveyard(player), false, false),
         _ => return Vec::new(),
     };
@@ -174,6 +176,7 @@ pub(crate) fn options_with_context(
     | CostPart::Discard(filter)
     | CostPart::TapOther(filter)
     | CostPart::ReturnToHand(filter)
+    | CostPart::ExileFromHand(filter)
     | CostPart::ExileFromGraveyard(filter)) = part
     else {
         return Vec::new();
@@ -255,7 +258,7 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         CostPart::TapOther(_) => ChoicePrompt::CostTap,
         CostPart::Crew(power) => ChoicePrompt::CostCrew { power: *power },
         CostPart::ReturnToHand(_) => ChoicePrompt::CostReturn,
-        CostPart::ExileFromGraveyard(_) => ChoicePrompt::CostExile,
+        CostPart::ExileFromHand(_) | CostPart::ExileFromGraveyard(_) => ChoicePrompt::CostExile,
         _ => ChoicePrompt::CostSacrifice,
     }
 }
@@ -314,7 +317,7 @@ pub(crate) fn pay(
     // else's battlefield goes home rather than joining the borrower's hand.
     let to = match part {
         CostPart::ReturnToHand(_) => ZoneLocation::Hand(owner),
-        CostPart::ExileFromGraveyard(_) => ZoneLocation::Exile(owner),
+        CostPart::ExileFromHand(_) | CostPart::ExileFromGraveyard(_) => ZoneLocation::Exile(owner),
         _ => ZoneLocation::Graveyard(owner),
     };
     if matches!(part, CostPart::Discard(_)) {

@@ -955,6 +955,10 @@ fn pt_count(
 ) -> i16 {
     *read_board = true;
     let n = match count {
+        baylee_cards_dsl::PtCount::Plus { base, offset } => {
+            return pt_count(state, obj, c, you, *base, context, read_board)
+                .saturating_add(i16::try_from(offset).unwrap_or(i16::MAX));
+        }
         baylee_cards_dsl::PtCount::YouControl(filter) => {
             count_controlled(state, obj, c, Some(you), you, filter, context)
         }

@@ -657,6 +657,13 @@ pub enum Modifier {
 /// What a [`Modifier::CharacteristicPT`] counts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PtCount {
+    /// A characteristic-defining count plus a constant, before layer 7b.
+    Plus {
+        /// Underlying nonnegative count.
+        base: &'static PtCount,
+        /// Constant offset.
+        offset: u16,
+    },
     /// Permanents the ability's controller controls that match the filter
     /// ("the number of creatures you control").
     YouControl(&'static crate::Filter),

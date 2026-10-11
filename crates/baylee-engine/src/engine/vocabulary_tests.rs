@@ -155,6 +155,7 @@ fn every_price_paid_by_naming_an_object_puts_a_menu_up() {
         "Discard(",
         "TapOther(",
         "ReturnToHand(",
+        "ExileFromHand(",
         "ExileFromGraveyard(",
     ];
     let mut found = 0;

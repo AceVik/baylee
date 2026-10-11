@@ -244,3 +244,5 @@ mod wall_of_putrid_flesh;
 mod enchanted_being;
 
 mod time_elemental;
+
+mod gaea_s_avenger;

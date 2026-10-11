@@ -83,3 +83,13 @@ mod unnatural_speed;
 mod unsummon;
 mod vastwood_fortification;
 mod wirewood_pride;
+
+mod dwarven_song;
+
+mod heaven_s_gate;
+
+mod sea_kings_blessing;
+
+mod sylvan_paradise;
+
+mod touch_of_darkness;

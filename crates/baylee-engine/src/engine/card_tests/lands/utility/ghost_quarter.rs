@@ -15,9 +15,6 @@ use super::*;
 /// and not to the seat that fired the ability, which is the whole difference
 /// between `PlayerRel::ControllerOfTarget` and a search for me.
 ///
-/// The basic land's arrival is asserted as a position, not as a tap state:
-/// that it enters untapped is the clause the card def records as the
-/// `Coverage::Partial` gap and is deliberately not pinned here.
 #[test]
 #[allow(clippy::too_many_lines)] // one land, played through every clause it prints
 fn ghost_quarter_sacrifices_itself_to_destroy_a_land_and_its_controller_gets_the_search() {
@@ -157,5 +154,9 @@ fn ghost_quarter_sacrifices_itself_to_destroy_a_land_and_its_controller_gets_the
         on_battlefield(&engine, p1, found).is_some(),
         "the basic land the search found is on the battlefield, under the \
          seat that searched"
+    );
+    assert!(
+        !is_tapped(&engine, chosen),
+        "the found basic enters untapped"
     );
 }

@@ -837,9 +837,27 @@ pub(super) fn resume_inner(
             // same reading as `resume_tax_choice`: the answer was legal
             // when it was offered, so a refusal here is a rules outcome
             // and never a reason to abandon the resolution.
+            let receipt = chosen
+                .first()
+                .and_then(|id| state.object(*id))
+                .filter(|_| matches!(cost, baylee_cards_dsl::CostPart::Sacrifice(_)))
+                .map(|object| {
+                    (
+                        (object.id, object.version),
+                        crate::object::SacrificedLki::of(object),
+                    )
+                });
             let paid = chosen
                 .first()
                 .is_some_and(|&chosen| cost_wizard::pay(state, player, cost, chosen).is_ok());
+            if paid
+                && let Some((sacrificed, lki)) = receipt
+                && let Some(stack) = state.object_mut(res.on_stack)
+            {
+                let record = stack.paid.get_or_insert_with(Default::default);
+                record.sacrificed = Some(sacrificed);
+                record.sacrificed_lki = Some(lki);
+            }
             if paid == on_payment {
                 return run_fallback(state, res, std::slice::from_ref(effect));
             }

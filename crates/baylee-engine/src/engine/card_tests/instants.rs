@@ -2662,3 +2662,70 @@ fn mental_misstep_asks_life_or_mana_when_both_can_pay() {
         }
     }
 }
+
+fn assert_plural_color_change(card: CardIndex, color: Color, mana: ManaColor) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .hand(0, &[card])
+        .battlefield(0, &[quiet_creature(), quiet_creature()])
+        .battlefield(
+            1,
+            &[
+                baylee_core::generated::index::SAVANNAH_LIONS,
+                quiet_creature(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let creatures = e.state().zones.list(ZoneLocation::Battlefield).clone();
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(mana, 1);
+    e.refresh_offer();
+    cast_with_floating(&mut e, p0, card);
+    let hash = e.state().snapshot_hash();
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![]
+            }
+        )
+        .is_err()
+    );
+    assert_eq!(e.state().snapshot_hash(), hash);
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: creatures[..3].to_vec(),
+            players: vec![],
+        },
+    )
+    .unwrap();
+    // A target that leaves does not stop the other two from changing color.
+    bury(&mut e, &[creatures[1]]);
+    pass_until(&mut e, stack_is_empty);
+    for &id in &[creatures[0], creatures[2]] {
+        assert_eq!(
+            e.state().object(id).unwrap().characteristics().colors,
+            ColorSet::of(color)
+        );
+    }
+    assert_eq!(
+        e.state()
+            .object(creatures[3])
+            .unwrap()
+            .characteristics()
+            .colors,
+        ColorSet::of(Color::Green)
+    );
+    reach_their_main_phase(&mut e, p1);
+    for (id, original) in [(creatures[0], Color::Green), (creatures[2], Color::White)] {
+        assert_eq!(
+            e.state().object(id).unwrap().characteristics().colors,
+            ColorSet::of(original)
+        );
+    }
+}

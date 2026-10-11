@@ -2400,14 +2400,26 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
 /// begins or ends — the input [`filter_reads_board_state`] announces for a
 /// filter, here in the modifier.
 fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> bool {
-    use baylee_cards_dsl::{Modifier, PtCount};
+    use baylee_cards_dsl::Modifier;
     let (Modifier::CharacteristicPT { count, .. }
     | Modifier::SetPTToCount(count)
     | Modifier::ModifyPTHalfCount(count)) = modifier
     else {
         return false;
     };
-    matches!(count, PtCount::DefendingPlayerControls(_))
+    pt_count_reads_combat(count)
+}
+
+fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
+    use baylee_cards_dsl::PtCount;
+    match count {
+        PtCount::Plus { base, .. } => pt_count_reads_combat(*base),
+        PtCount::DefendingPlayerControls(_) => true,
+        PtCount::YouControl(_)
+        | PtCount::OnBattlefield(_)
+        | PtCount::CardTypesInAllGraveyards
+        | PtCount::ExiledWithThis => false,
+    }
 }
 
 /// Whether a DSL filter mentions non-battlefield zones (then its effect

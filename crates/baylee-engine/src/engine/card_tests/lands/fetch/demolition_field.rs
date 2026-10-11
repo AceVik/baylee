@@ -4,7 +4,6 @@
 use super::*;
 
 /// Demolition Field: "{T}: Add {C}." / "{2}, {T}, Sacrifice this land: Destroy target nonbasic land an opponent controls..."
-/// Under `Coverage::Partial`, the opponent's basic land enters tapped via `Effect::OptionalBasicLandSearchFor`.
 /// Activating ability 1 destroys an opponent's target nonbasic land and puts Demolition Field into its owner's graveyard.
 #[test]
 fn demolition_field_destroys_opponent_nonbasic_land() {
@@ -53,31 +52,53 @@ fn demolition_field_destroys_opponent_nonbasic_land() {
     }
 
     let Pending::ChooseCards {
-        player, min, max, ..
+        player,
+        min,
+        max,
+        options,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected p1 basic search, got {:?}", engine.pending());
     };
     assert_eq!(player, p1);
     assert_eq!((min, max), (0, 1));
+    let theirs = options[0];
     engine
-        .apply(p1, PlayerAction::ChooseObjects { objects: vec![] })
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs],
+            },
+        )
         .unwrap();
 
     let Pending::ChooseCards {
-        player, min, max, ..
+        player,
+        min,
+        max,
+        options,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected p0 basic search, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
     assert_eq!((min, max), (0, 1));
+    let ours = options[0];
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ours],
+            },
+        )
         .unwrap();
 
     pass_until(&mut engine, stack_is_empty);
 
     assert!(in_graveyard(&engine, p1, badlands()).is_some());
     assert!(on_battlefield(&engine, p1, badlands()).is_none());
+    assert!(!is_tapped(&engine, theirs));
+    assert!(!is_tapped(&engine, ours));
 }

@@ -28,6 +28,14 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Apply one continuous modifier to every surviving target of the first
+    /// target instance. Each binding retains that object's incarnation.
+    ModifyTargets {
+        /// Characteristic or rule change applied to each target.
+        modifier: super::Modifier,
+        /// How long the change lasts.
+        duration: super::Duration,
+    },
     /// Choose a non-targeted branch while resolving (CR 608.2d), rather
     /// than announcing a modal spell or ability on the stack (CR 700.2).
     /// Each option is one effect; use Sequence for several instructions.
@@ -1456,7 +1464,7 @@ pub enum Effect {
         /// Subtype.
         subtype: SubtypeId,
     },
-    /// Put counters on the first target (or the source when no target).
+    /// Put counters on every legal target (or the source when untargeted).
     AddCounter {
         /// Counter kind.
         kind: CounterKind,

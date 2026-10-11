@@ -606,6 +606,7 @@ impl Effect {
             | Effect::DiscardUpToThenDraw { .. }
             | Effect::SearchLibraryOrGraveyard { .. }
             | Effect::PutFromHandOnTop { .. }
+            | Effect::ModifyTargets { .. }
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
             | Effect::DrawCards { .. }

@@ -5,7 +5,6 @@ use super::*;
 
 /// Forsaken City prints `This land doesn't untap during your untap step`, `At the beginning of your
 /// upkeep, you may exile a card from your hand. If you do, untap this land`, and `{T}: Add one mana of any color.`
-/// The card is marked `Coverage::Partial` because exiling from hand during upkeep to untap is unsupported.
 /// Forsaken City enters untapped, activates ability index 1 to add chosen mana, and `Modifier::DoesNotUntap`
 /// keeps it tapped through subsequent untap steps.
 #[test]
@@ -39,7 +38,61 @@ fn forsaken_city_adds_any_color_and_does_not_untap_during_untap_step() {
     pass_until(&mut engine, |e| {
         e.state().turn.number > from
             && e.state().turn.active == p0
-            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && e.state().turn.step == crate::turn::Step::Upkeep
     });
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn forsaken_city_exiles_a_card_from_its_controllers_hand_to_untap() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for pay in [false, true] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[forsaken_city()])
+            .hand(0, &[forest()])
+            .hand(1, &[forest()])
+            .start();
+        let city = on_battlefield(&e, p0, forsaken_city()).unwrap();
+        e.dev_state_mut(p0).unwrap().set_tapped(city, true);
+        keep_mulligans(&mut e);
+        pass_until(&mut e, |e| {
+            matches!(
+                e.pending(),
+                Pending::ChooseCards {
+                    prompt: ChoicePrompt::CostExile,
+                    ..
+                }
+            )
+        });
+        assert!(is_tapped(&e, city));
+        let card = in_hand(&e, p0, forest()).unwrap();
+        let theirs = in_hand(&e, p1, forest()).unwrap();
+        let Pending::ChooseCards {
+            player,
+            options,
+            min,
+            max,
+            ..
+        } = e.pending()
+        else {
+            unreachable!()
+        };
+        assert_eq!(*player, p0);
+        assert_eq!((*min, *max), (0, 1));
+        assert!(options.contains(&card));
+        assert!(!options.contains(&theirs));
+        e.apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: if pay { vec![card] } else { vec![] },
+            },
+        )
+        .unwrap();
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(is_tapped(&e, city), !pay);
+        assert_eq!(
+            e.state().object(card).unwrap().zone,
+            if pay { Zone::Exile } else { Zone::Hand }
+        );
+    }
 }
