@@ -28,6 +28,21 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Choose a basic land type now; this exact source gains that landwalk.
+    ChooseSourceLandwalk {
+        /// The granted keyword's lifetime.
+        duration: super::Duration,
+    },
+    /// Set this exact source's base P/T to the current signed P/T of the target.
+    SetSourcePTFromTarget {
+        /// Lifetime, independently of the copied creature's later state.
+        duration: super::Duration,
+    },
+    /// Create a delayed triggered ability for your next upkeep.
+    AtNextUpkeep {
+        /// Resolved at that upkeep, even if the original source has left.
+        effects: &'static [Effect],
+    },
     /// Return this source's recorded graveyard incarnation (CR 400.7e/f).
     ReturnSourceFromGraveyard {
         /// A transforming card's face on arrival, or its front face normally.

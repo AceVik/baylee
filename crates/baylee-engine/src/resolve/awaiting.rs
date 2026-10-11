@@ -6,6 +6,11 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// A resolving choice, independent of any as-enters chosen subtype.
+    LandwalkChoice {
+        /// The granted keyword's lifetime.
+        duration: baylee_cards_dsl::Duration,
+    },
     /// Optional selection of this permanent for fabricate's counters.
     Fabricate {
         /// Exact source before the choice.

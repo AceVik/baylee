@@ -267,6 +267,12 @@ impl<L: CardLookup> Engine<L> {
             // can reveal a card and must still choose its mana color.
             for modifier in face.enter_modifiers {
                 match modifier {
+                    EnterModifier::TappedUnlessCondition(condition) => {
+                        if !eval::condition_holds(&self.state, controller, id, *condition) {
+                            self.state.set_tapped(id, true);
+                            changed = true;
+                        }
+                    }
                     EnterModifier::Tapped => {
                         self.state.set_tapped(id, true);
                         changed = true;

@@ -466,11 +466,11 @@ pub enum Pending {
         /// Why (UI hint).
         reason: TargetPrompt,
     },
-    /// Choose a creature type ("the chosen type" as this enters).
+    /// Choose one of the offered subtypes, on entry or during resolution.
     ChooseSubtype {
         /// Choosing player.
         player: PlayerId,
-        /// All creature types (ids 0..=349).
+        /// Eligible subtypes, such as the five basic land types.
         options: Vec<baylee_core::ids::SubtypeId>,
     },
     /// Choose a card name ("as this enters, choose a card name" — Pithing

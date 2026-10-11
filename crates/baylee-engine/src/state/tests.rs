@@ -1414,3 +1414,14 @@ fn turn_history_distinguishes_legal_actions_and_counts_each_attacker_once_per_pl
     state.per_turn.reset();
     assert_eq!(state.loop_signature(), baseline);
 }
+
+#[test]
+fn actual_turn_counts_participate_in_snapshot_identity() {
+    let (base, _) = hash_fixture();
+    let expected = base.snapshot_hash();
+    for player in 0..base.players.len() {
+        let mut changed = base.clone();
+        changed.players[player].turns_started += 1;
+        assert_ne!(changed.snapshot_hash(), expected);
+    }
+}

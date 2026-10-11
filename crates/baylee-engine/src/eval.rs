@@ -803,6 +803,10 @@ pub fn condition_holds_with_context(
             amount_with_context(&amount, state, you, context, None) >= minimum
         }
         Condition::CreaturesDiedThisTurnAtLeast(n) => state.per_turn.creatures_died >= n,
+        Condition::DuringYourFirstTurns(maximum) => {
+            state.turn.active == you
+                && (1..=maximum).contains(&state.players[usize::from(you.get())].turns_started)
+        }
         Condition::YourTurn => state.turn.active == you,
         Condition::LifeAtMost(n) => state.players[you.get() as usize].life <= n,
         Condition::APlayerHasMostLife => most_life(state).is_some(),

@@ -267,6 +267,7 @@ pub(super) fn exec_immediate(
         | Effect::ManaForColorsAmong(_)
         | Effect::AddManaLikeEvent { .. } => mana::exec(state, res, op),
         Effect::ModifySource { .. }
+        | Effect::SetSourcePTFromTarget { .. }
         | Effect::SetSourceToughness { .. }
         | Effect::MoveCounterToEvent { .. }
         | Effect::AddCounterSource { .. }
@@ -575,6 +576,22 @@ pub(super) fn exec_immediate(
                     version,
                     after,
                 },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
+        Effect::ChooseSourceLandwalk { duration } => Some(landwalk::choose(res, duration)),
+        Effect::AtNextUpkeep { effects } => {
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::NextUpkeep,
                 action: crate::state::DelayedAction::Trigger {
                     source: res.source,
                     source_version: source_version(state, res)

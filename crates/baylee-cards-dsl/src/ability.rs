@@ -108,6 +108,8 @@ pub enum StepKind {
 /// as it resolves.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Condition {
+    /// It is one of your first N turns to actually begin.
+    DuringYourFirstTurns(u32),
     /// A permanent left the battlefield under your control this turn.
     Revolt,
     /// You cast an instant or sorcery spell this turn, even if countered.

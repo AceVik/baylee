@@ -879,6 +879,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::SacrificeOpponent { .. }
         | AwaitingOp::ManaChoice { .. }
         | AwaitingOp::ProtectionColor { .. }
+        | AwaitingOp::LandwalkChoice { .. }
         | AwaitingOp::Counters { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }

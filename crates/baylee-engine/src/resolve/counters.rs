@@ -27,7 +27,7 @@ fn signed(a: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> i16
     if a.is_negative() { -v } else { v }
 }
 
-fn modify_source(
+pub(super) fn modify_source(
     state: &mut GameState,
     res: &Resolution,
     modifier: baylee_cards_dsl::Modifier,
@@ -64,6 +64,16 @@ fn modify_source(
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::SetSourcePTFromTarget { duration } => {
+            if let Some(chars) = target_chars(res, state) {
+                let modifier = baylee_cards_dsl::Modifier::SetPT(
+                    chars.power.unwrap_or(0),
+                    chars.toughness.unwrap_or(0),
+                );
+                modify_source(state, res, modifier, duration);
+            }
+            None
+        }
         Effect::ModifySource { modifier, duration } => {
             modify_source(state, res, modifier, duration);
             None

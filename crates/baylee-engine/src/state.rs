@@ -82,6 +82,8 @@ pub struct Player {
     /// comparison against it is strict: an object stamped at exactly this
     /// value was there before the turn began.
     pub turn_start_timestamp: u64,
+    /// Number of this player's turns that actually began.
+    pub turns_started: u32,
     /// Set when a draw was attempted from an empty library (SBA loses).
     pub tried_empty_draw: bool,
     /// Combat damage this player has taken from each commander over the

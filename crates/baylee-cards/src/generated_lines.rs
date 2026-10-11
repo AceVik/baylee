@@ -3695,7 +3695,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Giant Slug
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Giant Strength
     &[FaceLines {
         sentences: 2,
@@ -3781,7 +3788,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Halfdane
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Hammerheim
     &[FaceLines {
         sentences: 2,
@@ -3793,8 +3807,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Hazezon Tamar
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[Some(1), Some(0)],
         modes: &[],
         alternatives: &[],
     }],

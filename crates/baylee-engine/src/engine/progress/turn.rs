@@ -49,6 +49,8 @@ impl<L: CardLookup> Engine<L> {
         let stamp = self.state.timestamp;
         let seat = self.state.turn.active.get() as usize;
         self.state.players[seat].turn_start_timestamp = stamp;
+        self.state.players[seat].turns_started =
+            self.state.players[seat].turns_started.saturating_add(1);
         // Capture the turn boundary itself, before untap-step actions or
         // effects ending as this turn begins change the battlefield.
         // Always record it: an ability may arrive later and ask about it.

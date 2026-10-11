@@ -36,3 +36,5 @@ mod elder_land_wurm;
 mod craw_giant;
 
 mod gabriel_angelfire;
+
+mod hazezon_tamar;

@@ -451,6 +451,8 @@ impl Default for FaceDef {
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum EnterModifier {
+    /// Enters tapped unless this condition holds as it enters.
+    TappedUnlessCondition(crate::Condition),
     /// Enters tapped (triomes, Arcane Sanctum).
     Tapped,
     /// Enters tapped unless you control a matching permanent (checklands).

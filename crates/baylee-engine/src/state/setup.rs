@@ -46,6 +46,7 @@ impl GameState {
                     hand_modifier: 0,
                     lands_played_this_turn: 0,
                     turn_start_timestamp: 0,
+                    turns_started: 0,
                     tried_empty_draw: false,
                     commander_damage: Vec::new(),
                     loss: None,

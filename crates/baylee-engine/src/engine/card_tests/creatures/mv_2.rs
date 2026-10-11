@@ -199,3 +199,5 @@ mod osai_vultures;
 mod whirling_dervish;
 
 mod marionette_apprentice;
+
+mod giant_slug;

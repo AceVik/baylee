@@ -87,6 +87,10 @@ impl<L: CardLookup> Engine<L> {
                 (Phase::Beginning, Step::Upkeep)
             }
             (_, Step::Upkeep) => {
+                self.state.effects.remove_where(|effect| {
+                    effect.duration == baylee_cards_dsl::Duration::UntilEndOfCurrentUpkeep
+                });
+
                 // The draw step's turn-based action, which comes first and
                 // before the active player has priority (CR 504.1, then
                 // CR 504.2) — the upkeep step itself has none at all
@@ -204,6 +208,7 @@ impl<L: CardLookup> Engine<L> {
         // anything triggers at it (CR 503.1).
         if next_step == Step::Upkeep {
             let active = self.state.turn.active;
+            self.state.effects.begin_upkeep(active);
             self.state.effects.remove_where(|fx| {
                 matches!(fx.duration, baylee_cards_dsl::Duration::UntilYourNextUpkeep)
                     && fx.controller == active

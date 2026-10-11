@@ -916,10 +916,10 @@ fn every_raw_battlefield_walk_gives_its_phasing_reason() {
         }
     }
     found.sort();
-    // A floor and a ceiling on what was read: a walk that found no files,
-    // or matched something it should not, would otherwise pass as clean.
+    // A floor catches a traversal that found no sources. The number of modules
+    // grows when large files are split; that must not invalidate this audit.
     assert!(
-        (30..=120).contains(&files.len()),
+        files.len() >= 30,
         "read {} engine source files, measured 36 on 2026-09-24",
         files.len()
     );

@@ -185,3 +185,5 @@ mod willow_satyr;
 mod emiel_the_blessed;
 
 mod ayesha_tanaka;
+
+mod halfdane;

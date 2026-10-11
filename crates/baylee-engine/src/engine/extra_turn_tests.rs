@@ -151,6 +151,8 @@ fn an_extra_turn_taken_in_the_opponents_turn_is_followed_by_your_own() {
 
     let asked = play_turns(&mut e, 3, |_| false);
     assert_eq!(turns_after(&e, from), [P0, P0, P1], "extra, normal, p1");
+    assert_eq!(e.state().players[0].turns_started, 3);
+    assert_eq!(e.state().players[1].turns_started, 2);
     assert_eq!(asked, [P0, P0], "the tapped Vault asks before each of p0's");
     assert!(e.state().resume_after.is_none());
 }
@@ -226,6 +228,11 @@ fn skipping_the_extra_turn_keeps_your_normal_turn() {
         "the skipped turn is no turn"
     );
     assert!(!vault_tapped(&e, P0), "the skip's untap opened the Vault");
+    assert_eq!(
+        e.state().players[0].turns_started,
+        2,
+        "skipped extra turn does not increment the count"
+    );
 }
 
 /// Declining the extra turn's skip and accepting the normal turn's: p0

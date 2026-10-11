@@ -26,6 +26,8 @@ mod control;
 mod counters;
 mod equalize;
 mod graveyard_choice;
+mod landwalk;
+pub use landwalk::resume_with_subtype;
 mod life;
 pub(crate) mod linked_counters;
 mod mana;

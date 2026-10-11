@@ -885,3 +885,9 @@ were checked again; “Don’t mess with the legal notices in our stuff.” cont
 to apply. Attribution and the existing original-image path are retained. Rules
 implementation continues under the explicit owner decision above, without a
 claim of new permission from Wizards. No additional asset licence is needed.
+
+Batch 27 implements the existing Starting Town, Halfdane, Hazezon Tamar and
+Giant Slug definitions using the current Comprehensive Rules, including
+603.7b-e for delayed triggers and 612.1/612.3 for text and granted abilities.
+It adds no media, printing identifiers, copied scripts or external assets;
+the policy review and owner decision recorded above continue to apply.

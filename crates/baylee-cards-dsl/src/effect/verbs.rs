@@ -547,6 +547,7 @@ impl Effect {
             }
             // What the delayed trigger will do.
             | Effect::ScheduleLinkedCounterCleanup { kind: _, effects }
+            | Effect::AtNextUpkeep { effects }
             | Effect::AtNextEndStep { effects }
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::AtEndOfCombat { about: _, effects } => (effects, NONE),
@@ -628,6 +629,8 @@ impl Effect {
             | Effect::PutFromHandOnTop { .. }
             | Effect::ModifyTargets { .. }
             | Effect::ModifySource { .. }
+            | Effect::ChooseSourceLandwalk { .. }
+            | Effect::SetSourcePTFromTarget { .. }
             | Effect::SetSourceToughness { .. }
             | Effect::AddCounterSource { .. }
             | Effect::PutFromHandOntoBattlefield { .. }

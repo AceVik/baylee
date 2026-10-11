@@ -311,6 +311,21 @@ impl EffectTable {
         id
     }
 
+    /// Stage the next-upkeep deadline before that upkeep's triggers resolve.
+    pub(crate) fn begin_upkeep(&mut self, active: PlayerId) {
+        let mut changed = false;
+        for effect in self.effects.iter_mut().chain(&mut self.parked) {
+            if effect.controller == active && effect.duration == Duration::UntilEndOfYourNextUpkeep
+            {
+                effect.duration = Duration::UntilEndOfCurrentUpkeep;
+                changed = true;
+            }
+        }
+        if changed {
+            self.generation += 1;
+        }
+    }
+
     /// Removes effects matching a predicate, parked ones included; bumps
     /// the generation if any.
     pub fn remove_where(&mut self, pred: impl Fn(&ContinuousEffect) -> bool) {

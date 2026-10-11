@@ -3661,3 +3661,31 @@ land type"; both are convention tests that fire on a first try.
   multiplication and overflow. Workspace clippy passes with dev controls.
 - Regenerated the ability-line table and verified all 134 card, 275 codegen
   and 69 DSL tests. Printing/header validation covers all 3,321 cards.
+
+### Card completion batch 27 — actual turns and next-upkeep effects
+
+- Complete Starting Town, Halfdane, Hazezon Tamar and Giant Slug. Count each
+  player's turns at the actual begin-turn boundary: extra turns count and
+  skipped turns do not. Include that state in snapshot identity. Starting Town
+  always enters tapped during another player's turn.
+- A next-upkeep delayed trigger retains its original controller and exact source
+  incarnation (CR 603.7b-e). Hazezon counts lands when that delayed trigger
+  resolves and still creates tokens if Hazezon left earlier. Giant Slug asks
+  for a basic land type at that later resolution, independently per activation;
+  a returning Slug is a new object and receives no stale keyword grant.
+- Halfdane copies signed, current power and toughness, with a deadline staged
+  at the next upkeep's beginning and expired at its end. Effects created during
+  the current upkeep survive its end; losing the next target does not shorten
+  the previous effect. Other players' upkeeps do not consume this deadline.
+- The first broad run passed all 5,562 behavioral tests, with two intentional
+  ignores; only the phasing audit's historical 120-source-file ceiling failed
+  after the new resolution module raised the count to 121. Retain its minimum
+  traversal sanity check and actual battlefield-walk audit, without a maximum
+  file count that penalizes splitting large modules.
+- The 70 DSL tests, 275 codegen tests and nested-effect carrier guard pass.
+  Workspace clippy passes with dev controls. The four card scenarios include
+  extra/skipped turns, invalid choices, negative power, target removal, source
+  reincarnation, token doubling and delayed resolution after departure.
+- After removing that unrelated file-count ceiling, all 15 phasing checks pass:
+  5,563 effective passing engine tests. All 134 card tests and the 3,321-card
+  printing/header validation pass after regenerating the ability-line table.

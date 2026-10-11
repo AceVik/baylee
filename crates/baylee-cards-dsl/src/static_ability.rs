@@ -955,6 +955,10 @@ pub enum Duration {
     /// controller's next upkeep step begins (CR 503), after that turn's
     /// untap step, so the effect still stands through it.
     UntilYourNextUpkeep,
+    /// Through the end of the controller's next upkeep, not the current one.
+    UntilEndOfYourNextUpkeep,
+    /// Internal staged duration: the awaited upkeep has begun.
+    UntilEndOfCurrentUpkeep,
     /// Ends permanently when the source untaps or phases out (CR 611.2b,
     /// 702.26f); optional restrictions also track control and relative power.
     WhileSourceTapped {

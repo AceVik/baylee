@@ -492,3 +492,17 @@ fn both_target_match_branches_are_visited() {
     assert_eq!(seen, 3);
     assert!(draw && life);
 }
+
+#[test]
+fn at_next_upkeep_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::AtNextUpkeep {
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+    }];
+    let mut seen = 0;
+    let mut body_seen = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        body_seen |= matches!(effect, Effect::Destroy { .. });
+    });
+    assert_eq!(seen, 2);
+    assert!(body_seen);
+}

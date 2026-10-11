@@ -1026,6 +1026,26 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (Pending::ChooseSubtype { player: p, .. }, PlayerAction::ChooseSubtype(subtype))
+                if *p == player
+                    && self.resolution.as_ref().is_some_and(|res| {
+                        matches!(
+                            res.awaiting,
+                            Some(resolve::AwaitingOp::LandwalkChoice { .. })
+                        )
+                    }) =>
+            {
+                let mut res = self.resolution.take().expect("resolution suspended");
+                match resolve::resume_with_subtype(&mut self.state, &mut res, subtype) {
+                    resolve::Flow::Wait(pending) => {
+                        self.resolution = Some(res);
+                        self.pending = pending;
+                        self.awaiting_answer = true;
+                    }
+                    resolve::Flow::Complete => self.finish_resolution(&res),
+                }
+                Ok(())
+            }
+            (Pending::ChooseSubtype { player: p, .. }, PlayerAction::ChooseSubtype(subtype))
                 if *p == player =>
             {
                 let Some(PlanKind::ChooseSubtype { object }) = self.pending_plan.take() else {

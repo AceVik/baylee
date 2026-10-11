@@ -1018,6 +1018,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         hand_modifier,
         lands_played_this_turn,
         turn_start_timestamp,
+        turns_started,
         tried_empty_draw,
         commander_damage,
         loss,
@@ -1035,6 +1036,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     hand_modifier.hash(h);
     lands_played_this_turn.hash(h);
     turn_start_timestamp.hash(h);
+    turns_started.hash(h);
     tried_empty_draw.hash(h);
     // Commander damage (CR 903.10a), which no life total records: two
     // seats on the same life with twelve and twenty points from the same
