@@ -896,6 +896,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         // after `exec`, which may have suspended in the middle of one.
         crate::replacement::expire_departed_rules(state);
         let since = state.journal.last_seq();
+        state.entries.begin_event(since);
         let pending = exec(state, res, op);
         crate::graveyard_order::capture(state, since);
         if pending.is_none() {
@@ -935,6 +936,19 @@ fn order_before_continuing(
     res: &mut Resolution,
     next: Option<Pending>,
 ) -> Option<Pending> {
+    if matches!(res.awaiting, Some(AwaitingOp::Entry { .. })) {
+        return next;
+    }
+    if let Some(pending) = crate::entry::advance(state) {
+        let next = next.map(|pending| {
+            Box::new((
+                res.awaiting.take().expect("instruction continuation"),
+                pending,
+            ))
+        });
+        res.awaiting = Some(AwaitingOp::Entry { next });
+        return Some(pending);
+    }
     // A nested program already suspended on this very queue.
     if matches!(res.awaiting, Some(AwaitingOp::GraveyardOrder { .. })) {
         return next;
@@ -946,6 +960,20 @@ fn order_before_continuing(
         next.map(|pending| Box::new((res.awaiting.take().expect("choice continuation"), pending)));
     res.awaiting = Some(AwaitingOp::GraveyardOrder { next });
     Some(question)
+}
+
+/// Continue the original instruction after every entry replacement has finished.
+pub(crate) fn resume_entries(state: &mut GameState, res: &mut Resolution) -> Flow {
+    let Some(AwaitingOp::Entry { next }) = res.awaiting.take() else {
+        unreachable!("entry continuation")
+    };
+    if let Some(next) = next {
+        let (awaiting, pending) = *next;
+        res.awaiting = Some(awaiting);
+        Flow::Wait(pending)
+    } else {
+        run(state, res)
+    }
 }
 
 /// Counted copies retain one instruction across every target-choice suspension.

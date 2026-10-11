@@ -71,17 +71,12 @@ pub(crate) fn begin_reanimation(
             Cause::Effect,
         )
         .ok()?;
-    let returned = state.source_identity(host)?;
-    if !live_battlefield(state, returned) {
+    let mut returned = state.source_identity(host)?;
+    if state.entries.contains(host) {
+        returned.version = returned.version.wrapping_add(1);
+    } else if !live_battlefield(state, returned) {
         return None;
     }
-    // Several copied enter triggers may create independent relationships.
-    // Keeping all actual returns implements the gained enchant wording;
-    // it never grants permission to a later incarnation of one of them.
-    state.reanimated_auras.push(ReanimatedAura {
-        aura,
-        returned: Some(returned),
-    });
     Some(ReanimationFinish {
         aura,
         returned,
@@ -94,6 +89,15 @@ pub(crate) fn begin_reanimation(
 /// Protection can prevent the attachment without preventing the return or
 /// the delayed sacrifice when the unattached Aura subsequently leaves.
 pub(crate) fn finish_reanimation(state: &mut GameState, finish: ReanimationFinish) {
+    if !live_battlefield(state, finish.returned) {
+        return;
+    }
+    // Record only an actual return, after its entry replacements. Separate
+    // copied triggers retain their own exact incarnation of the creature.
+    state.reanimated_auras.push(ReanimatedAura {
+        aura: finish.aura,
+        returned: Some(finish.returned),
+    });
     if live_battlefield(state, finish.aura)
         && live_battlefield(state, finish.returned)
         && can_attach(state, finish.aura.object, finish.returned.object)

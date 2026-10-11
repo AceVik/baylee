@@ -3,12 +3,9 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Sheltered Valley` prints `If this land would enter, instead sacrifice each other permanent named Sheltered Valley you control, then put this land onto the battlefield.`, `At the beginning of your upkeep, if you control three or fewer lands, you gain 1 life.`, and `{{T}}: Add {{C}}.`
-///
-/// Under `Coverage::Partial`, the namesake sacrifice replacement is unsupported: a second copy played from hand enters beside the first. That half is pinned, and moves when the replacement is written.
-/// Both copies tap for one colorless mana each.
+/// Sacrifice the older namesake before arrival; the surviving Valley taps for {C}.
 #[test]
-fn sheltered_valley_enters_beside_its_namesake_and_taps_for_colorless() {
+fn sheltered_valley_replaces_its_namesake_and_taps_for_colorless() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[sheltered_valley()])
@@ -21,15 +18,15 @@ fn sheltered_valley_enters_beside_its_namesake_and_taps_for_colorless() {
     assert!(!entered_tapped(&engine, second));
     assert_eq!(
         all_on_battlefield(&engine, p0, sheltered_valley()).len(),
-        2,
-        "pinned: no replacement sacrifices the first copy"
+        1,
+        "the older namesake was sacrificed before entry"
     );
 
     let taken = tap_all_mana(&mut engine, p0);
-    assert_eq!(taken, 2, "both Sheltered Valleys tap for mana");
+    assert_eq!(taken, 1, "the surviving Valley taps for mana");
     let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Colorless), 2);
-    assert_eq!(pool.total(), 2);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.total(), 1);
 }
 
 /// Sheltered Valley: "At the beginning of your upkeep, if you control three

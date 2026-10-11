@@ -889,11 +889,8 @@ pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (S
 fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, String) {
     match prompt {
         YesNoPrompt::EnterTappedForCounters { kind, amount } => entry_counter_words(*kind, *amount),
-        YesNoPrompt::PayLifeOrEnterTapped { amount } => (
-            format!("Pay {amount} life so that it enters untapped?"),
-            format!("pay {amount} life; it enters untapped"),
-            "it enters tapped".to_string(),
-        ),
+        YesNoPrompt::SacrificeToEnter { count } => entry_sacrifice_words(*count),
+        YesNoPrompt::PayLifeOrEnterTapped { amount } => entry_life_words(*amount),
         YesNoPrompt::Kicker => (
             "Pay the kicker or additional cost?".into(),
             "pay it".into(),
@@ -1222,5 +1219,21 @@ fn entry_counter_words(
         format!("Enter tapped and get {amount} {label}?"),
         "enter tapped and receive the counters".into(),
         "decline this entry replacement".into(),
+    )
+}
+
+fn entry_sacrifice_words(count: u8) -> (String, String, String) {
+    (
+        format!("Sacrifice {count} eligible permanents so this card can enter?"),
+        "sacrifice".into(),
+        "put the card in its owner's graveyard".into(),
+    )
+}
+
+fn entry_life_words(amount: u16) -> (String, String, String) {
+    (
+        format!("Pay {amount} life so that it enters untapped?"),
+        format!("pay {amount} life; it enters untapped"),
+        "it enters tapped".to_string(),
     )
 }

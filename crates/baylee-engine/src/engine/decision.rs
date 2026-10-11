@@ -111,6 +111,13 @@ impl<L: CardLookup> Engine<L> {
         if let Some(wizard) = &self.cast_wizard {
             return self.wizard_context(wizard);
         }
+        if let Some((source, copying)) = self.state.entries.copying() {
+            return DecisionContext {
+                source: Some(source),
+                copying: Some(copying),
+                ..DecisionContext::default()
+            };
+        }
         if let Some(PlanKind::CopyOnEnter { object, .. }) = &self.pending_plan {
             return DecisionContext {
                 source: Some(*object),

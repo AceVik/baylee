@@ -30,6 +30,7 @@ mod counter_movement;
 mod counter_resources;
 mod creatures;
 mod enchantments;
+mod entry_replacements;
 mod instants;
 mod lands;
 mod legends_ids;

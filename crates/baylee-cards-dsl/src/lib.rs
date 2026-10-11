@@ -451,6 +451,19 @@ impl Default for FaceDef {
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum EnterModifier {
+    /// Sacrifice exactly these permanents before entry, or put this card in its owner's graveyard.
+    SacrificeOrGraveyard {
+        /// Permanents the entering controller may sacrifice.
+        filter: &'static Filter,
+        /// Exact number required for the entry.
+        count: u8,
+    },
+    /// Discard a matching hand card before entry, or put this card in its owner's graveyard.
+    DiscardOrGraveyard(&'static Filter),
+    /// Sacrifice any number of matching permanents and remember how many for a P/T CDA.
+    SacrificeForPowerToughness(&'static Filter),
+    /// Sacrifice all matching permanents controlled by the entering controller, before entry.
+    SacrificeOthers(&'static Filter),
     /// Enters tapped unless this condition holds as it enters.
     TappedUnlessCondition(crate::Condition),
     /// Enters tapped (triomes, Arcane Sanctum).

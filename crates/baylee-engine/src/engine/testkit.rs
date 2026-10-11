@@ -901,6 +901,24 @@ pub fn play_land_face_facing(
             .map_err(|err| format!("refused the face choice: {err:?}"))?;
     }
 
+    // Copy replacements are chosen before the land moves. Declining leaves
+    // the printed face intact, which is the face this helper measures.
+    if matches!(
+        engine.pending(),
+        Pending::ChooseTargets {
+            reason: crate::choice::TargetPrompt::CopyOf,
+            ..
+        }
+    ) {
+        engine
+            .apply(
+                seat,
+                PlayerAction::ChooseObjects {
+                    objects: Vec::new(),
+                },
+            )
+            .map_err(|err| format!("refused the entry copy choice: {err:?}"))?;
+    }
     let landed = engine
         .state()
         .object(object)

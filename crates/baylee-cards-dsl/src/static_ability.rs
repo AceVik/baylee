@@ -693,6 +693,8 @@ pub enum Modifier {
 /// What a [`Modifier::CharacteristicPT`] counts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PtCount {
+    /// Number of permanents sacrificed as this object entered; zero in other zones.
+    EntrySacrifices,
     /// Distinct colors among permanents matching the filter.
     DistinctColorsAmong(&'static crate::Filter),
     /// A characteristic-defining count plus a constant, before layer 7b.

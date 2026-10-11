@@ -24,6 +24,7 @@ impl GameState {
             arena,
             zones,
             graveyard_order,
+            entries,
             sba_legend_decisions,
             players,
             turn,
@@ -115,6 +116,7 @@ impl GameState {
         h.u64(*timestamp);
         h.u64(*characteristics_generation);
         graveyard_order.hash(&mut h);
+        entries.hash(&mut h);
         sba_legend_decisions.hash(&mut h);
         hash_effects(&mut h, effects);
         text_changes.hash(&mut h);
@@ -901,6 +903,11 @@ fn hash_rider_situation(
     departure.hash(h);
     for rider in &obj.riders {
         match rider {
+            crate::object::Rider::EntryCopyApplied => 65u8.hash(h),
+            crate::object::Rider::EntrySacrifices(count) => {
+                64u8.hash(h);
+                count.hash(h);
+            }
             crate::object::Rider::ExhaustedAbility(index) => {
                 h.u8(63);
                 index.hash(h);
@@ -1359,6 +1366,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(22);
                 version.hash(h);
                 power.hash(h);
+            }
+            Rider::EntryCopyApplied => 65u8.hash(h),
+            Rider::EntrySacrifices(count) => {
+                64u8.hash(h);
+                count.hash(h);
             }
             Rider::ExhaustedAbility(index) => {
                 h.u8(63);

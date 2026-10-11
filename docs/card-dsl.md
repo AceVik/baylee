@@ -3450,3 +3450,24 @@ permanent immediately before departure, then runs `effect` when the test
 matched. A graveyard-to-exile replacement does not undo the sacrifice, and a
 copy reverting after departure cannot change this test. Serendib Djinn uses
 it for the Island-dependent damage, separate from its no-lands state trigger.
+
+### Choices before entering the battlefield
+
+`EnterModifier::SacrificeOrGraveyard { filter, count }` and
+`EnterModifier::DiscardOrGraveyard(&filter)` replace entry with the printed
+payment, or a direct move to the owner's graveyard if payment is declined or
+impossible. They are replacement effects, not triggered abilities: the card
+cannot be tapped, targeted on the battlefield, or sacrificed as its own payment
+while the question is pending. `EnterModifier::SacrificeOthers(&filter)` performs
+the mandatory matching sacrifices before arrival. `EnterModifier::SacrificeForPowerToughness`
+lets the controller choose any number and sacrifice exactly those permanents;
+`PtCount::EntrySacrifices` reads that incarnation's count for Wood Elemental's
+characteristic-defining power and toughness.
+
+The entry queue covers land plays, resolved spells, reanimation, searches and
+token copies. Copy replacements run first (CR 616.1c), then the copied face's
+entry requirements. Payment choices exclude simultaneous arrivals (CR 614.13a).
+Large selections collect every page before any payment is made. The suspended
+resolution resumes only after the entries and their choices have completed.
+Entry counters travel with that continuation, so a copied 0/0 is not checked
+for state-based death before its entry counters have been placed.

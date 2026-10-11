@@ -3,16 +3,12 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Heart of Yavimaya prints `If this land would enter, sacrifice a Forest instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.`, `{{T}}: Add {{G}}.`, and `{{T}}: Target creature gets +1/+1 until end of turn.`
-///
-/// Under `Coverage::Partial`, the printed Forest-sacrifice entry replacement is omitted because replacement effects of this shape cannot be expressed.
-/// When played from hand with no Forest on the battlefield, it enters untapped without being sacrificed.
-/// Activating ability 1 pumps target creature (`llanowar_elves()`) by +1/+1 until end of turn and taps the land.
+/// Pay the Forest entry replacement, then pump a creature until end of turn.
 #[test]
-fn heart_of_yavimaya_enters_without_sacrifice_and_pumps_creature() {
+fn heart_of_yavimaya_sacrifices_a_forest_then_pumps_creature() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[llanowar_elves()])
+        .battlefield(0, &[llanowar_elves(), forest()])
         .hand(0, &[heart_of_yavimaya()])
         .start();
     keep_mulligans(&mut engine);
@@ -22,10 +18,24 @@ fn heart_of_yavimaya_enters_without_sacrifice_and_pumps_creature() {
     assert_eq!(pt(&engine, elf), (1, 1));
 
     let land = play_land(&mut engine, p0, heart_of_yavimaya());
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let payment = on_battlefield(&engine, p0, forest()).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![payment],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        engine.state().object(payment).unwrap().zone,
+        Zone::Graveyard
+    );
     assert!(!is_tapped(&engine, land), "enters untapped");
     assert!(
         on_battlefield(&engine, p0, heart_of_yavimaya()).is_some(),
-        "heart of yavimaya landed without sacrificing a forest"
+        "Heart arrived after the Forest sacrifice"
     );
 
     activate(&mut engine, p0, heart_of_yavimaya(), 1);

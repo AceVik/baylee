@@ -98,6 +98,10 @@ impl<L: CardLookup> Engine<L> {
             // is put on the stack by `collect_triggers` — a later step of
             // this same pass, with no arrival in its hands to ask.
             if from_zone != Zone::Stack
+                && self
+                    .state
+                    .object(id)
+                    .is_some_and(|o| !o.riders.contains(&crate::object::Rider::EntryCopyApplied))
                 && let Some(obj) = self.state.object_mut(id)
                 && obj.x_value != 0
             {
@@ -238,21 +242,16 @@ impl<L: CardLookup> Engine<L> {
                 asks.push((id, controller, EntryAsk::Copy));
                 continue;
             }
-            let Some((card, face_index)) = self
+            let Some(face) = self
                 .state
                 .object(id)
-                .and_then(|o| Some((o.card?, o.face_index)))
+                .and_then(crate::object::GameObject::printed_face)
+                .and_then(|face| {
+                    self.lookup
+                        .card(face.card())
+                        .and_then(|def| def.faces.get(usize::from(face.face())))
+                })
             else {
-                continue;
-            };
-            let Some(def) = self.lookup.card(card.index) else {
-                continue;
-            };
-            // The permanent's *own* face, not the front one. A modal
-            // double-faced card enters as its back face (Glasspool Shore is a
-            // land that enters tapped), and reading `faces[0]` there asked the
-            // creature half whether the land comes in tapped.
-            let Some(face) = def.faces.get(face_index as usize) else {
                 continue;
             };
             // A modifier that *asks* is applied last, whatever order the
@@ -267,6 +266,10 @@ impl<L: CardLookup> Engine<L> {
             // can reveal a card and must still choose its mana color.
             for modifier in face.enter_modifiers {
                 match modifier {
+                    EnterModifier::SacrificeOrGraveyard { .. }
+                    | EnterModifier::DiscardOrGraveyard(_)
+                    | EnterModifier::SacrificeForPowerToughness(_)
+                    | EnterModifier::SacrificeOthers(_) => {}
                     EnterModifier::TappedUnlessCondition(condition) => {
                         if !eval::condition_holds(&self.state, controller, id, *condition) {
                             self.state.set_tapped(id, true);
@@ -747,29 +750,6 @@ impl<L: CardLookup> Engine<L> {
         };
         self.awaiting_answer = true;
         true
-    }
-
-    /// The clone choice for a permanent **spell**, asked while it is still on
-    /// the stack.
-    ///
-    /// This is CR 614.12a done rather than worked around. The permanent is
-    /// not on the battlefield when the list is built, so it cannot be in it —
-    /// which is also Glasspool Mimic's own ruling ("You may choose only a
-    /// creature that's already on the battlefield") falling out of the timing
-    /// instead of being spelled out by name. The `options.retain` that used
-    /// to carry that ruling is gone from this path, and the test that
-    /// replaced it asks where the Mimic *is* while the question stands, not
-    /// whether it is in the list: a list it cannot be in is the stronger
-    /// claim.
-    ///
-    /// The other half of the ruling — a creature entering at the same time is
-    /// not a legal choice either — needs nothing here for the same reason it
-    /// needed nothing before: permanents arrive one at a time.
-    pub(crate) fn ask_copy_before_entry(&mut self, spell: ObjectId) -> bool {
-        let Some((options, controller)) = self.copy_on_enter_question(spell) else {
-            return false;
-        };
-        self.offer_copy_on_enter(spell, options, controller, true)
     }
 
     /// The same choice for a permanent that arrived by some **other** door.

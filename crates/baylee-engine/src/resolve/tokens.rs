@@ -186,7 +186,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let created = create_tokens_with_text(state, you, token, None, 1, res.text);
             let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
             for id in created {
-                crate::replacement::put_counters_by(state, res.controller, id, kind, n);
+                crate::entry::put_counters(state, res.controller, id, kind, n);
             }
             None
         }
@@ -322,7 +322,7 @@ fn create_modified_token_copies(
                 crate::copiable_abilities::copy_entry_counter(modifier, types, res.x.unwrap_or(0))
                 && amount > 0
             {
-                crate::replacement::put_counters_by(state, res.controller, id, kind, amount);
+                crate::entry::put_counters(state, res.controller, id, kind, amount);
             }
         }
     }
@@ -523,6 +523,12 @@ pub(super) fn create_token_copies(
 ///
 /// [`Engine::apply_enter_modifiers`]: crate::Engine::apply_enter_modifiers
 fn arrive(state: &mut GameState, id: ObjectId) {
+    if let Some(object) = state.object_mut(id) {
+        object.zone = crate::zone::Zone::OutsideGame;
+    }
+    if crate::entry::defer(state, id, ZonePosition::Top, Cause::Effect) {
+        return;
+    }
     state
         .zones
         .insert(id, ZoneLocation::Battlefield, ZonePosition::Top, true);

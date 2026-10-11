@@ -318,7 +318,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 58: resolution color choices; defaulted public hand visibility fields.
     // 59: saddle choice, with the public view shape unchanged.
     // 62: revealed-discard choice; the prompt is imported from the engine.
-    const RECORDED: (u32, u64) = (67, 9_867_554_342_615_931_460);
+    // 68: sacrifice count prompt for entry replacements.
+    const RECORDED: (u32, u64) = (68, 9_867_554_342_615_931_460);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

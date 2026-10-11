@@ -326,6 +326,7 @@ pub(super) fn play_land_with_timing(
     card: ObjectId,
     by_effect: bool,
 ) -> Result<(), CastFailure> {
+    state.entries.begin_event(state.journal.last_seq());
     let obj = state.object(card).ok_or(CastFailure::NoSuchObject)?;
     if !land_card_open(state, player, card) {
         return Err(CastFailure::Legality(CastError::NotInHand));

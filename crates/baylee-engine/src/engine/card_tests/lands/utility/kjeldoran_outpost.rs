@@ -3,22 +3,32 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Kjeldoran Outpost prints an enter replacement to sacrifice a Plains, `{{T}}: Add {{W}}.`, and `{{1}}{{W}}, {{T}}: Create a 1/1 white Soldier creature token.`
-///
-/// Under `Coverage::Partial`, the enter replacement is omitted because no `EnterModifier` expresses sacrificing a Plains or going to the graveyard instead.
-/// Playing Kjeldoran Outpost from hand enters the battlefield untapped without sacrificing a controlled `plains()`.
-/// Floating `{{1}}{{W}}` from two `plains()` and activating ability 1 creates a 1/1 white Soldier creature token, tapping the outpost.
+/// Pay the Plains entry replacement, then create a Soldier with the remaining lands.
 #[test]
-fn kjeldoran_outpost_enters_without_sacrifice_and_creates_soldier() {
+fn kjeldoran_outpost_sacrifices_a_plains_then_creates_soldier() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), plains()])
+        .battlefield(0, &[plains(), plains(), plains()])
         .hand(0, &[kjeldoran_outpost()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let outpost = play_land(&mut engine, p0, kjeldoran_outpost());
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let payment = on_battlefield(&engine, p0, plains()).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![payment],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        engine.state().object(payment).unwrap().zone,
+        Zone::Graveyard
+    );
     assert!(
         !entered_tapped(&engine, outpost),
         "kjeldoran outpost prints no enters-tapped clause"
@@ -26,7 +36,7 @@ fn kjeldoran_outpost_enters_without_sacrifice_and_creates_soldier() {
     assert_eq!(
         all_on_battlefield(&engine, p0, plains()).len(),
         2,
-        "controlled plains remain intact under `Coverage::Partial`"
+        "two Plains remain after paying the entry sacrifice"
     );
 
     // Float {{1}}{{W}} from the two Plains while keeping Kjeldoran Outpost untapped.

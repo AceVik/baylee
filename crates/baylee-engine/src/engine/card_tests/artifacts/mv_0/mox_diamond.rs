@@ -3,24 +3,14 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Mox Diamond — {0} artifact. Its printed entry is a *replacement* ("If this
-/// artifact would enter, you may discard a land card instead…; if you don't,
-/// put it into its owner's graveyard"), and that is the `Coverage::Partial`
-/// gap: the artifact enters unconditionally and its controller keeps the land.
-/// What is left to play is the mana ability — "{T}: Add one mana of **any**
-/// color" — so the card is cast for {0}, resolves, and is tapped.
-///
-/// Black mana in the pool while the only untapped land beside it is a Forest
-/// is the reading that no other source could have produced: it separates the
-/// Mox's own tap from a land that happened to pay. And the question it asks is
-/// five colors wide with no colorless on it, which is "any color" (CR 105.4)
-/// and never something narrower.
+/// Pay the land discard before arrival, then choose any of the five colors.
+/// The untouched battlefield Forest cannot account for the resulting black mana.
 #[test]
 fn mox_diamond_taps_for_one_mana_of_the_color_its_controller_names() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(17, forest())
         .battlefield(0, &[forest()])
-        .hand(0, &[mox_diamond()])
+        .hand(0, &[mox_diamond(), forest()])
         .start();
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
@@ -31,6 +21,22 @@ fn mox_diamond_taps_for_one_mana_of_the_color_its_controller_names() {
     engine
         .apply(p0, PlayerAction::CastSpell { card })
         .expect("{0} is affordable on an empty board");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let discarded = in_hand(&engine, p0, forest()).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![discarded],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        engine.state().object(discarded).unwrap().zone,
+        Zone::Graveyard
+    );
     pass_until(&mut engine, |e| at_rest(e, p0));
     let mox = on_battlefield(&engine, p0, mox_diamond()).expect("the Mox resolved onto the table");
     let land = on_battlefield(&engine, p0, forest()).expect("the Forest is still out");

@@ -998,6 +998,9 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         if is_permanent {
+            self.state
+                .entries
+                .begin_event(self.state.journal.last_seq());
             self.state.begin_permanent_resolution(spell);
             // Dash (CR 702.109a): "return the permanent this spell becomes to
             // its owner's hand at the beginning of the next end step" — a
@@ -1015,14 +1018,7 @@ impl<L: CardLookup> Engine<L> {
                 obj.kind = ObjectKind::Permanent;
             }
             self.state.set_tapped(spell, false);
-            // CR 614.12a: a choice a replacement effect needs is made
-            // *before* the permanent enters. Publishing a `Pending` returns
-            // from here and the move is owed to the answer — see
-            // `PlanKind::CopyOnEnter::before_entry`, which is where it is
-            // paid.
-            if self.ask_copy_before_entry(spell) {
-                return;
-            }
+            // The common entry queue asks copy and other replacement choices before the move.
             let _ = self.state.move_object(
                 spell,
                 ZoneLocation::Battlefield,

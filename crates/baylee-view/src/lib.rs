@@ -209,7 +209,9 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 64 adds counter-kind choices and widens indexed options to u32.
 /// Version 65 adds stun counters and variable energy/counter-recipient choices.
 /// Version 66 adds the optional tapped-entry/player-counter prompt.
-pub const VIEW_VERSION: u32 = 67;
+/// Version 67 adds variable activation limits and the amass Army choice.
+/// Version 68 adds entry-sacrifice acceptance and numeric sacrifice choices.
+pub const VIEW_VERSION: u32 = 68;
 
 // ------------------------------------------------------------------- targets
 

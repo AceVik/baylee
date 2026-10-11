@@ -59,6 +59,7 @@ impl GameState {
             per_turn: PerTurn::new(preset.seats.len()),
             play_permissions: Vec::new(),
             graveyard_order: crate::graveyard_order::Ordering::default(),
+            entries: crate::entry::Entries::default(),
             sba_legend_decisions: Vec::new(),
             delayed: Vec::new(),
             counter_links: Vec::new(),

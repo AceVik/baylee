@@ -1013,6 +1013,16 @@ fn pt_count(
         }
         baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
         baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
+        baylee_cards_dsl::PtCount::EntrySacrifices => obj
+            .riders
+            .iter()
+            .find_map(|r| match r {
+                crate::object::Rider::EntrySacrifices(count) => {
+                    Some(usize::try_from(*count).expect("arena count fits usize"))
+                }
+                _ => None,
+            })
+            .unwrap_or(0),
     };
     i16::try_from(n).unwrap_or(i16::MAX)
 }

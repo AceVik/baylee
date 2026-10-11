@@ -82,6 +82,7 @@ pub mod loops;
 // methods the resolver and the untap step share.
 mod damage;
 mod damage_history;
+mod entry;
 mod graveyard_order;
 mod hasher;
 mod phasing;

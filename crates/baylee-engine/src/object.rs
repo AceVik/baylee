@@ -898,6 +898,10 @@ pub enum Rider {
     Escaped,
     /// This printed exhaust ability was activated on this incarnation.
     ExhaustedAbility(u32),
+    /// Count sacrificed as this particular incarnation entered.
+    EntrySacrifices(u32),
+    /// Copy entry replacement already considered before this incarnation arrived.
+    EntryCopyApplied,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -959,6 +963,8 @@ impl Rider {
             // About the stack or the battlefield, not exile.
             Self::GrantedActivated
             | Self::ExhaustedAbility(_)
+            | Self::EntrySacrifices(_)
+            | Self::EntryCopyApplied
             | Self::EventObjectIdentity(..)
             | Self::AbilitySourceVersion(_)
             | Self::SourceAuraSuccessor(_)

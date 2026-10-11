@@ -1047,6 +1047,7 @@ fn number_line(
         );
     }
     match reason {
+        NumberPrompt::Sacrifices => Phrase::ChooseSacrificeCount.fill(lang, &[&min, &max]),
         NumberPrompt::EnergyPayment { candidates } => {
             Phrase::ChooseEnergyPayment.fill(lang, &[&min, &max, &candidates.to_string()])
         }
@@ -1181,6 +1182,9 @@ fn choose_line_of(lang: Lang, noun: &str, min: u32, max: u32) -> String {
 /// The roster is taken for the one question that is about another player.
 fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) -> String {
     match question {
+        YesNoPrompt::SacrificeToEnter { count } => {
+            Phrase::SacrificeToEnter.fill(lang, &[&count.to_string()])
+        }
         YesNoPrompt::EnterTappedForCounters { kind, amount } => Phrase::EnterTappedForCounters
             .fill(lang, &[&amount.to_string(), &counter_label(kind, lang)]),
         YesNoPrompt::PayLifeOrEnterTapped { amount } => {

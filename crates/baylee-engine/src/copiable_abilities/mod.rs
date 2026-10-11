@@ -571,6 +571,12 @@ pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplicat
     let Some(object) = state.object(source) else {
         return false;
     };
+    let entering = state.entries.contains(source);
+    let effect_filter = if entering {
+        EffectFilter::ObjectIs(source, object.version.wrapping_add(1))
+    } else {
+        EffectFilter::object(state, source)
+    };
     let controller = object.controller;
     let x = object.x_value;
     let mut base = (*target_base).clone();
@@ -620,7 +626,7 @@ pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplicat
             layer: Layer::Copy,
             timestamp,
             duration: Duration::UntilEndOfTurn,
-            filter: EffectFilter::object(state, source),
+            filter: effect_filter,
             modifier: Modifier::BecomeCopyOf(target),
         });
         state.copy_snapshots.push((effect, base));
@@ -639,7 +645,11 @@ pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplicat
         if let Some((kind, amount)) = counters
             && amount > 0
         {
-            crate::replacement::put_counters(state, source, kind, amount);
+            if entering {
+                crate::entry::put_counters(state, controller, source, kind, amount);
+            } else {
+                crate::replacement::put_counters(state, source, kind, amount);
+            }
         }
         // Compatibility for older DSL definitions. Current copy clauses use
         // GrantAbility so that the ability is itself copiable.
@@ -657,7 +667,7 @@ pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplicat
                 } else {
                     Duration::WhileSourceOnBattlefield
                 },
-                filter: EffectFilter::object(state, source),
+                filter: effect_filter,
                 modifier: **modifier,
             });
         }

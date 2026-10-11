@@ -381,6 +381,12 @@ impl GameState {
             let obj = self.object(id).ok_or(StateError::NoSuchObject(id))?;
             (obj.zone, obj.zone_owner.unwrap_or(obj.owner))
         };
+        if from_zone != Zone::Battlefield
+            && to == ZoneLocation::Battlefield
+            && crate::entry::defer(self, id, pos, cause)
+        {
+            return Ok(id);
+        }
         // CR 303.4i: an Aura forbidden from enchanting its intended host
         // does not enter at all. A spell goes to its owner's graveyard;
         // an Aura coming from another zone stays where it was.
@@ -526,6 +532,8 @@ impl GameState {
                             | crate::object::Rider::Prepared
                             | crate::object::Rider::Saddled
                             | crate::object::Rider::ExhaustedAbility(_)
+                            | crate::object::Rider::EntrySacrifices(_)
+                            | crate::object::Rider::EntryCopyApplied
                     )
                 });
                 // A name chosen as it entered belongs to that permanent
@@ -604,6 +612,8 @@ impl GameState {
             // triggered ability on the stack (CR 113.7a, which is why it
             // captured its list) have no card to fall back to.
             if obj.card.is_some()
+                && !(to.zone() == Zone::Battlefield
+                    && obj.riders.contains(&crate::object::Rider::EntryCopyApplied))
                 && !((obj.prototyped || obj.status.contains(crate::object::Status::FACE_DOWN))
                     && from_zone == Zone::Stack
                     && to.zone() == Zone::Battlefield)
@@ -622,6 +632,12 @@ impl GameState {
                 // and a lie in the meantime.
                 obj.own_abilities_until_eot = false;
             }
+        }
+        if to.zone() != Zone::Battlefield
+            && let Some(obj) = self.object_mut(id)
+        {
+            obj.riders
+                .retain(|r| !matches!(r, crate::object::Rider::EntryCopyApplied));
         }
         if !matches!(to.zone(), Zone::Battlefield | Zone::Stack)
             && let Some(def) = self

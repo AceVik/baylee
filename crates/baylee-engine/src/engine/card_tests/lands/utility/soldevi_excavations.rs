@@ -3,24 +3,35 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Soldevi Excavations` prints `If this land would enter, sacrifice an untapped Island instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.`, `{{T}}: Add {{C}}{{U}}.`, and `{{1}}, {{T}}: Scry 1.`
-///
-/// Under `Coverage::Partial`, the entry replacement is omitted so the land enters unconditionally untapped without sacrificing an Island.
-/// Activating ability 0 adds `{{C}}` and `{{U}}` to the mana pool, and spending the `{{C}}` to activate ability 1 on a second copy asks a scry arrangement (`ArrangePrompt::Scry`) for Scry 1.
+/// Pay the untapped Island entry replacement, then exercise both activated abilities.
 #[test]
 fn soldevi_excavations_enters_untapped_adds_colorless_blue_and_scries() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .hand(0, &[soldevi_excavations()])
-        .battlefield(0, &[soldevi_excavations()])
+        .battlefield(0, &[soldevi_excavations(), island()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let played = play_land(&mut engine, p0, soldevi_excavations());
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let payment = on_battlefield(&engine, p0, island()).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![payment],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        engine.state().object(payment).unwrap().zone,
+        Zone::Graveyard
+    );
     assert!(
         !entered_tapped(&engine, played),
-        "under `Coverage::Partial`, enters untapped without sacrificing an Island"
+        "enters untapped after sacrificing an Island"
     );
 
     // Ability 0 adds {{C}}{{U}}.

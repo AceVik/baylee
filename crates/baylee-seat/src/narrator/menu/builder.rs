@@ -1025,6 +1025,7 @@ impl Builder<'_, '_> {
             NumberPrompt::EnergyPayment { candidates } => format!(
                 "How much energy will you pay? Choose zero to decline. Up to {candidates} permanents tapped this way can receive counters; overpayment is legal"
             ),
+            NumberPrompt::Sacrifices => "How many permanents will you sacrifice?".to_string(),
             NumberPrompt::X => "Choose the value of X".to_string(),
             NumberPrompt::ManaPayment { preventable_damage } => format!(
                 "How much mana will you pay? Each mana prevents one of up to \

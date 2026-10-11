@@ -39,6 +39,34 @@ pub(crate) enum EntryAsk {
 }
 
 impl<L: CardLookup> Engine<L> {
+    /// Entry choices may interrupt a resolving instruction or a standalone land play.
+    pub(crate) fn continue_entry_queue(&mut self) -> bool {
+        if let Some(pending) = crate::entry::next_question(&self.state)
+            .or_else(|| crate::entry::advance(&mut self.state))
+        {
+            self.pending = pending;
+            self.awaiting_answer = true;
+            return true;
+        }
+        if self
+            .resolution
+            .as_ref()
+            .is_some_and(|res| matches!(res.awaiting, Some(resolve::AwaitingOp::Entry { .. })))
+        {
+            let mut res = self.resolution.take().expect("entry resolution");
+            match resolve::resume_entries(&mut self.state, &mut res) {
+                resolve::Flow::Complete => self.finish_resolution(&res),
+                resolve::Flow::Wait(pending) => {
+                    self.resolution = Some(res);
+                    self.pending = pending;
+                    self.awaiting_answer = true;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// A seat's automation settings.
     #[must_use]
     pub fn automation(&self, player: PlayerId) -> &SeatAutomation {
@@ -296,6 +324,9 @@ impl<L: CardLookup> Engine<L> {
             if let Some(pending) = crate::graveyard_order::pending(&mut self.state) {
                 self.pending = pending;
                 self.awaiting_answer = true;
+                return;
+            }
+            if self.continue_entry_queue() {
                 return;
             }
             // A draw Island Sanctuary may replace that was queued where no

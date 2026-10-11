@@ -750,7 +750,16 @@ impl Tally {
 fn board(card: CardIndex, face: usize) -> Result<(Engine<RegistryLookup>, ObjectId, bool), String> {
     let def = baylee_cards::by_index(card).ok_or("is not in the pool")?;
     let types = def.faces[face].types;
-    let dropped = types.contains(TypeSet::LAND)
+    // Entry payments have dedicated behavioral tests. This mana sweep needs
+    // the permanent after payment, just as it does for summoning-sick lands.
+    let entry_payment = def.faces[face].enter_modifiers.iter().any(|modifier| {
+        matches!(
+            modifier,
+            baylee_cards_dsl::EnterModifier::SacrificeOrGraveyard { .. }
+        )
+    });
+    let dropped = !entry_payment
+        && types.contains(TypeSet::LAND)
         && !types.contains(TypeSet::CREATURE)
         && def.land_faces_from_hand().any(|playable| playable == face);
     let (mut engine, land) = if dropped {

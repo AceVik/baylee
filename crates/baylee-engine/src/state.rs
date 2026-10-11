@@ -806,6 +806,8 @@ pub struct GameState {
     pub zones: Zones,
     /// Choices owed for simultaneous graveyard arrivals.
     pub(crate) graveyard_order: crate::graveyard_order::Ordering,
+    /// Moves suspended before battlefield entry and their exact continuations.
+    pub(crate) entries: crate::entry::Entries,
     /// Legend decisions waiting for their simultaneous SBA pass.
     pub(crate) sba_legend_decisions: Vec<crate::sba::LegendDecision>,
     /// Seats in turn order.
@@ -1245,6 +1247,7 @@ impl GameState {
             arena,
             zones,
             graveyard_order,
+            entries,
             sba_legend_decisions,
             players,
             turn,
@@ -1328,6 +1331,7 @@ impl GameState {
             ("state.arena", heavy(arena)),
             ("state.zones", format!("{zones:?}")),
             ("state.graveyard_order", format!("{graveyard_order:?}")),
+            ("state.entries", format!("{entries:?}")),
             (
                 "state.sba_legend_decisions",
                 format!("{sba_legend_decisions:?}"),
@@ -2519,7 +2523,8 @@ fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
         | PtCount::YouControl(_)
         | PtCount::OnBattlefield(_)
         | PtCount::CardTypesInAllGraveyards
-        | PtCount::ExiledWithThis => false,
+        | PtCount::ExiledWithThis
+        | PtCount::EntrySacrifices => false,
     }
 }
 

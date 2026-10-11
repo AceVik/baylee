@@ -6,6 +6,11 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Entry replacements interrupt an instruction before its next decision or effect.
+    Entry {
+        /// Original instruction's suspended operation and question, if any.
+        next: Option<Box<(AwaitingOp, Pending)>>,
+    },
     /// A non-targeted Army choice during amass.
     Amass {
         /// Subtype added in addition to the chosen Army's other types.

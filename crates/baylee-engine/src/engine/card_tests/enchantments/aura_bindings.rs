@@ -140,7 +140,7 @@ fn animate_dead_waits_for_entry_copy_and_its_protection_before_reattaching() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
-    assert_eq!(engine.state().object(host).unwrap().zone, Zone::Battlefield);
+    assert_eq!(engine.state().object(host).unwrap().zone, Zone::Graveyard);
     assert_eq!(engine.state().object(aura).unwrap().zone, Zone::Battlefield);
     let Pending::ChooseTargets {
         player, options, ..

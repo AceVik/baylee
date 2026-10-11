@@ -673,6 +673,7 @@ impl HeuristicAgent {
                 baylee_engine::choice::NumberPrompt::EnergyPayment { candidates } => {
                     candidates.clamp(min, max)
                 }
+                baylee_engine::choice::NumberPrompt::Sacrifices => 3u32.clamp(min, max),
                 baylee_engine::choice::NumberPrompt::X => self.number(view, min, max, context),
                 baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => {
                     preventable_damage.clamp(min, max)
@@ -812,7 +813,8 @@ impl HeuristicAgent {
                 // Worlds): the activation was the choice, and a window it
                 // cannot fill casts nothing and costs nothing.
                 YesNoPrompt::MayDo => PlayerAction::YesNo(self.may_do(view, source, context)),
-                YesNoPrompt::CommanderZone { .. }
+                YesNoPrompt::SacrificeToEnter { .. }
+                | YesNoPrompt::CommanderZone { .. }
                 | YesNoPrompt::TopOfLibrary { .. }
                 | YesNoPrompt::Discover { .. }
                 | YesNoPrompt::CastWithoutPaying { .. }

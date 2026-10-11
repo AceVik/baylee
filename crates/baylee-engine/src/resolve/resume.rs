@@ -10,6 +10,7 @@ use super::*;
 #[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) -> Flow {
+    state.entries.begin_event(state.journal.last_seq());
     subjects::begin_resume(state, res);
     let flow = resume_inner(state, res, chosen);
     subjects::flush(state, res);
@@ -224,21 +225,8 @@ pub(super) fn resume_inner(
                             ZonePosition::Top,
                             Cause::Effect,
                         );
-                        // After the move, for `GraveyardToBattlefield`'s
-                        // reason: the move clears a permanent's counters.
-                        if let Some((kind, n)) = find.counter
-                            && n > 0
-                            && state
-                                .object(card)
-                                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
-                        {
-                            crate::replacement::put_counters_by(
-                                state,
-                                res.controller,
-                                card,
-                                kind,
-                                n,
-                            );
+                        if let Some((kind, n)) = find.counter {
+                            crate::entry::put_counters(state, res.controller, card, kind, n);
                         }
                     }
                 }
@@ -885,7 +873,8 @@ pub(super) fn resume_inner(
         AwaitingOp::ShieldFromChosenSource { .. } | AwaitingOp::RedirectFromChosenSource { .. } => {
             unreachable!("source decisions resume through resume_source")
         }
-        AwaitingOp::GraveyardOrder { .. }
+        AwaitingOp::Entry { .. }
+        | AwaitingOp::GraveyardOrder { .. }
         | AwaitingOp::ReorderTopLibrary { .. }
         | AwaitingOp::DigBottom
         | AwaitingOp::Scry { .. }

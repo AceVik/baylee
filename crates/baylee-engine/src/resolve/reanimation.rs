@@ -102,10 +102,9 @@ fn assimilate(state: &mut GameState, res: &Resolution, target: TargetSpec) {
             false,
             Some((CounterKind::P1P1, 1)),
         );
-        if !state
-            .object(id)
-            .is_some_and(|o| o.zone == Zone::Battlefield && o.version == version)
-        {
+        if !state.object(id).is_some_and(|o| {
+            (o.zone == Zone::Battlefield && o.version == version) || state.entries.contains(id)
+        }) {
             state
                 .effects
                 .remove_where(|effect| created.contains(&effect.id));
@@ -142,15 +141,8 @@ fn return_card(
         ZonePosition::Top,
         Cause::Effect,
     );
-    // The zone change clears counters. Install the entry counters before entry
-    // abilities are collected, through the replacement-aware placement door.
-    if let Some((kind, n)) = counters
-        && n > 0
-        && state
-            .object(id)
-            .is_some_and(|o| o.zone == Zone::Battlefield)
-    {
-        crate::replacement::put_counters_by(state, controller, id, kind, n);
+    if let Some((kind, n)) = counters {
+        crate::entry::put_counters(state, controller, id, kind, n);
     }
 }
 

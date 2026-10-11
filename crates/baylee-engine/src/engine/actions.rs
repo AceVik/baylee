@@ -115,6 +115,11 @@ impl<L: CardLookup> Engine<L> {
         if let Some(fault) = self.pending.answer_fault(&action) {
             return Err(fault.into());
         }
+        if self.state.entries.waiting() {
+            crate::entry::answer(&mut self.state, &action);
+            self.continue_entry_queue();
+            return Ok(());
+        }
         if let PlayerAction::ChooseManaAbility {
             source,
             ability_index,
