@@ -167,6 +167,7 @@ impl GameState {
         self.invalidate_projections();
         self.refresh_characteristics();
         for source in coming {
+            self.learn_hideaway_cards(source);
             self.create_prepared_copy(source);
         }
     }

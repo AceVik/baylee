@@ -111,6 +111,50 @@ fn behold_and_mana_difference_search_offer_their_optional_actions() {
 }
 
 #[test]
+fn a_linked_exile_play_can_be_declined() {
+    let payload = serde_json::json!({
+        "oracle_text": "You may play the exiled card without paying its mana cost."
+    });
+    for (name, expected) in [("Mosswort Bridge", 0), ("Clive's Hideaway", 0), ("Fog", 1)] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered fixture");
+        let mut problems = 0;
+        let mut tally = super::PrintingTally::default();
+        super::check_optional_clauses_are_offered(
+            "fixture",
+            def,
+            &payload,
+            &mut tally,
+            &mut problems,
+        );
+        assert_eq!(problems, expected, "{name}");
+        assert_eq!(tally.optional_clauses, 1);
+    }
+}
+
+#[test]
+fn a_controlled_power_condition_has_its_own_controller_scope() {
+    let payload = serde_json::json!({
+        "oracle_text": "If creatures you control have total power 10 or greater."
+    });
+    for (name, expected) in [("Mosswort Bridge", 0), ("Fog", 1)] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered fixture");
+        let mut problems = 0;
+        super::check_scope_matches_the_text(
+            "fixture",
+            "Not An Exception",
+            def,
+            &payload,
+            &mut problems,
+        );
+        assert_eq!(problems, expected, "{name}");
+    }
+}
+
+#[test]
 fn a_flash_permission_is_an_optional_casting_offer() {
     let payload = serde_json::json!({
         "oracle_text": "You may cast spells this turn as though they had flash."

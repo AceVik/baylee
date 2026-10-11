@@ -380,13 +380,17 @@ pub(super) fn bottom_in_random_order(
     mut cards: Vec<ObjectId>,
 ) {
     state.rng.shuffle(&mut cards);
+    let library = ZoneLocation::Library(you);
     for card in cards {
-        let _ = state.move_object(
-            card,
-            ZoneLocation::Library(you),
-            ZonePosition::Bottom,
-            Cause::Effect,
-        );
+        if state.zones.remove(card, library) {
+            // Reordering within a library is not a zone change (CR 400.7).
+            state
+                .zones
+                .insert(card, library, ZonePosition::Bottom, true);
+        } else {
+            // Cascade's uncast cards really do move here from exile.
+            let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
+        }
     }
 }
 

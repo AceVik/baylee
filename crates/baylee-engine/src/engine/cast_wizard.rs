@@ -17,6 +17,7 @@ use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec}
 use baylee_core::mana::ManaCost;
 
 mod division;
+mod linked;
 mod permissions;
 mod pricing;
 use pricing::FrozenReduction;
@@ -617,8 +618,18 @@ impl<L: CardLookup> Engine<L> {
         if options.is_empty() {
             return Err(EngineError::IllegalAction("cannot pay spell cost increase"));
         }
+        self.start_free_cast_options(player, card, options, false)
+    }
+
+    fn start_free_cast_options(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        options: Vec<CastModeDesc>,
+        by_effect: bool,
+    ) -> Result<(), EngineError> {
         let (option, stage) = match options.as_slice() {
-            [] => (Some(CastModeKind::Normal), WizardStage::Kicker),
+            [] => return Err(EngineError::IllegalAction("no legal free play")),
             [only] => (Some(only.kind), WizardStage::Kicker),
             _ => (None, WizardStage::ChooseMode),
         };
@@ -651,7 +662,7 @@ impl<L: CardLookup> Engine<L> {
             options,
             free: true,
             masked: false,
-            by_effect: None,
+            by_effect: by_effect.then_some(EffectCast::Plain),
             window_start: None,
             paying: casting::Paying::FromThePool,
             started: None,
@@ -813,6 +824,16 @@ impl<L: CardLookup> Engine<L> {
         card: ObjectId,
         def: &baylee_cards_dsl::CardDef,
     ) -> Vec<CastModeDesc> {
+        self.free_modes_with_mana(player, card, def, false)
+    }
+
+    fn free_modes_with_mana(
+        &self,
+        player: PlayerId,
+        card: ObjectId,
+        def: &baylee_cards_dsl::CardDef,
+        make_mana: bool,
+    ) -> Vec<CastModeDesc> {
         let mut options = Vec::new();
         for ability in def.abilities_for_face(0) {
             let AbilityDef::ModalSpell { modes, choose } = ability else {
@@ -830,7 +851,7 @@ impl<L: CardLookup> Engine<L> {
                         card,
                         casting::mode_set_cost(ManaCost::ZERO, modes, set),
                     );
-                    if self.free_cost_affordable(player, card, cost)
+                    if (make_mana || self.free_cost_affordable(player, card, cost))
                         && casting::mode_set_has_legal_targets(
                             &self.state,
                             &self.lookup,
@@ -851,7 +872,7 @@ impl<L: CardLookup> Engine<L> {
             for (i, mode) in modes.iter().enumerate() {
                 let cost = self.front_spell_price(player, card, ManaCost::ZERO);
                 if mode.cost_override.is_none()
-                    && self.free_cost_affordable(player, card, cost)
+                    && (make_mana || self.free_cost_affordable(player, card, cost))
                     && casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
                 {
                     options.push(CastModeDesc {

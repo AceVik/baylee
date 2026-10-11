@@ -4,7 +4,6 @@
 use super::*;
 
 /// Windbrisk Heights: "Hideaway 4" / "This land enters tapped." / "{T}: Add {W}." / "{W}, {T}: You may play the exiled card without paying its mana cost if you attacked with three or more creatures this turn."
-/// Under `Coverage::Partial`, Hideaway 4 and the attack-count conditional cast are omitted.
 /// Playing this land causes it to enter tapped, and after untapping on a subsequent turn it taps for white mana.
 #[test]
 fn windbrisk_heights_enters_tapped_and_taps_for_white() {
@@ -16,6 +15,7 @@ fn windbrisk_heights_enters_tapped_and_taps_for_white() {
     reach_main_phase(&mut engine, p0);
 
     let land = play_land(&mut engine, p0, windbrisk_heights());
+    crate::engine::card_tests::hidden_exile::finish_hideaway(&mut engine);
     assert!(entered_tapped(&engine, land));
 
     pass_until(&mut engine, |e| {

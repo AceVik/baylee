@@ -606,6 +606,7 @@ impl Effect {
             }
             | Effect::ChooseYoursThen { filter: _, then }
             | Effect::MayBehold { filter: _, then }
+            | Effect::SacrificeSelfThen { then }
             | Effect::LookAtTopMayTake { filter: _, rest: _, then }
             | Effect::IfTargetMatches { filter: _, then }
             | Effect::IfTargetHadType { types: _, then }
@@ -885,6 +886,10 @@ impl Effect {
             | Effect::ReturnLinkedToBattlefield
             | Effect::CreateTokenFromLinked { .. }
             | Effect::SacrificeSelf
+            | Effect::Hideaway(_)
+            | Effect::ExileTopFaceDownLinked
+            | Effect::MayPlayLinkedExile
+            | Effect::ReturnLinkedExile { .. }
             | Effect::SacrificeObject { .. }
             | Effect::PayCostOrLoseLater { .. }
             | Effect::CreateEmblem { .. }

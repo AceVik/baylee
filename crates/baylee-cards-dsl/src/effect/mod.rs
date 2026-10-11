@@ -2418,6 +2418,22 @@ pub enum Effect {
         /// linked card's mana value).
         token: &'static TokenDef,
     },
+    /// Hideaway N (CR 702.75a): privately inspect, exile one face down, random bottom rest.
+    Hideaway(u8),
+    /// Exile the top library card face down, linked to this rules acquisition.
+    ExileTopFaceDownLinked,
+    /// Play each card exiled by the linked ability now, without its mana cost (CR 607.3).
+    MayPlayLinkedExile,
+    /// Return linked exiled cards to their owners' named zone.
+    ReturnLinkedExile {
+        /// Hand or graveyard; the owner of each card receives it.
+        to: crate::ZoneRef,
+    },
+    /// Sacrifice this exact permanent during resolution; continue only on success.
+    SacrificeSelfThen {
+        /// Instructions that follow the actual sacrifice.
+        then: &'static [Effect],
+    },
     /// Sacrifice the source permanent (evoke).
     SacrificeSelf,
     /// "Sacrifice that creature": the ability's controller sacrifices the

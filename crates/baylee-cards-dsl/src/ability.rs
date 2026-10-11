@@ -127,6 +127,14 @@ pub enum Condition {
     CastInstantOrSorceryThisTurn,
     /// You declared at least this many distinct creature incarnations as attackers this turn.
     AttackedWithAtLeast(u32),
+    /// One opponent was dealt at least this much damage this turn.
+    OpponentWasDealtAtLeast(u32),
+    /// Every player still in the game has an empty hand.
+    EveryHandEmpty,
+    /// At least one remaining player's library has at most this many cards.
+    AnyLibraryAtMost(u32),
+    /// The signed sum of power of your creatures meets this bound.
+    ControlledCreaturePowerAtLeast(i32),
     /// This incarnation dealt damage to an opponent of its current controller this turn.
     SourceDamagedOpponentThisTurn,
     /// The source was present and untapped at the beginning of this turn.

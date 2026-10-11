@@ -4041,7 +4041,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Knowledge Vault
+    &[FaceLines {
+        sentences: 3,
+        stackable: 3,
+        lines: &[Some(0), Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Kobold Drill Sergeant
     &[FaceLines {
         sentences: 1,
@@ -21872,8 +21879,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Howltooth Hollow
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 2,
+        lines: &[Some(2), None, Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -21926,8 +21933,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Mosswort Bridge
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 2,
+        lines: &[Some(2), None, Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -21990,8 +21997,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Shelldock Isle
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 2,
+        lines: &[Some(2), None, Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -22017,8 +22024,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Spinerock Knoll
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 2,
+        lines: &[Some(2), None, Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -22118,8 +22125,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Windbrisk Heights
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 2,
+        lines: &[Some(2), None, Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -51059,8 +51066,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Clive's Hideaway
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[Some(1), None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],

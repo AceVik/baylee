@@ -8,6 +8,14 @@ use crate::resolve::{AwaitingOp, Flow, Resolution};
 pub(super) struct EffectPlay {
     resolution: Box<Resolution>,
     control: Option<(PlayerId, PlayerId, ObjectId)>,
+    linked: Option<LinkedPlay>,
+}
+
+#[derive(Clone, Copy, Debug, Hash)]
+struct LinkedPlay {
+    card: baylee_core::ids::DamageSourceRef,
+    face_down: bool,
+    opened: bool,
 }
 
 impl EffectPlay {
@@ -22,7 +30,17 @@ impl EffectPlay {
         self.resolution
             .program_fingerprint()
             .wrapping_mul(31)
-            .wrapping_add(crate::state::structural_fingerprint(&self.control))
+            .wrapping_add(
+                self.resolution
+                    .awaiting
+                    .as_ref()
+                    .map_or(0, AwaitingOp::search_fingerprint),
+            )
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&(
+                self.control,
+                self.linked,
+            )))
     }
 }
 
@@ -34,6 +52,10 @@ impl<L: CardLookup> Engine<L> {
     ) -> Option<Result<(), EngineError>> {
         let awaiting = self.resolution.as_ref()?.awaiting.as_ref()?;
         let subject = match awaiting {
+            AwaitingOp::LinkedPlay { .. } => {
+                self.answer_linked_play(player, cards);
+                return Some(Ok(()));
+            }
             AwaitingOp::MaskedCast => None,
             AwaitingOp::ControlledCard { player } => Some(*player),
             _ => return None,
@@ -56,6 +78,7 @@ impl<L: CardLookup> Engine<L> {
         self.effect_plays.push(EffectPlay {
             resolution: Box::new(resolution),
             control,
+            linked: None,
         });
         let result = cards.first().map_or(
             Err(EngineError::IllegalAction("casting declined")),
@@ -71,6 +94,57 @@ impl<L: CardLookup> Engine<L> {
             self.finish_nested_cast();
         }
         Some(Ok(()))
+    }
+
+    fn answer_linked_play(&mut self, player: PlayerId, cards: &[ObjectId]) {
+        let mut resolution = self.resolution.take().expect("linked play resolution");
+        let Some(AwaitingOp::LinkedPlay { cards: remaining }) = resolution.awaiting.as_mut() else {
+            unreachable!("linked play continuation")
+        };
+        let chosen = cards
+            .first()
+            .and_then(|id| remaining.iter().find(|r| r.object == *id))
+            .copied();
+        if let Some(chosen) = chosen {
+            remaining.retain(|r| *r != chosen);
+        } else {
+            remaining.clear();
+        }
+        let linked = chosen
+            .filter(|r| {
+                self.state
+                    .object(r.object)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Exile && o.version == r.version)
+            })
+            .map(|card| {
+                let face_down = self.state.reveal_exiled_card(card.object);
+                let object = self.state.object_mut(card.object).expect("chosen exile");
+                let rider = crate::object::Rider::PlayableFromExileFor(player);
+                let opened = !object.riders.contains(&rider);
+                if opened {
+                    object.riders.push(rider);
+                }
+                LinkedPlay {
+                    card,
+                    face_down,
+                    opened,
+                }
+            });
+        self.effect_plays.push(EffectPlay {
+            resolution: Box::new(resolution),
+            control: None,
+            linked,
+        });
+        if let Some(linked) = linked {
+            if self
+                .start_linked_free_play(player, linked.card.object)
+                .is_err()
+            {
+                self.finish_nested_cast();
+            }
+        } else {
+            self.finish_nested_cast();
+        }
     }
 
     fn play_commanded_card(&mut self, player: PlayerId, card: ObjectId) -> Result<(), EngineError> {
@@ -92,6 +166,34 @@ impl<L: CardLookup> Engine<L> {
                 .is_some_and(|object| object.zone == crate::zone::Zone::Stack)
         {
             self.remember_controlled_spell(card, controller, player);
+        }
+        if let Some(linked) = parent.linked
+            && self.state.object(linked.card.object).is_some_and(|o| {
+                o.zone == crate::zone::Zone::Exile && o.version == linked.card.version
+            })
+        {
+            if linked.face_down {
+                self.state.conceal_exiled_card(linked.card.object);
+            }
+            if linked.opened
+                && let Some(object) = self.state.object_mut(linked.card.object)
+            {
+                let rider =
+                    crate::object::Rider::PlayableFromExileFor(parent.resolution.controller);
+                object.riders.retain(|r| *r != rider);
+            }
+        }
+        if let Some(AwaitingOp::LinkedPlay { cards }) = parent.resolution.awaiting.take()
+            && let Some(question) = crate::resolve::hidden_exile::continue_play(
+                &self.state,
+                &mut parent.resolution,
+                cards,
+            )
+        {
+            self.resolution = Some(*parent.resolution);
+            self.pending = question;
+            self.awaiting_answer = true;
+            return true;
         }
         parent.resolution.awaiting = None;
         parent.resolution.pc += 1;

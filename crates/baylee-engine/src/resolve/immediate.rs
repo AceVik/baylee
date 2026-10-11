@@ -23,6 +23,24 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::Proliferate => super::proliferate::start(state, res),
+        Effect::Hideaway(count) => super::hidden_exile::hideaway(state, res, count),
+        Effect::ExileTopFaceDownLinked => {
+            super::hidden_exile::exile_top(state, res);
+            None
+        }
+        Effect::MayPlayLinkedExile => super::hidden_exile::offer_play(state, res),
+        Effect::ReturnLinkedExile { to } => super::hidden_exile::return_cards(state, res, to),
+        Effect::SacrificeSelfThen { then } => {
+            if super::zones::can_sacrifice_self(state, res) {
+                let before = state.object(res.source).map(|o| o.version);
+                super::zones::exec(state, res, Effect::SacrificeSelf);
+                if state.object(res.source).map(|o| o.version) != before {
+                    return run_nested(state, res, then);
+                }
+            }
+            None
+        }
+
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
         Effect::DestroyEventThenMayReattach { to } => {
             crate::aura_bindings::destroy_event_and_offer(state, res, to)

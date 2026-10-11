@@ -810,6 +810,14 @@ fn a_face_down_card_in_exile_is_named_as_the_view_shows_it() {
         .expect("in exile")
         .status
         .insert(baylee_engine::object::Status::FACE_DOWN);
+    state
+        .object_mut(card)
+        .unwrap()
+        .riders
+        .push(baylee_engine::object::Rider::ExileVisibility {
+            seen: [me].into_iter().collect(),
+            follow_source: false,
+        });
     log.consume(engine.state());
 
     assert_eq!(

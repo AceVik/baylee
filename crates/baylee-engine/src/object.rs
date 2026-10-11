@@ -920,6 +920,22 @@ pub enum Rider {
     },
     /// Current copied rules acquisition, sparse so ordinary objects stay small.
     RulesAcquisition(u64),
+    /// Sparse fast-path marker: this incarnation has granted hideaway inspection rights.
+    HideawayHost(u32),
+    /// Exile owned by one acquisition of a source's linked abilities (CR 607.5).
+    LinkedExile {
+        /// Exact permanent incarnation that exiled this card.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Ability acquisition captured by the resolving instruction.
+        acquisition: u64,
+    },
+    /// Private inspection rights persist until this card leaves exile (CR 406.3).
+    ExileVisibility {
+        /// Players who have received permission to look.
+        seen: baylee_core::ids::SeatSet,
+        /// Hideaway also grants permission to the source's current controller.
+        follow_source: bool,
+    },
     /// Copy entry replacement already considered before this incarnation arrived.
     EntryCopyApplied,
 }
@@ -972,6 +988,8 @@ impl Rider {
         match self {
             Self::Linked { .. }
             | Self::ExiledWith { .. }
+            | Self::LinkedExile { .. }
+            | Self::ExileVisibility { .. }
             | Self::Adventure(_)
             | Self::PlayableFromExileFor(_)
             | Self::Suspend
@@ -985,6 +1003,7 @@ impl Rider {
             | Self::ChosenNumber { .. }
             | Self::ChosenName { .. }
             | Self::RulesAcquisition(_)
+            | Self::HideawayHost(_)
             | Self::EntryCopyApplied
             | Self::EventObjectIdentity(..)
             | Self::AbilitySourceVersion(_)
@@ -1709,7 +1728,7 @@ impl GameObject {
     #[must_use]
     pub fn printed_abilities(&self, lookup: &impl crate::state::CardLookup) -> AbilityDefs {
         if self.status.contains(Status::FACE_DOWN) {
-            return if self.riders.contains(&Rider::Masked) {
+            return if self.zone == Zone::Exile || self.riders.contains(&Rider::Masked) {
                 AbilityDefs::EMPTY
             } else {
                 AbilityDefs::Static(crate::engine::disguise::WARD)
@@ -1741,6 +1760,14 @@ impl GameObject {
     /// while the writer gets its own copy.
     pub fn base_mut(&mut self) -> &mut Characteristics {
         Arc::make_mut(&mut self.base)
+    }
+
+    /// Permission to inspect a face-down card in exile (CR 406.3).
+    #[must_use]
+    pub fn may_look_at_exile(&self, player: PlayerId) -> bool {
+        self.riders.iter().any(
+            |rider| matches!(rider, Rider::ExileVisibility { seen, .. } if seen.contains(player)),
+        )
     }
 
     /// Whether this object is a card: "a Magic card or an object

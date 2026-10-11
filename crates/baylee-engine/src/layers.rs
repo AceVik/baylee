@@ -213,6 +213,20 @@ pub fn recompute(state: &GameState, obj: &GameObject) -> Projection {
 
 /// Recomputes an object's characteristics against a prepared [`LayerPlan`].
 pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
+    // CR 406.3a: a face-down card in exile has no characteristics, including
+    // its printed characteristic-defining abilities.
+    if obj.zone == crate::zone::Zone::Exile && obj.status.contains(crate::object::Status::FACE_DOWN)
+    {
+        return Projection {
+            characteristics: (*obj.base).clone(),
+            controller: obj.base_controller,
+            read_board: false,
+        };
+    }
+    recompute_visible(state, obj, plan)
+}
+
+fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
     let mut c = (*obj.base).clone();
     // "As long as this permanent's dash cost was paid, it has haste"
     // (CR 702.109a): an ability of the permanent itself, so it is there

@@ -21,6 +21,7 @@ use rustc_hash::FxHashMap;
 mod discard;
 mod draw_offer;
 mod hash;
+mod hidden_exile;
 mod lifetimes;
 mod moves;
 mod player_counters;
@@ -1700,6 +1701,7 @@ impl GameState {
         if let Some(obj) = self.object_mut(id) {
             obj.controlled_since = ts;
         }
+        self.learn_hideaway_cards(id);
     }
 
     /// Turns a permanent over (CR 701.27) and says so in the journal.

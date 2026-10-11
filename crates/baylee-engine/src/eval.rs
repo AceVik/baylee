@@ -810,6 +810,35 @@ pub fn condition_holds_with_context(
         Condition::CastInstantOrSorceryThisTurn => {
             state.per_turn.instant_or_sorcery_cast[usize::from(you.get())]
         }
+        Condition::OpponentWasDealtAtLeast(minimum) => state.players.iter().any(|p| {
+            let player = p.id;
+            !state.has_left(player)
+                && state.is_opponent(player, you)
+                && state.per_turn.damage_dealt_to[usize::from(player.get())] >= minimum
+        }),
+        Condition::EveryHandEmpty => state.players.iter().all(|p| {
+            let player = p.id;
+            state.has_left(player) || state.zones.list(ZoneLocation::Hand(player)).is_empty()
+        }),
+        Condition::AnyLibraryAtMost(maximum) => state.players.iter().any(|p| {
+            let player = p.id;
+            !state.has_left(player)
+                && state.zones.list(ZoneLocation::Library(player)).len() <= maximum as usize
+        }),
+        Condition::ControlledCreaturePowerAtLeast(minimum) => {
+            state
+                .battlefield_seen()
+                .filter_map(|id| state.object(id))
+                .filter(|o| {
+                    o.controller == you
+                        && o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                })
+                .map(|o| i64::from(o.characteristics().power.unwrap_or(0)))
+                .sum::<i64>()
+                >= i64::from(minimum)
+        }
         Condition::AttackedWithAtLeast(minimum) => {
             let mut seen = std::collections::BTreeSet::new();
             state

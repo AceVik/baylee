@@ -118,7 +118,11 @@ pub(crate) const fn counter(kind: baylee_cards_dsl::CounterKind) -> CounterKind 
 pub(crate) fn may_know_card(obj: &GameObject, seat: PlayerId) -> bool {
     !obj.status
         .contains(baylee_engine::object::Status::FACE_DOWN)
-        || obj.controller == seat
+        || if obj.zone == baylee_engine::zone::Zone::Exile {
+            obj.may_look_at_exile(seat)
+        } else {
+            obj.controller == seat
+        }
 }
 
 /// Whether `id` is one of the table's commanders (CR 903.3).
@@ -150,10 +154,25 @@ fn commander_view(state: &GameState, c: &baylee_engine::state::Commander) -> Com
     }
 }
 
+/// Actual face name, used only after the caller has checked inspection rights.
+pub(crate) fn known_name(obj: &GameObject) -> baylee_core::ids::NameRef {
+    if obj.zone == baylee_engine::zone::Zone::Exile
+        && obj
+            .status
+            .contains(baylee_engine::object::Status::FACE_DOWN)
+    {
+        obj.original_base
+            .as_ref()
+            .map_or(obj.characteristics().name, |base| base.name)
+    } else {
+        obj.characteristics().name
+    }
+}
+
 /// The public name of an object as `seat` may know it.
 fn public_name(state: &GameState, obj: &GameObject, seat: PlayerId) -> String {
     if may_know_card(obj, seat) {
-        state.names.get(obj.characteristics().name).to_string()
+        state.names.get(known_name(obj)).to_string()
     } else {
         "Face-down".to_string()
     }

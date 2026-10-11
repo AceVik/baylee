@@ -330,6 +330,9 @@ pub(crate) fn check_player_targets_match_the_printing(
 ///   a `min: 0` choice over the hand asked as the ability resolves
 ///   (`resolve/immediate.rs`, `AwaitingOp::MaskedCast`); choosing no card
 ///   is the decline, and the activation is not refunded.
+/// - "you may play the exiled card without paying its mana cost" —
+///   `MayPlayLinkedExile` asks with `min: 0` during resolution, including
+///   each separately playable card linked by a copied hideaway trigger.
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -404,6 +407,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "MayRevealOpponentDiscardToLibraryTop",
         "TargetMayBlockAttackerOfChoice",
         "CastFaceDownUsingSpentX",
+        "MayPlayLinkedExile",
     ];
     if !def.is_implemented() {
         return;
@@ -791,6 +795,8 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("TargetsPermanentYouControl")
         || built.contains("TappedUnlessRevealOrControl(")
         || built.contains("ControlCount(")
+        // This condition sums the controller's creatures' signed power.
+        || built.contains("ControlledCreaturePowerAtLeast(")
         || built.contains("YouControl(")
         || built.contains("WhileYouControlSource")
         || built.contains("GainControl");

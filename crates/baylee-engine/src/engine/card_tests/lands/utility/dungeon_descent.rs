@@ -3,26 +3,12 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Dungeon Descent and Howltooth Hollow are the two remaining shelf taplands
-/// with one colour between them, and they are here for the same pair the
-/// other three were: entering tapped and then making the colour printed
-/// beside it, neither being worth asserting alone.
-///
-/// Both carry a `Coverage::Partial` for a mechanic with no vocabulary at all
-/// — venturing into the dungeon, and hideaway — and both of those hang off a
-/// **second** activated ability. So the ability list is read: one entry
-/// each, which is the gap made countable rather than described.
-///
-/// The board is what makes that count mean something. `can_afford` gates
-/// every entry in the offer, so a count taken where the second ability could
-/// not have been paid for would keep reading one after the ability was
-/// written. Dungeon Descent's is "{4}, {T}, Tap an untapped legendary
-/// creature you control", so four Forests and Jin-Gitaxias stand beside it;
-/// Howltooth Hollow's is "{B}, {T}", and its own tap is part of that price,
-/// so the black comes from a Swamp. Both are asked in a main phase with an
-/// empty stack, which is the sorcery timing one of them needs.
+/// Both lands enter tapped and make their printed mana. Howltooth's linked
+/// play is now a second activated ability; Dungeon Descent remains Partial.
+/// Float each complete activation price so the offer count tests implemented
+/// abilities rather than accidentally counting unaffordable ones as absent.
 #[test]
-fn the_last_two_shelf_taplands_enter_tapped_and_offer_one_ability_each() {
+fn dungeon_and_howltooth_enter_tapped_and_offer_their_implemented_abilities() {
     let p0 = PlayerId::new(0);
 
     for (card, colour, payment) in [
@@ -55,9 +41,8 @@ fn the_last_two_shelf_taplands_enter_tapped_and_offer_one_ability_each() {
         };
         assert_eq!(
             legal.abilities.iter().filter(|(id, _)| *id == land).count(),
-            1,
-            "the mana ability, and not the venture or hideaway one beside it \
-             — whose price is floating in this pool"
+            if card == howltooth_hollow() { 2 } else { 1 },
+            "the complete activation price is floating in the pool"
         );
 
         let before = engine.state().players[0].mana_pool.available(colour);

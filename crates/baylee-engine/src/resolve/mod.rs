@@ -67,6 +67,7 @@ pub mod proliferate;
 pub mod tap_energy;
 use permissions::grant_play;
 mod graveyard_top;
+pub(crate) mod hidden_exile;
 mod resume;
 mod search;
 mod search_group;

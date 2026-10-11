@@ -318,7 +318,7 @@
     {
       "batch": 44,
       "title": "Hideaway and hidden linked exile",
-      "status": "in_progress",
+      "status": "complete",
       "cards": [
         {
           "name": "Clive's Hideaway",
@@ -348,7 +348,17 @@
           "name": "Knowledge Vault",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/knowledge_vault.rs"
         }
-      ]
+      ],
+      "completed_cards": [
+        "Clive's Hideaway",
+        "Spinerock Knoll",
+        "Howltooth Hollow",
+        "Mosswort Bridge",
+        "Windbrisk Heights",
+        "Shelldock Isle",
+        "Knowledge Vault"
+      ],
+      "note": "All seven cards implemented together and jointly behaviorally validated, including hidden inspection, linked incarnations, immediate play and resolution-time sacrifices."
     },
     {
       "batch": 45,

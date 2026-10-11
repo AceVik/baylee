@@ -10,6 +10,20 @@ use baylee_view::PublicObject;
 
 /// A controller may inspect what the controlled player can inspect (CR 720.4).
 pub(super) fn entitled_viewer(obj: &GameObject, seat: PlayerId, controlled: SeatSet) -> PlayerId {
+    if obj.zone == Zone::Exile
+        && obj
+            .status
+            .contains(baylee_engine::object::Status::FACE_DOWN)
+    {
+        return if obj.may_look_at_exile(seat) {
+            seat
+        } else {
+            controlled
+                .iter()
+                .find(|&player| obj.may_look_at_exile(player))
+                .unwrap_or(seat)
+        };
+    }
     let holder = if obj.zone.is_hidden_by_default() {
         obj.owner
     } else {

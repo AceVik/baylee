@@ -640,3 +640,22 @@ fn taking_the_top_card_visits_its_successful_move_continuation() {
     assert_eq!(seen, 2);
     assert!(transformed);
 }
+
+#[test]
+fn sacrifice_self_success_body_is_visited() {
+    let mut seen = 0;
+    let mut nested = false;
+    Effect::walk(
+        &[Effect::SacrificeSelfThen {
+            then: &[Effect::ReturnLinkedExile {
+                to: crate::ZoneRef::Hand,
+            }],
+        }],
+        &mut seen,
+        &mut |effect| {
+            nested |= matches!(effect, Effect::ReturnLinkedExile { .. });
+        },
+    );
+    assert_eq!(seen, 2);
+    assert!(nested);
+}

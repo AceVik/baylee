@@ -920,7 +920,7 @@ impl GameLog {
                 face: obj.face_index,
             }),
             token: obj.token.map(baylee_cards::tokens::token_id),
-            name: state.names.get(obj.characteristics().name).to_string(),
+            name: state.names.get(crate::view::known_name(obj)).to_string(),
         };
         self.seen.insert(
             obj.id,

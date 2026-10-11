@@ -912,6 +912,24 @@ fn hash_rider_situation(
                 67u8.hash(h);
                 (acquisition, printed, name).hash(h);
             }
+            crate::object::Rider::LinkedExile {
+                source,
+                acquisition,
+            } => {
+                69u8.hash(h);
+                (source, acquisition).hash(h);
+            }
+            crate::object::Rider::ExileVisibility {
+                seen,
+                follow_source,
+            } => {
+                70u8.hash(h);
+                (seen, follow_source).hash(h);
+            }
+            crate::object::Rider::HideawayHost(version) => {
+                71u8.hash(h);
+                version.hash(h);
+            }
             crate::object::Rider::RulesAcquisition(acquisition) => {
                 68u8.hash(h);
                 acquisition.hash(h);
@@ -1394,6 +1412,24 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             } => {
                 67u8.hash(h);
                 (acquisition, printed, name).hash(h);
+            }
+            Rider::LinkedExile {
+                source,
+                acquisition,
+            } => {
+                69u8.hash(h);
+                (source, acquisition).hash(h);
+            }
+            Rider::ExileVisibility {
+                seen,
+                follow_source,
+            } => {
+                70u8.hash(h);
+                (seen, follow_source).hash(h);
+            }
+            Rider::HideawayHost(version) => {
+                71u8.hash(h);
+                version.hash(h);
             }
             Rider::RulesAcquisition(acquisition) => {
                 68u8.hash(h);

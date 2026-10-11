@@ -6,6 +6,21 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// All cards privately inspected by hideaway.
+    Hideaway {
+        /// Top cards, in their inspection order.
+        looked: Vec<ObjectId>,
+    },
+    /// Remaining linked cards that may each be played during this resolution.
+    LinkedPlay {
+        /// Exact exile incarnations; a later exile never inherits the permission.
+        cards: Vec<baylee_core::ids::DamageSourceRef>,
+    },
+    /// Linked cards returning after their owners answer command-zone replacements.
+    ReturnLinkedExile {
+        /// Owners' destination zone.
+        to: baylee_cards_dsl::ZoneRef,
+    },
     /// Card-name choice during a resolving instruction.
     ChooseCardName {
         /// Retain this choice on the originating permanent.
@@ -783,6 +798,9 @@ impl AwaitingOp {
     /// Captured choices distinguish a search even while its cards have not moved.
     pub(crate) fn search_fingerprint(&self) -> u64 {
         match self {
+            Self::Hideaway { looked } => crate::state::structural_fingerprint(&(7u8, looked)),
+            Self::LinkedPlay { cards } => crate::state::structural_fingerprint(&(8u8, cards)),
+            Self::ReturnLinkedExile { to } => crate::state::structural_fingerprint(&(9u8, to)),
             Self::SharedLandSearch(selection) => {
                 selection.fingerprint().wrapping_mul(31).wrapping_add(1)
             }
@@ -816,6 +834,18 @@ impl AwaitingOp {
                 split,
             } => crate::state::structural_fingerprint(&(
                 4u8, inspected, agent, finds, reveal, library, split,
+            )),
+            Self::SelectedCommander {
+                operation,
+                chosen,
+                asked,
+                remaining,
+            } => crate::state::structural_fingerprint(&(
+                10u8,
+                operation.search_fingerprint(),
+                chosen,
+                asked,
+                remaining,
             )),
             Self::Entry { next: Some(next) } => next.0.search_fingerprint(),
             _ => 0,

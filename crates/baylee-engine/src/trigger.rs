@@ -346,28 +346,28 @@ fn collect_departed(
     events: &[crate::event::JournalEntry],
     triggers: &mut Vec<PendingTrigger>,
 ) {
-    // LTB/Dies triggers look back in time (CR 603.10): the source is no
-    // longer on the battlefield when they fire.
-    for seat in 0..state.players.len() {
-        let p = PlayerId::new(seat as u8);
-        for loc in [ZoneLocation::Graveyard(p), ZoneLocation::Exile(p)] {
-            collect_for_objects(
-                state,
-                lookup,
-                state.zones.list(loc),
-                events,
-                false,
-                triggers,
-            );
-        }
-    }
-    // And the objects that are in no zone at all any more, because they
-    // ceased to exist on the way (CR 111.7, CR 704.5d). Their abilities still
-    // fire: the token is gone, the trigger is not. Without this pass a token
-    // with a dies trigger of its own was the one permanent that could not see
-    // its own death — the loop above walks zone *lists*, and a swept token
-    // has left those too.
-    let departed: Vec<ObjectId> = state.ceased.iter().map(|o| o.id).collect();
+    // CR 603.10a looks back after *every* departure, including hand, library,
+    // and command zone. Collect just this event batch's sources instead of
+    // repeatedly scanning every accumulated graveyard and exile card.
+    let mut departed: Vec<_> = events
+        .iter()
+        .filter_map(|entry| match entry.event {
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                ..
+            }
+            | GameEvent::Cycled { object, .. } => Some(object),
+            _ => None,
+        })
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_none_or(|object| object.zone != Zone::Battlefield)
+        })
+        .collect();
+    departed.sort_unstable();
+    departed.dedup();
     collect_for_objects(state, lookup, &departed, events, false, triggers);
 }
 

@@ -28,6 +28,12 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::Hideaway { looked } => hidden_exile::choose(state, res, looked, chosen),
+        AwaitingOp::ReturnLinkedExile { to } => {
+            if let Some(question) = hidden_exile::return_cards(state, res, to) {
+                return next_choice(state, res, since, question);
+            }
+        }
         AwaitingOp::SearchUpgrade { operation, value } => {
             return upgrade::found(state, res, *operation, value, chosen);
         }
@@ -972,6 +978,7 @@ pub(super) fn resume_inner(
         AwaitingOp::ChooseCardName { .. }
         | AwaitingOp::ChooseNumber
         | AwaitingOp::ChooseEffect { .. }
+        | AwaitingOp::LinkedPlay { .. }
         | AwaitingOp::MaskedCast
         | AwaitingOp::ControlledCard { .. }
         | AwaitingOp::LandMana { .. }

@@ -22,6 +22,7 @@ mod command_card;
 mod commanders;
 mod grants;
 mod hidden;
+mod hidden_exile;
 mod historical;
 mod log;
 mod mana;

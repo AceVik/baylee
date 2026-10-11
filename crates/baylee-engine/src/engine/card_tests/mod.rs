@@ -32,6 +32,7 @@ mod counter_resources;
 mod creatures;
 mod enchantments;
 mod entry_replacements;
+mod hidden_exile;
 mod instants;
 mod land_equilibrium;
 mod lands;
