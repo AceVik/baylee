@@ -80,7 +80,7 @@ pub(super) struct ActivationPayment {
     targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
     pub(super) cost: baylee_core::mana::ManaCost,
     players: Vec<PlayerId>,
-    choices: Vec<baylee_core::ids::ObjectId>,
+    choices: Vec<Vec<baylee_core::ids::ObjectId>>,
     second: Option<smallvec::SmallVec<[baylee_core::ids::ObjectId; 1]>>,
     references: crate::sources::TargetReferences,
     answered: bool,

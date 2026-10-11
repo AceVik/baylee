@@ -1208,6 +1208,7 @@ fn alternative_parts_payable(
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
+        | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::DiscardSelf

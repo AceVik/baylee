@@ -145,10 +145,11 @@ impl<L: CardLookup> Engine<L> {
                 // creatures on the menu with a power above zero are the most
                 // any answer can reach; a creature with a negative power
                 // only lowers a total (CR 107.1b), so nobody would name it.
-                CostPart::Crew(power) => {
-                    let mut menu = cost_wizard::menu(&self.state, player, source, cost, part);
-                    menu.retain(|id| cost_wizard::crew_power(&self.state, &[*id]) > 0);
-                    if cost_wizard::crew_power(&self.state, &menu) < i32::from(*power) {
+                CostPart::Crew(power) | CostPart::Saddle(power) => {
+                    let menu = cost_wizard::menu(&self.state, player, source, cost, part);
+                    if !cost_wizard::PowerPayment::new(&self.state, source, part)
+                        .can_reach(&menu, *power)
+                    {
                         return false;
                     }
                 }
@@ -277,7 +278,7 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         source: ObjectId,
         cost: &Cost,
-        chosen: &[ObjectId],
+        chosen: &[Vec<ObjectId>],
         x: u32,
     ) -> Result<crate::object::PaidRecord, EngineError> {
         if !cost.parts.iter().any(can_refuse_part_way) {
@@ -298,10 +299,10 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         source: ObjectId,
         cost: &Cost,
-        chosen: &[ObjectId],
+        chosen: &[Vec<ObjectId>],
         x: u32,
     ) -> Result<crate::object::PaidRecord, EngineError> {
-        let mut answers = chosen.iter().copied();
+        let mut answers = chosen.iter();
         let mut paid = crate::object::PaidRecord::default();
         let subject_before = self.state.source_identity(source);
         let subject_seq = self.state.journal.last_seq();
@@ -451,19 +452,18 @@ impl<L: CardLookup> Engine<L> {
                         ));
                     }
                 }
-                // Crew's one question named every creature that pays it,
-                // and crew is alone in its cost (`CostPart::Crew`), so every
-                // answer left is tapped — through the `TapOther` door, so a
-                // creature that crews becomes tapped the way any other
-                // tapped-for-a-cost creature does (CR 702.122b).
-                CostPart::Crew(_) => {
-                    let crew: Vec<ObjectId> = answers.by_ref().collect();
-                    if crew.is_empty() {
-                        return Err(EngineError::IllegalAction(
-                            "a cost that has to ask reached the payer unanswered",
-                        ));
+                // Preserve one answer per asking part, including an empty
+                // answer to crew/saddle 0. A following cost owns its own answer.
+                CostPart::Crew(power) | CostPart::Saddle(power) => {
+                    let Some(crew) = answers.next() else {
+                        return Err(EngineError::IllegalAction("unanswered power cost"));
+                    };
+                    let payment = cost_wizard::PowerPayment::new(&self.state, source, part);
+                    let total: i64 = crew.iter().map(|id| i64::from(payment.weight(*id))).sum();
+                    if total < i64::from(*power) {
+                        return Err(EngineError::IllegalAction("insufficient power for cost"));
                     }
-                    for creature in crew {
+                    for &creature in crew {
                         cost_wizard::pay(&mut self.state, player, part, creature)?;
                     }
                 }
@@ -478,7 +478,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_)
                 | CostPart::ExileFromGraveyard(_) => {
-                    let Some(card) = answers.next() else {
+                    let Some(&[card]) = answers.next().map(Vec::as_slice) else {
                         return Err(EngineError::IllegalAction(
                             "a cost that has to ask reached the payer unanswered",
                         ));

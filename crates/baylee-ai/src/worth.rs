@@ -1443,7 +1443,7 @@ impl HeuristicAgent {
                     }
                 })
                 .min()?,
-                CostPart::Crew(_) => 80,
+                CostPart::Crew(_) | CostPart::Saddle(_) => 80,
                 CostPart::ReturnToHand(filter) => own(filter, &|_| true)
                     .into_iter()
                     .map(|o| i64::from(o.mana_value) * 60 + 50)

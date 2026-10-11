@@ -282,7 +282,7 @@ fn consumes(cost: &Cost) -> bool {
             // it is the *board* that shrinks rather than the source — which
             // is the same limit, read one permanent over.
             | CostPart::TapOther(_)
-            | CostPart::Crew(_)
+            | CostPart::Crew(_) | CostPart::Saddle(_)
             // A permanent returned to a hand leaves the battlefield, so the
             // board shrinks the same way — more so than a tap, which leaves
             // the permanent where it was.

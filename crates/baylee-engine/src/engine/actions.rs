@@ -1622,7 +1622,7 @@ impl<L: CardLookup> Engine<L> {
                         targets,
                         target_players,
                     }) => {
-                        self.activation_cost_choices.extend(objects);
+                        self.activation_cost_choices.push(objects);
                         self.activation_target_players = target_players;
                         if self
                             .start_activation(player, source, ability_index, targets)

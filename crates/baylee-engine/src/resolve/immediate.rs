@@ -985,6 +985,16 @@ pub(super) fn exec_immediate(
             reflexive::arm(state, res, when, effects, target);
             None
         }
+        Effect::BecomeSaddled => {
+            if let Some(source) = subjects::source(state, res)
+                .filter(|source| subjects::on_battlefield(state, *source))
+                && let Some(object) = state.object_mut(source.object)
+                && !object.riders.contains(&crate::object::Rider::Saddled)
+            {
+                object.riders.push(crate::object::Rider::Saddled);
+            }
+            None
+        }
         Effect::BecomePrepared | Effect::BecomeTargetPrepared => {
             let target = if matches!(op, Effect::BecomeTargetPrepared) {
                 res.targets.first().copied()?

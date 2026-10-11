@@ -35,7 +35,7 @@ pub(super) struct Checkpoint {
     library_action_tops: Option<Vec<Option<ObjectId>>>,
     loyalty_player_choice: Option<PlayerId>,
     activation_target_players: Vec<PlayerId>,
-    activation_cost_choices: Vec<ObjectId>,
+    activation_cost_choices: Vec<Vec<ObjectId>>,
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
     activation_target_references: crate::sources::TargetReferences,
     activation_targets_answered: bool,

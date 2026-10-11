@@ -439,6 +439,42 @@ pub static SPIRIT_1_1_COLORLESS: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// Colorless 1/1 Pilot whose bonus applies only to crew/saddle payments.
+pub static PILOT_1_1_COLORLESS: TokenDef = TokenDef {
+    name: "Pilot",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PILOT],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::CrewSaddlePowerBonus(2)
+    )],
+    scryfall_id: "8672d795-04f9-4089-9c92-6d6ff628da12",
+    ..TokenDef::DEFAULT
+};
+
+/// Realm of Koh's colorless 1/1 Spirit can interact in combat only with Spirits.
+pub static SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT: TokenDef = TokenDef {
+    name: "Spirit",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIRIT],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[
+        static_ability!(
+            Filter::This,
+            Modifier::CantBlock(&Filter::Not(&Filter::HasSubtype(creature::SPIRIT)))
+        ),
+        static_ability!(
+            Filter::This,
+            Modifier::CantBeBlockedBy(&Filter::Not(&Filter::HasSubtype(creature::SPIRIT)))
+        ),
+    ],
+    scryfall_id: "f59eba51-458a-40e0-b754-999f91d5d839",
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is; the index IS the stable token id (art key).
 ///
 /// Append only — an insertion in the middle renumbers every token after it,
@@ -474,10 +510,18 @@ pub fn by_token_id(id: u16) -> Option<&'static TokenDef> {
 /// on their definitions, checked 2026-10-11. Unknown pairs have no invented sentence.
 #[must_use]
 pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
+    let token = by_token_id(id)?;
+    if index < 2 && std::ptr::eq(token, &raw const SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT) {
+        return Some("This token can't block or be blocked by non-Spirit creatures.");
+    }
     if index != 0 {
         return None;
     }
-    let token = by_token_id(id)?;
+    if std::ptr::eq(token, &raw const PILOT_1_1_COLORLESS) {
+        return Some(
+            "This token saddles Mounts and crews Vehicles as though its power were 2 greater.",
+        );
+    }
     if std::ptr::eq(token, &raw const FOOD) {
         Some("{2}, {T}, Sacrifice this token: You gain 3 life.")
     } else if std::ptr::eq(token, &raw const POWERSTONE)

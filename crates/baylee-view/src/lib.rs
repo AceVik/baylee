@@ -198,9 +198,10 @@ pub use turn::{DayNight, Phase, Step};
 /// fields to the player/spectator views and preserve their disclosure origin.
 /// Compatible addition: [`PublicObject::prepared_spell`] identifies the frozen
 /// exiled prepare spell; older readers ignore the defaulted optional field.
+/// Version 59 adds the distinct saddle-cost prompt to the engine choice enum.
 ///
 /// [`SubtypeSet`]: baylee_core::types::SubtypeSet
-pub const VIEW_VERSION: u32 = 58;
+pub const VIEW_VERSION: u32 = 59;
 
 // ------------------------------------------------------------------- targets
 

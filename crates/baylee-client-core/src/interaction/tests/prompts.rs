@@ -1342,3 +1342,22 @@ fn a_river_label_names_the_attacker_it_is_for() {
             .contains("Hill Giant")
     );
 }
+
+#[test]
+fn saddle_question_names_its_power_cost_in_both_languages() {
+    let i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(1)],
+        min: 0,
+        max: 1,
+        prompt: ChoicePrompt::CostSaddle { power: 3 },
+        total: None,
+    });
+    for (lang, name, power) in [
+        (Lang::En, "Saddle 3", "total power 3 or more"),
+        (Lang::De, "Satteln 3", "Gesamtstärke von 3 oder mehr"),
+    ] {
+        let text = i.prompt().headline(lang, Turn::Mine, None, false);
+        assert!(text.contains(name) && text.contains(power), "{text}");
+    }
+}

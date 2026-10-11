@@ -3,8 +3,8 @@
 //! Oracle: {T}: Add {B}.
 //! Oracle: {3}{B}, {T}: Create a 1/1 colorless Spirit creature token with "This token can't block or be blocked by non-Spirit creatures."
 //! Set: TLA #276 — Avatar: The Last Airbender | Scryfall ID: 061ac694-610c-479f-b038-a4ef5270d5d7 | Oracle ID: bb9ce416-eef1-49e8-89a0-2b6837505070
-// PARTIAL — the check-land entry condition and the {B} mana ability are built;
-// the token half is not, see the NOT SUPPORTED line below.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -18,9 +18,14 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::TappedUnless(&Filter::YOUR_BASIC_LAND)],
     ),],
-    coverage = Coverage::Partial(
-        "the Spirit token's \"can't block or be blocked by non-Spirit creatures\" has no Modifier"
-    ),
-    // NOT SUPPORTED: "{3}{B}, {T}: Create a 1/1 colorless Spirit creature token with \"This token can't block or be blocked by non-Spirit creatures.\"" — no Modifier restricts blocking (neither "can't block" nor "can't be blocked by <filter>"), so a token made without it would block and be blocked like any other creature.
-    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Black, 1)])],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
+        activated!(
+            cost!("{3}{B}", TapSelf),
+            &[Effect::CreateToken {
+                token: &crate::tokens::SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT
+            }]
+        ),
+    ],
 );

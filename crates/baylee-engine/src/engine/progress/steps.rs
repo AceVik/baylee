@@ -659,8 +659,11 @@ impl<L: CardLookup> Engine<L> {
                     || obj.deathtouched
                     || obj.regeneration_shields != 0
                     || obj.own_abilities_until_eot
+                    || obj.riders.contains(&crate::object::Rider::Saddled)
             },
             |obj| {
+                obj.riders
+                    .retain(|rider| *rider != crate::object::Rider::Saddled);
                 obj.damage = 0;
                 obj.deathtouched = false;
                 // "The next time it would be destroyed **this turn**"

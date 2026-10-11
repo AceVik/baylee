@@ -59,6 +59,8 @@ pub enum CostPart {
     /// Crew 3 alone, and two with power 1 pay Crew 2 together, so the
     /// number of creatures is the player's to choose and not the card's.
     Crew(u8),
+    /// Tap other untapped creatures with total power N or greater to saddle (CR 702.171a).
+    Saddle(u8),
     /// Discard the source card itself (cycling).
     DiscardSelf,
     /// Exile the source.

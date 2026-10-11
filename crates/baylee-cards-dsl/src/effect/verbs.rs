@@ -774,6 +774,7 @@ impl Effect {
             | Effect::ShuffleIntoLibrary { .. }
             | Effect::ShuffleLibrary { .. }
             | Effect::BecomeTargetPrepared
+            | Effect::BecomeSaddled
             | Effect::BecomePrepared
             | Effect::GainLifeDoubleX
             | Effect::SearchLibrary { .. }

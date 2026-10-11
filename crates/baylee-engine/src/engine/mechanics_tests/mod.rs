@@ -19,6 +19,7 @@ mod blocks;
 mod branches;
 mod control;
 mod costs;
+mod crew_saddle;
 mod departed;
 mod effects;
 mod mana;

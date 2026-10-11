@@ -86,6 +86,7 @@ impl EffectFilter {
 /// modifier added from here on, which is the direction that is silent —
 /// the effect simply goes on catching permanents nobody cast it at.
 #[must_use]
+#[allow(clippy::too_many_lines)] // Exhaustive classification of every modifier.
 pub fn locks_its_set(modifier: &Modifier) -> bool {
     match modifier {
         // Characteristics: types, colors, abilities, P/T — and control,
@@ -184,6 +185,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::NoMaxHandSize
             | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::SkipUntapStep { .. }
+        | Modifier::CrewSaddlePowerBonus(_)
         | Modifier::BoastTwice
         | Modifier::PlayerHexproof
         | Modifier::SpellsHaveFlash(_)
@@ -1094,6 +1096,7 @@ mod tests {
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBlock(&Filter::CREATURE),
+            Modifier::CrewSaddlePowerBonus(2),
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::LandwalkMatching(&Filter::LAND),
@@ -1169,7 +1172,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            98,
+            99,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1233,7 +1236,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (36, 62));
+        assert_eq!((locking, all.len() - locking), (36, 63));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

@@ -931,6 +931,18 @@ macro_rules! crew {
     };
 }
 
+/// Saddle N (CR 702.171a), at sorcery speed, with an independent designation.
+#[macro_export]
+macro_rules! saddle {
+    ($power:literal) => {
+        $crate::activated!(
+            $crate::cost!(Saddle($power)),
+            &[$crate::Effect::BecomeSaddled],
+            timing = $crate::ActivationTiming::SorcerySpeed
+        )
+    };
+}
+
 /// Everything a card file needs, in one import.
 ///
 /// A card file used to open with eight `use` lines and
@@ -973,7 +985,7 @@ pub mod prelude {
     pub use crate::{SpecialActionCost, SpecialActionEffect, SpecialActionTiming, TextWordKind};
     pub use crate::{
         activated, card, chapter, cost, crew, equip, f, face, loyalty, mana_ability,
-        modal_triggered, mode, spell, static_ability, triggered,
+        modal_triggered, mode, saddle, spell, static_ability, triggered,
     };
     pub use baylee_core::color::{Color, ColorSet};
     /// Every card's `CardIndex` under the name the ledger froze for it.

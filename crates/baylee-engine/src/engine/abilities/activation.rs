@@ -593,14 +593,19 @@ impl<L: CardLookup> Engine<L> {
             // sacrifice parts from eating one permanent twice. No card in
             // the pool prints such a cost today; this is one line and is
             // right for the one that does.
-            options.retain(|id| !self.activation_cost_choices.contains(id));
+            options.retain(|id| {
+                !self
+                    .activation_cost_choices
+                    .iter()
+                    .any(|answer| answer.contains(id))
+            });
             let prompt = cost_wizard::prompt(part);
             // `can_afford` asked the same question of the same function a
             // moment ago, so an empty list here is not a board this engine
             // can be in. Refusing rather than asserting all the same: this
             // is a rules path, and one process per game is the panic
             // boundary.
-            if options.is_empty() {
+            if options.is_empty() && !matches!(part, CostPart::Crew(0) | CostPart::Saddle(0)) {
                 self.activation_cost_choices.clear();
                 self.activation_x = None;
                 return Err(EngineError::IllegalAction("nothing can pay this cost"));
@@ -617,11 +622,9 @@ impl<L: CardLookup> Engine<L> {
             // creature's power beside it, so an answer short of it is
             // refused for a reason the question gives, and the offer above
             // (`can_afford`) asked the same sum of the same menu.
-            let (max, total) = if let CostPart::Crew(power) = part {
-                let weights = options
-                    .iter()
-                    .map(|id| cost_wizard::crew_power(&self.state, &[*id]))
-                    .collect();
+            let (max, total) = if let CostPart::Crew(power) | CostPart::Saddle(power) = part {
+                let payment = cost_wizard::PowerPayment::new(&self.state, source, part);
+                let weights = options.iter().map(|id| payment.weight(*id)).collect();
                 (
                     u8::try_from(options.len()).unwrap_or(u8::MAX),
                     Some(crate::choice::CardTotal {
@@ -637,7 +640,7 @@ impl<L: CardLookup> Engine<L> {
             self.pending = Pending::ChooseCards {
                 player,
                 options,
-                min: 1,
+                min: u8::from(!matches!(part, CostPart::Crew(0) | CostPart::Saddle(0))),
                 max,
                 prompt,
                 total,

@@ -60,7 +60,7 @@ pub const fn step_id(phase: Phase, step: Step) -> &'static str {
 /// A positive list, so `every_keyword_a_card_prints_has_a_name` holds it
 /// to the pool: a keyword a card carries and this table lacks fails there
 /// rather than going silent on a board.
-pub const KEYWORDS: [(KeywordSet, &str); 45] = [
+pub const KEYWORDS: [(KeywordSet, &str); 49] = [
     (KeywordSet::FLYING, "flying"),
     (KeywordSet::FIRST_STRIKE, "first strike"),
     (KeywordSet::DOUBLE_STRIKE, "double strike"),
@@ -106,6 +106,13 @@ pub const KEYWORDS: [(KeywordSet, &str); 45] = [
     (KeywordSet::MOUNTAINWALK, "mountainwalk"),
     (KeywordSet::FORESTWALK, "forestwalk"),
     (KeywordSet::BANDING, "banding"),
+    (KeywordSet::PHASING, "phasing"),
+    (KeywordSet::DEVOID, "devoid"),
+    (KeywordSet::RANGELING, "rangeling"),
+    (
+        KeywordSet::ALL_NONBASIC_LAND_TYPES,
+        "every nonbasic land type",
+    ),
 ];
 
 /// The keywords in `bits` (a view's projected keywords), in table order.
@@ -260,6 +267,9 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
             "Separate the cards into two piles: choose the cards of the first pile (the rest \
              form the second)"
                 .into()
+        }
+        ChoicePrompt::CostSaddle { power } => {
+            format!("Choose creatures to tap to saddle (total power {power} or more)")
         }
         ChoicePrompt::CostCrew { power } => {
             format!("Choose creatures to tap to crew (total power {power} or more)")

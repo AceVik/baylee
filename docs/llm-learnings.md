@@ -3876,3 +3876,38 @@ land type"; both are convention tests that fire on a first try.
   tests pass. All 3,321 printing validations, focused table/subtype
   reproducibility checks, formatting and workspace/all-targets clippy with
   dev controls pass. Original Partial inventory: 258 completed, 282 remaining.
+
+### Partial-card completion batch 33 (2026-10-11)
+
+- Completed the five Roads lands and Realm of Koh with two centrally defined
+  tokens. Pilot power changes only while paying to crew a Vehicle or saddle a
+  Mount. It does not change combat power, and losing the ability removes the
+  bonus. Koh Spirits check current creature types in both directions of combat.
+- Crew and saddle reuse a single effect index per power-selection menu. Sum
+  signed contributions in a wider integer before clamping the public weight;
+  feasibility needs only positive contributions and stops at the threshold.
+  A differential test compares indexed results against a complete effect scan
+  over overlapping bonuses, negative powers and all 256 cost thresholds.
+- An activation's cost answers are groups, not a flat list of objects. A
+  zero-card answer still answers one question; a many-card answer cannot skip
+  the next question. Preserve these groups in rollback checkpoints and nested
+  mana-payment continuations. The payer checks each group's power separately.
+- Saddle is sorcery-speed. The designation belongs to the exact permanent
+  incarnation, is not copiable, and ends on departure or cleanup. Fresh Pilots
+  may pay crew/saddle without haste because these costs do not use their own
+  tap-symbol abilities. The player and AI prompts name saddle explicitly;
+  view version 59 identifies the added choice-prompt variant.
+- Broader narrator tests exposed missing names for phasing, rangeling, devoid
+  and the all-nonbasic-land-types marker. Supply the real names instead of the
+  generic unknown-keyword fallback.
+- Validation: the engine run passes 5,616 tests with one stale modifier-count
+  assertion; after correcting that count, all 13 effect-catalog tests pass,
+  covering all 5,617 engine tests (two intentional ignores). The seven new
+  crew/saddle mechanic tests, nine Roads/Koh card tests, 1,561 client-core
+  tests, 248 host tests, 42 view tests, 134 card tests, 71 DSL tests and 275
+  codegen tests pass. The seat suite passes its 222 other tests with loopback
+  allowed, and all 36 narrator tests pass after completing its keyword names.
+  All 3,321 printing validations pass. Original Partial inventory: 264
+  completed, 276 remaining.
+  Focused table reproducibility, formatting and workspace/all-targets clippy
+  with dev controls also pass after the final corrections.

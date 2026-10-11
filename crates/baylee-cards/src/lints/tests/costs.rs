@@ -131,7 +131,11 @@ fn crew_is_alone_in_its_cost() {
     let mut crews = 0usize;
     let mut check = |who: &str, ability: &AbilityDef| {
         for cost in costs(ability) {
-            if cost.parts.iter().any(|p| matches!(p, CostPart::Crew(_))) {
+            if cost
+                .parts
+                .iter()
+                .any(|p| matches!(p, CostPart::Crew(_) | CostPart::Saddle(_)))
+            {
                 crews += 1;
                 if cost.parts.len() != 1 || cost.mana != baylee_cards_dsl::ManaCost::ZERO {
                     wrong.push(format!("{who} — {cost:?}"));

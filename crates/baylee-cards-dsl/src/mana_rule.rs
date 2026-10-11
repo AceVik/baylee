@@ -56,6 +56,7 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
+        | CostPart::Saddle(_)
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand

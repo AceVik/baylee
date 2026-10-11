@@ -166,6 +166,17 @@ impl LayerPlan {
         }
     }
 
+    /// The indexed candidates for one object, for non-characteristic rules too.
+    pub(crate) fn effects_for<'a>(
+        &'a self,
+        effects: &'a EffectTable,
+        layer: Layer,
+        id: ObjectId,
+    ) -> impl Iterator<Item = &'a crate::effects::ContinuousEffect> {
+        self.candidates(layer, id)
+            .map(move |index| &effects.as_slice()[index as usize])
+    }
+
     fn may_affect(&self, id: ObjectId) -> bool {
         self.index
             .as_ref()
@@ -1298,6 +1309,7 @@ fn apply(
             | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::ProtectionFrom(_)
         | Modifier::GrantsFlashback
+        | Modifier::CrewSaddlePowerBonus(_)
         | Modifier::BoastTwice
         | Modifier::PlayerHexproof
         | Modifier::GrantActivated { .. }

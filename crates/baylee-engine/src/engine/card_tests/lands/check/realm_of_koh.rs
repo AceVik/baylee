@@ -4,7 +4,6 @@
 use super::*;
 
 /// Realm of Koh prints `This land enters tapped unless you control a basic land`, `{{T}}: Add {{B}}`, and a token creation ability.
-/// The card is marked `Coverage::Partial` because the Spirit token's blocking restrictions are unsupported and omitted.
 /// When played while controlling a basic `forest()`, Realm of Koh enters untapped and immediately taps to add black mana to the pool.
 #[test]
 fn realm_of_koh_enters_untapped_with_basic_land_and_taps_for_black() {
@@ -32,4 +31,38 @@ fn realm_of_koh_enters_untapped_with_basic_land_and_taps_for_black() {
             .available(ManaColor::Green),
         1
     );
+}
+
+#[test]
+fn realm_spirits_restrict_both_sides_of_combat_by_current_creature_types() {
+    use baylee_core::generated::{index, subtypes::creature};
+    let (p, q) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::REALM_OF_KOH, index::DOUBLING_SEASON])
+        .battlefield(1, &[index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p);
+    e.dev_state_mut(p).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Black, 4);
+    e.refresh_offer();
+    activate(&mut e, p, index::REALM_OF_KOH, 1);
+    pass_until(&mut e, stack_is_empty);
+    let tokens = tokens_of(&e, p);
+    assert_eq!(tokens.len(), 2);
+    let spirit = tokens[0];
+    let bear = on_battlefield(&e, q, index::GRIZZLY_BEARS).unwrap();
+    assert!(!crate::combat::can_block(e.state(), q, bear, spirit));
+    assert!(!crate::combat::can_block(e.state(), p, spirit, bear));
+    e.dev_state_mut(p)
+        .unwrap()
+        .object_mut(bear)
+        .unwrap()
+        .base_mut()
+        .subtypes
+        .insert(creature::SPIRIT);
+    e.apply(p, PlayerAction::PassPriority).unwrap();
+    assert!(crate::combat::can_block(e.state(), q, bear, spirit));
+    assert!(crate::combat::can_block(e.state(), p, spirit, bear));
 }

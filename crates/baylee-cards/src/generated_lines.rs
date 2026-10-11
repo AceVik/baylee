@@ -50119,8 +50119,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Country Roads
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50156,8 +50156,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Foul Roads
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50281,8 +50281,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Reef Roads
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50312,8 +50312,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Rocky Roads
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50399,8 +50399,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Wild Roads
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -52579,8 +52579,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Realm of Koh
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

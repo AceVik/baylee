@@ -497,6 +497,10 @@ impl Prompt {
                 reason: ChoicePrompt::CostCrew { power },
                 ..
             } => Phrase::CrewWithPower.fill(lang, &[&power.to_string()]),
+            Self::ChooseCards {
+                reason: ChoicePrompt::CostSaddle { power },
+                ..
+            } => Phrase::SaddleWithPower.fill(lang, &[&power.to_string()]),
             // One card type at a time, and the type is the whole question:
             // the menu is that type's cards, and the next question is the
             // next type's.
@@ -826,7 +830,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::CostDiscard | ChoicePrompt::Discard => {
             (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard)
         }
-        ChoicePrompt::CostTap | ChoicePrompt::CostCrew { .. } => {
+        ChoicePrompt::CostTap | ChoicePrompt::CostCrew { .. } | ChoicePrompt::CostSaddle { .. } => {
             (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap)
         }
         ChoicePrompt::CostReturn => (

@@ -461,6 +461,7 @@ express at all yet.
   `Discard(filter)`, `DiscardSelf` (cycling), `PayLife(n)`, `PayLifeX`,
   `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`,
   `TapOther(filter)` (the convoke lands, Earthcraft),
+  `Saddle(n)` (written by `saddle!(n)`, the same power payment at sorcery speed),
   `Crew(n)` (written only by `crew!(n)`: one question answered with any
   number of other untapped creatures the payer controls, refused when their
   total power is short of `n`),
@@ -769,8 +770,8 @@ mana cost is not the same data as a mana cost of zero generic.
 `crew!(2)` takes **only the number**, for the same reason (CR 702.122a):
 the cost is `CostPart::Crew(2)` alone, and the effect makes the source an
 artifact creature until end of turn. The crew question is a
-`Pending::ChooseCards` with `ChoicePrompt::CostCrew { power }`, `min: 1` and
-`max` every creature offered; `apply` refuses an answer whose total power is
+`Pending::ChooseCards` with `ChoicePrompt::CostCrew { power }`, `min: 0` for crew 0 (otherwise 1) and
+`max` the offered count, currently capped at 255 by the choice wire type; `apply` refuses an answer whose total power is
 short, and `can_afford` offers the ability only when the creatures with a
 power above zero reach the number (Unlicensed Hearse).
 
@@ -3268,3 +3269,8 @@ consume the reserved mana while producing the chosen spell's payment.
 `--check` verifies it without writing. It can be used independently of a corpus
 checkout and does not rewrite card implementations. The Scryfall catalog reader
 supplements artifact types already present in CR 205.3g but absent from its API.
+
+`saddle!(n)` creates the sorcery-speed saddle ability. Its paid creatures use
+`CrewSaddlePowerBonus` only when the source is a Mount; crew uses the bonus only
+for a Vehicle. The bonus never changes combat power. The saddled designation
+is not copiable and expires on departure or cleanup (CR 702.171b).

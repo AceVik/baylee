@@ -948,3 +948,14 @@ supplements those names without modifying the cached API response or reassigning
 any existing subtype ID. Only rules data and existing printing identifiers are
 added; no images, audio or corpus scripts are copied. The Fan Content Policy
 review, Scryfall terms and explicit owner decision recorded above apply.
+
+Batch 33 completes Country Roads, Reef Roads, Rocky Roads, Foul Roads, Wild
+Roads and Realm of Koh. The token definitions use the verified Scryfall records
+for the [Aetherdrift Pilot](https://api.scryfall.com/cards/8672d795-04f9-4089-9c92-6d6ff628da12)
+and [Realm of Koh Spirit](https://api.scryfall.com/cards/f59eba51-458a-40e0-b754-999f91d5d839).
+Crew and saddle follow CR 702.122a-b and 702.171a-c in the
+[current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt),
+including the noncopiable, temporary saddled designation and payment-only
+Pilot power bonus. Only rules data and existing printing identifiers are added;
+no artwork or external scripts are copied. The policy review, Scryfall terms
+and explicit owner decision above remain applicable.

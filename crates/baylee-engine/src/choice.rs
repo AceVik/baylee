@@ -882,11 +882,15 @@ pub enum ChoicePrompt {
     /// second, and either may be empty. The other player then takes one
     /// pile into their hand, so the house AI puts the best card alone.
     FirstPile,
-    /// Creatures to tap to crew a Vehicle (CR 702.122a): any number of
-    /// them, with total power `power` or greater. The question states the
-    /// total as its [`CardTotal`], each creature's power beside it, and an
-    /// answer whose total is short is refused for that
-    /// ([`AnswerFault::TotalTooLow`]).
+    /// Creatures to tap to saddle a permanent (CR 702.171a), with total
+    /// effective power meeting the question's [`CardTotal`].
+    CostSaddle {
+        /// The N of saddle N.
+        power: u8,
+    },
+    /// Creatures to tap to crew a Vehicle (CR 702.122a), with total effective
+    /// power meeting the question's [`CardTotal`]. An insufficient answer
+    /// is refused with [`AnswerFault::TotalTooLow`].
     CostCrew {
         /// The N of "Crew N".
         power: u8,

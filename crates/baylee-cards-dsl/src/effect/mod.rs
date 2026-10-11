@@ -1410,6 +1410,8 @@ pub enum Effect {
     /// The source gains the prepared marker (Emeritus of Woe's
     /// re-prepare trigger).
     BecomePrepared,
+    /// Give this exact permanent the saddled designation until end of turn.
+    BecomeSaddled,
     /// The targeted permanent becomes prepared if it has a prepare spell.
     BecomeTargetPrepared,
     /// "… target … if it's [filter]": the effects run only when the first

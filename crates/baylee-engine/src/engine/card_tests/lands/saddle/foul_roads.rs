@@ -4,7 +4,6 @@
 use super::*;
 
 /// Foul Roads: "This land enters tapped unless you control a Mount or Vehicle." / "{T}: Add {B}." / "{1}{B}, {T}, Sacrifice this land..."
-/// Under `Coverage::Partial`, the sacrifice ability creating a Pilot token is omitted.
 /// Playing this land without a Mount or Vehicle enters tapped, and after untapping on a subsequent turn it taps for black mana.
 #[test]
 fn foul_roads_enters_tapped_and_taps_for_black() {

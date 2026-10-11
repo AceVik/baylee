@@ -2365,6 +2365,8 @@ messages! {
     DelveToHelpPay { en: "Exile cards from your graveyard to help pay — each pays for one", de: "Schicke Karten aus deinem Friedhof ins Exil, um mitzubezahlen — jede zahlt eine" },
     /// Crew N: tap creatures with total power {0} or more
     CrewWithPower { en: "Crew {0}: tap any number of your other untapped creatures with total power {0} or more", de: "Besatzung {0}: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von {0} oder mehr" },
+    /// Saddle N: pay by tapping creatures with enough effective power.
+    SaddleWithPower { en: "Saddle {0}: tap any number of your other untapped creatures with total power {0} or more", de: "Satteln {0}: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von {0} oder mehr" },
     /// Choose up to {0} {1}
     ChooseUpTo { en: "Choose up to {0} {1}", de: "Wähle bis zu {0} {1}" },
     /// A resolving effect changes one target at a time.

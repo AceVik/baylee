@@ -1375,7 +1375,11 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             // every creature offered is the answer most likely to reach it.
             let want = if prompt == crate::choice::ChoicePrompt::LeaveTapped {
                 0
-            } else if matches!(prompt, crate::choice::ChoicePrompt::CostCrew { .. }) {
+            } else if matches!(
+                prompt,
+                crate::choice::ChoicePrompt::CostCrew { .. }
+                    | crate::choice::ChoicePrompt::CostSaddle { .. }
+            ) {
                 usize::from(max)
             } else {
                 usize::from(min).max(1).min(usize::from(max))

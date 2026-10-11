@@ -1366,6 +1366,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(p.get());
             }
             Rider::Prepared => h.u8(10),
+            Rider::Saddled => h.u8(43),
             Rider::PrepareSpellFace(face) => {
                 h.u8(42);
                 h.u8(*face);

@@ -3,14 +3,12 @@
 //! Oracle: {T}: Add {R}.
 //! Oracle: {1}{R}, {T}, Sacrifice this land: Create a 1/1 colorless Pilot creature token with "This token saddles Mounts and crews Vehicles as though its power were 2 greater." Activate only as a sorcery.
 //! Set: DFT #261 — Aetherdrift | Scryfall ID: 6f0d4e8a-aab5-458e-bc0e-2b6b0054646a | Oracle ID: a659c29f-aaca-44c5-8426-cdafcb195f86
-// PARTIAL — the entry clause (tapped unless you control a Mount or Vehicle)
-// and {T}: Add {R} are built; the sacrifice ability is left off the card.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{artifact, creature};
 
-/// "a Mount or Vehicle you control" — control clause included, because
-/// the entry check walks the whole battlefield and scopes nothing itself.
 static MOUNT_OR_VEHICLE_YOU_CONTROL: Filter = Filter::And(&[
     Filter::Or(&[
         Filter::HasSubtype(creature::MOUNT),
@@ -29,17 +27,15 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::TappedUnless(&MOUNT_OR_VEHICLE_YOU_CONTROL)],
     )],
-    coverage = Coverage::Partial(
-        "the Pilot token's \"saddles Mounts and crews Vehicles as though its power were 2 greater\": the DSL has no saddling or crewing vocabulary, so the clause the token is created with cannot be said",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
-        // NOT SUPPORTED: {1}{R}, {T}, Sacrifice this land: Create a 1/1
-        // colorless Pilot creature token with "This token saddles Mounts and
-        // crews Vehicles as though its power were 2 greater." Activate only as
-        // a sorcery. — saddling a Mount and crewing a Vehicle exist nowhere in
-        // this DSL, so the clause the token is defined with is unsayable and
-        // the whole ability is dropped rather than played with a 1/1 that
-        // silently loses its text.
+        activated!(
+            cost!("{1}{R}", TapSelf, SacrificeSelf),
+            &[Effect::CreateToken {
+                token: &crate::tokens::PILOT_1_1_COLORLESS
+            }],
+            timing = ActivationTiming::SorcerySpeed,
+        ),
     ],
 );

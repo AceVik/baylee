@@ -316,7 +316,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 57: a new `LogEvent` variant (the coin flip), which a reader of 56
     // cannot parse.
     // 58: resolution color choices; defaulted public hand visibility fields.
-    const RECORDED: (u32, u64) = (58, 10_526_636_048_815_681_126);
+    // 59: saddle choice, with the public view shape unchanged.
+    const RECORDED: (u32, u64) = (59, 10_526_636_048_815_681_126);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

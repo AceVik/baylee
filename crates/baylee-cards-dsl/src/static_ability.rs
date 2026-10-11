@@ -302,6 +302,8 @@ pub enum Modifier {
     CantBeBlockedBy(&'static crate::Filter),
     /// This permanent can't block creatures matching the filter.
     CantBlock(&'static crate::Filter),
+    /// Extra effective power only while saddling Mounts or crewing Vehicles.
+    CrewSaddlePowerBonus(i16),
     /// The affected creature can't attack unless the defending player
     /// controls a permanent the filter matches (Sea Serpent: "can't attack
     /// unless defending player controls an Island"). A restriction on the
@@ -844,6 +846,7 @@ impl Modifier {
             | Self::PreventCombatDamageFrom(_)
             | Self::PreventDamageFrom(_)
             | Self::CombatDamageCantBePrevented
+            | Self::CrewSaddlePowerBonus(_)
             | Self::CantBlock(_)
             | Self::CantBeBlockedBy(_)
             | Self::CantAttackUnlessDefenderControls(_)

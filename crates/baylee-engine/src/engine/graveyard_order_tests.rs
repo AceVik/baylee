@@ -122,7 +122,17 @@ fn graveyard_failed_payment_never_leaves_an_ordering_choice() {
         Sacrifice(&Filter::Any),
         Sacrifice(&Filter::Any)
     );
-    assert!(engine.pay_cost(P0, source, &cost, &victims, 0).is_err());
+    assert!(
+        engine
+            .pay_cost(
+                P0,
+                source,
+                &cost,
+                &victims.iter().map(|id| vec![*id]).collect::<Vec<_>>(),
+                0
+            )
+            .is_err()
+    );
     assert_eq!(engine.snapshot_hash(), before);
     assert!(engine.state.graveyard_order.batches.is_empty());
 }
@@ -138,7 +148,9 @@ fn graveyard_independent_discard_and_sacrifice_costs_are_not_one_batch() {
         .last()
         .unwrap();
     let cost = cost!("", Discard(&Filter::Any), SacrificeSelf);
-    engine.pay_cost(P0, source, &cost, &[discarded], 0).unwrap();
+    engine
+        .pay_cost(P0, source, &cost, &[vec![discarded]], 0)
+        .unwrap();
     assert!(crate::graveyard_order::pending(&mut engine.state).is_none());
     assert_eq!(
         engine.state.zones.list(ZoneLocation::Graveyard(P0)),
@@ -155,7 +167,15 @@ fn graveyard_an_intervening_payment_ends_a_sacrifice_group() {
         PayLife(1),
         Sacrifice(&Filter::Any)
     );
-    engine.pay_cost(P0, source, &cost, &victims, 0).unwrap();
+    engine
+        .pay_cost(
+            P0,
+            source,
+            &cost,
+            &victims.iter().map(|id| vec![*id]).collect::<Vec<_>>(),
+            0,
+        )
+        .unwrap();
     assert!(crate::graveyard_order::pending(&mut engine.state).is_none());
     assert_eq!(
         engine.state.zones.list(ZoneLocation::Graveyard(P1)),

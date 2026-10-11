@@ -521,7 +521,9 @@ impl GameState {
                 obj.riders.retain(|rider| {
                     !matches!(
                         rider,
-                        crate::object::Rider::AttachmentHostLeft | crate::object::Rider::Prepared
+                        crate::object::Rider::AttachmentHostLeft
+                            | crate::object::Rider::Prepared
+                            | crate::object::Rider::Saddled
                     )
                 });
                 // A name chosen as it entered belongs to that permanent

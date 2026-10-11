@@ -395,7 +395,7 @@ pub struct Engine<L: CardLookup> {
     /// across several answers — clearing it on entry would ask the first
     /// question forever. Every path that can refuse the activation clears it
     /// on the way out.
-    activation_cost_choices: Vec<ObjectId>,
+    activation_cost_choices: Vec<Vec<ObjectId>>,
     /// The answer to a pending activation's **second** "target" question,
     /// once it has one (`Some(vec![])` is "up to one", answered with none).
     ///

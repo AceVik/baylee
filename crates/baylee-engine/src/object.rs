@@ -851,6 +851,8 @@ pub enum Rider {
     EntryP1P1(u32),
     /// The permanent has the prepared marker (Emeritus of Woe & co.).
     Prepared,
+    /// Saddled until cleanup or departure (CR 702.171b); not copiable.
+    Saddled,
     /// This copy has only the indicated prepare spell's characteristics.
     PrepareSpellFace(u8),
     /// May be played from exile by the given player, spending mana of
@@ -961,6 +963,7 @@ impl Rider {
             | Self::Flashback
             | Self::ExileInsteadOfGraveyard
             | Self::Uncounterable
+            | Self::Saddled
             | Self::Prepared
             | Self::PrepareSpellFace(_)
             | Self::ChosenOpponent(_)
