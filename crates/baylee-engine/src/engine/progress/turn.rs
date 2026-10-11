@@ -322,9 +322,18 @@ impl<L: CardLookup> Engine<L> {
     /// for the monarch's abilities, which have none (CR 724.2), the
     /// designation's. Falling back to name `0` named them after whatever
     /// card was interned first.
-    pub(super) fn synthetic_source_name(&mut self, source: ObjectId) -> NameRef {
+    pub(super) fn synthetic_source_name(
+        &mut self,
+        source: ObjectId,
+        effects: &[baylee_cards_dsl::Effect],
+    ) -> NameRef {
         if source == ObjectId::NO_SOURCE {
-            return self.state.names.intern("Monarch");
+            let name = if matches!(effects, [baylee_cards_dsl::Effect::Radiation]) {
+                "Radiation"
+            } else {
+                "Monarch"
+            };
+            return self.state.names.intern(name);
         }
         self.state
             .object(source)
@@ -349,7 +358,7 @@ impl<L: CardLookup> Engine<L> {
             .filter(|o| !o.status.contains(crate::object::Status::FACE_DOWN))
             .and_then(|o| o.card)
             .map(|c| c.index);
-        let name = self.synthetic_source_name(t.source);
+        let name = self.synthetic_source_name(t.source, synthetic);
         let base = self.state.bare_base(name);
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(

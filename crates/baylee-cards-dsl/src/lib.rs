@@ -522,6 +522,13 @@ pub enum EnterModifier {
     },
     /// "You may pay N life; if you don't, this enters tapped" (shocklands).
     TappedOrPayLife(u16),
+    /// Optional tapped entry; choosing it also gives the entering controller player counters.
+    TappedForPlayerCounters {
+        /// Kind of player counter.
+        kind: CounterKind,
+        /// Number received when this entry replacement is accepted.
+        amount: u16,
+    },
     /// "As this enters, you lose life equal to your life total" (Lich). A
     /// replacement on the way in (CR 614.12), so it has happened before the
     /// permanent's static abilities are first asked anything. A total of 0

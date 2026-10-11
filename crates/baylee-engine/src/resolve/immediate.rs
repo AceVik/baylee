@@ -18,6 +18,10 @@ pub(super) fn exec_immediate(
         Effect::TapAndPayEnergyForCounters { who, filter, kind } => {
             super::tap_energy::start(state, res, who, filter, kind)
         }
+        Effect::Radiation => {
+            super::milling::radiation(state, res);
+            None
+        }
         Effect::Proliferate => super::proliferate::start(state, res),
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
         Effect::DestroyEventThenMayReattach { to } => {

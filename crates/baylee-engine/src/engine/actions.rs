@@ -906,7 +906,7 @@ impl<L: CardLookup> Engine<L> {
                             obj.set_second(targets.into_iter().collect(), req);
                         }
                     }
-                    PlanKind::EntryTap { .. } => {
+                    PlanKind::EntryCounters { .. } | PlanKind::EntryTap { .. } => {
                         unreachable!("entry-tap plans are answered via YesNo")
                     }
                     PlanKind::DelayedPay { .. } | PlanKind::DelayedPaySacrifice { .. } => {
@@ -1485,6 +1485,22 @@ impl<L: CardLookup> Engine<L> {
                         return Ok(());
                     }
                     self.discovered_to_hand(card);
+                    return Ok(());
+                }
+                if matches!(self.pending_plan, Some(PlanKind::EntryCounters { .. })) {
+                    let Some(PlanKind::EntryCounters {
+                        object,
+                        kind,
+                        amount,
+                    }) = self.pending_plan.take()
+                    else {
+                        unreachable!("player-counter entry question")
+                    };
+                    if answer {
+                        self.state.set_tapped(object, true);
+                        self.state
+                            .change_player_counters(player, kind, i32::from(amount));
+                    }
                     return Ok(());
                 }
                 // Shockland entry choice: pay life or enter tapped.

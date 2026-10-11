@@ -51,7 +51,7 @@
     {
       "batch": 40,
       "title": "Player counters, energy and proliferation",
-      "status": "in_progress",
+      "status": "complete",
       "cards": [
         {
           "name": "Yawgmoth, Thran Physician",
@@ -62,16 +62,8 @@
           "path": "crates/baylee-cards/src/cards/creatures/mv_2/hapatra_vizier_of_poisons.rs"
         },
         {
-          "name": "Brad Boimler, Eager Ensign",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_2/brad_boimler_eager_ensign.rs"
-        },
-        {
           "name": "Rush of Inspiration // Crackling Falls",
           "path": "crates/baylee-cards/src/cards/instants/mv_3/rush_of_inspiration.rs"
-        },
-        {
-          "name": "Diamond City",
-          "path": "crates/baylee-cards/src/cards/lands/restricted/diamond_city.rs"
         },
         {
           "name": "Mariposa Military Base",
@@ -106,13 +98,15 @@
         "Yawgmoth, Thran Physician",
         "Hapatra, Vizier of Poisons",
         "Rush of Inspiration // Crackling Falls",
+        "Mariposa Military Base",
         "HELIOS One",
         "Aether Hub",
         "Nesting Grounds",
         "Karn's Bastion",
         "Suppression Ray // Orderly Plaza",
         "U.S.S. Enterprise-D, Galaxy-Class"
-      ]
+      ],
+      "note": "Brad Boimler and Diamond City moved to batch 57 to share resumable replacement-order choices. Their coverage remains Partial."
     },
     {
       "batch": 41,
@@ -920,7 +914,7 @@
     },
     {
       "batch": 57,
-      "title": "Damage replacement, redirection and measured results",
+      "title": "Replacement ordering, damage and measured results",
       "status": "pending",
       "cards": [
         {
@@ -978,6 +972,14 @@
         {
           "name": "Forethought Amulet",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_5/forethought_amulet.rs"
+        },
+        {
+          "name": "Brad Boimler, Eager Ensign",
+          "path": "crates/baylee-cards/src/cards/creatures/mv_2/brad_boimler_eager_ensign.rs"
+        },
+        {
+          "name": "Diamond City",
+          "path": "crates/baylee-cards/src/cards/lands/restricted/diamond_city.rs"
         }
       ]
     },

@@ -60,6 +60,8 @@ pub enum Amount {
     /// sacrificed to pay the ability's cost. Outside resolution this is a live
     /// count only. Earlier instructions' counter changes are visible.
     CountersOnSource(CounterKind),
+    /// Number of counters of this kind held by the player evaluating the effect or cost.
+    CountersOnYou(CounterKind),
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,
     /// "That much": the amount of damage the triggering event dealt

@@ -535,6 +535,18 @@ express at all yet.
   carries no id the registry does not name) and
   `no_card_file_spells_a_counter_id_as_a_number` (no card writes one).
 
+  `Amount::CountersOnYou(kind)` reads the paying/resolving player's counter
+  total, including energy, poison and radiation. `CostReduction::PerCount`
+  fixes that amount when the activation cost is determined.
+  `EnterModifier::TappedForPlayerCounters { kind, amount }` offers a tapped
+  entry with player counters even if another instruction already requires
+  tapped entry. Declining preserves other entry replacements.
+  Radiation's inherent, source-free trigger (CR 728.1) remembers the active
+  player, checks its condition again on resolution, and mills using the current
+  rad total. Nonland cards in a public replacement destination still count
+  (CR 701.17c); short libraries supply only the available cards. The loss is
+  journaled as `Cause::Radiation`, separately from ordinary damage or life loss.
+
   Stun counters replace each attempted untap of a tapped permanent with
   removing one counter (CR 122.1d), including untapping as a cost. An untap
   symbol still requires a tapped permanent; a replacement-modified payment

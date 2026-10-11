@@ -594,6 +594,15 @@ enum PlanKind {
         /// The damage divided.
         total: u32,
     },
+    /// Optional tapped entry that also grants player counters.
+    EntryCounters {
+        /// Exact entering object, retained by the entry pipeline.
+        object: ObjectId,
+        /// Player counter kind.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Counters received on acceptance.
+        amount: u16,
+    },
     /// A shockland entry choice (pay life or enter tapped).
     EntryTap {
         /// The entering land.
@@ -1661,6 +1670,7 @@ impl<L: CardLookup> Engine<L> {
                         | PlanKind::ChoosePhyrexianLife { .. }
                         | PlanKind::PayActivationCost { .. }
                         | PlanKind::LoyaltyPlayer { .. }
+                        | PlanKind::EntryCounters { .. }
                         | PlanKind::EntryTap { .. }
                         | PlanKind::EntryReveal { .. }
                         | PlanKind::CopyOnEnter { .. }

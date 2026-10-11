@@ -74,6 +74,8 @@ macro_rules! messages {
 }
 
 messages! {
+    /// Optional replacement for entering, before any enters-the-battlefield triggers.
+    EnterTappedForCounters { en: "Enter tapped and get {0} {1}?", de: "Getappt ins Spiel kommen und {0} {1} erhalten?" },
     /// Number of energy counters to pay; choosing zero declines.
     ChooseEnergyPayment { en: "Pay energy ({0}–{1}); up to {2} tapped permanents can receive counters", de: "Energie bezahlen ({0}–{1}); bis zu {2} getappte bleibende Karten können Marken erhalten" },
     /// One of the permanents actually tapped by this instruction.

@@ -888,6 +888,7 @@ pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (S
 /// A yes/no question in words: the question, what yes does, what no does.
 fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, String) {
     match prompt {
+        YesNoPrompt::EnterTappedForCounters { kind, amount } => entry_counter_words(*kind, *amount),
         YesNoPrompt::PayLifeOrEnterTapped { amount } => (
             format!("Pay {amount} life so that it enters untapped?"),
             format!("pay {amount} life; it enters untapped"),
@@ -1210,4 +1211,16 @@ fn own_subtypes(table: &Table<'_>, options: &[SubtypeId]) -> Vec<&'static str> {
     }
     names.truncate(20);
     names
+}
+
+fn entry_counter_words(
+    kind: baylee_cards_dsl::CounterKind,
+    amount: u16,
+) -> (String, String, String) {
+    let label = baylee_client_core::interaction::counter_label(kind, baylee_client_core::Lang::En);
+    (
+        format!("Enter tapped and get {amount} {label}?"),
+        "enter tapped and receive the counters".into(),
+        "decline this entry replacement".into(),
+    )
 }

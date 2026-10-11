@@ -764,6 +764,9 @@ impl HeuristicAgent {
                             .is_some_and(|s| s.life > i32::from(amount) + 5),
                     )
                 }
+                YesNoPrompt::EnterTappedForCounters { kind, .. } => {
+                    PlayerAction::YesNo(kind == baylee_cards_dsl::CounterKind::Energy)
+                }
                 YesNoPrompt::PayEnergy { amount } => PlayerAction::YesNo(view.seat(player).is_some_and(|seat| seat.energy >= amount)),
                 YesNoPrompt::ProliferatePlayer { player: recipient } => {
                     PlayerAction::YesNo(self.proliferate_player(view, recipient) > 0)

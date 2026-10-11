@@ -712,6 +712,7 @@ impl Effect {
             | Effect::Poison { .. }
             | Effect::Energy { .. }
             | Effect::TapAndPayEnergyForCounters { .. }
+            | Effect::Radiation
             | Effect::Proliferate
             | Effect::LoseGame
             | Effect::ReanimateEnchanted

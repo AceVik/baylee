@@ -32,6 +32,8 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Resolve the inherent radiation trigger for its captured event player (CR 728.1).
+    Radiation,
     /// Tap matching permanents, then optionally spend energy to put one counter
     /// on up to that many permanents that actually became tapped this way.
     TapAndPayEnergyForCounters {

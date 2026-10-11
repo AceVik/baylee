@@ -1181,6 +1181,8 @@ fn choose_line_of(lang: Lang, noun: &str, min: u32, max: u32) -> String {
 /// The roster is taken for the one question that is about another player.
 fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) -> String {
     match question {
+        YesNoPrompt::EnterTappedForCounters { kind, amount } => Phrase::EnterTappedForCounters
+            .fill(lang, &[&amount.to_string(), &counter_label(kind, lang)]),
         YesNoPrompt::PayLifeOrEnterTapped { amount } => {
             Phrase::PayLifeOrTapped.fill(lang, &[&amount.to_string()])
         }

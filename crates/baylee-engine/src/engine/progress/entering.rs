@@ -372,6 +372,7 @@ impl<L: CardLookup> Engine<L> {
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseOpponent
                     | EnterModifier::ChooseColorExcept(_)
+                    | EnterModifier::TappedForPlayerCounters { .. }
                     | EnterModifier::TappedOrPayLife(_)
                     | EnterModifier::TappedUnlessReveal(_)
                     | EnterModifier::TappedUnlessRevealOrControl(_) => {
@@ -490,6 +491,25 @@ impl<L: CardLookup> Engine<L> {
                 self.pending = Pending::ChooseColor {
                     player: controller,
                     options,
+                };
+                self.awaiting_answer = true;
+                true
+            }
+            EnterModifier::TappedForPlayerCounters { kind, amount } => {
+                let (kind, amount) = (*kind, *amount);
+                self.pending_plan = Some(PlanKind::EntryCounters {
+                    object: id,
+                    kind,
+                    amount,
+                });
+                self.pending = Pending::YesNo {
+                    player: controller,
+                    prompt: YesNoPrompt::EnterTappedForCounters { kind, amount },
+                    source: self
+                        .state
+                        .object(id)
+                        .and_then(|o| o.card)
+                        .map(|c| AbilityRef::new(c.index, AbilityRef::ENTERS)),
                 };
                 self.awaiting_answer = true;
                 true

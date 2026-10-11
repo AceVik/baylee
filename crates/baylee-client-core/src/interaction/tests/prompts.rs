@@ -1410,3 +1410,24 @@ fn energy_payment_allows_zero_and_overpayment_and_names_both_bounds() {
         "Betäubungsmarken"
     );
 }
+
+#[test]
+fn tapped_entry_counter_choice_names_the_resource_and_amount_in_both_languages() {
+    let kind = baylee_engine::object::CounterKind::Rad;
+    let i = interaction(Pending::YesNo {
+        player: me(),
+        prompt: YesNoPrompt::EnterTappedForCounters { kind, amount: 2 },
+        source: None,
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        format!("Enter tapped and get 2 {}?", counter_label(kind, Lang::En))
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        format!(
+            "Getappt ins Spiel kommen und 2 {} erhalten?",
+            counter_label(kind, Lang::De)
+        )
+    );
+}

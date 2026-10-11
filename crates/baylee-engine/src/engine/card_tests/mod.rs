@@ -33,6 +33,7 @@ mod lands;
 mod legends_ids;
 mod legends_kit;
 mod planeswalkers;
+mod radiation;
 mod rules;
 mod sorceries;
 mod stun_counters;

@@ -601,6 +601,11 @@ pub fn amount_with_context(
             .object(this)
             .and_then(|o| o.characteristics().power)
             .map_or(0, |p| p.max(0) as u32),
+        Amount::CountersOnYou(kind) => state.players[usize::from(you.get())]
+            .counters()
+            .into_iter()
+            .find_map(|(k, n)| (k == *kind).then_some(u32::from(n)))
+            .unwrap_or(0),
         Amount::CountersOnSource(kind) => state
             .object(this)
             .map_or(0, |o| u32::from(o.counters.get(*kind))),

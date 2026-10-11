@@ -751,7 +751,7 @@ impl<L: CardLookup> Engine<L> {
                     .filter(|o| !o.status.contains(crate::object::Status::FACE_DOWN))
                     .and_then(|o| o.card)
                     .map(|c| c.index);
-                let name = self.synthetic_source_name(t.source);
+                let name = self.synthetic_source_name(t.source, synthetic);
                 let base = self.state.bare_base(name);
                 // The implicit target (prowess: itself; ward: the targeting
                 // spell; a granted trigger: none, so its "this" is its

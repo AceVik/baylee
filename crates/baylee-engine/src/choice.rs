@@ -1032,6 +1032,13 @@ pub enum TargetPrompt {
 /// What a [`Pending::YesNo`] asks.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum YesNoPrompt {
+    /// Optionally enter tapped and receive the displayed player counters.
+    EnterTappedForCounters {
+        /// Player counter kind.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Counters received when accepted.
+        amount: u16,
+    },
     /// Add another counter of each kind already on this player.
     ProliferatePlayer {
         /// Counter recipient, not the deciding player.
@@ -1189,7 +1196,8 @@ impl YesNoPrompt {
     #[must_use]
     pub const fn declining_does_nothing(self) -> bool {
         match self {
-            Self::ProliferatePlayer { .. }
+            Self::EnterTappedForCounters { .. }
+            | Self::ProliferatePlayer { .. }
             | Self::PayEnergy { .. }
             | Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
@@ -2499,6 +2507,13 @@ mod choice_tests {
                 yes_no(YesNoPrompt::SkipTurn { source: object() }),
                 no.clone(),
             ),
+            (
+                yes_no(YesNoPrompt::EnterTappedForCounters {
+                    kind: baylee_cards_dsl::CounterKind::Rad,
+                    amount: 2,
+                }),
+                no.clone(),
+            ),
             (yes_no(YesNoPrompt::PayEnergy { amount: 2 }), no.clone()),
             (
                 yes_no(YesNoPrompt::ProliferatePlayer { player: p }),
@@ -2711,7 +2726,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 41;
+    const KINDS: usize = 42;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -2741,6 +2756,7 @@ mod choice_tests {
             Pending::ChooseCardName { .. } => 16,
             Pending::YesNo { prompt, .. } => {
                 17 + match prompt {
+                    YesNoPrompt::EnterTappedForCounters { .. } => 24,
                     YesNoPrompt::PayEnergy { .. } => 22,
                     YesNoPrompt::ProliferatePlayer { .. } => 23,
                     YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
@@ -2968,7 +2984,8 @@ mod choice_tests {
         fn expected(prompt: YesNoPrompt) -> bool {
             match prompt {
                 YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } => true,
-                YesNoPrompt::PayEnergy { .. }
+                YesNoPrompt::EnterTappedForCounters { .. }
+                | YesNoPrompt::PayEnergy { .. }
                 | YesNoPrompt::ProliferatePlayer { .. }
                 | YesNoPrompt::PayLifeOrEnterTapped { .. }
                 | YesNoPrompt::Kicker
@@ -2988,6 +3005,10 @@ mod choice_tests {
             }
         }
         for prompt in [
+            YesNoPrompt::EnterTappedForCounters {
+                kind: baylee_cards_dsl::CounterKind::Rad,
+                amount: 2,
+            },
             YesNoPrompt::MayDo,
             YesNoPrompt::Generic,
             YesNoPrompt::SkipTurn { source: object() },

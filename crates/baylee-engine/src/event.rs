@@ -35,6 +35,8 @@ pub enum Cause {
     PlayerLeft,
     /// A developer-mode command (dev games only; journaled for honesty).
     DevCommand,
+    /// Life lost to the inherent radiation trigger (CR 728.1a).
+    Radiation,
 }
 
 /// What damage was dealt to.
