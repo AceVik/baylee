@@ -12,59 +12,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             owner_control,
             counters,
         } => {
-            // Every target and not the first: see [`spec_objects`].
-            //
-            // CR 400.7: a card that has moved is a new object with no
-            // relation to the one the effect named. A reanimation *spell* is
-            // held to that by target legality (CR 608.2b), so the zone check
-            // looks redundant beside the fifteen cards that cast one — but
-            // undying and persist target nothing at all
-            // (`TargetSpec::EventObject` is the creature that died), and
-            // without it a card exiled in response to the keyword trigger
-            // came back onto the battlefield out of exile.
-            // "Under your control" when `you` has left the game: the card
-            // stays where it is (CR 800.4b). Under its owner's it goes, since
-            // an owner who had left would have taken the card with them.
-            if !owner_control && state.has_left(you) {
-                return None;
-            }
-            for target_id in moving_objects(state, res, target) {
-                // The card has to still be in a graveyard, asked per card:
-                // one of several targets leaving does not stop the others.
-                if !state
-                    .object(target_id)
-                    .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
+            for id in moving_objects(state, res, target) {
+                if matches!(target, TargetSpec::EventObject)
+                    && subjects::event(state, res).is_some_and(|r| !subjects::is_current(state, r))
                 {
                     continue;
                 }
-                if let Some(obj) = state.object_mut(target_id) {
-                    obj.kind = ObjectKind::Permanent;
-                    let to = if owner_control { obj.owner } else { you };
-                    obj.set_controller(to);
-                }
-                let _ = state.move_object(
-                    target_id,
-                    ZoneLocation::Battlefield,
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
-                // After the move and not before it: `move_object` clears
-                // every field only a permanent can have, counters among
-                // them, so a counter written first would be wiped on the
-                // way in. `put_counters` and not `Counters::add`, because
-                // "returns with a counter on it" is a counter an effect
-                // puts on a permanent and a doubler has its say
-                // (CR 614.16) — the same door `EnterModifier::WithCounters`
-                // goes through.
-                if let Some((kind, n)) = counters
-                    && n > 0
-                    && state
-                        .object(target_id)
-                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
-                {
-                    crate::replacement::put_counters(state, target_id, kind, n);
-                }
+                return_card(state, id, you, owner_control, counters);
             }
+            None
+        }
+        Effect::Assimilate { target } => {
+            assimilate(state, res, target);
             None
         }
         Effect::ReturnSourceFromGraveyard {
@@ -103,6 +62,95 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         _ => unreachable!("only return operations are dispatched here"),
+    }
+}
+
+/// CR 611.2e applies assimilation's characteristic changes during entry.
+fn assimilate(state: &mut GameState, res: &Resolution, target: TargetSpec) {
+    use baylee_cards_dsl::{CounterKind, Duration, Modifier};
+    use baylee_core::{generated::subtypes, ids::EffectId, types::TypeSet};
+    if state.has_left(res.controller) {
+        return;
+    }
+    for id in moving_objects(state, res, target) {
+        let Some(object) = state.object(id).filter(|o| o.zone == Zone::Graveyard) else {
+            continue;
+        };
+        let version = object.version.wrapping_add(1);
+        let mut created = smallvec::SmallVec::<[EffectId; 2]>::new();
+        for modifier in [
+            Modifier::AddType(TypeSet::ARTIFACT.union(TypeSet::CREATURE)),
+            Modifier::ReplaceCreatureTypes(subtypes::creature::BORG),
+        ] {
+            let timestamp = state.next_timestamp();
+            created.push(state.effects.register(crate::effects::ContinuousEffect {
+                id: EffectId::new(0),
+                source: None,
+                controller: res.controller,
+                origin: crate::effects::EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp,
+                duration: Duration::Indefinitely,
+                filter: crate::effects::EffectFilter::ObjectIs(id, version),
+                modifier,
+            }));
+        }
+        return_card(
+            state,
+            id,
+            res.controller,
+            false,
+            Some((CounterKind::P1P1, 1)),
+        );
+        if !state
+            .object(id)
+            .is_some_and(|o| o.zone == Zone::Battlefield && o.version == version)
+        {
+            state
+                .effects
+                .remove_where(|effect| created.contains(&effect.id));
+        }
+    }
+}
+
+/// The shared arrival door for ordinary and characteristic-changing returns.
+fn return_card(
+    state: &mut GameState,
+    id: ObjectId,
+    controller: PlayerId,
+    owner_control: bool,
+    counters: Option<(baylee_cards_dsl::CounterKind, u16)>,
+) {
+    if !owner_control && state.has_left(controller) {
+        return;
+    }
+    let Some(object) = state
+        .object_mut(id)
+        .filter(|o| o.zone == Zone::Graveyard && o.is_card())
+    else {
+        return;
+    };
+    object.kind = ObjectKind::Permanent;
+    object.set_controller(if owner_control {
+        object.owner
+    } else {
+        controller
+    });
+    let _ = state.move_object(
+        id,
+        ZoneLocation::Battlefield,
+        ZonePosition::Top,
+        Cause::Effect,
+    );
+    // The zone change clears counters. Install the entry counters before entry
+    // abilities are collected, through the replacement-aware placement door.
+    if let Some((kind, n)) = counters
+        && n > 0
+        && state
+            .object(id)
+            .is_some_and(|o| o.zone == Zone::Battlefield)
+    {
+        crate::replacement::put_counters(state, id, kind, n);
     }
 }
 

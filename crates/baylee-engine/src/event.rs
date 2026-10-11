@@ -509,6 +509,9 @@ pub enum LossReason {
 /// journal entry because an object may move again before triggers are collected.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct Departure {
+    /// Independent undying and persist instances immediately before departure.
+    #[serde(default)]
+    pub return_keywords: [u32; 2],
     /// Identity immediately before leaving the battlefield.
     #[serde(default)]
     pub version: u32,
@@ -532,6 +535,9 @@ impl Departure {
         hash = hash
             .wrapping_mul(31)
             .wrapping_add(u64::from(self.power as u16));
+        for count in self.return_keywords {
+            hash = hash.wrapping_mul(31).wrapping_add(u64::from(count));
+        }
         for id in &self.attachments {
             hash = hash.wrapping_mul(31).wrapping_add(u64::from(id.slot()));
             hash = hash

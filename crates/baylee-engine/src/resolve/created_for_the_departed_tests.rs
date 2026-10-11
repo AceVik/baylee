@@ -75,6 +75,10 @@ fn buried(state: &mut GameState) -> ObjectId {
     let name = state.names.intern("Creature");
     let id = state.create_bare(me(), ObjectKind::Card, name, ZoneLocation::Graveyard(me()));
     let obj = state.object_mut(id).expect("fresh");
+    obj.card = Some(crate::object::CardRef {
+        index: baylee_core::ids::CardIndex::new(0),
+        print: baylee_core::ids::PrintRef::new(0),
+    });
     let mut base = (*obj.base).clone();
     base.types = baylee_core::types::TypeSet::CREATURE;
     obj.base = std::sync::Arc::new(base);

@@ -984,3 +984,12 @@ limits apply both to placement and to excess-counter state-based actions
 (122.4, 704.5r). Source and attachment last-known information follows 608.2h;
 returning permanents retain no previous incarnation's turn-start marker
 (400.7). The source file was inspected locally against that published edition.
+
+Batch 36 completes the existing Mikaeus, the Unhallowed, Nim Deathmantle and
+Borg Queen, Perfection Manifest printings using original engine code. The
+existing policy review and owner authorization above cover these unchanged
+headers and identifiers; no artwork, recordings or corpus code are added.
+The [current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt)
+provide the rules basis: 603.10a for pre-departure abilities, 702.93a and
+702.79a for return-keyword counter conditions, 400.7 for incarnation identity,
+and 611.2e for characteristic changes applied simultaneously with entry.

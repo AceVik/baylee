@@ -668,7 +668,10 @@ permission to automatic mana planning; missing data defaults to exact colors.
   shape one step further along: they are not an `AbilityDef` at all but two
   bits on `keywords`, and `trigger.rs` reads them the way it reads prowess.
   A card prints one of them by setting the bit and writing no ability —
-  `keywords = KeywordSet::UNDYING` is the whole of Young Wolf
+  `keywords = KeywordSet::UNDYING` is the whole of Young Wolf. Granted instances are
+  counted independently at departure, using projected pre-death abilities and
+  that incarnation's counters. A printed and a granted undying trigger twice;
+  only the first successful return can move the original graveyard card
 - `AbilityDef::Toxic { poison }` — toxic N (CR 702.164), a static ability
   with a number, so data like ward and not a bit. The engine reads it where
   combat damage is dealt (`Engine::deal_combat_damage`): each journalled
@@ -1361,6 +1364,16 @@ Broodmoth say. Neither is a flag on the other because the two differ in both
 halves at once, and a card printing one of them prints all of it. The counter
 goes on through the same door `EnterModifier::WithCounters` uses, so a
 doubler has its say (CR 614.16).
+
+`Effect::Assimilate { target }` is the complete keyword action: return the
+creature card under your control with a +1/+1 counter, as a Borg artifact
+creature without other creature types. The type effects apply simultaneously
+with entry (CR 611.2e), retain noncreature subtypes, outlive the source, and
+stop following the permanent after a later zone change. Ordinary reanimation
+also retains the exact death card; a card exiled and returned to the graveyard
+in response is a different object. A later `AttachSelf(EventObject)` can follow
+the successful return performed by that same resolution, as Nim Deathmantle
+requires.
 
 **Blink is two verbs for the same reason, and the difference is who ends
 up controlling the card.** `Effect::blink_to_owner(t)` is "exile …, then

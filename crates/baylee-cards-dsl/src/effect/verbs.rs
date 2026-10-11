@@ -813,6 +813,7 @@ impl Effect {
             | Effect::GraveyardToTop { .. }
             | Effect::GraveyardToHand { .. }
             | Effect::GraveyardToBattlefield { .. }
+        | Effect::Assimilate { .. }
             | Effect::CreateTokenThenCounters { .. }
             | Effect::Fabricate { .. }
             | Effect::CreateTokenThenAttachSelf { .. }

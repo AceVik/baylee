@@ -2,17 +2,9 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use baylee_core::color::{Color, ColorSet};
 
-/// Nim Deathmantle prints four clauses and three of them are written: the
-/// equipped creature gets +2/+2, is black, and is a Zombie, and the Equip is
-/// `{4}`. The statics are `Filter::AttachedToBySource`, so the only reading
-/// worth playing is the one that tells the creature the Equipment *holds*
-/// from every other creature in the game — which is why the Elves across the
-/// table are read, and why the host is a `(1, 1)` before the equip and a
-/// `(3, 3)` after it. The six Forests are the other half: they pay the `{2}`
-/// and leave exactly the `{4}` the equip charges, so the artifact arrives by
-/// being cast and the cost that lands the keywords on the host is a real
-/// payment out of the pool rather than a label.
+/// Equipping pays the real cost and changes only the attached creature.
 #[test]
 fn nim_deathmantle_equips_for_four_and_clamps_only_the_creature_it_holds() {
     let p0 = PlayerId::new(0);
@@ -99,6 +91,19 @@ fn nim_deathmantle_equips_for_four_and_clamps_only_the_creature_it_holds() {
         (3, 3),
         "+2/+2 for the creature the Equipment holds"
     );
+    let host_chars = engine.state().object(host).unwrap().characteristics();
+    assert_eq!(host_chars.colors, ColorSet::from_slice(&[Color::Black]));
+    assert!(
+        host_chars
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::ZOMBIE)
+    );
+    assert!(
+        !host_chars
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::ELF)
+    );
+    assert!(host_chars.keywords.contains(KeywordSet::INTIMIDATE));
     assert_eq!(
         pt(&engine, theirs),
         (1, 1),

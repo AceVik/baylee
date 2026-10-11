@@ -95,6 +95,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::GraveyardToTop { target, .. }
         | Effect::GraveyardToHand { target, .. }
         | Effect::GraveyardToBattlefield { target, .. }
+        | Effect::Assimilate { target }
         | Effect::AttachSelf { target, .. }
         | Effect::ExileLinked { target, .. }
         | Effect::SacrificeObject { target, .. } => reads_target(*target),

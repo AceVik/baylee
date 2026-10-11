@@ -331,6 +331,7 @@ impl GameState {
         Some(crate::damage_history::BattlefieldDeparture {
             damage: self.damage_death_snapshot(id),
             event: crate::event::Departure {
+                return_keywords: crate::trigger::return_keyword_counts(self, object),
                 version: object.version,
                 power: object.characteristics().power.unwrap_or(0),
                 controller: object.controller,

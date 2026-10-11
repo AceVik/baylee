@@ -97,6 +97,22 @@ fn aura_successor(state: &GameState, res: &Resolution) -> Option<DamageSourceRef
     })
 }
 
+/// Event incarnation, or its successful public successor in this resolution.
+pub(super) fn event(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
+    let object = res.event_object?;
+    res.subject
+        .followed
+        .iter()
+        .rev()
+        .find(|r| r.object == object)
+        .copied()
+        .or_else(|| {
+            super::event_object_identity(state, res)
+                .map(|(version, _)| DamageSourceRef { object, version })
+        })
+        .or_else(|| state.source_identity(object))
+}
+
 /// The object an instruction names, retaining the event's incarnation for
 /// implicit subjects. An explicit target still uses its resolution snapshot.
 pub(super) fn target(

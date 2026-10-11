@@ -137,6 +137,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("ascend", K::ASCEND), // ascend::award_citys_blessings
         ("can't attack", K::CANT_ATTACK), // combat::can_attack
         ("nightbound", K::NIGHTBOUND), // progress::day_night_statics
+        ("intimidate", K::INTIMIDATE), // combat::can_block, all 32 x 32 color sets
         ("fear", K::FEAR),     // combat::can_block
         ("plainswalk", K::PLAINSWALK), // combat::can_block
         ("islandwalk", K::ISLANDWALK), // combat::can_block

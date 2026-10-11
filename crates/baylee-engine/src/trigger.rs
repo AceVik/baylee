@@ -7,6 +7,7 @@
 //! player-facing ordering choice is M2 (documented in engine-internals).
 
 mod return_keywords;
+pub(crate) use return_keywords::return_keyword_counts;
 
 use crate::eval;
 use crate::event::GameEvent;
@@ -1643,7 +1644,12 @@ fn collect_for_objects(
                 let source = source_at_event(state, obj, events, entry, look_back);
                 // A grant belongs to its recipient's battlefield incarnation,
                 // not the new card in the graveyard (CR 603.10a).
-                if !crate::effects::applies_to(state, fx, source) {
+                let applies = if look_back {
+                    crate::effects::applies_to_snapshot(state, fx, source)
+                } else {
+                    crate::effects::applies_to(state, fx, source)
+                };
+                if !applies {
                     continue;
                 }
                 let hit = departure_hit(trigger, entry, permanent).unwrap_or_else(|| {

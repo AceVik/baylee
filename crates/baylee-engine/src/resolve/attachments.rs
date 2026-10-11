@@ -1,5 +1,5 @@
 //! Resolution-time attachment, including untargeted event subjects.
-use super::{Resolution, TargetSpec, event_object_identity, subjects, zones};
+use super::{Resolution, TargetSpec, subjects, zones};
 use crate::{object::Status, state::GameState, zone::Zone};
 use baylee_core::{generated::subtypes, ids::DamageSourceRef, types::TypeSet};
 
@@ -15,9 +15,7 @@ pub(super) fn attach(
         return;
     };
     let host = if matches!(target, TargetSpec::EventObject) {
-        res.event_object
-            .zip(event_object_identity(state, res))
-            .map(|(object, (version, _))| DamageSourceRef { object, version })
+        subjects::event(state, res)
             .filter(|identity| subjects::is_current(state, *identity))
             .map(|identity| identity.object)
     } else {

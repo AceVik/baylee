@@ -24990,8 +24990,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Nim Deathmantle
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[None, None, None, Some(2)],
+        stackable: 2,
+        lines: &[None, None, None, Some(2), None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -26152,8 +26152,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Mikaeus, the Unhallowed
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],

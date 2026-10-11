@@ -216,6 +216,7 @@ pub(super) fn exec_immediate(
         | Effect::GraveyardToTop { .. }
         | Effect::ReturnSourceFromGraveyard { .. }
         | Effect::GraveyardToBattlefield { .. }
+        | Effect::Assimilate { .. }
         | Effect::PutSourceOnTopOfLibrary
         | Effect::BottomCardFromHand { .. }
         | Effect::GraveyardToLibraryBottom { .. }

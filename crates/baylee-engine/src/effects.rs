@@ -609,6 +609,26 @@ pub fn applies_to(
     fx: &ContinuousEffect,
     obj: &crate::object::GameObject,
 ) -> bool {
+    source_is_present(state, fx) && applies_to_snapshot(state, fx, obj)
+}
+
+/// Static grants are retained until death triggers have read their lookback;
+/// characteristic projection must stop using them as soon as the source leaves.
+pub(crate) fn source_is_present(state: &crate::state::GameState, fx: &ContinuousEffect) -> bool {
+    fx.duration != Duration::WhileSourceOnBattlefield
+        || fx.source.is_none_or(|source| {
+            state
+                .object(source)
+                .is_some_and(|object| object.zone == crate::zone::Zone::Battlefield)
+        })
+}
+
+/// A captured pre-departure object may still have its now-departed grantor's ability.
+pub(crate) fn applies_to_snapshot(
+    state: &crate::state::GameState,
+    fx: &ContinuousEffect,
+    obj: &crate::object::GameObject,
+) -> bool {
     // An ability granted before the object lost all its abilities is lost
     // with them; one granted after lands (CR 613.7, timestamp order within
     // layer 6). Keywords get the same ordering inside the projection.

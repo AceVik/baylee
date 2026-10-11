@@ -151,16 +151,13 @@ fn a_landing_borg_queen_assimilates_their_creature_card_and_pumps_only_artifact_
          subject is artifact creatures"
     );
 
-    // `Coverage::Partial`: the clause that is not written.
     assert!(
-        c.subtypes
+        !c.subtypes
             .contains(baylee_core::generated::subtypes::creature::ELF)
-            && c.subtypes
-                .contains(baylee_core::generated::subtypes::creature::DRUID),
-        "`and loses all other creature types` is the card's NOT SUPPORTED \
-         note: no `Modifier` subtracts a subtype, so the assimilated Elf Druid \
-         keeps both tribes beside Borg. When this fires, the clause has become \
-         expressible and the card is no longer Coverage::Partial"
+    );
+    assert!(
+        !c.subtypes
+            .contains(baylee_core::generated::subtypes::creature::DRUID)
     );
 }
 

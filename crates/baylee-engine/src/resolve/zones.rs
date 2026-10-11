@@ -84,7 +84,9 @@ pub(super) fn spec_object(
         TargetSpec::ThisObject => super::subjects::source(state, res)
             .filter(|r| super::subjects::is_current(state, *r))
             .map(|r| r.object),
-        TargetSpec::EventObject => res.event_object,
+        TargetSpec::EventObject => super::subjects::event(state, res)
+            .filter(|reference| super::subjects::is_current(state, *reference))
+            .map(|reference| reference.object),
         // The one spec that is only ever a second instance of "target"
         // names the object that instance chose.
         TargetSpec::ObjectOfFirstTargetsPlayer(_) => res.second_targets.first().copied(),
@@ -180,6 +182,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     match op {
         Effect::ReturnSourceFromGraveyard { .. }
         | Effect::GraveyardToBattlefield { .. }
+        | Effect::Assimilate { .. }
         | Effect::ExileSelfReturnAsFace { .. } => super::reanimation::exec(state, res, op),
         Effect::Exile { .. } => {
             // Every target and not the first. A card may name more than one

@@ -1886,6 +1886,12 @@ pub enum Effect {
         /// a counter doubler has its say (CR 614.16).
         counters: Option<(CounterKind, u16)>,
     },
+    /// Assimilate a creature card: return it under your control with a +1/+1
+    /// counter, as a Borg artifact creature with no other creature types.
+    Assimilate {
+        /// Creature card in a graveyard.
+        target: TargetSpec,
+    },
     /// Create a token, then place counters on every token created this way.
     CreateTokenThenCounters {
         /// Definition of the token(s) to create.

@@ -514,6 +514,9 @@ fn applies(
     obj: &GameObject,
     projected: &Characteristics,
 ) -> bool {
+    if !crate::effects::source_is_present(state, fx) {
+        return false;
+    }
     match &fx.filter {
         EffectFilter::ObjectIs(..) => fx.filter.names(obj),
         EffectFilter::Dsl(filter) => eval::matches_projected_with_context(

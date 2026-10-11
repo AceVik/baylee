@@ -3972,3 +3972,36 @@ land type"; both are convention tests that fire on a first try.
   remaining.
   All 3,321 printing validations, table reproducibility, formatting and
   workspace/all-targets clippy with dev controls pass.
+
+### Partial-card completion batch 36 (2026-10-11)
+
+- Completed Mikaeus, the Unhallowed, Nim Deathmantle and Borg Queen, Perfection
+  Manifest. First moved the existing return-keyword collector into its own
+  module without changing behavior, in a separate tested commit.
+- Death events retain independent undying/persist counts, while the actual
+  trigger reads that departure's source incarnation and counters. Printed and
+  granted instances trigger separately; only the original graveyard object
+  can return. Simultaneous deaths preserve Mikaeus's grant, prior departure or
+  ability removal does not, and tokens trigger without illegally returning.
+- Characteristic effects whose battlefield source has left stop applying
+  immediately within a resolution. Retained grants still serve the explicit
+  pre-departure trigger lookback. This distinction fixes the sequential-death
+  regression without losing simultaneously dying granted triggers.
+- Intimidate now restricts blocks through shared current colors or the
+  artifact-creature exception. Its 2,048-case test covers all 32 by 32 color
+  sets with both artifact states, including colorless attackers and blockers.
+- Nim Deathmantle sets black and Zombie rather than merely adding them, grants
+  intimidate, asks for the real four-mana payment, returns the owned death card
+  and attaches to its successful successor. Equipment departure does not stop
+  reanimation; an intervening exile/graveyard round trip cannot substitute a
+  different incarnation. Event-object instructions share the identity check.
+- Assimilate is one complete keyword action. Its artifact/creature and Borg
+  effects are registered for the entering incarnation before the move, so
+  CR 611.2e applies. Counters use the replacement-aware return path; types and
+  counters persist after the Queen leaves. Failed entry discards staged effects.
+- Validation: all 5,643 engine tests pass (two intentional ignores), including
+  the new card interactions, duplicate keywords, token return, source loss and
+  intimidate matrix; 234 AI, 134 card, 71 DSL and 275 codegen tests pass.
+  All 3,321 printing validations, table reproducibility, formatting and
+  workspace/all-targets clippy with dev controls pass. Original Partial
+  inventory: 278 completed, 262 remaining.

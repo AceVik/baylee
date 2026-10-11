@@ -24,102 +24,119 @@ static PERSIST_RETURN: &[baylee_cards_dsl::Effect] =
         1,
     )];
 
+/// Count independent return abilities before departure, after copy and ability
+/// layers. The common case without either keyword needs no effect scan.
+pub(crate) fn return_keyword_counts(state: &GameState, object: &GameObject) -> [u32; 2] {
+    use baylee_cards_dsl::{KeywordSet, Layer, Modifier};
+    let kinds = [KeywordSet::UNDYING, KeywordSet::PERSIST];
+    let active = object.characteristics().keywords;
+    if !kinds.iter().any(|kind| active.contains(*kind)) {
+        return [0; 2];
+    }
+    let base =
+        crate::layers::copiable_values(state, object.id).unwrap_or_else(|| object.base.clone());
+    let mut counts = kinds.map(|kind| u32::from(base.keywords.contains(kind)));
+    let plan = crate::layers::LayerPlan::build(&state.effects);
+    for effect in plan.effects_for(&state.effects, Layer::Ability, object.id) {
+        if !crate::effects::applies_to(state, effect, object) {
+            continue;
+        }
+        for (index, kind) in kinds.iter().enumerate() {
+            match effect.modifier {
+                Modifier::AddKeyword(keywords) if keywords.contains(*kind) => {
+                    counts[index] = counts[index].saturating_add(1);
+                }
+                Modifier::AddKeywordIfCountersAtLeast {
+                    kind: counter,
+                    at_least,
+                    keywords,
+                } if keywords.contains(*kind)
+                    && object.counters.get(counter) >= u16::from(at_least) =>
+                {
+                    counts[index] = counts[index].saturating_add(1);
+                }
+                Modifier::RemoveKeyword(keywords) if keywords.contains(*kind) => counts[index] = 0,
+                Modifier::LoseAllAbilities | Modifier::LoseKeywords => counts[index] = 0,
+                _ => {}
+            }
+        }
+    }
+    std::array::from_fn(|index| {
+        if active.contains(kinds[index]) {
+            counts[index].max(1)
+        } else {
+            0
+        }
+    })
+}
+
 pub(super) fn collect(
     state: &GameState,
     obj: &GameObject,
     events: &[crate::event::JournalEntry],
     triggers: &mut Vec<PendingTrigger>,
 ) {
-    let permanent = obj.id;
-    // The **printed** bits and not the projected ones, and that is a
-    // limit rather than a choice: `move_object` clears `obj.cache`
-    // (CR 400.7), so `characteristics()` has already fallen back to
-    // `base` by the time this scan runs, and a continuous effect that
-    // *granted* undying stopped applying when the permanent left the
-    // battlefield. Closing it needs a fourth look-back store holding
-    // the projected keywords, the way `ltb_counters` holds the
-    // counters. Mikaeus, the Unhallowed is the one card in this pool
-    // that wants it and is `Coverage::Partial` for three reasons of
-    // which this is one.
-    let keywords = obj.characteristics().keywords;
-    for (bit, kind, effects) in [
-        (
-            baylee_cards_dsl::KeywordSet::UNDYING,
-            baylee_cards_dsl::CounterKind::P1P1,
-            UNDYING_RETURN,
-        ),
-        (
-            baylee_cards_dsl::KeywordSet::PERSIST,
-            baylee_cards_dsl::CounterKind::M1M1,
-            PERSIST_RETURN,
-        ),
-    ] {
-        if !keywords.contains(bit) {
+    for entry in events {
+        if !matches!(entry.event, GameEvent::ZoneChanged {
+            object, from: crate::zone::Zone::Battlefield, to: crate::zone::Zone::Graveyard, ..
+        } if object == obj.id)
+        {
             continue;
         }
-        // A token has no card to return (CR 111.7): it ceases to
-        // exist as a state-based action and the object in `ceased`
-        // is all that is left of it. The trigger would resolve onto
-        // nothing, which is a rule that looks broken rather than
-        // one that declines.
-        if obj.card.is_none() {
-            continue;
-        }
-        // The intervening `if` (CR 603.4), and it is read out of
-        // the look-back store rather than off the object: the
-        // counters were cleared by the very move this trigger is
-        // about. Checked **once** and not twice, which is the one
-        // place this engine departs from the letter of 603.4 — the
-        // rule says on trigger and again on resolution, and both
-        // reads are of the same frozen last-known information, so
-        // the second cannot answer differently.
-        let had = state
-            .ltb_counters
-            .iter()
-            .find(|(id, _)| *id == permanent)
-            .map_or(0, |(_, counters)| counters.get(kind));
-        if had > 0 {
-            continue;
-        }
-        for entry in events {
-            if let GameEvent::ZoneChanged {
-                object,
-                from,
-                to,
-                cause: _,
-                place: _,
-            } = &entry.event
-                && *object == permanent
-                && *from == crate::zone::Zone::Battlefield
-                && *to == crate::zone::Zone::Graveyard
-            {
-                for _ in
-                    0..times_triggered(state, baylee_cards_dsl::TriggerEventKind::Any, permanent)
-                {
-                    let source = source_at_event(state, obj, events, entry, true);
-                    triggers.push(PendingTrigger {
-                        text: TextChangeMap::IDENTITY,
-                        source_version: Some(source.version),
-                        event_object_identity: None,
-                        counter_source_version: None,
-                        event_mana: None,
-                        event_mana_value: None,
-                        event_departure: None,
-                        event_amount: None,
-                        event_player: None,
-                        source: permanent,
-                        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                        controller: source.controller,
-                        timestamp: source.timestamp,
-                        event_object: Some(permanent),
-                        implicit_target: Some(permanent),
-                        abilities: None,
-                        synthetic_effects: Some(effects),
-                        once_per_turn: false,
-                        synthetic_target: None,
-                        chosen_mode: None,
-                    });
-                }
+        let source = source_at_event(state, obj, events, entry, true);
+        let counts = entry.departure.as_ref().map_or_else(
+            || {
+                [
+                    baylee_cards_dsl::KeywordSet::UNDYING,
+                    baylee_cards_dsl::KeywordSet::PERSIST,
+                ]
+                .map(|keyword| u32::from(source.characteristics().keywords.contains(keyword)))
+            },
+            |departure| departure.return_keywords,
+        );
+        for (index, (kind, effects)) in [
+            (baylee_cards_dsl::CounterKind::P1P1, UNDYING_RETURN),
+            (baylee_cards_dsl::CounterKind::M1M1, PERSIST_RETURN),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            if counts[index] == 0 || source.counters.get(kind) > 0 {
+                continue;
+            }
+            // CR 603.10a reads each death's exact pre-departure source, not
+            // a later incarnation or whichever copy currently owns the handle.
+            let times = counts[index].saturating_mul(times_triggered(
+                state,
+                baylee_cards_dsl::TriggerEventKind::Any,
+                obj.id,
+            ));
+            for _ in 0..times {
+                triggers.push(PendingTrigger {
+                    text: TextChangeMap::IDENTITY,
+                    source_version: Some(source.version),
+                    event_object_identity: Some((
+                        source.version.wrapping_add(1),
+                        source.characteristics().power.unwrap_or(0),
+                    )),
+                    counter_source_version: None,
+                    event_mana: None,
+                    event_mana_value: None,
+                    event_departure: None,
+                    event_amount: None,
+                    event_player: None,
+                    source: obj.id,
+                    ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                    controller: source.controller,
+                    timestamp: source.timestamp,
+                    event_object: Some(obj.id),
+                    implicit_target: Some(obj.id),
+                    abilities: None,
+                    synthetic_effects: Some(effects),
+                    once_per_turn: false,
+                    synthetic_target: None,
+                    chosen_mode: None,
+                });
             }
         }
     }

@@ -816,6 +816,16 @@ pub fn can_block(
             return false;
         }
     }
+    // Intimidate (CR 702.13b): any shared color works; colorless is not
+    // a color and therefore only an artifact creature can block it.
+    if kw(a, K::INTIMIDATE) {
+        let blocker = b.characteristics();
+        if !blocker.types.contains(TypeSet::ARTIFACT)
+            && !blocker.colors.intersects(a.characteristics().colors)
+        {
+            return false;
+        }
+    }
     // Landwalk (CR 702.14c): unblockable while the *defending* player
     // controls a land of that type — that player's lands and nobody
     // else's, read as they are now (a land an effect made an Island is
@@ -2772,6 +2782,44 @@ mod tests {
         // And a creature without fear is blocked as ever.
         let ordinary = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
         assert!(can_block(&state, P1, green, ordinary));
+    }
+
+    #[test]
+    fn intimidate_checks_every_color_pair_and_artifact_exception() {
+        use baylee_core::color::ColorSet;
+        let colors: Vec<_> = (0..32)
+            .map(|mask| {
+                ColorSet::from_slice(
+                    &Color::ALL
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(bit, color)| (mask & (1 << bit) != 0).then_some(*color))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        let mut state = empty_state();
+        let attacker = creature(&mut state, P0, 2, 2, KeywordSet::INTIMIDATE);
+        let blocker = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        for (a, attack_colors) in colors.iter().enumerate() {
+            state.object_mut(attacker).unwrap().base_mut().colors = *attack_colors;
+            for (b, block_colors) in colors.iter().enumerate() {
+                for artifact in [false, true] {
+                    let base = state.object_mut(blocker).unwrap().base_mut();
+                    base.colors = *block_colors;
+                    base.types = if artifact {
+                        TypeSet::CREATURE.union(TypeSet::ARTIFACT)
+                    } else {
+                        TypeSet::CREATURE
+                    };
+                    assert_eq!(
+                        can_block(&state, P1, blocker, attacker),
+                        artifact || a & b != 0,
+                        "attacker={a}, blocker={b}, artifact={artifact}"
+                    );
+                }
+            }
+        }
     }
 
     /// Landwalk (CR 702.14c) asks the *defending* player's lands: an Island

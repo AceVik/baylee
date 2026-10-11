@@ -5733,3 +5733,5 @@ mod counter_auras;
 mod hone_counters;
 
 mod counter_limits;
+
+mod death_returns;
