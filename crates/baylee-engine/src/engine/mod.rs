@@ -1696,6 +1696,7 @@ mod banding;
 mod camouflage;
 mod decision;
 pub(crate) mod disguise;
+mod division;
 mod room;
 mod storied;
 mod targeting;
