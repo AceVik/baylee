@@ -3,18 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Conqueror's Galleon` // `Conqueror's Foothold` (`Coverage::Partial`):
-/// "When this Vehicle attacks, exile it at end of combat, then return it to the battlefield
-/// transformed under your control. Crew 4 (Tap any number of creatures you control with total
-/// power 4 or more: This Vehicle becomes an artifact creature until end of turn.)
-/// // `{{T}}`: Add `{{C}}`. `{{2}}`, `{{T}}`: Draw a card, then discard a card.
-/// `{{4}}`, `{{T}}`: Draw a card. `{{6}}`, `{{T}}`: Return target card from your graveyard to your hand."
-///
-/// Under `Coverage::Partial`, Crew 4 and the attack-transform trigger are omitted, leaving
-/// `Conqueror's Galleon` as a `{4}` artifact vehicle with printed power 2 and toughness 10.
-/// The test casts `Conqueror's Galleon` from hand, confirms its 2/10 body and non-creature artifact
-/// status, confirms that `LegalActions::abilities` offers no crew ability with mana floating,
-/// and confirms that it cannot be declared as an attacker in `Pending::ChooseAttackers`.
 #[test]
 fn conqueror_s_galleon_casts_as_uncrewed_vehicle_and_cannot_attack() {
     let p0 = PlayerId::new(0);
@@ -50,7 +38,7 @@ fn conqueror_s_galleon_casts_as_uncrewed_vehicle_and_cannot_attack() {
     };
     assert!(
         !legal.abilities.iter().any(|(src, _)| *src == galleon),
-        "under `Coverage::Partial` no crew ability is offered"
+        "no creatures are available to pay crew 4"
     );
 
     // Advance to combat and verify that Galleon cannot attack.
@@ -63,5 +51,53 @@ fn conqueror_s_galleon_casts_as_uncrewed_vehicle_and_cannot_attack() {
     assert!(
         !attackers.contains(&galleon),
         "uncrewed vehicle cannot be declared as an attacker"
+    );
+}
+
+#[test]
+fn galleon_crews_and_returns_transformed_only_at_end_of_combat() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                conqueror_s_galleon(),
+                baylee_core::generated::index::GRIZZLY_BEARS,
+                baylee_core::generated::index::GRIZZLY_BEARS,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let ship = on_battlefield(&e, p0, conqueror_s_galleon()).unwrap();
+    let before = identity(&e, ship);
+    activate(&mut e, p0, conqueror_s_galleon(), 0);
+    let Pending::ChooseCards { options, .. } = e.pending().clone() else {
+        panic!("crew")
+    };
+    assert_eq!(options.len(), 2);
+    e.apply(p0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert!(types(&e, ship).contains(TypeSet::CREATURE));
+    attack_and_collect_blocks(&mut e, ship, p1);
+    assert_eq!(e.state().object(ship).unwrap().face_index, 0);
+    e.apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+    pass_until(&mut e, |e| {
+        e.state().turn.phase == crate::turn::Phase::SecondMain
+            && matches!(e.pending(),Pending::Priority{player,..} if *player==p0)
+    });
+    assert_eq!(e.state().object(ship).unwrap().face_index, 1);
+    assert_ne!(identity(&e, ship), before);
+    assert!(types(&e, ship).contains(TypeSet::LAND));
+    assert!(!types(&e, ship).contains(TypeSet::CREATURE));
+    assert!(!is_tapped(&e, ship));
+    activate(&mut e, p0, conqueror_s_galleon(), 0);
+    assert_eq!(
+        e.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1
     );
 }

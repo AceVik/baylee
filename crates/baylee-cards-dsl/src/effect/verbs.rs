@@ -554,7 +554,8 @@ impl Effect {
                 filter: _,
                 then,
             } => (then, NONE),
-            Effect::IfKicked { then, otherwise }
+            Effect::IfTargetMatchesElse { filter: _, then, otherwise }
+            | Effect::IfKicked { then, otherwise }
             | Effect::FlipCoin {
                 won: then,
                 lost: otherwise,
@@ -713,6 +714,7 @@ impl Effect {
             | Effect::Mill { .. }
             | Effect::AddMana { .. }
             | Effect::AddManaFor { .. }
+            | Effect::ManaForColorsAmong(_)
             | Effect::AddManaLikeEvent { .. }
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }

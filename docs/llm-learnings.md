@@ -3430,3 +3430,31 @@ land type"; both are convention tests that fire on a first try.
   the previous list. A global generated `CardIndex` also does not imply that
   the card belongs to this registry; Maskwood Nexus supplies a real Time Lord
   for Clocktower's test without inventing one outside the card pool.
+
+### Card completion batch 18 — represented colors and event incarnations
+
+- Complete Emiel the Blessed, Spirit Link, Vance's Blasting Cannons,
+  Conqueror's Galleon, Matzalantli, Land Tax, Faeburrow Elder, and Tarnation
+  Vista. Exercise both transform routes, upkeep conditions at triggering and
+  resolution, optional hybrid payment, and source-controller life gain.
+- Bloom Tender must produce one mana of each represented color, not a freely
+  chosen combination of the same size. Share a five-bit union with counted
+  color amounts; duplicates, multicolored permanents, and opponents' boards
+  are distinct cases. Elder's bonus is layer 7c, not characteristic-defining
+  base power/toughness. The current object uses its in-progress projection.
+- Compare Land Tax's land count to each opponent separately, never their sum.
+  Matzalantli counts distinct permanent types; its reverse counts permanent
+  cards. An artifact creature contributes two types but one card.
+- An implicit EventObject is still a particular incarnation. Counter effects
+  must preserve the event's recorded version through nested branches and
+  optional payment, rather than taking the current occupant's version when
+  resolution starts. Emiel's blink regression caught this shared resolver
+  defect. Public successors reached by the same resolution still work.
+- Vance's nonland restriction is stricter than merely prohibiting land plays:
+  a land with an Adventure must receive no permission. Ragavan retains its
+  unrestricted cast-only permission. Test expiration at the next own main
+  phase, where sorcery timing cannot accidentally mask a stale permission.
+- Full engine coverage: 5,489 passed. Client, client-core, gamehost, card and
+  DSL regression suites passed in the preceding broad run; the changed
+  resolver and card paths were then rerun. The nested-effect carrier guard
+  checks both new branches (38 fields across 33 carrier variants).

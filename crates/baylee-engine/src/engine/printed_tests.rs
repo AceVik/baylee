@@ -145,6 +145,7 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         | Modifier::SwitchPT
         | Modifier::CharacteristicPT { .. }
         | Modifier::ModifyPTPerCount { .. }
+        | Modifier::ModifyPTByCount(_)
         | Modifier::ModifyPTHalfCount(_) => PT,
         _ => &[],
     };

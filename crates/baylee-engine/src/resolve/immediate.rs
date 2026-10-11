@@ -253,6 +253,7 @@ pub(super) fn exec_immediate(
         | Effect::CounterTargetSpell => zones::exec(state, res, op),
         Effect::DelayedManaAtNextFirstMain { .. }
         | Effect::AddManaFor { .. }
+        | Effect::ManaForColorsAmong(_)
         | Effect::AddManaLikeEvent { .. } => mana::exec(state, res, op),
         Effect::ModifySource { .. }
         | Effect::SetSourceToughness { .. }
@@ -393,6 +394,18 @@ pub(super) fn exec_immediate(
                 return run_nested(state, res, then);
             }
             None
+        }
+        Effect::IfTargetMatchesElse {
+            filter,
+            then,
+            otherwise,
+        } => {
+            let holds = this_to_affect(state, res)
+                .and_then(|id| state.object(id))
+                .is_some_and(|object| {
+                    eval::matches_with_context(filter, state, object, you, res.rule_context())
+                });
+            run_nested(state, res, if holds { then } else { otherwise })
         }
         Effect::IfTargetMatches { filter, then } => {
             let holds = res
@@ -1567,7 +1580,7 @@ pub(super) fn exec_immediate(
         // owner's exile face up, and the controller may cast it this turn.
         // A permission for that object and no later one (`PlayPermission`),
         // so a card that moves again is not cast under it (CR 400.7).
-        Effect::ExileTopMayCast { who } => {
+        Effect::ExileTopMayCast { who, nonland_only } => {
             let you = res.controller;
             for player in players_of(who, state, you, res) {
                 let Some(top) = state
@@ -1586,6 +1599,13 @@ pub(super) fn exec_immediate(
                         Cause::Effect,
                     )
                     .is_ok()
+                    && (!nonland_only
+                        || state.object(top).is_some_and(|object| {
+                            !object
+                                .characteristics()
+                                .types
+                                .contains(baylee_core::types::TypeSet::LAND)
+                        }))
                 {
                     grant_permission(state, you, top, false, true);
                 }

@@ -7,14 +7,10 @@
 //! Set: XLN #173 — Ixalan | Scryfall ID: 9e8c0009-787f-480b-84b6-bf297f1fb466 | Oracle ID: 5e7eca9c-a7b8-4b7b-a0a0-e8937530145a
 //! Face: Vance's Blasting Cannons — {3}{R} — Legendary Enchantment
 //! Face: Spitfire Bastion —  — Legendary Land
-// PARTIAL — the third-spell transform trigger and both abilities of the back
-// face are built; the upkeep trigger cannot be said (see the NOT SUPPORTED
-// line below). The back face is the only face a player may not cast, so the
-// cast wizard must not offer Bastion as a mode at its unprinted cost.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
-
-// NOT SUPPORTED: "At the beginning of your upkeep, exile the top card of your library. If it's a nonland card, you may cast that card this turn." — no effect puts the top card of a library anywhere (nothing like `ExileTopOfLibrary`), and no variant grants a permission to cast the exiled card this turn.
 
 static BACK_ABILITIES: &[AbilityDef] = &[
     mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
@@ -48,16 +44,26 @@ card!(
             castable_from_hand = false,
         ),
     ],
-    coverage = Coverage::Partial(
-        "the upkeep trigger: exiling the top card of your library, and casting it this turn, is not expressible"
-    ),
-    abilities = &[triggered!(
-        Trigger::NthSpellCast {
-            n: 3,
-            filter: &Filter::Any,
-        },
-        &[Effect::MayDo {
-            effects: &[Effect::TransformSource],
-        }]
-    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::NthSpellCast {
+                n: 3,
+                filter: &Filter::Any,
+            },
+            &[Effect::MayDo {
+                effects: &[Effect::TransformSource],
+            }]
+        ),
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: PlayerRel::You
+            },
+            &[Effect::ExileTopMayCast {
+                nonland_only: true,
+                who: PlayerRel::You
+            }]
+        ),
+    ],
 );

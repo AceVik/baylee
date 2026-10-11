@@ -181,3 +181,5 @@ mod wolverine_pack;
 mod lesser_werewolf;
 
 mod willow_satyr;
+
+mod emiel_the_blessed;

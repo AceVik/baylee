@@ -108,6 +108,15 @@ pub enum StepKind {
 /// as it resolves.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Condition {
+    /// An opponent controls more matching permanents than you do.
+    OpponentControlsMore(&'static Filter),
+    /// At least this many of the named card types occur in your graveyard.
+    GraveyardTypesAmongAtLeast {
+        /// Card types that contribute to the count.
+        types: baylee_core::types::TypeSet,
+        /// Minimum number of distinct types.
+        minimum: u8,
+    },
     /// This incarnation was declared as an attacker or blocker this combat,
     /// even if it has since been removed from combat.
     AttackedOrBlockedThisCombat,
@@ -922,7 +931,7 @@ impl AbilityDef {
                 ..
             } if effects.iter().any(|effect| matches!(
                 effect,
-                crate::effect::Effect::AddMana { .. } | crate::effect::Effect::AddManaFor { .. } | crate::effect::Effect::AddManaLikeEvent { .. }
+                crate::effect::Effect::AddMana { .. } | crate::effect::Effect::AddManaFor { .. } | crate::effect::Effect::AddManaLikeEvent { .. } | crate::effect::Effect::ManaForColorsAmong(_)
             ))
         )
     }

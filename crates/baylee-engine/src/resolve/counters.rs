@@ -137,7 +137,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // no-subject answer `this_object` gave by returning `None`.
             if res.targeted {
                 for &target in &res.targets {
-                    crate::replacement::put_counters(state, target, kind, n);
+                    if subjects::target(state, res, target)
+                        .is_some_and(|reference| subjects::is_current(state, reference))
+                    {
+                        crate::replacement::put_counters(state, target, kind, n);
+                    }
                 }
             } else {
                 let target = this_to_affect(state, res)?;

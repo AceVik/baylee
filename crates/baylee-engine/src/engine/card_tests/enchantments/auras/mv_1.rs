@@ -40,3 +40,5 @@ mod weakness;
 mod web;
 mod white_ward;
 mod wild_growth;
+
+mod spirit_link;

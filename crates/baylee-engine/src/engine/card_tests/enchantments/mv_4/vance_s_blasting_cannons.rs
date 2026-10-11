@@ -3,17 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Vance's Blasting Cannons` // `Spitfire Bastion` (`Coverage::Partial`):
-/// "At the beginning of your upkeep, exile the top card of your library. If it's a nonland card,
-/// you may cast that card this turn. Whenever you cast your third spell in a turn, you may transform
-/// `Vance's Blasting Cannons`. // `{{T}}`: Add `{{R}}`. `{{2}}{{R}}`, `{{T}}`: `Spitfire Bastion` deals
-/// 3 damage to any target."
-///
-/// Under `Coverage::Partial`, the upkeep exile-and-cast trigger is omitted, while the third-spell
-/// transform trigger and the back face's abilities are implemented. The test casts three spells
-/// in one turn using `dark_ritual()`, intercepts the optional transform prompt on the third cast,
-/// accepts the transformation into the legendary land `Spitfire Bastion` on face 1, and taps
-/// `Spitfire Bastion` for red mana.
 #[test]
 fn vance_s_blasting_cannons_transforms_on_third_spell_and_taps_for_red() {
     let p0 = PlayerId::new(0);
@@ -76,4 +65,46 @@ fn vance_s_blasting_cannons_transforms_on_third_spell_and_taps_for_red() {
         1,
         "Spitfire Bastion tapped for one red mana"
     );
+}
+
+#[test]
+fn cannons_exiles_at_upkeep_and_cast_permission_expires_and_never_plays_lands() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for (card, cast_now) in [
+        (index::ORNITHOPTER, true),
+        (index::ORNITHOPTER, false),
+        (forest(), false),
+        (index::ISHGARD_THE_HOLY_SEE, false),
+    ] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[vance_s_blasting_cannons()])
+            .hand(0, &[card])
+            .start();
+        keep_mulligans(&mut e);
+        let top = hand_to_library_top(&mut e, p0, card);
+        reach_main_phase(&mut e, p0);
+        assert_eq!(e.state().object(top).unwrap().zone, Zone::Exile);
+        if card == index::ORNITHOPTER && cast_now {
+            e.apply(p0, PlayerAction::CastSpell { card: top }).unwrap();
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(e.state().object(top).unwrap().zone, Zone::Battlefield);
+        } else if card == index::ORNITHOPTER {
+            reach_their_main_phase(&mut e, PlayerId::new(1));
+            reach_their_main_phase(&mut e, p0);
+            assert!(
+                e.apply(p0, PlayerAction::CastSpell { card: top }).is_err(),
+                "permission expired"
+            );
+        } else {
+            assert!(
+                !e.state()
+                    .per_turn
+                    .playable
+                    .iter()
+                    .any(|permission| permission.card == top)
+            );
+            assert!(e.apply(p0, PlayerAction::PlayLand { card: top }).is_err());
+        }
+    }
 }

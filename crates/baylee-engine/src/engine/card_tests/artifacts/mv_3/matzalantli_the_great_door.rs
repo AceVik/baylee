@@ -3,19 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Matzalantli, the Great Door` // `The Core` (`Coverage::Partial`):
-/// "`{{T}}`: Draw a card, then discard a card. `{{4}}`, `{{T}}`: Transform `Matzalantli`.
-/// Activate only if there are four or more permanent types among cards in your graveyard.
-/// // Fathomless descent — `{{T}}`: Add X mana of any one color, where X is the number
-/// of permanent cards in your graveyard."
-///
-/// Under `Coverage::Partial`, the `{{4}}`, `{{T}}` transform ability is omitted because no
-/// condition counts permanent types in a graveyard, leaving the front-face `{{T}}` loot ability.
-/// The test verifies that with four mana floating and `Matzalantli` untapped, `LegalActions::abilities`
-/// offers only ability 0 and no transform ability. It then activates ability 0, answers the
-/// `ChoicePrompt::Generic` card-choice prompt to discard, and confirms the drawn card and graveyard entry.
 #[test]
-fn matzalantli_the_great_door_draws_and_discards_and_omits_transform() {
+fn matzalantli_the_great_door_draws_and_discards_with_insufficient_permanent_types() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(302, forest())
         .battlefield(
@@ -57,7 +46,7 @@ fn matzalantli_the_great_door_draws_and_discards_and_omits_transform() {
     assert_eq!(
         door_abilities,
         vec![0],
-        "under `Coverage::Partial` only ability 0 is offered; the {{4}}, {{T}} transform is omitted"
+        "the empty graveyard cannot satisfy the transform condition"
     );
 
     // Ability 0: "{T}: Draw a card, then discard a card."
@@ -114,4 +103,59 @@ fn matzalantli_the_great_door_draws_and_discards_and_omits_transform() {
         1,
         "discarded card is in the graveyard"
     );
+}
+
+#[test]
+fn door_counts_distinct_permanent_types_but_core_counts_cards() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[matzalantli_the_great_door()])
+        .hand(
+            0,
+            &[
+                index::ORNITHOPTER,
+                forest(),
+                index::LAND_TAX,
+                index::DARK_RITUAL,
+                index::FAITHLESS_LOOTING,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let door = on_battlefield(&e, p0, matzalantli_the_great_door()).unwrap();
+    let before = identity(&e, door);
+    for card in [
+        index::ORNITHOPTER,
+        forest(),
+        index::DARK_RITUAL,
+        index::FAITHLESS_LOOTING,
+    ] {
+        hand_to_graveyard(&mut e, p0, card);
+    }
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 4);
+    e.refresh_offer();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority")
+    };
+    assert!(
+        !legal.abilities.contains(&(door, 1)),
+        "instant/sorcery are not permanent types"
+    );
+    hand_to_graveyard(&mut e, p0, index::LAND_TAX);
+    e.refresh_offer();
+    activate(&mut e, p0, matzalantli_the_great_door(), 1);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(identity(&e, door), before);
+    assert_eq!(e.state().object(door).unwrap().face_index, 1);
+    assert!(is_tapped(&e, door));
+    e.dev_state_mut(p0).unwrap().set_tapped(door, false);
+    e.refresh_offer();
+    activate(&mut e, p0, matzalantli_the_great_door(), 0);
+    e.apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+    assert_eq!(e.state().players[0].mana_pool.available(ManaColor::Blue), 3);
 }

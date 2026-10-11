@@ -472,3 +472,23 @@ fn retained_target_type_branch_is_visited() {
     });
     assert_eq!(draws, 1);
 }
+
+#[test]
+fn both_target_match_branches_are_visited() {
+    static EFFECTS: &[Effect] = &[Effect::IfTargetMatchesElse {
+        filter: &crate::Filter::CREATURE,
+        then: &[Effect::draw(1)],
+        otherwise: &[Effect::GainLife {
+            amount: crate::Amount::Fixed(1),
+        }],
+    }];
+    let mut seen = 0;
+    let mut draw = false;
+    let mut life = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        draw |= matches!(effect, Effect::DrawCards { .. });
+        life |= matches!(effect, Effect::GainLife { .. });
+    });
+    assert_eq!(seen, 3);
+    assert!(draw && life);
+}

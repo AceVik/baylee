@@ -20,6 +20,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             combination,
             restriction,
         } => add_mana(state, res, source, &amount, combination, restriction),
+        Effect::ManaForColorsAmong(filter) => {
+            let colors = eval::colors_among(state, res.controller, filter, res.rule_context());
+            for color in colored(colors) {
+                add(state, res, color, 1, None);
+            }
+            None
+        }
         Effect::AddManaLikeEvent { amount } => add_like_event(state, res, amount),
         Effect::AddManaFor { who, color, amount } => {
             for player in players_of(who, state, res.controller, res) {

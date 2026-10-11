@@ -97,25 +97,47 @@ fn aura_successor(state: &GameState, res: &Resolution) -> Option<DamageSourceRef
     })
 }
 
+/// The object an instruction names, retaining the event's incarnation for
+/// implicit subjects. An explicit target still uses its resolution snapshot.
+pub(super) fn target(
+    state: &GameState,
+    res: &Resolution,
+    object: baylee_core::ids::ObjectId,
+) -> Option<DamageSourceRef> {
+    res.subject
+        .followed
+        .iter()
+        .rev()
+        .find(|r| r.object == object)
+        .copied()
+        .or_else(|| {
+            let stack = state.object(res.on_stack)?;
+            if res.event_object != Some(object)
+                || !stack.target_req.is_some_and(|req| {
+                    matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject)
+                })
+            {
+                return None;
+            }
+            let (version, _) = super::event_object_identity(state, res)?;
+            Some(DamageSourceRef { object, version })
+        })
+        .or_else(|| {
+            res.target_lki
+                .as_ref()?
+                .iter()
+                .find(|r| r.id == object)
+                .map(|r| DamageSourceRef {
+                    object,
+                    version: r.version,
+                })
+        })
+        .or_else(|| state.source_identity(object))
+}
+
 pub(super) fn this(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
     if let Some(&object) = res.targets.first() {
-        res.subject
-            .followed
-            .iter()
-            .rev()
-            .find(|r| r.object == object)
-            .copied()
-            .or_else(|| {
-                res.target_lki
-                    .as_ref()?
-                    .iter()
-                    .find(|r| r.id == object)
-                    .map(|r| DamageSourceRef {
-                        object,
-                        version: r.version,
-                    })
-            })
-            .or_else(|| state.source_identity(object))
+        target(state, res, object)
     } else if res.targeted {
         None
     } else {

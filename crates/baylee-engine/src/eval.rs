@@ -618,6 +618,16 @@ pub fn amount_with_context(
 }
 
 fn distinct_colors(state: &GameState, you: PlayerId, filter: &Filter, context: RuleContext) -> u32 {
+    u32::from(colors_among(state, you, filter, context).len())
+}
+
+/// Distinct represented colors, with duplicates collapsed in a five-bit set.
+pub(crate) fn colors_among(
+    state: &GameState,
+    you: PlayerId,
+    filter: &Filter,
+    context: RuleContext,
+) -> baylee_core::color::ColorSet {
     let mut colors = baylee_core::color::ColorSet::EMPTY;
     for id in state.battlefield_seen() {
         if let Some(obj) = state.object(id)
@@ -626,7 +636,7 @@ fn distinct_colors(state: &GameState, you: PlayerId, filter: &Filter, context: R
             colors = colors.union(obj.characteristics().colors);
         }
     }
-    u32::from(colors.len())
+    colors
 }
 
 fn basic_land_types(
@@ -841,6 +851,26 @@ pub fn condition_holds_with_context(
         // ability's controller: "an opponent controls four or more lands"
         // asks the question of each seat in turn, and a filter evaluated
         // with the asker's seat would read `ControlledByYou` backwards.
+        Condition::OpponentControlsMore(filter) => {
+            let mut counts = vec![0usize; state.players.len()];
+            for id in state.battlefield_seen() {
+                if let Some(object) = state.object(id)
+                    && matches_with_context(filter, state, object, you, context)
+                    && let Some(count) = counts.get_mut(usize::from(object.controller.get()))
+                {
+                    *count += 1;
+                }
+            }
+            let yours = counts.get(usize::from(you.get())).copied().unwrap_or(0);
+            counts.iter().enumerate().any(|(seat, &count)| {
+                u8::try_from(seat).is_ok_and(|seat| state.is_opponent(PlayerId::new(seat), you))
+                    && count > yours
+            })
+        }
+        Condition::GraveyardTypesAmongAtLeast { types, minimum } => {
+            (graveyard_card_types(state, you).bits() & types.bits()).count_ones()
+                >= u32::from(minimum)
+        }
         Condition::OpponentControlCount(filter, min) => (0..state.players.len())
             .map(|i| PlayerId::new(i as u8))
             .filter(|id| state.is_opponent(*id, you))

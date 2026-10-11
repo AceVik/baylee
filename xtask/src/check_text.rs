@@ -772,12 +772,14 @@ pub(crate) fn check_scope_matches_the_text(
     // `Modifier::GainControl` is "you control enchanted creature" (Control
     // Magic, Steal Artifact, Treachery): the sentence is the change of
     // control itself, whose new controller is the effect's (CR 613.1b).
-    let filters_you = built.contains("ControlledByYou")
+    let compares_controllers = built.contains("OpponentControlsMore(");
+    let filters_you = compares_controllers
+        || built.contains("ControlledByYou")
         || built.contains("ControlCount(")
         || built.contains("YouControl(")
         || built.contains("WhileYouControlSource")
         || built.contains("GainControl");
-    let filters_theirs = built.contains("ControlledByOpponent");
+    let filters_theirs = compares_controllers || built.contains("ControlledByOpponent");
 
     if says_you && !filters_you {
         println!(

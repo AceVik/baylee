@@ -72,7 +72,9 @@
 // PlayerMayPayCostThen adds the paid branch, covered by the walker test.
 // ChooseOne carries every inline resolution branch, covered by its walker test.
 // IfTargetHadType carries its retained-information branch; walker tested.
-const NESTING_FIELDS: usize = 37;
+const NESTING_FIELDS: usize = 39;
+// Both IfTargetMatchesElse branches are exercised by both_target_match_branches_are_visited.
+const NESTING_FIELDS: usize = 39;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -111,7 +113,7 @@ const NESTING_FIELDS: usize = 37;
 /// branches. `WhenTargetDiesThisTurn` (Sandals of Abdallah's delayed
 /// "destroy this artifact") is the twenty-ninth (2026-10-10).
 /// `SacrificeOneThen` (Serendib Djinn) is the thirtieth (2026-10-10).
-const CARRYING_VARIANTS: usize = 33;
+const CARRYING_VARIANTS: usize = 34;
 
 /// The floor under the reader itself.
 ///

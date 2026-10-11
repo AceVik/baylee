@@ -2448,6 +2448,7 @@ fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> bool {
     use baylee_cards_dsl::Modifier;
     let (Modifier::CharacteristicPT { count, .. }
     | Modifier::SetPTToCount(count)
+    | Modifier::ModifyPTByCount(count)
     | Modifier::ModifyPTHalfCount(count)) = modifier
     else {
         return false;
@@ -2460,7 +2461,8 @@ fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
     match count {
         PtCount::Plus { base, .. } => pt_count_reads_combat(*base),
         PtCount::DefendingPlayerControls(_) => true,
-        PtCount::YouControl(_)
+        PtCount::DistinctColorsAmong(_)
+        | PtCount::YouControl(_)
         | PtCount::OnBattlefield(_)
         | PtCount::CardTypesInAllGraveyards
         | PtCount::ExiledWithThis => false,

@@ -23,7 +23,10 @@ pub fn could_add_mana(effects: &[Effect]) -> bool {
     effects.iter().any(|effect| {
         matches!(
             effect,
-            Effect::AddMana { .. } | Effect::AddManaFor { .. } | Effect::AddManaLikeEvent { .. }
+            Effect::AddMana { .. }
+                | Effect::AddManaFor { .. }
+                | Effect::AddManaLikeEvent { .. }
+                | Effect::ManaForColorsAmong(_)
         ) || {
             let (then, otherwise) = immediate_branches(effect);
             could_add_mana(then) || could_add_mana(otherwise)

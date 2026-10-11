@@ -621,6 +621,8 @@ pub enum Modifier {
     /// "you" in the count is the effect's controller — an Aura's, not the
     /// enchanted creature's.
     ModifyPTHalfCount(PtCount),
+    /// Add a computed count to both power and toughness in layer 7c.
+    ModifyPTByCount(PtCount),
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
@@ -665,6 +667,8 @@ pub enum Modifier {
 /// What a [`Modifier::CharacteristicPT`] counts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PtCount {
+    /// Distinct colors among permanents matching the filter.
+    DistinctColorsAmong(&'static crate::Filter),
     /// A characteristic-defining count plus a constant, before layer 7b.
     Plus {
         /// Underlying nonnegative count.
@@ -794,6 +798,7 @@ impl Modifier {
             Self::SetPT(..) | Self::SetPower(_) | Self::SetToughness(_) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::ModifyPT(..)
             | Self::ModifyPTPerCount { .. }
+            | Self::ModifyPTByCount(_)
             | Self::ModifyPTHalfCount(_)
             | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
@@ -1181,6 +1186,10 @@ mod tests {
                 Layer::PtSet,
             ),
             (Modifier::ModifyPT(1, 1), Layer::PtModify),
+            (
+                Modifier::ModifyPTByCount(PtCount::DistinctColorsAmong(&Filter::ControlledByYou)),
+                Layer::PtModify,
+            ),
             (
                 Modifier::ModifyPTHalfCount(PtCount::YouControl(&Filter::YOUR_LAND)),
                 Layer::PtModify,

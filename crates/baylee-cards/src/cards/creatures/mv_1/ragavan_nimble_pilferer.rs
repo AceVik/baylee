@@ -34,6 +34,7 @@ card!(
             &[
                 Effect::CreateToken { token: &TREASURE },
                 Effect::ExileTopMayCast {
+                    nonland_only: false,
                     who: PlayerRel::DamagedPlayer,
                 },
             ]

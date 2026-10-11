@@ -334,6 +334,8 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         // Rock Hydra's "{R}: Prevent the next 1 damage that would be dealt
         // to this creature": `resolve::life::recipients`. Left open, the
         // amount after the target is not this list's business.
+        // Galleon's played regression proves the delayed source is retained.
+        "AtEndOfCombat { about: ThisObject",
         "PreventNextDamage { target: ThisObject",
         "RedirectNextDamage { target: ThisObject",
     ];

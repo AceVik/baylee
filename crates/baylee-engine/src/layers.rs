@@ -783,6 +783,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::SwitchPT
                     | Modifier::CharacteristicPT { .. }
                     | Modifier::ModifyPTPerCount { .. }
+                    | Modifier::ModifyPTByCount(_)
                     | Modifier::ModifyPTHalfCount(_)
                     | Modifier::ModifyPTPerGraveyardCard { .. }
                     | Modifier::BecomeCopyOf(_)
@@ -960,6 +961,24 @@ fn pt_count(
 ) -> i16 {
     *read_board = true;
     let n = match count {
+        baylee_cards_dsl::PtCount::DistinctColorsAmong(filter) => {
+            let mut colors = baylee_core::color::ColorSet::EMPTY;
+            for id in state.battlefield_seen() {
+                if let Some(other) = state.object(id) {
+                    let chars = if id == obj.id {
+                        c
+                    } else {
+                        other.characteristics()
+                    };
+                    if eval::matches_projected_with_context(
+                        filter, state, other, chars, you, context,
+                    ) {
+                        colors = colors.union(chars.colors);
+                    }
+                }
+            }
+            usize::from(colors.len())
+        }
         baylee_cards_dsl::PtCount::Plus { base, offset } => {
             return pt_count(state, obj, c, you, *base, context, read_board)
                 .saturating_add(i16::try_from(offset).unwrap_or(i16::MAX));
@@ -1133,6 +1152,11 @@ fn apply(
             if let Some(tou) = &mut c.toughness {
                 *tou = tou.saturating_add(count.saturating_mul(*t));
             }
+        }
+        Modifier::ModifyPTByCount(count) => {
+            let n = pt_count(state, obj, c, fx.controller, *count, context, read_board);
+            if let Some(power) = &mut c.power { *power = power.saturating_add(n); }
+            if let Some(toughness) = &mut c.toughness { *toughness = toughness.saturating_add(n); }
         }
         Modifier::ModifyPTHalfCount(count) => {
             // Half the count, rounded down for power and up for toughness.

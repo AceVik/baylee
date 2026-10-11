@@ -1,63 +1,67 @@
-//! `cards/creatures/mv_3/faeburrow_elder.rs`, played.
-
-#[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
+//! Printed behavior and adversarial resolution cases.
+#[allow(clippy::wildcard_imports)]
 use super::*;
 
-/// Faeburrow Elder prints vigilance, "+1/+1 for each color among permanents
-/// you control" and a `{T}` ability adding one mana of each of those colors —
-/// and its head is `Coverage::Partial`, with both colour-count lines left off
-/// the card. That leaves the vigilance, and the only place it can be read is
-/// the projection of a permanent the harness put down: the printed body is
-/// 0/0, and the line that would grow it is the missing one, so whoever
-/// receives priority first lets CR 704.5f bury it. Both halves are one
-/// scenario — the layer system projects the vigilance onto the 0/0, and the
-/// same card cast for real resolves, dies, and lies in its owner's graveyard
-/// without ever having been able to attack.
 #[test]
-fn faeburrow_elder_projects_vigilance_onto_a_zero_zero_the_missing_line_never_grows() {
+fn elder_counts_distinct_own_colors_for_a_layer_seven_bonus_and_exact_mana() {
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[faeburrow_elder(), forest(), forest(), plains()])
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[faeburrow_elder(), baleful_strix(), baleful_strix()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let elder = on_battlefield(&e, p0, faeburrow_elder()).unwrap();
+    assert_eq!(pt(&e, elder), (4, 4));
+    assert!(keywords(&e, elder).contains(KeywordSet::VIGILANCE));
+    activate(&mut e, p0, faeburrow_elder(), 1);
+    assert!(stack_is_empty(&e));
+    let pool = &e.state().players[0].mana_pool;
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Green,
+    ] {
+        assert_eq!(pool.available(color), 1);
+    }
+    assert_eq!(pool.total(), 4);
+    let strixes: Vec<_> = e
+        .state()
+        .battlefield_view()
+        .iter()
+        .copied()
+        .filter(|id| {
+            e.state()
+                .object(*id)
+                .unwrap()
+                .card
+                .is_some_and(|card| card.index == baleful_strix())
+        })
+        .collect();
+    bury(&mut e, &strixes);
+    e.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert_eq!(pt(&e, elder), (2, 2));
+    let state = e.dev_state_mut(p0).unwrap();
+    let base = state.object_mut(elder).unwrap().base_mut();
+    base.power = Some(5);
+    base.toughness = Some(5);
+    state.refresh_characteristics();
+    assert_eq!(pt(&e, elder), (7, 7), "bonus, not a base P/T setting");
+}
+#[test]
+fn elder_cast_from_hand_survives_with_its_own_two_colors() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), plains()])
         .hand(0, &[faeburrow_elder()])
         .start();
-
-    // Read before the first priority round, which is the one window a 0/0
-    // permanent exists in.
-    let seeded = on_battlefield(&engine, p0, faeburrow_elder()).expect("the harness put it down");
-    let printed = keywords(&engine, seeded);
-    assert!(
-        printed.contains(KeywordSet::VIGILANCE),
-        "the printed vigilance is projected onto the permanent: {printed:?}"
-    );
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    cast_from_hand(&mut e, p0, faeburrow_elder());
+    pass_until(&mut e, stack_is_empty);
     assert_eq!(
-        pt(&engine, seeded),
-        (0, 0),
-        "and the body is the printed 0/0: nothing counts the colours among \
-         permanents you control, because that line is the `Coverage::Partial` gap"
-    );
-
-    // The first priority round is where CR 704.5f reads that body.
-    keep_mulligans(&mut engine);
-    assert!(
-        walk_to_own_main(&mut engine, p0),
-        "p0 reaches its own main phase"
-    );
-    assert!(
-        on_battlefield(&engine, p0, faeburrow_elder()).is_none(),
-        "a 0/0 with no counters is put into its owner's graveyard before \
-         anybody may use the vigilance it has"
-    );
-
-    // And the same card cast for real, which is what the gap costs the player
-    // who draws it: it resolves and is buried again.
-    cast_from_hand(&mut engine, p0, faeburrow_elder());
-    pass_until(&mut engine, stack_is_empty);
-    assert!(
-        on_battlefield(&engine, p0, faeburrow_elder()).is_none(),
-        "the freshly cast Elder is not on the battlefield either"
-    );
-    assert!(
-        in_graveyard(&engine, p0, faeburrow_elder()).is_some(),
-        "it resolved and went to its owner's graveyard, as a 0/0 does"
+        pt(&e, on_battlefield(&e, p0, faeburrow_elder()).unwrap()),
+        (2, 2)
     );
 }

@@ -18,19 +18,7 @@ use super::*;
 /// control" — Emiel himself is not on offer, and neither is the opponent's
 /// Llanowar Elves.
 ///
-/// The last assertion is the half `Coverage::Partial` names. The printing
-/// also says "Whenever another creature you control enters, you may pay
-/// {G/W}. If you do, put a +1/+1 counter on it. If it's a Unicorn, put two
-/// +1/+1 counters on it instead" — and the Strix coming back *is* another
-/// creature you control entering — with a fourth Forest's `{G}` still
-/// floating, so the `{G/W}` was affordable and the counter is absent for a
-/// reason other than the price. That ability is deliberately not written (no
-/// `Effect` asks for an optional payment of a *named* hybrid cost and runs
-/// the rest of the clause on the yes), so the Strix returns a bare 1/1 and
-/// nothing is asked at all: `pass_until` panics on any question that is not
-/// a priority, a combat declaration or a `MayDo`, and a `MayDo` answered yes
-/// — which is how the ability would have had to be written with what the
-/// DSL has — would have put the counter on.
+/// Declining the optional hybrid payment leaves the returning Strix unchanged.
 #[test]
 fn emiel_blinks_another_creature_you_control_and_puts_no_counter_on_it() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -101,18 +89,19 @@ fn emiel_blinks_another_creature_you_control_and_puts_no_counter_on_it() {
         "\"you control\" leaves the opponent's Elves out: {options:?}"
     );
     assert_eq!(options.len(), 1, "and nothing else: {options:?}");
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![strix],
-                players: vec![],
-            },
-        )
-        .unwrap();
+    aim_at(&mut engine, p0, strix);
 
-    // The ability resolves, the Strix's enters-trigger goes on the stack and
-    // resolves after it.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    // Resolve the Strix's draw trigger as well.
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::Priority { .. }) && stack_is_empty(e)
     });
@@ -132,12 +121,9 @@ fn emiel_blinks_another_creature_you_control_and_puts_no_counter_on_it() {
         on_battlefield(&engine, p0, emiel_the_blessed()).is_some(),
         "and Emiel stayed where he was",
     );
-    // The `// NOT SUPPORTED:` half, asserted rather than assumed: the
-    // printing would have offered `{G/W}` for a +1/+1 counter as the Strix
-    // came back, and this build offers nothing and places none.
     assert_eq!(
         pt(&engine, strix),
         (1, 1),
-        "the unwritten enters-trigger put no +1/+1 counter on it",
+        "declining the hybrid payment puts no counter on it",
     );
 }

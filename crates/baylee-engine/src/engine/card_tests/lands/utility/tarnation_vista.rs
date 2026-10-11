@@ -2,11 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use baylee_core::generated::index;
 
-/// `Tarnation Vista` prints `This land enters tapped. As it enters, choose a color.`, `{{T}}: Add one mana of the chosen color.`, and `{{1}}, {{T}}: For each color among monocolored permanents you control, add one mana of that color.`
-///
-/// Under `Coverage::Partial`, `EnterModifier::Tapped`, `EnterModifier::ChooseColor`, and the chosen color mana ability are implemented, while the monocolored permanent mana ability is omitted.
-/// Playing this land prompts with `Pending::ChooseColor`, enters tapped, untaps on the next turn, withholds ability 1 despite floating `{{1}}`, and taps for one mana of the chosen color (`ManaColor::Blue`).
 #[test]
 fn tarnation_vista_enters_tapped_chooses_color_and_taps_for_it() {
     let p0 = PlayerId::new(0);
@@ -50,8 +47,8 @@ fn tarnation_vista_enters_tapped_chooses_color_and_taps_for_it() {
         "ability 0 ({{T}}: Add chosen color) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(vista, 1)),
-        "ability 1 is omitted under `Coverage::Partial` despite floating {{1}}"
+        legal.abilities.contains(&(vista, 1)),
+        "ability 1 is offered with its generic cost available"
     );
 
     activate(&mut engine, p0, tarnation_vista(), 0);
@@ -60,4 +57,40 @@ fn tarnation_vista_enters_tapped_chooses_color_and_taps_for_it() {
     assert_eq!(pool.available(ManaColor::Green), 1);
     assert_eq!(pool.total(), 2);
     assert!(is_tapped(&engine, vista));
+}
+
+#[test]
+fn vista_excludes_multicolored_permanents_and_counts_each_monocolor_once() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                baylee_core::generated::index::GRIZZLY_BEARS,
+                baylee_core::generated::index::GRIZZLY_BEARS,
+                gray_ogre(),
+                baleful_strix(),
+            ],
+        )
+        .battlefield(1, &[index::SAVANNAH_LIONS])
+        .hand(0, &[tarnation_vista()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let vista = in_hand(&e, p0, tarnation_vista()).unwrap();
+    e.apply(p0, PlayerAction::PlayLand { card: vista }).unwrap();
+    e.apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .unwrap();
+    e.dev_state_mut(p0).unwrap().set_tapped(vista, false);
+
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 1);
+    e.refresh_offer();
+    activate(&mut e, p0, tarnation_vista(), 1);
+    assert!(stack_is_empty(&e));
+    let pool = &e.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 2);
+    assert_eq!(pool.available(ManaColor::Green), 1);
+    assert_eq!(pool.available(ManaColor::Red), 1);
 }

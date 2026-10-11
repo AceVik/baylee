@@ -4023,7 +4023,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Land Tax
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Lesser Werewolf
     &[FaceLines {
@@ -4447,8 +4454,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Spirit Link
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -32422,8 +32429,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 2,
-            stackable: 0,
-            lines: &[],
+            stackable: 2,
+            lines: &[Some(1), Some(0)],
             modes: &[],
             alternatives: &[],
         },
@@ -32758,8 +32765,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 2,
-            stackable: 1,
-            lines: &[Some(0)],
+            stackable: 2,
+            lines: &[Some(0), Some(0)],
             modes: &[],
             alternatives: &[],
         },
@@ -35471,7 +35478,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Faeburrow Elder
+    &[FaceLines {
+        sentences: 3,
+        stackable: 0,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -36652,8 +36666,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Emiel the Blessed
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -45997,8 +46011,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 2,
-            stackable: 1,
-            lines: &[Some(0)],
+            stackable: 2,
+            lines: &[Some(0), Some(1)],
             modes: &[],
             alternatives: &[],
         },
@@ -47684,7 +47698,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[Some(1)],
+        lines: &[Some(1), None],
         modes: &[],
         alternatives: &[],
     }],

@@ -28,6 +28,17 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Evaluate the first resolution subject once and run exactly one branch.
+    IfTargetMatchesElse {
+        /// Condition on the current characteristics of the subject.
+        filter: &'static Filter,
+        /// Matching branch.
+        then: &'static [Effect],
+        /// Nonmatching branch.
+        otherwise: &'static [Effect],
+    },
+    /// Add exactly one mana of each color present among matching permanents.
+    ManaForColorsAmong(&'static Filter),
     /// Put the ability's original source from its controller's hand onto the battlefield.
     PutSourceFromHandOntoBattlefield,
     /// Each targeted permanent's owner shuffles it into their library.
@@ -2315,6 +2326,8 @@ pub enum Effect {
     ExileTopMayCast {
         /// Whose library: the owner's relation to you.
         who: PlayerRel,
+        /// Grant permission only if the card is a nonland after exiling it.
+        nonland_only: bool,
     },
 }
 
