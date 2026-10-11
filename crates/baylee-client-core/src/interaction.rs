@@ -1103,6 +1103,10 @@ pub fn counter_label(kind: baylee_engine::object::CounterKind, lang: Lang) -> St
         CounterKind::Rad => Phrase::LogCountersRad.text(lang).to_owned(),
         CounterKind::Lifelink => Phrase::LogCountersLifelink.text(lang).to_owned(),
         CounterKind::Level => Phrase::LogCountersLevel.text(lang).to_owned(),
+        CounterKind::Hone => Phrase::LogCountersHone.text(lang).to_owned(),
+        CounterKind::Flying => Phrase::LogCountersFlying.text(lang).to_owned(),
+        CounterKind::Shadow => Phrase::LogCountersShadow.text(lang).to_owned(),
+        CounterKind::Indestructible => Phrase::LogCountersIndestructible.text(lang).to_owned(),
         CounterKind::Custom(_) => Phrase::LogCountersOther.text(lang).to_owned(),
     }
 }

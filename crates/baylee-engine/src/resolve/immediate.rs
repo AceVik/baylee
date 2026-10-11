@@ -205,6 +205,7 @@ pub(super) fn exec_immediate(
         | Effect::Blink { .. }
         | Effect::ReturnToHand { .. }
         | Effect::ReturnAllToHand { .. }
+        | Effect::DestroyAllWithManaValue { .. }
         | Effect::DestroyAll { .. }
         | Effect::ExileAll { .. }
         | Effect::ChooseYoursThen { .. }
@@ -274,6 +275,8 @@ pub(super) fn exec_immediate(
         | Effect::AddCounter { .. }
         | Effect::AddCountersUpTo { .. }
         | Effect::RemoveCounterSelf { .. }
+        | Effect::ChangeAttachedCounters { .. }
+        | Effect::ModifyAttached { .. }
         | Effect::AddCounterFilter { .. }
         | Effect::DoubleCountersFilter { .. }
         | Effect::DrainAllCountersIntoSelf

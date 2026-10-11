@@ -108,6 +108,7 @@ pub(crate) fn run_with_sagas(
     finished_sagas: &[baylee_core::ids::ObjectId],
 ) -> SbaOutcome {
     let mut outcome = SbaOutcome::default();
+    let excess_counters = crate::replacement::counter_limits::excess(state);
 
     // --- Player losses (CR 704.5a-c) -----------------------------------
     // Everybody Lives: no losses while the effect is active.
@@ -257,6 +258,17 @@ pub(crate) fn run_with_sagas(
 
     // --- Attachments (CR 704.5m-p) --------------------------------------
     outcome.changed |= apply_attachment_sbas(state, attachments);
+
+    // Limits were read against the same pre-action board as the other SBAs.
+    for (id, kind, excess) in excess_counters {
+        if state
+            .object(id)
+            .is_some_and(|object| object.zone == crate::zone::Zone::Battlefield)
+        {
+            crate::replacement::remove_counters(state, id, kind, excess);
+            outcome.changed = true;
+        }
+    }
 
     // --- +1/+1 vs -1/-1 annihilation (CR 704.5q) -------------------------
     // That pair and no other. `CounterKind` says every +X/+Y counter in one

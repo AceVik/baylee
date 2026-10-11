@@ -968,3 +968,19 @@ therefore leave the landwalk and hexproof abilities intact. CR 702.11b-c and
 702.14c define the affected targeting and blocking restrictions. No assets,
 printing identifiers or external scripts are added; the policy review and
 explicit owner decision recorded above continue to apply.
+
+### Counter rules and completed cards, batch 35 (2026-10-11)
+
+The eight card implementations add original rules code and retain their
+existing Oracle/Scryfall headers; no new art, recordings, fonts or corpus
+source are shipped. The existing fan-project authorization and Scryfall
+data handling documented above continue to apply.
+
+The primary [Comprehensive Rules, 2026-09-25](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt)
+say in CR 613.7c: “Each counter receives a timestamp as it’s put on an object or player.”
+Keyword counters therefore enter the normal layer ordering (122.1b), hone
+counters apply independently of Equipment abilities (122.1j), and counter
+limits apply both to placement and to excess-counter state-based actions
+(122.4, 704.5r). Source and attachment last-known information follows 608.2h;
+returning permanents retain no previous incarnation's turn-start marker
+(400.7). The source file was inspected locally against that published edition.

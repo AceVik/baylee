@@ -64,6 +64,62 @@ pub(super) fn modify_source(
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::ChangeAttachedCounters {
+            kind,
+            amount,
+            remove,
+        } => {
+            let host = eval::attached_for_ability(
+                state,
+                res.source,
+                source_version(state, res),
+                source_attachment_lki(state, res.on_stack),
+            )?;
+            let reference = baylee_core::ids::DamageSourceRef {
+                object: host.id,
+                version: host.version,
+            };
+            if subjects::on_battlefield(state, reference) {
+                let amount = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
+                if remove {
+                    crate::replacement::remove_counters(state, reference.object, kind, amount);
+                } else {
+                    crate::replacement::put_counters(state, reference.object, kind, amount);
+                }
+            }
+            None
+        }
+        Effect::ModifyAttached { modifier, duration } => {
+            let host = eval::attached_for_ability(
+                state,
+                res.source,
+                source_version(state, res),
+                source_attachment_lki(state, res.on_stack),
+            )?;
+            let reference = baylee_core::ids::DamageSourceRef {
+                object: host.id,
+                version: host.version,
+            };
+            if subjects::on_battlefield(state, reference) {
+                let filter =
+                    crate::effects::EffectFilter::ObjectIs(reference.object, reference.version);
+                if state.source_duration_holds(duration, res.source, you, filter) {
+                    let timestamp = state.next_timestamp();
+                    state.effects.register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(res.source),
+                        controller: you,
+                        origin: crate::effects::EffectOrigin::Resolution,
+                        layer: modifier.layer(),
+                        timestamp,
+                        duration,
+                        filter,
+                        modifier,
+                    });
+                }
+            }
+            None
+        }
         Effect::SetSourcePTFromTarget { duration } => {
             if let Some(chars) = target_chars(res, state) {
                 let modifier = baylee_cards_dsl::Modifier::SetPT(
@@ -149,7 +205,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             })
         }
         Effect::AddCounter { kind, amount } => {
-            let n = amount2(&amount, state, you, res) as u16;
+            let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
             // "Put a +1/+1 counter on **each of** up to two target
             // creatures": every target, not the first. `this_object` answers
             // `res.targets.first()`, which is the whole truth for a
@@ -194,7 +250,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             kind,
             amount,
         } => {
-            let n = amount2(&amount, state, you, res) as u16;
+            let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
             let objects: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {

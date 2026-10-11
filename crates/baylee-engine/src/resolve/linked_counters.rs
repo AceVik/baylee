@@ -197,23 +197,16 @@ pub(crate) fn expire(state: &mut GameState) {
     if !state.effects.may_have_counter_duration() {
         return;
     }
-    let expired: Vec<_> = state
-        .effects
-        .iter()
-        .filter_map(|fx| {
-            let Duration::WhileCounterRemains(kind) = fx.duration else {
-                return None;
-            };
-            let EffectFilter::ObjectIs(id, version) = fx.filter else {
-                return None;
-            };
-            state
-                .object(id)
-                .is_none_or(|o| o.version != version || o.counters.get(kind) == 0)
-                .then_some(fx.id)
-        })
-        .collect();
-    if !expired.is_empty() {
-        state.effects.remove_where(|fx| expired.contains(&fx.id));
-    }
+    let arena = &state.arena;
+    state.effects.remove_where(|fx| {
+        let Duration::WhileCounterRemains(kind) = fx.duration else {
+            return false;
+        };
+        let EffectFilter::ObjectIs(id, version) = fx.filter else {
+            return false;
+        };
+        arena
+            .get(id)
+            .is_none_or(|object| object.version != version || object.counters.get(kind) == 0)
+    });
 }

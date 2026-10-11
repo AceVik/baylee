@@ -712,6 +712,14 @@ impl Writer<'_> {
                 None,
             ),
             CounterKind::Level => (Phrase::LogCounterLevel, Phrase::LogCountersLevel, None),
+            CounterKind::Hone => (Phrase::LogCounterHone, Phrase::LogCountersHone, None),
+            CounterKind::Flying => (Phrase::LogCounterFlying, Phrase::LogCountersFlying, None),
+            CounterKind::Shadow => (Phrase::LogCounterShadow, Phrase::LogCountersShadow, None),
+            CounterKind::Indestructible => (
+                Phrase::LogCounterIndestructible,
+                Phrase::LogCountersIndestructible,
+                None,
+            ),
             CounterKind::Custom(_) => (Phrase::LogCounterOther, Phrase::LogCountersOther, None),
         };
         let sizes = sizes.map_or_else(Vec::new, |(power, toughness)| {

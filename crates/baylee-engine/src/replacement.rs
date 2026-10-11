@@ -18,6 +18,9 @@
 //! next to it was inside, and how a token *copy* was outside while the
 //! plain token was in.
 
+mod counter_effects;
+pub(crate) mod counter_limits;
+
 use crate::eval;
 use crate::event::GameEvent;
 use crate::state::GameState;
@@ -252,6 +255,7 @@ pub fn record_counters(
     kind: baylee_cards_dsl::CounterKind,
     n: u16,
 ) {
+    let n = counter_limits::room(state, id, kind).map_or(n, |room| n.min(room));
     if let Some(obj) = state.object_mut(id) {
         let old = obj.counters.get(kind);
         let new = obj.counters.add(kind, n);
@@ -261,6 +265,9 @@ pub fn record_counters(
             old,
             new,
         });
+    }
+    if n > 0 {
+        counter_effects::placed(state, id, kind);
     }
     state.invalidate_projections();
 }
@@ -306,6 +313,16 @@ pub fn remove_counters(
     }
     state.invalidate_projections();
     crate::resolve::linked_counters::expire(state);
+    if kind == baylee_cards_dsl::CounterKind::Hone
+        && state
+            .object(id)
+            .is_none_or(|object| object.counters.get(kind) == 0)
+    {
+        state.effects.remove_where(|effect| {
+            effect.origin == crate::effects::EffectOrigin::Counter(kind)
+                && effect.source == Some(id)
+        });
+    }
     taken
 }
 

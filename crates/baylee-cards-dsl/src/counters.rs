@@ -1,12 +1,9 @@
 //! The counters Magic prints that carry no rule of their own.
 //!
-//! [`CounterKind`] names eleven counters because eleven of them mean
-//! something to the rules: `P1P1` and `M1M1` move power and toughness
-//! (CR 122.1a), `Loyalty` pays for planeswalker abilities (CR 122.1e),
-//! `Lore` advances a Saga, `Time` is suspend and vanishing,
-//! `Poison`/`Energy`/`Rad` sit on players (CR 122.1f, CR 122.1i),
-//! `Lifelink` grants a keyword (CR 122.1b) and `Level` gates a Class
-//! (CR 716). An engine that did not know those would play the card wrong.
+//! [`CounterKind`] names counters with intrinsic rules: signed P/T,
+//! loyalty, Saga lore, suspend/vanishing time, player counters, keyword
+//! counters (CR 122.1b), Equipment hone counters (CR 122.1j), and Class levels.
+//! An engine that did not know those rules would play the card wrong.
 //!
 //! A great many other counters are **a name and a number**. A depletion
 //! counter does nothing at all; the card that prints it says what happens
@@ -102,6 +99,15 @@ pub const OIL: CounterKind = CounterKind::Custom(16);
 /// Pressure counters (Hellion Crucible).
 pub const PRESSURE: CounterKind = CounterKind::Custom(17);
 
+/// Pupa counters (Cocoon).
+pub const PUPA: CounterKind = CounterKind::Custom(18);
+/// Sleep counters (Venarian Gold).
+pub const SLEEP: CounterKind = CounterKind::Custom(19);
+/// Pin counters (Voodoo Doll).
+pub const PIN: CounterKind = CounterKind::Custom(20);
+/// Dream counters (Rasputin Dreamweaver).
+pub const DREAM: CounterKind = CounterKind::Custom(21);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -125,6 +131,10 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("carrion", CARRION),
     ("oil", OIL),
     ("pressure", PRESSURE),
+    ("pupa", PUPA),
+    ("sleep", SLEEP),
+    ("pin", PIN),
+    ("dream", DREAM),
 ];
 
 #[cfg(test)]

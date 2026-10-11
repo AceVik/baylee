@@ -958,3 +958,86 @@ fn an_x_creature_is_not_cast_for_an_x_of_nothing() {
         PlayerAction::CastSpell { card: obj(1) }
     );
 }
+
+/// Source-only effects do not accidentally upgrade the target of the same ability.
+#[test]
+fn source_changes_and_untaps_keep_their_controller_and_object() {
+    use baylee_cards_dsl::{Duration, Effect, Modifier};
+    let mut source = permanent(obj(1), ME, 2);
+    source.status = ObjectStatus::TAPPED;
+    let v = view(0, &[20, 20], vec![source, permanent(obj(2), THEM, 3)]);
+    let origin = Origin::of(&v, obj(1));
+    let worth = |effect| agent().effects_worth(&v, origin, &[effect], Aim::Object(obj(2)), 0);
+    assert_eq!(worth(Effect::UntapSelf), Some(30));
+    assert_eq!(worth(Effect::UntapTarget), Some(0));
+    assert_eq!(
+        worth(Effect::ModifySource {
+            modifier: Modifier::ModifyPT(2, 1),
+            duration: Duration::Indefinitely,
+        }),
+        Some(250)
+    );
+    assert_eq!(
+        worth(Effect::AddCounterSource {
+            kind: baylee_cards_dsl::CounterKind::P1P1,
+            amount: baylee_cards_dsl::Amount::Fixed(2),
+        }),
+        Some(280)
+    );
+    assert_eq!(
+        worth(Effect::AddCounter {
+            kind: baylee_cards_dsl::CounterKind::P1P1,
+            amount: baylee_cards_dsl::Amount::Fixed(2),
+        }),
+        Some(-280)
+    );
+}
+
+/// A regeneration shield is worth a threatened body, not an idle-board upgrade.
+#[test]
+fn regeneration_is_valued_only_when_combat_threatens_its_recipient() {
+    use baylee_cards_dsl::{Effect, KeywordSet, TargetSpec};
+    let mut v = view(0, &[20, 20], vec![permanent(obj(1), ME, 2)]);
+    let shield = [Effect::Regenerate {
+        target: TargetSpec::ThisObject,
+    }];
+    let worth = |v: &PlayerView| {
+        agent()
+            .effects_worth(v, Origin::of(v, obj(1)), &shield, Aim::Source, 0)
+            .unwrap()
+    };
+    assert_eq!(worth(&v), 0);
+    attacking(&mut v, 2, THEM, 3, ME);
+    v.combat.blockers.push(baylee_view::BlockerView {
+        blocker: obj(1),
+        attacker: obj(2),
+    });
+    assert!(worth(&v) > 0);
+    v.battlefield[0].keywords = KeywordSet::INDESTRUCTIBLE.bits();
+    assert_eq!(worth(&v), 0);
+    v.battlefield[0].keywords = 0;
+    v.battlefield[0].power = Some(4);
+    v.battlefield[0].toughness = Some(4);
+    assert_eq!(worth(&v), 0);
+}
+
+/// Duplicate keyword counters add no ability; zero counters add nothing at all.
+#[test]
+fn keyword_counter_value_requires_a_new_keyword() {
+    use baylee_cards_dsl::{CounterKind as K, KeywordSet};
+    let mut object = permanent(obj(1), ME, 2);
+    let v = view(0, &[20, 20], vec![]);
+    for (counter, keyword) in [
+        (K::Flying, KeywordSet::FLYING),
+        (K::Shadow, KeywordSet::SHADOW),
+        (K::Indestructible, KeywordSet::INDESTRUCTIBLE),
+    ] {
+        object.keywords = 0;
+        assert_eq!(agent().counters(&v, &object, counter, 0), Some(0));
+        let one = agent().counters(&v, &object, counter, 1).unwrap();
+        assert!(one > 0);
+        assert_eq!(agent().counters(&v, &object, counter, 10), Some(one));
+        object.keywords = keyword.bits();
+        assert_eq!(agent().counters(&v, &object, counter, 1), Some(0));
+    }
+}

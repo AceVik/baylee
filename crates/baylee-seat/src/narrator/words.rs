@@ -148,6 +148,10 @@ pub fn counter(kind: CounterKind) -> String {
         CounterKind::Energy => "energy".into(),
         CounterKind::Rad => "rad".into(),
         CounterKind::Lifelink => "lifelink".into(),
+        CounterKind::Flying => "flying".into(),
+        CounterKind::Shadow => "shadow".into(),
+        CounterKind::Indestructible => "indestructible".into(),
+        CounterKind::Hone => "hone".into(),
         CounterKind::Level => "level".into(),
         CounterKind::Custom(_) => "other".into(),
     }

@@ -511,9 +511,9 @@ express at all yet.
   colour only: the cast wizard does not offer the life.
 
   **Which counter** is a `CounterKind`, and there are three ways to name one.
-  Nine counters have a variant because the rules know them by a word —
-  `Loyalty`, `Lore`, `Time`, `Charge`, `Poison`, `Energy`, `Rad`,
-  `Lifelink`, `Level`. Every counter that changes power and toughness is
+  Rules-aware counters have dedicated variants: `Loyalty`, `Lore`, `Time`,
+  `Charge`, `Poison`, `Energy`, `Rad`, `Level`, `Hone`, and the keyword
+  counters `Lifelink`, `Flying`, `Shadow`, `Indestructible`. Every counter that changes power and toughness is
   `Plus { power, toughness }` or `Minus { power, toughness }`, one variant
   for each of CR 122.1a's two forms, because the rule is one rule over an
   open-ended set of pairs — Magic prints eleven of them and a name apiece
@@ -533,6 +533,22 @@ express at all yet.
   `every_custom_counter_in_the_pool_is_an_assigned_id` (the compiled pool
   carries no id the registry does not name) and
   `no_card_file_spells_a_counter_id_as_a_number` (no card writes one).
+
+  Keyword counters use the ordinary ability layer, including their own
+  timestamps: putting another counter of the same kind refreshes all of that
+  kind, removing one does not. A later ability-removal effect overrides them.
+  Hone counters modify the equipped creature's power in layer 7c, even when
+  the Equipment has lost its printed abilities. They matter only while the
+  source is Equipment and attached to that creature.
+
+  `ChangeAttachedCounters` and `ModifyAttached` address an Aura's host,
+  retaining its last attachment if the Aura leaves during resolution.
+  `CounterMaximum { kind, maximum }` limits placements after replacements;
+  state-based actions also remove excess if the restriction returns after
+  ability loss. `Condition::SourceStartedTurnUntapped` reads the turn boundary
+  before untapping, and does not carry over through a zone change.
+  `DestroyAllWithManaValue` computes one common value at resolution, including
+  source last-known information after sacrificing Blast Zone as a cost.
 
   `Cost::FREE` is the empty cost and `Cost::TAP` a bare `{T}` — the two the
   macro would spell with no argument and one, and between them what two

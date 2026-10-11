@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
+use crate::zone::ZoneLocation;
 
 impl<L: CardLookup> Engine<L> {
     // ------------------------------------------------------------ combat
@@ -54,18 +55,28 @@ impl<L: CardLookup> Engine<L> {
         // Capture the turn boundary itself, before untap-step actions or
         // effects ending as this turn begins change the battlefield.
         // Always record it: an ability may arrive later and ask about it.
-        let untapped_lands = self
-            .state
-            .battlefield_seen()
-            .filter_map(|id| self.state.object(id))
-            .filter(|o| {
-                o.controller == self.state.turn.active
-                    && o.characteristics()
+        let mut untapped_lands = 0_u32;
+        // phasing: clear the previous history bit on phased-out permanents too.
+        for id in self.state.zones.list(ZoneLocation::Battlefield) {
+            let Some(object) = self.state.arena.get_mut(*id) else {
+                continue;
+            };
+            let untapped = !object.status.contains(Status::TAPPED)
+                && !object.status.contains(Status::PHASED_OUT);
+            object.status.remove(Status::UNTAPPED_AT_TURN_START);
+            if untapped {
+                object.status.insert(Status::UNTAPPED_AT_TURN_START);
+                if object.controller == self.state.turn.active
+                    && object
+                        .characteristics()
                         .types
                         .contains(baylee_core::types::TypeSet::LAND)
-                    && !o.status.contains(Status::TAPPED)
-            })
-            .count();
+                {
+                    untapped_lands = untapped_lands.saturating_add(1);
+                }
+            }
+        }
+        self.state.invalidate_projections();
         // "Until your next turn" effects end as their controller's turn
         // begins (Elspeth's flying, Teferi's sorcery-flash).
         let new_active = self.state.turn.active;
@@ -88,8 +99,7 @@ impl<L: CardLookup> Engine<L> {
             true
         });
         self.state.per_turn.reset();
-        self.state.per_turn.untapped_lands_at_start =
-            u32::try_from(untapped_lands).unwrap_or(u32::MAX);
+        self.state.per_turn.untapped_lands_at_start = untapped_lands;
         self.state.ability_fires.clear();
         self.loyalty_used_this_turn.clear();
         let active = self.state.turn.active;

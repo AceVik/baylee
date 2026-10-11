@@ -188,11 +188,12 @@ impl GameState {
                     if placement.seat == i && placement.permanent == position {
                         for counter in &placement.counters {
                             if let Some(kind) = CounterKind::from_setup_name(&counter.kind) {
-                                state
-                                    .object_mut(id)
-                                    .expect("freshly created object")
-                                    .counters
-                                    .add(kind, counter.amount);
+                                crate::replacement::record_counters(
+                                    &mut state,
+                                    id,
+                                    kind,
+                                    counter.amount,
+                                );
                             }
                         }
                     }

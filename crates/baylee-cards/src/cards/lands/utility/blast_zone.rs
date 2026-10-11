@@ -4,9 +4,8 @@
 //! Oracle: {X}{X}, {T}: Put X charge counters on this land.
 //! Oracle: {3}, {T}, Sacrifice this land: Destroy each nonland permanent with mana value equal to the number of charge counters on this land.
 //! Set: CMM #987 — Commander Masters | Scryfall ID: cdad14f1-d541-4e58-af9f-f8e587fca05f | Oracle ID: 393a254f-be31-431a-9341-a51286f8cbce
-// PARTIAL — enters with a charge counter (EnterModifier::WithCounters), {T}:
-// Add {C}, and {X}{X}, {T} for X more counters are built; the {3} sacrifice
-// clause is not expressible.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -22,13 +21,7 @@ card!(
             amount: Amount::Fixed(1),
         }],
     )],
-    coverage = Coverage::Partial(
-        "the {3}, {T}, Sacrifice clause destroys each nonland permanent with \
-         mana value equal to the charge counters on this land, and no Filter \
-         variant compares a mana value against a counter count on the source \
-         (DestroyAll takes a static filter; a variant such as \
-         Filter::CmcEqualToCountersOnSource { kind } would be needed)"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
@@ -38,8 +31,12 @@ card!(
                 amount: Amount::X,
             }]
         ),
-        // NOT SUPPORTED: {3}, {T}, Sacrifice this land: Destroy each nonland
-        // permanent with mana value equal to the number of charge counters on
-        // this land.
+        activated!(
+            cost!("{3}", TapSelf, SacrificeSelf),
+            &[Effect::DestroyAllWithManaValue {
+                filter: &Filter::Not(&Filter::LAND),
+                value: Amount::CountersOnSource(CounterKind::Charge),
+            }]
+        ),
     ],
 );

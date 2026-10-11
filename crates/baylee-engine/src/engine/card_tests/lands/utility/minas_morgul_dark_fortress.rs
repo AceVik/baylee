@@ -4,7 +4,6 @@
 use super::*;
 
 /// Minas Morgul, Dark Fortress: "Minas Morgul enters tapped." / "{T}: Add {B}." / "{3}{B}, {T}: Put a shadow counter on target creature..."
-/// Under `Coverage::Partial`, the shadow counter activation is omitted.
 /// Playing this land causes it to enter tapped, and after untapping on a subsequent turn it taps for black mana.
 #[test]
 fn minas_morgul_dark_fortress_enters_tapped_and_taps_for_black() {

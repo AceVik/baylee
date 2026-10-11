@@ -5725,3 +5725,11 @@ mod hack_mana_routes;
 mod counter_helpers;
 mod history_helpers;
 mod token_helpers;
+
+mod keyword_counters;
+
+mod counter_auras;
+
+mod hone_counters;
+
+mod counter_limits;

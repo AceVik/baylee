@@ -487,6 +487,14 @@ fn claims_in(line: &Line) -> Vec<Claim> {
                     claim(Kind::LoseLife, Some(n));
                 }
             }
+            "enters" if at(&words, i + 1) == "with" => {
+                // Entry counters and a later counter placement are distinct
+                // promises even when this probe witnesses only the entry.
+                let counters = (3..=5).any(|step| at(&words, i + step).starts_with("counter"));
+                if let (Some(n), true) = (number(at(&words, i + 2)), counters) {
+                    claim(Kind::Counters, Some(n));
+                }
+            }
             "puts" | "put" => {
                 // "put two +1/+1 counters on" — the noun sits a word or two
                 // past the number, because the counter's own name is in
@@ -1176,4 +1184,14 @@ fn the_vocabulary_reads_the_sentences_it_was_written_for() {
         found("This creature deals damage equal to its power."),
         Vec::new()
     );
+}
+
+/// Entry counters are a distinct claim from counters added by a later upkeep.
+#[test]
+fn entering_counters_have_their_own_printed_amount() {
+    let claims = claims_of("Rasputin enters with seven dream counters on it.");
+    assert_eq!(claims.len(), 1);
+    assert_eq!(claims[0].kind, Kind::Counters);
+    assert_eq!(claims[0].amount, Some(7));
+    assert!(!claims[0].conditional);
 }

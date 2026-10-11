@@ -3,8 +3,8 @@
 //! Oracle: {T}: Add {B}.
 //! Oracle: {3}{B}, {T}: Put a shadow counter on target creature. For as long as that creature has a shadow counter on it, it's a Wraith in addition to its other types. (A creature with shadow can block or be blocked by only creatures with shadow.)
 //! Set: LTC #514 — Tales of Middle-earth Commander | Scryfall ID: 50f76652-15e7-4190-842e-db6db6d66e91 | Oracle ID: 867dbd5a-c3cf-41ce-980b-c9babc6f30f2
-// PARTIAL — enters tapped and {T}: Add {B}; the shadow-counter ability is
-// not built (see the NOT SUPPORTED line below).
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -19,11 +19,23 @@ card!(
         supertypes = SupertypeSet::LEGENDARY,
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
-    coverage = Coverage::Partial(
-        "the {3}{B}, {T} ability is not built: a shadow counter has no `counters::` id assigned in `baylee_cards_dsl::counters`, no `Modifier` adds a subtype while a counter is on the object (`AddTypeIfCountersAtLeast` takes a TypeSet, not a SubtypeId), and shadow is a keyword no engine reader reads"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
-        // NOT SUPPORTED: {3}{B}, {T}: Put a shadow counter on target creature. For as long as that creature has a shadow counter on it, it's a Wraith in addition to its other types.
+        activated!(
+            cost!("{3}{B}", TapSelf),
+            &[
+                Effect::AddCounter {
+                    kind: CounterKind::Shadow,
+                    amount: Amount::Fixed(1)
+                },
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddSubtype(baylee_core::generated::subtypes::creature::WRAITH),
+                    Duration::WhileCounterRemains(CounterKind::Shadow)
+                ),
+            ],
+            target = Some(TargetSpec::Object(&Filter::CREATURE)),
+        ),
     ],
 );

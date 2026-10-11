@@ -308,10 +308,6 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
             apply_pt_counters(&mut c, obj);
         }
     }
-    // Keyword counters (CR 122.1b): a lifelink counter grants lifelink.
-    if obj.counters.get(crate::object::CounterKind::Lifelink) > 0 {
-        c.keywords = c.keywords.union(KeywordSet::LIFELINK);
-    }
     // Changeling (CR 702.73): every creature type, in eight word ORs.
     if c.keywords.contains(KeywordSet::CHANGELING) {
         c.subtypes = c.subtypes.union(SubtypeSet::ALL_CREATURE);
@@ -787,7 +783,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::ToughnessLessThanSourcePower => {
             matches!(
                 modifier,
-                Modifier::ModifyPT(..)
+                Modifier::HoneEquipment
+                    | Modifier::ModifyPT(..)
                     | Modifier::SetPT(..)
                     | Modifier::SetPower(_)
                     | Modifier::SetToughness(_)
@@ -1311,6 +1308,7 @@ fn apply(
         | Modifier::GrantsFlashback
         | Modifier::BlockableWithoutLandwalk(_)
         | Modifier::IgnoreOpponentsHexproof
+        | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
         | Modifier::BoastTwice
         | Modifier::PlayerHexproof
@@ -1333,6 +1331,18 @@ fn apply(
         // A replacement, read where a card would reach a graveyard
         // (`replacement::graveyard_destination`).
         | Modifier::ExileInsteadOfYourGraveyard => {}
+        Modifier::HoneEquipment => {
+            *read_board = true;
+            if let Some(equipment) = fx.source.and_then(|id| state.object(id))
+                && equipment.zone == crate::zone::Zone::Battlefield
+                && !equipment.status.contains(crate::object::Status::PHASED_OUT)
+                && equipment.characteristics().subtypes.contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
+                && let Some(power) = &mut c.power
+            {
+                let n = equipment.counters.get(crate::object::CounterKind::Hone);
+                *power = power.saturating_add(i16::try_from(n).unwrap_or(i16::MAX));
+            }
+        }
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power = power.saturating_add(*p);

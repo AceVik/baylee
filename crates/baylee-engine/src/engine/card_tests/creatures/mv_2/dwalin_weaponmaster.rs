@@ -9,9 +9,7 @@ use super::*;
 /// Llanowar Elves blocking him. Dwalin's two damage is dealt in the
 /// first-strike damage step, so the Elf dies before it deals the single
 /// point that would also be lethal to a 2/1 — without the keyword the two
-/// trade, which is exactly the reading asserted against. The hone-counter
-/// sentence is the `Coverage::Partial` half and stays off the card, so
-/// nothing else is claimed here.
+/// trade, which is exactly the reading asserted against.
 #[test]
 fn dwalin_kills_what_blocks_him_before_it_can_kill_him_back() {
     let p0 = PlayerId::new(0);

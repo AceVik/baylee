@@ -1092,7 +1092,11 @@ fn nothing_writes_the_tapped_bit_except_the_one_door() {
             for line in text.lines() {
                 // The spelling the `use`d and the fully-qualified forms share.
                 let writes = line.contains("status.insert(") || line.contains("status.remove(");
-                if writes && line.contains("TAPPED") {
+                if writes
+                    && line
+                        .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                        .any(|word| word == "TAPPED")
+                {
                     writers.push(
                         path.strip_prefix(&root)
                             .expect("under src")

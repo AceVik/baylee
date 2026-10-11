@@ -42,6 +42,14 @@ pub enum CounterKind {
     Lifelink,
     /// Level counter.
     Level,
+    /// Flying keyword counter.
+    Flying,
+    /// Shadow keyword counter.
+    Shadow,
+    /// Indestructible keyword counter.
+    Indestructible,
+    /// A hone counter gives an equipped creature +1/+0 (CR 122.1j).
+    Hone,
     /// Any other counter, identified by the engine's opaque id.
     Custom(u32),
 }
@@ -87,6 +95,10 @@ impl CounterKind {
             Self::Rad => Cow::Borrowed("RAD"),
             Self::Lifelink => Cow::Borrowed("LL"),
             Self::Level => Cow::Borrowed("LVL"),
+            Self::Flying => Cow::Borrowed("FLY"),
+            Self::Shadow => Cow::Borrowed("SHDW"),
+            Self::Indestructible => Cow::Borrowed("IND"),
+            Self::Hone => Cow::Borrowed("HONE"),
             Self::Custom(_) => Cow::Borrowed("•"),
         }
     }

@@ -1635,7 +1635,7 @@ messages! {
     /// Starting-position card editor.
     RoomCounterKind { en: "Counter type", de: "Counter-Typ" },
     /// Starting-position card editor.
-    RoomCounterHint { en: "+1/+1, -1/-1, loyalty, lore, time, charge, poison, energy, rad, lifelink, level; any +X/+Y or -X/-Y pair; custom:ID", de: "+1/+1, -1/-1, loyalty, lore, time, charge, poison, energy, rad, lifelink, level; beliebige +X/+Y- oder -X/-Y-Paare; custom:ID" },
+    RoomCounterHint { en: "+1/+1, -1/-1, loyalty, lore, time, charge, poison, energy, rad, lifelink, level, flying, shadow, indestructible, hone; any +X/+Y or -X/-Y pair; custom:ID", de: "+1/+1, -1/-1, loyalty, lore, time, charge, poison, energy, rad, lifelink, level, flying, shadow, indestructible, hone; beliebige +X/+Y- oder -X/-Y-Paare; custom:ID" },
     /// Starting-position card editor.
     RoomAddCounter { en: "Add counter", de: "Counter hinzufügen" },
     /// Starting-position card editor.
@@ -3832,6 +3832,22 @@ messages! {
     LogCounterRad { en: "rad counter", de: "Strahlungsmarke" },
     /// Rad counters.
     LogCountersRad { en: "rad counters", de: "Strahlungsmarken" },
+    /// One flying counter.
+    LogCounterFlying { en: "flying counter", de: "Flugfähigkeitsmarke" },
+    /// Flying counters.
+    LogCountersFlying { en: "flying counters", de: "Flugfähigkeitsmarken" },
+    /// One shadow counter.
+    LogCounterShadow { en: "shadow counter", de: "Irrealitätsmarke" },
+    /// Shadow counters.
+    LogCountersShadow { en: "shadow counters", de: "Irrealitätsmarken" },
+    /// One indestructible counter.
+    LogCounterIndestructible { en: "indestructible counter", de: "Unzerstörbarkeitsmarke" },
+    /// Indestructible counters.
+    LogCountersIndestructible { en: "indestructible counters", de: "Unzerstörbarkeitsmarken" },
+    /// One hone counter.
+    LogCounterHone { en: "hone counter", de: "Schleifmarke" },
+    /// Hone counters.
+    LogCountersHone { en: "hone counters", de: "Schleifmarken" },
     /// One lifelink counter.
     LogCounterLifelink { en: "lifelink counter", de: "Lebensverknüpfungsmarke" },
     /// Lifelink counters.

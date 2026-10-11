@@ -4,7 +4,9 @@ use super::{ColorSet, KeywordSet, SubtypeId, SupertypeSet, TypeSet};
 
 /// Counter kinds (objects and players). Lives here so card definitions can
 /// reference counters without engine dependencies.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, serde::Serialize, serde::Deserialize,
+)]
 pub enum CounterKind {
     /// A +X/+Y counter (CR 122.1a): it adds X to power and Y to toughness.
     ///
@@ -51,11 +53,32 @@ pub enum CounterKind {
     Lifelink,
     /// Level counters (classes, CR 716).
     Level,
+    /// Flying keyword counter (CR 122.1b).
+    Flying,
+    /// Shadow keyword counter (CR 122.1b).
+    Shadow,
+    /// Indestructible keyword counter (CR 122.1b).
+    Indestructible,
+    /// A hone counter gives an equipped creature +1/+0 (CR 122.1j).
+    Hone,
     /// Card-specific counters.
     Custom(u16),
 }
 
 impl CounterKind {
+    /// Keyword granted by this counter; registered in layer 6 with the
+    /// counter's own timestamp (CR 122.1b, 613.7c).
+    #[must_use]
+    pub const fn keyword(self) -> Option<KeywordSet> {
+        match self {
+            Self::Lifelink => Some(KeywordSet::LIFELINK),
+            Self::Flying => Some(KeywordSet::FLYING),
+            Self::Shadow => Some(KeywordSet::SHADOW),
+            Self::Indestructible => Some(KeywordSet::INDESTRUCTIBLE),
+            _ => None,
+        }
+    }
+
     /// Parses a starting-position counter, including arbitrary signed P/T pairs.
     #[must_use]
     pub fn from_setup_name(name: &str) -> Option<Self> {
@@ -69,6 +92,10 @@ impl CounterKind {
             "rad" => Some(Self::Rad),
             "lifelink" => Some(Self::Lifelink),
             "level" => Some(Self::Level),
+            "flying" => Some(Self::Flying),
+            "shadow" => Some(Self::Shadow),
+            "indestructible" => Some(Self::Indestructible),
+            "hone" => Some(Self::Hone),
             value => {
                 if let Some(id) = value.strip_prefix("custom:") {
                     return id.parse().ok().map(Self::Custom);

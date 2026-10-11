@@ -3930,3 +3930,45 @@ land type"; both are convention tests that fire on a first try.
   3,321 printing validations, table reproducibility, formatting and workspace
   all-targets clippy with dev controls pass. Original Partial inventory: 267
   completed, 273 remaining.
+
+### Partial-card completion batch 35 (2026-10-11)
+
+- Completed Tyrite Sanctum, Minas Morgul, Dark Fortress, Luminous Broodmoth,
+  Venarian Gold, Cocoon, Dwalin, Weaponmaster, Blast Zone and Rasputin
+  Dreamweaver through shared counter rules rather than card-name branches.
+- Keyword counters participate in the normal ability layer and its object
+  index. Placing another counter of that kind refreshes the kind's timestamp;
+  partial removal does not. Source departure, ability loss and reincarnation
+  regressions cover flying, shadow, indestructible and the existing lifelink.
+- Hone is an intrinsic counter rule, not a printed Equipment ability. Its
+  power bonus follows the current attachment, requires the Equipment type,
+  survives ability loss, and disappears when the last hone counter is removed.
+- Attached-counter and attached-modifier effects retain the exact host after
+  their Aura leaves. Venarian Gold uses announced X; Cocoon hatches on the
+  upkeep after its last pupa counter was removed, including its own sacrifice.
+- Counter caps apply after doubling replacements and also through state-based
+  actions when a lost cap ability returns. Multiple caps remove only the
+  strictest excess. A counter-kind cache avoids the extra rules scan on normal
+  boards. Rasputin's start-of-turn condition uses one private status bit,
+  recorded before untapping, cleared on departure, and omitted from public
+  status. The object footprint remains unchanged.
+- Counter-effect expiry now filters effects once against the arena instead of
+  building expired-id lists and repeatedly searching them. Large placement
+  amounts saturate at the counter-storage bound rather than wrapping.
+- Added concrete AI valuations for source-specific changes, untapping and
+  combat regeneration. Keyword-counter value does not multiply with duplicate
+  counters or award anything for zero counters. The activation-coverage floor
+  stays intact; completed Probe and Borne Upon a Wind leave the cantrip-only
+  counterspell whitelist as their additional effects now warrant.
+- Validation: all 5,633 engine tests pass (two intentional ignores); the final split
+  of the claim-parser regression adds a passing fourth focused claim test
+  for 5,634 non-ignored engine tests, plus 234
+  AI, 1,561 client-core (one intentional ignore), 248 game-host (two intentional
+  ignores), 223 seat, 134 card, 71 DSL, 275 codegen and 42 view tests. Both
+  object-footprint guards pass. New rules include counter timestamp order,
+  reattachment/type loss, Aura departure, sacrifice-cost LKI, counter caps with
+  doubling/ability recovery, and pre-untap history. Wire version 60 records the
+  added counter variants. Original Partial inventory: 275 completed, 265
+  remaining.
+  All 3,321 printing validations, table reproducibility, formatting and
+  workspace/all-targets clippy with dev controls pass.

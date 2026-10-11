@@ -317,7 +317,7 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // cannot parse.
     // 58: resolution color choices; defaulted public hand visibility fields.
     // 59: saddle choice, with the public view shape unchanged.
-    const RECORDED: (u32, u64) = (59, 10_526_636_048_815_681_126);
+    const RECORDED: (u32, u64) = (60, 5_445_021_217_519_676_220);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

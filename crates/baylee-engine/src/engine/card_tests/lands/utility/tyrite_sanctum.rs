@@ -5,8 +5,7 @@ use super::*;
 
 /// `Tyrite Sanctum` prints `{{T}}: Add {{C}}.`, `{{2}}, {{T}}: Target legendary creature becomes a God in addition to its other types. Put a +1/+1 counter on it.`, and `{{4}}, {{T}}, Sacrifice this land: Put an indestructible counter on target God.`
 ///
-/// Under `Coverage::Partial`, the first two abilities are built while the indestructible counter ability is omitted.
-/// Floating `{{4}}` mana confirms that ability 1 is offered while ability 2 is withheld under `Coverage::Partial`.
+/// The God-creation ability is offered; the counter ability has no legal target yet.
 /// Activating ability 1 targeting `thorin_oakenshield()` makes it a God, places a `+1/+1` counter on it, and leaves `Tyrite Sanctum` tapped.
 #[test]
 fn tyrite_sanctum_makes_legendary_creature_a_god_and_adds_counter() {
@@ -49,7 +48,7 @@ fn tyrite_sanctum_makes_legendary_creature_a_god_and_adds_counter() {
     );
     assert!(
         !legal.abilities.contains(&(sanctum, 2)),
-        "ability 2 is omitted under `Coverage::Partial` despite floating {{4}}"
+        "ability 2 has no God target yet, despite floating {{4}}"
     );
 
     activate(&mut engine, p0, tyrite_sanctum(), 1);

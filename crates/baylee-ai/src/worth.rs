@@ -49,6 +49,10 @@ fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
         CounterKind::Rad => V::Rad,
         CounterKind::Lifelink => V::Lifelink,
         CounterKind::Level => V::Level,
+        CounterKind::Flying => V::Flying,
+        CounterKind::Shadow => V::Shadow,
+        CounterKind::Indestructible => V::Indestructible,
+        CounterKind::Hone => V::Hone,
         CounterKind::Custom(id) => V::Custom(u32::from(id)),
     }
 }
@@ -990,6 +994,19 @@ impl HeuristicAgent {
             | CounterKind::Level
             | CounterKind::Energy
             | CounterKind::Lifelink => sign * n * 40,
+            CounterKind::Flying | CounterKind::Shadow | CounterKind::Indestructible => {
+                let keyword = kind.keyword()?;
+                if n <= 0 || has(o, keyword) {
+                    0
+                } else {
+                    sign * if kind == CounterKind::Indestructible {
+                        120
+                    } else {
+                        80
+                    }
+                }
+            }
+            CounterKind::Hone => sign * n * 70,
             CounterKind::Poison | CounterKind::Rad => -sign * n * 50,
             // A clock's sign is the card's under it (`tactics::clock_score`),
             // and a custom counter means what its card says.
@@ -1171,15 +1188,22 @@ impl HeuristicAgent {
                 subject.map_or(0, |o| if self.hostile(o.owner, me) { -350 } else { 350 })
             }
             Effect::AttachSelf { .. } => subject.map_or(0, |c| self.attach(view, origin, c)),
-            Effect::UntapTarget => subject.map_or(0, |o| {
-                let tapped = o.status.contains(ObjectStatus::TAPPED);
-                match (hostile_subject, tapped) {
-                    (_, false) => 0,
-                    (true, true) => -20,
-                    (false, true) if makes_mana(o) => 40,
-                    (false, true) => 30,
-                }
-            }),
+            Effect::UntapTarget => subject.map_or(0, |o| self.untap_worth(view, o)),
+            Effect::UntapSelf => origin.object.map_or(0, |o| self.untap_worth(view, o)),
+            // A shield is useful in a lethal combat exchange; it is not a
+            // permanent upgrade to buy repeatedly on an idle board.
+            Effect::Regenerate { target } => {
+                let object = if matches!(target, TargetSpec::ThisObject) {
+                    origin.object
+                } else {
+                    subject
+                };
+                object.map_or(0, |o| self.regeneration_worth(view, o))
+            }
+            Effect::RegenerateAll { filter } => on_board(filter)?
+                .into_iter()
+                .map(|o| self.regeneration_worth(view, o))
+                .sum(),
             Effect::TapTarget => subject.map_or(0, |o| {
                 if o.status.contains(ObjectStatus::TAPPED) || !creature(o) {
                     0
@@ -1200,32 +1224,11 @@ impl HeuristicAgent {
                 } else {
                     on_board(filter)?
                 };
-                match modifier {
-                    Modifier::ModifyPT(p, t) => {
-                        self.pump(view, &objects, (i32::from(*p), i32::from(*t), 0), *duration)
-                    }
-                    Modifier::AddKeyword(k) => {
-                        self.pump(view, &objects, (0, 0, k.bits()), *duration)
-                    }
-                    Modifier::PreventDamageToIt => {
-                        objects.iter().map(|o| self.prevent(view, o, false)).sum()
-                    }
-                    Modifier::PreventDamageFromIt => {
-                        objects.iter().map(|o| self.prevent(view, o, true)).sum()
-                    }
-                    Modifier::PreventDamageFrom(_) => {
-                        objects.iter().map(|o| self.prevent(view, o, false)).sum()
-                    }
-                    // A type, a colour or a subtype changes what other
-                    // cards say about the object and nothing by itself.
-                    Modifier::AddType(_)
-                    | Modifier::RemoveType(_)
-                    | Modifier::AddSubtype(_)
-                    | Modifier::AllCreatureTypes
-                    | Modifier::AddColor(_)
-                    | Modifier::SetColor(_) => 0,
-                    _ => return None,
-                }
+                self.modifier_worth(view, &objects, modifier, *duration)?
+            }
+            Effect::ModifySource { modifier, duration } => {
+                let objects: Vec<_> = origin.object.into_iter().collect();
+                self.modifier_worth(view, &objects, modifier, *duration)?
             }
             Effect::PumpTarget {
                 power,
@@ -1263,6 +1266,10 @@ impl HeuristicAgent {
                 self.pump(view, &objects, (p, t, keywords.bits()), *duration)
             }
             Effect::AddCounter { kind, amount } => match subject {
+                Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
+                None => 0,
+            },
+            Effect::AddCounterSource { kind, amount } => match origin.object {
                 Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
                 None => 0,
             },
@@ -1352,6 +1359,62 @@ impl HeuristicAgent {
                     .sum()
             }
             Effect::AddMana { .. } => 0,
+            _ => return None,
+        })
+    }
+
+    /// Tapping status and controller determine the immediate value of untapping.
+    fn untap_worth(&self, view: &PlayerView, object: &PublicObject) -> i64 {
+        if !object.status.contains(ObjectStatus::TAPPED) {
+            0
+        } else if self.hostile(object.controller, view.seat) {
+            -20
+        } else if makes_mana(object) {
+            40
+        } else {
+            30
+        }
+    }
+
+    /// One shield can save its permanent once, even against multiple blockers.
+    fn regeneration_worth(&self, view: &PlayerView, object: &PublicObject) -> i64 {
+        if has(object, KeywordSet::INDESTRUCTIBLE) {
+            return 0;
+        }
+        let value = Self::permanent_worth(view, object);
+        self.prevent(view, object, false).clamp(-value, value)
+    }
+
+    /// The same characteristic change has the same value on a target or source.
+    fn modifier_worth(
+        &self,
+        view: &PlayerView,
+        objects: &[&PublicObject],
+        modifier: &Modifier,
+        duration: Duration,
+    ) -> Option<i64> {
+        Some(match modifier {
+            Modifier::ModifyPT(p, t) => {
+                self.pump(view, objects, (i32::from(*p), i32::from(*t), 0), duration)
+            }
+            Modifier::AddKeyword(k) => self.pump(view, objects, (0, 0, k.bits()), duration),
+            Modifier::PreventDamageToIt => {
+                objects.iter().map(|o| self.prevent(view, o, false)).sum()
+            }
+            Modifier::PreventDamageFromIt => {
+                objects.iter().map(|o| self.prevent(view, o, true)).sum()
+            }
+            Modifier::PreventDamageFrom(_) => {
+                objects.iter().map(|o| self.prevent(view, o, false)).sum()
+            }
+            // A type, a colour or a subtype changes what other
+            // cards say about the object and nothing by itself.
+            Modifier::AddType(_)
+            | Modifier::RemoveType(_)
+            | Modifier::AddSubtype(_)
+            | Modifier::AllCreatureTypes
+            | Modifier::AddColor(_)
+            | Modifier::SetColor(_) => 0,
             _ => return None,
         })
     }

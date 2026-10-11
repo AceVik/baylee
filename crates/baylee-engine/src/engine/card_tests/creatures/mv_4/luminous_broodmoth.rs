@@ -3,20 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Luminous Broodmoth is `Coverage::Partial`: the printed flying is on the
-/// card and the second sentence — "whenever a creature you control without
-/// flying dies, return it to the battlefield under its owner's control with a
-/// flying counter on it" — is not.
-///
-/// So the Broodmoth is cast for {2}{W}{W} and lands as the 3/4 flyer it
-/// prints, which is the half that is written; then a creature under the same
-/// seat with no flying is destroyed through the stack, which is exactly the
-/// event the missing sentence is about. Vindicate is the kill because it
-/// leaves the card in a graveyard rather than exiling it, and the Broodmoth
-/// standing untouched beside the dead Elf is the control: the assertion is
-/// about the Elf, not about a spell that ate the wrong permanent.
+/// A nonflying creature returns with a real flying counter; another death
+/// with that counter no longer qualifies for the Broodmoth's ability.
 #[test]
-fn luminous_broodmoth_flies_in_and_leaves_a_dead_elf_in_the_graveyard() {
+fn luminous_broodmoth_returns_a_dead_elf_with_a_flying_counter() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(89, forest())
         .battlefield(
@@ -101,16 +91,12 @@ fn luminous_broodmoth_flies_in_and_leaves_a_dead_elf_in_the_graveyard() {
     assert!(aimed, "the Vindicate asks what it is pointed at");
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(
-        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
-        "the Elf died"
-    );
-    assert!(
-        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
-        "and stayed in its owner's graveyard: nothing returned it with a \
-         flying counter, which is the second sentence the card does not have \
-         yet"
-    );
+    assert_eq!(on_battlefield(&engine, p0, llanowar_elves()), Some(elves));
+    assert_eq!(counters_on(&engine, elves, CounterKind::Flying), 1);
+    assert!(keywords(&engine, elves).contains(KeywordSet::FLYING));
+    kill(&mut engine, elves);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
     assert!(
         on_battlefield(&engine, p0, luminous_broodmoth()).is_some(),
         "while the Broodmoth stood untouched through both spells"

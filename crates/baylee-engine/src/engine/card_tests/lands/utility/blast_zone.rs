@@ -6,12 +6,7 @@ use super::*;
 /// Blast Zone: "This land enters with a charge counter on it." / "{{T}}: Add
 /// {{C}}." / "{{X}}{{X}}, {{T}}: Put X charge counters on this land."
 ///
-/// The counters are what the card is for — its third ability destroys every
-/// nonland permanent whose mana value equals them, and that clause is the
-/// whole of its remaining `Coverage::Partial`. The second ability was
-/// therefore an ability that tapped the land, spent nothing and changed
-/// nothing, which is the shape a test asserting only "it was offered" cannot
-/// see.
+/// The announced X places exactly that many counters, before replacement effects.
 #[test]
 fn blast_zone_adds_the_charge_counters_it_announces() {
     let p0 = PlayerId::new(0);
@@ -48,7 +43,6 @@ fn blast_zone_adds_the_charge_counters_it_announces() {
 }
 
 /// Blast Zone: "This land enters with a charge counter on it." / "{T}: Add {C}." / "{X}{X}, {T}: Put X charge counters on this land..."
-/// Under `Coverage::Partial`, the `{3}, {T}` permanent destruction ability is omitted.
 /// Playing this land causes it to enter with a charge counter and immediately tap for colorless mana.
 #[test]
 fn blast_zone_enters_with_charge_counter_and_taps_for_colorless() {
@@ -64,4 +58,47 @@ fn blast_zone_enters_with_charge_counter_and_taps_for_colorless() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Colorless), 1);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn blast_zone_sweeps_its_last_known_counter_value_after_paying_the_sacrifice() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for charge in [0, 1, 2] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(
+                0,
+                &[
+                    blast_zone(),
+                    forest(),
+                    forest(),
+                    forest(),
+                    index::MOX_EMERALD,
+                ],
+            )
+            .battlefield(1, &[llanowar_elves(), index::GRIZZLY_BEARS, forest()])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let zone = on_battlefield(&e, p0, blast_zone()).unwrap();
+        let zero = on_battlefield(&e, p0, index::MOX_EMERALD).unwrap();
+        let one = on_battlefield(&e, p1, llanowar_elves()).unwrap();
+        let two = on_battlefield(&e, p1, index::GRIZZLY_BEARS).unwrap();
+        let land = on_battlefield(&e, p1, forest()).unwrap();
+        let state = e.dev_state_mut(p0).unwrap();
+        crate::replacement::remove_counters(state, zone, CounterKind::Charge, 1);
+        crate::replacement::put_counters(state, zone, CounterKind::Charge, charge);
+        tap_all_mana_but(&mut e, p0, Some(blast_zone()));
+        activate(&mut e, p0, blast_zone(), 2);
+        assert_eq!(e.state().object(zone).unwrap().zone, Zone::Graveyard);
+        pass_until(&mut e, stack_is_empty);
+        for (object, value) in [(zero, 0), (one, 1), (two, 2)] {
+            assert_eq!(
+                e.state().object(object).unwrap().zone == Zone::Graveyard,
+                value == charge,
+                "charge {charge}, mana value {value}"
+            );
+        }
+        assert_eq!(e.state().object(land).unwrap().zone, Zone::Battlefield);
+    }
 }

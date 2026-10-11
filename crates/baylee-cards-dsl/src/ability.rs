@@ -121,6 +121,8 @@ pub enum Condition {
     AttackedWithAtLeast(u32),
     /// This incarnation dealt damage to an opponent of its current controller this turn.
     SourceDamagedOpponentThisTurn,
+    /// The source was present and untapped at the beginning of this turn.
+    SourceStartedTurnUntapped,
     /// At least one opponent has this many poison counters.
     OpponentPoisonAtLeast(u16),
     /// An evaluated magnitude meets the printed lower bound.

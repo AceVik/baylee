@@ -307,14 +307,22 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::DestroyAll { filter, no_regen } => {
+        Effect::DestroyAll { filter, .. } | Effect::DestroyAllWithManaValue { filter, .. } => {
+            let (no_regen, value) = match op {
+                Effect::DestroyAll { no_regen, .. } => (no_regen, None),
+                Effect::DestroyAllWithManaValue { value, .. } => {
+                    (false, Some(amount2(&value, state, you, res)))
+                }
+                _ => unreachable!("destruction family"),
+            };
             // Not a phased-out creature: "Destroy all creatures" passes over
             // one (CR 702.26b's example).
             let all: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
                     state.object(*id).is_some_and(|o| {
-                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                        value.is_none_or(|value| o.characteristics().mana_value() == value)
+                            && eval::matches_with_context(filter, state, o, you, res.rule_context())
                     })
                 })
                 .collect();

@@ -157,6 +157,23 @@ pub enum Effect {
         /// Whether choosing no card is permitted when matches exist.
         optional: bool,
     },
+    /// Put or remove counters on the source's attached host, using its last
+    /// attachment if the source left while this ability was waiting.
+    ChangeAttachedCounters {
+        /// Counter kind.
+        kind: CounterKind,
+        /// How many, evaluated during resolution.
+        amount: Amount,
+        /// Remove rather than put counters.
+        remove: bool,
+    },
+    /// Change the attached host, including attachment LKI after source departure.
+    ModifyAttached {
+        /// Characteristic change.
+        modifier: super::Modifier,
+        /// Lifetime bound to the host's exact incarnation.
+        duration: super::Duration,
+    },
     /// Change the original source permanent, independently of chosen targets.
     ModifySource {
         /// The change applied to the source's retained incarnation.
@@ -1772,6 +1789,14 @@ pub enum Effect {
         /// "They can't be regenerated" (CR 701.19c) — see
         /// [`Effect::Destroy::no_regen`].
         no_regen: bool,
+    },
+    /// Destroy matching permanents whose mana value equals a computed amount.
+    /// Evaluate it once, using source LKI when the source paid a sacrifice cost.
+    DestroyAllWithManaValue {
+        /// Which permanents may be destroyed.
+        filter: &'static Filter,
+        /// The common mana value.
+        value: Amount,
     },
     /// "…and all other permanents with the same name as that permanent"
     /// (Maelstrom Pulse): destroy every permanent other than the object

@@ -121,6 +121,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ModifyPTByCount(_)
         | Modifier::ModifyPTHalfCount(_)
         | Modifier::ModifyPTPerGraveyardCard { .. }
+        | Modifier::HoneEquipment
         | Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
         | Modifier::SetPower(_)
@@ -187,6 +188,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::SkipUntapStep { .. }
         | Modifier::BlockableWithoutLandwalk(_)
         | Modifier::IgnoreOpponentsHexproof
+        | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
         | Modifier::BoastTwice
         | Modifier::PlayerHexproof
@@ -234,6 +236,8 @@ pub enum EffectOrigin {
     /// A static ability granted by the named effect. Its source is the
     /// object that gained the ability, which supplies its "this" and "you".
     GrantedStatic(EffectId),
+    /// A keyword counter grants an ability independently of printed abilities.
+    Counter(baylee_cards_dsl::CounterKind),
 }
 
 impl EffectOrigin {
@@ -288,6 +292,8 @@ pub struct EffectTable {
     /// Monotone performance hint; false proves there is no counter duration.
     /// Derived cache only, with no effect on rules or snapshot identity.
     may_have_counter_duration: bool,
+    /// Derived monotone cache: uncapped kinds skip the limit scan entirely.
+    counter_limit_kinds: Vec<baylee_cards_dsl::CounterKind>,
     /// Derived monotone hint: ordinary boards need no source-duration scan.
     may_have_source_duration: bool,
     /// Bumped on every add/remove — the projection cache key.
@@ -303,11 +309,24 @@ impl EffectTable {
         self.may_have_counter_duration
     }
 
+    pub(crate) fn has_counter_limits(&self) -> bool {
+        !self.counter_limit_kinds.is_empty()
+    }
+
+    pub(crate) fn may_limit_counters(&self, kind: baylee_cards_dsl::CounterKind) -> bool {
+        self.counter_limit_kinds.contains(&kind)
+    }
+
     /// Registers an effect; bumps the generation.
     pub fn register(&mut self, mut fx: ContinuousEffect) -> EffectId {
         let id = EffectId::new(self.next_id);
         self.next_id += 1;
         fx.id = id;
+        if let Modifier::CounterMaximum { kind, .. } = fx.modifier
+            && !self.counter_limit_kinds.contains(&kind)
+        {
+            self.counter_limit_kinds.push(kind);
+        }
         self.may_have_counter_duration |= matches!(fx.duration, Duration::WhileCounterRemains(_));
         self.may_have_source_duration |= matches!(
             fx.duration,
@@ -483,6 +502,7 @@ impl EffectTable {
             parked,
             next_id,
             may_have_counter_duration: _,
+            counter_limit_kinds: _,
             may_have_source_duration: _,
             generation,
         } = self;
@@ -1037,6 +1057,7 @@ mod tests {
             Modifier::SetToughness(1),
             Modifier::SetPTToCount(baylee_cards_dsl::PtCount::YouControl(&Filter::YOUR_LAND)),
             Modifier::ModifyPT(1, 1),
+            Modifier::HoneEquipment,
             Modifier::ModifyPTPerCount {
                 filter: &Filter::CREATURE,
                 p: 1,
@@ -1099,6 +1120,10 @@ mod tests {
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBlock(&Filter::CREATURE),
             Modifier::CrewSaddlePowerBonus(2),
+            Modifier::CounterMaximum {
+                kind: baylee_cards_dsl::CounterKind::Charge,
+                maximum: 7,
+            },
             Modifier::BlockableWithoutLandwalk(baylee_cards_dsl::KeywordSet::SWAMPWALK),
             Modifier::IgnoreOpponentsHexproof,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
@@ -1176,7 +1201,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            101,
+            103,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1240,7 +1265,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (36, 65));
+        assert_eq!((locking, all.len() - locking), (37, 66));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

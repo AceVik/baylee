@@ -55,13 +55,10 @@ pub enum Amount {
     /// Vial's "the number of charge counters on this artifact", cumulative
     /// upkeep's "for each age counter on it" (CR 702.24a).
     ///
-    /// Read off the source as it is when asked, so after the effect before
-    /// it in the same list put a new counter there; a source that has left
-    /// the battlefield has shed its counters (CR 122.2) and counts zero,
-    /// where CR 608.2h would read the last one it had. No card in the pool
-    /// loses its source in between: Aether Vial taps itself and stays, and
-    /// the intervening `if` cumulative upkeep prints keeps a gone source
-    /// from mattering.
+    /// Resolution reads the source's current incarnation or its captured last
+    /// battlefield information if it left (CR 608.2h), including a source
+    /// sacrificed to pay the ability's cost. Outside resolution this is a live
+    /// count only. Earlier instructions' counter changes are visible.
     CountersOnSource(CounterKind),
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,

@@ -740,6 +740,10 @@ impl Status {
     /// permanent and never by itself. Not a status of CR 110.5, which has
     /// four; the view leaves it out ([`Self::public`]).
     pub const PHASED_OUT_INDIRECTLY: Self = Self(16);
+    /// Historical bookkeeping, not a status of CR 110.5: this exact
+    /// incarnation was present and untapped when the current turn began.
+    /// Reset on departure and every turn boundary, hidden from the wire.
+    pub(crate) const UNTAPPED_AT_TURN_START: Self = Self(32);
 
     /// Whether all bits of `other` are set.
     #[must_use]
@@ -768,7 +772,7 @@ impl Status {
     /// in, and "phased out" says all a player can see of it.
     #[must_use]
     pub const fn public(self) -> Self {
-        Self(self.0 & !Self::PHASED_OUT_INDIRECTLY.0)
+        Self(self.0 & (Self::TAPPED.0 | Self::FACE_DOWN.0 | Self::PHASED_OUT.0 | Self::FLIPPED.0))
     }
 }
 

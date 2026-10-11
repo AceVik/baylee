@@ -201,7 +201,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 59 adds the distinct saddle-cost prompt to the engine choice enum.
 ///
 /// [`SubtypeSet`]: baylee_core::types::SubtypeSet
-pub const VIEW_VERSION: u32 = 59;
+/// Version 60 adds flying, shadow, indestructible and hone counter kinds.
+pub const VIEW_VERSION: u32 = 60;
 
 // ------------------------------------------------------------------- targets
 

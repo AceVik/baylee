@@ -641,6 +641,16 @@ pub enum Modifier {
     ModifyPTByCount(PtCount),
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
+    /// The intrinsic +1/+0 per hone counter on the Equipment source.
+    HoneEquipment,
+    /// No affected permanent may hold more than this many counters of the kind.
+    /// Prevent excess placement and enforce CR 122.4 / 704.5r after ability gains.
+    CounterMaximum {
+        /// Counter kind being limited.
+        kind: crate::CounterKind,
+        /// Largest permitted count.
+        maximum: u16,
+    },
     /// Sets power/toughness to specific values.
     SetPT(i16, i16),
     /// "[The affected creature] has base power N" (Island of Wak-Wak,
@@ -771,12 +781,11 @@ impl Modifier {
     /// all. What the layer reaches is the projection's iteration bucket, the
     /// CR 613.8 dependency sort inside it, and `state::snapshot_hash`.
     #[must_use]
+    #[allow(clippy::too_many_lines)] // exhaustive modifier-to-layer table
     pub const fn layer(&self) -> Layer {
         match self {
-            // Layer 1: copy effects.
-            Self::BecomeCopyOf(_) => Layer::Copy,
-            // Layer 2: control-changing effects.
-            Self::GainControl => Layer::Control,
+                        Self::BecomeCopyOf(_) => Layer::Copy,
+                        Self::GainControl => Layer::Control,
             // Layer 4: type-changing effects.
             Self::AddType(_)
             | Self::AnimateNoncreatureArtifact
@@ -812,7 +821,8 @@ impl Modifier {
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } => Layer::PtCda,
             Self::SetPT(..) | Self::SetPower(_) | Self::SetToughness(_) | Self::SetPTToCount(_) => Layer::PtSet,
-            Self::ModifyPT(..)
+            Self::HoneEquipment
+            | Self::ModifyPT(..)
             | Self::ModifyPTPerCount { .. }
             | Self::ModifyPTByCount(_)
             | Self::ModifyPTHalfCount(_)
@@ -853,6 +863,7 @@ impl Modifier {
             | Self::CombatDamageCantBePrevented
             | Self::BlockableWithoutLandwalk(_)
             | Self::IgnoreOpponentsHexproof
+            | Self::CounterMaximum { .. }
             | Self::CrewSaddlePowerBonus(_)
             | Self::CantBlock(_)
             | Self::CantBeBlockedBy(_)

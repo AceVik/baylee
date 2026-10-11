@@ -809,6 +809,12 @@ pub fn condition_holds_with_context(
                 .count()
                 == minimum as usize
         }
+        Condition::SourceStartedTurnUntapped => state.object(source).is_some_and(|object| {
+            object.zone == Zone::Battlefield
+                && object
+                    .status
+                    .contains(crate::object::Status::UNTAPPED_AT_TURN_START)
+        }),
         Condition::SourceDamagedOpponentThisTurn => state.object(source).is_some_and(|object| {
             state
                 .per_turn

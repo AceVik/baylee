@@ -799,11 +799,14 @@ impl Effect {
             | Effect::MarkLandWithCounter { .. }
             | Effect::CleanLinkedCounters { .. }
             | Effect::RemoveCounterSelf { .. }
-            | Effect::AddCounterFilter { .. }
+            | Effect::ChangeAttachedCounters { .. }
+        | Effect::ModifyAttached { .. }
+        | Effect::AddCounterFilter { .. }
             | Effect::DoubleCountersFilter { .. }
             | Effect::ReturnToHand { .. }
             | Effect::ReturnAllToHand { .. }
-            | Effect::DestroyAll { .. }
+            | Effect::DestroyAllWithManaValue { .. }
+        | Effect::DestroyAll { .. }
             | Effect::ExileAll { .. }
             | Effect::DestroyOthersNamedLike { .. }
             | Effect::ExileGraveyard { .. }
