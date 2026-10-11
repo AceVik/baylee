@@ -214,7 +214,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 69 adds choices between simultaneous and competing entry replacements.
 /// Version 70 distinguishes private library inspection from hand inspection.
 /// Version 71 adds behold and numeric choices, and type-restricted card naming.
-pub const VIEW_VERSION: u32 = 71;
+/// Version 72 adds finality counters and the casting choices in package 45.
+pub const VIEW_VERSION: u32 = 72;
 
 // ------------------------------------------------------------------- targets
 

@@ -696,6 +696,10 @@ mod tests {
     /// were written. A Room's second half is its "back" here only because a
     /// card's second face is; it is cast as often as the first. One card,
     /// no generator round.
+    ///
+    /// Read again on 12.10.2026, at **twenty-six**: completing Tarrian's
+    /// Journal adds the Tomb's activated graveyard-casting permission to
+    /// the existing twenty-five backs. One card, no generator round.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -733,6 +737,7 @@ mod tests {
                 "Ojer Kaslem, Deepest Growth",
                 "Ojer Pakpatiq, Deepest Epoch",
                 "Ojer Taq, Deepest Foundation",
+                "Tarrian's Journal",
                 "Walk-In Closet",
                 "Balamb Garden, SeeD Academy",
                 "Sidequest: Catch a Fish"

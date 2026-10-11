@@ -26,6 +26,7 @@ mod activation_cost_bounds;
 mod alpha_completion_review;
 mod artifacts;
 mod batch43;
+mod batch45;
 mod counted_activation_costs;
 mod counter_movement;
 mod counter_resources;

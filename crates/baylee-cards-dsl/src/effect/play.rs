@@ -21,6 +21,8 @@ pub struct ExilePlay {
     pub window: PlayWindow,
     /// Waive the mana cost, but still pay additional costs and increases.
     pub free: bool,
+    /// Mana of any actual type may pay any mana symbol while casting this card.
+    pub mana_any_type: bool,
     /// Restrict casting by the prospective spell's types; disallow land plays.
     /// `None` permits both casting spells and playing lands.
     pub spell_types: Option<TypeSet>,

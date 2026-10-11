@@ -888,6 +888,10 @@ fn cast_label(
 ) -> String {
     use baylee_engine::choice::CastModeKind as K;
     match kind {
+        K::Permission(source) => source.and_then(|source| names.of(source, 0)).map_or_else(
+            || Phrase::CastPermissionUnlimited.text(lang).to_string(),
+            |name| format!("{}: {name}", Phrase::CastPermission.text(lang)),
+        ),
         K::Counter(kind) => baylee_client_core::interaction::counter_label(kind, lang),
         K::Colors(colors) => {
             use baylee_core::color::Color;
@@ -930,9 +934,41 @@ fn cast_label(
         K::Prototype => Phrase::CastPrototype.text(lang).to_string(),
         K::Miracle => Phrase::CastMiracle.text(lang).to_string(),
         K::Flashback => Phrase::CastFlashback.text(lang).to_string(),
+        K::BeamMeUp => Phrase::CastBeamMeUp.text(lang).to_string(),
         K::Dash => Phrase::CastDash.text(lang).to_string(),
         K::Escape => Phrase::CastEscape.text(lang).to_string(),
+        K::EscapeGranted {
+            face,
+            modes,
+            kicked,
+            prototype,
+            ..
+        } => {
+            let mut label = Phrase::CastEscape.text(lang).to_string();
+            if prototype {
+                append_cast_detail(&mut label, Phrase::CastPrototype.text(lang));
+            }
+            if kicked {
+                append_cast_detail(&mut label, Phrase::CastKicked.text(lang));
+            }
+            if face != 0
+                && let Some(name) = names.of(object, face)
+            {
+                append_cast_detail(&mut label, &name);
+            }
+            for mode in 0..8 {
+                if modes & (1 << mode) != 0 {
+                    append_cast_detail(&mut label, &mode_label(lang, object, names, mode));
+                }
+            }
+            label
+        }
     }
+}
+
+fn append_cast_detail(label: &mut String, detail: &str) {
+    label.push_str(" · ");
+    label.push_str(detail);
 }
 
 /// The same source and effect explanation on the table and in a zone chooser.

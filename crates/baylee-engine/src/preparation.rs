@@ -88,6 +88,7 @@ impl GameState {
             card: copy,
             version: self.object(copy).expect("new copy").version,
             free: false,
+            mana_any_type: false,
             cast_only: true,
             spell_types: None,
             window: PlayLifetime::Prepared(identity),

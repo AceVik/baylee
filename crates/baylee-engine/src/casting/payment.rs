@@ -54,7 +54,41 @@ pub(crate) fn phyrexian_affordable(
     cost: &ManaCost,
     settled: &[bool],
 ) -> bool {
-    let spending = mana_spending(state, player);
+    phyrexian_affordable_with(
+        state,
+        player,
+        pool,
+        cost,
+        settled,
+        mana_spending(state, player),
+    )
+}
+
+pub(crate) fn spell_affordable(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    pool: &ManaPool,
+    cost: &ManaCost,
+) -> bool {
+    phyrexian_affordable_with(
+        state,
+        player,
+        pool,
+        cost,
+        &[],
+        spell_mana_spending(state, player, card),
+    )
+}
+
+pub(crate) fn phyrexian_affordable_with(
+    state: &GameState,
+    player: PlayerId,
+    pool: &ManaPool,
+    cost: &ManaCost,
+    settled: &[bool],
+    spending: ManaSpending,
+) -> bool {
     let symbols = cost.phyrexian_count();
     let fixed = u32::try_from(settled.len()).unwrap_or(u32::MAX);
     // Eight symbols is 256 ways; no card prints more than four. Past that
@@ -210,6 +244,8 @@ pub(crate) enum SpendFor {
     SpellOnFace(ObjectId, usize),
     /// An announced prototype or face-down creature.
     SpellAs(ObjectId, SpellForm),
+    /// A kicked spell's announced face/form, before its costs are paid.
+    KickedSpell(ObjectId, usize, Option<SpellForm>),
     /// Activating an ability of this source (CR 602.2b, CR 113.7).
     Ability(ObjectId),
     /// Anything else that costs mana: suspend (a special action, CR 116.2f),
@@ -218,7 +254,7 @@ pub(crate) enum SpendFor {
 }
 
 /// Borrow the ordinary spell; clone only an alternative projection needed by mana rules.
-fn spending_object(
+pub(super) fn spending_object(
     state: &GameState,
     what: SpendFor,
 ) -> Option<std::borrow::Cow<'_, crate::object::GameObject>> {
@@ -228,11 +264,14 @@ fn spending_object(
         SpendFor::Spell(card) | SpendFor::Ability(card) => (card, None, None),
         SpendFor::SpellAs(card, form) => (card, Some(form), None),
         SpendFor::SpellOnFace(card, face) => (card, None, Some(face)),
+        SpendFor::KickedSpell(card, face, form) => (card, form, Some(face)),
         SpendFor::Other => return None,
     };
     let original = state.object(card)?;
     if let Some(form) = form {
-        return Some(Cow::Owned(form.project(original)));
+        let mut projected = form.project(original);
+        projected.kicked = matches!(what, SpendFor::KickedSpell(..));
+        return Some(Cow::Owned(projected));
     }
     if let Some(face) = face {
         let def = state.bases.card(original.card?.index)?;
@@ -245,6 +284,7 @@ fn spending_object(
         ));
         projected.cache.clear();
         projected.face_index = u8::try_from(face).ok()?;
+        projected.kicked = matches!(what, SpendFor::KickedSpell(..));
         return Some(Cow::Owned(projected));
     }
     Some(Cow::Borrowed(original))
@@ -477,12 +517,21 @@ pub(crate) fn pay_mana_restricting_generic(
 ) -> Option<ManaEntries> {
     let obligation = state.constrained_payment(player).cloned();
     let is_selected_spell = obligation.as_ref().is_some_and(|payment| match what {
-        SpendFor::Spell(card) | SpendFor::SpellAs(card, _) | SpendFor::SpellOnFace(card, _) => {
+        SpendFor::Spell(card)
+        | SpendFor::SpellAs(card, _)
+        | SpendFor::SpellOnFace(card, _)
+        | SpendFor::KickedSpell(card, ..) => {
             payment.card.object == card && state.source_identity(card) == Some(payment.card)
         }
         _ => false,
     });
-    let spending = mana_spending(state, player);
+    let spending = match what {
+        SpendFor::Spell(card)
+        | SpendFor::SpellAs(card, _)
+        | SpendFor::SpellOnFace(card, _)
+        | SpendFor::KickedSpell(card, ..) => spell_mana_spending(state, player, card),
+        _ => mana_spending(state, player),
+    };
     // Only unrelated payments must leave obligated mana untouched. Eligible
     // land mana abilities may consume it while paying for the instructed card.
     let protect_reserved = matches!(what, SpendFor::Other);

@@ -7,10 +7,19 @@ use crate::generated_tokens::GENERATED;
 const HAND_WRITTEN_FLOOR: usize = 14;
 
 /// Whether a token in [`ALL`] is one a reader wrote rather than one a
-/// person did. Two tests need the distinction: a token a person wrote
-/// chose a picture, and a generated one has none to choose from yet.
+/// person did. Hand-written tokens require either a picture or an explicit
+/// procedural-face exception; generated tokens have no picture chosen yet.
 fn is_generated(token: &TokenDef) -> bool {
     GENERATED.iter().any(|g| std::ptr::eq(*g, token))
+}
+
+/// The Snake has no matching printed token; Empower Jace has no supplied
+/// image asset. Both use the existing text face, as recorded in
+/// `docs/legal.md`, instead of borrowing another token's identity or art.
+fn uses_documented_face_fallback(token: &TokenDef) -> bool {
+    [&SNAKE_1_1_ARTIFACT_POISON, &JACE_PLANESWALKER_BLUE]
+        .into_iter()
+        .any(|fallback| std::ptr::eq(token, fallback))
 }
 
 /// Every token this file declares has to be in the ledger, or it has no
@@ -105,11 +114,9 @@ fn no_card_file_defines_its_own_token() {
     );
 }
 
-/// A token with no picture is the flat coloured rectangle this file's
-/// art keys exist to replace, and a *malformed* id is worse than none:
-/// the client builds a URL out of it and fetches a guaranteed 404 every
-/// time the token is drawn. Both are build failures, because neither is
-/// visible from anywhere but the felt.
+/// Missing art requires an explicitly documented text-face fallback. A
+/// malformed id is always an error: the client builds a URL out of it and
+/// requests an image that cannot exist every time the token is drawn.
 ///
 /// The shape checked here is the one `baylee_client_core::images` will
 /// accept — a hyphenated 36-character UUID that is not the nil one.
@@ -120,27 +127,31 @@ fn no_card_file_defines_its_own_token() {
 /// never saw a picture can give. Choosing art for those is work this
 /// test must not pretend has been done.
 #[test]
-fn every_hand_written_token_names_a_picture_the_client_can_fetch() {
+fn every_hand_written_token_has_valid_art_or_a_documented_face_fallback() {
     let mut checked = 0;
     for token in ALL.iter().filter(|t| !is_generated(t)) {
         checked += 1;
         let id = token.scryfall_id;
-        // This exact independently described token has no matching printed art.
-        if std::ptr::eq(*token, &raw const SNAKE_1_1_ARTIFACT_POISON) {
-            assert!(id.is_empty(), "do not substitute art for a different Snake");
+        if uses_documented_face_fallback(token) {
+            assert!(
+                id.is_empty(),
+                "{} uses its documented procedural face, not borrowed art",
+                token.name
+            );
             continue;
         }
         assert!(!id.is_empty(), "{} has no art", token.name);
-        assert_eq!(id.len(), 36, "{}: {id} is not a UUID", token.name);
-        assert!(id.contains('-'), "{}: {id} is not a UUID", token.name);
-        assert!(
-            !id.chars().all(|c| c == '0' || c == '-'),
-            "{}: the nil UUID is well-formed and always wrong",
+        let parsed = uuid::Uuid::parse_str(id)
+            .unwrap_or_else(|error| panic!("{}: invalid art UUID {id}: {error}", token.name));
+        assert_eq!(
+            parsed.hyphenated().to_string(),
+            id,
+            "{}: art must use a canonical hyphenated UUID",
             token.name
         );
         assert!(
-            id.chars().all(|c| c.is_ascii_hexdigit() || c == '-'),
-            "{}: {id} is not hexadecimal",
+            !parsed.is_nil(),
+            "{}: the nil UUID is well-formed and always wrong",
             token.name
         );
     }
@@ -153,17 +164,44 @@ fn every_hand_written_token_names_a_picture_the_client_can_fetch() {
 /// Two tokens sharing a picture is not an error — a 1/1 and a 2/2
 /// Shapeshifter could reasonably wear the same art — but it has never
 /// been what was *meant* here, and a copied line is how it would happen.
+/// Empty ids name no picture; the preceding test limits those to the exact
+/// documented fallbacks.
 #[test]
 fn no_two_hand_written_tokens_were_given_the_same_picture_by_accident() {
     let mut ids: Vec<&str> = ALL
         .iter()
         .filter(|t| !is_generated(t))
         .map(|t| t.scryfall_id)
+        .filter(|id| !id.is_empty())
         .collect();
     ids.sort_unstable();
     let before = ids.len();
     ids.dedup();
     assert_eq!(before, ids.len(), "two tokens share an art id");
+}
+
+/// Without art, the procedural face must still describe Empower's actual
+/// blue Jace planeswalker, including its printed zero starting loyalty.
+#[test]
+fn jaces_procedural_face_keeps_its_planeswalker_identity() {
+    const ABILITIES: &[AbilityDef] = &[
+        baylee_cards_dsl::loyalty!(-1, &[Effect::surveil(1)]),
+        baylee_cards_dsl::loyalty!(-3, &[Effect::draw(1)]),
+    ];
+    let token = &JACE_PLANESWALKER_BLUE;
+    assert!(token.scryfall_id.is_empty());
+    assert_eq!(token.name, "Jace");
+    assert_eq!(token.colors, ColorSet::from_slice(&[Color::Blue]));
+    assert_eq!(token.types, TypeSet::PLANESWALKER);
+    assert_eq!(token.supertypes, baylee_core::types::SupertypeSet::EMPTY);
+    assert_eq!(
+        token.subtypes,
+        &[baylee_core::generated::subtypes::planeswalker::JACE]
+    );
+    assert_eq!((token.power, token.toughness), (None, None));
+    assert_eq!(token.loyalty, Some(0));
+    assert_eq!(token.keywords, KeywordSet::EMPTY);
+    assert_eq!(token.abilities, ABILITIES);
 }
 
 /// A token whose name promises a sacrifice outlet and delivers nothing is

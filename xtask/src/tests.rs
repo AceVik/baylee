@@ -256,6 +256,33 @@ fn a_revealed_discard_replacement_offers_its_optional_choice() {
     }
 }
 
+#[test]
+fn graveyard_and_scoped_mana_permissions_offer_real_choices() {
+    let payload = serde_json::json!({ "oracle_text": "You may cast that spell." });
+    for (name, expected) in [
+        ("Kess, Dissident Mage", 0),
+        ("Tarrian's Journal", 0),
+        ("North Star", 0),
+        ("Mizzix's Mastery", 0),
+        ("Fog", 1),
+    ] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered fixture");
+        let mut problems = 0;
+        let mut tally = super::PrintingTally::default();
+        super::check_optional_clauses_are_offered(
+            "fixture",
+            def,
+            &payload,
+            &mut tally,
+            &mut problems,
+        );
+        assert_eq!(problems, expected, "{name}");
+        assert_eq!(tally.optional_clauses, 1);
+    }
+}
+
 /// A batch is allowed to write the cards it asked for and nothing else.
 ///
 /// Codegen rewrites every machine-owned card on every run, so a rewrite is

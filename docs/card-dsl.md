@@ -460,6 +460,7 @@ express at all yet.
   The parts: `TapSelf`, `UntapSelf`, `SacrificeSelf`, `Sacrifice(filter)`,
   `SacrificeX(filter)` (X chosen permanents), `SacrificeAll(filter)` (every
   matching permanent you control, including the source when it matches),
+  `DiscardHand` (the entire hand, payable even when empty),
   `Discard(filter)`, `DiscardSelf` (cycling), `DiscardRandom` (one random
   hand card, activation costs only), `PayLife(n)`, `PayLifeX`,
   `PayCommanderColors` (one life per distinct color among all commanders;
@@ -3471,3 +3472,34 @@ Large selections collect every page before any payment is made. The suspended
 resolution resumes only after the entries and their choices have completed.
 Entry counters travel with that continuation, so a copied 0/0 is not checked
 for state-based death before its entry counters have been placed.
+
+### Scoped casting permissions and card copies
+
+`Modifier::GrantsEscape(n)` grants matching graveyard cards escape for their
+mana cost plus `n` other cards. The grant reads the card in the graveyard;
+casting then checks the selected face, timing, modes and additional costs.
+Kicker and prototype remain available; two alternative costs cannot combine.
+`Modifier::GraveyardInstantSorceryOnce` provides Kess's permission during each
+own turn and its exile replacement. `Modifier::GraveyardVampireOnce` provides
+one creature cast, adds Vampire, and supplies an entry finality counter.
+Permissions are consumed only after a successful cast, never on cancellation.
+`FaceDef::beam_me_up` specifies a graveyard alternative cost with a controlled
+creature returned as an additional cost and the spell exiled afterward.
+
+`Modifier::OneSpellManaAnyType` offers North Star's permission for one spell's
+mana cost; additional colored costs and snow requirements remain constrained.
+`Modifier::NextSpellUncounterable` protects the next spell cast by the effect's
+controller. `Modifier::NextDrawWish` replaces one draw during its duration;
+Commander and controlled-player restrictions still govern outside-game access.
+
+`Effect::ExileAndCastCopies { graveyard }` exiles the targeted cards (`None`) or
+matching cards in the controller's graveyard (`Some(filter)`). It creates card
+copies with their copiable values and offers each for casting during resolution.
+The player chooses their order and may decline; mandatory additional costs and
+casting prohibitions still apply. `TargetReq::distinct_mana_values` validates
+Agadeem's set of targets in the engine and is carried into the player's prompt.
+
+`Effect::EmpowerJace { token, amount }` creates the specified Jace token only
+when needed, then puts loyalty on one controlled Jace token. `TokenDef::loyalty`
+defines planeswalker entry loyalty independently of power and toughness.
+`CounterKind::Finality` replaces a permanent's move to the graveyard with exile.

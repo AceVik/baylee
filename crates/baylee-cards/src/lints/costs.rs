@@ -27,6 +27,7 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
+        | CostPart::DiscardHand
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)
@@ -60,6 +61,7 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
+        | CostPart::DiscardHand
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)

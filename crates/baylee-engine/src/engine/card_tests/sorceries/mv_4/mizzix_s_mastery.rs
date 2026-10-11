@@ -3,66 +3,86 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Mizzix's Mastery exiles a card out of its controller's own graveyard and
-/// then exiles **itself**, and the second half is the one worth playing: a
-/// sorcery that resolved normally would be in the graveyard it just emptied
-/// a slot in, so "Exile Mizzix's Mastery" is checked by where the spell
-/// itself ends up rather than by what it did.
-///
-/// The library is built out of Brainstorms so the graveyard the spell reads
-/// holds instants and nothing else, and the target is asserted against the
-/// object that actually left.
-///
-/// The file is `Coverage::Partial` for the copy — nothing copies a card in
-/// exile and lets its controller cast the copy for free — and for overload.
-/// Neither is reachable from here, and the exile is the half that is built.
+/// The original and Mastery stay exiled whether the free copy is cast or
+/// declined. Casting it draws two cards without paying the copied mana cost;
+/// declining it leaves no copy or delayed permission behind.
 #[test]
-fn mizzixs_mastery_exiles_a_card_from_your_graveyard_and_then_itself() {
+fn mizzixs_mastery_exiles_the_original_and_itself_and_optionally_casts_a_free_copy() {
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, brainstorm())
-        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
-        .hand(0, &[mizzix_s_mastery()])
-        .start();
-    keep_mulligans(&mut engine);
-    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
-    seed_graveyard(&mut engine, p0, 2);
-
-    let graveyard_before = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
-    assert_eq!(graveyard_before, 2, "two instants are buried");
-
-    tap_all_mana(&mut engine, p0);
-    cast_with_floating(&mut engine, p0, mizzix_s_mastery());
-    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
-        panic!(
-            "\"target card that's an instant or sorcery from your graveyard\" \
-             asks which, got {:?}",
-            engine.pending()
-        )
-    };
-    assert_eq!(options.len(), 2, "both buried instants are on the offer");
-    let named = options[0];
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![named],
-                players: vec![],
-            },
-        )
-        .expect("a card the spell offered");
-    pass_until(&mut engine, |e| at_rest(e, p0));
-
-    assert!(
-        !engine
-            .state()
-            .zones
-            .list(ZoneLocation::Graveyard(p0))
-            .contains(&named),
-        "the card it named left the graveyard"
-    );
-    assert!(
-        in_graveyard(&engine, p0, mizzix_s_mastery()).is_none(),
-        "\"Exile Mizzix's Mastery\" — a sorcery that merely resolved would be \
-         lying in the graveyard it just took a card out of"
-    );
+    for cast_copy in [false, true] {
+        let mut engine = Duel::new(SEED, baylee_core::generated::index::COUNSEL_OF_THE_SORATAMI)
+            .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+            .hand(0, &[mizzix_s_mastery()])
+            .start();
+        keep_mulligans(&mut engine);
+        assert!(walk_to_own_main(&mut engine, p0));
+        seed_graveyard(&mut engine, p0, 2);
+        assert_eq!(
+            engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+            2
+        );
+        let mastery = in_hand(&engine, p0, mizzix_s_mastery()).unwrap();
+        let library_before = library_size(&engine, p0);
+        tap_all_mana(&mut engine, p0);
+        cast_with_floating(&mut engine, p0, mizzix_s_mastery());
+        let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+            panic!("expected graveyard targets, got {:?}", engine.pending());
+        };
+        assert_eq!(options.len(), 2);
+        let original = options[0];
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![original],
+                    players: vec![],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, |e| {
+            matches!(
+                e.pending(),
+                Pending::ChooseCards {
+                    prompt: ChoicePrompt::PlayFromExile,
+                    ..
+                }
+            )
+        });
+        let Pending::ChooseCards {
+            options, min, max, ..
+        } = engine.pending().clone()
+        else {
+            unreachable!()
+        };
+        assert_eq!((min, max, options.len()), (0, 1, 1));
+        let copy = options[0];
+        assert_ne!(copy, original);
+        assert_eq!(engine.state().object(original).unwrap().zone, Zone::Exile);
+        assert_eq!(engine.state().object(mastery).unwrap().zone, Zone::Stack);
+        assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: if cast_copy { vec![copy] } else { vec![] },
+                },
+            )
+            .unwrap();
+        if cast_copy {
+            assert_eq!(engine.state().object(copy).unwrap().zone, Zone::Stack);
+        }
+        pass_until(&mut engine, |e| at_rest(e, p0));
+        assert_eq!(
+            library_size(&engine, p0),
+            library_before - usize::from(cast_copy) * 2
+        );
+        assert_eq!(engine.state().object(original).unwrap().zone, Zone::Exile);
+        assert_eq!(engine.state().object(mastery).unwrap().zone, Zone::Exile);
+        assert_eq!(
+            engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+            1
+        );
+        assert!(engine.state().object(copy).is_none());
+        assert!(in_graveyard(&engine, p0, mizzix_s_mastery()).is_none());
+    }
 }

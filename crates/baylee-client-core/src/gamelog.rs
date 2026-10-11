@@ -716,6 +716,11 @@ impl Writer<'_> {
             CounterKind::Level => (Phrase::LogCounterLevel, Phrase::LogCountersLevel, None),
             CounterKind::Hone => (Phrase::LogCounterHone, Phrase::LogCountersHone, None),
             CounterKind::Stun => (Phrase::LogCounterStun, Phrase::LogCountersStun, None),
+            CounterKind::Finality => (
+                Phrase::LogCounterFinality,
+                Phrase::LogCountersFinality,
+                None,
+            ),
             CounterKind::Flying => (Phrase::LogCounterFlying, Phrase::LogCountersFlying, None),
             CounterKind::Shadow => (Phrase::LogCounterShadow, Phrase::LogCountersShadow, None),
             CounterKind::Indestructible => (

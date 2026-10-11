@@ -60,7 +60,8 @@ card!(
             &[Effect::ReturnSourceFromGraveyard {
                 face: Some(1),
                 tapped: true,
-                owner_control: true
+                owner_control: true,
+                counters: None,
             }]
         ),
     ],

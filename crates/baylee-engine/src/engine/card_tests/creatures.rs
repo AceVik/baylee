@@ -884,6 +884,33 @@ fn yawgmoth_thran_physician() -> CardIndex {
     card_index("a1e232c0-dc38-47be-a5a0-f68bc1d86a29")
 }
 
+/// Spend the three time counters through the mana ability; only untaps are fixtures.
+fn spend_temple_time_counters(
+    engine: &mut Engine<RegistryLookup>,
+    player: PlayerId,
+    temple: ObjectId,
+) {
+    // The stolen Temple must lose its three time counters before its
+    // transform ability becomes legal. Only the untaps are fixture setup;
+    // each counter is removed by the Temple's real mana ability.
+    for remaining in [2, 1, 0] {
+        let Pending::Priority { legal, .. } = engine.pending() else {
+            panic!("expected priority, got {:?}", engine.pending());
+        };
+        assert!(
+            !legal.abilities.contains(&(temple, 1)),
+            "time counters prevent transformation"
+        );
+        activate(engine, player, ojer_pakpatiq_deepest_epoch(), 0);
+        assert_eq!(counters_on(engine, temple, CounterKind::Time), remaining);
+        engine
+            .dev_state_mut(player)
+            .unwrap()
+            .set_tapped(temple, false);
+        engine.refresh_offer();
+    }
+}
+
 /// Seat 1's god dies and comes back as its Temple under seat 1, its owner;
 /// seat 0 steals the Temple for `duration` and turns it over with its
 /// "{2}{U}, {T}: Transform this land". Hands back the table and the Temple.
@@ -942,6 +969,7 @@ fn a_temple_stolen_and_turned_over(
         "\"…under its owner's control\": the Temple, seat 1's"
     );
     assert!(is_tapped(&engine, temple));
+    assert_eq!(counters_on(&engine, temple, CounterKind::Time), 3);
     // This fixture isolates turning over under a control effect, after untapping.
     engine.dev_state_mut(p0).unwrap().set_tapped(temple, false);
     let temple_was = identity(&engine, temple);
@@ -966,6 +994,7 @@ fn a_temple_stolen_and_turned_over(
         state.refresh_characteristics();
     }
     engine.refresh_offer();
+    spend_temple_time_counters(&mut engine, p0, temple);
     let islands = lands(&engine, island());
     tap_mana_where(&mut engine, p0, |id| islands.contains(&id));
     activate(&mut engine, p0, ojer_pakpatiq_deepest_epoch(), 1);

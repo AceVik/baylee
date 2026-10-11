@@ -23,6 +23,7 @@ card!(
             min: 0,
             max: 255,
             count_is_x: false,
+            distinct_mana_values: false,
         })
     )],
 );

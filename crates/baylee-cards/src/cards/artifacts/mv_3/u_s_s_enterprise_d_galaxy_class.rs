@@ -65,6 +65,7 @@ card!(
                     count: 1,
                     window: PlayWindow::ThisTurn,
                     free: false,
+                    mana_any_type: false,
                     spell_types: None
                 }
             }],

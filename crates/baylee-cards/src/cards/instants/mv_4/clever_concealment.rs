@@ -30,6 +30,7 @@ card!(
             min: 0,
             max: u8::MAX,
             count_is_x: false,
+            distinct_mana_values: false,
         })
     )],
 );

@@ -9,6 +9,7 @@
 mod discarded;
 mod radiation;
 mod return_keywords;
+mod sagas;
 
 pub(crate) use return_keywords::return_keyword_counts;
 
@@ -228,6 +229,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     graveyard_triggers(state, lookup, events, &mut triggers);
     monarch_triggers(state, events, &mut triggers);
     radiation::collect(state, events, &mut triggers);
+    sagas::collect(state, lookup, events, &mut triggers);
     cast_this_spell_triggers(state, lookup, events, &mut triggers);
     discarded::collect(state, lookup, events, &mut triggers);
     watch_triggers(state, events, &mut triggers);
@@ -1978,6 +1980,14 @@ pub(crate) fn times_triggered(
     let Some(source_obj) = state.object(source) else {
         return 1;
     };
+    times_triggered_with_source(state, event_kind, source_obj)
+}
+
+fn times_triggered_with_source(
+    state: &GameState,
+    event_kind: baylee_cards_dsl::TriggerEventKind,
+    source_obj: &crate::object::GameObject,
+) -> u32 {
     let mut count = 1u32;
     for entry in &state.replacement_rules {
         match entry.rule {

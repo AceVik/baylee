@@ -208,6 +208,8 @@ pub enum AnswerFault {
     /// crewed twice, a creature declared as an attacker twice, a blocker
     /// paired with one attacker twice.
     Repeated,
+    /// Two chosen targets have the same mana value despite the stated constraint.
+    SameManaValue,
     /// Fewer things named than the question's `min` (or its exact count).
     TooFew,
     /// More things named than the question's `max` (or its exact count).
@@ -249,6 +251,7 @@ impl AnswerFault {
             Self::WrongKind => "action does not match the pending request",
             Self::NotOffered => "not among the options",
             Self::Repeated => "one choice named twice",
+            Self::SameManaValue => "targets must have different mana values",
             Self::TooFew => "fewer choices than the question asks for",
             Self::TooMany => "more choices than the question allows",
             Self::OutOfRange => "number outside the offered range",
@@ -631,6 +634,8 @@ pub struct CastModeDesc {
 /// The kind of a cast option.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum CastModeKind {
+    /// Choose a zone permission supplied by this source (none means unrestricted).
+    Permission(Option<ObjectId>),
     /// A counter kind chosen during resolution, not a spell mode.
     Counter(baylee_cards_dsl::CounterKind),
     /// A combination of colors chosen during effect resolution, not a cast mode.
@@ -669,6 +674,8 @@ pub enum CastModeKind {
     /// (CR 702.34a). A *granted* flashback is paid with the mana cost and is
     /// offered as [`Self::Normal`].
     Flashback,
+    /// Beam me up's graveyard cost and returning a controlled creature.
+    BeamMeUp,
     /// Cast for the card's dash cost rather than its mana cost
     /// (CR 702.109a): the permanent it becomes has haste and returns to its
     /// owner's hand at the beginning of the next end step.
@@ -677,6 +684,19 @@ pub enum CastModeKind {
     /// (CR 702.138a): its mana, and as many other cards from that graveyard
     /// exiled, asked as the cast's cost (`ChoicePrompt::CostExile`).
     Escape,
+    /// Escape granted at a face's mana cost, with its announced spell modes.
+    EscapeGranted {
+        /// Use the prototype characteristics and mana cost.
+        prototype: bool,
+        /// Whether this escape pays the optional kicker cost.
+        kicked: bool,
+        /// Prospective face, including an Adventure.
+        face: usize,
+        /// Chosen modal bit set; zero for a nonmodal spell.
+        modes: u8,
+        /// Other graveyard cards required by the chosen grant.
+        exile: u8,
+    },
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
@@ -1019,13 +1039,13 @@ pub use baylee_core::ids::TargetRef;
 /// spell was asked for "up to 99 targets" when what was wanted was "tap what
 /// you like to help pay". Both are a bounded selection over permanents, which
 /// is why they share a variant; what they *mean* is this field.
-#[derive(
-    Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub enum TargetPrompt {
     /// The targets of a spell or ability (CR 115).
     #[default]
     Targets,
+    /// Targets must have distinct mana values; pairs are sorted by object handle.
+    DistinctManaValues(Vec<(ObjectId, u32)>),
     /// Change one existing target. An empty answer retains that target when
     /// `min` is zero; a required answer changes it to a legal new target.
     Retarget {
@@ -1045,9 +1065,31 @@ pub enum TargetPrompt {
     CopyOf,
 }
 
+impl TargetPrompt {
+    /// Additional constraints shared by the engine and every answer builder.
+    #[must_use]
+    pub fn selection_fault(&self, objects: &[ObjectId]) -> Option<AnswerFault> {
+        let Self::DistinctManaValues(values) = self else {
+            return None;
+        };
+        let mut selected = std::collections::BTreeSet::new();
+        for object in objects {
+            let Ok(index) = values.binary_search_by_key(object, |(id, _)| *id) else {
+                return Some(AnswerFault::NotOffered);
+            };
+            if !selected.insert(values[index].1) {
+                return Some(AnswerFault::SameManaValue);
+            }
+        }
+        None
+    }
+}
+
 /// What a [`Pending::YesNo`] asks.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum YesNoPrompt {
+    /// Use one North Star permission for this spell’s mana cost.
+    ManaAnyType,
     /// Optionally enter tapped and receive the displayed player counters.
     EnterTappedForCounters {
         /// Player counter kind.
@@ -1223,6 +1265,7 @@ impl YesNoPrompt {
             | Self::PayEnergy { .. }
             | Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
+            | Self::ManaAnyType
             | Self::PayTax { .. }
             | Self::PayMana { .. }
             | Self::PayLife { .. }
@@ -1490,10 +1533,12 @@ impl Pending {
                     player_options,
                     min,
                     max,
+                    reason,
                     ..
                 },
                 A::ChooseTargets { objects, players },
-            ) => target_fault(options, player_options, (*min, *max), objects, players),
+            ) => target_fault(options, player_options, (*min, *max), objects, players)
+                .or_else(|| reason.selection_fault(objects)),
             // "Target creature" answered as a list of objects is the same
             // answer with no players in it (`PlayerAction::ChooseTargets`).
             (
@@ -1502,10 +1547,12 @@ impl Pending {
                     player_options,
                     min,
                     max,
+                    reason,
                     ..
                 },
                 A::ChooseObjects { objects },
-            ) => target_fault(options, player_options, (*min, *max), objects, &[]),
+            ) => target_fault(options, player_options, (*min, *max), objects, &[])
+                .or_else(|| reason.selection_fault(objects)),
             (Self::ChooseSubtype { options, .. }, A::ChooseSubtype(subtype)) => {
                 (!options.contains(subtype)).then_some(AnswerFault::NotOffered)
             }
@@ -2794,6 +2841,7 @@ mod choice_tests {
                     YesNoPrompt::ProliferatePlayer { .. } => 23,
                     YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
                     YesNoPrompt::Kicker => 1,
+                    YesNoPrompt::ManaAnyType => 26,
                     YesNoPrompt::PayTax { .. } => 2,
                     YesNoPrompt::PayLife { .. } => 9,
                     YesNoPrompt::PayPact { .. } => 10,
@@ -3023,6 +3071,7 @@ mod choice_tests {
                 | YesNoPrompt::ProliferatePlayer { .. }
                 | YesNoPrompt::PayLifeOrEnterTapped { .. }
                 | YesNoPrompt::Kicker
+                | YesNoPrompt::ManaAnyType
                 | YesNoPrompt::PayTax { .. }
                 | YesNoPrompt::PayMana { .. }
                 | YesNoPrompt::PayLife { .. }

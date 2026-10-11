@@ -88,7 +88,7 @@ pub(crate) fn free_face_affordable(
     let cost = free_face_price(state, player, card, def, face).with_less_generic(
         super::keyword_reduction(state, &def.faces[face], player, card),
     );
-    super::affordable(state, player, pool, &cost)
-        && !crate::engine::cast_wizard::additional_sacrifices(&def.faces[face])
+    super::spell_affordable(state, player, card, pool, &cost)
+        && !crate::engine::cast_wizard::additional_card_costs(&def.faces[face])
             .any(|part| crate::engine::cost_wizard::options(state, player, card, part).is_empty())
 }

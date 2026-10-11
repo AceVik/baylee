@@ -28,6 +28,17 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::SkipDraw { source, .. } => {
+            if let Some((player, next)) = state.draw_wish_answered(source, chosen.first().copied())
+            {
+                res.awaiting = Some(AwaitingOp::SkipDraw {
+                    source: next,
+                    declined: Vec::new(),
+                });
+                return Flow::Wait(state.draw_offer_question(player, next));
+            }
+            return run(state, res);
+        }
         AwaitingOp::Hideaway { looked } => hidden_exile::choose(state, res, looked, chosen),
         AwaitingOp::ReturnLinkedExile { to } => {
             if let Some(question) = hidden_exile::return_cards(state, res, to) {
@@ -132,6 +143,11 @@ pub(super) fn resume_inner(
         AwaitingOp::Amass { subtype, amount } => {
             if let Some(&army) = chosen.first() {
                 super::amass::finish(state, res, army, subtype, amount);
+            }
+        }
+        AwaitingOp::EmpowerJace { amount } => {
+            if let Some(&jace) = chosen.first() {
+                super::empower::finish(state, res, jace, amount);
             }
         }
         AwaitingOp::TapEnergy(selection) => {
@@ -1003,7 +1019,6 @@ pub(super) fn resume_inner(
         | AwaitingOp::CascadeCast { .. }
         | AwaitingOp::CastTarget { .. }
         | AwaitingOp::TopOrBottom { .. }
-        | AwaitingOp::SkipDraw { .. }
         | AwaitingOp::SelectedCommander { .. }
         | AwaitingOp::GraveyardToTopOrder { .. }
         | AwaitingOp::ChosenGraveyardCommander { .. }

@@ -110,6 +110,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ProtectionFrom(_)
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
+        | Modifier::GrantsEscape(_)
         | Modifier::GainControl
         | Modifier::AddTypeIfCountersAtLeast { .. }
         | Modifier::AddKeywordIfCountersAtLeast { .. }
@@ -215,7 +216,12 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // A permission like the three above: a card that reaches the
         // graveyard after Forgotten Cellar's trigger resolved is as
         // castable as one that was there.
-        | Modifier::CastSpellsFromGraveyard => false,
+        | Modifier::CastSpellsFromGraveyard
+        | Modifier::GraveyardInstantSorceryOnce
+        | Modifier::GraveyardVampireOnce
+        | Modifier::NextSpellUncounterable
+        | Modifier::OneSpellManaAnyType
+        | Modifier::NextDrawWish => false,
     }
 }
 
@@ -1069,6 +1075,12 @@ mod tests {
                 modifier: &Modifier::RemoveKeyword(KeywordSet::FLYING),
             },
             Modifier::GrantsFlashback,
+            Modifier::GrantsEscape(3),
+            Modifier::GraveyardInstantSorceryOnce,
+            Modifier::GraveyardVampireOnce,
+            Modifier::NextSpellUncounterable,
+            Modifier::OneSpellManaAnyType,
+            Modifier::NextDrawWish,
             Modifier::ProtectionFrom(&Filter::CREATURE),
             Modifier::CharacteristicPT {
                 count: baylee_cards_dsl::PtCount::YouControl(&Filter::CREATURE),
@@ -1231,7 +1243,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            105,
+            111,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1295,7 +1307,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (38, 67));
+        assert_eq!((locking, all.len() - locking), (39, 72));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

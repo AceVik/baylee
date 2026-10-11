@@ -16,13 +16,11 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|object| object.card)
             .and_then(|card| self.lookup.card(card.index))
             .expect("wizard card known");
-        let index = match wizard.option {
-            Some(CastModeKind::Face(index)) => index,
-            _ => 0,
-        };
+        let index = wizard.face_index();
         let face = self.wizard_face(wizard);
         let form = match spend_for(wizard, face) {
             casting::SpendFor::SpellAs(_, form) => Some(form),
+            casting::SpendFor::KickedSpell(_, _, form) => form,
             _ => None,
         };
         let adjustment =
@@ -54,7 +52,7 @@ fn raw_option_cost(
     } else {
         face.mana_cost
     };
-    match wizard.option {
+    let raw = match wizard.option {
         Some(CastModeKind::Normal | CastModeKind::Face(_)) | None => normal,
         Some(CastModeKind::Kicked) => casting::kicked_mana_cost(face),
         Some(CastModeKind::Alternative(index)) => face.alternative_costs[index].cost.mana,
@@ -62,14 +60,20 @@ fn raw_option_cost(
         Some(CastModeKind::Disguise) => const { ManaCost::parse("{3}") },
         Some(CastModeKind::Miracle) => face.miracle.expect("miracle"),
         Some(CastModeKind::Flashback) => face.flashback.expect("flashback"),
+        Some(CastModeKind::BeamMeUp) => face.beam_me_up.expect("beam me up"),
         Some(CastModeKind::Dash) => face.dash.expect("dash"),
         Some(CastModeKind::Escape) => face.escape.expect("escape").cost,
         Some(CastModeKind::PlayLandFace(_)) => ManaCost::ZERO,
-        Some(CastModeKind::Colors(_) | CastModeKind::Counter(_)) => {
+        Some(
+            CastModeKind::Colors(_)
+            | CastModeKind::Counter(_)
+            | CastModeKind::Permission(_)
+            | CastModeKind::EscapeGranted { .. },
+        ) => {
             unreachable!("resolution choices are not spell costs")
         }
         Some(CastModeKind::Mode(index)) => def
-            .abilities_for_face(0)
+            .abilities_for_face(wizard.face_index())
             .iter()
             .find_map(|ability| {
                 let AbilityDef::ModalSpell { modes, .. } = ability else {
@@ -79,7 +83,7 @@ fn raw_option_cost(
             })
             .expect("modal spell"),
         Some(CastModeKind::Modes(set)) => def
-            .abilities_for_face(0)
+            .abilities_for_face(wizard.face_index())
             .iter()
             .find_map(|ability| {
                 let AbilityDef::ModalSpell { modes, .. } = ability else {
@@ -88,5 +92,17 @@ fn raw_option_cost(
                 Some(casting::mode_set_cost(normal, modes, set))
             })
             .expect("modal spell"),
+    };
+    if wizard.option != Some(CastModeKind::Kicked)
+        && matches!(
+            wizard.announced,
+            Some(CastModeKind::EscapeGranted { kicked: true, .. })
+        )
+    {
+        face.additional_costs
+            .iter()
+            .fold(raw, |cost, additional| cost.combine(&additional.mana))
+    } else {
+        raw
     }
 }

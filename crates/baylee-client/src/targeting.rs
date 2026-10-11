@@ -361,17 +361,10 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // The active player's opponents during combat (CR 506.2), refused
         // above a duel for the reason `ControlledByOpponent` gives.
         Filter::ControlledByDefendingPlayer => {
-            if view.seats.len() != 2 {
-                return None;
-            }
-            view.phase == baylee_view::Phase::Combat && object.controller != view.active
+            let opponent = duel_opponent(view, object, view.active)?;
+            view.phase == baylee_view::Phase::Combat && opponent
         }
-        Filter::ControlledByOpponent => {
-            if view.seats.len() != 2 {
-                return None;
-            }
-            object.controller != view.seat
-        }
+        Filter::ControlledByOpponent => duel_opponent(view, object, view.seat)?,
         Filter::OwnedByYou => object.owner == view.seat,
         Filter::Tapped => object.status.is_tapped(),
         Filter::Untapped => !object.status.is_tapped(),
@@ -452,8 +445,19 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::Enchanted
         | Filter::BlockingSource
         | Filter::BlockedBySource
-        | Filter::InZone(_) => return None,
+        | Filter::InZone(_)
+        | Filter::Kicked
+        | Filter::CastFromHand => return None,
     })
+}
+
+/// Public seat identities determine opposition only in a two-player game.
+fn duel_opponent(
+    view: &PlayerView,
+    object: &PublicObject,
+    player: baylee_core::ids::PlayerId,
+) -> Option<bool> {
+    (view.seats.len() == 2).then_some(object.controller != player)
 }
 
 #[cfg(test)]

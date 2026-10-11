@@ -34,6 +34,8 @@ use crate::activate::printed_list;
 use crate::combat::{self, Fighter};
 use crate::tactics::material;
 
+mod permissions;
+
 /// Match engine counter identities to their public representation.
 fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
     use baylee_view::CounterKind as V;
@@ -54,6 +56,7 @@ fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
         CounterKind::Indestructible => V::Indestructible,
         CounterKind::Hone => V::Hone,
         CounterKind::Stun => V::Stun,
+        CounterKind::Finality => V::Finality,
         CounterKind::Custom(id) => V::Custom(u32::from(id)),
     }
 }
@@ -202,7 +205,19 @@ impl HeuristicAgent {
                 if second_targets.is_some() {
                     return None;
                 }
-                let (gain, _) = self.aimed_worth(view, origin, effects, targets.as_ref(), 0)?;
+                // Setup permissions must leave enough resources for the spell
+                // they enable. Their printed costs are otherwise priced below,
+                // after the effects have been evaluated in isolation.
+                let gain = match *effects {
+                    [Effect::CreateContinuousEffect { modifier, .. }] => {
+                        permissions::worth(self, view, origin, modifier, cost)
+                    }
+                    _ => None,
+                }
+                .or_else(|| {
+                    self.aimed_worth(view, origin, effects, targets.as_ref(), 0)
+                        .map(|(gain, _)| gain)
+                })?;
                 Some(gain - self.cost_worth(view, origin, cost)?)
             }
             AbilityDef::Loyalty {
@@ -1009,6 +1024,17 @@ impl HeuristicAgent {
             }
             CounterKind::Hone => sign * n * 70,
             CounterKind::Stun => -sign * n * 60,
+            CounterKind::Finality => {
+                if n <= 0
+                    || o.counters
+                        .iter()
+                        .any(|c| c.kind == baylee_view::CounterKind::Finality)
+                {
+                    0
+                } else {
+                    -sign * 40
+                }
+            }
             CounterKind::Poison | CounterKind::Rad => -sign * n * 50,
             // A clock's sign is the card's under it (`tactics::clock_score`),
             // and a custom counter means what its card says.
@@ -1226,11 +1252,11 @@ impl HeuristicAgent {
                 } else {
                     on_board(filter)?
                 };
-                self.modifier_worth(view, &objects, modifier, *duration)?
+                self.modifier_worth(view, origin, &objects, modifier, *duration)?
             }
             Effect::ModifySource { modifier, duration } => {
                 let objects: Vec<_> = origin.object.into_iter().collect();
-                self.modifier_worth(view, &objects, modifier, *duration)?
+                self.modifier_worth(view, origin, &objects, modifier, *duration)?
             }
             Effect::PumpTarget {
                 power,
@@ -1409,11 +1435,18 @@ impl HeuristicAgent {
     fn modifier_worth(
         &self,
         view: &PlayerView,
+        origin: Origin<'_>,
         objects: &[&PublicObject],
         modifier: &Modifier,
         duration: Duration,
     ) -> Option<i64> {
         Some(match modifier {
+            Modifier::NextSpellUncounterable
+            | Modifier::OneSpellManaAnyType
+            | Modifier::NextDrawWish
+            | Modifier::GraveyardVampireOnce => {
+                permissions::worth(self, view, origin, modifier, &Cost::FREE)?
+            }
             Modifier::ModifyPT(p, t) => {
                 self.pump(view, objects, (i32::from(*p), i32::from(*t), 0), duration)
             }
@@ -1449,6 +1482,14 @@ impl HeuristicAgent {
                 (sum.saturating_add(card_value(&card.id).max(0) + 50), n + 1)
             });
         (count > 0).then(|| sum / count)
+    }
+
+    fn discard_hand_cost(view: &PlayerView) -> i64 {
+        let card_value = Self::card_value(view);
+        view.hand
+            .iter()
+            .map(|card| card_value(&card.id).max(0) + 50)
+            .sum()
     }
 
     /// What paying `cost` from `origin` gives up now; `None` for a cost this
@@ -1530,6 +1571,7 @@ impl HeuristicAgent {
                     .min()?,
                 CostPart::PayEnergy(n) => i64::from(*n) * 25,
                 CostPart::DiscardRandom => Self::random_discard_cost(view, origin.id)?,
+                CostPart::DiscardHand => Self::discard_hand_cost(view),
                 CostPart::DiscardSelf => card_value(&origin.id).max(0),
                 CostPart::ExileSelf => origin
                     .object

@@ -520,7 +520,7 @@ impl Prompt {
                 cards_line(lang, *reason, *min, *max, statics, &name)
             }
             Self::ChooseTargets { reason, min, max } => {
-                targets_line(lang, *reason, *min, *max, statics, target_name)
+                targets_line(lang, reason, *min, *max, statics, target_name)
             }
             // "Choose a basic land type" offers the five (CR 205.3i) and
             // nothing else; every other subtype question names creatures.
@@ -991,7 +991,7 @@ pub fn payment_line(lang: Lang, payment: baylee_core::mana::ManaPayment) -> Stri
 /// A target question, including which existing target a retarget may replace.
 fn targets_line(
     lang: Lang,
-    reason: TargetPrompt,
+    reason: &TargetPrompt,
     min: u32,
     max: u32,
     statics: Option<&GameStatic>,
@@ -1010,12 +1010,13 @@ fn targets_line(
         TargetPrompt::Targets => {
             choose_line(lang, Phrase::NounTarget, Phrase::NounTargets, min, max)
         }
+        TargetPrompt::DistinctManaValues(_) => Phrase::DifferentManaValues.text(lang).to_string(),
         TargetPrompt::Retarget { current, index, of } => {
             let target = match current {
                 baylee_engine::choice::TargetRef::Object(id) => {
-                    name(id).unwrap_or_else(|| Phrase::PreviousTarget.text(lang).to_string())
+                    name(*id).unwrap_or_else(|| Phrase::PreviousTarget.text(lang).to_string())
                 }
-                baylee_engine::choice::TargetRef::Player(id) => seat_name(lang, statics, id),
+                baylee_engine::choice::TargetRef::Player(id) => seat_name(lang, statics, *id),
             };
             let question = if min == 0 {
                 Phrase::ChooseNewTargetOrKeep
@@ -1025,7 +1026,7 @@ fn targets_line(
             Phrase::RetargetContext.fill(
                 lang,
                 &[
-                    &(u64::from(index) + 1).to_string(),
+                    &(u64::from(*index) + 1).to_string(),
                     &of.to_string(),
                     &target,
                     question.text(lang),
@@ -1142,6 +1143,7 @@ pub fn counter_label(kind: baylee_engine::object::CounterKind, lang: Lang) -> St
         CounterKind::Level => Phrase::LogCountersLevel.text(lang).to_owned(),
         CounterKind::Hone => Phrase::LogCountersHone.text(lang).to_owned(),
         CounterKind::Stun => Phrase::LogCountersStun.text(lang).to_owned(),
+        CounterKind::Finality => Phrase::LogCountersFinality.text(lang).to_owned(),
         CounterKind::Flying => Phrase::LogCountersFlying.text(lang).to_owned(),
         CounterKind::Shadow => Phrase::LogCountersShadow.text(lang).to_owned(),
         CounterKind::Indestructible => Phrase::LogCountersIndestructible.text(lang).to_owned(),
@@ -1219,6 +1221,7 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         YesNoPrompt::ProliferatePlayer { player } => {
             Phrase::ProliferatePlayer.fill(lang, &[&seat_name(lang, statics, player)])
         }
+        YesNoPrompt::ManaAnyType => Phrase::UseManaAnyType.text(lang).to_string(),
         YesNoPrompt::Kicker => Phrase::PayAdditionalCost.text(lang).to_string(),
         YesNoPrompt::PayLife { amount } => Phrase::PayLife.fill(lang, &[&amount.to_string()]),
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
@@ -1691,7 +1694,7 @@ impl Interaction {
             } => Prompt::ChooseTargets {
                 min: *min,
                 max: *max,
-                reason: *reason,
+                reason: reason.clone(),
             },
             Pending::ChooseSubtype { options, .. } => Prompt::ChooseSubtype {
                 options: options.clone(),

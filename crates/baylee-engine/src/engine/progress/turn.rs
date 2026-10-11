@@ -228,7 +228,7 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn ask_draw_skip(
         &mut self,
         player: PlayerId,
-        source: ObjectId,
+        source: crate::state::DrawReplacement,
         declined: Vec<ObjectId>,
     ) {
         self.pending_plan = Some(PlanKind::SkipDraw { source, declined });
@@ -450,6 +450,15 @@ impl<L: CardLookup> Engine<L> {
             .any(|o| {
                 o.ability.is_some_and(|loc| {
                     loc.source == source
+                        && self.state.object(source).is_some_and(|current| {
+                            o.riders.iter().any(|rider| {
+                                matches!(
+                                    rider,
+                                    crate::object::Rider::AbilitySourceVersion(version)
+                                        if *version == current.version
+                                )
+                            })
+                        })
                         && o.printed_abilities(&self.lookup)
                             .get(loc.index as usize)
                             .is_some_and(|a| {
@@ -459,41 +468,23 @@ impl<L: CardLookup> Engine<L> {
             })
     }
 
-    /// Whether ability `index` of `source` is one of its chapters.
-    ///
-    /// A synthetic index ([`baylee_core::ids::AbilityRef::SYNTHETIC`]) names
-    /// no entry in the list and is never a chapter.
-    fn is_a_chapter_of(&self, source: ObjectId, index: u32) -> bool {
-        index != baylee_core::ids::AbilityRef::SYNTHETIC
-            && self.state.object(source).is_some_and(|o| {
-                matches!(
-                    o.printed_abilities(&self.lookup).get(index as usize),
-                    Some(baylee_cards_dsl::AbilityDef::SagaChapter { .. })
-                )
-            })
-    }
-
-    /// CR 714.4's second clause in full: a chapter of `source` that **has
-    /// triggered** and has not yet left the stack.
-    ///
-    /// "Has triggered" is true from the moment the lore counter lands, and
-    /// the stack is the *second* of two places such an ability can be. A
-    /// chapter is not discovered from the journal the way other triggers
-    /// are — [`Self::queue_saga_chapters`] pushes it straight into
-    /// `trigger_queue` as the counter is placed, because the trigger is
-    /// "the count crossed this number" and no event says that — so it sits
-    /// in the queue until `collect_triggers` stacks it.
-    ///
-    /// Asking the stack alone therefore answers "nothing is waiting" about
-    /// a chapter one step away from it, and sacrifices the Saga out from
-    /// underneath its own last chapter. That is what the two existing saga
-    /// tests said when this check was first written that way.
+    /// A chapter is owed from counter placement until its ability leaves
+    /// the stack (CR 714.4). Collection runs before SBAs, and frozen ability
+    /// lists keep this true even when the Saga subsequently changes faces.
     fn a_chapter_of_it_has_triggered(&self, source: ObjectId) -> bool {
+        let Some(version) = self.state.object(source).map(|object| object.version) else {
+            return false;
+        };
         self.a_chapter_of_it_is_still_on_the_stack(source)
-            || self
-                .trigger_queue
-                .iter()
-                .any(|t| t.source == source && self.is_a_chapter_of(source, t.ability_index))
+            || self.trigger_queue.iter().any(|trigger| {
+                trigger.source == source
+                    && trigger.source_version == Some(version)
+                    && matches!(
+                        self.trigger_abilities(trigger)
+                            .get(trigger.ability_index as usize),
+                        Some(baylee_cards_dsl::AbilityDef::SagaChapter { .. })
+                    )
+            })
     }
 
     /// One simultaneous SBA event, including Saga sacrifices and every
@@ -567,81 +558,9 @@ impl<L: CardLookup> Engine<L> {
         finished_sagas
     }
 
-    /// Queues every chapter ability the lore count just crossed, and says
-    /// whether it queued any.
-    ///
-    /// CR 714.2b writes a chapter symbol out in full as "when one or more
-    /// lore counters are put onto this Saga, **if the number of lore
-    /// counters on it was less than N and became at least N**, [effect]".
-    /// So the question is a window, `old < N <= new`, and not "which chapter
-    /// is next". Both callers used to ask the second question — one matched
-    /// `chapter: 1` and the other `lore + 1` — and a Saga that took two
-    /// counters at once therefore ran one chapter and dropped the other on
-    /// the floor. A Doubling Season is the way into that today; any effect
-    /// that adds two lore counters would be another.
-    ///
-    /// They are queued low chapter first and the stack is
-    /// last-in-first-out, so chapter II resolves before chapter I. That is
-    /// legal — CR 603.3b lets a player put simultaneous triggers they
-    /// control on the stack in any order they choose, and this engine has
-    /// no `Pending` for that choice yet — and it is a consequence of the
-    /// queue's order rather than a decision, so nothing here should be read
-    /// as preferring it.
-    pub(super) fn queue_saga_chapters(
-        &mut self,
-        id: ObjectId,
-        controller: PlayerId,
-        old: u16,
-        new: u16,
-        timestamp: u64,
-    ) -> bool {
-        let Some(object) = self.state.object(id) else {
-            return false;
-        };
-        let hits: Vec<u32> = object
-            .abilities(&self.lookup)
-            .iter()
-            .enumerate()
-            .filter_map(|(i, a)| match a {
-                baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. }
-                    if old < u16::from(*chapter) && u16::from(*chapter) <= new =>
-                {
-                    Some(i as u32)
-                }
-                _ => None,
-            })
-            .collect();
-        for ability_index in &hits {
-            self.trigger_queue
-                .push_back(crate::trigger::PendingTrigger {
-                    text: crate::text_changes::TextChangeMap::IDENTITY,
-                    source_version: None,
-                    event_object_identity: None,
-                    counter_source_version: None,
-                    event_mana: None,
-                    event_mana_value: None,
-                    event_departure: None,
-                    event_amount: None,
-                    event_player: None,
-                    source: id,
-                    ability_index: *ability_index,
-                    abilities: None,
-                    controller,
-                    timestamp,
-                    event_object: None,
-                    implicit_target: None,
-                    synthetic_effects: None,
-                    once_per_turn: false,
-                    synthetic_target: None,
-                    chosen_mode: None,
-                });
-        }
-        !hits.is_empty()
-    }
-
     /// As the active player's precombat main phase begins, each Saga they
     /// control takes a lore counter and every chapter that count crosses
-    /// triggers (CR 505.4, CR 714.3b, CR 714.2b).
+    /// triggers (CR 505.4, CR 714.3c, CR 714.2b).
     ///
     /// This counter is **not** doubled, which is the whole reason
     /// [`crate::replacement::record_counters`] exists beside `put_counters`:
@@ -653,28 +572,20 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn saga_precombat_main_counters(&mut self) {
         let active = self.state.turn.active;
         for id in self.state.battlefield_view() {
-            let Some(old) = self
+            if self
                 .state
                 .object(id)
-                .filter(|o| o.controller == active)
-                .map(|o| o.counters.get(baylee_cards_dsl::CounterKind::Lore))
-            else {
-                continue;
-            };
-            if !self.is_saga(id) {
+                .is_none_or(|object| object.controller != active)
+                || !self.is_saga(id)
+            {
                 continue;
             }
-            let ts = self.state.next_timestamp();
             crate::replacement::record_counters(
                 &mut self.state,
                 id,
                 baylee_cards_dsl::CounterKind::Lore,
                 1,
             );
-            if let Some(obj) = self.state.object_mut(id) {
-                obj.timestamp = ts;
-            }
-            self.queue_saga_chapters(id, active, old, old + 1, ts);
         }
     }
 

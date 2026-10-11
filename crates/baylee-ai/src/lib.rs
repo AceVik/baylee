@@ -294,19 +294,27 @@ impl HeuristicAgent {
         if let Some(action) = granted::protect(view, legal, |seat| self.hostile(seat, view.seat)) {
             return action;
         }
-        // 0b. Spend nothing in this seat's own upkeep on an empty stack.
+        // 0b. Reserve mana in this seat's own upkeep on an empty stack.
         //
         //    The step's payments — a pact's price, echo, cumulative upkeep
         //    — are demanded when this round of passes closes (CR 605.3a
         //    lets them be paid with mana abilities then), from whatever is
         //    still untapped. A spell cast here could as well be cast a step
         //    later; a pact whose mana went on one is a game lost.
-        //    With something on the stack there is something to answer, and
-        //    the round is an ordinary one.
+        //    An activation preventing a known loss cannot wait either: Ring
+        //    of Ma'rûf must replace an empty-library draw before this upkeep
+        //    ends. Only a game-saving valuation overrides the reservation.
+        //    With something on the stack the round is an ordinary one.
         if view.active == view.seat
             && view.step == baylee_view::Step::Upkeep
             && view.stack.is_empty()
         {
+            if let Some((source, ability_index)) = activate::urgent(view, legal, self) {
+                return PlayerAction::ActivateAbility {
+                    source,
+                    ability_index,
+                };
+            }
             return PlayerAction::PassPriority;
         }
         // 1. Play a land.
@@ -552,6 +560,22 @@ impl HeuristicAgent {
                 objects: policy::convoke_taps(view, context, options, max),
                 players: vec![],
             },
+            Pending::ChooseTargets {
+                mut options,
+                reason: baylee_engine::choice::TargetPrompt::DistinctManaValues(values),
+                max,
+                ..
+            } => {
+                options.sort_by_cached_key(|id| std::cmp::Reverse(Self::card_value(view)(id)));
+                let mut selected = std::collections::BTreeSet::new();
+                options.retain(|id| {
+                    values
+                        .binary_search_by_key(id, |(object, _)| *object)
+                        .is_ok_and(|index| selected.insert(values[index].1))
+                });
+                options.truncate(usize::try_from(max).unwrap_or(usize::MAX));
+                PlayerAction::ChooseObjects { objects: options }
+            }
             Pending::ChooseTargets {
                 options,
                 player_options,
@@ -831,6 +855,7 @@ impl HeuristicAgent {
                 | YesNoPrompt::TopOfLibrary { .. }
                 | YesNoPrompt::Discover { .. }
                 | YesNoPrompt::CastWithoutPaying { .. }
+                | YesNoPrompt::ManaAnyType
                 | YesNoPrompt::CastPaying { .. }
                 | YesNoPrompt::Generic
                 // A pact: attempt payment; the owed-mana planner handles the

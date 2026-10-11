@@ -40,6 +40,7 @@ card!(
                         count: 2,
                         window: PlayWindow::ThisTurn,
                         free: false,
+                        mana_any_type: false,
                         spell_types: None,
                     },
                 }]

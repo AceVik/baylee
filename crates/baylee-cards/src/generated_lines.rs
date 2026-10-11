@@ -2462,7 +2462,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Ring of Ma'rûf
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Rukh Egg
     &[FaceLines {
         sentences: 1,
@@ -4250,7 +4257,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // North Star
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Osai Vultures
     &[FaceLines {
@@ -30182,7 +30196,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         sentences: 2,
         stackable: 0,
         lines: &[None],
-        modes: &[],
+        modes: &[Some(0), Some(1)],
         alternatives: &[],
     }],
     &[],
@@ -32533,7 +32547,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Kess, Dissident Mage
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -36235,7 +36256,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[Some(1)],
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -36960,7 +36981,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[],
+            lines: &[None],
             modes: &[],
             alternatives: &[],
         },
@@ -37723,7 +37744,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(0), Some(1)],
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -46290,8 +46311,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 3,
-            stackable: 1,
-            lines: &[Some(2)],
+            stackable: 2,
+            lines: &[Some(1), Some(2)],
             modes: &[],
             alternatives: &[],
         },
@@ -46477,15 +46498,15 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 2,
-            stackable: 1,
-            lines: &[Some(0)],
+            stackable: 2,
+            lines: &[Some(0), Some(1)],
             modes: &[],
             alternatives: &[],
         },
         FaceLines {
             sentences: 3,
-            stackable: 0,
-            lines: &[Some(1)],
+            stackable: 1,
+            lines: &[Some(1), Some(2)],
             modes: &[],
             alternatives: &[],
         },
@@ -46607,15 +46628,15 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 4,
-            stackable: 1,
-            lines: &[Some(3)],
+            stackable: 3,
+            lines: &[Some(1), Some(2), Some(3)],
             modes: &[],
             alternatives: &[],
         },
         FaceLines {
             sentences: 3,
             stackable: 0,
-            lines: &[Some(2)],
+            lines: &[None, Some(2)],
             modes: &[],
             alternatives: &[],
         },
@@ -48041,7 +48062,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 2,
             stackable: 0,
-            lines: &[],
+            lines: &[None],
             modes: &[],
             alternatives: &[],
         },
@@ -50783,8 +50804,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Mistrise Village
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -55355,7 +55376,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Theorist's Proxy
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],

@@ -892,7 +892,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CmcExactlyX
         | Filter::CmcAtMostColorsSpent
         | Filter::CmcAtLeast(_)
-        | Filter::InZone(_) => false,
+        | Filter::InZone(_)
+        | Filter::Kicked
+        | Filter::CastFromHand => false,
     }
 }
 
@@ -1370,6 +1372,12 @@ fn apply(
             | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::ProtectionFrom(_)
         | Modifier::GrantsFlashback
+        | Modifier::GrantsEscape(_)
+        | Modifier::GraveyardInstantSorceryOnce
+        | Modifier::GraveyardVampireOnce
+        | Modifier::NextSpellUncounterable
+        | Modifier::OneSpellManaAnyType
+        | Modifier::NextDrawWish
         | Modifier::BlockableWithoutLandwalk(_)
         | Modifier::IgnoreOpponentsHexproof
         | Modifier::CounterMaximum { .. }

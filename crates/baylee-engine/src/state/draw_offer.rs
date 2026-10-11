@@ -23,6 +23,19 @@ use super::*;
 use crate::choice::{Pending, YesNoPrompt};
 use crate::object::Status;
 use baylee_cards_dsl::{AbilityDef, ReplacementRule};
+use baylee_core::ids::EffectId;
+
+/// The exact replacement offered for one waiting card draw.
+///
+/// A source object can have both kinds of replacement; source identity alone
+/// therefore cannot identify the pending question or a consumed Ring effect.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DrawReplacement {
+    /// A permanent's optional draw-step skip.
+    Skip(ObjectId),
+    /// One resolved Ring ability's next-draw replacement.
+    Wish(EffectId),
+}
 
 impl GameState {
     /// The first Island Sanctuary `player` controls that could replace a
@@ -57,16 +70,29 @@ impl GameState {
     /// Makes the waiting draws nobody can skip, in order, and stops at the
     /// first that `source` could replace: `(player, source)`. `None` once
     /// the queue is empty.
-    pub(crate) fn next_draw_offer(&mut self) -> Option<(PlayerId, ObjectId)> {
+    pub(crate) fn next_draw_offer(&mut self) -> Option<(PlayerId, DrawReplacement)> {
         while let Some(&(player, n)) = self.draws_to_offer.front() {
-            if n == 0 || self.has_left(player) {
+            if n == 0
+                || self.has_left(player)
+                || self
+                    .draw_limit(player)
+                    .is_some_and(|limit| self.per_turn.draws[usize::from(player.get())] >= limit)
+            {
                 // Nobody draws for a player who has left (CR 800.4a:
                 // what they own has left with them).
                 self.draws_to_offer.pop_front();
                 continue;
             }
             if let Some(source) = self.draw_skip_source(player, &[]) {
-                return Some((player, source));
+                return Some((player, DrawReplacement::Skip(source)));
+            }
+            if let Some((effect, _)) = self.draw_wish_effect(player, None) {
+                if self.draw_wish_options(player).is_empty() {
+                    self.effects.remove_where(|entry| entry.id == effect);
+                    self.take_front_draw();
+                    continue;
+                }
+                return Some((player, DrawReplacement::Wish(effect)));
             }
             self.draws_to_offer.pop_front();
             self.draw_now(player, n as usize);
@@ -83,10 +109,13 @@ impl GameState {
     /// if any.
     pub(crate) fn draw_offer_answered(
         &mut self,
-        source: ObjectId,
+        replacement: DrawReplacement,
         skip: bool,
         declined: &mut Vec<ObjectId>,
-    ) -> Option<(PlayerId, ObjectId)> {
+    ) -> Option<(PlayerId, DrawReplacement)> {
+        let DrawReplacement::Skip(source) = replacement else {
+            return self.next_draw_offer();
+        };
         let &(player, _) = self.draws_to_offer.front()?;
         if self.has_left(player) {
             // Asked, then gone before answering: nobody draws for them
@@ -103,7 +132,16 @@ impl GameState {
         } else {
             declined.push(source);
             if let Some(next) = self.draw_skip_source(player, declined) {
-                return Some((player, next));
+                return Some((player, DrawReplacement::Skip(next)));
+            }
+            if let Some((effect, _)) = self.draw_wish_effect(player, None) {
+                declined.clear();
+                if self.draw_wish_options(player).is_empty() {
+                    self.effects.remove_where(|entry| entry.id == effect);
+                    self.take_front_draw();
+                    return self.next_draw_offer();
+                }
+                return Some((player, DrawReplacement::Wish(effect)));
             }
             self.take_front_draw();
             self.draw_now(player, 1);
@@ -113,7 +151,7 @@ impl GameState {
     }
 
     /// One card of the front entry is done with.
-    fn take_front_draw(&mut self) {
+    pub(super) fn take_front_draw(&mut self) {
         if let Some(front) = self.draws_to_offer.front_mut() {
             front.1 = front.1.saturating_sub(1);
             if front.1 == 0 {
@@ -125,7 +163,14 @@ impl GameState {
     /// The question about one draw: the Sanctuary's own optional
     /// replacement, keyed by its printed ability so a standing answer and a
     /// client label find it.
-    pub(crate) fn draw_offer_question(&self, player: PlayerId, source: ObjectId) -> Pending {
+    pub(crate) fn draw_offer_question(
+        &self,
+        player: PlayerId,
+        replacement: DrawReplacement,
+    ) -> Pending {
+        let DrawReplacement::Skip(source) = replacement else {
+            return self.draw_wish_question(player);
+        };
         let ability = self.printed_ability_list(source).and_then(|list| {
             let index = list.abilities.iter().position(|a| {
                 matches!(

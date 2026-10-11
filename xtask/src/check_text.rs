@@ -394,6 +394,9 @@ pub(crate) fn check_optional_clauses_are_offered(
         "PermanentOfEachTypeFromGraveyard",
         "CastPermanentSpellsFromGraveyard",
         "CastSpellsFromGraveyard",
+        "GraveyardInstantSorceryOnce",
+        "GraveyardVampireOnce",
+        "OneSpellManaAnyType",
         // The player may use the permission on a later casting decision.
         "SpellsHaveFlash",
         "SorceriesHaveFlash",
@@ -408,6 +411,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "TargetMayBlockAttackerOfChoice",
         "CastFaceDownUsingSpentX",
         "MayPlayLinkedExile",
+        "ExileAndCastCopies",
     ];
     if !def.is_implemented() {
         return;

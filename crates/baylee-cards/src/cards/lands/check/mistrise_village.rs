@@ -3,7 +3,6 @@
 //! Oracle: {T}: Add {U}.
 //! Oracle: {U}, {T}: The next spell you cast this turn can't be countered.
 //! Set: TDM #261 — Tarkir: Dragonstorm | Scryfall ID: d44bccbf-6fab-46e4-8ddb-6577e27ec6e8 | Oracle ID: 339f5334-b65a-445a-a016-20e997e0b4bb
-// PARTIAL — enters tapped unless Mountain or Forest and {T}: Add {U} are built; uncounterable grant to the next spell is unsupported.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -27,11 +26,16 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::TappedUnless(&CHECK)],
     ),],
-    coverage = Coverage::Partial(
-        "granting uncounterable to the next spell cast this turn is not expressible in the DSL"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-        // NOT SUPPORTED: "{U}, {T}: The next spell you cast this turn can't be countered."
+        activated!(
+            cost!("{U}", TapSelf),
+            &[Effect::continuous(
+                &Filter::Any,
+                Modifier::NextSpellUncounterable,
+                Duration::UntilEndOfTurn,
+            )],
+        ),
     ],
 );

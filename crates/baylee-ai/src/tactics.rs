@@ -180,7 +180,8 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 CounterKind::Minus { .. }
                 | CounterKind::Poison
                 | CounterKind::Rad
-                | CounterKind::Stun => {
+                | CounterKind::Stun
+                | CounterKind::Finality => {
                     m.benefit = -1;
                     m.size_counter = matches!(kind, CounterKind::Minus { .. }).then_some(*kind);
                 }

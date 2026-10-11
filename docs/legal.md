@@ -1037,3 +1037,19 @@ replacements worded around effects to the relevant placement events. The
 [Modern Horizons 3 release notes](https://magic.wizards.com/en/news/feature/modern-horizons-3-release-notes)
 confirm that energy is a persistent player counter resource and that a payment
 requires the specified number of counters.
+
+
+Batch 45's rules work was reviewed on 2026-10-12 against the
+[Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+and [Scryfall API and image terms](https://scryfall.com/docs/api). The former
+requires: “Don’t mess with the legal notices in our stuff.” The latter states:
+“You may not simply repackage, republish, or proxy Scryfall data.” Existing
+attribution and the original card-image path remain intact. The recorded owner
+decision above continues to govern independent rules implementation. This batch
+adds no artwork, audio, fonts, or corpus source. Its Jace token has an original
+rules definition and uses the existing text fallback without an image identifier.
+Rules were checked against the published September 25, 2026 Comprehensive Rules
+and the cards' Wizards rulings served through Scryfall, including the distinct
+requirements for casting card copies, escape, entry counters and outside-game
+choices. Scryfall's documentation returned HTTP 403 to the web reader; the same
+page was successfully retrieved directly before this review was recorded.

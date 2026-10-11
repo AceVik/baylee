@@ -141,44 +141,10 @@ fn open_communications() -> baylee_core::ids::CardIndex {
     card_index("b08c5b86-4f84-46a3-877f-bbf71ec17adb")
 }
 
-/// Open Communications ({U}, sorcery): "Draw a card." and, under it, "Beam me
-/// up {2}{U} (You may cast this card from your graveyard for {2}{U} if you
-/// also return a creature you control to its owner's hand. Then exile this
-/// spell.)"
-///
-/// The card stands at `Coverage::Partial`, and the two halves of that claim
-/// are struck in one scenario because either one alone would mislead. A test
-/// that only drew the card would say nothing about the line the file admits
-/// it cannot write; a test that only found the graveyard shut would not have
-/// shown that the card plays at all.
-///
-/// **What it does.** One Island pays {U}, the sorcery resolves and the seat's
-/// library is one card shorter while their hand is exactly the size it was —
-/// which is the signature of a cantrip and not of a spell that merely left
-/// the hand, because a `Draw a card.` that did nothing would leave the hand
-/// one smaller. The card is then in its owner's graveyard, where a resolved
-/// spell goes (CR 608.2n), which is also what puts the second half in reach.
-///
-/// **What it does not do.** `Beam me up` is unwritten: `AlternativeCost`
-/// carries no zone and the one graveyard cast a face can print is
-/// `FaceDef::disturb` (CR 702.146), which pays the *face's* own mana cost —
-/// {U} here, not the printed {2}{U} — so the card may only ever be cast from
-/// hand. The board is built so that nothing else can be the reason: the card
-/// is in its owner's graveyard, a creature the additional cost could return
-/// stands on the battlefield, and three Islands' worth of blue is floating,
-/// which pays {2}{U} over.
-///
-/// The counter-half is the second copy in hand. It is castable at that very
-/// priority, so the mana and the sorcery timing (CR 307.1) are demonstrably
-/// not what the graveyard copy is missing — the zone is. And the offer and
-/// the door are asked separately, because an offer a test cannot see is worth
-/// nothing if pressing the card works anyway.
-///
-/// Written to **fail** the day a graveyard cast exists: when the DSL can say
-/// "from your graveyard, for this price, returning a creature", this breaks,
-/// and flipping `Coverage::Partial` to `Implemented` is what closes it.
+/// The hand cast cantrips normally. Its graveyard cast pays {2}{U}, returns
+/// a controlled creature as a cost, draws again, then exiles the spell.
 #[test]
-fn open_communications_draws_a_card_and_is_never_castable_out_of_the_graveyard() {
+fn open_communications_draws_then_beams_up_a_creature_to_cast_from_the_graveyard() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(76, forest())
         .battlefield(
@@ -235,47 +201,58 @@ fn open_communications_draws_a_card_and_is_never_castable_out_of_the_graveyard()
     let grave = in_graveyard(&engine, p0, open_communications())
         .expect("the resolved sorcery is a card in its owner's graveyard (CR 608.2n)");
 
-    // Everything `Beam me up` asks for is on the table before the question is
-    // put: the creature it would return, and the mana it would cost.
-    assert!(
-        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
-        "a creature the additional cost could return is on the battlefield"
-    );
+    let creature = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
     tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
     let floating = engine.state().players[0].mana_pool.total();
-    assert!(
-        floating >= 3,
-        "the Islands held back are floating, which covers the printed \
-         {{2}}{{U}}, so nothing below is the graveyard copy being too \
-         expensive: {floating}"
-    );
-    let hand_copy =
-        in_hand(&engine, p0, open_communications()).expect("the second copy is still in hand");
+    assert!(floating >= 3);
+    let hand_copy = in_hand(&engine, p0, open_communications()).unwrap();
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
+    assert!(legal.castable.contains(&hand_copy));
     assert!(
-        legal.castable.contains(&hand_copy),
-        "the counter-half: the same card is castable from hand at this very \
-         priority, so neither the mana nor the sorcery timing is what the \
-         graveyard copy is missing: {legal:?}"
+        legal.castable.contains(&grave),
+        "beam me up is offered with its mana and return cost available"
     );
-    assert!(
-        !legal.castable.contains(&grave),
-        "`Beam me up` is not written, so the card is offered from hand and \
-         never from the graveyard — if this fires, a graveyard cast exists \
-         and Open Communications is no longer Coverage::Partial: {legal:?}"
+    let library_before_beam = library_size(&engine, p0);
+    let hand_before_beam = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: grave })
+        .unwrap();
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected the return-cost choice, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(options, vec![creature]);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        engine.state().object(creature).unwrap().zone,
+        Zone::Hand,
+        "the return is paid before the spell resolves"
     );
-    // The same rule from the other side. `apply` starts no casting wizard for
-    // a card the offer did not name, so this is the shorter half of the pair
-    // the Damn case in `cast_face_tests` writes out: an offer a test cannot
-    // see is worth nothing if pressing the card works anyway.
-    assert!(
-        engine
-            .apply(p0, PlayerAction::CastSpell { card: grave })
-            .is_err(),
-        "the graveyard copy was refused by the offer and accepted by the wizard"
+    assert_eq!(engine.state().object(grave).unwrap().zone, Zone::Stack);
+    assert_eq!(engine.state().players[0].mana_pool.total(), floating - 3);
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(library_size(&engine, p0), library_before_beam - 1);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before_beam + 2,
+        "the returned creature and the drawn card both enter the hand"
     );
+    assert_eq!(engine.state().object(grave).unwrap().zone, Zone::Exile);
 }
 
 // oracle_id = "1b9f9f5b-8712-4f00-90cb-1b7b9970eccc"

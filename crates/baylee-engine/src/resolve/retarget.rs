@@ -389,7 +389,18 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
         .filter(|((g, _), _)| *g == group)
         .map(|((_, old), new)| new.unwrap_or(*old))
         .collect();
-    if used.contains(&candidate) {
+    let value = |aim: Aim| match aim {
+        Aim::Object(reference) => state
+            .object(reference.object)
+            .map(|object| object.characteristics().mana_value()),
+        Aim::Player(_) => None,
+    };
+    let conflicts = |left: Aim, right: Aim| {
+        left == right
+            || (req.distinct_mana_values
+                && value(left).is_some_and(|mana| value(right) == Some(mana)))
+    };
+    if used.iter().any(|&aim| conflicts(aim, candidate)) {
         return false;
     }
     let (objects, players) = eval::stack_target_options(state, obj, &req.spec);
@@ -397,20 +408,26 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
         .into_iter()
         .filter_map(|id| state.source_identity(id).map(Aim::Object))
         .chain(players.into_iter().map(Aim::Player))
-        .filter(|aim| *aim != candidate && !used.contains(aim))
+        .filter(|aim| {
+            !conflicts(*aim, candidate) && !used.iter().any(|&used| conflicts(*aim, used))
+        })
         .collect();
     let remaining: Vec<_> = retarget.was[slot + 1..]
         .iter()
         .filter(|(g, _)| *g == group)
         .collect();
     for (_, original) in &remaining {
-        if *original != candidate
-            && !used.contains(original)
+        if !conflicts(*original, candidate)
+            && !used.iter().any(|&aim| conflicts(aim, *original))
             && !available.contains(original)
             && dependent::may_keep(state, obj, retarget, group, *original)
         {
             available.push(*original);
         }
+    }
+    if req.distinct_mana_values {
+        let mut values = std::collections::BTreeSet::new();
+        available.retain(|aim| value(*aim).is_none_or(|value| values.insert(value)));
     }
     available.len() >= remaining.len()
 }

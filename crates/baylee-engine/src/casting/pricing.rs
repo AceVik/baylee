@@ -35,6 +35,26 @@ pub fn mana_spending(state: &GameState, player: PlayerId) -> ManaSpending {
     spending
 }
 
+/// Spending permission follows the exact exiled card incarnation, not its owner.
+pub(crate) fn spell_mana_spending(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+) -> ManaSpending {
+    if state.object(card).is_some_and(|object| {
+        state.play_permissions.iter().any(|permission| {
+            permission.player == player
+                && permission.card == card
+                && permission.version == object.version
+                && permission.mana_any_type
+        })
+    }) {
+        ManaSpending::ANY_TYPE
+    } else {
+        mana_spending(state, player)
+    }
+}
+
 /// The permanents convoke may be paid with (CR 702.51a): untapped creatures
 /// the caster controls, one `{1}` each.
 ///
@@ -348,6 +368,83 @@ pub(crate) fn activation_increase(state: &GameState, source: ObjectId) -> u32 {
             _ => None,
         })
         .fold(0, u32::saturating_add)
+}
+
+/// One activation may pay one ordinary mana cost; additional costs stay exact.
+pub(crate) fn north_star_effect(
+    state: &GameState,
+    player: PlayerId,
+) -> Option<baylee_core::ids::EffectId> {
+    state
+        .effects
+        .iter()
+        .find(|effect| {
+            effect.controller == player
+                && effect.modifier == baylee_cards_dsl::Modifier::OneSpellManaAnyType
+        })
+        .map(|effect| effect.id)
+}
+
+pub(crate) fn north_star_face_allowed(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: usize,
+) -> bool {
+    state.object(card).is_some_and(|object| {
+        object.zone != Zone::Graveyard
+            || !graveyard_face_permissions(state, player, card, face).is_empty()
+    })
+}
+
+/// Price already includes increases, reductions and additional costs.
+pub(crate) fn normal_spell_affordable(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    pool: &ManaPool,
+    cost: &ManaCost,
+    component: &ManaCost,
+) -> bool {
+    if spell_affordable(state, player, card, pool, cost) {
+        return true;
+    }
+    if north_star_effect(state, player).is_none() {
+        return false;
+    }
+    component_affordable(state, player, card, pool, cost, component, &[])
+}
+
+pub(crate) fn component_affordable(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    pool: &ManaPool,
+    cost: &ManaCost,
+    component: &ManaCost,
+    settled: &[bool],
+) -> bool {
+    let symbols = cost.phyrexian_count();
+    let fixed = u32::try_from(settled.len()).unwrap_or(u32::MAX);
+    if symbols > 8 || fixed > symbols {
+        return false;
+    }
+    let mask = settled
+        .iter()
+        .enumerate()
+        .fold(0_u32, |mask, (index, life)| {
+            mask | (u32::from(*life) << index)
+        });
+    (0..(1_u32 << (symbols - fixed))).any(|rest| {
+        let life = mask | (rest << fixed);
+        let payment = cost
+            .with_phyrexian_settled(life)
+            .with_any_type_component(&cost.component_after_phyrexian(component, life));
+        state.can_pay_life(
+            player,
+            2 * i32::try_from(life.count_ones()).unwrap_or(i32::MAX),
+        ) && mana_pay::can_pay_with(pool, &payment, spell_mana_spending(state, player, card))
+    })
 }
 
 #[cfg(test)]

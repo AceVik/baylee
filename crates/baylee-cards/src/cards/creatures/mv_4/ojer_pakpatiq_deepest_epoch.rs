@@ -13,7 +13,13 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 static TEMPLE_ABILITIES: &[AbilityDef] = &[
-    mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
+    mana_ability!(&[
+        Effect::mana(ManaColor::Blue, 1),
+        Effect::RemoveCounterSelf {
+            kind: CounterKind::Time,
+            n: 1,
+        },
+    ]),
     activated!(
         cost!("{2}{U}", TapSelf),
         &[Effect::TransformSource],
@@ -46,15 +52,27 @@ card!(
             abilities = TEMPLE_ABILITIES,
         ),
     ],
-    coverage = Coverage::Partial(
-        "rebound has no grant-to-a-spell effect, and no effect removes a counter from a land",
-    ),
-    abilities = &[triggered!(
-        Trigger::Dies(&Filter::This),
-        &[Effect::ReturnSourceFromGraveyard {
-            face: Some(1),
-            tapped: true,
-            owner_control: true,
-        }]
-    ),],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::SpellCast(&Filter::And(&[
+                Filter::HasType(TypeSet::INSTANT),
+                Filter::ControlledByYou,
+                Filter::CastFromHand,
+            ])),
+            &[Effect::ModifyEvent {
+                modifier: Modifier::AddKeyword(KeywordSet::REBOUND),
+                duration: Duration::Indefinitely,
+            }],
+        ),
+        triggered!(
+            Trigger::Dies(&Filter::This),
+            &[Effect::ReturnSourceFromGraveyard {
+                face: Some(1),
+                tapped: true,
+                owner_control: true,
+                counters: Some((CounterKind::Time, 3)),
+            }],
+        ),
+    ],
 );

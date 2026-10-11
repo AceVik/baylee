@@ -65,6 +65,7 @@ card!(
                     face: Some(1),
                     tapped: false,
                     owner_control: false,
+                    counters: None,
                 },
             ]
         ),

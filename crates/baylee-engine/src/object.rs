@@ -855,6 +855,8 @@ pub enum Rider {
     Uncounterable,
     /// Additional entry counters carried from paid mana through resolution.
     EntryP1P1(u32),
+    /// The Tomb's cast permission: this spell enters with a finality counter.
+    EntryFinality,
     /// The permanent has the prepared marker (Emeritus of Woe & co.).
     Prepared,
     /// Saddled until cleanup or departure (CR 702.171b); not copiable.
@@ -1026,6 +1028,7 @@ impl Rider {
             // carries its dash to the stack and the battlefield, and
             // `move_object` ends these where the spell's object ends.
             | Self::EntryP1P1(_)
+            | Self::EntryFinality
             | Self::Dashed
             | Self::Escaped
             | Self::Masked

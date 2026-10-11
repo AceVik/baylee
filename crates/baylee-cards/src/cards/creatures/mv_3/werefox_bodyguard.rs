@@ -44,6 +44,7 @@ card!(
                 min: 0,
                 max: 1,
                 count_is_x: false,
+                distinct_mana_values: false,
             })
         ),
         activated!(cost!("{1}{W}", SacrificeSelf), &[Effect::gain_life(2)]),

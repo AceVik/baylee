@@ -256,10 +256,10 @@ impl<L: CardLookup> Engine<L> {
         // it recognised only the `EffectFilter::ObjectIs` shape of a grant
         // and hid every filtered one from the offer.
         for &card in self.state.zones.list(ZoneLocation::Graveyard(player)) {
-            if casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
-                && self.has_a_legal_target(player, card)
-            {
-                legal.castable.push(card);
+            match casting::can_cast(&self.state, &self.lookup, player, card) {
+                Ok(()) if self.has_a_legal_target(player, card) => legal.castable.push(card),
+                Err(casting::CastError::NotEnoughMana) => legal.payable.push(card),
+                _ => {}
             }
         }
         // The grants are collected once rather than asked of the whole

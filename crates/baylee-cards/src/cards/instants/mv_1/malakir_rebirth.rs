@@ -43,7 +43,8 @@ card!(
                     effects: &[Effect::ReturnSourceFromGraveyard {
                         face: None,
                         tapped: true,
-                        owner_control: true
+                        owner_control: true,
+                        counters: None,
                     }],
                     target: None
                 },

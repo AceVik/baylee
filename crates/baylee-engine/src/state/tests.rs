@@ -919,6 +919,7 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
                 card: id,
                 version: 0,
                 free: true,
+                mana_any_type: false,
                 cast_only: false,
                 spell_types: None,
                 window: baylee_cards_dsl::PlayWindow::ThisTurn.into(),

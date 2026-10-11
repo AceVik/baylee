@@ -180,42 +180,24 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
             changed |= self.apply_mana_entry_counters(id, from_zone);
-            // A Saga takes a lore counter as it enters (CR 714.3a), and
-            // "As [this permanent] enters …" is named as a replacement
-            // effect in CR 614.1c — so the counter goes through the door
-            // that applies the multiplying replacements, exactly as a
-            // planeswalker's starting loyalty does forty lines below. CR
-            // 614.16 says nothing about Sagas; what it gives is the shape,
-            // and this engine had already read it that way once.
-            //
-            // Which chapters that triggers is then a window and not a
-            // number — see [`Self::queue_saga_chapters`]. Under a Doubling
-            // Season two counters land at once and chapters I *and* II are
-            // owed; this site matched `chapter: 1` and would have run the
-            // first one only.
+            // Entry lore is a replacement effect (CR 714.3a), so counter
+            // multipliers apply. The CounterChanged event discovers every
+            // crossed chapter, including multiple chapters at once.
             if self.is_saga(id)
                 && let Some(old) = self
                     .state
                     .object(id)
                     .map(|o| o.counters.get(baylee_cards_dsl::CounterKind::Lore))
             {
-                let ts = self.state.next_timestamp();
                 crate::replacement::put_counters(
                     &mut self.state,
                     id,
                     baylee_cards_dsl::CounterKind::Lore,
                     1,
                 );
-                let new = self
-                    .state
-                    .object(id)
-                    .map_or(old, |o| o.counters.get(baylee_cards_dsl::CounterKind::Lore));
-                if let Some(obj) = self.state.object_mut(id) {
-                    obj.timestamp = ts;
-                }
-                if self.queue_saga_chapters(id, controller, old, new, ts) {
-                    changed = true;
-                }
+                changed |= self.state.object(id).is_some_and(|object| {
+                    object.counters.get(baylee_cards_dsl::CounterKind::Lore) != old
+                });
             }
             // Planeswalkers enter with their printed loyalty counters
             // (CR 306.5b).

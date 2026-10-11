@@ -8,6 +8,39 @@ impl<L: CardLookup> Engine<L> {
         let Some(mut wizard) = self.cast_wizard.clone() else {
             return Ok(());
         };
+        if let Some(CastModeKind::EscapeGranted {
+            face,
+            modes,
+            kicked,
+            prototype,
+            ..
+        }) = wizard.option
+        {
+            wizard.announced = wizard.option;
+            wizard.kicked = kicked;
+            let def = self
+                .state
+                .object(wizard.card)
+                .and_then(|object| object.card)
+                .and_then(|card| self.lookup.card(card.index))
+                .expect("wizard card known");
+            let single = def.abilities_for_face(face).iter().any(|ability|
+                matches!(ability, AbilityDef::ModalSpell { choose, .. } if choose.is_one()));
+            wizard.option = Some(if prototype {
+                CastModeKind::Prototype
+            } else if modes != 0 && single {
+                CastModeKind::Mode(modes.trailing_zeros() as usize)
+            } else if modes != 0 {
+                CastModeKind::Modes(modes)
+            } else if face == 0 && kicked {
+                CastModeKind::Kicked
+            } else if face == 0 {
+                CastModeKind::Normal
+            } else {
+                CastModeKind::Face(face)
+            });
+            self.cast_wizard = Some(wizard.clone());
+        }
         if wizard.option.is_some() && wizard.reduction.is_none() {
             wizard.reduction = Some(self.frozen_spell_reduction(&wizard));
             self.cast_wizard = Some(wizard.clone());
@@ -28,6 +61,8 @@ impl<L: CardLookup> Engine<L> {
             return Ok(());
         }
         match wizard.stage {
+            WizardStage::ManaPermission => self.ask_north_star(wizard),
+            WizardStage::Permission => self.choose_graveyard_permission(wizard),
             WizardStage::ChooseMode => {
                 self.pending = Pending::ChooseCastMode {
                     player: wizard.player,
@@ -156,13 +191,27 @@ impl<L: CardLookup> Engine<L> {
                 }
                 let max = max
                     .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
+                let reason = if req.distinct_mana_values {
+                    let mut values: Vec<_> = options
+                        .iter()
+                        .filter_map(|&id| {
+                            self.state
+                                .object(id)
+                                .map(|object| (id, object.characteristics().mana_value()))
+                        })
+                        .collect();
+                    values.sort_unstable_by_key(|(id, _)| *id);
+                    TargetPrompt::DistinctManaValues(values)
+                } else {
+                    TargetPrompt::Targets
+                };
                 self.pending = Pending::ChooseTargets {
                     player: wizard.player,
                     options,
                     player_options,
                     min,
                     max,
-                    reason: TargetPrompt::Targets,
+                    reason,
                 };
                 self.awaiting_answer = true;
                 Ok(())
@@ -237,6 +286,8 @@ impl<L: CardLookup> Engine<L> {
             WizardStage::Kicker => {
                 let face = self.wizard_face(&wizard);
                 if face.additional_costs.is_empty()
+                    || wizard.kicked
+                    || matches!(wizard.announced, Some(CastModeKind::EscapeGranted { .. }))
                     || (face.kicked_targets.is_some() && !wizard.free)
                 {
                     let mut wizard = wizard;
@@ -308,40 +359,33 @@ impl<L: CardLookup> Engine<L> {
                     return Ok(());
                 }
                 let mut wizard = wizard;
-                wizard.stage = WizardStage::Escape;
+                wizard.stage = WizardStage::ReturnCreature;
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }
-            WizardStage::Escape => {
-                let exile = (wizard.option == Some(CastModeKind::Escape))
-                    .then(|| self.wizard_face(&wizard).escape)
-                    .flatten()
-                    .map(|escape| escape.exile);
-                let Some(n) = exile else {
-                    let mut wizard = wizard;
+            WizardStage::ReturnCreature => {
+                if wizard.option != Some(CastModeKind::BeamMeUp) {
                     wizard.stage = WizardStage::Delve;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
-                };
-                // The same list the offer counted, so the question is never
-                // shorter than its answer.
-                let options =
-                    casting::escape_exile_options(&self.state, wizard.player, wizard.card);
-                if options.len() < usize::from(n) {
-                    self.cast_wizard = None;
-                    return Err(EngineError::IllegalAction(
-                        "not enough other cards in the graveyard to escape",
-                    ));
+                }
+                let options = casting::beam_return_options(&self.state, wizard.player, wizard.card);
+                if options.is_empty() {
+                    return Err(EngineError::IllegalAction("no creature can pay beam me up"));
                 }
                 self.pending = Pending::ChooseCards {
                     player: wizard.player,
                     options,
-                    min: n,
-                    max: n,
-                    prompt: ChoicePrompt::CostExile,
+                    min: 1,
+                    max: 1,
+                    prompt: ChoicePrompt::CostReturn,
                     total: None,
                 };
                 self.awaiting_answer = true;
+                Ok(())
+            }
+            WizardStage::Escape => {
+                self.ask_escape_payment(&wizard)?;
                 Ok(())
             }
             WizardStage::Delve => {
@@ -444,7 +488,7 @@ impl<L: CardLookup> Engine<L> {
             WizardStage::Sacrifice => {
                 let face = self.wizard_face(&wizard);
                 let asked = wizard.sacrifices.len();
-                let Some(part) = additional_sacrifices(face).nth(asked) else {
+                let Some(part) = additional_card_costs(face).nth(asked) else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Done;
                     self.cast_wizard = Some(wizard);
@@ -460,7 +504,19 @@ impl<L: CardLookup> Engine<L> {
                     wizard.card,
                     part,
                 );
-                options.retain(|id| !wizard.sacrifices.contains(id));
+                options.retain(|id| *id != wizard.card && !wizard.sacrifices.contains(id));
+                options.retain(|candidate| {
+                    let mut chosen = wizard.sacrifices.to_vec();
+                    chosen.push(*candidate);
+                    casting::additional_payment_capacity(
+                        &self.state,
+                        wizard.player,
+                        wizard.card,
+                        face,
+                        &chosen,
+                    )
+                    .is_some()
+                });
                 if options.is_empty() {
                     self.cast_wizard = None;
                     return Err(EngineError::IllegalAction("nothing can pay this cost"));

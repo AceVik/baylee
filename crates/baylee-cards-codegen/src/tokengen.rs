@@ -85,7 +85,7 @@ pub struct TokenBody {
 /// against. Every other head refuses the token, and each of them is a real
 /// shape in the reference: `Text` is rules text ("this creature is all
 /// colors"), `Loyalty` is a planeswalker token's starting loyalty, which
-/// [`TokenDef`] has no field for, and `AlternateMode` is a second face.
+/// this reader does not yet transcode, and `AlternateMode` is a second face.
 const IGNORED: &[&str] = &["ManaCost", "Oracle"];
 
 /// The line heads [`scriptgen`](crate::scriptgen) reads, not this module.

@@ -52,6 +52,8 @@ pub enum CounterKind {
     Hone,
     /// Replaces an untap attempt by removing one counter (CR 122.1d).
     Stun,
+    /// Exile instead of a battlefield-to-graveyard move.
+    Finality,
     /// Any other counter, identified by the engine's opaque id.
     Custom(u32),
 }
@@ -102,6 +104,7 @@ impl CounterKind {
             Self::Indestructible => Cow::Borrowed("IND"),
             Self::Hone => Cow::Borrowed("HONE"),
             Self::Stun => Cow::Borrowed("STUN"),
+            Self::Finality => Cow::Borrowed("FINAL"),
             Self::Custom(_) => Cow::Borrowed("•"),
         }
     }

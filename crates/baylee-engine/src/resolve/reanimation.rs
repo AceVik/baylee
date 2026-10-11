@@ -30,6 +30,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             face,
             tapped,
             owner_control,
+            counters,
         } => {
             if let Some(source) = subjects::moving_source(state, res)
                 && state
@@ -37,6 +38,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     .is_some_and(|o| o.zone == Zone::Graveyard)
             {
                 arrive(state, source.object, you, owner_control, face, tapped);
+                if let Some((kind, amount)) = counters
+                    && (state.entries.contains(source.object)
+                        || state
+                            .object(source.object)
+                            .is_some_and(|o| o.zone == Zone::Battlefield))
+                {
+                    crate::entry::put_entry_counters(state, source.object, kind, amount);
+                }
             }
             None
         }
@@ -142,7 +151,7 @@ fn return_card(
         Cause::Effect,
     );
     if let Some((kind, n)) = counters {
-        crate::entry::put_counters(state, controller, id, kind, n);
+        crate::entry::put_entry_counters(state, id, kind, n);
     }
 }
 

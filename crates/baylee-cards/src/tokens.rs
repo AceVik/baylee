@@ -417,6 +417,7 @@ pub static JUNK: TokenDef = TokenDef {
                 count: 1,
                 window: baylee_cards_dsl::PlayWindow::ThisTurn,
                 free: false,
+                mana_any_type: false,
                 spell_types: None,
             },
         }],
@@ -482,6 +483,20 @@ pub static HUMAN_SOLDIER_1_1_WHITE: TokenDef = TokenDef {
     power: Some(1),
     toughness: Some(1),
     scryfall_id: "6007af81-4541-4b55-90ea-03d365362ae5",
+    ..TokenDef::DEFAULT
+};
+
+/// Empower Jace's blue planeswalker token (CR 701.71a).
+pub static JACE_PLANESWALKER_BLUE: TokenDef = TokenDef {
+    name: "Jace",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::PLANESWALKER,
+    subtypes: &[baylee_core::generated::subtypes::planeswalker::JACE],
+    loyalty: Some(0),
+    abilities: &[
+        baylee_cards_dsl::loyalty!(-1, &[Effect::surveil(1)]),
+        baylee_cards_dsl::loyalty!(-3, &[Effect::draw(1)]),
+    ],
     ..TokenDef::DEFAULT
 };
 

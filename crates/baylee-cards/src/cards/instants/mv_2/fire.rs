@@ -28,7 +28,8 @@ card!(
                     spec: TargetSpec::AnyTarget,
                     min: 1,
                     max: 2,
-                    count_is_x: false
+                    count_is_x: false,
+                    distinct_mana_values: false,
                 }),
             )],
         ),

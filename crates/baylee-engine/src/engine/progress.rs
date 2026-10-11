@@ -282,6 +282,41 @@ impl<L: CardLookup> Engine<L> {
             if !self.awaiting_answer {
                 return;
             }
+            // A player controlling another player cannot choose an outside card (CR 723.4).
+            if let Pending::ChooseCards {
+                player,
+                prompt: ChoicePrompt::Wish,
+                ..
+            } = &self.pending
+            {
+                let player = *player;
+                if self.controlled_actor(player) != player {
+                    if let Pending::ChooseCards { options, min, .. } = &mut self.pending {
+                        options.retain(|id| {
+                            self.state
+                                .object(*id)
+                                .is_some_and(|object| object.zone != Zone::OutsideGame)
+                        });
+                        *min = 0;
+                    }
+                    if matches!(&self.pending, Pending::ChooseCards { options, .. } if options.is_empty())
+                    {
+                        self.awaiting_answer = false;
+                        if self
+                            .apply_inner(
+                                player,
+                                PlayerAction::ChooseObjects {
+                                    objects: Vec::new(),
+                                },
+                            )
+                            .is_ok()
+                        {
+                            continue;
+                        }
+                        self.awaiting_answer = true;
+                    }
+                }
+            }
             self.expire_holds();
             // Leave a real, unanswered decision at the safety boundary.
             // Consuming the final answer without running the machine again

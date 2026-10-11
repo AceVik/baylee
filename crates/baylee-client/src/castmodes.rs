@@ -265,6 +265,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
+        | CostPart::DiscardHand
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)

@@ -725,7 +725,7 @@ enum PlanKind {
     /// replacements (`ReplacementRule::MaySkipDrawStepDraw`, CR 614.10).
     SkipDraw {
         /// The permanent whose replacement is offered.
-        source: ObjectId,
+        source: crate::state::DrawReplacement,
         /// Those already declined for this draw (CR 614.5).
         declined: Vec<ObjectId>,
     },
@@ -1153,6 +1153,9 @@ impl<L: CardLookup> Engine<L> {
         let base = self.state.snapshot_hash();
         let mut extra = self.trigger_scan_seq;
         if let Some(wizard) = &self.cast_wizard {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(wizard.miracle_payment_fingerprint());
             // Partial distributions already constrain the next answer and
             // must survive replay/resync comparisons before payment.
             extra = extra

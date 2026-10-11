@@ -308,6 +308,8 @@ pub fn matches_projected_with_context(
                 .any(|commander| obj_subs.intersects(commander.characteristics().subtypes))
         }
         Filter::HasKeyword(k) => chars.keywords.contains(*k),
+        Filter::Kicked => obj.kicked,
+        Filter::CastFromHand => obj.cast_from_hand,
         Filter::CmcAtMost(n) => chars.mana_value() <= *n,
         // The bound is the announced X on the ability's own source, which is
         // where `cast_wizard` writes it and what `res.x` is read from one
@@ -550,15 +552,7 @@ pub fn amount_with_context(
         Amount::ConstantMinus { constant, subtract } => {
             constant.saturating_sub(self::amount_with_context(subtract, state, you, context, x))
         }
-        Amount::GreatestCommanderManaValue => state
-            .commanders
-            .get(you.get() as usize)
-            .into_iter()
-            .flatten()
-            .filter_map(|commander| state.object(commander.object))
-            .map(|object| object.characteristics().mana_value())
-            .max()
-            .unwrap_or(0),
+        Amount::GreatestCommanderManaValue => greatest_commander_mana_value(state, you),
         Amount::HandSize(who) => players(*who, state, you)
             .and_then(|p| p.first().copied())
             .map_or(0, |p| {
@@ -644,7 +638,30 @@ pub fn amount_with_context(
             .copied()
             .unwrap_or(0),
         Amount::CountOf { filter, zone } => count_in_zone(filter, *zone, state, you, context),
+        Amount::OpponentsLifeLostThisTurn => opponents_life_lost(state, you),
     }
+}
+
+fn greatest_commander_mana_value(state: &GameState, you: PlayerId) -> u32 {
+    state
+        .commanders
+        .get(you.get() as usize)
+        .into_iter()
+        .flatten()
+        .filter_map(|commander| state.object(commander.object))
+        .map(|object| object.characteristics().mana_value())
+        .max()
+        .unwrap_or(0)
+}
+
+fn opponents_life_lost(state: &GameState, you: PlayerId) -> u32 {
+    state
+        .players
+        .iter()
+        .filter(|p| !state.has_left(p.id) && state.is_opponent(p.id, you))
+        .fold(0u32, |total, p| {
+            total.saturating_add(state.per_turn.life_lost_amount[usize::from(p.id.get())])
+        })
 }
 
 fn distinct_colors(state: &GameState, you: PlayerId, filter: &Filter, context: RuleContext) -> u32 {

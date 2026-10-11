@@ -27,6 +27,7 @@ card!(
                     count: 1,
                     window: PlayWindow::UntilYourNextTurn,
                     free: false,
+                    mana_any_type: false,
                     spell_types: Some(TypeSet::INSTANT.union(TypeSet::SORCERY)),
                 }
             },]

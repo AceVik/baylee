@@ -572,6 +572,7 @@ impl GameState {
                     !matches!(
                         r,
                         crate::object::Rider::EntryP1P1(_)
+                            | crate::object::Rider::EntryFinality
                             | crate::object::Rider::Dashed
                             | crate::object::Rider::Escaped
                             | crate::object::Rider::Masked
@@ -884,7 +885,9 @@ impl GameState {
     /// draw that waits.
     pub fn draw_cards(&mut self, player: PlayerId, n: usize) -> Vec<ObjectId> {
         if n > 0
-            && (!self.draws_to_offer.is_empty() || self.draw_skip_source(player, &[]).is_some())
+            && (!self.draws_to_offer.is_empty()
+                || self.draw_skip_source(player, &[]).is_some()
+                || self.draw_wish_effect(player, None).is_some())
         {
             self.draws_to_offer
                 .push_back((player, u32::try_from(n).unwrap_or(u32::MAX)));

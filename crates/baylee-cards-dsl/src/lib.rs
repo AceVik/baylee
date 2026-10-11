@@ -358,6 +358,9 @@ pub struct FaceDef {
     /// instead of going anywhere else afterwards. Mana only: a flashback
     /// that costs something other than mana is not written here.
     pub flashback: Option<ManaCost>,
+    /// Beam me up: graveyard alternative mana cost plus returning a creature.
+    /// The spell is exiled whenever it leaves the stack after paying this cost.
+    pub beam_me_up: Option<ManaCost>,
     /// Delve (CR 702.66): each card exiled from your graveyard while
     /// casting pays for {1} — as many cards as the spell's total cost has
     /// generic mana, and no more (CR 702.66a).
@@ -431,6 +434,7 @@ impl FaceDef {
         castable_from_hand: true,
         miracle: None,
         flashback: None,
+        beam_me_up: None,
         delve: false,
         convoke: false,
         waterbend: false,

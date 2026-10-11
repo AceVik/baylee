@@ -891,6 +891,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         YesNoPrompt::EnterTappedForCounters { kind, amount } => entry_counter_words(*kind, *amount),
         YesNoPrompt::SacrificeToEnter { count } => entry_sacrifice_words(*count),
         YesNoPrompt::PayLifeOrEnterTapped { amount } => entry_life_words(*amount),
+        YesNoPrompt::ManaAnyType => north_star_words(),
         YesNoPrompt::Kicker => (
             "Pay the kicker or additional cost?".into(),
             "pay it".into(),
@@ -984,6 +985,14 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         ),
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+fn north_star_words() -> (String, String, String) {
+    (
+        "Use North Star for this spell’s mana cost? Additional costs are paid normally.".into(),
+        "use the permission".into(),
+        "save the permission".into(),
+    )
 }
 
 fn proliferate_words(player: PlayerId) -> (String, String, String) {
@@ -1114,6 +1123,10 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         cost
     };
     match option.kind {
+        CastModeKind::Permission(source) => source.map_or_else(
+            || "Use an unrestricted casting permission".to_string(),
+            |source| format!("Use the casting permission from {source:?}"),
+        ),
         CastModeKind::Normal => format!("Cast it normally for {cost}"),
         CastModeKind::Kicked => format!("Cast it kicked for {cost}"),
         CastModeKind::Alternative(i) => {
@@ -1151,8 +1164,23 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::Disguise => format!("Cast it face down with disguise for {cost}"),
         CastModeKind::Miracle => format!("Cast it for its miracle cost {cost}"),
         CastModeKind::Flashback => format!("Cast it with flashback for {cost}"),
+        CastModeKind::BeamMeUp => {
+            format!("Cast it with beam me up for {cost}, returning a creature you control")
+        }
         CastModeKind::Dash => format!("Cast it with dash for {cost}"),
         CastModeKind::Escape => format!("Cast it with escape for {cost}"),
+        CastModeKind::EscapeGranted {
+            face,
+            modes,
+            exile,
+            kicked,
+            prototype,
+        } => format!(
+            "Escape face {}, modes {modes}{}{}, for {cost} and exile {exile} other graveyard cards",
+            face + 1,
+            if kicked { ", with kicker" } else { "" },
+            if prototype { ", as prototype" } else { "" }
+        ),
         CastModeKind::Counter(kind) => format!(
             "Choose {}",
             baylee_client_core::interaction::counter_label(

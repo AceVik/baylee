@@ -18,7 +18,9 @@ use baylee_core::mana::ManaCost;
 
 mod commit;
 mod division;
+mod grants;
 mod linked;
+mod north_star;
 mod options;
 mod permissions;
 mod pricing;
@@ -43,6 +45,10 @@ pub(crate) enum WizardStage {
     DivideDamage,
     /// Choosing a cast mode (skip when only one option).
     ChooseMode,
+    /// Choose which graveyard permission authorizes the announced spell.
+    Permission,
+    /// Optional spending permission for this spell’s mana cost only.
+    ManaPermission,
     /// Choosing X.
     XValue,
     /// Choosing targets.
@@ -61,6 +67,8 @@ pub(crate) enum WizardStage {
     Replicate,
     /// Pitch choice (exile-from-hand).
     PitchChoice,
+    /// A creature returned to pay the selected graveyard alternative cost.
+    ReturnCreature,
     /// Delve choice (exile-from-graveyard, {1} each).
     Delve,
     /// The tap question of convoke (creatures) or of a paid waterbend
@@ -86,6 +94,14 @@ pub(crate) struct CastWizard {
     pub player: PlayerId,
     /// Chosen cast option.
     pub option: Option<CastModeKind>,
+    /// Public cost route before separating its face and modal choices.
+    pub announced: Option<CastModeKind>,
+    /// Consumed only after this cast has successfully paid every cost.
+    pub north_star: Option<baylee_core::ids::EffectId>,
+    /// Permission captured before paying any costs; consumed only on success.
+    pub permission: Option<casting::GraveyardPermission>,
+    /// Alternatives behind a permission question, indexed by its displayed choices.
+    pub permissions: Vec<casting::GraveyardPermission>,
     /// Reductions frozen after selecting a casting form, before mana payments.
     pub reduction: Option<FrozenReduction>,
     /// Exact announced identities, preserved across all later cost payments.
@@ -109,6 +125,8 @@ pub(crate) struct CastWizard {
     pub replicated: u8,
     /// Cards chosen for pitch (exile-from-hand).
     pub pitch: SmallVec<[ObjectId; 2]>,
+    /// The creature returned for beam me up, chosen without targeting.
+    pub returned: Option<ObjectId>,
     /// Cards chosen to delve (exile-from-graveyard, {1} each).
     pub delve_exiles: SmallVec<[ObjectId; 8]>,
     /// The other cards escape's cost exiles from the graveyard. They pay no
@@ -153,6 +171,27 @@ pub(crate) struct CastWizard {
 }
 
 impl CastWizard {
+    fn face_index(&self) -> usize {
+        match self.announced.or(self.option) {
+            Some(CastModeKind::Face(face) | CastModeKind::EscapeGranted { face, .. }) => face,
+            _ => 0,
+        }
+    }
+
+    fn escapes(&self) -> bool {
+        matches!(
+            self.announced.or(self.option),
+            Some(CastModeKind::Escape | CastModeKind::EscapeGranted { .. })
+        )
+    }
+
+    fn escape_count(&self, face: &baylee_cards_dsl::FaceDef) -> Option<u8> {
+        match self.announced.or(self.option) {
+            Some(CastModeKind::EscapeGranted { exile, .. }) => Some(exile),
+            Some(CastModeKind::Escape) => face.escape.map(|escape| escape.exile),
+            _ => None,
+        }
+    }
     /// This cast makes mana after announcing X and targets (CR 601.2b, g).
     /// Effect casts currently make it before entering this wizard instead.
     fn makes_mana_after_choices(&self) -> bool {
@@ -165,19 +204,26 @@ impl CastWizard {
     /// The answers held by a miracle payment window, for replay comparison.
     /// Its mode is fixed, but identical boards can still owe different casts.
     pub(super) fn miracle_payment_fingerprint(&self) -> u64 {
-        let mut hash = u64::from(self.card.slot())
-            .wrapping_mul(31)
-            .wrapping_add(u64::from(self.card.generation()))
-            .wrapping_mul(31)
-            .wrapping_add(u64::from(self.x))
-            .wrapping_mul(2)
-            .wrapping_add(u64::from(self.kicked))
-            .wrapping_mul(257)
-            .wrapping_add(u64::from(self.replicated))
-            .wrapping_mul(17)
-            .wrapping_add(self.chosen_player.map_or(0, |p| u64::from(p.get()) + 1))
-            .wrapping_mul(2)
-            .wrapping_add(u64::from(self.paying == casting::Paying::DuringTheCast));
+        let mut hash = crate::state::structural_fingerprint(&(
+            self.permission,
+            self.announced,
+            self.returned,
+            self.north_star,
+        ))
+        .wrapping_mul(31)
+        .wrapping_add(u64::from(self.card.slot()))
+        .wrapping_mul(31)
+        .wrapping_add(u64::from(self.card.generation()))
+        .wrapping_mul(31)
+        .wrapping_add(u64::from(self.x))
+        .wrapping_mul(2)
+        .wrapping_add(u64::from(self.kicked))
+        .wrapping_mul(257)
+        .wrapping_add(u64::from(self.replicated))
+        .wrapping_mul(17)
+        .wrapping_add(self.chosen_player.map_or(0, |p| u64::from(p.get()) + 1))
+        .wrapping_mul(2)
+        .wrapping_add(u64::from(self.paying == casting::Paying::DuringTheCast));
         hash = hash
             .wrapping_mul(2)
             .wrapping_add(u64::from(self.reduction.is_some()));
@@ -297,18 +343,22 @@ pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
 pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
     matches!(
         part,
-        CostPart::PayLifeX | CostPart::PayLife(_) | CostPart::Sacrifice(_)
+        CostPart::PayLifeX
+            | CostPart::PayLife(_)
+            | CostPart::Sacrifice(_)
+            | CostPart::Discard(_)
+            | CostPart::DiscardHand
     )
 }
 
 /// The parts of a spell's additional cost that ask which permanent pays
 /// them, in printed order: the questions the `Sacrifice` stage puts.
-pub(crate) fn additional_sacrifices(
+pub(crate) fn additional_card_costs(
     face: &'static baylee_cards_dsl::FaceDef,
 ) -> impl Iterator<Item = &'static CostPart> {
     face.mandatory_additional_costs
         .iter()
-        .filter(|p| matches!(p, CostPart::Sacrifice(_)))
+        .filter(|p| matches!(p, CostPart::Sacrifice(_) | CostPart::Discard(_)))
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -328,6 +378,10 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: None,
+            announced: None,
+            north_star: None,
+            permission: None,
+            permissions: Vec::new(),
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             division: Vec::new(),
@@ -339,6 +393,7 @@ impl<L: CardLookup> Engine<L> {
             kicked: false,
             replicated: 0,
             pitch: SmallVec::new(),
+            returned: None,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -360,7 +415,7 @@ impl<L: CardLookup> Engine<L> {
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
             wizard.kicked = wizard.option == Some(CastModeKind::Kicked);
-            wizard.stage = WizardStage::XValue;
+            wizard.stage = WizardStage::Permission;
         }
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -391,6 +446,10 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: Some(CastModeKind::Normal),
+            announced: None,
+            north_star: None,
+            permission: None,
+            permissions: Vec::new(),
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             division: Vec::new(),
@@ -402,6 +461,7 @@ impl<L: CardLookup> Engine<L> {
             kicked: false,
             replicated: 0,
             pitch: SmallVec::new(),
+            returned: None,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -503,6 +563,10 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: Some(CastModeKind::Miracle),
+            announced: None,
+            north_star: None,
+            permission: None,
+            permissions: Vec::new(),
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             division: Vec::new(),
@@ -514,6 +578,7 @@ impl<L: CardLookup> Engine<L> {
             kicked: false,
             replicated: 0,
             pitch: SmallVec::new(),
+            returned: None,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -578,9 +643,10 @@ impl<L: CardLookup> Engine<L> {
         let pool = restricted
             .as_ref()
             .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
-        casting::affordable(
+        casting::spell_affordable(
             &self.state,
             player,
+            card,
             pool,
             &cost.with_less_generic(reduction),
         )
@@ -633,13 +699,17 @@ impl<L: CardLookup> Engine<L> {
     ) -> Result<(), EngineError> {
         let (option, stage) = match options.as_slice() {
             [] => return Err(EngineError::IllegalAction("no legal free play")),
-            [only] => (Some(only.kind), WizardStage::Kicker),
+            [only] => (Some(only.kind), WizardStage::XValue),
             _ => (None, WizardStage::ChooseMode),
         };
         let mut wizard = CastWizard {
             card,
             player,
             option,
+            announced: None,
+            north_star: None,
+            permission: None,
+            permissions: Vec::new(),
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             division: Vec::new(),
@@ -651,16 +721,14 @@ impl<L: CardLookup> Engine<L> {
             kicked: false,
             replicated: 0,
             pitch: SmallVec::new(),
+            returned: None,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             phyrexian: SmallVec::new(),
-            // Straight past `XValue`, and deliberately: a spell cast paying
-            // neither its mana cost nor an alternative cost with X in it has
-            // exactly one legal X, which is 0 (CR 107.3b). A mode chosen
-            // from several comes back through `XValue`, which asks nothing:
-            // every mode offered here costs nothing.
+            // `XValue` fixes a waived mana-cost X at zero, but still asks
+            // about independent additional costs such as Toxic Deluge's X life.
             stage,
             options,
             free: true,
@@ -707,6 +775,10 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: if single { option } else { None },
+            announced: None,
+            north_star: None,
+            permission: None,
+            permissions: Vec::new(),
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             division: Vec::new(),
@@ -718,6 +790,7 @@ impl<L: CardLookup> Engine<L> {
             kicked: false,
             replicated: 0,
             pitch: SmallVec::new(),
+            returned: None,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -776,6 +849,10 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: Some(CastModeKind::Normal),
+            announced: None,
+            north_star: None,
+            permission: None,
+            permissions: Vec::new(),
             reduction: None,
             target_references: crate::sources::TargetReferences::default(),
             division: Vec::new(),
@@ -787,6 +864,7 @@ impl<L: CardLookup> Engine<L> {
             kicked: false,
             replicated: 0,
             pitch: SmallVec::new(),
+            returned: None,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -913,7 +991,7 @@ impl<L: CardLookup> Engine<L> {
         {
             return false;
         }
-        if additional_sacrifices(&def.faces[0])
+        if additional_card_costs(&def.faces[0])
             .any(|part| super::cost_wizard::options(&self.state, player, card, part).is_empty())
         {
             return false;
@@ -978,11 +1056,11 @@ impl<L: CardLookup> Engine<L> {
         let reduction =
             help.saturating_add(wizard.reduction.map_or(0, |reduction| reduction.remainder));
         casting::greatest_affordable(REPLICATE_CEILING, |n| {
-            self.can_pay_mana(
-                player,
-                spend_for(wizard, face),
-                &before.combine_n(cost, n).with_less_generic(reduction),
-            )
+            let payment = self.north_star_payment(
+                wizard,
+                before.combine_n(cost, n).with_less_generic(reduction),
+            );
+            self.can_pay_mana(player, spend_for(wizard, face), &payment)
         })
     }
 
@@ -1105,13 +1183,29 @@ impl<L: CardLookup> Engine<L> {
                 2 * i32::try_from(settled.iter().filter(|l| **l).count()).unwrap_or(i32::MAX);
             self.state.can_pay_life(wizard.player, life)
                 && (deferred
-                    || casting::phyrexian_affordable(
-                        &self.state,
-                        wizard.player,
-                        pool,
-                        &price,
-                        settled,
-                    ))
+                    || if let Some(component) = wizard
+                        .north_star
+                        .and_then(|_| self.north_star_component(wizard))
+                    {
+                        casting::component_affordable(
+                            &self.state,
+                            wizard.player,
+                            wizard.card,
+                            pool,
+                            &price,
+                            &component,
+                            settled,
+                        )
+                    } else {
+                        casting::phyrexian_affordable_with(
+                            &self.state,
+                            wizard.player,
+                            pool,
+                            &price,
+                            settled,
+                            casting::spell_mana_spending(&self.state, wizard.player, wizard.card),
+                        )
+                    })
         };
         let mut answers = wizard.phyrexian.clone();
         let mut ask = false;
@@ -1276,12 +1370,10 @@ impl<L: CardLookup> Engine<L> {
         else {
             return Vec::new();
         };
-        let face = match wizard.option {
-            Some(CastModeKind::Face(i)) => i,
-            _ => 0,
-        };
+        let face = wizard.face_index();
         let form = match spend_for(wizard, self.wizard_face(wizard)) {
             casting::SpendFor::SpellAs(_, form) => Some(form),
+            casting::SpendFor::KickedSpell(_, _, form) => form,
             _ => None,
         };
         eval::spell_target_options_for(
@@ -1305,10 +1397,7 @@ impl<L: CardLookup> Engine<L> {
             .card
             .expect("wizard card is card-backed");
         let def = self.lookup.card(card.index).expect("wizard card known");
-        let face_index = match wizard.option {
-            Some(CastModeKind::Face(i)) => i.min(def.faces.len() - 1),
-            _ => 0,
-        };
+        let face_index = wizard.face_index().min(def.faces.len() - 1);
         &def.faces[face_index]
     }
 
@@ -1322,10 +1411,7 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))
             .expect("wizard card known");
-        let face_index = match wizard.option {
-            Some(CastModeKind::Face(i)) => i.min(def.faces.len() - 1),
-            _ => 0,
-        };
+        let face_index = wizard.face_index().min(def.faces.len() - 1);
         if wizard.kicked
             && let Some(req) = def.faces[face_index].kicked_targets
         {
@@ -1365,10 +1451,7 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))
             .expect("wizard card known");
-        let face_index = match wizard.option {
-            Some(CastModeKind::Face(i)) => i.min(def.faces.len() - 1),
-            _ => 0,
-        };
+        let face_index = wizard.face_index().min(def.faces.len() - 1);
         let abilities = def.abilities_for_face(face_index);
         let mut req = match wizard.option {
             Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
@@ -1419,6 +1502,11 @@ impl<L: CardLookup> Engine<L> {
     /// the game is kept before the first of them and put back on a refusal,
     /// with the spell-rider abilities the mana put on the stack.
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
+        let cost = wizard_total_cost(self.wizard_face(wizard), wizard)
+            .with_less_generic((wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32);
+        if self.wizard_pool_can_pay(wizard, cost) && self.ask_escape_payment(wizard)? {
+            return Ok(());
+        }
         let before = self.state.checkpoint();
         let riders = self.synthetic_fx.clone();
         let cast = self.pay_and_cast(wizard);
@@ -1504,6 +1592,7 @@ impl<L: CardLookup> Engine<L> {
     fn wizard_pool_can_pay(&self, wizard: &CastWizard, total: ManaCost) -> bool {
         let face = self.wizard_face(wizard);
         let (cost, restriction) = self.restricted_x_payment(wizard, total);
+        let cost = self.north_star_payment(wizard, cost);
         let spendable =
             casting::spendable_pool(&self.state, wizard.player, spend_for(wizard, face));
         let pool = spendable
@@ -1512,7 +1601,7 @@ impl<L: CardLookup> Engine<L> {
         crate::mana_pay::payment_restricting_generic(
             pool,
             &cost,
-            casting::mana_spending(&self.state, wizard.player),
+            casting::spell_mana_spending(&self.state, wizard.player, wizard.card),
             [0; 6],
             restriction,
         )
@@ -1588,7 +1677,13 @@ fn wizard_total_before_reduction(
         face.extra_target_cost
             .saturating_mul(u32::try_from(extra).unwrap_or(u32::MAX)),
     );
-    if wizard.kicked && wizard.option != Some(CastModeKind::Kicked) {
+    if wizard.kicked
+        && wizard.option != Some(CastModeKind::Kicked)
+        && !matches!(
+            wizard.announced,
+            Some(CastModeKind::EscapeGranted { kicked: true, .. })
+        )
+    {
         for add in face.additional_costs {
             total = total.combine(&add.mana);
         }
@@ -1626,6 +1721,15 @@ const fn pays_mana(wizard: &CastWizard) -> bool {
 /// question's bound, so the question never offers a count the payment
 /// would refuse over a Cavern of Souls' mana.
 fn spend_for(wizard: &CastWizard, face: &baylee_cards_dsl::FaceDef) -> casting::SpendFor {
+    if wizard.kicked {
+        let form = match wizard.option {
+            Some(CastModeKind::Prototype) => face.prototype.map(casting::SpellForm::Prototype),
+            Some(CastModeKind::Disguise) => Some(casting::SpellForm::Disguise),
+            _ if wizard.masked => Some(casting::SpellForm::Disguise),
+            _ => None,
+        };
+        return casting::SpendFor::KickedSpell(wizard.card, wizard.face_index(), form);
+    }
     if wizard.masked {
         return casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Disguise);
     }
@@ -1637,6 +1741,9 @@ fn spend_for(wizard: &CastWizard, face: &baylee_cards_dsl::FaceDef) -> casting::
         ),
         Some(CastModeKind::Disguise) => {
             casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Disguise)
+        }
+        _ if wizard.face_index() != 0 => {
+            casting::SpendFor::SpellOnFace(wizard.card, wizard.face_index())
         }
         _ => casting::SpendFor::Spell(wizard.card),
     }
@@ -1652,7 +1759,7 @@ fn chosen_option_cost(wizard: &CastWizard) -> ManaCost {
     wizard
         .options
         .iter()
-        .find(|o| Some(o.kind) == wizard.option)
+        .find(|o| Some(o.kind) == wizard.announced.or(wizard.option))
         .map_or(ManaCost::ZERO, |o| o.cost)
 }
 

@@ -59,7 +59,8 @@ pub(crate) fn graveyard_destination(
     // for that object only. Before the token test below: a token is exiled
     // instead as well, and so does not die.
     if card.zone == crate::zone::Zone::Battlefield
-        && state.per_turn.exile_if_dies.contains(&(id, card.version))
+        && (state.per_turn.exile_if_dies.contains(&(id, card.version))
+            || card.counters.get(baylee_cards_dsl::CounterKind::Finality) != 0)
     {
         return (ZoneLocation::Exile(card.owner), None);
     }

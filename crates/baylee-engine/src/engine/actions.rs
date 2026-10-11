@@ -378,6 +378,19 @@ impl<L: CardLookup> Engine<L> {
                     }
                     other => self.pending_plan = other,
                 }
+                if let Some(wizard) = self.cast_wizard.as_mut()
+                    && wizard.stage == cast_wizard::WizardStage::Permission
+                {
+                    let permission = wizard
+                        .permissions
+                        .get(index)
+                        .copied()
+                        .ok_or(EngineError::IllegalAction("no such casting permission"))?;
+                    wizard.permission = Some(permission);
+                    wizard.stage = cast_wizard::WizardStage::ManaPermission;
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
                 // The wizard's own list is the one the position indexes, and
                 // it is read before the wizard leaves its slot.
                 let Some(option) = self
@@ -400,7 +413,7 @@ impl<L: CardLookup> Engine<L> {
                 // asked, the multi-option twin of the defect `XValue`'s own
                 // comment describes. It falls through to `Targets` when the
                 // chosen cost has no X.
-                wizard.stage = cast_wizard::WizardStage::XValue;
+                wizard.stage = cast_wizard::WizardStage::Permission;
                 self.cast_wizard = Some(wizard);
                 self.continue_cast_wizard();
                 Ok(())
@@ -1605,6 +1618,21 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|wizard| wizard.stage == cast_wizard::WizardStage::ManaPermission)
+                {
+                    let wizard = self.cast_wizard.as_mut().expect("wizard active");
+                    wizard.north_star = if answer {
+                        casting::north_star_effect(&self.state, player)
+                    } else {
+                        None
+                    };
+                    wizard.stage = cast_wizard::WizardStage::XValue;
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
                 // Wizard path: a Phyrexian symbol, asked at the head of the
                 // X stage. Yes is 2 life, no its mana (CR 107.4f); nothing is
                 // paid yet, and the stage asks its next question.
@@ -1659,6 +1687,18 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChooseCards { player: p, .. }, PlayerAction::ChooseObjects { objects })
                 if *p == player =>
             {
+                if matches!(self.pending_plan, Some(PlanKind::SkipDraw { .. })) {
+                    let Some(PlanKind::SkipDraw { source, .. }) = self.pending_plan.take() else {
+                        unreachable!()
+                    };
+                    if let Some((next_player, next)) = self
+                        .state
+                        .draw_wish_answered(source, objects.first().copied())
+                    {
+                        self.ask_draw_skip(next_player, next, Vec::new());
+                    }
+                    return Ok(());
+                }
                 if let Some(result) = self.answer_effect_play(player, &objects) {
                     return result;
                 }
@@ -1670,7 +1710,7 @@ impl<L: CardLookup> Engine<L> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.pitch = objects.into_iter().collect();
-                    wizard.stage = cast_wizard::WizardStage::Escape;
+                    wizard.stage = cast_wizard::WizardStage::ReturnCreature;
                     self.cast_wizard = Some(wizard);
                     // Taken like every other answer the wizard asks, and a
                     // cast that cannot go on from it is reversed (CR 601.2,
@@ -1685,11 +1725,22 @@ impl<L: CardLookup> Engine<L> {
                 if self
                     .cast_wizard
                     .as_ref()
+                    .is_some_and(|wizard| wizard.stage == cast_wizard::WizardStage::ReturnCreature)
+                {
+                    let wizard = self.cast_wizard.as_mut().expect("cast wizard active");
+                    wizard.returned = objects.first().copied();
+                    wizard.stage = cast_wizard::WizardStage::Delve;
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                if self
+                    .cast_wizard
+                    .as_ref()
                     .is_some_and(|w| w.stage == cast_wizard::WizardStage::Escape)
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.escape_exiles = objects.into_iter().collect();
-                    wizard.stage = cast_wizard::WizardStage::Delve;
+                    wizard.stage = cast_wizard::WizardStage::Done;
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());

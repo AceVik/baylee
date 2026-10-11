@@ -69,10 +69,21 @@ pub(super) fn one_type_each(cards: &[TypeSet]) -> bool {
 
 /// Which permission lets a card be played from its owner's graveyard, when
 /// the one that does is counted.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum GraveyardPermission {
     /// Uncounted: Wrenn and Realmbreaker's emblem, Crucible of Worlds.
     Unlimited,
+    /// A once-per-turn static allowance or a single resolved permission.
+    Once {
+        /// Exact effect identity; reacquiring an ability creates a new allowance.
+        effect: baylee_core::ids::EffectId,
+        /// Source shown when choosing between permissions.
+        source: Option<ObjectId>,
+        /// The Tomb's permission adds Vampire and an entry finality counter.
+        vampire: bool,
+    },
+    /// Flashback granted at the card's mana cost, chosen independently of Kess.
+    Flashback,
     /// Muldrotha's allowance, which this play uses up a part of.
     EachType {
         /// The allowance's source.
@@ -126,15 +137,29 @@ pub fn graveyard_cast_permission(
     player: PlayerId,
     obj: &crate::object::GameObject,
 ) -> Option<GraveyardPermission> {
+    graveyard_cast_permissions(state, player, obj)
+        .into_iter()
+        .next()
+}
+
+/// All applicable permissions. Choosing one must not consume another's allowance.
+#[must_use]
+pub fn graveyard_cast_permissions(
+    state: &GameState,
+    player: PlayerId,
+    obj: &crate::object::GameObject,
+) -> Vec<GraveyardPermission> {
+    use baylee_cards_dsl::Modifier;
     let types = obj.characteristics().types;
     if obj.zone != Zone::Graveyard
         || obj.zone_owner != Some(player)
         || types.contains(TypeSet::LAND)
     {
-        return None;
+        return Vec::new();
     }
     // "You may cast spells from your graveyard this turn": every spell, so
     // it is asked before the word "permanent" is.
+    let mut permissions = Vec::new();
     if state.effects.iter().any(|fx| {
         fx.controller == player
             && crate::effects::matches_filter(state, fx, obj)
@@ -143,26 +168,116 @@ pub fn graveyard_cast_permission(
                 baylee_cards_dsl::Modifier::CastSpellsFromGraveyard
             )
     }) {
-        return Some(GraveyardPermission::Unlimited);
+        permissions.push(GraveyardPermission::Unlimited);
     }
-    if !types.is_permanent() {
-        return None;
+    if types.is_permanent()
+        && state.effects.iter().any(|fx| {
+            fx.controller == player
+                && crate::effects::matches_filter(state, fx, obj)
+                && matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::CastPermanentSpellsFromGraveyard
+                )
+        })
+        && !permissions.contains(&GraveyardPermission::Unlimited)
+    {
+        permissions.push(GraveyardPermission::Unlimited);
     }
-    if state.effects.iter().any(|fx| {
-        fx.controller == player
+    if types.is_permanent() {
+        permissions.extend(each_type_allowances(state, player).filter_map(
+            |(source, version, mut plays)| {
+                plays.retain(|t| !t.contains(TypeSet::LAND));
+                plays.push(types);
+                one_type_each(&plays).then_some(GraveyardPermission::EachType { source, version })
+            },
+        ));
+    }
+    for fx in state.effects.iter().filter(|fx| fx.controller == player) {
+        let vampire = fx.modifier == Modifier::GraveyardVampireOnce;
+        let matches = if vampire {
+            types.contains(TypeSet::CREATURE)
+        } else {
+            fx.modifier == Modifier::GraveyardInstantSorceryOnce
+                && state.turn.active == player
+                && types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY))
+                && !state
+                    .per_turn
+                    .graveyard_allowances_used
+                    .contains(&(player, fx.id))
+        };
+        if matches
+            && crate::effects::source_is_present(state, fx)
             && crate::effects::matches_filter(state, fx, obj)
-            && matches!(
-                fx.modifier,
-                baylee_cards_dsl::Modifier::CastPermanentSpellsFromGraveyard
-            )
-    }) {
-        return Some(GraveyardPermission::Unlimited);
+        {
+            permissions.push(GraveyardPermission::Once {
+                effect: fx.id,
+                source: fx.source,
+                vampire,
+            });
+        }
     }
-    each_type_allowances(state, player).find_map(|(source, version, mut plays)| {
-        plays.retain(|t| !t.contains(TypeSet::LAND));
-        plays.push(types);
-        one_type_each(&plays).then_some(GraveyardPermission::EachType { source, version })
+    permissions
+}
+
+/// Read a graveyard allowance using the characteristics of the announced face.
+pub(crate) fn graveyard_face_permissions(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: usize,
+) -> Vec<GraveyardPermission> {
+    let what = if face == 0 {
+        SpendFor::Spell(card)
+    } else {
+        SpendFor::SpellOnFace(card, face)
+    };
+    payment::spending_object(state, what).map_or_else(Vec::new, |object| {
+        graveyard_cast_permissions(state, player, &object)
     })
+}
+
+/// Whether any ordinary or printed graveyard route can announce this face.
+pub(crate) fn graveyard_face_open(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: usize,
+) -> bool {
+    use crate::state::CardLookup;
+    let Some(object) = state.object(card) else {
+        return false;
+    };
+    if object.zone != Zone::Graveyard || play_permission(state, player, card).is_some() {
+        return true;
+    }
+    if object.zone_owner != Some(player) {
+        return false;
+    }
+    !graveyard_face_permissions(state, player, card, face).is_empty()
+        || !escape_grants(state, player, card, face).is_empty()
+        || (face == 0 && flashback_granted(state, card))
+        || object
+            .card
+            .and_then(|card| state.bases.card(card.index))
+            .and_then(|def| def.faces.get(face))
+            .is_some_and(|face| {
+                face.disturb
+                    || face.flashback.is_some()
+                    || face.escape.is_some()
+                    || face.beam_me_up.is_some()
+            })
+}
+
+/// Beam me up's nonmana cost, shared by its offer, question and payment.
+pub(crate) const BEAM_RETURN: baylee_cards_dsl::CostPart =
+    baylee_cards_dsl::CostPart::ReturnToHand(&baylee_cards_dsl::Filter::CREATURE);
+
+pub(crate) fn beam_return_options(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+) -> Vec<ObjectId> {
+    crate::engine::cost_wizard::options(state, player, card, &BEAM_RETURN)
 }
 
 /// Which permission lets `player` play a land from their own graveyard:
@@ -195,6 +310,19 @@ pub fn note_graveyard_play(
     permission: Option<GraveyardPermission>,
     types: TypeSet,
 ) {
+    if let Some(GraveyardPermission::Once {
+        effect, vampire, ..
+    }) = permission
+    {
+        if vampire {
+            state.effects.remove_where(|fx| fx.id == effect);
+        } else {
+            state
+                .per_turn
+                .graveyard_allowances_used
+                .push((player, effect));
+        }
+    }
     if let Some(GraveyardPermission::EachType { source, version }) = permission {
         state
             .per_turn

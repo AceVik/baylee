@@ -1041,3 +1041,182 @@ fn keyword_counter_value_requires_a_new_keyword() {
         assert_eq!(agent().counters(&v, &object, counter, 1), Some(0));
     }
 }
+
+/// Read the real printed activation, including the resource cost reserved
+/// before deciding whether its one-turn permission can lead to a spell.
+fn permission_activation(v: &PlayerView, source: u32, index: usize) -> i64 {
+    let object = v.object(obj(source)).unwrap();
+    agent()
+        .activation_worth(
+            v,
+            Origin::of(v, object.id),
+            &crate::activate::printed_list(object)[index],
+        )
+        .expect("the permission and its cost are understood")
+}
+
+#[test]
+fn counter_protection_requires_a_spell_mana_and_opposing_counterplay() {
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![
+            card(1, ME, "Mistrise Village", TypeSet::LAND),
+            island(2, THEM),
+        ],
+    );
+    main_phase(&mut v);
+    v.hand.push(hand_card(10, "Serra Angel"));
+    v.seats[0].mana_pool.blue = 1;
+    v.seats[0].mana_pool.white = 2;
+    v.seats[0].mana_pool.colorless = 3;
+    v.seats[1].hand_count = 1;
+    assert!(permission_activation(&v, 1, 1) > crate::worth::THRESHOLD);
+
+    // The Village cannot both grant protection and supply the sixth mana.
+    v.seats[0].mana_pool.colorless = 2;
+    assert!(permission_activation(&v, 1, 1) <= 0);
+    v.seats[0].mana_pool.colorless = 3;
+    v.battlefield[1].status = ObjectStatus::TAPPED;
+    assert!(permission_activation(&v, 1, 1) <= 0);
+    v.battlefield[1].status = ObjectStatus::NONE;
+    v.seats[1].hand_count = 0;
+    assert!(permission_activation(&v, 1, 1) <= 0);
+    v.seats[1].hand_count = 1;
+    v.hand.clear();
+    assert!(permission_activation(&v, 1, 1) <= 0);
+}
+
+#[test]
+fn proxy_does_not_sacrifice_itself_to_protect_no_future_spell() {
+    let mut proxy = card(1, ME, "Theorist's Proxy", TypeSet::CREATURE);
+    proxy.toughness = Some(3);
+    let mut v = view(0, &[20, 20], vec![proxy, island(2, THEM)]);
+    main_phase(&mut v);
+    v.seats[0].mana_pool.blue = 1;
+    v.seats[0].mana_pool.white = 2;
+    v.seats[0].mana_pool.colorless = 3;
+    v.seats[1].hand_count = 1;
+    let without_spell = permission_activation(&v, 1, 1);
+    assert!(without_spell < 0);
+    v.hand.push(hand_card(10, "Serra Angel"));
+    assert!(permission_activation(&v, 1, 1) > without_spell);
+    their_end_step(&mut v);
+    assert!(
+        permission_activation(&v, 1, 1) < 0,
+        "Angel cannot be cast before expiry"
+    );
+}
+
+#[test]
+fn north_star_is_used_only_when_its_setup_unlocks_a_spell() {
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![card(1, ME, "North Star", TypeSet::ARTIFACT)],
+    );
+    main_phase(&mut v);
+    v.hand.push(hand_card(10, "Serra Angel"));
+    v.seats[0].mana_pool.blue = 9;
+    assert!(permission_activation(&v, 1, 0) > crate::worth::THRESHOLD);
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        activates(1, 0)
+    );
+    v.seats[0].mana_pool.blue = 8;
+    assert!(
+        permission_activation(&v, 1, 0) <= 0,
+        "four setup mana is reserved"
+    );
+    v.seats[0].mana_pool.blue = 7;
+    v.seats[0].mana_pool.white = 2;
+    assert!(
+        permission_activation(&v, 1, 0) <= 0,
+        "normally payable spells need no fixing"
+    );
+    v.seats[0].mana_pool.white = 0;
+    v.seats[0].mana_pool.blue = 9;
+    their_end_step(&mut v);
+    assert!(
+        permission_activation(&v, 1, 0) <= 0,
+        "permission expires before Angel's turn"
+    );
+}
+
+#[test]
+fn tomb_permission_needs_an_affordable_owned_graveyard_creature() {
+    let mut tomb = card(1, ME, "Tarrian's Journal", TypeSet::LAND);
+    tomb.card.as_mut().unwrap().face = 1;
+    tomb.rules.as_mut().unwrap().face = 1;
+    let mut v = view(0, &[20, 20], vec![tomb]);
+    main_phase(&mut v);
+    v.seats[0].mana_pool.white = 2;
+    v.seats[0].mana_pool.colorless = 3;
+    assert!(permission_activation(&v, 1, 1) <= 0);
+    v.graveyards[0].push(card(10, ME, "Serra Angel", TypeSet::CREATURE));
+    assert!(permission_activation(&v, 1, 1) > crate::worth::THRESHOLD);
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 1)])),
+        activates(1, 1)
+    );
+    v.seats[0].mana_pool.colorless = 2;
+    assert!(
+        permission_activation(&v, 1, 1) <= 0,
+        "Tomb's mana tap was spent on permission"
+    );
+    v.seats[0].mana_pool.colorless = 3;
+    v.graveyards[0][0].owner = THEM;
+    assert!(permission_activation(&v, 1, 1) <= 0);
+    v.graveyards[0][0].owner = ME;
+    their_end_step(&mut v);
+    assert!(permission_activation(&v, 1, 1) <= 0);
+}
+
+#[test]
+fn ring_is_spent_to_prevent_decking_but_not_for_an_unknown_wish() {
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![card(1, ME, "Ring of Ma'rûf", TypeSet::ARTIFACT)],
+    );
+    v.active = ME;
+    v.phase = baylee_view::Phase::Beginning;
+    v.step = baylee_view::Step::Upkeep;
+    v.seats[0].mana_pool.colorless = 5;
+    assert!(
+        permission_activation(&v, 1, 0) < 0,
+        "no outside inventory is visible"
+    );
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        PlayerAction::PassPriority,
+        "ordinary upkeep activations still preserve mana"
+    );
+    v.seats[0].library_count = 0;
+    assert!(permission_activation(&v, 1, 0) > crate::worth::THRESHOLD);
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        activates(1, 0)
+    );
+    // An ordinary fetch is normally selected ahead of other activations,
+    // but cannot hide the action that prevents this turn's loss.
+    v.battlefield
+        .push(card(2, ME, "Flooded Strand", TypeSet::LAND));
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(2), 0), (obj(1), 0)])),
+        activates(1, 0)
+    );
+    their_end_step(&mut v);
+    assert!(
+        permission_activation(&v, 1, 0) < 0,
+        "the replacement expires before our draw"
+    );
+
+    v.stack.push(stack_spell(10, "Opt", ME, obj(1)));
+    assert!(permission_activation(&v, 1, 0) > crate::worth::THRESHOLD);
+    v.stack[0] = stack_spell(10, "Counsel of the Soratami", ME, obj(1));
+    assert!(
+        permission_activation(&v, 1, 0) < 0,
+        "replacing one of two draws still decks"
+    );
+}

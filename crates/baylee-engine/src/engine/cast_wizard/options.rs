@@ -73,14 +73,28 @@ impl<L: CardLookup> Engine<L> {
         // cost, and under the Lattice any mana answers any pip.
         let afford = |cost: &baylee_core::mana::ManaCost| {
             defer_mana
-                || casting::affordable(
+                || casting::spell_affordable(
                     &self.state,
                     player,
+                    card,
                     pool,
                     &price(*cost).with_less_generic(reduction),
                 )
         };
-        let mut options = Vec::new();
+        let afford_normal = |cost: &ManaCost| {
+            afford(cost)
+                || casting::north_star_face_allowed(&self.state, player, card, 0)
+                    && casting::normal_spell_affordable(
+                        &self.state,
+                        player,
+                        card,
+                        pool,
+                        &price(*cost).with_less_generic(reduction),
+                        &face.mana_cost,
+                    )
+        };
+        let mut options =
+            casting::granted_escape_options(&self.state, &self.lookup, player, card, paying);
         // Disturb casts come from the graveyard: no normal-cost option.
         let disturb_cast = self
             .state
@@ -90,7 +104,15 @@ impl<L: CardLookup> Engine<L> {
         if disturb_cast {
             for (i, back) in def.faces.iter().enumerate().skip(1) {
                 if back.disturb
-                    && casting::affordable(&self.state, player, pool, &back_price(i).with_x(0))
+                    && casting::face_timing_allows(&self.state, player, card, def, i)
+                    && (defer_mana
+                        || casting::spell_affordable(
+                            &self.state,
+                            player,
+                            card,
+                            pool,
+                            &back_price(i).with_x(0),
+                        ))
                     && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
                 {
                     options.push(CastModeDesc {
@@ -119,57 +141,39 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(card)
             .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard);
-        // Escape (CR 702.138a) from the graveyard: its mana and the other
-        // cards it exiles, the count asked of the list the wizard offers.
-        // Beside it, where a permission casts the card from there (Muldrotha,
-        // Wrenn's emblem), the mana cost as `Normal`.
-        if in_graveyard && let Some(escape) = face.escape {
-            let permitted = self.state.object(card).is_some_and(|o| {
-                casting::graveyard_cast_permission(&self.state, player, o).is_some()
-            });
-            if permitted && afford(&face.mana_cost.with_x(0)) {
+        // Alternative graveyard costs coexist with ordinary permissions.
+        if in_graveyard {
+            if let Some(escape) = face.escape {
+                let fodder = casting::escape_exile_options(&self.state, player, card).len();
+                if afford(&escape.cost.with_x(0))
+                    && (fodder >= usize::from(escape.exile) || defer_mana)
+                {
+                    options.push(CastModeDesc {
+                        index: 0,
+                        kind: CastModeKind::Escape,
+                        cost: price(escape.cost),
+                    });
+                }
+            }
+            if let Some(flashback) = face.flashback
+                && afford(&flashback.with_x(0))
+            {
                 options.push(CastModeDesc {
                     index: 0,
-                    kind: CastModeKind::Normal,
-                    cost: price(face.mana_cost),
-                });
-            }
-            let fodder = casting::escape_exile_options(&self.state, player, card).len();
-            if afford(&escape.cost.with_x(0)) && fodder >= usize::from(escape.exile) {
-                options.push(CastModeDesc {
-                    index: options.len() as u32,
-                    kind: CastModeKind::Escape,
-                    cost: price(escape.cost),
-                });
-            }
-            if options.is_empty() {
-                return Err(EngineError::IllegalAction("no way to cast this spell"));
-            }
-            return Ok(options);
-        }
-        if in_graveyard && let Some(flashback) = face.flashback {
-            let at_mana_cost = casting::flashback_granted(&self.state, card)
-                || self.state.object(card).is_some_and(|o| {
-                    casting::graveyard_cast_permission(&self.state, player, o).is_some()
-                });
-            if at_mana_cost && afford(&face.mana_cost.with_x(0)) {
-                options.push(CastModeDesc {
-                    index: 0,
-                    kind: CastModeKind::Normal,
-                    cost: price(face.mana_cost),
-                });
-            }
-            if afford(&flashback.with_x(0)) {
-                options.push(CastModeDesc {
-                    index: options.len() as u32,
                     kind: CastModeKind::Flashback,
                     cost: price(flashback),
                 });
             }
-            if options.is_empty() {
-                return Err(EngineError::IllegalAction("no way to cast this spell"));
+            if let Some(beam) = face.beam_me_up
+                && afford(&beam.with_x(0))
+                && !casting::beam_return_options(&self.state, player, card).is_empty()
+            {
+                options.push(CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::BeamMeUp,
+                    cost: price(beam),
+                });
             }
-            return Ok(options);
         }
         // Conditional cost reduction printed on the card (Surgical
         // Metamorph & co.), through the same reader `can_cast` uses — this
@@ -219,20 +223,55 @@ impl<L: CardLookup> Engine<L> {
                 )
                 .is_ok())
             && casting::has_a_printed_cost(&face.mana_cost)
-            && afford(&normal_cost.with_x(0))
+            && afford_normal(&normal_cost.with_x(0))
             && (face.kicked_targets.is_none()
                 || casting::ordinary_targets_reachable(&self.state, def, player, card))
         {
-            options.push(CastModeDesc {
-                index: options.len() as u32,
-                kind: CastModeKind::Normal,
-                cost: price(normal_cost),
-            });
+            // Keep the ordinary cast first beside alternative graveyard costs.
+            // The final pass assigns indices after every option is assembled.
+            options.insert(
+                0,
+                CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::Normal,
+                    cost: price(normal_cost),
+                },
+            );
         }
-        if let Some(req) = face.kicked_targets {
+        if !face.additional_costs.is_empty()
+            && (face.kicked_targets.is_some() || !afford_normal(&face.mana_cost.with_x(0)))
+        {
             let cost = casting::kicked_mana_cost(face);
-            if afford(&cost.with_x(0))
-                && casting::requirement_is_reachable(Some(req), &self.state, player, card)
+            let restricted = casting::planning_pool(
+                &self.state,
+                player,
+                casting::SpendFor::KickedSpell(card, 0, None),
+                0,
+            );
+            let kicked_pool = restricted
+                .as_ref()
+                .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
+            if (defer_mana
+                || casting::spell_affordable(
+                    &self.state,
+                    player,
+                    card,
+                    kicked_pool,
+                    &price(cost).with_x(0).with_less_generic(reduction),
+                )
+                || casting::north_star_face_allowed(&self.state, player, card, 0)
+                    && casting::normal_spell_affordable(
+                        &self.state,
+                        player,
+                        card,
+                        kicked_pool,
+                        &price(cost).with_x(0).with_less_generic(reduction),
+                        &face.mana_cost,
+                    ))
+                && face.kicked_targets.map_or_else(
+                    || casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0),
+                    |req| casting::requirement_is_reachable(Some(req), &self.state, player, card),
+                )
             {
                 options.push(CastModeDesc {
                     index: options.len() as u32,
@@ -364,7 +403,22 @@ impl<L: CardLookup> Engine<L> {
                 .as_ref()
                 .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
             if (defer_mana
-                || casting::affordable(&self.state, player, pool, &back_price(i).with_x(0)))
+                || casting::spell_affordable(
+                    &self.state,
+                    player,
+                    card,
+                    pool,
+                    &back_price(i).with_x(0),
+                )
+                || casting::north_star_face_allowed(&self.state, player, card, i)
+                    && casting::normal_spell_affordable(
+                        &self.state,
+                        player,
+                        card,
+                        pool,
+                        &back_price(i).with_x(0),
+                        &def.faces[i].mana_cost,
+                    ))
                 && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
             {
                 options.push(CastModeDesc {
@@ -384,7 +438,7 @@ impl<L: CardLookup> Engine<L> {
             if !choose.is_one() {
                 for set in casting::mode_sets(modes, *choose) {
                     let cost = casting::mode_set_cost(face.mana_cost, modes, set);
-                    if afford(&cost.with_x(0))
+                    if afford_normal(&cost.with_x(0))
                         && casting::mode_set_has_legal_targets(
                             &self.state,
                             &self.lookup,
@@ -411,9 +465,17 @@ impl<L: CardLookup> Engine<L> {
                 // control" and answered the press with "not enough legal
                 // targets", leaving the question standing so an agent pressed
                 // it again on the next pass.
-                if afford(&cost.with_x(0))
-                    && casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
-                {
+                if (if mode.cost_override.is_some() {
+                    afford(&cost.with_x(0))
+                } else {
+                    afford_normal(&cost.with_x(0))
+                }) && casting::mode_has_a_legal_target(
+                    &self.state,
+                    &self.lookup,
+                    player,
+                    card,
+                    i,
+                ) {
                     options.push(CastModeDesc {
                         index: (options.len()) as u32,
                         kind: CastModeKind::Mode(i),
@@ -435,12 +497,35 @@ impl<L: CardLookup> Engine<L> {
             && casting::spell_condition_allows(&self.state, player, card, def, 0);
         options.retain(|o| match o.kind {
             CastModeKind::PlayLandFace(_) => true,
-            CastModeKind::Face(i) => {
+            CastModeKind::Face(i) | CastModeKind::EscapeGranted { face: i, .. } => {
                 (commanded || casting::face_timing_allows(&self.state, player, card, def, i))
                     && casting::spell_condition_allows(&self.state, player, card, def, i)
             }
             _ => front_now,
         });
+        if in_graveyard
+            && !commanded
+            && casting::play_permission(&self.state, player, card).is_none()
+        {
+            options.retain(|option| {
+                let face_index = match option.kind {
+                    CastModeKind::Face(face) => face,
+                    _ => 0,
+                };
+                matches!(
+                    option.kind,
+                    CastModeKind::Escape
+                        | CastModeKind::Flashback
+                        | CastModeKind::BeamMeUp
+                        | CastModeKind::EscapeGranted { .. }
+                ) || (matches!(option.kind, CastModeKind::Face(_)) && def.faces[face_index].disturb)
+                    || !casting::graveyard_face_permissions(&self.state, player, card, face_index)
+                        .is_empty()
+                    || (face_index == 0
+                        && casting::mana_cost_mode(def, face_index, option.kind)
+                        && casting::flashback_granted(&self.state, card))
+            });
+        }
         if commanded
             && self.state.turn.active == player
             && casting::has_a_land_drop_left(&self.state, player)

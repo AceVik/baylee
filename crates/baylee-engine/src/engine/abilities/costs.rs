@@ -90,7 +90,15 @@ impl<L: CardLookup> Engine<L> {
             .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
         // Mycosynth Lattice: mana spends as though it were any colour, so a
         // five-colour activation cost is payable off five Islands.
-        casting::affordable(&self.state, player, pool, cost)
+        match what {
+            casting::SpendFor::Spell(card)
+            | casting::SpendFor::SpellAs(card, _)
+            | casting::SpendFor::SpellOnFace(card, _)
+            | casting::SpendFor::KickedSpell(card, ..) => {
+                casting::spell_affordable(&self.state, player, card, pool, cost)
+            }
+            _ => casting::affordable(&self.state, player, pool, cost),
+        }
     }
 
     fn can_pay_commander_colors(&self, player: PlayerId) -> bool {
@@ -266,7 +274,8 @@ impl<L: CardLookup> Engine<L> {
                 // Devoted Druid's second -1/-1 leaves a 0/0 that CR 704.5f
                 // puts in the graveyard, and a permanent in a graveyard is
                 // offered nothing.
-                CostPart::SacrificeAll(_)
+                CostPart::DiscardHand
+                | CostPart::SacrificeAll(_)
                 | CostPart::SacrificeSelf
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
@@ -409,6 +418,12 @@ impl<L: CardLookup> Engine<L> {
                     let at = self.state.rng.below(hand.len() as u64) as usize;
                     let card = self.state.zones.list(ZoneLocation::Hand(player))[at];
                     self.state.discard_card(card, player, Cause::Cost, None);
+                }
+                CostPart::DiscardHand => {
+                    let cards = self.state.zones.list(ZoneLocation::Hand(player)).clone();
+                    for card in cards {
+                        self.state.discard_card(card, player, Cause::Cost, None);
+                    }
                 }
                 CostPart::DiscardSelf => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);

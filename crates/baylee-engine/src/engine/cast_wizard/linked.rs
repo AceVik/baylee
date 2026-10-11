@@ -49,7 +49,7 @@ impl<L: CardLookup> Engine<L> {
             let pool = restricted
                 .as_ref()
                 .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
-            if make_mana || casting::affordable(&self.state, player, pool, &cost) {
+            if make_mana || casting::spell_affordable(&self.state, player, card, pool, &cost) {
                 options.push(CastModeDesc {
                     index: 0,
                     kind: CastModeKind::Face(face),
@@ -57,7 +57,13 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
-        if self.state.turn.active == player && casting::has_a_land_drop_left(&self.state, player) {
+        if self
+            .state
+            .object(card)
+            .is_some_and(crate::object::GameObject::is_card)
+            && self.state.turn.active == player
+            && casting::has_a_land_drop_left(&self.state, player)
+        {
             options.extend(def.land_faces_from_hand().map(|face| CastModeDesc {
                 index: 0,
                 kind: CastModeKind::PlayLandFace(face),
@@ -84,8 +90,15 @@ impl<L: CardLookup> Engine<L> {
             .types
             .contains(baylee_core::types::TypeSet::LAND)
             || !casting::may_begin_casting(&self.state, player)
+            // This permission bypasses timing derived from card types, but
+            // not Teferi's explicit restriction. A parent is still resolving,
+            // so this is never a time its opponent could cast a sorcery.
+            || self.state.effects.iter().any(|effect| {
+                effect.modifier == baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
+                    && self.state.is_opponent(effect.controller, player)
+            })
             || !casting::spell_condition_allows(&self.state, player, card, def, face)
-            || additional_sacrifices(&def.faces[face]).any(|part| {
+            || additional_card_costs(&def.faces[face]).any(|part| {
                 crate::engine::cost_wizard::options(&self.state, player, card, part).is_empty()
             })
         {

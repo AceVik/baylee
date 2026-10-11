@@ -53,6 +53,7 @@ card!(
                         count: 1,
                         window: PlayWindow::ThisTurn,
                         free: true,
+                        mana_any_type: false,
                         spell_types: None,
                     }
                 },

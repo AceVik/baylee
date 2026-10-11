@@ -154,6 +154,7 @@ pub fn counter(kind: CounterKind) -> String {
         CounterKind::Indestructible => "indestructible".into(),
         CounterKind::Hone => "hone".into(),
         CounterKind::Stun => "stun".into(),
+        CounterKind::Finality => "finality".into(),
         CounterKind::Level => "level".into(),
         CounterKind::Custom(_) => "other".into(),
     }

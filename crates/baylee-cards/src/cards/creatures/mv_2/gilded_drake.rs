@@ -30,6 +30,7 @@ card!(
             min: 0,
             max: 1,
             count_is_x: false,
+            distinct_mana_values: false,
         })
     )],
 );

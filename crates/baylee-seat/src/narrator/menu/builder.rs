@@ -244,7 +244,7 @@ impl Builder<'_, '_> {
                 player_options,
                 usize::try_from(*min).unwrap_or(usize::MAX),
                 usize::try_from(*max).unwrap_or(usize::MAX),
-                *reason,
+                reason,
             ),
             Pending::ChooseSubtype { options, .. } => self.subtype(options),
             Pending::ChooseCardName { types, .. } => {
@@ -810,7 +810,7 @@ impl Builder<'_, '_> {
         players: &[PlayerId],
         min: usize,
         max: usize,
-        reason: TargetPrompt,
+        reason: &TargetPrompt,
     ) {
         let table = self.table;
         let view = table.view;
@@ -828,11 +828,11 @@ impl Builder<'_, '_> {
         match reason {
             TargetPrompt::Retarget { current, index, of } => {
                 let current = match current {
-                    baylee_engine::choice::TargetRef::Object(source) => table.named_target(source),
-                    baylee_engine::choice::TargetRef::Player(id) => table.player(id),
+                    baylee_engine::choice::TargetRef::Object(source) => table.named_target(*source),
+                    baylee_engine::choice::TargetRef::Player(id) => table.player(*id),
                 };
                 let keep = if min == 0 { " Choose no targets to keep this target." } else { "" };
-                self.line(format!("QUESTION: Target {} of {of} for {what} is {current}. Choose a new target.{keep}", u64::from(index) + 1));
+                self.line(format!("QUESTION: Target {} of {of} for {what} is {current}. Choose a new target.{keep}", u64::from(*index) + 1));
             },
             TargetPrompt::CopyOf => self.line(format!(
                 "QUESTION: Choose what {what} enters as a copy of (a choice, not a target), or none."
@@ -841,6 +841,7 @@ impl Builder<'_, '_> {
                 "QUESTION: Convoke: choose creatures to tap to help pay for {what} (each pays {{1}} \
                  or one mana of its colour)."
             )),
+            TargetPrompt::DistinctManaValues(_) => self.line(format!("QUESTION: Choose targets with different mana values for {what}.")),
             TargetPrompt::Targets => {
                 let mut line = format!("QUESTION: Choose targets for {what}");
                 if source.is_some_and(|t| t.second) {

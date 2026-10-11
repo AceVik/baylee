@@ -9,9 +9,6 @@
 //! Set: REX #7 — Jurassic World Collection | Scryfall ID: 6d84e2d4-38bf-4d46-99a6-37c2dda66b16 | Oracle ID: a4b37d16-95b3-4143-a0b2-ad9f2aba91f8
 //! Face: Welcome to . . . — {1}{G}{G} — Enchantment — Saga
 //! Face: Jurassic Park —  — Legendary Land
-// IMPLEMENTED — chapter III (destroy every Wall, then transform into Jurassic
-// Park) and the back face's "{T}: Add {G} for each Dinosaur you control".
-// Chapters I and II and the escape grant are NOT SUPPORTED; see below.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -24,24 +21,32 @@ static YOUR_DINOSAURS: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
-/// Jurassic Park's only ability: `{T}: Add {G} for each Dinosaur you control.`
-static JURASSIC_PARK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana_dynamic(
-    ManaColor::Green,
-    Amount::CountOf {
-        filter: &YOUR_DINOSAURS,
-        zone: ZoneSel::Battlefield,
-    },
-)])];
+static NONCREATURE_ARTIFACT: Filter = Filter::And(&[Filter::ARTIFACT, Filter::NONCREATURE]);
+
+static JURASSIC_PARK_ABILITIES: &[AbilityDef] = &[
+    static_ability!(
+        Filter::And(&[
+            Filter::HasSubtype(creature::DINOSAUR),
+            Filter::InZone(ZoneRef::Graveyard),
+            Filter::OwnedByYou,
+        ]),
+        Modifier::GrantsEscape(3)
+    ),
+    mana_ability!(&[Effect::mana_dynamic(
+        ManaColor::Green,
+        Amount::CountOf {
+            filter: &YOUR_DINOSAURS,
+            zone: ZoneSel::Battlefield
+        },
+    )]),
+];
 
 card!(
     index = index::WELCOME_TO,
     oracle_id = "a4b37d16-95b3-4143-a0b2-ad9f2aba91f8",
     scryfall_id = "6d84e2d4-38bf-4d46-99a6-37c2dda66b16",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Partial(
-        "chapter I's per-opponent target count, chapter II's Dinosaur token and \
-         its haste rider, and escape on Dinosaur cards in the graveyard"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[
         face!(
             name = "Welcome to . . .",
@@ -59,28 +64,44 @@ card!(
             // the one a player does play — so this is the case it cannot tell
             // apart and a person has to.
             castable_from_hand = false,
-            // NOT SUPPORTED: "Each Dinosaur card in your graveyard has escape.
-            // The escape cost is equal to the card's mana cost plus exile
-            // three other cards from your graveyard." — no `Modifier` grants
-            // escape, and `Modifier::GrantsFlashback` is flashback: it pays
-            // the mana cost alone and exiles the card afterwards.
-            abilities = JURASSIC_PARK_MANA,
+            abilities = JURASSIC_PARK_ABILITIES,
         ),
     ],
     abilities = &[
-        // NOT SUPPORTED: chapter I — "For each opponent, up to one target
-        // noncreature artifact they control becomes a 0/4 Wall artifact
-        // creature with defender for as long as you control this Saga."
-        // `TargetReq` states one fixed `max` for the whole effect, so "up to
-        // one per opponent" has no spelling at all; and the change is four
-        // layers at once (type, subtype, P/T, keyword) where a
-        // `CreateContinuousEffect` carries one `Modifier`.
-        // NOT SUPPORTED: chapter II — "Create a 3/3 green Dinosaur creature
-        // token with trample. It gains haste until end of turn." No token in
-        // `crate::tokens` is a 3/3 green Dinosaur and a card file may not
-        // define one, and "it gains haste" is a continuous effect on the
-        // token *this* effect created, which no `Filter` can name —
-        // `PumpFilter` would give haste to every Dinosaur you control.
+        chapter!(
+            1,
+            &[
+                Effect::ModifyTargets {
+                    modifier: Modifier::AddType(TypeSet::CREATURE),
+                    duration: Duration::WhileYouControlSource
+                },
+                Effect::ModifyTargets {
+                    modifier: Modifier::AddSubtype(creature::WALL),
+                    duration: Duration::WhileYouControlSource
+                },
+                Effect::ModifyTargets {
+                    modifier: Modifier::SetPT(0, 4),
+                    duration: Duration::WhileYouControlSource
+                },
+                Effect::ModifyTargets {
+                    modifier: Modifier::AddKeyword(KeywordSet::DEFENDER),
+                    duration: Duration::WhileYouControlSource
+                },
+            ],
+            targets = Some(TargetReq::up_to(
+                TargetSpec::ObjectOfEachOpponent(&NONCREATURE_ARTIFACT),
+                u8::MAX
+            )),
+        ),
+        chapter!(
+            2,
+            &[Effect::CreateTokenModified {
+                token: &crate::generated_tokens::DINOSAUR_3_3_GREEN_TRAMPLE,
+                amount: Amount::Fixed(1),
+                tapped: false,
+                haste: true,
+            }]
+        ),
         chapter!(
             3,
             &[

@@ -370,6 +370,7 @@ fn gloom_play_permission_and_paid_effect_cast_each_charge_once() {
                 card,
                 version,
                 free: true,
+                mana_any_type: false,
                 cast_only: true,
                 spell_types: None,
                 window: baylee_cards_dsl::PlayWindow::ThisTurn.into(),

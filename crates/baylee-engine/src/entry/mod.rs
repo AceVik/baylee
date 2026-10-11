@@ -60,7 +60,7 @@ struct Attempt {
     denied: bool,
     sacrifices: Option<u32>,
     chosen_number: Option<u8>,
-    counters: Vec<(PlayerId, CounterKind, u16)>,
+    counters: Vec<(Option<PlayerId>, CounterKind, u16)>,
     copy: CopyStatus,
     preview_effects: Vec<baylee_core::ids::EffectId>,
 }
@@ -325,7 +325,7 @@ pub(crate) fn put_counters(
         .iter_mut()
         .find(|entry| entry.object == id)
     {
-        entry.counters.push((by, kind, n));
+        entry.counters.push((Some(by), kind, n));
     } else if state
         .object(id)
         .is_some_and(|o| o.zone == Zone::Battlefield)
@@ -377,4 +377,26 @@ fn options(state: &GameState, entry: &Attempt, filter: &Filter, hand: bool) -> V
             })
         })
         .collect()
+}
+
+/// Entry counters without a named placing player belong to the entering
+/// object's controller (CR 122.6a), after entry control replacements.
+pub(crate) fn put_entry_counters(state: &mut GameState, id: ObjectId, kind: CounterKind, n: u16) {
+    if n == 0 {
+        return;
+    }
+    if let Some(entry) = state
+        .entries
+        .pending
+        .iter_mut()
+        .find(|entry| entry.object == id)
+    {
+        entry.counters.push((None, kind, n));
+    } else if let Some(controller) = state
+        .object(id)
+        .filter(|object| object.zone == Zone::Battlefield)
+        .map(|object| object.controller)
+    {
+        crate::replacement::put_counters_by(state, controller, id, kind, n);
+    }
 }

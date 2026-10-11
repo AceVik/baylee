@@ -21,6 +21,7 @@ impl GameState {
     #[allow(clippy::too_many_lines)] // one line per field: the list is the guard
     pub fn snapshot_hash(&self) -> u64 {
         let Self {
+            format,
             arena,
             zones,
             graveyard_order,
@@ -147,6 +148,7 @@ impl GameState {
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
         monarch.hash(&mut h);
+        format.hash(&mut h);
         starting_player.hash(&mut h);
         per_turn.hash(&mut h);
         play_permissions.hash(&mut h);
@@ -1504,6 +1506,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(61);
                 amount.hash(h);
             }
+            Rider::EntryFinality => h.u8(72),
             Rider::Dashed => h.u8(14),
             Rider::EventDeparture(p, toughness) => {
                 h.u8(19);
@@ -1709,6 +1712,8 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // Length-prefixed, so `Named("a") + Named("bc")` inside an `And`
         // cannot hash as `Named("ab") + Named("c")`.
         F::NamedBySource => h.u8(63),
+        F::Kicked => h.u8(64),
+        F::CastFromHand => h.u8(65),
         F::Named(name) => {
             h.u8(29);
             h.u32(u32::try_from(name.len()).unwrap_or(u32::MAX));
@@ -1755,6 +1760,7 @@ fn hash_counter(h: &mut Hasher, kind: CounterKind) {
         CounterKind::Indestructible => h.u8(15),
         CounterKind::Hone => h.u8(16),
         CounterKind::Stun => h.u8(17),
+        CounterKind::Finality => h.u8(18),
         // The id is hashed whole. Folding it modulo 100 was safe while every
         // tag was one byte and is not worth keeping now that the function
         // writes as many as it likes.

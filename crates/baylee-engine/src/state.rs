@@ -20,6 +20,8 @@ use rustc_hash::FxHashMap;
 
 mod discard;
 mod draw_offer;
+pub use draw_offer::DrawReplacement;
+mod draw_wish;
 mod hash;
 mod hidden_exile;
 mod lifetimes;
@@ -451,6 +453,8 @@ pub struct PerTurn {
     /// Whether each player lost life this turn (Luminarch Ascension).
     /// Written by [`GameState::change_life`] and nothing else.
     pub life_lost: Vec<bool>,
+    /// Cumulative loss, independent of later life gains, for counted costs.
+    pub life_lost_amount: Vec<u32>,
     /// The damage dealt to each player this turn, per seat ("the damage
     /// dealt to you this turn", Simulacrum). Written by
     /// [`GameState::damage_player`] and nothing else.
@@ -484,6 +488,8 @@ pub struct PerTurn {
     /// What each Muldrotha-style allowance has let its controller play from
     /// the graveyard this turn ([`GraveyardPlay`]).
     pub graveyard_plays: Vec<GraveyardPlay>,
+    /// Successful casts under a particular once-per-turn graveyard allowance.
+    pub graveyard_allowances_used: Vec<(PlayerId, baylee_core::ids::EffectId)>,
     /// What was put into a graveyard this turn, from anywhere, in arrival
     /// order (`Filter::PutIntoGraveyardThisTurn`). Written by
     /// [`GameState::move_object`], beside `entered_battlefield`.
@@ -569,6 +575,8 @@ pub struct PlayPermission {
     /// "Without paying its mana cost" (Dauthi Voidwalker): a spell is cast
     /// through the free-cast path, and X is 0 (CR 107.3b).
     pub free: bool,
+    /// Card-specific spending permission, including colorless symbols.
+    pub mana_any_type: bool,
     /// "You may **cast** that card" (Ragavan, Nimble Pilferer) rather than
     /// "play": to play a card is to play it as a land or cast it as a spell
     /// (CR 601.1a), and this permission is the second half only, so a land
@@ -593,6 +601,7 @@ impl PerTurn {
             spells_cast: vec![0; players],
             no_more_spells: vec![false; players],
             life_lost: vec![false; players],
+            life_lost_amount: vec![0; players],
             damage_dealt_to: vec![0; players],
             permanent_damage: Vec::new(),
             creatures_died: 0,
@@ -603,6 +612,7 @@ impl PerTurn {
             drawn: Vec::new(),
             resolved: Vec::new(),
             graveyard_plays: Vec::new(),
+            graveyard_allowances_used: Vec::new(),
             entered_graveyard: Vec::new(),
             exile_if_dies: Vec::new(),
             camouflage: false,
@@ -662,6 +672,7 @@ impl PerTurn {
         self.spells_cast.iter_mut().for_each(|v| *v = 0);
         self.no_more_spells.iter_mut().for_each(|v| *v = false);
         self.life_lost.iter_mut().for_each(|v| *v = false);
+        self.life_lost_amount.fill(0);
         self.damage_dealt_to.iter_mut().for_each(|v| *v = 0);
         self.permanent_damage.clear();
         self.creatures_died = 0;
@@ -670,6 +681,7 @@ impl PerTurn {
         self.drawn.clear();
         self.resolved.clear();
         self.graveyard_plays.clear();
+        self.graveyard_allowances_used.clear();
         self.entered_graveyard.clear();
         self.exile_if_dies.clear();
         self.camouflage = false;
@@ -801,6 +813,8 @@ pub struct Commander {
 /// The whole game world: cloneable for AI, hashable for determinism.
 #[derive(Clone, Debug)]
 pub struct GameState {
+    /// Format-specific rules, including access to cards outside the game.
+    pub format: FormatId,
     /// All game objects.
     pub arena: Arena<GameObject>,
     /// Ordered zone contents.
@@ -1245,6 +1259,7 @@ impl GameState {
     #[allow(clippy::too_many_lines)]
     pub(crate) fn fingerprint(&self, whole: bool, out: &mut Vec<(&'static str, String)>) {
         let GameState {
+            format,
             arena,
             zones,
             graveyard_order,
@@ -1330,6 +1345,7 @@ impl GameState {
         };
         out.extend([
             ("state.arena", heavy(arena)),
+            ("state.format", format!("{format:?}")),
             ("state.zones", format!("{zones:?}")),
             ("state.graveyard_order", format!("{graveyard_order:?}")),
             ("state.entries", format!("{entries:?}")),
@@ -1975,6 +1991,9 @@ impl GameState {
         let new = p.life;
         if new < old {
             self.per_turn.life_lost[seat] = true;
+            let lost = u32::try_from(i64::from(old) - i64::from(new)).unwrap_or(u32::MAX);
+            self.per_turn.life_lost_amount[seat] =
+                self.per_turn.life_lost_amount[seat].saturating_add(lost);
         }
         self.journal.record(GameEvent::LifeChanged {
             player,

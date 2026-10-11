@@ -29,6 +29,7 @@ impl GameState {
         };
         let seats = preset.seats.len() as u8;
         let mut state = Self {
+            format: preset.format,
             arena: Arena::with_capacity(512),
             zones: Zones::new(preset.seats.len()),
             players: preset
@@ -332,7 +333,7 @@ impl GameState {
             keywords: token.keywords,
             power: size.or(token.power),
             toughness: size.or(token.toughness),
-            loyalty: None,
+            loyalty: token.loyalty,
             color_identity: baylee_core::color::ColorSet::EMPTY,
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,

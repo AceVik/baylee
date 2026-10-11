@@ -13,6 +13,10 @@ use baylee_core::types::{SupertypeSet, TypeSet};
 /// A predicate over game objects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Filter {
+    /// A spell whose kicker cost was paid or has been announced for this cast.
+    Kicked,
+    /// A spell cast from hand, as recorded when casting was completed.
+    CastFromHand,
     /// The card has been designated as a commander, in any zone (CR 903.3).
     IsCommander,
     /// Has the alternative characteristics of an Adventure, including copies (CR 715.2).

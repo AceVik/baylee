@@ -18,8 +18,11 @@ use baylee_core::mana::{ManaColor, ManaCost, ManaFlags, ManaPool, ManaSpending, 
 use baylee_core::types::TypeSet;
 use smallvec::SmallVec;
 
+mod additional;
+mod escape;
 mod intrinsic;
 mod lands;
+pub(crate) use additional::{additional_card_enters_graveyard, additional_payment_capacity};
 mod payment;
 mod permissions;
 mod pricing;
@@ -28,11 +31,16 @@ pub(crate) use pricing::spell_increase;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use escape::{escape_grants, granted_escape_options, mana_cost_mode};
 pub use intrinsic::*;
 pub use lands::*;
 pub(crate) use payment::*;
 pub(crate) use permissions::*;
-pub(crate) use pricing::{activation_increase, face_adjustment, face_increase, spell_adjustment};
+pub(crate) use pricing::{
+    activation_increase, component_affordable, face_adjustment, face_increase,
+    normal_spell_affordable, north_star_effect, north_star_face_allowed, spell_adjustment,
+    spell_mana_spending,
+};
 pub use pricing::{
     commander_tax, convoke_sources, delve_sources, keyword_reduction, mana_is_wild, mana_spending,
     printed_reduction, reduction_amount, waterbend_sources,
@@ -107,9 +115,25 @@ pub fn castable_back_faces(
     def: &baylee_cards_dsl::CardDef,
     on_adventure: bool,
 ) -> impl Iterator<Item = (usize, &baylee_cards_dsl::FaceDef)> {
-    def.faces.iter().enumerate().skip(1).filter(move |(_, f)| {
-        f.castable_from_hand && !f.types.contains(TypeSet::LAND) && !(on_adventure && f.adventure)
-    })
+    castable_back_faces_in_zone(def, on_adventure, false)
+}
+
+/// Native disturb is available only when its graveyard permission is active.
+/// Ordinary callers still exclude it from hand, exile and free-cast menus.
+fn castable_back_faces_in_zone(
+    def: &baylee_cards_dsl::CardDef,
+    on_adventure: bool,
+    disturb: bool,
+) -> impl Iterator<Item = (usize, &baylee_cards_dsl::FaceDef)> {
+    def.faces
+        .iter()
+        .enumerate()
+        .skip(1)
+        .filter(move |(_, face)| {
+            (face.castable_from_hand || disturb && face.disturb)
+                && !face.types.contains(TypeSet::LAND)
+                && !(on_adventure && face.adventure)
+        })
 }
 
 /// Whether one face of `card` has enough legal targets to be cast at all.
@@ -681,7 +705,7 @@ pub(crate) fn can_cast_form_paying(
     // Every mana probe below asks the pool, unless the mana is made during
     // the cast; the other parts of a cost are asked either way.
     let affordable = |state: &GameState, player: PlayerId, pool: &ManaPool, cost: &ManaCost| {
-        paying == Paying::DuringTheCast || affordable(state, player, pool, cost)
+        paying == Paying::DuringTheCast || spell_affordable(state, player, card, pool, cost)
     };
     let obj = state.object(card).ok_or(CastError::NotInHand)?;
     let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
@@ -702,6 +726,13 @@ pub(crate) fn can_cast_form_paying(
         .and_then(|c| lookup.card(c.index))
         .and_then(|def| def.faces[0].escape);
     let escape_ok = !in_hand && in_own_graveyard && printed_escape.is_some();
+    let beam_cost = obj
+        .card
+        .and_then(|card| lookup.card(card.index))
+        .and_then(|def| def.faces[0].beam_me_up);
+    let beam_ok = in_own_graveyard
+        && beam_cost.is_some()
+        && !beam_return_options(state, player, card).is_empty();
     // Disturb (CR 702.146): a face with disturb is castable from the
     // owner's graveyard.
     let disturb_ok = !in_hand
@@ -740,13 +771,32 @@ pub(crate) fn can_cast_form_paying(
     } else {
         play_permission(state, player, card)
     };
+    let granted_escape =
+        in_own_graveyard && !granted_escape_options(state, lookup, player, card, paying).is_empty();
     // Wrenn's emblem and Muldrotha: a permanent card cast from its owner's
     // graveyard at its own price.
     let graveyard_ok = !in_hand && graveyard_cast_permission(state, player, obj).is_some();
+    // A granted flashback cost cannot be combined with a second alternative cost.
+    let flashback_only =
+        in_own_graveyard && flashback_granted(state, card) && !graveyard_ok && permission.is_none();
+    if flashback_only && matches!(form, Some(SpellForm::Disguise)) {
+        return Err(CastError::NoWayToCast);
+    }
+    let graveyard_back = in_own_graveyard
+        && obj
+            .card
+            .and_then(|card| lookup.card(card.index))
+            .is_some_and(|def| {
+                castable_back_faces(def, false)
+                    .any(|(face, _)| graveyard_face_open(state, player, card, face))
+            });
     if !in_hand
         && !graveyard_ok
+        && !graveyard_back
         && !flashback_ok
         && !escape_ok
+        && !beam_ok
+        && !granted_escape
         && !disturb_ok
         && !adventure_ok
         && !takeover_ok
@@ -766,6 +816,9 @@ pub(crate) fn can_cast_form_paying(
     if cast_is_forbidden(state, player, obj) || !may_begin_casting(state, player) {
         return Err(CastError::Forbidden);
     }
+    if granted_escape && form.is_none() {
+        return Ok(());
+    }
     // Timing (CR 601.3). Read off the projected characteristics, so a
     // granted flash counts. That is the front face's timing, and when it
     // says no, a back face cast in its place may still say yes by its own
@@ -775,11 +828,12 @@ pub(crate) fn can_cast_form_paying(
     // way.
     let printed = obj.card.and_then(|c| lookup.card(c.index));
     let front_now = !c.types.contains(TypeSet::LAND)
+        && graveyard_face_open(state, player, card, 0)
         && permitted_spell_types(state, player, card, c.types, 0)
         && timing_allows(state, player, c.types, c.keywords)
         && printed.is_none_or(|def| spell_condition_allows(state, player, card, def, 0));
     let a_back_face_now = printed.is_some_and(|def| {
-        castable_back_faces(def, on_adventure)
+        castable_back_faces_in_zone(def, on_adventure, disturb_ok)
             .any(|(i, _)| face_timing_allows(state, player, card, def, i))
     });
     if !front_now && (form.is_some() || !a_back_face_now) {
@@ -791,8 +845,7 @@ pub(crate) fn can_cast_form_paying(
     // wizard's `Sacrifice` stage builds its question from, so the offer and
     // the question cannot disagree — Force of Will's pitch is the precedent.
     if let Some(def) = obj.card.and_then(|card| lookup.card(card.index))
-        && crate::engine::cast_wizard::additional_sacrifices(&def.faces[0])
-            .any(|part| crate::engine::cost_wizard::options(state, player, card, part).is_empty())
+        && additional_payment_capacity(state, player, card, &def.faces[0], &[]).is_none()
     {
         return Err(CastError::NoWayToCast);
     }
@@ -814,7 +867,18 @@ pub(crate) fn can_cast_form_paying(
     let adjustment = spell_adjustment(state, player, obj);
     let tax = adjustment.increase;
     if let Some(form) = form {
-        return if affordable(state, player, pool, &adjustment.price(form.cost(), 0)) {
+        return if affordable(state, player, pool, &adjustment.price(form.cost(), 0))
+            || matches!(form, SpellForm::Prototype(_))
+                && north_star_face_allowed(state, player, card, 0)
+                && normal_spell_affordable(
+                    state,
+                    player,
+                    card,
+                    pool,
+                    &adjustment.price(form.cost(), 0),
+                    &form.cost(),
+                )
+        {
             Ok(())
         } else {
             Err(CastError::NotEnoughMana)
@@ -837,6 +901,18 @@ pub(crate) fn can_cast_form_paying(
             pool,
             &cost.with_more_generic(tax).with_less_generic(reduction),
         )
+    };
+    let probe_normal = |cost: &ManaCost| {
+        probe(cost)
+            || north_star_face_allowed(state, player, card, 0)
+                && normal_spell_affordable(
+                    state,
+                    player,
+                    card,
+                    pool,
+                    &cost.with_more_generic(tax).with_less_generic(reduction),
+                    &c.mana_cost,
+                )
     };
     // A waived mana cost still pays increases (CR 601.2f).
     if permission.is_some_and(|p| p.free) {
@@ -885,23 +961,23 @@ pub(crate) fn can_cast_form_paying(
             .reduction
             .saturating_add(printed_reduction(state, face, player, card))
             .saturating_add(keyword_reduction(state, face, player, card));
-        affordable(
-            state,
-            player,
-            pool,
-            &face
-                .mana_cost
-                .with_x(0)
-                .with_more_generic(tax)
-                .with_less_generic(reduction),
-        )
+        let cost = face
+            .mana_cost
+            .with_x(0)
+            .with_more_generic(tax)
+            .with_less_generic(reduction);
+        affordable(state, player, pool, &cost)
+            || !face.disturb
+                && north_star_face_allowed(state, player, card, i)
+                && normal_spell_affordable(state, player, card, pool, &cost, &face.mana_cost)
     };
     // A back face that may be cast now, affordable and with something to
     // point at: the same three questions the wizard asks of it.
     let a_back_face_castable = || {
         printed.is_some_and(|def| {
-            castable_back_faces(def, on_adventure).any(|(i, _)| {
+            castable_back_faces_in_zone(def, on_adventure, disturb_ok).any(|(i, _)| {
                 face_timing_allows(state, player, card, def, i)
+                    && graveyard_face_open(state, player, card, i)
                     && probe_back(def, i)
                     && face_has_a_legal_target(state, lookup, player, card, i)
             })
@@ -917,13 +993,19 @@ pub(crate) fn can_cast_form_paying(
         };
     }
     // A printed flashback is paid "rather than its mana cost" (CR 702.34a),
+    if beam_ok && beam_cost.is_some_and(|cost| probe(&cost)) {
+        return Ok(());
+    }
+    if in_own_graveyard && beam_cost.is_some() && !graveyard_ok && !flashback_ok && !escape_ok {
+        return Err(CastError::NoWayToCast);
+    }
     // so from the graveyard its cost is the price — or, beside a grant
     // (Past in Flames), one of two, the grant's being the mana cost below.
     if flashback_ok && let Some(cost) = printed_flashback {
         if probe(&cost.with_x(0)) {
             return Ok(());
         }
-        if !flashback_granted(state, card) {
+        if !flashback_granted(state, card) && !graveyard_ok {
             return Err(CastError::NotEnoughMana);
         }
     }
@@ -945,12 +1027,49 @@ pub(crate) fn can_cast_form_paying(
         }
     }
     if let Some(def) = printed
+        && !def.faces[0].additional_costs.is_empty()
+    {
+        let face = &def.faces[0];
+        let restricted = planning_pool(state, player, SpendFor::KickedSpell(card, 0, form), 0);
+        let kicked_pool = restricted
+            .as_ref()
+            .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
+        let reachable = face.kicked_targets.map_or_else(
+            || face_has_a_legal_target(state, lookup, player, card, 0),
+            |req| requirement_is_reachable(Some(req), state, player, card),
+        );
+        if reachable
+            && (affordable(
+                state,
+                player,
+                kicked_pool,
+                &kicked_mana_cost(face)
+                    .with_x(0)
+                    .with_more_generic(tax)
+                    .with_less_generic(reduction),
+            ) || north_star_face_allowed(state, player, card, 0)
+                && normal_spell_affordable(
+                    state,
+                    player,
+                    card,
+                    kicked_pool,
+                    &kicked_mana_cost(face)
+                        .with_x(0)
+                        .with_more_generic(tax)
+                        .with_less_generic(reduction),
+                    &face.mana_cost,
+                ))
+        {
+            return Ok(());
+        }
+    }
+    if let Some(def) = printed
         && let Some(req) = def.faces[0].kicked_targets
     {
-        let ordinary =
-            ordinary_targets_reachable(state, def, player, card) && probe(&c.mana_cost.with_x(0));
+        let ordinary = ordinary_targets_reachable(state, def, player, card)
+            && probe_normal(&c.mana_cost.with_x(0));
         let kicked = requirement_is_reachable(Some(req), state, player, card)
-            && probe(&kicked_mana_cost(&def.faces[0]).with_x(0));
+            && probe_normal(&kicked_mana_cost(&def.faces[0]).with_x(0));
         return if ordinary || kicked {
             Ok(())
         } else {
@@ -969,6 +1088,7 @@ pub(crate) fn can_cast_form_paying(
         let affordable_disturb = printed.is_some_and(|def| {
             def.faces.iter().enumerate().skip(1).any(|(i, f)| {
                 f.disturb
+                    && face_timing_allows(state, player, card, def, i)
                     && probe_back(def, i)
                     && face_has_a_legal_target(state, lookup, player, card, i)
             })
@@ -1002,7 +1122,7 @@ pub(crate) fn can_cast_form_paying(
     // mode that needed no target was `{2}{W}{W}` on three Swamps. Both
     // questions were asked and both were answered yes, about different modes.
     let modal_only = printed.is_some_and(|def| modes_are_the_only_way(def, 0));
-    if modal_only || !has_a_printed_cost(&c.mana_cost) || !probe(&normal_cost.with_x(0)) {
+    if modal_only || !has_a_printed_cost(&c.mana_cost) || !probe_normal(&normal_cost.with_x(0)) {
         // Alternative costs may still make it castable (pitch/evoke). The
         // wizard computes the exact options; this decides only whether there
         // is one, and asks about the whole cost to do it.
@@ -1019,24 +1139,25 @@ pub(crate) fn can_cast_form_paying(
         // `legal.castable` and the wizard then reversed the cast at the pitch
         // stage. Every part is asked about here, the way every condition is
         // asked about below — the two halves of the same offer.
-        let any_alt = face.alternative_costs.iter().any(|alt| {
-            // Every condition, not merely the one that was written first.
-            // `CommanderControlled` fell through the old `!matches!` as
-            // "true", so Flawless Maneuver and Fierce Guardianship were
-            // offered as castable with no commander anywhere — and the
-            // wizard, which does check the condition, then found no way to
-            // cast them at all.
-            let condition_ok = match alt.condition {
-                baylee_cards_dsl::AltCondition::Always => true,
-                baylee_cards_dsl::AltCondition::NotYourTurn => state.turn.active != player,
-                baylee_cards_dsl::AltCondition::CommanderControlled => {
-                    controls_a_commander(state, player)
-                }
-            };
-            condition_ok
-                && probe(&alt.cost.mana)
-                && alternative_parts_payable(state, player, card, alt.cost.parts)
-        });
+        let any_alt = !flashback_only
+            && face.alternative_costs.iter().any(|alt| {
+                // Every condition, not merely the one that was written first.
+                // `CommanderControlled` fell through the old `!matches!` as
+                // "true", so Flawless Maneuver and Fierce Guardianship were
+                // offered as castable with no commander anywhere — and the
+                // wizard, which does check the condition, then found no way to
+                // cast them at all.
+                let condition_ok = match alt.condition {
+                    baylee_cards_dsl::AltCondition::Always => true,
+                    baylee_cards_dsl::AltCondition::NotYourTurn => state.turn.active != player,
+                    baylee_cards_dsl::AltCondition::CommanderControlled => {
+                        controls_a_commander(state, player)
+                    }
+                };
+                condition_ok
+                    && probe(&alt.cost.mana)
+                    && alternative_parts_payable(state, player, card, alt.cost.parts)
+            });
         // Affordable *and* pointable, of the **same** mode. A mode's price
         // and a mode's target line are the two halves of one way to cast the
         // card, and this probe used to ask only the first while
@@ -1048,13 +1169,20 @@ pub(crate) fn can_cast_form_paying(
         let any_mode = def.abilities.iter().any(|a| match a {
             baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
                 mode_sets(modes, *choose).any(|set| {
-                    probe(&mode_set_cost(face.mana_cost, modes, set).with_x(0))
+                    (!flashback_only
+                        || mana_cost_mode(def, 0, crate::choice::CastModeKind::Modes(set)))
+                        && probe_normal(&mode_set_cost(face.mana_cost, modes, set).with_x(0))
                         && mode_set_has_legal_targets(state, lookup, player, card, set)
                 })
             }
             baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
                 modes.iter().enumerate().any(|(i, m)| {
-                    probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))
+                    (!flashback_only || m.cost_override.is_none())
+                        && (if m.cost_override.is_some() {
+                            probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))
+                        } else {
+                            probe_normal(&face.mana_cost.with_x(0))
+                        })
                         && mode_has_a_legal_target(state, lookup, player, card, i)
                 })
             }
@@ -1081,7 +1209,7 @@ pub(crate) fn can_cast_form_paying(
         // "not enough mana".
         let any_face = a_back_face_castable();
         // Dash (CR 702.109a), the offer's `CastModeKind::Dash`.
-        let any_dash = face.dash.is_some_and(|dash| probe(&dash));
+        let any_dash = !flashback_only && face.dash.is_some_and(|dash| probe(&dash));
         if !any_alt && !any_mode && !any_face && !any_dash {
             // Which of the two refused matters to whoever reads it. A mode
             // that was affordable and had nothing to point at is not a
@@ -1089,12 +1217,17 @@ pub(crate) fn can_cast_form_paying(
             // looking for the land.
             let a_mode_was_affordable = def.abilities.iter().any(|a| match a {
                 baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
-                    mode_sets(modes, *choose)
-                        .any(|set| probe(&mode_set_cost(face.mana_cost, modes, set).with_x(0)))
+                    mode_sets(modes, *choose).any(|set| {
+                        probe_normal(&mode_set_cost(face.mana_cost, modes, set).with_x(0))
+                    })
                 }
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => modes
-                    .iter()
-                    .any(|m| probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))),
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => modes.iter().any(|m| {
+                    if m.cost_override.is_some() {
+                        probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))
+                    } else {
+                        probe_normal(&face.mana_cost.with_x(0))
+                    }
+                }),
                 _ => false,
             });
             return Err(if a_mode_was_affordable {
@@ -1220,7 +1353,8 @@ fn alternative_parts_payable(
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
         | CostPart::PayCommanderColors => false,
-        CostPart::TapSelf
+        CostPart::DiscardHand
+        | CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)

@@ -240,7 +240,9 @@ impl HeuristicAgent {
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             // Ability removal and granted mana abilities require engine evaluation.
-            Filter::HasManaAbility
+            Filter::Kicked
+            | Filter::CastFromHand
+            | Filter::HasManaAbility
             | Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
             | Filter::AttachedToSource

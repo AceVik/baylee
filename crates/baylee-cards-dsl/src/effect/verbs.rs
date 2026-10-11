@@ -683,6 +683,8 @@ impl Effect {
             | Effect::SearchLibraryOrGraveyard { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::ModifyTargets { .. }
+            | Effect::ModifyEvent { .. }
+            | Effect::EmpowerJace { .. }
             | Effect::ModifySource { .. }
             | Effect::ChooseColors { .. }
             | Effect::ChooseSourceLandwalk { .. }
@@ -739,6 +741,7 @@ impl Effect {
             | Effect::RegenerateAll { .. }
             | Effect::ExileTopMayCast { .. }
         | Effect::ExileTopToPlay { .. }
+        | Effect::ExileAndCastCopies { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::UntapFound

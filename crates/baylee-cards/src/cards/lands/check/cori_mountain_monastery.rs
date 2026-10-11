@@ -38,6 +38,7 @@ card!(
                     count: 1,
                     window: PlayWindow::ThroughYourNextTurn,
                     free: false,
+                    mana_any_type: false,
                     spell_types: None,
                 }
             },]

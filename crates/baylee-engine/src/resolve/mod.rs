@@ -48,6 +48,8 @@ mod token_choices;
 mod top_card;
 pub use subjects::SubjectContext;
 mod amass;
+mod card_copies;
+mod empower;
 mod sacrifices;
 mod tokens;
 mod zones;

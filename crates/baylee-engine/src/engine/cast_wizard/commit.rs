@@ -7,6 +7,11 @@ impl<L: CardLookup> Engine<L> {
     #[allow(clippy::too_many_lines)] // payment is a flat checklist; extraction would obscure it
     pub(super) fn pay_and_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
         let face = self.wizard_face(wizard);
+        if wizard.escapes()
+            && wizard.escape_exiles.len() != usize::from(wizard.escape_count(face).unwrap_or(0))
+        {
+            return Err(EngineError::IllegalAction("escape cost is incomplete"));
+        }
         // Total mana: option cost (with X) + kicker mana when taken.
         let mut total = wizard_total_cost(face, wizard);
         let player = wizard.player;
@@ -25,12 +30,13 @@ impl<L: CardLookup> Engine<L> {
             total = reduce_generic(&total, reduction);
         }
         let (total, restriction) = self.restricted_x_payment(wizard, total);
+        let payment_cost = self.north_star_payment(wizard, total);
         // What the pool held of each color before the payment, restricted
         // units included: the colors it holds less of afterwards are the
         // colors spent (converge).
         let held_before = self.state.players[player.get() as usize].mana_pool.clone();
         let mut paid_mana = crate::object::PaidRecord {
-            mana_spending: casting::mana_spending(&self.state, player),
+            mana_spending: casting::spell_mana_spending(&self.state, player, wizard.card),
             ..Default::default()
         };
         // A free cast pays nothing but what is added to it: a kicker, the
@@ -45,7 +51,7 @@ impl<L: CardLookup> Engine<L> {
                 &mut self.state,
                 player,
                 spend_for(wizard, face),
-                &total,
+                &payment_cost,
                 restriction,
             ) else {
                 self.cast_wizard = None;
@@ -64,7 +70,7 @@ impl<L: CardLookup> Engine<L> {
         if owed_life > 0 {
             self.state.change_life(player, -owed_life, Cause::Cost);
         }
-        for &card in wizard.delve_exiles.iter().chain(&wizard.escape_exiles) {
+        for &card in &wizard.delve_exiles {
             let _ = self.state.move_object(
                 card,
                 ZoneLocation::Exile(player),
@@ -108,6 +114,7 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::Sacrifice(_)
                     | CostPart::Discard(_)
                     | CostPart::DiscardRandom
+                    | CostPart::DiscardHand
                     | CostPart::PayEnergy(_)
                     | CostPart::PayEnergyX
                     | CostPart::DiscardSelf
@@ -130,6 +137,17 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         // Mandatory additional cost parts (e.g. Toxic Deluge's pay X life).
+        if wizard.option == Some(CastModeKind::BeamMeUp) {
+            let returned = wizard.returned.ok_or(EngineError::IllegalAction(
+                "no creature returned for beam me up",
+            ))?;
+            super::super::cost_wizard::pay(
+                &mut self.state,
+                player,
+                &casting::BEAM_RETURN,
+                returned,
+            )?;
+        }
         let mut sacrificed = wizard.sacrifices.iter();
         let mut sacrificed_lki = None;
         let mut sacrificed_object = None;
@@ -168,6 +186,20 @@ impl<L: CardLookup> Engine<L> {
                         .map(crate::object::SacrificedLki::of);
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                 }
+                CostPart::Discard(_) => {
+                    let chosen = sacrificed
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction("unanswered discard cost"))?;
+                    super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
+                CostPart::DiscardHand => {
+                    for card in self.state.zones.list(ZoneLocation::Hand(player)).clone() {
+                        if card != wizard.card {
+                            self.state.discard_card(card, player, Cause::Cost, None);
+                        }
+                    }
+                }
                 // Already skipped, by [`paid_as_a_mandatory_additional_cost`]
                 // above, and named for the reason the alternative-cost match
                 // names its own — with the sharper edge that no `can_afford`
@@ -176,7 +208,6 @@ impl<L: CardLookup> Engine<L> {
                 CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::SacrificeSelf
-                | CostPart::Discard(_)
                 | CostPart::DiscardRandom
                 | CostPart::PayEnergy(_)
                 | CostPart::PayEnergyX
@@ -199,6 +230,24 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         graveyard_batch.finish(&mut self.state);
+        // Escape may exile a card sacrificed or discarded for this same
+        // spell. All nonmana costs above are paid first (CR 601.2h).
+        for &card in &wizard.escape_exiles {
+            if !self.state.object(card).is_some_and(|object| {
+                object.zone == crate::zone::Zone::Graveyard && object.zone_owner == Some(player)
+            }) {
+                return Err(EngineError::IllegalAction(
+                    "escape card is not in your graveyard",
+                ));
+            }
+            self.state.move_object(
+                card,
+                ZoneLocation::Exile(player),
+                ZonePosition::Top,
+                Cause::Cost,
+            )?;
+        }
+
         // Move the card to the stack as a spell. The targeting requirement
         // rides along on the object: a copy of this spell may be retargeted
         // during resolution (CR 707.10c), and the resolver has no card lookup
@@ -210,10 +259,7 @@ impl<L: CardLookup> Engine<L> {
         // object still shows the face it had in the graveyard, so the face is
         // read off the cast option, as the target requirement above is.
         let exiles_itself = {
-            let face = match wizard.option {
-                Some(CastModeKind::Face(i)) => i,
-                _ => 0,
-            };
+            let face = wizard.face_index();
             self.state
                 .object(card)
                 .and_then(|o| o.card)
@@ -248,42 +294,14 @@ impl<L: CardLookup> Engine<L> {
             // exile under a play permission (Expressive Iteration) or from
             // the command zone was not cast from a hand, and rebound reads
             // this (CR 702.88a).
-            obj.cast_from_hand = !wizard.free && obj.zone == crate::zone::Zone::Hand;
-            // A permanent spell cast from the graveyard under Muldrotha's
-            // allowance uses a type of it for the turn. Not a disturb back,
-            // and not a card a permission of its own opened.
-            if obj.zone == crate::zone::Zone::Graveyard
-                && wizard.by_effect.is_none()
-                && !matches!(
-                    wizard.option,
-                    Some(CastModeKind::Face(_) | CastModeKind::Escape)
-                )
-                && casting::play_permission(&self.state, player, card).is_none()
-            {
-                let obj = self.state.object(card).expect("wizard card exists");
-                let permission = casting::graveyard_cast_permission(&self.state, player, obj);
-                let types = obj.characteristics().types;
-                casting::note_graveyard_play(&mut self.state, player, permission, types);
-            }
-            // Flashback (CR 702.34a): "If the flashback cost was paid, exile
-            // this card". A permission to cast from the graveyard is not
-            // flashback (Wrenn's emblem, Muldrotha, Forgotten Cellar), so a
-            // spell it let through leaves the stack the usual way. An
-            // instant or sorcery cast from there otherwise came by a
-            // flashback, printed or granted, or an effect cast it, and none
-            // of those used the permission.
-            let by_permission = wizard.by_effect.is_none()
-                && !matches!(wizard.option, Some(CastModeKind::Flashback))
-                && self.state.object(card).is_some_and(|o| {
-                    casting::graveyard_cast_permission(&self.state, player, o).is_some()
-                });
-            let obj = self.state.object_mut(card).expect("wizard card exists");
+            obj.cast_from_hand = obj.zone == crate::zone::Zone::Hand;
+            // The chosen permission determines the replacement, independent
+            // of other permissions that happen to be available.
             if obj.zone == crate::zone::Zone::Graveyard {
-                if !by_permission
-                    && obj.characteristics().types.intersects(
-                        baylee_core::types::TypeSet::INSTANT
-                            .union(baylee_core::types::TypeSet::SORCERY),
-                    )
+                if matches!(
+                    wizard.option,
+                    Some(CastModeKind::Flashback | CastModeKind::BeamMeUp)
+                ) || wizard.permission == Some(casting::GraveyardPermission::Flashback)
                 {
                     obj.riders.push(crate::object::Rider::Flashback);
                 }
@@ -303,7 +321,7 @@ impl<L: CardLookup> Engine<L> {
             // Escape (CR 702.138b): the spell escaped, and so will the
             // permanent it becomes.
             obj.riders.retain(|r| *r != crate::object::Rider::Escaped);
-            if wizard.option == Some(CastModeKind::Escape) {
+            if wizard.escapes() {
                 obj.riders.push(crate::object::Rider::Escaped);
             }
             if exiles_itself {
@@ -340,7 +358,8 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         // MDFC back-face cast: the object becomes its chosen face (CR 712.11b).
-        if let Some(CastModeKind::Face(i)) = wizard.option {
+        let i = wizard.face_index();
+        if i != 0 {
             let def = self
                 .state
                 .object(card)
@@ -433,6 +452,11 @@ impl<L: CardLookup> Engine<L> {
         if let Some(source) = prepared_source {
             self.state.unprepare(source);
         }
+        if let Some(effect) = wizard.north_star {
+            self.state.effects.remove_where(|entry| entry.id == effect);
+        }
+        self.apply_graveyard_cast_grants(wizard);
+        self.apply_next_spell_grants(player, card);
         self.state.journal.record(GameEvent::SpellCast {
             object: card,
             player,

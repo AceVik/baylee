@@ -1011,6 +1011,10 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         if is_permanent {
+            let finality = self
+                .state
+                .object(spell)
+                .is_some_and(|object| object.riders.contains(&crate::object::Rider::EntryFinality));
             self.state.entries.begin_event(
                 self.state.journal.last_seq(),
                 self.state.object(spell).map(|o| o.controller),
@@ -1039,6 +1043,19 @@ impl<L: CardLookup> Engine<L> {
                 ZonePosition::Top,
                 Cause::Spell,
             );
+            if finality {
+                crate::entry::put_entry_counters(
+                    &mut self.state,
+                    spell,
+                    baylee_cards_dsl::CounterKind::Finality,
+                    1,
+                );
+                if let Some(object) = self.state.object_mut(spell) {
+                    object
+                        .riders
+                        .retain(|rider| *rider != crate::object::Rider::EntryFinality);
+                }
+            }
         } else {
             // Rebound (CR 702.88): cast from hand → exile with a rebound
             // rider and a delayed re-cast at the next upkeep.

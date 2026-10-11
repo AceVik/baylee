@@ -61,6 +61,11 @@ pub enum AwaitingOp {
         /// Evaluated number of +1/+1 counters.
         amount: u16,
     },
+    /// Non-targeted choice among controlled Jace planeswalker tokens.
+    EmpowerJace {
+        /// Loyalty counters to put on the chosen Jace token.
+        amount: u16,
+    },
     /// Actual tapped objects awaiting an energy payment and counter selections.
     TapEnergy(Box<super::tap_energy::Selection>),
     /// A selected pair of permanents waiting for the counter kind to move.
@@ -748,7 +753,7 @@ pub enum AwaitingOp {
     /// settles that card and the resolution goes on where it was.
     SkipDraw {
         /// The Sanctuary asking.
-        source: ObjectId,
+        source: crate::state::DrawReplacement,
         /// The player's other Sanctuaries already declined for this draw
         /// (CR 614.5: one opportunity each).
         declined: Vec<ObjectId>,
@@ -798,6 +803,7 @@ impl AwaitingOp {
     /// Captured choices distinguish a search even while its cards have not moved.
     pub(crate) fn search_fingerprint(&self) -> u64 {
         match self {
+            Self::EmpowerJace { amount } => crate::state::structural_fingerprint(&(11u8, amount)),
             Self::Hideaway { looked } => crate::state::structural_fingerprint(&(7u8, looked)),
             Self::LinkedPlay { cards } => crate::state::structural_fingerprint(&(8u8, cards)),
             Self::ReturnLinkedExile { to } => crate::state::structural_fingerprint(&(9u8, to)),

@@ -21,7 +21,8 @@ card!(
             spec: TargetSpec::Object(&Filter::CREATURE),
             min: 1,
             max: u8::MAX,
-            count_is_x: false
+            count_is_x: false,
+            distinct_mana_values: false,
         })
     )],
     faces = &[face!(

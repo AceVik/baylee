@@ -1722,7 +1722,7 @@ pub(crate) fn can_pay(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> 
 
 /// Only for evaluating a colour response. Actual taps always come from the
 /// engine's offer in `sources`, including its timing and conditional checks.
-fn remaining_sources(view: &PlayerView) -> Vec<Source> {
+pub(crate) fn remaining_sources(view: &PlayerView) -> Vec<Source> {
     own_sources(view, true)
 }
 

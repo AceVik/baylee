@@ -97,6 +97,12 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
             state.invalidate_projections();
         }
         for (by, kind, count) in entry.counters {
+            let by = by.unwrap_or_else(|| {
+                state
+                    .object(entry.object)
+                    .expect("entered object")
+                    .controller
+            });
             crate::replacement::put_counters_by(state, by, entry.object, kind, count);
         }
     }

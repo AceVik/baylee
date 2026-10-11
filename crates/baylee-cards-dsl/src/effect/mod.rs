@@ -32,6 +32,12 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Exile legal graveyard targets, or every matching card in your graveyard,
+    /// then optionally cast each resulting card copy for free during resolution.
+    ExileAndCastCopies {
+        /// `None` uses the spell's surviving targets; `Some` selects without targeting.
+        graveyard: Option<&'static Filter>,
+    },
     /// Resolve the inherent radiation trigger for its captured event player (CR 728.1).
     Radiation,
     /// Tap matching permanents, then optionally spend energy to put one counter
@@ -99,6 +105,8 @@ pub enum Effect {
         tapped: bool,
         /// Owner's control rather than the resolving ability's controller.
         owner_control: bool,
+        /// Counters placed as this new permanent enters, before entry triggers.
+        counters: Option<(CounterKind, u16)>,
     },
     /// Fabricate (CR 702.123a): optionally put counters on this incarnation,
     /// otherwise create that many of the supplied Servo tokens.
@@ -254,6 +262,20 @@ pub enum Effect {
         modifier: super::Modifier,
         /// How long the change lasts.
         duration: super::Duration,
+    },
+    /// Modify the exact spell or permanent that caused the trigger, without targeting.
+    ModifyEvent {
+        /// Characteristic or rule change applied to that incarnation.
+        modifier: super::Modifier,
+        /// Duration independently of the trigger's source.
+        duration: super::Duration,
+    },
+    /// Empower Jace N (CR 701.71a), using the central token definition.
+    EmpowerJace {
+        /// Token created only when no Jace planeswalker token is controlled.
+        token: &'static TokenDef,
+        /// Loyalty counters added to one controlled Jace token.
+        amount: u16,
     },
     /// Choose a non-targeted branch while resolving (CR 608.2d), rather
     /// than announcing a modal spell or ability on the stack (CR 700.2).

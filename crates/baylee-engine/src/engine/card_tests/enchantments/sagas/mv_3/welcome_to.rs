@@ -3,18 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Welcome to . . .` // `Jurassic Park` (`Coverage::Partial`):
-/// "I — For each opponent, up to one target noncreature artifact they control becomes a 0/4
-/// Wall artifact creature with defender for as long as you control this Saga.
-/// II — Create a 3/3 green Dinosaur creature token with trample. It gains haste until end of turn.
-/// III — Destroy all Walls. Exile this Saga, then return it to the battlefield transformed under
-/// your control. // `{{T}}`: Add `{{G}}` for each Dinosaur you control."
-///
-/// Under `Coverage::Partial`, chapters I and II and the graveyard escape grant are omitted.
-/// Chapter III and the back face's Dinosaur-scaled mana ability are implemented.
-/// The test casts `Welcome to . . .` with a Dinosaur (`Carnage Tyrant`) on the battlefield,
-/// advances lore counters to chapter III, resolves the transformation to `Jurassic Park` on face 1,
-/// and taps `Jurassic Park` to produce one green mana for the controlled Dinosaur.
+/// Natural chapter progression creates the Dinosaur, transforms the Saga and
+/// counts both the original creature and the new token for Jurassic Park mana.
 #[test]
 fn welcome_to_advances_to_chapter_three_and_taps_for_dinosaur_mana() {
     let p0 = PlayerId::new(0);
@@ -72,13 +62,13 @@ fn welcome_to_advances_to_chapter_three_and_taps_for_dinosaur_mana() {
         "mana pool is empty before activating Jurassic Park"
     );
 
-    activate(&mut engine, p0, welcome_to(), 0);
+    activate(&mut engine, p0, welcome_to(), 1);
 
     assert_eq!(
         engine.state().players[0]
             .mana_pool
             .available(ManaColor::Green),
-        1,
-        "produced 1 green mana for 1 controlled Dinosaur (Carnage Tyrant)"
+        2,
+        "the original Dinosaur and chapter II token each produce green mana"
     );
 }

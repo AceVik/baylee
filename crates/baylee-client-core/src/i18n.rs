@@ -100,6 +100,10 @@ messages! {
     LogCounterStun { en: "stun counter", de: "Betäubungsmarke" },
     /// Several stun counters.
     LogCountersStun { en: "stun counters", de: "Betäubungsmarken" },
+    /// One finality counter.
+    LogCounterFinality { en: "finality counter", de: "Endgültigkeitsmarke" },
+    /// Multiple finality counters.
+    LogCountersFinality { en: "finality counters", de: "Endgültigkeitsmarken" },
     /// Hold Shift to turn the preview.
     PreviewTurn { en: "Turn over", de: "Drehen" },
     /// Hold Alt/Option for the alternative preview.
@@ -2489,10 +2493,18 @@ messages! {
     CastMiracle { en: "Miracle", de: "Wunder" },
     /// Flashback
     CastFlashback { en: "Flashback", de: "Rückblende" },
+    /// Beam me up's casting option.
+    CastBeamMeUp { en: "Beam me up", de: "Beam mich hoch" },
+    /// Agadeem's Awakening target constraint.
+    DifferentManaValues { en: "Choose targets with different mana values", de: "Wähle Ziele mit unterschiedlichen Manabeträgen" },
     /// Dash (CR 702.109a), the keyword as the German printing names it
     CastDash { en: "Dash", de: "Sturmangriff" },
     /// Escape (CR 702.138a), the keyword as the German printing names it
     CastEscape { en: "Escape", de: "Befreiung" },
+    /// Choose the source of a casting permission.
+    CastPermission { en: "Use this casting permission", de: "Diese Erlaubnis zum Wirken nutzen" },
+    /// A casting permission without a limited allowance.
+    CastPermissionUnlimited { en: "Use an unrestricted casting permission", de: "Eine unbeschränkte Erlaubnis zum Wirken nutzen" },
     /// Click a card in your hand
     HintClickHand { en: "Click a card in your hand", de: "Klicke eine Karte auf deiner Hand an" },
     /// Click what you are choosing
@@ -2541,6 +2553,8 @@ messages! {
         en: "Pay {0} life? Otherwise it enters tapped",
         de: "{0} Leben zahlen? Sonst kommt es getappt ins Spiel",
     },
+    /// One-spell spending permission, restricted to the printed mana cost.
+    UseManaAnyType { en: "Use North Star to pay this spell’s mana cost with mana of any type? Additional costs still apply normally.", de: "North Star nutzen, um die Manakosten dieses Spruchs mit beliebigen Manatypen zu zahlen? Zusätzliche Kosten gelten unverändert." },
     /// Pay the additional cost?
     PayAdditionalCost { en: "Pay the additional cost?", de: "Die zusätzlichen Kosten zahlen?" },
     /// Optional life payment for a resolving ability.

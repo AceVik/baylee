@@ -442,6 +442,19 @@ pub enum Modifier {
     /// The affected card (in a graveyard) may be cast for its mana cost;
     /// exile it afterwards (flashback grant, Snapcaster Mage).
     GrantsFlashback,
+    /// Matching graveyard cards have escape for their mana cost and N other cards.
+    GrantsEscape(u8),
+    /// One instant or sorcery spell from your graveyard during each own turn.
+    /// A spell using this permission is exiled instead of entering your graveyard.
+    GraveyardInstantSorceryOnce,
+    /// One creature spell from your graveyard; add Vampire and an entry finality counter.
+    GraveyardVampireOnce,
+    /// The next spell this effect's controller casts cannot be countered.
+    NextSpellUncounterable,
+    /// An optional one-spell permission affecting only its mana cost.
+    OneSpellManaAnyType,
+    /// Replace the next draw this turn with a card from outside the game.
+    NextDrawWish,
     /// The effect's controller controls the affected permanent (CR 613.1b,
     /// layer 2): Mind Control, Act of Treason, Sower of Temptation.
     ///
@@ -829,6 +842,7 @@ impl Modifier {
             | Self::GrantActivated { .. }
             | Self::GrantStatic { .. }
             | Self::GrantsFlashback
+            | Self::GrantsEscape(_)
             | Self::CantActivateArtifacts
             // CR 613.1f is the whole argument for these two: "Layer 6:
             // Ability-adding effects, keyword counters, ability-removing
@@ -850,6 +864,11 @@ impl Modifier {
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::SpellsCostLess(_)
+            | Self::GraveyardInstantSorceryOnce
+            | Self::GraveyardVampireOnce
+            | Self::NextSpellUncounterable
+            | Self::OneSpellManaAnyType
+            | Self::NextDrawWish
             | Self::SpellsCostMore(_)
             | Self::AbilitiesCostMore(_)
             | Self::LegendRuleOff
@@ -1302,6 +1321,11 @@ mod tests {
     #[test]
     fn a_rules_modifying_effect_changes_no_characteristic_and_parks_on_text() {
         for modifier in [
+            Modifier::GraveyardInstantSorceryOnce,
+            Modifier::GraveyardVampireOnce,
+            Modifier::NextSpellUncounterable,
+            Modifier::OneSpellManaAnyType,
+            Modifier::NextDrawWish,
             Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
             Modifier::AbilitiesCostMore(3),

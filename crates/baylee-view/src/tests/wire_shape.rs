@@ -320,7 +320,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 62: revealed-discard choice; the prompt is imported from the engine.
     // 68: sacrifice count prompt for entry replacements.
     // 71: behold, numeric and restricted-name prompts imported from the engine.
-    const RECORDED: (u32, u64) = (71, 9_867_554_342_615_931_460);
+    // 72: finality counters and the casting choices in package 45.
+    const RECORDED: (u32, u64) = (72, 16_753_142_471_703_271_498);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

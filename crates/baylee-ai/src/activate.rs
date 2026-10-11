@@ -65,7 +65,18 @@ pub(crate) fn choose(
                 loyalty(view, legal)
             }
         })
-        .or_else(|| best(view, legal, agent))
+        .or_else(|| best(view, legal, agent, 0))
+}
+
+/// A game-saving activation that cannot wait for the ordinary development
+/// window. Skip fetch-first ordering: an ordinary fetch must not hide a Ring
+/// of Ma'rûf that prevents losing to this turn's draw.
+pub(crate) fn urgent(
+    view: &PlayerView,
+    legal: &LegalActions,
+    agent: &crate::HeuristicAgent,
+) -> Option<(ObjectId, u32)> {
+    best(view, legal, agent, crate::worth::LETHAL)
 }
 
 /// The offered activation worth the most, when it is worth taking.
@@ -73,6 +84,7 @@ fn best(
     view: &PlayerView,
     legal: &LegalActions,
     agent: &crate::HeuristicAgent,
+    minimum: i64,
 ) -> Option<(ObjectId, u32)> {
     legal
         .abilities
@@ -95,7 +107,7 @@ fn best(
                 }
             };
             let worth = agent.activation_worth(view, Origin::of(view, source), def)?;
-            (worth > floor).then_some((worth, (source, index)))
+            (worth > floor.max(minimum)).then_some((worth, (source, index)))
         })
         .max_by_key(|(worth, handle)| (*worth, std::cmp::Reverse(*handle)))
         .map(|(_, handle)| handle)
@@ -260,6 +272,7 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::Sacrifice(_)
             | CostPart::Discard(_)
                     | CostPart::DiscardRandom
+                    | CostPart::DiscardHand
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
             | CostPart::DiscardSelf

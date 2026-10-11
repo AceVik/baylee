@@ -26,6 +26,8 @@ pub enum CostPart {
     Discard(&'static Filter),
     /// Discard one uniformly selected hand card during atomic payment.
     DiscardRandom,
+    /// Discard the entire hand; an empty hand can pay this cost.
+    DiscardHand,
     /// Pay energy counters from the activating player.
     PayEnergy(u16),
     /// Announce X and pay that many energy counters.

@@ -7,6 +7,8 @@ use super::{CounterKind, Filter, ZoneSel};
 pub enum Amount {
     /// A fixed value.
     Fixed(u32),
+    /// Total life opponents have lost this turn; later gains do not subtract.
+    OpponentsLifeLostThisTurn,
     /// The value of X chosen at cast time.
     X,
     /// The negated value of X (Toxic Deluge's `-X/-X`; evaluated as a

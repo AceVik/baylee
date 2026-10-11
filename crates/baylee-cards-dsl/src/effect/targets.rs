@@ -216,6 +216,8 @@ pub struct TargetReq {
     pub max: u8,
     /// Whether the count is exactly X (Curse of the Swine).
     pub count_is_x: bool,
+    /// Every chosen object must have a different mana value (Agadeem's Awakening).
+    pub distinct_mana_values: bool,
 }
 
 impl TargetReq {
@@ -226,6 +228,7 @@ impl TargetReq {
             min: 1,
             max: 1,
             count_is_x: false,
+            distinct_mana_values: false,
         }
     }
 
@@ -236,6 +239,7 @@ impl TargetReq {
             min: n,
             max: n,
             count_is_x: false,
+            distinct_mana_values: false,
         }
     }
 
@@ -268,6 +272,7 @@ impl TargetReq {
             min: 0,
             max: 1,
             count_is_x: false,
+            distinct_mana_values: false,
         }
     }
 
@@ -278,6 +283,7 @@ impl TargetReq {
             min: 0,
             max,
             count_is_x: false,
+            distinct_mana_values: false,
         }
     }
 
@@ -288,6 +294,7 @@ impl TargetReq {
             min: 0,
             max: 255,
             count_is_x: true,
+            distinct_mana_values: false,
         }
     }
 }

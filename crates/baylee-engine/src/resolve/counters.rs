@@ -233,9 +233,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        // Only ever the head of a `MayDo` whose question was asked because
-        // the source had them (`may_clause_possible`), so the door's
-        // saturation never bites; it is the cost of "if you do" (CR 118.12).
+        // As an effect, remove as many as possible (CR 609.3). A `MayDo`
+        // cost separately checks that the complete removal is possible.
         Effect::RemoveCounterSelf { kind, n } => {
             if !subjects::source(state, res).is_some_and(|r| subjects::on_battlefield(state, r)) {
                 return None;

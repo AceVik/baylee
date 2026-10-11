@@ -908,6 +908,24 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::EmpowerJace { token, amount } => super::empower::start(state, res, token, amount),
+        Effect::ModifyEvent { modifier, duration } => {
+            let subject =
+                subjects::event(state, res).filter(|r| subjects::is_current(state, *r))?;
+            let timestamp = state.next_timestamp();
+            state.effects.register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: Some(res.source),
+                controller: you,
+                origin: crate::effects::EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp,
+                duration,
+                filter: crate::effects::EffectFilter::ObjectIs(subject.object, subject.version),
+                modifier,
+            });
+            None
+        }
         Effect::ModifyTargets { modifier, duration } => {
             if (matches!(modifier, baylee_cards_dsl::Modifier::GainControl) && state.has_left(you))
                 || (matches!(duration, baylee_cards_dsl::Duration::WhileYouControlSource)
@@ -1539,14 +1557,20 @@ pub(super) fn exec_immediate(
             })
         }
         Effect::WishToHand { filter } => {
-            // Cards outside the game, plus your own exile — the one place in
-            // the game a wish can already see. The choice is optional ("you
-            // may"), so the minimum is zero.
+            // Karn's choice explicitly includes face-up cards in exile.
+            // Commander disallows only its outside-game branch (CR 903.11).
             let mut options: Vec<ObjectId> = Vec::new();
             for loc in [ZoneLocation::OutsideGame(you), ZoneLocation::Exile(you)] {
+                if matches!(loc, ZoneLocation::OutsideGame(_))
+                    && state.format == baylee_core::preset::FormatId::Commander
+                {
+                    continue;
+                }
                 options.extend(state.zones.list(loc).iter().copied().filter(|id| {
                     state.object(*id).is_some_and(|o| {
                         o.owner == you
+                            && o.is_card()
+                            && !o.status.contains(crate::object::Status::FACE_DOWN)
                             && eval::matches_with_context(filter, state, o, you, res.rule_context())
                     })
                 }));
@@ -1703,6 +1727,9 @@ pub(super) fn exec_immediate(
         // owner's exile face up, and the controller may cast it this turn.
         // A permission for that object and no later one (`PlayPermission`),
         // so a card that moves again is not cast under it (CR 400.7).
+        Effect::ExileAndCastCopies { graveyard } => {
+            super::card_copies::exile_and_cast(state, res, graveyard)
+        }
         Effect::ExileTopToPlay { who, play } => {
             permissions::exile_top_to_play(state, res, who, play)
         }

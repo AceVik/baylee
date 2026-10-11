@@ -63,6 +63,8 @@ pub enum CounterKind {
     Hone,
     /// Replaces an untap attempt by removing one counter (CR 122.1d).
     Stun,
+    /// Exile instead of a battlefield-to-graveyard move (CR 122.1h).
+    Finality,
     /// Card-specific counters.
     Custom(u16),
 }
@@ -93,6 +95,7 @@ impl CounterKind {
             "energy" => Some(Self::Energy),
             "rad" => Some(Self::Rad),
             "stun" => Some(Self::Stun),
+            "finality" => Some(Self::Finality),
             "lifelink" => Some(Self::Lifelink),
             "level" => Some(Self::Level),
             "flying" => Some(Self::Flying),
@@ -178,6 +181,8 @@ pub struct TokenDef {
     pub power: Option<i16>,
     /// Toughness (creatures).
     pub toughness: Option<i16>,
+    /// Printed starting loyalty of a planeswalker token.
+    pub loyalty: Option<u16>,
     /// Keywords.
     pub keywords: KeywordSet,
     /// Activated and triggered abilities, read exactly like a card face's.
@@ -212,6 +217,7 @@ impl TokenDef {
         subtypes: &[],
         power: None,
         toughness: None,
+        loyalty: None,
         keywords: KeywordSet::EMPTY,
         abilities: &[],
         scryfall_id: "",

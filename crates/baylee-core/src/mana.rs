@@ -7,6 +7,7 @@
 use crate::color::{Color, ColorPair, ColorSet};
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
+mod component;
 mod transfer;
 
 /// The mana decision a resolving operation has opened a payment window for.
@@ -39,6 +40,9 @@ impl ManaSpending {
 
     /// Any mana pays any colored requirement; only colorless pays `{C}`.
     pub const ANY_COLOR: Self = Self([31, 31, 31, 31, 31, 63]);
+
+    /// Any actual mana may pay any type, including colorless (CR 118.14).
+    pub const ANY_TYPE: Self = Self([63; 6]);
 
     /// Adds a directed permission. Compatible "as though" effects combine
     /// (CR 609.4a), independent of their registration order.
