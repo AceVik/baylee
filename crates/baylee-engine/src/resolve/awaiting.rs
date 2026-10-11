@@ -375,6 +375,24 @@ pub enum AwaitingOp {
         /// Effect of not paying.
         effect: &'static Effect,
     },
+    /// Optional fixed-count sacrifice, before the yes/no or object answer.
+    SacrificePayment {
+        /// Player deciding.
+        player: PlayerId,
+        /// Eligible objects, captured before payment.
+        options: Vec<ObjectId>,
+        /// Exact count to pay together.
+        count: u8,
+        /// Consequence of not paying.
+        effect: &'static Effect,
+    },
+    /// A mandatory sacrifice followed by a test of its departing characteristics.
+    SacrificeAndIf {
+        /// Filter evaluated immediately before the sacrifice.
+        check: &'static baylee_cards_dsl::Filter,
+        /// Conditional follow-up.
+        effect: &'static Effect,
+    },
     /// A player decides whether to pay a non-mana cost by naming what pays
     /// it ([`Effect::PlayerMayPayCostOr`]). Naming nothing is declining.
     PlayerMayPayCost {

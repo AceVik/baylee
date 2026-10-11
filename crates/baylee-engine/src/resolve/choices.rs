@@ -397,6 +397,17 @@ pub(super) fn exec_choice(
                 source: resolving_ability(state, res),
             })
         }
+        Effect::PlayerMaySacrificeNOr {
+            player,
+            filter,
+            count,
+            effect,
+        } => super::sacrifices::offer_payment(state, res, player, filter, count, effect),
+        Effect::SacrificeAndIf {
+            filter,
+            check,
+            effect,
+        } => super::sacrifices::offer_conditional(state, res, filter, check, effect),
         Effect::PlayerMayPayCostOr {
             player,
             cost,

@@ -25,6 +25,46 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::SacrificePayment {
+            player,
+            options: _,
+            count,
+            effect,
+        } => {
+            if chosen.len() == usize::from(count)
+                && chosen.iter().all(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield && o.controller == player
+                    })
+                })
+            {
+                sacrifice_together(state, chosen);
+            } else {
+                return run_fallback(state, res, std::slice::from_ref(effect));
+            }
+        }
+        AwaitingOp::SacrificeAndIf { check, effect } => {
+            if let Some(&victim) = chosen.first() {
+                let qualifies = state.object(victim).is_some_and(|object| {
+                    eval::matches_with_context(
+                        check,
+                        state,
+                        object,
+                        res.controller,
+                        res.rule_context(),
+                    )
+                });
+                let eligible = state.object(victim).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.controller == res.controller
+                });
+                if eligible {
+                    sacrifice_together(state, chosen);
+                    if qualifies {
+                        return run_fallback(state, res, std::slice::from_ref(effect));
+                    }
+                }
+            }
+        }
         AwaitingOp::Amass { subtype, amount } => {
             if let Some(&army) = chosen.first() {
                 super::amass::finish(state, res, army, subtype, amount);

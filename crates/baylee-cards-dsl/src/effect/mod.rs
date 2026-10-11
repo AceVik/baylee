@@ -2183,6 +2183,28 @@ pub enum Effect {
         /// Effect performed only after successful payment.
         effect: &'static Effect,
     },
+    /// Optional simultaneous sacrifice of exactly the printed number;
+    /// declining or being unable to pay runs the fallback.
+    PlayerMaySacrificeNOr {
+        /// Who pays.
+        player: PlayerRel,
+        /// Eligible permanents controlled by that player.
+        filter: &'static Filter,
+        /// Exact number sacrificed together.
+        count: u8,
+        /// Consequence when the full payment is not made.
+        effect: &'static Effect,
+    },
+    /// Sacrifice one matching permanent you control, then run an effect if
+    /// its characteristics immediately before the sacrifice match `check`.
+    SacrificeAndIf {
+        /// Eligible permanents.
+        filter: &'static Filter,
+        /// Characteristics tested before the sacrificed permanent leaves.
+        check: &'static Filter,
+        /// Consequence when a matching permanent was actually sacrificed.
+        effect: &'static Effect,
+    },
     /// Optional nonmana payment with a fallback if declined.
     PlayerMayPayCostOr {
         /// Who decides.

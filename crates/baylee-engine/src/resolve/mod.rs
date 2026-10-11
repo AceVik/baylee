@@ -44,6 +44,7 @@ mod token_choices;
 mod top_card;
 pub use subjects::SubjectContext;
 mod amass;
+mod sacrifices;
 mod tokens;
 mod zones;
 
@@ -1039,6 +1040,8 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::ChooseOne { .. }
         | Effect::PlayerMayPayCostThen { .. }
+        | Effect::PlayerMaySacrificeNOr { .. }
+        | Effect::SacrificeAndIf { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::PayManaToPreventDamage { .. }
         | Effect::SacrificeChosenByOpponent { .. }

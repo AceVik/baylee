@@ -581,3 +581,31 @@ fn energy_payment_fallback_is_visited() {
     assert_eq!(seen, 2);
     assert!(discard_seen);
 }
+
+#[test]
+fn sacrifice_outcomes_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::PlayerMaySacrificeNOr {
+            player: PlayerRel::You,
+            filter: &Filter::LAND,
+            count: 2,
+            effect: &Effect::SacrificeSelf,
+        },
+        Effect::SacrificeAndIf {
+            filter: &Filter::LAND,
+            check: &Filter::LAND,
+            effect: &Effect::GainLife {
+                amount: Amount::Fixed(3),
+            },
+        },
+    ];
+    let mut seen = 0;
+    let mut branches = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        if matches!(effect, Effect::SacrificeSelf | Effect::GainLife { .. }) {
+            branches += 1;
+        }
+    });
+    assert_eq!(seen, 4);
+    assert_eq!(branches, 2);
+}

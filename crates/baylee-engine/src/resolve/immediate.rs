@@ -1855,6 +1855,8 @@ pub(super) fn exec_immediate(
         | Effect::MayPayEnergyOr { .. }
         | Effect::ChooseOne { .. }
         | Effect::PlayerMayPayCostThen { .. }
+        | Effect::PlayerMaySacrificeNOr { .. }
+        | Effect::SacrificeAndIf { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::PayManaToPreventDamage { .. }
         | Effect::SacrificeChosenByOpponent { .. }

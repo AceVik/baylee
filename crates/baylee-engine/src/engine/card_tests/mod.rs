@@ -37,6 +37,7 @@ mod legends_kit;
 mod planeswalkers;
 mod radiation;
 mod rules;
+mod sacrifice_outcomes;
 mod sorceries;
 mod stun_counters;
 

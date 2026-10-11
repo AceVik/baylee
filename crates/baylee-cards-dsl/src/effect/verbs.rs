@@ -647,6 +647,8 @@ impl Effect {
                 cost: _,
                 effect,
             }
+            | Effect::PlayerMaySacrificeNOr { effect, .. }
+            | Effect::SacrificeAndIf { effect, .. }
             | Effect::MayPayEnergyOr { effect, .. }
             | Effect::PlayerMayPayLifeOr { effect, .. }
             | Effect::PlayerMayPayCostThen { player: _, cost: _, effect }

@@ -75,7 +75,8 @@
 // Both IfTargetMatchesElse branches are exercised by both_target_match_branches_are_visited.
 // AtNextUpkeep traversal is covered by at_next_upkeep_body_is_visited.
 // MayPayEnergyOr adds one fallback, exercised by energy_payment_fallback_is_visited.
-const NESTING_FIELDS: usize = 41;
+// Both sacrifice outcomes retain an effect branch; tested by sacrifice_outcomes_are_visited.
+const NESTING_FIELDS: usize = 43;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -114,7 +115,7 @@ const NESTING_FIELDS: usize = 41;
 /// branches. `WhenTargetDiesThisTurn` (Sandals of Abdallah's delayed
 /// "destroy this artifact") is the twenty-ninth (2026-10-10).
 /// `SacrificeOneThen` (Serendib Djinn) is the thirtieth (2026-10-10).
-const CARRYING_VARIANTS: usize = 36;
+const CARRYING_VARIANTS: usize = 38;
 
 /// The floor under the reader itself.
 ///

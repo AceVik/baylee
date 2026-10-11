@@ -3434,3 +3434,19 @@ The controller then chooses one Army creature without targeting, including
 when replacement effects created several. Counters use the normal placement
 replacements, and an added Army subtype is a continuous type effect rather
 than a change to the creature's copiable values (CR 701.47a).
+
+### Counted and conditional sacrifice outcomes
+
+`Effect::PlayerMaySacrificeNOr { player, filter, count, effect }` offers a
+fixed-count payment during resolution. If fewer eligible permanents exist,
+it runs the fallback without offering a partial payment. Accepting gathers
+exactly `count` distinct permanents and sacrifices them simultaneously; the
+player can instead decline the whole payment. Tapped permanents are eligible
+unless the filter says otherwise. Mold Demon's two Swamps use this shape.
+
+`Effect::SacrificeAndIf { filter, check, effect }` requires its controller to
+sacrifice one eligible permanent if possible. It tests `check` against that
+permanent immediately before departure, then runs `effect` when the test
+matched. A graveyard-to-exile replacement does not undo the sacrifice, and a
+copy reverting after departure cannot change this test. Serendib Djinn uses
+it for the Island-dependent damage, separate from its no-lands state trigger.

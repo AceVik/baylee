@@ -471,6 +471,9 @@ pub(super) fn resume_yes_no_inner(
         // the operation this was asked for has not run yet.
         return run(state, res);
     }
+    if matches!(res.awaiting, Some(AwaitingOp::SacrificePayment { .. })) {
+        return super::sacrifices::answer_payment(state, res, answer);
+    }
     let AwaitingOp::PayLifeOrTapSelf { amount } =
         res.awaiting.take().expect("resume without awaiting op")
     else {
