@@ -432,6 +432,11 @@ pub fn fetch_subtype_catalogs(
     for (kind, list) in cats.ordered_mut() {
         *list = fetch_catalog(&format!("{}-types", module_name(kind)), agent, cache_dir)?;
     }
+    // CR 205.3g (2026-09-25) and printed token type lines already include
+    // these artifact types; Scryfall's catalog endpoint still omits them.
+    // Keep the cached response unmodified and merge the documented supplement.
+    cats.artifact
+        .extend(["Heartwood", "Lander", "Mutagen", "Vibranium"].map(str::to_owned));
     cats.normalize();
     Ok(cats)
 }

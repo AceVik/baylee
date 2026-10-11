@@ -331,3 +331,5 @@ fn flash_lands_unlock_their_printed_spell_types_until_cleanup() {
         ));
     }
 }
+
+mod token_lands;

@@ -3,13 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Hall of Tagsin prints `{{T}}: Add {{C}}.`, `{{1}}, {{T}}: Add one mana of any color.`, and `{{4}}, {{T}}: Create a tapped Powerstone token.`
-///
-/// Under `Coverage::Partial`, both mana abilities are implemented while the Powerstone token ability is omitted because tokens cannot enter tapped.
-/// With `{{4}}` floating from four `forest()` lands and Hall of Tagsin untapped, ability 2 is not offered in `legal.abilities`.
-/// Activating ability 1 filters one floating green mana through `Pending::ChooseColor` into one black mana.
 #[test]
-fn hall_of_tagsin_filters_mana_and_omits_powerstone_token_ability() {
+fn hall_of_tagsin_filters_mana_and_offers_powerstone_token_ability() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
@@ -40,8 +35,8 @@ fn hall_of_tagsin_filters_mana_and_omits_powerstone_token_ability() {
         "ability 1 ({{1}}, {{T}}: Add one mana of any color) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(hall, 2)),
-        "ability 2 (Powerstone creation) is omitted under `Coverage::Partial`"
+        legal.abilities.contains(&(hall, 2)),
+        "token ability is payable"
     );
 
     activate(&mut engine, p0, hall_of_tagsin(), 1);

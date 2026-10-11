@@ -22,6 +22,7 @@ mod costs;
 mod departed;
 mod effects;
 mod mana;
+mod powerstone;
 mod preparation;
 mod tokens;
 mod transforms;

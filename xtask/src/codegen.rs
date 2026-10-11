@@ -247,6 +247,25 @@ pub(crate) fn write_index_tree(
     Ok(())
 }
 
+/// Refresh the append-only subtype table without touching any card files.
+pub(crate) fn subtypes(root: &Path, check: bool, cache: &Path) -> anyhow::Result<()> {
+    let cats =
+        scryfall::fetch_subtype_catalogs(&ureq::Agent::new_with_defaults(), &root.join(cache))?;
+    let mut changed = Vec::new();
+    write_or_check(
+        check,
+        &root.join("crates/baylee-core/src/generated/subtypes.rs"),
+        &catalog::render_subtypes_rs(&cats, &catalog::PriorSubtypes::from_compiled_table()),
+        &mut changed,
+    )?;
+    anyhow::ensure!(
+        changed.is_empty() || !check,
+        "subtype table is stale; run `cargo xtask codegen --subtypes`"
+    );
+    println!("subtype codegen complete");
+    Ok(())
+}
+
 pub(crate) fn codegen(
     root: &Path,
     check: bool,

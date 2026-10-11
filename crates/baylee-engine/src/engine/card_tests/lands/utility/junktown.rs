@@ -3,14 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Junktown prints `{{T}}: Add {{C}}.` and `{{4}}{{R}}, {{T}}, Sacrifice this land: Create three Junk tokens.`
-///
-/// Under `Coverage::Partial`, the Junk-token ability is omitted because Junk tokens are not in `crate::tokens` and the play-from-exile permission has no `Effect` variant.
-/// With Junktown and five basic lands (four `forest()` and one `mountain()`) on the battlefield under `PlayerId::new(0)`,
-/// floating `{{4}}{{R}}` while keeping Junktown untapped shows that ability 0 is offered while ability 1 is withheld from `legal.abilities`.
-/// Activating ability 0 adds one colorless mana to the pool, reaching a total of 6 mana.
 #[test]
-fn junktown_taps_for_colorless_and_omits_junk_token_ability() {
+fn junktown_taps_for_colorless_and_offers_junk_token_ability() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
@@ -43,8 +37,8 @@ fn junktown_taps_for_colorless_and_omits_junk_token_ability() {
         "ability 0 ({{T}}: Add {{C}}) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(town, 1)),
-        "ability 1 is omitted under `Coverage::Partial` even with {{4}}{{R}} floating"
+        legal.abilities.contains(&(town, 1)),
+        "Junk creation is payable"
     );
 
     activate(&mut engine, p0, junktown(), 0);

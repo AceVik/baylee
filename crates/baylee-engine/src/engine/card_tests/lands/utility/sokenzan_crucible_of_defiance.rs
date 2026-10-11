@@ -3,13 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Sokenzan, Crucible of Defiance` prints `{{T}}: Add {{R}}.` and `Channel — {{3}}{{R}}, Discard this card: Create two 1/1 colorless Spirit creature tokens. They gain haste until end of turn. This ability costs {{1}} less to activate for each legendary creature you control.`
-///
-/// Under `Coverage::Partial`, only the red mana ability is implemented while the channel ability is omitted.
-/// With a copy on the battlefield and another in hand, floating `{{3}}{{R}}` from four `mountain()` lands confirms that no channel activation is offered from hand in `legal.abilities` and the card is not castable.
-/// The battlefield copy taps for one red mana and becomes tapped.
 #[test]
-fn sokenzan_crucible_of_defiance_taps_for_red_and_omits_channel_from_hand() {
+fn sokenzan_crucible_of_defiance_taps_for_red_and_offers_channel_from_hand() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(
@@ -51,11 +46,11 @@ fn sokenzan_crucible_of_defiance_taps_for_red_and_omits_channel_from_hand() {
         "lands are not castable spells"
     );
     assert!(
-        !legal
+        legal
             .abilities
             .iter()
             .any(|(source, _)| *source == in_hand_card),
-        "channel ability is omitted under `Coverage::Partial` despite floating {{3}}{{R}}"
+        "channel is payable from hand"
     );
     assert!(
         legal.abilities.contains(&(on_field, 0)),

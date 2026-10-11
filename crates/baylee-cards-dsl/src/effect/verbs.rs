@@ -823,6 +823,7 @@ impl Effect {
             | Effect::ReconfigureAttach
             | Effect::DetachSource
             | Effect::CreateTokenN { .. }
+        | Effect::CreateTokenModified { .. }
             | Effect::CreateTokenForTargetController { .. }
             | Effect::Amass { .. }
             | Effect::PutSourceOnTopOfLibrary

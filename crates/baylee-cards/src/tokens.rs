@@ -377,6 +377,68 @@ pub static SNAKE_1_1_ARTIFACT_POISON: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// Powerstone mana can pay any nonspell cost, or an artifact spell.
+static POWERSTONE_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)
+    .restricted_for(
+        &Filter::ARTIFACT,
+        baylee_cards_dsl::SpendRider::None,
+        baylee_cards_dsl::ManaUse::NonSpellPaymentsOrMatchingSpells,
+    ),])];
+
+/// Colorless Powerstone artifact with restricted mana production.
+pub static POWERSTONE: TokenDef = TokenDef {
+    name: "Powerstone",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[artifact::POWERSTONE],
+    abilities: POWERSTONE_MANA,
+    scryfall_id: "d45fe4b6-aeaf-4f84-b660-c7b482ed8512",
+    ..TokenDef::DEFAULT
+};
+
+/// Colorless Vibranium artifact with indestructible and Powerstone mana.
+pub static VIBRANIUM: TokenDef = TokenDef {
+    name: "Vibranium",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[artifact::VIBRANIUM],
+    keywords: KeywordSet::INDESTRUCTIBLE,
+    abilities: POWERSTONE_MANA,
+    scryfall_id: "7f9e9b3a-c515-449a-95da-ee3f5175b74f",
+    ..TokenDef::DEFAULT
+};
+
+/// Colorless Junk artifact, sacrificed at sorcery speed for a paid play this turn.
+pub static JUNK: TokenDef = TokenDef {
+    name: "Junk",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[artifact::JUNK],
+    abilities: &[activated!(
+        cost!(TapSelf, SacrificeSelf),
+        &[Effect::ExileTopToPlay {
+            who: baylee_cards_dsl::PlayerRel::You,
+            play: baylee_cards_dsl::ExilePlay {
+                count: 1,
+                window: baylee_cards_dsl::PlayWindow::ThisTurn,
+                free: false,
+                spell_types: None,
+            },
+        }],
+        timing = baylee_cards_dsl::ActivationTiming::SorcerySpeed
+    )],
+    scryfall_id: "62c4a6f6-6425-4c0c-b35a-880fcab42aad",
+    ..TokenDef::DEFAULT
+};
+
+/// Ordinary colorless 1/1 Spirit, with no printed abilities.
+pub static SPIRIT_1_1_COLORLESS: TokenDef = TokenDef {
+    name: "Spirit",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIRIT],
+    power: Some(1),
+    toughness: Some(1),
+    scryfall_id: "c672ee51-0e77-463f-8586-191b413c44dd",
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is; the index IS the stable token id (art key).
 ///
 /// Append only — an insertion in the middle renumbers every token after it,
@@ -408,11 +470,27 @@ pub fn by_token_id(id: u16) -> Option<&'static TokenDef> {
 
 /// Verified printed ability text for central tokens, indexed by the DSL list.
 /// Food: Scryfall ELD token 15, bf36408d-ed85-497f-8e68-d3a922c388a0,
-/// checked 2026-10-02. Unknown token/index pairs have no invented sentence.
+/// checked 2026-10-02. Powerstone, Vibranium and Junk: the Scryfall records
+/// on their definitions, checked 2026-10-11. Unknown pairs have no invented sentence.
 #[must_use]
 pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
-    (index == 0 && std::ptr::eq(by_token_id(id)?, &raw const FOOD))
-        .then_some("{2}, {T}, Sacrifice this token: You gain 3 life.")
+    if index != 0 {
+        return None;
+    }
+    let token = by_token_id(id)?;
+    if std::ptr::eq(token, &raw const FOOD) {
+        Some("{2}, {T}, Sacrifice this token: You gain 3 life.")
+    } else if std::ptr::eq(token, &raw const POWERSTONE)
+        || std::ptr::eq(token, &raw const VIBRANIUM)
+    {
+        Some("{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.")
+    } else if std::ptr::eq(token, &raw const JUNK) {
+        Some(
+            "{T}, Sacrifice this artifact: Exile the top card of your library. You may play that card this turn. Activate only as a sorcery.",
+        )
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]

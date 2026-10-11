@@ -3,6 +3,9 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
+/// Admitted or consumed mana units with their provenance and spend rider.
+type ManaEntries = SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>;
+
 /// A requirement whose filter reads the announced X, as the same spec over
 /// every object and the filter it widened away. `None` for every other
 /// requirement, and for the kinds no X-reading filter is printed on.
@@ -74,9 +77,12 @@ pub(crate) fn phyrexian_affordable(
     })
 }
 
-/// Pays a cost that admits no restricted mana, under this player's current
-/// spending permissions. Spell and activation payments use [`pay_mana_for`].
+/// Pays a nonspell cost, admitting mana whose restriction allows such payments.
+/// Spell and activation payments use [`pay_mana_for`].
 pub(crate) fn pay_mana(state: &mut GameState, player: PlayerId, cost: &ManaCost) -> bool {
+    if !admitted(state, player, SpendFor::Other).is_empty() {
+        return pay_mana_for(state, player, SpendFor::Other, cost).is_some();
+    }
     let spending = mana_spending(state, player);
     if let Some(obligation) = state.constrained_payment(player) {
         let real = &state.players[player.get() as usize].mana_pool;
@@ -207,7 +213,7 @@ pub(crate) enum SpendFor {
     /// Activating an ability of this source (CR 602.2b, CR 113.7).
     Ability(ObjectId),
     /// Anything else that costs mana: suspend (a special action, CR 116.2f),
-    /// an "unless you pay", echo, a pact. No restriction names these.
+    /// an "unless you pay", echo, a pact. Powerstone mana admits these too.
     Other,
 }
 
@@ -252,29 +258,34 @@ fn spending_object(
 /// never whether the mana may be spent. Ability restrictions match the
 /// actual source, including sources outside the battlefield. The walk is over the pool's list and never over the map, which
 /// is keyed by a hash.
-pub(super) fn admitted(
-    state: &GameState,
-    player: PlayerId,
-    what: SpendFor,
-) -> SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]> {
-    if state.players[usize::from(player.get())]
-        .mana_pool
-        .restricted()
-        .is_empty()
-    {
+pub(super) fn admitted(state: &GameState, player: PlayerId, what: SpendFor) -> ManaEntries {
+    admitted_from_pool(
+        state,
+        what,
+        &state.players[usize::from(player.get())].mana_pool,
+    )
+}
+
+/// Read the actual payment pool, which may exclude reserved mana.
+fn admitted_from_pool(state: &GameState, what: SpendFor, pool: &ManaPool) -> ManaEntries {
+    if pool.restricted().is_empty() {
         return SmallVec::new();
     }
-    let Some(spell) = spending_object(state, what) else {
-        return SmallVec::new();
-    };
+    let spell = spending_object(state, what);
     let ability = matches!(what, SpendFor::Ability(_));
-    state.players[player.get() as usize]
-        .mana_pool
-        .restricted()
+    pool.restricted()
         .iter()
         .filter_map(|mana| {
             let provenance = state.restriction_info.get(&mana.restriction.0)?;
-            provenance.admits(state, &spell, ability).then_some((
+            let allows = if matches!(what, SpendFor::Other) {
+                provenance.restriction.uses
+                    == baylee_cards_dsl::ManaUse::NonSpellPaymentsOrMatchingSpells
+            } else {
+                spell
+                    .as_ref()
+                    .is_some_and(|spell| provenance.admits(state, spell, ability))
+            };
+            allows.then_some((
                 *mana,
                 provenance.context.source,
                 provenance.restriction.rider,
@@ -290,11 +301,7 @@ pub(super) fn admitted(
 /// These units are in the plain counters already, so they are nothing to
 /// merge. A spell the filter does not match, and every ability, spends them
 /// as the ordinary mana they are, and no rider goes off (CR 106.6).
-pub(super) fn ridden_for(
-    state: &GameState,
-    player: PlayerId,
-    what: SpendFor,
-) -> SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]> {
+pub(super) fn ridden_for(state: &GameState, player: PlayerId, what: SpendFor) -> ManaEntries {
     if matches!(what, SpendFor::Ability(_) | SpendFor::Other) {
         return SmallVec::new();
     }
@@ -366,11 +373,20 @@ pub(crate) fn spendable_pool(
     player: PlayerId,
     what: SpendFor,
 ) -> Option<ManaPool> {
-    let pool = &state.players[player.get() as usize].mana_pool;
+    let original = &state.players[player.get() as usize].mana_pool;
+    let free = state
+        .constrained_payment(player)
+        .filter(|_| matches!(what, SpendFor::Other))
+        .map(|payment| {
+            original
+                .payment_receipt(&payment.required)
+                .unwrap_or_default()
+        });
+    let pool = free.as_ref().unwrap_or(original);
     if pool.restricted().is_empty() {
-        return None;
+        return free;
     }
-    Some(merged(pool, &admitted(state, player, what)))
+    Some(merged(pool, &admitted_from_pool(state, what, pool)))
 }
 
 /// Planning a payment may count optional life-to-mana actions. Their cost
@@ -447,7 +463,7 @@ pub(crate) fn pay_mana_for(
     player: PlayerId,
     what: SpendFor,
     cost: &ManaCost,
-) -> Option<SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>> {
+) -> Option<ManaEntries> {
     pay_mana_restricting_generic(state, player, what, cost, None)
 }
 
@@ -458,7 +474,7 @@ pub(crate) fn pay_mana_restricting_generic(
     what: SpendFor,
     cost: &ManaCost,
     restriction: Option<(ManaColor, u32)>,
-) -> Option<SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>> {
+) -> Option<ManaEntries> {
     let obligation = state.constrained_payment(player).cloned();
     let is_selected_spell = obligation.as_ref().is_some_and(|payment| match what {
         SpendFor::Spell(card) | SpendFor::SpellAs(card, _) | SpendFor::SpellOnFace(card, _) => {
@@ -467,7 +483,17 @@ pub(crate) fn pay_mana_restricting_generic(
         _ => false,
     });
     let spending = mana_spending(state, player);
-    let mut entries = admitted(state, player, what);
+    // Only unrelated payments must leave obligated mana untouched. Eligible
+    // land mana abilities may consume it while paying for the instructed card.
+    let protect_reserved = matches!(what, SpendFor::Other);
+    let original = &state.players[player.get() as usize].mana_pool;
+    let free = if let Some(payment) = obligation.as_ref().filter(|_| protect_reserved) {
+        Some(original.payment_receipt(&payment.required)?)
+    } else {
+        None
+    };
+    let real = free.as_ref().unwrap_or(original);
+    let mut entries = admitted_from_pool(state, what, real);
     let mut riding = ridden_for(state, player, what);
     if let Some(payment) = &obligation {
         entries.sort_by_key(|(mana, ..)| {
@@ -485,7 +511,6 @@ pub(crate) fn pay_mana_restricting_generic(
                 .any(|unit| unit.restriction == mana.restriction)
         });
     }
-    let real = &state.players[player.get() as usize].mana_pool;
     let merged = merged(real, &entries);
     let mut prefer = [0_u32; 6];
     for (mana, ..) in entries.iter().chain(&riding) {
@@ -510,8 +535,35 @@ pub(crate) fn pay_mana_restricting_generic(
         if is_selected_spell { required } else { [0; 6] },
     )?;
 
-    let (mut used_plain, mut used_snow) = consumed_mana(&merged, &paid, obligation.as_ref());
+    let (used_plain, used_snow) = consumed_mana(
+        &merged,
+        &paid,
+        obligation.as_ref().filter(|_| !protect_reserved),
+    );
 
+    let (mut pool, spent) = debit_tracked_units(real, entries, riding, used_plain, used_snow)?;
+    if free.is_some() {
+        let spent = real.payment_receipt(&pool)?;
+        pool = original.payment_receipt(&spent)?;
+    }
+    commit_mana_payment(
+        state,
+        player,
+        pool,
+        is_selected_spell,
+        obligation.as_ref().filter(|_| !protect_reserved),
+    )?;
+    Some(spent)
+}
+
+/// Debit provenance before ordinary units, preserving snow and attached riders.
+fn debit_tracked_units(
+    real: &ManaPool,
+    entries: ManaEntries,
+    riding: ManaEntries,
+    mut used_plain: [u32; 6],
+    mut used_snow: [u32; 6],
+) -> Option<(ManaPool, ManaEntries)> {
     // Restricted entries first, in pool order, each class charged apart.
     let mut pool = real.clone();
     let mut spent = SmallVec::new();
@@ -559,8 +611,7 @@ pub(crate) fn pay_mana_restricting_generic(
             return None;
         }
     }
-    commit_mana_payment(state, player, pool, is_selected_spell, obligation.as_ref())?;
-    Some(spent)
+    Some((pool, spent))
 }
 
 /// Validate the exact constrained receipt before publishing any pool debit.
@@ -591,7 +642,9 @@ pub(super) fn commit_mana_payment(
         return None;
     }
     state.players[player.get() as usize].mana_pool = pool;
-    state.note_constrained_payment(player, &before);
+    if obligation.is_some() {
+        state.note_constrained_payment(player, &before);
+    }
     Some(())
 }
 

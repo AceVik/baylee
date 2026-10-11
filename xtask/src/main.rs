@@ -96,10 +96,12 @@ fn main() -> anyhow::Result<()> {
             adopt_stub,
             check,
             tables,
+            subtypes,
             scripts,
             cache,
         } => match adopt_stub {
             Some(name) => adopt_stub_card(&root, &name),
+            None if subtypes => codegen::subtypes(&root, check, &cache),
             None => codegen(&root, check, tables, &scripts, &cache),
         },
         Cmd::Ledger {

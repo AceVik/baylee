@@ -3250,3 +3250,21 @@ characteristics and the usual casting wizard, targets, costs and mana riders.
 incarnation; control changes transfer permission, and phasing out ends it.
 Phasing in prepared creates a new copy. Only a successful cast unprepares the
 permanent; cancelling preserves the designation and the exiled copy.
+
+`Effect::CreateTokenModified` creates `amount` tokens through the ordinary token
+replacement pipeline, optionally already tapped before entry is observed. Its
+`haste` flag adds a separate until-end-of-turn effect to each created object;
+it never changes the token's copiable definition. Use this for Sokenzan's
+channel ability and tapped Powerstone/Vibranium creation.
+
+`ManaUse::NonSpellPaymentsOrMatchingSpells` admits every nonspell payment,
+including abilities of nonartifact sources and resolution taxes, but a spell
+must match the restriction's filter. Powerstone and Vibranium use `ARTIFACT`.
+The offer and payment share this admission rule. An unrelated payment excludes
+mana reserved for an instructed cast; eligible land mana abilities can still
+consume the reserved mana while producing the chosen spell's payment.
+
+`cargo xtask codegen --subtypes` regenerates only the append-only subtype table;
+`--check` verifies it without writing. It can be used independently of a corpus
+checkout and does not rewrite card implementations. The Scryfall catalog reader
+supplements artifact types already present in CR 205.3g but absent from its API.

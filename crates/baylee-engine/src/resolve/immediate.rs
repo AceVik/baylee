@@ -293,6 +293,7 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenN { .. }
+        | Effect::CreateTokenModified { .. }
         | Effect::CreateTokenThenCounters { .. }
         | Effect::Fabricate { .. }
         | Effect::CreateTokenThenAttachSelf { .. }

@@ -53,8 +53,8 @@ impl<L: CardLookup> Engine<L> {
     /// `resume_tax_choice` will pay it.
     ///
     /// Asked of the payment and not of the pool's total, because the total
-    /// counts mana that says "spend this only on…" (CR 106.6), and a tax is
-    /// none of the things it may be spent on. A pool of restricted mana
+    /// includes units whose restriction may forbid a tax (CR 106.6).
+    /// Powerstone mana is permitted; creature-spell-only mana is not. A pool of restricted mana
     /// passed the total, was told it had paid, and tripped the assertion in
     /// `resume_tax_choice` (the refusal sweep, 2026-09-29) — and a seat
     /// holding it was never offered the window to make the mana it lacked.
@@ -67,12 +67,7 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         cost: &baylee_core::mana::ManaCost,
     ) -> bool {
-        casting::affordable(
-            &self.state,
-            player,
-            &self.state.players[player.get() as usize].mana_pool,
-            cost,
-        )
+        self.can_pay_mana(player, casting::SpendFor::Other, cost)
     }
 
     /// Ends a payment window and settles the payment it was opened for.

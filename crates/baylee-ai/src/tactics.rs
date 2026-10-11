@@ -283,7 +283,10 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             }
             Effect::PutFromHandOnTop { count } => m.value = -i64::from(*count) * 250,
             Effect::Scry { .. } | Effect::ScryFor { .. } | Effect::Surveil { .. } => m.value = 140,
-            Effect::CreateToken { .. } | Effect::CreateTokenN { .. } | Effect::Amass { .. } => {
+            Effect::CreateToken { .. }
+            | Effect::CreateTokenN { .. }
+            | Effect::CreateTokenModified { .. }
+            | Effect::Amass { .. } => {
                 m.value = 500;
             }
             Effect::TakeExtraTurn | Effect::ExileLibraryAndShuffleHand { .. } => m.value = 10_000,

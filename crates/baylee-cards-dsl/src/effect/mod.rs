@@ -1891,6 +1891,17 @@ pub enum Effect {
         /// How many.
         amount: Amount,
     },
+    /// Create tokens with entry state and a separate temporary haste effect.
+    CreateTokenModified {
+        /// Token's copiable characteristics.
+        token: &'static TokenDef,
+        /// Count before token-creation replacements.
+        amount: Amount,
+        /// Enter tapped, before entering triggers observe the new object.
+        tapped: bool,
+        /// Grant haste to exactly the created objects until end of turn.
+        haste: bool,
+    },
     /// Create a token under the first target's controller (Crib Swap).
     CreateTokenForTargetController {
         /// What.

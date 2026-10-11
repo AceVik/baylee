@@ -17,8 +17,11 @@ pub struct ManaProvenance {
 }
 impl ManaProvenance {
     pub(crate) fn admits(&self, state: &GameState, object: &GameObject, ability: bool) -> bool {
+        if ability && self.restriction.uses == ManaUse::NonSpellPaymentsOrMatchingSpells {
+            return true;
+        }
         let allowed = match self.restriction.uses {
-            ManaUse::Spells => !ability,
+            ManaUse::Spells | ManaUse::NonSpellPaymentsOrMatchingSpells => !ability,
             ManaUse::Abilities => ability,
             ManaUse::SpellsOrAbilities => true,
         };

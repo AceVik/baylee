@@ -3,12 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `The Great Mound` prints `{{T}}: Add {{C}}.`, `{{3}}, {{T}}: Create a tapped Vibranium token. (It's an artifact with indestructible and "{{T}}: Add {{C}}. This mana can't be spent to cast a nonartifact spell.")`, and `{{6}}, {{T}}: Draw a card.`
-///
-/// Under `Coverage::Partial`, ability 0 and ability 1 (`{{6}}, {{T}}: Draw a card`) are implemented while the Vibranium token ability is omitted.
-/// Floating `{{6}}` from six `forest()` lands allows activating ability 1, which draws a card and omits the token ability from `legal.abilities`.
 #[test]
-fn the_great_mound_draws_card_for_six_and_omits_vibranium_token_ability() {
+fn the_great_mound_draws_card_for_six_and_offers_vibranium_token_ability() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
@@ -51,8 +47,8 @@ fn the_great_mound_draws_card_for_six_and_omits_vibranium_token_ability() {
             .iter()
             .filter(|(source, _)| *source == mound)
             .count(),
-        2,
-        "under `Coverage::Partial`, only abilities 0 and 1 exist"
+        3,
+        "both mana and nonmana activations are offered"
     );
 
     let lib_before = library_size(&engine, p0);

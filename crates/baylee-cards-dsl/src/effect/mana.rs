@@ -67,6 +67,9 @@ pub enum ManaUse {
     Abilities,
     /// Either matching spells or abilities of matching sources.
     SpellsOrAbilities,
+    /// Any nonspell payment, or casting a spell matching the filter.
+    /// Powerstone mana may pay abilities, ward, echo and other nonspell costs.
+    NonSpellPaymentsOrMatchingSpells,
 }
 
 /// What produced mana may be spent on (Cavern of Souls), or what spending

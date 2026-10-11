@@ -621,3 +621,51 @@ fn token_instruction_words_are_copiable_but_later_text_changes_are_not() {
         "a retained color is a value"
     );
 }
+
+#[test]
+fn populate_does_not_copy_a_created_tokens_entry_status_or_temporary_haste() {
+    let mut state = state();
+    let source = the_forest(&state);
+    let created = create_tokens_entering(
+        &mut state,
+        me(),
+        &baylee_cards::tokens::SPIRIT_1_1_COLORLESS,
+        None,
+        1,
+        TextChangeMap::IDENTITY,
+        TokenEntry {
+            tapped: true,
+            temporary_haste_source: Some(source),
+        },
+    );
+    let original = created[0];
+    assert!(
+        state
+            .object(original)
+            .unwrap()
+            .status
+            .contains(crate::object::Status::TAPPED)
+    );
+    populate(&mut state, me(), original);
+    let copy = *state.zones.list(ZoneLocation::Battlefield).last().unwrap();
+    assert_ne!(original, copy);
+    assert!(
+        !state
+            .object(copy)
+            .unwrap()
+            .status
+            .contains(crate::object::Status::TAPPED)
+    );
+    let copied = crate::layers::copiable_values(&state, copy).unwrap();
+    assert!(
+        !copied
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::HASTE)
+    );
+    assert!(
+        !crate::layers::recompute(&state, state.object(copy).unwrap())
+            .characteristics
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::HASTE)
+    );
+}

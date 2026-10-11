@@ -30,7 +30,11 @@ static RESTRICTED_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::mana_ability!(&
     ManaColor::Green,
     1
 )
-.restricted(&Filter::ARTIFACT, SpendRider::None)])];
+.restricted_for(
+    &Filter::ARTIFACT,
+    SpendRider::None,
+    baylee_cards_dsl::ManaUse::NonSpellPaymentsOrMatchingSpells
+)])];
 static RIDER_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::mana_ability!(&[Effect::mana(
     ManaColor::Green,
     1

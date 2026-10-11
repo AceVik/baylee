@@ -3846,3 +3846,33 @@ land type"; both are convention tests that fire on a first try.
   view suite 42. Codegen tables, all 3,321 printing validations, formatting
   and workspace/all-targets clippy with dev controls pass. The added view
   field is explicitly checked for decoding old JSON and for grouping.
+
+### Partial-card completion batch 32 (2026-10-11)
+
+- Completed Hall of Tagsin, The Great Mound, Junktown and Sokenzan, Crucible
+  of Defiance through shared token entry and mana-payment rules. Powerstone,
+  Vibranium, Junk and the ordinary colorless Spirit have central, append-only
+  token identities and verified Scryfall references.
+- Temporary haste is an independent layer effect on each resulting token,
+  including replacement-created copies. It is neither a printed keyword nor
+  part of the token's copiable values. Set entry tapping through the central
+  state setter before the entry event, preserving the layer invalidation
+  invariant instead of allowing a second status-bit writer.
+- Powerstone mana restricts spells, not abilities or other payments. Admission
+  must reach both offer and payment, including the resolution-tax reader.
+  Preparation uses the same casting path and cannot evade this restriction.
+- Word of Command reserves exact mana units for the instructed cast or eligible
+  land mana abilities. Unrelated payments neither spend nor debit that reserve,
+  even when free and reserved units have the same color. Construct admission
+  directly from the free pool rather than matching every old entry against a
+  reduced pool: that avoids repeated scans and prevents fragmented provenance
+  entries from duplicating the available amount.
+- The live artifact-type catalog omits four types already present in CR 205.3g.
+  Supplement them in the catalog reader, not in the cached API response. The
+  focused `codegen --subtypes` path preserves all 507 existing constant IDs and
+  appends four; ordinary table codegen appends the four new tokens.
+- Validation: all 5,608 engine tests pass (two intentional ignores), including
+  a 131,170-unit fragmented-reserve case; 134 card, 71 DSL and 275 codegen
+  tests pass. All 3,321 printing validations, focused table/subtype
+  reproducibility checks, formatting and workspace/all-targets clippy with
+  dev controls pass. Original Partial inventory: 258 completed, 282 remaining.

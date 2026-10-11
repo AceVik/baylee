@@ -15,7 +15,7 @@ pub(crate) enum Cmd {
     Codegen {
         /// Transfer an unfinished generated card to hand ownership, without
         /// claiming it is implemented. No other files are regenerated.
-        #[arg(long, conflicts_with_all = ["check", "tables"])]
+        #[arg(long, conflicts_with_all = ["check", "tables", "subtypes"])]
         adopt_stub: Option<String>,
         /// Verify generated files are up to date instead of writing (CI).
         #[arg(long)]
@@ -41,6 +41,10 @@ pub(crate) enum Cmd {
         /// finished by hand can name a token of its own without the corpus.
         #[arg(long)]
         tables: bool,
+        /// Regenerate only subtype constants, preserving existing ids.
+        /// Does not read or regenerate card implementations or the corpus.
+        #[arg(long, conflicts_with = "tables")]
+        subtypes: bool,
         /// Path to the card-script reference cardsfolder.
         #[arg(long, default_value = "../mtg/card-scripts")]
         scripts: PathBuf,

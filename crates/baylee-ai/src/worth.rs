@@ -1101,7 +1101,10 @@ impl HeuristicAgent {
                 }
             }
             Effect::CreateToken { token } => token_worth(token),
-            Effect::CreateTokenN { token, amount } => count(*amount)? * token_worth(token),
+            Effect::CreateTokenN { token, amount }
+            | Effect::CreateTokenModified { token, amount, .. } => {
+                count(*amount)? * token_worth(token)
+            }
             Effect::Amass { amount, .. } => 150 + i64::from(*amount) * 110,
             Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }

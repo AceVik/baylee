@@ -5,6 +5,12 @@
 use super::*;
 use crate::text_changes::TextChangeMap;
 
+#[derive(Clone, Copy, Default)]
+struct TokenEntry {
+    tapped: bool,
+    temporary_haste_source: Option<ObjectId>,
+}
+
 /// Executes one token-creation effect.
 #[allow(clippy::too_many_lines)] // the family is one flat table
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
@@ -186,6 +192,27 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::CreateTokenN { token, amount } => {
             let count = amount2(&amount, state, you, res);
             create_tokens_with_text(state, you, token, None, count, res.text);
+            None
+        }
+        Effect::CreateTokenModified {
+            token,
+            amount,
+            tapped,
+            haste,
+        } => {
+            let count = amount2(&amount, state, you, res);
+            create_tokens_entering(
+                state,
+                you,
+                token,
+                None,
+                count,
+                res.text,
+                TokenEntry {
+                    tapped,
+                    temporary_haste_source: haste.then_some(res.source),
+                },
+            );
             None
         }
         Effect::Fabricate { count, token } => {
@@ -402,6 +429,26 @@ pub(super) fn create_tokens_with_text(
     count: u32,
     text: TextChangeMap,
 ) -> Vec<ObjectId> {
+    create_tokens_entering(
+        state,
+        controller,
+        token,
+        size,
+        count,
+        text,
+        TokenEntry::default(),
+    )
+}
+
+fn create_tokens_entering(
+    state: &mut GameState,
+    controller: PlayerId,
+    token: &'static baylee_cards_dsl::TokenDef,
+    size: Option<i16>,
+    count: u32,
+    text: TextChangeMap,
+    entry: TokenEntry,
+) -> Vec<ObjectId> {
     // The player a token is created under owns it (CR 111.2), and nothing
     // is created for a player who has left the game (CR 800.4b, 800.4d).
     if state.has_left(controller) {
@@ -414,7 +461,7 @@ pub(super) fn create_tokens_with_text(
         return Vec::new();
     };
     (0..count)
-        .map(|_| create_token_with_text(state, controller, token, size, text))
+        .map(|_| create_token_entering(state, controller, token, size, text, entry))
         .collect()
 }
 
@@ -546,6 +593,17 @@ fn create_token_with_text(
     size: Option<i16>,
     text: TextChangeMap,
 ) -> ObjectId {
+    create_token_entering(state, controller, token, size, text, TokenEntry::default())
+}
+
+fn create_token_entering(
+    state: &mut GameState,
+    controller: PlayerId,
+    token: &'static baylee_cards_dsl::TokenDef,
+    size: Option<i16>,
+    text: TextChangeMap,
+    entry: TokenEntry,
+) -> ObjectId {
     // Every Zombie of the same kind shares one printed face: the board this
     // has to survive is thousands of them.
     let mut base = state.token_base(token, size);
@@ -572,6 +630,23 @@ fn create_token_with_text(
         }
         obj
     });
+    if entry.tapped {
+        state.set_tapped(id, true);
+    }
+    if let Some(source) = entry.temporary_haste_source {
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(source),
+            controller,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Ability,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter: crate::effects::EffectFilter::object(state, id),
+            modifier: baylee_cards_dsl::Modifier::AddKeyword(baylee_cards_dsl::KeywordSet::HASTE),
+        });
+    }
     arrive(state, id);
     id
 }

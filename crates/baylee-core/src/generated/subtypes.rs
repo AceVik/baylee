@@ -377,16 +377,20 @@ pub mod artifact {
     pub const FOOD: SubtypeId = SubtypeId::new(357);
     pub const FORTIFICATION: SubtypeId = SubtypeId::new(358);
     pub const GOLD: SubtypeId = SubtypeId::new(359);
+    pub const HEARTWOOD: SubtypeId = SubtypeId::new(507);
     pub const INCUBATOR: SubtypeId = SubtypeId::new(360);
     pub const INFINITY: SubtypeId = SubtypeId::new(361);
     pub const JUNK: SubtypeId = SubtypeId::new(362);
+    pub const LANDER: SubtypeId = SubtypeId::new(508);
     pub const MAP: SubtypeId = SubtypeId::new(363);
+    pub const MUTAGEN: SubtypeId = SubtypeId::new(509);
     pub const POWERSTONE: SubtypeId = SubtypeId::new(364);
     pub const SPACECRAFT: SubtypeId = SubtypeId::new(365);
     pub const STONE: SubtypeId = SubtypeId::new(366);
     pub const TERMINUS: SubtypeId = SubtypeId::new(367);
     pub const TREASURE: SubtypeId = SubtypeId::new(368);
     pub const VEHICLE: SubtypeId = SubtypeId::new(369);
+    pub const VIBRANIUM: SubtypeId = SubtypeId::new(510);
 }
 pub mod enchantment {
     use super::SubtypeId;
@@ -541,7 +545,7 @@ pub mod battle {
     pub const SIEGE: SubtypeId = SubtypeId::new(506);
 }
 
-pub const COUNT: u16 = 507;
+pub const COUNT: u16 = 511;
 
 // The bitmap has to have room for every id assigned above. A `SubtypeSet`
 // is a fixed number of words, so this is the whole bound: outgrowing it is
@@ -915,16 +919,20 @@ pub const ALL_ARTIFACT_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     artifact::FOOD,
     artifact::FORTIFICATION,
     artifact::GOLD,
+    artifact::HEARTWOOD,
     artifact::INCUBATOR,
     artifact::INFINITY,
     artifact::JUNK,
+    artifact::LANDER,
     artifact::MAP,
+    artifact::MUTAGEN,
     artifact::POWERSTONE,
     artifact::SPACECRAFT,
     artifact::STONE,
     artifact::TERMINUS,
     artifact::TREASURE,
     artifact::VEHICLE,
+    artifact::VIBRANIUM,
 ]);
 pub const ALL_ENCHANTMENT_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     enchantment::AURA,
@@ -1612,6 +1620,10 @@ pub fn by_name(name: &str) -> Option<SubtypeId> {
         "omen" => spell::OMEN,
         "trap" => spell::TRAP,
         "siege" => battle::SIEGE,
+        "heartwood" => artifact::HEARTWOOD,
+        "lander" => artifact::LANDER,
+        "mutagen" => artifact::MUTAGEN,
+        "vibranium" => artifact::VIBRANIUM,
         _ => return None,
     })
 }
@@ -2124,6 +2136,10 @@ pub static NAMES: &[&str] = &[
     "Omen",
     "Trap",
     "Siege",
+    "Heartwood",
+    "Lander",
+    "Mutagen",
+    "Vibranium",
 ];
 
 pub fn name(id: SubtypeId) -> Option<&'static str> {

@@ -935,3 +935,16 @@ its inset characteristics, and the designated permanent creates a persistent
 copy in exile. Fatehold Chronologist / Peer Review and Emeritus of Woe keep
 their existing printings; this correction adds no art, external scripts or
 other assets. The policy review and owner decision above remain applicable.
+
+Batch 32 completes Hall of Tagsin, The Great Mound, Junktown and Sokenzan,
+Crucible of Defiance. Token characteristics were checked against the official
+Scryfall records for [Powerstone](https://api.scryfall.com/cards/d45fe4b6-aeaf-4f84-b660-c7b482ed8512),
+[Vibranium](https://api.scryfall.com/cards/7f9e9b3a-c515-449a-95da-ee3f5175b74f),
+[Junk](https://api.scryfall.com/cards/62c4a6f6-6425-4c0c-b35a-880fcab42aad) and the
+[ordinary Spirit](https://api.scryfall.com/cards/c672ee51-0e77-463f-8586-191b413c44dd).
+CR 111.10w defines Vibranium; CR 205.3g includes Heartwood, Lander, Mutagen and
+Vibranium, which the current Scryfall artifact-type catalog omits. Codegen
+supplements those names without modifying the cached API response or reassigning
+any existing subtype ID. Only rules data and existing printing identifiers are
+added; no images, audio or corpus scripts are copied. The Fan Content Policy
+review, Scryfall terms and explicit owner decision recorded above apply.
