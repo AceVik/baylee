@@ -3134,7 +3134,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Aerathi Berserker
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Aisling Leprechaun
     &[FaceLines {
         sentences: 1,
@@ -3316,8 +3323,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Chromium
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(2)],
+        stackable: 2,
+        lines: &[None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -3354,7 +3361,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Craw Giant
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Crevasse
     &[FaceLines {
         sentences: 1,
@@ -3592,8 +3606,22 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
-    &[],
+    // Frost Giant
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Gabriel Angelfire
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Gaseous Form
     &[FaceLines {
         sentences: 2,
@@ -3765,7 +3793,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Hunding Gjornersen
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Hyperion Blacksmith
     &[FaceLines {
         sentences: 1,
@@ -3973,7 +4008,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Marhault Elsdragon
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Moat
@@ -4660,7 +4702,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Wolverine Pack
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Xira Arien
     &[FaceLines {

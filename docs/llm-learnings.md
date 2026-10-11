@@ -3266,3 +3266,16 @@ land type"; both are convention tests that fire on a first try.
 - Target offers and casting choices must both project the spell's chosen face,
   casting form and stack identity. A creature's Adventure must target as the
   instant it becomes; an Aura still in hand must obey Aura-spell restrictions.
+
+## 2026-10-11 — partial-card completion: rampage
+
+- Rampage is a triggered ability, with separate instances, not a static P/T
+  multiplier. Emit one blocked transition independently from the individual
+  blocker events. Count remaining blockers when the trigger resolves and
+  freeze that bonus through cleanup.
+- Temporary keyword grants reuse the granted-trigger engine. Rapid Fire asks
+  whether a printed or granted rampage instance is active before adding one;
+  losing abilities and ending a grant must change that answer.
+- Choosing a keyword while an ability resolves (Gabriel Angelfire) is not
+  announcing a modal ability. Keep the choice inside the resolution, after
+  opponents have had priority, and walk every possible branch for coverage.

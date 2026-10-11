@@ -20,7 +20,7 @@ fn enchanted_source_prevention_obeys_its_damage_scope() {
             if enchanted {
                 attach_test_aura(&mut e, p0, source);
             }
-            let prevented = enchanted && (false || combat);
+            let prevented = enchanted && combat;
             assert_eq!(
                 deal_test_damage(&mut e, source, target, combat),
                 u32::from(!prevented)

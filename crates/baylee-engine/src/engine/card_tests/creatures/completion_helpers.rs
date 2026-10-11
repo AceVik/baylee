@@ -39,3 +39,61 @@ pub(super) fn deal_test_damage(
     );
     work.dealt()
 }
+
+/// Three reachable blockers, one rampage trigger, with the count frozen on resolution.
+pub(super) fn assert_printed_rampage(card: CardIndex, n: i16) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for count in [1, 3] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[card])
+            .battlefield(1, &[giant_spider(), giant_spider(), giant_spider()])
+            .start();
+        keep_mulligans(&mut e);
+        if card == baylee_core::generated::index::CHROMIUM {
+            for c in [ManaColor::White, ManaColor::Blue, ManaColor::Black] {
+                give_mana(&mut e, p0, c, 1);
+            }
+            pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+            e.apply(p0, PlayerAction::YesNo(true)).unwrap();
+        }
+        reach_main_phase(&mut e, p0);
+        let attacker = on_battlefield(&e, p0, card).unwrap();
+        let base = pt(&e, attacker);
+        let blockers: Vec<_> = e
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|id| e.state().object(*id).unwrap().controller == p1)
+            .take(count)
+            .collect();
+        attack_and_collect_blocks(&mut e, attacker, p1);
+        e.apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: blockers.iter().map(|b| (*b, attacker)).collect(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            e.state().zones.list(ZoneLocation::Stack).len(),
+            1,
+            "one transition, not one trigger per blocker"
+        );
+        if count == 3 {
+            bury(&mut e, &[blockers[0]]);
+        }
+        pass_until(&mut e, stack_is_empty);
+        let bonus = if count == 3 { n } else { 0 };
+        assert_eq!(pt(&e, attacker), (base.0 + bonus, base.1 + bonus));
+        if count == 3 {
+            bury(&mut e, &[blockers[1]]);
+            assert_eq!(
+                pt(&e, attacker),
+                (base.0 + bonus, base.1 + bonus),
+                "no ongoing recalculation"
+            );
+        }
+    }
+}

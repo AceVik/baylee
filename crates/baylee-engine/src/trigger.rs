@@ -1126,6 +1126,7 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::PlayerBecameTarget { object, .. }
         | GameEvent::BecameAttacker { object, .. }
         | GameEvent::BecameBlocker { object, .. }
+        | GameEvent::AttackerBlocked { object }
         | GameEvent::AttackerUnblocked { object }
         // The permanent that became tapped: "that land's controller" of
         // Psychic Venom.
@@ -2067,7 +2068,8 @@ fn matches(
         // source, wherever it wound up.
         (Trigger::TurnedFaceUp, GameEvent::TurnedFaceUp { object })
         | (Trigger::TransformsIntoThis, GameEvent::Transformed { object, .. })
-        | (Trigger::CycledThis, GameEvent::Cycled { object, .. }) => *object == source,
+        | (Trigger::CycledThis, GameEvent::Cycled { object, .. })
+        | (Trigger::Rampage, GameEvent::AttackerBlocked { object }) => *object == source,
         // CR 709.5h: the designation, however it was given.
         (Trigger::UnlockThisDoor(door), GameEvent::DoorUnlocked { object, half }) => {
             *object == source && door == half

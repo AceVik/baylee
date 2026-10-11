@@ -194,6 +194,31 @@ pub fn matches_projected_with_context(
         // the object as it last existed there, and `trigger::departed_matches`
         // hands in that object, counters and all.
         Filter::HasCounter(kind) => obj.counters.get(*kind) > 0,
+        Filter::HasRampage => {
+            let printed = chars.abilities_lost.is_none()
+                && !chars.rules_text_lost
+                && state.printed_ability_list(obj.id).is_some_and(|list| {
+                    list.abilities.iter().any(|a| {
+                        matches!(
+                            a,
+                            baylee_cards_dsl::AbilityDef::Triggered {
+                                trigger: baylee_cards_dsl::Trigger::Rampage,
+                                ..
+                            }
+                        )
+                    })
+                });
+            printed
+                || state.effects.iter().any(|fx| {
+                    matches!(
+                        fx.modifier,
+                        baylee_cards_dsl::Modifier::GrantTriggered {
+                            trigger: baylee_cards_dsl::Trigger::Rampage,
+                            ..
+                        }
+                    ) && crate::effects::applies_to(state, fx, obj)
+                })
+        }
         Filter::HasAnyCounter => obj.counters.iter().any(|(_, n)| n > 0),
         Filter::Enchanted => state.battlefield_seen().any(|id| {
             state.object(id).is_some_and(|aura| {
@@ -541,6 +566,9 @@ pub fn amount_with_context(
                 .iter()
                 .filter(|t| seen.contains(*t))
                 .count() as u32
+        }
+        Amount::BlockersBeyondFirst => {
+            u32::try_from(state.combat.blocker_count(this).saturating_sub(1)).unwrap_or(u32::MAX)
         }
         Amount::SourcePower => state
             .object(this)

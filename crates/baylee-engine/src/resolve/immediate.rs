@@ -1651,6 +1651,7 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
+        | Effect::ChooseOne { .. }
         | Effect::PlayerMayPayCostThen { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::PayManaToPreventDamage { .. }

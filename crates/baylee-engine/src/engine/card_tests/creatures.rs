@@ -5318,3 +5318,5 @@ fn argivian_archaeologist() -> CardIndex {
 
 mod completion_helpers;
 use completion_helpers::{attach_test_aura, deal_test_damage, give_mana};
+
+use completion_helpers::assert_printed_rampage;

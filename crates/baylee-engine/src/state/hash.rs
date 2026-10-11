@@ -1495,6 +1495,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             hash_counter(h, *kind);
             h.u16(*n);
         }
+        F::HasRampage => h.u8(56),
         F::HasAnyCounter => h.u8(52),
         F::Enchanted => h.u8(53),
         F::BlockingSource => h.u8(54),

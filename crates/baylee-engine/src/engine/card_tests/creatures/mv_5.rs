@@ -116,3 +116,5 @@ mod wind_spirit;
 mod zuberi_golden_feather;
 
 mod the_wretched;
+
+mod aerathi_berserker;

@@ -128,11 +128,7 @@ impl<L: CardLookup> Engine<L> {
                 if self.state.combat.is_blocking(blocker, mate) {
                     continue;
                 }
-                self.state.combat.declare_block(blocker, mate);
-                self.state.journal.record(GameEvent::BecameBlocker {
-                    object: blocker,
-                    attacker: mate,
-                });
+                self.state.declare_block(blocker, mate);
             }
         }
     }

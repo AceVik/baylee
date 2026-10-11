@@ -514,10 +514,11 @@ pub enum Trigger {
     /// — Cockatrice's "whenever this creature blocks or becomes blocked by a
     /// non-Wall creature, destroy that creature at end of combat".
     BlocksOrBecomesBlockedBy(&'static Filter),
-    /// "Whenever this creature becomes blocked by a [filter]" (Battering
-    /// Ram: "by a Wall"): once for each blocker the filter matches, as it is
-    /// when it blocks (CR 509.3d, 509.3f); never when this creature is the
-    /// one blocking. The blocker is the trigger's event object.
+    /// Rampage's "whenever this creature becomes blocked" (CR 702.23).
+    /// Its effects carry N, so every separate instance triggers independently.
+    Rampage,
+    /// This creature becomes blocked by a creature matching the filter;
+    /// once per matching blocker (CR 509.3d). The event object is the blocker.
     BecomesBlockedBy(&'static Filter),
     /// "Whenever this creature becomes blocked" (CR 509.3c): once, however
     /// many creatures block it. The event object is the first of them.

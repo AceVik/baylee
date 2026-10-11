@@ -32,3 +32,7 @@ mod tolarian_serpent;
 mod tyrranax_rex;
 
 mod elder_land_wurm;
+
+mod craw_giant;
+
+mod gabriel_angelfire;

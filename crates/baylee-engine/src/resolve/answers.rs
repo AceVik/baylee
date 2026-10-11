@@ -707,3 +707,18 @@ pub(super) fn resume_targets_inner(
     res.pc += 1;
     run(state, res)
 }
+
+/// Resume a non-modal choice made as an instruction resolves.
+///
+/// # Panics
+/// The engine must validate the chosen option against the pending question.
+pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: usize) -> Flow {
+    subjects::begin_resume(state, res);
+    let Some(AwaitingOp::ChooseEffect { choices }) = res.awaiting.take() else {
+        panic!("effect choice suspended");
+    };
+    let selected = choices.get(index).expect("offered choice");
+    let flow = run_fallback(state, res, std::slice::from_ref(selected));
+    subjects::flush(state, res);
+    flow
+}

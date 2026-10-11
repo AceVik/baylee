@@ -723,6 +723,20 @@ fn depends_on_in_type_layer(
 /// read an object's subtypes without writing one down, and both control
 /// predicates against `GainControl` — and the compiler had nothing to say.
 /// A filter added from here on has to answer.
+fn could_change_keywords(modifier: &Modifier) -> bool {
+    matches!(
+        modifier,
+        Modifier::AddKeyword(_)
+            | Modifier::RemoveKeyword(_)
+            | Modifier::LoseKeywords
+            | Modifier::LoseAllAbilities
+            | Modifier::SetLandType(_)
+            | Modifier::SetLandTypeToChosen
+            | Modifier::AddKeywordIfCountersAtLeast { .. }
+            | Modifier::BecomeCopyOf(_)
+    )
+}
+
 fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> bool {
     match filter {
         // The last two read the object's subtypes as well; what differs is
@@ -751,17 +765,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
             modifier,
             Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
         ),
-        Filter::HasKeyword(_) => matches!(
-            modifier,
-            Modifier::AddKeyword(_)
-                | Modifier::RemoveKeyword(_)
-                | Modifier::LoseKeywords
-                | Modifier::LoseAllAbilities
-                | Modifier::SetLandType(_)
-                | Modifier::SetLandTypeToChosen
-                | Modifier::AddKeywordIfCountersAtLeast { .. }
-                | Modifier::BecomeCopyOf(_)
-        ),
+        Filter::HasKeyword(_) => could_change_keywords(modifier),
         Filter::ToughnessAtMost(_)
         | Filter::ToughnessAtLeast(_)
         | Filter::PowerAtLeast(_)
@@ -805,7 +809,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         // vocabulary has no such modifier, `BecomeCopyOf` being layer 1 and
         // applied before any of this. The day a text-changing modifier
         // exists, `Named` is what leaves this list.
-        Filter::HasManaAbility => matches!(layer, Layer::Ability | Layer::Type),
+        Filter::HasRampage | Filter::HasManaAbility => {
+            matches!(layer, Layer::Ability | Layer::Type)
+        }
         Filter::Any
         | Filter::Named(_)
         | Filter::This

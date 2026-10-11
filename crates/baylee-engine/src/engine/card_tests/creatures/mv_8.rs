@@ -7,3 +7,5 @@ mod brimstone_dragon;
 mod crash_of_rhinos;
 mod maelstrom_wanderer;
 mod verdant_force;
+
+mod chromium;

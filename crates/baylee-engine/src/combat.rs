@@ -306,6 +306,15 @@ impl CombatState {
             .collect()
     }
 
+    /// Number of current blockers, without allocating the list of their ids.
+    #[must_use]
+    pub fn blocker_count(&self, attacker: ObjectId) -> usize {
+        self.blockers
+            .iter()
+            .filter(|b| b.attacker == attacker)
+            .count()
+    }
+
     /// Whether a creature is blocked (CR 509.1h) — which is not the same as
     /// having a blocker left, and is why the answer is a flag.
     #[must_use]
@@ -1547,6 +1556,22 @@ fn assign(
             amount: amount as u32,
             is_combat: true,
         });
+    }
+}
+
+impl GameState {
+    /// Records a block pair and the first blocked transition separately.
+    pub(crate) fn declare_block(&mut self, blocker: ObjectId, attacker: ObjectId) {
+        let became_blocked = !self.combat.is_blocked(attacker);
+        self.combat.declare_block(blocker, attacker);
+        self.journal.record(crate::event::GameEvent::BecameBlocker {
+            object: blocker,
+            attacker,
+        });
+        if became_blocked {
+            self.journal
+                .record(crate::event::GameEvent::AttackerBlocked { object: attacker });
+        }
     }
 }
 

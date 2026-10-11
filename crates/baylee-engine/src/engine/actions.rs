@@ -264,6 +264,20 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChooseCastMode { player: p, .. }, PlayerAction::ChooseMode(index))
                 if *p == player =>
             {
+                if self.resolution.as_ref().is_some_and(|res| {
+                    matches!(res.awaiting, Some(resolve::AwaitingOp::ChooseEffect { .. }))
+                }) {
+                    let mut res = self.resolution.take().expect("effect choice suspended");
+                    match resolve::resume_effect_choice(&mut self.state, &mut res, index) {
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => self.finish_resolution(&res),
+                    }
+                    return Ok(());
+                }
                 // What the option at this position actually names. A modal
                 // trigger drops the modes it cannot legally choose
                 // (CR 603.3c), so the position answered is not the mode
@@ -2018,11 +2032,7 @@ impl<L: CardLookup> Engine<L> {
             if let Some(version) = self.state.object(blocker).map(|o| o.version) {
                 self.state.combat.participants.push((blocker, version));
             }
-            self.state.combat.declare_block(blocker, attacker);
-            self.state.journal.record(GameEvent::BecameBlocker {
-                object: blocker,
-                attacker,
-            });
+            self.state.declare_block(blocker, attacker);
         }
         self.spread_blocks_through_bands(blockers);
         // `Filter::Blocking` and `Filter::Unblocked` just changed for the

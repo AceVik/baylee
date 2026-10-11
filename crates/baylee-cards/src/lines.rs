@@ -237,6 +237,11 @@ pub struct InlineModes {
 /// sentence. See [`InlineModes`].
 pub static MODES_PRINTED_INLINE: &[InlineModes] = &[
     InlineModes {
+        card: baylee_core::generated::index::GABRIEL_ANGELFIRE,
+        face: 0,
+        words: &["flying", "first strike", "trample", "rampage 3"],
+    },
+    InlineModes {
         card: baylee_core::generated::index::DEREVI_EMPYRIAL_TACTICIAN,
         face: 0,
         words: &["tap", "untap"],
@@ -793,6 +798,13 @@ mod tests {
     fn modes_printed_inline() -> Vec<&'static str> {
         let mut names: Vec<&str> = super::MODES_PRINTED_INLINE
             .iter()
+            // Resolution-time inline choices have their own count assertion
+            // below; this list is the population of actual modal abilities.
+            .filter(|entry| {
+                crate::by_index(entry.card).is_some_and(|def| {
+                    !super::face_modes(def.abilities_for_face(usize::from(entry.face))).is_empty()
+                })
+            })
             .map(|entry| {
                 crate::by_index(entry.card)
                     .expect("an inline-mode entry names a card of the pool")
@@ -821,9 +833,18 @@ mod tests {
             let face = usize::from(entry.face);
             let abilities = def.abilities_for_face(face);
             let modes = super::face_modes(abilities);
+            let inline_choices = abilities.iter().find_map(|ability| {
+                let baylee_cards_dsl::AbilityDef::Triggered { effects, .. } = ability else {
+                    return None;
+                };
+                effects.iter().find_map(|effect| match effect {
+                    baylee_cards_dsl::Effect::ChooseOne { choices } => Some(choices.len()),
+                    _ => None,
+                })
+            });
             assert_eq!(
                 entry.words.len(),
-                modes.len(),
+                inline_choices.unwrap_or(modes.len()),
                 "{}: one entry per mode",
                 def.name()
             );

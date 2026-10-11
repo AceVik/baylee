@@ -57,3 +57,9 @@ mod zephid;
 mod bartel_runeaxe;
 
 mod ramses_overdark;
+
+mod hunding_gjornersen;
+
+mod marhault_elsdragon;
+
+mod frost_giant;

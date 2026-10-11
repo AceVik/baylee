@@ -441,3 +441,19 @@ fn both_flip_branches_are_visited() {
     assert_eq!(seen, 3);
     assert!(won_seen && lost_seen);
 }
+
+#[test]
+fn inline_choice_walk_visits_every_branch_and_nested_sequence() {
+    static EFFECTS: &[Effect] = &[Effect::ChooseOne {
+        choices: &[Effect::Sequence(&[Effect::draw(1)]), Effect::draw(2)],
+    }];
+    let mut draws = Vec::new();
+    let mut seen = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        if let Effect::DrawCards { amount } = effect {
+            draws.push(*amount);
+        }
+    });
+    assert_eq!(draws, vec![Amount::Fixed(1), Amount::Fixed(2)]);
+    assert_eq!(seen, 4);
+}

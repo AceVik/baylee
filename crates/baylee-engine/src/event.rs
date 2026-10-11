@@ -444,6 +444,11 @@ pub enum GameEvent {
         /// What the policy answered.
         answer: PolicyAnswer,
     },
+    /// An attacker became blocked, independently of the individual block pairs.
+    AttackerBlocked {
+        /// The attacking creature.
+        object: ObjectId,
+    },
 }
 
 /// Where in a library a card was put.

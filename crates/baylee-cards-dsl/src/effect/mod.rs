@@ -28,6 +28,13 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Choose a non-targeted branch while resolving (CR 608.2d), rather
+    /// than announcing a modal spell or ability on the stack (CR 700.2).
+    /// Each option is one effect; use Sequence for several instructions.
+    ChooseOne {
+        /// Options in the order printed on the card.
+        choices: &'static [Effect],
+    },
     /// Choose an affordable creature using the actual X-payment receipt,
     /// then optionally cast it face down with an event-driven reveal replacement.
     CastFaceDownUsingSpentX,

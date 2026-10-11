@@ -6,6 +6,11 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// An inline choice asked by the resolving instruction.
+    ChooseEffect {
+        /// The still-available branches, in displayed order.
+        choices: &'static [Effect],
+    },
     /// Optional face-down cast from the resolving ability controller's hand.
     MaskedCast,
     /// An untargeted, optional new host for an Aura on the battlefield

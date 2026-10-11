@@ -236,20 +236,12 @@ pub(super) fn resume_inner(
                     .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
                 && !state.combat.is_blocking(blocker, attacker)
             {
-                state.combat.declare_block(blocker, attacker);
-                state.journal.record(GameEvent::BecameBlocker {
-                    object: blocker,
-                    attacker,
-                });
+                state.declare_block(blocker, attacker);
                 // A block on one member of a band blocks the band
                 // (CR 702.22h).
                 for mate in state.combat.band_mates(attacker) {
                     if !state.combat.is_blocking(blocker, mate) {
-                        state.combat.declare_block(blocker, mate);
-                        state.journal.record(GameEvent::BecameBlocker {
-                            object: blocker,
-                            attacker: mate,
-                        });
+                        state.declare_block(blocker, mate);
                     }
                 }
             }
@@ -803,7 +795,8 @@ pub(super) fn resume_inner(
         | AwaitingOp::Surveil => {
             unreachable!("arrangements resume via resume_arranged")
         }
-        AwaitingOp::MaskedCast
+        AwaitingOp::ChooseEffect { .. }
+        | AwaitingOp::MaskedCast
         | AwaitingOp::ControlledCard { .. }
         | AwaitingOp::LandMana { .. }
         | AwaitingOp::TextReplacement { .. }

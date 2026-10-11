@@ -12,6 +12,25 @@ pub(super) fn exec_choice(
 ) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::ChooseOne { choices } => {
+            if choices.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ChooseEffect { choices });
+            Some(Pending::ChooseCastMode {
+                player: you,
+                object: res.source,
+                options: choices
+                    .iter()
+                    .enumerate()
+                    .map(|(i, _)| crate::choice::CastModeDesc {
+                        index: u8::try_from(i).expect("at most 256 choices"),
+                        kind: crate::choice::CastModeKind::Mode(i),
+                        cost: baylee_core::mana::ManaCost::ZERO,
+                    })
+                    .collect(),
+            })
+        }
         Effect::PayManaToPreventDamage { player, amount } => {
             let player = players_of(player, state, you, res).first().copied()?;
             let amount = amount2(&amount, state, you, res);

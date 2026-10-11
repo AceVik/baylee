@@ -246,6 +246,7 @@ impl HeuristicAgent {
             | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
         | Filter::NotTargetedByAnotherNamed(_)
+        | Filter::HasRampage
         | Filter::HasAnyCounter
         | Filter::Enchanted
         | Filter::BlockingSource

@@ -159,6 +159,8 @@ pub enum Filter {
     HasCounter(crate::CounterKind),
     /// At least one counter, of any kind.
     HasAnyCounter,
+    /// Has at least one active instance of the rampage triggered ability.
+    HasRampage,
     /// Has an Aura attached to it. Equipment alone does not count.
     Enchanted,
     /// Is blocking the source creature.

@@ -508,7 +508,8 @@ impl Effect {
             // A reflexive ability's body is its own stack object later, but
             // it is still what this list can come to do, and every walker
             // has to read it.
-            Effect::Sequence(effects)
+            Effect::ChooseOne { choices: effects }
+            | Effect::Sequence(effects)
             | Effect::MayDo { effects }
             | Effect::MayDoOnceEachTurn { effects }
             | Effect::NthResolutionThisTurn { effects }

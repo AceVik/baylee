@@ -18,3 +18,5 @@ mod memory_deluge;
 mod might_of_oaks;
 mod sudden_strength;
 mod waterlogged_teachings;
+
+mod rapid_fire;

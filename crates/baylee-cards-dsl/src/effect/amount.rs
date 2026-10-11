@@ -49,6 +49,8 @@ pub enum Amount {
     /// ability whose amount comes off a permanent has nothing to read when
     /// the permanent is gone.
     SourcePower,
+    /// Creatures currently blocking the source beyond the first (CR 702.23b).
+    BlockersBeyondFirst,
     /// How many counters of a kind are on the ability's own source — Aether
     /// Vial's "the number of charge counters on this artifact", cumulative
     /// upkeep's "for each age counter on it" (CR 702.24a).
