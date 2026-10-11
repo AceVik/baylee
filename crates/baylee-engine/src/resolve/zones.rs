@@ -832,28 +832,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::Mill { amount, target } => {
-            let n = amount2(&amount, state, you, res) as usize;
-            for player in super::players_of(target, state, you, res) {
-                let top: Vec<ObjectId> = state
-                    .zones
-                    .list(ZoneLocation::Library(player))
-                    .iter()
-                    .rev()
-                    .take(n)
-                    .copied()
-                    .collect();
-                for card in top {
-                    let _ = state.move_object(
-                        card,
-                        ZoneLocation::Graveyard(player),
-                        ZonePosition::Top,
-                        Cause::Effect,
-                    );
-                }
-            }
-            None
-        }
+        Effect::Mill { amount, target } => super::milling::mill(state, res, amount, target),
         Effect::Destroy { target, no_regen } => {
             // Every target and not the first: see [`spec_objects`]. Heliod's
             // Intervention prints "destroy X target artifacts and/or

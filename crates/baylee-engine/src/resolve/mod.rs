@@ -35,6 +35,7 @@ mod life;
 pub(crate) mod linked_counters;
 pub mod loot;
 mod mana;
+mod milling;
 mod reanimation;
 mod reflexive;
 mod retarget;
