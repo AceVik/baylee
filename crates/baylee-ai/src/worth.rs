@@ -1124,7 +1124,7 @@ impl HeuristicAgent {
             | Effect::CreateTokenModified { token, amount, .. } => {
                 count(*amount)? * token_worth(token)
             }
-            Effect::Amass { amount, .. } => 150 + i64::from(*amount) * 110,
+            Effect::Amass { amount, .. } => 150 + count(*amount)? * 110,
             Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }
             | Effect::WishToHand { .. }
@@ -1439,6 +1439,18 @@ impl HeuristicAgent {
         })
     }
 
+    fn random_discard_cost(view: &PlayerView, except: ObjectId) -> Option<i64> {
+        let card_value = Self::card_value(view);
+        let (sum, count) = view
+            .hand
+            .iter()
+            .filter(|card| card.id != except)
+            .fold((0_i64, 0_i64), |(sum, n), card| {
+                (sum.saturating_add(card_value(&card.id).max(0) + 50), n + 1)
+            });
+        (count > 0).then(|| sum / count)
+    }
+
     /// What paying `cost` from `origin` gives up now; `None` for a cost this
     /// seat cannot price or cannot pay.
     ///
@@ -1474,7 +1486,21 @@ impl HeuristicAgent {
                     Some(o) if makes_mana(o) => Self::mana_price(view),
                     _ => 0,
                 },
-                CostPart::UntapSelf | CostPart::PayLifeX | CostPart::PayEnergyX => 0,
+                CostPart::UntapSelf
+                | CostPart::PayLifeX
+                | CostPart::PayEnergyX
+                | CostPart::TapX(_)
+                | CostPart::SacrificeX(_) => 0,
+                CostPart::PayCommanderColors => {
+                    if !crate::activate::life_ok(view, cost) {
+                        return None;
+                    }
+                    i64::from(crate::activate::commander_color_count(view)?) * life_price(view, me)
+                }
+                CostPart::SacrificeAll(filter) => own(filter, &|_| true)
+                    .into_iter()
+                    .map(|o| self.given_up(view, o))
+                    .sum(),
                 CostPart::SacrificeSelf => {
                     let o = origin.object?;
                     // What is spent is the permanent as a source of mana or
@@ -1503,18 +1529,7 @@ impl HeuristicAgent {
                     .map(|h| card_value(&h.id).max(0) + 50)
                     .min()?,
                 CostPart::PayEnergy(n) => i64::from(*n) * 25,
-                CostPart::DiscardRandom => {
-                    let (sum, count) = view.hand.iter().filter(|card| card.id != origin.id).fold(
-                        (0_i64, 0_i64),
-                        |(sum, n), card| {
-                            (sum.saturating_add(card_value(&card.id).max(0) + 50), n + 1)
-                        },
-                    );
-                    if count == 0 {
-                        return None;
-                    }
-                    sum / count
-                }
+                CostPart::DiscardRandom => Self::random_discard_cost(view, origin.id)?,
                 CostPart::DiscardSelf => card_value(&origin.id).max(0),
                 CostPart::ExileSelf => origin
                     .object

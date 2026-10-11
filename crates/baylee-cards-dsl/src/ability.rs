@@ -13,7 +13,18 @@ pub enum ActivationTiming {
     SorcerySpeed,
 }
 
-/// How often an activated ability may be used in one turn.
+/// A printed constraint on an activated ability's X (CR 107.3a).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ActivationX {
+    /// The controller may announce any nonnegative payable value.
+    Any,
+    /// The controller must announce at least this value.
+    AtLeast(u32),
+    /// The card defines X; determine it when announcing the activation.
+    Defined(crate::Amount),
+}
+
+/// How often an activated ability may be used.
 ///
 /// "Activate only once each turn" (Wall of Roots, Quirion Ranger, Scryb
 /// Ranger) — a restriction on *activating*, so it is checked and recorded
@@ -26,15 +37,12 @@ pub enum ActivationTiming {
 /// whenever its controller has priority, so a Wall of Roots used on its
 /// own turn is available again on the opponent's.
 ///
-/// There is no per-*game* variant, and that is a measurement rather than an
-/// omission: the only cards that want one are Urza's Fun House, which also
-/// needs a condition the DSL cannot say, and the exhaust keyword — and
-/// exhaust is a keyword other cards look for ("whenever you activate an
-/// exhaust ability"), so it is a keyword bit and not a number.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ActivationLimit {
     /// No printed limit — as often as its cost can be paid (CR 602.2).
     Unlimited,
+    /// Exhaust: once for this ability on this incarnation (CR 702.177a).
+    Exhaust,
     /// At most this many activations per turn, per object.
     PerTurn(u8),
     /// Boast: this exact creature must have attacked this turn; normally once.
@@ -701,6 +709,8 @@ pub enum AbilityDef {
         zone: ActivationZone,
         /// "Activate only once each turn", if the card prints one.
         limit: ActivationLimit,
+        /// Printed announcement constraint for X.
+        x_value: ActivationX,
         /// "This ability costs {1} less to activate for each …", if the
         /// ability prints one.
         cost_reduction: Option<crate::cost::CostReduction>,
@@ -773,6 +783,8 @@ pub enum AbilityDef {
         condition: Condition,
         /// "Activate only once each turn", if the card prints one.
         limit: ActivationLimit,
+        /// Printed announcement constraint for X.
+        x_value: ActivationX,
         /// As on the unconditional twin.
         cost_reduction: Option<crate::cost::CostReduction>,
     },
@@ -1211,6 +1223,7 @@ mod tests {
             mana_ability,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            x_value: crate::ActivationX::Any,
             cost_reduction: None,
         }
     }
@@ -1226,6 +1239,7 @@ mod tests {
             zone: ActivationZone::Battlefield,
             condition: Condition::ControlCount(&crate::Filter::ARTIFACT, 3),
             limit: ActivationLimit::Unlimited,
+            x_value: crate::ActivationX::Any,
             cost_reduction: None,
         }
     }
@@ -1256,6 +1270,7 @@ mod tests {
             mana_ability: false,
             zone,
             limit: ActivationLimit::Unlimited,
+            x_value: crate::ActivationX::Any,
             cost_reduction: None,
         };
         assert!(ability(DISCARD, DRAW, ActivationZone::Hand).is_cycling());

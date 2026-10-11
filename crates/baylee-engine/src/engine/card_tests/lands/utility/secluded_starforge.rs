@@ -5,7 +5,6 @@ use super::*;
 
 /// `Secluded Starforge` prints `{{T}}: Add {{C}}.`, `{{2}}, {{T}}, Tap X untapped artifacts you control: Target creature gets +X/+0 until end of turn. Activate only as a sorcery.`, and `{{5}}, {{T}}: Create a 2/2 colorless Robot artifact creature token.`
 ///
-/// Under `Coverage::Partial`, the pump is left off because its cost taps a counted number of artifacts, which no cost part says. So the card has two abilities, the mana at 0 and the Robot at 1, and nothing at 2.
 /// With five Forests floating `{{5}}`, the Robot ability taps the land and makes one 2/2 colorless artifact creature.
 #[test]
 fn secluded_starforge_taps_for_colorless_and_makes_a_robot_for_five() {
@@ -39,13 +38,13 @@ fn secluded_starforge_taps_for_colorless_and_makes_a_robot_for_five() {
         legal.abilities.contains(&(starforge, 0)),
         "the mana ability"
     );
-    assert!(legal.abilities.contains(&(starforge, 1)), "the Robot");
+    assert!(legal.abilities.contains(&(starforge, 2)), "the Robot");
     assert!(
-        !legal.abilities.contains(&(starforge, 2)),
-        "and no third ability: the pump is not written"
+        !legal.abilities.contains(&(starforge, 1)),
+        "the pump needs a creature target"
     );
 
-    activate(&mut engine, p0, secluded_starforge(), 1);
+    activate(&mut engine, p0, secluded_starforge(), 2);
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, starforge));

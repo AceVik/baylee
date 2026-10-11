@@ -901,6 +901,10 @@ fn hash_rider_situation(
     departure.hash(h);
     for rider in &obj.riders {
         match rider {
+            crate::object::Rider::ExhaustedAbility(index) => {
+                h.u8(63);
+                index.hash(h);
+            }
             crate::object::Rider::GrantedActivated => h.u8(62),
             crate::object::Rider::AbilitySourceVersion(version) => {
                 h.u8(21);
@@ -1355,6 +1359,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(22);
                 version.hash(h);
                 power.hash(h);
+            }
+            Rider::ExhaustedAbility(index) => {
+                h.u8(63);
+                index.hash(h);
             }
             Rider::GrantedActivated => h.u8(62),
             Rider::AbilitySourceVersion(version) => {

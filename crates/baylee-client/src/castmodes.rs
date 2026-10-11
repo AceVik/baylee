@@ -278,7 +278,11 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PutCounterSelf { .. }
-        | CostPart::PayLifeX => false,
+        | CostPart::PayLifeX
+        | CostPart::PayCommanderColors
+        | CostPart::TapX(_)
+        | CostPart::SacrificeX(_)
+        | CostPart::SacrificeAll(_) => false,
     })
 }
 

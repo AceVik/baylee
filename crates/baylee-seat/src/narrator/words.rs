@@ -289,6 +289,7 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         ChoicePrompt::KeepLands => "Choose lands to keep; sacrifice the rest".into(),
         ChoicePrompt::KeepCreatures => "Choose creatures to keep; sacrifice the rest".into(),
         ChoicePrompt::KeepPermanents => "Choose permanents to keep; sacrifice the rest".into(),
+        ChoicePrompt::Amass => "Choose an Army to receive the amass counters".into(),
         ChoicePrompt::Generic => "Choose cards".into(),
     }
 }

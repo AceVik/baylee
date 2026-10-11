@@ -28,6 +28,7 @@ fn fixture(cost: Cost, effects: &'static [Effect]) -> (Engine<SyntheticLookup>, 
         mana_ability: false,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     }]));
     let lookup = SyntheticLookup::new(vec![Box::leak(Box::new(baylee_cards_dsl::CardDef {

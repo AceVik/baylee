@@ -42,6 +42,7 @@ static MARSH_ABILITIES: &[AbilityDef] = &[
         mana_ability: true,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     },
     AbilityDef::Static(StaticAbility {

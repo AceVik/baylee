@@ -633,15 +633,9 @@ fn another_creature_or_planeswalker_entering_mills_you_two_and_liliana_herself_m
 /// naming the source instead. Both ends are struck — the card that came back
 /// keeps the body it prints, and Liliana is the one that grew.
 ///
-/// The tail is the `Coverage::Partial`, which a test of the working mechanism
-/// alone would keep quiet about. "(Activate each exhaust ability only once.)"
-/// is not enforced: nothing on an object records what an ability has already
-/// done, so the ability is offered — and pressed, and resolved — a second
-/// time in the same main phase. Twelve Swamps is two activations' worth of
-/// mana on purpose, and this test **fails the day exhaust is implemented**,
-/// which is the day the card stops being `Partial`.
+/// Exhaust is consumed by the first activation, even with another target and mana available.
 #[test]
-fn liliana_reanimates_a_creature_takes_the_counter_herself_and_may_exhaust_twice() {
+fn liliana_reanimates_a_creature_takes_the_counter_herself_and_exhausts_once() {
     let p0 = PlayerId::new(0);
     let mut field = vec![liliana_the_repentant()];
     field.extend([swamp(); 12]);
@@ -686,40 +680,24 @@ fn liliana_reanimates_a_creature_takes_the_counter_herself_and_may_exhaust_twice
         "and not the reanimated card's, which keeps the body it prints"
     );
 
-    // The gap the `Partial` names, read off an offer that should not be there.
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority");
     };
-    let offered = legal.abilities;
+    assert!(!legal.abilities.contains(&(liliana, 1)));
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
+    let hash = engine.state().snapshot_hash();
     assert!(
-        offered.contains(&(liliana, 1)),
-        "exhaust is unenforced, so the once-per-game ability is offered a \
-         second time with the mana still floating: {offered:?}"
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: liliana,
+                    ability_index: 1
+                }
+            )
+            .is_err()
     );
-    let second = in_graveyard(&engine, p0, llanowar_elves()).expect("the other creature card");
-    activate(&mut engine, p0, liliana_the_repentant(), 1);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![second],
-            },
-        )
-        .expect("and the second activation goes through");
-    pass_until(&mut engine, |e| at_rest(e, p0));
-    assert_eq!(
-        mine(
-            &engine,
-            p0,
-            llanowar_elves(),
-            crate::zone::Zone::Battlefield
-        )
-        .len(),
-        2,
-        "two creature cards off one exhaust ability in one turn — when this \
-         assertion fires, exhaust is enforced and the card is no longer Partial"
-    );
-    assert_eq!(pt(&engine, liliana), (4, 4), "and a second counter with it");
+    assert_eq!(engine.state().snapshot_hash(), hash);
 }
 
 /// Marionette Apprentice ({1}{B}, 1/2): "Fabricate 1" and "Whenever

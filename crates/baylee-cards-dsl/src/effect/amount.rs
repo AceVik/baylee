@@ -62,6 +62,9 @@ pub enum Amount {
     CountersOnSource(CounterKind),
     /// Number of counters of this kind held by the player evaluating the effect or cost.
     CountersOnYou(CounterKind),
+    /// Devotion to the color produced by an `AddMana` instruction (CR 700.5).
+    /// Evaluated per available color by mana resolution; zero without that context.
+    DevotionToManaColor,
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,
     /// "That much": the amount of damage the triggering event dealt

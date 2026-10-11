@@ -22,6 +22,7 @@ fn effigy(identity: ColorSet) -> CardDef {
         mana_ability: true,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     }];
     static FACES: [FaceDef; 1] = [FaceDef {
@@ -77,6 +78,7 @@ fn a_color_counts_wherever_the_face_prints_it() {
         mana_ability: true,
         zone: crate::dsl::ability::ActivationZone::Battlefield,
         limit: crate::dsl::ability::ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     }];
     static ON_THE_FACE: [FaceDef; 1] = [FaceDef {
@@ -100,6 +102,7 @@ fn a_color_counts_wherever_the_face_prints_it() {
         mana_ability: false,
         zone: crate::dsl::ability::ActivationZone::Battlefield,
         limit: crate::dsl::ability::ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     }];
     assert_eq!(

@@ -192,6 +192,7 @@ static CYCLER_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
     zone: baylee_cards_dsl::ActivationZone::Hand,
     condition: baylee_cards_dsl::Condition::ControlCount(&LAND_F, 1),
     limit: baylee_cards_dsl::ActivationLimit::Unlimited,
+    x_value: baylee_cards_dsl::ActivationX::Any,
     cost_reduction: None,
 }];
 
@@ -214,6 +215,7 @@ static FONT_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
     zone: baylee_cards_dsl::ActivationZone::Battlefield,
     condition: baylee_cards_dsl::Condition::ControlCount(&LAND_F, 1),
     limit: baylee_cards_dsl::ActivationLimit::PerTurn(1),
+    x_value: baylee_cards_dsl::ActivationX::Any,
     cost_reduction: None,
 }];
 

@@ -610,7 +610,8 @@ pub fn amount_with_context(
             .object(this)
             .map_or(0, |o| u32::from(o.counters.get(*kind))),
         // Resolved in resolve.rs, which has the stack object these read.
-        Amount::TargetPower
+        Amount::DevotionToManaColor
+        | Amount::TargetPower
         | Amount::TargetCmc
         | Amount::EventLastToughness
         | Amount::EventAmount

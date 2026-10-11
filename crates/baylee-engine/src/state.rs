@@ -1448,6 +1448,26 @@ impl Checkpoint {
 }
 
 impl GameState {
+    /// Distinct colors of the designated commander cards, wherever they are.
+    /// Copy effects do not change a commander's color identity (CR 903.4).
+    #[must_use]
+    pub fn commander_colors(&self, player: PlayerId) -> baylee_core::color::ColorSet {
+        self.commanders
+            .get(usize::from(player.get()))
+            .into_iter()
+            .flatten()
+            .filter_map(|commander| self.object(commander.object))
+            .fold(baylee_core::color::ColorSet::EMPTY, |colors, object| {
+                colors.union(
+                    object
+                        .original_base
+                        .as_deref()
+                        .unwrap_or(&object.base)
+                        .color_identity,
+                )
+            })
+    }
+
     /// Keeps the game as it stands, for [`Self::roll_back`].
     ///
     /// CR 732.1: an action that cannot legally be completed is reversed and

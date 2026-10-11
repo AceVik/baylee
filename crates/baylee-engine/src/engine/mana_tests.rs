@@ -192,9 +192,9 @@ fn x_mana_of_any_one_color_is_one_pick_for_all_of_it() {
 
 /// "Add one mana of any color in your commander's color identity." There is
 /// no commander in a duel, so there is no color to choose and the ability
-/// still has to resolve — colorless is what is left of it.
+/// still resolves, adding no mana (CR 903.4f).
 #[test]
-fn command_tower_without_a_commander_makes_colorless() {
+fn command_tower_without_a_commander_makes_no_mana() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(12, forest())
         .battlefield(0, &[command_tower()])
@@ -205,12 +205,12 @@ fn command_tower_without_a_commander_makes_colorless() {
     activate(&mut engine, p0, command_tower(), 0);
     assert!(
         matches!(engine.pending(), Pending::Priority { .. }),
-        "one option is no choice: {:?}",
+        "no color choice is needed: {:?}",
         engine.pending()
     );
     let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 0);
+    assert_eq!(pool.total(), 0);
 }
 
 /// Reported from a game: a Cavern of Souls naming Ally, two of them
@@ -871,13 +871,24 @@ fn mana_with_a_rider_alone_pays_for_a_spell_its_rider_does_not_name() {
 #[test]
 fn a_spell_the_rider_does_not_name_is_paid_with_the_other_mana_first() {
     let mut engine = Duel::new(13, forest())
-        .battlefield(0, &[boseiju_who_shelters_all(), command_tower()])
+        .battlefield(
+            0,
+            &[
+                boseiju_who_shelters_all(),
+                baylee_core::generated::index::WAR_ROOM,
+            ],
+        )
         .hand(0, &[sol_ring()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, PlayerId::new(0));
     activate(&mut engine, PlayerId::new(0), boseiju_who_shelters_all(), 0);
-    activate(&mut engine, PlayerId::new(0), command_tower(), 0);
+    activate(
+        &mut engine,
+        PlayerId::new(0),
+        baylee_core::generated::index::WAR_ROOM,
+        0,
+    );
 
     cast(&mut engine, sol_ring()).expect("either {C} pays");
     let pool = &engine.state().players[0].mana_pool;

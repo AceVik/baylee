@@ -74,6 +74,10 @@ macro_rules! messages {
 }
 
 messages! {
+    /// Army selected without targeting for amass.
+    NounArmyToAmass { en: "Army to amass", de: "Armee zum Aufmarschieren" },
+    /// Plural label for the amass choice.
+    NounArmiesToAmass { en: "Armies to amass", de: "Armeen zum Aufmarschieren" },
     /// Optional replacement for entering, before any enters-the-battlefield triggers.
     EnterTappedForCounters { en: "Enter tapped and get {0} {1}?", de: "Getappt ins Spiel kommen und {0} {1} erhalten?" },
     /// Number of energy counters to pay; choosing zero declines.

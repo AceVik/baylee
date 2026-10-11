@@ -1640,8 +1640,37 @@ impl<L: CardLookup> Engine<L> {
                         ability_index,
                         targets,
                         target_players,
+                        remaining,
+                        mut chosen,
                     }) => {
-                        self.activation_cost_choices.push(objects);
+                        let remaining =
+                            remaining.map(|n| n - u32::try_from(objects.len()).unwrap_or(u32::MAX));
+                        chosen.extend_from_slice(&objects);
+                        if remaining.is_some_and(|n| n > 0) {
+                            let mut next = self.pending.clone();
+                            if let Pending::ChooseCards {
+                                options, min, max, ..
+                            } = &mut next
+                            {
+                                let mut used = objects;
+                                used.sort_unstable();
+                                options.retain(|id| used.binary_search(id).is_err());
+                                *max = u8::try_from(remaining.unwrap_or(0)).unwrap_or(u8::MAX);
+                                *min = *max;
+                            }
+                            self.pending_plan = Some(PlanKind::PayActivationCost {
+                                source,
+                                ability_index,
+                                targets,
+                                target_players,
+                                remaining,
+                                chosen,
+                            });
+                            self.pending = next;
+                            self.awaiting_answer = true;
+                            return Ok(());
+                        }
+                        self.activation_cost_choices.push(chosen);
                         self.activation_target_players = target_players;
                         if self
                             .start_activation(player, source, ability_index, targets)

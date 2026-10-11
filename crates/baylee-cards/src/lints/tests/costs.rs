@@ -197,6 +197,7 @@ fn the_announcement_lint_catches_a_cost_that_asks_before_it_shows() {
         mana_ability: false,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     };
 

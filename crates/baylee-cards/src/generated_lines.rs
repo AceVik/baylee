@@ -4859,7 +4859,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Voodoo Doll
+    &[FaceLines {
+        sentences: 3,
+        stackable: 3,
+        lines: &[Some(0), Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Walking Dead
     &[FaceLines {
         sentences: 1,
@@ -19543,8 +19550,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Tomb of Urami
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -22804,7 +22811,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(0), Some(1)],
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -27760,7 +27767,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[Some(0)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -37992,8 +37999,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // War Room
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -44645,8 +44652,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Barad-dûr
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -51806,8 +51813,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Secluded Starforge
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(0), Some(2)],
+        stackable: 2,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

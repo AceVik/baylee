@@ -25,6 +25,11 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::Amass { subtype, amount } => {
+            if let Some(&army) = chosen.first() {
+                super::amass::finish(state, res, army, subtype, amount);
+            }
+        }
         AwaitingOp::TapEnergy(selection) => {
             if let Some(pending) = super::tap_energy::objects(state, res, *selection, chosen) {
                 return next_choice(state, res, since, pending);

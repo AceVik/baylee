@@ -139,6 +139,7 @@ pub(super) const fn paid(
         mana_ability: false,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     }
 }

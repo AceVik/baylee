@@ -525,6 +525,7 @@ impl GameState {
                         crate::object::Rider::AttachmentHostLeft
                             | crate::object::Rider::Prepared
                             | crate::object::Rider::Saddled
+                            | crate::object::Rider::ExhaustedAbility(_)
                     )
                 });
                 // A name chosen as it entered belongs to that permanent

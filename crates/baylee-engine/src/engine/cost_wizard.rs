@@ -61,8 +61,10 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
     matches!(
         part,
         CostPart::Sacrifice(_)
+            | CostPart::SacrificeX(_)
             | CostPart::Discard(_)
             | CostPart::TapOther(_)
+            | CostPart::TapX(_)
             | CostPart::Crew(_)
             | CostPart::Saddle(_)
             | CostPart::ReturnToHand(_)
@@ -163,10 +165,11 @@ pub(crate) fn options_with_context(
             .collect();
     }
     let (zone, controlled, untapped) = match part {
-        CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) => {
-            (ZoneLocation::Battlefield, true, false)
-        }
-        CostPart::TapOther(_) => (ZoneLocation::Battlefield, true, true),
+        CostPart::Sacrifice(_)
+        | CostPart::SacrificeX(_)
+        | CostPart::SacrificeAll(_)
+        | CostPart::ReturnToHand(_) => (ZoneLocation::Battlefield, true, false),
+        CostPart::TapOther(_) | CostPart::TapX(_) => (ZoneLocation::Battlefield, true, true),
         CostPart::Discard(_) | CostPart::ExileFromHand(_) => {
             (ZoneLocation::Hand(player), false, false)
         }
@@ -174,8 +177,11 @@ pub(crate) fn options_with_context(
         _ => return Vec::new(),
     };
     let (CostPart::Sacrifice(filter)
+    | CostPart::SacrificeX(filter)
+    | CostPart::SacrificeAll(filter)
     | CostPart::Discard(filter)
     | CostPart::TapOther(filter)
+    | CostPart::TapX(filter)
     | CostPart::ReturnToHand(filter)
     | CostPart::ExileFromHand(filter)
     | CostPart::ExileFromGraveyard(filter)) = part
@@ -244,8 +250,11 @@ pub(crate) fn menu(
 const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
     matches!(
         (own, part),
-        (CostPart::TapSelf, CostPart::TapOther(_))
-            | (CostPart::SacrificeSelf, CostPart::Sacrifice(_))
+        (CostPart::TapSelf, CostPart::TapOther(_) | CostPart::TapX(_))
+            | (
+                CostPart::SacrificeSelf,
+                CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
+            )
             | (CostPart::ReturnSelfToHand, CostPart::ReturnToHand(_))
             | (CostPart::DiscardSelf, CostPart::Discard(_))
             | (CostPart::ExileSelf, CostPart::ExileFromGraveyard(_))
@@ -256,7 +265,7 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
 pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
     match part {
         CostPart::Discard(_) => ChoicePrompt::CostDiscard,
-        CostPart::TapOther(_) => ChoicePrompt::CostTap,
+        CostPart::TapOther(_) | CostPart::TapX(_) => ChoicePrompt::CostTap,
         CostPart::Crew(power) => ChoicePrompt::CostCrew { power: *power },
         CostPart::Saddle(power) => ChoicePrompt::CostSaddle { power: *power },
         CostPart::ReturnToHand(_) => ChoicePrompt::CostReturn,
@@ -301,7 +310,7 @@ pub(crate) fn pay(
 ) -> Result<(), EngineError> {
     if matches!(
         part,
-        CostPart::TapOther(_) | CostPart::Crew(_) | CostPart::Saddle(_)
+        CostPart::TapOther(_) | CostPart::TapX(_) | CostPart::Crew(_) | CostPart::Saddle(_)
     ) {
         state.set_tapped(chosen, true);
         state.journal.record(GameEvent::ObjectTapped {
@@ -623,7 +632,10 @@ mod tests {
 
         assert_eq!(answers_wanted(&cost), 2);
         let asking: Vec<&CostPart> = asking_parts(&cost).collect();
-        assert!(matches!(asking[0], CostPart::Sacrifice(_)));
+        assert!(matches!(
+            asking[0],
+            CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
+        ));
         assert!(matches!(asking[1], CostPart::Discard(_)));
         assert_eq!(
             answers_wanted(&baylee_cards_dsl::cost!("{2}", TapSelf, PayLife(3))),

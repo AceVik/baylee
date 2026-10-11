@@ -4,7 +4,6 @@
 use super::*;
 
 /// War Room: "{T}: Add {C}." / "{3}, {T}, Pay life equal to the number of colors in your commanders' color identity: Draw a card."
-/// Under `Coverage::Partial`, the draw ability with commander-identity life cost is omitted.
 /// Activating the implemented mana ability adds {C} to the mana pool and taps War Room.
 #[test]
 fn war_room_taps_for_colorless_mana() {

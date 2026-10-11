@@ -859,6 +859,10 @@ enum PlanKind {
         targets: SmallVec<[ObjectId; 2]>,
         /// The seats already chosen, put back before the re-entry.
         target_players: Vec<PlayerId>,
+        /// Remaining objects in a counted cost, including the current page.
+        remaining: Option<u32>,
+        /// Earlier pages of this one cost; nothing has been paid yet.
+        chosen: Vec<ObjectId>,
     },
 }
 

@@ -896,6 +896,8 @@ pub enum Rider {
     /// permanent it becomes, "escaped". Kept and given up as
     /// [`Rider::Dashed`] is.
     Escaped,
+    /// This printed exhaust ability was activated on this incarnation.
+    ExhaustedAbility(u32),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -956,6 +958,7 @@ impl Rider {
             | Self::Plotted => true,
             // About the stack or the battlefield, not exile.
             Self::GrantedActivated
+            | Self::ExhaustedAbility(_)
             | Self::EventObjectIdentity(..)
             | Self::AbilitySourceVersion(_)
             | Self::SourceAuraSuccessor(_)

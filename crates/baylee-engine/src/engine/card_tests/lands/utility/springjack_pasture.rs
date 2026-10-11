@@ -4,7 +4,6 @@
 use super::*;
 
 /// Springjack Pasture: "{T}: Add {C}." / "{4}, {T}: Create a 0/1 white Goat creature token." / "{T}, Sacrifice X Goats: Add X mana of any one color. You gain X life."
-/// Under `Coverage::Partial`, the counted Goat sacrifice is unsupported, leaving the mana at 0 and the Goat at 1.
 /// Activating ability 0 adds one colorless mana to the pool and leaves the land tapped.
 #[test]
 fn springjack_pasture_taps_for_colorless_mana() {
@@ -24,8 +23,7 @@ fn springjack_pasture_taps_for_colorless_mana() {
     assert!(is_tapped(&engine, pasture));
 }
 
-/// Springjack Pasture's `{4}, {T}`: one 0/1 white Goat, and nothing at
-/// ability 2, where the counted sacrifice would be.
+/// Springjack Pasture's `{4}, {T}` creates one 0/1 white Goat.
 #[test]
 fn springjack_pasture_makes_a_goat_for_four() {
     let p0 = PlayerId::new(0);
@@ -46,8 +44,8 @@ fn springjack_pasture_makes_a_goat_for_four() {
     };
     assert!(legal.abilities.contains(&(pasture, 1)), "the Goat");
     assert!(
-        !legal.abilities.contains(&(pasture, 2)),
-        "and no third ability: the X-Goat sacrifice is not written"
+        legal.abilities.contains(&(pasture, 2)),
+        "the counted sacrifice can announce zero Goats"
     );
 
     activate(&mut engine, p0, springjack_pasture(), 1);

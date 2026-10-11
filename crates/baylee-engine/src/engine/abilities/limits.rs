@@ -25,6 +25,12 @@ impl<L: CardLookup> Engine<L> {
     ) -> bool {
         let maximum = match limit {
             ActivationLimit::Unlimited => return false,
+            ActivationLimit::Exhaust => {
+                return self.state.object(source).is_none_or(|o| {
+                    o.riders
+                        .contains(&crate::object::Rider::ExhaustedAbility(index))
+                });
+            }
             ActivationLimit::PerTurn(n) => u32::from(n),
             ActivationLimit::Boast => {
                 let Some(object) = self.state.object(source) else {

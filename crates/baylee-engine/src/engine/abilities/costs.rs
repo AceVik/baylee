@@ -93,6 +93,13 @@ impl<L: CardLookup> Engine<L> {
         casting::affordable(&self.state, player, pool, cost)
     }
 
+    fn can_pay_commander_colors(&self, player: PlayerId) -> bool {
+        !self.state.commanders[usize::from(player.get())].is_empty()
+            && self
+                .state
+                .can_pay_life(player, i32::from(self.state.commander_colors(player).len()))
+    }
+
     pub(crate) fn can_afford(
         &self,
         player: PlayerId,
@@ -126,18 +133,9 @@ impl<L: CardLookup> Engine<L> {
                     }
                 }
                 CostPart::PayEnergy(_) => {
-                    let required: u32 = cost
-                        .parts
-                        .iter()
-                        .filter_map(|part| {
-                            if let CostPart::PayEnergy(n) = part {
-                                Some(u32::from(*n))
-                            } else {
-                                None
-                            }
-                        })
-                        .sum();
-                    if u32::from(self.state.players[usize::from(player.get())].energy) < required {
+                    if u32::from(self.state.players[usize::from(player.get())].energy)
+                        < cost.energy_payment(0)
+                    {
                         return false;
                     }
                 }
@@ -155,6 +153,17 @@ impl<L: CardLookup> Engine<L> {
                         })
                         .count();
                     if self.state.zones.list(ZoneLocation::Hand(player)).len() < needed {
+                        return false;
+                    }
+                }
+                CostPart::PayCommanderColors => {
+                    if !self.can_pay_commander_colors(player) {
+                        return false;
+                    }
+                }
+                CostPart::SacrificeX(_) | CostPart::TapX(_) => {
+                    let count = self.activation_x.unwrap_or(0) as usize;
+                    if cost_wizard::menu(&self.state, player, source, cost, part).len() < count {
                         return false;
                     }
                 }
@@ -257,7 +266,8 @@ impl<L: CardLookup> Engine<L> {
                 // Devoted Druid's second -1/-1 leaves a 0/0 that CR 704.5f
                 // puts in the graveyard, and a permanent in a graveyard is
                 // offered nothing.
-                CostPart::SacrificeSelf
+                CostPart::SacrificeAll(_)
+                | CostPart::SacrificeSelf
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
@@ -427,6 +437,45 @@ impl<L: CardLookup> Engine<L> {
                         ZonePosition::Top,
                         Cause::Cost,
                     )?;
+                }
+                CostPart::PayCommanderColors => {
+                    if !self.can_pay_commander_colors(player) {
+                        return Err(EngineError::IllegalAction(
+                            "cannot pay commander identity life cost",
+                        ));
+                    }
+                    let life = i32::from(self.state.commander_colors(player).len());
+                    self.state.change_life(player, -life, Cause::Cost);
+                }
+                CostPart::SacrificeAll(_) => {
+                    let cards = cost_wizard::options(&self.state, player, source, part);
+                    for card in cards {
+                        cost_wizard::pay(&mut self.state, player, part, card)?;
+                    }
+                }
+                CostPart::SacrificeX(_) | CostPart::TapX(_) => {
+                    let Some(cards) = answers.next() else {
+                        return Err(EngineError::IllegalAction("unanswered counted cost"));
+                    };
+                    if cards.len() != x as usize {
+                        return Err(EngineError::IllegalAction("wrong number of cost objects"));
+                    }
+                    let mut eligible = cost_wizard::options(&self.state, player, source, part);
+                    eligible.sort_unstable();
+                    let mut selected = cards.clone();
+                    selected.sort_unstable();
+                    if selected.windows(2).any(|pair| pair[0] == pair[1])
+                        || selected
+                            .iter()
+                            .any(|id| eligible.binary_search(id).is_err())
+                    {
+                        return Err(EngineError::IllegalAction(
+                            "a selected cost object is no longer payable",
+                        ));
+                    }
+                    for &card in cards {
+                        cost_wizard::pay(&mut self.state, player, part, card)?;
+                    }
                 }
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);

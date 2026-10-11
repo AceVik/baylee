@@ -775,8 +775,7 @@ pub fn table_losses(
 /// not a selection) and `Generic` is the plain noun, which is honest: the
 /// engine did not say what it was for either.
 ///
-/// The last five are the other thing that is part of a cost and, unlike
-/// delve, are one card rather than a heap of them: `CostSacrifice`,
+/// These prompts describe what happens to each selected payment object: `CostSacrifice`,
 /// `CostDiscard`, `CostTap`, `CostReturn` and `CostExile` arrive while
 /// CR 601.2h is being paid, so each
 /// gets a noun that says what happens to the card rather than sharing delve's
@@ -854,6 +853,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::TappedForCounters { .. } => {
             (Phrase::NounTappedForCounter, Phrase::NounTappedForCounters)
         }
+        ChoicePrompt::Amass => (Phrase::NounArmyToAmass, Phrase::NounArmiesToAmass),
         ChoicePrompt::Proliferate => (
             Phrase::NounProliferatePermanent,
             Phrase::NounProliferatePermanents,

@@ -15,6 +15,7 @@ mod offers;
 mod prepared;
 mod restrictions;
 mod stack;
+mod x_value;
 
 /// The cost parts an activation would leave unpaid, and think it had paid.
 ///
@@ -57,12 +58,16 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::UntapSelf
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)
+        | CostPart::SacrificeX(_)
+        | CostPart::SacrificeAll(_)
         | CostPart::PayLife(_)
+        | CostPart::PayCommanderColors
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)
+        | CostPart::TapX(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
@@ -89,18 +94,22 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
     match part {
         // A move of an object that may no longer be there, a counter that
         // may already be gone, an answer that may be missing.
-        CostPart::SacrificeSelf
+        CostPart::PayCommanderColors
+        | CostPart::SacrificeSelf
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::Sacrifice(_)
+        | CostPart::SacrificeX(_)
+        | CostPart::SacrificeAll(_)
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)
+        | CostPart::TapX(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
@@ -112,22 +121,6 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::ExileFromHand(_)
         | CostPart::PayLifeX => false,
     }
-}
-
-/// The counter a cost asks the player for a *number* of, if it asks at all.
-///
-/// A finder rather than a classifier, which is why the `_` arm is honest
-/// here and is not in `paid_by_the_casting_wizard` above: the question is
-/// "is this that one variant", and a part added tomorrow is not it.
-///
-/// One part at most. A cost with two of these would be two numbers and one
-/// answer, and `activation_x` holds one — the pool prints seventeen such
-/// costs and every one of them removes a single kind.
-fn counter_x_part(cost: &Cost) -> Option<baylee_cards_dsl::CounterKind> {
-    cost.parts.iter().find_map(|part| match part {
-        CostPart::RemoveCounterSelfX { kind } => Some(*kind),
-        _ => None,
-    })
 }
 
 /// Whether an ability's effects ask how often it has been activated this

@@ -6,6 +6,13 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// A non-targeted Army choice during amass.
+    Amass {
+        /// Subtype added in addition to the chosen Army's other types.
+        subtype: baylee_core::ids::SubtypeId,
+        /// Evaluated number of +1/+1 counters.
+        amount: u16,
+    },
     /// Actual tapped objects awaiting an energy payment and counter selections.
     TapEnergy(Box<super::tap_energy::Selection>),
     /// A selected pair of permanents waiting for the counter kind to move.
@@ -579,6 +586,8 @@ pub enum AwaitingOp {
         remaining: u16,
         /// Mana added per pick (1 for combination, all of it otherwise).
         per_pick: u16,
+        /// Color-dependent production, in mana-color order, if the amount asks for devotion.
+        by_color: Option<[u16; 6]>,
         /// What the mana may be spent on, if restricted.
         restriction: Option<baylee_cards_dsl::effect::ManaRestriction>,
     },

@@ -75,14 +75,12 @@ fn a_manland_that_reads_two_or_more_other_lands_enters_untapped_off_one() {
 /// is where an activation differs from a cast: the cast wizard starts
 /// with a conservative resource bound and validates later choices at payment.
 ///
-/// `min` is 0 and the card says X can't be 0, which is the whole of its
-/// remaining `Coverage::Partial`: a lower bound printed on the card has no
-/// field on a cost.
+/// The printed minimum excludes X = 0.
 #[test]
 fn a_mana_x_in_an_activation_cost_is_announced_and_bounded_by_the_pool() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[lair_of_the_hydra(), forest(), forest(), forest()])
+        .battlefield(0, &[lair_of_the_hydra(), forest(), forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -99,11 +97,11 @@ fn a_mana_x_in_an_activation_cost_is_announced_and_bounded_by_the_pool() {
         "a land is not a creature before activation"
     );
 
-    tap_all_mana_but(&mut engine, p0, Some(lair_of_the_hydra()));
+    tap_all_mana(&mut engine, p0);
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
         3,
-        "three Forests, which is {{X}}{{G}} with X = 2"
+        "three tapped lands, which is {{X}}{{G}} with X = 2"
     );
     activate(&mut engine, p0, lair_of_the_hydra(), 1);
 
@@ -118,12 +116,8 @@ fn a_mana_x_in_an_activation_cost_is_announced_and_bounded_by_the_pool() {
         );
     };
     assert_eq!(player, p0);
-    assert_eq!(
-        (min, max),
-        (0, 2),
-        "three mana floating pays {{X}}{{G}} up to X = 2, and the lower \
-         bound the card prints has nowhere to be written"
-    );
+    assert!(engine.apply(p0, PlayerAction::ChooseNumber(0)).is_err());
+    assert_eq!((min, max), (1, 2), "three mana floating pays X = 1 or 2");
     assert!(
         engine.apply(p0, PlayerAction::ChooseNumber(3)).is_err(),
         "a number the pool cannot pay is refused at the question rather \

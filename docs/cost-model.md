@@ -2,27 +2,26 @@
 
 A cost is a mana part plus non-mana parts:
 
-```rust
-struct Cost { mana: ManaCost, parts: &'static [CostPart] }
-enum CostPart { TapSelf, UntapSelf, SacrificeSelf, Sacrifice(&'static Filter),
-                PayLife(u16), PayLifeX, Discard(&'static Filter), DiscardSelf,
-                ExileSelf, ExileFromHand(&'static Filter), ReturnSelfToHand,
-                TapOther(&'static Filter), Crew(u8),
-                ReturnToHand(&'static Filter), ExileFromGraveyard(&'static Filter),
-                RemoveCounterSelf { kind: CounterKind, n: u16 },
-                RemoveCounterSelfX { kind: CounterKind },
-                PutCounterSelf { kind: CounterKind, n: u16 } }
-```
+`Cost` contains a `ManaCost` and a static slice of `CostPart`. The authoritative
+vocabulary lives in `crates/baylee-cards-dsl/src/cost.rs`; `docs/card-dsl.md`
+documents the supported authoring forms. Card files normally use
+`cost!("{1}{G}", TapSelf, SacrificeSelf)`, `Cost::FREE` or `Cost::TAP`.
 
-That is the type as it stands (`baylee-cards-dsl/src/cost.rs`), and the
-sketch it replaces is why it is written out here: the parts are `*Self` where
-a cost pays with the source and take a `Filter` only where a choice is
-genuinely open. A card file never writes the struct — `cost!("{1}{G}",
-TapSelf, SacrificeSelf)` reads left to right the way the card prints it, with
-`Cost::FREE` and `Cost::TAP` for the empty cost and a bare `{T}`, and a part
-with named fields keeps its braces (`cost!(TapSelf, RemoveCounterSelf { kind:
-CounterKind::Charge, n: 1 })`). `docs/card-dsl.md` is normative on the
-spelling, including which four parts an activated ability may not carry.
+The cost families are tap/untap (`TapSelf`, `UntapSelf`, `TapOther`, `TapX`,
+`Crew`, `Saddle`), sacrifice (`SacrificeSelf`, `Sacrifice`, `SacrificeX`,
+`SacrificeAll`), discard (`Discard`, `DiscardSelf`, `DiscardRandom`), zone
+movement (`ExileSelf`, `ExileFromHand`, `ExileFromGraveyard`,
+`ReturnSelfToHand`, `ReturnToHand`), life (`PayLife`, `PayLifeX`,
+`PayCommanderColors`), energy (`PayEnergy`, `PayEnergyX`) and counters
+(`RemoveCounterSelf`, `RemoveCounterSelfX`, `PutCounterSelf`).
+
+Activation X is one announcement shared by the mana and non-mana parts.
+`ActivationX` supplies an optional lower bound or a card-defined amount.
+Bounds account for fixed resource payments and repeated variable parts;
+payment revalidates them. Counted-object selections are collected over as many
+pages as needed and paid only after the complete selection is valid. Payment
+checkpoints restore the state when a later part cannot be paid. Exhaust is
+recorded only after successful payment, separately from per-turn limits.
 
 **The order of the parts is the printed order, and it is load-bearing.**
 `Engine::pay_cost` walks them left to right, and four of them — `SacrificeSelf`,
@@ -36,12 +35,12 @@ way round is a transcription error rather than a card — which is why it is a
 pool lint (`baylee-cards::lints::no_cost_asks_for_a_permanent_it_has_already_spent`)
 and not a refusal at the moment of activation.
 
-**A part that names an object never names the source twice.** Six parts
-ask the player for an object (`cost_wizard`; `Crew` for any number of them
-at once), and the menu they are asked
+**A part that names an object never names the source twice.** Object-selection
+parts ask the player through `cost_wizard`, and the menu they are asked
 from is `cost_wizard::menu`, which is the board less the source whenever the
 same cost already spends the source the same way: `TapSelf` beside
-`TapOther`, `SacrificeSelf` beside `Sacrifice`, and the return, discard and
+`TapOther` or `TapX`, `SacrificeSelf` beside `Sacrifice`, `SacrificeX`
+or `SacrificeAll`, and the return, discard and
 exile pairs likewise. Selesnya Evangel's "{1}, {T}, Tap an untapped creature
 you control" is the pool's case — alone on the table it is not offered,
 because its own `{T}` leaves nothing untapped to tap (CR 118.3). A different

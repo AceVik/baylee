@@ -22,8 +22,10 @@
 //! moves `#[test]` functions and nothing else, which is also what makes it
 //! reviewable: no item was rewritten, only re-filed.
 
+mod activation_cost_bounds;
 mod alpha_completion_review;
 mod artifacts;
+mod counted_activation_costs;
 mod counter_movement;
 mod counter_resources;
 mod creatures;

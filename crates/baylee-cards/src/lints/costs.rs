@@ -30,6 +30,10 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)
+        | CostPart::TapX(_)
+        | CostPart::SacrificeX(_)
+        | CostPart::SacrificeAll(_)
+        | CostPart::PayCommanderColors
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
@@ -59,6 +63,10 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)
+        | CostPart::TapX(_)
+        | CostPart::SacrificeX(_)
+        | CostPart::SacrificeAll(_)
+        | CostPart::PayCommanderColors
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)

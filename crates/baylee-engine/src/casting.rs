@@ -1187,7 +1187,6 @@ fn alternative_parts_payable(
 ) -> bool {
     use baylee_cards_dsl::CostPart;
     parts.iter().all(|part| match part {
-        CostPart::PayEnergy(_) | CostPart::PayEnergyX => false,
         CostPart::DiscardRandom => {
             state
                 .zones
@@ -1214,6 +1213,13 @@ fn alternative_parts_payable(
         // card or the board rather than out of a count. `RemoveCounterSelfX`
         // joins them for its own reason: zero is a legal number to announce,
         // so there is nothing here an alternative cost could fail to pay.
+        // Counted activation costs are not spell additional costs.
+        CostPart::PayEnergy(_)
+        | CostPart::PayEnergyX
+        | CostPart::TapX(_)
+        | CostPart::SacrificeX(_)
+        | CostPart::SacrificeAll(_)
+        | CostPart::PayCommanderColors => false,
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::SacrificeSelf

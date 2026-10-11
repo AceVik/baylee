@@ -58,6 +58,10 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)
+        | CostPart::TapX(_)
+        | CostPart::SacrificeX(_)
+        | CostPart::SacrificeAll(_)
+        | CostPart::PayCommanderColors
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
         | CostPart::DiscardSelf

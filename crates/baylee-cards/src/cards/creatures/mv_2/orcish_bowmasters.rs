@@ -19,7 +19,7 @@ static PING_THEN_AMASS: &[Effect] = &[
     Effect::Amass {
         token: &crate::tokens::ARMY_0_0_BLACK,
         subtype: creature::ORC,
-        amount: 1,
+        amount: Amount::Fixed(1),
     },
 ];
 

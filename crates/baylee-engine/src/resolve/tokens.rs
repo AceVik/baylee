@@ -37,51 +37,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             token,
             subtype,
             amount,
-        } => {
-            // CR 701.47a: choose an *Army* you control — not a creature of the
-            // named type. Searching for the named type instead is how "amass
-            // Orcs 1" used to grow Orcish Bowmasters itself, which is an Orc
-            // Archer and no Army at all.
-            let army_type = token
-                .subtypes
-                .first()
-                .copied()
-                .unwrap_or(baylee_core::ids::SubtypeId::new(0));
-            let army = state.battlefield_seen().find(|id| {
-                state.object(*id).is_some_and(|o| {
-                    o.controller == you
-                        && o.characteristics()
-                            .types
-                            .contains(baylee_core::types::TypeSet::CREATURE)
-                        && o.characteristics().subtypes.contains(army_type)
-                })
-            });
-            // The one token creation that deliberately does *not* go through
-            // [`create_tokens`]. Doubling Season would make two Armies and
-            // the counters then go on one Army you control, which is a
-            // choice — and amass has nowhere to ask it. Doubling it here
-            // would silently pick for the player; leaving it is a known
-            // undercount, and the honest one until the choice exists.
-            let target_id =
-                army.unwrap_or_else(|| create_token_with_text(state, you, token, None, res.text));
-            // CR 701.47a: the Army becomes the named type in addition to its
-            // other types, whether it was just created or was already there.
-            // Written into the base rather than registered as a continuous
-            // effect because it has no duration and an Army is always a
-            // token, so there is nothing underneath for it to shadow.
-            if let Some(obj) = state.object_mut(target_id) {
-                obj.base_mut().subtypes.insert(subtype);
-                obj.cache.clear();
-            }
-            crate::replacement::put_counters_by(
-                state,
-                res.controller,
-                target_id,
-                baylee_cards_dsl::CounterKind::P1P1,
-                amount,
-            );
-            None
-        }
+        } => super::amass::start(state, res, token, subtype, amount),
         Effect::CreateTokenCopyOf {
             target,
             kicked_bonus,
@@ -585,16 +541,6 @@ fn arrive(state: &mut GameState, id: ObjectId) {
         cause: crate::event::Cause::Effect,
         place: None,
     });
-}
-
-fn create_token_with_text(
-    state: &mut GameState,
-    controller: PlayerId,
-    token: &'static baylee_cards_dsl::TokenDef,
-    size: Option<i16>,
-    text: TextChangeMap,
-) -> ObjectId {
-    create_token_entering(state, controller, token, size, text, TokenEntry::default())
 }
 
 fn create_token_entering(

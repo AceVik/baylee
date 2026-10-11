@@ -293,7 +293,8 @@ fn consumes(cost: &Cost) -> bool {
             // A card exiled out of the graveyard is gone for good, so the
             // pile that pays for the next activation is one card shorter.
             | CostPart::ExileFromGraveyard(_) => true,
-            CostPart::PayLifeX => false,
+            CostPart::PayLifeX | CostPart::PayCommanderColors
+            | CostPart::TapX(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_) => false,
         })
 }
 
@@ -311,6 +312,19 @@ fn pays_mana(mana: &ManaCost) -> bool {
     mana.cmc() > 0 || mana.has_variable()
 }
 
+/// The union of the designated commander cards, independent of their current zones.
+pub(crate) fn commander_color_count(view: &PlayerView) -> Option<u16> {
+    let commanders = &view.seat(view.seat)?.commanders;
+    if commanders.is_empty() {
+        return None;
+    }
+    let mut colors = baylee_core::color::ColorSet::EMPTY;
+    for commander in commanders {
+        colors = colors.union(baylee_cards::by_index(commander.card?.index)?.color_identity);
+    }
+    Some(u16::from(colors.len()))
+}
+
 /// Whether the life this cost asks for is life the seat can spare.
 ///
 /// The `+ 5` is the same margin the pay-life-or-enter-tapped answer uses;
@@ -321,6 +335,21 @@ pub(crate) fn life_ok(view: &PlayerView, cost: &Cost) -> bool {
         CostPart::PayLife(n) => sum.saturating_add(*n),
         _ => sum,
     });
+    let commander_parts = cost
+        .parts
+        .iter()
+        .filter(|part| **part == CostPart::PayCommanderColors)
+        .count();
+    let need = if commander_parts > 0 {
+        let Some(colors) = commander_color_count(view) else {
+            return false;
+        };
+        need.saturating_add(
+            colors.saturating_mul(u16::try_from(commander_parts).unwrap_or(u16::MAX)),
+        )
+    } else {
+        need
+    };
     need == 0
         || view
             .seat(view.seat)

@@ -458,10 +458,15 @@ express at all yet.
   fetchland was the same word three times.
 
   The parts: `TapSelf`, `UntapSelf`, `SacrificeSelf`, `Sacrifice(filter)`,
+  `SacrificeX(filter)` (X chosen permanents), `SacrificeAll(filter)` (every
+  matching permanent you control, including the source when it matches),
   `Discard(filter)`, `DiscardSelf` (cycling), `DiscardRandom` (one random
   hand card, activation costs only), `PayLife(n)`, `PayLifeX`,
+  `PayCommanderColors` (one life per distinct color among all commanders;
+  a colorless commander costs zero, but no commander makes it unpayable),
   `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`,
   `TapOther(filter)` (the convoke lands, Earthcraft),
+  `TapX(filter)` (X untapped matching permanents you control),
   `Saddle(n)` (written by `saddle!(n)`, the same power payment at sorcery speed),
   `Crew(n)` (written only by `crew!(n)`: one question answered with any
   number of other untapped creatures the payer controls, refused when their
@@ -491,17 +496,23 @@ express at all yet.
   parentheses". The order of the parts is the printed order and is
   load-bearing: `docs/cost-model.md` has the rule and the lint that holds it.
 
-  A **mana `{X}`** in an activation cost is the other half of that same
-  announcement and needs nothing written beside it: `cost!("{X}{G}")` is
-  asked for at CR 602.2b exactly as the counter part is, bounded above by
-  what the pool can pay rather than by what is on the permanent, and read
-  back by the effects as the same `Amount::X`. So Kessig Wolf Run's
-  `+X/+0`, Treasure Vault's X Treasures and Blast Zone's X charge counters
-  are ordinary cards. Two things it still cannot say: a **lower** bound, so
-  Lair of the Hydra's "X can't be 0" is a `Coverage::Partial` reason, and
-  *both* kinds of X in one cost, because one announcement is held in one
-  field — `lints::no_cost_announces_two_different_xs` is the guard, and it
-  fails with the card's name the day one prints both.
+  Activation X is announced before targets (CR 602.2b, 601.2b). Mana,
+  energy, counter and counted-object costs share that value, and payment
+  validates every occurrence. `x_value = ActivationX::AtLeast(1)` expresses
+  Lair of the Hydra's minimum; `ActivationX::Defined(amount)` freezes a
+  card-defined value at announcement, as on Voodoo Doll. The default `Any`
+  permits zero. Resource bounds reserve fixed payments and account for
+  repeated X parts. The mana pool bounds X only when no further mana ability
+  can be used; otherwise the normal payment window determines affordability.
+  A source can pay mana toward its own non-tap activation, as on Lair of the
+  Hydra. `TapSelf` and `UntapSelf` reserve it for their respective costs.
+
+  `TapX` and `SacrificeX` gather a complete, distinct, non-targeted selection
+  before payment. Pages of 255 are a UI boundary, never a rules limit; earlier
+  pages do not tap or sacrifice anything. Zero needs no selection. These two
+  parts, `SacrificeAll` and `PayCommanderColors` are activation-only vocabulary.
+  The existing card-pool lint still rejects a mana X combined with a counter X
+  until a card using that combination is introduced with a behavioral test.
 
   A **Phyrexian symbol** in an activation cost needs nothing written beside
   it either: `cost!("{1}{G/P}", …)` (Birthing Pod) is offered when some way
@@ -984,9 +995,10 @@ its cousins — the default is `Unlimited`, because CR 602.2 caps an
 activation by nothing but its cost. It is a limit per **permanent** and per
 turn, not per card and not per *your* turn: two Wall of Roots each get their
 own, and a Wall used on your turn is available again on the opponent's.
-There is no per-*game* variant; the cards that want one print the exhaust
-keyword, which other cards look for ("whenever you activate an exhaust
-ability") and which is therefore a keyword bit rather than a number.
+`limit = ActivationLimit::Exhaust` is the separate once-per-ability restriction
+(CR 702.177a). Paying consumes that instance even if resolution is countered.
+A new turn, control change or phasing does not reset it; leaving the battlefield
+and returning creates a new object and restores the ability.
 
 `limit = ActivationLimit::Boast` tags a boast ability and enforces both parts
 of CR 702.142a: the exact source must have attacked this turn, and the ability
@@ -3407,3 +3419,18 @@ question. Exact incarnations, phasing, absence of the counter, identical objects
 and a destination counter cap are checked before removal. Counter-doubling
 replacements apply to placement on the destination, never to removal from the
 source. `MoveCounterToEvent` shares this checked path.
+
+### Devotion and amass
+
+`Amount::DevotionToManaColor` is contextual to `Effect::AddMana`: it counts
+colored symbols on the controller's battlefield permanents for each offered
+color. Hybrid and Phyrexian symbols count their colored components; generic,
+X, snow and colorless symbols do not contribute. Choosing a color with zero
+devotion is legal. It is not a general-purpose amount outside mana production.
+
+`Effect::Amass { subtype, amount }` takes an `Amount`, including X. If no Army
+creature is controlled, token creation uses the normal replacement machinery.
+The controller then chooses one Army creature without targeting, including
+when replacement effects created several. Counters use the normal placement
+replacements, and an added Army subtype is a continuous type effect rather
+than a change to the creature's copiable values (CR 701.47a).

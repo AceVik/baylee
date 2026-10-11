@@ -98,15 +98,13 @@ pub static ANGEL_4_4_WHITE_FLYING: TokenDef = TokenDef {
 /// you control no Army; the counters go on afterwards, and "amass Orcs"
 /// adds the Orc type on top of this).
 pub static ARMY_0_0_BLACK: TokenDef = TokenDef {
-    name: "Army",
+    name: "Orc Army",
     colors: ColorSet::from_slice(&[Color::Black]),
     types: TypeSet::CREATURE,
-    subtypes: &[creature::ARMY],
+    subtypes: &[creature::ORC, creature::ARMY],
     power: Some(0),
     toughness: Some(0),
-    // LTR #6, an Orc Army: no card prints a bare "Army", because amass
-    // always names a creature type, and Orcish Bowmasters is the only
-    // card in the pool that makes one.
+    // LTR #6: amass Orcs creates both subtypes before the entry event.
     scryfall_id: "db598f33-2ff9-4e0b-a067-05fecc03435f",
     ..TokenDef::DEFAULT
 };

@@ -102,19 +102,28 @@ pub(super) fn resume_with_color_inner(
         colors,
         remaining,
         per_pick,
+        by_color,
         restriction,
     } = awaiting
     else {
         panic!("resume_with_color on a question that is not about a color");
     };
     debug_assert!(colors.contains(&color));
-    mana::add_to(state, res, recipient, color, per_pick, restriction);
+    mana::add_to(
+        state,
+        res,
+        recipient,
+        color,
+        by_color.map_or(per_pick, |amounts| amounts[color.index()]),
+        restriction,
+    );
     if remaining > 1 {
         res.awaiting = Some(AwaitingOp::ManaChoice {
             recipient,
             colors: colors.clone(),
             remaining: remaining - 1,
             per_pick,
+            by_color,
             restriction,
         });
         return Flow::Wait(Pending::ChooseColor {

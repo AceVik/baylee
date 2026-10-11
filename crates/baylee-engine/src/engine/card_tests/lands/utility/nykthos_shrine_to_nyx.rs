@@ -5,11 +5,9 @@ use super::*;
 
 /// Nykthos, Shrine to Nyx prints `{{T}}: Add {{C}}.` and `{{2}}, {{T}}: Choose a color. Add an amount of mana of that color equal to your devotion to that color.`
 ///
-/// Under `Coverage::Partial`, the devotion ability is omitted because devotion requires counting mana symbols of a chosen color among permanents you control, which is unsupported.
-/// With Nykthos and two basic lands (`forest()`) on the battlefield under `PlayerId::new(0)`, floating `{{2}}` while keeping Nykthos untapped shows that ability 0 is offered while ability 1 is withheld from `legal.abilities`.
-/// Activating ability 0 adds one colorless mana to the pool and taps Nykthos.
+/// Both mana abilities are offered when the second cost is affordable.
 #[test]
-fn nykthos_shrine_to_nyx_taps_for_colorless_and_omits_devotion_ability() {
+fn nykthos_shrine_to_nyx_taps_for_colorless_and_offers_devotion_ability() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[nykthos_shrine_to_nyx(), forest(), forest()])
@@ -33,8 +31,8 @@ fn nykthos_shrine_to_nyx_taps_for_colorless_and_omits_devotion_ability() {
         "ability 0 ({{T}}: Add {{C}}) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(nykthos, 1)),
-        "ability 1 is omitted under `Coverage::Partial` even with {{2}} floating"
+        legal.abilities.contains(&(nykthos, 1)),
+        "devotion can be activated with {{2}} floating"
     );
 
     activate(&mut engine, p0, nykthos_shrine_to_nyx(), 0);

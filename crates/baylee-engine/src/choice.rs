@@ -909,6 +909,8 @@ pub enum ChoicePrompt {
     },
     /// Generic selection.
     Generic,
+    /// Choose the Army that receives amass counters and the named subtype.
+    Amass,
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).

@@ -247,108 +247,7 @@ impl<L: CardLookup> Engine<L> {
             ));
         }
         let _ = zone;
-        // CR 601.2b, and it sits *above* the targets below because that is
-        // the order the rule puts them in: a number announced with the
-        // ability, then the targets, then the payment. "Remove any number of
-        // storage counters" names no number and neither does "Remove X
-        // storage counters", so the player is asked for one, bounded by what
-        // is actually on the source — an answer above that bound would be a
-        // cost nothing could pay, and the bound is the whole of the
-        // legality here because zero is allowed.
-        //
-        // Reached only through the offer guard in `apply`, which refuses an
-        // ability `legal.abilities` does not carry, so nobody is asked a
-        // number for an activation `can_afford` has already ruled out.
-        let counter_bound = counter_x_part(&cost).map(|kind| {
-            self.state
-                .object(source)
-                .map_or(0, |o| o.counters.get(kind))
-        });
-        let energy_bound = cost
-            .parts
-            .contains(&CostPart::PayEnergyX)
-            .then(|| self.state.players[usize::from(player.get())].energy);
-        if let Some(max) = counter_bound.or(energy_bound)
-            && self.activation_x.is_none()
-        {
-            let max = u32::from(max);
-            self.pending_plan = Some(PlanKind::ChooseActivationX {
-                source,
-                ability_index,
-            });
-            self.pending = Pending::ChooseNumber {
-                player,
-                min: 0,
-                max,
-                reason: crate::choice::NumberPrompt::X,
-            };
-            self.awaiting_answer = true;
-            return Ok(());
-        }
-        // The *mana* {X}, and it sits beside the counter question above
-        // because CR 602.2b announces both in the same breath. Until this
-        // was written only the counter half existed, so `{X}{G}` was paid
-        // as `{G}` with nobody asked: Lair of the Hydra became a 0/0 and
-        // died to a state-based action, and Treasure Vault, Kessig Wolf Run
-        // and Blast Zone made the same silent zero.
-        //
-        // One answer, so one question: `activation_x` is a single field and
-        // the guard is the same `is_none()`. A cost carrying *both* kinds of
-        // X would take the counter bound and pay the mana with it — the
-        // right *number* by CR 107.3i, under which all instances of X on an
-        // object normally have one value, but bounded by the counters alone,
-        // so the payment below could fail after the ability had been
-        // announced. No cost in the pool does, and
-        // `lints::no_cost_announces_two_different_xs` is what keeps it that
-        // way.
-        if cost.mana.has_variable() && self.activation_x.is_none() {
-            // Announced before the mana is made, as a spell's is: an
-            // activation follows CR 601.2b-i (CR 602.2b), so X comes first
-            // and the mana abilities are activated while paying (CR 601.2g),
-            // in the window `open_activation_payment` opens below when the
-            // pool does not already cover the cost. A player who can still
-            // make mana is therefore bounded only by the number type, the
-            // way the cast wizard bounds a cast that pays in its window
-            // (`x_resource_bound`): what the mana abilities could make is not
-            // knowable here (they may sacrifice, ask, or make a dynamic
-            // amount). An X the window cannot pay is reversed with the mana
-            // made for it (`finish_activation_payment`, CR 732.1). Bounding by
-            // the floating pool, as this did, made every {X} activation an
-            // X = 0 for a player whose mana was still in their lands. A
-            // player with no way to make more mana is asked within what the
-            // pool already pays.
-            let max = if self.can_make_more_mana(player, source) {
-                u32::MAX
-            } else {
-                let upper = casting::spendable_units(
-                    &self.state,
-                    player,
-                    casting::SpendFor::Ability(source),
-                )
-                .saturating_add(self.state.granted_colorless_capacity(player));
-                casting::greatest_affordable(upper, |x| {
-                    self.can_plan_activation(
-                        player,
-                        source,
-                        &Cost {
-                            mana: cost.mana.with_x(x),
-                            parts: cost.parts,
-                        },
-                        0,
-                    )
-                })
-            };
-            self.pending_plan = Some(PlanKind::ChooseActivationX {
-                source,
-                ability_index,
-            });
-            self.pending = Pending::ChooseNumber {
-                player,
-                min: 0,
-                max,
-                reason: crate::choice::NumberPrompt::X,
-            };
-            self.awaiting_answer = true;
+        if self.announce_activation_x(player, source, ability_index, &cost)? {
             return Ok(());
         }
         // Each Phyrexian symbol: 2 life or its mana, announced beside the X
@@ -560,7 +459,7 @@ impl<L: CardLookup> Engine<L> {
                 casting::SpendFor::Ability(source),
                 &cost.mana.with_x(self.activation_x.unwrap_or(0)),
             )
-            && self.can_make_more_mana(player, source);
+            && self.can_make_more_mana(player, source, ability_index);
         let planned = if deferred {
             Cost {
                 mana: baylee_core::mana::ManaCost::ZERO,
@@ -585,6 +484,16 @@ impl<L: CardLookup> Engine<L> {
         // questions and answering them together would lose which answer
         // belongs to which.
         let wanted = cost_wizard::answers_wanted(&cost);
+        // X = 0 still supplies one (empty) answer for its cost part.
+        while self.activation_cost_choices.len() < wanted
+            && self.activation_x == Some(0)
+            && matches!(
+                cost_wizard::asking_parts(&cost).nth(self.activation_cost_choices.len()),
+                Some(CostPart::SacrificeX(_) | CostPart::TapX(_))
+            )
+        {
+            self.activation_cost_choices.push(Vec::new());
+        }
         if self.activation_cost_choices.len() < wanted {
             let asked = self.activation_cost_choices.len();
             let part = cost_wizard::asking_parts(&cost)
@@ -620,6 +529,9 @@ impl<L: CardLookup> Engine<L> {
                 ability_index,
                 targets,
                 target_players: chosen_players,
+                remaining: matches!(part, CostPart::SacrificeX(_) | CostPart::TapX(_))
+                    .then(|| self.activation_x.unwrap_or(0)),
+                chosen: Vec::new(),
             });
             // One object per question, except crew's, whose one question
             // is answered with any number of creatures with total power N or
@@ -639,13 +551,22 @@ impl<L: CardLookup> Engine<L> {
                         at_most: None,
                     }),
                 )
+            } else if matches!(part, CostPart::SacrificeX(_) | CostPart::TapX(_)) {
+                (
+                    u8::try_from(self.activation_x.unwrap_or(0)).unwrap_or(u8::MAX),
+                    None,
+                )
             } else {
                 (1, None)
             };
             self.pending = Pending::ChooseCards {
                 player,
                 options,
-                min: u8::from(!matches!(part, CostPart::Crew(0) | CostPart::Saddle(0))),
+                min: if matches!(part, CostPart::SacrificeX(_) | CostPart::TapX(_)) {
+                    max
+                } else {
+                    u8::from(!matches!(part, CostPart::Crew(0) | CostPart::Saddle(0)))
+                },
                 max,
                 prompt,
                 total,
@@ -728,6 +649,16 @@ impl<L: CardLookup> Engine<L> {
                     ability_index,
                 ))
                 .or_insert(0) += 1;
+        }
+        if limit == ActivationLimit::Exhaust {
+            // Costs may have moved the source. Do not exhaust a new incarnation.
+            if let Some(object) = self.state.object_mut(source)
+                && Some(object.version) == activated_source_version
+            {
+                object
+                    .riders
+                    .push(crate::object::Rider::ExhaustedAbility(ability_index));
+            }
         }
         if mana_ability {
             // Mana abilities resolve immediately, without the stack

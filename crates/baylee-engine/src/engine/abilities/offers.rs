@@ -674,8 +674,8 @@ impl<L: CardLookup> Engine<L> {
         let deferred: Vec<(ObjectId, u32)> = legal
             .unpaid_abilities
             .iter()
-            .filter(|(source, _, mana)| {
-                mana.has_variable() && self.makes_mana_besides(player, &legal, *source)
+            .filter(|(source, index, mana)| {
+                mana.has_variable() && self.makes_activation_mana(player, &legal, *source, *index)
             })
             .map(|&(source, index, _)| (source, index))
             .collect();
@@ -702,6 +702,19 @@ impl<L: CardLookup> Engine<L> {
         payable: bool,
         legal: &mut LegalActions,
     ) {
+        let minimum = self.activation_x_minimum(player, source, index);
+        if self
+            .activation_resource_x_max(player, source, cost)
+            .is_some_and(|max| minimum > max)
+        {
+            return;
+        }
+        let minimum_cost = Cost {
+            mana: cost.mana.with_x(minimum),
+            parts: cost.parts,
+        };
+        let payable = payable
+            && (minimum == 0 || self.activation_affordable(player, source, &minimum_cost, &[]));
         if payable {
             legal.abilities.push((source, index));
         } else if cost.mana != baylee_core::mana::ManaCost::ZERO

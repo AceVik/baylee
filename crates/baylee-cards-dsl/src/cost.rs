@@ -14,8 +14,14 @@ pub enum CostPart {
     SacrificeSelf,
     /// Sacrifice a permanent matching the filter.
     Sacrifice(&'static Filter),
+    /// Announce X and sacrifice that many matching permanents you control.
+    SacrificeX(&'static Filter),
+    /// Sacrifice every matching permanent you control, as one payment.
+    SacrificeAll(&'static Filter),
     /// Pay life.
     PayLife(u16),
+    /// Pay one life for each distinct color in your commanders' color identities.
+    PayCommanderColors,
     /// Discard a card matching the filter (choice at payment).
     Discard(&'static Filter),
     /// Discard one uniformly selected hand card during atomic payment.
@@ -46,6 +52,8 @@ pub enum CostPart {
     /// you tap …", which is a replacement on a trigger and not an activation
     /// cost at all.
     TapOther(&'static Filter),
+    /// Announce X and tap that many untapped matching permanents you control.
+    TapX(&'static Filter),
     /// Crew N (CR 702.122a): "Tap any number of other untapped creatures you
     /// control with total power N or greater." Written by [`crate::crew!`]
     /// and by nothing else.
@@ -285,6 +293,19 @@ pub struct Cost {
 }
 
 impl Cost {
+    /// Total energy payment, including each occurrence of an announced X.
+    /// Saturation stays above the player resource limit, so overflow cannot discount a cost.
+    #[must_use]
+    pub fn energy_payment(&self, x: u32) -> u32 {
+        self.parts.iter().fold(0_u32, |sum, part| {
+            sum.saturating_add(match part {
+                CostPart::PayEnergy(n) => u32::from(*n),
+                CostPart::PayEnergyX => x,
+                _ => 0,
+            })
+        })
+    }
+
     /// Free.
     pub const FREE: Cost = Cost {
         mana: ManaCost::ZERO,

@@ -100,6 +100,8 @@ pub struct ActivatedParts {
     /// activation but the cost (CR 602.2), and a card that caps it prints
     /// the sentence.
     pub limit: ActivationLimit,
+    /// Printed announcement constraint for X.
+    pub x_value: crate::ActivationX,
     /// "This ability costs {1} less to activate for each …".
     ///
     /// `None` is the rules default: an ability costs what it prints.
@@ -123,6 +125,7 @@ impl ActivatedParts {
             zone: ActivationZone::Battlefield,
             condition: None,
             limit: ActivationLimit::Unlimited,
+            x_value: crate::ActivationX::Any,
             cost_reduction: None,
         }
     }
@@ -162,6 +165,7 @@ impl ActivatedParts {
                 mana_ability: self.mana_ability,
                 zone: self.zone,
                 limit: self.limit,
+                x_value: self.x_value,
                 cost_reduction: self.cost_reduction,
             },
             Some(condition) => AbilityDef::ActivatedConditional {
@@ -174,6 +178,7 @@ impl ActivatedParts {
                 zone: self.zone,
                 condition,
                 limit: self.limit,
+                x_value: self.x_value,
                 cost_reduction: self.cost_reduction,
             },
         }
@@ -953,8 +958,8 @@ macro_rules! saddle {
 /// documents the static it defines.
 pub mod prelude {
     pub use crate::ability::{
-        AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod,
-        ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
+        AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, Condition,
+        CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
     };
     pub use crate::build::{
         ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,
@@ -1063,6 +1068,7 @@ mod tests {
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
                 limit: ActivationLimit::Unlimited,
+                x_value: crate::ActivationX::Any,
                 cost_reduction: None,
             },
             "no condition is the plain ability, at the rules defaults"
@@ -1079,6 +1085,7 @@ mod tests {
                 zone: ActivationZone::Battlefield,
                 condition: METALCRAFT,
                 limit: ActivationLimit::Unlimited,
+                x_value: crate::ActivationX::Any,
                 cost_reduction: None,
             },
             "the condition moves it to the twin and changes nothing else"
@@ -1180,6 +1187,7 @@ mod tests {
             mana_ability: false,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            x_value: crate::ActivationX::Any,
             cost_reduction: None,
         };
 

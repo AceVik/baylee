@@ -144,6 +144,9 @@ impl<L: CardLookup> Engine<L> {
                 .fold(u32::try_from(phyrexian_life).unwrap_or(0), |total, part| {
                     total.saturating_add(match part {
                         CostPart::PayLife(n) => u32::from(*n),
+                        CostPart::PayCommanderColors => {
+                            u32::from(self.state.commander_colors(player).len())
+                        }
                         CostPart::PayLifeX => self.activation_x.unwrap_or(0),
                         _ => 0,
                     })
@@ -179,30 +182,50 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Whether `player` has a mana ability (or a granted way to make mana)
-    /// it could activate while paying for an ability of `source` (CR
-    /// 601.2g): the payment window's own offer, asked before announcing an
-    /// X it would pay. The source's own mana abilities are not counted: an
-    /// ability whose cost taps it cannot be paid by tapping it for mana, and
-    /// a land whose only other mana is already floating would otherwise be
-    /// asked for an X nothing can pay.
+    /// it could activate while paying for this ability (CR 601.2g).
+    /// Reserve the source only if its printed cost needs its tap/untap symbol.
     pub(super) fn can_make_more_mana(
         &self,
         player: PlayerId,
         source: baylee_core::ids::ObjectId,
+        index: u32,
     ) -> bool {
         let legal = self.compute_legal(player);
-        self.makes_mana_besides(player, &legal, source)
+        self.makes_activation_mana(player, &legal, source, index)
     }
 
     /// [`Self::can_make_more_mana`] read off an offer already built.
-    pub(super) fn makes_mana_besides(
+    pub(super) fn makes_activation_mana(
         &self,
         player: PlayerId,
         legal: &LegalActions,
         source: baylee_core::ids::ObjectId,
+        index: u32,
     ) -> bool {
+        let reserved = self
+            .state
+            .object(source)
+            .and_then(|o| o.abilities(&self.lookup).get(index as usize))
+            .is_none_or(|ability| match ability {
+                baylee_cards_dsl::AbilityDef::Activated { cost, .. }
+                | baylee_cards_dsl::AbilityDef::ActivatedConditional { cost, .. } => {
+                    cost.parts.iter().any(|part| {
+                        matches!(
+                            part,
+                            baylee_cards_dsl::CostPart::TapSelf
+                                | baylee_cards_dsl::CostPart::UntapSelf
+                        )
+                    })
+                }
+                _ => true,
+            });
+        let excluded = if reserved {
+            source
+        } else {
+            baylee_core::ids::ObjectId::NO_SOURCE
+        };
         self.state.granted_colorless_capacity(player) > 0
-            || legal.mana_abilities.iter().any(|&id| id != source)
+            || legal.mana_abilities.iter().any(|&id| id != excluded)
             || legal.granted_actions.iter().any(|offer| {
                 matches!(
                     offer.effect,
@@ -212,7 +235,7 @@ impl<L: CardLookup> Engine<L> {
             || legal
                 .abilities
                 .iter()
-                .any(|&(id, index)| id != source && self.is_mana_offer(id, index))
+                .any(|&(id, index)| id != excluded && self.is_mana_offer(id, index))
     }
 
     pub(super) fn open_activation_payment(

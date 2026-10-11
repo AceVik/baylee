@@ -2547,6 +2547,10 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::ExileSelf
                     | CostPart::ReturnSelfToHand
                     | CostPart::TapOther(_)
+                    | CostPart::TapX(_)
+                    | CostPart::SacrificeX(_)
+                    | CostPart::SacrificeAll(_)
+                    | CostPart::PayCommanderColors
                     | CostPart::Crew(_)
                     | CostPart::Saddle(_)
                     | CostPart::ReturnToHand(_)
@@ -2610,6 +2614,10 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::PayEnergy(_)
                 | CostPart::PayEnergyX
                 | CostPart::TapOther(_)
+                | CostPart::TapX(_)
+                | CostPart::SacrificeX(_)
+                | CostPart::SacrificeAll(_)
+                | CostPart::PayCommanderColors
                 | CostPart::Crew(_)
                 | CostPart::Saddle(_)
                 | CostPart::ReturnToHand(_)

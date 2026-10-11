@@ -64,6 +64,33 @@ fn add_mana(
     restriction: Option<ManaRestriction>,
 ) -> Option<Pending> {
     let you = res.controller;
+    if matches!(amount, Amount::DevotionToManaColor) {
+        let options = colors_of(state, you, source, res.source);
+        let Some(amounts) = devotion(state, you) else {
+            state.numeric_failure = Some("devotion exceeds u16 mana-production units");
+            return None;
+        };
+        match options.as_slice() {
+            [] => return None,
+            [only] => {
+                add(state, res, *only, amounts[only.index()], restriction);
+                return None;
+            }
+            _ => {}
+        }
+        res.awaiting = Some(AwaitingOp::ManaChoice {
+            recipient: you,
+            colors: options.clone(),
+            remaining: 1,
+            per_pick: 0,
+            by_color: Some(amounts),
+            restriction,
+        });
+        return Some(Pending::ChooseColor {
+            player: you,
+            options,
+        });
+    }
     let Ok(n) = u16::try_from(amount2(amount, state, you, res)) else {
         state.numeric_failure = Some("one mana-production instruction exceeds u16 units");
         return None;
@@ -88,6 +115,7 @@ fn add_mana(
         colors: options.clone(),
         remaining: picks,
         per_pick,
+        by_color: None,
         restriction,
     });
     Some(Pending::ChooseColor {
@@ -116,6 +144,7 @@ fn add_like_event(state: &mut GameState, res: &mut Resolution, amount: u16) -> O
         colors: options.clone(),
         remaining: 1,
         per_pick: amount,
+        by_color: None,
         restriction: None,
     });
     Some(Pending::ChooseColor {
@@ -258,25 +287,10 @@ pub fn colors_of(
             // property of the commander card wherever it is (CR 903.4), so
             // reading the zone made an Arcane Signet stop producing the
             // moment its commander was cast — exactly when it matters.
-            let mut colors = ColorSet::EMPTY;
-            for c in state
-                .commanders
-                .get(you.get() as usize)
-                .into_iter()
-                .flatten()
-            {
-                if let Some(obj) = state.object(c.object) {
-                    colors = colors.union(obj.characteristics().color_identity);
-                }
-            }
-            let options = colored(colors);
-            if options.is_empty() {
-                // No commander at all (a non-commander game): the ability
-                // still resolves, and colorless is what is left.
-                vec![ManaColor::Colorless]
-            } else {
-                options
-            }
+            let colors = state.commander_colors(you);
+            // CR 903.4f: no commander supplies no color; a colorless commander
+            // also supplies no color. Neither makes this instruction add {C}.
+            colored(colors)
         }
         ManaSource::ColorsAmong { filter, zone } => colored(eval::colors_in_zone(
             filter,
@@ -406,6 +420,27 @@ fn colored(colors: ColorSet) -> Vec<ManaColor> {
     .collect()
 }
 
+/// Count symbols once per color; a hybrid symbol contributes to both colors,
+/// while generic, colorless, snow and variable symbols contribute to neither.
+fn devotion(state: &GameState, you: PlayerId) -> Option<[u16; 6]> {
+    let mut amounts = [0_u16; 6];
+    for id in state.battlefield_seen() {
+        let object = state.object(id)?;
+        if object.controller != you {
+            continue;
+        }
+        for symbol in object.characteristics().mana_cost.symbols() {
+            for color in baylee_core::color::Color::ALL {
+                if symbol.colors().contains(color) {
+                    let slot = ManaColor::from_color(color).index();
+                    amounts[slot] = amounts[slot].checked_add(1)?;
+                }
+            }
+        }
+    }
+    Some(amounts)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -530,8 +565,8 @@ mod tests {
 
         assert_eq!(
             colors_of(&state, me(), ManaSource::CommanderIdentity, signet),
-            vec![ManaColor::Colorless],
-            "a game with no commander still resolves the ability"
+            Vec::<ManaColor>::new(),
+            "no commander means no color to produce"
         );
 
         state.commanders[me().get() as usize].push(Commander {
@@ -547,7 +582,7 @@ mod tests {
         );
         assert_eq!(
             colors_of(&state, them(), ManaSource::CommanderIdentity, signet),
-            vec![ManaColor::Colorless],
+            Vec::<ManaColor>::new(),
             "and it is this player's commander, not the table's"
         );
     }

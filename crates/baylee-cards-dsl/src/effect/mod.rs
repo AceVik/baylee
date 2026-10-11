@@ -2009,7 +2009,7 @@ pub enum Effect {
         /// The creature type the Army also becomes.
         subtype: SubtypeId,
         /// How many counters.
-        amount: u16,
+        amount: Amount,
     },
     /// Put the source on top of its owner's library (Sensei's Divining Top).
     PutSourceOnTopOfLibrary,

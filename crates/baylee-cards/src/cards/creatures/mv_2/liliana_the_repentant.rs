@@ -2,20 +2,6 @@
 //! Oracle: Whenever another creature or planeswalker you control enters, mill two cards.
 //! Oracle: Exhaust — {5}{B}: Return target creature or planeswalker card from your graveyard to the battlefield. Put a +1/+1 counter on Liliana. Activate only as a sorcery. (Activate each exhaust ability only once.)
 //! Set: FRA #231 — Reality Fracture | Scryfall ID: 1eb25a6c-d6b4-465d-990e-f1ab86b26b69 | Oracle ID: 5eb4403f-f199-4f75-a7c6-e76783f9b07d
-// PARTIAL — another creature or planeswalker you control entering mills you
-// two, and {5}{B} at sorcery speed brings a creature or planeswalker card
-// back out of your graveyard and grows Liliana by a +1/+1 counter.
-// NOT SUPPORTED: "Exhaust" — "(Activate each exhaust ability only once.)"
-// Besides its cost and its timing, the one thing an activated ability may
-// state is an `Condition`, and all four of its cases read a board
-// fact: a permanent count, a counter count on the source, an opponent's
-// graveyard count. None of them can ask what this ability has already done,
-// and no object records it, so the once-per-game half of the keyword has
-// nothing to be refused by. The card plays as though only the `{5}{B}` and
-// the sorcery-speed clause were printed, which here makes it better than
-// printed rather than inert: the reanimation is offered again every turn the
-// mana is there.
-
 static ANOTHER_CREATURE_OR_PLANESWALKER_YOU_CONTROL: Filter = Filter::And(&[
     Filter::CREATURE_OR_PLANESWALKER,
     Filter::ControlledByYou,
@@ -40,7 +26,7 @@ card!(
         power = Some(2),
         toughness = Some(2),
     ),],
-    coverage = Coverage::Partial("exhaust is not enforced: the ability is offered more than once"),
+    coverage = Coverage::Implemented,
     abilities = &[
         triggered!(
             Trigger::EntersBattlefield(&ANOTHER_CREATURE_OR_PLANESWALKER_YOU_CONTROL),
@@ -69,7 +55,8 @@ card!(
                 &Filter::CREATURE_OR_PLANESWALKER,
                 PlayerRel::You
             )),
-            timing = ActivationTiming::SorcerySpeed
+            timing = ActivationTiming::SorcerySpeed,
+            limit = ActivationLimit::Exhaust
         ),
     ],
 );

@@ -576,6 +576,7 @@ fn copiable_exception_walk_reports_invalid_mana_abilities() {
         zone: crate::dsl::ability::ActivationZone::Battlefield,
         timing: crate::dsl::ability::ActivationTiming::InstantSpeed,
         limit: crate::dsl::ability::ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     };
     static MODS: [crate::dsl::ability::CopyMod; 1] =
@@ -805,6 +806,7 @@ fn the_mana_lint_catches_both_halves_of_cr_605_1() {
         mana_ability: false,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     };
     assert!(
@@ -823,6 +825,7 @@ fn the_mana_lint_catches_both_halves_of_cr_605_1() {
         mana_ability: false,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     };
     assert!(
@@ -839,6 +842,7 @@ fn the_mana_lint_catches_both_halves_of_cr_605_1() {
         mana_ability: true,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     };
     assert!(
@@ -858,6 +862,7 @@ fn the_mana_lint_catches_both_halves_of_cr_605_1() {
         mana_ability: true,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        x_value: baylee_cards_dsl::ActivationX::Any,
         cost_reduction: None,
     };
     assert_eq!(
