@@ -58,6 +58,7 @@ pub(super) fn place(
         })?
         .version;
     let to = match destination {
+        SearchDest::Graveyard => ZoneLocation::Graveyard(you),
         SearchDest::Hand => ZoneLocation::Hand(you),
         SearchDest::TopOfLibrary => ZoneLocation::Library(you),
         SearchDest::Battlefield => ZoneLocation::Battlefield,

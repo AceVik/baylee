@@ -757,6 +757,9 @@ impl Effect {
             | Effect::CreateTokenThenCounters { .. }
         | Effect::CreateTokenPtPerCount { .. }
             | Effect::CreateToken { .. }
+            | Effect::CreateTokensFor { .. }
+            | Effect::MoveCounterToEvent { .. }
+            | Effect::DetachSource
             | Effect::CreateTokenN { .. }
             | Effect::CreateTokenForTargetController { .. }
             | Effect::Amass { .. }

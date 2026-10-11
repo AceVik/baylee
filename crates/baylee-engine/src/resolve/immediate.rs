@@ -257,6 +257,7 @@ pub(super) fn exec_immediate(
         | Effect::AddManaLikeEvent { .. } => mana::exec(state, res, op),
         Effect::ModifySource { .. }
         | Effect::SetSourceToughness { .. }
+        | Effect::MoveCounterToEvent { .. }
         | Effect::AddCounterSource { .. }
         | Effect::AddCounter { .. }
         | Effect::AddCountersUpTo { .. }
@@ -278,6 +279,7 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokenCopyOfEquipped { .. }
         | Effect::CreateTokenCopyOfTarget { .. }
         | Effect::CreateTokenCopyOfSource { .. }
+        | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenN { .. }
         | Effect::CreateTokenThenCounters { .. }
         | Effect::CreateTokenPtPerCount { .. }
@@ -1224,6 +1226,7 @@ pub(super) fn exec_immediate(
                 max: 1,
                 prompt: match matched.dest {
                     SearchDest::Battlefield => ChoicePrompt::PutOntoBattlefield,
+                    SearchDest::Graveyard => ChoicePrompt::PutIntoGraveyard,
                     SearchDest::Hand => ChoicePrompt::PutIntoHand,
                     SearchDest::TopOfLibrary => ChoicePrompt::PutBackOnTop,
                 },
@@ -1734,6 +1737,16 @@ pub(super) fn exec_immediate(
                 .or_else(|| state.source_identity(original))?;
             let copy = copy_spell(state, original, you, &[], res.text)?;
             retarget::start_copy(state, res, copy)
+        }
+        Effect::DetachSource => {
+            let source = subjects::source(state, res)?;
+            if subjects::on_battlefield(state, source) {
+                if let Some(object) = state.object_mut(source.object) {
+                    object.attached_to = None;
+                }
+                state.invalidate_projections();
+            }
+            None
         }
         Effect::AttachSelf { .. } => {
             // A resolving Aura spell carries its intended attachment into

@@ -249,6 +249,9 @@ pub(super) fn find_for(
 /// becomes a permanent the same way whichever sentence put it there.
 pub(super) fn put_found(state: &mut GameState, player: PlayerId, card: ObjectId, dest: SearchDest) {
     let to = match dest {
+        SearchDest::Graveyard => {
+            ZoneLocation::Graveyard(state.object(card).map_or(player, |o| o.owner))
+        }
         SearchDest::Hand => ZoneLocation::Hand(player),
         SearchDest::TopOfLibrary => ZoneLocation::Library(player),
         SearchDest::Battlefield => {

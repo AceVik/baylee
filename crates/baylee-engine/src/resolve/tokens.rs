@@ -172,6 +172,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::CreateTokensFor {
+            player,
+            token,
+            amount,
+        } => {
+            let count = amount2(&amount, state, you, res);
+            for controller in players_of(player, state, you, res) {
+                create_tokens_with_text(state, controller, token, None, count, res.text);
+            }
+            None
+        }
         Effect::CreateTokenN { token, amount } => {
             let count = amount2(&amount, state, you, res);
             create_tokens_with_text(state, you, token, None, count, res.text);

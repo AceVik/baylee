@@ -606,6 +606,8 @@ enum PlanKind {
     EntryReveal {
         /// The entering land.
         object: ObjectId,
+        /// The control alternative already satisfies this replacement.
+        untapped_without_reveal: bool,
     },
     /// A delayed pay-or-lose decision (Pact of Negation).
     DelayedPay {

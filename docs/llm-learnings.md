@@ -3530,3 +3530,28 @@ land type"; both are convention tests that fire on a first try.
   tests were supplemented by corrected mana fixtures, an updated independent
   Devoid projection expectation, and timestamp coverage: 5,512 effective
   passing engine tests. Workspace clippy includes all targets and dev-control.
+
+### Card completion batch 22 — entry choices, graft and recipient-owned tokens
+
+- Complete Eumidian Hatchery, Forbidden Orchard, Dowsing Dagger, Llanowar
+  Reborn, Maze of Shadows, Rabbit Battery, Goblin Engineer, Fortified
+  Beachhead and Temple of the Dragon Queen. Keep existing activation indices.
+- Graft's formal rule (CR 702.58a) says another creature and has an intervening
+  counter condition, although the printed reminder is abbreviated. Counter
+  movement is all-or-nothing (CR 122.5); the recipient's doubling applies.
+  Retain both original incarnations, including when a recipient returns and
+  makes a second graft trigger. Counter movement reads its event's identity
+  directly, independently of whether the ability has a target requirement.
+- Reconfigure has two activated abilities, not one modal ability (CR 702.151a).
+  The attach half targets another creature; detaching requires an attachment.
+- Entry replacements may ask several questions. Queue each in order: revealing
+  a Dragon must not consume Temple's separate color choice. Controlling the
+  relevant subtype removes the tap penalty without forbidding optional reveal.
+- Token production uses the chosen recipient's replacement effects. Orchard's
+  mana is immediate, while its opponent-targeting token trigger uses the stack.
+  Hatchery retains its departure counter count even if the land returns first.
+- A may-search clause needs a separate permission choice: declining Engineer's
+  search does not shuffle. Searching and finding no artifact does shuffle.
+- Regression suites pass: 5,520 engine, 1,563 client, 1,557 client-core, 244
+  gamehost, 134 cards, 275 codegen and 69 DSL tests. Additional graft coverage
+  tests a creature that leaves and returns before the old trigger resolves.

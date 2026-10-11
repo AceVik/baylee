@@ -8,16 +8,13 @@
 //! Set: XLN #235 — Ixalan | Scryfall ID: 514d53be-6ade-4f73-a844-e9ae2dafd6ce | Oracle ID: df34a6ad-ae1c-4470-8c9e-49815bba1973
 //! Face: Dowsing Dagger — {2} — Artifact — Equipment
 //! Face: Lost Vale —  — Land
-// PARTIAL — the equip bonus, the combat-damage transform and Lost Vale's
-// three mana are built; the enters-trigger is not written (see NOT
-// SUPPORTED).
 
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
+
+use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-/// Lost Vale's `{T}: Add three mana of any one color.` — one pick of a
-/// colour, three mana of it, which is the shape `mana_choice_dynamic` is
-/// for and not the "in any combination" one.
 static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana_choice_dynamic(
     ALL_MANA_COLORS,
     Amount::Fixed(3)
@@ -36,22 +33,14 @@ card!(
         ),
         face!(
             name = "Lost Vale",
-            // CR 712.8c: a nonmodal double-faced card is cast as its front
-            // face and reaches this one only by transforming.
             castable_from_hand = false,
             types = TypeSet::LAND,
             abilities = BACK_MANA,
         ),
     ],
-    coverage = Coverage::Partial(
-        "enters-trigger: no effect creates tokens under a target opponent (CreateTokenForTargetController reads an object target's controller, not a chosen player)",
-    ),
-    // NOT SUPPORTED: When this Equipment enters, target opponent creates two 0/2 green Plant creature tokens with defender. — the token exists (`PLANT_0_2_GREEN_DEFENDER`), but `CreateTokenForTargetController` reads an object target's controller rather than a target player, so the Plants would be yours.
+    coverage = Coverage::Implemented,
     abilities = &[
         static_ability!(Filter::AttachedToBySource, Modifier::ModifyPT(2, 1)),
-        // "You may transform this Equipment": the same permanent turns over
-        // (CR 701.27a, CR 712.18), and Lost Vale, a land, equips nothing
-        // (CR 704.5p).
         triggered!(
             Trigger::DealsCombatDamageToPlayer(&Filter::AttachedToBySource),
             &[Effect::MayDo {
@@ -59,5 +48,14 @@ card!(
             }]
         ),
         equip!("{2}"),
+        triggered!(
+            Trigger::ETB,
+            &[Effect::CreateTokensFor {
+                player: PlayerRel::Chosen,
+                token: &generated_tokens::PLANT_0_2_GREEN_DEFENDER,
+                amount: Amount::Fixed(2)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
+        ),
     ],
 );

@@ -82,6 +82,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             );
             None
         }
+        Effect::MoveCounterToEvent { kind } => {
+            let source = subjects::source(state, res)?;
+            let target = baylee_core::ids::DamageSourceRef {
+                object: res.event_object?,
+                version: event_object_identity(state, res)?.0,
+            };
+            // CR 122.5 is all-or-nothing, including when both ends would
+            // name the same object or a later incarnation of either end.
+            if source.object != target.object
+                && subjects::on_battlefield(state, source)
+                && subjects::on_battlefield(state, target)
+                && state
+                    .object(source.object)
+                    .is_some_and(|o| o.counters.get(kind) > 0)
+            {
+                crate::replacement::remove_counters(state, source.object, kind, 1);
+                crate::replacement::put_counters(state, target.object, kind, 1);
+            }
+            None
+        }
         Effect::AddCounterSource { kind, amount } => {
             let source = subjects::source(state, res)?;
             if subjects::on_battlefield(state, source) {

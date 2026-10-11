@@ -5,8 +5,7 @@ use super::*;
 
 /// Goblin Engineer's activated half — "{R}, {T}, Sacrifice an artifact:
 /// Return target artifact card with mana value 3 or less from your graveyard
-/// to the battlefield" — since the search-to-graveyard ETB is the
-/// `Coverage::Partial` gap. Three readings are struck by one activation: the
+/// to the battlefield". Three readings are struck by one activation: the
 /// card that comes back is a Chromatic Lantern, mana value 3 exactly, so a
 /// filter that read "less than three" would leave the ability with no target
 /// at all; the identical Lantern in the opponent's graveyard is the "your"
@@ -164,4 +163,59 @@ fn goblin_engineer_trades_an_artifact_for_the_lantern_in_his_own_graveyard() {
         0,
         "and the {{R}} was spent, not merely floated"
     );
+}
+
+#[test]
+fn engineer_may_decline_without_shuffling_or_search_an_artifact_into_its_graveyard() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for accept in [false, true] {
+        let mut e = Duel::new(SEED, index::MIND_STONE)
+            .hand(0, &[goblin_engineer()])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        e.dev_state_mut(p0).unwrap().players[0]
+            .mana_pool
+            .add(ManaColor::Red, 2);
+        e.refresh_offer();
+        let library = e.state().zones.list(ZoneLocation::Library(p0)).clone();
+        cast_with_floating(&mut e, p0, goblin_engineer());
+        pass_until(&mut e, |e| {
+            matches!(
+                e.pending(),
+                Pending::YesNo {
+                    prompt: crate::choice::YesNoPrompt::MayDo,
+                    ..
+                }
+            )
+        });
+        e.apply(p0, PlayerAction::YesNo(accept)).unwrap();
+        if accept {
+            let Pending::ChooseCards {
+                options, prompt, ..
+            } = e.pending().clone()
+            else {
+                panic!("search")
+            };
+            assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+            let found = options[0];
+            e.apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![found],
+                },
+            )
+            .unwrap();
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(e.state().object(found).unwrap().zone, Zone::Graveyard);
+            assert_eq!(
+                e.state().zones.list(ZoneLocation::Library(p0)).len(),
+                library.len() - 1
+            );
+        } else {
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(e.state().zones.list(ZoneLocation::Library(p0)), &library);
+        }
+    }
 }

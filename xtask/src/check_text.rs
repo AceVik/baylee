@@ -775,6 +775,7 @@ pub(crate) fn check_scope_matches_the_text(
     let compares_controllers = built.contains("OpponentControlsMore(");
     let filters_you = compares_controllers
         || built.contains("ControlledByYou")
+        || built.contains("TappedUnlessRevealOrControl(")
         || built.contains("ControlCount(")
         || built.contains("YouControl(")
         || built.contains("WhileYouControlSource")

@@ -3,13 +3,12 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Dowsing Dagger` // `Lost Vale` (`Coverage::Partial`): "When this Equipment enters, target
+/// `Dowsing Dagger` // `Lost Vale` : "When this Equipment enters, target
 /// opponent creates two 0/2 green Plant creature tokens with defender. Equipped creature gets
 /// +2/+1. Whenever equipped creature deals combat damage to a player, you may transform this
 /// Equipment. Equip {2} // {T}: Add three mana of any one color."
 ///
-/// Under `Coverage::Partial`, the enters-trigger is omitted, but the static +2/+1 pump, the
-/// `Trigger::DealsCombatDamageToPlayer` transform trigger, and equip {2} are implemented. The test
+/// This test covers the static +2/+1 pump, the combat-damage transform trigger, and equip {2}. It
 /// equips `Dowsing Dagger` to an elf, confirms the +2/+1 pump, attacks an opponent with the
 /// equipped creature to deal combat damage, and verifies that `Dowsing Dagger` becomes
 /// `Lost Vale` as a land on face 1.
@@ -121,4 +120,40 @@ fn dowsing_dagger_pumps_equipped_creature_and_transforms_on_combat_damage() {
         !t.contains(TypeSet::ARTIFACT),
         "Lost Vale is not an artifact"
     );
+}
+
+#[test]
+fn daggers_enter_trigger_creates_the_opponents_two_defending_plants() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .hand(0, &[dowsing_dagger()])
+        .battlefield(1, &[index::DOUBLING_SEASON])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 2);
+    e.refresh_offer();
+    cast_with_floating(&mut e, p0, dowsing_dagger());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![p1],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert!(tokens_of(&e, p0).is_empty());
+    let plants = tokens_of(&e, p1);
+    assert_eq!(plants.len(), 4);
+    for plant in plants {
+        assert_eq!(pt(&e, plant), (0, 2));
+        assert!(keywords(&e, plant).contains(baylee_cards_dsl::KeywordSet::DEFENDER));
+    }
 }

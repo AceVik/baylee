@@ -5,8 +5,7 @@ use super::*;
 
 /// Rabbit Battery — {R}, a 1/1 artifact creature — Equipment Rabbit printing
 /// haste for itself, "Equipped creature gets +1/+1 and has haste", and
-/// Reconfigure {R}, whose attach half is the equip ability CR 702.151 words
-/// exactly as CR 702.6 does.
+/// Reconfigure {R}, which attaches to another creature or detaches (CR 702.151a).
 ///
 /// The Elves is the control the whole claim rests on: a printed 1/1 with no
 /// haste of its own before the reconfigure, a 2/2 with haste after it — so the
@@ -17,8 +16,7 @@ use super::*;
 /// to and never its own source. Reconfiguring is pressed rather than read,
 /// because "target creature you control" is a question the engine asks, and the
 /// {R} that pays for it is the red the three Mountains left floating one spell
-/// earlier; the unattach mode is the `Coverage::Partial` gap and is
-/// deliberately left alone.
+/// earlier. The separate test below exercises the detach ability.
 ///
 /// "While attached, this isn't a creature" (CR 702.151b) is read last, once
 /// the state-based actions have had their look: a creature attached to
@@ -147,4 +145,42 @@ fn rabbit_battery_reconfigures_onto_the_elves_and_hands_it_a_bonus_and_haste() {
         "so the state-based action that takes a creature off what it is \
          attached to (CR 704.5p) leaves it on the Elves"
     );
+}
+
+#[test]
+fn battery_can_unattach_only_while_attached_and_recovers_its_creature_type() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[rabbit_battery(), index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let battery = on_battlefield(&e, p0, rabbit_battery()).unwrap();
+    let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Red, 2);
+    e.refresh_offer();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority")
+    };
+    assert!(!legal.abilities.contains(&(battery, 4)));
+    activate(&mut e, p0, rabbit_battery(), 2);
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("target")
+    };
+    assert!(!options.contains(&battery));
+    aim_at(&mut e, p0, bear);
+    pass_until(&mut e, stack_is_empty);
+    assert!(!types(&e, battery).contains(TypeSet::CREATURE));
+    assert_eq!(pt(&e, bear), (3, 3));
+    activate(&mut e, p0, rabbit_battery(), 4);
+    assert!(!stack_is_empty(&e));
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(battery).unwrap().attached_to, None);
+    assert!(types(&e, battery).contains(TypeSet::CREATURE));
+    assert_eq!(pt(&e, bear), (2, 2));
+    assert!(!keywords(&e, bear).contains(baylee_cards_dsl::KeywordSet::HASTE));
+    assert_eq!(e.state().players[0].mana_pool.total(), 0);
 }

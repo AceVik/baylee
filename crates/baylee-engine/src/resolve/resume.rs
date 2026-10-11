@@ -95,6 +95,9 @@ pub(super) fn resume_inner(
             for (card, find) in placed {
                 let (dest, tapped) = (find.dest, find.tapped);
                 match dest {
+                    SearchDest::Graveyard => {
+                        search::put_found(state, receiver, card, SearchDest::Graveyard);
+                    }
                     SearchDest::Hand => {
                         let _ = state.move_object(
                             card,
@@ -460,6 +463,7 @@ pub(super) fn resume_inner(
                 });
             }
             let destination = match found {
+                SearchDest::Graveyard => ZoneLocation::Graveyard(res.controller),
                 SearchDest::Hand => ZoneLocation::Hand(res.controller),
                 SearchDest::TopOfLibrary => ZoneLocation::Library(res.controller),
                 SearchDest::Battlefield => ZoneLocation::Battlefield,

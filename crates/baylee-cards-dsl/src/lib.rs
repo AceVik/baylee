@@ -543,6 +543,8 @@ pub enum EnterModifier {
     /// all — the same shape [`Self::TappedOrPayLife`] takes when the life
     /// cannot be paid. CR 701.20b: the card does not leave the hand.
     TappedUnlessReveal(&'static Filter),
+    /// Reveal a matching card or already control a matching permanent.
+    TappedUnlessRevealOrControl(&'static Filter),
     /// "As this enters, choose a creature type" (Roaming Throne,
     /// Reflections of Littjara, Cavern of Souls).
     ChooseSubtype,

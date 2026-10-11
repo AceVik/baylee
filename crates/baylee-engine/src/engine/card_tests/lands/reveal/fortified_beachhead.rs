@@ -8,8 +8,6 @@ use super::*;
 /// way or you control a Soldier.`, `{{T}}: Add {{W}} or {{U}}.`, and `{{5}}, {{T}}: Soldiers
 /// you control get +1/+1 until end of turn.`
 ///
-/// Under `Coverage::Partial`, revealing a card from hand as an enter modifier is
-/// omitted, so the land enters tapped unless its controller controls a Soldier.
 /// This test seats an `earth_king_s_lieutenant()`, plays Fortified Beachhead to
 /// verify that it enters untapped, and activates ability 0 to choose white mana.
 #[test]

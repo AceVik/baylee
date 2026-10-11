@@ -40,6 +40,8 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::UntapSelf
             | Effect::TapSelf
             | Effect::RemoveCounterSelf { .. }
+            | Effect::MoveCounterToEvent { .. }
+            | Effect::DetachSource
             | Effect::IfNoCountersOnSelf { .. } => true,
             Effect::AddCounter { .. }
             | Effect::AddCountersUpTo { .. }

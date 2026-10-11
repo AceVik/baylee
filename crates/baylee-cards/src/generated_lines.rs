@@ -8508,8 +8508,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Maze of Shadows
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -18375,8 +18375,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Forbidden Orchard
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -21366,8 +21366,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Llanowar Reborn
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -32483,8 +32483,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 4,
-            stackable: 2,
-            lines: &[None, Some(2), Some(3)],
+            stackable: 3,
+            lines: &[None, Some(2), Some(3), Some(0)],
             modes: &[],
             alternatives: &[],
         },
@@ -34840,8 +34840,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Goblin Engineer
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[Some(1), Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -40970,8 +40970,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Rabbit Battery
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[None, None, Some(2), None],
+        stackable: 2,
+        lines: &[None, None, Some(2), None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -51497,8 +51497,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Eumidian Hatchery
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

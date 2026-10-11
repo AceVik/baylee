@@ -263,10 +263,8 @@ impl<L: CardLookup> Engine<L> {
             // had been under `ChooseSubtype` and `TappedOrPayLife` since
             // they were written.
             //
-            // The *first* question wins, and a card with two would lose the
-            // second. No printed card asks twice as it enters, and the day
-            // one does this is a second pass rather than a second field.
-            let mut asked: Option<&EnterModifier> = None;
+            // Keep every question in order: Temple of the Dragon Queen
+            // can reveal a card and must still choose its mana color.
             for modifier in face.enter_modifiers {
                 match modifier {
                     EnterModifier::Tapped => {
@@ -373,13 +371,11 @@ impl<L: CardLookup> Engine<L> {
                     | EnterModifier::ChooseOpponent
                     | EnterModifier::ChooseColorExcept(_)
                     | EnterModifier::TappedOrPayLife(_)
-                    | EnterModifier::TappedUnlessReveal(_) => {
-                        asked.get_or_insert(modifier);
+                    | EnterModifier::TappedUnlessReveal(_)
+                    | EnterModifier::TappedUnlessRevealOrControl(_) => {
+                        asks.push((id, controller, EntryAsk::Modifier(modifier)));
                     }
                 }
-            }
-            if let Some(modifier) = asked {
-                asks.push((id, controller, EntryAsk::Modifier(modifier)));
             }
         }
         // CR 101.4: players choosing at the same time choose in APNAP
@@ -521,53 +517,73 @@ impl<L: CardLookup> Engine<L> {
                 *changed = true;
                 false
             }
-            EnterModifier::TappedUnlessReveal(filter) => {
-                // The one clause in this family read against a hidden
-                // zone. Every `TappedUnless…` sibling asks
-                // `controls_at_least`, which walks the battlefield; a
-                // Faerie held in hand is on nobody's battlefield and the
-                // question would always answer no.
-                let filter: &Filter = filter;
-                let options: Vec<ObjectId> = self
-                    .state
-                    .zones
-                    .list(ZoneLocation::Hand(controller))
-                    .iter()
-                    .filter(|card| {
-                        self.state
-                            .object(**card)
-                            .is_some_and(|o| eval::matches(filter, &self.state, o, controller, id))
-                    })
-                    .copied()
-                    .collect();
-                if options.is_empty() {
-                    // Nothing to show → tapped, and no question asked.
-                    // The same branch an unpayable `TappedOrPayLife`
-                    // takes, and for the same reason: a prompt whose
-                    // only legal answer is "no" is not a choice, and
-                    // offering it would hand the opponent the
-                    // information that the hand is empty of Faeries.
-                    self.state.set_tapped(id, true);
-                    *changed = true;
-                    return false;
-                }
-                self.pending_plan = Some(PlanKind::EntryReveal { object: id });
-                self.pending = Pending::ChooseCards {
-                    player: controller,
-                    options,
-                    // Naming nothing is how the offer is declined —
-                    // the card prints "you may", and a `min` of one
-                    // would make the reveal compulsory.
-                    min: 0,
-                    max: 1,
-                    prompt: ChoicePrompt::RevealOrEnterTapped,
-                    total: None,
-                };
-                self.awaiting_answer = true;
-                true
+            EnterModifier::TappedUnlessReveal(filter)
+            | EnterModifier::TappedUnlessRevealOrControl(filter) => {
+                let untapped_without_reveal =
+                    matches!(modifier, EnterModifier::TappedUnlessRevealOrControl(_))
+                        && self.controls_at_least(filter, controller, id, 1);
+                self.ask_entry_reveal(id, controller, filter, untapped_without_reveal, changed)
             }
             _ => unreachable!("only the asking modifiers are queued"),
         }
+    }
+
+    /// Offers an optional hand reveal, retaining an already-satisfied control alternative.
+    fn ask_entry_reveal(
+        &mut self,
+        id: ObjectId,
+        controller: PlayerId,
+        filter: &Filter,
+        untapped_without_reveal: bool,
+        changed: &mut bool,
+    ) -> bool {
+        // The one clause in this family read against a hidden
+        // zone. Every `TappedUnless…` sibling asks
+        // `controls_at_least`, which walks the battlefield; a
+        // Faerie held in hand is on nobody's battlefield and the
+        // question would always answer no.
+        let options: Vec<ObjectId> = self
+            .state
+            .zones
+            .list(ZoneLocation::Hand(controller))
+            .iter()
+            .filter(|card| {
+                self.state
+                    .object(**card)
+                    .is_some_and(|o| eval::matches(filter, &self.state, o, controller, id))
+            })
+            .copied()
+            .collect();
+        if options.is_empty() {
+            // Nothing to show → tapped, and no question asked.
+            // The same branch an unpayable `TappedOrPayLife`
+            // takes, and for the same reason: a prompt whose
+            // only legal answer is "no" is not a choice, and
+            // offering it would hand the opponent the
+            // information that the hand is empty of Faeries.
+            if !untapped_without_reveal {
+                self.state.set_tapped(id, true);
+                *changed = true;
+            }
+            return false;
+        }
+        self.pending_plan = Some(PlanKind::EntryReveal {
+            object: id,
+            untapped_without_reveal,
+        });
+        self.pending = Pending::ChooseCards {
+            player: controller,
+            options,
+            // Naming nothing is how the offer is declined —
+            // the card prints "you may", and a `min` of one
+            // would make the reveal compulsory.
+            min: 0,
+            max: 1,
+            prompt: ChoicePrompt::RevealOrEnterTapped,
+            total: None,
+        };
+        self.awaiting_answer = true;
+        true
     }
 
     /// Whether `controller` controls `at_least` permanents matching `filter`,

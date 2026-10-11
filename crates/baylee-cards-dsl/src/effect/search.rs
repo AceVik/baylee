@@ -32,6 +32,8 @@ pub enum SearchDest {
     Battlefield,
     /// On top of your library.
     TopOfLibrary,
+    /// Into the searched card's owner's graveyard.
+    Graveyard,
 }
 
 /// Where one card found by [`Effect::SearchLibrary`] goes.
@@ -68,6 +70,11 @@ pub struct Find {
 }
 
 impl Find {
+    /// Into its owner's graveyard.
+    pub const GRAVEYARD: Self = Self {
+        dest: SearchDest::Graveyard,
+        ..Self::HAND
+    };
     /// Into your hand.
     pub const HAND: Self = Self {
         dest: SearchDest::Hand,

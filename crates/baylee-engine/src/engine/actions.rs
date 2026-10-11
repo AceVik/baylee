@@ -1645,9 +1645,14 @@ impl<L: CardLookup> Engine<L> {
                     // Naming nothing is how "you may" is declined (`min: 0`),
                     // and that is the branch the printed "if you don't"
                     // charges for.
-                    Some(PlanKind::EntryReveal { object }) => {
+                    Some(PlanKind::EntryReveal {
+                        object,
+                        untapped_without_reveal,
+                    }) => {
                         if objects.is_empty() {
-                            self.state.set_tapped(object, true);
+                            if !untapped_without_reveal {
+                                self.state.set_tapped(object, true);
+                            }
                         } else {
                             self.state.journal.record(GameEvent::Revealed {
                                 player,

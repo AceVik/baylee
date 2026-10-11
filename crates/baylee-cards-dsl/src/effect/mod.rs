@@ -28,6 +28,22 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Create tokens under each named player's control.
+    CreateTokensFor {
+        /// Who creates the tokens.
+        player: PlayerRel,
+        /// The token's copiable characteristics.
+        token: &'static crate::TokenDef,
+        /// How many tokens each player creates.
+        amount: Amount,
+    },
+    /// Move one counter from this permanent to the entering creature (CR 122.5).
+    MoveCounterToEvent {
+        /// The kind removed from the source and put onto the event permanent.
+        kind: CounterKind,
+    },
+    /// Unattach this exact permanent; used by reconfigure's second ability.
+    DetachSource,
     /// Evaluate the first resolution subject once and run exactly one branch.
     IfTargetMatchesElse {
         /// Condition on the current characteristics of the subject.

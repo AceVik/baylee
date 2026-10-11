@@ -39,13 +39,17 @@ fn reads_event(effect: &Effect) -> bool {
     match effect {
         Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::IfEventObjectMatches { .. }
-        | Effect::IfEventPowerAtLeast { .. } => true,
+        | Effect::IfEventPowerAtLeast { .. }
+        | Effect::MoveCounterToEvent { .. } => true,
         Effect::DealDamageEvenly { amount, target, .. }
         | Effect::DealDamage { amount, target, .. } => {
             reads_amount(*amount) || reads_target(*target)
         }
         Effect::PayManaToPreventDamage { player, amount, .. }
-        | Effect::ScryFor { player, amount, .. } => reads_player(*player) || reads_amount(*amount),
+        | Effect::ScryFor { player, amount, .. }
+        | Effect::CreateTokensFor { player, amount, .. } => {
+            reads_player(*player) || reads_amount(*amount)
+        }
         Effect::LoseHalfLife { player }
         | Effect::SacrificeChosenByOpponent { player, .. }
         | Effect::ExileLibraryAndShuffleHand { player, .. }

@@ -73,3 +73,48 @@ fn maze_of_shadows_arrives_untapped_and_taps_for_one_colorless() {
     );
     assert!(is_tapped(&engine, maze), "the Maze paid its own {{T}}");
 }
+
+#[test]
+fn shadow_maze_only_targets_a_shadow_attacker_and_prevents_its_combat_damage() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                maze_of_shadows(),
+                index::DAUTHI_VOIDWALKER,
+                index::GRIZZLY_BEARS,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let shadow = on_battlefield(&e, p0, index::DAUTHI_VOIDWALKER).unwrap();
+    let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    e.apply(
+        p0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(shadow, Defender::Player(p1)), (bear, Defender::Player(p1))],
+        },
+    )
+    .unwrap();
+    activate(&mut e, p0, maze_of_shadows(), 1);
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("target")
+    };
+    assert!(options.contains(&shadow));
+    assert!(!options.contains(&bear));
+    aim_at(&mut e, p0, shadow);
+    pass_until(&mut e, stack_is_empty);
+    assert!(!is_tapped(&e, shadow));
+    pass_until(&mut e, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(
+        e.state().players[1].life,
+        18,
+        "only the unprotected Bear deals combat damage"
+    );
+}
