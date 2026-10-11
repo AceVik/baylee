@@ -636,55 +636,9 @@ pub(super) fn resume_inner(
             count,
             remaining,
         } => {
-            let discards: Vec<(ObjectId, PlayerId)> =
-                chosen.iter().map(|&card| (card, player)).collect();
-            // Library of Leng, before anything moves; the answer comes back
-            // here with the same cards.
-            if let Some(question) = super::discard::ask_discard_destination(
-                state,
-                res,
-                &discards,
-                DiscardThen::Choice {
-                    op: Box::new(AwaitingOp::DiscardChain {
-                        player,
-                        count,
-                        remaining: remaining.clone(),
-                    }),
-                    chosen: chosen.to_vec(),
-                },
-            ) {
-                return next_choice(state, res, since, question);
-            }
-            for &(card, player) in &discards {
-                state.discard_card(card, player, Cause::Effect);
-            }
-            let mut remaining = remaining;
-            while let Some(player) = remaining.first().copied() {
-                remaining.remove(0);
-                let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(player)).clone();
-                if hand.is_empty() {
-                    continue;
-                }
-                let n = (count as usize).min(hand.len()) as u8;
-                res.awaiting = Some(AwaitingOp::DiscardChain {
-                    player,
-                    count,
-                    remaining,
-                });
-                return next_choice(
-                    state,
-                    res,
-                    since,
-                    Pending::ChooseCards {
-                        player,
-                        options: hand,
-                        min: n,
-                        max: n,
-                        prompt: ChoicePrompt::Generic,
-                        total: None,
-                    },
-                );
-            }
+            return super::discard::resume_chain(
+                state, res, player, count, remaining, chosen, since,
+            );
         }
         AwaitingOp::DestroyChosen { filter, remaining } => {
             if let Some(&victim) = chosen.first() {
