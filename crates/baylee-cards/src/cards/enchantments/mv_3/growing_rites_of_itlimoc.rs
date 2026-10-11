@@ -48,6 +48,7 @@ card!(
         triggered!(
             Trigger::ETB,
             &[Effect::LookAtTopFind {
+                found: SearchDest::Hand,
                 count: 4,
                 filter: &Filter::CREATURE,
                 random: false

@@ -69,9 +69,8 @@ fn the_gold_saucer_eats_two_artifacts_for_a_card_and_taps_for_colorless() {
         .collect();
     assert_eq!(
         offered,
-        vec![0, 1],
-        "the printed mana ability and the two-artifact draw, and no coin flip: \
-         a random outcome has no vocabulary to be written in"
+        vec![0, 1, 2],
+        "all three printed activations are affordable"
     );
 
     // Ability 0 is the mana ability; ability 1 is the one that draws.
@@ -249,4 +248,49 @@ fn the_gold_saucer_eats_two_artifacts_for_a_card_and_taps_for_colorless() {
          asked for anything, so the colourless has no other source on the board"
     );
     assert_eq!(pool.total(), 1, "one mana, and nothing else came with it");
+}
+
+#[test]
+fn saucer_coin_flip_is_replayable_and_only_a_win_creates_treasure() {
+    use crate::event::GameEvent;
+    let p0 = PlayerId::new(0);
+    let mut outcomes = [false; 2];
+    for seed in 1..=16 {
+        let mut hashes = Vec::new();
+        for _ in 0..2 {
+            let mut e = Duel::new(seed, forest())
+                .battlefield(0, &[the_gold_saucer()])
+                .start();
+            keep_mulligans(&mut e);
+            reach_main_phase(&mut e, p0);
+            e.dev_state_mut(p0).unwrap().players[0]
+                .mana_pool
+                .add(ManaColor::Colorless, 2);
+            e.refresh_offer();
+            activate(&mut e, p0, the_gold_saucer(), 2);
+            pass_until(&mut e, stack_is_empty);
+            let flips: Vec<_> = e
+                .state()
+                .journal
+                .entries()
+                .iter()
+                .filter_map(|entry| match entry.event {
+                    GameEvent::CoinFlipped { won, .. } => Some(won),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(flips.len(), 1);
+            let won = flips[0];
+            outcomes[usize::from(won)] = true;
+            assert_eq!(tokens_of(&e, p0).len(), usize::from(won));
+            assert_eq!(e.state().players[0].mana_pool.total(), 0);
+            assert!(is_tapped(
+                &e,
+                on_battlefield(&e, p0, the_gold_saucer()).unwrap()
+            ));
+            hashes.push(e.snapshot_hash());
+        }
+        assert_eq!(hashes[0], hashes[1]);
+    }
+    assert_eq!(outcomes, [true, true]);
 }

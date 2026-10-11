@@ -1454,17 +1454,54 @@ pub fn matches_for_some_x(
     you: PlayerId,
     this: ObjectId,
 ) -> bool {
+    matches_for_x(filter, state, obj, you, live_context(state, this), None)
+}
+
+/// Match an activation's own X without overwriting the permanent's cast X.
+/// `None` is the pre-announcement probe: some X may satisfy each X atom.
+fn matches_for_x(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+    context: RuleContext,
+    x: Option<u32>,
+) -> bool {
     match filter {
-        Filter::CmcAtMostX | Filter::CmcExactlyX => true,
+        Filter::CmcAtMostX => x.is_none_or(|x| obj.characteristics().mana_value() <= x),
+        Filter::CmcExactlyX => x.is_none_or(|x| obj.characteristics().mana_value() == x),
         Filter::And(parts) => parts
             .iter()
-            .all(|f| matches_for_some_x(f, state, obj, you, this)),
+            .all(|f| matches_for_x(f, state, obj, you, context, x)),
         Filter::Or(parts) => parts
             .iter()
-            .any(|f| matches_for_some_x(f, state, obj, you, this)),
-        Filter::Not(f) if reads_announced_x(f) => true,
-        other => matches(other, state, obj, you, this),
+            .any(|f| matches_for_x(f, state, obj, you, context, x)),
+        Filter::Not(f) if reads_announced_x(f) => {
+            x.is_none() || !matches_for_x(f, state, obj, you, context, x)
+        }
+        other => matches_with_context(other, state, obj, you, context),
     }
+}
+
+/// Target options before announcing X (`None`) or with the announced value.
+/// The widened enumeration still enforces protection and targeting rules.
+pub(crate) fn target_options_with_x(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    x: Option<u32>,
+) -> Vec<ObjectId> {
+    let Some((widened, filter)) = crate::casting::x_bounded(*spec) else {
+        return target_options_with_context(spec, state, you, context);
+    };
+    let mut options = target_options_with_context(&widened, state, you, context);
+    options.retain(|id| {
+        state
+            .object(*id)
+            .is_some_and(|obj| matches_for_x(filter, state, obj, you, context, x))
+    });
+    options
 }
 
 /// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
@@ -1736,7 +1773,7 @@ pub fn stack_target_options(
         source: this,
         text: live_context(state, obj.id).text,
     };
-    let mut objects = target_options_with_context(spec, state, you, context);
+    let mut objects = target_options_with_x(spec, state, you, context, Some(obj.x_value));
     objects.retain(|id| *id != obj.id);
     (objects, target_player_options(state, spec, you))
 }

@@ -4,7 +4,6 @@
 use super::*;
 
 /// Hidden Volcano: "This land enters tapped." / "{T}: Add {R}." / "{4}{R}, {T}, Sacrifice this land: Discover 4. Activate only as a sorcery."
-/// Under `Coverage::Partial`, the discover ability is omitted because no effect performs discover.
 /// Playing this land causes it to enter tapped, and after untapping on a subsequent turn it taps for red mana.
 #[test]
 fn hidden_volcano_enters_tapped_and_taps_for_red() {
@@ -29,4 +28,9 @@ fn hidden_volcano_enters_tapped_and_taps_for_red() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Red), 1);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn hidden_volcano_pays_its_colored_cost_and_discovers_four() {
+    hidden_cave_discovers(hidden_volcano(), ManaColor::Red, false);
 }

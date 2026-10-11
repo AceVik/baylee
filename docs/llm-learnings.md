@@ -3404,3 +3404,29 @@ land type"; both are convention tests that fire on a first try.
   for Wishclaw Talisman at multiplayer tables and reject a new incarnation.
 - Tests that need triggers must perform the actual tap ability: set_tapped
   updates status and projections, while its caller owns the journal event.
+
+### Card completion batch 17 — original source zones, private selections, and X targets
+
+- Completed the five Hidden Caves, The Gold Saucer, Trenzalore Clocktower,
+  Volatile Fault, The Mycosynth Gardens, Talon Gates of Madara, Urban Retreat,
+  Ominous Cemetery, and Fertile Thicket. Reused existing discover, coin-flip,
+  copied-characteristic, and whole-hand shuffle instructions.
+- Hand activations retain their source incarnation through resolution and use
+  the normal permanent entry pipeline without spending a land play. A source
+  that left and returned to the hand cannot be put onto the battlefield by
+  its old ability.
+- Optional filtered inspections now specify the selected card's destination.
+  A selected commander going to a new zone asks its owner before movement;
+  the continuation retains every selection and asks multiple owners without
+  repeating the inspection. Printed reveals precede the replacement question
+  and occur once. Putting a commander back atop the same library is no
+  replacement event.
+- An activation offer must check whether some X can produce legal targets.
+  Its target menu and resolution recheck then use that activation's announced
+  X, independently of any X the source permanent remembers from casting.
+  Keep the original ability's text context when widening the preliminary
+  filter; do not erase its other targeting or protection restrictions.
+- Fixture lesson: repeated `Duel::battlefield` calls for the same seat replace
+  the previous list. A global generated `CardIndex` also does not imply that
+  the card belongs to this registry; Maskwood Nexus supplies a real Time Lord
+  for Clocktower's test without inventing one outside the card pool.

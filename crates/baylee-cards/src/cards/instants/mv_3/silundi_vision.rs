@@ -32,6 +32,7 @@ card!(
     ],
     coverage = Coverage::Implemented,
     abilities = &[spell!(&[Effect::LookAtTopFind {
+        found: SearchDest::Hand,
         count: 6,
         filter: &Filter::INSTANT_OR_SORCERY,
         random: true

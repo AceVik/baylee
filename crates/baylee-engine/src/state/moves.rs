@@ -739,12 +739,12 @@ impl GameState {
         if !matches!(to, ZoneLocation::Hand(_) | ZoneLocation::Library(_)) {
             return None;
         }
-        // Nothing here excludes a move from a library back into the same
-        // library, because nothing has to. CR 400.7 makes that no zone
-        // change at all, and it is the *callers* that enforce it: scry,
-        // dig and every other library-internal reorder move their cards
-        // without going near `ask_commander_replace`. A guard here would
-        // have read as load-bearing while no call site could reach it.
+        // CR 903.9b replaces entering a different zone. A selected card
+        // put back on top is still in its library (CR 400.7).
+        let object = self.object(id)?;
+        if ZoneLocation::of(object.zone, object.zone_owner.unwrap_or(object.owner)) == to {
+            return None;
+        }
         self.commanders
             .iter()
             .enumerate()

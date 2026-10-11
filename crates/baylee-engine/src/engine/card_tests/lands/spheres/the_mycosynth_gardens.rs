@@ -3,19 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// The Mycosynth Gardens — a Sphere land whose first two printed lines are
-/// written: "{T}: Add {C}" and "{1}, {T}: Add one mana of any color". The
-/// third, "{X}, {T}: This land becomes a copy of target nontoken artifact
-/// you control with mana value X", is the `Coverage::Partial` gap and
-/// nothing here presses it.
-///
-/// Both written lines are played rather than read off the card file, on two
-/// boards because one land untaps once a turn. On the first the Gardens is
-/// the only mana source there is, so the colourless in the pool can only have
-/// come from its own {T}; on the second a Forest pays a real {1} and the
-/// Gardens is kept back for its {T}, so the black mana that appears once the
-/// colour is named has no other source on the table — the printed tap makes
-/// colourless and the Forest green.
+/// The printed colorless and filtering mana activations pay their tap costs.
 #[test]
 fn the_mycosynth_gardens_taps_for_colorless_and_spends_one_for_any_color() {
     let p0 = PlayerId::new(0);
@@ -103,5 +91,57 @@ fn the_mycosynth_gardens_taps_for_colorless_and_spends_one_for_any_color() {
     assert!(
         stack_is_empty(&engine),
         "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+}
+
+#[test]
+fn gardens_requires_its_chosen_x_and_keeps_the_copy_after_the_turn() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[the_mycosynth_gardens(), index::MIND_STONE, index::SOL_RING],
+        )
+        .battlefield(1, &[index::MIND_STONE])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let garden = on_battlefield(&e, p0, the_mycosynth_gardens()).unwrap();
+    let stone = on_battlefield(&e, p0, index::MIND_STONE).unwrap();
+    let other = on_battlefield(&e, p1, index::MIND_STONE).unwrap();
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 2);
+    e.refresh_offer();
+    activate(&mut e, p0, the_mycosynth_gardens(), 2);
+    assert!(matches!(e.pending(), Pending::ChooseNumber { .. }));
+    e.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        unreachable!()
+    };
+    assert_eq!(options, &vec![stone]);
+    let before = e.snapshot_hash();
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![other],
+                players: vec![]
+            }
+        )
+        .is_err()
+    );
+    assert_eq!(e.snapshot_hash(), before);
+    aim_at(&mut e, p0, stone);
+    pass_until(&mut e, stack_is_empty);
+    let copied = e.state().object(garden).unwrap().characteristics();
+    assert_eq!(copied.types, TypeSet::ARTIFACT);
+    assert_eq!(copied.mana_value(), 2);
+    assert!(is_tapped(&e, garden));
+    reach_their_main_phase(&mut e, p1);
+    assert_eq!(
+        e.state().object(garden).unwrap().characteristics().types,
+        TypeSet::ARTIFACT
     );
 }

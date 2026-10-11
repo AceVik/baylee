@@ -1144,11 +1144,12 @@ impl<L: CardLookup> Engine<L> {
         // player is always there to point at. `target_player_options`
         // answers empty for every object-only spec, which is what lets one
         // sum serve every spec; the cast wizard adds them the same way.
-        let objects = eval::target_options_with_context(
+        let objects = eval::target_options_with_x(
             &req.spec,
             &self.state,
             player,
             self.ability_rule_context(source, ability_index),
+            None,
         )
         .len();
         let players = eval::target_player_options(&self.state, &req.spec, player).len();
@@ -2040,11 +2041,12 @@ impl<L: CardLookup> Engine<L> {
             // (CR 601.2c, by CR 602.2b). X is answered by now (CR 601.2b
             // comes first), so an X count is a number here.
             let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
-            let mut options = eval::target_options_with_context(
+            let mut options = eval::target_options_with_x(
                 &req.spec,
                 &self.state,
                 player,
                 self.ability_rule_context(source, ability_index),
+                self.activation_x,
             );
             // "Target cards from a single graveyard" (Unlicensed Hearse):
             // which graveyard is asked first, when more than one holds a
@@ -2126,11 +2128,12 @@ impl<L: CardLookup> Engine<L> {
         if let Some(req) = second
             && self.activation_second_targets.is_none()
         {
-            let options = eval::target_options_with_context(
+            let options = eval::target_options_with_x(
                 &req.spec,
                 &self.state,
                 player,
                 self.ability_rule_context(source, ability_index),
+                self.activation_x,
             );
             if options.len() < req.min as usize {
                 self.activation_x = None;

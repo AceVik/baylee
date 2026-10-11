@@ -16,6 +16,7 @@ static BACK_ABILITIES: &[AbilityDef] = &[
     activated!(
         cost!("{2}{U}", TapSelf),
         &[Effect::LookAtTopFind {
+            found: SearchDest::Hand,
             count: 4,
             filter: &Filter::Not(&Filter::Or(&[Filter::CREATURE, Filter::LAND])),
             random: false

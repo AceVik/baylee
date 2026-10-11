@@ -6,6 +6,17 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Preserve an object selection while its owners answer zone replacements.
+    SelectedCommander {
+        /// The choice to resume after every replacement answer.
+        operation: Box<AwaitingOp>,
+        /// Already selected objects, without asking the selection again.
+        chosen: Vec<ObjectId>,
+        /// Commander whose owner is answering now.
+        asked: ObjectId,
+        /// Further owners to ask before moving any selected card.
+        remaining: Vec<(PlayerId, ObjectId, bool)>,
+    },
     /// The chosen new controller of one remembered permanent.
     ControlRecipient {
         /// Permanent incarnation affected by the pending instruction.
@@ -440,6 +451,8 @@ pub enum AwaitingOp {
     Populate,
     /// After `LookAtTopPick`: chosen go to hand, the rest to the bottom.
     DigRest {
+        /// Destination of the selected cards.
+        found: SearchDest,
         /// The looked-at cards not chosen.
         rest: Vec<ObjectId>,
         /// The selected card is public before it changes zones.

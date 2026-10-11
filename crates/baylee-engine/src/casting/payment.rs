@@ -6,7 +6,7 @@ use super::*;
 /// A requirement whose filter reads the announced X, as the same spec over
 /// every object and the filter it widened away. `None` for every other
 /// requirement, and for the kinds no X-reading filter is printed on.
-pub(super) fn x_bounded(
+pub(crate) fn x_bounded(
     spec: baylee_cards_dsl::TargetSpec,
 ) -> Option<(
     baylee_cards_dsl::TargetSpec,

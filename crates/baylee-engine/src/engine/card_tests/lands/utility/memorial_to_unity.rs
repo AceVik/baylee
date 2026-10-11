@@ -69,3 +69,54 @@ fn memorial_inspects_the_printed_count_and_reveals_only_the_matching_card() {
     assert_eq!(e.state().object(chosen).unwrap().zone, Zone::Hand);
     assert_eq!(e.state().object(land).unwrap().zone, Zone::Graveyard);
 }
+
+#[test]
+fn memorial_reveals_its_selected_commander_before_asking_about_the_command_zone() {
+    use crate::event::GameEvent;
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[memorial_to_unity()])
+        .commander(0, &[index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let commander = e.state().commanders[0][0].object;
+    let memorial = on_battlefield(&e, p0, memorial_to_unity()).unwrap();
+    let state = e.dev_state_mut(p0).unwrap();
+    state
+        .move_object(
+            commander,
+            ZoneLocation::Library(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    state.set_tapped(memorial, false);
+    state.players[0].mana_pool.add(ManaColor::Green, 3);
+    e.refresh_offer();
+    activate(&mut e, p0, memorial_to_unity(), 1);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let since = e.state().journal.entries().len();
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![commander],
+        },
+    )
+    .unwrap();
+    assert!(
+        matches!(e.pending(),Pending::YesNo{prompt:crate::choice::YesNoPrompt::CommanderReplace{card,..},..} if *card==commander)
+    );
+    let reveals = |e: &Engine<RegistryLookup>| {
+        e.state().journal.entries()[since..].iter().filter(|entry|
+        matches!(&entry.event,GameEvent::Revealed{cards,..} if cards==&vec![commander])).count()
+    };
+    assert_eq!(reveals(&e), 1);
+    e.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(commander).unwrap().zone, Zone::Command);
+    assert_eq!(reveals(&e), 1);
+}

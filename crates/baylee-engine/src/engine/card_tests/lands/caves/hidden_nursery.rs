@@ -4,7 +4,6 @@
 use super::*;
 
 /// Hidden Nursery: "This land enters tapped." / "{T}: Add {G}." / "{4}{G}, {T}, Sacrifice this land: Discover 4. Activate only as a sorcery."
-/// Under `Coverage::Partial`, the discover ability is omitted because no effect performs discover.
 /// Playing this land causes it to enter tapped, and after untapping on a subsequent turn it taps for green mana.
 #[test]
 fn hidden_nursery_enters_tapped_and_taps_for_green() {
@@ -29,4 +28,9 @@ fn hidden_nursery_enters_tapped_and_taps_for_green() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Green), 1);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn hidden_nursery_pays_its_colored_cost_and_discovers_four() {
+    hidden_cave_discovers(hidden_nursery(), ManaColor::Green, true);
 }

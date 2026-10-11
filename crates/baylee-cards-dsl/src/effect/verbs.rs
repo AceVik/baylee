@@ -697,6 +697,8 @@ impl Effect {
             | Effect::UntapChosen { .. }
             | Effect::DrainAllCountersIntoSelf
             | Effect::GraveyardToLibraryBottom { .. }
+            | Effect::PutSourceFromHandOntoBattlefield
+            | Effect::ShuffleTargetsIntoOwnersLibraries
             | Effect::ShuffleGraveyardIntoLibrary
             | Effect::ShuffleIntoLibrary { .. }
             | Effect::ShuffleLibrary { .. }

@@ -29661,8 +29661,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Fertile Thicket
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 1,
+        lines: &[Some(2), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -43888,8 +43888,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // The Mycosynth Gardens
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0), Some(1)],
+        stackable: 1,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -45518,8 +45518,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Ominous Cemetery
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -45911,40 +45911,40 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Hidden Cataract
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
     // Hidden Courtyard
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
     // Hidden Necropolis
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
     // Hidden Nursery
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
     // Hidden Volcano
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -48465,8 +48465,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Talon Gates of Madara
     &[FaceLines {
         sentences: 4,
-        stackable: 1,
-        lines: &[Some(0), Some(1), Some(2)],
+        stackable: 2,
+        lines: &[Some(0), Some(1), Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -51258,8 +51258,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // The Gold Saucer
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(0), Some(2)],
+        stackable: 2,
+        lines: &[Some(0), Some(2), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -52011,8 +52011,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Urban Retreat
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

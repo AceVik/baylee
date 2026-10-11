@@ -35,7 +35,8 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::SetPTFilter { filter, .. } => {
                 implicit_source && matches!(filter, Filter::This)
             }
-            Effect::SacrificeSelf
+            Effect::PutSourceFromHandOntoBattlefield
+            | Effect::SacrificeSelf
             | Effect::UntapSelf
             | Effect::TapSelf
             | Effect::RemoveCounterSelf { .. }

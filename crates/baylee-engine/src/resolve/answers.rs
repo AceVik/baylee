@@ -361,6 +361,9 @@ pub(super) fn resume_yes_no_inner(
     res: &mut Resolution,
     answer: bool,
 ) -> Flow {
+    if let Some(flow) = resume_selected_commander(state, res, answer) {
+        return flow;
+    }
     if let Some(flow) = graveyard_choice::resume_commander(state, res, answer) {
         return flow;
     }
@@ -724,4 +727,36 @@ pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: 
     let flow = run_fallback(state, res, std::slice::from_ref(selected));
     subjects::flush(state, res);
     flow
+}
+
+/// Resume an already-made selection after all CR 903.9b answers are known.
+fn resume_selected_commander(
+    state: &mut GameState,
+    res: &mut Resolution,
+    answer: bool,
+) -> Option<Flow> {
+    if !matches!(res.awaiting, Some(AwaitingOp::SelectedCommander { .. })) {
+        return None;
+    }
+    let Some(AwaitingOp::SelectedCommander {
+        operation,
+        chosen,
+        asked,
+        mut remaining,
+    }) = res.awaiting.take()
+    else {
+        unreachable!("checked selected replacement continuation")
+    };
+    state.commander_redirect.push((asked, answer));
+    if let Some((asked, pending)) = next_commander_ask(state, &mut remaining) {
+        res.awaiting = Some(AwaitingOp::SelectedCommander {
+            operation,
+            chosen,
+            asked,
+            remaining,
+        });
+        return Some(Flow::Wait(pending));
+    }
+    res.awaiting = Some(*operation);
+    Some(super::resume::resume_inner(state, res, &chosen))
 }

@@ -590,6 +590,41 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::PutSourceFromHandOntoBattlefield => {
+            let subject = super::subjects::source(state, res)
+                .filter(|r| super::subjects::is_current(state, *r))?;
+            let object = state.object(subject.object)?;
+            if object.zone != crate::zone::Zone::Hand || object.zone_owner != Some(you) {
+                return None;
+            }
+            put_found(state, you, subject.object, SearchDest::Battlefield);
+            None
+        }
+        Effect::ShuffleTargetsIntoOwnersLibraries => {
+            let moves: Vec<_> = res
+                .targets
+                .iter()
+                .filter_map(|&card| {
+                    state
+                        .object(card)
+                        .map(|object| (card, ZoneLocation::Library(object.owner)))
+                })
+                .collect();
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            let mut owners = baylee_core::ids::SeatSet::new();
+            for (card, destination) in moves {
+                if let ZoneLocation::Library(owner) = destination {
+                    owners.insert(owner);
+                }
+                let _ = state.move_object(card, destination, ZonePosition::Top, Cause::Effect);
+            }
+            for owner in owners.iter() {
+                state.shuffle_library(owner);
+            }
+            None
+        }
         Effect::ShuffleGraveyardIntoLibrary => {
             let graveyard: Vec<ObjectId> = state.zones.list(ZoneLocation::Graveyard(you)).clone();
             let moves: Vec<(ObjectId, ZoneLocation)> = graveyard

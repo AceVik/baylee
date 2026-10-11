@@ -143,3 +143,67 @@ fn dig_through_time_flashed_back_does_not_offer_itself_to_its_own_delve() {
         engine.pending()
     );
 }
+
+#[test]
+fn dig_retains_both_selected_commanders_across_individual_replacement_answers() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[island(); 8])
+        .hand(0, &[dig_through_time()])
+        .commander(0, &[index::GRIZZLY_BEARS, index::SERRA_ANGEL])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let chosen: Vec<_> = e.state().commanders[0].iter().map(|c| c.object).collect();
+    for &card in &chosen {
+        e.dev_state_mut(p0)
+            .unwrap()
+            .move_object(
+                card,
+                ZoneLocation::Library(p0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+    }
+    cast_from_hand(&mut e, p0, dig_through_time());
+    pass_until(&mut e, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::PutIntoHand,
+                ..
+            }
+        )
+    });
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: chosen.clone(),
+        },
+    )
+    .unwrap();
+    for (card, home) in [(chosen[0], true), (chosen[1], false)] {
+        assert!(
+            matches!(e.pending(),Pending::YesNo{prompt:crate::choice::YesNoPrompt::CommanderReplace{card:asked,to_library:false},..} if *asked==card)
+        );
+        // Neither card moves before both replacement answers are known.
+        assert!(
+            chosen
+                .iter()
+                .all(|c| e.state().object(*c).unwrap().zone == Zone::Library)
+        );
+        e.apply(p0, PlayerAction::YesNo(home)).unwrap();
+    }
+    let Pending::Arrange { cards, .. } = e.pending().clone() else {
+        unreachable!()
+    };
+    assert_eq!(cards.len(), 5);
+    assert!(cards.iter().all(|c| !chosen.contains(c)));
+    e.apply(p0, PlayerAction::Arrange { piles: vec![cards] })
+        .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(chosen[0]).unwrap().zone, Zone::Command);
+    assert_eq!(e.state().object(chosen[1]).unwrap().zone, Zone::Hand);
+}

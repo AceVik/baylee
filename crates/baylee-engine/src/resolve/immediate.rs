@@ -208,6 +208,8 @@ pub(super) fn exec_immediate(
         | Effect::PutSourceOnTopOfLibrary
         | Effect::BottomCardFromHand { .. }
         | Effect::GraveyardToLibraryBottom { .. }
+        | Effect::PutSourceFromHandOntoBattlefield
+        | Effect::ShuffleTargetsIntoOwnersLibraries
         | Effect::ShuffleGraveyardIntoLibrary
         | Effect::PhaseOut { .. }
         | Effect::ExileLinked { .. }
@@ -1236,6 +1238,7 @@ pub(super) fn exec_immediate(
             one_per_type(state, res, top, 0)
         }
         Effect::LookAtTopFind {
+            found,
             count,
             filter,
             random,
@@ -1265,13 +1268,18 @@ pub(super) fn exec_immediate(
                 rest: top,
                 reveal: true,
                 random,
+                found,
             });
             Some(Pending::ChooseCards {
                 player: you,
                 options,
                 min: 0,
                 max,
-                prompt: ChoicePrompt::PutIntoHand,
+                prompt: if found == SearchDest::Hand {
+                    ChoicePrompt::PutIntoHand
+                } else {
+                    ChoicePrompt::PutBackOnTop
+                },
                 total: None,
             })
         }
@@ -1304,6 +1312,7 @@ pub(super) fn exec_immediate(
                 rest: top.clone(),
                 reveal: false,
                 random,
+                found: SearchDest::Hand,
             });
             Some(Pending::ChooseCards {
                 player: you,

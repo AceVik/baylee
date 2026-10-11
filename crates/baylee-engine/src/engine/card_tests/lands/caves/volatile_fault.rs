@@ -4,7 +4,6 @@
 use super::*;
 
 /// Volatile Fault prints `{{T}}: Add {{C}}` and `{{1}}, {{T}}, Sacrifice this land: Destroy target nonbasic land an opponent controls. That player may search their library for a basic land card, put it onto the battlefield, then shuffle. You create a Treasure token.`
-/// The card is marked `Coverage::Partial` because the searched land enters tapped instead of untapped.
 /// Activating the sacrifice ability destroys the opponent's nonbasic land, allows them to search for a basic land, and creates a Treasure token for the activator.
 #[test]
 fn volatile_fault_destroys_opponent_nonbasic_and_creates_treasure() {
@@ -64,4 +63,48 @@ fn volatile_fault_destroys_opponent_nonbasic_and_creates_treasure() {
 
     assert!(in_graveyard(&engine, p1, badlands()).is_some());
     assert_eq!(tokens_of(&engine, p0).len(), 1);
+}
+
+#[test]
+fn volatile_faults_basic_land_arrives_untapped_for_the_target_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[volatile_fault(), forest()])
+        .battlefield(1, &[badlands()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    tap_all_mana_but(&mut e, p0, Some(volatile_fault()));
+    activate(&mut e, p0, volatile_fault(), 1);
+    let land = on_battlefield(&e, p1, badlands()).unwrap();
+    aim_at(&mut e, p0, land);
+    pass_until(&mut e, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        player, options, ..
+    } = e.pending()
+    else {
+        unreachable!()
+    };
+    assert_eq!(*player, p1);
+    let found = options[0];
+    e.apply(
+        p1,
+        PlayerAction::ChooseObjects {
+            objects: vec![found],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(found).unwrap().zone, Zone::Battlefield);
+    assert_eq!(e.state().object(found).unwrap().controller, p1);
+    assert!(!is_tapped(&e, found));
+    assert_eq!(tokens_of(&e, p0).len(), 1);
 }

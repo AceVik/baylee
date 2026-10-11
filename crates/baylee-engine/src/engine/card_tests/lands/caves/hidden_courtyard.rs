@@ -4,7 +4,6 @@
 use super::*;
 
 /// Hidden Courtyard: "This land enters tapped." / "{T}: Add {W}." / "{4}{W}, {T}, Sacrifice this land: Discover 4. Activate only as a sorcery."
-/// Under `Coverage::Partial`, the discover ability is omitted because discover is not expressible in the `DSL`.
 /// Playing this land causes it to enter tapped, and after untapping on a subsequent turn it taps for white mana.
 #[test]
 fn hidden_courtyard_enters_tapped_and_taps_for_white() {
@@ -29,4 +28,9 @@ fn hidden_courtyard_enters_tapped_and_taps_for_white() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::White), 1);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn hidden_courtyard_pays_its_colored_cost_and_discovers_four() {
+    hidden_cave_discovers(hidden_courtyard(), ManaColor::White, false);
 }

@@ -448,6 +448,7 @@ pub(super) fn resume_inner(
             }
         }
         AwaitingOp::DigRest {
+            found,
             rest,
             reveal,
             random,
@@ -458,13 +459,32 @@ pub(super) fn resume_inner(
                     cards: chosen.to_vec(),
                 });
             }
+            let destination = match found {
+                SearchDest::Hand => ZoneLocation::Hand(res.controller),
+                SearchDest::TopOfLibrary => ZoneLocation::Library(res.controller),
+                SearchDest::Battlefield => ZoneLocation::Battlefield,
+            };
+            let moves: Vec<_> = chosen.iter().map(|&card| (card, destination)).collect();
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                let Some(AwaitingOp::CommanderReplace { asked, remaining }) = res.awaiting.take()
+                else {
+                    unreachable!("replacement question retains its owners")
+                };
+                res.awaiting = Some(AwaitingOp::SelectedCommander {
+                    operation: Box::new(AwaitingOp::DigRest {
+                        found,
+                        rest,
+                        reveal: false,
+                        random,
+                    }),
+                    chosen: chosen.to_vec(),
+                    asked,
+                    remaining,
+                });
+                return Flow::Wait(pending);
+            }
             for &card in chosen {
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Hand(res.controller),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
+                put_found(state, res.controller, card, found);
             }
             // "The rest on the bottom in any order": the player chooses
             // the order whenever there is one to choose. "In a random
@@ -835,6 +855,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::CastTarget { .. }
         | AwaitingOp::TopOrBottom { .. }
         | AwaitingOp::SkipDraw { .. }
+        | AwaitingOp::SelectedCommander { .. }
         | AwaitingOp::ChosenGraveyardCommander { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")

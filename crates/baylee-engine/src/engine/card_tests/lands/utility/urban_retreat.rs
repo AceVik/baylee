@@ -5,7 +5,6 @@ use super::*;
 
 /// `Urban Retreat` prints `This land enters tapped.`, `{{T}}: Add {{G}}, {{W}}, or {{U}}.`, and `{{2}}, Return a tapped creature you control to its owner's hand: Put this card from your hand onto the battlefield. Activate only as a sorcery.`
 ///
-/// Under `Coverage::Partial`, `EnterModifier::Tapped` and the three-color mana ability are implemented, while the hand-zone activation is omitted because putting the source card from hand onto the battlefield has no DSL effect.
 /// Playing `Urban Retreat` from hand enters tapped. After untapping on the next turn, activating ability 0 prompts via `Pending::ChooseColor` between green, white, and blue, adds one blue mana, and leaves `Urban Retreat` tapped.
 #[test]
 fn urban_retreat_enters_tapped_and_taps_for_chosen_color() {
@@ -44,4 +43,43 @@ fn urban_retreat_enters_tapped_and_taps_for_chosen_color() {
     assert_eq!(pool.available(ManaColor::Blue), 1);
     assert_eq!(pool.total(), 1);
     assert!(is_tapped(&engine, retreat));
+}
+
+#[test]
+fn urban_retreat_returns_only_a_tapped_friendly_creature_as_a_cost() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .hand(0, &[urban_retreat()])
+        .battlefield(0, &[index::GRIZZLY_BEARS, index::SERRA_ANGEL])
+        .battlefield(1, &[index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    let other = on_battlefield(&e, PlayerId::new(1), index::GRIZZLY_BEARS).unwrap();
+    let retreat = in_hand(&e, p0, urban_retreat()).unwrap();
+    let state = e.dev_state_mut(p0).unwrap();
+    state.set_tapped(bear, true);
+    state.set_tapped(other, true);
+    state.players[0].mana_pool.add(ManaColor::Colorless, 2);
+    e.refresh_offer();
+    activate(&mut e, p0, urban_retreat(), 1);
+    let Pending::ChooseCards { options, .. } = e.pending() else {
+        unreachable!()
+    };
+    assert_eq!(options, &vec![bear]);
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![bear],
+        },
+    )
+    .unwrap();
+    assert_eq!(e.state().object(bear).unwrap().zone, Zone::Hand);
+    assert_eq!(e.state().object(retreat).unwrap().zone, Zone::Hand);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(retreat).unwrap().zone, Zone::Battlefield);
+    assert!(is_tapped(&e, retreat));
+    assert_eq!(e.state().players[0].lands_played_this_turn, 0);
 }

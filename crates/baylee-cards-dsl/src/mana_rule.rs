@@ -90,6 +90,7 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::GraveyardToLibraryBottom { .. }
+        | Effect::ShuffleTargetsIntoOwnersLibraries
         | Effect::ShuffleGraveyardIntoLibrary
         | Effect::ShuffleIntoLibrary { .. }
         | Effect::Surveil { .. }

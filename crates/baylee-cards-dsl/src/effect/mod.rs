@@ -28,6 +28,10 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Put the ability's original source from its controller's hand onto the battlefield.
+    PutSourceFromHandOntoBattlefield,
+    /// Each targeted permanent's owner shuffles it into their library.
+    ShuffleTargetsIntoOwnersLibraries,
     /// Put all cards in the named player's graveyard on their library bottom,
     /// randomizing those cards without disturbing the existing library.
     GraveyardToLibraryBottom {
@@ -211,9 +215,11 @@ pub enum Effect {
         /// (CR 800.4a).
         owner_control: bool,
     },
-    /// Look privately, optionally reveal one matching card into your hand,
+    /// Look privately, optionally reveal one matching card into its destination,
     /// then put the rest on the bottom in the stated order.
     LookAtTopFind {
+        /// Destination for the selected card.
+        found: SearchDest,
         /// Number of cards inspected.
         count: u8,
         /// What the revealed card must match.

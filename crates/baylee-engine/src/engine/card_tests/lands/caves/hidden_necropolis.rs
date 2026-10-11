@@ -4,7 +4,6 @@
 use super::*;
 
 /// Hidden Necropolis: "This land enters tapped." / "{T}: Add {B}." / "{4}{B}, {T}, Sacrifice this land: Discover 4. Activate only as a sorcery."
-/// Under `Coverage::Partial`, the discover ability is omitted because no effect performs discover.
 /// Playing this land causes it to enter tapped, and after untapping on a subsequent turn it taps for black mana.
 #[test]
 fn hidden_necropolis_enters_tapped_and_taps_for_black() {
@@ -29,4 +28,9 @@ fn hidden_necropolis_enters_tapped_and_taps_for_black() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Black), 1);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn hidden_necropolis_pays_its_colored_cost_and_discovers_four() {
+    hidden_cave_discovers(hidden_necropolis(), ManaColor::Black, true);
 }

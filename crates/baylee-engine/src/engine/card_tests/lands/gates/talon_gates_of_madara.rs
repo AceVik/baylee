@@ -6,7 +6,7 @@ use super::*;
 /// Talon Gates of Madara is a Gate that enters untapped, phases a creature
 /// out as it arrives, taps for {C}, and for {1} plus its own {T} makes one
 /// mana of any colour — the `{4}` that would put it onto the battlefield from
-/// hand is the `Coverage::Partial` gap and nothing here touches it. The entry
+/// hand is covered separately below. The entry
 /// trigger is aimed at one of two *identical* Elves across the table, so the
 /// Elf it did not name is the control that says "up to one target creature" is
 /// a target and not a board sweep, and `min` 0 is what makes the "up to" an
@@ -206,4 +206,65 @@ fn talon_gates_of_madara_phases_one_creature_out_and_taps_for_both_of_its_manas(
         0,
         "both Gates are down now, one for each printed line"
     );
+}
+
+#[test]
+fn gates_hand_activation_enters_without_a_land_drop_and_respects_source_incarnation() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for moved_away in [false, true] {
+        let mut e = Duel::new(SEED, forest())
+            .hand(0, &[talon_gates_of_madara(), index::FOREST])
+            .battlefield(1, &[index::GRIZZLY_BEARS])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        play_land(&mut e, p0, index::FOREST);
+        let gate = in_hand(&e, p0, talon_gates_of_madara()).unwrap();
+        e.dev_state_mut(p0).unwrap().players[0]
+            .mana_pool
+            .add(ManaColor::Colorless, 4);
+        e.refresh_offer();
+        activate(&mut e, p0, talon_gates_of_madara(), 3);
+        assert_eq!(e.state().object(gate).unwrap().zone, Zone::Hand);
+        if moved_away {
+            let state = e.dev_state_mut(p0).unwrap();
+            for zone in [ZoneLocation::Graveyard(p0), ZoneLocation::Hand(p0)] {
+                state
+                    .move_object(
+                        gate,
+                        zone,
+                        crate::zone::ZonePosition::Top,
+                        crate::event::Cause::Effect,
+                    )
+                    .unwrap();
+            }
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(e.state().object(gate).unwrap().zone, Zone::Hand);
+        } else {
+            pass_until(&mut e, |e| {
+                matches!(e.pending(), Pending::ChooseTargets { .. })
+            });
+            let bear = on_battlefield(&e, PlayerId::new(1), index::GRIZZLY_BEARS).unwrap();
+            e.apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![bear],
+                    players: vec![],
+                },
+            )
+            .unwrap();
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(e.state().object(gate).unwrap().zone, Zone::Battlefield);
+            assert!(
+                e.state()
+                    .object(bear)
+                    .unwrap()
+                    .status
+                    .contains(Status::PHASED_OUT)
+            );
+            assert!(!is_tapped(&e, gate));
+        }
+        assert_eq!(e.state().players[0].lands_played_this_turn, 1);
+    }
 }
