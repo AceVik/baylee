@@ -50,6 +50,8 @@ pub enum CounterKind {
     Indestructible,
     /// A hone counter gives an equipped creature +1/+0 (CR 122.1j).
     Hone,
+    /// Replaces an untap attempt by removing one counter (CR 122.1d).
+    Stun,
     /// Any other counter, identified by the engine's opaque id.
     Custom(u32),
 }
@@ -99,6 +101,7 @@ impl CounterKind {
             Self::Shadow => Cow::Borrowed("SHDW"),
             Self::Indestructible => Cow::Borrowed("IND"),
             Self::Hone => Cow::Borrowed("HONE"),
+            Self::Stun => Cow::Borrowed("STUN"),
             Self::Custom(_) => Cow::Borrowed("•"),
         }
     }

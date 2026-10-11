@@ -680,6 +680,11 @@ pub enum CastModeKind {
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ChoicePrompt {
+    /// Non-targeted counter recipients from the objects tapped by this effect.
+    TappedForCounters {
+        /// One counter of this kind goes on each chosen permanent.
+        kind: baylee_cards_dsl::CounterKind,
+    },
     /// Choose permanents to receive another counter of every kind already present.
     Proliferate,
     /// Optional creature from hand, cast face down under the resolving effect.
@@ -919,6 +924,11 @@ pub enum ChoicePrompt {
     Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
 )]
 pub enum NumberPrompt {
+    /// Optional energy payment before choosing counter recipients.
+    EnergyPayment {
+        /// Number of permanents actually tapped by the instruction; overpayment is legal.
+        candidates: u32,
+    },
     /// The twenty distinct ordered pairs in a five-word vocabulary.
     TextReplacement {
         /// Printed color words or basic land type words.

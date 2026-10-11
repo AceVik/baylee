@@ -1658,6 +1658,7 @@ fn hash_counter(h: &mut Hasher, kind: CounterKind) {
         CounterKind::Shadow => h.u8(14),
         CounterKind::Indestructible => h.u8(15),
         CounterKind::Hone => h.u8(16),
+        CounterKind::Stun => h.u8(17),
         // The id is hashed whole. Folding it modulo 100 was safe while every
         // tag was one byte and is not worth keeping now that the function
         // writes as many as it likes.

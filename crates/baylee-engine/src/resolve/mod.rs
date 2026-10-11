@@ -57,6 +57,7 @@ mod immediate;
 mod permissions;
 mod piles;
 pub mod proliferate;
+pub mod tap_energy;
 use permissions::grant_play;
 mod resume;
 mod search;
@@ -1290,17 +1291,24 @@ fn sacrifice_amount_or_lose(
 /// untapping an untapped permanent is not an event, and recording one would
 /// put a "became untapped" in the log for a permanent that did not.
 fn untap(state: &mut GameState, id: ObjectId) {
-    let tapped = state
-        .object(id)
-        .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED));
-    if !tapped {
-        return;
+    if state.set_tapped(id, false) {
+        state.journal.record(GameEvent::ObjectUntapped {
+            object: id,
+            cause: Cause::Effect,
+        });
     }
-    state.set_tapped(id, false);
-    state.journal.record(GameEvent::ObjectUntapped {
+}
+
+/// Record only an actual tap; entering tapped is handled by the entry pipeline.
+fn tap(state: &mut GameState, id: ObjectId) -> bool {
+    if !state.set_tapped(id, true) {
+        return false;
+    }
+    state.journal.record(GameEvent::ObjectTapped {
         object: id,
         cause: Cause::Effect,
     });
+    true
 }
 
 /// Each `(object, player)`: the player gains control of the object for as

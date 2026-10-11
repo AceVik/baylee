@@ -6,6 +6,8 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Actual tapped objects awaiting an energy payment and counter selections.
+    TapEnergy(Box<super::tap_energy::Selection>),
     /// A selected pair of permanents waiting for the counter kind to move.
     MoveCounter {
         /// Exact source of the counter.

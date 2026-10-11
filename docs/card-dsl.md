@@ -513,7 +513,7 @@ express at all yet.
 
   **Which counter** is a `CounterKind`, and there are three ways to name one.
   Rules-aware counters have dedicated variants: `Loyalty`, `Lore`, `Time`,
-  `Charge`, `Poison`, `Energy`, `Rad`, `Level`, `Hone`, and the keyword
+  `Charge`, `Poison`, `Energy`, `Rad`, `Level`, `Hone`, `Stun`, and the keyword
   counters `Lifelink`, `Flying`, `Shadow`, `Indestructible`. Every counter that changes power and toughness is
   `Plus { power, toughness }` or `Minus { power, toughness }`, one variant
   for each of CR 122.1a's two forms, because the rule is one rule over an
@@ -534,6 +534,17 @@ express at all yet.
   `every_custom_counter_in_the_pool_is_an_assigned_id` (the compiled pool
   carries no id the registry does not name) and
   `no_card_file_spells_a_counter_id_as_a_number` (no card writes one).
+
+  Stun counters replace each attempted untap of a tapped permanent with
+  removing one counter (CR 122.1d), including untapping as a cost. An untap
+  symbol still requires a tapped permanent; a replacement-modified payment
+  pays the cost (CR 107.6, 118.11). Reversing a cancelled mana payment restores
+  its original state without performing a game untap.
+
+  `TapAndPayEnergyForCounters { who, filter, kind }` taps a non-targeted set,
+  offers any affordable energy payment (including zero or overpayment), and
+  selects up to that many exact objects that actually became tapped. Selection
+  pages do not cap the total; counters are placed after every page is answered.
 
   Keyword counters use the ordinary ability layer, including their own
   timestamps: putting another counter of the same kind refreshes all of that

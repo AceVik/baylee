@@ -427,3 +427,38 @@ fn proliferate_selects_net_beneficial_permanents_and_player_counters() {
     view.seats[0].poison = 9;
     assert_eq!(agent().act(&view, &ask(mine)), PlayerAction::YesNo(false));
 }
+
+#[test]
+fn stun_recipient_choice_avoids_friendly_permanents_and_unnecessary_energy_overpayment() {
+    use baylee_engine::choice::{ChoicePrompt, NumberPrompt};
+    let mine = PlayerId::new(0);
+    let theirs = PlayerId::new(1);
+    let view = view(
+        0,
+        &[20, 20],
+        vec![permanent(obj(1), mine, 3), permanent(obj(2), theirs, 4)],
+    );
+    let pending = Pending::ChooseCards {
+        player: mine,
+        options: vec![obj(1), obj(2)],
+        min: 0,
+        max: 2,
+        prompt: ChoicePrompt::TappedForCounters {
+            kind: baylee_cards_dsl::CounterKind::Stun,
+        },
+        total: None,
+    };
+    assert_eq!(
+        agent().act(&view, &pending),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(2)]
+        }
+    );
+    let payment = Pending::ChooseNumber {
+        player: mine,
+        min: 0,
+        max: 9,
+        reason: NumberPrompt::EnergyPayment { candidates: 2 },
+    };
+    assert_eq!(agent().act(&view, &payment), PlayerAction::ChooseNumber(2));
+}

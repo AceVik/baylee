@@ -92,7 +92,8 @@ fn counter_index(kind: CounterKind) -> usize {
         CounterKind::Shadow => 12,
         CounterKind::Indestructible => 13,
         CounterKind::Hone => 14,
-        CounterKind::Custom(_) => 15,
+        CounterKind::Custom(_) => 16,
+        CounterKind::Stun => 15,
     }
 }
 
@@ -123,6 +124,7 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
         CounterKind::Shadow,
         CounterKind::Indestructible,
         CounterKind::Hone,
+        CounterKind::Stun,
         CounterKind::Custom(9),
     ];
     let printed: Vec<String> = every.iter().map(|k| k.badge().into_owned()).collect();
@@ -130,7 +132,7 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
         printed,
         vec![
             "+1/+1", "-1/-1", "LOY", "LORE", "TIME", "CHG", "PSN", "NRG", "RAD", "LL", "LVL",
-            "FLY", "SHDW", "IND", "HONE", "•",
+            "FLY", "SHDW", "IND", "HONE", "STUN", "•",
         ]
     );
     assert_eq!(
@@ -143,7 +145,7 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
     );
     assert_eq!(
         every.iter().map(|k| counter_index(*k)).collect::<Vec<_>>(),
-        (0..16).collect::<Vec<_>>(),
+        (0..17).collect::<Vec<_>>(),
         "the list is every kind exactly once, in declaration order"
     );
 

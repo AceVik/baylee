@@ -1230,9 +1230,10 @@ about the table itself rather than the rules, and both are fixed.
     a host built before this, and one bit compare is what stops such a host
     putting a whole opening board to sleep.
 
-    *Open, found on the way:* `CostPart::UntapSelf` does not require the
-    permanent to be tapped, so `{Q}` can be paid by something already
-    untapped. One line, but a different bug from this one.
+    *Fixed 2026-10-11:* `CostPart::UntapSelf` now requires the permanent to
+    be tapped (CR 107.6). The regression also covers a stun replacement:
+    removing the counter pays the cost while leaving the permanent tapped
+    (CR 118.11), without falsely emitting an untap event.
 
     *And the drawing.* The half of the request that was not the rule: a
     summoning-sick creature was drawn with a uniform four-percent luminance

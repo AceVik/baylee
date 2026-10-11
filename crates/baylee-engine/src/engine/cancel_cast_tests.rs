@@ -385,3 +385,34 @@ fn there_is_no_cancel_without_a_cast() {
         "nothing moved"
     );
 }
+
+#[test]
+fn cancelled_mana_payment_preserves_stun_counters_when_it_restores_tapped_state() {
+    let mut engine = table(7328, &[plains(), island()], &[sliver()]);
+    let land = on_board(&engine, plains());
+    engine
+        .dev_state_mut(P0)
+        .unwrap()
+        .object_mut(land)
+        .unwrap()
+        .counters
+        .set(baylee_cards_dsl::CounterKind::Stun, 2);
+    engine.refresh_offer();
+    let card = in_hand(&engine, P0, sliver()).unwrap();
+    engine.apply(P0, PlayerAction::CastSpell { card }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ActivateManaAbility { source: land })
+        .unwrap();
+    assert!(tapped(&engine, land));
+    cancelled(&mut engine, card);
+    assert!(!tapped(&engine, land));
+    assert_eq!(
+        engine
+            .state()
+            .object(land)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::CounterKind::Stun),
+        2
+    );
+}

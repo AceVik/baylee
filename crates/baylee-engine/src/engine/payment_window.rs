@@ -229,7 +229,7 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(object)
                 .is_some_and(|o| o.zone == Zone::Battlefield)
-                && self.state.set_tapped(object, false)
+                && self.state.restore_tapped(object, false)
             {
                 self.state.journal.record(GameEvent::ObjectUntapped {
                     object,

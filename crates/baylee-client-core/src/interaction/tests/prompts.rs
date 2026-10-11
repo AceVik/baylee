@@ -1385,3 +1385,28 @@ fn discard_replacement_prompt_explains_the_public_disclosure_choice() {
         }));
     }
 }
+
+#[test]
+fn energy_payment_allows_zero_and_overpayment_and_names_both_bounds() {
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 9,
+        reason: baylee_engine::choice::NumberPrompt::EnergyPayment { candidates: 2 },
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Pay energy (0–9); up to 2 tapped permanents can receive counters"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Energie bezahlen (0–9); bis zu 2 getappte bleibende Karten können Marken erhalten"
+    );
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(0)));
+    assert_eq!(i.set_number(u32::MAX), 9);
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(9)));
+    assert_eq!(
+        counter_label(baylee_engine::object::CounterKind::Stun, Lang::De),
+        "Betäubungsmarken"
+    );
+}

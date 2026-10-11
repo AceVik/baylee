@@ -61,6 +61,8 @@ pub enum CounterKind {
     Indestructible,
     /// A hone counter gives an equipped creature +1/+0 (CR 122.1j).
     Hone,
+    /// Replaces an untap attempt by removing one counter (CR 122.1d).
+    Stun,
     /// Card-specific counters.
     Custom(u16),
 }
@@ -90,6 +92,7 @@ impl CounterKind {
             "poison" => Some(Self::Poison),
             "energy" => Some(Self::Energy),
             "rad" => Some(Self::Rad),
+            "stun" => Some(Self::Stun),
             "lifelink" => Some(Self::Lifelink),
             "level" => Some(Self::Level),
             "flying" => Some(Self::Flying),

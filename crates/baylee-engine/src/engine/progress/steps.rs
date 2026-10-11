@@ -584,8 +584,11 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(id)
                 .is_some_and(|o| o.controller == active && o.status.contains(Status::TAPPED));
-            if tapped && !kept.contains(&id) && !self.keeps_tapped(id) {
-                self.state.set_tapped(id, false);
+            if tapped
+                && !kept.contains(&id)
+                && !self.keeps_tapped(id)
+                && self.state.set_tapped(id, false)
+            {
                 self.state.journal.record(GameEvent::ObjectUntapped {
                     object: id,
                     cause: Cause::TurnBased,

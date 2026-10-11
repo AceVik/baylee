@@ -32,6 +32,16 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Tap matching permanents, then optionally spend energy to put one counter
+    /// on up to that many permanents that actually became tapped this way.
+    TapAndPayEnergyForCounters {
+        /// Whose permanents are tapped.
+        who: PlayerRel,
+        /// Which permanents are tapped, without targeting them.
+        filter: &'static Filter,
+        /// Counter kind placed after all selections are made.
+        kind: CounterKind,
+    },
     /// Choose any counter-bearing permanents and players, then add one of each kind (CR 701.34).
     Proliferate,
     /// Give the named players energy counters (CR 107.14).

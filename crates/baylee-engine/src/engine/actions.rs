@@ -391,7 +391,8 @@ impl<L: CardLookup> Engine<L> {
                     matches!(
                         res.awaiting,
                         Some(
-                            resolve::AwaitingOp::Counters { .. }
+                            resolve::AwaitingOp::TapEnergy(_)
+                                | resolve::AwaitingOp::Counters { .. }
                                 | resolve::AwaitingOp::DamagePayment { .. }
                                 | resolve::AwaitingOp::TextReplacement { .. }
                         )

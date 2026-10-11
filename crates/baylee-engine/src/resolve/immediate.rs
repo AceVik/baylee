@@ -15,6 +15,9 @@ pub(super) fn exec_immediate(
 ) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::TapAndPayEnergyForCounters { who, filter, kind } => {
+            super::tap_energy::start(state, res, who, filter, kind)
+        }
         Effect::Proliferate => super::proliferate::start(state, res),
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
         Effect::DestroyEventThenMayReattach { to } => {
@@ -1567,7 +1570,7 @@ pub(super) fn exec_immediate(
         }
         Effect::TapTarget => {
             for &target in &res.targets.clone() {
-                state.set_tapped(target, true);
+                tap(state, target);
             }
             None
         }
@@ -1637,7 +1640,7 @@ pub(super) fn exec_immediate(
                     .object(id)
                     .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
             {
-                state.set_tapped(id, true);
+                tap(state, id);
             }
             None
         }
@@ -1646,7 +1649,11 @@ pub(super) fn exec_immediate(
                 let tapped = state
                     .object(target)
                     .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED));
-                state.set_tapped(target, !tapped);
+                if tapped {
+                    untap(state, target);
+                } else {
+                    tap(state, target);
+                }
             }
             None
         }
@@ -1674,7 +1681,7 @@ pub(super) fn exec_immediate(
                 })
                 .collect();
             for id in all {
-                state.set_tapped(id, true);
+                tap(state, id);
             }
             None
         }
@@ -1693,7 +1700,7 @@ pub(super) fn exec_immediate(
                 })
                 .collect();
             for id in all {
-                state.set_tapped(id, true);
+                tap(state, id);
             }
             None
         }

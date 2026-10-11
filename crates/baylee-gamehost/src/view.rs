@@ -103,6 +103,7 @@ pub(crate) const fn counter(kind: baylee_cards_dsl::CounterKind) -> CounterKind 
         K::Shadow => CounterKind::Shadow,
         K::Indestructible => CounterKind::Indestructible,
         K::Hone => CounterKind::Hone,
+        K::Stun => CounterKind::Stun,
         K::Custom(id) => CounterKind::Custom(id as u32),
     }
 }

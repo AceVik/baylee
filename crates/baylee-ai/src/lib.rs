@@ -444,6 +444,20 @@ impl HeuristicAgent {
                 {
                     return PlayerAction::ChooseObjects { objects };
                 }
+                if let ChoicePrompt::TappedForCounters { kind } = prompt {
+                    return PlayerAction::ChooseObjects {
+                        objects: options
+                            .iter()
+                            .copied()
+                            .filter(|id| {
+                                view.object(*id)
+                                    .and_then(|o| self.counters(view, o, kind, 1))
+                                    .is_some_and(|worth| worth > 0)
+                            })
+                            .take(usize::from(max))
+                            .collect(),
+                    };
+                }
                 if prompt == ChoicePrompt::Proliferate {
                     return PlayerAction::ChooseObjects {
                         objects: options
@@ -655,6 +669,9 @@ impl HeuristicAgent {
                     } else {
                         min
                     }
+                }
+                baylee_engine::choice::NumberPrompt::EnergyPayment { candidates } => {
+                    candidates.clamp(min, max)
                 }
                 baylee_engine::choice::NumberPrompt::X => self.number(view, min, max, context),
                 baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => {

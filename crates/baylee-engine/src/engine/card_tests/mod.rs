@@ -35,6 +35,7 @@ mod legends_kit;
 mod planeswalkers;
 mod rules;
 mod sorceries;
+mod stun_counters;
 
 use super::testkit::*;
 

@@ -74,8 +74,18 @@ macro_rules! messages {
 }
 
 messages! {
+    /// Number of energy counters to pay; choosing zero declines.
+    ChooseEnergyPayment { en: "Pay energy ({0}–{1}); up to {2} tapped permanents can receive counters", de: "Energie bezahlen ({0}–{1}); bis zu {2} getappte bleibende Karten können Marken erhalten" },
+    /// One of the permanents actually tapped by this instruction.
+    NounTappedForCounter { en: "tapped permanent to receive a counter", de: "getappte bleibende Karte für eine Marke" },
+    /// Multiple non-targeted counter recipients.
+    NounTappedForCounters { en: "tapped permanents to receive a counter", de: "getappte bleibende Karten für je eine Marke" },
     /// A resolving effect asks which kind of counter to move.
     ChooseCounterKind { en: "Choose a counter kind", de: "Wähle eine Markensorte" },
+    /// One stun counter.
+    LogCounterStun { en: "stun counter", de: "Betäubungsmarke" },
+    /// Several stun counters.
+    LogCountersStun { en: "stun counters", de: "Betäubungsmarken" },
     /// Hold Shift to turn the preview.
     PreviewTurn { en: "Turn over", de: "Drehen" },
     /// Hold Alt/Option for the alternative preview.

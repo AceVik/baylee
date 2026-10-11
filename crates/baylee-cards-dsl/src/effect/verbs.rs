@@ -711,6 +711,7 @@ impl Effect {
             | Effect::SacrificeAmountOrLose { .. }
             | Effect::Poison { .. }
             | Effect::Energy { .. }
+            | Effect::TapAndPayEnergyForCounters { .. }
             | Effect::Proliferate
             | Effect::LoseGame
             | Effect::ReanimateEnchanted

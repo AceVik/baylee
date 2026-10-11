@@ -4128,3 +4128,20 @@ land type"; both are convention tests that fire on a first try.
   fix. The DSL nesting contract, generated-table reproducibility, 3,321-card
   validation, formatting and workspace all-targets clippy with dev controls
   pass. Original Partial inventory: 300 completed, 240 remaining.
+- Follow-up: Nesting Grounds now selects its counter kind during resolution.
+  A shared move checks both exact incarnations and the destination's counter
+  cap before removing anything, also fixing the existing event-counter move.
+  Placement still sees Doubling Season. Counter chooser indices are u32,
+  tested with 300 kinds; the existing custom-counter registry supplies names.
+  Validation: all 5,689 engine tests pass (two ignores), 110 client interaction,
+  236 AI, 134 card and 42 view tests pass, with full workspace all-targets
+  clippy, printing validation and table reproducibility. Package40 is now
+  eight of twelve cards; original inventory is 301 completed, 239 remaining.
+
+### Batch 40 follow-up: Suppression Ray and stun counters (2026-10-11)
+
+- Suppression Ray now freezes the actual newly tapped incarnations, accepts any affordable energy payment (including zero or overpayment), and gathers non-targeted recipients across 255-object pages before placing counters. The page size does not cap the card's legal result.
+- Stun is a typed counter throughout setup, engine, wire, client, narrator, codegen and AI. The common tap-state door replaces attempted untaps, including turn actions and costs; cancelled-payment restoration bypasses game replacements.
+- The new regressions found two older gaps: an untap-symbol cost was offered on untapped permanents, and Twiddle changed status without recording its untap. Tap effects now share an event-recording helper, while entering tapped keeps its separate semantics.
+- Verified: 5,695 engine tests (2 ignored), 1,565 client-core tests (1 ignored), 237 AI, 134 cards, 73 DSL, 275 codegen and 42 view tests; workspace Clippy, all 3,321 card validations and generated-table reproducibility passed. The engine suite took 47.07s and client-core 68.49s during concurrent test runs; the dial property test remains a candidate for the requested later test-runtime pass.
+- Original Partial inventory: 302 completed, 238 remain. Package 40 retains Brad Boimler, Diamond City and Mariposa Military Base as unfinished; none is promoted by the shared foundation alone.

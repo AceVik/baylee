@@ -177,7 +177,10 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
         }
         match effect {
             Effect::AddCounter { kind, .. } => match kind {
-                CounterKind::Minus { .. } | CounterKind::Poison | CounterKind::Rad => {
+                CounterKind::Minus { .. }
+                | CounterKind::Poison
+                | CounterKind::Rad
+                | CounterKind::Stun => {
                     m.benefit = -1;
                     m.size_counter = matches!(kind, CounterKind::Minus { .. }).then_some(*kind);
                 }

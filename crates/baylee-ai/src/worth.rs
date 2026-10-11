@@ -53,6 +53,7 @@ fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
         CounterKind::Shadow => V::Shadow,
         CounterKind::Indestructible => V::Indestructible,
         CounterKind::Hone => V::Hone,
+        CounterKind::Stun => V::Stun,
         CounterKind::Custom(id) => V::Custom(u32::from(id)),
     }
 }
@@ -1007,6 +1008,7 @@ impl HeuristicAgent {
                 }
             }
             CounterKind::Hone => sign * n * 70,
+            CounterKind::Stun => -sign * n * 60,
             CounterKind::Poison | CounterKind::Rad => -sign * n * 50,
             // A clock's sign is the card's under it (`tactics::clock_score`),
             // and a custom counter means what its card says.

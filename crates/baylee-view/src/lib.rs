@@ -207,7 +207,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 63 adds energy-payment/proliferate prompts, radiation totals and
 /// the public log's player-counter changes.
 /// Version 64 adds counter-kind choices and widens indexed options to u32.
-pub const VIEW_VERSION: u32 = 64;
+/// Version 65 adds stun counters and variable energy/counter-recipient choices.
+pub const VIEW_VERSION: u32 = 65;
 
 // ------------------------------------------------------------------- targets
 

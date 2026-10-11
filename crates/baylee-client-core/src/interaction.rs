@@ -851,6 +851,9 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::CamouflagePile { .. } => {
             (Phrase::NounCreatureForPile, Phrase::NounCreaturesForPile)
         }
+        ChoicePrompt::TappedForCounters { .. } => {
+            (Phrase::NounTappedForCounter, Phrase::NounTappedForCounters)
+        }
         ChoicePrompt::Proliferate => (
             Phrase::NounProliferatePermanent,
             Phrase::NounProliferatePermanents,
@@ -1044,6 +1047,9 @@ fn number_line(
         );
     }
     match reason {
+        NumberPrompt::EnergyPayment { candidates } => {
+            Phrase::ChooseEnergyPayment.fill(lang, &[&min, &max, &candidates.to_string()])
+        }
         NumberPrompt::TextReplacement { .. } => {
             Phrase::ChooseTextReplacement.text(lang).to_string()
         }
@@ -1109,6 +1115,7 @@ pub fn counter_label(kind: baylee_engine::object::CounterKind, lang: Lang) -> St
         CounterKind::Lifelink => Phrase::LogCountersLifelink.text(lang).to_owned(),
         CounterKind::Level => Phrase::LogCountersLevel.text(lang).to_owned(),
         CounterKind::Hone => Phrase::LogCountersHone.text(lang).to_owned(),
+        CounterKind::Stun => Phrase::LogCountersStun.text(lang).to_owned(),
         CounterKind::Flying => Phrase::LogCountersFlying.text(lang).to_owned(),
         CounterKind::Shadow => Phrase::LogCountersShadow.text(lang).to_owned(),
         CounterKind::Indestructible => Phrase::LogCountersIndestructible.text(lang).to_owned(),

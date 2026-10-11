@@ -16,6 +16,16 @@ pub(super) fn resume_with_number_inner(
     res: &mut Resolution,
     number: u32,
 ) -> Flow {
+    if matches!(res.awaiting, Some(AwaitingOp::TapEnergy(_))) {
+        let Some(AwaitingOp::TapEnergy(selection)) = res.awaiting.take() else {
+            unreachable!("energy payment continuation")
+        };
+        if let Some(pending) = super::tap_energy::pay(state, res, *selection, number) {
+            return Flow::Wait(pending);
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
     if let Some(AwaitingOp::TextReplacement { target, kind }) = res.awaiting {
         if let Some(replacement) = crate::text_changes::TextReplacement::from_choice(kind, number)
             && state

@@ -120,9 +120,8 @@ impl<L: CardLookup> Engine<L> {
                     if crate::combat::summoning_sick(&self.state, obj) {
                         return false;
                     }
-                    // {T} needs it untapped. {Q} ought to need it tapped and
-                    // does not — `docs/observed-faults.md` entry 53.
-                    if matches!(part, CostPart::TapSelf) && obj.status.contains(Status::TAPPED) {
+                    // CR 107.5–107.6: the symbols require opposite initial states.
+                    if obj.status.contains(Status::TAPPED) != matches!(part, CostPart::UntapSelf) {
                         return false;
                     }
                 }
@@ -385,7 +384,12 @@ impl<L: CardLookup> Engine<L> {
                     });
                 }
                 CostPart::UntapSelf => {
-                    self.state.set_tapped(source, false);
+                    if self.state.set_tapped(source, false) {
+                        self.state.journal.record(GameEvent::ObjectUntapped {
+                            object: source,
+                            cause: Cause::Cost,
+                        });
+                    }
                 }
                 CostPart::DiscardRandom => {
                     let hand = self.state.zones.list(ZoneLocation::Hand(player));

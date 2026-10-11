@@ -2019,6 +2019,21 @@ impl GameState {
     /// needs in order to record an event only for a permanent that was
     /// tapped.
     pub fn set_tapped(&mut self, id: ObjectId, tapped: bool) -> bool {
+        if !tapped
+            && self.object(id).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && o.status.contains(crate::object::Status::TAPPED)
+                    && o.counters.get(CounterKind::Stun) > 0
+            })
+        {
+            crate::replacement::remove_counters(self, id, CounterKind::Stun, 1);
+            return false;
+        }
+        self.restore_tapped(id, tapped)
+    }
+
+    /// Restores a reversed action without applying game-event replacements.
+    pub(crate) fn restore_tapped(&mut self, id: ObjectId, tapped: bool) -> bool {
         if tapped
             && self
                 .object(id)
