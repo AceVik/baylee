@@ -192,3 +192,63 @@ fn the_controller_orders_the_top_of_the_chosen_players_library() {
         "put back in the order given, in their library"
     );
 }
+
+#[test]
+fn counted_copies_without_targets_keep_constant_program_space_and_exact_source() {
+    use crate::object::{AbilityLoc, Rider};
+    for count in [0, 1, 2, 257] {
+        let (mut state, _) = table();
+        let you = PlayerId::new(0);
+        let name = state.names.intern("counted spell");
+        let spell = state.create_bare(you, ObjectKind::Spell, name, ZoneLocation::Stack);
+        state.object_mut(spell).unwrap().x_value = 7;
+        let original = state.source_identity(spell).unwrap();
+        // The spell departs before its cast trigger is put onto the stack.
+        state
+            .move_object(
+                spell,
+                ZoneLocation::Hand(you),
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state.object_mut(spell).unwrap().x_value = 2;
+        let trigger = state.create_bare(you, ObjectKind::AbilityOnStack, name, ZoneLocation::Stack);
+        let object = state.object_mut(trigger).unwrap();
+        object.ability = Some(AbilityLoc {
+            card: None,
+            source: spell,
+            index: baylee_core::ids::AbilityRef::SYNTHETIC,
+        });
+        object
+            .riders
+            .push(Rider::AbilitySourceVersion(original.version));
+        let mut res = resolution(
+            spell,
+            &[Effect::CopyThisSpell {
+                amount: Amount::Fixed(count),
+            }],
+            you,
+        );
+        res.on_stack = trigger;
+        // Even a reference to the card's newer incarnation cannot override
+        // the source version retained by the cast trigger.
+        res.targets.push(spell);
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        assert_eq!(res.effects.len(), 1);
+        assert_eq!(res.pc, 1);
+        let copies: Vec<_> = state
+            .zones
+            .list(ZoneLocation::Stack)
+            .iter()
+            .filter(|id| **id != trigger)
+            .collect();
+        assert_eq!(copies.len(), usize::try_from(count).unwrap());
+        assert!(
+            copies
+                .iter()
+                .all(|id| state.object(**id).unwrap().x_value == 7)
+        );
+        assert_eq!(state.per_turn.spells_cast, vec![0, 0]);
+    }
+}

@@ -477,6 +477,7 @@ impl GameState {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn recorded_stack_target(
         &self,
         holder: ObjectId,

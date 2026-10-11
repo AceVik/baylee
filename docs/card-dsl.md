@@ -2096,6 +2096,14 @@ hashes, layers and does nothing. This paragraph said THREE until
   trigger that cannot fire from the battlefield works from the stack
   (CR 113.6k), so `trigger::collect` asks each spell cast in the batch for
   these abilities, and only these. Its other abilities do not work there.
+- **Storm and magecraft:** `KeywordSet::STORM` creates a cast trigger whose
+  event amount counts all earlier spells cast that turn, including opponents'
+  spells (CR 702.40a). Copies emit `GameEvent::SpellCopied`, never `SpellCast`,
+  and do not increment the turn's cast count. `Trigger::SpellCastOrCopied`
+  observes either event for magecraft; ordinary cast triggers see only casts.
+  Storm and replicate use one counted `CopyThisSpell` instruction across
+  target-choice suspensions, retaining the exact source spell and its
+  announced decisions even after that card leaves the stack (707.10).
 - **`Effect::Cascade`** is cascade's effect (CR 702.85a), the body of such a
   trigger. "Cascade, cascade" is two of them (CR 702.85c). It exiles from the
   top until a nonland card whose mana value is less than the spell's (X

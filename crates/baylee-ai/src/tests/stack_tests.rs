@@ -319,7 +319,9 @@ fn a_copy_is_not_aimed_where_the_original_is() {
 fn a_replicate_copy_counters_their_other_spell_and_never_its_own() {
     use baylee_engine::engine::DecisionContext;
     let (me, them) = (PlayerId::new(0), PlayerId::new(1));
-    let effects = [baylee_cards_dsl::Effect::CopyThisSpell];
+    let effects = [baylee_cards_dsl::Effect::CopyThisSpell {
+        amount: baylee_cards_dsl::Amount::Fixed(1),
+    }];
     let replicate = DecisionContext {
         source: Some(obj(6)),
         effects: &effects,

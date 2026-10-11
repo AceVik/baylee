@@ -388,6 +388,8 @@ impl GameLog {
             // would reveal a card in a hidden hand, and a line naming none
             // says only that the caster thought for a while.
             | GameEvent::CastCancelled { .. }
+            // The creating effect and resulting stack entries already identify copies.
+            | GameEvent::SpellCopied { .. }
             // The board says which attackers nothing blocks, and an ability
             // it set off has its own line.
             | GameEvent::AttackerBlocked { .. }

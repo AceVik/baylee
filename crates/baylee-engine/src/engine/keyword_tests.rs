@@ -130,6 +130,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("undying", K::UNDYING), // trigger.rs (synthetic)
         ("persist", K::PERSIST), // trigger.rs (synthetic)
         ("uncounterable", K::UNCOUNTERABLE), // object::can_be_countered
+        ("storm", K::STORM),   // trigger::cast_copy_triggers
         ("rebound", K::REBOUND), // progress.rs (rider)
         ("daybound", K::DAYBOUND), // progress::day_night_statics
         ("storied", K::STORIED), // storied::award_enduring_stories

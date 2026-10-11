@@ -710,7 +710,7 @@ pub(super) fn resume_targets_inner(
     if let Some(pending) = retarget::answer(state, res, *retarget, objects, players) {
         return Flow::Wait(pending);
     }
-    res.pc += 1;
+    advance_program(res);
     run(state, res)
 }
 

@@ -856,15 +856,11 @@ fn a_dying_thug_puts_its_own_corpse_on_top_and_replaces_no_draw() {
 /// Ritual — so three instants pass through the stack and exactly one of them
 /// is an instant *you cast*.
 ///
-/// The card is `Coverage::Partial` on the "or copy" half, and this is where
-/// that gap is nailed down rather than described: a copy is put onto the
-/// stack and never cast (CR 707.10), no `GameEvent::SpellCast` is journalled
-/// for it, and `Trigger::SpellCast` has nothing to hear. Counting the
-/// Rituals on the stack is what keeps the claim honest — the walk waits for
-/// two of them under p0's control at once, so a Treasure count of 1 means
-/// "the copy minted none" and not "the copy was never made".
+/// Magecraft also observes the copied Ritual (CR 707.10) through its own
+/// event, without treating it as another cast. Waiting for two Rituals on
+/// the stack proves that the copy was actually created.
 #[test]
-fn a_cast_ritual_mints_a_treasure_that_grows_the_dwarf_and_a_copy_of_it_mints_none() {
+fn a_cast_ritual_and_its_copy_each_mint_a_treasure_that_grows_the_dwarf() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(59, forest())
         .battlefield(
@@ -943,8 +939,8 @@ fn a_cast_ritual_mints_a_treasure_that_grows_the_dwarf_and_a_copy_of_it_mints_no
     let minted = tokens_of(&engine, p0);
     assert_eq!(
         minted.len(),
-        1,
-        "three instants resolved and only the one you cast minted a Treasure",
+        2,
+        "our cast and copy each mint a Treasure; the opponent's cast does not",
     );
     let def = engine
         .state()
@@ -959,8 +955,8 @@ fn a_cast_ritual_mints_a_treasure_that_grows_the_dwarf_and_a_copy_of_it_mints_no
     );
     assert_eq!(
         pt(&engine, artist),
-        (3, 2),
-        "2/2 plus the one artifact you control — the Treasure it just made",
+        (4, 2),
+        "2/2 plus the two Treasure artifacts you control",
     );
 }
 

@@ -629,6 +629,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Dies(_) | T::DiesAfterDamageByThis(_) => &["die", "put into a graveyard"],
         T::CastThisWithMana(_)
         | T::SpellCast(_)
+        | T::SpellCastOrCopied(_)
         | T::NthSpellCast { .. }
         | T::FirstNoncreatureSpellCast(_) => &["cast"],
         T::BecomesTarget | T::TargetedByOpponent { .. } => &["becomes the target"],
@@ -774,7 +775,8 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::DealsDamageToOpponent(filter)
         | Trigger::DealsDamage(filter)
         | Trigger::DealtDamage(filter)
-        | Trigger::SpellCast(filter) => {
+        | Trigger::SpellCast(filter)
+        | Trigger::SpellCastOrCopied(filter) => {
             if matches!(filter, baylee_cards_dsl::Filter::This) {
                 !about_someone_else()
             } else {

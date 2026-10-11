@@ -226,7 +226,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     monarch_triggers(state, events, &mut triggers);
     cast_this_spell_triggers(state, lookup, events, &mut triggers);
     watch_triggers(state, events, &mut triggers);
-    replicate_triggers(state, events, &mut triggers);
+    cast_copy_triggers(state, events, &mut triggers);
     collect_departed(state, lookup, events, &mut triggers);
     for trigger in &mut triggers {
         freeze_trigger(state, trigger);
@@ -480,20 +480,10 @@ fn graveyard_observers<'a>(
     objects
 }
 
-/// Replicate's copies, one entry for each payment the trigger can copy for:
-/// the trigger lists the first `n` of them.
-///
-/// A slice of one table and not a count read at resolution, because the
-/// count is the cast's and is fixed as it is cast (CR 702.56a): read off the
-/// spell later, it would be whatever a later cast of the same card wrote.
-/// As long as the cast wizard's bound ([`X_CEILING`]), so no count the
-/// question can offer is cut short here.
-///
-/// [`X_CEILING`]: crate::engine::cast_wizard::X_CEILING
-static REPLICATE_COPIES: [baylee_cards_dsl::Effect;
-    crate::engine::cast_wizard::REPLICATE_CEILING as usize] =
-    [baylee_cards_dsl::Effect::CopyThisSpell;
-        crate::engine::cast_wizard::REPLICATE_CEILING as usize];
+/// Storm and replicate retain the announced count in one instruction.
+static CAST_COPIES: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::CopyThisSpell {
+    amount: baylee_cards_dsl::Amount::EventAmount,
+}];
 
 /// The state triggers that trigger now (CR 603.8): every
 /// [`Trigger::State`] on the battlefield whose condition holds, asked with
@@ -563,54 +553,86 @@ pub fn state_triggers(
     triggers
 }
 
-/// Replicate's triggered ability (CR 702.56a): "when you cast this spell, if
-/// a replicate cost was paid for it, copy it for each time its replicate cost
-/// was paid".
-///
-/// A triggered ability of the *spell*, which functions on the stack, so no
-/// walk over permanents finds it: it is read off `SpellCast` directly, as
-/// the monarch's are read off the events. A spell whose cost was paid no
-/// times does not trigger at all — the intervening "if" (CR 603.4) — and a
-/// copy is never cast (CR 707.10), so never triggers it again. The spell is
-/// the ability's source and its implicit first target, which is what
-/// [`baylee_cards_dsl::Effect::CopyThisSpell`] copies; its controller is the
-/// player who cast it.
-fn replicate_triggers(
+/// Storm (CR 702.40) and replicate (702.56a) trigger from casting, never copying.
+/// The engine drains each mutation batch before advancing the turn. Walking
+/// its cast events backwards recovers each event's earlier-spell count in
+/// linear time, without rescanning the turn's entire journal for every spell.
+fn cast_copy_triggers(
     state: &GameState,
     events: &[crate::event::JournalEntry],
     triggers: &mut Vec<PendingTrigger>,
 ) {
-    for entry in events {
+    if !events
+        .iter()
+        .any(|entry| matches!(entry.event, GameEvent::SpellCast { .. }))
+    {
+        return;
+    }
+    let mut moves = std::collections::BTreeMap::<ObjectId, u32>::new();
+    let mut before = state
+        .per_turn
+        .spells_cast
+        .iter()
+        .fold(0_u32, |n, count| n.saturating_add(*count));
+    let mut collected = Vec::new();
+    for entry in events.iter().rev() {
+        if matches!(entry.event, GameEvent::TurnStarted { .. }) {
+            break;
+        }
+        if let GameEvent::ZoneChanged { object, .. } = entry.event {
+            *moves.entry(object).or_default() += 1;
+            continue;
+        }
         let GameEvent::SpellCast { object, player } = entry.event else {
             continue;
         };
-        let Some(spell) = state.object(object).filter(|o| o.replicated > 0) else {
+        before = before.saturating_sub(1);
+        let Some(current) = state.object(object) else {
             continue;
         };
-        let copies = usize::from(spell.replicated).min(REPLICATE_COPIES.len());
-        triggers.push(PendingTrigger {
-            text: TextChangeMap::IDENTITY,
-            source_version: Some(spell.version),
-            event_object_identity: None,
-            counter_source_version: None,
-            event_amount: None,
-            event_player: None,
-            event_mana: None,
-            event_mana_value: None,
-            event_departure: None,
-            source: object,
-            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-            abilities: None,
-            controller: player,
-            timestamp: spell.timestamp,
-            event_object: Some(object),
-            implicit_target: Some(object),
-            synthetic_effects: Some(&REPLICATE_COPIES[..copies]),
-            once_per_turn: false,
-            synthetic_target: None,
-            chosen_mode: None,
-        });
+        let reference = baylee_core::ids::DamageSourceRef {
+            object,
+            version: current
+                .version
+                .wrapping_sub(moves.get(&object).copied().unwrap_or(0)),
+        };
+        let spell = state.source_object(reference).unwrap_or(current);
+        let storm = spell
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::STORM);
+        for copies in [
+            storm.then_some(before),
+            (spell.replicated > 0).then_some(u32::from(spell.replicated)),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            collected.push(PendingTrigger {
+                text: TextChangeMap::IDENTITY,
+                source_version: Some(spell.version),
+                event_object_identity: None,
+                counter_source_version: None,
+                event_amount: Some(copies),
+                event_player: None,
+                event_mana: None,
+                event_mana_value: None,
+                event_departure: None,
+                source: object,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                abilities: None,
+                controller: player,
+                timestamp: spell.timestamp,
+                event_object: Some(object),
+                implicit_target: Some(object),
+                synthetic_effects: Some(CAST_COPIES),
+                once_per_turn: false,
+                synthetic_target: None,
+                chosen_mode: None,
+            });
+        }
     }
+    triggers.extend(collected.into_iter().rev());
 }
 
 /// "At the beginning of the monarch's end step, that player draws a card."
@@ -1095,6 +1117,7 @@ fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
     match event {
         GameEvent::CardsDrawn { player, .. }
         | GameEvent::SpellCast { player, .. }
+        | GameEvent::SpellCopied { player, .. }
         | GameEvent::LandPlayed { player, .. }
         | GameEvent::Cycled { player, .. }
         | GameEvent::Discarded { player, .. }
@@ -1151,6 +1174,7 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
     match event {
         GameEvent::ZoneChanged { object, .. }
         | GameEvent::SpellCast { object, .. }
+        | GameEvent::SpellCopied { object, .. }
         | GameEvent::AbilityTriggered { object, .. }
         | GameEvent::BecameTarget { object, .. }
         | GameEvent::PlayerBecameTarget { object, .. }
@@ -2192,7 +2216,11 @@ fn matches(
         (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
-        (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
+        (
+            Trigger::SpellCast(filter) | Trigger::SpellCastOrCopied(filter),
+            GameEvent::SpellCast { object, .. },
+        )
+        | (Trigger::SpellCastOrCopied(filter), GameEvent::SpellCopied { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         (Trigger::NthSpellCast { n, filter }, GameEvent::SpellCast { object, player }) => {

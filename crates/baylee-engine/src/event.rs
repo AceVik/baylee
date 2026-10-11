@@ -223,6 +223,13 @@ pub enum GameEvent {
         /// The casting player.
         player: PlayerId,
     },
+    /// A copy of a spell was put on the stack, without being cast (CR 707.10).
+    SpellCopied {
+        /// The newly created copy.
+        object: ObjectId,
+        /// The player who copied the spell.
+        player: PlayerId,
+    },
     /// A spell or ability resolved and left the stack.
     StackObjectResolved {
         /// The object.

@@ -3,27 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Brain Freeze, {1}{U}: "Target player mills three cards." — and under it,
-/// "Storm (When you cast this spell, copy it for each spell cast before it
-/// this turn. You may choose new targets for the copies.)"
-///
-/// The card is `Coverage::Partial`, so both halves are played here. A test
-/// that only counted the three cards would be green on a card that prints two
-/// sentences and plays one — and the unplayed one is the sentence the card is
-/// famous for.
-///
-/// Dark Ritual is cast first for exactly one reason: it makes the turn's
-/// spell count one, which the engine already keeps in `per_turn.spells_cast`
-/// and which is asserted below. So the copy that never appears is a copy
-/// storm would have been owed, and not one that had nothing to count. The
-/// Ritual is asked nothing on the way — its whole text is "Add {B}{B}{B}" —
-/// and it is cast off the Swamp alone, leaving both Islands for the spell
-/// under test.
-///
-/// The mill half is aimed across the table, which is what "target player"
-/// buys: the three cards have to leave the named seat's library and no other.
+/// A preceding Ritual gives Brain Freeze one storm copy, so the opponent
+/// mills six cards while only the original card enters its owner's graveyard.
 #[test]
-fn brain_freeze_mills_three_and_the_storm_it_prints_never_copies_it() {
+fn brain_freeze_and_its_storm_copy_each_mill_three() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(313, forest())
         .battlefield(0, &[swamp(), island(), island()])
@@ -87,29 +70,19 @@ fn brain_freeze_mills_three_and_the_storm_it_prints_never_copies_it() {
         .apply(p0, PlayerAction::ChoosePlayer(p1))
         .expect("the other seat is one of the options just offered");
 
-    // The storm half, at the one moment a copy would be visible: it is put on
-    // the stack as the spell is cast, and is offered new targets of its own.
-    assert_eq!(
-        engine.state().zones.list(ZoneLocation::Stack).len(),
-        1,
-        "storm is not written: the turn's second spell went on the stack alone"
-    );
-    assert!(
-        matches!(engine.pending(), Pending::Priority { .. }),
-        "and nothing is asked to be re-aimed, because there is no copy: {:?}",
-        engine.pending()
-    );
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 2);
+    keep_storm_copy_targets(&mut engine, p0);
 
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(
         library_size(&engine, p1),
-        their_library - 3,
-        "three cards off the top of the named seat's library — three, not six"
+        their_library - 6,
+        "the original and its storm copy each mill three cards"
     );
     assert_eq!(
         graveyard(&engine, p1),
-        their_graveyard + 3,
+        their_graveyard + 6,
         "milling puts them into the graveyard, not into exile"
     );
     assert_eq!(
@@ -123,28 +96,10 @@ fn brain_freeze_mills_three_and_the_storm_it_prints_never_copies_it() {
     );
 }
 
-/// Flusterstorm: "Counter target instant or sorcery spell unless its
-/// controller pays {1}" — and, printed beside it, storm, which is the
-/// `Coverage::Partial` this card declares.
-///
-/// A Partial card owes both halves, so both are here.
-///
-/// The half it has: the tax is put to the *countered spell's* controller
-/// and not to the seat that cast Flusterstorm, and declining it is a
-/// counter rather than a fizzle. The mana pool is the whole proof of that
-/// last word — a Dark Ritual that resolved and a Dark Ritual that was
-/// countered both end in p1's graveyard, so the zone distinguishes nothing
-/// and the number does: it would be three higher had the Ritual resolved,
-/// and one lower had the tax been paid.
-///
-/// The half it has not: Dark Ritual was cast this turn before Flusterstorm,
-/// so storm would copy it once and put its own "when you cast this spell"
-/// trigger on the stack above the two spells. The stack holds the two
-/// spells and nothing else, which is the card playing as though the line
-/// were not printed — and the assertion that stops passing the day storm
-/// is written.
+/// The storm copy taxes the target's controller. Declining counters the
+/// Ritual, and the original Flusterstorm then has no legal target.
 #[test]
-fn a_declined_flusterstorm_counters_the_spell_and_never_copies_itself() {
+fn a_declined_flusterstorm_copy_counters_the_spell() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(59, forest())
         .battlefield(0, &[island()])
@@ -187,22 +142,12 @@ fn a_declined_flusterstorm_counters_the_spell_and_never_copies_itself() {
         )
         .unwrap();
 
-    // The gap, measured rather than asserted about the card file: one spell
-    // was cast before this one this turn, so storm would have copied it once
-    // and its trigger would be sitting on top of both of these.
-    let stack = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Stack)
-        .clone();
-    assert_eq!(
-        stack,
-        vec![ritual, fluster],
-        "the two spells, bottom to top, and nothing above them: storm prints \
-         a \"when you cast this spell\" trigger this card does not have"
-    );
+    let stack = engine.state().zones.list(ZoneLocation::Stack);
+    assert_eq!(stack.len(), 3);
+    assert_eq!(&stack[..2], &[ritual, fluster]);
+    keep_storm_copy_targets(&mut engine, p0);
 
-    // Both pass, Flusterstorm resolves, and the tax is put to somebody.
+    // Both pass, the copy resolves, and the target controller is taxed.
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
@@ -250,7 +195,7 @@ fn a_declined_flusterstorm_counters_the_spell_and_never_copies_itself() {
     );
     assert!(
         in_graveyard(&engine, p0, flusterstorm()).is_some(),
-        "and Flusterstorm, having resolved, follows it there"
+        "the original Flusterstorm has no legal target and goes to its graveyard"
     );
 }
 
@@ -297,4 +242,25 @@ fn vantress_visions_copies_a_prowess_trigger() {
         (5, 5),
         "prowess for the Ritual, its copy, and prowess for Visions"
     );
+}
+
+fn keep_storm_copy_targets(engine: &mut Engine<RegistryLookup>, player: PlayerId) {
+    pass_until(engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseTargets {
+                reason: crate::choice::TargetPrompt::Retarget { .. },
+                ..
+            }
+        )
+    });
+    engine
+        .apply(
+            player,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .unwrap();
 }

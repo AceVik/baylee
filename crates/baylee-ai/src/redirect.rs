@@ -60,7 +60,7 @@ enum Kind {
 fn kind(effects: &[Effect]) -> Option<Kind> {
     effects.iter().find_map(|effect| match effect {
         Effect::ChangeTarget { .. } | Effect::ChooseNewTargets => Some(Kind::Redirect),
-        Effect::CopyTargetSpell { .. } | Effect::CopyThisSpell => Some(Kind::Copy),
+        Effect::CopyTargetSpell { .. } | Effect::CopyThisSpell { .. } => Some(Kind::Copy),
         _ => {
             let (then, otherwise) = effect.branches();
             kind(then).or_else(|| kind(otherwise))

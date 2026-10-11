@@ -179,5 +179,9 @@ pub(super) fn copy_spell(
     state.put_new_spell_on_stack(id);
     state.copy_source_references(original, id);
     copy_division(state, original, id);
+    state.journal.record(crate::event::GameEvent::SpellCopied {
+        object: id,
+        player: you,
+    });
     Some(id)
 }

@@ -808,7 +808,7 @@ pub(super) fn exec_immediate(
         Effect::CreateEmblem { .. }
         | Effect::CopyTargetSpell { .. }
         | Effect::CopyTargetAbility
-        | Effect::CopyThisSpell
+        | Effect::CopyThisSpell { .. }
         | Effect::CreateContinuousEffect {
             modifier: baylee_cards_dsl::Modifier::GainControl,
             ..
@@ -1759,12 +1759,27 @@ pub(super) fn exec_immediate(
             retarget::start_copy(state, res, copy)
         }
         Effect::CopyTargetAbility => copy_target_ability(state, res, you),
-        Effect::CopyThisSpell => {
-            let &original = res.targets.first()?;
-            let original = state
-                .recorded_stack_target(res.on_stack, 0)
-                .or_else(|| state.source_identity(original))?;
-            let copy = copy_spell(state, original, you, &[], res.text)?;
+        Effect::CopyThisSpell { amount } => {
+            let count = amount2(&amount, state, you, res);
+            // Decrement before a target choice can suspend. The next program
+            // advance repeats this slot only while copies remain.
+            res.effects[res.pc] = Effect::CopyThisSpell {
+                amount: Amount::Fixed(count.saturating_sub(1)),
+            };
+            if count == 0 {
+                return None;
+            }
+            // The trigger refers to its source spell, not whichever incarnation
+            // its implicit target happens to have when it reaches the stack.
+            let original = subjects::source(state, res);
+            let Some(copy) =
+                original.and_then(|original| copy_spell(state, original, you, &[], res.text))
+            else {
+                res.effects[res.pc] = Effect::CopyThisSpell {
+                    amount: Amount::Fixed(0),
+                };
+                return None;
+            };
             retarget::start_copy(state, res, copy)
         }
         Effect::DetachSource => {

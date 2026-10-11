@@ -845,7 +845,7 @@ impl Effect {
             | Effect::ControlPlayerPlayCard { .. }
             | Effect::BecomeCopyOfTarget { .. }
             | Effect::ChangeTextWord { .. }
-            | Effect::CopyThisSpell
+            | Effect::CopyThisSpell { .. }
             | Effect::AttachSelf { .. }
             | Effect::ReorderTopLibrary { .. }
             | Effect::ReorderTopLibraryOf { .. }

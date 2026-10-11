@@ -4035,3 +4035,30 @@ land type"; both are convention tests that fire on a first try.
   all 3,321 printing validations, table reproducibility, formatting and
   workspace/all-targets clippy with dev controls. Original Partial inventory:
   281 completed, 259 remaining.
+
+### Partial completion batch 38 — storm, spell copies and magecraft
+
+- Completed Brain Freeze, Flusterstorm and Storm-Kiln Artist. First moved
+  copying into its own module without behavior changes and committed the
+  extraction after 128 copy/replicate tests passed.
+- Storm freezes the number of earlier casts across all players. A reverse
+  pass over the current event batch avoids repeatedly scanning the turn's
+  journal. Copies emit a separate event for magecraft; they never count as
+  casts, retrigger storm or increment per-turn spell totals.
+- Storm and replicate now share a counted instruction with constant program
+  size rather than a repeated opcode slice. All target-choice continuations
+  must use the same program-advance helper; one forgotten continuation had
+  stopped after the first copy, caught by the multi-copy tests.
+- Copy from the trigger's exact source version, including when the original
+  left the stack before the trigger was stacked. The implicit target may
+  already refer to a newer incarnation. Preserve X and announcement choices,
+  and allow each copy's targets to change separately.
+- Three historical tests deliberately documented missing storm/magecraft;
+  updated their expectations to full rules behavior rather than removing them.
+  Added zero/one/multiple/257-copy, both-player counts, countered original,
+  removed trigger, independent tax, magecraft and untargeted-copy regressions.
+- Validation: 5,659 engine tests pass (two intentional ignores), 235 AI,
+  134 cards, 72 DSL, 275 codegen and 42 view tests pass. All 3,321 printing
+  validations, generated-table reproducibility, formatting and workspace
+  all-targets clippy with dev controls pass. Original Partial inventory:
+  284 completed, 256 remaining.

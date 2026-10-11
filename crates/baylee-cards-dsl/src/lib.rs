@@ -286,9 +286,8 @@ pub struct FaceDef {
     /// A face field and not an ability, as miracle and disguise are: the
     /// cast wizard asks how many times as it announces the additional costs
     /// (CR 601.2b), the payment adds the cost that many times (CR 601.2f),
-    /// and the engine writes the cast trigger itself, one
-    /// `Effect::CopyThisSpell` for each payment. Every printed replicate
-    /// cost is mana.
+    /// and the engine writes a counted `Effect::CopyThisSpell` instruction
+    /// on the cast trigger. Every printed replicate cost is mana.
     pub replicate: Option<ManaCost>,
     /// Only actual mana of this color may pay the X portion. Cost
     /// reductions still reduce that generic portion before mana is paid.
@@ -705,6 +704,7 @@ keywords! {
     RANGELING = 47, "Rangeling (every land type in every zone).";
     // A text-independent CDA, like the existing UNBLOCKABLE rule marker.
     ALL_NONBASIC_LAND_TYPES = 48, "Every nonbasic land type in every zone.";
+    STORM = 49, "Storm (CR 702.40).";
 }
 
 impl KeywordSet {

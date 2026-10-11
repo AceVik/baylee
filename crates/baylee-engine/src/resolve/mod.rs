@@ -889,7 +889,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         let pending = exec(state, res, op);
         crate::graveyard_order::capture(state, since);
         if pending.is_none() {
-            res.pc += 1;
+            advance_program(res);
         }
         if let Some(pending) = order_before_continuing(state, res, pending) {
             return Flow::Wait(pending);
@@ -938,9 +938,17 @@ fn order_before_continuing(
     Some(question)
 }
 
+/// Counted copies retain one instruction across every target-choice suspension.
+fn advance_program(res: &mut Resolution) {
+    if !matches!(res.effects.get(res.pc), Some(Effect::CopyThisSpell { amount: Amount::Fixed(n) }) if *n > 0)
+    {
+        res.pc += 1;
+    }
+}
+
 fn finish_choice(state: &mut GameState, res: &mut Resolution, since: u64) -> Flow {
     crate::graveyard_order::capture(state, since);
-    res.pc += 1;
+    advance_program(res);
     match order_before_continuing(state, res, None) {
         Some(pending) => Flow::Wait(pending),
         None => run(state, res),

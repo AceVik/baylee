@@ -401,6 +401,8 @@ pub enum Trigger {
     DiesAfterDamageByThis(&'static Filter),
     /// A spell matching the filter is cast.
     SpellCast(&'static Filter),
+    /// Magecraft: a spell is cast or a spell copy is created (CR 707.10).
+    SpellCastOrCopied(&'static Filter),
     /// This spell was cast using at least one actual mana of this type.
     /// The historical payment cannot change after the cast (CR 603.4).
     CastThisWithMana(crate::ManaColor),

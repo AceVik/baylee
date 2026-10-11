@@ -1004,3 +1004,12 @@ engine announces the doubled total before costs, preserves each chosen
 share through copying and retargeting, and never redistributes an illegal
 target's lost share. CR 601.2d, 603.3d, 608.2b and 707.10 govern the shared
 implementation, checked against the current published rules cited above.
+
+Batch 38 completes the existing Brain Freeze, Flusterstorm and Storm-Kiln
+Artist printings with original rules code and unchanged identifying headers.
+No assets or corpus code are added; the existing policy review and owner
+permission above still cover this work. The primary
+[Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt),
+checked in the published text, define the storm cast trigger and earlier-spell
+count in 702.40a, and distinguish copying from casting in 707.10. Each copy
+retains its original decisions and offers independent target changes.
