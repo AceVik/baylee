@@ -50,7 +50,9 @@ mod river;
 pub use discard::DiscardThen;
 use discard::{discard_or_ask, resume_discard_destination};
 mod immediate;
+mod permissions;
 mod piles;
+use permissions::grant_play;
 mod resume;
 mod search;
 
@@ -946,32 +948,6 @@ fn finish_choice(state: &mut GameState, res: &mut Resolution, since: u64) -> Flo
 fn next_choice(state: &mut GameState, res: &mut Resolution, since: u64, pending: Pending) -> Flow {
     crate::graveyard_order::capture(state, since);
     Flow::Wait(order_before_continuing(state, res, Some(pending)).expect("next choice"))
-}
-
-/// Gives `player` permission to play `card` this turn, for the object it
-/// is now (`PlayPermission`).
-fn grant_play(state: &mut GameState, player: PlayerId, card: ObjectId, free: bool) {
-    grant_permission(state, player, card, free, false);
-}
-
-/// [`grant_play`], or with `cast_only` the permission to cast `card` and
-/// not to play it as a land (Ragavan, Nimble Pilferer, CR 601.1a).
-fn grant_permission(
-    state: &mut GameState,
-    player: PlayerId,
-    card: ObjectId,
-    free: bool,
-    cast_only: bool,
-) {
-    if let Some(version) = state.object(card).map(|o| o.version) {
-        state.per_turn.playable.push(crate::state::PlayPermission {
-            player,
-            card,
-            version,
-            free,
-            cast_only,
-        });
-    }
 }
 
 /// Sylvan Library's second question: which of `cards` go back on top of

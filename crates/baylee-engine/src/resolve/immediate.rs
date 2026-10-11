@@ -1623,36 +1623,7 @@ pub(super) fn exec_immediate(
         // A permission for that object and no later one (`PlayPermission`),
         // so a card that moves again is not cast under it (CR 400.7).
         Effect::ExileTopMayCast { who, nonland_only } => {
-            let you = res.controller;
-            for player in players_of(who, state, you, res) {
-                let Some(top) = state
-                    .zones
-                    .list(ZoneLocation::Library(player))
-                    .last()
-                    .copied()
-                else {
-                    continue;
-                };
-                if state
-                    .move_object(
-                        top,
-                        ZoneLocation::Exile(player),
-                        ZonePosition::Top,
-                        Cause::Effect,
-                    )
-                    .is_ok()
-                    && (!nonland_only
-                        || state.object(top).is_some_and(|object| {
-                            !object
-                                .characteristics()
-                                .types
-                                .contains(baylee_core::types::TypeSet::LAND)
-                        }))
-                {
-                    grant_permission(state, you, top, false, true);
-                }
-            }
-            None
+            permissions::exile_top_may_cast(state, res, who, nonland_only)
         }
         Effect::TapAll { filter } => {
             let you = res.controller;
