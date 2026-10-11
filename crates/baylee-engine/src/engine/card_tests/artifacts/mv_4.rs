@@ -45,3 +45,5 @@ mod tower_of_murmurs;
 mod ur_golem_s_eye;
 mod wand_of_the_elements;
 mod weakstone;
+
+mod life_matrix;

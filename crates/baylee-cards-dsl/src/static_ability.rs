@@ -629,6 +629,8 @@ pub enum Modifier {
     /// Singing Tree: "has base power 0 until end of turn"): power alone, in
     /// layer 7b beside [`Self::SetPT`] (CR 613.4b), toughness untouched.
     SetPower(i16),
+    /// Set base toughness alone in layer 7b, leaving power unchanged.
+    SetToughness(i16),
     /// "This creature's power and toughness are each equal to [count]"
     /// **granted** by an effect — Druid Class's land that "becomes a
     /// creature with haste and 'This creature's power and toughness are
@@ -783,7 +785,7 @@ impl Modifier {
             | Self::GrantTriggered { .. } => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } => Layer::PtCda,
-            Self::SetPT(..) | Self::SetPower(_) | Self::SetPTToCount(_) => Layer::PtSet,
+            Self::SetPT(..) | Self::SetPower(_) | Self::SetToughness(_) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::ModifyPT(..)
             | Self::ModifyPTPerCount { .. }
             | Self::ModifyPTHalfCount(_)
@@ -1162,6 +1164,7 @@ mod tests {
             ),
             (Modifier::SetPT(2, 2), Layer::PtSet),
             (Modifier::SetPower(0), Layer::PtSet),
+            (Modifier::SetToughness(1), Layer::PtSet),
             (
                 Modifier::SetPTToCount(PtCount::YouControl(&Filter::YOUR_LAND)),
                 Layer::PtSet,

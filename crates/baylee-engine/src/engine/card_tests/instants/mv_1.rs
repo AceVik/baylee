@@ -93,3 +93,5 @@ mod sea_kings_blessing;
 mod sylvan_paradise;
 
 mod touch_of_darkness;
+
+mod indestructible_aura;

@@ -3,14 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Scavenging Ooze — {1}{G}, 2/2 — prints "{G}: Exile target card from a
-/// graveyard…", and the rider that pays a counter and a life is the
-/// `Coverage::Partial` gap. What is left to play is the half that is written,
-/// so the two things it has to show are that the ability asks for a card in
-/// *any* graveyard (one seeded on each side, and only those two offered) and
-/// that the card the question enumerated is the card that leaves for exile —
-/// which is why the Ooze's own body standing on an untargeted battlefield is
-/// the control: "card in a graveyard" is read, not skipped.
+/// The exile targets cards in either graveyard, never battlefield permanents.
 #[test]
 fn scavenging_ooze_exiles_a_card_from_either_players_graveyard() {
     let p0 = PlayerId::new(0);
@@ -103,7 +96,7 @@ fn scavenging_ooze_exiles_a_card_from_either_players_graveyard() {
     assert!(
         on_battlefield(&engine, p0, scavenging_ooze()).is_some(),
         "the Ooze stays where it was: nothing about the ability moves its \
-         source, and no +1/+1 rider is written to move anything else"
+         source"
     );
 }
 
@@ -163,4 +156,74 @@ fn murderous_rider_exiled_in_response_stays_in_exile() {
             .any(|id| engine_card_is(&engine, *id, murderous_rider())),
         "the Rider is still in exile"
     );
+}
+
+#[test]
+fn ooze_rewards_only_a_creature_and_never_places_counters_on_a_new_source_incarnation() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for (creature, blink, illegal) in [
+        (false, false, false),
+        (true, false, false),
+        (true, true, false),
+        (true, false, true),
+    ] {
+        let victim = if creature {
+            grizzly_bears()
+        } else {
+            index::MIND_STONE
+        };
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[scavenging_ooze(), index::DOUBLING_SEASON, forest()])
+            .battlefield(1, &[victim])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let ooze = on_battlefield(&e, p0, scavenging_ooze()).unwrap();
+        let card = on_battlefield(&e, p1, victim).unwrap();
+        bury(&mut e, &[card]);
+        tap_all_mana(&mut e, p0);
+        activate(&mut e, p0, scavenging_ooze(), 0);
+        aim_at(&mut e, p0, card);
+        if blink {
+            let s = e.dev_state_mut(p0).unwrap();
+            s.move_object(
+                ooze,
+                ZoneLocation::Exile(p0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+            s.object_mut(ooze).unwrap().kind = crate::object::ObjectKind::Permanent;
+            s.move_object(
+                ooze,
+                ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        }
+        if illegal {
+            e.dev_state_mut(p0)
+                .unwrap()
+                .move_object(
+                    card,
+                    ZoneLocation::Exile(p1),
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .unwrap();
+        }
+        let life = e.state().players[0].life;
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(
+            e.state().players[0].life,
+            life + i32::from(creature && !illegal)
+        );
+        assert_eq!(
+            counters_on(&e, ooze, CounterKind::P1P1),
+            if creature && !blink && !illegal { 2 } else { 0 }
+        );
+        assert_eq!(e.state().object(card).unwrap().zone, Zone::Exile);
+    }
 }

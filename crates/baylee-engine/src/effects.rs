@@ -122,6 +122,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
         | Modifier::SetPower(_)
+        | Modifier::SetToughness(_)
         | Modifier::SetPTToCount(_)
         | Modifier::SwitchPT => true,
         // Neither: a shield that prevents damage, and the rules a player
@@ -995,6 +996,7 @@ mod tests {
             },
             Modifier::SetPT(2, 2),
             Modifier::SetPower(0),
+            Modifier::SetToughness(1),
             Modifier::SetPTToCount(baylee_cards_dsl::PtCount::YouControl(&Filter::YOUR_LAND)),
             Modifier::ModifyPT(1, 1),
             Modifier::ModifyPTPerCount {
@@ -1123,7 +1125,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            89,
+            90,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1187,7 +1189,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (34, 55));
+        assert_eq!((locking, all.len() - locking), (35, 55));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

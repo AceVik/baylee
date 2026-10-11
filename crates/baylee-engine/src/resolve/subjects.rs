@@ -12,19 +12,23 @@ use baylee_core::ids::DamageSourceRef;
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
     followed: Vec<DamageSourceRef>,
+    pub(super) sacrificed: Option<crate::object::SacrificedLki>,
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
 }
 impl SubjectContext {
     /// A mana ability has no stack object to retain its cost record.
-    pub(crate) fn after_cost(source: Option<DamageSourceRef>) -> Self {
+    pub(crate) fn after_cost(paid: &crate::object::PaidRecord) -> Self {
         Self {
-            followed: source.into_iter().collect(),
+            followed: paid.source_after_cost.into_iter().collect(),
+            sacrificed: paid.sacrificed_lki,
             checkpoint: None,
         }
     }
 
     pub(crate) fn fingerprint(&self) -> u64 {
-        let mut h = 0_u64;
+        let mut h = self
+            .sacrificed
+            .map_or(0, |lki| crate::state::structural_fingerprint(&lki));
         for r in &self.followed {
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
             h = h

@@ -71,7 +71,8 @@
 /// `verb_tests::sacrifice_one_then_body_is_visited`.
 // PlayerMayPayCostThen adds the paid branch, covered by the walker test.
 // ChooseOne carries every inline resolution branch, covered by its walker test.
-const NESTING_FIELDS: usize = 36;
+// IfTargetHadType carries its retained-information branch; walker tested.
+const NESTING_FIELDS: usize = 37;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -110,7 +111,7 @@ const NESTING_FIELDS: usize = 36;
 /// branches. `WhenTargetDiesThisTurn` (Sandals of Abdallah's delayed
 /// "destroy this artifact") is the twenty-ninth (2026-10-10).
 /// `SacrificeOneThen` (Serendib Djinn) is the thirtieth (2026-10-10).
-const CARRYING_VARIANTS: usize = 32;
+const CARRYING_VARIANTS: usize = 33;
 
 /// The floor under the reader itself.
 ///

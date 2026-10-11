@@ -19,3 +19,5 @@ mod solemn_simulacrum;
 mod su_chi;
 mod surgical_metamorph;
 mod telethopter;
+
+mod sentinel;

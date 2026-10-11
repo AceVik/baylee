@@ -1,12 +1,8 @@
 //! Indestructible Aura — {W} — Instant
 //! Oracle: Prevent all damage that would be dealt to target creature this turn.
 //! Set: CHR #7 — Chronicles | Scryfall ID: 0397a4f3-6d7c-43d1-9fc2-c0eaf780ecb0 | Oracle ID: e10e8d56-bba6-412d-970e-c24969f32b5b
-// PARTIAL — nothing is built: the prevention cannot be stated.
-// NOT SUPPORTED: "Prevent all damage that would be dealt to target creature
-// this turn." — no effect or modifier prevents all damage to a target for a
-// turn: `Modifier::PreventDamageToIt` is combat-only, `Effect::PreventNextDamage`
-// is a finite shield, and `Effect::PreventAllCombatDamageThisTurn` covers
-// combat damage only and targets nothing.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -20,9 +16,12 @@ card!(
         mana_cost = mana!("{W}"),
         types = TypeSet::INSTANT,
     ),],
-    coverage = Coverage::Partial(
-        "no effect or modifier prevents all damage to a target for a turn \
-         (PreventDamageToIt is combat-only, PreventNextDamage is a finite \
-         shield)"
-    ),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::ModifyTargets {
+            modifier: Modifier::PreventDamageFrom(&Filter::Any),
+            duration: Duration::UntilEndOfTurn
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+    ),],
 );

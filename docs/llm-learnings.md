@@ -3315,3 +3315,21 @@ land type"; both are convention tests that fire on a first try.
   wrappers must preserve that context instead of falling back to the caster.
 - `bury` destroys battlefield permanents. For a hand/graveyard fixture,
   use the zone-movement door and assert the actual starting zone.
+
+### Completion batch 12 — source identity, base toughness, and mana receipts (2026-10-11)
+
+- Seven more cards now implement all printed abilities: Indestructible Aura,
+  Life Matrix, Lesser Werewolf, Scavenging Ooze, Wall of Tombstones,
+  Sentinel, and Priest of Yawgmoth.
+- A targeted ability can modify its source independently of its target.
+  Retain the source's incarnation for counter placement and continuous effects;
+  a blink must not put the old ability's counters on a new permanent.
+- Retain the target's types across exile, and the payment's sacrificed value
+  across a mana ability. Immediate mana resolutions carry the small sacrifice
+  receipt instead of leaving a stale PaidRecord on the source permanent.
+- A base-toughness setter changes only layer 7b's toughness and freezes its
+  value at resolution. Preserve negative target power before adding the
+  printed offset; clamping -2 to zero would wrongly keep Sentinel alive.
+- Named matrix counters share the central counter registry. The granted
+  regeneration ability outlives the Matrix and consumes real counters;
+  Doubling Season multiplies placement, never the removal cost.

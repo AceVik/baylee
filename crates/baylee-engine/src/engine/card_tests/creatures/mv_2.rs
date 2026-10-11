@@ -189,3 +189,7 @@ mod wyluli_wolf;
 mod youthful_knight;
 mod zephyr_falcon;
 mod zulaport_cutthroat;
+
+mod priest_of_yawgmoth;
+
+mod wall_of_tombstones;

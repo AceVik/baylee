@@ -20,8 +20,40 @@ use super::*;
 /// tokens to make or life to gain, where a negative number has no meaning to
 /// give.
 fn signed(a: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> i16 {
-    let v = amount2(a, state, you, res) as i16;
+    if matches!(a, Amount::TargetPower) {
+        return target_chars(res, state).and_then(|c| c.power).unwrap_or(0);
+    }
+    let v = i16::try_from(amount2(a, state, you, res)).unwrap_or(i16::MAX);
     if a.is_negative() { -v } else { v }
+}
+
+fn modify_source(
+    state: &mut GameState,
+    res: &Resolution,
+    modifier: baylee_cards_dsl::Modifier,
+    duration: baylee_cards_dsl::Duration,
+) {
+    let Some(source) = subjects::source(state, res).filter(|r| subjects::on_battlefield(state, *r))
+    else {
+        return;
+    };
+    let timestamp = state.next_timestamp();
+    let filter = crate::effects::EffectFilter::object(state, source.object);
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: Some(res.source),
+        controller: res.controller,
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: modifier.layer(),
+        timestamp,
+        duration,
+        filter,
+        modifier,
+    });
+    if matches!(modifier, baylee_cards_dsl::Modifier::GrantStatic { .. }) {
+        state.refresh_characteristics();
+        crate::effects::sync_granted_statics(state);
+    }
 }
 
 /// Executes one counter/P-T effect.
@@ -29,6 +61,32 @@ fn signed(a: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> i16
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::ModifySource { modifier, duration } => {
+            modify_source(state, res, modifier, duration);
+            None
+        }
+        Effect::SetSourceToughness {
+            base,
+            offset,
+            duration,
+        } => {
+            let value = signed(&base, state, you, res).saturating_add(offset);
+            modify_source(
+                state,
+                res,
+                baylee_cards_dsl::Modifier::SetToughness(value),
+                duration,
+            );
+            None
+        }
+        Effect::AddCounterSource { kind, amount } => {
+            let source = subjects::source(state, res)?;
+            if subjects::on_battlefield(state, source) {
+                let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
+                crate::replacement::put_counters(state, source.object, kind, n);
+            }
+            None
+        }
         Effect::AddCountersUpTo {
             kind,
             amount,

@@ -542,6 +542,7 @@ impl Effect {
             }
             | Effect::ChooseYoursThen { filter: _, then }
             | Effect::IfTargetMatches { filter: _, then }
+            | Effect::IfTargetHadType { types: _, then }
             | Effect::IfEventObjectMatches { filter: _, then }
             | Effect::IfNoCountersOnSelf { kind: _, then }
             | Effect::IfNotLostLifeThisTurn { then }
@@ -607,6 +608,9 @@ impl Effect {
             | Effect::SearchLibraryOrGraveyard { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::ModifyTargets { .. }
+            | Effect::ModifySource { .. }
+            | Effect::SetSourceToughness { .. }
+            | Effect::AddCounterSource { .. }
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
             | Effect::DrawCards { .. }

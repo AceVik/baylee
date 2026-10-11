@@ -177,3 +177,5 @@ mod yawgmoth_thran_physician;
 mod wall_of_vapor;
 
 mod wolverine_pack;
+
+mod lesser_werewolf;

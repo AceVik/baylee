@@ -457,3 +457,18 @@ fn inline_choice_walk_visits_every_branch_and_nested_sequence() {
     assert_eq!(draws, vec![Amount::Fixed(1), Amount::Fixed(2)]);
     assert_eq!(seen, 4);
 }
+
+#[test]
+fn retained_target_type_branch_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::IfTargetHadType {
+        types: baylee_core::types::TypeSet::CREATURE,
+        then: &[Effect::draw(1)],
+    }];
+    let mut draws = 0;
+    Effect::walk(EFFECTS, &mut 0, &mut |effect| {
+        if matches!(effect, Effect::DrawCards { .. }) {
+            draws += 1;
+        }
+    });
+    assert_eq!(draws, 1);
+}

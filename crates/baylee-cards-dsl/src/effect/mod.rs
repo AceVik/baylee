@@ -28,6 +28,38 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Change the original source permanent, independently of chosen targets.
+    ModifySource {
+        /// The change applied to the source's retained incarnation.
+        modifier: super::Modifier,
+        /// Lifetime of the change.
+        duration: super::Duration,
+    },
+    /// Set only the source's base toughness, with a signed offset. The
+    /// amount is evaluated once, including a target's negative power.
+    SetSourceToughness {
+        /// Value before the offset.
+        base: Amount,
+        /// Added after evaluating the signed base.
+        offset: i16,
+        /// Lifetime of the setting effect.
+        duration: super::Duration,
+    },
+    /// Put counters on the original source permanent, never a chosen target.
+    AddCounterSource {
+        /// Counter being placed.
+        kind: CounterKind,
+        /// Number before replacement effects.
+        amount: Amount,
+    },
+    /// Test the first target's types as this resolution began, retaining
+    /// that information after an earlier instruction moved the card.
+    IfTargetHadType {
+        /// At least one of these card types must have been present.
+        types: TypeSet,
+        /// Instructions when the test holds.
+        then: &'static [Effect],
+    },
     /// Apply one continuous modifier to every surviving target of the first
     /// target instance. Each binding retains that object's incarnation.
     ModifyTargets {

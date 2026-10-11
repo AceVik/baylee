@@ -251,7 +251,10 @@ pub(super) fn exec_immediate(
         Effect::DelayedManaAtNextFirstMain { .. }
         | Effect::AddManaFor { .. }
         | Effect::AddManaLikeEvent { .. } => mana::exec(state, res, op),
-        Effect::AddCounter { .. }
+        Effect::ModifySource { .. }
+        | Effect::SetSourceToughness { .. }
+        | Effect::AddCounterSource { .. }
+        | Effect::AddCounter { .. }
         | Effect::AddCountersUpTo { .. }
         | Effect::RemoveCounterSelf { .. }
         | Effect::AddCounterFilter { .. }
@@ -404,6 +407,18 @@ pub(super) fn exec_immediate(
         }
         // The first target as it is now; a target that is gone was dropped
         // by CR 608.2b before anything here ran.
+        Effect::IfTargetHadType { types, then } => {
+            if res.targets.first().is_some_and(|first| {
+                res.target_lki.as_ref().is_some_and(|targets| {
+                    targets
+                        .iter()
+                        .any(|t| t.id == *first && t.chars.types.contains(types))
+                })
+            }) {
+                return run_nested(state, res, then);
+            }
+            None
+        }
         Effect::IfTargetMatches { filter, then } => {
             let holds = res
                 .targets
@@ -725,12 +740,7 @@ pub(super) fn exec_immediate(
             then,
             otherwise,
         } => {
-            let branch = if crate::eval::condition_holds_with_context(
-                state,
-                you,
-                res.rule_context(),
-                condition,
-            ) {
+            let branch = if resolution_condition(state, res, condition) {
                 then
             } else {
                 otherwise
@@ -1703,6 +1713,36 @@ pub(super) fn exec_immediate(
         | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
+        }
+    }
+}
+
+// Resolution-only source-power tests use CR 608.2h's retained value after
+// the source leaves. Activation restrictions still inspect the live source.
+fn resolution_condition(
+    state: &GameState,
+    res: &Resolution,
+    condition: baylee_cards_dsl::Condition,
+) -> bool {
+    use baylee_cards_dsl::{Condition, Filter};
+    match condition {
+        Condition::SourceMatches(Filter::PowerAtLeast(n)) => {
+            state
+                .object(res.on_stack)
+                .and_then(|o| o.source_power_lki)
+                .or_else(|| {
+                    state
+                        .object(res.source)
+                        .and_then(|o| o.characteristics().power)
+                })
+                .unwrap_or(0)
+                >= *n
+        }
+        Condition::All(parts) => parts.iter().all(|c| resolution_condition(state, res, *c)),
+        Condition::Any(parts) => parts.iter().any(|c| resolution_condition(state, res, *c)),
+        Condition::Not(inner) => !resolution_condition(state, res, *inner),
+        _ => {
+            eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)
         }
     }
 }

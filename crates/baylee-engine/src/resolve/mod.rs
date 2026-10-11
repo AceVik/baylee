@@ -473,6 +473,10 @@ pub(crate) fn sacrificed_amount(object: Option<&GameObject>, amount: &Amount) ->
     else {
         return 0;
     };
+    sacrificed_value(lki, amount)
+}
+
+fn sacrificed_value(lki: crate::object::SacrificedLki, amount: &Amount) -> u32 {
     match amount {
         Amount::SacrificedPower => u32::try_from(lki.power).unwrap_or(0),
         Amount::SacrificedToughness => u32::try_from(lki.toughness).unwrap_or(0),
@@ -521,7 +525,10 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
         Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
-            sacrificed_amount(state.object(res.on_stack), amount)
+            res.subject.sacrificed.map_or_else(
+                || sacrificed_amount(state.object(res.on_stack), amount),
+                |lki| sacrificed_value(lki, amount),
+            )
         }
         Amount::ManaSpentToCast => state
             .object(res.on_stack)

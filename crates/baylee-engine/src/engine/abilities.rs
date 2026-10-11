@@ -2360,7 +2360,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
-                subject: resolve::SubjectContext::after_cost(paid.source_after_cost),
+                subject: resolve::SubjectContext::after_cost(&paid),
                 text: activated_text,
                 event_mana: None,
                 retarget_left: None,
