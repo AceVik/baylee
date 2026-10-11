@@ -18,23 +18,44 @@ impl<L: CardLookup> Engine<L> {
     /// refusal, the way it is for every other activation restriction.
     pub(super) fn activation_limit_spent(
         &self,
+        player: PlayerId,
         source: ObjectId,
         index: u32,
         limit: ActivationLimit,
     ) -> bool {
-        match limit {
-            ActivationLimit::Unlimited => false,
-            ActivationLimit::PerTurn(n) => {
-                self.state
-                    .ability_fires
-                    .get(&(
-                        self.state.source_identity(source).expect("offered source"),
-                        index,
-                    ))
-                    .copied()
-                    .unwrap_or(0)
-                    >= u32::from(n)
+        let maximum = match limit {
+            ActivationLimit::Unlimited => return false,
+            ActivationLimit::PerTurn(n) => u32::from(n),
+            ActivationLimit::Boast => {
+                let Some(object) = self.state.object(source) else {
+                    return true;
+                };
+                if !self
+                    .state
+                    .per_turn
+                    .attacked
+                    .iter()
+                    .any(|&(id, version, _)| id == source && version == object.version)
+                {
+                    return true;
+                }
+                let doubled = self.state.turn.active == player
+                    && self.state.effects.iter().any(|effect| {
+                        effect.controller == player
+                            && effect.modifier == baylee_cards_dsl::Modifier::BoastTwice
+                            && crate::effects::applies_to(&self.state, effect, object)
+                    });
+                if doubled { 2 } else { 1 }
             }
-        }
+        };
+        self.state
+            .ability_fires
+            .get(&(
+                self.state.source_identity(source).expect("offered source"),
+                index,
+            ))
+            .copied()
+            .unwrap_or(0)
+            >= maximum
     }
 }

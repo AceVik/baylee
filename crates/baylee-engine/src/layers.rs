@@ -1297,6 +1297,7 @@ fn apply(
             | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::ProtectionFrom(_)
         | Modifier::GrantsFlashback
+        | Modifier::BoastTwice
         | Modifier::PlayerHexproof
         | Modifier::GrantActivated { .. }
         | Modifier::GrantStatic { .. }

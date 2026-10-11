@@ -907,3 +907,12 @@ The current Comprehensive Rules supply 400.7, 514.2, 601.3e and 614.10a for exac
 card identity, cleanup, alternate spell characteristics and skipped turns.
 No media, printing identifiers or corpus scripts are added. The existing policy
 review and explicit owner decision continue to apply.
+
+Batch 30 completes Birgi, God of Storytelling // Harnfel, Horn of Bounty.
+The [official rulings](https://api.scryfall.com/cards/44657ab1-0a6a-4a5f-9688-86f239083821/rulings)
+confirm that Birgi's trigger uses the stack, boasting still requires attacking,
+and Harnfel grants ordinary play permissions independent of its source's later
+presence or controller. CR 602.5b, 702.142a and 514.2 govern the activation tally,
+boast restriction and mana-retention lifetime. This uses the existing card
+printing and adds no assets or external scripts; the policy review and owner
+decision recorded above continue to apply.

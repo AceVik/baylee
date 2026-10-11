@@ -37,6 +37,9 @@ pub enum ActivationLimit {
     Unlimited,
     /// At most this many activations per turn, per object.
     PerTurn(u8),
+    /// Boast: this exact creature must have attacked this turn; normally once.
+    /// Rules effects may allow a second activation during its controller's turn.
+    Boast,
 }
 
 /// Where an activated ability may be activated from.

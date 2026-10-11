@@ -351,7 +351,7 @@ impl<L: CardLookup> Engine<L> {
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                             continue;
                         }
-                        if self.activation_limit_spent(id, i as u32, *limit) {
+                        if self.activation_limit_spent(player, id, i as u32, *limit) {
                             continue;
                         }
                         if !self.ability_has_a_target(player, id, i as u32, *targets)
@@ -386,7 +386,7 @@ impl<L: CardLookup> Engine<L> {
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                             continue;
                         }
-                        if self.activation_limit_spent(id, i as u32, *limit) {
+                        if self.activation_limit_spent(player, id, i as u32, *limit) {
                             continue;
                         }
                         if !crate::eval::condition_holds_with_context(
@@ -566,7 +566,7 @@ impl<L: CardLookup> Engine<L> {
                             if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                                 continue;
                             }
-                            if self.activation_limit_spent(card, i as u32, *limit) {
+                            if self.activation_limit_spent(player, card, i as u32, *limit) {
                                 continue;
                             }
                             // The same probe as the battlefield arms, for the
@@ -615,7 +615,7 @@ impl<L: CardLookup> Engine<L> {
                             if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                                 continue;
                             }
-                            if self.activation_limit_spent(card, i as u32, *limit) {
+                            if self.activation_limit_spent(player, card, i as u32, *limit) {
                                 continue;
                             }
                             if !crate::eval::condition_holds_with_context(

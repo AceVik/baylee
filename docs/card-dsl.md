@@ -944,6 +944,14 @@ There is no per-*game* variant; the cards that want one print the exhaust
 keyword, which other cards look for ("whenever you activate an exhaust
 ability") and which is therefore a keyword bit rather than a number.
 
+`limit = ActivationLimit::Boast` tags a boast ability and enforces both parts
+of CR 702.142a: the exact source must have attacked this turn, and the ability
+can normally be activated once that turn. `Modifier::BoastTwice` allows two
+activations for matching creatures during its controller's turns. It does not
+waive the attack requirement and multiple instances never allow a third boast.
+Announcing and paying consumes a use even if the ability is later countered;
+a change of controller never resets the tally (CR 602.5b).
+
 `cost_reduction = Some(CostReduction::PerCount { amount, each })` is "This
 ability costs {`each`} less to activate for each …" (Boseiju, Who Endures:
 `amount` is an `Amount::CountOf` over the battlefield whose filter says
@@ -2626,6 +2634,11 @@ and only a spell the filter matches sets its rider off, once per unit spent
 (CR 106.6, 106.6a; #232). A card printing a rider without "only" never uses
 `restricted`: that is the defect #232 fixed, where Path of Ancestry paid for
 almost nothing.
+
+`Effect::mana(...).mana_until_end_of_turn()` keeps only that produced mana as
+steps and phases end, until cleanup removes its retention flag (Birgi). It
+preserves existing restrictions and spend riders, including when chained before
+`restricted` or `when_spent`. Departure of the producer does not end retention.
 
 `mana_land_color` and `mana_land_type` differ by one printed word, and the
 word is a rule: colorless mana is a type of mana and not a color (CR 106.1a,

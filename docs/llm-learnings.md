@@ -3755,3 +3755,26 @@ land type"; both are convention tests that fire on a first try.
   is optional because the player may later play the card or leave it exiled,
   not because exiling itself prompts for confirmation. Format and xtask lints
   pass after that validator update.
+
+### Card completion batch 30 — Birgi/Harnfel and boast
+
+- Before changing behavior, split the 3,175-line activated-ability module into
+  eight focused modules and a 158-line shared root. All 33 moved methods were
+  compared to the previous commit with only visibility, module-path and format
+  normalization. The workspace/all-targets check passed before the separate
+  refactor commit.
+- Complete both faces of Birgi/Harnfel. The front's red mana uses the existing
+  turn-retention flags. Expose them through an authoring verb that preserves
+  spending restrictions and riders regardless of chaining order. Retention
+  follows the produced mana, not the later presence of its source.
+- Boast has a typed activation limit: exact-incarnation attack history plus a
+  per-ability activation tally. Birgi raises the cap to two during your own
+  turns, with the current matching rules effect; it never grants an attack or
+  resets the tally on a control change. Multiple matching effects still give
+  a cap of two. Harnfel discards as a cost, exiles up to two available cards,
+  and grants normal play permissions for the rest of the turn.
+- All 5,582 engine tests pass (two intentional ignores), as do the card,
+  DSL and codegen suites (134/71/275), the nested-effect guard, all 3,321
+  card validations, formatting and workspace/all-targets clippy with dev
+  controls. Update the explicitly pinned back-face catalog for Harnfel and
+  remove its obsolete module-level claim that only one back reaches the stack.

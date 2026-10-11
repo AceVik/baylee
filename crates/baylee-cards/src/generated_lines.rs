@@ -38032,14 +38032,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 2,
             stackable: 1,
-            lines: &[Some(0)],
+            lines: &[Some(0), None],
             modes: &[],
             alternatives: &[],
         },
         FaceLines {
             sentences: 1,
-            stackable: 0,
-            lines: &[],
+            stackable: 1,
+            lines: &[Some(0)],
             modes: &[],
             alternatives: &[],
         },

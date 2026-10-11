@@ -445,6 +445,9 @@ pub enum Modifier {
     /// The controller can't be targeted by spells or abilities (player
     /// hexproof, Everybody Lives!).
     PlayerHexproof,
+    /// Matching creatures can boast twice during this effect's controller's turn.
+    /// Multiple instances do not increase the limit beyond two.
+    BoastTwice,
     /// Affected permanents cannot be enchanted by any Aura except this
     /// effect's source (Consecrate Land). This restricts attachment, not targeting.
     CantBeEnchantedExceptSource,
@@ -859,6 +862,7 @@ impl Modifier {
             | Self::UntapAtMost { .. }
             | Self::AttacksDespiteDefender
             | Self::AttacksAsThoughHaste
+            | Self::BoastTwice
             | Self::PlayerHexproof
             | Self::SpellsHaveFlash(_)
             | Self::SorceriesHaveFlash
@@ -1291,6 +1295,7 @@ mod tests {
             Modifier::NoMaxHandSize,
             Modifier::ChosenPlayerMaxHandSize(4),
             Modifier::PlayerHexproof,
+            Modifier::BoastTwice,
             Modifier::SpellsHaveFlash(None),
             Modifier::SpellsHaveFlash(Some(TypeSet::CREATURE)),
             Modifier::SorceriesHaveFlash,

@@ -422,7 +422,7 @@ impl Effect {
             source,
             amount,
             combination,
-            ..
+            restriction,
         } = self
         else {
             panic!("restricted() describes mana, and only Effect::AddMana produces it")
@@ -436,7 +436,13 @@ impl Effect {
                 filter,
                 rider,
                 restricts: true,
-                until_end_of_turn: false,
+                until_end_of_turn: matches!(
+                    restriction,
+                    Some(ManaRestriction {
+                        until_end_of_turn: true,
+                        ..
+                    })
+                ),
             }),
         }
     }
@@ -459,7 +465,7 @@ impl Effect {
             source,
             amount,
             combination,
-            ..
+            restriction,
         } = self
         else {
             panic!("when_spent() describes mana, and only Effect::AddMana produces it")
@@ -473,10 +479,51 @@ impl Effect {
                 filter,
                 rider,
                 restricts: false,
-                until_end_of_turn: false,
+                until_end_of_turn: matches!(
+                    restriction,
+                    Some(ManaRestriction {
+                        until_end_of_turn: true,
+                        ..
+                    })
+                ),
             }),
         }
     }
+    /// Keep this produced mana through step and phase boundaries until cleanup.
+    /// Existing spending restrictions and riders are preserved.
+    ///
+    /// # Panics
+    /// Applied to anything except a mana-producing effect.
+    #[must_use]
+    pub const fn mana_until_end_of_turn(self) -> Self {
+        let Self::AddMana {
+            source,
+            amount,
+            combination,
+            restriction,
+        } = self
+        else {
+            panic!("mana_until_end_of_turn() requires AddMana")
+        };
+        let mut restriction = match restriction {
+            Some(value) => value,
+            None => ManaRestriction {
+                uses: super::ManaUse::SpellsOrAbilities,
+                filter: &Filter::Any,
+                rider: SpendRider::None,
+                restricts: false,
+                until_end_of_turn: false,
+            },
+        };
+        restriction.until_end_of_turn = true;
+        Self::AddMana {
+            source,
+            amount,
+            combination,
+            restriction: Some(restriction),
+        }
+    }
+
     /// The effect lists this one runs, as at most two slices.
     ///
     /// **Ten variants carry another effect and this is the only list of

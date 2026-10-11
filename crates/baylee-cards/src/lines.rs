@@ -27,9 +27,8 @@
 //!
 //! `AbilityRef` carries no face, and deliberately still does not: it is
 //! also the handle a player's standing answer ("always say yes to this")
-//! is filed under, so a field on it is a protocol change — for exactly one
-//! card in the pool, Sheoldred, whose back face is the only one that puts
-//! an ability on the stack (`the_back_of_a_card_is_a_rarity` counts them).
+//! is filed under. Back faces can carry stack abilities too; their generated
+//! mappings are checked alongside front faces.
 //! Whoever looks a line up supplies the face it is asking about, which for
 //! a stack entry is the face the source object is showing.
 //!
@@ -714,6 +713,7 @@ mod tests {
                 "Hadana's Climb",
                 "Journey to Eternity",
                 "Path of Mettle",
+                "Birgi, God of Storytelling",
                 "Hostile Hostel",
                 "Mirrorhall Mimic",
                 "Fable of the Mirror-Breaker",

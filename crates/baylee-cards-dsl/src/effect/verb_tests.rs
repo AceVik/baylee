@@ -506,3 +506,54 @@ fn at_next_upkeep_body_is_visited() {
     assert_eq!(seen, 2);
     assert!(body_seen);
 }
+
+#[test]
+fn mana_retention_preserves_restrictions_and_spend_riders() {
+    assert_eq!(
+        Effect::mana(ManaColor::Blue, 2)
+            .mana_until_end_of_turn()
+            .restricted(&Filter::CREATURE, SpendRider::Uncounterable),
+        Effect::mana(ManaColor::Blue, 2)
+            .restricted(&Filter::CREATURE, SpendRider::Uncounterable)
+            .mana_until_end_of_turn(),
+    );
+    assert_eq!(
+        Effect::mana(ManaColor::Blue, 2)
+            .mana_until_end_of_turn()
+            .when_spent(&Filter::CREATURE, SpendRider::Scry(1)),
+        Effect::mana(ManaColor::Blue, 2)
+            .when_spent(&Filter::CREATURE, SpendRider::Scry(1))
+            .mana_until_end_of_turn(),
+    );
+    let effect =
+        Effect::mana(ManaColor::Blue, 2).restricted(&Filter::CREATURE, SpendRider::Uncounterable);
+    let Effect::AddMana {
+        source,
+        amount,
+        combination,
+        restriction: Some(mut restriction),
+    } = effect
+    else {
+        panic!("mana")
+    };
+    restriction.until_end_of_turn = true;
+    assert_eq!(
+        effect.mana_until_end_of_turn(),
+        Effect::AddMana {
+            source,
+            amount,
+            combination,
+            restriction: Some(restriction)
+        }
+    );
+    let Effect::AddMana {
+        restriction: Some(ordinary),
+        ..
+    } = Effect::mana(ManaColor::Red, 1).mana_until_end_of_turn()
+    else {
+        panic!("mana")
+    };
+    assert!(!ordinary.restricts);
+    assert!(ordinary.until_end_of_turn);
+    assert_eq!(ordinary.rider, SpendRider::None);
+}
