@@ -292,6 +292,8 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenN { .. }
         | Effect::CreateTokenThenCounters { .. }
+        | Effect::Fabricate { .. }
+        | Effect::CreateTokenThenAttachSelf { .. }
         | Effect::CreateTokenPtPerCount { .. }
         | Effect::CreateToken { .. }
         | Effect::CreateTokenFromLinked { .. } => tokens::exec(state, res, op),
@@ -1263,6 +1265,10 @@ pub(super) fn exec_immediate(
             });
             one_per_type(state, res, top, 0)
         }
+        Effect::LookAtTopMayTake { filter, rest } => {
+            super::top_card::start(state, res, filter, rest)
+        }
+        Effect::CommanderToHand => super::top_card::commander(state, res),
         Effect::LookAtTopFind {
             found,
             count,
@@ -1758,8 +1764,17 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::ReconfigureAttach => {
+            super::attachments::attach(
+                state,
+                res,
+                TargetSpec::Object(&baylee_cards_dsl::Filter::Any),
+                true,
+            );
+            None
+        }
         Effect::AttachSelf { target } => {
-            super::attachments::attach(state, res, target);
+            super::attachments::attach(state, res, target, false);
             None
         }
         Effect::GrantSubtype { .. } => None, // M2 (continuous effects)

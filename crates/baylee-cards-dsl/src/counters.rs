@@ -99,6 +99,9 @@ pub const CARRION: CounterKind = CounterKind::Custom(15);
 /// Oil counters (The Monumental Facade).
 pub const OIL: CounterKind = CounterKind::Custom(16);
 
+/// Pressure counters (Hellion Crucible).
+pub const PRESSURE: CounterKind = CounterKind::Custom(17);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -121,6 +124,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("matrix", MATRIX),
     ("carrion", CARRION),
     ("oil", OIL),
+    ("pressure", PRESSURE),
 ];
 
 #[cfg(test)]

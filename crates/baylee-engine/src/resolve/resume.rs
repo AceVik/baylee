@@ -25,6 +25,34 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::Fabricate {
+            source,
+            count,
+            token,
+        } => super::token_choices::finish_fabricate(state, res, chosen, source, count, token),
+        AwaitingOp::AttachCreated { source } => {
+            if let Some(&host) = chosen.first() {
+                super::attachments::attach_to(state, source, host, false);
+            }
+        }
+        AwaitingOp::TakeTop {
+            looked,
+            rest,
+            reveal,
+        } => {
+            if let Some(question) = super::top_card::take(state, res, chosen, looked, rest, reveal)
+            {
+                return next_choice(state, res, since, question);
+            }
+        }
+        AwaitingOp::RestTop { looked, rest } => {
+            super::top_card::rest(state, res, chosen, looked, rest);
+        }
+        AwaitingOp::CommanderToHand => {
+            if let Some(question) = super::top_card::take_commander(state, res, chosen) {
+                return next_choice(state, res, since, question);
+            }
+        }
         AwaitingOp::SacrificeChosen { player } => {
             if let Some(&victim) = chosen.first()
                 && let Some(owner) = state

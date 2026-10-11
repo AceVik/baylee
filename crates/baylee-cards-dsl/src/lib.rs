@@ -45,7 +45,7 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, CounterKind, Effect, ExileUntil, Find, ManaRestriction, ManaSource, ManaUse,
+    Amount, CounterKind, Effect, ExileUntil, Find, LookRest, ManaRestriction, ManaSource, ManaUse,
     ManaValueBound, ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq,
     TargetSlot, TargetSpec, TokenDef, ZoneSel,
 };

@@ -746,16 +746,10 @@ fn liliana_reanimates_a_creature_takes_the_counter_herself_and_may_exhaust_twice
 ///   and the Deluge is deliberately X=1 rather than X=2 so that this death
 ///   stands alone instead of arriving in the same batch as the Elves'.
 ///
-/// The other half is what the card stands at `Coverage::Partial` for.
-/// `Fabricate 1` is not written — there is no Servo in `tokens::ALL` to
-/// create and half a "choose one" would be a mandatory counter the player
-/// never agreed to — so the Apprentice must arrive as the plain 1/2 the
-/// face prints: no +1/+1 counter, no token, and no question asked on the
-/// way (a mode choice would stop `pass_until` dead). The day fabricate is
-/// written, those two assertions are what has to be deleted.
+/// Choose the fabricate counter, so the later deaths isolate the drain clause.
 #[test]
 #[allow(clippy::too_many_lines)] // three deaths on two sides, and the point is which of them drains
-fn the_apprentice_skips_fabricate_and_drains_only_for_another_permanent_of_yours_that_dies() {
+fn the_apprentice_fabricates_and_drains_only_for_another_permanent_of_yours_that_dies() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
@@ -776,21 +770,25 @@ fn the_apprentice_skips_fabricate_and_drains_only_for_another_permanent_of_yours
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
-    // ---- The Apprentice is cast, and fabricate is not written. ----
     let opening = engine.state().players[1].life;
     cast_from_hand(&mut engine, p0, marionette_apprentice());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let apprentice = on_battlefield(&engine, p0, marionette_apprentice()).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![apprentice],
+            },
+        )
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
-    let apprentice =
-        on_battlefield(&engine, p0, marionette_apprentice()).expect("the Apprentice resolved");
-    assert_eq!(
-        pt(&engine, apprentice),
-        (1, 2),
-        "no +1/+1 counter: fabricate is the clause this card is Partial for",
-    );
+    assert_eq!(pt(&engine, apprentice), (2, 3));
     assert!(
         tokens_of(&engine, p0).is_empty(),
-        "and no Servo either — the whole `Fabricate 1` is dropped, so the \
-         Apprentice enters as the 1/2 its face prints",
+        "the counter was chosen instead of a Servo"
     );
     assert_eq!(
         engine.state().players[1].life,

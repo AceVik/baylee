@@ -188,6 +188,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             create_tokens_with_text(state, you, token, None, count, res.text);
             None
         }
+        Effect::Fabricate { count, token } => {
+            super::token_choices::fabricate(state, res, count, token)
+        }
+        Effect::CreateTokenThenAttachSelf { token } => {
+            super::token_choices::living_weapon(state, res, token)
+        }
         Effect::CreateTokenThenCounters {
             token,
             kind,
@@ -371,7 +377,7 @@ pub(super) fn create_tokens(
     )
 }
 
-fn create_tokens_with_text(
+pub(super) fn create_tokens_with_text(
     state: &mut GameState,
     controller: PlayerId,
     token: &'static baylee_cards_dsl::TokenDef,

@@ -3600,3 +3600,32 @@ land type"; both are convention tests that fire on a first try.
   coverage includes changed controllers, departed activated sources, triggers
   excluded from activated-ability counters, source blink, untargeted shroud,
   event ordering, paid/refused white mana, and deterministic random selection.
+
+### Card completion batch 25 — token choices and private top-card inspection
+
+- Complete Marionette Apprentice, Nettlecyst, Mirrex, Serpent Generator,
+  Hellion Crucible, Scrying Sheets, Bucolic Ranch, The Biblioplex and Command
+  Beacon. Central token definitions retain stable ids and verified printings.
+  The colorless artifact Snake uses an explicit no-printing fallback rather
+  than displaying another token's colors, types or rules.
+- Fabricate is an optional counter placement on resolution, not an announced
+  mode (CR 702.123a). If its permanent has left, create the Servos instead.
+  Token and counter replacements apply independently to their respective branch.
+- Living weapon creates its Germ even after its Equipment leaves. A token
+  doubler requires choosing one new Germ for attachment before state-based
+  actions kill the others. Ordinary creature Equipment cannot attach; the
+  explicit reconfigure effect carries that keyword's exception (CR 702.151a-b).
+- The three top-card lands share a private inspection, filtered optional reveal,
+  and optional disposition. Leaving a card or reordering it within the library
+  preserves its incarnation. Biblioplex's hand-size restriction is checked at
+  activation, not again at resolution. Snow payment still requires snow mana.
+- Command Beacon chooses one commander without targeting, then retains that
+  choice through the command-zone replacement. Keeping an already present
+  commander in that zone is not a zone change and does not change its version.
+- The full engine run passed 5,546 tests; its sole outdated equip test selected
+  two creatures instead of one. Correcting that test and rerunning it gives
+  5,547 effective passing engine tests, with two intentionally ignored tests.
+  All 134 card, 275 codegen and 69 DSL tests pass, as do workspace clippy and
+  the printing/convention validation. The new card scenarios cover doubling,
+  removal before resolution, combat-only toxic, noncombat poison triggers,
+  illegal blockers, privacy, both optional choices and commander replacement.

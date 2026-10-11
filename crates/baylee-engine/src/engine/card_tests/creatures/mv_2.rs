@@ -197,3 +197,5 @@ mod wall_of_tombstones;
 mod osai_vultures;
 
 mod whirling_dervish;
+
+mod marionette_apprentice;

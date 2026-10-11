@@ -7,3 +7,5 @@ mod fireshrieker;
 mod loxodon_warhammer;
 mod sword_of_hearth_and_home;
 mod vulshok_battlegear;
+
+mod nettlecyst;

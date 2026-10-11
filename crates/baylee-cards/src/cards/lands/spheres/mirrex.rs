@@ -3,9 +3,8 @@
 //! Oracle: {T}: Add one mana of any color. Activate only if this land entered this turn.
 //! Oracle: {3}, {T}: Create a 1/1 colorless Phyrexian Mite artifact creature token with toxic 1 and "This token can't block." (Players dealt combat damage by it also get a poison counter.)
 //! Set: ONE #254 — Phyrexia: All Will Be One | Scryfall ID: 54a702cd-ca49-4570-b47e-8b090452a3c3 | Oracle ID: 5502741a-e3b9-454e-8121-4360a6db6750
-// PARTIAL — both mana abilities are built, the any-color one gated on the
-// land having entered this turn; the Mite ability is NOT SUPPORTED beside
-// the ability list.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -19,27 +18,19 @@ card!(
         types = TypeSet::LAND,
         subtypes = &[subtypes::land::SPHERE],
     ),],
-    coverage = Coverage::Partial(
-        "the {3}, {T} Mite ability is missing: no Phyrexian Mite token is in the \
-         registry, and toxic has no keyword bit and nothing in the engine gives a \
-         player poison counters, so a Mite could carry \"can't block\" \
-         (KeywordSet::CANT_BLOCK) but not toxic 1",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        // `SourceMatches` pointed at this land's own history — the gate is
-        // the whole of what separates this from a land that makes any colour
-        // every turn.
         mana_ability!(
             Cost::TAP,
             &[Effect::mana_of_any_color()],
             condition = Some(Condition::SourceMatches(&Filter::EnteredThisTurn))
         ),
-        // NOT SUPPORTED: "{3}, {T}: Create a 1/1 colorless Phyrexian Mite
-        // artifact creature token with toxic 1 and 'This token can't
-        // block.'" — a card file may not define its own `TokenDef` and no
-        // Mite stands in `crate::tokens`; toxic has no keyword bit, and
-        // nothing gives a player poison counters. "Can't block" is
-        // `KeywordSet::CANT_BLOCK`.
+        activated!(
+            cost!("{3}", TapSelf),
+            &[Effect::CreateToken {
+                token: &crate::tokens::PHYREXIAN_MITE_1_1
+            }]
+        ),
     ],
 );

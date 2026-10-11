@@ -867,3 +867,13 @@ Only the identifier and independently implemented rules enter the repository.
 The existing client image-fetch path and attribution apply; the image-integrity
 rule quoted above from the [Scryfall API terms](https://scryfall.com/docs/api)
 continues to apply to this token too. No image or corpus file is distributed.
+
+The next completion batch registers the verified [TMH3 Servo](https://scryfall.com/card/tmh3/33/servo),
+[TFRC Phyrexian Mite](https://scryfall.com/card/tfrc/16/phyrexian-mite), and
+[TFDC Phyrexian Germ](https://scryfall.com/card/tfdc/4/phyrexian-germ) identifiers.
+Their characteristics and abilities were checked against those API printings.
+The existing Scryfall attribution and original image-fetch path remain in use;
+no artwork is committed. Serpent Generator's colorless artifact Snake has no
+matching token printing in the checked catalog, so it has no image identifier
+and uses the existing rules-face fallback. It never borrows an image depicting
+a different Snake's colors, types or abilities.

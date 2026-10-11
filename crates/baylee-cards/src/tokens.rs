@@ -323,6 +323,60 @@ pub static WIZARD_0_1_BLACK: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// TMH3 #33: colorless 1/1 artifact Servo, with no rules abilities.
+pub static SERVO_1_1: TokenDef = TokenDef {
+    name: "Servo",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::SERVO],
+    power: Some(1),
+    toughness: Some(1),
+    scryfall_id: "23165814-3eb8-4d94-b9c8-ecc798afe7a0",
+    ..TokenDef::DEFAULT
+};
+/// TFRC #16: toxic is a result of combat damage, not a triggered ability.
+pub static PHYREXIAN_MITE_1_1: TokenDef = TokenDef {
+    name: "Phyrexian Mite",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::PHYREXIAN, creature::MITE],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::CANT_BLOCK,
+    abilities: &[AbilityDef::Toxic { poison: 1 }],
+    scryfall_id: "e9c68c64-f3b9-45b7-83d1-bd1439a49942",
+    ..TokenDef::DEFAULT
+};
+/// TFDC #4: the black 0/0 Germ for living weapon.
+pub static PHYREXIAN_GERM_0_0_BLACK: TokenDef = TokenDef {
+    name: "Phyrexian Germ",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PHYREXIAN, creature::GERM],
+    power: Some(0),
+    toughness: Some(0),
+    scryfall_id: "53c05e53-84c7-4796-ae02-d778faa5afa6",
+    ..TokenDef::DEFAULT
+};
+/// Serpent Generator's colorless artifact Snake. No matching printed token is
+/// listed by Scryfall; the client draws its actual face rather than another Snake.
+pub static SNAKE_1_1_ARTIFACT_POISON: TokenDef = TokenDef {
+    name: "Snake",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::SNAKE],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[triggered!(
+        Trigger::DealsDamageToPlayer {
+            source: &Filter::This,
+            player: baylee_cards_dsl::PlayerRel::EachPlayer
+        },
+        &[Effect::Poison {
+            who: baylee_cards_dsl::PlayerRel::EventPlayer,
+            amount: baylee_cards_dsl::Amount::Fixed(1)
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is; the index IS the stable token id (art key).
 ///
 /// Append only — an insertion in the middle renumbers every token after it,
@@ -490,6 +544,11 @@ mod tests {
         for token in ALL.iter().filter(|t| !is_generated(t)) {
             checked += 1;
             let id = token.scryfall_id;
+            // This exact independently described token has no matching printed art.
+            if std::ptr::eq(*token, &raw const SNAKE_1_1_ARTIFACT_POISON) {
+                assert!(id.is_empty(), "do not substitute art for a different Snake");
+                continue;
+            }
             assert!(!id.is_empty(), "{} has no art", token.name);
             assert_eq!(id.len(), 36, "{}: {id} is not a UUID", token.name);
             assert!(id.contains('-'), "{}: {id} is not a UUID", token.name);

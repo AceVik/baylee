@@ -380,6 +380,8 @@ pub(crate) fn check_optional_clauses_are_offered(
         "ChooseExiledToPlay",
         "LookAtTopKeepBottomPlay",
         "LookAtTopFind",
+        "LookAtTopMayTake",
+        "Fabricate",
         "LookAtTopMayPut",
         "DiscardUpToThenDraw",
         "PermanentOfEachTypeFromGraveyard",

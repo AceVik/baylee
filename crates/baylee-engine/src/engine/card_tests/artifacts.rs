@@ -227,13 +227,8 @@ fn nettlecyst() -> baylee_core::ids::CardIndex {
     card_index("04c7f4fe-2098-4311-866d-6733c08d5178")
 }
 
-/// Nettlecyst is `Coverage::Partial`, and both halves of that are one
-/// scenario. It is cast, and the living weapon line — "create a 0/0 black
-/// Phyrexian Germ creature token, then attach this to it" — is the gap: no
-/// token arrives and the Equipment enters holding nobody, so it has to be
-/// equipped by hand like any other. That is the half that is written, and
-/// with it the static: "equipped creature gets +1/+1 for each artifact
-/// and/or enchantment you control".
+/// Living weapon supplies a Germ before the Equipment is moved to the Elves.
+/// Its static then continues to count the controller's artifacts and enchantments.
 ///
 /// Three artifacts stand on the table on purpose — Nettlecyst itself, a Sol
 /// Ring under the same seat, and a Sol Ring across it. `+2/+2` is the only
@@ -243,7 +238,7 @@ fn nettlecyst() -> baylee_core::ids::CardIndex {
 /// artifact is cast *after* the equip, so the count is shown to be read off
 /// the board rather than frozen at the moment the Equipment was attached.
 #[test]
-fn nettlecyst_arrives_without_its_germ_and_then_grows_with_the_artifacts_you_control() {
+fn nettlecyst_equips_its_germ_then_tracks_artifacts_after_being_equipped_elsewhere() {
     let p0 = PlayerId::new(0);
     let mut board = vec![forest(); 6];
     board.extend([quiet_artifact(), llanowar_elves()]);
@@ -260,25 +255,18 @@ fn nettlecyst_arrives_without_its_germ_and_then_grows_with_the_artifacts_you_con
     let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are out");
     assert_eq!(pt(&engine, elves), (1, 1), "a printed 1/1, holding nothing");
 
-    // Living weapon: the half the card refuses to write.
     cast_from_hand(&mut engine, p0, nettlecyst());
     pass_until(&mut engine, stack_is_empty);
     let cyst = on_battlefield(&engine, p0, nettlecyst()).expect("the Equipment resolved");
-    assert!(
-        tokens_of(&engine, p0).is_empty(),
-        "no Germ: the living weapon line is the `Coverage::Partial` gap"
-    );
-    assert!(
-        engine
-            .state()
-            .object(cyst)
-            .is_some_and(|o| o.attached_to.is_none()),
-        "with no Germ to attach itself to, it enters holding nobody"
-    );
+    let germs = tokens_of(&engine, p0);
+    assert_eq!(germs.len(), 1);
+    let germ = germs[0];
+    assert_eq!(engine.state().object(cyst).unwrap().attached_to, Some(germ));
+    assert_eq!(pt(&engine, germ), (2, 2));
     assert_eq!(
         pt(&engine, elves),
         (1, 1),
-        "an Equipment attached to nothing modifies nothing"
+        "the Equipment modifies its host, not the Elves"
     );
 
     // Equip {2} (CR 702.6): the half that is written.
@@ -292,7 +280,7 @@ fn nettlecyst_arrives_without_its_germ_and_then_grows_with_the_artifacts_you_con
     };
     assert_eq!(
         options,
-        vec![elves],
+        vec![elves, germ],
         "target creature *you* control — the Elves across the table are not offered"
     );
     engine

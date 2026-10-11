@@ -6,6 +6,38 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Optional selection of this permanent for fabricate's counters.
+    Fabricate {
+        /// Exact source before the choice.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Counters or tokens to produce.
+        count: u16,
+        /// Servo token definition.
+        token: &'static baylee_cards_dsl::TokenDef,
+    },
+    /// Choose one token created by the preceding instruction for this Equipment.
+    AttachCreated {
+        /// Exact Equipment incarnation, never a later returning copy.
+        source: baylee_core::ids::DamageSourceRef,
+    },
+    /// Private inspection of one card before choosing whether to reveal it.
+    TakeTop {
+        /// Card inspected; one element also exposes it to the entitled viewer.
+        looked: [ObjectId; 1],
+        /// The unchosen card's treatment.
+        rest: baylee_cards_dsl::LookRest,
+        /// Reveal only once, including across command-zone replacements.
+        reveal: bool,
+    },
+    /// Optional disposition after declining the matching inspected card.
+    RestTop {
+        /// Inspected card, retained for the viewer.
+        looked: [ObjectId; 1],
+        /// Destination if selected.
+        rest: baylee_cards_dsl::LookRest,
+    },
+    /// A commander selected from its owner's command zone.
+    CommanderToHand,
     /// Preserve an object selection while its owners answer zone replacements.
     SelectedCommander {
         /// The choice to resume after every replacement answer.

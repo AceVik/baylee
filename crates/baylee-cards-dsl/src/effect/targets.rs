@@ -3,6 +3,17 @@
 
 use super::Filter;
 
+/// What may happen to the single inspected card if it is not taken.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum LookRest {
+    /// Leave it on top, without moving it.
+    Keep,
+    /// Its controller may put it on the bottom.
+    MayBottom,
+    /// Its controller may put it in their graveyard.
+    MayGraveyard,
+}
+
 /// Zone selectors for amounts/searches.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ZoneSel {

@@ -11,3 +11,5 @@ mod rakalite;
 mod planar_gate;
 
 mod mana_matrix;
+
+mod serpent_generator;

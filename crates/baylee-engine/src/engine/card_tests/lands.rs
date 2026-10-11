@@ -4161,3 +4161,5 @@ fn answer_target(engine: &mut Engine<RegistryLookup>, object: ObjectId, refused:
 mod mana_scope;
 
 mod mana_spend;
+
+mod top_card_choices;

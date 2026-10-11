@@ -28,6 +28,29 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Fabricate (CR 702.123a): optionally put counters on this incarnation,
+    /// otherwise create that many of the supplied Servo tokens.
+    Fabricate {
+        /// Counters or tokens before replacement effects.
+        count: u16,
+        /// The keyword's token definition.
+        token: &'static TokenDef,
+    },
+    /// Create a token, then attach this exact Equipment to one created this way.
+    CreateTokenThenAttachSelf {
+        /// Token definition, including living weapon's Germ.
+        token: &'static TokenDef,
+    },
+    /// Privately inspect the top card, optionally reveal and take it if it
+    /// matches, then optionally move it as stated if it was not taken.
+    LookAtTopMayTake {
+        /// The characteristics required to take the card.
+        filter: &'static Filter,
+        /// Treatment of a card not put into the hand.
+        rest: LookRest,
+    },
+    /// Choose one of your commanders currently in the command zone for your hand.
+    CommanderToHand,
     /// Deal damage only to chosen object targets which match at resolution.
     DealDamageToMatchingTargets {
         /// Damage per matching target.
@@ -56,6 +79,9 @@ pub enum Effect {
     },
     /// Unattach this exact permanent; used by reconfigure's second ability.
     DetachSource,
+    /// Reconfigure's attach ability permits the Equipment to be a creature
+    /// before it attaches and stops being one (CR 702.151a-b).
+    ReconfigureAttach,
     /// Evaluate the first resolution subject once and run exactly one branch.
     IfTargetMatchesElse {
         /// Condition on the current characteristics of the subject.

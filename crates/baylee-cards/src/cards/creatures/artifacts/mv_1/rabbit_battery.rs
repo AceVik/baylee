@@ -32,9 +32,7 @@ card!(
         ),
         activated!(
             cost!("{R}"),
-            &[Effect::AttachSelf {
-                target: TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL)
-            }],
+            &[Effect::ReconfigureAttach],
             target = Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
             timing = ActivationTiming::SorcerySpeed
         ),

@@ -3,7 +3,12 @@ use super::{Resolution, TargetSpec, event_object_identity, subjects, zones};
 use crate::{object::Status, state::GameState, zone::Zone};
 use baylee_core::{generated::subtypes, ids::DamageSourceRef, types::TypeSet};
 
-pub(super) fn attach(state: &mut GameState, res: &Resolution, target: TargetSpec) {
+pub(super) fn attach(
+    state: &mut GameState,
+    res: &Resolution,
+    target: TargetSpec,
+    reconfigure: bool,
+) {
     let Some(source) =
         subjects::source(state, res).filter(|identity| subjects::is_current(state, *identity))
     else {
@@ -21,6 +26,18 @@ pub(super) fn attach(state: &mut GameState, res: &Resolution, target: TargetSpec
     let Some(host) = host else {
         return;
     };
+    attach_to(state, source, host, reconfigure);
+}
+
+pub(super) fn attach_to(
+    state: &mut GameState,
+    source: DamageSourceRef,
+    host: baylee_core::ids::ObjectId,
+    reconfigure: bool,
+) {
+    if !subjects::is_current(state, source) {
+        return;
+    }
     let Some(object) = state.object(source.object) else {
         return;
     };
@@ -30,6 +47,11 @@ pub(super) fn attach(state: &mut GameState, res: &Resolution, target: TargetSpec
         return;
     }
     if object.zone != Zone::Battlefield
+        || (!reconfigure
+            && object
+                .characteristics()
+                .types
+                .intersects(TypeSet::CREATURE.union(TypeSet::BATTLE)))
         || source.object == host
         || object.status.contains(Status::PHASED_OUT)
     {

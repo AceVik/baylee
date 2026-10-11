@@ -971,6 +971,10 @@ impl<L: CardLookup> Engine<L> {
         }
         match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
             Some(resolve::AwaitingOp::DigRest { rest, .. }) => rest,
+            Some(
+                resolve::AwaitingOp::TakeTop { looked, .. }
+                | resolve::AwaitingOp::RestTop { looked, .. },
+            ) => looked,
             _ => &[],
         }
     }

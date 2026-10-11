@@ -756,12 +756,17 @@ impl Effect {
             | Effect::GraveyardToHand { .. }
             | Effect::GraveyardToBattlefield { .. }
             | Effect::CreateTokenThenCounters { .. }
+            | Effect::Fabricate { .. }
+            | Effect::CreateTokenThenAttachSelf { .. }
+            | Effect::LookAtTopMayTake { .. }
+            | Effect::CommanderToHand
         | Effect::CreateTokenPtPerCount { .. }
             | Effect::CreateToken { .. }
             | Effect::CreateTokensFor { .. }
             | Effect::DealDamageToMatchingTargets { .. }
             | Effect::RandomGraveyardToHand { .. }
             | Effect::MoveCounterToEvent { .. }
+            | Effect::ReconfigureAttach
             | Effect::DetachSource
             | Effect::CreateTokenN { .. }
             | Effect::CreateTokenForTargetController { .. }

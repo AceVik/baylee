@@ -5,11 +5,10 @@ use super::*;
 
 /// Scrying Sheets prints `{{T}}: Add {{C}}.` and `{{1}}{{S}}, {{T}}: Look at the top card of your library. If that card is snow, you may reveal it and put it into your hand.`
 ///
-/// Under `Coverage::Partial`, the top-card inspection ability is omitted because branching on printed characteristics of the top library card is unsupported.
 /// With Scrying Sheets and two basic lands (`forest()`) on the battlefield under `PlayerId::new(0)`, floating two mana while keeping Scrying Sheets untapped shows that ability 0 is offered while ability 1 is withheld from `legal.abilities`.
 /// Activating ability 0 adds one colorless mana to the pool and leaves Scrying Sheets tapped.
 #[test]
-fn scrying_sheets_taps_for_colorless_and_omits_snow_reveal_ability() {
+fn scrying_sheets_colorless_mana_and_snow_cost_require_actual_snow_mana() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[scrying_sheets(), forest(), forest()])
@@ -33,7 +32,7 @@ fn scrying_sheets_taps_for_colorless_and_omits_snow_reveal_ability() {
     );
     assert!(
         !legal.abilities.contains(&(sheets, 1)),
-        "ability 1 is omitted under `Coverage::Partial` even with mana floating"
+        "ordinary Forest mana cannot pay the snow cost"
     );
 
     activate(&mut engine, p0, scrying_sheets(), 0);
