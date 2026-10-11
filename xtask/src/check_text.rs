@@ -369,6 +369,8 @@ pub(crate) fn check_optional_clauses_are_offered(
         "CopySpell",
         "BottomCardFromHand",
         "OptionalBasicLandSearchFor",
+        "MayBehold",
+        "SearchWithManaDifference",
         "optional: true",
         "Scry",
         "PutFromHandOnTop",

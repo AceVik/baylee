@@ -493,7 +493,7 @@ fn subtype_keys(
 ) -> bool {
     if !matches!(
         duel.interaction.as_ref().map(Interaction::prompt),
-        Some(Prompt::ChooseSubtype { .. } | Prompt::ChooseCardName)
+        Some(Prompt::ChooseSubtype { .. } | Prompt::ChooseCardName { .. })
     ) {
         return false;
     }

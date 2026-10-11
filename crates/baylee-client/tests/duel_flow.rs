@@ -914,7 +914,7 @@ fn a_pithing_needle_can_be_cast_and_its_name_answered() {
     }
     let pending = client.pending.clone().expect("a choice");
     assert!(
-        matches!(pending, Pending::ChooseCardName { player } if player == PlayerId::new(0)),
+        matches!(pending, Pending::ChooseCardName { player, .. } if player == PlayerId::new(0)),
         "the Needle entering asks its controller for a card name, got {pending:?}"
     );
 

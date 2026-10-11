@@ -266,7 +266,9 @@ impl<L: CardLookup> Engine<L> {
             // can reveal a card and must still choose its mana color.
             for modifier in face.enter_modifiers {
                 match modifier {
-                    EnterModifier::SacrificeOrGraveyard { .. }
+                    EnterModifier::ChooseNumber { .. }
+                    | EnterModifier::ChooseShape(_)
+                    | EnterModifier::SacrificeOrGraveyard { .. }
                     | EnterModifier::DiscardOrGraveyard(_)
                     | EnterModifier::SacrificeForPowerToughness(_)
                     | EnterModifier::SacrificeOthers(_) => {}
@@ -473,7 +475,10 @@ impl<L: CardLookup> Engine<L> {
             }
             EnterModifier::ChooseCardName => {
                 self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
-                self.pending = Pending::ChooseCardName { player: controller };
+                self.pending = Pending::ChooseCardName {
+                    player: controller,
+                    types: baylee_core::types::TypeSet::EMPTY,
+                };
                 self.awaiting_answer = true;
                 true
             }

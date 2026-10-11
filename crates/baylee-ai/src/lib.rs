@@ -643,8 +643,20 @@ impl HeuristicAgent {
             Pending::ChooseSubtype { options, .. } => {
                 PlayerAction::ChooseSubtype(self.subtype(view, &options))
             }
-            Pending::ChooseCardName { .. } => {
-                let (card, face) = self.card_name(view);
+            Pending::ChooseCardName { types, .. } => {
+                let (card, face) = if types.is_empty() {
+                    self.card_name(view)
+                } else {
+                    baylee_cards::all()
+                        .find_map(|def| {
+                            def.faces.iter().enumerate().find_map(|(face, printed)| {
+                                printed.types.intersects(types).then(|| {
+                                    (def.index, u8::try_from(face).expect("face index fits"))
+                                })
+                            })
+                        })
+                        .expect("a matching printed face exists")
+                };
                 PlayerAction::ChooseCardName { card, face }
             }
 
@@ -673,7 +685,8 @@ impl HeuristicAgent {
                 baylee_engine::choice::NumberPrompt::EnergyPayment { candidates } => {
                     candidates.clamp(min, max)
                 }
-                baylee_engine::choice::NumberPrompt::Sacrifices => 3u32.clamp(min, max),
+                baylee_engine::choice::NumberPrompt::Sacrifices
+                | baylee_engine::choice::NumberPrompt::Choice => 3u32.clamp(min, max),
                 baylee_engine::choice::NumberPrompt::X => self.number(view, min, max, context),
                 baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => {
                     preventable_damage.clamp(min, max)
@@ -968,7 +981,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseCards { player, .. }
         | Pending::ChooseTargets { player, .. }
         | Pending::ChooseSubtype { player, .. }
-        | Pending::ChooseCardName { player }
+        | Pending::ChooseCardName { player, .. }
         | Pending::ChooseColor { player, .. }
         | Pending::ChooseDamageSource { player, .. }
         | Pending::ChooseDamageEffect { player, .. }

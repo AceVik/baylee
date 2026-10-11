@@ -90,6 +90,27 @@ fn a_mana_spending_permission_needs_no_separate_may_question() {
 }
 
 #[test]
+fn behold_and_mana_difference_search_offer_their_optional_actions() {
+    let payload = serde_json::json!({"oracle_text": "You may perform the action."});
+    let mut tally = super::PrintingTally::default();
+    let mut problems = 0;
+    for (name, expected) in [("Elven Passage", 0), ("Transmute Artifact", 0), ("Fog", 1)] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered fixture");
+        super::check_optional_clauses_are_offered(
+            "fixture",
+            def,
+            &payload,
+            &mut tally,
+            &mut problems,
+        );
+        assert_eq!(problems, expected, "{name}");
+    }
+    assert_eq!(tally.optional_clauses, 3);
+}
+
+#[test]
 fn a_flash_permission_is_an_optional_casting_offer() {
     let payload = serde_json::json!({
         "oracle_text": "You may cast spells this turn as though they had flash."

@@ -313,27 +313,29 @@ impl<L: CardLookup> Engine<L> {
         // the finds go where the search sends them.
         if !their_own
             && let Some(res) = &mut self.resolution
-            && let Some(AwaitingOp::SearchTakeover {
-                ref inspected,
+            && let Some(operation) = res.awaiting.as_mut().map(AwaitingOp::search_operation_mut)
+            && let AwaitingOp::SearchTakeover {
+                inspected,
                 agent,
                 finds,
                 reveal,
                 library,
                 split,
-            }) = res.awaiting
-            && agent == player
-            && !self.state.has_left(library)
+            } = operation
+            && *agent == player
+            && !self.state.has_left(*library)
             && let Pending::ChooseCards { player: asked, .. } = &mut self.pending
         {
-            res.awaiting = Some(AwaitingOp::SearchLibrary {
+            let receiver = *library;
+            *operation = AwaitingOp::SearchLibrary {
                 inspected: inspected.clone(),
                 finds,
-                reveal,
-                library,
-                receiver: library,
-                split,
-            });
-            *asked = library;
+                reveal: *reveal,
+                library: *library,
+                receiver,
+                split: *split,
+            };
+            *asked = receiver;
             return;
         }
         // A resolution goes on without them, their own included: a spell

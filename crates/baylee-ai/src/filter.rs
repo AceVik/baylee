@@ -124,6 +124,21 @@ fn any(parts: impl Iterator<Item = Option<bool>>) -> Option<bool> {
     (!unknown).then_some(false)
 }
 
+fn named_by_source(
+    view: &PlayerView,
+    object: &PublicObject,
+    this: Option<ObjectId>,
+) -> Option<bool> {
+    let source = view.object(this?)?;
+    let Some(chosen) = source.chosen_name else {
+        return Some(false);
+    };
+    let face = baylee_cards::by_index(chosen.card)?
+        .faces
+        .get(usize::from(chosen.face))?;
+    Some(object.name == face.name)
+}
+
 impl HeuristicAgent {
     /// Whether `object`, seen in `zone`, matches `filter`.
     ///
@@ -158,6 +173,7 @@ impl HeuristicAgent {
             // and a face-down permanent has no name to answer with
             // (CR 708.2) rather than a name this seat may not see.
             Filter::Named(name) => Some(object.name == *name),
+            Filter::NamedBySource => named_by_source(view, object, this),
             // Three cases, two of which the view cannot tell apart; the
             // header has the reason. `card` is asked second because a
             // registry token never carries one.

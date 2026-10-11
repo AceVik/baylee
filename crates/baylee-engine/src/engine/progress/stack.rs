@@ -720,6 +720,7 @@ impl<L: CardLookup> Engine<L> {
                 .lookup
                 .card(card)
                 .map(|def| crate::object::AbilityList {
+                    acquisition: 0,
                     token: None,
                     abilities: def.abilities_for_face(face as usize).into(),
                     printed: crate::object::PrintedFace::new(card, face),

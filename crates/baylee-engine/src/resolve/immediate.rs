@@ -1330,6 +1330,14 @@ pub(super) fn exec_immediate(
             });
             one_per_type(state, res, top, 0)
         }
+        Effect::RevealTopByName {
+            player,
+            matched,
+            otherwise,
+        } => names::reveal_top(state, res, player, matched, otherwise),
+        Effect::RevealRandomDiscardNamed { player, count } => {
+            names::random_discard(state, res, player, count)
+        }
         Effect::LookAtTopOf { player, count } => {
             super::top_card::inspect(state, res, player, count)
         }
@@ -1337,8 +1345,8 @@ pub(super) fn exec_immediate(
             super::top_card::reveal_if(state, res, filter, find);
             None
         }
-        Effect::LookAtTopMayTake { filter, rest } => {
-            super::top_card::start(state, res, filter, rest)
+        Effect::LookAtTopMayTake { filter, rest, then } => {
+            super::top_card::start(state, res, filter, rest, then)
         }
         Effect::CommanderToHand => super::top_card::commander(state, res),
         Effect::LookAtTopFind {
@@ -1379,10 +1387,11 @@ pub(super) fn exec_immediate(
                 options,
                 min: 0,
                 max,
-                prompt: if found == SearchDest::Hand {
-                    ChoicePrompt::PutIntoHand
-                } else {
-                    ChoicePrompt::PutBackOnTop
+                prompt: match found.dest {
+                    SearchDest::Hand => ChoicePrompt::PutIntoHand,
+                    SearchDest::Battlefield => ChoicePrompt::PutOntoBattlefield,
+                    SearchDest::TopOfLibrary => ChoicePrompt::PutBackOnTop,
+                    SearchDest::Graveyard => ChoicePrompt::Generic,
                 },
                 total: None,
             })
@@ -1416,7 +1425,7 @@ pub(super) fn exec_immediate(
                 rest: top.clone(),
                 reveal: false,
                 random,
-                found: SearchDest::Hand,
+                found: baylee_cards_dsl::Find::HAND,
             });
             Some(Pending::ChooseCards {
                 player: you,
@@ -1555,6 +1564,7 @@ pub(super) fn exec_immediate(
             if let Some(obj) = state.object_mut(id) {
                 // No card prints an emblem's list.
                 obj.take_abilities(crate::object::AbilityList {
+                    acquisition: 0,
                     token: None,
                     abilities: abilities.into(),
                     printed: None,
@@ -1757,6 +1767,14 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::UntapFound => {
+            for &found in &res.subject.found {
+                if subjects::on_battlefield(state, found) {
+                    untap(state, found.object);
+                }
+            }
+            None
+        }
         Effect::TargetSourceLosesAbilities { source_filter } => {
             // The permanent an earlier effect of this same resolution took
             // an ability off. Reading `res.targets` here instead is what
@@ -1845,6 +1863,10 @@ pub(super) fn exec_immediate(
         Effect::GrantSubtype { .. } => None, // M2 (continuous effects)
         Effect::SearchLibrary { .. }
         | Effect::SearchLibraryBeforeShuffle { .. }
+        | Effect::SearchSharedLandType
+        | Effect::SearchWithManaDifference { .. }
+        | Effect::TargetedGraveyardToTop
+        | Effect::EachPlayerSearchBeforeShuffle { .. }
         | Effect::Scry { .. }
         | Effect::Surveil { .. }
         | Effect::ScryFor { .. }
@@ -1861,6 +1883,10 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::MayPayEnergyOr { .. }
         | Effect::ChooseOne { .. }
+        | Effect::MayBehold { .. }
+        | Effect::ChooseCardName { .. }
+        | Effect::ChooseNumber { .. }
+        | Effect::DestroyWeakest { .. }
         | Effect::PlayerMayPayCostThen { .. }
         | Effect::PlayerMaySacrificeNOr { .. }
         | Effect::SacrificeAndIf { .. }

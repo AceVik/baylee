@@ -625,13 +625,14 @@ fn recipients(
             .collect(),
         // Only ever a second instance of "target": the damage goes to what
         // that instance chose, if it chose anything ("up to one").
-        TargetSpec::ObjectOfFirstTargetsPlayer(_) => res
-            .second_targets
-            .first()
-            .copied()
-            .map(DamageTarget::Object)
-            .into_iter()
-            .collect(),
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) | TargetSpec::CardInFirstTargetsGraveyard(_) => {
+            res.second_targets
+                .first()
+                .copied()
+                .map(DamageTarget::Object)
+                .into_iter()
+                .collect()
+        }
         // A chosen player is a player. The choice landed in
         // `target_players`, so reading `targets` here would deal to
         // whatever object the spell also happened to point at — or,
@@ -661,6 +662,7 @@ fn recipients(
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
+        | TargetSpec::CardInPlayersGraveyard(..)
         | TargetSpec::CardInGraveyardBelowEvent(..)
         | TargetSpec::CardInGraveyardBelowValue(..)
         | TargetSpec::AbilityOnStack(_)

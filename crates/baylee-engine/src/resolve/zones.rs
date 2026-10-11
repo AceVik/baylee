@@ -89,7 +89,9 @@ pub(super) fn spec_object(
             .map(|reference| reference.object),
         // The one spec that is only ever a second instance of "target"
         // names the object that instance chose.
-        TargetSpec::ObjectOfFirstTargetsPlayer(_) => res.second_targets.first().copied(),
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) | TargetSpec::CardInFirstTargetsGraveyard(_) => {
+            res.second_targets.first().copied()
+        }
         TargetSpec::Object(_)
         | TargetSpec::ObjectOfEachOpponent(_)
         | TargetSpec::OpponentOrObject(_)
@@ -99,6 +101,7 @@ pub(super) fn spec_object(
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
+        | TargetSpec::CardInPlayersGraveyard(..)
         | TargetSpec::CardInGraveyardBelowEvent(..)
         | TargetSpec::CardInGraveyardBelowValue(..)
         | TargetSpec::AbilityOnStack(_)
@@ -130,6 +133,7 @@ pub(super) fn spec_objects(
     target: TargetSpec,
 ) -> SmallVec<[ObjectId; 2]> {
     match target {
+        TargetSpec::CardInFirstTargetsGraveyard(_) => res.second_targets.iter().copied().collect(),
         TargetSpec::ThisObject
         | TargetSpec::EventObject
         | TargetSpec::ObjectOfFirstTargetsPlayer(_) => {

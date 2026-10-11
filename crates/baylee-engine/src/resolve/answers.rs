@@ -16,6 +16,24 @@ pub(super) fn resume_with_number_inner(
     res: &mut Resolution,
     number: u32,
 ) -> Flow {
+    if matches!(res.awaiting, Some(AwaitingOp::ChooseNumber)) {
+        if let Some(source) =
+            subjects::source(state, res).filter(|source| subjects::on_battlefield(state, *source))
+        {
+            let acquisition = state
+                .object(res.on_stack)
+                .map_or(0, GameObject::rules_acquisition);
+            crate::entry::set_chosen_number(
+                state,
+                source.object,
+                u8::try_from(number).expect("bounded choice"),
+                acquisition,
+            );
+        }
+        res.awaiting = None;
+        advance_program(res);
+        return run(state, res);
+    }
     if matches!(res.awaiting, Some(AwaitingOp::TapEnergy(_))) {
         let Some(AwaitingOp::TapEnergy(selection)) = res.awaiting.take() else {
             unreachable!("energy payment continuation")
@@ -592,6 +610,11 @@ pub(super) fn resume_arranged_inner(
     }
     let library = ZoneLocation::Library(res.controller);
     match (awaiting, piles) {
+        (AwaitingOp::GraveyardToTopOrder { player }, [top]) => {
+            if let Some(question) = graveyard_top::place(state, res, player, top.clone()) {
+                return next_choice(state, res, since, question);
+            }
+        }
         (AwaitingOp::ReorderTopLibrary { player }, [top]) => {
             // The first card listed is the new top card, so the list goes on
             // from its bottom end: each card put on top covers the one
@@ -667,8 +690,7 @@ pub(super) fn resume_tax_choice_inner(
     let AwaitingOp::PlayerMayPay {
         player,
         cost,
-        effects,
-        on_payment,
+        outcome,
     } = res.awaiting.take().expect("resume without awaiting op")
     else {
         panic!("resume_tax_choice on non-tax choice");
@@ -678,6 +700,17 @@ pub(super) fn resume_tax_choice_inner(
     // not-paid fallback, exactly as if the player had declined.
     let actually_paid = paid && crate::casting::pay_mana(state, player, &cost);
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
+    let (effects, on_payment) = match outcome {
+        ManaPaymentOutcome::Effects {
+            effects,
+            on_payment,
+        } => (effects, on_payment),
+        ManaPaymentOutcome::Upgrade { card, player } => {
+            let since = state.journal.last_seq();
+            upgrade::place(state, res, card, player, actually_paid);
+            return finish_choice(state, res, since);
+        }
+    };
     // A tax runs its effect on a refusal and a price on a payment; the
     // other answer is the ability doing nothing more.
     if actually_paid != on_payment {

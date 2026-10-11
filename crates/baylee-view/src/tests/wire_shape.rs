@@ -319,7 +319,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 59: saddle choice, with the public view shape unchanged.
     // 62: revealed-discard choice; the prompt is imported from the engine.
     // 68: sacrifice count prompt for entry replacements.
-    const RECORDED: (u32, u64) = (70, 9_867_554_342_615_931_460);
+    // 71: behold, numeric and restricted-name prompts imported from the engine.
+    const RECORDED: (u32, u64) = (71, 9_867_554_342_615_931_460);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

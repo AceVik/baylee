@@ -611,6 +611,13 @@ pub enum Modifier {
         /// What toughness adds to it (Lhurgoyf's "plus 1").
         toughness_plus: i8,
     },
+    /// Independent characteristic-defining power and toughness, in every zone.
+    CharacteristicPTSeparate {
+        /// Power's characteristic-defining expression.
+        power: PtCount,
+        /// Toughness's characteristic-defining expression.
+        toughness: PtCount,
+    },
     /// The affected object gets +P/+T for each filter-matching permanent
     /// its controller controls (Construct tokens, "for each artifact").
     ModifyPTPerCount {
@@ -695,6 +702,15 @@ pub enum Modifier {
 /// What a [`Modifier::CharacteristicPT`] counts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PtCount {
+    /// Last number chosen for this permanent; zero if none was chosen.
+    ChosenNumber,
+    /// A constant minus another characteristic-defining count.
+    Complement {
+        /// Constant minuend.
+        from: u16,
+        /// Count subtracted from the constant.
+        count: &'static PtCount,
+    },
     /// Number of permanents sacrificed as this object entered; zero in other zones.
     EntrySacrifices,
     /// Distinct colors among permanents matching the filter.
@@ -823,7 +839,7 @@ impl Modifier {
             | Self::ProtectionFrom(_)
             | Self::GrantTriggered { .. } => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
-            Self::CharacteristicPT { .. } => Layer::PtCda,
+            Self::CharacteristicPT { .. } | Self::CharacteristicPTSeparate { .. } => Layer::PtCda,
             Self::SetPT(..) | Self::SetPower(_) | Self::SetToughness(_) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::HoneEquipment
             | Self::ModifyPT(..)
@@ -1160,6 +1176,7 @@ mod tests {
     /// so CR 613.1f puts them on layer 6 beside the `GrantActivated` that
     /// was already there.
     #[test]
+    #[allow(clippy::too_many_lines)] // Auditable table of distinct modifier/layer contracts.
     fn every_modifier_applies_in_the_layer_the_rules_give_it() {
         const NOTHING: &[crate::effect::Effect] = &[];
         let rows: Vec<(Modifier, Layer)> = vec![
@@ -1230,6 +1247,16 @@ mod tests {
                 Modifier::CharacteristicPT {
                     count: PtCount::CardTypesInAllGraveyards,
                     toughness_plus: 1,
+                },
+                Layer::PtCda,
+            ),
+            (
+                Modifier::CharacteristicPTSeparate {
+                    power: PtCount::ChosenNumber,
+                    toughness: PtCount::Complement {
+                        from: 7,
+                        count: &PtCount::ChosenNumber,
+                    },
                 },
                 Layer::PtCda,
             ),

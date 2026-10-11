@@ -274,7 +274,10 @@ mod tests {
                 PlayerAction::ChooseSubtype(SubtypeId::new(3)),
             ),
             (
-                Pending::ChooseCardName { player: ME },
+                Pending::ChooseCardName {
+                    player: ME,
+                    types: baylee_core::types::TypeSet::EMPTY,
+                },
                 PlayerAction::ChooseCardName {
                     card: CardIndex::new(1),
                     face: 0,

@@ -221,6 +221,7 @@ impl GameState {
             object.hash(&mut h);
             hash_ability_list(&mut h, &list.abilities, list.printed);
             list.token.hash(&mut h);
+            list.acquisition.hash(&mut h);
         }
         ltb_attachments.hash(&mut h);
         ltb_counters.hash(&mut h);
@@ -903,6 +904,25 @@ fn hash_rider_situation(
     departure.hash(h);
     for rider in &obj.riders {
         match rider {
+            crate::object::Rider::ChosenName {
+                acquisition,
+                printed,
+                name,
+            } => {
+                67u8.hash(h);
+                (acquisition, printed, name).hash(h);
+            }
+            crate::object::Rider::RulesAcquisition(acquisition) => {
+                68u8.hash(h);
+                acquisition.hash(h);
+            }
+            crate::object::Rider::ChosenNumber {
+                acquisition,
+                number,
+            } => {
+                66u8.hash(h);
+                (acquisition, number).hash(h);
+            }
             crate::object::Rider::EntryCopyApplied => 65u8.hash(h),
             crate::object::Rider::EntrySacrifices(count) => {
                 64u8.hash(h);
@@ -1367,6 +1387,25 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 version.hash(h);
                 power.hash(h);
             }
+            Rider::ChosenName {
+                acquisition,
+                printed,
+                name,
+            } => {
+                67u8.hash(h);
+                (acquisition, printed, name).hash(h);
+            }
+            Rider::RulesAcquisition(acquisition) => {
+                68u8.hash(h);
+                acquisition.hash(h);
+            }
+            Rider::ChosenNumber {
+                acquisition,
+                number,
+            } => {
+                66u8.hash(h);
+                (acquisition, number).hash(h);
+            }
             Rider::EntryCopyApplied => 65u8.hash(h),
             Rider::EntrySacrifices(count) => {
                 64u8.hash(h);
@@ -1633,6 +1672,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         }
         // Length-prefixed, so `Named("a") + Named("bc")` inside an `And`
         // cannot hash as `Named("ab") + Named("c")`.
+        F::NamedBySource => h.u8(63),
         F::Named(name) => {
             h.u8(29);
             h.u32(u32::try_from(name.len()).unwrap_or(u32::MAX));

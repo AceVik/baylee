@@ -609,3 +609,34 @@ fn sacrifice_outcomes_are_visited() {
     assert_eq!(seen, 4);
     assert_eq!(branches, 2);
 }
+
+#[test]
+fn behold_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::MayBehold {
+        filter: &Filter::CREATURE,
+        then: &[Effect::UntapFound],
+    }];
+    let mut seen = 0;
+    let mut untap_seen = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        untap_seen |= matches!(effect, Effect::UntapFound);
+    });
+    assert_eq!(seen, 2);
+    assert!(untap_seen);
+}
+
+#[test]
+fn taking_the_top_card_visits_its_successful_move_continuation() {
+    static EFFECTS: &[Effect] = &[Effect::LookAtTopMayTake {
+        filter: &Filter::CREATURE,
+        rest: LookRest::Keep,
+        then: &[Effect::TransformSource],
+    }];
+    let mut seen = 0;
+    let mut transformed = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        transformed |= matches!(effect, Effect::TransformSource);
+    });
+    assert_eq!(seen, 2);
+    assert!(transformed);
+}

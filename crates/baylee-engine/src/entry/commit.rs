@@ -73,6 +73,14 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
             .riders
             .push(crate::object::Rider::EntryCopyApplied);
     }
+    if !entry.denied
+        && let Some(number) = entry.chosen_number
+    {
+        let acquisition = state
+            .object(entry.object)
+            .map_or(0, crate::object::GameObject::rules_acquisition);
+        super::set_chosen_number(state, entry.object, number, acquisition);
+    }
     state.entries.committing = Some(entry.object);
     let _ = state.move_object(entry.object, destination, entry.position, entry.cause);
     state.entries.committing = None;

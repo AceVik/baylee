@@ -6,6 +6,34 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Card-name choice during a resolving instruction.
+    ChooseCardName {
+        /// Retain this choice on the originating permanent.
+        remember: bool,
+    },
+    /// Revealed top card waiting for its command-zone replacement.
+    NamedTop {
+        /// Revealed library card.
+        card: ObjectId,
+        /// Player receiving the card.
+        player: PlayerId,
+        /// Destination selected by the name comparison.
+        destination: SearchDest,
+    },
+    /// Ordered graveyard cards, waiting for command-zone replacement decisions.
+    GraveyardToTopOrdered {
+        /// Library receiving the cards.
+        player: PlayerId,
+        /// Top-to-bottom order, chosen by the spell's controller.
+        cards: Vec<ObjectId>,
+    },
+    /// Legal graveyard targets waiting for their top-to-bottom order.
+    GraveyardToTopOrder {
+        /// Targeted library owner.
+        player: PlayerId,
+    },
+    /// A bounded number retained by this exact source permanent.
+    ChooseNumber,
     /// Entry replacements interrupt an instruction before its next decision or effect.
     Entry {
         /// Original instruction's suspended operation and question, if any.
@@ -76,6 +104,8 @@ pub enum AwaitingOp {
         rest: baylee_cards_dsl::LookRest,
         /// Reveal only once, including across command-zone replacements.
         reveal: bool,
+        /// Instructions after a successful move into hand.
+        then: &'static [Effect],
     },
     /// Optional disposition after declining the matching inspected card.
     RestTop {
@@ -125,6 +155,16 @@ pub enum AwaitingOp {
     ChooseEffect {
         /// The still-available branches, in displayed order.
         choices: Vec<&'static Effect>,
+    },
+    /// A minimum-power creature chosen without targeting.
+    DestroyWeakest {
+        /// Ignore regeneration shields.
+        no_regen: bool,
+    },
+    /// A non-targeted, optional behold from hand or battlefield.
+    Behold {
+        /// Instructions following a successful behold.
+        then: &'static [Effect],
     },
     /// Optional face-down cast from the resolving ability controller's hand.
     MaskedCast,
@@ -219,6 +259,17 @@ pub enum AwaitingOp {
         /// Living seats in table order at the time of the choice.
         seats: Vec<PlayerId>,
     },
+    /// A search whose second find must share a land subtype with its first.
+    SharedLandSearch(Box<super::shared_land::Selection>),
+    /// Search result awaiting a comparison with a captured mana value.
+    SearchUpgrade {
+        /// Normal search, or Opposition Agent's replacement.
+        operation: Box<AwaitingOp>,
+        /// Amount evaluated before searching.
+        value: u32,
+    },
+    /// All players finish searching before any finds are moved.
+    SearchGroup(Box<super::search_group::Selection>),
     /// A library search: chosen cards go to `finds`, positionally.
     ///
     /// The library is always shuffled afterwards. Of the 1014 printed cards
@@ -373,10 +424,8 @@ pub enum AwaitingOp {
         /// The mana to pay: generic for the first two, as printed for the
         /// other two.
         cost: baylee_core::mana::ManaCost,
-        /// The effects one of the two answers runs.
-        effects: &'static [Effect],
-        /// Whether paying is the answer that runs them.
-        on_payment: bool,
+        /// Consequence of the payment or its refusal.
+        outcome: ManaPaymentOutcome,
     },
     /// Optional life payment, distinct from mana payment windows.
     PlayerMayPayLife {
@@ -563,7 +612,7 @@ pub enum AwaitingOp {
     /// After `LookAtTopPick`: chosen go to hand, the rest to the bottom.
     DigRest {
         /// Destination of the selected cards.
-        found: SearchDest,
+        found: baylee_cards_dsl::Find,
         /// The looked-at cards not chosen.
         rest: Vec<ObjectId>,
         /// The selected card is public before it changes zones.
@@ -709,4 +758,87 @@ pub enum AwaitingOp {
         /// about and whether the library is the destination in question.
         remaining: Vec<(PlayerId, ObjectId, bool)>,
     },
+}
+
+/// Work to resume after a resolution-time mana payment.
+#[derive(Clone, Debug, Hash)]
+pub enum ManaPaymentOutcome {
+    /// A printed effect branch conditioned on either payment or refusal.
+    Effects {
+        /// Printed branch.
+        effects: &'static [Effect],
+        /// Which answer runs the branch.
+        on_payment: bool,
+    },
+    /// A found card enters if paid, or goes to its owner's graveyard otherwise.
+    Upgrade {
+        /// Exact found library incarnation.
+        card: baylee_core::ids::DamageSourceRef,
+        /// Library's owner and receiver of the permanent.
+        player: PlayerId,
+    },
+}
+
+impl AwaitingOp {
+    /// Captured choices distinguish a search even while its cards have not moved.
+    pub(crate) fn search_fingerprint(&self) -> u64 {
+        match self {
+            Self::SharedLandSearch(selection) => {
+                selection.fingerprint().wrapping_mul(31).wrapping_add(1)
+            }
+            Self::SearchGroup(selection) => {
+                selection.fingerprint().wrapping_mul(31).wrapping_add(2)
+            }
+            Self::SearchUpgrade { operation, value } => {
+                crate::state::structural_fingerprint(&(5u8, operation.search_fingerprint(), value))
+            }
+            Self::PlayerMayPay {
+                player,
+                cost,
+                outcome,
+            } => crate::state::structural_fingerprint(&(6u8, player, cost, outcome)),
+            Self::SearchLibrary {
+                inspected,
+                finds,
+                reveal,
+                library,
+                receiver,
+                split,
+            } => crate::state::structural_fingerprint(&(
+                3u8, inspected, finds, reveal, library, receiver, split,
+            )),
+            Self::SearchTakeover {
+                inspected,
+                agent,
+                finds,
+                reveal,
+                library,
+                split,
+            } => crate::state::structural_fingerprint(&(
+                4u8, inspected, agent, finds, reveal, library, split,
+            )),
+            Self::Entry { next: Some(next) } => next.0.search_fingerprint(),
+            _ => 0,
+        }
+    }
+
+    /// Search state beneath a constraint that gathers several choices.
+    pub(crate) fn search_operation(&self) -> &Self {
+        match self {
+            Self::SharedLandSearch(selection) => selection.operation.search_operation(),
+            Self::SearchGroup(selection) => selection.operation.search_operation(),
+            Self::SearchUpgrade { operation, .. } => operation.search_operation(),
+            _ => self,
+        }
+    }
+
+    /// Mutable counterpart, used when control of a search ends on concession.
+    pub(crate) fn search_operation_mut(&mut self) -> &mut Self {
+        match self {
+            Self::SharedLandSearch(selection) => selection.operation.search_operation_mut(),
+            Self::SearchGroup(selection) => selection.operation.search_operation_mut(),
+            Self::SearchUpgrade { operation, .. } => operation.search_operation_mut(),
+            _ => self,
+        }
+    }
 }

@@ -247,7 +247,10 @@ impl Builder<'_, '_> {
                 *reason,
             ),
             Pending::ChooseSubtype { options, .. } => self.subtype(options),
-            Pending::ChooseCardName { .. } => {
+            Pending::ChooseCardName { types, .. } => {
+                if !types.is_empty() {
+                    self.line("Only a card name with the required printed card types is eligible.");
+                }
                 self.line("QUESTION: Choose a card name: any card's English name (a single face's name is fine).");
                 self.ask = Ask::CardName;
                 self.answer("name=\"<the card's name>\"");
@@ -1026,6 +1029,7 @@ impl Builder<'_, '_> {
                 "How much energy will you pay? Choose zero to decline. Up to {candidates} permanents tapped this way can receive counters; overpayment is legal"
             ),
             NumberPrompt::Sacrifices => "How many permanents will you sacrifice?".to_string(),
+            NumberPrompt::Choice => "Choose a number".to_string(),
             NumberPrompt::X => "Choose the value of X".to_string(),
             NumberPrompt::ManaPayment { preventable_damage } => format!(
                 "How much mana will you pay? Each mana prevents one of up to \

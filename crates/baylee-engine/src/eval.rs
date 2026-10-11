@@ -117,6 +117,12 @@ pub fn matches_projected_with_context(
                             })
                     })
             }),
+        Filter::NamedBySource => state.object(this).is_some_and(|source| {
+            let current = source.rules_acquisition();
+            source.riders.iter().any(|rider| {
+            matches!(rider, crate::object::Rider::ChosenName { acquisition, name, .. } if *acquisition == current && *name == chars.name)
+        })
+        }),
         Filter::IsToken => obj.card.is_none(),
         Filter::ActivatedAbilityFrom(filter) => {
             stack_filters::activated_source_matches(filter, state, obj, you, context)
@@ -1520,6 +1526,29 @@ fn any_target_objects(state: &GameState) -> Vec<ObjectId> {
         .collect()
 }
 
+fn named_graveyard_options(
+    filter: &'static Filter,
+    player: PlayerId,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> Vec<ObjectId> {
+    if state.has_left(player) {
+        return Vec::new();
+    }
+    state
+        .zones
+        .list(ZoneLocation::Graveyard(player))
+        .iter()
+        .copied()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|object| matches_with_context(filter, state, object, you, context))
+        })
+        .collect()
+}
+
 /// [`TargetSpec::CardInGraveyardBelowValue`]'s options: the graveyard cards
 /// matching `filter` whose mana value is less than `limit`.
 fn graveyard_options_below(
@@ -1815,7 +1844,12 @@ pub fn choice_options_with_context(
         TargetSpec::CardInGraveyard(filter, rel) => {
             graveyard_options(filter, *rel, state, you, context)
         }
-        TargetSpec::CardInGraveyardBelowEvent(..) => Vec::new(),
+        TargetSpec::CardInFirstTargetsGraveyard(_) | TargetSpec::CardInGraveyardBelowEvent(..) => {
+            Vec::new()
+        }
+        TargetSpec::CardInPlayersGraveyard(filter, player) => {
+            named_graveyard_options(filter, *player, state, you, context)
+        }
         TargetSpec::CardInGraveyardBelowValue(filter, rel, limit) => {
             graveyard_options_below(filter, *rel, *limit, state, you, context)
         }

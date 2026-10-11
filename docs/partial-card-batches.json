@@ -213,7 +213,7 @@
     {
       "batch": 43,
       "title": "Library choices and related finds",
-      "status": "in_progress",
+      "status": "complete",
       "cards": [
         {
           "name": "Aven Mindcensor",
@@ -291,7 +291,29 @@
           "name": "Sidequest: Catch a Fish // Cooking Campsite",
           "path": "crates/baylee-cards/src/cards/enchantments/mv_3/sidequest_catch_a_fish.rs"
         }
-      ]
+      ],
+      "completed_cards": [
+        "Aven Mindcensor",
+        "Petra Sphinx",
+        "Nebuchadnezzar",
+        "Shapeshifter",
+        "Primal Clay",
+        "Moonring Island",
+        "Isolated Watchtower",
+        "Fabled Passage",
+        "Elven Passage",
+        "Petrified Hamlet",
+        "Forsaken Crossroads",
+        "Field of Ruin",
+        "Myriad Landscape",
+        "Turntimber Symbiosis // Turntimber, Serpentine Wood",
+        "Visions",
+        "Drafna's Restoration",
+        "Transmute Artifact",
+        "Drop of Honey",
+        "Sidequest: Catch a Fish // Cooking Campsite"
+      ],
+      "note": "All 19 cards complete and behaviorally validated. The final 14 were implemented and checked as one batch; private linked exile continues in batch 44."
     },
     {
       "batch": 44,

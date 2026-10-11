@@ -117,6 +117,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GrantStatic { .. }
         | Modifier::GrantTriggered { .. }
         | Modifier::CharacteristicPT { .. }
+        | Modifier::CharacteristicPTSeparate { .. }
         | Modifier::ModifyPTPerCount { .. }
         | Modifier::ModifyPTByCount(_)
         | Modifier::ModifyPTHalfCount(_)
@@ -1073,6 +1074,13 @@ mod tests {
                 count: baylee_cards_dsl::PtCount::YouControl(&Filter::CREATURE),
                 toughness_plus: 0,
             },
+            Modifier::CharacteristicPTSeparate {
+                power: baylee_cards_dsl::PtCount::ChosenNumber,
+                toughness: baylee_cards_dsl::PtCount::Complement {
+                    from: 7,
+                    count: &baylee_cards_dsl::PtCount::ChosenNumber,
+                },
+            },
             Modifier::SetPT(2, 2),
             Modifier::SetPower(0),
             Modifier::SetToughness(1),
@@ -1223,7 +1231,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            104,
+            105,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1287,7 +1295,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (37, 67));
+        assert_eq!((locking, all.len() - locking), (38, 67));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

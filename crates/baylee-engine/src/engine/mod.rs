@@ -218,6 +218,12 @@ impl PaymentContinuation {
                 .subject
                 .fingerprint()
                 .wrapping_mul(31)
+                .wrapping_add(
+                    r.awaiting
+                        .as_ref()
+                        .map_or(0, resolve::AwaitingOp::search_fingerprint),
+                )
+                .wrapping_mul(31)
                 .wrapping_add(r.pc as u64)
                 .wrapping_add(u64::from(r.on_stack.slot()))
                 .wrapping_add(u64::from(r.controller.get())),
@@ -982,7 +988,12 @@ impl<L: CardLookup> Engine<L> {
         if !matches!(self.pending, Pending::ChooseCards { .. }) {
             return &[];
         }
-        match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
+        match self
+            .resolution
+            .as_ref()
+            .and_then(|r| r.awaiting.as_ref())
+            .map(resolve::AwaitingOp::search_operation)
+        {
             Some(
                 resolve::AwaitingOp::SearchLibrary { inspected, .. }
                 | resolve::AwaitingOp::SearchTakeover { inspected, .. },
@@ -1181,6 +1192,12 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for trigger in &self.trigger_queue {
+            extra = extra.wrapping_mul(31).wrapping_add(
+                trigger
+                    .abilities
+                    .as_ref()
+                    .map_or(0, |abilities| abilities.acquisition),
+            );
             extra = extra
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&trigger.text));
@@ -1224,6 +1241,11 @@ impl<L: CardLookup> Engine<L> {
         }
         if let Some(r) = &self.resolution {
             extra = extra.wrapping_mul(31).wrapping_add(r.subject.fingerprint());
+            extra = extra.wrapping_mul(31).wrapping_add(
+                r.awaiting
+                    .as_ref()
+                    .map_or(0, resolve::AwaitingOp::search_fingerprint),
+            );
             extra = extra
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&r.text));

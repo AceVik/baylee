@@ -1449,7 +1449,7 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
         }
         // Any card's name is an answer (CR 201.4), and the one the entering
         // permanent is itself printed with is always a card of the pool.
-        Pending::ChooseCardName { player } => {
+        Pending::ChooseCardName { player, .. } => {
             let own = match engine.pending_plan {
                 Some(super::PlanKind::ChooseCardName { object }) => {
                     engine.state().object(object).and_then(|o| o.card)

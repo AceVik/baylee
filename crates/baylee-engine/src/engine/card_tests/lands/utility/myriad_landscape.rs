@@ -5,12 +5,11 @@ use super::*;
 
 /// Myriad Landscape prints `This land enters tapped.`, `{{T}}: Add {{C}}.`, and `{{2}}, {{T}}, Sacrifice this land: Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle.`
 ///
-/// Under `Coverage::Partial`, the basic land tutor ability is omitted because no filter can express the relational constraint that two searched cards must share a land type.
 /// Playing Myriad Landscape from hand enters tapped.
-/// In the next turn, with `{{2}}` floating from two `forest()` lands and Myriad Landscape untapped, ability 0 is offered while ability 1 is withheld from `legal.abilities`.
+/// In the next turn, with `{{2}}` floating from two `forest()` lands and Myriad Landscape untapped, both the mana ability and the tutor are offered.
 /// Activating ability 0 produces one colorless mana and taps the land.
 #[test]
-fn myriad_landscape_enters_tapped_and_omits_basic_land_tutor() {
+fn myriad_landscape_enters_tapped_and_offers_both_abilities_when_untapped() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
@@ -42,8 +41,8 @@ fn myriad_landscape_enters_tapped_and_omits_basic_land_tutor() {
         "ability 0 ({{T}}: Add {{C}}) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(landscape, 1)),
-        "ability 1 is omitted under `Coverage::Partial` even with {{2}} floating"
+        legal.abilities.contains(&(landscape, 1)),
+        "the tutor is offered with {{2}} floating"
     );
 
     activate(&mut engine, p0, myriad_landscape(), 0);

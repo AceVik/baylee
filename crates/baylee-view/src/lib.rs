@@ -213,7 +213,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 68 adds entry-sacrifice acceptance and numeric sacrifice choices.
 /// Version 69 adds choices between simultaneous and competing entry replacements.
 /// Version 70 distinguishes private library inspection from hand inspection.
-pub const VIEW_VERSION: u32 = 70;
+/// Version 71 adds behold and numeric choices, and type-restricted card naming.
+pub const VIEW_VERSION: u32 = 71;
 
 // ------------------------------------------------------------------- targets
 

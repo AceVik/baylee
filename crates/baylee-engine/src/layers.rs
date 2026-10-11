@@ -287,22 +287,34 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
         // the battlefield it is a registered static and applied above; off
         // it, nothing is registered, so the card applies its own here.
         if layer == Layer::PtCda
-            && let Some(Modifier::CharacteristicPT {
-                count,
-                toughness_plus,
-            }) = state.off_battlefield_pt_cda(obj)
+            && let Some(modifier) = state.off_battlefield_pt_cda(obj)
         {
-            let n = pt_count(
-                state,
-                obj,
-                &c,
-                controller,
-                count,
-                eval::live_context(state, obj.id),
-                &mut read_board,
-            );
-            c.power = Some(n);
-            c.toughness = Some(n.saturating_add(i16::from(toughness_plus)));
+            let context = eval::live_context(state, obj.id);
+            match modifier {
+                Modifier::CharacteristicPT {
+                    count,
+                    toughness_plus,
+                } => {
+                    let n = pt_count(state, obj, &c, controller, count, context, &mut read_board);
+                    c.power = Some(n);
+                    c.toughness = Some(n.saturating_add(i16::from(toughness_plus)));
+                }
+                Modifier::CharacteristicPTSeparate { power, toughness } => {
+                    let p = pt_count(state, obj, &c, controller, power, context, &mut read_board);
+                    let t = pt_count(
+                        state,
+                        obj,
+                        &c,
+                        controller,
+                        toughness,
+                        context,
+                        &mut read_board,
+                    );
+                    c.power = Some(p);
+                    c.toughness = Some(t);
+                }
+                _ => unreachable!("registered characteristic definition"),
+            }
         }
         if layer == Layer::PtCounters {
             apply_pt_counters(&mut c, obj);
@@ -748,8 +760,10 @@ fn could_change_keywords(modifier: &Modifier) -> bool {
     )
 }
 
+#[allow(clippy::too_many_lines)] // Exhaustive dependency table, one arm per filter family.
 fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> bool {
     match filter {
+        Filter::Named(_) | Filter::NamedBySource => matches!(modifier, Modifier::BecomeCopyOf(_)),
         // The last two read the object's subtypes as well; what differs is
         // where the subtype they are compared against comes from.
         Filter::HasType(_)
@@ -794,6 +808,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::SetPTToCount(_)
                     | Modifier::SwitchPT
                     | Modifier::CharacteristicPT { .. }
+                    | Modifier::CharacteristicPTSeparate { .. }
                     | Modifier::ModifyPTPerCount { .. }
                     | Modifier::ModifyPTByCount(_)
                     | Modifier::ModifyPTHalfCount(_)
@@ -832,7 +847,6 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         Filter::Any
         | Filter::IsCommander
         | Filter::HasAdventure
-        | Filter::Named(_)
         | Filter::This
         | Filter::Another
         | Filter::HasSupertype(_)
@@ -993,6 +1007,22 @@ fn pt_count(
             }
             usize::from(colors.len())
         }
+        baylee_cards_dsl::PtCount::ChosenNumber => obj
+            .riders
+            .iter()
+            .find_map(|rider| match rider {
+                crate::object::Rider::ChosenNumber {
+                    acquisition,
+                    number,
+                } if *acquisition == obj.rules_acquisition() => Some(usize::from(*number)),
+                _ => None,
+            })
+            .unwrap_or(0),
+        baylee_cards_dsl::PtCount::Complement { from, count } => {
+            return i16::try_from(from)
+                .unwrap_or(i16::MAX)
+                .saturating_sub(pt_count(state, obj, c, you, *count, context, read_board));
+        }
         baylee_cards_dsl::PtCount::Plus { base, offset } => {
             return pt_count(state, obj, c, you, *base, context, read_board)
                 .saturating_add(i16::try_from(offset).unwrap_or(i16::MAX));
@@ -1151,6 +1181,12 @@ fn apply(
                 .or_else(|| copiable_values(state, *id)) {
                 *c = (*values).clone();
             }
+        }
+        Modifier::CharacteristicPTSeparate { power, toughness } => {
+            let p = pt_count(state, obj, c, fx.controller, *power, context, read_board);
+            let t = pt_count(state, obj, c, fx.controller, *toughness, context, read_board);
+            c.power = Some(p);
+            c.toughness = Some(t);
         }
         Modifier::CharacteristicPT {
             count,

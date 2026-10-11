@@ -2,6 +2,25 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
+pub(super) fn apply_shape(state: &mut GameState, mods: &'static [CopyMod]) {
+    let source = state.entries.pending.front().expect("shape entry").object;
+    let text = crate::eval::live_context(state, source).text;
+    crate::copiable_abilities::apply_copy(
+        state,
+        crate::copiable_abilities::CopyApplication {
+            source,
+            target: source,
+            mods,
+            copy_index: u32::MAX,
+            until_eot: false,
+            resolving: None,
+            text,
+        },
+    );
+    // Preserve the chosen copiable values through the eventual zone change.
+    state.entries.pending.front_mut().expect("shape entry").copy = CopyStatus::Handled;
+}
+
 pub(super) fn copy_question(state: &GameState, entry: &mut Attempt) -> Option<(Question, Pending)> {
     if entry.copy != CopyStatus::Pending {
         return None;

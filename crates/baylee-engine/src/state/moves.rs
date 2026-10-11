@@ -207,6 +207,7 @@ impl GameState {
             o.own_abilities
                 .as_ref()
                 .map(|abilities| crate::object::AbilityList {
+                    acquisition: o.rules_acquisition(),
                     abilities: abilities.into(),
                     printed: o.own_origin.and_then(crate::object::AbilityOrigin::printed),
                     token: o.own_origin.and_then(crate::object::AbilityOrigin::token),
@@ -533,6 +534,8 @@ impl GameState {
                             | crate::object::Rider::Saddled
                             | crate::object::Rider::ExhaustedAbility(_)
                             | crate::object::Rider::EntrySacrifices(_)
+                            | crate::object::Rider::ChosenNumber { .. }
+                            | crate::object::Rider::ChosenName { .. }
                             | crate::object::Rider::EntryCopyApplied
                     )
                 });

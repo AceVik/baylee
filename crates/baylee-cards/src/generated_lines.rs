@@ -2208,8 +2208,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Drop of Honey
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -2748,7 +2748,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Drafna's Restoration
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Dragon Engine
     &[FaceLines {
         sentences: 1,
@@ -2978,7 +2985,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Shapeshifter
+    &[FaceLines {
+        sentences: 3,
+        stackable: 1,
+        lines: &[Some(1), None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Shatterstorm
     &[FaceLines {
         sentences: 1,
@@ -3060,7 +3074,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Transmute Artifact
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Triskelion
     &[FaceLines {
         sentences: 2,
@@ -4198,7 +4219,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Nebuchadnezzar
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Nether Void
     &[FaceLines {
         sentences: 1,
@@ -4257,7 +4285,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Petra Sphinx
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Pit Scorpion
     &[FaceLines {
         sentences: 1,
@@ -29058,8 +29093,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Myriad Landscape
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -37696,7 +37731,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[],
+            lines: &[None],
             modes: &[],
             alternatives: &[],
         },
@@ -51367,8 +51402,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 1,
-            stackable: 0,
-            lines: &[],
+            stackable: 1,
+            lines: &[Some(0)],
             modes: &[],
             alternatives: &[],
         },
@@ -53807,8 +53842,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Petrified Hamlet
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(3)],
+        stackable: 1,
+        lines: &[Some(3), Some(0), None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],

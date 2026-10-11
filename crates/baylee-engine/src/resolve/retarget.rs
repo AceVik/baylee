@@ -44,6 +44,8 @@ use crate::eval;
 use crate::state::GameState;
 use crate::zone::Zone;
 
+mod dependent;
+
 pub use crate::choice::TargetRef as Aim;
 
 /// A change of targets waiting on its next answer.
@@ -223,7 +225,7 @@ fn options(
     let obj = state
         .object(retarget.spell)
         .filter(|o| o.zone == Zone::Stack)?;
-    let req = requirement(obj, retarget.was[slot].0)?;
+    let req = dependent::requirement(obj, retarget, retarget.was[slot].0, None)?;
     let (mut objects, mut players) = eval::stack_target_options(state, obj, &req.spec);
     objects.retain(|id| {
         let Some(reference) = state.source_identity(*id) else {
@@ -275,7 +277,7 @@ fn write(state: &mut GameState, retarget: &Retarget) {
         return;
     };
     let first_req = obj.target_req;
-    let second_req = obj.second_target_req();
+    let second_req = dependent::requirement(obj, retarget, 1, None);
     obj.targets.clear();
     obj.target_players = SeatSet::new();
     if first_req
@@ -375,9 +377,12 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
     let Some(obj) = state.object(retarget.spell) else {
         return false;
     };
-    let Some(req) = requirement(obj, group) else {
+    let Some(req) = dependent::requirement(obj, retarget, group, Some(candidate)) else {
         return false;
     };
+    if !dependent::can_finish(state, obj, retarget, candidate) {
+        return false;
+    }
     let used: Vec<_> = retarget.was[..slot]
         .iter()
         .zip(&retarget.now)
@@ -399,7 +404,11 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
         .filter(|(g, _)| *g == group)
         .collect();
     for (_, original) in &remaining {
-        if *original != candidate && !used.contains(original) && !available.contains(original) {
+        if *original != candidate
+            && !used.contains(original)
+            && !available.contains(original)
+            && dependent::may_keep(state, obj, retarget, group, *original)
+        {
             available.push(*original);
         }
     }

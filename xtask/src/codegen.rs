@@ -417,6 +417,10 @@ pub(crate) fn codegen(
         &mut changed,
     )?;
 
+    // Playable precons depend on both coverage and behavioral test presence.
+    // Regenerating card tables must keep that derived registry in step too.
+    crate::precons::status(root, check)?;
+
     if check {
         if changed.is_empty() {
             println!("codegen check: up to date");

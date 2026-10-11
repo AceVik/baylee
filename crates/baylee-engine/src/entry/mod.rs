@@ -4,6 +4,7 @@ mod commit;
 mod copying;
 mod departure;
 mod equilibrium;
+mod forms;
 pub(crate) use choices::{advance, answer, next_question};
 use commit::{finish, sacrifice};
 use copying::{answer_copy, copy_question};
@@ -58,6 +59,7 @@ struct Attempt {
     next: usize,
     denied: bool,
     sacrifices: Option<u32>,
+    chosen_number: Option<u8>,
     counters: Vec<(PlayerId, CounterKind, u16)>,
     copy: CopyStatus,
     preview_effects: Vec<baylee_core::ids::EffectId>,
@@ -72,6 +74,10 @@ enum CopyStatus {
 
 #[derive(Clone, Debug, Hash)]
 enum Question {
+    Number,
+    Shape {
+        choices: &'static [&'static [CopyMod]],
+    },
     Replacement,
     EntryOrder,
     AfterSacrifice,
@@ -183,11 +189,26 @@ fn copy_clause(
 fn needs_before_entry(modifier: &EnterModifier) -> bool {
     matches!(
         modifier,
-        EnterModifier::SacrificeOrGraveyard { .. }
+        EnterModifier::ChooseNumber { .. }
+            | EnterModifier::ChooseShape(_)
+            | EnterModifier::SacrificeOrGraveyard { .. }
             | EnterModifier::DiscardOrGraveyard(_)
             | EnterModifier::SacrificeForPowerToughness(_)
             | EnterModifier::SacrificeOthers(_)
     )
+}
+
+pub(crate) fn set_chosen_number(state: &mut GameState, id: ObjectId, number: u8, acquisition: u64) {
+    if let Some(object) = state.object_mut(id) {
+        object
+            .riders
+            .retain(|rider| !matches!(rider, crate::object::Rider::ChosenNumber { acquisition: previous, .. } if *previous == acquisition));
+        object.riders.push(crate::object::Rider::ChosenNumber {
+            acquisition,
+            number,
+        });
+    }
+    state.invalidate_projections();
 }
 
 /// Returns true when the move is deferred. Setup deliberately installs its fixtures directly.
@@ -249,6 +270,7 @@ pub(crate) fn defer(
         next: 0,
         denied: false,
         sacrifices: None,
+        chosen_number: None,
         counters: Vec::new(),
         copy: if lost {
             CopyStatus::None
@@ -259,6 +281,31 @@ pub(crate) fn defer(
     };
     state.entries.pending.push_back(attempt);
     true
+}
+
+/// Identity a successful battlefield move will create, even while its entry
+/// replacements are waiting. Callers must check the zone and incarnation again
+/// before acting: an entry can be denied or the permanent can leave meanwhile.
+pub(crate) fn battlefield_reference(
+    state: &GameState,
+    id: ObjectId,
+) -> Option<baylee_core::ids::DamageSourceRef> {
+    let object = state.object(id)?;
+    let version = if object.zone == Zone::Battlefield {
+        object.version
+    } else {
+        state
+            .entries
+            .pending
+            .iter()
+            .find(|entry| entry.object == id && entry.version == object.version)?
+            .version
+            .wrapping_add(1)
+    };
+    Some(baylee_core::ids::DamageSourceRef {
+        object: id,
+        version,
+    })
 }
 
 /// A resolving search/reanimation can attach its entry counters to a deferred move.

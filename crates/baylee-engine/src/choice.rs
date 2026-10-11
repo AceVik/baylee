@@ -486,6 +486,8 @@ pub enum Pending {
     ChooseCardName {
         /// Choosing player.
         player: PlayerId,
+        /// Required printed card types; empty permits any card name.
+        types: baylee_core::types::TypeSet,
     },
     /// Choose a mana color (choice-restricted mana abilities).
     ChooseColor {
@@ -602,7 +604,7 @@ impl Pending {
             | Self::ChooseCards { player, .. }
             | Self::ChooseTargets { player, .. }
             | Self::ChooseSubtype { player, .. }
-            | Self::ChooseCardName { player }
+            | Self::ChooseCardName { player, .. }
             | Self::ChooseColor { player, .. }
             | Self::YesNo { player, .. }
             | Self::ChooseCastMode { player, .. }
@@ -720,6 +722,8 @@ pub enum ChoicePrompt {
     LookAtHand,
     /// Privately inspect library cards, then confirm without selecting any.
     LookAtLibrary,
+    /// Choose a matching permanent you control or reveal a matching hand card.
+    Behold,
     /// Of cards already assigned to the library, reveal these through Nephalia
     /// Academy; unselected cards use Library of Leng and stay hidden.
     RevealDiscard,
@@ -1001,6 +1005,8 @@ pub enum NumberPrompt {
     },
     /// How many eligible permanents to sacrifice as an object enters.
     Sacrifices,
+    /// A bounded number chosen by a resolving or entry instruction.
+    Choice,
 }
 
 /// One exact existing target, without hidden card identity.
@@ -2643,7 +2649,13 @@ mod choice_tests {
                 },
                 None,
             ),
-            (Pending::ChooseCardName { player: p }, None),
+            (
+                Pending::ChooseCardName {
+                    player: p,
+                    types: baylee_core::types::TypeSet::EMPTY,
+                },
+                None,
+            ),
             (
                 Pending::ChooseCastMode {
                     player: p,

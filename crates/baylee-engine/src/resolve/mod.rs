@@ -21,10 +21,14 @@ use baylee_core::mana::ManaColor;
 use smallvec::SmallVec;
 
 mod attachments;
+mod behold;
+mod names;
+pub use names::resume_name;
 mod chosen;
 mod colors;
 mod control;
 mod copying;
+mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod counters;
 mod equalize;
@@ -62,8 +66,12 @@ mod piles;
 pub mod proliferate;
 pub mod tap_energy;
 use permissions::grant_play;
+mod graveyard_top;
 mod resume;
 mod search;
+mod search_group;
+mod shared_land;
+mod upgrade;
 
 pub use answers::*;
 pub use awaiting::*;
@@ -1053,6 +1061,10 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
     let pending = match op {
         Effect::SearchLibrary { .. }
         | Effect::SearchLibraryBeforeShuffle { .. }
+        | Effect::SearchSharedLandType
+        | Effect::SearchWithManaDifference { .. }
+        | Effect::TargetedGraveyardToTop
+        | Effect::EachPlayerSearchBeforeShuffle { .. }
         | Effect::Scry { .. }
         | Effect::Surveil { .. }
         | Effect::ScryFor { .. }
@@ -1069,6 +1081,10 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::MayPayEnergyOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::ChooseOne { .. }
+        | Effect::MayBehold { .. }
+        | Effect::ChooseCardName { .. }
+        | Effect::ChooseNumber { .. }
+        | Effect::DestroyWeakest { .. }
         | Effect::PlayerMayPayCostThen { .. }
         | Effect::PlayerMaySacrificeNOr { .. }
         | Effect::SacrificeAndIf { .. }

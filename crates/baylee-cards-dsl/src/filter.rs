@@ -64,6 +64,8 @@ pub enum Filter {
     /// carry now. `docs/card-identity.md` is normative on which handle may
     /// be stored where, and a name is the one that may not.
     Named(&'static str),
+    /// Has the name chosen for the source permanent.
+    NamedBySource,
     /// Is a token (Sheoldred's Edict: "creature token").
     IsToken,
     /// A spell or ability "with a single target" (Misdirection): chosen as

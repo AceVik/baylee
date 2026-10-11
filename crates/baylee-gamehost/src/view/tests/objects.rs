@@ -98,6 +98,7 @@ fn a_stack_entry_names_the_face_its_ability_was_taken_from() {
         sheoldred.index,
         index,
         baylee_engine::object::AbilityList {
+            acquisition: 0,
             token: None,
             abilities: sheoldred.abilities_for_face(1).into(),
             printed: Some(back),
@@ -146,6 +147,7 @@ fn a_copys_stack_entry_names_the_card_it_copied() {
         spark_double.index,
         index,
         baylee_engine::object::AbilityList {
+            acquisition: 0,
             token: None,
             abilities: solemn.abilities_for_face(0).into(),
             printed: PrintedFace::new(solemn.index, 0),
@@ -187,6 +189,7 @@ fn a_copys_stack_entry_names_the_card_it_copied() {
         spark_double.index,
         0,
         baylee_engine::object::AbilityList {
+            acquisition: 0,
             token: None,
             abilities: solemn.abilities_for_face(0).into(),
             printed: None,

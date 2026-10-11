@@ -21,7 +21,9 @@ pub(crate) fn refresh_after_departure(state: &mut GameState) {
         match question {
             Some(Question::Copy { .. }) => entry.copy = CopyStatus::Pending,
             Some(
-                Question::AcceptSacrifice { .. }
+                Question::Number
+                | Question::Shape { .. }
+                | Question::AcceptSacrifice { .. }
                 | Question::Sacrifice { .. }
                 | Question::SacrificeCount { .. }
                 | Question::Discard

@@ -23,7 +23,7 @@ card!(
         activated!(
             cost!("{1}{W}", TapSelf, SacrificeSelf),
             &[Effect::LookAtTopFind {
-                found: SearchDest::Hand,
+                found: Find::HAND,
                 count: 6,
                 filter: &Filter::Or(&[
                     Filter::HasSubtype(baylee_core::generated::subtypes::creature::BAT),

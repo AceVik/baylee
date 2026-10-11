@@ -412,7 +412,8 @@ impl<L: CardLookup> Engine<L> {
                     matches!(
                         res.awaiting,
                         Some(
-                            resolve::AwaitingOp::TapEnergy(_)
+                            resolve::AwaitingOp::ChooseNumber
+                                | resolve::AwaitingOp::TapEnergy(_)
                                 | resolve::AwaitingOp::Counters { .. }
                                 | resolve::AwaitingOp::DamagePayment { .. }
                                 | resolve::AwaitingOp::TextReplacement { .. }
@@ -1128,24 +1129,54 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (
-                Pending::ChooseCardName { player: p },
+                Pending::ChooseCardName { player: p, types },
                 PlayerAction::ChooseCardName { card, face },
             ) if *p == player => {
-                // Any face of any card the pool has (CR 201.4, 201.4b–f).
                 let printed = self
                     .lookup
                     .card(card)
-                    .is_some_and(|def| usize::from(face) < def.faces.len());
-                let Some(named) = crate::object::PrintedFace::new(card, face).filter(|_| printed)
+                    .and_then(|def| def.faces.get(usize::from(face)))
+                    .filter(|face| types.is_empty() || face.types.intersects(*types));
+                let Some((named, name)) =
+                    crate::object::PrintedFace::new(card, face).zip(printed.map(|face| face.name))
                 else {
-                    return Err(EngineError::IllegalAction("not a card name"));
+                    return Err(EngineError::IllegalAction("not an eligible card name"));
                 };
+                let resolving_name = self.resolution.as_ref().is_some_and(|res| {
+                    matches!(
+                        res.awaiting,
+                        Some(resolve::AwaitingOp::ChooseCardName { .. })
+                    )
+                });
+                if !resolving_name
+                    && !matches!(self.pending_plan, Some(PlanKind::ChooseCardName { .. }))
+                {
+                    return Err(EngineError::IllegalAction("no card-name choice pending"));
+                }
+                let name = self.state.names.intern(name);
+                if resolving_name {
+                    let mut res = self.resolution.take().expect("name choice suspended");
+                    match resolve::resume_name(&mut self.state, &mut res, named, name) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => self.finish_resolution(&res),
+                    }
+                    return Ok(());
+                }
                 let Some(PlanKind::ChooseCardName { object }) = self.pending_plan.take() else {
                     return Err(EngineError::IllegalAction("no card-name choice pending"));
                 };
                 if let Some(obj) = self.state.object_mut(object) {
-                    obj.chosen_name = Some(named);
+                    obj.remember_name(obj.rules_acquisition(), named, name);
                 }
+                self.state.invalidate_projections();
                 Ok(())
             }
             // Two questions wear one `Pending`. This arm is the entering

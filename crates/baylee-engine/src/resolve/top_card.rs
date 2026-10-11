@@ -8,6 +8,7 @@ pub(super) fn start(
     res: &mut Resolution,
     filter: &'static Filter,
     rest: LookRest,
+    then: &'static [Effect],
 ) -> Option<Pending> {
     let &card = state
         .zones
@@ -20,6 +21,7 @@ pub(super) fn start(
         looked: [card],
         rest,
         reveal: true,
+        then,
     });
     Some(Pending::ChooseCards {
         player: res.controller,
@@ -38,6 +40,7 @@ pub(super) fn take(
     looked: [ObjectId; 1],
     rest: LookRest,
     reveal: bool,
+    then: &'static [Effect],
 ) -> Option<Pending> {
     let card = looked[0];
     if !state
@@ -66,6 +69,7 @@ pub(super) fn take(
                     looked,
                     rest,
                     reveal: false,
+                    then,
                 }),
                 chosen: chosen.to_vec(),
                 asked,
@@ -74,6 +78,14 @@ pub(super) fn take(
             return Some(question);
         }
         put_found(state, res.controller, card, SearchDest::Hand);
+        if state
+            .zones
+            .list(ZoneLocation::Hand(res.controller))
+            .contains(&card)
+        {
+            let next = res.pc + 1;
+            res.effects.splice(next..next, then.iter().copied());
+        }
         return None;
     }
     if rest == LookRest::Keep {

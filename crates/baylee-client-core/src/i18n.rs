@@ -2158,6 +2158,8 @@ messages! {
     },
     /// A private library inspection is acknowledged without choosing a card.
     InspectLibrary { en: "Inspect the library cards, then confirm without selecting any.", de: "Sieh dir die Bibliothekskarten an und bestätige ohne Auswahl." },
+    /// Instructions for the optional reveal-or-choose action.
+    BeholdInstructions { en: "Choose a matching permanent you control or reveal a matching card from your hand. Confirm without a selection to decline.", de: "Wähle eine passende bleibende Karte unter deiner Kontrolle oder zeige eine passende Handkarte vor. Bestätige ohne Auswahl, um abzulehnen." },
     /// Private hand inspection.
     InspectHand {
         en: "Look at the hand, then confirm when finished",

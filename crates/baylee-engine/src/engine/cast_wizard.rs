@@ -2295,7 +2295,7 @@ impl<L: CardLookup> Engine<L> {
             _ => 0,
         };
         let abilities = def.abilities_for_face(face_index);
-        match wizard.option {
+        let mut req = match wizard.option {
             Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
                 AbilityDef::ModalSpell { modes, .. } => {
                     modes.get(i).and_then(|m: &SpellMode| m.second_targets)
@@ -2307,7 +2307,15 @@ impl<L: CardLookup> Engine<L> {
                 AbilityDef::Spell { second_targets, .. } => *second_targets,
                 _ => None,
             }),
+        }?;
+        if let TargetSpec::CardInFirstTargetsGraveyard(filter) = req.spec
+            && let Some(player) = wizard
+                .chosen_player
+                .or_else(|| wizard.target_players.iter().next())
+        {
+            req.spec = TargetSpec::CardInPlayersGraveyard(filter, player);
         }
+        Some(req)
     }
 
     fn wizard_pitch_filter(

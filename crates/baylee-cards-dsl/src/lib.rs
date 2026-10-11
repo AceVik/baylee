@@ -451,6 +451,15 @@ impl Default for FaceDef {
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum EnterModifier {
+    /// Choose and remember an inclusive bounded number before entry.
+    ChooseNumber {
+        /// Lowest permitted choice, inclusive.
+        min: u8,
+        /// Highest permitted choice, inclusive.
+        max: u8,
+    },
+    /// Choose copiable characteristic changes before entry.
+    ChooseShape(&'static [&'static [CopyMod]]),
     /// Sacrifice exactly these permanents before entry, or put this card in its owner's graveyard.
     SacrificeOrGraveyard {
         /// Permanents the entering controller may sacrifice.

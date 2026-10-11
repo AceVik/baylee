@@ -83,6 +83,7 @@ fn stack_target_projection_keeps_both_groups_and_historical_identity() {
             .object_mut(first)
             .unwrap()
             .take_abilities(baylee_engine::object::AbilityList {
+                acquisition: 0,
                 abilities: baylee_engine::copiable_abilities::AbilityDefs::Static(&[]),
                 printed: PrintedFace::new(copied, 0),
                 token: None,
@@ -359,6 +360,7 @@ fn historical_source_alone_entitles_a_new_seat_to_its_print_and_copied_rules() {
         .object_mut(source_id)
         .unwrap()
         .take_abilities(baylee_engine::object::AbilityList {
+            acquisition: 0,
             abilities: baylee_engine::copiable_abilities::AbilityDefs::Static(&[]),
             printed: PrintedFace::new(copied, 0),
             token: None,

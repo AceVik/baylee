@@ -145,6 +145,10 @@ pub enum TargetSpec {
     StackOrBattlefield(&'static Filter),
     /// A card in a graveyard matching the filter.
     CardInGraveyard(&'static Filter, PlayerRel),
+    /// A second target group, restricted to the first targeted player's graveyard.
+    CardInFirstTargetsGraveyard(&'static Filter),
+    /// Captured graveyard owner for the preceding dependent target requirement.
+    CardInPlayersGraveyard(&'static Filter, baylee_core::ids::PlayerId),
     /// A graveyard card below the triggering permanent's last battlefield
     /// mana value. The engine binds this before offering targets.
     CardInGraveyardBelowEvent(&'static Filter, PlayerRel),

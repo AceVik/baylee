@@ -209,6 +209,9 @@ impl AbilityOrigin {
 /// instead, and whatever it later writes onto an object carries both.
 #[derive(Clone, Debug)]
 pub struct AbilityList {
+    /// Acquisition of this rules text; linked choices do not cross new copies.
+    /// Zero denotes the object's original printed abilities.
+    pub acquisition: u64,
     /// What the object can do.
     pub abilities: AbilityDefs,
     /// The primary copied face; individual composed entries may differ.
@@ -221,6 +224,7 @@ pub struct AbilityList {
 impl AbilityList {
     /// No abilities, printed nowhere — what an object that is gone has.
     pub const NONE: Self = Self {
+        acquisition: 0,
         abilities: AbilityDefs::EMPTY,
         printed: None,
         token: None,
@@ -824,9 +828,7 @@ pub enum Rider {
     ExiledWith {
         /// The object the card was exiled with.
         host: ObjectId,
-        /// Its version at the time, in sixteen bits ([`Rider::version_of`]):
-        /// a rider is eight bytes, and a `u32` here made every object's
-        /// inline rider list eight bytes longer (`tests/footprint.rs`).
+        /// Its version at the time, in sixteen bits ([`Rider::version_of`]).
         version: u16,
     },
     /// Rebound: cast from hand, may be cast again at the next upkeep.
@@ -900,6 +902,24 @@ pub enum Rider {
     ExhaustedAbility(u32),
     /// Count sacrificed as this particular incarnation entered.
     EntrySacrifices(u32),
+    /// Last number chosen for this permanent incarnation (not a copiable value).
+    ChosenNumber {
+        /// Linked ability acquisition that owns this value.
+        acquisition: u64,
+        /// Chosen bounded integer.
+        number: u8,
+    },
+    /// Name remembered by one acquisition of this permanent's linked abilities.
+    ChosenName {
+        /// Rules acquisition making the choice (CR 607.5).
+        acquisition: u64,
+        /// Displayable Oracle face.
+        printed: PrintedFace,
+        /// Interned rules name.
+        name: baylee_core::ids::NameRef,
+    },
+    /// Current copied rules acquisition, sparse so ordinary objects stay small.
+    RulesAcquisition(u64),
     /// Copy entry replacement already considered before this incarnation arrived.
     EntryCopyApplied,
 }
@@ -908,9 +928,7 @@ pub enum Rider {
 /// it: `baylee_cards_dsl::ExileUntil` with the player the sentence is about
 /// written down at the moment of the exile.
 ///
-/// Two bytes, so that the rider it rides in stays as small as it was: two
-/// riders sit inline in every object (`RiderSet`), and `GameObject` has a
-/// size budget (`tests/footprint.rs`). That is why the host leaving is
+/// Two bytes. The host leaving is
 /// caught as it happens ([`crate::state::GameState::move_object`]) rather
 /// than recognised later by a stored version of the host.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -964,6 +982,9 @@ impl Rider {
             Self::GrantedActivated
             | Self::ExhaustedAbility(_)
             | Self::EntrySacrifices(_)
+            | Self::ChosenNumber { .. }
+            | Self::ChosenName { .. }
+            | Self::RulesAcquisition(_)
             | Self::EntryCopyApplied
             | Self::EventObjectIdentity(..)
             | Self::AbilitySourceVersion(_)
@@ -998,8 +1019,11 @@ impl Rider {
     }
 }
 
-/// Riders attached to an object.
-pub type RiderSet = SmallVec<[Rider; 2]>;
+/// Sparse riders attached to an object. Linked choices carry full-width
+/// acquisition stamps, so two inline riders would add 32 bytes to *every*
+/// object. A vector allocates only for objects that actually have riders and
+/// keeps the ordinary object within its 296-byte budget (`tests/footprint.rs`).
+pub type RiderSet = Vec<Rider>;
 
 /// The targets chosen for a **second** instance of the word "target"
 /// (CR 115.3) — `second_targets` on the ability that is on the stack — and
@@ -1553,6 +1577,7 @@ impl GameObject {
     pub fn ability_list(&self, lookup: &impl crate::state::CardLookup) -> AbilityList {
         AbilityList {
             abilities: self.abilities(lookup),
+            acquisition: self.rules_acquisition(),
             printed: self.printed_face(),
             token: self.ability_token(lookup),
         }
@@ -1566,6 +1591,7 @@ impl GameObject {
     pub fn printed_ability_list(&self, lookup: &impl crate::state::CardLookup) -> AbilityList {
         AbilityList {
             abilities: self.printed_abilities(lookup),
+            acquisition: self.rules_acquisition(),
             printed: self.printed_face(),
             token: self.ability_token(lookup),
         }
@@ -1589,8 +1615,14 @@ impl GameObject {
 
     /// Makes `list` this object's own abilities, and its face with it.
     pub fn take_abilities(&mut self, list: AbilityList) {
+        self.riders
+            .retain(|rider| !matches!(rider, Rider::RulesAcquisition(_)));
+        if list.acquisition != 0 {
+            self.riders.push(Rider::RulesAcquisition(list.acquisition));
+        }
         self.own_origin = AbilityOrigin::new(list.printed, list.token);
         self.own_abilities = Some(list.into_bundle());
+        self.refresh_chosen_name();
     }
 
     /// Gives up a list of the object's own, so the card underneath answers
@@ -1598,6 +1630,49 @@ impl GameObject {
     pub fn drop_own_abilities(&mut self) {
         self.own_abilities = None;
         self.own_origin = None;
+        self.riders
+            .retain(|rider| !matches!(rider, Rider::RulesAcquisition(_)));
+        self.refresh_chosen_name();
+    }
+
+    /// Identity of the currently acquired rules, retained on stacked abilities.
+    #[must_use]
+    pub fn rules_acquisition(&self) -> u64 {
+        self.riders
+            .iter()
+            .find_map(|rider| match rider {
+                Rider::RulesAcquisition(acquisition) => Some(*acquisition),
+                _ => None,
+            })
+            .unwrap_or(0)
+    }
+
+    /// Store a linked choice without overwriting one an older copy still owns.
+    pub(crate) fn remember_name(
+        &mut self,
+        acquisition: u64,
+        printed: PrintedFace,
+        name: baylee_core::ids::NameRef,
+    ) {
+        self.riders.retain(|rider| !matches!(rider, Rider::ChosenName { acquisition: previous, .. } if *previous == acquisition));
+        self.riders.push(Rider::ChosenName {
+            acquisition,
+            printed,
+            name,
+        });
+        self.refresh_chosen_name();
+    }
+
+    fn refresh_chosen_name(&mut self) {
+        let current = self.rules_acquisition();
+        self.chosen_name = self.riders.iter().find_map(|rider| match rider {
+            Rider::ChosenName {
+                acquisition,
+                printed,
+                ..
+            } if *acquisition == current => Some(*printed),
+            _ => None,
+        });
     }
 
     /// The abilities this object actually has, whatever it is.

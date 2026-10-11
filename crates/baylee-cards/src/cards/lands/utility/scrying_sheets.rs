@@ -23,7 +23,8 @@ card!(
             cost!("{1}{S}", TapSelf),
             &[Effect::LookAtTopMayTake {
                 filter: &Filter::HasSupertype(SupertypeSet::SNOW),
-                rest: LookRest::Keep
+                rest: LookRest::Keep,
+                then: &[],
             }]
         ),
     ],

@@ -19,7 +19,8 @@ card!(
             cost!("{2}", TapSelf),
             &[Effect::LookAtTopMayTake {
                 filter: &Filter::INSTANT_OR_SORCERY,
-                rest: LookRest::MayGraveyard
+                rest: LookRest::MayGraveyard,
+                then: &[],
             }],
             condition = Some(Condition::Any(&[
                 Condition::HandSizeExactly(0),

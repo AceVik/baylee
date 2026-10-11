@@ -5,13 +5,12 @@ use super::*;
 
 /// Field of Ruin prints `{{T}}: Add {{C}}.` and `{{2}}, {{T}}, Sacrifice this land: Destroy target nonbasic land an opponent controls. Each player searches their library for a basic land card, puts it onto the battlefield, then shuffles.`
 ///
-/// Under `Coverage::Partial`, the destroy clause is implemented while the each-player search is omitted.
 /// With `{{2}}` floating from two `forest()` lands, Field of Ruin untapped, and an opponent controlling
 /// both `badlands()` and `forest()`, ability 1 targets only the opponent's nonbasic land.
 /// After choosing the target, the sacrifice and mana costs are paid, `badlands()` is destroyed,
-/// and no search is prompted, leaving both libraries at 60 cards.
+/// and each player finds an untapped basic land.
 #[test]
-fn field_of_ruin_destroys_opponent_nonbasic_land_and_omits_search() {
+fn field_of_ruin_destroys_opponent_nonbasic_land_and_each_player_searches() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
@@ -73,6 +72,18 @@ fn field_of_ruin_destroys_opponent_nonbasic_land_and_omits_search() {
     );
     assert_eq!(engine.state().players[0].mana_pool.total(), 0);
 
+    for player in [p0, p1] {
+        pass_until(
+            &mut engine,
+            crate::engine::card_tests::library_choices::searched,
+        );
+        assert_eq!(engine.pending().asked(), Some(player));
+        let Pending::ChooseCards { options, .. } = engine.pending() else {
+            unreachable!()
+        };
+        let found = options[0];
+        crate::engine::card_tests::library_choices::choose(&mut engine, vec![found]);
+    }
     pass_until(&mut engine, stack_is_empty);
 
     assert!(
@@ -84,7 +95,7 @@ fn field_of_ruin_destroys_opponent_nonbasic_land_and_omits_search() {
         "opponent's forest remains"
     );
 
-    // Under `Coverage::Partial`, the each-player library search is omitted.
-    assert_eq!(library_size(&engine, p0), 60);
-    assert_eq!(library_size(&engine, p1), 60);
+    // Each search found one basic land.
+    assert_eq!(library_size(&engine, p0), 59);
+    assert_eq!(library_size(&engine, p1), 59);
 }

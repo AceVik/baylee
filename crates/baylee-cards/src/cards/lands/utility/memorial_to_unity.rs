@@ -24,7 +24,7 @@ card!(
         activated!(
             cost!("{2}{G}", TapSelf, SacrificeSelf),
             &[Effect::LookAtTopFind {
-                found: SearchDest::Hand,
+                found: Find::HAND,
                 count: 5,
                 filter: &Filter::CREATURE,
                 random: true

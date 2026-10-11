@@ -3,19 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Sidequest: Catch a Fish` // `Cooking Campsite` (`Coverage::Partial`):
-/// "At the beginning of your upkeep, look at the top card of your library. If it's an artifact or
-/// creature card, you may reveal it and put it into your hand. If you put a card into your hand
-/// this way, create a Food token and transform this enchantment. // `{{T}}`: Add `{{W}}`. `{{3}}`, `{{T}}`,
-/// Sacrifice an artifact: Put a +1/+1 counter on each creature you control. Activate only as a sorcery."
-///
-/// Under `Coverage::Partial`, the front-face upkeep reveal-and-transform trigger is omitted,
-/// leaving the front face as a `{{2}}{{W}}` enchantment with no abilities. The test casts
-/// `Sidequest: Catch a Fish` from hand, confirms it enters as an enchantment on face 0, verifies
-/// that with floating mana `LegalActions::abilities` offers no activated abilities on it, and
-/// advances to the following turn's upkeep and main phase confirming no trigger fires and it remains on face 0.
+/// The upkeep looks even when a land is on top: acknowledging that private
+/// information leaves the front face unchanged and adds no card to hand.
 #[test]
-fn sidequest_catch_a_fish_casts_and_enters_as_enchantment_without_upkeep_trigger() {
+fn sidequest_catch_a_fish_looks_at_an_ineligible_land_without_transforming() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(108, plains())
         .battlefield(0, &[plains(), plains(), plains(), plains()])
@@ -53,13 +44,27 @@ fn sidequest_catch_a_fish_casts_and_enters_as_enchantment_without_upkeep_trigger
     );
 
     reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::PutIntoHand,
+                ..
+            }
+        )
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Main
+    });
 
     assert_eq!(
         library_size(&engine, p0),
         lib_before - 1,
         "two turns pass, so p0 draws once for its own draw step (CR 504.1) — \
-         and under `Coverage::Partial` the upkeep trigger adds no second card"
+         the ineligible top land does not add another draw"
     );
     assert_eq!(
         engine.state().object(quest).map(|o| o.face_index),

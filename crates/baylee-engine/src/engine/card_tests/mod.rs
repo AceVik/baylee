@@ -25,6 +25,7 @@
 mod activation_cost_bounds;
 mod alpha_completion_review;
 mod artifacts;
+mod batch43;
 mod counted_activation_costs;
 mod counter_movement;
 mod counter_resources;
@@ -37,6 +38,7 @@ mod lands;
 mod legends_ids;
 mod legends_kit;
 mod library_choices;
+mod library_followups;
 mod planeswalkers;
 mod radiation;
 mod rules;

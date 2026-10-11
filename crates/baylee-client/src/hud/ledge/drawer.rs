@@ -866,7 +866,7 @@ fn reading(
             !waiting
                 && matches!(
                     i.prompt(),
-                    Prompt::ChooseSubtype { .. } | Prompt::ChooseCardName
+                    Prompt::ChooseSubtype { .. } | Prompt::ChooseCardName { .. }
                 )
         })
         .map(|_| duel.subtype_filter.clone());
@@ -1284,7 +1284,9 @@ const fn pick_hint(prompt: &Prompt) -> Option<Phrase> {
         // is already private — `Interaction::selectable` is empty for both.
         Prompt::Discard { .. } | Prompt::BottomCards { .. } => Some(Phrase::HintClickHand),
         Prompt::ChooseCards { .. } | Prompt::LegendRule => Some(Phrase::HintClickBoard),
-        Prompt::ChooseSubtype { .. } | Prompt::ChooseCardName => Some(Phrase::HintTypeToFilter),
+        Prompt::ChooseSubtype { .. } | Prompt::ChooseCardName { .. } => {
+            Some(Phrase::HintTypeToFilter)
+        }
         _ => None,
     }
 }

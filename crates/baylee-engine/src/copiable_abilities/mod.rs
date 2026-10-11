@@ -240,6 +240,7 @@ pub fn compose(
 ) -> AbilityList {
     let printed = copied.printed;
     let token = copied.token;
+    let acquisition = copied.acquisition;
     let AbilityBundle {
         mut entries,
         mut runtime_statics,
@@ -272,6 +273,7 @@ pub fn compose(
         }
     }
     AbilityList {
+        acquisition,
         abilities: AbilityDefs::Shared(Arc::new(AbilityBundle {
             entries,
             runtime_statics,
@@ -293,7 +295,7 @@ fn overridden_characteristic_ability(ability: &AbilityDef, mods: &[CopyMod]) -> 
         Modifier::SetColor(_) | Modifier::AddColor(_) => mods
             .iter()
             .any(|modifier| matches!(modifier, CopyMod::KeepColor | CopyMod::SetColor(_))),
-        Modifier::CharacteristicPT { .. } => mods
+        Modifier::CharacteristicPT { .. } | Modifier::CharacteristicPTSeparate { .. } => mods
             .iter()
             .any(|modifier| matches!(modifier, CopyMod::SetPT(_, _))),
         _ => false,
@@ -310,6 +312,7 @@ impl AbilityList {
     ) -> Self {
         Self {
             abilities: AbilityDefs::Static(abilities),
+            acquisition: 0,
             printed,
             token,
         }
@@ -582,7 +585,14 @@ pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplicat
     let mut base = (*target_base).clone();
     apply_characteristic_exceptions_with_text(&mut base, &previous, mods, text);
     let became = base.types;
-    let abilities = compose(copied, &own, copy_index, mods, resolving);
+    let mut abilities = compose(copied, &own, copy_index, mods, resolving);
+    // Primal Clay's self-shaped characteristics keep their existing rules.
+    // Every actual copy acquires a fresh linked-ability set (CR 607.5).
+    abilities.acquisition = if source == target && copy_index == u32::MAX {
+        own.acquisition
+    } else {
+        state.next_timestamp()
+    };
     let base = Arc::new(base);
     let Some(object) = state.object_mut(source) else {
         return false;

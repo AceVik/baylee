@@ -89,6 +89,9 @@ const CAST_FACE: usize = 0;
 /// trigger.
 fn cast_card(names: FaceNames<'_>, object: ObjectId) -> Option<CardIndex> {
     let view = names.view?;
+    if let Some(rules) = view.object(object).and_then(|object| object.rules) {
+        return Some(rules.card);
+    }
     baylee_client_core::decision::known_cards(view)
         .find(|c| c.id == object)
         .map(|c| c.card)
@@ -721,7 +724,7 @@ pub fn options(
                 })
                 .collect(),
         ),
-        Prompt::ChooseCardName => Some(card_name_rows(filter)),
+        Prompt::ChooseCardName { types } => Some(card_name_rows(filter, *types)),
         _ => None,
     }
 }
@@ -733,7 +736,7 @@ pub fn options(
 /// One door for every press, key and click alike, so a row can only ever
 /// answer what it says. Returns `false` when the row answers nothing.
 pub fn pick(interaction: &mut Interaction, index: usize) -> bool {
-    if matches!(interaction.prompt(), Prompt::ChooseCardName) {
+    if matches!(interaction.prompt(), Prompt::ChooseCardName { .. }) {
         return card_name_at(index)
             .is_some_and(|(card, face)| interaction.choose_card_name(card, face));
     }
@@ -754,6 +757,7 @@ struct NamedRow {
     card: CardIndex,
     face: u8,
     name: &'static str,
+    types: baylee_core::types::TypeSet,
     /// The name as it is matched, lower-cased once.
     lower: String,
 }
@@ -775,6 +779,7 @@ fn card_names() -> &'static [NamedRow] {
                             card: def.index,
                             face: u8::try_from(face).ok()?,
                             name: printed.name,
+                            types: printed.types,
                             lower: printed.name.to_lowercase(),
                         })
                     })
@@ -809,7 +814,7 @@ fn card_name_row(card: CardIndex, face: u8) -> Option<usize> {
 /// Needle, and a prefix match alone would never offer it. In the pool's
 /// English, which is the name's identity in the rules and the one every
 /// client has; nothing is matched inside a word.
-fn card_name_rows(filter: &str) -> Vec<ChoiceOption> {
+fn card_name_rows(filter: &str, types: baylee_core::types::TypeSet) -> Vec<ChoiceOption> {
     let needle = filter.trim().to_lowercase();
     let word_start = |lower: &str| {
         lower
@@ -820,6 +825,9 @@ fn card_name_rows(filter: &str) -> Vec<ChoiceOption> {
         .iter()
         .enumerate()
         .filter_map(|(i, row)| {
+            if !types.is_empty() && !row.types.intersects(types) {
+                return None;
+            }
             let first = row.lower.starts_with(&needle);
             (first || word_start(&row.lower))
                 .then(|| (!first, ChoiceOption::text(i, row.name.to_string())))
@@ -1558,7 +1566,9 @@ mod tests {
     fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
         let needle = baylee_cards::decks::by_name("Pithing Needle").expect("in the pool");
         let rows = options(
-            &Prompt::ChooseCardName,
+            &Prompt::ChooseCardName {
+                types: baylee_core::types::TypeSet::EMPTY,
+            },
             Lang::En,
             None,
             "needle",
@@ -1573,6 +1583,7 @@ mod tests {
         assert!(rows.len() <= SUBTYPE_ROWS);
 
         let pending = baylee_engine::choice::Pending::ChooseCardName {
+            types: baylee_core::types::TypeSet::EMPTY,
             player: baylee_core::ids::PlayerId::new(0),
         };
         let mut interaction = Interaction::new(pending, baylee_core::ids::PlayerId::new(0));
@@ -1596,18 +1607,18 @@ mod tests {
     #[test]
     fn a_back_face_is_named_and_a_leading_match_comes_first() {
         let rebirth = baylee_cards::decks::by_name("Malakir Rebirth").expect("in the pool");
-        let rows = card_name_rows("malakir mire");
+        let rows = card_name_rows("malakir mire", baylee_core::types::TypeSet::EMPTY);
         assert_eq!(
             rows.first().and_then(|row| card_name_at(row.index)),
             Some((rebirth, 1)),
             "Malakir Mire is the back of Malakir Rebirth"
         );
-        let rows = card_name_rows("pith");
+        let rows = card_name_rows("pith", baylee_core::types::TypeSet::EMPTY);
         assert_eq!(
             rows.first().map(|row| row.label.as_str()),
             Some("Pithing Needle")
         );
-        assert!(card_name_rows("zzzzqq").is_empty());
+        assert!(card_name_rows("zzzzqq", baylee_core::types::TypeSet::EMPTY).is_empty());
     }
 
     #[test]
@@ -1625,6 +1636,50 @@ mod tests {
         assert!(
             rows.is_empty(),
             "nothing may be pickable that does not match"
+        );
+    }
+
+    #[test]
+    fn a_land_name_choice_preserves_the_catalog_index() {
+        use baylee_core::types::TypeSet;
+        assert!(card_name_rows("sol ring", TypeSet::LAND).is_empty());
+        let rows = card_name_rows("wasteland", TypeSet::LAND);
+        let row = rows.iter().find(|row| row.label == "Wasteland").unwrap();
+        assert_eq!(
+            card_name_at(row.index),
+            Some((baylee_core::generated::index::WASTELAND, 0))
+        );
+    }
+
+    #[test]
+    fn primal_clay_forms_have_descriptive_labels() {
+        let (view, texts, object) = asking_about(
+            "dccf2ca8-8c87-41c9-8373-351859396d05",
+            "en",
+            "As this creature enters, it becomes your choice of a 3/3 artifact creature, a 2/2 artifact creature with flying, or a 1/6 Wall artifact creature with defender in addition to its other types.",
+        );
+        let rows = cast_rows(
+            object,
+            &[
+                CastModeKind::Mode(0),
+                CastModeKind::Mode(1),
+                CastModeKind::Mode(2),
+            ],
+            FaceNames {
+                view: Some(&view),
+                texts: Some(&texts),
+            },
+            Lang::En,
+        );
+        assert_eq!(
+            rows.iter()
+                .map(|row| row.label.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "3/3 artifact creature",
+                "2/2 artifact creature with flying",
+                "1/6 Wall artifact creature with defender",
+            ]
         );
     }
 

@@ -2504,6 +2504,9 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
 /// filter, here in the modifier.
 fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> bool {
     use baylee_cards_dsl::Modifier;
+    if let Modifier::CharacteristicPTSeparate { power, toughness } = modifier {
+        return pt_count_reads_combat(power) || pt_count_reads_combat(toughness);
+    }
     let (Modifier::CharacteristicPT { count, .. }
     | Modifier::SetPTToCount(count)
     | Modifier::ModifyPTByCount(count)
@@ -2517,14 +2520,17 @@ fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> bool {
 fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
     use baylee_cards_dsl::PtCount;
     match count {
-        PtCount::Plus { base, .. } => pt_count_reads_combat(*base),
+        PtCount::Plus { base, .. } | PtCount::Complement { count: base, .. } => {
+            pt_count_reads_combat(*base)
+        }
         PtCount::DefendingPlayerControls(_) => true,
         PtCount::DistinctColorsAmong(_)
         | PtCount::YouControl(_)
         | PtCount::OnBattlefield(_)
         | PtCount::CardTypesInAllGraveyards
         | PtCount::ExiledWithThis
-        | PtCount::EntrySacrifices => false,
+        | PtCount::EntrySacrifices
+        | PtCount::ChosenNumber => false,
     }
 }
 
@@ -2545,6 +2551,7 @@ fn printed_pt_cda(def: &CardDef) -> Option<baylee_cards_dsl::Modifier> {
                     && matches!(
                         sa.modifier,
                         baylee_cards_dsl::Modifier::CharacteristicPT { .. }
+                            | baylee_cards_dsl::Modifier::CharacteristicPTSeparate { .. }
                     ) =>
             {
                 Some(sa.modifier)

@@ -230,7 +230,10 @@ pub enum Prompt {
     /// the pool is the list, and a renderer that links the card pool offers
     /// it narrowed by what the player types. The model hears which card and
     /// face was picked ([`Interaction::choose_card_name`]).
-    ChooseCardName,
+    ChooseCardName {
+        /// Eligible printed card types; empty means unrestricted.
+        types: baylee_core::types::TypeSet,
+    },
     /// Choose a colour.
     ChooseColor {
         /// The allowed colours.
@@ -530,7 +533,7 @@ impl Prompt {
                 Phrase::ChooseBasicLandType.text(lang).to_string()
             }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
-            Self::ChooseCardName => Phrase::ChooseCardName.text(lang).to_string(),
+            Self::ChooseCardName { .. } => Phrase::ChooseCardName.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
             Self::ChooseNumber { min, max, reason } => {
                 number_line(lang, *min, *max, *reason, &name)
@@ -876,7 +879,8 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounCardsFromGraveyard,
         ),
         ChoicePrompt::NewHost { .. } => (Phrase::NounNewHostFor, Phrase::NounNewHostsFor),
-        ChoicePrompt::LookAtLibrary
+        ChoicePrompt::Behold
+        | ChoicePrompt::LookAtLibrary
         | ChoicePrompt::LookAtHand
         | ChoicePrompt::Delve
         | ChoicePrompt::OneOfType { .. }
@@ -914,6 +918,9 @@ fn cards_line(
     }
     if reason == ChoicePrompt::LookAtLibrary {
         return Phrase::InspectLibrary.text(lang).to_owned();
+    }
+    if reason == ChoicePrompt::Behold {
+        return Phrase::BeholdInstructions.text(lang).to_owned();
     }
     if reason == ChoicePrompt::LookAtHand {
         return Phrase::InspectHand.text(lang).to_owned();
@@ -1079,7 +1086,7 @@ fn number_line(
                 |target| Phrase::ChooseCountersNamed.fill(lang, &[&label, &target, &min, &max]),
             )
         }
-        NumberPrompt::X => Phrase::ChooseNumberIn.fill(lang, &[&min, &max]),
+        NumberPrompt::X | NumberPrompt::Choice => Phrase::ChooseNumberIn.fill(lang, &[&min, &max]),
         NumberPrompt::ManaPayment { preventable_damage } => {
             Phrase::ChooseManaPayment.fill(lang, &[&min, &max, &preventable_damage.to_string()])
         }
@@ -1689,7 +1696,7 @@ impl Interaction {
             Pending::ChooseSubtype { options, .. } => Prompt::ChooseSubtype {
                 options: options.clone(),
             },
-            Pending::ChooseCardName { .. } => Prompt::ChooseCardName,
+            Pending::ChooseCardName { types, .. } => Prompt::ChooseCardName { types: *types },
             Pending::ChooseColor { options, .. } => Prompt::ChooseColor {
                 options: options.clone(),
             },
@@ -2802,7 +2809,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseCards { player, .. }
         | Pending::ChooseTargets { player, .. }
         | Pending::ChooseSubtype { player, .. }
-        | Pending::ChooseCardName { player }
+        | Pending::ChooseCardName { player, .. }
         | Pending::ChooseColor { player, .. }
         | Pending::ChooseManaAbility { player, .. }
         | Pending::ChooseDamageSource { player, .. }

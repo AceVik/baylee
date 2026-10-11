@@ -12,6 +12,9 @@ use baylee_core::ids::DamageSourceRef;
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
     followed: Vec<DamageSourceRef>,
+    /// Exact future/current battlefield incarnations from the latest search.
+    pub(super) found: Vec<DamageSourceRef>,
+    pub(super) named: Option<(crate::object::PrintedFace, baylee_core::ids::NameRef)>,
     pub(super) sacrificed: Option<crate::object::SacrificedLki>,
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
 }
@@ -20,6 +23,8 @@ impl SubjectContext {
     pub(crate) fn after_cost(paid: &crate::object::PaidRecord) -> Self {
         Self {
             followed: paid.source_after_cost.into_iter().collect(),
+            found: Vec::new(),
+            named: None,
             sacrificed: paid.sacrificed_lki,
             checkpoint: None,
         }
@@ -36,6 +41,17 @@ impl SubjectContext {
                 .wrapping_add(u64::from(r.object.generation()));
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.version));
         }
+        h = h.wrapping_mul(31).wrapping_add(self.found.len() as u64);
+        for r in &self.found {
+            h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(r.object.generation()));
+            h = h.wrapping_mul(31).wrapping_add(u64::from(r.version));
+        }
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.named));
         // Checkpoints exist only during synchronous resume calls. Every
         // public resume wrapper flushes before returning a held resolution.
         debug_assert!(self.checkpoint.is_none());

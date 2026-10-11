@@ -27,7 +27,7 @@ card!(
         activated!(
             cost!("{2}{W}{W}", TapSelf),
             &[Effect::LookAtTopFind {
-                found: SearchDest::Hand,
+                found: Find::HAND,
                 count: 5,
                 filter: &Filter::Or(&[
                     Filter::ARTIFACT,

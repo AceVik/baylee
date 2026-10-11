@@ -21,6 +21,28 @@ fn before_next_entry(state: &mut GameState) -> Option<Pending> {
     equilibrium::entry_order(state)
 }
 
+fn accept_sacrifice(
+    state: &mut GameState,
+    entry: Attempt,
+    options: Vec<ObjectId>,
+    count: u8,
+) -> Pending {
+    let player = entry.controller;
+    ask(
+        state,
+        entry,
+        Question::AcceptSacrifice {
+            options,
+            count: u32::from(count),
+        },
+        Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::SacrificeToEnter { count },
+            source: None,
+        },
+    )
+}
+
 /// Run entry work until all moves have completed or a player must decide.
 pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
     'entries: loop {
@@ -50,26 +72,20 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
             while let Some(&modifier) = entry.modifiers.get(entry.next) {
                 entry.next += 1;
                 let player = entry.controller;
+                if let Some((question, pending)) = super::forms::question(&entry, modifier) {
+                    return Some(ask(state, entry, question, pending));
+                }
                 match modifier {
+                    EnterModifier::ChooseNumber { .. } | EnterModifier::ChooseShape(_) => {
+                        unreachable!("handled entry form")
+                    }
                     EnterModifier::SacrificeOrGraveyard { filter, count } => {
                         let options = options(state, &entry, filter, false);
                         if options.len() < usize::from(count) {
                             entry.denied = true;
                             break;
                         }
-                        return Some(ask(
-                            state,
-                            entry,
-                            Question::AcceptSacrifice {
-                                options,
-                                count: u32::from(count),
-                            },
-                            Pending::YesNo {
-                                player,
-                                prompt: YesNoPrompt::SacrificeToEnter { count },
-                                source: None,
-                            },
-                        ));
+                        return Some(accept_sacrifice(state, entry, options, count));
                     }
                     EnterModifier::DiscardOrGraveyard(filter) => {
                         let options = options(state, &entry, filter, true);
@@ -138,6 +154,9 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
         crate::graveyard_order::answer(state, piles.first().map_or(&[], Vec::as_slice));
         return;
     }
+    if super::forms::answer(state, &question, action) {
+        return;
+    }
     if let Question::Copy {
         index,
         mods,
@@ -153,6 +172,9 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
         .pop_front()
         .expect("entry continuation");
     match (question, action) {
+        (Question::Number, PlayerAction::ChooseNumber(number)) => {
+            entry.chosen_number = Some(u8::try_from(*number).expect("bounded choice"));
+        }
         (Question::AcceptSacrifice { options, count }, PlayerAction::YesNo(accept)) => {
             if *accept {
                 select(state, entry, options, count, Vec::new());

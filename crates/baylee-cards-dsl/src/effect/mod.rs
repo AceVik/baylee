@@ -120,6 +120,8 @@ pub enum Effect {
         filter: &'static Filter,
         /// Treatment of a card not put into the hand.
         rest: LookRest,
+        /// Instructions after the inspected card actually reaches your hand.
+        then: &'static [Effect],
     },
     /// Choose one of your commanders currently in the command zone for your hand.
     CommanderToHand,
@@ -369,7 +371,7 @@ pub enum Effect {
     /// then put the rest on the bottom in the stated order.
     LookAtTopFind {
         /// Destination for the selected card.
-        found: SearchDest,
+        found: Find,
         /// Number of cards inspected.
         count: u8,
         /// What the revealed card must match.
@@ -950,6 +952,48 @@ pub enum Effect {
     /// Ridgeline and Song-Mad Treachery untap *something else* without
     /// targeting it, which is a different effect and not this one.)
     UntapSelf,
+    /// Untap the exact battlefield incarnations put there by this resolution's
+    /// most recent library search. Failed or replaced searches leave none.
+    UntapFound,
+    /// Choose an Oracle card name during resolution.
+    ChooseCardName {
+        /// Player who names the card.
+        player: PlayerRel,
+        /// Required printed types; empty permits any card name.
+        types: TypeSet,
+        /// Retain the choice on the source permanent for its linked abilities.
+        remember: bool,
+    },
+    /// Reveal the named player's top card and move it according to its name.
+    RevealTopByName {
+        /// Library inspected and recipient of a matching card.
+        player: PlayerRel,
+        /// Destination of a card with the previously chosen name.
+        matched: SearchDest,
+        /// Destination of a card with a different name.
+        otherwise: SearchDest,
+    },
+    /// Reveal random hand cards, then discard those with the chosen name.
+    RevealRandomDiscardNamed {
+        /// Player whose hand is sampled.
+        player: PlayerRel,
+        /// Maximum number revealed, sampled without replacement.
+        count: Amount,
+    },
+    /// Choose and remember a number on the source permanent's current incarnation.
+    ChooseNumber {
+        /// Lowest permitted choice, inclusive.
+        min: u8,
+        /// Highest permitted choice, inclusive.
+        max: u8,
+    },
+    /// Destroy one matching creature with minimum power, chosen without targeting.
+    DestroyWeakest {
+        /// Creatures compared at resolution.
+        filter: &'static Filter,
+        /// Ignore regeneration shields.
+        no_regen: bool,
+    },
     /// Exile each target; return it to the battlefield under its owner's
     /// control at the beginning of the next end step (Venser +2).
     ExileAndReturnAtEndStep,
@@ -1370,6 +1414,14 @@ pub enum Effect {
         /// What happens on a yes.
         effects: &'static [Effect],
     },
+    /// Optionally behold a matching permanent you control or a matching card
+    /// in your hand (CR 701.4), then perform the supplied instructions.
+    MayBehold {
+        /// The quality of the card or permanent to behold.
+        filter: &'static Filter,
+        /// Instructions performed only after a successful behold.
+        then: &'static [Effect],
+    },
     /// "You may …. Do this only once each turn." (The Reaper, King No More.)
     ///
     /// The ability still triggers every time; what is limited is the
@@ -1625,6 +1677,26 @@ pub enum Effect {
         finds: &'static [Find],
         /// Whether you may find fewer than `finds.len()` ("up to", "you may").
         optional: bool,
+    },
+    /// Find up to two basic lands sharing a land subtype, enter them tapped,
+    /// then shuffle. A single basic land may be found by itself.
+    SearchSharedLandType,
+    /// Search for one card, put it onto the battlefield if its mana value is
+    /// at most `value`, otherwise offer the generic difference and put it in
+    /// its owner's graveyard if unpaid. Follow with an explicit shuffle.
+    SearchWithManaDifference {
+        /// Search quality.
+        filter: &'static Filter,
+        /// Mana value of the previously sacrificed object.
+        value: Amount,
+    },
+    /// Each living player searches their own library for one matching card.
+    /// Choices precede every placement (APNAP); an explicit shuffle follows.
+    EachPlayerSearchBeforeShuffle {
+        /// Required quality; finding no card is permitted in a hidden zone.
+        filter: &'static Filter,
+        /// Destination and entry modifications for the one found card.
+        find: &'static Find,
     },
     /// Search without the implicit shuffle: the effect list must place its
     /// explicit shuffle after intervening instructions (Gamble).
@@ -1918,6 +1990,9 @@ pub enum Effect {
         /// What (`CardInGraveyard`).
         target: TargetSpec,
     },
+    /// Put the legal cards of the second target group onto the first targeted
+    /// player's library in the resolving controller's chosen order.
+    TargetedGraveyardToTop,
     /// Return a graveyard card to its owner's hand (Archaeomancer).
     GraveyardToHand {
         /// What (`CardInGraveyard`).

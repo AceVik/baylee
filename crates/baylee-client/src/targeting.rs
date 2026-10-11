@@ -408,6 +408,8 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // same refusal `baylee-ai`'s reader makes about it.
         // Continuous ability removal and grants are evaluated by the engine.
         Filter::HasManaAbility
+        // This preflight has no resolving source or its chosen name.
+        | Filter::NamedBySource
         | Filter::MatchesChosenTypeOfSource
         | Filter::SharesSubtypeWithCommander
         | Filter::AttachedToBySource
@@ -757,6 +759,8 @@ mod tests {
                         | TargetSpec::AbilityOnStack(f)
                         | TargetSpec::SpellOrAbility(f)
                         | TargetSpec::CardInGraveyard(f, _)
+                        | TargetSpec::CardInFirstTargetsGraveyard(f)
+                        | TargetSpec::CardInPlayersGraveyard(f, _)
                         | TargetSpec::CardInGraveyardBelowEvent(f, _)
                         | TargetSpec::CardInGraveyardBelowValue(f, _, _) => *f,
                     };

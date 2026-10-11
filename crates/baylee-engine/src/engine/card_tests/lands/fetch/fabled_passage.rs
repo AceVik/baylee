@@ -5,14 +5,12 @@ use super::*;
 
 /// Fabled Passage prints `{T}, Sacrifice this land: Search your library for a basic land card, put it
 /// onto the battlefield tapped, then shuffle. Then if you control four or more lands, untap that land.`
-/// The card is marked `Coverage::Partial` because untapping the fetched land conditionally is unsupported.
-/// Activating Fabled Passage sacrifices it to the graveyard, searches a basic `forest` onto the battlefield
-/// tapped, and leaves it tapped even when four or more lands are controlled.
+/// With only three lands after the search, the fetched land remains tapped.
 #[test]
 fn fabled_passage_sacrifices_to_fetch_a_basic_land_tapped() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), forest()])
+        .battlefield(0, &[forest(), forest()])
         .hand(0, &[fabled_passage()])
         .start();
     keep_mulligans(&mut engine);

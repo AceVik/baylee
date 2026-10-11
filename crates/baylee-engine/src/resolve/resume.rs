@@ -28,6 +28,50 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::SearchUpgrade { operation, value } => {
+            return upgrade::found(state, res, *operation, value, chosen);
+        }
+        AwaitingOp::GraveyardToTopOrdered { player, cards } => {
+            if let Some(question) = graveyard_top::place(state, res, player, cards) {
+                return next_choice(state, res, since, question);
+            }
+        }
+        AwaitingOp::SharedLandSearch(selection) => {
+            return shared_land::resume(state, res, *selection, chosen);
+        }
+        AwaitingOp::SearchGroup(selection) => {
+            if let Some(question) = search_group::resume(state, res, *selection, chosen) {
+                return next_choice(state, res, since, question);
+            }
+        }
+        AwaitingOp::NamedTop {
+            card,
+            player,
+            destination,
+        } => {
+            if let Some(pending) = names::put_top(state, res, card, player, destination) {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::DestroyWeakest { no_regen } => {
+            if let Some(&card) = chosen.first() {
+                super::weakest::destroy(state, card, no_regen);
+            }
+        }
+        AwaitingOp::Behold { then } => {
+            if let Some(&card) = chosen.first() {
+                if state
+                    .object(card)
+                    .is_some_and(|object| object.zone == crate::zone::Zone::Hand)
+                {
+                    state.journal.record(GameEvent::Revealed {
+                        player: res.controller,
+                        cards: vec![card],
+                    });
+                }
+                return run_fallback(state, res, then);
+            }
+        }
         AwaitingOp::SacrificePayment {
             player,
             options: _,
@@ -61,8 +105,19 @@ pub(super) fn resume_inner(
                     o.zone == crate::zone::Zone::Battlefield && o.controller == res.controller
                 });
                 if eligible {
+                    let sacrificed = state
+                        .object(victim)
+                        .map(|object| (object.version, crate::object::SacrificedLki::of(object)));
                     sacrifice_together(state, chosen);
-                    if qualifies {
+                    let succeeded = sacrificed.filter(|(version, _)| {
+                        state
+                            .object(victim)
+                            .is_none_or(|object| object.version != *version)
+                    });
+                    if let Some((_, lki)) = succeeded {
+                        res.subject.sacrificed = Some(lki);
+                    }
+                    if qualifies && succeeded.is_some() {
                         return run_fallback(state, res, std::slice::from_ref(effect));
                     }
                 }
@@ -106,8 +161,10 @@ pub(super) fn resume_inner(
             looked,
             rest,
             reveal,
+            then,
         } => {
-            if let Some(question) = super::top_card::take(state, res, chosen, looked, rest, reveal)
+            if let Some(question) =
+                super::top_card::take(state, res, chosen, looked, rest, reveal, then)
             {
                 return next_choice(state, res, since, question);
             }
@@ -232,6 +289,9 @@ pub(super) fn resume_inner(
                         );
                         if let Some((kind, n)) = find.counter {
                             crate::entry::put_counters(state, res.controller, card, kind, n);
+                        }
+                        if let Some(reference) = crate::entry::battlefield_reference(state, card) {
+                            res.subject.found.push(reference);
                         }
                     }
                 }
@@ -553,13 +613,27 @@ pub(super) fn resume_inner(
                     cards: chosen.to_vec(),
                 });
             }
-            let destination = match found {
-                SearchDest::Graveyard => ZoneLocation::Graveyard(res.controller),
-                SearchDest::Hand => ZoneLocation::Hand(res.controller),
-                SearchDest::TopOfLibrary => ZoneLocation::Library(res.controller),
-                SearchDest::Battlefield => ZoneLocation::Battlefield,
-            };
-            let moves: Vec<_> = chosen.iter().map(|&card| (card, destination)).collect();
+            let placed: Vec<_> = chosen
+                .iter()
+                .map(|&card| {
+                    (
+                        card,
+                        search::resolve_find(state, res, res.controller, found, card),
+                    )
+                })
+                .collect();
+            let moves: Vec<_> = placed
+                .iter()
+                .map(|&(card, find)| {
+                    let destination = match find.dest {
+                        SearchDest::Graveyard => ZoneLocation::Graveyard(res.controller),
+                        SearchDest::Hand => ZoneLocation::Hand(res.controller),
+                        SearchDest::TopOfLibrary => ZoneLocation::Library(res.controller),
+                        SearchDest::Battlefield => ZoneLocation::Battlefield,
+                    };
+                    (card, destination)
+                })
+                .collect();
             if let Some(pending) = ask_commander_replace(state, res, &moves) {
                 let Some(AwaitingOp::CommanderReplace { asked, remaining }) = res.awaiting.take()
                 else {
@@ -578,8 +652,16 @@ pub(super) fn resume_inner(
                 });
                 return Flow::Wait(pending);
             }
-            for &card in chosen {
-                put_found(state, res.controller, card, found);
+            for (card, find) in placed {
+                if find.tapped && find.dest == SearchDest::Battlefield {
+                    state.restore_tapped(card, true);
+                }
+                put_found(state, res.controller, card, find.dest);
+                if find.dest == SearchDest::Battlefield
+                    && let Some((kind, count)) = find.counter
+                {
+                    crate::entry::put_counters(state, res.controller, card, kind, count);
+                }
             }
             // "The rest on the bottom in any order": the player chooses
             // the order whenever there is one to choose. "In a random
@@ -887,7 +969,9 @@ pub(super) fn resume_inner(
         | AwaitingOp::Surveil => {
             unreachable!("arrangements resume via resume_arranged")
         }
-        AwaitingOp::ChooseEffect { .. }
+        AwaitingOp::ChooseCardName { .. }
+        | AwaitingOp::ChooseNumber
+        | AwaitingOp::ChooseEffect { .. }
         | AwaitingOp::MaskedCast
         | AwaitingOp::ControlledCard { .. }
         | AwaitingOp::LandMana { .. }
@@ -914,6 +998,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::TopOrBottom { .. }
         | AwaitingOp::SkipDraw { .. }
         | AwaitingOp::SelectedCommander { .. }
+        | AwaitingOp::GraveyardToTopOrder { .. }
         | AwaitingOp::ChosenGraveyardCommander { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")

@@ -17,8 +17,12 @@ fn same(a: &PendingTrigger, b: &PendingTrigger) -> bool {
         && a.counter_source_version == b.counter_source_version
         && a.timestamp == b.timestamp
         && a.ability_index == b.ability_index
-        && a.abilities.as_ref().map(|v| (v.printed, &v.abilities))
-            == b.abilities.as_ref().map(|v| (v.printed, &v.abilities))
+        && a.abilities
+            .as_ref()
+            .map(|v| (v.printed, v.acquisition, &v.abilities))
+            == b.abilities
+                .as_ref()
+                .map(|v| (v.printed, v.acquisition, &v.abilities))
         && a.controller == b.controller
         && a.chosen_mode == b.chosen_mode
         && a.implicit_target == b.implicit_target
@@ -37,20 +41,22 @@ fn bind_to_first_targets_player(
     obj: &crate::object::GameObject,
     spec: baylee_cards_dsl::TargetSpec,
 ) -> baylee_cards_dsl::TargetSpec {
-    let baylee_cards_dsl::TargetSpec::ObjectOfFirstTargetsPlayer(filter) = spec else {
-        return spec;
-    };
     let player = obj.target_players.iter().next().or_else(|| {
         obj.targets
             .first()
             .and_then(|id| state.object_or_departed(*id))
             .map(|o| o.controller)
     });
-    match player {
-        Some(player) => baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player),
+    match (spec, player) {
+        (baylee_cards_dsl::TargetSpec::ObjectOfFirstTargetsPlayer(filter), Some(player)) => {
+            baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player)
+        }
+        (baylee_cards_dsl::TargetSpec::CardInFirstTargetsGraveyard(filter), Some(player)) => {
+            baylee_cards_dsl::TargetSpec::CardInPlayersGraveyard(filter, player)
+        }
         // Nobody was named, so there is no "that player" and nothing to
         // offer; left unbound, it enumerates empty.
-        None => spec,
+        _ => spec,
     }
 }
 

@@ -29,7 +29,8 @@ card!(
             cost!("{3}", TapSelf),
             &[Effect::LookAtTopMayTake {
                 filter: &Filter::HasSubtype(subtypes::creature::MOUNT),
-                rest: LookRest::MayBottom
+                rest: LookRest::MayBottom,
+                then: &[],
             }]
         ),
     ],

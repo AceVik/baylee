@@ -28,7 +28,7 @@ card!(
                     count: 5,
                     filter: &Filter::BASIC_LAND,
                     random: false,
-                    found: SearchDest::TopOfLibrary,
+                    found: Find::TOP_OF_LIBRARY,
                 }],
             }]
         ),

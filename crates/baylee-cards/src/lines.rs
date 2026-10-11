@@ -236,6 +236,15 @@ pub struct InlineModes {
 /// sentence. See [`InlineModes`].
 pub static MODES_PRINTED_INLINE: &[InlineModes] = &[
     InlineModes {
+        card: baylee_core::generated::index::PRIMAL_CLAY,
+        face: 0,
+        words: &[
+            "3/3 artifact creature",
+            "2/2 artifact creature with flying",
+            "1/6 Wall artifact creature with defender",
+        ],
+    },
+    InlineModes {
         card: baylee_core::generated::index::URBORG,
         face: 0,
         words: &["first strike", "swampwalk"],
@@ -861,7 +870,17 @@ mod tests {
             });
             assert_eq!(
                 entry.words.len(),
-                inline_choices.unwrap_or(modes.len()),
+                inline_choices
+                    .or_else(
+                        || def.faces[face].enter_modifiers.iter().find_map(
+                            |modifier| match modifier {
+                                baylee_cards_dsl::EnterModifier::ChooseShape(choices) =>
+                                    Some(choices.len()),
+                                _ => None,
+                            }
+                        )
+                    )
+                    .unwrap_or(modes.len()),
                 "{}: one entry per mode",
                 def.name()
             );

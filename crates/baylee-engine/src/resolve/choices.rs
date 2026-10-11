@@ -12,6 +12,28 @@ pub(super) fn exec_choice(
 ) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::ChooseCardName {
+            player,
+            types,
+            remember,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            res.awaiting = Some(AwaitingOp::ChooseCardName { remember });
+            Some(Pending::ChooseCardName { player, types })
+        }
+        Effect::ChooseNumber { min, max } => {
+            res.awaiting = Some(AwaitingOp::ChooseNumber);
+            Some(Pending::ChooseNumber {
+                player: you,
+                min: u32::from(min),
+                max: u32::from(max),
+                reason: crate::choice::NumberPrompt::Choice,
+            })
+        }
+        Effect::DestroyWeakest { filter, no_regen } => {
+            super::weakest::start(state, res, filter, no_regen)
+        }
+        Effect::MayBehold { filter, then } => super::behold::start(state, res, filter, then),
         Effect::ChooseOne { choices } => {
             // CR 608.2d and 701.26b: an optional untap cannot replace a scry
             // when the original permanent is gone or already untapped.
@@ -59,6 +81,14 @@ pub(super) fn exec_choice(
         Effect::SacrificeChosenByOpponent { player, filter } => {
             let player = players_of(player, state, you, res).first().copied()?;
             chosen::opponent_sacrifice(state, res, player, filter)
+        }
+        Effect::SearchSharedLandType => shared_land::begin(state, res),
+        Effect::SearchWithManaDifference { filter, value } => {
+            upgrade::begin(state, res, filter, value)
+        }
+        Effect::TargetedGraveyardToTop => graveyard_top::begin(state, res),
+        Effect::EachPlayerSearchBeforeShuffle { filter, find } => {
+            search_group::begin(state, res, filter, find)
         }
         Effect::SearchLibrary {
             filter,
@@ -306,8 +336,10 @@ pub(super) fn exec_choice(
             res.awaiting = Some(AwaitingOp::PlayerMayPay {
                 player,
                 cost: baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
-                effects: std::slice::from_ref(effect),
-                on_payment: false,
+                outcome: ManaPaymentOutcome::Effects {
+                    effects: std::slice::from_ref(effect),
+                    on_payment: false,
+                },
             });
             Some(Pending::YesNo {
                 player,
@@ -329,8 +361,10 @@ pub(super) fn exec_choice(
             res.awaiting = Some(AwaitingOp::PlayerMayPay {
                 player,
                 cost,
-                effects: std::slice::from_ref(effect),
-                on_payment: false,
+                outcome: ManaPaymentOutcome::Effects {
+                    effects: std::slice::from_ref(effect),
+                    on_payment: false,
+                },
             });
             Some(Pending::YesNo {
                 player,
@@ -347,8 +381,10 @@ pub(super) fn exec_choice(
             res.awaiting = Some(AwaitingOp::PlayerMayPay {
                 player,
                 cost,
-                effects,
-                on_payment: true,
+                outcome: ManaPaymentOutcome::Effects {
+                    effects,
+                    on_payment: true,
+                },
             });
             Some(Pending::YesNo {
                 player,
@@ -371,8 +407,10 @@ pub(super) fn exec_choice(
             res.awaiting = Some(AwaitingOp::PlayerMayPay {
                 player,
                 cost: baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
-                effects,
-                on_payment: true,
+                outcome: ManaPaymentOutcome::Effects {
+                    effects,
+                    on_payment: true,
+                },
             });
             Some(Pending::YesNo {
                 player,

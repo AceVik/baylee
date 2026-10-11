@@ -957,3 +957,21 @@ What changed, and what each measured:
 marked changed per component and resource and, in a build with
 `bevy/track_location`, by which line; `/allocs` now ranks by our innermost
 source line, which a line-tables build could not name before.
+
+
+### Linked choices without a per-object size increase (2026-10-11)
+
+Batch 43 needs full-width acquisition identities for copied rules, plus names
+and numbers belonging to those acquisitions. Keeping two enlarged riders inline
+made `GameObject` measure 328 B and failed the existing 296 B budget.
+`RiderSet` now uses a vector: empty lists allocate nothing and object size is
+**288 B**, 8 B below the previous budget and 40 B below the rejected layout.
+The budget itself is unchanged. Nonempty rider lists now allocate; this is a
+measured object-size result, not a claim that every rider-heavy workload runs
+faster. The subsequent engine performance pass should include those workloads.
+
+Measured on aarch64 macOS with the footprint integration test: `Characteristics`
+288 B, `CachedChar` 8 B, `GameObject` 288 B, `GameState` 3056 B. All 5,781 engine
+unit tests and both footprint tests passed after the storage change. The new
+minimum-power creature choice uses one scan over the battlefield, including
+negative power and tied or indestructible creatures. No unsafe code is involved.

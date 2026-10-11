@@ -3,16 +3,13 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Turntimber Symbiosis` // `Turntimber, Serpentine Wood` (`Coverage::Partial`):
+/// `Turntimber Symbiosis` // `Turntimber, Serpentine Wood`:
 /// "Look at the top seven cards of your library. You may put a creature card from among them onto the
 /// battlefield. If that card has mana value 3 or less, it enters with three additional +1/+1 counters
 /// on it. Put the rest on the bottom of your library in a random order. // As this land enters, you may
 /// pay 3 life. If you don't, it enters tapped. `{{T}}`: Add `{{G}}`."
 ///
-/// Under `Coverage::Partial`, the front-face creature search is omitted, while the back-face land
-/// (`Turntimber, Serpentine Wood`) is implemented in full. The test plays the back face as a land,
-/// declines paying 3 life so that it enters tapped without life loss, advances to the next turn so it
-/// untaps, and activates its mana ability to add `{{G}}`.
+/// The back face retains its independent entry payment and mana ability.
 #[test]
 fn turntimber_serpentine_wood_enters_tapped_on_declined_life_and_taps_for_green() {
     let p0 = PlayerId::new(0);

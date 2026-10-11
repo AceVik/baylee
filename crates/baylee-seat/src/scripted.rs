@@ -235,7 +235,10 @@ pub fn least_answer(
         Pending::ChoosePlayer { options, .. } => PlayerAction::ChoosePlayer(*options.first()?),
         Pending::ChooseCastMode { .. } | Pending::ChoosePile { .. } => PlayerAction::ChooseMode(0),
         Pending::ChooseNumber { min, .. } => PlayerAction::ChooseNumber(*min),
-        Pending::ChooseCardName { .. } => {
+        Pending::ChooseCardName { types, .. } => {
+            if !types.is_empty() {
+                return name_matching(*types);
+            }
             // A name the pool prints (CR 201.4): the seat's own first card,
             // which the pool has, or it could not have been dealt.
             let card = context
@@ -261,6 +264,20 @@ pub fn least_answer(
             blockers: Vec::new(),
         },
         Pending::GameOver(_) => return None,
+    })
+}
+
+fn name_matching(types: baylee_core::types::TypeSet) -> Option<PlayerAction> {
+    baylee_cards::all().find_map(|def| {
+        def.faces.iter().enumerate().find_map(|(face, printed)| {
+            if !printed.types.intersects(types) {
+                return None;
+            }
+            Some(PlayerAction::ChooseCardName {
+                card: def.index,
+                face: u8::try_from(face).ok()?,
+            })
+        })
     })
 }
 
@@ -363,7 +380,10 @@ pub(crate) mod tests {
         assert!(view.hand.is_empty());
         // A card name needs a card: none in an empty deck or an empty hand.
         let mut nothing = nothing_to_choose_from();
-        nothing.push(Pending::ChooseCardName { player: ME });
+        nothing.push(Pending::ChooseCardName {
+            player: ME,
+            types: baylee_core::types::TypeSet::EMPTY,
+        });
         for pending in &nothing {
             assert_eq!(
                 least_answer(&context, &view, pending),

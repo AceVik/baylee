@@ -132,6 +132,7 @@ pub(super) fn begin_search(
     res: &mut Resolution,
     search: Search,
 ) -> Option<Pending> {
+    res.subject.found.clear();
     let Search {
         library,
         searcher,
@@ -144,6 +145,11 @@ pub(super) fn begin_search(
         optional,
     } = search;
     if !allowed(state, res, library, searcher) {
+        // CR 609.3: prohibiting the search does not prohibit the separate
+        // shuffle instruction. Optional searches reject consent before here.
+        if !state.has_left(library) && !state.has_left(searcher) {
+            finish_shuffle(state, res, library);
+        }
         return None;
     }
     // Opposition Agent: an opponent of the searching player takes the
@@ -272,7 +278,18 @@ pub(super) fn find_for(
     // of"), and for a search whose count the resolution read
     // (`SearchLibraryUpTo`), which lists one find for every card. Any other
     // search offers no more cards than it has finds.
-    let mut find = *finds.get(at).or_else(|| finds.last())?;
+    let find = *finds.get(at).or_else(|| finds.last())?;
+    Some(resolve_find(state, res, receiver, find, card))
+}
+
+/// Evaluate destination and entry-counter alternatives before the card moves.
+pub(super) fn resolve_find(
+    state: &GameState,
+    res: &Resolution,
+    receiver: PlayerId,
+    mut find: baylee_cards_dsl::Find,
+    card: ObjectId,
+) -> baylee_cards_dsl::Find {
     while let Some((filter, then)) = find.instead_if {
         let matched = state.object(card).is_some_and(|o| {
             eval::matches_with_context(filter, state, o, receiver, res.rule_context())
@@ -282,7 +299,7 @@ pub(super) fn find_for(
         }
         find = *then;
     }
-    Some(find)
+    find
 }
 
 /// Puts a card a player found in their library where the text sends it:
@@ -405,7 +422,11 @@ pub(super) fn search_library_for_one(
 pub(super) fn finish_shuffle(state: &mut GameState, res: &Resolution, library: PlayerId) {
     if !matches!(
         res.effects.get(res.pc),
-        Some(Effect::SearchLibraryBeforeShuffle { .. })
+        Some(
+            Effect::SearchLibraryBeforeShuffle { .. }
+                | Effect::EachPlayerSearchBeforeShuffle { .. }
+                | Effect::SearchWithManaDifference { .. }
+        )
     ) {
         state.shuffle_library(library);
     }

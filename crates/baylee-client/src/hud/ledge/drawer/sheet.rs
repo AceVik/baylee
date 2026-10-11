@@ -98,7 +98,7 @@ pub(crate) const fn is_sheet(prompt: &Prompt) -> bool {
         prompt,
         Prompt::ChooseTargets { .. }
             | Prompt::ChooseSubtype { .. }
-            | Prompt::ChooseCardName
+            | Prompt::ChooseCardName { .. }
             | Prompt::ChooseColor { .. }
             | Prompt::ChooseNumber { .. }
             | Prompt::ChoosePlayer { .. }

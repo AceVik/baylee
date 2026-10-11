@@ -605,6 +605,8 @@ impl Effect {
                 then,
             }
             | Effect::ChooseYoursThen { filter: _, then }
+            | Effect::MayBehold { filter: _, then }
+            | Effect::LookAtTopMayTake { filter: _, rest: _, then }
             | Effect::IfTargetMatches { filter: _, then }
             | Effect::IfTargetHadType { types: _, then }
             | Effect::IfEventObjectMatches { filter: _, then }
@@ -738,6 +740,12 @@ impl Effect {
         | Effect::ExileTopToPlay { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
+            | Effect::UntapFound
+            | Effect::ChooseCardName { .. }
+            | Effect::RevealTopByName { .. }
+            | Effect::RevealRandomDiscardNamed { .. }
+            | Effect::ChooseNumber { .. }
+            | Effect::DestroyWeakest { .. }
             | Effect::ExileAndReturnAtEndStep
             | Effect::OwnerPutsOnTopOrBottom { .. }
             | Effect::ExileIfDiesThisTurn { .. }
@@ -791,6 +799,9 @@ impl Effect {
             | Effect::GainLifeDoubleX
             | Effect::SearchLibrary { .. }
             | Effect::SearchLibraryBeforeShuffle { .. }
+            | Effect::SearchSharedLandType
+            | Effect::SearchWithManaDifference { .. }
+            | Effect::EachPlayerSearchBeforeShuffle { .. }
             | Effect::Scry { .. }
             | Effect::Surveil { .. }
             | Effect::ScryFor { .. }
@@ -824,13 +835,13 @@ impl Effect {
             | Effect::DestroyOthersNamedLike { .. }
             | Effect::ExileGraveyard { .. }
             | Effect::GraveyardToTop { .. }
+            | Effect::TargetedGraveyardToTop
             | Effect::GraveyardToHand { .. }
             | Effect::GraveyardToBattlefield { .. }
         | Effect::Assimilate { .. }
             | Effect::CreateTokenThenCounters { .. }
             | Effect::Fabricate { .. }
             | Effect::CreateTokenThenAttachSelf { .. }
-            | Effect::LookAtTopMayTake { .. }
             | Effect::CommanderToHand
         | Effect::CreateTokenPtPerCount { .. }
             | Effect::CreateToken { .. }

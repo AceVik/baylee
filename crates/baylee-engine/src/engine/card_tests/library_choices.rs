@@ -7,15 +7,15 @@ use baylee_core::generated::index;
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
-fn choose(e: &mut Engine<RegistryLookup>, objects: Vec<ObjectId>) {
+pub(super) fn choose(e: &mut Engine<RegistryLookup>, objects: Vec<ObjectId>) {
     let player = e.pending().asked().unwrap();
     e.apply(player, PlayerAction::ChooseObjects { objects })
         .unwrap();
 }
-fn library(e: &Engine<RegistryLookup>, p: PlayerId) -> Vec<ObjectId> {
+pub(super) fn library(e: &Engine<RegistryLookup>, p: PlayerId) -> Vec<ObjectId> {
     e.state().zones.list(ZoneLocation::Library(p)).clone()
 }
-fn searched(e: &Engine<RegistryLookup>) -> bool {
+pub(super) fn searched(e: &Engine<RegistryLookup>) -> bool {
     matches!(
         e.pending(),
         Pending::ChooseCards {

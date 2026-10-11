@@ -68,7 +68,7 @@ fn pithing_needle_stops_the_named_card_activating_but_not_tapping_for_mana() {
         matches!(e.pending(), Pending::ChooseCardName { .. })
     });
     assert!(
-        matches!(engine.pending(), Pending::ChooseCardName { player } if *player == p0),
+        matches!(engine.pending(), Pending::ChooseCardName { player, .. } if *player == p0),
         "the Needle's controller names the card, as it enters: {:?}",
         engine.pending()
     );
@@ -90,7 +90,7 @@ fn pithing_needle_stops_the_named_card_activating_but_not_tapping_for_mana() {
             "{what} is refused"
         );
         assert!(
-            matches!(engine.pending(), Pending::ChooseCardName { player } if *player == p0),
+            matches!(engine.pending(), Pending::ChooseCardName { player, .. } if *player == p0),
             "and the question is still open after {what}: {:?}",
             engine.pending()
         );
