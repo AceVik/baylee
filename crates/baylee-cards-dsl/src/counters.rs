@@ -96,6 +96,9 @@ pub const MATRIX: CounterKind = CounterKind::Custom(14);
 /// Carrion counters (Osai Vultures).
 pub const CARRION: CounterKind = CounterKind::Custom(15);
 
+/// Oil counters (The Monumental Facade).
+pub const OIL: CounterKind = CounterKind::Custom(16);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -117,6 +120,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("mire", MIRE),
     ("matrix", MATRIX),
     ("carrion", CARRION),
+    ("oil", OIL),
 ];
 
 #[cfg(test)]

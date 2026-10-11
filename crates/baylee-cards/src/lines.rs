@@ -237,6 +237,11 @@ pub struct InlineModes {
 /// sentence. See [`InlineModes`].
 pub static MODES_PRINTED_INLINE: &[InlineModes] = &[
     InlineModes {
+        card: baylee_core::generated::index::URBORG,
+        face: 0,
+        words: &["first strike", "swampwalk"],
+    },
+    InlineModes {
         card: baylee_core::generated::index::URZA_S_AVENGER,
         face: 0,
         words: &["banding", "flying", "first strike", "trample"],

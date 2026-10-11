@@ -37,3 +37,34 @@ fn restless_spire_animates_into_elemental() {
     assert!(types.contains(TypeSet::LAND));
     assert!(!is_tapped(&engine, land));
 }
+
+#[test]
+fn animated_spire_first_strike_follows_its_current_controllers_turn() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::RESTLESS_SPIRE])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let land = on_battlefield(&e, p0, index::RESTLESS_SPIRE).unwrap();
+    let state = e.dev_state_mut(p0).unwrap();
+    state.players[0].mana_pool.add(ManaColor::Blue, 1);
+    state.players[0].mana_pool.add(ManaColor::Red, 1);
+    e.refresh_offer();
+    activate(&mut e, p0, index::RESTLESS_SPIRE, 1);
+    pass_until(&mut e, stack_is_empty);
+    assert!(keywords(&e, land).contains(KeywordSet::FIRST_STRIKE));
+    let state = e.dev_state_mut(p0).unwrap();
+    state.object_mut(land).unwrap().set_controller(p1);
+    state.invalidate_projections();
+    state.refresh_characteristics();
+    assert!(!keywords(&e, land).contains(KeywordSet::FIRST_STRIKE));
+    let state = e.dev_state_mut(p0).unwrap();
+    state.object_mut(land).unwrap().set_controller(p0);
+    state.invalidate_projections();
+    state.refresh_characteristics();
+    assert!(keywords(&e, land).contains(KeywordSet::FIRST_STRIKE));
+    reach_their_main_phase(&mut e, p1);
+    assert!(!keywords(&e, land).contains(KeywordSet::FIRST_STRIKE));
+}

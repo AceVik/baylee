@@ -24,6 +24,7 @@ mod chosen;
 mod control;
 mod counters;
 mod equalize;
+mod graveyard_choice;
 mod life;
 pub(crate) mod linked_counters;
 mod mana;

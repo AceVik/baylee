@@ -361,6 +361,9 @@ pub(super) fn resume_yes_no_inner(
     res: &mut Resolution,
     answer: bool,
 ) -> Flow {
+    if let Some(flow) = graveyard_choice::resume_commander(state, res, answer) {
+        return flow;
+    }
     if let Some(flow) = resume_cast_question(state, res, answer) {
         return flow;
     }

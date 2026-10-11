@@ -28,6 +28,18 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Choose a card from your graveyard during resolution, then move it.
+    /// Earlier instructions (notably mill) happen before the card is chosen.
+    ChooseFromYourGraveyard {
+        /// Cards offered in the public graveyard.
+        filter: &'static Filter,
+        /// Hand, battlefield, or the top of your library.
+        destination: SearchDest,
+        /// Whether a battlefield arrival enters tapped.
+        tapped: bool,
+        /// Whether choosing no card is permitted when matches exist.
+        optional: bool,
+    },
     /// Change the original source permanent, independently of chosen targets.
     ModifySource {
         /// The change applied to the source's retained incarnation.

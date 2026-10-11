@@ -105,3 +105,67 @@ fn wishclaw_talisman_spends_a_wish_counter_and_hands_itself_to_an_opponent() {
         "and the {{1}} it charges was paid"
     );
 }
+
+#[test]
+fn wishclaw_is_usable_during_its_controllers_turn_even_with_a_nonempty_stack() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::WISHCLAW_TALISMAN])
+        .hand(0, &[index::LIGHTNING_BOLT])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let source = on_battlefield(&e, p0, index::WISHCLAW_TALISMAN).unwrap();
+    // Battlefield setup predates entry replacement; seed the printed counters.
+    let state = e.dev_state_mut(p0).unwrap();
+    state
+        .object_mut(source)
+        .unwrap()
+        .counters
+        .set(baylee_cards_dsl::counters::WISH, 3);
+    state.players[0].mana_pool.add(ManaColor::Red, 2);
+    e.refresh_offer();
+    cast_with_floating(&mut e, p0, index::LIGHTNING_BOLT);
+    e.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![p1],
+        },
+    )
+    .unwrap();
+    activate(&mut e, p0, index::WISHCLAW_TALISMAN, 0);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = e.pending() else {
+        panic!("search")
+    };
+    let chosen = options[0];
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![chosen],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(source).unwrap().controller, p1);
+    // It is still p0's turn: p1 cannot use the newly acquired artifact.
+    e.dev_state_mut(p0).unwrap().set_tapped(source, false);
+    e.dev_state_mut(p0).unwrap().players[1]
+        .mana_pool
+        .add(ManaColor::Colorless, 1);
+    e.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(
+        e.apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: 0
+            }
+        )
+        .is_err()
+    );
+}

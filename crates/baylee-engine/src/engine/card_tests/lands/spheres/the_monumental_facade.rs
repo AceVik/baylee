@@ -28,3 +28,25 @@ fn the_monumental_facade_taps_for_colorless_mana() {
     assert_eq!(pool.total(), 1);
     assert!(is_tapped(&engine, facade));
 }
+
+#[test]
+fn facade_enters_with_oil_and_pays_one_counter_to_place_a_doubled_counter() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let oil = baylee_cards_dsl::counters::OIL;
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::DOUBLING_SEASON, index::GRIZZLY_BEARS])
+        .hand(0, &[index::THE_MONUMENTAL_FACADE])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let land = play_land(&mut e, p0, index::THE_MONUMENTAL_FACADE);
+    let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    assert_eq!(counters_on(&e, land, oil), 4);
+    activate(&mut e, p0, index::THE_MONUMENTAL_FACADE, 1);
+    aim_at(&mut e, p0, bear);
+    assert_eq!(counters_on(&e, land, oil), 3);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(counters_on(&e, bear, oil), 2);
+    assert!(is_tapped(&e, land));
+}

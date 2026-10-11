@@ -3368,3 +3368,18 @@ land type"; both are convention tests that fire on a first try.
   activated abilities as well as triggers. Osai Vultures places one carrion
   counter per qualifying end step, independently of the number of deaths;
   replacement effects multiply placement, not its two-counter activation cost.
+
+### Completion batch 15 — graveyard choices after milling (2026-10-11)
+
+- Port of Karfell, Tomb Fortress, Takenuma, and Sequestered Stash choose
+  from the graveyard during resolution, after milling. Do not manufacture
+  an activation target: the choice includes newly milled cards, and an empty
+  graveyard cannot prevent activation. Keep optional and tapped riders distinct.
+- A chosen commander's hand/library redirection suspends the same continuation.
+  Resume its movement without repeating the mill or asking for another card;
+  validate the remembered incarnation. Reject forged choices without mutation.
+- Complete Terrain Generator, Hidden Hideout, Witch's Clinic, Urborg,
+  Restless Spire, The Monumental Facade, and Wishclaw Talisman. Distinguish
+  any counter from +1/+1 counters, any commander from your commander, and
+  your-turn permission from sorcery timing. Spire's first strike follows its
+  current controller's turn; oil removal is a cost, so replacements do not double it.

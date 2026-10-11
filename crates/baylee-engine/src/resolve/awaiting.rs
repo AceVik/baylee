@@ -6,6 +6,25 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// The public graveyard card is selected during resolution.
+    ChosenGraveyard {
+        /// Where it goes.
+        destination: SearchDest,
+        /// Tapped battlefield arrival.
+        tapped: bool,
+    },
+    /// Retain the selected card across the command-zone replacement question;
+    /// neither the selection nor the preceding mill is performed again.
+    ChosenGraveyardCommander {
+        /// Selected card.
+        card: ObjectId,
+        /// Selected incarnation.
+        version: u32,
+        /// Intended destination before the replacement.
+        destination: SearchDest,
+        /// Tapped battlefield arrival.
+        tapped: bool,
+    },
     /// An inline choice asked by the resolving instruction.
     ChooseEffect {
         /// The still-available branches, in displayed order.

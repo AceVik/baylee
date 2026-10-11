@@ -79,3 +79,108 @@ fn takenuma_abandoned_mire_taps_for_black_and_offers_no_channel() {
         "and no three cards were milled into anybody's graveyard"
     );
 }
+
+#[test]
+fn takenuma_selects_a_milled_card_after_paying_its_reduced_channel_cost() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[index::RAMIREZ_DE_PIETRO])
+        .hand(0, &[index::TAKENUMA_ABANDONED_MIRE, index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let land = in_hand(&e, p0, index::TAKENUMA_ABANDONED_MIRE).unwrap();
+    let bear = hand_to_library_top(&mut e, p0, index::GRIZZLY_BEARS);
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Black, 3);
+    e.refresh_offer();
+    e.apply(
+        p0,
+        PlayerAction::ActivateAbility {
+            source: land,
+            ability_index: 1,
+        },
+    )
+    .unwrap();
+    assert!(matches!(e.pending(), Pending::Priority { .. }));
+    assert_eq!(e.state().object(land).unwrap().zone, Zone::Graveyard);
+    assert_eq!(e.state().players[0].mana_pool.total(), 0);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = e.pending() else {
+        panic!("choice")
+    };
+    assert_eq!(options, &vec![bear]);
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![bear],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(bear).unwrap().zone, Zone::Hand);
+}
+
+#[test]
+fn takenuma_preserves_its_selected_commander_across_the_replacement_question() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for redirect in [false, true] {
+        let mut e = Duel::new(SEED, forest())
+            .commander(0, &[index::SAVANNAH_LIONS])
+            .hand(0, &[index::TAKENUMA_ABANDONED_MIRE])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let commander = e.state().commanders[0][0].object;
+        let land = in_hand(&e, p0, index::TAKENUMA_ABANDONED_MIRE).unwrap();
+        let state = e.dev_state_mut(p0).unwrap();
+        state
+            .move_object(
+                commander,
+                ZoneLocation::Library(p0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state.players[0].mana_pool.add(ManaColor::Black, 4);
+        e.refresh_offer();
+        let before = library_size(&e, p0);
+        e.apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+        pass_until(&mut e, |e| {
+            matches!(e.pending(), Pending::ChooseCards { .. })
+        });
+        e.apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![commander],
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::CommanderReplace { .. },
+                ..
+            }
+        ));
+        e.apply(p0, PlayerAction::YesNo(redirect)).unwrap();
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(library_size(&e, p0), before - 3, "the mill is not repeated");
+        assert_eq!(
+            e.state().object(commander).unwrap().zone,
+            if redirect { Zone::Command } else { Zone::Hand }
+        );
+    }
+}

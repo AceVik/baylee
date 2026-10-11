@@ -595,6 +595,7 @@ impl Effect {
             | Effect::Blink { .. }
             | Effect::LookAtTopPick { .. }
             | Effect::LookAtTopFind { .. }
+            | Effect::ChooseFromYourGraveyard { .. }
             | Effect::LookAtTopKeepBottomPlay { .. }
             | Effect::ChooseExiledToPlay { .. }
             | Effect::PayLifeOrPutBackDrawn { .. }

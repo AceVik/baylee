@@ -30,3 +30,44 @@ fn sequestered_stash_sacrifices_to_mill_five_cards() {
 
     assert_eq!(library_size(&engine, p0), lib_before - 5);
 }
+
+#[test]
+fn stash_can_decline_or_put_a_newly_milled_artifact_on_top() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for take in [false, true] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[index::SEQUESTERED_STASH])
+            .hand(0, &[index::MIND_STONE])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let stone = hand_to_library_top(&mut e, p0, index::MIND_STONE);
+        let before = library_size(&e, p0);
+        e.dev_state_mut(p0).unwrap().players[0]
+            .mana_pool
+            .add(ManaColor::Colorless, 4);
+        e.refresh_offer();
+        activate(&mut e, p0, index::SEQUESTERED_STASH, 1);
+        pass_until(&mut e, |e| {
+            matches!(e.pending(), Pending::ChooseCards { .. })
+        });
+        e.apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: if take { vec![stone] } else { vec![] },
+            },
+        )
+        .unwrap();
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(library_size(&e, p0), before - 5 + usize::from(take));
+        if take {
+            assert_eq!(
+                e.state().zones.list(ZoneLocation::Library(p0)).last(),
+                Some(&stone)
+            );
+        } else {
+            assert_eq!(e.state().object(stone).unwrap().zone, Zone::Graveyard);
+        }
+    }
+}

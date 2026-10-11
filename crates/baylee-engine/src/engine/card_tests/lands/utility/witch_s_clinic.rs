@@ -44,3 +44,37 @@ fn witch_s_clinic_taps_for_colorless_and_omits_unsupported_lifelink() {
     );
     assert!(is_tapped(&engine, clinic));
 }
+
+#[test]
+fn clinic_can_give_an_opposing_commander_lifelink_but_not_an_ordinary_creature() {
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .commander(1, &[index::SAVANNAH_LIONS])
+        .battlefield(0, &[index::WITCH_S_CLINIC, index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let commander = e.state().commanders[1][0].object;
+    let state = e.dev_state_mut(p0).unwrap();
+    state.object_mut(commander).unwrap().kind = crate::object::ObjectKind::Permanent;
+    state
+        .move_object(
+            commander,
+            ZoneLocation::Battlefield,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    state.players[0].mana_pool.add(ManaColor::Colorless, 2);
+    e.refresh_offer();
+    activate(&mut e, p0, index::WITCH_S_CLINIC, 1);
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("targets")
+    };
+    assert_eq!(options, &vec![commander]);
+    aim_at(&mut e, p0, commander);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(commander).unwrap().controller, p1);
+    assert!(keywords(&e, commander).contains(KeywordSet::LIFELINK));
+}

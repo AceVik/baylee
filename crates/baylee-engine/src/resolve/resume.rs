@@ -186,6 +186,15 @@ pub(super) fn resume_inner(
                 }
             }
         }
+        AwaitingOp::ChosenGraveyard {
+            destination,
+            tapped,
+        } => {
+            if let Some(pending) = graveyard_choice::place(state, res, chosen, destination, tapped)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::GraveyardOrLibrary { filter, find } => {
             let you = res.controller;
             match chosen.first() {
@@ -825,6 +834,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::CastTarget { .. }
         | AwaitingOp::TopOrBottom { .. }
         | AwaitingOp::SkipDraw { .. }
+        | AwaitingOp::ChosenGraveyardCommander { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }

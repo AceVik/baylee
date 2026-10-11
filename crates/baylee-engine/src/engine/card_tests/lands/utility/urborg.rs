@@ -29,3 +29,43 @@ fn urborg_taps_for_black_mana_and_omits_keyword_loss() {
         "no second ability is offered"
     );
 }
+
+#[test]
+fn urborg_chooses_the_lost_keyword_only_during_resolution() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    for mode in 0..2 {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[index::URBORG, index::GRIZZLY_BEARS])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+        let state = e.dev_state_mut(p0).unwrap();
+        std::sync::Arc::make_mut(&mut state.object_mut(bear).unwrap().base).keywords =
+            KeywordSet::FIRST_STRIKE
+                .union(KeywordSet::SWAMPWALK)
+                .union(KeywordSet::VIGILANCE);
+        state.invalidate_projections();
+        state.refresh_characteristics();
+        e.refresh_offer();
+        activate(&mut e, p0, index::URBORG, 1);
+        assert!(matches!(e.pending(), Pending::ChooseTargets { .. }));
+        aim_at(&mut e, p0, bear);
+        assert!(matches!(e.pending(), Pending::Priority { .. }));
+        pass_until(&mut e, |e| {
+            matches!(e.pending(), Pending::ChooseCastMode { .. })
+        });
+        e.apply(p0, PlayerAction::ChooseMode(mode)).unwrap();
+        pass_until(&mut e, stack_is_empty);
+        assert_eq!(
+            keywords(&e, bear).contains(KeywordSet::FIRST_STRIKE),
+            mode == 1
+        );
+        assert_eq!(
+            keywords(&e, bear).contains(KeywordSet::SWAMPWALK),
+            mode == 0
+        );
+        assert!(keywords(&e, bear).contains(KeywordSet::VIGILANCE));
+    }
+}

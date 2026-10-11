@@ -2,7 +2,8 @@
 //! Oracle: {T}: Add {B}.
 //! Oracle: Channel — {3}{B}, Discard this card: Mill three cards, then return a creature or planeswalker card from your graveyard to your hand. This ability costs {1} less to activate for each legendary creature you control.
 //! Set: NEO #278 — Kamigawa: Neon Dynasty | Scryfall ID: 499037cc-a577-41cb-8ca2-5e117945634f | Oracle ID: ac2dd694-d2f1-4025-8400-12332bdc882a
-// PARTIAL — {T}: Add {B}; Channel is not expressible, see NOT SUPPORTED comment.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -11,10 +12,7 @@ card!(
     oracle_id = "ac2dd694-d2f1-4025-8400-12332bdc882a",
     scryfall_id = "499037cc-a577-41cb-8ca2-5e117945634f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Partial(
-        "Channel's activation cost reduction and untargeted graveyard return on \
-         resolution are not expressible"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Takenuma, Abandoned Mire",
         types = TypeSet::LAND,
@@ -22,12 +20,28 @@ card!(
     ),],
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
-        // NOT SUPPORTED: "Channel — {3}{B}, Discard this card: Mill three
-        // cards, then return a creature or planeswalker card from your graveyard
-        // to your hand. This ability costs {1} less to activate for each
-        // legendary creature you control." — CostReduction has no
-        // per-legendary-creature reduction, and Effect::GraveyardToHand requires
-        // targeting upon activation rather than untargeted choice upon
-        // resolution from among milled cards.
+        activated!(
+            cost!("{3}{B}", DiscardSelf),
+            &[
+                Effect::Mill {
+                    amount: Amount::Fixed(3),
+                    target: PlayerRel::You
+                },
+                Effect::ChooseFromYourGraveyard {
+                    filter: &Filter::HasType(TypeSet::CREATURE.union(TypeSet::PLANESWALKER)),
+                    destination: SearchDest::Hand,
+                    tapped: false,
+                    optional: false
+                }
+            ],
+            zone = ActivationZone::Hand,
+            cost_reduction = Some(CostReduction::PerCount {
+                amount: Amount::CountOf {
+                    filter: &Filter::And(&[Filter::LEGENDARY_CREATURE, Filter::ControlledByYou]),
+                    zone: ZoneSel::Battlefield
+                },
+                each: 1
+            })
+        ),
     ],
 );

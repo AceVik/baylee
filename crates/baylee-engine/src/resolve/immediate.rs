@@ -1157,6 +1157,12 @@ pub(super) fn exec_immediate(
                 source: resolving_ability(state, res),
             })
         }
+        Effect::ChooseFromYourGraveyard {
+            filter,
+            destination,
+            tapped,
+            optional,
+        } => graveyard_choice::start(state, res, filter, destination, tapped, optional),
         Effect::SearchLibraryOrGraveyard { filter, find } => {
             let buried: Vec<ObjectId> = state
                 .zones
