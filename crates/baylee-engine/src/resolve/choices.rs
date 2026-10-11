@@ -168,8 +168,7 @@ pub(super) fn exec_choice(
             Some(look_question(you, looked, ArrangePlace::LibraryBottom))
         }
         Effect::Scry { amount } => {
-            let n =
-                eval::amount_with_context(&amount, state, you, res.rule_context(), res.x) as usize;
+            let n = amount2(&amount, state, you, res) as usize;
             let looked: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))

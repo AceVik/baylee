@@ -2445,6 +2445,7 @@ impl<L: CardLookup> Engine<L> {
         // A free cast pays nothing but what is added to it: a kicker, the
         // replicate cost, or the costs of the modes it chose (CR 118.9d).
         let owed = pays_mana(wizard) || total != ManaCost::ZERO;
+        let mut spent_riders = SmallVec::new();
         if owed {
             // Restricted mana (Cavern of Souls & co.) is spent where the
             // spell may spend it, and a rider applies for each entry that
@@ -2464,7 +2465,7 @@ impl<L: CardLookup> Engine<L> {
                 &held_before,
                 &self.state.players[player.get() as usize].mana_pool,
             );
-            self.apply_spend_riders(player, wizard.card, &spent);
+            spent_riders = spent;
         }
         // The mana is paid, so the rest of the cost may now be spent: the
         // Phyrexian symbols announced as life first (CR 107.4f, 119.4).
@@ -2762,7 +2763,11 @@ impl<L: CardLookup> Engine<L> {
             obj.prototyped = true;
             let base = obj.base_mut();
             base.mana_cost = prototype.cost;
-            base.colors = prototype.cost.colors();
+            base.colors = if base.keywords.contains(baylee_cards_dsl::KeywordSet::DEVOID) {
+                baylee_core::color::ColorSet::EMPTY
+            } else {
+                prototype.cost.colors()
+            };
             base.power = Some(prototype.power);
             base.toughness = Some(prototype.toughness);
             obj.cache.clear();
@@ -2775,6 +2780,7 @@ impl<L: CardLookup> Engine<L> {
                 object.riders.push(crate::object::Rider::Masked);
             }
         }
+        self.apply_spend_riders(player, wizard.card, &spent_riders);
         // Per-turn tracking for conditional triggers (Esper Sentinel).
         if !wizard.masked
             && !matches!(wizard.option, Some(CastModeKind::Disguise))

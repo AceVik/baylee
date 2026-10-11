@@ -695,6 +695,7 @@ keywords! {
     // Banding and not "bands with other": the second names a quality and
     // is a family, which a bit cannot carry.
     BANDING = 44, "Banding (CR 702.22).";
+    DEVOID = 45, "Devoid (colorless in every zone, CR 702.114a).";
 }
 
 impl KeywordSet {

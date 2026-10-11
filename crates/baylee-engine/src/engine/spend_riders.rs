@@ -1,80 +1,161 @@
 //! Effects carried by mana after it pays for a spell.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::ids::NameRef;
+use crate::mana_provenance::ManaProvenance;
+use crate::object::Rider;
+use baylee_cards_dsl::{Amount, CounterKind, Duration, Effect, KeywordSet, Modifier, SpendRider};
 
 impl<L: CardLookup> Engine<L> {
-    /// Applies spend riders after a payment (uncounterable marks, scry
-    /// triggers), for restricted mana and for mana whose rider named the
-    /// spell.
+    /// Payment has finished and the spell is on the stack. Delayed triggers
+    /// join the normal trigger queue so they resolve above that spell.
     pub(super) fn apply_spend_riders(
         &mut self,
         player: PlayerId,
         spell: ObjectId,
-        riders: &[(
-            baylee_core::mana::RestrictedMana,
-            ObjectId,
-            baylee_cards_dsl::SpendRider,
-        )],
+        riders: &[(baylee_core::mana::RestrictedMana, ObjectId, SpendRider)],
     ) {
-        // Each unit spent is its own rider: a replacement that made more of
-        // the mana made more delayed triggers (CR 106.6a).
-        let units = riders
-            .iter()
-            .flat_map(|(mana, _, rider)| std::iter::repeat_n(rider, usize::from(mana.amount)));
-        for rider in units {
-            match rider {
-                baylee_cards_dsl::SpendRider::None => {}
-                baylee_cards_dsl::SpendRider::Uncounterable => {
-                    if let Some(obj) = self.state.object_mut(spell)
-                        && !obj.riders.contains(&crate::object::Rider::Uncounterable)
-                    {
-                        obj.riders.push(crate::object::Rider::Uncounterable);
+        for (mana, _, rider) in riders {
+            if *rider == SpendRider::None {
+                continue;
+            }
+            let Some(provenance) = self
+                .state
+                .restriction_info
+                .get(&mana.restriction.0)
+                .copied()
+            else {
+                continue;
+            };
+            let commander_casts = (player == provenance.controller)
+                .then(|| {
+                    self.state.commanders[usize::from(player.get())]
+                        .iter()
+                        .find(|commander| commander.object == spell)
+                        .map(|commander| commander.casts)
+                })
+                .flatten();
+            // Every unit carries a separate effect or delayed trigger, even
+            // when a replacement made several units at once (CR 106.6a).
+            for _ in 0..mana.amount {
+                match *rider {
+                    SpendRider::None => {}
+                    SpendRider::Uncounterable => {
+                        if let Some(object) = self.state.object_mut(spell)
+                            && !object.riders.contains(&Rider::Uncounterable)
+                        {
+                            object.riders.push(Rider::Uncounterable);
+                        }
                     }
-                }
-                baylee_cards_dsl::SpendRider::Scry(n) => {
-                    let fx: &'static [baylee_cards_dsl::Effect] =
-                        if *n >= 2 { &SCRY_TWO } else { &SCRY_ONE };
-                    // A copied spell has no card, and the rider it was cast
-                    // with is still the rider it was cast with. The guard
-                    // that used to stand here dropped the scry rather than
-                    // write a handle it had nothing to put in.
-                    let card = self
-                        .state
-                        .object(spell)
-                        .and_then(|o| o.card)
-                        .map(|c| c.index);
-                    let name = self
-                        .state
-                        .object(spell)
-                        .map_or(NameRef::new(0), |o| o.base.name);
-                    let base = self.state.bare_base(name);
-                    let id = self.state.arena.insert_with(|id| {
-                        GameObject::new_ability_on_stack(
-                            id,
-                            player,
-                            crate::object::AbilityLoc {
-                                card,
-                                index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                                source: spell,
-                            },
-                            SmallVec::new(),
-                            base,
-                        )
-                    });
-                    self.synthetic_fx.insert(id, fx);
-                    self.state
-                        .zones
-                        .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+                    SpendRider::Scry(amount) => self.queue_mana_scry(provenance, u32::from(amount)),
+                    SpendRider::CommanderScry => {
+                        if let Some(amount) = commander_casts {
+                            self.queue_mana_scry(provenance, amount);
+                        }
+                    }
+                    SpendRider::EnterCounters(amount) => self.mana_entry_counters(spell, amount),
+                    SpendRider::CommanderEnterCounters => {
+                        if let Some(amount) = commander_casts {
+                            self.mana_entry_counters(spell, amount);
+                        }
+                    }
+                    SpendRider::Haste => self.mana_haste(spell, provenance.controller),
                 }
             }
         }
     }
+
+    fn mana_entry_counters(&mut self, spell: ObjectId, amount: u32) {
+        if amount != 0
+            && let Some(object) = self.state.object_mut(spell)
+        {
+            object.riders.push(Rider::EntryP1P1(amount));
+        }
+    }
+
+    fn mana_haste(&mut self, spell: ObjectId, controller: PlayerId) {
+        let modifier = Modifier::AddKeyword(KeywordSet::HASTE);
+        let timestamp = self.state.next_timestamp();
+        let filter = crate::effects::EffectFilter::object(&self.state, spell);
+        // A continuous effect on this spell follows it into the battlefield
+        // (CR 400.7a), and participates in layer-six timestamp ordering.
+        self.state
+            .effects
+            .register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: None,
+                controller,
+                origin: crate::effects::EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp,
+                duration: Duration::Indefinitely,
+                filter,
+                modifier,
+            });
+    }
+
+    fn queue_mana_scry(&mut self, provenance: ManaProvenance, amount: u32) {
+        // A delayed trigger belongs to the original mana ability's controller
+        // and source, including after that source leaves (CR 603.7e).
+        self.trigger_queue.push_back(trigger::PendingTrigger {
+            source: provenance.context.source,
+            source_version: provenance.source_version,
+            counter_source_version: None,
+            event_object_identity: None,
+            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+            abilities: None,
+            text: provenance.context.text,
+            controller: provenance.controller,
+            timestamp: provenance.timestamp,
+            event_object: None,
+            event_mana_value: None,
+            event_departure: None,
+            event_mana: None,
+            event_amount: Some(amount),
+            event_player: None,
+            implicit_target: None,
+            synthetic_effects: Some(&MANA_SCRY),
+            synthetic_target: None,
+            once_per_turn: false,
+            chosen_mode: None,
+        });
+    }
+
+    /// Entry replacement effects apply once, before the first SBA and ETB
+    /// triggers. A later incarnation has already discarded these markers.
+    pub(super) fn apply_mana_entry_counters(&mut self, id: ObjectId, from: Zone) -> bool {
+        if from != Zone::Stack {
+            return false;
+        }
+        let amounts: SmallVec<[u32; 2]> =
+            self.state.object(id).map_or_else(SmallVec::new, |object| {
+                object
+                    .riders
+                    .iter()
+                    .filter_map(|rider| match rider {
+                        Rider::EntryP1P1(amount) => Some(*amount),
+                        _ => None,
+                    })
+                    .collect()
+            });
+        if amounts.is_empty() {
+            return false;
+        }
+        if let Some(object) = self.state.object_mut(id) {
+            object
+                .riders
+                .retain(|rider| !matches!(rider, Rider::EntryP1P1(_)));
+        }
+        for amount in amounts {
+            let Ok(amount) = u16::try_from(amount) else {
+                self.state.numeric_failure = Some("mana entry counter amount exceeds u16");
+                return true;
+            };
+            crate::replacement::put_counters(&mut self.state, id, CounterKind::P1P1, amount);
+        }
+        true
+    }
 }
 
-static SCRY_ONE: [baylee_cards_dsl::Effect; 1] = [baylee_cards_dsl::Effect::Scry {
-    amount: baylee_cards_dsl::Amount::Fixed(1),
-}];
-static SCRY_TWO: [baylee_cards_dsl::Effect; 1] = [baylee_cards_dsl::Effect::Scry {
-    amount: baylee_cards_dsl::Amount::Fixed(2),
+static MANA_SCRY: [Effect; 1] = [Effect::Scry {
+    amount: Amount::EventAmount,
 }];

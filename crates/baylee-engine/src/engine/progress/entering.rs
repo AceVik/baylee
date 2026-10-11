@@ -175,6 +175,7 @@ impl<L: CardLookup> Engine<L> {
                     },
                 });
             }
+            changed |= self.apply_mana_entry_counters(id, from_zone);
             // A Saga takes a lore counter as it enters (CR 714.3a), and
             // "As [this permanent] enters …" is named as a replacement
             // effect in CR 614.1c — so the counter goes through the door

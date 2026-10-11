@@ -17538,8 +17538,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Arcbound Ravager
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -30075,7 +30075,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[Some(0)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -39317,8 +39317,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Power Depot
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(1), Some(2)],
+        stackable: 1,
+        lines: &[Some(1), Some(2), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -47963,8 +47963,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 2,
-            stackable: 0,
-            lines: &[None],
+            stackable: 1,
+            lines: &[Some(1)],
             modes: &[],
             alternatives: &[],
         },

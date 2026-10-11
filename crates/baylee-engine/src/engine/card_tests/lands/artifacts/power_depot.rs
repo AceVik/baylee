@@ -3,11 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Power Depot prints `This land enters tapped`, `{T}: Add {C}`, `{T}: Add one mana of any color.
-/// Spend this mana only to cast artifact spells or activate abilities of artifacts`, and `Modular 1`.
-/// The card is marked `Coverage::Partial` because modular dies triggers and ability restrictions are unsupported.
-/// Power Depot enters tapped wearing one `CounterKind::P1P1` counter; upon untapping, activating ability index 1
-/// prompts for a color and places one restricted mana into `pool.restricted()` rather than `pool.available()`.
+/// The printed mana or land-face ability is exercised through player actions.
 #[test]
 fn power_depot_enters_tapped_with_counter_and_adds_restricted_mana() {
     let p0 = PlayerId::new(0);
@@ -47,4 +43,72 @@ fn power_depot_enters_tapped_with_counter_and_adds_restricted_mana() {
     assert_eq!(pool.restricted()[0].amount, 1);
     assert_eq!(pool.restricted()[0].color, ManaColor::Blue);
     assert!(is_tapped(&engine, land));
+}
+
+#[test]
+fn modular_uses_departure_counters_even_if_the_source_returns_and_may_target_an_opponents_creature()
+{
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for card in [index::POWER_DEPOT, index::ARCBOUND_RAVAGER] {
+        for (decline, recipient) in [(false, p0), (false, p1), (true, p0)] {
+            let mut e = Duel::new(SEED, forest())
+                .battlefield(0, &[card, index::ORNITHOPTER, index::DOUBLING_SEASON])
+                .battlefield(1, &[index::ORNITHOPTER])
+                .start();
+            keep_mulligans(&mut e);
+            reach_main_phase(&mut e, p0);
+            let source = on_battlefield(&e, p0, card).unwrap();
+            let target = on_battlefield(&e, recipient, index::ORNITHOPTER).unwrap();
+            assert_eq!(counters_on(&e, source, CounterKind::P1P1), 2);
+            {
+                let s = e.dev_state_mut(p0).unwrap();
+                crate::replacement::put_counters(s, source, CounterKind::P1P1, 2);
+            }
+            assert_eq!(counters_on(&e, source, CounterKind::P1P1), 6);
+            bury(&mut e, &[source]);
+            e.apply(p0, PlayerAction::PassPriority).unwrap();
+            let Pending::ChooseTargets { player, .. } = e.pending().clone() else {
+                panic!("modular target: {:?}", e.pending())
+            };
+            aim_at(&mut e, player, target);
+            {
+                let s = e.dev_state_mut(p0).unwrap();
+                s.object_mut(source).unwrap().kind = crate::object::ObjectKind::Permanent;
+                s.move_object(
+                    source,
+                    ZoneLocation::Battlefield,
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .unwrap();
+            }
+            pass_until(&mut e, |e| {
+                matches!(
+                    e.pending(),
+                    Pending::YesNo {
+                        prompt: crate::choice::YesNoPrompt::MayDo,
+                        ..
+                    }
+                )
+            });
+            e.apply(p0, PlayerAction::YesNo(!decline)).unwrap();
+            pass_until(&mut e, stack_is_empty);
+            assert_eq!(
+                counters_on(&e, target, CounterKind::P1P1),
+                if decline {
+                    0
+                } else if recipient == p0 {
+                    12
+                } else {
+                    6
+                }
+            );
+            assert_eq!(
+                counters_on(&e, source, CounterKind::P1P1),
+                2,
+                "new permanent's counters are separate"
+            );
+        }
+    }
 }

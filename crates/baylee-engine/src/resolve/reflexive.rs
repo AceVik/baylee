@@ -59,7 +59,7 @@ pub(super) fn arm(
             event_mana: None,
             event_mana_value: None,
             event_departure: None,
-            event_damage: None,
+            event_amount: None,
             event_player: None,
             source: res.source,
             ability_index: AbilityRef::SYNTHETIC,

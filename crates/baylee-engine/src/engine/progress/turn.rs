@@ -588,7 +588,7 @@ impl<L: CardLookup> Engine<L> {
                     event_mana: None,
                     event_mana_value: None,
                     event_departure: None,
-                    event_damage: None,
+                    event_amount: None,
                     event_player: None,
                     source: id,
                     ability_index: *ability_index,

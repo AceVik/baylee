@@ -177,6 +177,15 @@ pub(super) fn add_to(
         state.next_restriction_id += 1;
         let provenance = crate::mana_provenance::ManaProvenance {
             context: res.rule_context(),
+            source_version: super::source_version(state, res).or_else(|| {
+                state
+                    .source_identity(res.source)
+                    .map(|source| source.version)
+            }),
+            controller: res.controller,
+            timestamp: state
+                .damage_source(res.source, super::source_version(state, res))
+                .map_or(state.timestamp, |source| source.timestamp),
             restriction,
             chosen_subtype: state
                 .damage_source(res.source, super::source_version(state, res))

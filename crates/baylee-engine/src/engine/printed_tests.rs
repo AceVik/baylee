@@ -261,7 +261,14 @@ fn mismatch(
         // are the colors of its cost, plus the indicator a face with no cost
         // prints instead of one.
         Field::Colors => {
-            let want: ColorSet = if locked {
+            let want: ColorSet = if locked
+                || (if face.keywords.is_empty() {
+                    def.keywords
+                } else {
+                    face.keywords
+                })
+                .contains(baylee_cards_dsl::KeywordSet::DEVOID)
+            {
                 ColorSet::EMPTY
             } else {
                 face.mana_cost.colors().union(face.color_indicator)

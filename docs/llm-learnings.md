@@ -3499,3 +3499,34 @@ land type"; both are convention tests that fire on a first try.
 - Existing suites passed: 5,499 engine, 1,563 client, 1,557 client-core, 244
   gamehost, 135 card, 275 codegen and 69 DSL tests. All 1,098 land tests then
   passed, including the three new adversarial cases spanning the nine cards.
+
+### Card completion batch 21 — mana effects and exact source incarnations
+
+- Complete Drowner of Truth, Corrupted Crossroads, Arcbound Ravager, Power
+  Depot, Guildmages' Forum, Opal Palace, Study Hall and Hall of the Bandit
+  Lord. Modular reads the dying permanent's counters from its captured
+  incarnation, even after the same card returns with different counters.
+- Devoid is an all-zone characteristic-defining keyword (CR 702.114a).
+  This corrects batch 19's intermediate implementation: a second timestamped
+  battlefield color-setting static was wrong, because later color effects
+  must override the CDA regardless of the printed permanent's timestamp.
+  A cast-time colorless-payment trigger reads the actual payment once; its
+  Eldrazi Spawn still arrive if the creature spell is countered afterward.
+- Apply mana effects after the paid spell enters the stack. Scry joins the
+  normal trigger queue above that spell and carries the full count rather
+  than clamping it to two. Its controller and source belong to the producing
+  mana ability (CR 603.7e), including after pool transfer or source departure.
+  Each paid unit produces its own effect or delayed trigger (CR 106.6a).
+- Commander riders read that commander's cast count, including the present
+  command-zone cast. Casting from hand uses its previous count; partners'
+  counts remain independent. Entry counters are replacement effects and
+  double normally. They are neither copied characteristics nor blink bonuses.
+- Haste is a layer-six continuous effect, with normal timestamp ordering,
+  which follows the permanent spell onto the battlefield (CR 400.7a).
+  A permanent rider would apply at the wrong point in the layer system.
+  Cavern's uncounterability also ends when that particular spell leaves.
+- Regression suites passed with 1,563 client, 1,557 client-core, 244 gamehost,
+  135 cards, 275 codegen and 69 DSL tests. The engine's existing 5,508 passing
+  tests were supplemented by corrected mana fixtures, an updated independent
+  Devoid projection expectation, and timestamp coverage: 5,512 effective
+  passing engine tests. Workspace clippy includes all targets and dev-control.

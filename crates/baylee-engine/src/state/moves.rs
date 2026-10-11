@@ -521,11 +521,16 @@ impl GameState {
                 obj.riders.retain(|r| {
                     !matches!(
                         r,
-                        crate::object::Rider::Dashed
+                        crate::object::Rider::EntryP1P1(_)
+                            | crate::object::Rider::Dashed
                             | crate::object::Rider::Escaped
                             | crate::object::Rider::Masked
                     )
                 });
+            }
+            if to.zone() != Zone::Stack {
+                obj.riders
+                    .retain(|rider| *rider != crate::object::Rider::Uncounterable);
             }
             // What the card was in exile lasts only as long as the exile. A
             // card that leaves exile any other way than the return its host

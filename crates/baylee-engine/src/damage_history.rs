@@ -292,7 +292,7 @@ fn pending(death: &DamageDeath, source: &GameObject) -> PendingTrigger {
             death.victim.characteristics().toughness.unwrap_or(0),
         )),
         event_mana: None,
-        event_damage: None,
+        event_amount: None,
         event_player: None,
         implicit_target: None,
         synthetic_effects: None,

@@ -487,6 +487,9 @@ fn sacrificed_value(lki: crate::object::SacrificedLki, amount: &Amount) -> u32 {
 
 pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> u32 {
     match amount {
+        Amount::CountersOnSource(kind) => state
+            .damage_source(res.source, source_version(state, res))
+            .map_or(0, |object| u32::from(object.counters.get(*kind))),
         Amount::SourcePower => state
             .object(res.on_stack)
             .and_then(|o| o.source_power_lki)

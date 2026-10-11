@@ -4,16 +4,10 @@
 //! Oracle: {T}: Add one mana of any color. Spend this mana only to cast artifact spells or activate abilities of artifacts.
 //! Oracle: Modular 1
 //! Set: MH2 #251 — Modern Horizons 2 | Scryfall ID: 032eba04-0a63-4823-85e1-64861330a8d7 | Oracle ID: 64687880-03f9-4f38-985b-1027c797e33f
-// IMPLEMENTED — enters tapped wearing its modular +1/+1 counter; {T}: {C};
-// {T}: one mana of any color restricted to artifact spells.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
-
-// NOT SUPPORTED: Modular 1's dies trigger ("when this dies, you may put its
-// +1/+1 counters on target artifact creature") — no `Amount` reads the
-// counters of a kind on the source.
-// NOT SUPPORTED: "or activate abilities of artifacts" — a `ManaRestriction`
-// is read against spells, so it can only say the first half of the sentence.
 
 card!(
     index = index::POWER_DEPOT,
@@ -30,15 +24,26 @@ card!(
             },
         ],
     ),],
-    coverage = Coverage::Partial(
-        "Modular 1's dies trigger needs an Amount for the counters on the \
-         source, and a ManaRestriction cannot cover \"activate abilities of \
-         artifacts\"",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(&[
-            Effect::mana_of_any_color().restricted(&Filter::ARTIFACT, SpendRider::None),
-        ]),
+        mana_ability!(&[Effect::mana_of_any_color().restricted_for(
+            &Filter::ARTIFACT,
+            SpendRider::None,
+            ManaUse::SpellsOrAbilities
+        ),]),
+        triggered!(
+            Trigger::Dies(&Filter::This),
+            &[Effect::MayDo {
+                effects: &[Effect::AddCounter {
+                    kind: CounterKind::P1P1,
+                    amount: Amount::CountersOnSource(CounterKind::P1P1)
+                }]
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::And(&[
+                Filter::ARTIFACT,
+                Filter::CREATURE
+            ]))))
+        ),
     ],
 );

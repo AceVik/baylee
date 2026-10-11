@@ -359,7 +359,7 @@ impl<L: CardLookup> Engine<L> {
                 source_version,
                 event_object_identity: None,
                 counter_source_version: None,
-                event_damage: None,
+                event_amount: None,
                 event_player: None,
                 event_mana: None,
                 event_mana_value: None,

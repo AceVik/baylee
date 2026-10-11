@@ -626,7 +626,10 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::CycledThis => &["cycle"],
         T::LeavesBattlefield(_) => &["leave"],
         T::Dies(_) | T::DiesAfterDamageByThis(_) => &["die", "put into a graveyard"],
-        T::SpellCast(_) | T::NthSpellCast { .. } | T::FirstNoncreatureSpellCast(_) => &["cast"],
+        T::CastThisWithMana(_)
+        | T::SpellCast(_)
+        | T::NthSpellCast { .. }
+        | T::FirstNoncreatureSpellCast(_) => &["cast"],
         T::BecomesTarget | T::TargetedByOpponent { .. } => &["becomes the target"],
         T::TurnedFaceUp => &["turned face up"],
         T::TransformsIntoThis => &["transforms into"],

@@ -382,6 +382,9 @@ pub enum Trigger {
     DiesAfterDamageByThis(&'static Filter),
     /// A spell matching the filter is cast.
     SpellCast(&'static Filter),
+    /// This spell was cast using at least one actual mana of this type.
+    /// The historical payment cannot change after the cast (CR 603.4).
+    CastThisWithMana(crate::ManaColor),
     /// The source becomes the target of a spell or ability (ward,
     /// Phantasmal Image).
     BecomesTarget,

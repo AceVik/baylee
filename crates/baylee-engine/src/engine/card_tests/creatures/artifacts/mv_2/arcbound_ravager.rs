@@ -3,19 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Arcbound Ravager — {2} — is printed `0/0`, and its second line, modular,
-/// is the `Coverage::Partial` gap: a `0/0` with nothing on it is a corpse
-/// (CR 704.5f) before any seat is offered priority, so the harness plants the
-/// counter modular would have brought and the card is played from there.
-///
-/// The one activation left is the whole test, and every half of it is the
-/// engine's answer rather than the card's: the cost names no artifact, so the
-/// engine asks which one, and the menu is what reads the filter — this seat's
-/// two artifacts, the Ravager itself and the Sol Ring beside it, and neither
-/// the Forest under the same seat nor the Sol Ring across the table, because
-/// "an artifact" paid to a cost still means one you control (CR 701.21a).
-/// The eaten Sol Ring ends in its owner's graveyard and the +1/+1 counter
-/// lands on the Ravager, which is the only place this printing ever puts one.
+/// Modular supplies the entry counter; sacrificing an artifact grows Ravager.
 #[allow(clippy::too_many_lines)] // one activation, the menu it offers and the counter it leaves
 #[test]
 fn arcbound_ravager_eats_the_artifact_you_name_and_grows_itself() {
@@ -29,16 +17,6 @@ fn arcbound_ravager_eats_the_artifact_you_name_and_grows_itself() {
         on_battlefield(&engine, p0, arcbound_ravager()).expect("the Ravager is on the table");
     let rock = on_battlefield(&engine, p0, quiet_artifact()).expect("the Sol Ring stands");
     let theirs = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring stands");
-    // Modular's replacement is the missing half, so the counter it would have
-    // entered with comes from the harness — before the first state-based
-    // check, which is the only moment a `0/0` is still on the battlefield.
-    {
-        let state = engine
-            .dev_state_mut(p0)
-            .expect("the harness may set boards up");
-        crate::replacement::put_counters(state, ravager, CounterKind::P1P1, 1);
-    }
-
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
@@ -46,7 +24,7 @@ fn arcbound_ravager_eats_the_artifact_you_name_and_grows_itself() {
     assert_eq!(
         counters_on(&engine, ravager, CounterKind::P1P1),
         1,
-        "the counter modular cannot supply, planted by the harness"
+        "the counter supplied by modular"
     );
     assert_eq!(pt(&engine, ravager), (1, 1), "a printed 0/0 with one on it");
 

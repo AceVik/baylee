@@ -89,8 +89,16 @@ pub enum SpendRider {
     None,
     /// The spell can't be countered (Cavern of Souls).
     Uncounterable,
-    /// The caster scries N (Path of Ancestry).
+    /// The producing ability's controller scries N (Path of Ancestry).
     Scry(u8),
+    /// The permanent enters with additional +1/+1 counters (CR 106.6a).
+    EnterCounters(u32),
+    /// Extra entry counters equal to this commander's command-zone casts.
+    CommanderEnterCounters,
+    /// Scry equal to this commander's command-zone casts when its owner casts it.
+    CommanderScry,
+    /// The creature spell gains haste indefinitely (CR 400.7a, 611.2a).
+    Haste,
 }
 
 /// How a card's mana value is compared with a [`ManaValueBound`]'s amount.

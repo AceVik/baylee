@@ -83,6 +83,8 @@ fn path_of_ancestry_scries_for_each_unit_spent_on_a_creature_it_names() {
     activate(&mut engine, p0, path_of_ancestry(), 0);
     cast_with_floating(&mut engine, p0, snapcaster_mage());
     let mage = on_stack(&engine, snapcaster_mage()).expect("the Mage is cast");
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack)[0], mage);
+    let paths = all_on_battlefield(&engine, p0, path_of_ancestry());
     let scries = engine
         .state()
         .zones
@@ -93,7 +95,7 @@ fn path_of_ancestry_scries_for_each_unit_spent_on_a_creature_it_names() {
                 .state()
                 .object(**id)
                 .and_then(|o| o.ability)
-                .is_some_and(|loc| loc.source == mage)
+                .is_some_and(|loc| paths.contains(&loc.source))
         })
         .count();
     assert_eq!(scries, 2, "one scry for each of Path's units");

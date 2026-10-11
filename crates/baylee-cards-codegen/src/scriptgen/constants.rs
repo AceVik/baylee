@@ -257,6 +257,7 @@ pub(super) fn keyword_const(line: &str) -> Option<&'static str> {
         "Prowess" => "KeywordSet::PROWESS",
         "Changeling" => "KeywordSet::CHANGELING",
         "Banding" => "KeywordSet::BANDING",
+        "Devoid" => "KeywordSet::DEVOID",
         _ => return None,
     })
 }

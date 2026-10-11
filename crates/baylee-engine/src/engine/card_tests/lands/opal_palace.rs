@@ -3,9 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Opal Palace: "{T}: Add {C}." / "{1}, {T}: Add one mana of any color in your commander's color identity..."
-/// Under `Coverage::Partial`, the spend rider adding extra +1/+1 counters to a cast commander is omitted.
-/// Activating ability 1 with a black commander produces one black mana in the player's pool.
+/// The printed mana or land-face ability is exercised through player actions.
 #[test]
 fn opal_palace_produces_commander_identity_mana() {
     let p0 = PlayerId::new(0);

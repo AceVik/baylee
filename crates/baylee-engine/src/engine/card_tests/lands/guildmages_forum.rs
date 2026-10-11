@@ -3,17 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Guildmages' Forum prints two mana abilities and this plays both: `{T}: Add
-/// {C}`, and `{1}, {T}: Add one mana of any color` — the counter the second is
-/// supposed to leave behind on a multicolored creature spell is the
-/// `Coverage::Partial` gap, and nothing here presses it. Two copies stand on the
-/// board because the price of either line is the Forum's own `{T}`, so one land
-/// taps once, and the `{C}` the first line makes is the `{1}` the second spends
-/// — which is why the pool holds exactly one mana at the end rather than two.
-/// The question the second line asks is asserted as the five colors of the game
-/// with no colorless on it (CR 105.4), and the two untapped Forests beside the
-/// Forums are the control: the black mana that arrives has no green source on
-/// this board that could have produced it.
+/// The printed mana or land-face ability is exercised through player actions.
 #[test]
 fn guildmages_forum_taps_for_colorless_and_trades_that_mana_for_any_color() {
     let p0 = PlayerId::new(0);

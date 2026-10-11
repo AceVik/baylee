@@ -160,7 +160,11 @@ impl SpellForm {
         match self {
             Self::Prototype(p) => {
                 base.mana_cost = p.cost;
-                base.colors = p.cost.colors();
+                base.colors = if base.keywords.contains(baylee_cards_dsl::KeywordSet::DEVOID) {
+                    baylee_core::color::ColorSet::EMPTY
+                } else {
+                    p.cost.colors()
+                };
                 base.power = Some(p.power);
                 base.toughness = Some(p.toughness);
             }
@@ -234,7 +238,7 @@ pub(super) fn admitted(
         .iter()
         .filter_map(|mana| {
             let provenance = state.restriction_info.get(&mana.restriction.0)?;
-            provenance.admits(state, spell, player, ability).then_some((
+            provenance.admits(state, spell, ability).then_some((
                 *mana,
                 provenance.context.source,
                 provenance.restriction.rider,
@@ -271,7 +275,7 @@ pub(super) fn ridden_for(
         .iter()
         .filter_map(|mana| {
             let provenance = state.restriction_info.get(&mana.restriction.0)?;
-            provenance.admits(state, spell, player, false).then_some((
+            provenance.admits(state, spell, false).then_some((
                 *mana,
                 provenance.context.source,
                 provenance.restriction.rider,

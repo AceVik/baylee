@@ -62,10 +62,9 @@ pub struct PendingTrigger {
     pub event_departure: Option<(PlayerId, i16)>,
     /// Actual production captured for a triggered mana ability.
     pub event_mana: Option<EventMana>,
-    /// How much damage the triggering damage event dealt: "that much" of
-    /// a damage trigger (Questing Beast, El-Hajjâj). Who was dealt it is
-    /// [`Self::event_player`].
-    pub event_damage: Option<u32>,
+    /// The amount captured by this trigger: damage dealt or a delayed scry count.
+    /// A damage event's recipient is [`Self::event_player`].
+    pub event_amount: Option<u32>,
     /// The player the triggering event was about ([`event_player_of`]):
     /// "that player" and "they" of a trigger on a player's event
     /// (`PlayerRel::EventPlayer`). For a damage event it is the player dealt
@@ -310,7 +309,7 @@ fn collect_emblems(
                                     .departure
                                     .as_ref()
                                     .map(|d| (d.controller, d.toughness)),
-                                event_damage,
+                                event_amount: event_damage,
                                 event_player: event_player_of(&entry.event),
                                 source: emblem,
                                 ability_index: index as u32,
@@ -420,7 +419,7 @@ fn graveyard_triggers(
                                 .as_ref()
                                 .map(|d| (d.controller, d.toughness)),
                             event_mana: produced_mana(&entry.event, events),
-                            event_damage: event_damage_of(firing.trigger, &entry.event, events),
+                            event_amount: event_damage_of(firing.trigger, &entry.event, events),
                             event_player: event_player_of(&entry.event),
                             implicit_target: None,
                             synthetic_effects: None,
@@ -496,7 +495,7 @@ pub fn state_triggers(
                 event_mana: None,
                 event_mana_value: None,
                 event_departure: None,
-                event_damage: None,
+                event_amount: None,
                 event_player: None,
                 source: permanent,
                 ability_index: index,
@@ -548,7 +547,7 @@ fn replicate_triggers(
             source_version: Some(spell.version),
             event_object_identity: None,
             counter_source_version: None,
-            event_damage: None,
+            event_amount: None,
             event_player: None,
             event_mana: None,
             event_mana_value: None,
@@ -686,7 +685,7 @@ fn watch_triggers(
             source_version: Some(source_version),
             event_object_identity,
             counter_source_version: None,
-            event_damage: None,
+            event_amount: None,
             event_player: None,
             event_mana: None,
             event_mana_value: None,
@@ -897,7 +896,7 @@ fn monarch_triggers(
         event_mana: None,
         event_mana_value: None,
         event_departure: None,
-        event_damage: None,
+        event_amount: None,
         event_player: None,
         source: ObjectId::NO_SOURCE,
         ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -1171,7 +1170,7 @@ fn targeting(
 /// "When you cast this spell" (cascade, CR 702.85a): a trigger condition
 /// that cannot trigger from the battlefield functions where it can, which is
 /// the stack (CR 113.6k). Each spell cast in this batch is asked for its own
-/// `Trigger::SpellCast(&Filter::This)` abilities, and only for those — its
+/// `Trigger::SpellCast(&Filter::This)` and mana-qualified self-cast abilities — its
 /// other abilities do not function there.
 fn cast_this_spell_triggers(
     state: &GameState,
@@ -1191,12 +1190,15 @@ fn cast_this_spell_triggers(
             let Some(firing) = triggered_parts(ability) else {
                 continue;
             };
-            if firing.zone != TriggerZone::Battlefield
-                || !matches!(
-                    firing.trigger,
-                    baylee_cards_dsl::Trigger::SpellCast(baylee_cards_dsl::Filter::This)
-                )
-            {
+            let cast_this = match firing.trigger {
+                Trigger::SpellCast(baylee_cards_dsl::Filter::This) => true,
+                Trigger::CastThisWithMana(color) => spell
+                    .paid
+                    .as_ref()
+                    .is_some_and(|paid| paid.mana_types_spent[color.index()] > 0),
+                _ => false,
+            };
+            if firing.zone != TriggerZone::Battlefield || !cast_this {
                 continue;
             }
             let context = ability_context(state, spell, &list, index);
@@ -1222,7 +1224,7 @@ fn cast_this_spell_triggers(
                 once_per_turn: firing.once_per_turn,
                 synthetic_target: None,
                 chosen_mode: None,
-                event_damage: None,
+                event_amount: None,
                 event_player: None,
             });
         }
@@ -1563,7 +1565,7 @@ fn collect_for_objects(
                             event_mana: None,
                             event_mana_value: None,
                             event_departure: None,
-                            event_damage: None,
+                            event_amount: None,
                             event_player: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -1671,7 +1673,7 @@ fn collect_for_objects(
                                 event_mana: None,
                                 event_mana_value: None,
                                 event_departure: None,
-                                event_damage: None,
+                                event_amount: None,
                                 event_player: None,
                                 source: permanent,
                                 ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -1743,7 +1745,7 @@ fn collect_for_objects(
                                 .departure
                                 .as_ref()
                                 .map(|d| (d.controller, d.toughness)),
-                            event_damage: None,
+                            event_amount: None,
                             event_player: event_player_of(&entry.event),
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -1795,7 +1797,7 @@ fn collect_for_objects(
                             event_mana: None,
                             event_mana_value: None,
                             event_departure: None,
-                            event_damage: None,
+                            event_amount: None,
                             event_player: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -1901,7 +1903,7 @@ fn collect_for_objects(
                                 .departure
                                 .as_ref()
                                 .map(|d| (d.controller, d.toughness)),
-                            event_damage,
+                            event_amount: event_damage,
                             event_player: event_player_of(&entry.event),
                             source: permanent,
                             ability_index: index as u32,

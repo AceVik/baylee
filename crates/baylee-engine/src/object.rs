@@ -536,15 +536,9 @@ impl Characteristics {
                 }
             }
         }
-        // CR 702.114a: devoid defines color in every zone. Retain the
-        // printed static for battlefield layer ordering, and make the
-        // copiable base colorless for cards/spells outside that registry.
-        let devoid = def.abilities_for_face(face).iter().any(|ability| {
-            matches!(ability, baylee_cards_dsl::AbilityDef::Static(rule)
-                if rule.filter == baylee_cards_dsl::Filter::This
-                    && rule.condition.is_none()
-                    && rule.modifier == baylee_cards_dsl::Modifier::SetColor(ColorSet::EMPTY))
-        });
+        // CR 702.114a: the CDA supplies the colorless base in every zone;
+        // later color-changing effects still apply in layer 5.
+        let devoid = def.keywords_for_face(face).contains(KeywordSet::DEVOID);
         Self {
             name,
             mana_cost: f.mana_cost,
@@ -839,6 +833,8 @@ pub enum Rider {
     ExileInsteadOfGraveyard,
     /// Can't be countered (Cavern of Souls mana rider).
     Uncounterable,
+    /// Additional entry counters carried from paid mana through resolution.
+    EntryP1P1(u32),
     /// The permanent has the prepared marker (Emeritus of Woe & co.).
     Prepared,
     /// May be played from exile by the given player, spending mana of
@@ -955,6 +951,7 @@ impl Rider {
             // a dashed spell cast out of exile (an impulse's permission)
             // carries its dash to the stack and the battlefield, and
             // `move_object` ends these where the spell's object ends.
+            | Self::EntryP1P1(_)
             | Self::Dashed
             | Self::Escaped
             | Self::Masked

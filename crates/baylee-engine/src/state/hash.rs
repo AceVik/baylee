@@ -233,6 +233,9 @@ impl GameState {
             let mut one = Hasher::new();
             id.hash(&mut one);
             provenance.context.hash(&mut one);
+            provenance.source_version.hash(&mut one);
+            provenance.controller.hash(&mut one);
+            provenance.timestamp.hash(&mut one);
             provenance.chosen_subtype.hash(&mut one);
             let restriction = provenance.restriction;
             filter_hash(&mut one, restriction.filter);
@@ -1328,6 +1331,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(13);
                 host.hash(h);
                 version.hash(h);
+            }
+            Rider::EntryP1P1(amount) => {
+                h.u8(61);
+                amount.hash(h);
             }
             Rider::Dashed => h.u8(14),
             Rider::EventDeparture(p, toughness) => {

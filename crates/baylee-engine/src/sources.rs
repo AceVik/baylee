@@ -690,6 +690,23 @@ impl GameState {
                 out.insert(*source);
             }
         }
+        for player in &self.players {
+            for mana in player
+                .mana_pool
+                .restricted()
+                .iter()
+                .chain(player.mana_pool.ridden())
+            {
+                if let Some(provenance) = self.restriction_info.get(&mana.restriction.0)
+                    && let Some(version) = provenance.source_version
+                {
+                    out.insert(DamageSourceRef {
+                        object: provenance.context.source,
+                        version,
+                    });
+                }
+            }
+        }
         for replacement in &self.replacement_rules {
             if let Some(source) = self.source_identity(replacement.source) {
                 out.insert(source);

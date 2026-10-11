@@ -9,23 +9,20 @@ use baylee_core::ids::{PlayerId, SubtypeId};
 #[derive(Clone, Copy, Debug)]
 pub struct ManaProvenance {
     pub(crate) context: RuleContext,
+    pub(crate) source_version: Option<u32>,
+    pub(crate) controller: PlayerId,
+    pub(crate) timestamp: u64,
     pub(crate) restriction: ManaRestriction,
     pub(crate) chosen_subtype: Option<SubtypeId>,
 }
 impl ManaProvenance {
-    pub(crate) fn admits(
-        &self,
-        state: &GameState,
-        object: &GameObject,
-        player: PlayerId,
-        ability: bool,
-    ) -> bool {
+    pub(crate) fn admits(&self, state: &GameState, object: &GameObject, ability: bool) -> bool {
         let allowed = match self.restriction.uses {
             ManaUse::Spells => !ability,
             ManaUse::Abilities => ability,
             ManaUse::SpellsOrAbilities => true,
         };
-        allowed && self.matches(self.restriction.filter, state, object, player)
+        allowed && self.matches(self.restriction.filter, state, object, self.controller)
     }
 
     fn matches(
@@ -71,6 +68,9 @@ impl
                 source,
                 text: crate::text_changes::TextChangeMap::IDENTITY,
             },
+            source_version: None,
+            controller: PlayerId::new(0),
+            timestamp: 0,
             restriction: ManaRestriction {
                 uses: ManaUse::Spells,
                 filter,
