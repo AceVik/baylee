@@ -309,6 +309,23 @@ fn create_modified_token_copies(
         &std::sync::Arc::new(modified),
         count,
     );
+    // Copy exceptions also suppress the abilities defining the replaced values
+    // (CR 707.9d), before the next projection or entry trigger scan.
+    if let Some(copied) = state.printed_ability_list(original) {
+        let own = state
+            .printed_ability_list(res.source)
+            .unwrap_or_else(|| copied.clone());
+        let index = state
+            .object(res.on_stack)
+            .and_then(|o| o.ability)
+            .map_or(0, |a| a.index);
+        let abilities = crate::copiable_abilities::compose(copied, &own, index, mods, None);
+        for id in &made {
+            if let Some(object) = state.object_mut(*id) {
+                object.take_abilities(abilities.clone());
+            }
+        }
+    }
     // No rules processing intervenes before these entry counters are placed.
     // Each token receives them through the replacement path, independently of
     // the token multiplier. They must not enter the copied base or ability list.
@@ -390,7 +407,12 @@ pub(super) fn create_tokens_with_text(
     if state.has_left(controller) {
         return Vec::new();
     }
-    let count = count.saturating_mul(crate::replacement::token_multiplier(state, controller));
+    let Some(count) = crate::replacement::token_multiplier(state, controller, token.types)
+        .and_then(|factor| count.checked_mul(factor))
+    else {
+        state.numeric_failure = Some("token creation exceeds u32 objects");
+        return Vec::new();
+    };
     (0..count)
         .map(|_| create_token_with_text(state, controller, token, size, text))
         .collect()
@@ -441,7 +463,12 @@ pub(super) fn create_token_copies(
             object.card.map(|card| (card.index, object.face_index)),
         )
     });
-    let count = count.saturating_mul(crate::replacement::token_multiplier(state, controller));
+    let Some(count) = crate::replacement::token_multiplier(state, controller, base.types)
+        .and_then(|factor| count.checked_mul(factor))
+    else {
+        state.numeric_failure = Some("token creation exceeds u32 objects");
+        return Vec::new();
+    };
     (0..count)
         .map(|_| {
             let ts = state.next_timestamp();
@@ -641,6 +668,105 @@ mod tests {
                 controller_filter: &Filter::ControlledByYou,
             },
         });
+    }
+
+    #[test]
+    fn typed_multiplier_distinguishes_creatures_copies_recipients_and_overflow() {
+        use baylee_core::types::TypeSet;
+        let mut state = state();
+        let source = the_forest(&state);
+        state.replacement_rules.push(ReplacementEntry {
+            source,
+            controller: me(),
+            rule: ReplacementRule::MultiplyTypedTokens {
+                controller_filter: &Filter::ControlledByYou,
+                types: TypeSet::CREATURE,
+                factor: 3,
+            },
+        });
+        doubles_tokens(&mut state, me());
+        assert_eq!(
+            create_tokens(&mut state, me(), treasure(), None, 1).len(),
+            2
+        );
+        let token = &baylee_cards::tokens::PHYREXIAN_MITE_1_1;
+        assert_eq!(create_tokens(&mut state, me(), token, None, 1).len(), 6);
+        assert_eq!(create_tokens(&mut state, them(), token, None, 1).len(), 1);
+        let mut base = (*state.object(source).unwrap().base).clone();
+        base.types = TypeSet::ARTIFACT.union(TypeSet::CREATURE);
+        base.power = Some(4);
+        base.toughness = Some(4);
+        assert_eq!(
+            create_token_copies(&mut state, me(), source, &std::sync::Arc::new(base), 1).len(),
+            6
+        );
+        for _ in 0..32 {
+            doubles_tokens(&mut state, me());
+        }
+        let before = state.zones.list(ZoneLocation::Battlefield).len();
+        assert!(create_tokens(&mut state, me(), token, None, 1).is_empty());
+        assert_eq!(state.zones.list(ZoneLocation::Battlefield).len(), before);
+        assert!(state.numeric_failure.is_some());
+    }
+
+    #[test]
+    fn token_copy_exceptions_remove_defining_abilities_and_keep_other_subtypes() {
+        use baylee_cards_dsl::{AbilityDef, CopyMod, KeywordSet, Modifier, PtCount, StaticAbility};
+        use baylee_core::{
+            generated::subtypes,
+            types::{SubtypeSet, TypeSet},
+        };
+        let mut state = state();
+        let source = the_forest(&state);
+        let object = state.object_mut(source).unwrap();
+        let base = object.base_mut();
+        base.types = TypeSet::CREATURE.union(TypeSet::LAND);
+        base.subtypes =
+            SubtypeSet::ALL_CREATURE.union(SubtypeSet::from_slice(&[subtypes::land::DESERT]));
+        base.keywords = KeywordSet::CHANGELING;
+        object.take_abilities(crate::object::AbilityList::from_static(
+            &[AbilityDef::Static(StaticAbility {
+                layer: baylee_cards_dsl::Layer::PtCda,
+                filter: Filter::This,
+                condition: None,
+                modifier: Modifier::CharacteristicPT {
+                    count: PtCount::YouControl(&Filter::LAND),
+                    toughness_plus: 0,
+                },
+            })],
+            None,
+            None,
+        ));
+        resolve(
+            &mut state,
+            &[source],
+            vec![Effect::CreateTokenCopyOfTarget {
+                mods: &[
+                    CopyMod::SetPT(4, 4),
+                    CopyMod::SetCreatureTypes(&[subtypes::creature::ZOMBIE]),
+                ],
+                sacrifice_at_next_end_step: false,
+            }],
+        );
+        let copy = *state.zones.list(ZoneLocation::Battlefield).last().unwrap();
+        assert_ne!(copy, source);
+        let object = state.object(copy).unwrap();
+        assert_eq!(
+            (object.base.power, object.base.toughness),
+            (Some(4), Some(4))
+        );
+        assert!(!object.base.keywords.contains(KeywordSet::CHANGELING));
+        assert_eq!(
+            object.base.subtypes,
+            SubtypeSet::from_slice(&[subtypes::creature::ZOMBIE, subtypes::land::DESERT])
+        );
+        assert!(
+            state
+                .printed_ability_list(copy)
+                .unwrap()
+                .abilities
+                .is_empty()
+        );
     }
 
     /// The factory is a **door** (CR 614.1): a token made beside it is

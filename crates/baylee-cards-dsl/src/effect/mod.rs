@@ -28,6 +28,15 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Return this source's recorded graveyard incarnation (CR 400.7e/f).
+    ReturnSourceFromGraveyard {
+        /// A transforming card's face on arrival, or its front face normally.
+        face: Option<u8>,
+        /// Whether it enters tapped.
+        tapped: bool,
+        /// Owner's control rather than the resolving ability's controller.
+        owner_control: bool,
+    },
     /// Fabricate (CR 702.123a): optionally put counters on this incarnation,
     /// otherwise create that many of the supplied Servo tokens.
     Fabricate {

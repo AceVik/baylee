@@ -722,6 +722,7 @@ mod tests {
                 "Grasping Shadows",
                 "Ojer Kaslem, Deepest Growth",
                 "Ojer Pakpatiq, Deepest Epoch",
+                "Ojer Taq, Deepest Foundation",
                 "Walk-In Closet",
                 "Balamb Garden, SeeD Academy",
                 "Sidequest: Catch a Fish"

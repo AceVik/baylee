@@ -940,6 +940,9 @@ fn a_temple_stolen_and_turned_over(
         Some((1, p1, p1)),
         "\"…under its owner's control\": the Temple, seat 1's"
     );
+    assert!(is_tapped(&engine, temple));
+    // This fixture isolates turning over under a control effect, after untapping.
+    engine.dev_state_mut(p0).unwrap().set_tapped(temple, false);
     let temple_was = identity(&engine, temple);
 
     {

@@ -491,7 +491,9 @@ fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
                 for (effects, _, door) in resolving_lists(ability) {
                     let mut seen = 0_usize;
                     Effect::walk(effects, &mut seen, &mut |effect| {
-                        let Effect::ExileSelfReturnAsFace { owner_control, .. } = effect else {
+                        let (Effect::ExileSelfReturnAsFace { owner_control, .. }
+                        | Effect::ReturnSourceFromGraveyard { owner_control, .. }) = effect
+                        else {
                             return;
                         };
                         checked += 1;

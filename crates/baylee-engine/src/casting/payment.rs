@@ -17,6 +17,7 @@ pub(crate) fn x_bounded(
     let (widened, filter) = match spec {
         TargetSpec::Spell(f) => (TargetSpec::Spell(&ANY), f),
         TargetSpec::Object(f) => (TargetSpec::Object(&ANY), f),
+        TargetSpec::CardInGraveyard(f, who) => (TargetSpec::CardInGraveyard(&ANY, who), f),
         TargetSpec::StackOrBattlefield(f) => (TargetSpec::StackOrBattlefield(&ANY), f),
         _ => return None,
     };

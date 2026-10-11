@@ -710,6 +710,7 @@ impl Effect {
             | Effect::TransformSource
             | Effect::TransformSourceAtNextUpkeep
             | Effect::ExileSelfReturnAsFace { .. }
+            | Effect::ReturnSourceFromGraveyard { .. }
             | Effect::SacrificeFilter { .. }
             | Effect::ReturnChosenToHand { .. }
             | Effect::UntapChosen { .. }

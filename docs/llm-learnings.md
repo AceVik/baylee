@@ -3629,3 +3629,35 @@ land type"; both are convention tests that fire on a first try.
   the printing/convention validation. The new card scenarios cover doubling,
   removal before resolution, combat-only toxic, noncombat poison triggers,
   illegal blockers, privacy, both optional choices and commander replacement.
+
+### Card completion batch 26 — precise returns and typed token multiplication
+
+- Complete Malakir Rebirth, Journey to Eternity, Ojer Taq and Lazotep Quarry.
+  The separate reanimation module was moved unchanged in the preceding commit.
+  Returning a dying source uses its recorded graveyard successor, never a card
+  that left and returned there while the ability waited (CR 400.7e-f).
+- Set the entering face before entry replacements and trigger observation.
+  Entering transformed does not generate a transform event; cards outside the
+  battlefield and stack regain their front characteristics (CR 712.8a, 712.14a).
+  Under the current rules modal double-faced cards can also transform: do not
+  infer a prohibition merely from their back being independently playable.
+  Single-faced copies of a God cannot return transformed. Tokens cannot return.
+- Ojer Axonil and Ojer Pakpatiq now use the same direct, tapped death return.
+  Their separate unfinished clauses remain marked partial. Exile-and-return
+  effects require the precise current battlefield source, including phasing.
+- Token multiplication reads the recipient and the resulting token's types,
+  including copy exceptions. Multiplication overflow stops with an explicit
+  numeric-domain failure before allocating tokens. Multipliers compose normally.
+- Copy exceptions replace defining abilities as well as characteristics
+  (CR 707.9d); replacing creature types removes changeling and keeps unrelated
+  subtypes. Token copies now use the existing composable rules-text machinery.
+- X-dependent target enumeration also supports graveyard cards, preserving the
+  zone and player restriction before X is chosen and enforcing the actual value
+  afterwards. The quarry regression covers payment, sacrifice, invalidated
+  targets, retained mana abilities, copy exceptions and Doubling Season.
+- All 5,555 engine tests pass (two intentionally ignored), including new tests
+  for stale source identities, owner control, direct graveyard return, modal
+  double-faced copies, transform timing, copied defining abilities, typed token
+  multiplication and overflow. Workspace clippy passes with dev controls.
+- Regenerated the ability-line table and verified all 134 card, 275 codegen
+  and 69 DSL tests. Printing/header validation covers all 3,321 cards.

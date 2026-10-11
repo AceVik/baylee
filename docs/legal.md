@@ -877,3 +877,11 @@ no artwork is committed. Serpent Generator's colorless artifact Snake has no
 matching token printing in the checked catalog, so it has no image identifier
 and uses the existing rules-face fallback. It never borrows an image depicting
 a different Snake's colors, types or abilities.
+
+Batch 26 completes four existing card definitions and corrects the death-return
+path of two others without adding media, printing identifiers or corpus files.
+The [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were checked again; “Don’t mess with the legal notices in our stuff.” continues
+to apply. Attribution and the existing original-image path are retained. Rules
+implementation continues under the explicit owner decision above, without a
+claim of new permission from Wizards. No additional asset licence is needed.

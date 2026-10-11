@@ -474,10 +474,18 @@ fn a_taken_doubling_season_doubles_for_its_taker() {
     );
     assert_eq!(
         (
-            crate::replacement::token_multiplier(state, seat(0)),
-            crate::replacement::token_multiplier(state, seat(1)),
+            crate::replacement::token_multiplier(
+                state,
+                seat(0),
+                baylee_core::types::TypeSet::CREATURE
+            ),
+            crate::replacement::token_multiplier(
+                state,
+                seat(1),
+                baylee_core::types::TypeSet::CREATURE
+            ),
         ),
-        (2, 1)
+        (Some(2), Some(1))
     );
     assert!(statics_follow_their_sources(&engine));
 }

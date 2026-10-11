@@ -178,9 +178,9 @@ pub(super) fn moving_objects(
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
-        Effect::GraveyardToBattlefield { .. } | Effect::ExileSelfReturnAsFace { .. } => {
-            super::reanimation::exec(state, res, op)
-        }
+        Effect::ReturnSourceFromGraveyard { .. }
+        | Effect::GraveyardToBattlefield { .. }
+        | Effect::ExileSelfReturnAsFace { .. } => super::reanimation::exec(state, res, op),
         Effect::Exile { .. } => {
             // Every target and not the first. A card may name more than one
             // — Pit of Offerings prints "exile up to three target cards from
@@ -1490,7 +1490,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
 #[cfg(test)]
 mod arrival_control_tests {
     use super::*;
-    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use crate::engine::synthetic::SyntheticLookup;
     use baylee_cards_dsl::Filter;
 
     fn me() -> PlayerId {
@@ -1503,20 +1503,13 @@ mod arrival_control_tests {
 
     /// A two-seat game with a creature seat 1 owns on the battlefield.
     fn theirs(seed: u64) -> (GameState, ObjectId) {
-        let mut state = GameState::from_preset(&preset(seed, &[]), &SyntheticLookup::new(vec![]))
-            .expect("a two-seat game");
-        let name = state.names.intern("Creature");
-        let it = state.create_bare(
-            them(),
-            ObjectKind::Permanent,
-            name,
-            ZoneLocation::Battlefield,
-        );
-        let obj = state.object_mut(it).expect("fresh");
-        let mut base = (*obj.base).clone();
-        base.types = baylee_core::types::TypeSet::CREATURE;
-        obj.base = std::sync::Arc::new(base);
-        state.invalidate_projections();
+        let card = crate::engine::synthetic::creature(900_123, "Creature", 2, 2, &[]);
+        let state = GameState::from_preset(
+            &crate::engine::synthetic::preset_both(seed, &[], &[900_123]),
+            &SyntheticLookup::new(vec![card]),
+        )
+        .expect("a two-seat game with a real card, not a token");
+        let it = state.zones.list(ZoneLocation::Battlefield)[0];
         (state, it)
     }
 
@@ -1672,6 +1665,60 @@ mod arrival_control_tests {
             owner_control,
         };
         resolve(state, it, &[], effect);
+    }
+
+    #[test]
+    fn a_stale_or_phased_source_cannot_blink_a_new_incarnation() {
+        for phased in [false, true] {
+            let (mut state, it) = stolen();
+            let version = state.object(it).unwrap().version;
+            let name = state.names.intern("Return ability");
+            let ability =
+                state.create_bare(me(), ObjectKind::AbilityOnStack, name, ZoneLocation::Stack);
+            state
+                .object_mut(ability)
+                .unwrap()
+                .riders
+                .push(crate::object::Rider::AbilitySourceVersion(version));
+            if phased {
+                state
+                    .object_mut(it)
+                    .unwrap()
+                    .status
+                    .insert(crate::object::Status::PHASED_OUT);
+            } else {
+                state
+                    .move_object(
+                        it,
+                        ZoneLocation::Exile(them()),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    )
+                    .unwrap();
+                state
+                    .move_object(
+                        it,
+                        ZoneLocation::Battlefield,
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    )
+                    .unwrap();
+            }
+            let identity = state.source_identity(it);
+            let before = state.journal.len();
+            resolve_from(
+                &mut state,
+                it,
+                ability,
+                &[],
+                Effect::ExileSelfReturnAsFace {
+                    face: 0,
+                    owner_control: false,
+                },
+            );
+            assert_eq!(state.source_identity(it), identity);
+            assert_eq!(state.journal.len(), before);
+        }
     }
 
     /// "Exile this Saga, then return it to the battlefield transformed under

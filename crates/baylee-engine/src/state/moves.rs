@@ -591,6 +591,15 @@ impl GameState {
                 obj.own_abilities_until_eot = false;
             }
         }
+        if !matches!(to.zone(), Zone::Battlefield | Zone::Stack)
+            && let Some(def) = self
+                .object(id)
+                .filter(|o| o.is_card() && o.face_index != 0)
+                .and_then(|o| o.card)
+                .and_then(|card| self.bases.card(card.index))
+        {
+            self.switch_face(id, def, 0);
+        }
         // CR 400.7a, the exception to the new object above: what a spell or
         // ability did to a permanent spell, it goes on doing to the
         // permanent (`EffectTable::follow_into_permanent`).

@@ -974,6 +974,8 @@ pub enum CopyMod {
     RemoveSupertype(baylee_core::types::SupertypeSet),
     /// Adds a subtype ("except it's a Shapeshifter").
     AddSubtype(baylee_core::ids::SubtypeId),
+    /// Replace creature types, retaining subtypes of other card types.
+    SetCreatureTypes(&'static [baylee_core::ids::SubtypeId]),
     /// Grants a keyword ("with haste").
     AddKeyword(crate::KeywordSet),
     /// Enters tapped only if this copy replacement is chosen. Entry state is

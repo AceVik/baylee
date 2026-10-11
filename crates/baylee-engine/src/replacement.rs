@@ -147,12 +147,24 @@ pub(crate) fn expire_departed_rules(state: &mut GameState) {
 /// the replacement's own source with the recipient as "you", which makes
 /// `ControlledByYou` mean "the enchantment that recipient controls".
 #[must_use]
-pub fn token_multiplier(state: &GameState, recipient: PlayerId) -> u32 {
+pub fn token_multiplier(
+    state: &GameState,
+    recipient: PlayerId,
+    types: baylee_core::types::TypeSet,
+) -> Option<u32> {
+    use baylee_cards_dsl::ReplacementRule;
     let mut count = 1u32;
     for entry in &state.replacement_rules {
-        if let baylee_cards_dsl::ReplacementRule::DoubleTokenCreation { controller_filter } =
-            entry.rule
-            && let Some(source_obj) = state.object(entry.source)
+        let (controller_filter, factor) = match entry.rule {
+            ReplacementRule::DoubleTokenCreation { controller_filter } => (controller_filter, 2),
+            ReplacementRule::MultiplyTypedTokens {
+                controller_filter,
+                types: required,
+                factor,
+            } if types.intersects(required) => (controller_filter, factor),
+            _ => continue,
+        };
+        if let Some(source_obj) = state.object(entry.source)
             && eval::matches(
                 controller_filter,
                 state,
@@ -163,10 +175,10 @@ pub fn token_multiplier(state: &GameState, recipient: PlayerId) -> u32 {
         {
             #[cfg(test)]
             crate::ability_log::replaced(entry);
-            count *= 2;
+            count = count.checked_mul(factor)?;
         }
     }
-    count
+    Some(count)
 }
 
 /// How many times over counters put on `target` are actually put on it
@@ -410,10 +422,14 @@ mod tests {
     fn a_token_doubler_reads_its_filter_against_the_recipient() {
         let mut state = state();
         doubles_tokens(&mut state, me());
-        assert_eq!(token_multiplier(&state, me()), 2, "my tokens are doubled");
         assert_eq!(
-            token_multiplier(&state, them()),
-            1,
+            token_multiplier(&state, me(), baylee_core::types::TypeSet::CREATURE),
+            Some(2),
+            "my tokens are doubled"
+        );
+        assert_eq!(
+            token_multiplier(&state, them(), baylee_core::types::TypeSet::CREATURE),
+            Some(1),
             "and an opponent's are not — the filter is over the affected \
              controller, not over whose effect is creating them"
         );
@@ -480,7 +496,10 @@ mod tests {
         doubles_counters(&mut state, me());
         let mine = permanent(&mut state, me(), "Mine");
 
-        assert_eq!(token_multiplier(&state, me()), 4);
+        assert_eq!(
+            token_multiplier(&state, me(), baylee_core::types::TypeSet::CREATURE),
+            Some(4)
+        );
         assert_eq!(counter_multiplier(&state, mine), 4);
 
         put_counters(&mut state, mine, CounterKind::P1P1, 3);

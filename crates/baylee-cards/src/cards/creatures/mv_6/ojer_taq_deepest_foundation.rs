@@ -8,16 +8,21 @@
 //! Set: LCI #26 — The Lost Caverns of Ixalan | Scryfall ID: 1ca79dd4-67fc-496c-96fc-489b039c4932 | Oracle ID: 486bb9a5-73f1-4cec-b097-fb07ac80b72e
 //! Face: Ojer Taq, Deepest Foundation — {4}{W}{W} — Legendary Creature — God
 //! Face: Temple of Civilization —  — Land
-// PARTIAL — front-face vigilance and Temple of Civilization's {T}: Add {W}
-// are built; the token tripler, the dies trigger and the transform activation
-// have no DSL shape.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-/// `{T}: Add {W}.` — Temple of Civilization prints no basic land type, so
-/// CR 305.6 grants it no intrinsic mana ability and the card states its own.
-static TEMPLE_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::White, 1)])];
+static TEMPLE_MANA: &[AbilityDef] = &[
+    mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
+    activated!(
+        cost!("{2}{W}", TapSelf),
+        &[Effect::TransformSource],
+        timing = ActivationTiming::SorcerySpeed,
+        condition = Some(Condition::AttackedWithAtLeast(3))
+    ),
+];
 
 card!(
     index = index::OJER_TAQ_DEEPEST_FOUNDATION,
@@ -38,26 +43,25 @@ card!(
         ),
         face!(
             name = "Temple of Civilization",
-            // CR 712.8c: a nonmodal double-faced card is cast as its front
-            // face and reaches this one only by transforming.
             castable_from_hand = false,
             types = TypeSet::LAND,
             abilities = TEMPLE_MANA,
         ),
     ],
-    // NOT SUPPORTED: "If one or more creature tokens would be created under
-    // your control, three times that many of those tokens are created
-    // instead." — ReplacementRule carries DoubleTokenCreation and nothing
-    // that counts higher than twice.
-    // NOT SUPPORTED: "When Ojer Taq dies, return it to the battlefield tapped
-    // and transformed under its owner's control." — no effect returns the
-    // source out of a graveyard, let alone tapped and on its back face.
-    // NOT SUPPORTED: "{2}{W}, {T}: Transform this land. Activate only if you
-    // attacked with three or more creatures this turn and only as a
-    // sorcery." — there is no transform effect, and no Condition for "you
-    // attacked with N creatures this turn".
-    coverage = Coverage::Partial(
-        "ReplacementRule cannot triple tokens, no effect returns the source \
-         from a graveyard transformed, and no transform effect exists",
-    ),
+    coverage = Coverage::Implemented,
+    abilities = &[
+        AbilityDef::Replacement(ReplacementRule::MultiplyTypedTokens {
+            controller_filter: &Filter::ControlledByYou,
+            types: TypeSet::CREATURE,
+            factor: 3
+        }),
+        triggered!(
+            Trigger::Dies(&Filter::This),
+            &[Effect::ReturnSourceFromGraveyard {
+                face: Some(1),
+                tapped: true,
+                owner_control: true
+            }]
+        ),
+    ],
 );

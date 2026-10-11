@@ -980,9 +980,16 @@ pub enum ReplacementRule {
         /// Counter placed on the card in exile.
         counter: Option<crate::CounterKind>,
     },
-    /// "If an effect would create tokens under your control, it creates
-    /// twice that many" (Doubling Season). Filter applies to the affected
-    /// controller.
+    /// Multiply tokens of the specified card types before they are created.
+    MultiplyTypedTokens {
+        /// Which recipient controls the replacement source.
+        controller_filter: &'static Filter,
+        /// Any matching card type; evaluated after copy exceptions.
+        types: TypeSet,
+        /// Positive integer multiplication factor.
+        factor: u32,
+    },
+    /// Double all tokens created for the matching recipient.
     DoubleTokenCreation {
         /// Which controllers' token creations are doubled.
         controller_filter: &'static Filter,

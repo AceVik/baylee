@@ -471,6 +471,15 @@ pub fn apply_characteristic_exceptions_with_text(
                 copied.supertypes = copied.supertypes.difference(types);
             }
             CopyMod::AddSubtype(subtype) => copied.subtypes.insert(text.land_type(subtype)),
+            CopyMod::SetCreatureTypes(types) => {
+                copied.keywords = copied
+                    .keywords
+                    .difference(baylee_cards_dsl::KeywordSet::CHANGELING);
+                copied.subtypes = copied
+                    .subtypes
+                    .difference(baylee_core::types::SubtypeSet::ALL_CREATURE)
+                    .union(baylee_core::types::SubtypeSet::from_slice(types));
+            }
             CopyMod::AddKeyword(keywords) => {
                 copied.keywords = copied.keywords.union(text.keywords(keywords));
             }
@@ -478,7 +487,12 @@ pub fn apply_characteristic_exceptions_with_text(
                 copied.power = Some(power);
                 copied.toughness = Some(toughness);
             }
-            CopyMod::SetColor(colors) => copied.colors = text.color_words(colors),
+            CopyMod::SetColor(colors) => {
+                copied.colors = text.color_words(colors);
+                copied.keywords = copied
+                    .keywords
+                    .difference(baylee_cards_dsl::KeywordSet::DEVOID);
+            }
             CopyMod::KeepColor => copied.colors = previous.colors,
             CopyMod::NoManaCost => copied.mana_cost = baylee_core::mana::ManaCost::ZERO,
             CopyMod::EnterTapped
