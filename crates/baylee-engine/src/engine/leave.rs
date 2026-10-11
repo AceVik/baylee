@@ -58,6 +58,12 @@ impl<L: CardLookup> Engine<L> {
             self.end_game(result);
             return;
         }
+        if self.state.entries.waiting() {
+            crate::entry::refresh_after_departure(&mut self.state);
+            self.awaiting_answer = false;
+            self.run_until_choice();
+            return;
+        }
         if self.refresh_damage_question() {
             return;
         }
@@ -82,6 +88,7 @@ impl<L: CardLookup> Engine<L> {
                     || self.pending_plan.is_some()
                     || self.resolution.is_some()
                     || self.combat_damage.is_some()
+                    || self.state.entries.waiting()
             }
         }
     }
@@ -382,6 +389,10 @@ impl<L: CardLookup> Engine<L> {
     fn go_on_with(&mut self, res: Resolution, flow: Flow) {
         self.awaiting_answer = false;
         match flow {
+            Flow::Enter => {
+                self.resolution = Some(res);
+                self.awaiting_answer = false;
+            }
             Flow::Wait(pending) => {
                 self.resolution = Some(res);
                 self.pending = pending;

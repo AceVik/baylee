@@ -705,6 +705,10 @@ impl<L: CardLookup> Engine<L> {
             );
             match flow {
                 resolve::Flow::Complete => {}
+                resolve::Flow::Enter => {
+                    self.resolution = Some(res);
+                    self.awaiting_answer = false;
+                }
                 resolve::Flow::Wait(pending) => {
                     self.resolution = Some(res);
                     self.pending = pending;

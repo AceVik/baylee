@@ -819,6 +819,8 @@ pub fn flatten(effects: &'static [Effect]) -> Vec<Effect> {
 pub enum Flow {
     /// All operations are done.
     Complete,
+    /// Settle entry modifiers and their following actions without granting priority.
+    Enter,
     /// Suspended: a choice is required (pending is set by the caller).
     Wait(Pending),
 }
@@ -831,7 +833,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     // began (including a mana ability). Settle that order before any effect
     // can read the graveyard.
     if let Some(pending) = order_before_continuing(state, res, None) {
-        return Flow::Wait(pending);
+        return pending;
     }
     // The moment CR 608.2h measures from. `run` is re-entered after every
     // suspended choice, so this has to be the *first* entry and not any
@@ -896,14 +898,17 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         // after `exec`, which may have suspended in the middle of one.
         crate::replacement::expire_departed_rules(state);
         let since = state.journal.last_seq();
-        state.entries.begin_event(since);
+        state.entries.begin_event(since, Some(res.controller));
         let pending = exec(state, res, op);
         crate::graveyard_order::capture(state, since);
         if pending.is_none() {
             advance_program(res);
+            if matches!(res.awaiting, Some(AwaitingOp::Entry { .. })) {
+                return Flow::Enter;
+            }
         }
-        if let Some(pending) = order_before_continuing(state, res, pending) {
-            return Flow::Wait(pending);
+        if let Some(flow) = order_before_continuing(state, res, pending) {
+            return flow;
         }
     }
     // The resolving object's own departure is the next event.
@@ -935,11 +940,12 @@ fn order_before_continuing(
     state: &mut GameState,
     res: &mut Resolution,
     next: Option<Pending>,
-) -> Option<Pending> {
+) -> Option<Flow> {
     if matches!(res.awaiting, Some(AwaitingOp::Entry { .. })) {
-        return next;
+        return next.map(Flow::Wait);
     }
-    if let Some(pending) = crate::entry::advance(state) {
+    let entry_choice = crate::entry::advance(state);
+    if entry_choice.is_some() || state.entries.has_after() {
         let next = next.map(|pending| {
             Box::new((
                 res.awaiting.take().expect("instruction continuation"),
@@ -947,19 +953,19 @@ fn order_before_continuing(
             ))
         });
         res.awaiting = Some(AwaitingOp::Entry { next });
-        return Some(pending);
+        return Some(entry_choice.map_or(Flow::Enter, Flow::Wait));
     }
     // A nested program already suspended on this very queue.
     if matches!(res.awaiting, Some(AwaitingOp::GraveyardOrder { .. })) {
-        return next;
+        return next.map(Flow::Wait);
     }
     let Some(question) = crate::graveyard_order::pending(state) else {
-        return next;
+        return next.map(Flow::Wait);
     };
     let next =
         next.map(|pending| Box::new((res.awaiting.take().expect("choice continuation"), pending)));
     res.awaiting = Some(AwaitingOp::GraveyardOrder { next });
-    Some(question)
+    Some(Flow::Wait(question))
 }
 
 /// Continue the original instruction after every entry replacement has finished.
@@ -989,14 +995,14 @@ fn finish_choice(state: &mut GameState, res: &mut Resolution, since: u64) -> Flo
     crate::graveyard_order::capture(state, since);
     advance_program(res);
     match order_before_continuing(state, res, None) {
-        Some(pending) => Flow::Wait(pending),
+        Some(flow) => flow,
         None => run(state, res),
     }
 }
 
 fn next_choice(state: &mut GameState, res: &mut Resolution, since: u64, pending: Pending) -> Flow {
     crate::graveyard_order::capture(state, since);
-    Flow::Wait(order_before_continuing(state, res, Some(pending)).expect("next choice"))
+    order_before_continuing(state, res, Some(pending)).expect("next choice")
 }
 
 /// Sylvan Library's second question: which of `cards` go back on top of
@@ -1218,6 +1224,16 @@ fn run_nested_with(
     res.subject = nested.subject.clone();
     match flow {
         Flow::Complete => None,
+        Flow::Enter => {
+            res.awaiting = nested.awaiting;
+            res.loot = nested.loot;
+            let tail = nested.effects.split_off(nested.pc);
+            // No public question was emitted, so the outer instruction still
+            // advances once before this inserted continuation is resumed.
+            let insert = res.pc + 1;
+            res.effects.splice(insert..insert, tail);
+            None
+        }
         Flow::Wait(pending) => {
             res.awaiting = nested.awaiting;
             res.loot = nested.loot;

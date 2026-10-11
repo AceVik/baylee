@@ -211,7 +211,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 66 adds the optional tapped-entry/player-counter prompt.
 /// Version 67 adds variable activation limits and the amass Army choice.
 /// Version 68 adds entry-sacrifice acceptance and numeric sacrifice choices.
-pub const VIEW_VERSION: u32 = 68;
+/// Version 69 adds choices between simultaneous and competing entry replacements.
+pub const VIEW_VERSION: u32 = 69;
 
 // ------------------------------------------------------------------- targets
 

@@ -881,6 +881,8 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         | ChoicePrompt::OneOfType { .. }
         | ChoicePrompt::CastFaceDown { .. }
         | ChoicePrompt::CommandCard
+        | ChoicePrompt::EntryOrder
+        | ChoicePrompt::EntryReplacement
         | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
     }
 }
@@ -897,6 +899,18 @@ fn cards_line(
     statics: Option<&GameStatic>,
     name: &dyn Fn(ObjectId) -> Option<String>,
 ) -> String {
+    if matches!(
+        reason,
+        ChoicePrompt::EntryOrder | ChoicePrompt::EntryReplacement
+    ) {
+        return if reason == ChoicePrompt::EntryOrder {
+            Phrase::ChooseEntryOrder
+        } else {
+            Phrase::ChooseEntryReplacement
+        }
+        .text(lang)
+        .to_owned();
+    }
     if reason == ChoicePrompt::LookAtHand {
         return Phrase::InspectHand.text(lang).to_owned();
     }

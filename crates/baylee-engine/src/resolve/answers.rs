@@ -583,7 +583,7 @@ pub(super) fn resume_arranged_inner(
             pending
         });
         return match order_before_continuing(state, res, pending) {
-            Some(pending) => Flow::Wait(pending),
+            Some(flow) => flow,
             None => run(state, res),
         };
     }

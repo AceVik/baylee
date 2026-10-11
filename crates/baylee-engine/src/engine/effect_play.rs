@@ -98,6 +98,10 @@ impl<L: CardLookup> Engine<L> {
         self.awaiting_answer = false;
         match crate::resolve::run(&mut self.state, &mut parent.resolution) {
             Flow::Complete => self.finish_resolution(&parent.resolution),
+            Flow::Enter => {
+                self.resolution = Some(*parent.resolution);
+                self.awaiting_answer = false;
+            }
             Flow::Wait(pending) => {
                 self.resolution = Some(*parent.resolution);
                 self.pending = pending;

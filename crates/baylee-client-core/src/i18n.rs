@@ -80,6 +80,10 @@ messages! {
     NounArmiesToAmass { en: "Armies to amass", de: "Armeen zum Aufmarschieren" },
     /// Optional replacement for entering, before any enters-the-battlefield triggers.
     EnterTappedForCounters { en: "Enter tapped and get {0} {1}?", de: "Getappt ins Spiel kommen und {0} {1} erhalten?" },
+    /// Order for interacting simultaneous entry replacements.
+    ChooseEntryOrder { en: "Which permanent’s entry replacements will you apply first?", de: "Für welche bleibende Karte möchtest du die Eintrittseffekte zuerst anwenden?" },
+    /// Choice among applicable replacements of the same battlefield arrival.
+    ChooseEntryReplacement { en: "Which entry replacement will you apply next?", de: "Welchen Ersatzeffekt möchtest du als Nächstes anwenden?" },
     /// Full sacrifice needed before the announced card can enter the battlefield.
     SacrificeToEnter { en: "Sacrifice {0} eligible permanents so this card can enter?", de: "{0} passende bleibende Karten opfern, damit diese Karte ins Spiel kommt?" },
     /// Number of permanents to sacrifice as an object enters.

@@ -10,7 +10,9 @@ use super::*;
 #[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) -> Flow {
-    state.entries.begin_event(state.journal.last_seq());
+    state
+        .entries
+        .begin_event(state.journal.last_seq(), Some(res.controller));
     subjects::begin_resume(state, res);
     let flow = resume_inner(state, res, chosen);
     subjects::flush(state, res);
@@ -185,6 +187,7 @@ pub(super) fn resume_inner(
                     find_for(state, res, receiver, finds, at, card).map(|find| (card, find))
                 })
                 .collect();
+            state.entries.set_putter(receiver);
             for (card, find) in placed {
                 let (dest, tapped) = (find.dest, find.tapped);
                 match dest {

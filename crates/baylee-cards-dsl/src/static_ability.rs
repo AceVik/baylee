@@ -1006,6 +1006,9 @@ pub enum Duration {
 /// Panharmonicon, Elesh Norn, Roaming Throne).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ReplacementRule {
+    /// An opponent putting a land into play sacrifices a land afterwards
+    /// if they controlled at least as many lands as this source’s controller.
+    LandEquilibrium,
     /// "If this would be put into a graveyard from anywhere, exile it
     /// instead" (every disturb back: Ghastly Mimicry). On the battlefield
     /// the rule is registered like any other; a spell cast with it carries

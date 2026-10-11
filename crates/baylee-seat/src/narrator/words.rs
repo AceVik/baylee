@@ -211,6 +211,8 @@ pub fn subtypes(subtypes: baylee_core::types::SubtypeSet) -> String {
 #[must_use]
 pub fn choice_prompt(prompt: ChoicePrompt) -> String {
     match prompt {
+        ChoicePrompt::EntryOrder => "Choose the permanent whose entry replacements are applied first".into(),
+        ChoicePrompt::EntryReplacement => "Choose the source whose entry replacement applies next".into(),
         ChoicePrompt::CommandCard => "Choose the card the affected player must play".into(),
         ChoicePrompt::NewHost { .. } => {
             "Choose a permanent to move the Aura onto (not a target), or none to leave it".into()

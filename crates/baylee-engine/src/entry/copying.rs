@@ -3,12 +3,12 @@
 use super::*;
 
 pub(super) fn copy_question(state: &GameState, entry: &mut Attempt) -> Option<(Question, Pending)> {
-    if entry.copy_checked {
+    if entry.copy != CopyStatus::Pending {
         return None;
     }
-    entry.copy_checked = true;
+    entry.copy = CopyStatus::None;
     let (index, target, mods, until_eot) = copy_clause(state, entry.object)?;
-    entry.has_copy = true;
+    entry.copy = CopyStatus::Handled;
     let excluded = unavailable(state);
     let mut options = crate::eval::choice_options(&target, state, entry.controller, entry.object);
     options.retain(|id| *id != entry.object && !excluded.contains(id));

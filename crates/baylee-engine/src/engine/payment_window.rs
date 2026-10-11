@@ -164,6 +164,10 @@ impl<L: CardLookup> Engine<L> {
             return Ok(());
         }
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
+            resolve::Flow::Enter => {
+                self.resolution = Some(res);
+                self.awaiting_answer = false;
+            }
             resolve::Flow::Wait(pending) => {
                 self.resolution = Some(res);
                 self.pending = pending;

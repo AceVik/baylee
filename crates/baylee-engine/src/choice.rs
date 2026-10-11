@@ -680,6 +680,10 @@ pub enum CastModeKind {
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ChoicePrompt {
+    /// Choose which incoming object’s entry replacements to process first.
+    EntryOrder,
+    /// Choose which source’s entry replacement applies next.
+    EntryReplacement,
     /// Non-targeted counter recipients from the objects tapped by this effect.
     TappedForCounters {
         /// One counter of this kind goes on each chosen permanent.

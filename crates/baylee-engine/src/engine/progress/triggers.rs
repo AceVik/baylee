@@ -309,6 +309,10 @@ impl<L: CardLookup> Engine<L> {
             );
             match flow {
                 crate::resolve::Flow::Complete => {}
+                crate::resolve::Flow::Enter => {
+                    self.resolution = Some(res);
+                    self.awaiting_answer = false;
+                }
                 crate::resolve::Flow::Wait(pending) => {
                     self.resolution = Some(res);
                     self.pending = pending;

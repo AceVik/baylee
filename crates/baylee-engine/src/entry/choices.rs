@@ -13,15 +13,24 @@ pub(super) fn ask(
     pending
 }
 
+fn before_next_entry(state: &mut GameState) -> Option<Pending> {
+    if let Some(pending) = crate::graveyard_order::pending(state) {
+        state.entries.question = Some(Question::GraveyardOrder);
+        return Some(pending);
+    }
+    equilibrium::entry_order(state)
+}
+
 /// Run entry work until all moves have completed or a player must decide.
 pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
-    loop {
+    'entries: loop {
         if state.entries.pending.is_empty() {
+            state.entries.putter = None;
+            state.entries.chosen_entry = None;
             return None;
         }
         state.refresh_characteristics();
-        if let Some(pending) = crate::graveyard_order::pending(state) {
-            state.entries.question = Some(Question::GraveyardOrder);
+        if let Some(pending) = before_next_entry(state) {
             return Some(pending);
         }
         let mut entry = state.entries.pending.pop_front()?;
@@ -35,6 +44,9 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
             return Some(ask(state, entry, question, pending));
         }
         if !entry.denied {
+            if let Some(pending) = equilibrium::replacement_order(state, &mut entry) {
+                return Some(ask(state, entry, Question::Replacement, pending));
+            }
             while let Some(&modifier) = entry.modifiers.get(entry.next) {
                 entry.next += 1;
                 let player = entry.controller;
@@ -101,11 +113,14 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                     EnterModifier::SacrificeOthers(filter) => {
                         let victims = options(state, &entry, filter, false);
                         sacrifice(state, &victims);
+                        state.entries.pending.push_front(entry);
+                        continue 'entries;
                     }
                     _ => {}
                 }
             }
         }
+        state.entries.chosen_entry = None;
         finish(state, entry);
     }
 }
@@ -113,6 +128,9 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
 /// The engine validates the offered seat, cardinality and membership before entering here.
 pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
     let question = state.entries.question.take().expect("entry question");
+    if equilibrium::answer_special(state, &question, action) {
+        return;
+    }
     if let Question::GraveyardOrder = question {
         let PlayerAction::Arrange { piles } = action else {
             unreachable!("graveyard arrangement")

@@ -2,9 +2,13 @@
 mod choices;
 mod commit;
 mod copying;
+mod departure;
+mod equilibrium;
 pub(crate) use choices::{advance, answer, next_question};
 use commit::{finish, sacrifice};
 use copying::{answer_copy, copy_question};
+pub(crate) use departure::refresh_after_departure;
+pub(crate) use equilibrium::after_entry;
 
 use std::collections::{BTreeSet, VecDeque};
 use std::hash::{Hash, Hasher};
@@ -28,6 +32,15 @@ pub(crate) struct Entries {
     committing: Option<ObjectId>,
     /// First event of the instruction that is putting these objects into play.
     event_start: u64,
+    putter: Option<PlayerId>,
+    after: VecDeque<AfterEntry>,
+    chosen_entry: Option<ObjectId>,
+}
+
+#[derive(Clone, Debug, Hash)]
+struct AfterEntry {
+    player: PlayerId,
+    remaining: u32,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -35,6 +48,10 @@ struct Attempt {
     object: ObjectId,
     version: u32,
     controller: PlayerId,
+    putter: PlayerId,
+    applied: Vec<ObjectId>,
+    sacrifices_after: u32,
+    own_first: bool,
     position: ZonePosition,
     cause: Cause,
     modifiers: &'static [EnterModifier],
@@ -42,13 +59,22 @@ struct Attempt {
     denied: bool,
     sacrifices: Option<u32>,
     counters: Vec<(PlayerId, CounterKind, u16)>,
-    copy_checked: bool,
-    has_copy: bool,
+    copy: CopyStatus,
     preview_effects: Vec<baylee_core::ids::EffectId>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum CopyStatus {
+    Pending,
+    None,
+    Handled,
 }
 
 #[derive(Clone, Debug, Hash)]
 enum Question {
+    Replacement,
+    EntryOrder,
+    AfterSacrifice,
     Copy {
         index: u32,
         mods: &'static [CopyMod],
@@ -78,6 +104,8 @@ impl Hash for Entries {
         self.pending.hash(h);
         self.question.hash(h);
         self.committing.hash(h);
+        self.after.hash(h);
+        self.chosen_entry.hash(h);
         // The cursor alone is bookkeeping; it becomes meaningful only with an arrival.
         if !self.pending.is_empty() {
             self.event_start.hash(h);
@@ -86,9 +114,10 @@ impl Hash for Entries {
 }
 
 impl Entries {
-    pub(crate) fn begin_event(&mut self, seq: u64) {
+    pub(crate) fn begin_event(&mut self, seq: u64, putter: Option<PlayerId>) {
         if self.pending.is_empty() && self.question.is_none() {
             self.event_start = seq;
+            self.putter = putter;
         }
     }
     pub(crate) fn copying(&self) -> Option<(ObjectId, &'static [CopyMod])> {
@@ -96,6 +125,12 @@ impl Entries {
             return None;
         };
         Some((self.pending.front()?.object, mods))
+    }
+    pub(crate) fn has_after(&self) -> bool {
+        !self.after.is_empty()
+    }
+    pub(crate) fn set_putter(&mut self, player: PlayerId) {
+        self.putter = Some(player);
     }
     pub(crate) fn waiting(&self) -> bool {
         self.question.is_some()
@@ -172,9 +207,10 @@ pub(crate) fn defer(
     if state.entries.contains(id) {
         return true;
     }
-    let modifiers = modifiers(state, id);
+    let mut modifiers = modifiers(state, id);
     let copy = copy_clause(state, id);
-    if copy.is_none() && !modifiers.iter().any(needs_before_entry) {
+    let external = equilibrium::exists(state);
+    if !external && copy.is_none() && !modifiers.iter().any(needs_before_entry) {
         return false;
     }
     let Some(object) = state.object(id) else {
@@ -184,8 +220,18 @@ pub(crate) fn defer(
     prospective.zone = Zone::Battlefield;
     prospective.version = prospective.version.wrapping_add(1);
     let projected = crate::layers::recompute(state, &prospective);
-    if projected.characteristics.rules_text_lost
-        || projected.characteristics.abilities_lost.is_some()
+    let lost = projected.characteristics.rules_text_lost
+        || projected.characteristics.abilities_lost.is_some();
+    if lost {
+        modifiers = &[];
+    }
+    if (lost || copy.is_none())
+        && !modifiers.iter().any(needs_before_entry)
+        && (!external
+            || !projected
+                .characteristics
+                .types
+                .contains(baylee_core::types::TypeSet::LAND))
     {
         return false;
     }
@@ -193,6 +239,10 @@ pub(crate) fn defer(
         object: id,
         version: object.version,
         controller: object.controller,
+        putter: state.entries.putter.unwrap_or(object.controller),
+        applied: Vec::new(),
+        sacrifices_after: 0,
+        own_first: false,
         position,
         cause,
         modifiers,
@@ -200,8 +250,11 @@ pub(crate) fn defer(
         denied: false,
         sacrifices: None,
         counters: Vec::new(),
-        copy_checked: false,
-        has_copy: false,
+        copy: if lost {
+            CopyStatus::None
+        } else {
+            CopyStatus::Pending
+        },
         preview_effects: Vec::new(),
     };
     state.entries.pending.push_back(attempt);

@@ -34,8 +34,15 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
     if object.version != entry.version {
         return;
     }
+    let owner = object.owner;
+    if entry.sacrifices_after > 0 {
+        state.entries.after.push_back(AfterEntry {
+            player: entry.putter,
+            remaining: entry.sacrifices_after,
+        });
+    }
     let destination = if entry.denied {
-        ZoneLocation::Graveyard(object.owner)
+        ZoneLocation::Graveyard(owner)
     } else {
         ZoneLocation::Battlefield
     };
@@ -59,7 +66,7 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
             }
         }
     }
-    if entry.has_copy && !entry.denied {
+    if entry.copy == CopyStatus::Handled && !entry.denied {
         state
             .object_mut(entry.object)
             .expect("current entry")

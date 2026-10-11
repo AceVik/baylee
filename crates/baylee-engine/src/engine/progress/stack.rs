@@ -506,6 +506,10 @@ impl<L: CardLookup> Engine<L> {
                 };
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
+                    resolve::Flow::Enter => {
+                        self.resolution = Some(res);
+                        self.awaiting_answer = false;
+                    }
                     resolve::Flow::Wait(pending) => {
                         self.resolution = Some(res);
                         self.pending = pending;
@@ -545,6 +549,10 @@ impl<L: CardLookup> Engine<L> {
             crate::ability_log::resolving(&self.state, &self.lookup, top);
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
+                resolve::Flow::Enter => {
+                    self.resolution = Some(res);
+                    self.awaiting_answer = false;
+                }
                 resolve::Flow::Wait(pending) => {
                     self.resolution = Some(res);
                     self.pending = pending;
@@ -604,6 +612,10 @@ impl<L: CardLookup> Engine<L> {
             crate::ability_log::resolving(&self.state, &self.lookup, top);
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
+                resolve::Flow::Enter => {
+                    self.resolution = Some(res);
+                    self.awaiting_answer = false;
+                }
                 resolve::Flow::Wait(pending) => {
                     self.resolution = Some(res);
                     self.pending = pending;
@@ -998,9 +1010,10 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         if is_permanent {
-            self.state
-                .entries
-                .begin_event(self.state.journal.last_seq());
+            self.state.entries.begin_event(
+                self.state.journal.last_seq(),
+                self.state.object(spell).map(|o| o.controller),
+            );
             self.state.begin_permanent_resolution(spell);
             // Dash (CR 702.109a): "return the permanent this spell becomes to
             // its owner's hand at the beginning of the next end step" — a

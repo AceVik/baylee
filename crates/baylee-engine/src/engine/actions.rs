@@ -131,6 +131,10 @@ impl<L: CardLookup> Engine<L> {
         if let PlayerAction::ChooseDamageSource { source, .. } = action {
             let mut res = self.resolution.take().expect("source resolution suspended");
             match resolve::resume_source(&mut self.state, &mut res, Some(source)) {
+                resolve::Flow::Enter => {
+                    self.resolution = Some(res);
+                    self.awaiting_answer = false;
+                }
                 resolve::Flow::Wait(pending) => {
                     self.resolution = Some(res);
                     self.pending = pending;
@@ -155,6 +159,10 @@ impl<L: CardLookup> Engine<L> {
             } else {
                 let mut res = self.resolution.take().expect("damage resolution suspended");
                 match resolve::resume_damage(&mut self.state, &mut res, &action) {
+                    resolve::Flow::Enter => {
+                        self.resolution = Some(res);
+                        self.awaiting_answer = false;
+                    }
                     resolve::Flow::Wait(pending) => {
                         self.resolution = Some(res);
                         self.pending = pending;
@@ -257,6 +265,10 @@ impl<L: CardLookup> Engine<L> {
             {
                 let mut res = self.resolution.take().expect("pile choice suspended");
                 match resolve::resume_pile(&mut self.state, &mut res, index) {
+                    resolve::Flow::Enter => {
+                        self.resolution = Some(res);
+                        self.awaiting_answer = false;
+                    }
                     resolve::Flow::Wait(pending) => {
                         self.resolution = Some(res);
                         self.pending = pending;
@@ -281,6 +293,10 @@ impl<L: CardLookup> Engine<L> {
                 }) {
                     let mut res = self.resolution.take().expect("effect choice suspended");
                     match resolve::resume_effect_choice(&mut self.state, &mut res, index) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
                             self.pending = pending;
@@ -405,6 +421,10 @@ impl<L: CardLookup> Engine<L> {
                 }) {
                     let mut res = self.resolution.take().expect("counter choice suspended");
                     match resolve::resume_with_number(&mut self.state, &mut res, n) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
                             self.pending = pending;
@@ -521,6 +541,10 @@ impl<L: CardLookup> Engine<L> {
                 }) {
                     let mut res = self.resolution.take().expect("rotation suspended");
                     match resolve::resume_control_choice(&mut self.state, &mut res, chosen) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
                             self.pending = pending;
@@ -544,6 +568,10 @@ impl<L: CardLookup> Engine<L> {
                 }) {
                     let mut res = self.resolution.take().expect("splitter suspended");
                     match resolve::resume_pick_splitter(&mut res, chosen) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
                             self.pending = pending;
@@ -697,6 +725,10 @@ impl<L: CardLookup> Engine<L> {
                     && let Some(mut res) = self.resolution.take()
                 {
                     match resolve::resume_targets(&mut self.state, &mut res, &objects, &players) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
                             self.pending = pending;
@@ -1050,6 +1082,10 @@ impl<L: CardLookup> Engine<L> {
             {
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_with_subtype(&mut self.state, &mut res, subtype) {
+                    resolve::Flow::Enter => {
+                        self.resolution = Some(res);
+                        self.awaiting_answer = false;
+                    }
                     resolve::Flow::Wait(pending) => {
                         self.resolution = Some(res);
                         self.pending = pending;
@@ -1150,6 +1186,10 @@ impl<L: CardLookup> Engine<L> {
             {
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_with_color(&mut self.state, &mut res, color) {
+                    resolve::Flow::Enter => {
+                        self.resolution = Some(res);
+                        self.awaiting_answer = false;
+                    }
                     resolve::Flow::Wait(pending) => {
                         self.resolution = Some(res);
                         self.pending = pending;
@@ -1173,6 +1213,10 @@ impl<L: CardLookup> Engine<L> {
                 }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_arranged(&mut self.state, &mut res, &piles) {
+                    resolve::Flow::Enter => {
+                        self.resolution = Some(res);
+                        self.awaiting_answer = false;
+                    }
                     resolve::Flow::Wait(pending) => {
                         self.resolution = Some(res);
                         self.pending = pending;
@@ -1296,6 +1340,10 @@ impl<L: CardLookup> Engine<L> {
                 }) {
                     let mut res = self.resolution.take().expect("resolution suspended");
                     match resolve::resume_may_do(&mut self.state, &mut res, answer) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
                             self.pending = pending;
@@ -1361,6 +1409,10 @@ impl<L: CardLookup> Engine<L> {
                     let mut res = self.resolution.take().expect("resolution suspended");
                     let answer = answer && self.can_settle_tax(&res);
                     match resolve::resume_tax_choice(&mut self.state, &mut res, answer) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
                             self.pending = pending;
@@ -1551,6 +1603,10 @@ impl<L: CardLookup> Engine<L> {
                 }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_yes_no(&mut self.state, &mut res, answer) {
+                    resolve::Flow::Enter => {
+                        self.resolution = Some(res);
+                        self.awaiting_answer = false;
+                    }
                     resolve::Flow::Wait(pending) => {
                         self.resolution = Some(res);
                         self.pending = pending;
@@ -1744,6 +1800,10 @@ impl<L: CardLookup> Engine<L> {
                 }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume(&mut self.state, &mut res, &objects) {
+                    resolve::Flow::Enter => {
+                        self.resolution = Some(res);
+                        self.awaiting_answer = false;
+                    }
                     resolve::Flow::Wait(pending) => {
                         self.resolution = Some(res);
                         self.pending = pending;

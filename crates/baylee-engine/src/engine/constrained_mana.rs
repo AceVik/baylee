@@ -269,6 +269,10 @@ impl<L: crate::state::CardLookup> super::Engine<L> {
         work.resolution.pc += 1;
         match crate::resolve::run(&mut self.state, &mut work.resolution) {
             crate::resolve::Flow::Complete => self.finish_resolution(&work.resolution),
+            crate::resolve::Flow::Enter => {
+                self.resolution = Some(work.resolution);
+                self.awaiting_answer = false;
+            }
             crate::resolve::Flow::Wait(pending) => {
                 self.resolution = Some(work.resolution);
                 self.pending = pending;

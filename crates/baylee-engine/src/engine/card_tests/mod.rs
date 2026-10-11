@@ -32,6 +32,7 @@ mod creatures;
 mod enchantments;
 mod entry_replacements;
 mod instants;
+mod land_equilibrium;
 mod lands;
 mod legends_ids;
 mod legends_kit;
