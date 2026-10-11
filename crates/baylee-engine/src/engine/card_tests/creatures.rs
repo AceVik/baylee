@@ -5315,3 +5315,6 @@ fn grapeshot_catapult() -> CardIndex {
 fn argivian_archaeologist() -> CardIndex {
     card_index("4b889ec0-6130-4e31-bb02-03fdabd28bee")
 }
+
+mod completion_helpers;
+use completion_helpers::{attach_test_aura, deal_test_damage, give_mana};

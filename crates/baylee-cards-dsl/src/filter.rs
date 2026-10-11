@@ -157,6 +157,14 @@ pub enum Filter {
     /// clears them, so the card in the graveyard has none by the time a dies
     /// trigger asks.
     HasCounter(crate::CounterKind),
+    /// At least one counter, of any kind.
+    HasAnyCounter,
+    /// Has an Aura attached to it. Equipment alone does not count.
+    Enchanted,
+    /// Is blocking the source creature.
+    BlockingSource,
+    /// Is blocked by the source creature.
+    BlockedBySource,
     /// The candidate has at least this many counters of the specified kind.
     CountersAtLeast(crate::CounterKind, u16),
     /// Has the subtype the SOURCE object chose as it entered ("the chosen

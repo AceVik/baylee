@@ -3489,7 +3489,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Enchanted Being
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Energy Tap
     &[FaceLines {
@@ -4143,7 +4150,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Ramses Overdark
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Rapid Fire
     &[FaceLines {
         sentences: 2,
@@ -4394,7 +4408,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[Some(1)],
+        lines: &[Some(1), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -4423,13 +4437,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // The Wretched
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Time Elemental
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 3,
+        lines: &[Some(0), Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -4577,13 +4598,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[None, None],
         modes: &[],
         alternatives: &[],
     }],
     &[],
     &[],
-    &[],
+    // Wall of Vapor
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Wall of Wonder
     &[FaceLines {
         sentences: 2,
@@ -31378,7 +31406,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[Some(0)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -34537,7 +34565,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Collector Ouphe
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],

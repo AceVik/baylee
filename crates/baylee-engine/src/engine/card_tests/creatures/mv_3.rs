@@ -234,3 +234,13 @@ mod zombie_master;
 mod zuran_spellcaster;
 
 mod brazen_borrower;
+
+mod xenic_poltergeist;
+
+mod tetsuo_umezawa;
+
+mod wall_of_putrid_flesh;
+
+mod enchanted_being;
+
+mod time_elemental;

@@ -194,6 +194,18 @@ pub fn matches_projected_with_context(
         // the object as it last existed there, and `trigger::departed_matches`
         // hands in that object, counters and all.
         Filter::HasCounter(kind) => obj.counters.get(*kind) > 0,
+        Filter::HasAnyCounter => obj.counters.iter().any(|(_, n)| n > 0),
+        Filter::Enchanted => state.battlefield_seen().any(|id| {
+            state.object(id).is_some_and(|aura| {
+                aura.attached_to == Some(obj.id)
+                    && aura
+                        .characteristics()
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::enchantment::AURA)
+            })
+        }),
+        Filter::BlockingSource => state.combat.is_blocking(obj.id, this),
+        Filter::BlockedBySource => state.combat.is_blocking(this, obj.id),
         Filter::CountersAtLeast(kind, n) => obj.counters.get(*kind) >= *n,
         Filter::MatchesChosenTypeOfSource => state
             .object(this)
@@ -1415,23 +1427,39 @@ pub fn target_options_with_context(
         .collect()
 }
 
-/// Cast-offer targeting reads the card as the spell it will become, so zone-
-/// restricted target prohibitions agree with announcement. Project one source
-/// object; the battlefield and effect index remain borrowed.
-#[must_use]
-pub(crate) fn spell_target_options(
+/// Targeting with the characteristics of the chosen face and casting form.
+pub(crate) fn spell_target_options_for(
     spec: &TargetSpec,
     state: &GameState,
     you: PlayerId,
     source: ObjectId,
+    face: Option<(&baylee_cards_dsl::CardDef, usize)>,
+    form: Option<crate::casting::SpellForm>,
 ) -> Vec<ObjectId> {
     let Some(original) = state.object(source) else {
         return Vec::new();
     };
     let mut spell = original.clone();
+    if let Some((def, face)) = face {
+        let Some(printed) = def.faces.get(face) else {
+            return Vec::new();
+        };
+        let name = state.names.find(printed.name).unwrap_or(original.base.name);
+        spell.base =
+            std::sync::Arc::new(crate::object::Characteristics::from_face(def, face, name));
+        spell.cache.clear();
+        spell.face_index = u8::try_from(face).unwrap_or(0);
+    }
+    if let Some(form) = form {
+        spell = form.project(&spell);
+    }
     spell.zone = crate::zone::Zone::Stack;
     spell.kind = crate::object::ObjectKind::Spell;
     spell.controller = you;
+    spell.cache.clear();
+    let projected = crate::layers::recompute(state, &spell);
+    spell.base = std::sync::Arc::new(projected.characteristics);
+    spell.controller = projected.controller;
     choice_options(spec, state, you, source)
         .into_iter()
         .filter(|id| {

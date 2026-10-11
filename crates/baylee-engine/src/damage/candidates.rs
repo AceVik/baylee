@@ -133,7 +133,12 @@ impl DamageWork {
                     Kind::Protection
                 }
 
-                Modifier::PreventDamageFrom(filter) => {
+                Modifier::PreventDamageFrom(filter) | Modifier::PreventCombatDamageFrom(filter) => {
+                    if matches!(fx.modifier, Modifier::PreventCombatDamageFrom(_))
+                        && !part.view.is_combat
+                    {
+                        continue;
+                    }
                     let DamageTarget::Object(target) = part.view.recipient else {
                         continue;
                     };

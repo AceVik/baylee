@@ -176,6 +176,8 @@ pub enum Modifier {
     /// Activated abilities of artifacts the effect's opponents control
     /// can't be activated (Karn).
     CantActivateArtifacts,
+    /// Activated abilities of the affected permanent can't be activated.
+    CantActivate,
     /// "Activated abilities of sources with the chosen name can't be
     /// activated unless they're mana abilities" (Pithing Needle, CR 602.5).
     ///
@@ -278,6 +280,8 @@ pub enum Modifier {
     /// still target and block it. The filter is read against the source as
     /// the damage is dealt, its "you" the effect's controller.
     PreventDamageFrom(&'static Filter),
+    /// Prevent combat damage to the affected permanent from matching sources.
+    PreventCombatDamageFrom(&'static Filter),
     /// Combat damage the affected object would deal can't be prevented
     /// (Questing Beast: "Combat damage that would be dealt by creatures you
     /// control can't be prevented"). CR 615.12: a prevention effect applied
@@ -789,6 +793,7 @@ impl Modifier {
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
+            | Self::CantActivate
             | Self::ChosenNameCantActivate
             | Self::OpponentsCantCast(_)
             | Self::CantBeEnchantedExceptSource
@@ -802,6 +807,7 @@ impl Modifier {
             | Self::CantBeAttackedExceptBy { .. }
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
+            | Self::PreventCombatDamageFrom(_)
             | Self::PreventDamageFrom(_)
             | Self::CombatDamageCantBePrevented
             | Self::CantBlock(_)
@@ -1194,6 +1200,7 @@ mod tests {
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
             Modifier::OpponentsCastAsSorcery,
+            Modifier::CantActivate,
             Modifier::ChosenNameCantActivate,
             Modifier::PlayersCantLose,
             Modifier::CantLoseLife {
@@ -1211,6 +1218,7 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::PreventCombatDamageFrom(&Filter::ARTIFACT),
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBlock(&Filter::CREATURE),

@@ -417,16 +417,16 @@ impl<L: CardLookup> Engine<L> {
         // through one or two of them.
         let grants: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> =
             crate::effects::grants(&self.state).collect();
-        let artifact_locks: SmallVec<[PlayerId; 4]> = self
+        let activation_locks: SmallVec<[&crate::effects::ContinuousEffect; 4]> = self
             .state
             .effects
             .iter()
-            .filter_map(|fx| {
+            .filter(|fx| {
                 matches!(
                     fx.modifier,
                     baylee_cards_dsl::Modifier::CantActivateArtifacts
+                        | baylee_cards_dsl::Modifier::CantActivate
                 )
-                .then_some(fx.controller)
             })
             .collect();
         // A phased-out permanent is treated as though it does not exist
@@ -438,8 +438,7 @@ impl<L: CardLookup> Engine<L> {
             // an exception to one. What it does *not* stop is a cast, which
             // is why this is two guards and not a `continue`: the Prepared
             // rider below offers a spell.
-            let locked =
-                self.artifact_activations_are_locked_by(id, artifact_locks.iter().copied());
+            let locked = self.activations_are_locked_by(id, activation_locks.iter().copied());
             if !locked
                 && !casting::intrinsic_mana_choices(&self.state, &self.lookup, player, id)
                     .is_empty()
@@ -1169,26 +1168,25 @@ impl<L: CardLookup> Engine<L> {
     /// are on the *other* seat's board, and that seat was still being offered
     /// every one of them.
     pub(crate) fn artifact_activations_are_locked(&self, id: ObjectId) -> bool {
-        self.artifact_activations_are_locked_by(
-            id,
-            self.state.effects.iter().filter_map(|fx| {
-                matches!(
-                    fx.modifier,
-                    baylee_cards_dsl::Modifier::CantActivateArtifacts
-                )
-                .then_some(fx.controller)
-            }),
-        )
+        self.activations_are_locked_by(id, self.state.effects.iter())
     }
 
-    fn artifact_activations_are_locked_by(
+    fn activations_are_locked_by<'a>(
         &self,
         id: ObjectId,
-        mut controllers: impl Iterator<Item = PlayerId>,
+        mut effects: impl Iterator<Item = &'a crate::effects::ContinuousEffect>,
     ) -> bool {
         self.state.object(id).is_some_and(|obj| {
-            obj.characteristics().types.contains(TypeSet::ARTIFACT)
-                && controllers.any(|controller| self.state.is_opponent(obj.controller, controller))
+            effects.any(|fx| match fx.modifier {
+                baylee_cards_dsl::Modifier::CantActivateArtifacts => {
+                    obj.characteristics().types.contains(TypeSet::ARTIFACT)
+                        && self.state.is_opponent(obj.controller, fx.controller)
+                }
+                baylee_cards_dsl::Modifier::CantActivate => {
+                    crate::effects::applies_to(&self.state, fx, obj)
+                }
+                _ => false,
+            })
         })
     }
 

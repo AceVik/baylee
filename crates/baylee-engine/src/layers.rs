@@ -825,6 +825,10 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::PutIntoGraveyardThisTurn
         | Filter::AttackedThisTurn
         | Filter::CountersAtLeast(_, _)
+        | Filter::HasAnyCounter
+        | Filter::Enchanted
+        | Filter::BlockingSource
+        | Filter::BlockedBySource
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::AttachedToSource
@@ -1213,6 +1217,7 @@ fn apply(
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
+        | Modifier::CantActivate
         | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
@@ -1227,6 +1232,7 @@ fn apply(
         | Modifier::CantBeAttackedExceptBy { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+        | Modifier::PreventCombatDamageFrom(_)
         | Modifier::PreventDamageFrom(_)
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)

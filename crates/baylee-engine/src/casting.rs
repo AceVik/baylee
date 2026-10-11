@@ -333,8 +333,14 @@ pub fn face_has_a_legal_target(
         let takeable = modes
             .iter()
             .filter(|mode| {
-                requirement_is_reachable(mode.targets, state, player, card)
-                    && requirement_is_reachable(mode.second_targets, state, player, card)
+                requirement_is_reachable_for(mode.targets, state, player, card, Some((def, face)))
+                    && requirement_is_reachable_for(
+                        mode.second_targets,
+                        state,
+                        player,
+                        card,
+                        Some((def, face)),
+                    )
             })
             .count();
         return takeable >= usize::from(choose.min.max(1));
@@ -351,13 +357,15 @@ pub fn face_has_a_legal_target(
     // Every instance of the word has to be satisfiable (CR 601.2c): Khalni
     // Ambush with no creature on the other side of the table is not a spell
     // that can be cast, however many of the caster's own it could name.
-    (requirement_is_reachable(req, state, player, card)
+    (requirement_is_reachable_for(req, state, player, card, Some((def, face)))
         || def
             .faces
             .get(face)
             .and_then(|f| f.kicked_targets)
-            .is_some_and(|req| requirement_is_reachable(Some(req), state, player, card)))
-        && requirement_is_reachable(second, state, player, card)
+            .is_some_and(|req| {
+                requirement_is_reachable_for(Some(req), state, player, card, Some((def, face)))
+            }))
+        && requirement_is_reachable_for(second, state, player, card, Some((def, face)))
 }
 
 /// Whether the ordinary spell target requirement can be satisfied.
@@ -535,6 +543,16 @@ pub(crate) fn requirement_is_reachable(
     player: PlayerId,
     card: ObjectId,
 ) -> bool {
+    requirement_is_reachable_for(req, state, player, card, None)
+}
+
+fn requirement_is_reachable_for(
+    req: Option<baylee_cards_dsl::TargetReq>,
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: Option<(&baylee_cards_dsl::CardDef, usize)>,
+) -> bool {
     let Some(req) = req else {
         return true;
     };
@@ -565,15 +583,19 @@ pub(crate) fn requirement_is_reachable(
         // target for some X (`eval::matches_for_some_x`). Enumerated through
         // the same reader with the filter widened, so what makes a spell or
         // permanent targetable at all is still asked the one way.
-        Some((widened, filter)) => crate::eval::spell_target_options(&widened, state, player, card)
-            .into_iter()
-            .filter(|id| {
-                state.object(*id).is_some_and(|o| {
-                    crate::eval::matches_for_some_x(filter, state, o, player, card)
+        Some((widened, filter)) => {
+            crate::eval::spell_target_options_for(&widened, state, player, card, face, None)
+                .into_iter()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        crate::eval::matches_for_some_x(filter, state, o, player, card)
+                    })
                 })
-            })
-            .count(),
-        None => crate::eval::spell_target_options(&req.spec, state, player, card).len(),
+                .count()
+        }
+        None => {
+            crate::eval::spell_target_options_for(&req.spec, state, player, card, face, None).len()
+        }
     };
     let players = crate::eval::target_player_options(state, &req.spec, player).len();
     objects + players >= req.min as usize

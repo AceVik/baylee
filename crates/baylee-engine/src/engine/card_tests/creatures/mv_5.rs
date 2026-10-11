@@ -114,3 +114,5 @@ mod vigilant_drake;
 mod water_elemental;
 mod wind_spirit;
 mod zuberi_golden_feather;
+
+mod the_wretched;

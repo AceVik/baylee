@@ -144,6 +144,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
+        | Modifier::CantActivate
         | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
@@ -158,6 +159,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBeAttackedExceptBy { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+        | Modifier::PreventCombatDamageFrom(_)
         | Modifier::PreventDamageFrom(_)
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
@@ -1017,6 +1019,7 @@ mod tests {
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
             Modifier::CantActivateArtifacts,
+            Modifier::CantActivate,
             Modifier::ChosenNameCantActivate,
             Modifier::OpponentsCastAsSorcery,
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
@@ -1043,6 +1046,7 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::PreventCombatDamageFrom(&Filter::ARTIFACT),
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBlock(&Filter::CREATURE),
@@ -1119,7 +1123,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            87,
+            89,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1183,7 +1187,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (34, 53));
+        assert_eq!((locking, all.len() - locking), (34, 55));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

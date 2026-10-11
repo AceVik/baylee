@@ -110,3 +110,56 @@ fn xenic_poltergeist_makes_sol_ring_a_one_one() {
     assert!(is_creature(&engine, ring));
     assert_eq!(pt(&engine, ring), (1, 1));
 }
+
+mod local_regressions {
+    //! Printed card behavior through the real engine.
+    #[allow(clippy::wildcard_imports)]
+    use super::*;
+    use baylee_core::generated::index;
+
+    #[test]
+    fn poltergeist_animates_only_its_target_through_the_next_untap() {
+        let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(
+                0,
+                &[
+                    index::XENIC_POLTERGEIST,
+                    quiet_artifact(),
+                    index::ORNITHOPTER,
+                ],
+            )
+            .battlefield(1, &[quiet_artifact()])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let target = on_battlefield(&e, p0, quiet_artifact()).unwrap();
+        let untouched = on_battlefield(&e, p1, quiet_artifact()).unwrap();
+        activate(&mut e, p0, index::XENIC_POLTERGEIST, 0);
+        let Pending::ChooseTargets { options, .. } = e.pending() else {
+            panic!("target")
+        };
+        assert!(options.contains(&target) && options.contains(&untouched));
+        assert!(!options.contains(&on_battlefield(&e, p0, index::ORNITHOPTER).unwrap()));
+        aim_at(&mut e, p0, target);
+        pass_until(&mut e, stack_is_empty);
+        let mv = i16::try_from(
+            e.state()
+                .object(target)
+                .unwrap()
+                .characteristics()
+                .mana_cost
+                .cmc(),
+        )
+        .unwrap();
+        assert_eq!(pt(&e, target), (mv, mv));
+        assert!(types(&e, target).contains(TypeSet::CREATURE));
+        assert!(!types(&e, untouched).contains(TypeSet::CREATURE));
+        reach_their_main_phase(&mut e, p1);
+        assert!(types(&e, target).contains(TypeSet::CREATURE));
+        pass_until(&mut e, |e| {
+            e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+        });
+        assert!(!types(&e, target).contains(TypeSet::CREATURE));
+    }
+}

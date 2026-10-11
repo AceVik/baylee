@@ -244,9 +244,12 @@ impl HeuristicAgent {
             | Filter::SharesSubtypeWithCommander
             // Not one of those: a gap, and the header says why.
             | Filter::CountersAtLeast(_, _)
-            | Filter::HasCounter(_)
-            // The stack targets are not available in the public view.
-            | Filter::NotTargetedByAnotherNamed(_) => None,
+        | Filter::HasCounter(_)
+        | Filter::NotTargetedByAnotherNamed(_)
+        | Filter::HasAnyCounter
+        | Filter::Enchanted
+        | Filter::BlockingSource
+        | Filter::BlockedBySource => None,
         }
     }
 

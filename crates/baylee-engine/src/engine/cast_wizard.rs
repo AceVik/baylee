@@ -437,7 +437,7 @@ impl<L: CardLookup> Engine<L> {
                     return false;
                 }
             } else if max > 0 {
-                let objects = eval::target_options(&req.spec, &self.state, player, card);
+                let objects = self.wizard_target_options(&wizard, &req.spec);
                 if u64::try_from(objects.len() + players.len()).unwrap_or(u64::MAX) < u64::from(min)
                 {
                     return false;
@@ -445,7 +445,7 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         self.wizard_second_target_req(&wizard).is_none_or(|req| {
-            eval::target_options(&req.spec, &self.state, player, card).len() >= usize::from(req.min)
+            self.wizard_target_options(&wizard, &req.spec).len() >= usize::from(req.min)
         })
     }
 
@@ -1626,7 +1626,7 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
-                let options = eval::target_options(&spec, &self.state, wizard.player, wizard.card);
+                let options = self.wizard_target_options(&wizard, &spec);
                 let player_options = eval::target_player_options(&self.state, &spec, wizard.player);
                 // "Any target" is one set: a burn spell with every creature
                 // hexproofed is still castable at a player's face, so the
@@ -1681,8 +1681,7 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 };
-                let options =
-                    eval::target_options(&req.spec, &self.state, wizard.player, wizard.card);
+                let options = self.wizard_target_options(&wizard, &req.spec);
                 if options.len() < req.min as usize {
                     self.cast_wizard = None;
                     return Err(EngineError::IllegalAction("not enough legal targets"));
@@ -2170,6 +2169,33 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         Ok(())
+    }
+
+    fn wizard_target_options(&self, wizard: &CastWizard, spec: &TargetSpec) -> Vec<ObjectId> {
+        let Some(def) = self
+            .state
+            .object(wizard.card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+        else {
+            return Vec::new();
+        };
+        let face = match wizard.option {
+            Some(CastModeKind::Face(i)) => i,
+            _ => 0,
+        };
+        let form = match spend_for(wizard, self.wizard_face(wizard)) {
+            casting::SpendFor::SpellAs(_, form) => Some(form),
+            _ => None,
+        };
+        eval::spell_target_options_for(
+            spec,
+            &self.state,
+            wizard.player,
+            wizard.card,
+            Some((def, face)),
+            form,
+        )
     }
 
     fn wizard_face(&self, wizard: &CastWizard) -> &'static baylee_cards_dsl::FaceDef {

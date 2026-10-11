@@ -2,13 +2,12 @@
 //! Oracle: Tetsuo Umezawa can't be the target of Aura spells.
 //! Oracle: {U}{B}{B}{R}, {T}: Destroy target tapped or blocking creature.
 //! Set: ME3 #179 — Masters Edition III | Scryfall ID: ec22ddf8-cb5e-4ca0-8f2f-c5d48f2cbd26 | Oracle ID: ff132d04-c3a9-4949-83ba-d80bcbcd7b9b
-// PARTIAL — the upkeep activation destroys a tapped or blocking creature; the
-// Aura-spell targeting restriction is off the card.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-/// "Tapped or blocking creature" — the activation's target.
 static TAPPED_OR_BLOCKING: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::Or(&[Filter::Tapped, Filter::Blocking]),
@@ -29,20 +28,19 @@ card!(
         power = Some(3),
         toughness = Some(3),
     ),],
-    coverage = Coverage::Partial(
-        "the Aura-spell targeting restriction is off the card: \
-         `Modifier::CantBeTargetedBy` is asked of the targeting spell or of \
-         the ability's source, so a filter matching Auras also stops abilities \
-         from Aura sources, which the sentence does not"
-    ),
-    // NOT SUPPORTED: "Tetsuo Umezawa can't be the target of Aura spells." —
-    // `Modifier::CantBeTargetedBy(&Filter::HasSubtype(AURA))` would also stop
-    // abilities of Aura permanents, which the printed sentence does not; no
-    // filter can say "spells only", the same gap Anti-Magic Aura and Artifact
-    // Ward record.
-    abilities = &[activated!(
-        cost!("{U}{B}{B}{R}", TapSelf),
-        &[Effect::destroy(TargetSpec::Object(&TAPPED_OR_BLOCKING))],
-        target = Some(TargetSpec::Object(&TAPPED_OR_BLOCKING))
-    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        activated!(
+            cost!("{U}{B}{B}{R}", TapSelf),
+            &[Effect::destroy(TargetSpec::Object(&TAPPED_OR_BLOCKING))],
+            target = Some(TargetSpec::Object(&TAPPED_OR_BLOCKING))
+        ),
+        static_ability!(
+            Filter::This,
+            Modifier::CantBeTargetedBy(&Filter::And(&[
+                Filter::InZone(ZoneRef::Stack),
+                Filter::HasSubtype(subtypes::enchantment::AURA),
+            ]))
+        )
+    ],
 );

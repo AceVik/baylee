@@ -666,6 +666,9 @@ impl Counters {
 
     /// Adds counters, returning the new total.
     pub fn add(&mut self, kind: CounterKind, n: u16) -> u16 {
+        if n == 0 {
+            return self.get(kind);
+        }
         if let Some(entry) = self.0.iter_mut().find(|(k, _)| *k == kind) {
             entry.1 = entry.1.saturating_add(n);
             entry.1
@@ -1901,5 +1904,21 @@ mod provenance_tests {
             assert_eq!(card.token(), None);
         }
         assert_eq!(AbilityOrigin::new(None, None), None);
+    }
+}
+
+#[cfg(test)]
+mod counter_zero_tests {
+    use super::{CounterKind, Counters};
+    #[test]
+    fn adding_zero_preserves_the_canonical_counter_set() {
+        let mut counters = Counters::default();
+        assert_eq!(counters.add(CounterKind::Charge, 0), 0);
+        assert!(counters.is_empty());
+        assert_eq!(counters.add(CounterKind::Charge, 3), 3);
+        assert_eq!(counters.add(CounterKind::Charge, 0), 3);
+        assert_eq!(counters.iter().count(), 1);
+        counters.set(CounterKind::Charge, 0);
+        assert!(counters.is_empty());
     }
 }

@@ -3,12 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `Rishkar, Peema Renegade` prints `When Rishkar enters, put a +1/+1 counter on each of up to two target creatures.` and `Each creature you control with a counter on it has "{{T}}: Add {{G}}."`
-///
-/// Marked `Coverage::Partial`, its arrival trigger fires `Trigger::ETB` placing a `CounterKind::P1P1` on up to two targets chosen through `Pending::ChooseTargets`.
-/// The creatures each grow by +1/+1, while the unsupported static granting `{{T}}: Add {{G}}` to creatures with counters is omitted from `LegalActions::mana_abilities`.
 #[test]
-fn rishkar_peema_renegade_distributes_counters_and_omits_mana_grant() {
+fn rishkar_peema_renegade_distributes_counters_and_grants_mana_to_ready_creatures() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[forest(), forest(), forest(), young_wolf()])
@@ -57,10 +53,64 @@ fn rishkar_peema_renegade_distributes_counters_and_omits_mana_grant() {
     };
     assert!(
         !legal.mana_abilities.contains(&rishkar),
-        "under `Coverage::Partial` Rishkar is not granted a mana ability"
+        "summoning sickness still matters"
     );
-    assert!(
-        !legal.mana_abilities.contains(&wolf),
-        "under `Coverage::Partial` wolf is not granted a mana ability"
+    assert!(legal.mana_abilities.contains(&wolf));
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: wolf })
+        .unwrap();
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
     );
+}
+
+#[test]
+fn rishkar_grants_for_any_counter_but_only_to_your_creatures() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[rishkar_peema_renegade(), grizzly_bears(), quiet_artifact()],
+        )
+        .battlefield(1, &[grizzly_bears()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let own = on_battlefield(&e, p0, grizzly_bears()).unwrap();
+    let other = on_battlefield(&e, p1, grizzly_bears()).unwrap();
+    for id in [own, other] {
+        e.dev_state_mut(p0)
+            .unwrap()
+            .object_mut(id)
+            .unwrap()
+            .counters
+            .add(CounterKind::Charge, 1);
+    }
+    e.refresh_offer();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority")
+    };
+    assert!(legal.mana_abilities.contains(&own));
+    e.dev_state_mut(p0)
+        .unwrap()
+        .object_mut(own)
+        .unwrap()
+        .counters
+        .set(CounterKind::Charge, 0);
+    e.refresh_offer();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority")
+    };
+    assert!(!legal.mana_abilities.contains(&own));
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(),Pending::Priority { player,.. } if *player==p1),
+    );
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority")
+    };
+    assert!(!legal.mana_abilities.contains(&other));
 }

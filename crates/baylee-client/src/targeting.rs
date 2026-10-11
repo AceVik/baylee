@@ -258,6 +258,20 @@ fn count<'a>(
     Some(found)
 }
 
+fn is_unblocked(view: &PlayerView, object: baylee_core::ids::ObjectId) -> bool {
+    matches!(
+        view.step,
+        baylee_view::Step::DeclareBlockers
+            | baylee_view::Step::CombatDamageFirst
+            | baylee_view::Step::CombatDamage
+            | baylee_view::Step::CombatEnd
+    ) && view
+        .combat
+        .attackers
+        .iter()
+        .any(|attacker| attacker.creature == object && !attacker.blocked)
+}
+
 /// Evaluates a [`Filter`] against one object in a view.
 ///
 /// A mirror of `baylee_engine::eval::matches_projected` and held to the
@@ -371,19 +385,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
             .blockers
             .iter()
             .any(|blocker| blocker.blocker == object.id),
-        Filter::Unblocked => {
-            matches!(
-                view.step,
-                baylee_view::Step::DeclareBlockers
-                    | baylee_view::Step::CombatDamageFirst
-                    | baylee_view::Step::CombatDamage
-                    | baylee_view::Step::CombatEnd
-            ) && view
-                .combat
-                .attackers
-                .iter()
-                .any(|attacker| attacker.creature == object.id && !attacker.blocked)
-        }
+        Filter::Unblocked => is_unblocked(view, object.id),
         // The view names what every public object is attached to.
         Filter::IsAttached => object.attached_to.is_some(),
         Filter::CmcAtMost(n) => object.mana_value <= *n,
@@ -437,6 +439,10 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // translation is gamehost's; `baylee-ai` refuses it for that reason.
         | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
+        | Filter::HasAnyCounter
+        | Filter::Enchanted
+        | Filter::BlockingSource
+        | Filter::BlockedBySource
         | Filter::InZone(_) => return None,
     })
 }

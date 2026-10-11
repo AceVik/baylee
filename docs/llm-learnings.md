@@ -3247,3 +3247,22 @@ land type"; both are convention tests that fire on a first try.
 - "Becomes blocked by" fires for each matching blocker and never when the source
   blocks. "Blocks" already exists; Elder Land Wurm's old Partial explanation was
   stale. Test permanent keyword loss across cleanup and reset on a zone change.
+
+## 2026-10-11 — partial-card completion: counters, attachments and combat relations
+
+- Enchanted means an Aura is attached, not merely that an object carries an
+  attachment. Evaluate the current relationship again when a target resolves.
+- Counter-based ability grants must accept any counter kind, restrict the
+  controller, and still enforce summoning sickness. Adding zero counters must
+  preserve the canonical empty counter set rather than allocate a zero entry.
+- Filtered prevention has two scopes: all damage and combat damage only. Share
+  matching, source identity and prevention ordering, with an explicit combat
+  gate. Neither restriction grants protection or forbids targeting.
+- Blocking relationships are directional. A Wall reads the creatures it blocks;
+  The Wretched reads its own blockers. Bind the latter set when control changes,
+  so combat cleanup does not erase the control effect.
+- General activation restrictions use the same precollected effect list as
+  Karn's opponent-only artifact restriction, preserving large-board behavior.
+- Target offers and casting choices must both project the spell's chosen face,
+  casting form and stack identity. A creature's Adventure must target as the
+  instant it becomes; an Aura still in hand must obey Aura-spell restrictions.
