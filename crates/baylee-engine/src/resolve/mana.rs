@@ -278,6 +278,13 @@ pub fn colors_of(
                 options
             }
         }
+        ManaSource::ColorsAmong { filter, zone } => colored(eval::colors_in_zone(
+            filter,
+            zone,
+            state,
+            you,
+            eval::live_context(state, from),
+        )),
         ManaSource::LandColor { mine, any_type } => {
             // Union of what the lands of the chosen side could produce.
             let mut colors = ColorSet::EMPTY;
@@ -295,6 +302,7 @@ pub fn colors_of(
                 }
                 colors = colors.union(c.produced_colors);
                 colorless |= c.produced_colorless;
+                colors = colors.union(dynamic_production_colors(state, obj));
                 // `produced_colors` is a reading of the *card*, and a land
                 // whose mana is "the chosen color" has none there to read —
                 // the answer is on this object. Without this a Reflecting
@@ -333,6 +341,41 @@ pub fn colors_of(
             options
         }
     }
+}
+
+/// Board-dependent production of an object's printed mana abilities.
+fn dynamic_production_colors(state: &GameState, obj: &crate::object::GameObject) -> ColorSet {
+    let c = obj.characteristics();
+    let id = obj.id;
+    let mut colors = ColorSet::EMPTY;
+    if let Some(list) = state.printed_ability_list(id)
+        && c.abilities_lost.is_none()
+        && !c.rules_text_lost
+    {
+        for ability in list.abilities.iter().filter(|a| a.is_mana_ability()) {
+            let (baylee_cards_dsl::AbilityDef::Activated { effects, .. }
+            | baylee_cards_dsl::AbilityDef::ActivatedConditional { effects, .. }) = ability
+            else {
+                continue;
+            };
+            for effect in *effects {
+                if let Effect::AddMana {
+                    source: ManaSource::ColorsAmong { filter, zone },
+                    ..
+                } = effect
+                {
+                    colors = colors.union(eval::colors_in_zone(
+                        filter,
+                        *zone,
+                        state,
+                        obj.controller,
+                        eval::live_context(state, id),
+                    ));
+                }
+            }
+        }
+    }
+    colors
 }
 
 /// One colour as a [`ColorSet`].

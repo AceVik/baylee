@@ -1410,6 +1410,8 @@ pub enum Effect {
     /// The source gains the prepared marker (Emeritus of Woe's
     /// re-prepare trigger).
     BecomePrepared,
+    /// The targeted permanent becomes prepared if it has a prepare spell.
+    BecomeTargetPrepared,
     /// "… target … if it's [filter]": the effects run only when the first
     /// target, as it is when this runs, matches `filter` (Prismatic Ending:
     /// "Exile target nonland permanent if its mana value is less than or

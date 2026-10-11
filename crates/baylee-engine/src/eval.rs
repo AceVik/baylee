@@ -679,6 +679,50 @@ fn basic_land_types(
         .count() as u32
 }
 
+/// Visits visible objects in a selected zone without copying its index.
+fn visit_zone(zone: ZoneSel, state: &GameState, you: PlayerId, mut visit: impl FnMut(ObjectId)) {
+    let location = match zone {
+        ZoneSel::Battlefield => {
+            state.battlefield_seen().for_each(visit);
+            return;
+        }
+        ZoneSel::GraveyardAll => {
+            for player in &state.players {
+                for &id in state.zones.list(ZoneLocation::Graveyard(player.id)) {
+                    visit(id);
+                }
+            }
+            return;
+        }
+        ZoneSel::LibraryYou => ZoneLocation::Library(you),
+        ZoneSel::GraveyardYou => ZoneLocation::Graveyard(you),
+        ZoneSel::HandActivePlayer => ZoneLocation::Hand(state.turn.active),
+        ZoneSel::HandYou => ZoneLocation::Hand(you),
+    };
+    for &id in state.zones.list(location) {
+        visit(id);
+    }
+}
+
+/// Colors of matching objects in the selected zone; colorless contributes none.
+pub(crate) fn colors_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> baylee_core::color::ColorSet {
+    let mut colors = baylee_core::color::ColorSet::EMPTY;
+    visit_zone(zone, state, you, |id| {
+        if let Some(object) = state.object(id)
+            && matches_with_context(filter, state, object, you, context)
+        {
+            colors = colors.union(object.characteristics().colors);
+        }
+    });
+    colors
+}
+
 /// Counts matching objects in the selected zone from this ability's perspective.
 fn count_in_zone(
     filter: &Filter,
@@ -687,35 +731,16 @@ fn count_in_zone(
     you: PlayerId,
     context: RuleContext,
 ) -> u32 {
-    let objects: Vec<ObjectId> = match zone {
-        ZoneSel::Battlefield => state.battlefield_view(),
-        ZoneSel::LibraryYou => state.zones.list(ZoneLocation::Library(you)).clone(),
-        ZoneSel::GraveyardYou => state.zones.list(ZoneLocation::Graveyard(you)).clone(),
-        ZoneSel::HandActivePlayer => state
-            .zones
-            .list(ZoneLocation::Hand(state.turn.active))
-            .clone(),
-        ZoneSel::HandYou => state.zones.list(ZoneLocation::Hand(you)).clone(),
-        ZoneSel::GraveyardAll => state
-            .players
-            .iter()
-            .flat_map(|p| {
-                state
-                    .zones
-                    .list(ZoneLocation::Graveyard(p.id))
-                    .iter()
-                    .copied()
-            })
-            .collect(),
-    };
-    objects
-        .iter()
-        .filter(|id| {
-            state
-                .object(**id)
-                .is_some_and(|o| matches_with_context(filter, state, o, you, context))
-        })
-        .count() as u32
+    let mut count = 0u32;
+    visit_zone(zone, state, you, |id| {
+        if state
+            .object(id)
+            .is_some_and(|object| matches_with_context(filter, state, object, you, context))
+        {
+            count = count.saturating_add(1);
+        }
+    });
+    count
 }
 
 /// Whether a card's stated [`Condition`] holds right now.

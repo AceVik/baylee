@@ -562,6 +562,7 @@ fn mana_fits(effects: &[baylee_cards_dsl::Effect], line: &str) -> bool {
             // is still half unprintable, so it is let through with them.
             ManaSource::IntrinsicBasicLandTypes
             | ManaSource::CommanderIdentity
+            | ManaSource::ColorsAmong { .. }
             | ManaSource::LandColor { .. }
             | ManaSource::Chosen
             | ManaSource::ChosenOr(_) => return true,

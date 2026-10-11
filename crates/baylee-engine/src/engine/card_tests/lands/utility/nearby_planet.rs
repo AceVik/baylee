@@ -3,12 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Nearby Planet prints Rangeling, `This land enters tapped.`, and `When this land enters, sacrifice it unless you pay {{1}}.`
-///
-/// Under `Coverage::Partial`, Rangeling is omitted because the DSL cannot grant every nonbasic land type, leaving Nearby Planet without intrinsic mana abilities.
-/// Playing Nearby Planet from hand enters tapped via `EnterModifier::Tapped`.
-/// When the enters-battlefield trigger resolves, `Pending::YesNo` with `YesNoPrompt::PayTax { mana: 1 }` is prompted;
-/// paying with `{{1}}` floating from `forest()` prevents sacrifice, spending the mana and leaving the land tapped on the battlefield.
 #[test]
 fn nearby_planet_enters_tapped_and_pays_tax_to_remain_on_battlefield() {
     let p0 = PlayerId::new(0);
@@ -64,10 +58,52 @@ fn nearby_planet_enters_tapped_and_pays_tax_to_remain_on_battlefield() {
     };
     assert!(
         !legal.mana_abilities.contains(&planet),
-        "Rangeling is omitted under `Coverage::Partial`, so Nearby Planet has no basic land type mana abilities"
+        "the tapped land cannot produce mana"
     );
     assert!(
         !legal.abilities.iter().any(|(src, _)| *src == planet),
         "no activated abilities on nearby planet"
     );
+}
+
+#[test]
+fn nearby_planet_has_all_land_types_and_produces_each_color_but_not_colorless() {
+    use baylee_core::generated::{index, subtypes};
+    let p0 = PlayerId::new(0);
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[index::NEARBY_PLANET])
+            .start();
+        keep_mulligans(&mut e);
+        reach_main_phase(&mut e, p0);
+        let planet = on_battlefield(&e, p0, index::NEARBY_PLANET).unwrap();
+        assert_eq!(
+            e.state().object(planet).unwrap().characteristics().subtypes,
+            subtypes::ALL_LAND_TYPES
+        );
+        // Fixture enters tapped; explicitly untap to exercise the intrinsic offer.
+        e.dev_state_mut(p0)
+            .unwrap()
+            .object_mut(planet)
+            .unwrap()
+            .status
+            .remove(crate::object::Status::TAPPED);
+        e.refresh_offer();
+        e.apply(p0, PlayerAction::ActivateManaAbility { source: planet })
+            .unwrap();
+        let Pending::ChooseColor { options, .. } = e.pending() else {
+            panic!("five colors")
+        };
+        assert_eq!(options.len(), 5);
+        assert!(!options.contains(&ManaColor::Colorless));
+        e.apply(p0, PlayerAction::ChooseColor(color)).unwrap();
+        assert_eq!(e.state().players[0].mana_pool.available(color), 1);
+        assert!(stack_is_empty(&e));
+    }
 }

@@ -3778,3 +3778,36 @@ land type"; both are convention tests that fire on a first try.
   card validations, formatting and workspace/all-targets clippy with dev
   controls. Update the explicitly pinned back-face catalog for Harnfel and
   remove its obsolete module-level claim that only one back reaches the stack.
+
+### Card completion batch 31 — land characteristics and dynamic mana
+
+- Complete six related lands with shared rules: every (nonbasic) land type,
+  automatic phasing, mana selected from current colors in a specified zone,
+  and preparing a targeted creature. Preserve existing ability indices.
+- Represent the two self-defining land-type sentences as copiable rule bits,
+  like the existing changeling/devoid markers. Read the generated subtype
+  bitmap at construction in every zone; ordinary type effects still replace
+  those types. Never hard-code a list of currently known nonbasic land types.
+- Capture phasing-in and phasing-out sets before either transition, and phase
+  out the entire set together so attached permanents keep indirect phasing.
+  A returning land must not immediately phase out again in the same untap.
+- Share the existing mana menu path with host/client presentation. A colorless
+  matching object contributes no color. Reflecting Pool must see the new
+  dynamic source colors too, without treating the color of a creature itself
+  as a land's production. Remove temporary zone-index clones from counted
+  amounts and share a borrowed zone visitor with the new color query.
+- Preparation reads the alternative spell's presence even when ordinary
+  abilities are suppressed, and never marks an ordinary creature prepared.
+- The complete engine run passes 5,588 tests; its remaining mana-oracle
+  sweep passes after teaching the independent printed-text reader Rangeling
+  (5,589 passing tests total, two intentional ignores). Card/DSL/codegen
+  suites pass (134/71/275), alongside 29 native mana-source tests, nine host
+  mana projections, the nested-effect guard, all 3,321 printing validations,
+  workspace/all-targets clippy with dev controls, and formatting.
+- The broad sweeps must understand self-defining type sentences, rather than
+  assuming every subtype is physically printed on the type line. Keep the
+  new intrinsic mana route in the actual five-color sweep, not a skip bucket.
+- Follow-up found during the next mana review: the pre-existing preparation
+  implementation still needs the current CR 722.3c copy lifetime and ordinary
+  cast/payment flow. It currently reads a live printed face at casting time,
+  so copied preparation creatures and restrictions need shared engine work.

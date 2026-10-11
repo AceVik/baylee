@@ -916,3 +916,14 @@ presence or controller. CR 602.5b, 702.142a and 514.2 govern the activation tall
 boast restriction and mana-retention lifetime. This uses the existing card
 printing and adds no assets or external scripts; the policy review and owner
 decision recorded above continue to apply.
+
+Batch 31 completes Planar Nexus, Nearby Planet, Teferi's Isle, The Grey Havens,
+Plaza of Heroes and Skycoach Waypoint using existing printings. The official
+[Nexus rulings](https://api.scryfall.com/cards/28603c1c-f9b4-4001-bc56-d1453d5cacf5/rulings)
+confirm its interaction with the Urza lands. The
+[Nearby Planet rulings](https://api.scryfall.com/cards/da785d1b-6b90-4b65-9efb-d7f329405318/rulings)
+state: “Nearby Planet can't be tapped for {C}.” Its five basic land subtypes
+supply the corresponding colored mana abilities. CR 604.3, 502.1 and 722.3a
+were checked in the current Comprehensive Rules for CDAs, simultaneous phasing
+and preparation. This batch adds no assets, printing identifiers or corpus
+scripts; the existing policy review and explicit owner decision remain applicable.

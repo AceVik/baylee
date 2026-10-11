@@ -543,6 +543,7 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
                 source,
                 baylee_cards_dsl::ManaSource::IntrinsicBasicLandTypes
                     | baylee_cards_dsl::ManaSource::CommanderIdentity
+                    | baylee_cards_dsl::ManaSource::ColorsAmong { .. }
                     | baylee_cards_dsl::ManaSource::LandColor { .. }
                     | baylee_cards_dsl::ManaSource::Chosen
                     | baylee_cards_dsl::ManaSource::ChosenOr(_)

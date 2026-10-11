@@ -172,6 +172,22 @@ fn promised(
     route: Route,
 ) -> Result<SimpleMana, Unreadable> {
     match route {
+        Route::Intrinsic
+            if def
+                .keywords_for_face(index)
+                .contains(baylee_cards_dsl::KeywordSet::RANGELING) =>
+        {
+            Ok(SimpleMana {
+                colors: vec![
+                    ManaColor::White,
+                    ManaColor::Blue,
+                    ManaColor::Black,
+                    ManaColor::Red,
+                    ManaColor::Green,
+                ],
+                amount: 1,
+            })
+        }
         Route::Intrinsic if types_itself(def, index) => Err(Unreadable::SelfTyped),
         Route::Intrinsic => lone_basic_color(face)
             .map(|color| SimpleMana {
@@ -281,6 +297,18 @@ fn read_printed(line: &str) -> Option<Printed> {
         .split_once(" — ")
         .filter(|(word, _)| is_ability_word(word))
         .map_or(body, |(_, ability)| ability);
+    if body == "Rangeling" {
+        return Some(Printed::Promise(SimpleMana {
+            colors: vec![
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green,
+            ],
+            amount: 1,
+        }));
+    }
     if !adds_mana(body) {
         return None;
     }

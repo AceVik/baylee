@@ -137,6 +137,7 @@ pub fn mana_made(cost: &Cost, effects: &[Effect]) -> Option<(SimpleMana, bool)> 
         // game has to name which permanent it is asking about.
         ManaSource::IntrinsicBasicLandTypes
         | ManaSource::CommanderIdentity
+        | ManaSource::ColorsAmong { .. }
         | ManaSource::LandColor { .. }
         | ManaSource::Chosen
         | ManaSource::ChosenOr(_) => return None,

@@ -107,44 +107,47 @@ fn without_flash_a_creature_waits_for_its_own_main_phase() {
 const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
     use baylee_cards_dsl::KeywordSet as K;
     &[
-        ("flying", K::FLYING),                 // combat::can_block
-        ("first strike", K::FIRST_STRIKE),     // combat::strikes_now
-        ("double strike", K::DOUBLE_STRIKE),   // combat::strikes_now
-        ("deathtouch", K::DEATHTOUCH),         // combat::lethal_damage
-        ("haste", K::HASTE),                   // combat::summoning_sick
-        ("hexproof", K::HEXPROOF),             // eval::untargetable_by
-        ("shroud", K::SHROUD),                 // eval::untargetable_by
-        ("shadow", K::SHADOW),                 // combat::can_block (both directions)
+        ("flying", K::FLYING),                                   // combat::can_block
+        ("first strike", K::FIRST_STRIKE),                       // combat::strikes_now
+        ("double strike", K::DOUBLE_STRIKE),                     // combat::strikes_now
+        ("deathtouch", K::DEATHTOUCH),                           // combat::lethal_damage
+        ("haste", K::HASTE),                                     // combat::summoning_sick
+        ("hexproof", K::HEXPROOF),                               // eval::untargetable_by
+        ("shroud", K::SHROUD),                                   // eval::untargetable_by
+        ("shadow", K::SHADOW), // combat::can_block (both directions)
         ("indestructible", K::INDESTRUCTIBLE), // sba::run
-        ("lifelink", K::LIFELINK),             // combat::deal_combat_damage
-        ("menace", K::MENACE),                 // combat::can_block
-        ("reach", K::REACH),                   // combat::can_block
-        ("trample", K::TRAMPLE),               // combat::assign_attacker_damage
-        ("vigilance", K::VIGILANCE),           // Engine::declare_attackers
-        ("defender", K::DEFENDER),             // combat::can_attack
-        ("flash", K::FLASH),                   // casting::can_cast
-        ("prowess", K::PROWESS),               // trigger.rs (synthetic)
-        ("changeling", K::CHANGELING),         // layers::recompute_with
-        ("unblockable", K::UNBLOCKABLE),       // combat::can_block
-        ("can't block", K::CANT_BLOCK),        // combat::can_block
-        ("undying", K::UNDYING),               // trigger.rs (synthetic)
-        ("persist", K::PERSIST),               // trigger.rs (synthetic)
-        ("uncounterable", K::UNCOUNTERABLE),   // object::can_be_countered
-        ("rebound", K::REBOUND),               // progress.rs (rider)
-        ("daybound", K::DAYBOUND),             // progress::day_night_statics
-        ("storied", K::STORIED),               // storied::award_enduring_stories
-        ("split second", K::SPLIT_SECOND),     // Engine::narrow_under_split_second
-        ("ascend", K::ASCEND),                 // ascend::award_citys_blessings
-        ("can't attack", K::CANT_ATTACK),      // combat::can_attack
-        ("nightbound", K::NIGHTBOUND),         // progress::day_night_statics
-        ("fear", K::FEAR),                     // combat::can_block
-        ("plainswalk", K::PLAINSWALK),         // combat::can_block
-        ("islandwalk", K::ISLANDWALK),         // combat::can_block
-        ("swampwalk", K::SWAMPWALK),           // combat::can_block
-        ("mountainwalk", K::MOUNTAINWALK),     // combat::can_block
-        ("forestwalk", K::FORESTWALK),         // combat::can_block
-        ("devoid", K::DEVOID),                 // object::Characteristics::from_face
-        ("banding", K::BANDING),               // Engine::ask_band, combat::divisions_owed
+        ("lifelink", K::LIFELINK), // combat::deal_combat_damage
+        ("menace", K::MENACE), // combat::can_block
+        ("reach", K::REACH),   // combat::can_block
+        ("trample", K::TRAMPLE), // combat::assign_attacker_damage
+        ("vigilance", K::VIGILANCE), // Engine::declare_attackers
+        ("defender", K::DEFENDER), // combat::can_attack
+        ("flash", K::FLASH),   // casting::can_cast
+        ("prowess", K::PROWESS), // trigger.rs (synthetic)
+        ("changeling", K::CHANGELING), // layers::recompute_with
+        ("unblockable", K::UNBLOCKABLE), // combat::can_block
+        ("can't block", K::CANT_BLOCK), // combat::can_block
+        ("undying", K::UNDYING), // trigger.rs (synthetic)
+        ("persist", K::PERSIST), // trigger.rs (synthetic)
+        ("uncounterable", K::UNCOUNTERABLE), // object::can_be_countered
+        ("rebound", K::REBOUND), // progress.rs (rider)
+        ("daybound", K::DAYBOUND), // progress::day_night_statics
+        ("storied", K::STORIED), // storied::award_enduring_stories
+        ("split second", K::SPLIT_SECOND), // Engine::narrow_under_split_second
+        ("ascend", K::ASCEND), // ascend::award_citys_blessings
+        ("can't attack", K::CANT_ATTACK), // combat::can_attack
+        ("nightbound", K::NIGHTBOUND), // progress::day_night_statics
+        ("fear", K::FEAR),     // combat::can_block
+        ("plainswalk", K::PLAINSWALK), // combat::can_block
+        ("islandwalk", K::ISLANDWALK), // combat::can_block
+        ("swampwalk", K::SWAMPWALK), // combat::can_block
+        ("mountainwalk", K::MOUNTAINWALK), // combat::can_block
+        ("forestwalk", K::FORESTWALK), // combat::can_block
+        ("devoid", K::DEVOID), // object::Characteristics::from_face
+        ("phasing", K::PHASING), // progress::steps::untap_step
+        ("rangeling", K::RANGELING), // object::Characteristics::from_face
+        ("all nonbasic land types", K::ALL_NONBASIC_LAND_TYPES), // object::Characteristics::from_face
+        ("banding", K::BANDING), // Engine::ask_band, combat::divisions_owed
     ]
 };
 

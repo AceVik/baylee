@@ -4,9 +4,8 @@
 //! Oracle: {T}: Add one mana of any color among legendary permanents you control.
 //! Oracle: {3}, {T}, Exile this land: Target legendary creature gains hexproof and indestructible until end of turn.
 //! Set: MSC #255 — Marvel Super Heroes Commander | Scryfall ID: 96fe4b9b-d766-463b-a6df-345ebebfc17c | Oracle ID: 9c58d241-4d9f-4b46-b8ee-f4587f9acfd6
-// PARTIAL — the {C} line, the restricted any-color line and the {3} exile
-// activation are built; the third mana line needs a ManaSource that reads a
-// colour set off a filter.
+
+// IMPLEMENTED — all printed abilities; exercised in engine card tests.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -15,23 +14,13 @@ card!(
     oracle_id = "9c58d241-4d9f-4b46-b8ee-f4587f9acfd6",
     scryfall_id = "96fe4b9b-d766-463b-a6df-345ebebfc17c",
     faces = &[face!(name = "Plaza of Heroes", types = TypeSet::LAND,),],
-    coverage = Coverage::Partial(
-        "{T}: Add one mana of any color among legendary permanents you control — ManaSource has no variant for a colour set computed from a filter",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
-        // {T}: Add {C}.
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        // {T}: Add one mana of any color. Spend this mana only to cast a
-        // legendary spell.
         mana_ability!(&[Effect::mana_of_any_color().restricted(
             &Filter::HasSupertype(SupertypeSet::LEGENDARY),
             SpendRider::None,
         )]),
-        // NOT SUPPORTED: {T}: Add one mana of any color among legendary
-        // permanents you control.
-        //
-        // {3}, {T}, Exile this land: Target legendary creature gains
-        // hexproof and indestructible until end of turn.
         activated!(
             cost!("{3}", TapSelf, ExileSelf),
             &[Effect::continuous(
@@ -41,5 +30,17 @@ card!(
             )],
             target = Some(TargetSpec::Object(&Filter::LEGENDARY_CREATURE)),
         ),
+        mana_ability!(&[Effect::AddMana {
+            source: ManaSource::ColorsAmong {
+                filter: &Filter::And(&[
+                    Filter::HasSupertype(SupertypeSet::LEGENDARY),
+                    Filter::ControlledByYou
+                ]),
+                zone: ZoneSel::Battlefield,
+            },
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }]),
     ],
 );

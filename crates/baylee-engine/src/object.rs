@@ -413,6 +413,17 @@ impl Characteristics {
         if def.keywords_for_face(face).contains(KeywordSet::CHANGELING) {
             subtypes = subtypes.union(SubtypeSet::ALL_CREATURE);
         }
+        if def.keywords_for_face(face).contains(KeywordSet::RANGELING) {
+            subtypes.union_with(baylee_core::generated::subtypes::ALL_LAND_TYPES);
+        } else if def
+            .keywords_for_face(face)
+            .contains(KeywordSet::ALL_NONBASIC_LAND_TYPES)
+        {
+            subtypes.union_with(
+                baylee_core::generated::subtypes::ALL_LAND_TYPES
+                    .difference(SubtypeSet::BASIC_LANDS),
+            );
+        }
         let mut produced = ColorSet::EMPTY;
         let mut produced_colorless = false;
         let mut produced_chosen = false;
@@ -515,6 +526,7 @@ impl Characteristics {
                     // here would let a lone Pool tap for any color and would
                     // make two Pools promise each other the rainbow.
                     baylee_cards_dsl::ManaSource::IntrinsicBasicLandTypes
+                    | baylee_cards_dsl::ManaSource::ColorsAmong { .. }
                     | baylee_cards_dsl::ManaSource::LandColor { .. } => {}
                     // The chosen colour is on the *object* and this is a
                     // reading of the card, so there is nothing to put here.

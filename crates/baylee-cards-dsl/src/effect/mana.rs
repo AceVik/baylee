@@ -16,6 +16,13 @@ pub enum ManaSource {
     /// CR 305.6 abilities supplied by the source's current basic land types.
     /// This provenance is distinct from printed mana symbols.
     IntrinsicBasicLandTypes,
+    /// One color among matching objects in the selected zone.
+    ColorsAmong {
+        /// Which objects contribute their current colors.
+        filter: &'static Filter,
+        /// The zone to read, relative to the ability's controller.
+        zone: super::ZoneSel,
+    },
     /// One named color, or colorless.
     Fixed(ManaColor),
     /// A choice among the listed colors, made on resolution.

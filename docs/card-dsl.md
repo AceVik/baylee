@@ -3225,3 +3225,18 @@ more than sixteen lands or more than 50 000 states — it answers `None`, and
 the older necessary-condition proof stands in: lenient, never refusing a
 legal payment. Completion with an unconsumed obligation is refused
 atomically, so it cannot silently become free floating mana.
+
+`ManaSource::ColorsAmong { filter, zone }` offers one of the current colors of
+matching objects in `ZoneSel`. It is distinct from `ManaForColorsAmong`, which
+adds one mana of each matching color. An empty color set produces no mana;
+colorless is not a color. The engine and host resolve the same dynamic menu.
+
+`KeywordSet::RANGELING` and `ALL_NONBASIC_LAND_TYPES` carry the two copiable,
+unconditional land-type CDAs. They use the generated land subtype set in every
+zone. The latter excludes the five basic land types, not the Basic supertype.
+`KeywordSet::PHASING` is read with the current characteristics before untapping;
+the entering and leaving sets are captured before either changes.
+
+`Effect::BecomeTargetPrepared` prepares the selected permanent only if it has
+a prepare spell. `BecomePrepared` applies the same rule to the source. Neither
+adds another prepared designation to an already prepared permanent.

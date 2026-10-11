@@ -290,7 +290,16 @@ fn mismatch(
             format!("{:?}", c.supertypes),
         ),
         Field::Subtypes => {
-            let want = SubtypeSet::from_slice(face.subtypes);
+            let mut want = SubtypeSet::from_slice(face.subtypes);
+            let keywords = def.keywords_for_face(0);
+            if keywords.contains(baylee_cards_dsl::KeywordSet::RANGELING) {
+                want.union_with(baylee_core::generated::subtypes::ALL_LAND_TYPES);
+            } else if keywords.contains(baylee_cards_dsl::KeywordSet::ALL_NONBASIC_LAND_TYPES) {
+                want.union_with(
+                    baylee_core::generated::subtypes::ALL_LAND_TYPES
+                        .difference(SubtypeSet::BASIC_LANDS),
+                );
+            }
             (c.subtypes == want, subtypes(want), subtypes(c.subtypes))
         }
         // The other rule stated twice: a front face keeps the keywords it

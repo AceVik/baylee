@@ -385,6 +385,22 @@ impl<L: CardLookup> Engine<L> {
                 })
             })
             .collect();
+        let going: Vec<_> = self
+            .state
+            .battlefield_seen()
+            .filter(|&id| {
+                self.state.object(id).is_some_and(|object| {
+                    object.controller == active
+                        && object
+                            .characteristics()
+                            .keywords
+                            .contains(baylee_cards_dsl::KeywordSet::PHASING)
+                })
+            })
+            .collect();
+        if !going.is_empty() {
+            self.state.phase_out(&going);
+        }
         for id in coming {
             self.state.phase_in(id);
         }

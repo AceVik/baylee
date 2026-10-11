@@ -700,6 +700,10 @@ keywords! {
     // is a family, which a bit cannot carry.
     BANDING = 44, "Banding (CR 702.22).";
     DEVOID = 45, "Devoid (colorless in every zone, CR 702.114a).";
+    PHASING = 46, "Phasing (CR 702.26).";
+    RANGELING = 47, "Rangeling (every land type in every zone).";
+    // A text-independent CDA, like the existing UNBLOCKABLE rule marker.
+    ALL_NONBASIC_LAND_TYPES = 48, "Every nonbasic land type in every zone.";
 }
 
 impl KeywordSet {

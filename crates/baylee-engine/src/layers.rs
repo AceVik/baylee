@@ -362,6 +362,7 @@ fn update_intrinsic_mana_summary(
                             }
                         }
                         ManaSource::IntrinsicBasicLandTypes
+                        | ManaSource::ColorsAmong { .. }
                         | ManaSource::LandColor { .. }
                         | ManaSource::Chosen => {}
                     }

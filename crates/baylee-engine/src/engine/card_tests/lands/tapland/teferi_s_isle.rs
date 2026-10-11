@@ -3,13 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Teferi's Isle prints `Phasing`, `Teferi's Isle enters tapped.`, and
-/// `{{T}}: Add {{U}}{{U}}.`
-///
-/// Under `Coverage::Partial`, phasing is omitted because there is no keyword bit
-/// and no untap-step phasing trigger. Playing the land causes it to enter tapped.
-/// Advancing past the opponent's turn untaps it on its controller's next turn,
-/// where activating ability 0 adds two blue mana to the pool.
 #[test]
 fn teferis_isle_enters_tapped_and_taps_for_two_blue() {
     let p0 = PlayerId::new(0);
@@ -24,6 +17,35 @@ fn teferis_isle_enters_tapped_and_taps_for_two_blue() {
 
     reach_their_main_phase(&mut engine, PlayerId::new(1));
     reach_their_main_phase(&mut engine, p0);
+    assert!(
+        engine
+            .state()
+            .object(land)
+            .unwrap()
+            .status
+            .contains(crate::object::Status::PHASED_OUT)
+    );
+    assert!(is_tapped(&engine, land), "phasing precedes untapping");
+    let version = engine.state().object(land).unwrap().version;
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert!(
+        engine
+            .state()
+            .object(land)
+            .unwrap()
+            .status
+            .contains(crate::object::Status::PHASED_OUT)
+    );
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !engine
+            .state()
+            .object(land)
+            .unwrap()
+            .status
+            .contains(crate::object::Status::PHASED_OUT)
+    );
+    assert_eq!(engine.state().object(land).unwrap().version, version);
     assert!(!is_tapped(&engine, land));
 
     activate(&mut engine, p0, teferi_s_isle(), 0);

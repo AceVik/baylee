@@ -428,6 +428,7 @@ pub(crate) fn produced_colors(
         // front of it: the answer is on the object, printed on no card.
         baylee_cards_dsl::ManaSource::IntrinsicBasicLandTypes
         | baylee_cards_dsl::ManaSource::CommanderIdentity
+        | baylee_cards_dsl::ManaSource::ColorsAmong { .. }
         | baylee_cards_dsl::ManaSource::LandColor { .. }
         | baylee_cards_dsl::ManaSource::Chosen
         | baylee_cards_dsl::ManaSource::ChosenOr(_) => {

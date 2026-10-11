@@ -773,6 +773,7 @@ impl Effect {
             | Effect::ShuffleGraveyardIntoLibrary
             | Effect::ShuffleIntoLibrary { .. }
             | Effect::ShuffleLibrary { .. }
+            | Effect::BecomeTargetPrepared
             | Effect::BecomePrepared
             | Effect::GainLifeDoubleX
             | Effect::SearchLibrary { .. }
