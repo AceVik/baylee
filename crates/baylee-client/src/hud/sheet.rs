@@ -2400,11 +2400,9 @@ mod tests {
             .map(baylee_client_core::card_face::TextBlock::text)
             .collect::<Vec<_>>()
             .join(" ");
-        assert_eq!(
-            sentence,
-            baylee_cards::oracle::sentence(card, 0, 0).unwrap()
-        );
-        assert!(sentence.starts_with("{0}:"));
+        // The printed `{0}` is the row's cost column, so the words follow it.
+        let oracle = baylee_cards::oracle::sentence(card, 0, 0).unwrap();
+        assert_eq!(Some(sentence.as_str()), oracle.strip_prefix("{0}: "));
         let words = crate::hud::overlay::armed_label(&duel, Lang::De, duel.armed.as_ref().unwrap())
             .unwrap();
         assert_eq!(words.text, "Fähigkeit aktivieren");
