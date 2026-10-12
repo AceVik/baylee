@@ -379,12 +379,7 @@ fn a_creature_that_lost_all_its_abilities_says_so_in_every_seats_view() {
     let mut preset = mixed_print_preset();
     preset.seats[0].starting_battlefield = vec![entry, entry, entry];
     let mut state = GameState::from_preset(&preset, &Registry).unwrap();
-    let bears: Vec<ObjectId> = state
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
-        .copied()
-        .collect();
+    let bears: Vec<ObjectId> = state.zones.list(ZoneLocation::Battlefield).clone();
     let [lost, ordinary, hidden] = bears[..] else {
         panic!("three Grizzly Bears on the battlefield, got {bears:?}");
     };

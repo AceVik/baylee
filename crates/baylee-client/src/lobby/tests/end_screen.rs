@@ -471,17 +471,56 @@ fn playing_again_is_asked_for_from_the_button_over_a_finished_game() {
     assert_eq!(handover.game_id, "g2");
 }
 
-/// What a fake gateway heard: the request line and `Authorization` of each
-/// request, in arrival order.
-type Heard = std::sync::Arc<std::sync::Mutex<Vec<(String, String)>>>;
+/// What a fake gateway heard (the request line and `Authorization` of each
+/// request, in arrival order) and has not yet answered.
+#[derive(Default)]
+struct Fake {
+    heard: std::sync::Mutex<Vec<(String, String)>>,
+    held: std::sync::Mutex<Vec<std::net::TcpStream>>,
+    /// Once set, everything is answered on arrival.
+    open: std::sync::atomic::AtomicBool,
+}
 
-/// A gateway that answers every request `404` and remembers it.
+type Heard = std::sync::Arc<Fake>;
+
+impl Fake {
+    /// The requests heard so far.
+    fn lines(&self) -> Vec<(String, String)> {
+        self.heard.lock().expect("heard").clone()
+    }
+
+    /// Answers every request held, and every later one at once, with `404`,
+    /// so the lobby's threads end (the app's own drop tells the gateway the
+    /// client quit, and waits for the answer).
+    fn let_go(&self) {
+        self.open.store(true, std::sync::atomic::Ordering::SeqCst);
+        for stream in self.held.lock().expect("held").drain(..) {
+            Self::refuse(stream);
+        }
+    }
+
+    fn refuse(mut stream: std::net::TcpStream) {
+        use std::io::Write as _;
+        let body = r#"{"error":"not here"}"#;
+        let _ = stream.write_all(
+            format!(
+                "HTTP/1.1 404 X\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .as_bytes(),
+        );
+    }
+}
+
+/// A gateway that remembers every request and answers none until it is let
+/// go: a reply landing mid-test would overwrite the lobby's status line,
+/// which a test reads.
 fn listening_gateway() -> (String, Heard) {
-    use std::io::{Read as _, Write as _};
+    use std::io::Read as _;
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
     let port = listener.local_addr().expect("addr").port();
-    let heard = Heard::default();
-    let record = heard.clone();
+    let fake = Heard::default();
+    let record = fake.clone();
     std::thread::spawn(move || {
         for stream in listener.incoming() {
             let Ok(mut stream) = stream else { return };
@@ -503,30 +542,22 @@ fn listening_gateway() -> (String, Heard) {
                         .then(|| value.trim().to_string())
                 })
                 .unwrap_or_default();
-            record.lock().expect("heard").push((line, bearer));
-            let body = r#"{"error":"not here"}"#;
-            let _ = stream.write_all(
-                format!(
-                    "HTTP/1.1 404 X\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                    body.len()
-                )
-                .as_bytes(),
-            );
+            record.heard.lock().expect("heard").push((line, bearer));
+            if record.open.load(std::sync::atomic::Ordering::SeqCst) {
+                Fake::refuse(stream);
+            } else {
+                record.held.lock().expect("held").push(stream);
+            }
         }
     });
-    (format!("http://127.0.0.1:{port}"), heard)
+    (format!("http://127.0.0.1:{port}"), fake)
 }
 
 /// Waits (at most five seconds) until `heard` holds a request whose line
 /// starts with `line`, and says whether it did.
 fn waits_for(heard: &Heard, line: &str) -> bool {
     for _ in 0..100 {
-        if heard
-            .lock()
-            .expect("heard")
-            .iter()
-            .any(|(l, _)| l.starts_with(line))
-        {
+        if heard.lines().iter().any(|(l, _)| l.starts_with(line)) {
             return true;
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
@@ -582,17 +613,16 @@ fn a_player_who_left_the_table_tells_the_gateway_with_their_session() {
     assert!(
         waits_for(&heard, "POST /lobby/depart"),
         "the gateway was not told: {:?}",
-        heard.lock().expect("heard")
+        heard.lines()
     );
     let departs: Vec<_> = heard
-        .lock()
-        .expect("heard")
-        .iter()
+        .lines()
+        .into_iter()
         .filter(|(l, _)| l.starts_with("POST /lobby/depart"))
-        .cloned()
         .collect();
     assert_eq!(departs.len(), 1, "once: {departs:?}");
     assert_eq!(departs[0].1, "Bearer tok", "as the session that sat there");
+    heard.let_go();
 
     let (base, heard) = listening_gateway();
     let _app = came_back_from_a_gateway_table(&base, crate::Duel::default());
@@ -600,14 +630,11 @@ fn a_player_who_left_the_table_tells_the_gateway_with_their_session() {
         waits_for(&heard, "GET /decks"),
         "the lobby re-read the decks, so this gateway hears what is sent"
     );
+    let told = heard.lines();
+    heard.let_go();
     assert!(
-        !heard
-            .lock()
-            .expect("heard")
-            .iter()
-            .any(|(l, _)| l.contains("/lobby/depart")),
-        "nobody left, nothing was told: {:?}",
-        heard.lock().expect("heard")
+        !told.iter().any(|(l, _)| l.contains("/lobby/depart")),
+        "nobody left, nothing was told: {told:?}"
     );
 }
 
@@ -617,11 +644,10 @@ fn a_player_who_left_the_table_tells_the_gateway_with_their_session() {
 /// refusal one update later).
 #[test]
 fn leaving_an_offline_table_says_so_and_sends_nothing() {
-    let app = came_back_from_a_duel(Some(crate::Duel {
+    let mut app = came_back_from_a_duel(Some(crate::Duel {
         departing: true,
         ..crate::Duel::default()
     }));
-    let mut app = app;
     for _ in 0..3 {
         app.update();
     }
