@@ -39,7 +39,8 @@ fn reads_amount(value: Amount) -> bool {
 #[allow(clippy::too_many_lines)]
 fn reads_event(effect: &Effect) -> bool {
     match effect {
-        Effect::EventObjectDealsDamageEqualToPower { .. }
+        Effect::TapEventObject
+        | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::CopyEventSpellOrAbility
         | Effect::TargetsCopyEventSpellUntilEndOfTurn
         | Effect::IfEventObjectMatches { .. }
@@ -82,7 +83,8 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::Poison { amount, who }
         | Effect::GainLifeFor { amount, who, .. }
         | Effect::DrawCardsFor { amount, who, .. } => reads_amount(*amount) || reads_player(*who),
-        Effect::Exile { target, .. }
+        Effect::SuppressUntap { target, .. }
+        | Effect::Exile { target, .. }
         | Effect::Blink { target, .. }
         | Effect::RedirectNextFromChosenSource { target, .. }
         | Effect::Destroy { target, .. }

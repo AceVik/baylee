@@ -231,6 +231,11 @@ impl<L: CardLookup> Engine<L> {
                     cause: Cause::Cost,
                 } => tapped.push(object),
                 GameEvent::ManaProduced { player: into, .. } if into == player => {}
+                GameEvent::AbilityActivated {
+                    player: activator,
+                    mana_ability: true,
+                    ..
+                } if activator == player => {}
                 _ => return false,
             }
         }

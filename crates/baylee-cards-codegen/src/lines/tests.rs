@@ -958,3 +958,124 @@ fn batch48_trigger_variants_keep_their_printed_event_and_subject() {
         "Whenever an artifact you control enters, draw a card."
     ));
 }
+
+#[test]
+fn artifact_activation_observers_keep_their_combined_oracle_sentence() {
+    static LEECH_LIFE: &[Effect] = &[Effect::gain_life(1)];
+    use baylee_cards_dsl::{PlayerRel, TargetSpec, Trigger, triggered};
+    let wind = triggered!(
+        Trigger::AbilityActivated {
+            filter: &Filter::ARTIFACT,
+            who: PlayerRel::EachPlayer,
+            tap_cost: Some(false),
+            mana_ability: None,
+        },
+        &[Effect::DealDamage {
+            amount: Amount::Fixed(1),
+            target: TargetSpec::Player(PlayerRel::ControllerOfEvent),
+        }],
+    );
+    let leech = triggered!(
+        Trigger::AbilityActivated {
+            filter: &Filter::ARTIFACT,
+            who: PlayerRel::Opponent,
+            tap_cost: Some(false),
+            mana_ability: None,
+        },
+        LEECH_LIFE,
+    );
+    let possession = triggered!(
+        Trigger::AbilityActivated {
+            filter: &Filter::AttachedToBySource,
+            who: PlayerRel::EachPlayer,
+            tap_cost: Some(false),
+            mana_ability: None,
+        },
+        &[Effect::DealDamage {
+            amount: Amount::Fixed(2),
+            target: TargetSpec::Player(PlayerRel::ControllerOfEvent),
+        }],
+    );
+    for (ability, oracle) in [
+        (
+            wind,
+            "Whenever an artifact becomes tapped or a player activates an artifact's ability without {T} in its activation cost, this enchantment deals 1 damage to that artifact's controller.",
+        ),
+        (
+            leech,
+            "Whenever an artifact an opponent controls becomes tapped or an opponent activates an artifact's ability without {T} in its activation cost, you gain 1 life.",
+        ),
+        (
+            possession,
+            "Whenever enchanted artifact becomes tapped or a player activates an ability of enchanted artifact without {T} in its activation cost, this Aura deals 2 damage to that artifact's controller.",
+        ),
+    ] {
+        assert_eq!(map(std::slice::from_ref(&ability), oracle).lines, [Some(0)]);
+        for wrong in [
+            "Whenever an artifact becomes tapped, draw a card.",
+            "Whenever an artifact enters, draw a card.",
+            "Whenever this artifact dies, draw a card.",
+            "Whenever this artifact activates an ability, draw a card.",
+        ] {
+            assert!(!content_fits(&ability, wrong), "accepted {wrong}");
+        }
+    }
+}
+
+// Append to cards-codegen/src/lines/tests.rs after root approval.
+#[test]
+fn frostwalk_combat_creature_damage_keeps_its_printed_line() {
+    use baylee_cards_dsl::{TargetSpec, Trigger, triggered};
+    static FREEZE: &[Effect] = &[
+        Effect::TapEventObject,
+        Effect::SuppressUntap {
+            target: TargetSpec::EventObject,
+            steps: 1,
+        },
+    ];
+    let freeze = triggered!(Trigger::DealsCombatDamageToCreature(&Filter::This), FREEZE);
+    assert_eq!(map(std::slice::from_ref(&freeze),
+        "Whenever this land deals combat damage to a creature, tap that creature and it doesn't untap during its controller's next untap step."
+    ).lines, [Some(0)]);
+    assert!(!content_fits(
+        &freeze,
+        "Whenever a creature an opponent controls deals combat damage to a creature, tap that creature."
+    ));
+    assert!(!content_fits(
+        &freeze,
+        "Whenever this land enters, tap target creature."
+    ));
+}
+
+#[test]
+fn suppression_effect_does_not_hide_telekinesis_or_cascade_oracle_lines() {
+    use baylee_cards_dsl::{TargetReq, TargetSpec, Trigger, spell, triggered};
+    static CASCADE: &[Effect] = &[Effect::SuppressUntap {
+        target: TargetSpec::Object(&Filter::CREATURE),
+        steps: 1,
+    }];
+    static TELEKINESIS: &[Effect] = &[
+        Effect::TapTarget,
+        Effect::SuppressUntap {
+            target: TargetSpec::Object(&Filter::CREATURE),
+            steps: 2,
+        },
+    ];
+    let spell = spell!(
+        TELEKINESIS,
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+    );
+    let mapping = map(
+        &[spell],
+        "Tap target creature. That creature doesn't untap during its controller's next two untap steps.",
+    );
+    // Spell bodies use the whole card text, not an activated/triggered
+    // sentence index. Suppression must preserve that existing contract.
+    assert_eq!(mapping.lines, [None]);
+    let trigger = triggered!(
+        Trigger::ETB,
+        CASCADE,
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+    );
+    assert_eq!(map(&[trigger], "This land enters tapped.\nWhen this land enters, target creature an opponent controls doesn't untap during its controller's next untap step.").lines, [Some(1)]);
+}

@@ -795,6 +795,8 @@ impl Effect {
             | Effect::TakeExtraTurn
             | Effect::ExileSource
             | Effect::TapTarget
+            | Effect::TapEventObject
+            | Effect::SuppressUntap { .. }
             | Effect::RemoveTargetFromCombat { .. }
             | Effect::LeftRightPilesRestrictBlocks
             | Effect::BlockInPilesAtRandomThisTurn

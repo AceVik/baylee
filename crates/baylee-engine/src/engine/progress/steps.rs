@@ -595,6 +595,15 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
+        let arena = &self.state.arena;
+        self.state
+            .effects
+            .finish_bound_untap(active, |id, version| {
+                arena
+                    .get(id)
+                    .filter(|object| object.version == version && object.zone == Zone::Battlefield)
+                    .map(|object| object.controller)
+            });
         // "…doesn't untap during your **next** untap step": the step it was
         // waiting for has now happened, so the effect is spent.
         //

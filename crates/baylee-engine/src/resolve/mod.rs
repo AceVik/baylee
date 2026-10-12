@@ -34,6 +34,7 @@ mod counters;
 mod equalize;
 mod graveyard_choice;
 mod landwalk;
+mod untap_suppression;
 pub use landwalk::resume_with_subtype;
 mod life;
 pub(crate) mod linked_counters;

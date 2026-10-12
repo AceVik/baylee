@@ -2620,8 +2620,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Artifact Possession
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[None, Some(1)],
+        stackable: 2,
+        lines: &[None, Some(1), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -2838,8 +2838,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Haunting Wind
     &[FaceLines {
         sentences: 1,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -2952,8 +2952,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Powerleech
     &[FaceLines {
         sentences: 1,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -23426,8 +23426,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Unstable Frontier
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -30092,8 +30092,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Skyline Cascade
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 1,
+        lines: &[Some(2), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -35062,8 +35062,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Frostwalk Bastion
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(0), Some(1)],
+        stackable: 2,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

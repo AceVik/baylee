@@ -755,6 +755,18 @@ impl<L: CardLookup> Engine<L> {
                     .push(crate::object::Rider::ExhaustedAbility(ability_index));
             }
         }
+        self.state.journal.record(GameEvent::AbilityActivated {
+            source: baylee_core::ids::DamageSourceRef {
+                object: source,
+                version: activated_source_version.expect("activated source identity"),
+            },
+            player,
+            tap_cost: cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
+            mana_ability,
+        });
+        // Capture activation observers before an immediately resolving mana
+        // ability changes the state they read. No trigger is stacked here.
+        self.capture_cost_triggers();
         if mana_ability {
             // Mana abilities resolve immediately, without the stack
             // (CR 605.3b). Choice-mana abilities (any-color lands, Command

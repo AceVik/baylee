@@ -1042,6 +1042,9 @@ pub enum Duration {
     /// and leave a card that compiles, claims `Implemented` and does nothing
     /// at all.
     UntilYourNextUntapStep,
+    /// Through this many actual untap steps of the affected permanent's
+    /// current controller. Bound to a single exact incarnation by resolution.
+    UntilAffectedUntapSteps(u8),
     /// "Until your next upkeep" (Erhnam Djinn): ends as the effect
     /// controller's next upkeep step begins (CR 503), after that turn's
     /// untap step, so the effect still stands through it.

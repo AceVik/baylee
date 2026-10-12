@@ -773,7 +773,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // this is pool growth rather than a lost reader row. Pin both populations
     // so additions and reader regressions require an explicit review.
     // Batch48 adds Adanto’s token activation: one new, fully read row.
-    assert_eq!((read, of), (1028, 1287), "activated/loyalty reader census");
+    // Unstable Frontier adds a land-type choice whose contextual value the
+    // table does not yet infer; it adds one activation, not one readable row.
+    assert_eq!((read, of), (1028, 1288), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

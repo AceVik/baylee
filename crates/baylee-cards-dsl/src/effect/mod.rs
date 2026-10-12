@@ -956,6 +956,16 @@ pub enum Effect {
     BlockInPilesAtRandomThisTurn,
     /// Tap each target.
     TapTarget,
+    /// Tap the exact permanent that the triggering event named, without targeting.
+    TapEventObject,
+    /// Prevent the affected incarnation from untapping during its controller's
+    /// next actual untap steps. Independent instances overlap, not accumulate.
+    SuppressUntap {
+        /// The affected permanent or permanents.
+        target: TargetSpec,
+        /// Number of their controller's untap steps to suppress.
+        steps: u8,
+    },
     /// Untap each target.
     UntapTarget,
     /// The half of "tap or untap target permanent" that does something:

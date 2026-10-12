@@ -3,20 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Skyline Cascade is ``Coverage::Partial``: "This land enters tapped" and
-/// "{T}: Add {U}" are written, while "when this land enters, target creature
-/// an opponent controls doesn't untap during its controller's next untap
-/// step" is not — no DSL variant expresses a duration-bound does-not-untap.
-/// The land is therefore **played** (`PlayLand`, not a `starting_battlefield`
-/// placement, which would arrive untapped whatever the card says) so the
-/// printed enter modifier has to do the tapping, and the missing trigger is
-/// read where it would have to speak: the game hands priority straight back
-/// instead of standing on a target question, while the Elf across the table
-/// is the creature that question would have named. One turn later the untap
-/// step frees the land and the printed mana ability pays, which is the other
-/// half of the card.
+/// Real entry asks for the opposing creature, leaves it untapped, and the
+/// Cascade itself untaps normally to produce blue on its next turn.
 #[test]
-fn skyline_cascade_enters_tapped_taps_for_blue_and_asks_nothing_of_the_creature_across_the_table() {
+fn skyline_cascade_enters_tapped_targets_opposing_creature_and_later_taps_for_blue() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(41, forest())
@@ -33,17 +23,15 @@ fn skyline_cascade_enters_tapped_taps_for_blue_and_asks_nothing_of_the_creature_
         "the printed `EnterModifier::Tapped` is a real entry this way — a \
          `starting_battlefield` placement would have arrived untapped"
     );
-    assert!(
-        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
-        "the land entered and the game went straight back to priority: the \
-         does-not-untap trigger is the `Coverage::Partial` gap, so no target \
-         was ever asked ({:?})",
-        engine.pending()
-    );
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        panic!("Cascade must target an opposing creature");
+    };
+    assert_eq!(options, &[theirs]);
+    aim_at(&mut engine, p0, theirs);
+    pass_until(&mut engine, stack_is_empty);
     assert!(
         !is_tapped(&engine, theirs),
-        "and the creature the missing trigger would have aimed at is \
-         untouched by anything"
+        "suppression does not tap the creature"
     );
 
     // The untap step, a turn later: nothing keeps the Cascade down, and the

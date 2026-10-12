@@ -753,3 +753,48 @@ fn printed_and_granted_triggers_freeze_their_own_word_context() {
     assert_eq!(printed.text.color_word(Color::Green), Color::Red);
     assert_eq!(granted.text.color_word(Color::Green), Color::Blue);
 }
+
+#[test]
+fn mana_production_reads_its_activation_across_trigger_scan_boundaries() {
+    let state = state();
+    let object = state.zones.list(ZoneLocation::Library(me()))[0];
+    let source = state.source_identity(object).unwrap();
+    for tap_cost in [false, true] {
+        for mana_ability in [false, true] {
+            let mut journal = crate::event::Journal::default();
+            journal.record(GameEvent::ObjectTapped {
+                object,
+                cause: crate::event::Cause::Cost,
+            });
+            journal.record(GameEvent::AbilityActivated {
+                source,
+                player: me(),
+                tap_cost,
+                mana_ability,
+            });
+            journal.record(GameEvent::ManaProduced {
+                player: me(),
+                color: baylee_core::mana::ManaColor::Blue,
+                amount: 1,
+                source: Some(object),
+            });
+            // A cost/activation scan may already have consumed both preceding
+            // rows. Production still belongs to that exact activation.
+            assert_eq!(
+                first_mana_of_a_tap(&journal.entries()[2].event, journal.entries(), object),
+                tap_cost && mana_ability
+            );
+            journal.record(GameEvent::ManaProduced {
+                player: me(),
+                color: baylee_core::mana::ManaColor::Red,
+                amount: 1,
+                source: Some(object),
+            });
+            assert!(!first_mana_of_a_tap(
+                &journal.entries()[3].event,
+                journal.entries(),
+                object
+            ));
+        }
+    }
+}

@@ -366,6 +366,9 @@ impl GameLog {
             | GameEvent::PlayerBecameTarget { .. }
             | GameEvent::GameStarted { .. }
             | GameEvent::StepChanged { .. }
+            // Stack announcements already log nonmana abilities; this is
+            // the rules event marking completed cost payment.
+            | GameEvent::AbilityActivated { .. }
             | GameEvent::ManaProduced { .. }
             | GameEvent::ObjectTapped { .. }
             | GameEvent::ObjectUntapped { .. }

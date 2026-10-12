@@ -644,7 +644,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::UnlockThisDoor(_) => &["unlock this door"],
         T::Ward => &["ward"],
         T::ExiledFromBattlefield(_) => &["exiled"],
-        T::DealsCombatDamageToPlayer(_)
+        T::DealsCombatDamageToCreature(_)
+        | T::DealsCombatDamageToPlayer(_)
         | T::OneOrMoreDealCombatDamageToPlayer(_)
         | T::DealsCombatDamageToOpponent(_)
         | T::DealsDamageToPlayer { .. }
@@ -654,6 +655,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // Living Artifact and Lich, "Whenever you're dealt damage".
         T::PlayerDealtDamage(_) => &["dealt damage"],
         T::BecomesTapped(_) => &["tap"],
+        T::AbilityActivated { .. } => &["activates"],
         // Badgermole Cub, "Whenever you tap a creature for mana".
         T::TappedForMana { .. } => &["for mana"],
         // Druid Class, "When this Class becomes level 3".
@@ -775,9 +777,11 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::OneOrMoreAttack(filter)
         | Trigger::Blocks(filter)
         | Trigger::AttacksAndIsntBlocked(filter)
+        | Trigger::AbilityActivated { filter, .. }
         | Trigger::BecomesTapped(filter)
         | Trigger::TappedForMana { filter, .. }
         | Trigger::ExiledFromBattlefield(filter)
+        | Trigger::DealsCombatDamageToCreature(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)
         | Trigger::OneOrMoreDealCombatDamageToPlayer(filter)
         | Trigger::DealsCombatDamageToOpponent(filter)

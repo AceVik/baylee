@@ -51,6 +51,17 @@ pub enum DamageTarget {
 /// A single game event.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum GameEvent {
+    /// All choices and costs of an activated ability have been completed.
+    AbilityActivated {
+        /// Exact source incarnation, including a source sacrificed as a cost.
+        source: baylee_core::ids::DamageSourceRef,
+        /// The activating player.
+        player: PlayerId,
+        /// The activation cost contains the tap symbol.
+        tap_cost: bool,
+        /// Whether the ability resolves without the stack as a mana ability.
+        mana_ability: bool,
+    },
     /// A copy or retargeted stack object acquired an object target.
     /// Casting/activation already announce their targets in their own events.
     BecameTarget {

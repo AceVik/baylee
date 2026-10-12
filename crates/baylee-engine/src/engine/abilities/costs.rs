@@ -360,11 +360,29 @@ impl<L: CardLookup> Engine<L> {
             return self.pay_cost_parts(player, source, cost, chosen, x);
         }
         let before = self.state.checkpoint();
+        let scan_before = self.trigger_scan_seq;
+        let queue_before = self.trigger_queue.len();
         let paid = self.pay_cost_parts(player, source, cost, chosen, x);
         if paid.is_err() {
             self.state.roll_back(before);
+            self.trigger_scan_seq = scan_before;
+            self.trigger_queue.truncate(queue_before);
         }
         paid
+    }
+
+    /// Detect journal triggers without stacking, pruning, or running SBAs.
+    /// Append only so an unsuccessful payment can restore its queue length.
+    pub(super) fn capture_cost_triggers(&mut self) {
+        if self.breaking_loop || self.trigger_scan_seq == self.state.journal.last_seq() {
+            return;
+        }
+        self.trigger_queue.extend(crate::trigger::collect(
+            &self.state,
+            &self.lookup,
+            self.trigger_scan_seq,
+        ));
+        self.trigger_scan_seq = self.state.journal.last_seq();
     }
 
     /// [`Self::pay_cost`] without the checkpoint: what it pays, part by part.
@@ -660,6 +678,9 @@ impl<L: CardLookup> Engine<L> {
                     cost_wizard::pay(&mut self.state, player, part, card)?;
                 }
             }
+            // Detect events between cost parts while their subjects and Aura
+            // attachments still exist; stack placement waits for priority.
+            self.capture_cost_triggers();
         }
         graveyard_batch.finish(&mut self.state);
         if let Some(before) = subject_before {

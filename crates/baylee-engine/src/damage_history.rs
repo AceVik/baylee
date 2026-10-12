@@ -67,6 +67,19 @@ impl GameState {
     /// Recover the identity at an event even if its object moved again in
     /// the same resolution before the trigger scan.
     pub(crate) fn event_object_identity(&self, id: ObjectId, seq: u64) -> Option<(u32, i16)> {
+        if let Some(entry) = seq
+            .checked_sub(1)
+            .and_then(|index| self.journal.entries().get(index as usize))
+            && let GameEvent::AbilityActivated { source, .. } = entry.event
+            && source.object == id
+        {
+            return Some((
+                source.version,
+                self.source_object(source)
+                    .and_then(|o| o.characteristics().power)
+                    .unwrap_or(0),
+            ));
+        }
         for entry in self.journal.entries().iter().skip(seq as usize) {
             if matches!(entry.event, GameEvent::ZoneChanged { object, from: Zone::Battlefield, .. } if object == id)
                 && let Some(departure) = &entry.departure

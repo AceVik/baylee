@@ -1635,6 +1635,18 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::TapEventObject => {
+            if let Some(reference) = subjects::event(state, res)
+                && subjects::on_battlefield(state, reference)
+            {
+                tap(state, reference.object);
+            }
+            None
+        }
+        Effect::SuppressUntap { target, steps } => {
+            super::untap_suppression::apply(state, res, target, steps);
+            None
+        }
         Effect::TapTarget => {
             for &target in &res.targets.clone() {
                 tap(state, target);

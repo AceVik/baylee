@@ -276,8 +276,16 @@ pub static RESOLUTION_CHOICES_PRINTED_INLINE: &[InlineModes] = &[InlineModes {
     words: &["tap", "untap"],
 }];
 
-/// The card's own English words for one mode printed inside a sentence, if
-/// this is such a mode. See [`InlineModes`].
+/// Names for resolution choices whose finite options are implicit in Oracle.
+/// These are rule-defined names, rather than verbatim printed sentence slices.
+static RESOLUTION_CHOICE_NAMES: &[InlineModes] = &[InlineModes {
+    card: baylee_core::generated::index::UNSTABLE_FRONTIER,
+    face: 0,
+    words: &["Plains", "Island", "Swamp", "Mountain", "Forest"],
+}];
+
+/// English words for an inline mode or a named resolution choice.
+/// Printed fragments use [`InlineModes`]; implicit options use rule-defined names.
 ///
 /// Bound-checked like [`mode_line`]: an unknown card, face or mode answers
 /// `None`.
@@ -286,6 +294,7 @@ pub fn inline_mode_words(card: CardIndex, face: usize, mode: usize) -> Option<&'
     MODES_PRINTED_INLINE
         .iter()
         .chain(RESOLUTION_CHOICES_PRINTED_INLINE)
+        .chain(RESOLUTION_CHOICE_NAMES)
         .find(|entry| entry.card == card && usize::from(entry.face) == face)?
         .words
         .get(mode)
@@ -891,6 +900,47 @@ mod tests {
             assert_eq!(super::inline_mode_words(card, 0, mode), Some(*words));
         }
         assert_eq!(super::inline_mode_words(card, 0, entry.words.len()), None);
+    }
+
+    #[test]
+    fn unstable_frontier_names_basic_land_types_in_resolution_order() {
+        use baylee_cards_dsl::{AbilityDef, Effect, Filter, Modifier, TargetSpec};
+        use baylee_core::generated::{index, subtypes::land};
+        let card = index::UNSTABLE_FRONTIER;
+        let def = crate::by_index(card).expect("Frontier registered");
+        assert!(super::face_modes(def.abilities_for_face(0)).is_empty());
+        let AbilityDef::Activated {
+            effects, targets, ..
+        } = &def.abilities_for_face(0)[1]
+        else {
+            panic!("land type activation")
+        };
+        assert_eq!(
+            targets.expect("one land target").spec,
+            TargetSpec::Object(&Filter::YOUR_LAND)
+        );
+        let [Effect::ChooseOne { choices }] = *effects else {
+            panic!("resolution choice")
+        };
+        for (mode, (name, subtype)) in [
+            ("Plains", land::PLAINS),
+            ("Island", land::ISLAND),
+            ("Swamp", land::SWAMP),
+            ("Mountain", land::MOUNTAIN),
+            ("Forest", land::FOREST),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            assert_eq!(super::inline_mode_words(card, 0, mode), Some(name));
+            assert!(matches!(choices[mode], Effect::ModifyTargets {
+                modifier: Modifier::SetLandType(actual),
+                duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            } if actual == subtype));
+        }
+        assert_eq!(choices.len(), 5);
+        assert_eq!(super::inline_mode_words(card, 0, 5), None);
+        assert_eq!(super::inline_mode_words(card, 1, 0), None);
     }
 
     #[test]

@@ -1234,9 +1234,14 @@ impl<L: CardLookup> Engine<L> {
                 let Some(PlanKind::IntrinsicMana { source }) = self.pending_plan.take() else {
                     unreachable!("guarded above");
                 };
-                // The land was tapped when the question was published, so
-                // what is left is the mana — through the same door the
-                // one-type land goes through.
+                // Choosing one of the type-granted abilities precedes its
+                // cost. Pay and announce it once, through the one-type door.
+                if !casting::pay_intrinsic_mana_price(&mut self.state, player, source) {
+                    return Err(EngineError::IllegalAction("cannot pay mana ability cost"));
+                }
+                if let Some(reference) = self.state.source_identity(source) {
+                    self.note_mana_activation(reference);
+                }
                 casting::add_intrinsic_mana(&mut self.state, player, source, color);
                 #[cfg(test)]
                 crate::ability_log::intrinsic_mana(&self.state, &self.lookup, source, color);
@@ -1963,26 +1968,11 @@ impl<L: CardLookup> Engine<L> {
                 let colors =
                     casting::intrinsic_mana_choices(&self.state, &self.lookup, player, source);
                 if !colors.is_empty() {
-                    if !casting::pay_intrinsic_mana_price(&mut self.state, player, source) {
-                        return Err(EngineError::IllegalAction("cannot pay mana ability cost"));
-                    }
-                    if let Some(reference) = self.state.source_identity(source) {
-                        self.note_mana_activation(reference);
-                    }
-                    // CR 305.6 gives the land one mana ability per basic
-                    // type, so a land with several is a question. It is
-                    // asked *here* and not inside `activate_mana`, which is
-                    // a state function with no way to publish a pending —
-                    // and it is asked after the tap, because the tap is the
-                    // cost and the colour is the effect, exactly as a
-                    // printed "add one mana of any color" pays first and
-                    // asks second.
+                    // CR 305.6 grants one separate mana ability per basic
+                    // land type. This shortcut chooses WHICH ability to
+                    // activate before paying its cost, unlike a printed
+                    // "add one mana of any color" resolution choice.
                     if colors.len() > 1 {
-                        self.state.set_tapped(source, true);
-                        self.state.journal.record(GameEvent::ObjectTapped {
-                            object: source,
-                            cause: Cause::Cost,
-                        });
                         self.pending_plan = Some(PlanKind::IntrinsicMana { source });
                         self.pending = Pending::ChooseColor {
                             player,
@@ -1990,6 +1980,12 @@ impl<L: CardLookup> Engine<L> {
                         };
                         self.awaiting_answer = true;
                         return Ok(());
+                    }
+                    if !casting::pay_intrinsic_mana_price(&mut self.state, player, source) {
+                        return Err(EngineError::IllegalAction("cannot pay mana ability cost"));
+                    }
+                    if let Some(reference) = self.state.source_identity(source) {
+                        self.note_mana_activation(reference);
                     }
                     // Exactly one colour: nothing to ask.
                     casting::add_intrinsic_mana(&mut self.state, player, source, colors[0]);

@@ -578,11 +578,13 @@
         },
         {
           "name": "Haunting Wind",
-          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/haunting_wind.rs"
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/haunting_wind.rs",
+          "status": "completed"
         },
         {
           "name": "Powerleech",
-          "path": "crates/baylee-cards/src/cards/enchantments/mv_2/powerleech.rs"
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_2/powerleech.rs",
+          "status": "completed"
         },
         {
           "name": "Imprison",
@@ -590,7 +592,8 @@
         },
         {
           "name": "Artifact Possession",
-          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_3/artifact_possession.rs"
+          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_3/artifact_possession.rs",
+          "status": "completed"
         },
         {
           "name": "Urza's Miter",
@@ -606,8 +609,8 @@
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/thousand_moons_smithy.rs"
         }
       ],
-      "validated_complete": 4,
-      "remaining_note": "Ten cards remain Partial; activation observers and historical turn predicates need further engine support."
+      "validated_complete": 7,
+      "remaining_note": "Seven cards remain Partial: historical predicates, Imprison and transform follow-ups need further engine support."
     },
     {
       "batch": 49,
@@ -632,15 +635,18 @@
         },
         {
           "name": "Telekinesis",
-          "path": "crates/baylee-cards/src/cards/instants/mv_2/telekinesis.rs"
+          "path": "crates/baylee-cards/src/cards/instants/mv_2/telekinesis.rs",
+          "status": "completed"
         },
         {
           "name": "Frostwalk Bastion",
-          "path": "crates/baylee-cards/src/cards/lands/manlands/frostwalk_bastion.rs"
+          "path": "crates/baylee-cards/src/cards/lands/manlands/frostwalk_bastion.rs",
+          "status": "completed"
         },
         {
           "name": "Skyline Cascade",
-          "path": "crates/baylee-cards/src/cards/lands/utility/skyline_cascade.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/skyline_cascade.rs",
+          "status": "completed"
         },
         {
           "name": "Mystifying Maze",
@@ -654,7 +660,8 @@
           "name": "Thawing Glaciers",
           "path": "crates/baylee-cards/src/cards/lands/utility/thawing_glaciers.rs"
         }
-      ]
+      ],
+      "validated_complete": 3
     },
     {
       "batch": 50,
@@ -863,7 +870,7 @@
     {
       "batch": 54,
       "title": "Land types and mana production",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Riftstone Portal",
@@ -883,9 +890,11 @@
         },
         {
           "name": "Unstable Frontier",
-          "path": "crates/baylee-cards/src/cards/lands/utility/unstable_frontier.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/unstable_frontier.rs",
+          "status": "completed"
         }
-      ]
+      ],
+      "validated_complete": 1
     },
     {
       "batch": 55,

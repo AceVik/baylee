@@ -533,6 +533,20 @@ pub enum Trigger {
     /// the event's object, so `PlayerRel::ControllerOfEvent` is "that
     /// land's controller".
     BecomesTapped(&'static Filter),
+    /// Positive combat damage from a matching source to a creature.
+    /// The damaged creature is the event object.
+    DealsCombatDamageToCreature(&'static Filter),
+    /// A successfully completed activation; copies of abilities do not activate.
+    AbilityActivated {
+        /// Ability source, evaluated independently of who activates it.
+        filter: &'static Filter,
+        /// Activating player, not necessarily the source's controller.
+        who: crate::PlayerRel,
+        /// Whether the paid activation cost contains the tap symbol.
+        tap_cost: Option<bool>,
+        /// Restrict to mana or nonmana abilities, or accept either.
+        mana_ability: Option<bool>,
+    },
     /// One positive placement, optionally restricted to its first occurrence this turn.
     CountersPlaced {
         /// Receiving permanent.

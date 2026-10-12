@@ -6,6 +6,7 @@
 //! order. Same-controller ordering currently follows timestamp; the
 //! player-facing ordering choice is M2 (documented in engine-internals).
 
+mod activations;
 mod discarded;
 mod event_groups;
 mod radiation;
@@ -827,6 +828,12 @@ fn first_mana_of_a_tap(
         .iter()
         .rev()
         .find_map(|entry| match entry.event {
+            GameEvent::AbilityActivated {
+                source,
+                tap_cost,
+                mana_ability,
+                ..
+            } if source.object == object => Some(tap_cost && mana_ability),
             GameEvent::ObjectTapped {
                 object: tapped,
                 cause: crate::event::Cause::Cost,
@@ -1133,7 +1140,8 @@ fn event_damage_of(
 /// a draw leaves no object behind to ask.
 fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
     match event {
-        GameEvent::CardsDrawn { player, .. }
+        GameEvent::AbilityActivated { player, .. }
+        | GameEvent::CardsDrawn { player, .. }
         | GameEvent::SpellCast { player, .. }
         | GameEvent::SpellCopied { player, .. }
         | GameEvent::LandPlayed { player, .. }
@@ -1166,6 +1174,13 @@ fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> O
             },
         ) => Some(*blocker),
         (
+            Trigger::DealsCombatDamageToCreature(_),
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Object(recipient),
+                ..
+            },
+        ) => Some(*recipient),
+        (
             Trigger::DealsDamageToPlayer { .. } | Trigger::OneOrMoreDealCombatDamageToPlayer(_),
             GameEvent::DamageDealt {
                 source: damage_source,
@@ -1190,6 +1205,7 @@ fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> O
 /// The object an event is about, if any.
 fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
     match event {
+        GameEvent::AbilityActivated { source, .. } => Some(source.object),
         GameEvent::ZoneChanged { object, .. }
         | GameEvent::SpellCast { object, .. }
         | GameEvent::SpellCopied { object, .. }
@@ -2314,7 +2330,7 @@ fn matches(
             // `EachOpponent`; a relation that needs a resolution names
             // nobody here).
             eval::players(*by, state, you).is_some_and(|seats| seats.contains(player))
-                && first_mana_of_a_tap(event, batch, *tapped)
+                && first_mana_of_a_tap(event, state.journal.entries(), *tapped)
                 && state
                     .object(*tapped)
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
@@ -2322,6 +2338,47 @@ fn matches(
         // Any permanent the filter matches: City of Brass's `Filter::This`
         // is its source, Lifetap's is a Forest an opponent controls, and
         // Psychic Venom's the land it enchants.
+        (
+            Trigger::AbilityActivated {
+                filter,
+                who,
+                tap_cost,
+                mana_ability,
+            },
+            GameEvent::AbilityActivated {
+                source: activated,
+                player,
+                tap_cost: tapped,
+                mana_ability: mana,
+            },
+        ) => {
+            tap_cost.is_none_or(|required| required == *tapped)
+                && mana_ability.is_none_or(|required| required == *mana)
+                && eval::players(*who, state, you).is_some_and(|players| players.contains(player))
+                && state.source_object(*activated).is_some_and(|object| {
+                    activations::source_matches(filter, state, object, you, context)
+                })
+        }
+        (
+            Trigger::DealsCombatDamageToCreature(filter),
+            GameEvent::DamageDealt {
+                source: Some(dealer),
+                target: crate::event::DamageTarget::Object(recipient),
+                amount,
+                is_combat: true,
+            },
+        ) => {
+            *amount > 0
+                && state.object(*dealer).is_some_and(|object| {
+                    eval::matches_with_context(filter, state, object, you, context)
+                })
+                && state.object(*recipient).is_some_and(|object| {
+                    object
+                        .characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                })
+        }
         (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),

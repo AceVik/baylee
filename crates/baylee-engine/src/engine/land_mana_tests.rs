@@ -1394,7 +1394,8 @@ fn check(what: &str, tally: &Tally, bounds: &Bounds) {
 const LANDS: Bounds = Bounds {
     colors: 1400,
     routes: 950,
-    promises: 700..=1000,
+    // Adanto adds the 1001st verified printed mana promise.
+    promises: 700..=1001,
     opponents_lands: 1..=3,
     creature_promises: 1..=5,
     fully_read: 700,

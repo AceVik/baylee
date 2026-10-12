@@ -371,6 +371,39 @@ impl EffectTable {
         }
     }
 
+    /// Consume one real untap step for each bound recipient controlled by
+    /// `active`. A new incarnation cannot inherit an older suppression.
+    pub(crate) fn finish_bound_untap(
+        &mut self,
+        active: PlayerId,
+        controller: impl Fn(ObjectId, u32) -> Option<PlayerId>,
+    ) {
+        let mut changed = false;
+        for effect in self.effects.iter_mut().chain(&mut self.parked) {
+            let Duration::UntilAffectedUntapSteps(ref mut remaining) = effect.duration else {
+                continue;
+            };
+            let EffectFilter::ObjectIs(id, version) = effect.filter else {
+                continue;
+            };
+            match controller(id, version) {
+                None => {
+                    *remaining = 0;
+                    changed = true;
+                }
+                Some(player) if player == active => {
+                    *remaining = remaining.saturating_sub(1);
+                    changed = true;
+                }
+                Some(_) => {}
+            }
+        }
+        self.remove_where(|effect| effect.duration == Duration::UntilAffectedUntapSteps(0));
+        if changed {
+            self.generation += 1;
+        }
+    }
+
     /// Removes effects matching a predicate, parked ones included; bumps
     /// the generation if any.
     pub fn remove_where(&mut self, pred: impl Fn(&ContinuousEffect) -> bool) {

@@ -161,8 +161,8 @@ pub fn activate_mana(
     let colors = intrinsic_mana_colors(state, source);
     let [color] = colors.as_slice() else {
         // Several basic types is a question, and this function cannot ask
-        // one: `actions.rs` taps the land and publishes `Pending::ChooseColor`
-        // instead, then finishes here through `add_intrinsic_mana`. Reaching
+        // one: `actions.rs` publishes `Pending::ChooseColor` to select an
+        // ability before paying, then uses `add_intrinsic_mana`. Reaching
         // this arm means a caller skipped that fork.
         return Err(CastFailure::Legality(CastError::BadTiming));
     };
@@ -182,6 +182,9 @@ pub fn activate_mana(
 /// out as different events — the tap is journalled under [`Cause::Cost`] and
 /// the mana under [`GameEvent::ManaProduced`] either way, and a trigger
 /// watching for either sees the same thing.
+///
+/// # Panics
+/// The source must still exist after its legal activation cost was paid.
 pub fn add_intrinsic_mana(
     state: &mut GameState,
     player: PlayerId,
@@ -203,6 +206,14 @@ pub fn add_intrinsic_mana(
     state.journal.record(GameEvent::ObjectTapped {
         object: source,
         cause: Cause::Cost,
+    });
+    state.journal.record(GameEvent::AbilityActivated {
+        source: state
+            .source_identity(source)
+            .expect("intrinsic mana source"),
+        player,
+        tap_cost: true,
+        mana_ability: true,
     });
     let snow = state.object(source).is_some_and(|o| {
         o.characteristics()

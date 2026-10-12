@@ -409,6 +409,8 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
     // reporting a card the resolver reads perfectly well.
     const READ: &[&str] = &[
         "spec: EventObject",
+        "TapEventObject",
+        "SuppressUntap { target: EventObject",
         "GraveyardToBattlefield { target: EventObject",
         "AttachSelf { target: EventObject",
         "PutOnBottomOfLibraryFromGraveyard { target: EventObject",
