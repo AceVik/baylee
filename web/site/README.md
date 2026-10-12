@@ -56,8 +56,36 @@ The pictures are loaded by the visitor's browser straight from
 nothing drawn on them, and credited (`docs/legal.md` §3). The page never calls
 Scryfall's API and nothing is re-hosted.
 
-No request leaves the origin but the ones to GitHub and, for an opened set,
-Scryfall's image host: the fonts (Faustina,
+## Motion
+
+The hero is the painting in layers (`.sky .layer`, each with a
+`data-speed`, how far it follows the scroll, and a `data-tilt`, how far it
+leans with a fine pointer); sections come up as they are read (only what
+starts below the fold, so nothing on screen blinks), numbers count up,
+the sets' bars grow, panels (`.glass`) carry a light that follows the
+pointer, buttons sweep and leave a ring where they were pressed, and the
+screenshots open large in a `<dialog>`. Everything moves with transform
+and opacity from one `requestAnimationFrame` at most; under
+`prefers-reduced-motion` nothing moves and nothing waits to be revealed.
+Under 1100 px the sections are a menu (without JavaScript the links wrap
+under the bar). Every control is at least 44 px.
+
+## The contact form
+
+`#contact` posts with `fetch` to the feedback service's
+`POST /site/contact` (`docs/feedback.md` §"The landing page's contact
+form"), whose address is the form's `data-endpoint`; a page served from
+`localhost`/`127.0.0.1` uses `data-endpoint-local` instead, so a local try
+reaches a service on this machine (`127.0.0.1:28780`, started with `FEEDBACK_CONTACT_ORIGINS=http://localhost:8000`).
+It sends the name and address only if given, the message, the page's
+language and an empty honeypot (`website`, hidden from people). Without
+JavaScript the form is replaced by a note pointing to Discord and GitHub:
+the page's CSP allows no form submission. The sentence beside it says what
+is kept and for how long (`docs/privacy.md` §"Contact messages").
+
+No request leaves the origin but the ones to GitHub, the feedback service
+when a visitor sends the contact form, and, for an opened set, Scryfall's
+image host: the fonts (Faustina,
 Alegreya Sans; subsets of the client's own files, OFL 1.1, licences beside
 them in `fonts/`), the painting and the logo (ours, `docs/legal.md` §10)
 and the screenshots (`docs/images/readme/`, Baylee's text view, no card
@@ -78,6 +106,8 @@ gateway card stays on its static text because there is no `/info` locally.
 
 `scripts/server/site.caddy` has the Caddy directives and the install steps:
 `handle /` for the page, `handle /favicon.ico`, `handle_path /site/*` for the
-files, everything else untouched. The page is written for that snippet's
+files, everything else untouched. Its CSP names the feedback service in
+`connect-src` for the contact form; `scripts/server/feedback-direct.caddy`
+passes `/site/contact` on to the service. The page is written for that snippet's
 policy, which allows no inline style or script (`style-src 'self';
 script-src 'self'`): keep the CSS in `site.css` and the script in `site.js`.
