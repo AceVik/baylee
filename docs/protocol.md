@@ -533,6 +533,16 @@ last saw is sending a number the engine may already have passed — and the
 engine reading a larger depth cancels the hold, which is exactly the right
 answer, because somebody just responded to what was being let through.
 
+A hold or a per-ability yield passes **priority** and nothing that only looks
+like it. A payment window (CR 601.2g, 605.3a: the seat said yes to a tax, owes
+a Pact, or is paying for the spell it is casting) is put to its seat as
+`Pending::Priority`, and a pass there ends the payment with whatever is
+floating. `auto_answer` therefore never passes the seat a window is open for,
+whatever hold it left standing: a hold set "until the stack is empty" once
+closed the window an Esper Sentinel tax had just opened, nothing was paid, and
+the opponent drew (b8 #27). The client must not stand in for the hold either —
+it presents the window as the payment question it is.
+
 What the client is told is one bool, `PlayerView::priority_held` — **the
 viewing seat's own hold and no other seat's**, because a hold is a statement
 about what its owner intends to respond to and telling the table would hand
