@@ -116,6 +116,7 @@ pub(super) fn counter_kind(code: &str) -> Option<String> {
             "Indestructible" => "CounterKind::Indestructible",
             "HONE" => "CounterKind::Hone",
             "STUN" => "CounterKind::Stun",
+            "BORE" => "CounterKind::Bore",
             _ => return assigned_counter(code),
         }
         .to_string(),

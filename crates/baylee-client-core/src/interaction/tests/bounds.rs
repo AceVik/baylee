@@ -240,3 +240,26 @@ fn no_mulligan_is_built_past_the_last_the_question_allows() {
     assert_eq!(i.answer_mulligan(false), None);
     assert_eq!(i.answer_mulligan(true), Some(PlayerAction::MulliganKeep));
 }
+
+#[test]
+fn optional_exact_tap_payment_never_confirms_a_partial_group() {
+    let mut i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: (1..=6).map(obj).collect(),
+        min: 0,
+        max: 5,
+        prompt: ChoicePrompt::CostTapExactlyOrNone { count: 5 },
+        total: None,
+    });
+    assert!(i.can_confirm());
+    assert!(i.confirm().is_some());
+    for n in 1..=5 {
+        assert_eq!(i.toggle(obj(n)), SelectionOutcome::Added);
+        assert_eq!(i.can_confirm(), n == 5);
+        assert_eq!(i.confirm().is_some(), n == 5);
+    }
+    assert_eq!(i.toggle(obj(6)), SelectionOutcome::Full);
+    i.toggle(obj(1));
+    assert!(!i.can_confirm());
+    assert!(i.confirm().is_none());
+}

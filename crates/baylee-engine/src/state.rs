@@ -476,6 +476,13 @@ pub struct PerTurn {
     /// Untapped lands controlled by this turn's active player at its start,
     /// before untapping or phasing; independent of any source's presence.
     pub untapped_lands_at_start: u32,
+    /// Main phases actually begun this turn; the first need not be precombat.
+    pub main_phases_begun: u32,
+    /// A permanent card actually arrived in each owner’s graveyard this turn.
+    pub descended: Vec<bool>,
+    /// Actual sacrifices, counted once per projected subtype and sacrificing seat.
+    pub sacrificed_subtypes:
+        std::collections::BTreeMap<(PlayerId, baylee_core::ids::SubtypeId), u32>,
     /// Whether a permanent left under each player's control this turn.
     pub revolt: Vec<bool>,
     /// Whether each player cast an instant or sorcery this turn.
@@ -650,6 +657,9 @@ impl PerTurn {
     pub fn new(players: usize) -> Self {
         Self {
             untapped_lands_at_start: 0,
+            main_phases_begun: 0,
+            descended: vec![false; players],
+            sacrificed_subtypes: std::collections::BTreeMap::new(),
             revolt: vec![false; players],
             instant_or_sorcery_cast: vec![false; players],
             player_damage: std::collections::BTreeSet::new(),
@@ -723,6 +733,9 @@ impl PerTurn {
     /// Resets all counters (called at every turn start).
     pub fn reset(&mut self) {
         self.untapped_lands_at_start = 0;
+        self.main_phases_begun = 0;
+        self.descended.fill(false);
+        self.sacrificed_subtypes.clear();
         self.revolt.fill(false);
         self.instant_or_sorcery_cast.fill(false);
         self.player_damage.clear();
@@ -1294,6 +1307,8 @@ pub struct GameState {
     /// Derived small index of physical cards declaring off-battlefield static abilities.
     /// Populated once at card creation; active zone and incarnation are read live.
     pub(crate) offboard_static_candidates: Vec<ObjectId>,
+    /// Sparse candidates for pruning completed linked reanimations after trigger collection.
+    pub(crate) reanimation_sources: Vec<baylee_core::ids::DamageSourceRef>,
     /// Objects that may have become a token outside the battlefield
     /// (CR 704.5d), queued for the next state-based-action pass.
     ///
@@ -1404,6 +1419,7 @@ impl GameState {
             token_cleanup,
             printed_pt_cda,
             offboard_static_candidates,
+            reanimation_sources,
             // The snapshot hash's cache of its own bytes, not state.
             snapshot_memo: _,
         } = self;
@@ -1536,6 +1552,10 @@ impl GameState {
             (
                 "state.offboard_static_candidates",
                 format!("{offboard_static_candidates:?}"),
+            ),
+            (
+                "state.reanimation_sources",
+                format!("{reanimation_sources:?}"),
             ),
         ]);
     }

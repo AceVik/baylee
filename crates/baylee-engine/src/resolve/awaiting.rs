@@ -6,6 +6,10 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Hand selection accumulated before any cards are discarded.
+    DiscardAny(Box<super::discard_any::Selection>),
+    /// Exact simultaneous non-symbol tap payment.
+    TapGroup(Box<super::tap_group::Selection>),
     /// Choose which regeneration replacement applies before continuing the program.
     RegenerationChoice,
     /// All cards privately inspected by hideaway.
@@ -828,6 +832,8 @@ impl AwaitingOp {
     /// Captured choices distinguish a search even while its cards have not moved.
     pub(crate) fn search_fingerprint(&self) -> u64 {
         match self {
+            Self::DiscardAny(selection) => crate::state::structural_fingerprint(&(12u8, selection)),
+            Self::TapGroup(selection) => crate::state::structural_fingerprint(&(13u8, selection)),
             Self::EmpowerJace { amount } => crate::state::structural_fingerprint(&(11u8, amount)),
             Self::Hideaway { looked } => crate::state::structural_fingerprint(&(7u8, looked)),
             Self::LinkedPlay { cards } => crate::state::structural_fingerprint(&(8u8, cards)),

@@ -111,6 +111,8 @@ impl GameState {
             printed_pt_cda: _,
             // Derived from the immutable physical card definitions.
             offboard_static_candidates: _,
+            // Sparse cleanup index derived from each source's linked riders.
+            reanimation_sources: _,
             // Drained by every pass, before anyone can look.
             token_cleanup: _,
             // This hash's cache of its own bytes, read below.
@@ -492,6 +494,9 @@ impl GameState {
             attackers.hash(h);
         }
         self.per_turn.revolt.hash(h);
+        self.per_turn.main_phases_begun.hash(h);
+        self.per_turn.descended.hash(h);
+        self.per_turn.sacrificed_subtypes.hash(h);
         self.per_turn.instant_or_sorcery_cast.hash(h);
         self.per_turn.instants_cast.hash(h);
         self.per_turn.entered_subtypes.hash(h);
@@ -1090,54 +1095,6 @@ fn hash_rider_situation(
     departure.hash(h);
     for rider in &obj.riders {
         match rider {
-            crate::object::Rider::ChosenName {
-                acquisition,
-                printed,
-                name,
-            } => {
-                67u8.hash(h);
-                (acquisition, printed, name).hash(h);
-            }
-            crate::object::Rider::LinkedExile {
-                source,
-                acquisition,
-            } => {
-                69u8.hash(h);
-                (source, acquisition).hash(h);
-            }
-            crate::object::Rider::ExileVisibility {
-                seen,
-                follow_source,
-            } => {
-                70u8.hash(h);
-                (seen, follow_source).hash(h);
-            }
-            crate::object::Rider::HideawayHost(version) => {
-                71u8.hash(h);
-                version.hash(h);
-            }
-            crate::object::Rider::RulesAcquisition(acquisition) => {
-                68u8.hash(h);
-                acquisition.hash(h);
-            }
-            crate::object::Rider::ChosenNumber {
-                acquisition,
-                number,
-            } => {
-                66u8.hash(h);
-                (acquisition, number).hash(h);
-            }
-            crate::object::Rider::EntryTappingApplied => 74u8.hash(h),
-            crate::object::Rider::EntryCopyApplied => 65u8.hash(h),
-            crate::object::Rider::EntrySacrifices(count) => {
-                64u8.hash(h);
-                count.hash(h);
-            }
-            crate::object::Rider::ExhaustedAbility(index) => {
-                h.u8(63);
-                index.hash(h);
-            }
-            crate::object::Rider::GrantedActivated => h.u8(62),
             crate::object::Rider::AbilitySourceVersion(version) => {
                 h.u8(21);
                 h.boolean(
@@ -1147,6 +1104,23 @@ fn hash_rider_situation(
                 );
                 if let Some(ability) = obj.ability {
                     hash_damage_source(h, state, ability.source, *version);
+                }
+            }
+            crate::object::Rider::EventManaValue(value) => {
+                h.u8(76);
+                value.hash(h);
+            }
+            crate::object::Rider::ReanimatedCreature {
+                creature,
+                acquisition,
+            } => {
+                if state.object(creature.object).is_some_and(|object| {
+                    object.version == creature.version
+                        && object.zone == crate::zone::Zone::Battlefield
+                }) {
+                    h.u8(77);
+                    acquisition.hash(h);
+                    h.u32(position(creature.object));
                 }
             }
             crate::object::Rider::EventAbility(reference) => {
@@ -1180,8 +1154,62 @@ fn hash_rider_situation(
                 h.u8(26);
                 h.u32(*amount);
             }
-            _ => {}
+            _ => hash_acquired_rider(h, rider),
         }
+    }
+}
+
+fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
+    match rider {
+        crate::object::Rider::ChosenName {
+            acquisition,
+            printed,
+            name,
+        } => {
+            67u8.hash(h);
+            (acquisition, printed, name).hash(h);
+        }
+        crate::object::Rider::LinkedExile {
+            source,
+            acquisition,
+        } => {
+            69u8.hash(h);
+            (source, acquisition).hash(h);
+        }
+        crate::object::Rider::ExileVisibility {
+            seen,
+            follow_source,
+        } => {
+            70u8.hash(h);
+            (seen, follow_source).hash(h);
+        }
+        crate::object::Rider::HideawayHost(version) => {
+            71u8.hash(h);
+            version.hash(h);
+        }
+        crate::object::Rider::RulesAcquisition(acquisition) => {
+            68u8.hash(h);
+            acquisition.hash(h);
+        }
+        crate::object::Rider::ChosenNumber {
+            acquisition,
+            number,
+        } => {
+            66u8.hash(h);
+            (acquisition, number).hash(h);
+        }
+        crate::object::Rider::EntryTappingApplied => 74u8.hash(h),
+        crate::object::Rider::EntryCopyApplied => 65u8.hash(h),
+        crate::object::Rider::EntrySacrifices(count) => {
+            64u8.hash(h);
+            count.hash(h);
+        }
+        crate::object::Rider::ExhaustedAbility(index) => {
+            h.u8(63);
+            index.hash(h);
+        }
+        crate::object::Rider::GrantedActivated => h.u8(62),
+        _ => {}
     }
 }
 
@@ -1618,6 +1646,17 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(18);
                 version.hash(h);
             }
+            Rider::EventManaValue(value) => {
+                h.u8(76);
+                value.hash(h);
+            }
+            Rider::ReanimatedCreature {
+                creature,
+                acquisition,
+            } => {
+                h.u8(77);
+                (creature, acquisition).hash(h);
+            }
             Rider::EventAbility(reference) => {
                 h.u8(75);
                 reference.hash(h);
@@ -1977,6 +2016,7 @@ fn hash_counter(h: &mut Hasher, kind: CounterKind) {
         CounterKind::Charge => h.u8(6),
         CounterKind::Poison => h.u8(7),
         CounterKind::Energy => h.u8(8),
+        CounterKind::Bore => h.u8(19),
         CounterKind::Rad => h.u8(9),
         CounterKind::Lifelink => h.u8(10),
         CounterKind::Level => h.u8(11),

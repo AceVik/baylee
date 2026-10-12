@@ -499,6 +499,31 @@ pub(super) fn exec_choice(
             // relative to the ability, and a Karoo names its own controller
             // where a ward names the caster.
             let player = players_of(player, state, you, res).first().copied()?;
+            if let baylee_cards_dsl::CostPart::TapN { count, .. } = cost {
+                if *count == 0 {
+                    // Paying nothing is still optional, so retain both answers.
+                    let cost = baylee_core::mana::ManaCost::ZERO;
+                    res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                        player,
+                        cost,
+                        outcome: ManaPaymentOutcome::Effects {
+                            effects: std::slice::from_ref(effect),
+                            on_payment,
+                        },
+                    });
+                    return Some(Pending::YesNo {
+                        player,
+                        prompt: YesNoPrompt::PayMana { cost },
+                        source: resolving_ability(state, res),
+                    });
+                }
+                let pending = super::tap_group::offer(state, res, player, cost, on_payment, effect);
+                return if pending.is_none() && !on_payment {
+                    run_nested(state, res, std::slice::from_ref(effect))
+                } else {
+                    pending
+                };
+            }
             let options =
                 cost_wizard::options_with_context(state, player, res.rule_context(), cost);
             if options.is_empty() {

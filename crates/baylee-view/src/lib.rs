@@ -220,7 +220,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Readers must preserve sparse grant slots rather than infer list positions.
 /// Version 74 adds the choice between standing and one-shot regeneration.
 /// Version 75 widens explicit life payment amounts to preserve costs above 65535.
-pub const VIEW_VERSION: u32 = 75;
+/// Version 76 adds bore counters and exact-or-none optional tap payments.
+pub const VIEW_VERSION: u32 = 76;
 
 // ------------------------------------------------------------------- targets
 

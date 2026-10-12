@@ -185,6 +185,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     let you = res.controller;
     match op {
         Effect::ReturnSourceFromGraveyard { .. }
+        | Effect::GraveyardToBattlefieldLinked { .. }
         | Effect::GraveyardToBattlefield { .. }
         | Effect::Assimilate { .. }
         | Effect::ExileSelfReturnAsFace { .. } => super::reanimation::exec(state, res, op),

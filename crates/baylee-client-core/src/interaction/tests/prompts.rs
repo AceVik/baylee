@@ -1499,3 +1499,23 @@ fn mandatory_aura_host_choice_covers_cards_and_tokens_without_optional_wording()
         "Wähle 1 Objekt, das die Aura verzaubert"
     );
 }
+
+#[test]
+fn optional_exact_tap_payment_states_both_legal_counts_in_both_languages() {
+    let i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: (1..=5).map(obj).collect(),
+        min: 0,
+        max: 5,
+        prompt: ChoicePrompt::CostTapExactlyOrNone { count: 5 },
+        total: None,
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Choose exactly 5 permanents to tap, or choose none"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Wähle genau 5 bleibende Karten zum Tappen oder keine"
+    );
+}

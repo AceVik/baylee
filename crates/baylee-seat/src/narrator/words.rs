@@ -156,6 +156,7 @@ pub fn counter(kind: CounterKind) -> String {
         CounterKind::Hone => "hone".into(),
         CounterKind::Stun => "stun".into(),
         CounterKind::Finality => "finality".into(),
+        CounterKind::Bore => "bore".into(),
         CounterKind::Level => "level".into(),
         CounterKind::Custom(_) => "other".into(),
     }
@@ -242,6 +243,9 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         }
         ChoicePrompt::CostDiscard => "Choose the cards to discard to pay the cost".into(),
         ChoicePrompt::CostTap => "Choose what to tap to pay the cost".into(),
+        ChoicePrompt::CostTapExactlyOrNone { count } => {
+            format!("Choose exactly {count} permanents to tap, or choose none")
+        }
         ChoicePrompt::CostReturn => {
             "Choose what to return to its owner's hand to pay the cost".into()
         }

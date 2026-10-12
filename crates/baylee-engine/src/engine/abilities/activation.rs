@@ -617,8 +617,13 @@ impl<L: CardLookup> Engine<L> {
                 ability_index,
                 targets,
                 target_players: chosen_players,
-                remaining: matches!(part, CostPart::SacrificeX(_) | CostPart::TapX(_))
-                    .then(|| self.activation_x.unwrap_or(0)),
+                remaining: match part {
+                    CostPart::TapN { count, .. } => Some(*count),
+                    CostPart::SacrificeX(_) | CostPart::TapX(_) => {
+                        Some(self.activation_x.unwrap_or(0))
+                    }
+                    _ => None,
+                },
                 chosen: Vec::new(),
             });
             // One object per question, except crew's, whose one question
@@ -639,6 +644,8 @@ impl<L: CardLookup> Engine<L> {
                         at_most: None,
                     }),
                 )
+            } else if let CostPart::TapN { count, .. } = part {
+                (u8::try_from(*count).unwrap_or(u8::MAX), None)
             } else if matches!(part, CostPart::SacrificeX(_) | CostPart::TapX(_)) {
                 (
                     u8::try_from(self.activation_x.unwrap_or(0)).unwrap_or(u8::MAX),
@@ -650,7 +657,10 @@ impl<L: CardLookup> Engine<L> {
             self.pending = Pending::ChooseCards {
                 player,
                 options,
-                min: if matches!(part, CostPart::SacrificeX(_) | CostPart::TapX(_)) {
+                min: if matches!(
+                    part,
+                    CostPart::SacrificeX(_) | CostPart::TapX(_) | CostPart::TapN { .. }
+                ) {
                     max
                 } else {
                     u8::from(!matches!(part, CostPart::Crew(0) | CostPart::Saddle(0)))

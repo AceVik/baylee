@@ -703,6 +703,7 @@ impl Writer<'_> {
             ),
             CounterKind::Loyalty => (Phrase::LogCounterLoyalty, Phrase::LogCountersLoyalty, None),
             CounterKind::Lore => (Phrase::LogCounterLore, Phrase::LogCountersLore, None),
+            CounterKind::Bore => (Phrase::LogCounterBore, Phrase::LogCountersBore, None),
             CounterKind::Time => (Phrase::LogCounterTime, Phrase::LogCountersTime, None),
             CounterKind::Charge => (Phrase::LogCounterCharge, Phrase::LogCountersCharge, None),
             CounterKind::Poison => (Phrase::LogCounterPoison, Phrase::LogCountersPoison, None),

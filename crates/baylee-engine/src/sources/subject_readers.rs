@@ -22,6 +22,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::Regenerate { target, .. }
             | Effect::GraveyardToTop { target, .. }
             | Effect::GraveyardToHand { target, .. }
+            | Effect::GraveyardToBattlefieldLinked { target }
             | Effect::GraveyardToBattlefield { target, .. }
             | Effect::AttachSelf { target, .. }
             | Effect::ExileLinked { target, .. }
@@ -64,6 +65,8 @@ pub(super) fn moves_subject(effects: &'static [Effect]) -> bool {
             effect,
             Effect::ReturnToHand {
                 target: TargetSpec::ThisObject
+            } | Effect::GraveyardToBattlefieldLinked {
+                target: TargetSpec::ThisObject,
             } | Effect::GraveyardToBattlefield {
                 target: TargetSpec::ThisObject,
                 ..

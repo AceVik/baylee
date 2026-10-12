@@ -235,6 +235,14 @@ pub enum CostPart {
         /// How many.
         n: u16,
     },
+    /// Tap exactly count distinct untapped matching permanents you control.
+    /// Nonsymbol tapping may include summoning-sick creatures and the source.
+    TapN {
+        /// Eligible permanents.
+        filter: &'static Filter,
+        /// Exact number to tap simultaneously.
+        count: u32,
+    },
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

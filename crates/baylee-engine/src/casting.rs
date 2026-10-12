@@ -1413,6 +1413,7 @@ fn alternative_parts_payable(
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
+        | CostPart::TapN { .. }
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)

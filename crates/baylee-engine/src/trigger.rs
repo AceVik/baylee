@@ -1093,6 +1093,31 @@ static WARD_PAY_OR_COUNTER: [[baylee_cards_dsl::Effect; 1]; 11] = [
     ward_pay_or_counter(10),
 ];
 
+fn begins_step(
+    state: &GameState,
+    began: crate::turn::Step,
+    expected: baylee_cards_dsl::StepKind,
+) -> bool {
+    if expected == baylee_cards_dsl::StepKind::FirstMain {
+        began == crate::turn::Step::Main && state.per_turn.main_phases_begun == 1
+    } else {
+        began.kind() == Some(expected)
+    }
+}
+
+fn cast_mana_value(state: &GameState, event: &GameEvent) -> Option<u32> {
+    let GameEvent::SpellCast { object, .. } = event else {
+        return None;
+    };
+    let spell = state.object(*object)?;
+    let chars = spell.characteristics();
+    Some(
+        chars
+            .front_mana_value
+            .map_or_else(|| chars.mana_cost.with_x(spell.x_value).cmc(), u32::from),
+    )
+}
+
 /// The largest generic ward cost [`WARD_PAY_OR_COUNTER`] can charge.
 ///
 /// Read by `keyword_tests::every_ward_in_the_pool_is_one_the_engine_charges`,
@@ -1632,16 +1657,29 @@ fn collect_for_objects(
         // text back on the way out (CR 400.7), so `abilities` would answer
         // with the printed card — which is how a Phyrexian Metamorph that had
         // copied Solemn Simulacrum died without drawing anybody a card.
-        // `None` on everything that was never a copy: the printed list did
-        // not change, so asking the object is asking the same question.
         let looked_back = if all_kinds {
             None
         } else {
+            // Read the departing incarnation before a raw copied list: a
+            // back face resets in its new zone, and lost abilities stay lost.
             state
-                .ltb_abilities
+                .ltb_versions
                 .iter()
                 .find(|(id, _)| *id == permanent)
-                .map(|(_, list)| list.clone())
+                .and_then(|(_, version)| {
+                    state.source_object(baylee_core::ids::DamageSourceRef {
+                        object: permanent,
+                        version: *version,
+                    })
+                })
+                .map(|departed| departed.ability_list(lookup))
+                .or_else(|| {
+                    state
+                        .ltb_abilities
+                        .iter()
+                        .find(|(id, _)| *id == permanent)
+                        .map(|(_, list)| list.clone())
+                })
         };
         // Not `obj.card`: a token has none, and bailing out here is how every
         // token on the battlefield used to be invisible to triggers —
@@ -1722,7 +1760,10 @@ fn collect_for_objects(
             };
             let look_back = matches!(
                 trigger,
-                Trigger::Dies(_) | Trigger::DiesNotSacrificed(_) | Trigger::LeavesBattlefield(_)
+                Trigger::Dies(_)
+                    | Trigger::DiesNotSacrificed(_)
+                    | Trigger::LeavesBattlefield(_)
+                    | Trigger::LinkedCreatureLeaves
             );
             if !all_kinds && !look_back {
                 continue;
@@ -1762,7 +1803,7 @@ fn collect_for_objects(
                                 .and_then(|id| state.event_object_identity(id, entry.seq)),
                             counter_source_version: None,
                             event_mana: None,
-                            event_mana_value: None,
+                            event_mana_value: cast_mana_value(state, &entry.event),
                             event_departure: entry
                                 .departure
                                 .as_ref()
@@ -1854,6 +1895,7 @@ fn collect_for_objects(
                 && !matches!(
                     trigger,
                     Trigger::LeavesBattlefield(_)
+                        | Trigger::LinkedCreatureLeaves
                         | Trigger::Dies(_)
                         | Trigger::DiesNotSacrificed(_)
                         | Trigger::CycledThis
@@ -1877,6 +1919,7 @@ fn collect_for_objects(
                         Trigger::Dies(_)
                             | Trigger::DiesNotSacrificed(_)
                             | Trigger::LeavesBattlefield(_)
+                            | Trigger::LinkedCreatureLeaves
                     ),
                 );
                 let context = ability_context(state, source, &list, index);
@@ -1889,16 +1932,21 @@ fn collect_for_objects(
                 ) {
                     continue;
                 }
-                let hit = departure_hit(trigger, entry, permanent).unwrap_or_else(|| {
-                    hits_with_context(
-                        trigger,
-                        &entry.event,
-                        events,
-                        state,
-                        context,
-                        source.controller,
-                    )
+                let linked_hit = (*trigger == Trigger::LinkedCreatureLeaves).then(|| {
+                    crate::resolve::linked_reanimation::departure(source, list.acquisition, entry)
                 });
+                let hit = linked_hit
+                    .or_else(|| departure_hit(trigger, entry, permanent))
+                    .unwrap_or_else(|| {
+                        hits_with_context(
+                            trigger,
+                            &entry.event,
+                            events,
+                            state,
+                            context,
+                            source.controller,
+                        )
+                    });
                 if hit > 0 {
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     let event_object = event_object_for(trigger, &entry.event, permanent);
@@ -1914,6 +1962,7 @@ fn collect_for_objects(
                                 Trigger::Dies(_)
                                     | Trigger::DiesNotSacrificed(_)
                                     | Trigger::LeavesBattlefield(_)
+                                    | Trigger::LinkedCreatureLeaves
                             ),
                         );
                         triggers.push(PendingTrigger {
@@ -1943,7 +1992,7 @@ fn collect_for_objects(
                                 }
                             }),
                             event_mana: produced_mana(&entry.event, events),
-                            event_mana_value: None,
+                            event_mana_value: cast_mana_value(state, &entry.event),
                             event_departure: entry
                                 .departure
                                 .as_ref()
@@ -2659,7 +2708,7 @@ fn matches(
                 step: began_step, ..
             },
         ) => {
-            began_step.kind() == Some(*step)
+            begins_step(state, *began_step, *step)
                 && state
                     .object(source)
                     .and_then(crate::object::GameObject::chosen_opponent)
@@ -2671,7 +2720,7 @@ fn matches(
                 step: began_step, ..
             },
         ) => {
-            if began_step.kind() != Some(*step) {
+            if !begins_step(state, *began_step, *step) {
                 return false;
             }
             match whose {

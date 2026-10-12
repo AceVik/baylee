@@ -452,6 +452,13 @@ impl HeuristicAgent {
                 {
                     return PlayerAction::ChooseObjects { objects };
                 }
+                if matches!(prompt, ChoicePrompt::CostTapExactlyOrNone { .. }) {
+                    // The optional benefit is not priced here. Decline rather than
+                    // submitting an invalid partial payment or tapping blindly.
+                    return PlayerAction::ChooseObjects {
+                        objects: Vec::new(),
+                    };
+                }
                 if let ChoicePrompt::TappedForCounters { kind } = prompt {
                     return PlayerAction::ChooseObjects {
                         objects: options

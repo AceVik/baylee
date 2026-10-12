@@ -203,6 +203,15 @@ impl<L: CardLookup> Engine<L> {
             (_, Step::End | Step::Cleanup) => (Phase::Ending, Step::Cleanup),
             _ => unreachable!("invalid phase/step combination"),
         };
+        self.begin_step(next_phase, next_step);
+    }
+
+    /// Publish the entered phase and its history before collecting beginning triggers.
+    fn begin_step(&mut self, next_phase: Phase, next_step: Step) {
+        if next_step == Step::Main {
+            self.state.per_turn.main_phases_begun =
+                self.state.per_turn.main_phases_begun.saturating_add(1);
+        }
         self.state.turn.phase = next_phase;
         self.state.turn.step = next_step;
         if next_step == Step::Cleanup {

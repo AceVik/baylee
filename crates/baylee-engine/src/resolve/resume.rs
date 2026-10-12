@@ -28,6 +28,12 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::DiscardAny(selection) => {
+            return super::discard_any::resume(state, res, *selection, chosen);
+        }
+        AwaitingOp::TapGroup(selection) => {
+            return super::tap_group::resume(state, res, &selection, chosen);
+        }
         AwaitingOp::SkipDraw { source, .. } => {
             if let Some((player, next)) = state.draw_wish_answered(source, chosen.first().copied())
             {

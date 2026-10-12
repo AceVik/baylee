@@ -15,6 +15,20 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    fn can_pay_random_discards(&self, player: PlayerId, cost: &Cost) -> bool {
+        let needed = cost
+            .parts
+            .iter()
+            .filter(|part| {
+                matches!(
+                    part,
+                    CostPart::DiscardRandom | CostPart::Discard(_) | CostPart::DiscardSelf
+                )
+            })
+            .count();
+        self.state.zones.list(ZoneLocation::Hand(player)).len() >= needed
+    }
+
     /// What an activated ability costs `player` right now: its printed cost
     /// less the generic mana its own printed reduction takes off ("This
     /// ability costs {1} less to activate for each legendary creature you
@@ -191,19 +205,7 @@ impl<L: CardLookup> Engine<L> {
                     }
                 }
                 CostPart::DiscardRandom => {
-                    let needed = cost
-                        .parts
-                        .iter()
-                        .filter(|part| {
-                            matches!(
-                                part,
-                                CostPart::DiscardRandom
-                                    | CostPart::Discard(_)
-                                    | CostPart::DiscardSelf
-                            )
-                        })
-                        .count();
-                    if self.state.zones.list(ZoneLocation::Hand(player)).len() < needed {
+                    if !self.can_pay_random_discards(player, cost) {
                         return false;
                     }
                 }
@@ -212,8 +214,13 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
-                CostPart::SacrificeX(_) | CostPart::TapX(_) => {
-                    let count = self.activation_x.unwrap_or(0) as usize;
+                CostPart::SacrificeX(_) | CostPart::TapX(_) | CostPart::TapN { .. } => {
+                    let count = if let CostPart::TapN { count, .. } = part {
+                        *count
+                    } else {
+                        self.activation_x.unwrap_or(0)
+                    };
+                    let count = usize::try_from(count).unwrap_or(usize::MAX);
                     if cost_wizard::menu(&self.state, player, source, cost, part).len() < count {
                         return false;
                     }
@@ -403,6 +410,7 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_scan_seq,
         ));
         self.trigger_scan_seq = self.state.journal.last_seq();
+        crate::resolve::linked_reanimation::prune(&mut self.state);
     }
 
     /// [`Self::pay_cost`] without the checkpoint: what it pays, part by part.
@@ -646,6 +654,29 @@ impl<L: CardLookup> Engine<L> {
                 }
                 // Preserve one answer per asking part, including an empty
                 // answer to crew/saddle 0. A following cost owns its own answer.
+                CostPart::TapN { count, .. } => {
+                    let selected = answers
+                        .next()
+                        .ok_or(EngineError::IllegalAction("unanswered tap group"))?;
+                    let options = cost_wizard::menu(&self.state, player, source, cost, part);
+                    if selected.len() != usize::try_from(*count).unwrap_or(usize::MAX)
+                        || selected
+                            .iter()
+                            .enumerate()
+                            .any(|(i, id)| selected[..i].contains(id) || !options.contains(id))
+                    {
+                        return Err(EngineError::IllegalAction("invalid tap group"));
+                    }
+                    for &id in selected {
+                        self.state.set_tapped(id, true);
+                    }
+                    for &id in selected {
+                        self.state.journal.record(GameEvent::ObjectTapped {
+                            object: id,
+                            cause: Cause::Cost,
+                        });
+                    }
+                }
                 CostPart::Crew(power) | CostPart::Saddle(power) => {
                     let Some(crew) = answers.next() else {
                         return Err(EngineError::IllegalAction("unanswered power cost"));

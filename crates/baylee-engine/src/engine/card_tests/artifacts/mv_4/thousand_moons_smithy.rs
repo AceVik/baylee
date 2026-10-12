@@ -11,14 +11,11 @@ use super::*;
 /// // `{{T}}`: Add `{{W}}`. Whenever you cast an artifact or creature spell using mana produced
 /// by `Barracks of the Thousand`, create a white Gnome Soldier artifact creature token …"
 ///
-/// Under `Coverage::Partial`, the enter-trigger Gnome Soldier token, the first-main-phase
-/// transform, and the mana-produced cast trigger are omitted, leaving the front face as a
-/// `{2}{W}{W}` legendary artifact with no abilities. The test casts `Thousand Moons Smithy`
-/// from hand, confirms that it enters as a legendary artifact on face 0 without creating tokens,
-/// confirms that with mana floating `LegalActions::abilities` offers no abilities on it,
-/// and confirms that it remains on face 0 in the subsequent turn's main phase.
+/// Entry creates its own artifact-creature Gnome, which counts itself and
+/// Smithy once each. Plains do not contribute to the count or optional tap-five.
+/// The front has no activated ability.
 #[test]
-fn thousand_moons_smithy_casts_and_enters_as_legendary_artifact_without_token() {
+fn thousand_moons_smithy_creates_self_counting_gnome_on_entry() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(305, plains())
         .battlefield(
@@ -55,10 +52,12 @@ fn thousand_moons_smithy_casts_and_enters_as_legendary_artifact_without_token() 
         "Smithy is legendary"
     );
 
-    // Under Coverage::Partial, the enter trigger token creation is omitted.
-    assert!(
-        tokens_of(&engine, p0).is_empty(),
-        "under `Coverage::Partial` no Gnome Soldier token is created on entry"
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1);
+    assert_eq!(
+        pt(&engine, tokens[0]),
+        (2, 2),
+        "Smithy and artifact-creature token count once each"
     );
 
     // Two Plains remain untapped; float mana and verify no abilities on the front face.

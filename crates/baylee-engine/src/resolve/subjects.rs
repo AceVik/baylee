@@ -12,6 +12,7 @@ use baylee_core::ids::DamageSourceRef;
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
     followed: Vec<DamageSourceRef>,
+    pub(super) reanimation_links: Vec<super::linked_reanimation::PendingLink>,
     /// Exact future/current battlefield incarnations from the latest search.
     pub(super) found: Vec<DamageSourceRef>,
     pub(super) named: Option<(crate::object::PrintedFace, baylee_core::ids::NameRef)>,
@@ -26,6 +27,7 @@ impl SubjectContext {
     pub(crate) fn after_cost(paid: &crate::object::PaidRecord) -> Self {
         Self {
             followed: paid.source_after_cost.into_iter().collect(),
+            reanimation_links: Vec::new(),
             found: Vec::new(),
             named: None,
             sacrificed: paid.sacrificed_lki,
@@ -61,6 +63,7 @@ impl SubjectContext {
     }
 
     pub(crate) fn fingerprint(&self) -> u64 {
+        let links = crate::state::structural_fingerprint(&self.reanimation_links);
         let mut h = self
             .sacrificed
             .map_or(0, |lki| crate::state::structural_fingerprint(&lki));
@@ -94,7 +97,7 @@ impl SubjectContext {
         // Checkpoints exist only during synchronous resume calls. Every
         // public resume wrapper flushes before returning a held resolution.
         debug_assert!(self.checkpoint.is_none());
-        h
+        h.wrapping_mul(31).wrapping_add(links)
     }
 }
 

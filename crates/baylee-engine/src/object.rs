@@ -817,6 +817,15 @@ pub enum Rider {
     EventObjectIdentity(u32, i16),
     /// Exact stack ability whose activation caused this trigger.
     EventAbility(baylee_core::ids::DamageSourceRef),
+    /// Mana value captured from the triggering spell, with its announced X.
+    EventManaValue(u32),
+    /// One returned creature linked to this acquisition of a printed ability.
+    ReanimatedCreature {
+        /// Returned battlefield incarnation.
+        creature: baylee_core::ids::DamageSourceRef,
+        /// Exact rules family performing the return.
+        acquisition: u64,
+    },
     /// The source incarnation captured by a linked-counter ability.
     CounterSourceVersion(u32),
     /// Exiled by another object, which finds it again as a card "exiled
@@ -1019,6 +1028,8 @@ impl Rider {
             | Self::HideawayHost(_)
             | Self::EntryTappingApplied
             | Self::EntryCopyApplied
+            | Self::EventManaValue(_)
+            | Self::ReanimatedCreature { .. }
             | Self::EventAbility(_)
             | Self::EventObjectIdentity(..)
             | Self::AbilitySourceVersion(_)

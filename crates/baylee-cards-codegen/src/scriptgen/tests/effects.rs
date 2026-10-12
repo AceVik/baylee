@@ -1253,3 +1253,113 @@ fn guardian_reader_does_not_drop_hidden_control_or_new_attachment_predicate() {
         assert!(refused(&attach.replace(from, to)), "{to}");
     }
 }
+
+#[test]
+fn transform48_source_mana_trigger_preserves_event_mana_value_and_refuses_other_sources() {
+    let script = "Name:X\nTypes:Land\nT:Mode$ SpellCast | ValidCard$ Permanent | ValidSA$ Spell.ManaFromCard.StrictlySelf | ValidActivatingPlayer$ You | Execute$ D\nSVar:D:DB$ Discover | Num$ TriggeredSpellAbility$CardManaCostLKI";
+    let body = transcode(&parse(script), &cats(), None).unwrap();
+    assert!(body.abilities[0].contains("SpellCastUsingSourceMana"));
+    assert!(body.abilities[0].contains("Amount::EventManaValue"));
+    for (from, to) in [
+        ("StrictlySelf", "Other"),
+        (
+            "ValidActivatingPlayer$ You",
+            "ValidActivatingPlayer$ Opponent",
+        ),
+        ("CardManaCostLKI", "CardManaCost"),
+        (
+            "Num$ TriggeredSpellAbility$CardManaCostLKI",
+            "Num$ TriggeredSpellAbility$CardManaCostLKI | Unknown$ True",
+        ),
+    ] {
+        assert!(
+            transcode(&parse(&script.replace(from, to)), &cats(), None).is_none(),
+            "{to}"
+        );
+    }
+}
+#[test]
+fn transform48_first_main_requires_exact_optional_union_five_cost() {
+    let script = "Name:X\nTypes:Artifact\nT:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ F\nSVar:F:AB$ SetState | Cost$ tapXType<5/Artifact;Creature/artifact or creature> | Defined$ Self | Mode$ Transform";
+    let body = transcode(&parse(script), &cats(), None).unwrap();
+    assert!(body.abilities[0].contains("StepKind::FirstMain"));
+    assert!(body.abilities[0].contains("CostPart::TapN"));
+    for (from, to) in [
+        ("tapXType<5/", "tapXType<4/"),
+        ("Phase$ Main1", "Phase$ Main2"),
+        ("Defined$ Self", "Defined$ Targeted"),
+        ("Mode$ Transform", "Mode$ Transform | Unknown$ True"),
+    ] {
+        assert!(
+            transcode(&parse(&script.replace(from, to)), &cats(), None).is_none(),
+            "{to}"
+        );
+    }
+}
+#[test]
+fn transform48_optional_discard_draw_chain_is_read_as_a_complete_sentence() {
+    let script = "Name:X\nTypes:Artifact\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ D\nSVar:D:DB$ Discard | AnyNumber$ True | Optional$ True | Mode$ TgtChoose | RememberDiscarded$ True | SubAbility$ N\nSVar:N:DB$ Draw | Defined$ You | NumCards$ Remembered$Amount/Plus.1 | SubAbility$ C\nSVar:C:DB$ Cleanup | ClearRemembered$ True";
+    let body = transcode(&parse(script), &cats(), None).unwrap();
+    assert!(body.abilities[0].contains("DiscardAnyThenDraw, Effect::draw(1)"));
+    for (from, to) in [
+        ("Optional$ True", "Optional$ False"),
+        ("Plus.1", "Plus.2"),
+        ("ClearRemembered$ True", "ClearRemembered$ False"),
+        (
+            "RememberDiscarded$ True",
+            "RememberDiscarded$ True | Unknown$ True",
+        ),
+    ] {
+        assert!(
+            transcode(&parse(&script.replace(from, to)), &cats(), None).is_none(),
+            "{to}"
+        );
+    }
+}
+
+#[test]
+fn transform48_clue_sacrifice_condition_keeps_subtype_count_player_and_timing() {
+    // Synthetic names around the verified property grammar; no corpus body copied.
+    let script = "Name:Boundary laboratory\nTypes:Land\n\
+        T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Flip | CheckSVar$ Clues | SVarCompare$ GE3\n\
+        SVar:Clues:PlayerCountPropertyYou$SacrificedThisTurn Clue\n\
+        SVar:Flip:DB$ SetState | Defined$ Self | Mode$ Transform";
+    let body = read(script);
+    assert_eq!(body.abilities.len(), 1);
+    assert!(body.abilities[0].contains("StepKind::End, whose: PlayerRel::You"));
+    assert!(body.abilities[0].contains(
+        "Condition::SacrificedSubtypeThisTurn { subtype: subtypes::artifact::CLUE, count: 3 }"
+    ));
+    for (from, to) in [
+        ("SacrificedThisTurn Clue", "SacrificedThisTurn Food"),
+        ("PropertyYou$", "PropertyOpponent$"),
+        ("SVarCompare$ GE3", "SVarCompare$ GE2"),
+        ("SVarCompare$ GE3", "SVarCompare$ EQ3"),
+        ("ValidPlayer$ You", "ValidPlayer$ Opponent"),
+        ("Phase$ End of Turn", "Phase$ Upkeep"),
+        ("TriggerZones$ Battlefield", "TriggerZones$ Graveyard"),
+        ("Defined$ Self", "Defined$ Targeted"),
+        ("Mode$ Transform", "Mode$ Transform | Unknown$ True"),
+        ("CheckSVar$ Clues", "CheckSVar$ Clues | Unknown$ True"),
+    ] {
+        assert!(refused(&script.replace(from, to)), "{to}");
+    }
+}
+
+#[test]
+fn bore_counter_generic_reader_preserves_the_verified_exact_counter_word() {
+    use super::super::constants::counter_kind;
+    assert_eq!(counter_kind("BORE").as_deref(), Some("CounterKind::Bore"));
+    for unknown in ["Bore", "bore", "BORES", "BORE.EXTRA"] {
+        assert!(counter_kind(unknown).is_none(), "{unknown}");
+    }
+    // Generic activated-counter grammar rather than the transform reader's
+    // specialized PutCounter/Branch chain.
+    let script = "Name:Boundary drill\nTypes:Artifact\n\
+        A:AB$ PutCounter | Cost$ T | Defined$ Self | CounterType$ BORE | CounterNum$ 1";
+    let body = read(script);
+    assert!(body.abilities[0].contains("CounterKind::Bore"));
+    for wrong in ["Bore", "bore", "BORES"] {
+        assert!(refused(&script.replace("BORE", wrong)), "{wrong}");
+    }
+}

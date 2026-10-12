@@ -10,13 +10,11 @@ use super::*;
 /// on it, remove those counters and transform it. // `{{T}}`: Add `{{R}}`. Whenever you cast a
 /// permanent spell using mana produced by `Tecutlan`, discover X, where X is that spell's mana value."
 ///
-/// Under `Coverage::Partial`, the front-face enter trigger and end-step transform are omitted,
-/// leaving the front face as a `{2}{R}` legendary artifact with no abilities. The test casts
-/// `Brass's Tunnel-Grinder` from hand, verifies that it resolves to the battlefield as a legendary
-/// artifact on face 0, confirms that no enter trigger fires (hand remains empty and library size is unchanged),
-/// and confirms that with floating mana `LegalActions::abilities` offers no activated abilities on it.
+/// Entry chooses zero discards and still draws one card. The front remains a
+/// legendary artifact without activated abilities; Batch48 exercises its full
+/// transform/provenance clauses separately.
 #[test]
-fn brass_s_tunnel_grinder_casts_and_enters_as_legendary_artifact_without_enter_trigger() {
+fn brass_s_tunnel_grinder_empty_discard_draws_one_and_front_has_no_activated_ability() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(301, mountain())
         .battlefield(
@@ -56,12 +54,12 @@ fn brass_s_tunnel_grinder_casts_and_enters_as_legendary_artifact_without_enter_t
 
     assert_eq!(
         library_size(&engine, p0),
-        lib_before,
-        "under `Coverage::Partial` no card is drawn on entry"
+        lib_before - 1,
+        "zero discarded cards still draws one"
     );
     assert!(
-        engine.state().zones.list(ZoneLocation::Hand(p0)).is_empty(),
-        "hand is empty after casting with no discard or draw"
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len() == 1,
+        "the entry trigger draws exactly one with empty discard"
     );
 
     tap_all_mana(&mut engine, p0);

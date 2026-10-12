@@ -67,6 +67,8 @@ pub enum CounterKind {
     Finality,
     /// Card-specific counters.
     Custom(u16),
+    /// Bore counters (Brass's Tunnel-Grinder).
+    Bore,
 }
 
 impl CounterKind {
@@ -89,6 +91,7 @@ impl CounterKind {
         match name.trim().to_ascii_lowercase().as_str() {
             "loyalty" => Some(Self::Loyalty),
             "lore" => Some(Self::Lore),
+            "bore" => Some(Self::Bore),
             "time" => Some(Self::Time),
             "charge" => Some(Self::Charge),
             "poison" => Some(Self::Poison),

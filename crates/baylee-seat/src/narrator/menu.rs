@@ -53,6 +53,8 @@ enum Ask {
         from: Vec<ObjectId>,
         min: usize,
         max: usize,
+        /// An optional payment must be complete if accepted.
+        exactly_or_none: Option<u32>,
     },
     /// Targets: objects and players.
     Targets {
@@ -388,11 +390,12 @@ impl Menu {
         match &self.ask {
             Ask::Prevention { pending } => Self::prevention(pending, decision),
             Ask::Pick => self.pick(decision),
-            Ask::Objects { from, min, max } => {
-                let objects = Self::chosen(&decision.pick, from, *min, *max)?;
-                let label = format!("choose {}", ids(&objects));
-                Ok(now(PlayerAction::ChooseObjects { objects }, label))
-            }
+            Ask::Objects {
+                from,
+                min,
+                max,
+                exactly_or_none,
+            } => Self::objects(decision, from, *min, *max, *exactly_or_none),
             Ask::Targets {
                 objects,
                 players,
@@ -404,20 +407,7 @@ impl Menu {
                 defenders,
             } => self.attack(decision, attackers, defenders),
             Ask::Block { options } => Self::block(decision, options),
-            Ask::Number { min, max } => {
-                let written = decision
-                    .number
-                    .clone()
-                    .or_else(|| decision.pick.first().cloned())
-                    .ok_or_else(|| format!("give number=<an integer from {min} to {max}>"))?;
-                let n: u32 = written.trim().parse().map_err(|_| {
-                    format!("«{written}» is not a whole number from {min} to {max}")
-                })?;
-                if !(*min..=*max).contains(&n) {
-                    return Err(format!("{n} is not from {min} to {max}"));
-                }
-                Ok(now(PlayerAction::ChooseNumber(n), format!("choose {n}")))
-            }
+            Ask::Number { min, max } => Self::number(decision, *min, *max),
             Ask::Subtype { options } => {
                 let name = named(decision)?;
                 let subtype = baylee_core::generated::subtypes::by_name(&name)
@@ -540,6 +530,40 @@ impl Menu {
         }
         let n: usize = written.strip_prefix('p')?.parse().ok()?;
         self.players.get(n.checked_sub(1)?).copied()
+    }
+
+    fn number(decision: &Decision, min: u32, max: u32) -> Result<Resolved, String> {
+        let written = decision
+            .number
+            .clone()
+            .or_else(|| decision.pick.first().cloned())
+            .ok_or_else(|| format!("give number=<an integer from {min} to {max}>"))?;
+        let n: u32 = written
+            .trim()
+            .parse()
+            .map_err(|_| format!("«{written}» is not a whole number from {min} to {max}"))?;
+        if !(min..=max).contains(&n) {
+            return Err(format!("{n} is not from {min} to {max}"));
+        }
+        Ok(now(PlayerAction::ChooseNumber(n), format!("choose {n}")))
+    }
+
+    fn objects(
+        decision: &Decision,
+        from: &[ObjectId],
+        min: usize,
+        max: usize,
+        exactly_or_none: Option<u32>,
+    ) -> Result<Resolved, String> {
+        let objects = Self::chosen(&decision.pick, from, min, max)?;
+        if let Some(count) = exactly_or_none
+            && !objects.is_empty()
+            && u32::try_from(objects.len()) != Ok(count)
+        {
+            return Err(format!("choose exactly {count} objects or none"));
+        }
+        let label = format!("choose {}", ids(&objects));
+        Ok(now(PlayerAction::ChooseObjects { objects }, label))
     }
 
     fn chosen(

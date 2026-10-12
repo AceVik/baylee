@@ -231,6 +231,13 @@ impl Builder<'_, '_> {
                     usize::from(*max),
                     total.as_ref(),
                 );
+                if let baylee_engine::choice::ChoicePrompt::CostTapExactlyOrNone { count } = prompt
+                    && let Ask::Objects {
+                        exactly_or_none, ..
+                    } = &mut self.ask
+                {
+                    *exactly_or_none = Some(*count);
+                }
             }
             Pending::ChooseTargets {
                 options,
@@ -716,6 +723,7 @@ impl Builder<'_, '_> {
             from: hand,
             min: count,
             max: count,
+            exactly_or_none: None,
         };
         self.answer_ids(count, count);
     }
@@ -747,6 +755,7 @@ impl Builder<'_, '_> {
             from: options.to_vec(),
             min,
             max,
+            exactly_or_none: None,
         };
         self.answer_ids(min, max);
     }

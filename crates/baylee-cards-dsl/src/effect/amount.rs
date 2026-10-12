@@ -230,6 +230,8 @@ pub enum Amount {
         /// The amount subtracted from it.
         subtract: &'static Amount,
     },
+    /// Mana value of the captured triggering spell, including its chosen X.
+    EventManaValue,
 }
 
 impl Amount {

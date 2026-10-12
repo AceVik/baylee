@@ -56,6 +56,8 @@ pub enum CounterKind {
     Finality,
     /// Any other counter, identified by the engine's opaque id.
     Custom(u32),
+    /// Bore counters (Brass's Tunnel-Grinder).
+    Bore,
 }
 
 impl CounterKind {
@@ -106,6 +108,7 @@ impl CounterKind {
             Self::Stun => Cow::Borrowed("STUN"),
             Self::Finality => Cow::Borrowed("FINAL"),
             Self::Custom(_) => Cow::Borrowed("•"),
+            Self::Bore => Cow::Borrowed("BORE"),
         }
     }
 }

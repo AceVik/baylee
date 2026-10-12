@@ -323,7 +323,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 72: finality counters and the casting choices in package 45.
     // 74: regeneration replacement choice prompt.
     // 75: explicit PayLife amount widens to u32 in the imported engine prompt.
-    const RECORDED: (u32, u64) = (75, 2_064_374_687_626_066_919);
+    // 76: Bore counters and optional exact tap-group payment prompt.
+    const RECORDED: (u32, u64) = (76, 13_245_364_704_092_155_279);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

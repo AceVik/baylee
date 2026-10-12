@@ -7,7 +7,7 @@ vocabulary lives in `crates/baylee-cards-dsl/src/cost.rs`; `docs/card-dsl.md`
 documents the supported authoring forms. Card files normally use
 `cost!("{1}{G}", TapSelf, SacrificeSelf)`, `Cost::FREE` or `Cost::TAP`.
 
-The cost families are tap/untap (`TapSelf`, `UntapSelf`, `TapOther`, `TapX`,
+The cost families are tap/untap (`TapSelf`, `UntapSelf`, `TapOther`, `TapX`, `TapN`,
 `Crew`, `Saddle`), sacrifice (`SacrificeSelf`, `Sacrifice`, `SacrificeX`,
 `SacrificeAll`), discard (`Discard`, `DiscardSelf`, `DiscardRandom`), zone
 movement (`ExileSelf`, `ExileFromHand`, `ExileFromGraveyard`,

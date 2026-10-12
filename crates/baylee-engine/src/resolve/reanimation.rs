@@ -7,6 +7,27 @@ use crate::{state::CardLookup, zone::Zone};
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::GraveyardToBattlefieldLinked { target } => {
+            for id in moving_objects(state, res, target) {
+                let Some(before) = state.source_identity(id).filter(|reference| {
+                    state
+                        .object(reference.object)
+                        .is_some_and(|object| object.zone == Zone::Graveyard && object.is_card())
+                }) else {
+                    continue;
+                };
+                return_card(state, id, you, false, None);
+                super::linked_reanimation::queue(
+                    state,
+                    res,
+                    baylee_core::ids::DamageSourceRef {
+                        object: id,
+                        version: before.version.wrapping_add(1),
+                    },
+                );
+            }
+            None
+        }
         Effect::GraveyardToBattlefield {
             target,
             owner_control,

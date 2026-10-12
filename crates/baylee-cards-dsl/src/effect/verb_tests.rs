@@ -677,3 +677,22 @@ fn both_mana_payment_outcomes_are_visited() {
     assert_eq!(seen, 3);
     assert!(paid && unpaid);
 }
+
+#[test]
+fn transform_history_operations_are_leaf_effects() {
+    static EFFECTS: &[Effect] = &[
+        Effect::DiscardAnyThenDraw,
+        Effect::DiscoverAmount {
+            mana_value: Amount::EventManaValue,
+        },
+        Effect::GraveyardToBattlefieldLinked {
+            target: TargetSpec::ThisObject,
+        },
+    ];
+    let mut seen = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |_| {});
+    assert_eq!(seen, 3);
+    for effect in EFFECTS {
+        assert_eq!(effect.branches(), (&[][..], &[][..]));
+    }
+}

@@ -837,6 +837,9 @@ impl Effect {
             | Effect::DealDamageDivided { .. }
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetSpell
+            | Effect::DiscardAnyThenDraw
+            | Effect::DiscoverAmount { .. }
+            | Effect::GraveyardToBattlefieldLinked { .. }
             | Effect::CounterEventAbility
             | Effect::RemoveEventObjectFromCombat { .. }
             | Effect::CounterTargetAbility

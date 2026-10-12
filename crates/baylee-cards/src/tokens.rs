@@ -564,3 +564,22 @@ pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
 
 #[cfg(test)]
 mod tests;
+
+// Verified primary Scryfall cards/tlci/3 payload saved in gnome-primary.json.
+static GNOME_SIZE: &[AbilityDef] = &[static_ability!(
+    Filter::This,
+    Modifier::CharacteristicPT {
+        count: PtCount::YouControl(&Filter::ARTIFACT_OR_CREATURE),
+        toughness_plus: 0,
+    }
+)];
+/// White artifact Gnome Soldier whose own CDA counts its controller's artifacts and creatures.
+pub static GNOME_SOLDIER_WHITE_DYNAMIC: TokenDef = TokenDef {
+    name: "Gnome Soldier",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::GNOME, creature::SOLDIER],
+    abilities: GNOME_SIZE,
+    scryfall_id: "cbe7c36a-77b7-4418-9e2d-b6aeea61502e",
+    ..TokenDef::DEFAULT
+};

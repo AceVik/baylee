@@ -65,6 +65,7 @@ fn during(now: Step, step: StepKind) -> bool {
         StepKind::CombatDamage => matches!(now, Step::CombatDamage | Step::CombatDamageFirst),
         StepKind::CombatEnd => now == Step::CombatEnd,
         StepKind::End => now == Step::End,
+        StepKind::FirstMain => true,
     }
 }
 

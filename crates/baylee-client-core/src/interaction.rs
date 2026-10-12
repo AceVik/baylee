@@ -832,7 +832,10 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::CostDiscard | ChoicePrompt::Discard => {
             (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard)
         }
-        ChoicePrompt::CostTap | ChoicePrompt::CostCrew { .. } | ChoicePrompt::CostSaddle { .. } => {
+        ChoicePrompt::CostTap
+        | ChoicePrompt::CostTapExactlyOrNone { .. }
+        | ChoicePrompt::CostCrew { .. }
+        | ChoicePrompt::CostSaddle { .. } => {
             (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap)
         }
         ChoicePrompt::CostReturn => (
@@ -915,6 +918,9 @@ fn cards_line(
         }
         .text(lang)
         .to_owned();
+    }
+    if let ChoicePrompt::CostTapExactlyOrNone { count } = reason {
+        return Phrase::ChooseExactlyOrNoTaps.fill(lang, &[&count.to_string()]);
     }
     if reason == ChoicePrompt::LookAtLibrary {
         return Phrase::InspectLibrary.text(lang).to_owned();
@@ -1134,6 +1140,7 @@ pub fn counter_label(kind: baylee_engine::object::CounterKind, lang: Lang) -> St
         }
         CounterKind::Loyalty => Phrase::LogCountersLoyalty.text(lang).to_owned(),
         CounterKind::Lore => Phrase::LogCountersLore.text(lang).to_owned(),
+        CounterKind::Bore => Phrase::LogCountersBore.text(lang).to_owned(),
         CounterKind::Time => Phrase::LogCountersTime.text(lang).to_owned(),
         CounterKind::Charge => Phrase::LogCountersCharge.text(lang).to_owned(),
         CounterKind::Poison => Phrase::LogCountersPoison.text(lang).to_owned(),

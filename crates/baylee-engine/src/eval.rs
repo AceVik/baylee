@@ -604,6 +604,7 @@ pub fn amount_with_context(
         | Amount::TargetPower
         | Amount::TargetCmc
         | Amount::EventLastToughness
+        | Amount::EventManaValue
         | Amount::EventAmount
         | Amount::TargetsPutIntoGraveyard => 0,
         // The object the payment wrote it on. A resolution asks
@@ -813,6 +814,21 @@ pub fn condition_holds_with_context(
 ) -> bool {
     let source = context.source;
     match condition {
+        Condition::DescendedThisTurn => state
+            .per_turn
+            .descended
+            .get(usize::from(you.get()))
+            .copied()
+            .unwrap_or(false),
+        Condition::SacrificedSubtypeThisTurn { subtype, count } => {
+            state
+                .per_turn
+                .sacrificed_subtypes
+                .get(&(you, subtype))
+                .copied()
+                .unwrap_or(0)
+                >= count
+        }
         Condition::SourceWasCastByYou => state
             .object(source)
             .is_some_and(|object| object.cast_history.caster() == Some(you)),

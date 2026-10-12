@@ -605,3 +605,25 @@ fn standing_regeneration_is_used_without_consuming_a_one_shot_shield() {
         );
     }
 }
+
+#[test]
+fn optional_exact_tap_payment_is_declined_without_a_partial_payment() {
+    use baylee_engine::choice::ChoicePrompt;
+    let v = view(0, &[20, 20], vec![]);
+    for profile in [AIProfile::STEADY, AIProfile::SHARP, AIProfile::EXPERT] {
+        for offered in [4, 5, 6] {
+            let pending = Pending::ChooseCards {
+                player: v.seat,
+                options: (1..=offered).map(obj).collect(),
+                min: 0,
+                max: 5,
+                prompt: ChoicePrompt::CostTapExactlyOrNone { count: 5 },
+                total: None,
+            };
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::ChooseObjects { objects: vec![] }
+            );
+        }
+    }
+}

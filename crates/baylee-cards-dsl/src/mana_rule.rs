@@ -61,6 +61,7 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)
+        | CostPart::TapN { .. }
         | CostPart::TapX(_)
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
@@ -98,6 +99,8 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::MillMayTakeOne { .. }
         | Effect::Cascade
         | Effect::Discover { .. }
+        | Effect::DiscoverAmount { .. }
+        | Effect::DiscardAnyThenDraw
         | Effect::ExileTopMayCast { .. }
         | Effect::ExileTopToPlay { .. }
         | Effect::RevealTopOnePerType { .. }

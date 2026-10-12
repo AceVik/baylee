@@ -115,6 +115,14 @@ impl<L: CardLookup> Engine<L> {
         if let Some(fault) = self.pending.answer_fault(&action) {
             return Err(fault.into());
         }
+        if let PlayerAction::ChooseObjects { objects } = &action
+            && let Some(res) = &self.resolution
+            && !resolve::tap_group::valid_answer(&self.state, res, objects)
+        {
+            return Err(EngineError::IllegalAction(
+                "tap payment must name the complete current untapped set",
+            ));
+        }
         if matches!(
             self.pending,
             Pending::YesNo {

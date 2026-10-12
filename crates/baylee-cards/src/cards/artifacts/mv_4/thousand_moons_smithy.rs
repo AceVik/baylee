@@ -7,32 +7,20 @@
 //! Set: LCI #39 — The Lost Caverns of Ixalan | Scryfall ID: 4a6bec46-1acd-4726-b8d9-3045ac6a2ea2 | Oracle ID: 32af5f7b-a970-484a-9aff-226749551d32
 //! Face: Thousand Moons Smithy — {2}{W}{W} — Legendary Artifact
 //! Face: Barracks of the Thousand —  — Legendary Artifact Land
-// PARTIAL — only the back face's `{T}: Add {W}` is built. The three clauses
-// that make the card are below, each with the vocabulary it would need.
-//
-// NOT SUPPORTED: "When Thousand Moons Smithy enters, create a white Gnome
-// Soldier artifact creature token with '…'." The *effect* is expressible
-// (`Effect::CreateTokenPtPerCount` with a filter of artifacts and/or
-// creatures you control), but no Gnome Soldier token exists in
-// `crate::tokens`, and a card file may not define one — the token's id is its
-// index in the ledger, so a `TokenDef` literal here has no id at all.
-//
-// NOT SUPPORTED: "At the beginning of your first main phase, you may tap five
-// untapped artifacts and/or creatures you control. If you do, transform
-// Thousand Moons Smithy." `Trigger::StepBegin`/`StepKind` has no main phase
-// (Upkeep, Draw, CombatBegin, End), and no cost taps five permanents —
-// `CostPart::TapOther(filter)` names one, and "if you do" is outside the
-// vocabulary too.
-//
-// NOT SUPPORTED: "Whenever you cast an artifact or creature spell using mana
-// produced by Barracks of the Thousand, create a white Gnome Soldier …". Mana
-// carries no provenance: `SpendRider` is None/Uncounterable/Scry(n), and
-// nothing ties a cast trigger back to the permanent that produced the mana.
 
+use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
-
-/// `{T}: Add {W}.` — the whole of the back face the DSL can say.
-static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::White, 1)])];
+static ARTIFACTS_OR_CREATURES: Filter =
+    Filter::And(&[Filter::ARTIFACT_OR_CREATURE, Filter::ControlledByYou]);
+static BACK_MANA: &[AbilityDef] = &[
+    mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
+    triggered!(
+        Trigger::SpellCastUsingSourceMana(&Filter::ARTIFACT_OR_CREATURE),
+        &[Effect::CreateToken {
+            token: &generated_tokens::GNOME_SOLDIER_WHITE_DYNAMIC
+        }]
+    ),
+];
 
 card!(
     index = index::THOUSAND_MOONS_SMITHY,
@@ -48,15 +36,33 @@ card!(
         ),
         face!(
             name = "Barracks of the Thousand",
-            // CR 712.8c: a nonmodal double-faced card is cast as its front
-            // face and reaches this one only by transforming.
             castable_from_hand = false,
             types = TypeSet::ARTIFACT.union(TypeSet::LAND),
             supertypes = SupertypeSet::LEGENDARY,
             abilities = BACK_MANA,
         ),
     ],
-    coverage = Coverage::Partial(
-        "the enter-trigger Gnome Soldier token, the first-main-phase transform and the mana-produced-by cast trigger are not expressible; only the back face's {T}: Add {W} is built"
-    ),
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::ETB,
+            &[Effect::CreateToken {
+                token: &generated_tokens::GNOME_SOLDIER_WHITE_DYNAMIC
+            }]
+        ),
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::FirstMain,
+                whose: PlayerRel::You
+            },
+            &[Effect::PlayerMayPayCostThen {
+                player: PlayerRel::You,
+                cost: &CostPart::TapN {
+                    filter: &ARTIFACTS_OR_CREATURES,
+                    count: 5
+                },
+                effect: &Effect::TransformSource
+            }]
+        ),
+    ],
 );

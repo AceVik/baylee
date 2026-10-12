@@ -39,6 +39,7 @@ pub(crate) struct DamageDeath {
 /// A simultaneous move retains both public event data and rules lookback.
 #[derive(Clone, Debug)]
 pub(crate) struct BattlefieldDeparture {
+    pub subtypes: baylee_core::types::SubtypeSet,
     pub event: crate::event::Departure,
     pub damage: Option<DamageDeath>,
 }

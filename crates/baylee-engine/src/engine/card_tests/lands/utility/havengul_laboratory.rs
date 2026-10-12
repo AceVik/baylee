@@ -4,7 +4,7 @@
 use super::*;
 
 /// Havengul Laboratory // Havengul Mystery: "{T}: Add {C}." / "{4}, {T}: Investigate." / "At the beginning of your end step, if you sacrificed three or more Clues this turn, transform..."
-/// Under `Coverage::Partial`, the transform loop and back-face reanimation trigger are omitted.
+/// Batch48 separately exercises the transform and linked reanimation clauses.
 /// Paying `{4}` and tapping Havengul Laboratory activates Investigate, creating a Clue token on resolution.
 #[test]
 fn havengul_laboratory_investigates() {

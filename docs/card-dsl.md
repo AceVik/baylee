@@ -468,6 +468,7 @@ express at all yet.
   `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`,
   `TapOther(filter)` (the convoke lands, Earthcraft),
   `TapX(filter)` (X untapped matching permanents you control),
+  `TapN { filter, count }` (exactly N distinct untapped matching permanents you control, simultaneously),
   `Saddle(n)` (written by `saddle!(n)`, the same power payment at sorcery speed),
   `Crew(n)` (written only by `crew!(n)`: one question answered with any
   number of other untapped creatures the payer controls, refused when their
@@ -1122,7 +1123,32 @@ The counters go through `replacement::put_counters` like every other
 replacement effect, so a counter doubler has its say (CR 614.16): a Vivid
 land under a Doubling Season enters with four charge counters.
 
+`DiscardAnyThenDraw` gathers optional discards before moving any of them and draws
+that many cards. Follow it with `Draw { amount: 1, .. }` for Brass's additional
+card. Hands larger than the wire selection limit use multiple choice pages;
+previous answers remain part of the deterministic resolution state.
+
+`DiscoverAmount { mana_value: Amount::EventManaValue }` uses the triggering
+spell's captured mana value, including announced X. That value belongs to the
+trigger and survives countering the spell or copying the ability. Bore counters
+have their own `CounterKind::Bore` rather than a custom numbered alias.
+
+`GraveyardToBattlefieldLinked` and a printed `LinkedCreatureLeaves` observer
+form one acquired rules family. The return records an exact battlefield
+incarnation only after entry succeeds. The observer is a normal counterable
+trigger, respects ability loss and controller changes, and cannot follow a
+blinked source or creature. Departing observers read their actual predeparture
+face and projected abilities. This family is not a generic delayed trigger.
+
 ### Triggers
+
+`StepKind::FirstMain` means the first main phase actually begun during the turn.
+`Condition::SacrificedSubtypeThisTurn` counts actual sacrifice events with the
+subtype and controller captured at departure, even if the graveyard destination
+was replaced. `Condition::DescendedThisTurn` instead records a permanent **card**
+actually entering its owner's graveyard. Both histories reset at turn start;
+neither inspects the current graveyard to reconstruct past events.
+
 
 `EntersBattlefield(filter)`, `LeavesBattlefield(filter)`, `Dies(filter)`,
 `SpellCast(filter)`, `Draws(rel)`, `DrawsExceptFirst(rel)`,

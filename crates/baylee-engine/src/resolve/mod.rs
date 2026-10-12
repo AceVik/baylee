@@ -66,12 +66,15 @@ mod river;
 pub use discard::{DiscardReveal, DiscardThen};
 use discard::{discard_or_ask, resume_discard_destination};
 mod counter_move;
+mod discard_any;
 mod event_actions;
 mod immediate;
+pub(crate) mod linked_reanimation;
 mod permissions;
 mod piles;
 pub mod proliferate;
 pub mod tap_energy;
+pub(crate) mod tap_group;
 use permissions::grant_play;
 mod graveyard_top;
 pub(crate) mod hidden_exile;
@@ -570,6 +573,15 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .map_or(0, |o| o.characteristics().mana_value()),
         // Off the triggered ability, where stacking it wrote the event's
         // amount.
+        Amount::EventManaValue => state
+            .object(res.on_stack)
+            .and_then(|object| {
+                object.riders.iter().find_map(|rider| match rider {
+                    crate::object::Rider::EventManaValue(value) => Some(*value),
+                    _ => None,
+                })
+            })
+            .unwrap_or(0),
         Amount::EventAmount => state
             .object(res.on_stack)
             .map_or(0, GameObject::event_amount),
@@ -855,6 +867,7 @@ pub enum Flow {
 #[must_use]
 pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     subjects::flush(state, res);
+    linked_reanimation::flush(state, res);
     // A payment may have moved several cards just before this resolution
     // began (including a mana ability). Settle that order before any effect
     // can read the graveyard.
@@ -931,6 +944,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         let since = state.journal.last_seq();
         state.entries.begin_event(since, Some(res.controller));
         let pending = exec(state, res, op);
+        linked_reanimation::flush(state, res);
         crate::graveyard_order::capture(state, since);
         if pending.is_none() {
             advance_program(res);
@@ -1001,6 +1015,7 @@ fn order_before_continuing(
 
 /// Continue the original instruction after every entry replacement has finished.
 pub(crate) fn resume_entries(state: &mut GameState, res: &mut Resolution) -> Flow {
+    linked_reanimation::flush(state, res);
     let Some(AwaitingOp::Entry { next }) = res.awaiting.take() else {
         unreachable!("entry continuation")
     };

@@ -211,7 +211,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 CounterKind::Time | CounterKind::Lore => m.clock = Some(*kind),
                 // A custom counter is named by the card that prints it and
                 // means whatever that card says; there is no rule to read.
-                CounterKind::Custom(_) => {}
+                CounterKind::Bore | CounterKind::Custom(_) => {}
             },
             Effect::PumpTarget {
                 power,

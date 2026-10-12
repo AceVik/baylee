@@ -106,6 +106,8 @@ pub enum StepKind {
     CombatEnd,
     /// End step.
     End,
+    /// First actual main phase reached this turn (not necessarily precombat).
+    FirstMain,
 }
 
 /// A sentence a card states about the game, for an ability that only does
@@ -410,6 +412,17 @@ pub enum Condition {
     Escaped,
     /// At least this many creatures died during the current turn.
     CreaturesDiedThisTurnAtLeast(u32),
+    /// This player sacrificed at least this many permanents with the subtype this turn.
+    /// Reads actual sacrifice events and captured subtype/controller facts.
+    SacrificedSubtypeThisTurn {
+        /// Subtype captured when the permanent was sacrificed.
+        subtype: baylee_core::ids::SubtypeId,
+        /// Minimum actual sacrifices by this player this turn.
+        count: u32,
+    },
+    /// A permanent card owned by this player reached their graveyard this turn.
+    /// Tokens and destination-replaced moves do not qualify.
+    DescendedThisTurn,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -706,6 +719,8 @@ pub enum Trigger {
     /// has left the stack, a source still on the battlefield with the
     /// condition still true triggers again. No event matches it.
     State(&'static Condition),
+    /// A creature linked by this exact rules acquisition leaves the battlefield.
+    LinkedCreatureLeaves,
 }
 
 impl Trigger {

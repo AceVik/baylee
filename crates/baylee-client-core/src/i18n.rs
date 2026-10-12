@@ -2433,6 +2433,8 @@ messages! {
     KeepCurrentTarget { en: "Keep current target", de: "Bisheriges Ziel behalten" },
     /// Confirm a selected replacement target.
     ChangeTarget { en: "Change target", de: "Ziel ändern" },
+    /// Optional payment permits only zero or the entire tap group.
+    ChooseExactlyOrNoTaps { en: "Choose exactly {0} permanents to tap, or choose none", de: "Wähle genau {0} bleibende Karten zum Tappen oder keine" },
     /// Choose {0} {1}
     ChooseExactly { en: "Choose {0} {1}", de: "Wähle {0} {1}" },
     /// Choose {0}–{1} {2}
@@ -3881,6 +3883,10 @@ messages! {
     LogCounterLoyalty { en: "loyalty counter", de: "Loyalitätsmarke" },
     /// Loyalty counters.
     LogCountersLoyalty { en: "loyalty counters", de: "Loyalitätsmarken" },
+    /// A bore counter.
+    LogCounterBore { en: "bore counter", de: "Bohrmarke" },
+    /// Bore counters.
+    LogCountersBore { en: "bore counters", de: "Bohrmarken" },
     /// One lore counter (CR 714.3).
     LogCounterLore { en: "lore counter", de: "Kapitelmarke" },
     /// Lore counters.

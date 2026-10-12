@@ -1460,3 +1460,34 @@ fn large_life_payment_names_the_exact_cost_in_the_seat_menu() {
     assert!(wake.text.contains("Pay 65536 life?"), "{}", wake.text);
     assert!(wake.text.contains("pay 65536 life"), "{}", wake.text);
 }
+
+#[test]
+fn optional_exact_tap_menu_rejects_partial_payments() {
+    use baylee_engine::choice::ChoicePrompt;
+    let (view, log) = board();
+    let pending = Pending::ChooseCards {
+        player: ME,
+        options: (21..=25).map(id).collect(),
+        min: 0,
+        max: 5,
+        prompt: ChoicePrompt::CostTapExactlyOrNone { count: 5 },
+        total: None,
+    };
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(
+        wake.text
+            .contains("Choose exactly 5 permanents to tap, or choose none")
+    );
+    for count in 0..=5 {
+        let decision = Decision {
+            ask: Some("q12".into()),
+            pick: (21..21 + count).map(|n| format!("#{n}")).collect(),
+            ..Decision::default()
+        };
+        assert_eq!(
+            wake.menu.resolve(&decision).is_ok(),
+            count == 0 || count == 5
+        );
+    }
+}

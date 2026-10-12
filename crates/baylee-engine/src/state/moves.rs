@@ -330,6 +330,7 @@ impl GameState {
     ) -> Option<crate::damage_history::BattlefieldDeparture> {
         let object = self.object(id).filter(|o| o.zone == Zone::Battlefield)?;
         Some(crate::damage_history::BattlefieldDeparture {
+            subtypes: object.characteristics().subtypes,
             damage: self.damage_death_snapshot(id),
             event: crate::event::Departure {
                 sacrificed: false,
@@ -484,6 +485,21 @@ impl GameState {
             });
         }
         let departure = departure.or_else(|| self.departure_snapshot(id));
+        if from_zone == Zone::Battlefield
+            && to.zone() != Zone::Battlefield
+            && let Some(snapshot) = departure
+                .as_ref()
+                .filter(|snapshot| snapshot.event.sacrificed)
+        {
+            for subtype in snapshot.subtypes.iter() {
+                let count = self
+                    .per_turn
+                    .sacrificed_subtypes
+                    .entry((snapshot.event.controller, subtype))
+                    .or_default();
+                *count = count.saturating_add(1);
+            }
+        }
         if from_zone == Zone::Battlefield
             && to.zone() != Zone::Battlefield
             && let Some(object) = self.object(id)
@@ -815,6 +831,13 @@ impl GameState {
         }
         if to.zone() == Zone::Graveyard {
             self.per_turn.entered_graveyard.push(id);
+            if let Some(object) = self
+                .object(id)
+                .filter(|object| object.is_card() && object.characteristics().types.is_permanent())
+            {
+                let owner = usize::from(object.owner.get());
+                self.per_turn.descended[owner] = true;
+            }
         }
         // Read off `to` after the redirects above, so a commander that went
         // to the command zone instead names no place in a library.

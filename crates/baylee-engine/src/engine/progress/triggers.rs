@@ -149,6 +149,11 @@ impl<L: CardLookup> Engine<L> {
         let aura_successor = self.aura_successor(trigger);
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            if let Some(value) = trigger.event_mana_value {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventManaValue(value));
+            }
             if let Some(ability) = trigger.event_ability {
                 object
                     .riders
@@ -353,6 +358,7 @@ impl<L: CardLookup> Engine<L> {
         }
         let found = trigger::collect(&self.state, &self.lookup, self.trigger_scan_seq);
         self.trigger_scan_seq = self.state.journal.last_seq();
+        crate::resolve::linked_reanimation::prune(&mut self.state);
         // The scan has passed every journal entry a departed object could
         // be named in, so nothing can ask about one again and the list is
         // dead weight from here (CR 111.7; `GameState::ceased`). Cleared
@@ -440,6 +446,7 @@ impl<L: CardLookup> Engine<L> {
             // has happened once and then stops.
             self.trigger_queue.clear();
             self.trigger_scan_seq = self.state.journal.last_seq();
+            crate::resolve::linked_reanimation::prune(&mut self.state);
             self.state.ceased.clear();
             self.state.damage_deaths.clear();
             self.state.ltb_mana_values.clear();

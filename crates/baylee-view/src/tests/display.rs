@@ -95,6 +95,7 @@ fn counter_index(kind: CounterKind) -> usize {
         CounterKind::Custom(_) => 17,
         CounterKind::Stun => 15,
         CounterKind::Finality => 16,
+        CounterKind::Bore => 18,
     }
 }
 
@@ -128,13 +129,14 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
         CounterKind::Stun,
         CounterKind::Finality,
         CounterKind::Custom(9),
+        CounterKind::Bore,
     ];
     let printed: Vec<String> = every.iter().map(|k| k.badge().into_owned()).collect();
     assert_eq!(
         printed,
         vec![
             "+1/+1", "-1/-1", "LOY", "LORE", "TIME", "CHG", "PSN", "NRG", "RAD", "LL", "LVL",
-            "FLY", "SHDW", "IND", "HONE", "STUN", "FINAL", "•",
+            "FLY", "SHDW", "IND", "HONE", "STUN", "FINAL", "•", "BORE",
         ]
     );
     assert_eq!(
@@ -147,7 +149,7 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
     );
     assert_eq!(
         every.iter().map(|k| counter_index(*k)).collect::<Vec<_>>(),
-        (0..18).collect::<Vec<_>>(),
+        (0..19).collect::<Vec<_>>(),
         "the list is every kind exactly once, in declaration order"
     );
 
@@ -208,6 +210,7 @@ fn only_a_counter_that_changes_a_body_is_drawn_on_the_body() {
         CounterKind::Indestructible,
         CounterKind::Hone,
         CounterKind::Custom(1),
+        CounterKind::Bore,
     ] {
         assert!(!kind.is_power_toughness(), "{kind:?}");
     }
@@ -268,5 +271,17 @@ fn the_top_of_the_stack_is_the_last_entry() {
         view.object(ObjectId::new(10, 0)).map(|o| o.id),
         Some(ObjectId::new(10, 0)),
         "and the one underneath is still findable"
+    );
+}
+
+#[test]
+fn bore_counter_has_named_wire_identity() {
+    assert_eq!(
+        serde_json::to_string(&CounterKind::Bore).unwrap(),
+        r#""Bore""#
+    );
+    assert_eq!(
+        serde_json::from_str::<CounterKind>(r#""Bore""#).unwrap(),
+        CounterKind::Bore
     );
 }

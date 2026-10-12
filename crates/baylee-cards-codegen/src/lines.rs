@@ -629,7 +629,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::CycledThis => &["cycle"],
         T::EnteredThisFrom(_) => &["enters"],
         T::Discarded { .. } | T::DiscardedThisByOpponent => &["discard"],
-        T::LeavesBattlefield(_) => &["leave"],
+        T::LeavesBattlefield(_) | T::LinkedCreatureLeaves => &["leave"],
         T::Dies(_) | T::DiesNotSacrificed(_) | T::DiesAfterDamageByThis(_) => {
             &["die", "put into a graveyard"]
         }
@@ -701,6 +701,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
             StepKind::CombatDamage => &["combat damage step"],
             StepKind::CombatEnd => &["end of combat"],
             StepKind::End => &["end step"],
+            StepKind::FirstMain => &["first main phase"],
         },
         // A state trigger (CR 603.8) prints the state it waits for: Sea
         // Serpent's "When you control no Islands".

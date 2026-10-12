@@ -102,6 +102,7 @@ impl Step {
 #[must_use]
 pub const fn position_of(kind: StepKind) -> u8 {
     match kind {
+        StepKind::FirstMain => 3,
         StepKind::Upkeep => 1,
         StepKind::Draw => 2,
         StepKind::CombatBegin => 4,

@@ -1668,3 +1668,30 @@ fn discarded_successors_hash_the_live_incarnation_and_the_discarder() {
     changed.per_turn.reset();
     assert!(changed.per_turn.discarded_to_graveyard.is_empty());
 }
+
+#[test]
+fn transformation_turn_history_is_hashed_and_reset() {
+    let (base, _) = hash_fixture();
+    for field in 0..3 {
+        let mut changed = base.clone();
+        match field {
+            0 => changed.per_turn.main_phases_begun = 1,
+            1 => changed.per_turn.descended[0] = true,
+            _ => {
+                changed.per_turn.sacrificed_subtypes.insert(
+                    (
+                        PlayerId::new(0),
+                        baylee_core::generated::subtypes::artifact::CLUE,
+                    ),
+                    3,
+                );
+            }
+        }
+        assert_ne!(changed.snapshot_hash(), base.snapshot_hash());
+        assert_ne!(changed.loop_signature(), base.loop_signature());
+        changed.per_turn.reset();
+        assert_eq!(changed.per_turn.main_phases_begun, 0);
+        assert!(changed.per_turn.descended.iter().all(|value| !value));
+        assert!(changed.per_turn.sacrificed_subtypes.is_empty());
+    }
+}

@@ -485,6 +485,9 @@ impl Tx<'_> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("a `T:` line with no `$` in it".to_string());
         };
+        if self.is_transform48_trigger(&p) {
+            return self.transform48_trigger(&mode, p);
+        }
         if p.peek("Execute")
             .and_then(|name| self.svars.get(name))
             .and_then(|body| Params::parse(body))

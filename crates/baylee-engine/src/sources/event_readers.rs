@@ -100,6 +100,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::Regenerate { target, .. }
         | Effect::GraveyardToTop { target, .. }
         | Effect::GraveyardToHand { target, .. }
+        | Effect::GraveyardToBattlefieldLinked { target }
         | Effect::GraveyardToBattlefield { target, .. }
         | Effect::Assimilate { target }
         | Effect::AttachSelf { target, .. }

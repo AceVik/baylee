@@ -56,6 +56,7 @@ mod song52;
 mod statics;
 mod support;
 mod targets;
+mod transform48;
 mod triggers;
 mod wall52;
 

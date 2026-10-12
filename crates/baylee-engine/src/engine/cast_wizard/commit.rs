@@ -120,6 +120,7 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::DiscardSelf
                     | CostPart::ExileSelf
                     | CostPart::ReturnSelfToHand
+                    | CostPart::TapN { .. }
                     | CostPart::TapOther(_)
                     | CostPart::TapX(_)
                     | CostPart::SacrificeX(_)
@@ -211,6 +212,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::DiscardRandom
                 | CostPart::PayEnergy(_)
                 | CostPart::PayEnergyX
+                | CostPart::TapN { .. }
                 | CostPart::TapOther(_)
                 | CostPart::TapX(_)
                 | CostPart::SacrificeX(_)

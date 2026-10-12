@@ -941,6 +941,11 @@ pub enum ChoicePrompt {
     Generic,
     /// Choose the Army that receives amass counters and the named subtype.
     Amass,
+    /// Optional simultaneous tap payment: decline or select exactly this many.
+    CostTapExactlyOrNone {
+        /// Exact number of distinct permanents needed to pay.
+        count: u32,
+    },
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).
@@ -1526,10 +1531,17 @@ impl Pending {
                     min,
                     max,
                     total,
+                    prompt,
                     ..
                 },
                 A::ChooseObjects { objects },
             ) => counted(objects.len(), *min, *max)
+                .or_else(|| match prompt {
+                    ChoicePrompt::CostTapExactlyOrNone { count } if !objects.is_empty() => {
+                        counted(objects.len(), *count, *count)
+                    }
+                    _ => None,
+                })
                 .or_else(|| repeats(objects))
                 .or_else(|| not_offered(options, objects))
                 .or_else(|| total.as_ref().and_then(|t| t.fault(options, objects))),

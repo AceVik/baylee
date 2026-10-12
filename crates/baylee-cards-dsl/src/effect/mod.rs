@@ -2768,6 +2768,19 @@ pub enum Effect {
         /// Grant permission only if the card is a nonland after exiling it.
         nonland_only: bool,
     },
+    /// Optionally discard any subset of the hand, then draw that many cards.
+    DiscardAnyThenDraw,
+    /// Discover with a computed bound captured once when this effect begins.
+    DiscoverAmount {
+        /// Full represented mana-value bound; never truncated.
+        mana_value: Amount,
+    },
+    /// Return a creature and link its exact incarnation to this source's rules.
+    /// The separate printed `LinkedCreatureLeaves` observer watches this link.
+    GraveyardToBattlefieldLinked {
+        /// Creature card to return under the resolving controller's control.
+        target: TargetSpec,
+    },
 }
 
 #[cfg(test)]

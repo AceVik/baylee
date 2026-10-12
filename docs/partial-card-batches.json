@@ -51,7 +51,7 @@
     {
       "batch": 40,
       "title": "Player counters, energy and proliferation",
-      "status": "complete",
+      "status": "completed",
       "cards": [
         {
           "name": "Yawgmoth, Thran Physician",
@@ -213,7 +213,7 @@
     {
       "batch": 43,
       "title": "Library choices and related finds",
-      "status": "complete",
+      "status": "completed",
       "cards": [
         {
           "name": "Aven Mindcensor",
@@ -318,7 +318,7 @@
     {
       "batch": 44,
       "title": "Hideaway and hidden linked exile",
-      "status": "complete",
+      "status": "completed",
       "cards": [
         {
           "name": "Clive's Hideaway",
@@ -363,7 +363,7 @@
     {
       "batch": 45,
       "title": "Casting permissions and alternative zones",
-      "status": "complete",
+      "status": "completed",
       "cards": [
         {
           "name": "Kess, Dissident Mage",
@@ -543,7 +543,7 @@
     {
       "batch": 48,
       "title": "Activation, entry and turn event predicates",
-      "status": "in_progress",
+      "status": "completed",
       "cards": [
         {
           "name": "Ichneumon Druid",
@@ -562,7 +562,8 @@
         },
         {
           "name": "Havengul Laboratory // Havengul Mystery",
-          "path": "crates/baylee-cards/src/cards/lands/utility/havengul_laboratory.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/havengul_laboratory.rs",
+          "status": "completed"
         },
         {
           "name": "Valakut, the Molten Pinnacle",
@@ -606,15 +607,17 @@
         },
         {
           "name": "Brass's Tunnel-Grinder // Tecutlan, the Searing Rift",
-          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/brass_s_tunnel_grinder.rs"
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/brass_s_tunnel_grinder.rs",
+          "status": "completed"
         },
         {
           "name": "Thousand Moons Smithy // Barracks of the Thousand",
-          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/thousand_moons_smithy.rs"
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/thousand_moons_smithy.rs",
+          "status": "completed"
         }
       ],
-      "validated_complete": 11,
-      "remaining_note": "Remaining cards require shared engine support and actual-action validation."
+      "validated_complete": 14,
+      "remaining_note": "All fourteen cards completed after shared-engine and actual-action validation."
     },
     {
       "batch": 49,

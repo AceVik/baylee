@@ -126,6 +126,7 @@ impl GameState {
             projected_cross_zone: false,
             printed_pt_cda: Vec::new(),
             offboard_static_candidates: Vec::new(),
+            reanimation_sources: Vec::new(),
             token_cleanup: Vec::new(),
             snapshot_memo: SnapshotMemo::default(),
         };
