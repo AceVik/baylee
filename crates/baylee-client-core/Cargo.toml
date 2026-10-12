@@ -30,10 +30,20 @@ flate2.workspace = true
 glam.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# The chat's history file names and chat folder (`social::disk`).
+sha2.workspace = true
 # The language-model seat's spend book counts a game in the player's
 # calendar day: the date of a moment it is handed. Arithmetic only; the
 # bridge reads the clock.
 time.workspace = true
+# The chat's secrets and plaintext are wiped when dropped (`social`).
+zeroize.workspace = true
+
+# The chat's device secrets in the OS credential store (`social::vault`): the
+# Keychain, the Credential Manager, the Secret Service. Desktop only; the
+# same crate and version `baylee-seat` already links.
+[target.'cfg(any(windows, target_os = "macos", target_os = "linux"))'.dependencies]
+keyring = "4.2"
 
 [features]
 # The view builders in `test_support`, for tests in crates above this one.
@@ -42,7 +52,6 @@ test-support = []
 
 [dev-dependencies]
 criterion.workspace = true
-sha2.workspace = true
 
 # Per-call costs outside the renderer (`docs/perf-client.md`):
 # `cargo bench -p baylee-client-core --features test-support --bench client`.

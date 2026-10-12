@@ -1018,10 +1018,12 @@ dependencies = [
  "criterion",
  "flate2",
  "glam",
+ "keyring",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "time",
+ "zeroize",
 ]
 
 [[package]]

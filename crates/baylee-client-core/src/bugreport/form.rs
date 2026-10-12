@@ -728,6 +728,7 @@ mod tests {
                 players: vec![PlayerRef {
                     name: "steady 1".into(),
                     seat: Some(1),
+                    tag: None,
                 }],
             },
             ..Gathered::default()

@@ -75,6 +75,7 @@ macro_rules! messages {
         }
     };
 }
+pub(crate) use messages;
 
 messages! {
     /// One thing the interface says.
