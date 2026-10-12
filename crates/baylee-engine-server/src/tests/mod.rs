@@ -2,6 +2,7 @@ use super::*;
 
 mod clocks;
 mod curtain;
+mod moderation;
 mod record;
 mod spectators;
 mod views;
