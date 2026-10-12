@@ -4,7 +4,7 @@
 use super::*;
 
 /// Gond Gate: "Gates you control enter untapped." / "{T}: Add {C}." / "{T}: Add one mana of any color that a Gate you control could produce."
-/// Under `Coverage::Partial`, the Gate-untap modifier and Gate-dependent colored mana are omitted.
+/// The independent colorless activation remains available alongside Gate-color reflection.
 /// Activating Gond Gate's implemented ability adds {C} to the mana pool and taps it.
 #[test]
 fn gond_gate_taps_for_colorless_mana() {

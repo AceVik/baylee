@@ -849,7 +849,8 @@ pub fn basic_forest() -> CardIndex {
 }
 
 /// Plays `card` as a land on turn one, taking face `face` when the engine
-/// offers the choice, and hands back the game with the permanent in it.
+/// offers the choice. A life-payment replacement is returned unanswered before
+/// entry; callers finish it and assert the resulting battlefield face.
 ///
 /// This is the board every land sweep starts from, and it has to be a real
 /// `PlayLand`. `SeatSpec::starting_battlefield` seeds a permanent with
@@ -859,7 +860,7 @@ pub fn basic_forest() -> CardIndex {
 /// measure nothing and pass.
 ///
 /// # Errors
-/// Anything that stopped the card reaching the battlefield as `face`, spelled
+/// Anything that stopped entry as `face` or its explicit life-payment question, spelled
 /// as prose a sweep can print beside the card's name. A land in an opening
 /// hand, on an empty board, in a first main phase has nothing standing
 /// between it and play, so every one of these is a finding rather than a
@@ -928,6 +929,17 @@ pub fn play_land_face_facing(
                 },
             )
             .map_err(|err| format!("refused the entry copy choice: {err:?}"))?;
+    }
+    // Entry replacement choices now precede the battlefield move. Preserve
+    // the exact life/counter entry question for callers that test pay versus decline.
+    // Other unresolved entry states still fail the checks below.
+    if matches!(engine.pending(), Pending::YesNo {
+        player, prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { .. }
+            | crate::choice::YesNoPrompt::EnterTappedForCounters { .. }, ..
+    } if *player == seat)
+        && engine.state.entries.contains(object)
+    {
+        return Ok((engine, object));
     }
     let landed = engine
         .state()

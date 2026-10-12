@@ -130,7 +130,15 @@ fn courser_shockland_decision_cannot_peek_at_the_next_card() {
     assert!(e.library_reveal_blocked().is_empty());
     e.apply(P0, PlayerAction::PlayLand { card: shock }).unwrap();
     assert!(matches!(e.pending(), Pending::YesNo { .. }));
-    assert!(e.library_reveal_blocked().contains(P0));
+    assert_eq!(
+        e.state.zones.list(ZoneLocation::Library(P0)).last(),
+        Some(&shock),
+        "the shockland is still on top until its entry choice is answered"
+    );
+    assert!(
+        e.library_reveal_blocked().is_empty(),
+        "the unchanged top stays visible"
+    );
     let hash = e.snapshot_hash();
     let remembered = e.library_action_tops.take();
     assert_ne!(

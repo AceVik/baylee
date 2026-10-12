@@ -21,7 +21,10 @@ pub(crate) fn refresh_after_departure(state: &mut GameState) {
         match question {
             Some(Question::Copy { .. }) => entry.copy = CopyStatus::Pending,
             Some(
-                Question::Number
+                Question::TapLife(_)
+                | Question::TapCounters { .. }
+                | Question::TapReveal { .. }
+                | Question::Number
                 | Question::Shape { .. }
                 | Question::AcceptSacrifice { .. }
                 | Question::Sacrifice { .. }
@@ -32,7 +35,9 @@ pub(crate) fn refresh_after_departure(state: &mut GameState) {
             _ => {}
         }
     }
+    state.entries.pending_objects = pending.iter().map(|entry| entry.object).collect();
     state.entries.pending = pending;
+    state.entries.order_prepared = false;
     state.entries.chosen_entry = None;
     // Appended sacrifices already belong to the replaced event, even if the
     // Equilibrium itself just left. `after_entry` skips departed payers.

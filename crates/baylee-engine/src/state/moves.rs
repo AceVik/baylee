@@ -577,6 +577,7 @@ impl GameState {
                             | crate::object::Rider::EntrySacrifices(_)
                             | crate::object::Rider::ChosenNumber { .. }
                             | crate::object::Rider::ChosenName { .. }
+                            | crate::object::Rider::EntryTappingApplied
                             | crate::object::Rider::EntryCopyApplied
                     )
                 });
@@ -681,8 +682,13 @@ impl GameState {
         if to.zone() != Zone::Battlefield
             && let Some(obj) = self.object_mut(id)
         {
-            obj.riders
-                .retain(|r| !matches!(r, crate::object::Rider::EntryCopyApplied));
+            obj.riders.retain(|r| {
+                !matches!(
+                    r,
+                    crate::object::Rider::EntryCopyApplied
+                        | crate::object::Rider::EntryTappingApplied
+                )
+            });
         }
         if !matches!(to.zone(), Zone::Battlefield | Zone::Stack)
             && let Some(def) = self

@@ -807,7 +807,8 @@
         },
         {
           "name": "Archon of Emeria",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_3/archon_of_emeria.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/archon_of_emeria.rs",
+          "status": "completed"
         },
         {
           "name": "Guardian Beast",
@@ -849,7 +850,8 @@
         },
         {
           "name": "Kismet",
-          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/kismet.rs"
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/kismet.rs",
+          "status": "completed"
         },
         {
           "name": "The One Ring",
@@ -857,7 +859,7 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 8,
+      "validated_complete": 10,
       "remaining_note": "Remaining cards require shared engine support and actual-action validation."
     },
     {
@@ -902,7 +904,8 @@
         },
         {
           "name": "Gond Gate",
-          "path": "crates/baylee-cards/src/cards/lands/gates/gond_gate.rs"
+          "path": "crates/baylee-cards/src/cards/lands/gates/gond_gate.rs",
+          "status": "completed"
         },
         {
           "name": "Thran Portal",
@@ -914,7 +917,7 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 1
+      "validated_complete": 2
     },
     {
       "batch": 55,

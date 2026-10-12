@@ -90,6 +90,22 @@ impl LayerPlan {
     /// Buckets and dependency-orders every registered effect.
     #[must_use]
     pub fn build(effects: &EffectTable) -> Self {
+        Self::build_where(effects, |_| true)
+    }
+
+    pub(crate) fn before_entries(
+        effects: &EffectTable,
+        excluded: &std::collections::BTreeSet<ObjectId>,
+    ) -> Self {
+        Self::build_where(effects, |effect| {
+            effect.origin != crate::effects::EffectOrigin::Static
+                || effect
+                    .source
+                    .is_none_or(|source| !excluded.contains(&source))
+        })
+    }
+
+    fn build_where(effects: &EffectTable, include: impl Fn(&ContinuousEffect) -> bool) -> Self {
         let mut plan = Self {
             ordered: Vec::with_capacity(effects.len()),
             spans: [(0, 0); LAYER_COUNT],
@@ -111,9 +127,10 @@ impl LayerPlan {
                 all.iter()
                     .enumerate()
                     .filter(|(_, fx)| {
-                        fx.layer == layer
-                            || (layer == Layer::PtSet
-                                && matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact))
+                        include(fx)
+                            && (fx.layer == layer
+                                || (layer == Layer::PtSet
+                                    && matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact)))
                     })
                     .map(|(i, _)| i as u32),
             );
@@ -1407,6 +1424,7 @@ fn apply(
         | Modifier::BoastTwice
         | Modifier::LifeTotalCantChange { .. }
         | Modifier::PlayerProtectionFromEverything { .. }
+        | Modifier::SpellCastLimitPerTurn { .. }
         | Modifier::PlayerHexproof
         | Modifier::GrantActivated { .. }
         | Modifier::GrantActivatedDefinition(_)

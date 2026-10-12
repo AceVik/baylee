@@ -22,6 +22,7 @@ pub(super) fn sacrifice(state: &mut GameState, chosen: &[ObjectId]) {
 }
 
 pub(super) fn finish(state: &mut GameState, entry: Attempt) {
+    state.entries.pending_objects.remove(&entry.object);
     let Some(object) = state.object(entry.object) else {
         return;
     };
@@ -75,6 +76,9 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
             .map_or(0, crate::object::GameObject::rules_acquisition);
         super::set_chosen_number(state, entry.object, number, acquisition);
     }
+    if !entry.denied {
+        state.restore_tapped(entry.object, entry.tapped);
+    }
     state.entries.committing = Some(entry.object);
     let _ = state.move_object(entry.object, destination, entry.position, entry.cause);
     state.entries.committing = None;
@@ -82,6 +86,11 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
         .object(entry.object)
         .is_some_and(|o| o.zone == Zone::Battlefield)
     {
+        state
+            .object_mut(entry.object)
+            .expect("successful entry")
+            .riders
+            .push(crate::object::Rider::EntryTappingApplied);
         if let Some(count) = entry.sacrifices {
             state
                 .object_mut(entry.object)

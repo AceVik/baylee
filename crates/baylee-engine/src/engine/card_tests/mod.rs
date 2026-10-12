@@ -24,6 +24,7 @@
 
 mod activation_cost_bounds;
 mod alpha_completion_review;
+mod archon_kismet;
 mod artifacts;
 mod batch43;
 mod batch45;
@@ -5768,3 +5769,5 @@ mod storm;
 mod looting;
 
 mod batch49_returns;
+
+mod batch54_gond;

@@ -1716,6 +1716,7 @@ impl<L: CardLookup> Engine<L> {
 
     fn library_announcement_open(&self) -> bool {
         self.mana_window.is_some()
+            || self.state.entries.waiting()
             || self.cast_wizard.is_some()
             || matches!(
                 self.pending_plan,

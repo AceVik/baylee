@@ -946,6 +946,8 @@ pub enum Rider {
     },
     /// Copy entry replacement already considered before this incarnation arrived.
     EntryCopyApplied,
+    /// Orientation replacements were already applied before this arrival.
+    EntryTappingApplied,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1013,6 +1015,7 @@ impl Rider {
             | Self::ChosenName { .. }
             | Self::RulesAcquisition(_)
             | Self::HideawayHost(_)
+            | Self::EntryTappingApplied
             | Self::EntryCopyApplied
             | Self::EventObjectIdentity(..)
             | Self::AbilitySourceVersion(_)

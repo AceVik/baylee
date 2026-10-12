@@ -78,6 +78,16 @@ impl<L: CardLookup> Engine<L> {
         self.entry_scan_seq = self.state.journal.last_seq();
         let mut asks: Vec<(ObjectId, PlayerId, EntryAsk)> = Vec::new();
         for (id, controller, from_zone) in events {
+            let orientation_applied = self.state.object(id).is_some_and(|object| {
+                object
+                    .riders
+                    .contains(&crate::object::Rider::EntryTappingApplied)
+            });
+            if orientation_applied && let Some(object) = self.state.object_mut(id) {
+                object
+                    .riders
+                    .retain(|rider| *rider != crate::object::Rider::EntryTappingApplied);
+            }
             // CR 107.3m in one place, before anything reads it. The rule
             // gives an entering permanent's own abilities the X announced
             // for *the spell that became it*, and gives the permanent
@@ -247,6 +257,9 @@ impl<L: CardLookup> Engine<L> {
             // Keep every question in order: Temple of the Dragon Queen
             // can reveal a card and must still choose its mana color.
             for modifier in face.enter_modifiers {
+                if orientation_applied && crate::entry::is_orientation_modifier(modifier) {
+                    continue;
+                }
                 match modifier {
                     EnterModifier::ChooseNumber { .. }
                     | EnterModifier::ChooseShape(_)

@@ -9,6 +9,7 @@ pub(super) struct EffectPlay {
     resolution: Box<Resolution>,
     control: Option<(PlayerId, PlayerId, ObjectId)>,
     linked: Option<LinkedPlay>,
+    awaiting_land_entry: bool,
 }
 
 #[derive(Clone, Copy, Debug, Hash)]
@@ -40,6 +41,7 @@ impl EffectPlay {
             .wrapping_add(crate::state::structural_fingerprint(&(
                 self.control,
                 self.linked,
+                self.awaiting_land_entry,
             )))
     }
 }
@@ -79,6 +81,7 @@ impl<L: CardLookup> Engine<L> {
             resolution: Box::new(resolution),
             control,
             linked: None,
+            awaiting_land_entry: false,
         });
         let result = cards.first().map_or(
             Err(EngineError::IllegalAction("casting declined")),
@@ -134,6 +137,7 @@ impl<L: CardLookup> Engine<L> {
             resolution: Box::new(resolution),
             control: None,
             linked,
+            awaiting_land_entry: false,
         });
         if let Some(linked) = linked {
             if self
@@ -149,6 +153,26 @@ impl<L: CardLookup> Engine<L> {
 
     fn play_commanded_card(&mut self, player: PlayerId, card: ObjectId) -> Result<(), EngineError> {
         self.start_cast_wizard(player, card)
+    }
+
+    /// A land play is not complete until its entry replacements have finished.
+    pub(super) fn suspend_nested_land_entry(&mut self) {
+        if let Some(parent) = self.effect_plays.last_mut() {
+            parent.awaiting_land_entry = true;
+        }
+    }
+
+    pub(super) fn resume_nested_land_entry(&mut self) -> bool {
+        if self
+            .effect_plays
+            .last()
+            .is_some_and(|parent| parent.awaiting_land_entry)
+        {
+            self.finish_nested_cast();
+            true
+        } else {
+            false
+        }
     }
 
     /// Called before ordinary priority/SBA processing when the nested cast ends.

@@ -4096,7 +4096,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Kismet
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Knowledge Vault
     &[FaceLines {
         sentences: 3,
@@ -37081,7 +37088,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Archon of Emeria
+    &[FaceLines {
+        sentences: 3,
+        stackable: 0,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Ashaya, Soul of the Wild
@@ -42163,7 +42177,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[Some(1)],
+        lines: &[Some(1), Some(2), None],
         modes: &[],
         alternatives: &[],
     }],

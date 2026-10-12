@@ -31,6 +31,7 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                 .map(|(_, modifier)| modifier);
             for modifier in printed.into_iter().chain(granted) {
                 let (Modifier::DrawLimitPerTurn { who, .. }
+                | Modifier::SpellCastLimitPerTurn { who, .. }
                 | Modifier::LifeTotalCantChange { who }
                 | Modifier::PlayerProtectionFromEverything { who }
                 | Modifier::CantLoseLife { who }

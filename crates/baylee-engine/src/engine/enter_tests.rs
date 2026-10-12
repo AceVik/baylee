@@ -1130,7 +1130,20 @@ fn enter_together(
     let mut ids = Vec::new();
     for &(seat, card) in cards {
         // Looked up one at a time, so two copies of a card are two cards.
-        let id = in_hand(engine, seat, card).expect("the card is in hand");
+        let id = engine
+            .state
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(seat))
+            .iter()
+            .copied()
+            .find(|id| {
+                !ids.contains(id)
+                    && engine
+                        .state
+                        .object(*id)
+                        .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+            })
+            .expect("a distinct incoming card is in hand");
         engine
             .dev_state_mut(p0)
             .expect("the harness may set boards up")
@@ -1188,7 +1201,9 @@ fn decline_the_shockland(engine: &mut Engine<RegistryLookup>) {
 /// past both arrivals, so the Saga never got the lore counter it enters
 /// with (CR 714.3a), and its chapter I never triggered. Both are one event
 /// and each one's own replacements modify how it enters (CR 614.12), so the
-/// counter is on the Saga while the question is out, and stays after it.
+/// counter is applied before any state-based action or chapter trigger can run.
+/// The shockland now asks before its move; intermediate internal arrivals are
+/// not a priority boundary, so assert the completed simultaneous instruction.
 #[test]
 fn a_saga_fetched_beside_a_shockland_enters_with_its_lore_counter() {
     let p0 = PlayerId::new(0);
@@ -1204,12 +1219,6 @@ fn a_saga_fetched_beside_a_shockland_enters_with_its_lore_counter() {
             .object(saga)
             .map(|o| o.counters.get(CounterKind::Lore))
     };
-    assert_eq!(
-        lore(&engine),
-        Some(1),
-        "the Saga's counter is there while the Vents ask"
-    );
-
     decline_the_shockland(&mut engine);
     assert!(is_tapped(&engine, vents), "the Vents entered tapped");
     assert_eq!(lore(&engine), Some(1), "and the Saga keeps its one counter");
@@ -1244,12 +1253,6 @@ fn a_planeswalker_entering_behind_a_shockland_enters_with_its_loyalty() {
             .filter(|o| o.zone == crate::zone::Zone::Battlefield)
             .map(|o| o.counters.get(CounterKind::Loyalty))
     };
-    assert_eq!(
-        loyalty(&engine),
-        Some(5),
-        "Karn's loyalty is there while the Vents ask"
-    );
-
     decline_the_shockland(&mut engine);
     assert_eq!(
         loyalty(&engine),
@@ -1334,6 +1337,24 @@ fn a_second_shockland_is_asked_against_the_life_the_first_one_left() {
     else {
         unreachable!("two cards")
     };
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::ChooseCards {
+                prompt: crate::choice::ChoicePrompt::EntryOrder,
+                ..
+            }
+        ),
+        "both copies compete for the remaining payable life"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![first],
+            },
+        )
+        .unwrap();
     assert!(
         shockland_asks(&engine, p0),
         "the first asks: {:?}",

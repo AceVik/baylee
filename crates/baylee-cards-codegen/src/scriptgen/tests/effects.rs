@@ -1090,3 +1090,52 @@ fn cast_self_entry_protection_and_source_counter_amount_do_not_mean_announced_x(
         "CardCounters.UNKNOWN_UNASSIGNED"
     )));
 }
+
+// Append to scriptgen/tests/effects.rs; original synthetic grammar fixtures.
+fn gond_read(text: &str) -> Option<CardBody> {
+    let mut catalog = cats();
+    catalog.land.push("Gate".into());
+    catalog.normalize();
+    transcode(&parse(text), &catalog, None)
+}
+#[test]
+fn gond_entry_reader_accepts_only_own_gate_battlefield_untap() {
+    let text = "Name:Entry boundary\nTypes:Land Gate\nR:Event$ Moved | ValidCard$ Gate.YouCtrl | Destination$ Battlefield | ReplacementResult$ Updated | ActiveZones$ Battlefield | ReplaceWith$ Child\nSVar:Child:DB$ Untap | ETB$ True | Defined$ ReplacedCard\n";
+    let body = gond_read(text).unwrap();
+    assert!(body.abilities[0].contains("ReplacementRule::EnterUntapped"));
+    for (from, to) in [
+        ("Gate.YouCtrl", "Gate.OppCtrl"),
+        ("ActiveZones$ Battlefield", "ActiveZones$ Graveyard"),
+        ("ETB$ True", "ETB$ False"),
+        ("ReplacedCard", "Self"),
+        ("ReplaceWith$ Child", "ReplaceWith$ Child | Unknown$ True"),
+    ] {
+        assert!(gond_read(&text.replace(from, to)).is_none(), "{to}");
+    }
+}
+#[test]
+fn gond_reflection_is_color_only_own_gate_and_keeps_unknown_guards() {
+    let text = "Name:Reflection boundary\nTypes:Land Gate\nA:AB$ ManaReflected | Cost$ T | ColorOrType$ Color | Valid$ Gate.YouCtrl | ReflectProperty$ Produce\n";
+    let body = gond_read(text).unwrap();
+    assert!(
+        body.abilities[0]
+            .contains("mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, false)")
+    );
+    for (from, to) in [
+        ("ColorOrType$ Color", "ColorOrType$ Type"),
+        ("Gate.YouCtrl", "Land.YouCtrl"),
+        ("Gate.YouCtrl", "Gate.OppCtrl"),
+        ("ReflectProperty$ Produce", "ReflectProperty$ Color"),
+        ("Cost$ T", "Cost$ 1 T"),
+        (
+            "ReflectProperty$ Produce",
+            "ReflectProperty$ Produce | Amount$ 2",
+        ),
+        (
+            "ReflectProperty$ Produce",
+            "ReflectProperty$ Produce | Unknown$ True",
+        ),
+    ] {
+        assert!(gond_read(&text.replace(from, to)).is_none(), "{to}");
+    }
+}

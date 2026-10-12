@@ -568,6 +568,11 @@ pub(crate) fn cast_is_forbidden(
     obj: &crate::object::GameObject,
 ) -> bool {
     state.effects.iter().any(|fx| {
+        if let baylee_cards_dsl::Modifier::SpellCastLimitPerTurn { who, limit } = fx.modifier {
+            return crate::eval::players(who, state, fx.controller)
+                .is_some_and(|players| players.contains(&player))
+                && state.per_turn.spells_cast_by(player) >= limit;
+        }
         let baylee_cards_dsl::Modifier::OpponentsCantCast(filter) = fx.modifier else {
             return false;
         };

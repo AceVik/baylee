@@ -144,11 +144,18 @@ fn courser_reveals_only_the_top_to_all_seats_and_hides_the_next_during_shock_cho
         .apply(me, PlayerAction::PlayLand { card: shock })
         .unwrap();
     for seat in 0..3 {
-        assert!(
-            seen_by(&engine, PlayerId::new(seat))
-                .library_tops
-                .is_empty()
+        let view = seen_by(&engine, PlayerId::new(seat));
+        assert_eq!(view.library_tops.len(), 1);
+        assert_eq!(
+            view.library_tops[0].id, shock,
+            "the pending entry has not moved the known top card yet"
         );
+        for id in &hidden {
+            assert!(
+                view.object(*id).is_none(),
+                "the next card remains hidden during the entry choice"
+            );
+        }
     }
     engine.apply(me, PlayerAction::YesNo(false)).unwrap();
     for seat in 0..3 {

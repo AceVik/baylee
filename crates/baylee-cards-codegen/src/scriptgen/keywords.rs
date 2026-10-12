@@ -215,6 +215,9 @@ impl Tx<'_> {
         if event == "DamageDone" && p.peek("ValidCause") == Some("Spell.IsTargeting Self") {
             return self.bronze_horse_prevention(p);
         }
+        if event == "Moved" && p.peek("ValidCard") == Some("Gate.YouCtrl") {
+            return self.gond_entry(p);
+        }
         if event == "Untap" {
             return self.does_not_untap(&mut p);
         }
@@ -224,6 +227,12 @@ impl Tx<'_> {
         if event != "Moved" {
             self.note(format!("replacement `R: Event$ {event}`"));
             return None;
+        }
+        if matches!(
+            p.peek("ValidCard"),
+            Some("Land.OppCtrl+nonBasic" | "Artifact.OppCtrl,Creature.OppCtrl,Land.OppCtrl")
+        ) {
+            return self.external_enter_tapped(p);
         }
         p.drop_prose();
         // Anything but the card itself entering the battlefield is a

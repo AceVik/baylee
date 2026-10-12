@@ -779,6 +779,17 @@ fn board(card: CardIndex, face: usize) -> Result<(Engine<RegistryLookup>, Object
             break;
         }
     }
+    // The payment question can now precede entry. Once answered, retain the
+    // same strict actual-land/face guarantee the earlier helper provided.
+    if dropped && matches!(engine.pending(), Pending::Priority { .. }) {
+        let object = engine.state().object(land).ok_or("entry object vanished")?;
+        if object.zone != crate::zone::Zone::Battlefield || usize::from(object.face_index) != face {
+            return Err(format!(
+                "entry completed in {:?} as face {}, expected battlefield face {face}",
+                object.zone, object.face_index
+            ));
+        }
+    }
     let arrived_tapped = matches!(engine.pending(), Pending::Priority { .. })
         && engine
             .state()

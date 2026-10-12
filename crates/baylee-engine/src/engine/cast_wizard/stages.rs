@@ -57,7 +57,11 @@ impl<L: CardLookup> Engine<L> {
             }
             casting::play_land_by_effect(&mut self.state, wizard.player, wizard.card)?;
             self.cast_wizard = None;
-            self.finish_nested_cast();
+            if self.state.entries.contains(wizard.card) {
+                self.suspend_nested_land_entry();
+            } else {
+                self.finish_nested_cast();
+            }
             return Ok(());
         }
         match wizard.stage {

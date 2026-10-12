@@ -295,3 +295,5 @@ fn hidden_exile_vault_departure_returns_to_graveyard_and_stops_an_older_activati
 mod casts;
 mod permissions;
 mod vault_edges;
+
+mod land_entry;

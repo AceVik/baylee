@@ -127,6 +127,9 @@ impl Tx<'_> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("an `S:` line with no `$` in it".to_string());
         };
+        if mode == "CantBeCast" {
+            return self.one_spell_each_turn(p);
+        }
         if mode == "CantBlockBy" {
             return self.cant_block_by(p);
         }

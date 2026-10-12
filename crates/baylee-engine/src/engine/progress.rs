@@ -76,6 +76,12 @@ impl<L: CardLookup> Engine<L> {
                     return true;
                 }
             }
+            if self.resume_nested_land_entry() {
+                if self.awaiting_answer {
+                    return true;
+                }
+                continue;
+            }
             if !self
                 .resolution
                 .as_ref()

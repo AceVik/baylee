@@ -3,20 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Archon of Emeria is `Coverage::Partial`: its flying is a keyword bit,
-/// while both printed statics — the one-spell-per-turn limit and the tapped
-/// nonbasic lands — have no vocabulary in the DSL at all. So the card is
-/// played the only way it can be, cast off three Plains and read back off the
-/// battlefield through the layer system rather than off the card file: a 2/3
-/// with flying. The second half is the gap struck rather than left implied —
-/// a nonbasic land the *opponent* plays comes in untapped, which is exactly
-/// the sentence the card does not carry. The land has to be one that enters
-/// untapped by its own text, which Rogue's Passage is and Irrigated
-/// Farmland — the first one tried here — is not: a land that taps itself on
-/// the way in would have passed this assertion for a reason that has
-/// nothing to do with the Archon.
+/// Cast the actual 2/3 flier, then verify its opponent-only nonbasic entry rule
+/// on Rogue's Passage, which does not itself enter tapped.
 #[test]
-fn archon_of_emeria_lands_as_a_two_three_flier_and_does_not_tap_the_opponents_land() {
+fn archon_of_emeria_lands_as_a_two_three_flier_and_taps_the_opponents_nonbasic() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(83, plains())
@@ -35,14 +25,13 @@ fn archon_of_emeria_lands_as_a_two_three_flier_and_does_not_tap_the_opponents_la
     assert_eq!(pt(&engine, archon), (2, 3), "the body the card prints");
     assert!(
         keywords(&engine, archon).contains(KeywordSet::FLYING),
-        "the one implemented line, as the layers project it"
+        "flying, as the layers project it"
     );
 
     reach_their_main_phase(&mut engine, p1);
     let land = play_land(&mut engine, p1, rogue_s_passage());
     assert!(
-        !entered_tapped(&engine, land),
-        "\"nonbasic lands your opponents control enter tapped\" is the \
-         Coverage::Partial gap: the Archon stands and the land still comes in untapped"
+        entered_tapped(&engine, land),
+        "the Archon makes the opponent's otherwise untapped nonbasic enter tapped"
     );
 }

@@ -69,6 +69,14 @@ impl Tx<'_> {
 
     pub(super) fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
+        if let Some((api, p)) = Params::parse(spec)
+            && api == "ManaReflected"
+        {
+            if !is_activated {
+                return self.deny("reflected Gate mana as a spell".into());
+            }
+            return self.gond_mana_reflected(p);
+        }
         if !is_activated && Params::parse(spec).is_some_and(|(api, _)| api == "Charm") {
             return self.charm(spec);
         }

@@ -17,6 +17,15 @@ pub(super) fn apply_shape(state: &mut GameState, mods: &'static [CopyMod]) {
             text,
         },
     );
+    let tapped = state
+        .object(source)
+        .is_some_and(|object| object.status.contains(crate::object::Status::TAPPED));
+    state
+        .entries
+        .pending
+        .front_mut()
+        .expect("shape entry")
+        .tapped |= tapped;
     // Preserve the chosen copiable values through the eventual zone change.
     state.entries.pending.front_mut().expect("shape entry").copy = CopyStatus::Handled;
 }
@@ -95,7 +104,16 @@ pub(super) fn answer_copy(
             .expect("copied entry")
             .preview_effects
             .extend(created);
-        let modifiers = modifiers(state, source);
+        let tapped = state
+            .object(source)
+            .is_some_and(|object| object.status.contains(crate::object::Status::TAPPED));
+        state
+            .entries
+            .pending
+            .front_mut()
+            .expect("copied entry")
+            .tapped |= tapped;
+        let modifiers = projected_modifiers(state, source);
         state
             .entries
             .pending

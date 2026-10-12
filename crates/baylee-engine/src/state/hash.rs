@@ -1114,6 +1114,7 @@ fn hash_rider_situation(
                 66u8.hash(h);
                 (acquisition, number).hash(h);
             }
+            crate::object::Rider::EntryTappingApplied => 74u8.hash(h),
             crate::object::Rider::EntryCopyApplied => 65u8.hash(h),
             crate::object::Rider::EntrySacrifices(count) => {
                 64u8.hash(h);
@@ -1628,6 +1629,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 66u8.hash(h);
                 (acquisition, number).hash(h);
             }
+            Rider::EntryTappingApplied => 74u8.hash(h),
             Rider::EntryCopyApplied => 65u8.hash(h),
             Rider::EntrySacrifices(count) => {
                 64u8.hash(h);

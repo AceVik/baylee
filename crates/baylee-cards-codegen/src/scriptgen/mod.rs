@@ -38,10 +38,12 @@ use crate::tokengen::TokenLookup;
 use std::collections::BTreeMap;
 
 mod activated;
+mod archon_kismet;
 mod atoms;
 mod chains;
 mod constants;
 mod effects;
+mod gond_gate;
 mod horse_johan;
 mod keywords;
 mod mana;

@@ -45,21 +45,20 @@ fn accept_sacrifice(
 
 /// Run entry work until all moves have completed or a player must decide.
 pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
+    // Co-arrivals are one instruction. Decisions and payments resume through
+    // this entry point; committing each body needs no whole-board projection.
+    if !state.entries.pending.is_empty() {
+        state.refresh_characteristics();
+    }
     'entries: loop {
-        if state.entries.pending.is_empty() {
-            state.entries.putter = None;
-            state.entries.chosen_entry = None;
+        if completed(state) {
             return None;
         }
-        state.refresh_characteristics();
         if let Some(pending) = before_next_entry(state) {
             return Some(pending);
         }
         let mut entry = state.entries.pending.pop_front()?;
-        if state
-            .object(entry.object)
-            .is_none_or(|o| o.version != entry.version)
-        {
+        if discard_stale(state, &entry) {
             continue;
         }
         if let Some((question, pending)) = copy_question(state, &mut entry) {
@@ -72,6 +71,11 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
             while let Some(&modifier) = entry.modifiers.get(entry.next) {
                 entry.next += 1;
                 let player = entry.controller;
+                if let Some((question, pending)) =
+                    super::tapping::apply(state, &mut entry, modifier)
+                {
+                    return Some(ask(state, entry, question, pending));
+                }
                 if let Some((question, pending)) = super::forms::question(&entry, modifier) {
                     return Some(ask(state, entry, question, pending));
                 }
@@ -129,11 +133,14 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                     EnterModifier::SacrificeOthers(filter) => {
                         let victims = options(state, &entry, filter, false);
                         sacrifice(state, &victims);
+                        state.refresh_characteristics();
                         state.entries.pending.push_front(entry);
                         continue 'entries;
                     }
                     _ => {}
                 }
+                state.entries.pending.push_front(entry);
+                continue 'entries;
             }
         }
         state.entries.chosen_entry = None;
@@ -147,11 +154,10 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
     if equilibrium::answer_special(state, &question, action) {
         return;
     }
-    if let Question::GraveyardOrder = question {
-        let PlayerAction::Arrange { piles } = action else {
-            unreachable!("graveyard arrangement")
-        };
-        crate::graveyard_order::answer(state, piles.first().map_or(&[], Vec::as_slice));
+    if answer_graveyard(state, &question, action) {
+        return;
+    }
+    if super::tapping::answer(state, &question, action) {
         return;
     }
     if super::forms::answer(state, &question, action) {
@@ -287,4 +293,38 @@ pub(crate) fn next_question(state: &GameState) -> Option<Pending> {
         }),
         _ => None,
     }
+}
+
+fn answer_graveyard(state: &mut GameState, question: &Question, action: &PlayerAction) -> bool {
+    if let Question::GraveyardOrder = *question {
+        let PlayerAction::Arrange { piles } = action else {
+            unreachable!("graveyard arrangement")
+        };
+        crate::graveyard_order::answer(state, piles.first().map_or(&[], Vec::as_slice));
+        return true;
+    }
+    false
+}
+
+fn discard_stale(state: &mut GameState, entry: &Attempt) -> bool {
+    if state
+        .object(entry.object)
+        .is_none_or(|o| o.version != entry.version)
+    {
+        state.entries.pending_objects.remove(&entry.object);
+        true
+    } else {
+        false
+    }
+}
+
+fn completed(state: &mut GameState) -> bool {
+    if !state.entries.pending.is_empty() {
+        return false;
+    }
+    state.entries.pending_objects.clear();
+    state.entries.order_prepared = false;
+    state.entries.putter = None;
+    state.entries.chosen_entry = None;
+    true
 }

@@ -207,6 +207,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BoastTwice
         | Modifier::LifeTotalCantChange { .. }
         | Modifier::PlayerProtectionFromEverything { .. }
+        | Modifier::SpellCastLimitPerTurn { .. }
         | Modifier::PlayerHexproof
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash
@@ -1285,6 +1286,10 @@ mod tests {
             Modifier::PlayerProtectionFromEverything {
                 who: PlayerRel::You,
             },
+            Modifier::SpellCastLimitPerTurn {
+                who: PlayerRel::EachPlayer,
+                limit: 1,
+            },
             Modifier::PlayerHexproof,
             Modifier::BoastTwice,
             Modifier::SpellsHaveFlash(None),
@@ -1337,7 +1342,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            122,
+            123,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1401,7 +1406,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (43, 79));
+        assert_eq!((locking, all.len() - locking), (43, 80));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

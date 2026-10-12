@@ -221,6 +221,13 @@ pub enum Modifier {
     /// from the **effect's** controller, so "noncreature spells" is
     /// `Filter::NONCREATURE` and "spells" is `Filter::Any`.
     OpponentsCantCast(&'static crate::Filter),
+    /// Maximum actual spells cast by each affected player during the current turn.
+    SpellCastLimitPerTurn {
+        /// Affected players relative to this rule's controller.
+        who: crate::PlayerRel,
+        /// Maximum number of spells, including casts before this rule appeared.
+        limit: u32,
+    },
     /// No player the relation names may draw more than `limit` cards in a
     /// turn (Spirit of the Labyrinth: every player and one; Leovold,
     /// Emissary of Trest: the opponents).
@@ -926,6 +933,7 @@ impl Modifier {
             | Self::OpponentsCastAsSorcery
             | Self::CantActivate
             | Self::ChosenNameCantActivate
+            | Self::SpellCastLimitPerTurn { .. }
             | Self::OpponentsCantCast(_)
             | Self::CantBeEnchantedExceptSource
             | Self::CantBeTargetedBy(_)
@@ -1097,6 +1105,10 @@ pub enum ReplacementRule {
     /// An opponent putting a land into play sacrifices a land afterwards
     /// if they controlled at least as many lands as this source’s controller.
     LandEquilibrium,
+    /// Matching prospective permanents enter tapped.
+    EnterTapped(&'static Filter),
+    /// Matching prospective permanents enter untapped.
+    EnterUntapped(&'static Filter),
     /// "If this would be put into a graveyard from anywhere, exile it
     /// instead" (every disturb back: Ghastly Mimicry). On the battlefield
     /// the rule is registered like any other; a spell cast with it carries
@@ -1401,6 +1413,10 @@ mod tests {
             Modifier::OpponentsCastAsSorcery,
             Modifier::CantActivate,
             Modifier::ChosenNameCantActivate,
+            Modifier::SpellCastLimitPerTurn {
+                who: crate::PlayerRel::EachPlayer,
+                limit: 1,
+            },
             Modifier::PlayersCantLose,
             Modifier::LifeTotalCantChange {
                 who: crate::PlayerRel::You,

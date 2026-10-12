@@ -5,11 +5,13 @@ mod copying;
 mod departure;
 mod equilibrium;
 mod forms;
+mod tapping;
 pub(crate) use choices::{advance, answer, next_question};
 use commit::{finish, sacrifice};
 use copying::{answer_copy, copy_question};
 pub(crate) use departure::refresh_after_departure;
 pub(crate) use equilibrium::after_entry;
+pub(crate) use tapping::handles as is_orientation_modifier;
 
 use std::collections::{BTreeSet, VecDeque};
 use std::hash::{Hash, Hasher};
@@ -29,10 +31,17 @@ use crate::{
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Entries {
     pending: VecDeque<Attempt>,
+    /// Lookup only; the queue is the authoritative ordered pending state.
+    pending_objects: BTreeSet<ObjectId>,
+    /// Derived queue caches: insertion/departure invalidates the APNAP order.
+    order_prepared: bool,
+    simple_order: bool,
+    /// All participants of the current entry instruction, including arrivals
+    /// already committed internally. Built incrementally, never rescanned per token.
+    event_objects: BTreeSet<ObjectId>,
     question: Option<Question>,
     committing: Option<ObjectId>,
-    /// First event of the instruction that is putting these objects into play.
-    event_start: u64,
+
     putter: Option<PlayerId>,
     after: VecDeque<AfterEntry>,
     chosen_entry: Option<ObjectId>,
@@ -50,7 +59,11 @@ struct Attempt {
     version: u32,
     controller: PlayerId,
     putter: PlayerId,
-    applied: Vec<ObjectId>,
+    applied: Vec<(
+        baylee_core::ids::DamageSourceRef,
+        baylee_cards_dsl::ReplacementRule,
+    )>,
+    tapped: bool,
     sacrifices_after: u32,
     own_first: bool,
     position: ZonePosition,
@@ -74,6 +87,14 @@ enum CopyStatus {
 
 #[derive(Clone, Debug, Hash)]
 enum Question {
+    TapLife(u16),
+    TapCounters {
+        kind: CounterKind,
+        amount: u16,
+    },
+    TapReveal {
+        satisfied: bool,
+    },
     Number,
     Shape {
         choices: &'static [&'static [CopyMod]],
@@ -112,17 +133,17 @@ impl Hash for Entries {
         self.committing.hash(h);
         self.after.hash(h);
         self.chosen_entry.hash(h);
-        // The cursor alone is bookkeeping; it becomes meaningful only with an arrival.
+        // Event participants affect replacement choices only while an arrival is pending.
         if !self.pending.is_empty() {
-            self.event_start.hash(h);
+            self.event_objects.hash(h);
         }
     }
 }
 
 impl Entries {
-    pub(crate) fn begin_event(&mut self, seq: u64, putter: Option<PlayerId>) {
+    pub(crate) fn begin_event(&mut self, _seq: u64, putter: Option<PlayerId>) {
         if self.pending.is_empty() && self.question.is_none() {
-            self.event_start = seq;
+            self.event_objects.clear();
             self.putter = putter;
         }
     }
@@ -142,7 +163,7 @@ impl Entries {
         self.question.is_some()
     }
     pub(crate) fn contains(&self, id: ObjectId) -> bool {
-        self.pending.iter().any(|entry| entry.object == id)
+        self.pending_objects.contains(&id)
     }
 }
 
@@ -158,6 +179,25 @@ fn modifiers(state: &GameState, id: ObjectId) -> &'static [EnterModifier] {
         .card(face.card())
         .and_then(|card| card.faces.get(usize::from(face.face())))
         .map_or(&[], |face| face.enter_modifiers)
+}
+
+/// Printed entry text after projecting the prospective permanent's ability loss.
+fn projected_modifiers(state: &GameState, id: ObjectId) -> &'static [EnterModifier] {
+    let Some(object) = state.object(id) else {
+        return &[];
+    };
+    let mut prospective = object.clone();
+    prospective.zone = Zone::Battlefield;
+    prospective.version = prospective.version.wrapping_add(1);
+    let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
+    let projection = crate::layers::recompute_with(state, &prospective, &plan);
+    if projection.characteristics.rules_text_lost
+        || projection.characteristics.abilities_lost.is_some()
+    {
+        &[]
+    } else {
+        modifiers(state, id)
+    }
 }
 
 fn copy_clause(
@@ -187,15 +227,16 @@ fn copy_clause(
 }
 
 fn needs_before_entry(modifier: &EnterModifier) -> bool {
-    matches!(
-        modifier,
-        EnterModifier::ChooseNumber { .. }
-            | EnterModifier::ChooseShape(_)
-            | EnterModifier::SacrificeOrGraveyard { .. }
-            | EnterModifier::DiscardOrGraveyard(_)
-            | EnterModifier::SacrificeForPowerToughness(_)
-            | EnterModifier::SacrificeOthers(_)
-    )
+    tapping::handles(modifier)
+        || matches!(
+            modifier,
+            EnterModifier::ChooseNumber { .. }
+                | EnterModifier::ChooseShape(_)
+                | EnterModifier::SacrificeOrGraveyard { .. }
+                | EnterModifier::DiscardOrGraveyard(_)
+                | EnterModifier::SacrificeForPowerToughness(_)
+                | EnterModifier::SacrificeOthers(_)
+        )
 }
 
 pub(crate) fn set_chosen_number(state: &mut GameState, id: ObjectId, number: u8, acquisition: u64) {
@@ -228,6 +269,7 @@ pub(crate) fn defer(
     if state.entries.contains(id) {
         return true;
     }
+    state.entries.event_objects.insert(id);
     let mut modifiers = modifiers(state, id);
     let copy = copy_clause(state, id);
     let external = equilibrium::exists(state);
@@ -240,28 +282,23 @@ pub(crate) fn defer(
     let mut prospective = object.clone();
     prospective.zone = Zone::Battlefield;
     prospective.version = prospective.version.wrapping_add(1);
-    let projected = crate::layers::recompute(state, &prospective);
+    let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
+    let projected = crate::layers::recompute_with(state, &prospective, &plan);
     let lost = projected.characteristics.rules_text_lost
         || projected.characteristics.abilities_lost.is_some();
     if lost {
         modifiers = &[];
     }
-    if (lost || copy.is_none())
-        && !modifiers.iter().any(needs_before_entry)
-        && (!external
-            || !projected
-                .characteristics
-                .types
-                .contains(baylee_core::types::TypeSet::LAND))
-    {
+    if (lost || copy.is_none()) && !modifiers.iter().any(needs_before_entry) && !external {
         return false;
     }
     let attempt = Attempt {
         object: id,
         version: object.version,
-        controller: object.controller,
+        controller: projected.controller,
         putter: state.entries.putter.unwrap_or(object.controller),
         applied: Vec::new(),
+        tapped: object.status.contains(crate::object::Status::TAPPED),
         sacrifices_after: 0,
         own_first: false,
         position,
@@ -279,6 +316,8 @@ pub(crate) fn defer(
         },
         preview_effects: Vec::new(),
     };
+    state.entries.pending_objects.insert(id);
+    state.entries.order_prepared = false;
     state.entries.pending.push_back(attempt);
     true
 }
@@ -334,28 +373,8 @@ pub(crate) fn put_counters(
     }
 }
 
-fn unavailable(state: &GameState) -> BTreeSet<ObjectId> {
-    state
-        .entries
-        .pending
-        .iter()
-        .map(|entry| entry.object)
-        .chain(
-            state
-                .journal
-                .entries()
-                .iter()
-                .skip(state.entries.event_start as usize)
-                .filter_map(|entry| match entry.event {
-                    GameEvent::ZoneChanged {
-                        object,
-                        to: Zone::Battlefield,
-                        ..
-                    } => Some(object),
-                    _ => None,
-                }),
-        )
-        .collect()
+fn unavailable(state: &GameState) -> &BTreeSet<ObjectId> {
+    &state.entries.event_objects
 }
 
 fn options(state: &GameState, entry: &Attempt, filter: &Filter, hand: bool) -> Vec<ObjectId> {

@@ -1,14 +1,67 @@
-//! Competing entry replacements and the actions appended by Land Equilibrium.
+//! External entry replacement candidates, sharing one order with printed clauses.
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use baylee_cards_dsl::ReplacementRule;
 use baylee_core::types::TypeSet;
 
+fn entry_rule(rule: ReplacementRule) -> bool {
+    matches!(
+        rule,
+        ReplacementRule::LandEquilibrium
+            | ReplacementRule::EnterTapped(_)
+            | ReplacementRule::EnterUntapped(_)
+    )
+}
+
+pub(super) fn has_coarrival_statics(state: &GameState) -> bool {
+    state.effects.iter().any(|effect| {
+        effect.origin == crate::effects::EffectOrigin::Static
+            && effect
+                .source
+                .is_some_and(|source| unavailable(state).contains(&source))
+    })
+}
+
+fn rules_before_entry(state: &GameState) -> Vec<crate::state::ReplacementEntry> {
+    let mut rules: Vec<_> = state
+        .replacement_rules
+        .iter()
+        .copied()
+        .filter(|rule| entry_rule(rule.rule))
+        .collect();
+    // Normally the registered index is complete. Only an internally committed
+    // co-arrival's static can have hidden pre-event text during a rules sync.
+    if has_coarrival_statics(state) {
+        for id in state
+            .battlefield_seen()
+            .filter(|id| !unavailable(state).contains(id))
+        {
+            let object = state.object(id).expect("battlefield object");
+            for ability in object.printed_abilities(state.bases.as_ref()) {
+                if let AbilityDef::Replacement(rule) = ability
+                    && entry_rule(*rule)
+                    && !rules
+                        .iter()
+                        .any(|existing| existing.source == id && existing.rule == *rule)
+                {
+                    rules.push(crate::state::ReplacementEntry {
+                        source: id,
+                        controller: object.controller,
+                        rule: *rule,
+                    });
+                }
+            }
+        }
+    }
+    rules
+}
+
 pub(super) fn exists(state: &GameState) -> bool {
     state
         .replacement_rules
         .iter()
-        .any(|rule| rule.rule == ReplacementRule::LandEquilibrium)
+        .any(|rule| entry_rule(rule.rule))
+        || (has_coarrival_statics(state) && !rules_before_entry(state).is_empty())
 }
 
 fn lands(state: &GameState, player: PlayerId, excluded: &BTreeSet<ObjectId>) -> usize {
@@ -25,7 +78,10 @@ fn lands(state: &GameState, player: PlayerId, excluded: &BTreeSet<ObjectId>) -> 
         .count()
 }
 
-fn applicable(state: &GameState, entry: &Attempt) -> Vec<ObjectId> {
+fn applicable(
+    state: &GameState,
+    entry: &mut Attempt,
+) -> Vec<(baylee_core::ids::DamageSourceRef, ReplacementRule)> {
     if !exists(state) {
         return Vec::new();
     }
@@ -35,69 +91,120 @@ fn applicable(state: &GameState, entry: &Attempt) -> Vec<ObjectId> {
     let mut prospective = object.clone();
     prospective.zone = Zone::Battlefield;
     prospective.version = prospective.version.wrapping_add(1);
-    if !crate::layers::recompute(state, &prospective)
-        .characteristics
-        .types
-        .contains(TypeSet::LAND)
-    {
-        return Vec::new();
-    }
     let excluded = unavailable(state);
-    let count = lands(state, entry.putter, &excluded);
-    state
-        .replacement_rules
+    let plan = crate::layers::LayerPlan::before_entries(&state.effects, excluded);
+    let projection = crate::layers::recompute_with(state, &prospective, &plan);
+    prospective.controller = projection.controller;
+    entry.controller = projection.controller;
+    rules_before_entry(state)
         .iter()
-        .filter(|rule| {
-            rule.rule == ReplacementRule::LandEquilibrium
-                && !entry.applied.contains(&rule.source)
-                && !excluded.contains(&rule.source)
-                && state.is_opponent(entry.putter, rule.controller)
-                && state.object(rule.source).is_some_and(|source| {
-                    source.zone == Zone::Battlefield
-                        && !source.status.contains(crate::object::Status::PHASED_OUT)
-                        && !source.characteristics().rules_text_lost
-                        && source.characteristics().abilities_lost.is_none()
-                })
-                && count >= lands(state, rule.controller, &excluded)
+        .filter_map(|rule| {
+            if excluded.contains(&rule.source) || rule.source == entry.object {
+                return None;
+            }
+            let source = state.object(rule.source)?;
+            let source_projection = crate::layers::recompute_with(state, source, &plan);
+            if source.zone != Zone::Battlefield
+                || source.status.contains(crate::object::Status::PHASED_OUT)
+                || source_projection.characteristics.rules_text_lost
+                || source_projection.characteristics.abilities_lost.is_some()
+            {
+                return None;
+            }
+            let identity = baylee_core::ids::DamageSourceRef {
+                object: source.id,
+                version: source.version,
+            };
+            if entry.applied.contains(&(identity, rule.rule)) {
+                return None;
+            }
+            let controller = source_projection.controller;
+            let matches = match rule.rule {
+                ReplacementRule::LandEquilibrium => {
+                    projection.characteristics.types.contains(TypeSet::LAND)
+                        && state.is_opponent(entry.putter, controller)
+                        && lands(state, entry.putter, excluded)
+                            >= lands(state, controller, excluded)
+                }
+                ReplacementRule::EnterTapped(filter) | ReplacementRule::EnterUntapped(filter) => {
+                    crate::eval::matches_projected(
+                        filter,
+                        state,
+                        &prospective,
+                        &projection.characteristics,
+                        controller,
+                        rule.source,
+                    )
+                }
+                _ => false,
+            };
+            matches.then_some((identity, rule.rule))
         })
-        .map(|rule| rule.source)
         .collect()
 }
 
 fn apply(state: &GameState, entry: &mut Attempt, source: ObjectId) {
+    // Different relevant rules on one source are offered again after each application.
+    let Some((identity, rule)) = applicable(state, entry)
+        .into_iter()
+        .find(|(identity, _)| identity.object == source)
+    else {
+        return;
+    };
     #[cfg(test)]
-    if let Some(rule) = state
+    if let Some(registered) = state
         .replacement_rules
         .iter()
-        .find(|rule| rule.source == source && rule.rule == ReplacementRule::LandEquilibrium)
+        .find(|r| r.source == source && r.rule == rule)
     {
-        crate::ability_log::replaced(rule);
+        crate::ability_log::replaced(registered);
     }
-    let _ = state;
-    entry.applied.push(source);
-    entry.sacrifices_after += 1;
+    entry.applied.push((identity, rule));
+    match rule {
+        ReplacementRule::LandEquilibrium => entry.sacrifices_after += 1,
+        ReplacementRule::EnterTapped(_) => entry.tapped = true,
+        ReplacementRule::EnterUntapped(_) => entry.tapped = false,
+        _ => unreachable!("entry replacement candidate"),
+    }
 }
 
-/// CR 616.1c puts copy replacements first. After that, the incoming controller
-/// chooses between its own entry requirement and each applicable Equilibrium.
 pub(super) fn replacement_order(state: &GameState, entry: &mut Attempt) -> Option<Pending> {
     if std::mem::take(&mut entry.own_first) {
         return None;
     }
-    let sources = applicable(state, entry);
-    if sources.is_empty() {
+    let candidates = applicable(state, entry);
+    if candidates.is_empty() {
         return None;
     }
-    if !entry.modifiers[entry.next..].iter().any(needs_before_entry) {
-        // Identical appended actions commute when no other entry rule remains.
-        for source in sources {
-            apply(state, entry, source);
+    let own = entry.modifiers[entry.next..].iter().any(needs_before_entry);
+    if !own && candidates.len() == 1 {
+        apply(state, entry, candidates[0].0.object);
+        return None;
+    }
+    // Orientation does not change the land counts Equilibrium compares. Its
+    // appended sacrifices therefore commute with printed orientation clauses.
+    let own_changes_counts = entry.modifiers[entry.next..]
+        .iter()
+        .any(|modifier| needs_before_entry(modifier) && !tapping::handles(modifier));
+    if !own_changes_counts
+        && candidates
+            .iter()
+            .all(|(_, rule)| *rule == ReplacementRule::LandEquilibrium)
+    {
+        for (identity, _) in candidates {
+            apply(state, entry, identity.object);
         }
         return None;
     }
-    let mut options = Vec::with_capacity(sources.len() + 1);
-    options.push(entry.object);
-    options.extend(sources);
+    let mut options = Vec::with_capacity(candidates.len() + usize::from(own));
+    if own {
+        options.push(entry.object);
+    }
+    for (identity, _) in candidates {
+        if !options.contains(&identity.object) {
+            options.push(identity.object);
+        }
+    }
     Some(Pending::ChooseCards {
         player: entry.controller,
         options,
@@ -106,6 +213,24 @@ pub(super) fn replacement_order(state: &GameState, entry: &mut Attempt) -> Optio
         prompt: ChoicePrompt::EntryReplacement,
         total: None,
     })
+}
+
+fn prepare_order(state: &mut GameState) {
+    if state.entries.order_prepared {
+        return;
+    }
+    let active = usize::from(state.turn.active.get());
+    let seats = state.players.len();
+    state.entries.simple_order = state.entries.pending.iter().all(|entry| {
+        !entry.modifiers.iter().any(needs_before_entry)
+            && copy_clause(state, entry.object).is_none()
+    });
+    state
+        .entries
+        .pending
+        .make_contiguous()
+        .sort_by_key(|entry| (usize::from(entry.controller.get()) + seats - active) % seats);
+    state.entries.order_prepared = true;
 }
 
 /// Several arrivals may compete for the same payment objects. The affected
@@ -119,15 +244,13 @@ pub(super) fn entry_order(state: &mut GameState) -> Option<Pending> {
     {
         return None;
     }
-    let active = u32::from(state.turn.active.get());
-    let seats = u32::try_from(state.players.len()).expect("seat count fits");
-    state
-        .entries
-        .pending
-        .make_contiguous()
-        .sort_by_key(|entry| (u32::from(entry.controller.get()) + seats - active) % seats);
+    prepare_order(state);
     let first = state.entries.pending.front()?;
     let controller = first.controller;
+    if state.entries.simple_order {
+        state.entries.chosen_entry = Some(first.object);
+        return None;
+    }
     let options: Vec<_> = state
         .entries
         .pending

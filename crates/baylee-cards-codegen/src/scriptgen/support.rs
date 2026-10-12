@@ -99,6 +99,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Scry",
     "Surveil",
     "Mana",
+    "ManaReflected",
     "Destroy",
     "DestroyAll",
     "DelayedTrigger",
