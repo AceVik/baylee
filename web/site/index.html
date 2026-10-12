@@ -35,6 +35,7 @@
     <nav class="nav" aria-label="Sections">
       <a href="#about"><span class="en">What it is</span><span class="de" lang="de">Was es ist</span></a>
       <a href="#cards"><span class="en">Cards</span><span class="de" lang="de">Karten</span></a>
+      <a href="#sets"><span class="en">Sets</span><span class="de" lang="de">Sets</span></a>
       <a href="#download"><span class="en">Download</span><span class="de" lang="de">Download</span></a>
       <a href="#beta"><span class="en">Beta</span><span class="de" lang="de">Beta</span></a>
       <a href="#selfhost"><span class="en">Self-hosting</span><span class="de" lang="de">Selbst hosten</span></a>
@@ -235,9 +236,9 @@
         <p class="en">Every card in Baylee is code: one file per card, written in a small rules language and played in a test. There is no "close enough" interpreter guessing at card text. That is why the pool grows batch by batch instead of all at once.</p>
         <p class="de" lang="de">Jede Karte in Baylee ist Code: eine Datei pro Karte, in einer kleinen Regelsprache geschrieben und in einem Test gespielt. Es gibt keinen Interpreter, der Kartentext ungefähr errät. Deshalb wächst der Pool Stapel für Stapel statt auf einmal.</p>
         <dl class="numbers">
-          <div><dt><span class="en">3,161</span><span class="de" lang="de">3.161</span></dt><dd><span class="en">cards that play exactly as printed</span><span class="de" lang="de">Karten, die genau wie gedruckt spielen</span></dd></div>
-          <div><dt>109</dt><dd><span class="en">more that are partly implemented and marked as such</span><span class="de" lang="de">weitere, teilweise umgesetzt und so markiert</span></dd></div>
-          <div><dt><span class="en">≈32,600</span><span class="de" lang="de">≈32.600</span></dt><dd><span class="en">cards in the whole corpus we are working towards</span><span class="de" lang="de">Karten im gesamten Korpus, auf den wir hinarbeiten</span></dd></div>
+          <div><dt id="num-full"><span class="en">3,161</span><span class="de" lang="de">3.161</span></dt><dd><span class="en">cards that play exactly as printed</span><span class="de" lang="de">Karten, die genau wie gedruckt spielen</span></dd></div>
+          <div><dt id="num-partial">112</dt><dd><span class="en">more that are partly implemented and marked as such</span><span class="de" lang="de">weitere, teilweise umgesetzt und so markiert</span></dd></div>
+          <div><dt id="num-corpus"><span class="en">33,684</span><span class="de" lang="de">33.684</span></dt><dd><span class="en">cards in the whole corpus we are working towards</span><span class="de" lang="de">Karten im gesamten Korpus, auf den wir hinarbeiten</span></dd></div>
         </dl>
         <p class="small en">Counted in the repository on 12 October 2026 for 0.1.0-beta.7 (<a href="https://github.com/AceVik/baylee/blob/main/data/card-pool.txt" rel="noopener">the pool list</a>, <a href="https://github.com/AceVik/baylee#what-baylee-is" rel="noopener">the README</a>). The deck builder can show only playable cards, and it warns when a deck holds cards that will not play as printed.</p>
         <p class="small de" lang="de">Gezählt im Repository am 12. Oktober 2026 für 0.1.0-beta.7 (<a href="https://github.com/AceVik/baylee/blob/main/data/card-pool.txt" rel="noopener">die Pool-Liste</a>, <a href="https://github.com/AceVik/baylee/blob/main/README.de.md#was-baylee-ist" rel="noopener">die README</a>). Der Deckbauer kann nur spielbare Karten zeigen und warnt, wenn ein Deck Karten enthält, die nicht wie gedruckt spielen.</p>
@@ -250,6 +251,33 @@
         <p class="en">That means a modern deck will often hold cards Baylee does not know yet. We would rather tell you that in the deck builder than let a card resolve wrongly. Cards that cannot be played at all (ante, dexterity, subgames) are on a named skip list and never silently dropped.</p>
         <p class="de" lang="de">Das heißt: Ein modernes Deck enthält oft Karten, die Baylee noch nicht kennt. Wir sagen dir das lieber im Deckbauer, als eine Karte falsch verrechnen zu lassen. Karten, die gar nicht spielbar sind (Ante, Geschicklichkeit, Teilspiele), stehen auf einer benannten Auslassungsliste und fallen nie stillschweigend weg.</p>
       </div>
+    </div>
+    <div class="sets-block" id="sets">
+      <h3 class="en">Sets and card status</h3>
+      <h3 class="de" lang="de">Sets und Kartenstatus</h3>
+      <p class="section-lead en">Every set in release order, each card counted under the set it first appeared in. Open a set to see its cards: whether each plays as printed, plays in part, is not playable yet, or will never be built. Hover or focus a card for the reason.</p>
+      <p class="section-lead de" lang="de">Jedes Set in Erscheinungsreihenfolge, jede Karte unter dem Set gezählt, in dem sie zuerst erschien. Öffne ein Set, um seine Karten zu sehen: ob jede wie gedruckt spielt, teilweise spielt, noch nicht spielbar ist oder nie gebaut wird. Fahr mit der Maus über eine Karte oder fokussiere sie, um den Grund zu sehen.</p>
+      <ul class="legend plain-row" aria-label="Legend">
+        <li><span class="swatch s-implemented" aria-hidden="true"></span><span class="en">Full: plays as printed</span><span class="de" lang="de">Voll: spielt wie gedruckt</span></li>
+        <li><span class="swatch s-partial" aria-hidden="true"></span><span class="en">Partial: plays, one part missing (reason in the tooltip)</span><span class="de" lang="de">Teilweise: spielt, ein Teil fehlt (Grund im Tooltip)</span></li>
+        <li><span class="swatch s-none" aria-hidden="true"></span><span class="en">Not yet: not playable yet</span><span class="de" lang="de">Noch nicht: noch nicht spielbar</span></li>
+        <li><span class="swatch s-never" aria-hidden="true"></span><span class="en">Never: ante, dexterity or a subgame; a set counts as complete without it</span><span class="de" lang="de">Nie: Ante, Geschicklichkeit oder ein Teilspiel; ein Set gilt ohne sie als vollständig</span></li>
+      </ul>
+      <p class="small en">The percentage is full cards out of all cards of the set that will ever be built. Partial cards are the lighter part of the bar and are not counted as done.</p>
+      <p class="small de" lang="de">Der Prozentwert ist der Anteil voller Karten an allen Karten des Sets, die je gebaut werden. Teilweise umgesetzte Karten sind der hellere Teil des Balkens und zählen nicht als fertig.</p>
+      <div class="sets-tools" id="sets-tools" hidden>
+        <label class="sets-search"><span class="en">Find a set</span><span class="de" lang="de">Set suchen</span>
+          <input type="search" id="sets-q" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="sets-check"><input type="checkbox" id="sets-started"> <span class="en">only sets that have begun</span><span class="de" lang="de">nur begonnene Sets</span></label>
+      </div>
+      <p class="sets-total" id="sets-total"></p>
+      <div class="sets" id="sets-list">
+        <p class="small en">The set list loads with JavaScript from <a href="/site/data/sets.json">data/sets.json</a>.</p>
+        <p class="small de" lang="de">Die Set-Liste wird per JavaScript aus <a href="/site/data/sets.json">data/sets.json</a> geladen.</p>
+      </div>
+      <p class="small en">Card images are loaded from Scryfall only when you open a set, unaltered. Card data and images provided by Scryfall; Baylee is not affiliated with Scryfall. The counts are measured from the repository by <code>scripts/site/card_status.py</code>.</p>
+      <p class="small de" lang="de">Kartenbilder werden erst beim Öffnen eines Sets und unverändert von Scryfall geladen. Kartendaten und -bilder bereitgestellt von Scryfall; Baylee ist nicht mit Scryfall verbunden. Die Zahlen misst <code>scripts/site/card_status.py</code> im Repository.</p>
     </div>
   </div>
 </section>
@@ -440,8 +468,8 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
         <p class="de" lang="de">Lust zu reden, Gegner zu finden oder als Erstes von neuen Builds zu erfahren? Komm in die <a href="https://discord.gg/4pP3uAwgY" rel="noopener">Baylee-Community auf Discord</a>.</p>
         <p class="en">Rules questions, wrong card behaviour, ideas: <a href="https://github.com/AceVik/baylee/issues" rel="noopener">open an issue on GitHub</a>. A card that resolved wrongly is the most useful report we can get, because every card has a test and yours becomes one.</p>
         <p class="de" lang="de">Regelfragen, falsches Kartenverhalten, Ideen: <a href="https://github.com/AceVik/baylee/issues" rel="noopener">eröffne ein Issue auf GitHub</a>. Eine Karte, die falsch verrechnet wurde, ist die nützlichste Meldung, die wir bekommen können, denn jede Karte hat einen Test, und deine wird einer.</p>
-        <p class="en"><a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a> lists everything the client, the gateway and the feedback service keep. This page keeps nothing: no cookies, no analytics, no fonts from anyone else's server. It asks GitHub for the release list and the CI status, and that is the only other host it talks to.</p>
-        <p class="de" lang="de"><a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a> listet alles, was Client, Gateway und Feedback-Dienst speichern. Diese Seite speichert nichts: keine Cookies, keine Analyse, keine Schriften von fremden Servern. Sie fragt GitHub nach der Release-Liste und dem CI-Status, und das ist der einzige andere Host, mit dem sie spricht.</p>
+        <p class="en"><a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a> lists everything the client, the gateway and the feedback service keep. This page keeps nothing: no cookies, no analytics, no fonts from anyone else's server. It asks GitHub for the release list and the CI status; when you open a set in the card status, your browser loads that set's card images from Scryfall. Those are the only other hosts it talks to.</p>
+        <p class="de" lang="de"><a href="https://github.com/AceVik/baylee/blob/main/docs/privacy.md" rel="noopener">docs/privacy.md</a> listet alles, was Client, Gateway und Feedback-Dienst speichern. Diese Seite speichert nichts: keine Cookies, keine Analyse, keine Schriften von fremden Servern. Sie fragt GitHub nach der Release-Liste und dem CI-Status; wenn du im Kartenstatus ein Set öffnest, lädt dein Browser dessen Kartenbilder von Scryfall. Das sind die einzigen anderen Hosts, mit denen sie spricht.</p>
       </div>
     </div>
   </div>
