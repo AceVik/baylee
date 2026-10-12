@@ -169,6 +169,10 @@ pub struct Social {
     sent_invites: BTreeMap<String, Person>,
     leave_armed: Option<String>,
     last_group: Option<String>,
+    /// Effects made where no output was at hand, sent with the next batch.
+    queued: Vec<Effect>,
+    /// The latest time an input carried.
+    last_now: u64,
     /// What a report of each received line needs (§4.7), in memory.
     evidence: BTreeMap<LineKey, Option<Evidence>>,
     dirty: bool,
@@ -246,6 +250,8 @@ impl Social {
             sent_invites: BTreeMap::new(),
             leave_armed: None,
             last_group: None,
+            queued: Vec::new(),
+            last_now: now_ms,
             evidence: BTreeMap::new(),
             dirty: true,
             removed: false,
@@ -379,7 +385,8 @@ impl Social {
     /// call without entropy — the clock, the link, the table — only marks
     /// them; [`Social::wants_entropy`] says when to call this).
     pub fn flush(&mut self, now_ms: u64, rng: &mut dyn Entropy) -> Vec<Effect> {
-        let mut out = Vec::new();
+        self.last_now = self.last_now.max(now_ms);
+        let mut out = std::mem::take(&mut self.queued);
         self.pump(now_ms, rng, &mut out);
         self.flush_into(&mut out, rng);
         out
@@ -400,6 +407,7 @@ impl Social {
         rng: &mut dyn Entropy,
     ) -> Vec<Effect> {
         let mut out = Vec::new();
+        self.last_now = self.last_now.max(now_ms);
         let ok = (200..300).contains(&status);
         match tag {
             HttpTag::RegisterDevice => {
@@ -520,6 +528,7 @@ impl Social {
     #[allow(clippy::too_many_lines)] // one arm per frame, read top to bottom
     pub fn on_frame(&mut self, frame: Down, now_ms: u64, rng: &mut dyn Entropy) -> Vec<Effect> {
         let mut out = Vec::new();
+        self.last_now = self.last_now.max(now_ms);
         match frame {
             Down::Welcome {
                 tag,
@@ -752,6 +761,7 @@ impl Social {
     /// The socket went up or down, or its ticket was refused.
     pub fn on_link(&mut self, link: SocialLink, now_ms: u64) -> Vec<Effect> {
         let mut out = Vec::new();
+        self.last_now = self.last_now.max(now_ms);
         match link {
             SocialLink::Up => {
                 if self.link != Link::Stopped {
@@ -774,7 +784,6 @@ impl Social {
                 // A delivery not acked is delivered again after reconnecting.
                 self.held.clear();
                 self.high = self.acked;
-                let _ = now_ms;
             }
             SocialLink::Refused => self.link = Link::Stopped,
         }
@@ -798,9 +807,14 @@ impl Social {
                 .collect();
             for (tag, handle) in people {
                 self.state.recent.retain(|r| r.tag != tag);
-                self.state
-                    .recent
-                    .insert(0, RecentPlayer { tag, handle, at: 0 });
+                self.state.recent.insert(
+                    0,
+                    RecentPlayer {
+                        tag,
+                        handle,
+                        at: self.last_now,
+                    },
+                );
             }
             self.state.recent.truncate(RECENT_KEPT);
             self.dirty = true;
@@ -846,6 +860,7 @@ impl Social {
     /// that lapse, table conversations past their hour.
     pub fn tick(&mut self, now_ms: u64, idle_ms: u64) -> Vec<Effect> {
         let mut out = Vec::new();
+        self.last_now = self.last_now.max(now_ms);
         if self.status == Status::Online && idle_ms >= AWAY_AFTER_MS {
             self.status = Status::Away;
             self.auto_away = true;
@@ -888,6 +903,7 @@ impl Social {
     /// What the player asked for.
     pub fn act(&mut self, intent: Intent, now_ms: u64, rng: &mut dyn Entropy) -> Vec<Effect> {
         let mut out = Vec::new();
+        self.last_now = self.last_now.max(now_ms);
         self.intent(intent, now_ms, rng, &mut out);
         self.finish(&mut out, rng);
         out
@@ -900,6 +916,7 @@ impl Social {
         now_ms: u64,
         rng: &mut dyn Entropy,
     ) -> (ComposerOutcome, Vec<Effect>) {
+        self.last_now = self.last_now.max(now_ms);
         let ctx = self.compose_context();
         let outcome = self.composer.key(key, &ctx);
         let mut out = Vec::new();
@@ -1200,7 +1217,8 @@ impl Social {
     }
 
     fn finish(&mut self, out: &mut Vec<Effect>, rng: &mut dyn Entropy) {
-        self.pump(0, rng, out);
+        out.append(&mut self.queued);
+        self.pump(self.last_now, rng, out);
         self.flush_into(out, rng);
         self.bump();
     }
@@ -1347,6 +1365,9 @@ impl Social {
             .or_else(|| self.convs.first().map(|c| c.id.clone()));
         if let Some(conv) = conv {
             self.notice(&conv, phrase, args, now_ms);
+        } else {
+            // Nowhere to write it (no conversation yet): a toast says it.
+            self.queued.push(toast(phrase, args));
         }
     }
 
