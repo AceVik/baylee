@@ -437,8 +437,11 @@ one set's cards, each a chip to its Scryfall page with its picture on
 hover from Scryfall's host, as a report's card chips are, `docs/legal.md`
 §3), **Accounts** (`/admin/accounts`: searched, filtered and sorted in the
 query string; `/admin/accounts/{id}`: one account, its decks and latest
-games) and **Beta keys** (`/admin/keys`), so the owner needs a shell for
-none of it.
+games), **Blocked cards** (`/admin/cards`: a card of the gateway's pool
+found by name and blocked without an end or until a moment, with a reason
+the players are told; the blocks in force, each lifted; the earlier ones;
+`docs/protocol.md` §"Blocked cards") and **Beta keys** (`/admin/keys`), so
+the owner needs a shell for none of it.
 A sidebar on a wide screen, a tab bar at the bottom of a phone. The
 service passes each request on to the gateway's admin console
 (`docs/protocol.md` §"The admin console") with the gateway's token, which
@@ -456,9 +459,13 @@ the browser never sees:
 | `GET /ui/api/admin/invites` | its keys, newest first; never a key |
 | `POST /ui/api/admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}` as `invite create` takes them (`"30d"`, `"12h"`); `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`, the only time a key is shown |
 | `DELETE /ui/api/admin/invites/{id}` | revokes one: `204`, or `404` for no key not already revoked |
+| `GET /ui/api/admin/cards/search?q=` | the gateway's `GET /admin/cards/search`; `q` is read and written out again (anything else `400`) |
+| `GET /ui/api/admin/cards/blocks` | every card block, newest first, as the gateway lists them |
+| `POST /ui/api/admin/cards/blocks` | `{"index", "reason", "until"?}` (`until` RFC 3339; absent for no end); `201` with the block; `409` when the card is blocked already |
+| `DELETE /ui/api/admin/cards/blocks/{id}` | lifts one: `204`, or `404` for no block still in force |
 | `GET /ui/api/admin/audit` | the 50 latest changes made here, `[{"at", "actor", "action", "detail"}]`, newest first |
 
-- **Who.** A live session on every route (`401` without), and on the two
+- **Who.** A live session on every route (`401` without), and on those
   that change something the CSRF rule above too (`403`). The read and admin
   tokens open none of them.
 - **Configured by** `FEEDBACK_GATEWAY_ADMIN_URL` (`http://127.0.0.1:28767`)
@@ -467,8 +474,8 @@ the browser never sees:
   characters at least and is none of the service's own tokens or its direct
   key. Unset, the routes answer `404` and the Overview tab is not drawn.
 - **What reaches the gateway.** The service builds every request itself: a
-  body is read into the four fields and written out again (anything else is
-  `400` here), an id must be a UUID, and only `Authorization` (the
+  body is read into the fields the gateway takes and written out again
+  (anything else is `400` here), an id must be a UUID, and only `Authorization` (the
   service's token) and `X-Baylee-Admin` (the signed-in admin's name) are
   sent, never the cookie or `Origin`. Proxy settings in the environment and
   redirects are ignored, so the token goes to that address and nowhere else.
@@ -479,16 +486,19 @@ the browser never sees:
 - **Audit.** Every change that succeeded is a row in `feedback_audit`
   without a report (action `gateway.invite.create` or
   `gateway.invite.revoke`, the admin, the time, and the ids, uses and
-  expiry; never a key or a note) and an `info` line in the log; the gateway
-  logs its own line too. A key's note may name a person, so it is kept only
-  at the gateway, as the command keeps it.
+  expiry; never a key or a note; `gateway.card.block` with the card's name
+  and index, the end and the block's id, or `gateway.card.unblock` with the
+  id; never the reason) and an `info` line in the log; the gateway logs its
+  own line too. A key's note and a block's reason may name a person, so
+  they are kept only at the gateway.
 - **The page.** Mobile first (one column on a phone, 44 px targets, safe-area
   insets, a sticky bar that folds as the page scrolls), light and dark as
   the system says, English or German as the browser asks. The numbers are
   asked again every 15 seconds while the page is visible and not while it
   is hidden. New keys are shown once with Copy, Copy all and, where the
   browser has it, Share; there is no invite link, because the client takes
-  a key only typed into its sign-up form. Revoking asks once more.
+  a key only typed into its sign-up form. Revoking asks once more, and so
+  do blocking and unblocking a card.
 
 #### Hosted models (`/ui/api/admin/llm/…`)
 

@@ -454,6 +454,49 @@ export interface MadeKeys {
   note: string | null;
 }
 
+/** A card's block as the gateway tells it: `until` null for no end. */
+export interface BlockNote {
+  index: number;
+  name: string;
+  reason: string;
+  until: string | null;
+}
+
+/** A card of the gateway's pool, found by name. */
+export interface CardHit {
+  index: number;
+  name: string;
+  type_line: string;
+  mana_cost: string;
+  coverage: string;
+  scryfall_id: string;
+  blocked: BlockNote | null;
+}
+
+export const CARD_BLOCK_STATES = ["active", "expired", "lifted"] as const;
+export type CardBlockState = (typeof CARD_BLOCK_STATES)[number];
+
+/** A block the console made, in force or not any more. */
+export interface CardBlock {
+  id: string;
+  index: number;
+  name: string;
+  reason: string;
+  created_at: string;
+  created_by: string;
+  until: string | null;
+  lifted_at: string | null;
+  lifted_by: string | null;
+  state: CardBlockState;
+}
+
+/** What blocking a card takes: `until` an ISO moment, absent for no end. */
+export interface BlockOrder {
+  index: number;
+  reason: string;
+  until?: string;
+}
+
 /** A hosted profile's states, best first, as the player list orders them. */
 export const LLM_STATES = [
   "available",
@@ -710,6 +753,15 @@ export const api = {
       await request("DELETE", `/ui/api/admin/invites/${encodeURIComponent(id)}`);
     },
     audit: () => json<ConsoleChange[]>("GET", "/ui/api/admin/audit"),
+    cards: {
+      search: async (q: string) =>
+        (await json<{ cards: CardHit[] }>("GET", `/ui/api/admin/cards/search?q=${encodeURIComponent(q)}`)).cards,
+      blocks: () => json<CardBlock[]>("GET", "/ui/api/admin/cards/blocks"),
+      block: (order: BlockOrder) => json<CardBlock>("POST", "/ui/api/admin/cards/blocks", order),
+      unblock: async (id: string) => {
+        await request("DELETE", `/ui/api/admin/cards/blocks/${encodeURIComponent(id)}`);
+      },
+    },
     llm: {
       seathosts: async () => (await json<{ seathosts: SeatHost[] }>("GET", "/ui/api/admin/llm/seathosts")).seathosts,
       write: async (host: string, id: string, definition: LlmDefinition) => {

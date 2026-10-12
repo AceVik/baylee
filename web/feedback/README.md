@@ -169,6 +169,12 @@ reaches the built page.
     query string; a table on a desktop, cards on a phone. One account
     (`/admin/accounts/{id}`): its facts, where it is now, its decks and
     latest games.
+  - Blocked cards (`/admin/cards`, `src/admin/Cards.tsx`): a card of the
+    gateway's pool searched by name or index and blocked, without an end,
+    for a day, a week, a month or until a moment picked, with a reason the
+    players see, after a second question; the blocks in force, each lifted
+    after a second question; the earlier ones, folded; the latest card
+    changes (`docs/protocol.md` §"Blocked cards").
   - Beta keys (`/admin/keys`): made (each shown once, with Copy, Copy all
     and, where the browser can, Share), listed and filtered by state
     (never the key, which is kept only as a hash), revoked after a second
