@@ -1366,6 +1366,22 @@ stepped forward for a declaration of one. Sent attackers still stand one
 card each; merging them by defender is its own change, because blocking two
 of a merged five needs a focus that walks to the next unblocked member.
 
+**Blocking with many creatures (report 31, 12.10.2026).** *"With many
+creatures it's hard to click the right ones to block."* Two answers, neither
+with a rule in it. The creatures a declaration can take now wear the gold
+offer light on the felt (`reach::activatable` adds this seat's creatures
+`Interaction::is_selectable` names while it declares attackers or blockers;
+for a block that is the creatures that may block the attacker in aim, so
+the flier's one possible blocker is the one lit). `table::track_proposals`
+rebuilds the board when that set moves with the aim. And the block
+declaration is a named list in the drawer, as the attack declaration is
+(`drawer::block`, `interaction::BlockRow`): every attacker as
+"Attacker: Earth Elemental · 1 blocking" (`[x]` on the one in aim), then
+"Block: Grizzly Bears → Earth Elemental" for each creature that may block
+it and "Take back: … → …" for each already blocking; a row is the click the
+table takes (`Interaction::toggle`), the blockers page and the attackers stay,
+and the ordinary confirmation still sends.
+
 The board model also builds a text chip row per seat (`board::TokenChip`,
 `12× 1/1 Soldier · 3× Treasure`) and a one-line threat read
 (`ThreatSummary`: power ready, blockers, open mana, cards in hand), meant for

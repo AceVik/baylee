@@ -2099,6 +2099,17 @@ messages! {
     },
     /// Declare blockers
     DeclareBlockers { en: "Declare blockers", de: "Blocker deklarieren" },
+    /// Instructions over the block list (report 31).
+    BlockDraftHint {
+        en: "Choose an attacker, then the creatures that block it. Choose a blocker again to take it back. Confirm when ready.",
+        de: "Angreifer wählen, dann die Kreaturen, die ihn blocken. Erneut wählen nimmt einen Blocker zurück. Zum Schluss bestätigen.",
+    },
+    /// An attacker in the block list, and how many creatures block it so far.
+    BlockAim { en: "Attacker: {0} · {1} blocking", de: "Angreifer: {0} · {1} blocken" },
+    /// A creature that may block the attacker in aim.
+    BlockSend { en: "Block: {0} → {1}", de: "Blocken: {0} → {1}" },
+    /// A creature already blocking, naming the attacker it blocks.
+    BlockWithdraw { en: "Take back: {0} → {1}", de: "Zurücknehmen: {0} → {1}" },
     /// Discard {0} card
     DiscardCard { en: "Discard {0} card", de: "Wirf {0} Karte ab" },
     /// Discard {0} cards

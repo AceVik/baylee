@@ -1145,6 +1145,13 @@ pub(crate) fn preview_object(
         Some(Target::Player(_)) => return None,
         None => {}
     }
+    if let Some(
+        baylee_client_core::interaction::BlockRow::Aim(id)
+        | baylee_client_core::interaction::BlockRow::Toggle(id),
+    ) = interaction.block_rows().get(index)
+    {
+        return Some(*id);
+    }
     match interaction.attack_options().get(index) {
         Some(
             AttackOption::Toggle(id)

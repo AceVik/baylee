@@ -11,8 +11,17 @@ use super::*;
 /// have anything to do", so both collapse to the same set of sources — the
 /// menu that asks *which* one is built later, from the same list, by
 /// `abilities::options`.
+///
+/// And, while this seat declares attackers or blockers, its own creatures the
+/// declaration can take now ([`Interaction::is_selectable`], read off the
+/// engine's `Pending`): a blocker only where it may block the attacker in
+/// focus. A board of a dozen creatures blocking a flier lit nothing, and
+/// the one card a click would take looked like the eleven it would refuse
+/// (report 31). The other seats' creatures in the declaration (the attackers
+/// aimed at, a planeswalker attacked) are left to the focus ring.
 pub(super) fn activatable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
-    duel.interaction
+    let mut lit: std::collections::HashSet<ObjectId> = duel
+        .interaction
         .as_ref()
         .and_then(Interaction::legal_actions)
         .map(|legal| {
@@ -23,7 +32,19 @@ pub(super) fn activatable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .chain(legal.abilities.iter().map(|(source, _)| *source))
                 .collect()
         })
-        .unwrap_or_default()
+        .unwrap_or_default();
+    if let (Some(choice), Some(view)) = (
+        duel.interaction.as_ref().filter(|i| i.is_combat()),
+        duel.view.as_ref(),
+    ) {
+        lit.extend(
+            view.battlefield
+                .iter()
+                .filter(|o| o.controller == view.seat && choice.is_selectable(o.id))
+                .map(|o| o.id),
+        );
+    }
+    lit
 }
 
 pub(super) fn ability_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
