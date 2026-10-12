@@ -2590,6 +2590,37 @@ impl Lobby {
         })
     }
 
+    /// Puts the deck at `index` in a chair, picking it only when the chair
+    /// is the player's own (`yours`). A deck handed to an AI chair leaves
+    /// the player's pick where it was: the owner found the next game opening
+    /// with the deck the house had just played.
+    pub fn seat_deck_at(
+        &mut self,
+        game_id: &str,
+        seat: u32,
+        index: usize,
+        yours: bool,
+    ) -> Option<LobbyRequest> {
+        if yours {
+            self.select_deck(index);
+            return self.seat_deck(game_id, seat);
+        }
+        if self.busy || !self.has_a_performer() {
+            return None;
+        }
+        let deck_id = self.decks.get(index)?.id.clone();
+        self.busy = true;
+        self.note(Phrase::ArrangingTable);
+        Some(LobbyRequest::SetSeat {
+            game_id: game_id.to_string(),
+            seat,
+            kind: None,
+            ai: None,
+            deck_id: Some(deck_id),
+            team: None,
+        })
+    }
+
     /// Gets up from a table, or closes it when this account is the host.
     pub fn leave_table(&mut self, game_id: &str) -> Option<LobbyRequest> {
         if self.busy || !self.has_a_performer() {

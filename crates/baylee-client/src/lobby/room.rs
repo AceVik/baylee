@@ -924,7 +924,7 @@ fn seat_card(
                 Weight::Secondary,
                 Live::Yes,
                 None,
-                Press::Room(RoomPress::RoomDeck(index, seat.seat, at)),
+                Press::Room(RoomPress::RoomDeck(index, seat.seat, at, seat.you)),
             );
             commands.entity(picks).add_child(b);
         }
@@ -1339,7 +1339,7 @@ pub(crate) enum RoomPress {
     /// Apply the host draft; true explicitly removes the password.
     SaveRoom(bool),
     /// Apply a chosen deck directly to this seat.
-    RoomDeck(usize, u32, usize),
+    RoomDeck(usize, u32, usize, bool),
     /// Toggle the deck choices for a seat.
     RoomDeckPicker(u32),
     /// Expand or collapse a seat's optional starting-position editor.
@@ -1463,11 +1463,10 @@ impl RoomPress {
                 let request = state.lobby.save_room(remove_password);
                 dispatch(state, mailbox, request);
             }
-            RoomPress::RoomDeck(index, seat, deck) => {
-                state.lobby.select_deck(deck);
+            RoomPress::RoomDeck(index, seat, deck, yours) => {
                 state.room_deck_seat = None;
                 if let Some(game) = state.lobby.games().get(index).map(|g| g.id.clone()) {
-                    let request = state.lobby.seat_deck(&game, seat);
+                    let request = state.lobby.seat_deck_at(&game, seat, deck, yours);
                     dispatch(state, mailbox, request);
                 }
             }

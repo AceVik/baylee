@@ -356,3 +356,46 @@ fn room_printing_and_counter_edits_stay_with_their_copy_without_changing_a_deck(
     lobby.room_counter_step(0, 0, 0, -999);
     assert!(lobby.room_draft().unwrap().setup.seats[0].counters[0].is_empty());
 }
+
+/// A deck handed to the house's chair is the house's: the player's own pick
+/// stays, so the next table opens with the deck the player chose (owner,
+/// beta.7: every next game had the AI's deck preselected).
+#[test]
+fn a_deck_given_to_an_ai_chair_leaves_the_players_pick() {
+    let mut lobby = seated_lobby();
+    lobby.apply(LobbyEvent::Decks(vec![
+        DeckSummary {
+            id: "d1".to_string(),
+            name: "Mine".to_string(),
+            cards: 60,
+            ..Default::default()
+        },
+        DeckSummary {
+            id: "d2".to_string(),
+            name: "For the house".to_string(),
+            cards: 60,
+            ..Default::default()
+        },
+    ]));
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+    assert_eq!(lobby.selected(), Some(0));
+    let request = lobby.seat_deck_at("g1", 1, 1, false);
+    assert!(
+        matches!(request, Some(LobbyRequest::SetSeat { ref deck_id, seat: 1, .. }) if deck_id.as_deref() == Some("d2")),
+        "{request:?}"
+    );
+    assert_eq!(
+        lobby.selected(),
+        Some(0),
+        "the house's deck is not the player's pick"
+    );
+    lobby.apply(LobbyEvent::Moved);
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+    assert!(!lobby.busy());
+    assert!(lobby.seat_deck_at("g1", 0, 1, true).is_some());
+    assert_eq!(
+        lobby.selected(),
+        Some(1),
+        "one's own chair does pick the deck"
+    );
+}
