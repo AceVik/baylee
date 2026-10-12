@@ -2412,6 +2412,29 @@ impl Interaction {
         self.number
     }
 
+    /// Lowers the top of an X question (CR 107.3) to `cap`, the most the
+    /// player's own mana pays: the range the question shows and the one
+    /// [`Interaction::set_number`] clamps to. Never below the engine's
+    /// minimum and never above its maximum, and only for `NumberPrompt::X`
+    /// — every other number is the engine's to bound.
+    pub fn cap_number(&mut self, cap: u32) {
+        let Pending::ChooseNumber {
+            min,
+            max,
+            reason: NumberPrompt::X,
+            ..
+        } = &mut self.pending
+        else {
+            return;
+        };
+        *max = (*max).min(cap).max(*min);
+        let (min, max) = (*min, *max);
+        if let Mode::Number { max: shown, .. } = &mut self.mode {
+            *shown = max;
+        }
+        self.number = self.number.clamp(min, max);
+    }
+
     /// The currently chosen number.
     #[must_use]
     pub fn number(&self) -> u32 {

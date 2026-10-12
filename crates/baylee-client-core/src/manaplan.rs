@@ -449,6 +449,50 @@ pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<
     best
 }
 
+/// The largest X the floating pool and `sources` pay `cost` with, or `None`
+/// when `cost` has no X or not even X = 0 plans here.
+///
+/// A convenience for the X question, never a rule: CR 601.2b lets a player
+/// announce any X and the cast is reversed when its total cannot be paid
+/// (CR 601.2h), so this only keeps a player from announcing an X the board
+/// in front of them cannot pay. `None` for "nothing plans" rather than
+/// `Some(0)`, because then the sources are the ones this client cannot read
+/// and capping would forbid an X the engine would take.
+#[must_use]
+pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<u32> {
+    if !cost.has_variable() {
+        return None;
+    }
+    let floating = [
+        pool.white,
+        pool.blue,
+        pool.black,
+        pool.red,
+        pool.green,
+        pool.colorless,
+    ]
+    .into_iter()
+    .fold(0_u32, u32::saturating_add);
+    // Every mana there is, poured as one colour where a source may: no X past
+    // this can be paid, however the pips fall.
+    let poured = sources
+        .iter()
+        .map(|s| {
+            if s.bundle {
+                s.colors.len()
+            } else {
+                usize::from(s.amount)
+            }
+        })
+        .fold(0_usize, usize::saturating_add);
+    let ceiling = floating.saturating_add(u32::try_from(poured).unwrap_or(u32::MAX));
+    // Affordability only shrinks as X grows, so the first X that plans from
+    // the top is the greatest. The ceiling is a few dozen at most.
+    (0..=ceiling)
+        .rev()
+        .find(|&x| plan(&cost.with_x(x), pool, sources).is_some())
+}
+
 /// How many permanents pouring several mana of one chosen colour [`plan`]
 /// reads both ways. Each multiplies the plans tried by up to seven; past
 /// this many every one is read as one mana, which under-counts and is safe.
