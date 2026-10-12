@@ -1806,3 +1806,6 @@ fn chosen_option_cost(wizard: &CastWizard) -> ManaCost {
 
 #[cfg(test)]
 mod restricted_x_tests;
+
+#[cfg(test)]
+mod pool_x_tests;

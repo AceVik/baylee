@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use crate::choice::NumberPrompt;
 
 /// Finale of Devastation — {X}{G}{G}: "Search your library and/or graveyard
 /// for a creature card with mana value X or less and put it onto the
@@ -248,4 +249,89 @@ fn finale_of_devastation_at_ten_or_more_pumps_and_hastes_your_creatures() {
     let (engine, fetched) = finale_at(9);
     assert_eq!(pt(&engine, fetched), (1, 1), "X = 9 is not 10 or more");
     assert!(!keywords(&engine, fetched).contains(KeywordSet::HASTE));
+}
+
+/// `{X}{G}{G}` off {G}{G}{W} is {1}{G}{G} at most: the white pays the one
+/// generic, so X tops out at 1. The old question offered the pool's size, 3,
+/// and X = 2 or 3 then found no mana for it at payment. The Air Elemental
+/// (mana value 5) is in the graveyard beside the Elves (mana value 1), so
+/// the search showing only the Elves is a bound on mana value and not an
+/// empty yard.
+#[test]
+fn finale_of_devastation_off_two_green_and_a_white_is_announced_at_one() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, llanowar_elves())
+        .battlefield(0, &[forest(), forest(), plains()])
+        .hand(
+            0,
+            &[finale_of_devastation(), llanowar_elves(), air_elemental()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let buried = in_hand(&engine, p0, llanowar_elves()).expect("the Elves are in hand");
+    discard_by_hand(&mut engine, p0, &[llanowar_elves(), air_elemental()]);
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "{{G}}{{G}}{{W}} floating"
+    );
+
+    cast_with_floating(&mut engine, p0, finale_of_devastation());
+    let Pending::ChooseNumber {
+        min,
+        max,
+        reason: NumberPrompt::X,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("X is announced, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "three mana pay the {{G}}{{G}} and an X of 1"
+    );
+    assert!(
+        engine.apply(p0, PlayerAction::ChooseNumber(2)).is_err(),
+        "X = 2 would cost four"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(1))
+        .expect("the greatest X on offer");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "X = 1 and {{G}}{{G}} took all three"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::FromGraveyard);
+    assert_eq!(
+        options,
+        vec![buried],
+        "a creature card of mana value 1 or less, and not the five-drop"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![buried],
+            },
+        )
+        .expect("a card the search offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "\"and put it onto the battlefield\""
+    );
 }

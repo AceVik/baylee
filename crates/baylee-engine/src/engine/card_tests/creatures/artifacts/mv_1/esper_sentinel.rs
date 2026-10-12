@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use crate::choice::PriorityHold;
 
 fn esper_sentinel_card() -> CardIndex {
     card_index("5def9f38-0a0b-4e8d-9f9d-29dcb46520b4")
@@ -156,4 +157,95 @@ fn esper_sentinel_paid_draws_nothing_and_a_bare_one_one_asks_for_one() {
         "the tax took {{1}}"
     );
     assert_eq!(hand_of(&engine, 0), hand0, "paid, so nobody draws");
+}
+
+/// The report, end to end at a table of four. Seat 2 casts its first
+/// noncreature spell with one Forest tapped and one left standing, so the
+/// pool is empty when the Sentinel asks for {1}, and it has told the game to
+/// resolve the stack for it (`UntilStackEmpty { depth: 2 }`, set while the Sol
+/// Ring and the trigger are both on it).
+///
+/// Saying yes opens the payment window with seat 2 holding priority in it.
+/// The old engine let the hold pass that priority, which closed the window
+/// with nothing paid, and seat 0 drew. Now the window stays open for the seat
+/// to tap the Forest and pass, the {1} comes out of that mana, and nobody
+/// draws. The hold is checked alive at the question: one that had already
+/// expired would have passed nothing, on old code too.
+#[test]
+fn esper_sentinel_tax_said_yes_to_under_a_stack_hold_is_paid_from_the_window() {
+    let (p0, p2) = (PlayerId::new(0), PlayerId::new(2));
+    let mut engine = seat_two_in_its_main_with(&[], 2);
+    let hand0 = hand_of(&engine, 0);
+    let spent = all_on_battlefield(&engine, p2, forest())[0];
+    tap_mana_where(&mut engine, p2, |id| id == spent);
+
+    cast_with_floating(&mut engine, p2, sol_ring());
+    assert_eq!(
+        engine.state().players[2].mana_pool.total(),
+        0,
+        "the Forest paid for the Sol Ring, so the tax meets an empty pool"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).len(),
+        2,
+        "the Sol Ring and the Sentinel's trigger"
+    );
+    let hold = PriorityHold::UntilStackEmpty { depth: 2 };
+    engine
+        .apply(p2, PlayerAction::SetPriorityHold(hold))
+        .expect("setting a hold is always legal");
+
+    pass_until(&mut engine, is_tax_question);
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayTax { mana: 1 },
+                ..
+            } if *player == p2
+        ),
+        "seat 2 is asked for {{1}}: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine.automation(p2).hold,
+        hold,
+        "the hold is alive at the question: the Sol Ring is still on the stack"
+    );
+
+    engine.apply(p2, PlayerAction::YesNo(true)).unwrap();
+    assert!(
+        matches!(engine.payment_window(), Some((seat, _)) if seat == p2),
+        "the yes opened a window and the hold left it open: {:?}",
+        engine.pending()
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p2),
+        "seat 2 holds priority in its window: {:?}",
+        engine.pending()
+    );
+    assert_eq!(hand_of(&engine, 0), hand0, "nothing is unpaid yet");
+
+    assert_eq!(tap_all_mana(&mut engine, p2), 1, "the Forest left standing");
+    engine.apply(p2, PlayerAction::PassPriority).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[2].mana_pool.total(),
+        0,
+        "the tax took the {{1}} the Forest made"
+    );
+    assert_eq!(
+        hand_of(&engine, 0),
+        hand0,
+        "paid, so seat 0 (the Sentinel's controller) drew nothing"
+    );
+    assert!(
+        on_battlefield(&engine, p2, sol_ring()).is_some(),
+        "the Sol Ring resolved"
+    );
+    assert!(
+        on_battlefield(&engine, p0, esper_sentinel_card()).is_some(),
+        "the Sentinel is still there"
+    );
 }
