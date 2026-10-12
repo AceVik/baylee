@@ -333,6 +333,7 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         "Destroy { target: ThisObject, no_regen: true }",
         "GraveyardToBattlefield { target: ThisObject, owner_control: false, counters: None }",
         "Regenerate { target: ThisObject }",
+        "CantBeRegeneratedThisTurn { target: ThisObject }",
         // Rock Hydra's "{R}: Prevent the next 1 damage that would be dealt
         // to this creature": `resolve::life::recipients`. Left open, the
         // amount after the target is not this list's business.

@@ -282,21 +282,9 @@ fn deathrite_shaman_eats_a_land_out_of_either_graveyard_and_pays_a_colour_it_is_
     );
 }
 
-/// The half the card cannot do, struck where it would show.
-///
-/// "{1}{G}{W}{U}: Put Derevi onto the battlefield from the command zone" is
-/// the `Coverage::Partial` gap, and the card file is explicit that it is not
-/// written at all rather than written and skipped: `ActivationZone` names the
-/// battlefield and your hand and nothing else. So she is seated as a
-/// commander with four lands tapped for {G}{W}{U}{G} — which pays
-/// {1}{G}{W}{U} exactly, so the ability is missing from the offer because
-/// nobody wrote it and not because nobody could afford it — and the engine
-/// offers precisely one thing to do with the card in that zone: cast her
-/// (CR 903.8). Both halves are needed: the cast is what proves `LegalActions`
-/// can see a command-zone object at all, without which "no ability is
-/// offered" would be true of a card the engine had never looked at.
+/// Derevi can be cast or activated from the command zone when both costs are payable.
 #[test]
-fn derevi_leaves_the_command_zone_by_being_cast_and_by_no_ability_of_her_own() {
+fn derevi_can_be_cast_from_command_while_its_activation_is_also_offered() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(101, forest())
         .commander(0, &[derevi_empyrial_tactician()])
@@ -322,25 +310,21 @@ fn derevi_leaves_the_command_zone_by_being_cast_and_by_no_ability_of_her_own() {
         "the engine sees the card in the command zone and offers the cast",
     );
     assert!(
-        !legal.abilities.iter().any(|(source, _)| *source == derevi),
-        "and offers no ability on it: \"{{1}}{{G}}{{W}}{{U}}: Put Derevi onto \
-         the battlefield from the command zone\" is the gap this card's \
-         `Coverage::Partial` names, so she plays exactly as though that line \
-         were not printed",
+        legal.abilities.contains(&(derevi, 2)),
+        "the command-zone activation is also payable"
     );
 
     engine
         .apply(p0, PlayerAction::CastSpell { card: derevi })
         .unwrap();
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCastMode { .. })
+        matches!(e.pending(), Pending::ChooseTargets { .. })
             || (stack_is_empty(e) && on_battlefield(e, p0, derevi_empyrial_tactician()).is_some())
     });
     tap_or_untap(&mut engine, p0, 1, my_island);
     assert!(
         on_battlefield(&engine, p0, derevi_empyrial_tactician()).is_some(),
-        "cast out of the command zone is the one road onto the battlefield \
-         she has, and it works",
+        "casting from the command zone still works",
     );
 }
 

@@ -1088,6 +1088,11 @@ impl TargetPrompt {
 /// What a [`Pending::YesNo`] asks.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum YesNoPrompt {
+    /// Use a one-shot shield rather than a standing regeneration replacement.
+    UseRegenerationShield {
+        /// Permanent being regenerated.
+        permanent: ObjectId,
+    },
     /// Use one North Star permission for this spell’s mana cost.
     ManaAnyType,
     /// Optionally enter tapped and receive the displayed player counters.
@@ -1259,7 +1264,8 @@ impl YesNoPrompt {
     #[must_use]
     pub const fn declining_does_nothing(self) -> bool {
         match self {
-            Self::SacrificeToEnter { .. }
+            Self::UseRegenerationShield { .. }
+            | Self::SacrificeToEnter { .. }
             | Self::EnterTappedForCounters { .. }
             | Self::ProliferatePlayer { .. }
             | Self::PayEnergy { .. }
@@ -2589,7 +2595,14 @@ mod choice_tests {
                 yes_no(YesNoPrompt::ProliferatePlayer { player: p }),
                 no.clone(),
             ),
-            (yes_no(YesNoPrompt::Generic), no),
+            (yes_no(YesNoPrompt::Generic), no.clone()),
+            (yes_no(YesNoPrompt::ManaAnyType), no.clone()),
+            (
+                yes_no(YesNoPrompt::UseRegenerationShield {
+                    permanent: object(),
+                }),
+                no,
+            ),
             (
                 Pending::ChooseManaAbility {
                     player: p,
@@ -2802,7 +2815,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 43;
+    const KINDS: usize = 45;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -2839,6 +2852,7 @@ mod choice_tests {
                     YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
                     YesNoPrompt::Kicker => 1,
                     YesNoPrompt::ManaAnyType => 26,
+                    YesNoPrompt::UseRegenerationShield { .. } => 27,
                     YesNoPrompt::PayTax { .. } => 2,
                     YesNoPrompt::PayLife { .. } => 9,
                     YesNoPrompt::PayPact { .. } => 10,
@@ -3063,7 +3077,8 @@ mod choice_tests {
         fn expected(prompt: YesNoPrompt) -> bool {
             match prompt {
                 YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } => true,
-                YesNoPrompt::SacrificeToEnter { .. }
+                YesNoPrompt::UseRegenerationShield { .. }
+                | YesNoPrompt::SacrificeToEnter { .. }
                 | YesNoPrompt::EnterTappedForCounters { .. }
                 | YesNoPrompt::PayEnergy { .. }
                 | YesNoPrompt::ProliferatePlayer { .. }
@@ -3086,6 +3101,9 @@ mod choice_tests {
             }
         }
         for prompt in [
+            YesNoPrompt::UseRegenerationShield {
+                permanent: object(),
+            },
             YesNoPrompt::SacrificeToEnter { count: 2 },
             YesNoPrompt::EnterTappedForCounters {
                 kind: baylee_cards_dsl::CounterKind::Rad,

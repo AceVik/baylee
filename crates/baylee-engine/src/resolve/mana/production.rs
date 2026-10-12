@@ -173,6 +173,23 @@ fn read_effects(
 ) {
     for effect in effects {
         match effect {
+            Effect::AddManaUnlessAnyPlayerPays { source, amount, .. } => {
+                // Every player can decline; these colors are possible even
+                // though another player may prevent actual production.
+                read_effects(
+                    state,
+                    land,
+                    &[Effect::AddMana {
+                        source: *source,
+                        amount: Amount::Fixed(*amount),
+                        distribution: baylee_cards_dsl::effect::ManaDistribution::OneColor,
+                        restriction: None,
+                    }],
+                    context,
+                    acquisition,
+                    production,
+                );
+            }
             Effect::AddMana { source, amount, .. } => {
                 if *amount != Amount::DevotionToManaColor
                     && eval::amount_with_context(

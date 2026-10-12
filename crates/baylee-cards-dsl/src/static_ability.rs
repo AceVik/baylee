@@ -69,6 +69,15 @@ pub enum Modifier {
     SpellsCostLess(u32),
     /// Generic cost increase for activated abilities of matching objects.
     AbilitiesCostMore(u32),
+    /// Reduce generic activation costs, retaining this minimum total mana cost.
+    AbilitiesCostLess {
+        /// Generic reduction from each matching activated ability.
+        amount: u32,
+        /// Floor for a previously positive mana cost; a free cost stays free.
+        minimum: u32,
+    },
+    /// Regenerate the matching permanent whenever destruction would occur.
+    RegenerateInsteadOfDestroy,
     /// Adds types (Mycosynth Lattice: "all permanents are artifacts").
     AddType(TypeSet),
     /// Animate Artifact: if the affected object is not a creature in layer
@@ -880,6 +889,8 @@ impl Modifier {
             | Self::CreatureAbilityManaAnyColor
             | Self::SpellsCostMore(_)
             | Self::AbilitiesCostMore(_)
+            | Self::AbilitiesCostLess { .. }
+            | Self::RegenerateInsteadOfDestroy
             | Self::LegendRuleOff
             | Self::PlayLandsFromGraveyard
             | Self::CastPermanentSpellsFromGraveyard
@@ -1338,6 +1349,11 @@ mod tests {
             Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
             Modifier::AbilitiesCostMore(3),
+            Modifier::AbilitiesCostLess {
+                amount: 2,
+                minimum: 1,
+            },
+            Modifier::RegenerateInsteadOfDestroy,
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
             Modifier::CastPermanentSpellsFromGraveyard,

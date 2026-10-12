@@ -1250,6 +1250,9 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         // the ability's own text belongs on the stack entry beside it, and
         // a second rendering of it here would be a translation of a
         // translation.
+        YesNoPrompt::UseRegenerationShield { .. } => {
+            Phrase::UseRegenerationShield.text(lang).to_string()
+        }
         YesNoPrompt::MayDo => Phrase::UseTheOptionalAbility.text(lang).to_string(),
         // The owner answers, about a card that may be somebody else's
         // spell's target: the answer names both ends, so "no" is not read

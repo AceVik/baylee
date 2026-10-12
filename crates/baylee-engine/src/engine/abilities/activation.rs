@@ -76,13 +76,24 @@ impl<L: CardLookup> Engine<L> {
         id
     }
 
-    #[allow(clippy::too_many_lines)] // activation is a staged checklist; extraction would obscure it
     pub(crate) fn start_activation(
         &mut self,
         player: PlayerId,
         source: ObjectId,
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
+    ) -> Result<(), EngineError> {
+        self.start_activation_with_price(player, source, ability_index, targets, None)
+    }
+
+    #[allow(clippy::too_many_lines)] // activation is a staged checklist; extraction would obscure it
+    pub(crate) fn start_activation_with_price(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        targets: SmallVec<[ObjectId; 2]>,
+        locked_price: Option<(baylee_core::mana::ManaCost, baylee_core::mana::ManaCost)>,
     ) -> Result<(), EngineError> {
         // The player half of a choice this activation has already answered,
         // put here by `apply`. Read out before anything at all can return,
@@ -224,7 +235,7 @@ impl<L: CardLookup> Engine<L> {
         // count of legendary creatures lowers it, and a total cost is locked
         // in once determined. The offer asked the same helper, so the ability
         // is charged what it was offered at.
-        let cost = self.activation_price(player, source, &cost, cost_reduction);
+
         // Read before the cost moves the card (CR 702.29c needs to know,
         // after the discard, that it paid a cycling ability's cost).
         let cycling = self.state.object(source).is_some_and(|o| {
@@ -256,6 +267,17 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(source)
                 .is_some_and(|o| o.zone == Zone::Battlefield && o.owner == player),
+            ActivationZone::BattlefieldAnyPlayer => self
+                .state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Battlefield),
+            ActivationZone::BattlefieldOpponent => self.state.object(source).is_some_and(|o| {
+                o.zone == Zone::Battlefield && self.state.is_opponent(player, o.controller)
+            }),
+            ActivationZone::Command => self
+                .state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Command && o.owner == player),
             ActivationZone::Hand => self
                 .state
                 .object(source)
@@ -274,6 +296,26 @@ impl<L: CardLookup> Engine<L> {
         if self.announce_activation_x(player, source, ability_index, &cost)? {
             return Ok(());
         }
+        let variable_mana = cost.mana.has_variable();
+        let (mana, fixed_mana_cost) = locked_price.unwrap_or_else(|| {
+            let price = |x| {
+                self.activation_price(
+                    player,
+                    source,
+                    &Cost {
+                        mana: cost.mana.with_x(x),
+                        parts: cost.parts,
+                    },
+                    cost_reduction,
+                )
+                .mana
+            };
+            (price(self.activation_x.unwrap_or(0)), price(0))
+        });
+        let cost = Cost {
+            mana,
+            parts: cost.parts,
+        };
         // Each Phyrexian symbol: 2 life or its mana, announced beside the X
         // (CR 601.2b through CR 602.2b; CR 118.13a). Asked only where both
         // answers still leave a way to pay; where one does, it is taken
@@ -477,7 +519,7 @@ impl<L: CardLookup> Engine<L> {
         // The mana is the payment window's question when this seat can still
         // make some (CR 601.2g, by 602.2b): only the rest is asked here, and
         // the window below is opened for the mana the pool does not cover.
-        let deferred = cost.mana.has_variable()
+        let deferred = variable_mana
             && !self.can_pay_mana(
                 player,
                 casting::SpendFor::Ability(source),
@@ -610,6 +652,7 @@ impl<L: CardLookup> Engine<L> {
                 ability_index,
                 targets,
                 cost.mana.with_x(self.activation_x.unwrap_or(0)),
+                fixed_mana_cost,
             );
         }
         let answers = std::mem::take(&mut self.activation_cost_choices);
@@ -655,7 +698,8 @@ impl<L: CardLookup> Engine<L> {
                     |(_, list)| list.acquisition,
                 )
             });
-        let paid = self.pay_cost(player, source, &cost, &answers, x)?;
+        let mut paid = self.pay_cost(player, source, &cost, &answers, x)?;
+        paid.fixed_mana_cost = fixed_mana_cost;
         // The life the Phyrexian symbols were paid with, beside the rest of
         // the cost (CR 601.2h; CR 119.4 was asked above).
         if phyrexian_life > 0 {

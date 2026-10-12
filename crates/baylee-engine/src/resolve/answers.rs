@@ -109,6 +109,13 @@ pub(super) fn resume_with_color_inner(
     color: ManaColor,
 ) -> Flow {
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
+    if let AwaitingOp::ManaUnlessPaidColor { amount, cost } = awaiting {
+        if let Some(pending) = mana::offer_prevention(state, res, color, amount, cost, 0) {
+            return Flow::Wait(pending);
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
     if let AwaitingOp::ProtectionColor { target, duration } = awaiting {
         grant_protection_from(state, res, target, color, duration);
         res.pc += 1;
@@ -710,6 +717,19 @@ pub(super) fn resume_tax_choice_inner(
             effects,
             on_payment,
         } => (effects, on_payment),
+        ManaPaymentOutcome::PreventMana {
+            color,
+            amount,
+            next,
+        } => {
+            if !actually_paid
+                && let Some(pending) = mana::offer_prevention(state, res, color, amount, cost, next)
+            {
+                return Flow::Wait(pending);
+            }
+            res.pc += 1;
+            return run(state, res);
+        }
         ManaPaymentOutcome::Upgrade { card, player } => {
             let since = state.journal.last_seq();
             upgrade::place(state, res, card, player, actually_paid);

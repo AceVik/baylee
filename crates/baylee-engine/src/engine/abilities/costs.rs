@@ -17,8 +17,23 @@ impl<L: CardLookup> Engine<L> {
     ) -> Cost {
         let off = casting::reduction_amount(&self.state, reduction, player, source);
         let increase = casting::activation_increase(&self.state, source);
+        let mut mana = cost.mana.with_more_generic(increase);
+        // Apply reductions with a local floor first, so they do not limit
+        // an independent unrestricted reduction applied afterwards.
+        if let Some(object) = self.state.object(source) {
+            for effect in self.state.effects.iter() {
+                if let baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum } =
+                    effect.modifier
+                    && crate::effects::applies_to(&self.state, effect, object)
+                {
+                    // A minimum limits this reduction, never increases a free cost.
+                    let reduction = amount.min(mana.cmc().saturating_sub(minimum));
+                    mana = mana.with_less_generic(reduction);
+                }
+            }
+        }
         Cost {
-            mana: cost.mana.with_more_generic(increase).with_less_generic(off),
+            mana: mana.with_less_generic(off),
             parts: cost.parts,
         }
     }
@@ -428,16 +443,25 @@ impl<L: CardLookup> Engine<L> {
                     }
                     let at = self.state.rng.below(hand.len() as u64) as usize;
                     let card = self.state.zones.list(ZoneLocation::Hand(player))[at];
+                    if let Some(reference) = self.state.source_identity(card) {
+                        paid.discarded.push(reference);
+                    }
                     self.state.discard_card(card, player, Cause::Cost, None);
                 }
                 CostPart::DiscardHand => {
                     let cards = self.state.zones.list(ZoneLocation::Hand(player)).clone();
                     for card in cards {
+                        if let Some(reference) = self.state.source_identity(card) {
+                            paid.discarded.push(reference);
+                        }
                         self.state.discard_card(card, player, Cause::Cost, None);
                     }
                 }
                 CostPart::DiscardSelf => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);
+                    if let Some(reference) = self.state.source_identity(source) {
+                        paid.discarded.push(reference);
+                    }
                     self.state.record_discard(source, player, None, true);
                     self.state.move_object(
                         source,
@@ -633,6 +657,11 @@ impl<L: CardLookup> Engine<L> {
                     // (CR 608.2h).
                     if matches!(part, CostPart::TapOther(_)) {
                         paid.tapped = self.state.object(card).map(|o| (card, o.version));
+                    }
+                    if matches!(part, CostPart::Discard(_))
+                        && let Some(reference) = self.state.source_identity(card)
+                    {
+                        paid.discarded.push(reference);
                     }
                     cost_wizard::pay(&mut self.state, player, part, card)?;
                 }

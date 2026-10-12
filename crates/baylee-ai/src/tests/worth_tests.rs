@@ -765,15 +765,14 @@ fn the_table_reads_most_of_what_the_pool_activates() {
             }
         }
     }
-    // 878 of 1010 when the table was written, and 950 with a wildcard arm
-    // in place of the table's `None`. A share and not a count, because card
-    // batches grow the pool under it; the population has its own floor and
-    // ceiling so a walk that misses faces, or counts one twice, cannot pass
-    // by moving both numbers together.
-    eprintln!("the table reads {read} of {of} activated and loyalty abilities");
-    assert!((900..=1500).contains(&of), "{of} abilities in the pool");
-    let share = read * 100 / of;
-    assert!((80..=92).contains(&share), "{read} of {of} read");
+    // Exact census after Batch47: newly implemented public activations include
+    // command-zone entry, regeneration prevention, counter removal and
+    // discard-LKI conditions. The table deliberately leaves these contextual
+    // effects unread; raising their value without modelling them is a guess.
+    // The former whole-percent floor rounded 1027/1286 down to 79, hiding that
+    // this is pool growth rather than a lost reader row. Pin both populations
+    // so additions and reader regressions require an explicit review.
+    assert_eq!((read, of), (1027, 1286), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
@@ -1338,4 +1337,39 @@ fn linked_exile_does_not_hide_unread_reflexive_followups_on_empty_boards() {
             );
         }
     }
+}
+
+#[test]
+fn contextual_batch47_effects_do_not_become_guaranteed_value() {
+    use baylee_cards_dsl::Effect;
+    let v = view(0, &[20, 20], vec![]);
+    let origin = Origin {
+        id: obj(1),
+        object: None,
+    };
+    // A source-less census cannot price entry, conditional discard history,
+    // shield interactions, or an opponent's decision to deny mana.
+    assert_eq!(
+        agent().effects_worth(
+            &v,
+            origin,
+            &[Effect::PutSelfOntoBattlefield],
+            Aim::Source,
+            0
+        ),
+        None
+    );
+    let cave = baylee_cards::by_index(baylee_core::generated::index::RHYSTIC_CAVE).unwrap();
+    let AbilityDef::Activated {
+        effects,
+        mana_ability: true,
+        ..
+    } = &cave.abilities_for_face(0)[0]
+    else {
+        panic!("Rhystic Cave's conditional mana ability");
+    };
+    assert_eq!(
+        agent().effects_worth(&v, origin, effects, Aim::Source, 0),
+        None
+    );
 }

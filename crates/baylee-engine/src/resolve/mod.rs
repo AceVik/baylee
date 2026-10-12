@@ -882,6 +882,10 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         );
     }
     loop {
+        if let Some(pending) = crate::sba::regeneration_choice(state) {
+            res.awaiting = Some(AwaitingOp::RegenerationChoice);
+            return Flow::Wait(pending);
+        }
         // A draw Island Sanctuary may replace, queued by the instruction
         // before (or by an answer this resolution just took), is asked
         // about before the next one runs (CR 614.11a).
@@ -1110,6 +1114,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::SacrificeChosenByOpponent { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::ReorderTopLibraryOf { .. }
+        | Effect::AddManaUnlessAnyPlayerPays { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
         | Effect::MayDoOnceEachTurn { .. }

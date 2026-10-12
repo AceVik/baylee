@@ -63,6 +63,7 @@ impl GameState {
             graveyard_order: crate::graveyard_order::Ordering::default(),
             entries: crate::entry::Entries::default(),
             sba_legend_decisions: Vec::new(),
+            regeneration_choices: crate::sba::RegenerationChoices::default(),
             delayed: Vec::new(),
             counter_links: Vec::new(),
             ltb_versions: Vec::new(),

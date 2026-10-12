@@ -849,6 +849,7 @@ impl HeuristicAgent {
                 // this seat's own ability offered to cast (Conduit of
                 // Worlds): the activation was the choice, and a window it
                 // cannot fill casts nothing and costs nothing.
+                YesNoPrompt::UseRegenerationShield { .. } => PlayerAction::YesNo(false),
                 YesNoPrompt::MayDo => PlayerAction::YesNo(self.may_do(view, source, context)),
                 YesNoPrompt::SacrificeToEnter { .. }
                 | YesNoPrompt::CommanderZone { .. }

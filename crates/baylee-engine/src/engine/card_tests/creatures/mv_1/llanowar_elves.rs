@@ -461,7 +461,7 @@ fn derevi_asks_on_both_her_triggers_and_moves_only_the_permanent_she_named() {
     // Stopping at a quiet priority as well is what turns "the trigger never
     // fired" into a sentence instead of a hundred wasted passes.
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCastMode { .. })
+        matches!(e.pending(), Pending::ChooseTargets { .. })
             || (stack_is_empty(e) && on_battlefield(e, p0, derevi_empyrial_tactician()).is_some())
     });
     tap_or_untap(&mut engine, p0, 1, my_island);
@@ -495,7 +495,7 @@ fn derevi_asks_on_both_her_triggers_and_moves_only_the_permanent_she_named() {
         .unwrap();
     let life_before = engine.state().players[1].life;
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCastMode { .. })
+        matches!(e.pending(), Pending::ChooseTargets { .. })
             || (stack_is_empty(e) && e.state().players[1].life < life_before)
     });
     assert_eq!(

@@ -9,6 +9,8 @@ use crate::filter::Filter;
 pub enum ActivationTiming {
     /// Any time you have priority.
     InstantSpeed,
+    /// Requires priority even when the ability produces mana.
+    PriorityOnly,
     /// Only in your main phase, empty stack ("as a sorcery").
     SorcerySpeed,
 }
@@ -57,6 +59,12 @@ pub enum ActivationZone {
     Battlefield,
     /// On the battlefield, activated only by its owner, regardless of controller.
     BattlefieldOwner,
+    /// Any player may activate this battlefield ability.
+    BattlefieldAnyPlayer,
+    /// Only opponents of this permanent's controller may activate it.
+    BattlefieldOpponent,
+    /// From the owner's command zone.
+    Command,
     /// From your hand (cycling).
     Hand,
     /// From your graveyard (eternalize, embalm): the card is in its owner's
@@ -119,6 +127,8 @@ pub enum StepKind {
 /// as it resolves.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Condition {
+    /// A card discarded for this ability's cost matched before leaving the hand.
+    DiscardedForCost(&'static Filter),
     /// It is one of your first N turns to actually begin.
     DuringYourFirstTurns(u32),
     /// A permanent left the battlefield under your control this turn.

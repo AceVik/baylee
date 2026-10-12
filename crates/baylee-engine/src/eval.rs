@@ -828,6 +828,16 @@ pub fn condition_holds_with_context(
 ) -> bool {
     let source = context.source;
     match condition {
+        Condition::DiscardedForCost(filter) => state
+            .object(source)
+            .and_then(|object| object.paid.as_ref())
+            .is_some_and(|paid| {
+                paid.discarded.iter().any(|reference| {
+                    state.source_object(*reference).is_some_and(|object| {
+                        matches_with_context(filter, state, object, you, context)
+                    })
+                })
+            }),
         Condition::Revolt => state.per_turn.revolt[usize::from(you.get())],
         Condition::CastInstantOrSorceryThisTurn => {
             state.per_turn.instant_or_sorcery_cast[usize::from(you.get())]

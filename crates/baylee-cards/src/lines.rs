@@ -133,7 +133,7 @@ pub fn ability_line(card: CardIndex, face: usize, index: u32) -> Option<AbilityL
 /// *trigger* in the pool with an empty [`FaceLines::modes`] row — six
 /// cards, whose chooser drew "Mode 1 / Mode 2" over a card that prints the
 /// sentences: Charming Prince; Aether Channeler; Ertai Resurrected;
-/// Primaris Eliminator; Derevi, Empyrial Tactician; and Inspirit, Flagship
+/// Primaris Eliminator; and Inspirit, Flagship
 /// Vessel. Nothing said so, because an empty row is also what a card with
 /// no modal ability at all has. See #54.
 ///
@@ -142,10 +142,8 @@ pub fn ability_line(card: CardIndex, face: usize, index: u32) -> Option<AbilityL
 /// the ability it belongs to — the engine's `ChooseCastMode` carries an
 /// `ObjectId` and nothing else — so a face whose modal abilities offered
 /// *different* modes could not be labelled at all, whatever this table
-/// held. Derevi is the pool's face with two of them: one printed sentence,
-/// two trigger conditions, two `modal_triggered!` abilities over one set
-/// of modes. `a_face_offers_one_set_of_modes` is what keeps that true as
-/// cards are added, rather than this paragraph.
+/// held. `a_face_offers_one_set_of_modes` keeps that restriction true as
+/// cards are added. Choices made during resolution are not top-level modes.
 ///
 /// It lives here rather than in `xtask` because both ends need the same
 /// reading: the walk that *writes* the table, and the tests that hold the
@@ -201,8 +199,8 @@ pub fn mode_line(card: CardIndex, face: usize, mode: usize) -> Option<AbilityLin
 /// A modal ability whose choice is printed **inside** one sentence, and the
 /// words of that sentence each mode is.
 ///
-/// Derevi prints "you may tap or untap target permanent", Inspirit "put your
-/// choice of a +1/+1 counter or two charge counters" and Tireless Provisioner
+/// Inspirit prints "put your choice of a +1/+1 counter or two charge
+/// counters" and Tireless Provisioner
 /// "create a Food token or a Treasure token": one sentence carrying every
 /// mode, so no mode *is* a sentence and [`mode_line`] rightly has nothing to
 /// say. A chooser that had only that drew "Mode 1" and "Mode 2" (#319) — two
@@ -260,11 +258,6 @@ pub static MODES_PRINTED_INLINE: &[InlineModes] = &[
         words: &["flying", "first strike", "trample", "rampage 3"],
     },
     InlineModes {
-        card: baylee_core::generated::index::DEREVI_EMPYRIAL_TACTICIAN,
-        face: 0,
-        words: &["tap", "untap"],
-    },
-    InlineModes {
         card: baylee_core::generated::index::INSPIRIT_FLAGSHIP_VESSEL,
         face: 0,
         words: &["a +1/+1 counter", "two charge counters"],
@@ -276,6 +269,13 @@ pub static MODES_PRINTED_INLINE: &[InlineModes] = &[
     },
 ];
 
+/// Choices made during resolution, separate from announcement-time modes.
+pub static RESOLUTION_CHOICES_PRINTED_INLINE: &[InlineModes] = &[InlineModes {
+    card: baylee_core::generated::index::DEREVI_EMPYRIAL_TACTICIAN,
+    face: 0,
+    words: &["tap", "untap"],
+}];
+
 /// The card's own English words for one mode printed inside a sentence, if
 /// this is such a mode. See [`InlineModes`].
 ///
@@ -285,6 +285,7 @@ pub static MODES_PRINTED_INLINE: &[InlineModes] = &[
 pub fn inline_mode_words(card: CardIndex, face: usize, mode: usize) -> Option<&'static str> {
     MODES_PRINTED_INLINE
         .iter()
+        .chain(RESOLUTION_CHOICES_PRINTED_INLINE)
         .find(|entry| entry.card == card && usize::from(entry.face) == face)?
         .words
         .get(mode)
@@ -853,10 +854,49 @@ mod tests {
     /// retyped, abbreviated or translated words fail here, and so does a
     /// card whose Oracle text is reworded under the entry.
     #[test]
+    fn derevis_resolution_choice_is_not_a_top_level_mode() {
+        use baylee_cards_dsl::{AbilityDef, Effect};
+        let card = baylee_core::generated::index::DEREVI_EMPYRIAL_TACTICIAN;
+        let def = crate::by_index(card).expect("Derevi is registered");
+        assert!(super::face_modes(def.abilities_for_face(0)).is_empty());
+        let entry = super::RESOLUTION_CHOICES_PRINTED_INLINE
+            .iter()
+            .find(|entry| entry.card == card)
+            .expect("Derevi has resolution labels");
+        let mut found = 0;
+        for ability in def.abilities_for_face(0) {
+            if let AbilityDef::Triggered { effects, .. } = ability {
+                Effect::walk(effects, &mut 0, &mut |effect| {
+                    if let Effect::ChooseOne { choices } = effect {
+                        assert!(matches!(*choices, [Effect::TapTarget, Effect::UntapTarget]));
+                        found += 1;
+                    }
+                });
+            }
+        }
+        assert_eq!(
+            found, 2,
+            "both triggers choose tap or untap during resolution"
+        );
+        assert_eq!(entry.words, &["tap", "untap"]);
+        let oracle = crate::oracle::face(card, 0).expect("Derevi Oracle");
+        let sentences = u8::try_from(baylee_core::oracle::sentence_count(oracle)).unwrap();
+        assert!(
+            (0..sentences)
+                .filter_map(|line| crate::oracle::sentence(card, 0, line))
+                .any(|sentence| entry.words.iter().all(|word| sentence.contains(word)))
+        );
+        for (mode, words) in entry.words.iter().enumerate() {
+            assert_eq!(super::inline_mode_words(card, 0, mode), Some(*words));
+        }
+        assert_eq!(super::inline_mode_words(card, 0, entry.words.len()), None);
+    }
+
+    #[test]
     fn every_inline_mode_is_printed_in_its_own_sentence() {
         assert!(
             !super::MODES_PRINTED_INLINE.is_empty(),
-            "the pool prints modes inside a sentence (Derevi, Inspirit, Tireless Provisioner)"
+            "the pool prints modes inside a sentence (Inspirit, Tireless Provisioner)"
         );
         for entry in super::MODES_PRINTED_INLINE {
             let def = crate::by_index(entry.card).expect("a card of the pool");
@@ -1056,9 +1096,8 @@ mod tests {
     /// abilities, and it is what makes [`super::face_modes`] — which takes
     /// the first modal ability's — a contract instead of a guess. A modal
     /// trigger is not cast, so two of them on one face is a shape the
-    /// engine allows and Derevi prints: one sentence, two trigger
-    /// conditions, two `modal_triggered!` abilities. They may sit there
-    /// because they offer the *same* modes; two that differed would put
+    /// engine allows. They may share a face because they offer the *same*
+    /// modes; two that differed would put
     /// one ability's sentence on the other's mode, and nothing downstream
     /// could tell, because `Mode(i)` names no ability.
     #[test]

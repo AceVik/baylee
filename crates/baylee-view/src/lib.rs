@@ -218,7 +218,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 73 carries stable granted-ability identities, complete inherited
 /// definitions and creature-activation mana permissions from package 46.
 /// Readers must preserve sparse grant slots rather than infer list positions.
-pub const VIEW_VERSION: u32 = 73;
+/// Version 74 adds the choice between standing and one-shot regeneration.
+pub const VIEW_VERSION: u32 = 74;
 
 // ------------------------------------------------------------------- targets
 

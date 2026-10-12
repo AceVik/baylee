@@ -9,6 +9,11 @@ use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_core::ids::PlayerId;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
+mod regeneration;
+pub(crate) use regeneration::{
+    RegenerationChoices, answer_regeneration_choice, regeneration_choice,
+};
+
 /// What the SBA pass needs from the engine flow.
 #[derive(Debug, Default)]
 pub struct SbaOutcome {
@@ -740,11 +745,35 @@ fn destroy_with(
         && state
             .object(id)
             .is_none_or(|o| !state.per_turn.cant_regenerate.contains(&(id, o.version)));
+    let standing_regeneration = state.object(id).is_some_and(|object| {
+        state.effects.iter().any(|effect| {
+            effect.modifier == baylee_cards_dsl::Modifier::RegenerateInsteadOfDestroy
+                && crate::effects::applies_to(state, effect, object)
+        })
+    });
+    if regeneratable
+        && standing_regeneration
+        && let Some(object) = state.object(id)
+        && object.regeneration_shields > 0
+    {
+        let order = (usize::from(object.controller.get()) + state.players.len()
+            - usize::from(state.turn.active.get()))
+            % state.players.len();
+        state.regeneration_choices.push(
+            baylee_core::ids::DamageSourceRef {
+                object: id,
+                version: object.version,
+            },
+            order,
+        );
+    }
     if regeneratable
         && let Some(obj) = state.object_mut(id)
-        && obj.regeneration_shields > 0
+        && (standing_regeneration || obj.regeneration_shields > 0)
     {
-        obj.regeneration_shields -= 1;
+        if !standing_regeneration {
+            obj.regeneration_shields -= 1;
+        }
         obj.damage = 0;
         obj.deathtouched = false;
         // `set_tapped` and not the bit: tapping is what the layer

@@ -48,6 +48,7 @@ pub(super) fn prepare(
         // Copying choices does not copy actual mana expenditure or create a cast.
         object.paid = spell.paid.as_ref().map(|paid| {
             Box::new(PaidRecord {
+                discarded: paid.discarded.clone(),
                 sacrificed_lki: paid.sacrificed_lki,
                 sacrificed: paid.sacrificed,
                 source_after_cost: paid.source_after_cost,

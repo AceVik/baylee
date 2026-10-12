@@ -500,37 +500,45 @@
     {
       "batch": 47,
       "title": "Activation authority and prices",
-      "status": "in_progress",
+      "status": "completed",
       "cards": [
         {
           "name": "Clergy of the Holy Nimbus",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_1/clergy_of_the_holy_nimbus.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_1/clergy_of_the_holy_nimbus.rs",
+          "status": "completed"
         },
         {
           "name": "Derevi, Empyrial Tactician",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_3/derevi_empyrial_tactician.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/derevi_empyrial_tactician.rs",
+          "status": "completed"
         },
         {
           "name": "Ifh-Bíff Efreet",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_4/ifh_biff_efreet.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/ifh_biff_efreet.rs",
+          "status": "completed"
         },
         {
           "name": "Rhystic Cave",
-          "path": "crates/baylee-cards/src/cards/lands/utility/rhystic_cave.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/rhystic_cave.rs",
+          "status": "completed"
         },
         {
           "name": "Land's Edge",
-          "path": "crates/baylee-cards/src/cards/enchantments/mv_3/land_s_edge.rs"
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_3/land_s_edge.rs",
+          "status": "completed"
         },
         {
           "name": "Armageddon Clock",
-          "path": "crates/baylee-cards/src/cards/artifacts/mv_6/armageddon_clock.rs"
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_6/armageddon_clock.rs",
+          "status": "completed"
         },
         {
           "name": "Power Artifact",
-          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_2/power_artifact.rs"
+          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_2/power_artifact.rs",
+          "status": "completed"
         }
-      ]
+      ],
+      "validated_complete": 7
     },
     {
       "batch": 48,

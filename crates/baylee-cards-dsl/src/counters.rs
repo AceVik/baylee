@@ -108,6 +108,9 @@ pub const PIN: CounterKind = CounterKind::Custom(20);
 /// Dream counters (Rasputin Dreamweaver).
 pub const DREAM: CounterKind = CounterKind::Custom(21);
 
+/// Doom counters accumulated by Armageddon Clock.
+pub const DOOM: CounterKind = CounterKind::Custom(22);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -135,6 +138,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("sleep", SLEEP),
     ("pin", PIN),
     ("dream", DREAM),
+    ("doom", DOOM),
 ];
 
 #[cfg(test)]

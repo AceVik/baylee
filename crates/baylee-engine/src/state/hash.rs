@@ -29,6 +29,7 @@ impl GameState {
             graveyard_order,
             entries,
             sba_legend_decisions,
+            regeneration_choices,
             players,
             turn,
             combat,
@@ -122,6 +123,7 @@ impl GameState {
         graveyard_order.hash(&mut h);
         entries.hash(&mut h);
         sba_legend_decisions.hash(&mut h);
+        regeneration_choices.hash(&mut h);
         hash_effects(&mut h, effects);
         text_changes.hash(&mut h);
         effect_text_overrides.hash(&mut h);
@@ -883,6 +885,11 @@ fn hash_object_situation(
     }
     h.boolean(obj.paid.is_some());
     if let Some(paid) = &obj.paid {
+        h.usize(paid.discarded.len());
+        for reference in &paid.discarded {
+            h.u32(position(reference.object));
+            hash_damage_source(h, state, reference.object, reference.version);
+        }
         mana::pool(h, state, &paid.mana_paid, position);
         mana::riders(h, state, paid, position);
         paid.fixed_mana_cost.hash(h);

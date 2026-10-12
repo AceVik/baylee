@@ -158,5 +158,22 @@ impl<L: CardLookup> Engine<L> {
             .is_some_and(AbilityDef::is_mana_ability)
     }
 
+    /// Mana abilities usable during another cost's payment, without priority.
+    pub(super) fn is_payment_mana_offer(&self, source: ObjectId, index: u32) -> bool {
+        self.is_mana_offer(source, index)
+            && !matches!(
+                self.activation_definition(source, index),
+                Some(
+                    AbilityDef::Activated {
+                        timing: ActivationTiming::PriorityOnly,
+                        ..
+                    } | AbilityDef::ActivatedConditional {
+                        timing: ActivationTiming::PriorityOnly,
+                        ..
+                    }
+                )
+            )
+    }
+
     // ---------------------------------------------------- S3: abilities
 }

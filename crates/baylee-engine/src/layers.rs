@@ -1329,6 +1329,8 @@ fn apply(
         Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostMore(_)
         | Modifier::AbilitiesCostMore(_)
+        | Modifier::AbilitiesCostLess { .. }
+        | Modifier::RegenerateInsteadOfDestroy
         | Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard
         | Modifier::CastPermanentSpellsFromGraveyard

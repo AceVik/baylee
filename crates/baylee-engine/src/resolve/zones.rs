@@ -548,6 +548,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::PutSelfOntoBattlefield => {
+            let subject = super::subjects::source(state, res)
+                .filter(|r| super::subjects::is_current(state, *r))?;
+            let owner = state.object(subject.object)?.owner;
+            put_found(state, owner, subject.object, SearchDest::Battlefield);
+            None
+        }
         Effect::PutSourceFromHandOntoBattlefield => {
             let subject = super::subjects::source(state, res)
                 .filter(|r| super::subjects::is_current(state, *r))?;

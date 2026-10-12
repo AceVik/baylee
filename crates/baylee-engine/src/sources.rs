@@ -26,6 +26,7 @@ pub(crate) enum Slot {
     Second(u32),
     Tapped,
     Sacrificed,
+    Discarded(u32),
     MovedSource,
     Linked(u32),
 }
@@ -303,6 +304,15 @@ impl GameState {
             }
             if let Some((id, version)) = obj.paid.as_ref().and_then(|p| p.sacrificed) {
                 slots.push((Slot::Sacrificed, id, Some(version)));
+            }
+            if let Some(paid) = &obj.paid {
+                for (i, reference) in paid.discarded.iter().enumerate() {
+                    slots.push((
+                        Slot::Discarded(u32::try_from(i).expect("discard index")),
+                        reference.object,
+                        Some(reference.version),
+                    ));
+                }
             }
             refs.retain(|slot, _| {
                 matches!(slot, Slot::Linked(_) | Slot::MovedSource)

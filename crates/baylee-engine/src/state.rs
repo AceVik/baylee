@@ -827,6 +827,8 @@ pub struct GameState {
     pub(crate) entries: crate::entry::Entries,
     /// Legend decisions waiting for their simultaneous SBA pass.
     pub(crate) sba_legend_decisions: Vec<crate::sba::LegendDecision>,
+    /// Competing regeneration replacements awaiting the affected controller.
+    pub(crate) regeneration_choices: crate::sba::RegenerationChoices,
     /// Seats in turn order.
     pub players: Vec<Player>,
     /// Turn bookkeeping.
@@ -1269,6 +1271,7 @@ impl GameState {
             graveyard_order,
             entries,
             sba_legend_decisions,
+            regeneration_choices,
             players,
             turn,
             combat,
@@ -1357,6 +1360,10 @@ impl GameState {
             (
                 "state.sba_legend_decisions",
                 format!("{sba_legend_decisions:?}"),
+            ),
+            (
+                "state.regeneration_choices",
+                format!("{regeneration_choices:?}"),
             ),
             ("state.players", format!("{players:?}")),
             ("state.turn", format!("{turn:?}")),

@@ -79,6 +79,7 @@ pub(super) struct ActivationPayment {
     ability_index: u32,
     targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
     pub(super) cost: baylee_core::mana::ManaCost,
+    fixed_cost: baylee_core::mana::ManaCost,
     players: Vec<PlayerId>,
     choices: Vec<Vec<baylee_core::ids::ObjectId>>,
     second: Option<smallvec::SmallVec<[baylee_core::ids::ObjectId; 1]>>,
@@ -105,6 +106,7 @@ impl ActivationPayment {
             self.ability_index,
             &self.targets,
             self.cost,
+            self.fixed_cost,
             &self.players,
             &self.choices,
             &self.second,
@@ -241,7 +243,7 @@ impl<L: CardLookup> Engine<L> {
             || legal
                 .abilities
                 .iter()
-                .any(|&(id, index)| id != excluded && self.is_mana_offer(id, index))
+                .any(|&(id, index)| id != excluded && self.is_payment_mana_offer(id, index))
     }
 
     pub(super) fn open_activation_payment(
@@ -251,6 +253,7 @@ impl<L: CardLookup> Engine<L> {
         ability_index: u32,
         targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
         cost: baylee_core::mana::ManaCost,
+        fixed_cost: baylee_core::mana::ManaCost,
     ) -> Result<(), EngineError> {
         let source = self
             .state
@@ -263,6 +266,7 @@ impl<L: CardLookup> Engine<L> {
             ability_index,
             targets,
             cost,
+            fixed_cost,
             players: std::mem::take(&mut self.activation_target_players),
             choices: std::mem::take(&mut self.activation_cost_choices),
             second: self.activation_second_targets.take(),
@@ -321,11 +325,12 @@ impl<L: CardLookup> Engine<L> {
         self.activating_abilities = payment.abilities;
         self.activating_grant = payment.grant;
         if self
-            .start_activation(
+            .start_activation_with_price(
                 player,
                 payment.source.object,
                 payment.ability_index,
                 payment.targets,
+                Some((payment.cost, payment.fixed_cost)),
             )
             .is_err()
         {

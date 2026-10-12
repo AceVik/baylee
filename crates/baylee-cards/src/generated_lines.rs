@@ -2601,7 +2601,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Armageddon Clock
+    &[FaceLines {
+        sentences: 3,
+        stackable: 3,
+        lines: &[Some(0), Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Artifact Blast
     &[FaceLines {
         sentences: 1,
@@ -2938,7 +2945,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -3427,7 +3434,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Clergy of the Holy Nimbus
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Cocoon
     &[FaceLines {
         sentences: 4,
@@ -4122,7 +4136,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Land's Edge
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Lesser Werewolf
     &[FaceLines {
         sentences: 1,
@@ -12790,7 +12811,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -28012,9 +28033,9 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Derevi, Empyrial Tactician
     &[FaceLines {
         sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(1)],
-        modes: &[None, None],
+        stackable: 3,
+        lines: &[Some(1), Some(1), Some(2)],
+        modes: &[],
         alternatives: &[],
     }],
     &[],

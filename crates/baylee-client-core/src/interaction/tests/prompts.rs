@@ -1431,3 +1431,20 @@ fn tapped_entry_counter_choice_names_the_resource_and_amount_in_both_languages()
         )
     );
 }
+
+#[test]
+fn regeneration_choice_explains_that_no_preserves_the_shield_and_still_regenerates() {
+    let i = interaction(Pending::YesNo {
+        player: me(),
+        source: None,
+        prompt: YesNoPrompt::UseRegenerationShield { permanent: obj(7) },
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Use up a regeneration shield? No uses the permanent's own regeneration and keeps the shield."
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Einen Regenerationsschild verbrauchen? Nein nutzt die eigene Regeneration der bleibenden Karte und bewahrt den Schild."
+    );
+}

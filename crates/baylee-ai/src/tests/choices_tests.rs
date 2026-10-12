@@ -589,3 +589,19 @@ fn a_card_of_a_revealed_type_is_taken_and_the_best_one() {
         }
     );
 }
+
+#[test]
+fn standing_regeneration_is_used_without_consuming_a_one_shot_shield() {
+    let v = view(0, &[20, 20], vec![]);
+    let pending = Pending::YesNo {
+        player: v.seat,
+        source: None,
+        prompt: YesNoPrompt::UseRegenerationShield { permanent: obj(7) },
+    };
+    for (_, profile) in AIProfile::NAMED {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::YesNo(false)
+        );
+    }
+}

@@ -549,7 +549,9 @@ pub(super) fn exec_choice(
                 source: resolving_ability(state, res),
             })
         }
-        Effect::AddMana { .. } => mana::exec(state, res, op),
+        Effect::AddManaUnlessAnyPlayerPays { .. } | Effect::AddMana { .. } => {
+            mana::exec(state, res, op)
+        }
         Effect::MayDo { effects } => {
             if !may_clause_possible(state, res, effects) {
                 return None;

@@ -142,6 +142,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostMore(_)
         | Modifier::AbilitiesCostMore(_)
+            | Modifier::AbilitiesCostLess { .. }
+            | Modifier::RegenerateInsteadOfDestroy
         | Modifier::LegendRuleOff
         // Two permissions, and CR 611.2c locks a set only for an effect
         // that changes characteristics or control. These change what their
@@ -1115,6 +1117,11 @@ mod tests {
             Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
             Modifier::AbilitiesCostMore(3),
+            Modifier::AbilitiesCostLess {
+                amount: 2,
+                minimum: 1,
+            },
+            Modifier::RegenerateInsteadOfDestroy,
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
             Modifier::CastPermanentSpellsFromGraveyard,
@@ -1241,7 +1248,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            114,
+            116,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1305,7 +1312,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (41, 73));
+        assert_eq!((locking, all.len() - locking), (41, 75));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

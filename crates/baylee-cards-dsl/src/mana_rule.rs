@@ -24,6 +24,7 @@ pub fn could_add_mana(effects: &[Effect]) -> bool {
         matches!(
             effect,
             Effect::AddMana { .. }
+                | Effect::AddManaUnlessAnyPlayerPays { .. }
                 | Effect::AddManaFor { .. }
                 | Effect::AddManaLikeEvent { .. }
                 | Effect::ManaForColorsAmong(_)

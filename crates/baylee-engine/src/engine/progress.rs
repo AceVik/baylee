@@ -383,6 +383,11 @@ impl<L: CardLookup> Engine<L> {
             if self.state.numeric_failure.is_some() {
                 return;
             }
+            if let Some(pending) = crate::sba::regeneration_choice(&mut self.state) {
+                self.pending = pending;
+                self.awaiting_answer = true;
+                return;
+            }
             if let Some(pending) = crate::graveyard_order::pending(&mut self.state) {
                 self.pending = pending;
                 self.awaiting_answer = true;

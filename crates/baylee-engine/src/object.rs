@@ -1105,6 +1105,8 @@ impl SacrificedLki {
 /// be an allocation in every AI ply's clone.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct PaidRecord {
+    /// Exact pre-discard cards paid for this ability, including replaced discards.
+    pub discarded: Vec<baylee_core::ids::DamageSourceRef>,
     /// Source found after this cost actually moved it to a public zone (CR 400.7j).
     pub source_after_cost: Option<baylee_core::ids::DamageSourceRef>,
     /// The permanent sacrificed to pay the cost as it last existed on the

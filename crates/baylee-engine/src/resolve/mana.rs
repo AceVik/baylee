@@ -16,6 +16,24 @@ mod production;
 /// Executes one mana effect.
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     match op {
+        Effect::AddManaUnlessAnyPlayerPays {
+            source,
+            amount,
+            cost,
+        } => {
+            let options = resolving_colors(state, res, source);
+            match options.as_slice() {
+                [] => None,
+                [only] => offer_prevention(state, res, *only, amount, cost, 0),
+                _ => {
+                    res.awaiting = Some(AwaitingOp::ManaUnlessPaidColor { amount, cost });
+                    Some(Pending::ChooseColor {
+                        player: res.controller,
+                        options,
+                    })
+                }
+            }
+        }
         Effect::AddMana {
             source,
             amount,
@@ -370,6 +388,45 @@ fn devotion(state: &GameState, you: PlayerId) -> Option<[u16; 6]> {
         }
     }
     Some(amounts)
+}
+
+/// Ask each live player in APNAP order, stopping as soon as somebody pays.
+pub(super) fn offer_prevention(
+    state: &mut GameState,
+    res: &mut Resolution,
+    color: ManaColor,
+    amount: u32,
+    cost: baylee_core::mana::ManaCost,
+    next: usize,
+) -> Option<Pending> {
+    let seats = state.players.len();
+    for offset in next..seats {
+        let seat = (usize::from(state.turn.active.get()) + offset) % seats;
+        let player = state.players[seat].id;
+        if state.has_left(player) {
+            continue;
+        }
+        res.awaiting = Some(AwaitingOp::PlayerMayPay {
+            player,
+            cost,
+            outcome: ManaPaymentOutcome::PreventMana {
+                color,
+                amount,
+                next: offset + 1,
+            },
+        });
+        return Some(Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayMana { cost },
+            source: resolving_ability(state, res),
+        });
+    }
+    let Ok(amount) = u16::try_from(amount) else {
+        state.numeric_failure = Some("one mana-production instruction exceeds u16 units");
+        return None;
+    };
+    add(state, res, color, amount, None);
+    None
 }
 
 #[cfg(test)]

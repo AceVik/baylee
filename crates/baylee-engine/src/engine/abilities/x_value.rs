@@ -114,17 +114,55 @@ impl<L: CardLookup> Engine<L> {
         }
         let mut max = resource_max.unwrap_or(u32::MAX);
         if cost.mana.has_variable() && !self.can_make_more_mana(player, source, index) {
+            let (printed, reduction) = match self.activation_definition(source, index) {
+                Some(
+                    AbilityDef::Activated {
+                        cost,
+                        cost_reduction,
+                        ..
+                    }
+                    | AbilityDef::ActivatedConditional {
+                        cost,
+                        cost_reduction,
+                        ..
+                    },
+                ) => (cost, cost_reduction),
+                _ => (*cost, None),
+            };
+            let credit = self.state.object(source).map_or(0, |object| {
+                self.state
+                    .effects
+                    .iter()
+                    .filter_map(|effect| match effect.modifier {
+                        baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, .. }
+                            if crate::effects::applies_to(&self.state, effect, object) =>
+                        {
+                            Some(amount)
+                        }
+                        _ => None,
+                    })
+                    .fold(
+                        casting::reduction_amount(&self.state, reduction, player, source),
+                        u32::saturating_add,
+                    )
+            });
             let upper =
                 casting::spendable_units(&self.state, player, casting::SpendFor::Ability(source))
-                    .saturating_add(self.state.granted_colorless_capacity(player));
+                    .saturating_add(self.state.granted_colorless_capacity(player))
+                    .saturating_add(credit);
             max = max.min(casting::greatest_affordable(upper, |x| {
                 self.can_plan_activation(
                     player,
                     source,
-                    &Cost {
-                        mana: cost.mana.with_x(x),
-                        parts: cost.parts,
-                    },
+                    &self.activation_price(
+                        player,
+                        source,
+                        &Cost {
+                            mana: printed.mana.with_x(x),
+                            parts: printed.parts,
+                        },
+                        reduction,
+                    ),
                     0,
                 )
             }));

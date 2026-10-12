@@ -366,6 +366,10 @@ impl<L: CardLookup> Engine<L> {
     fn decline_for_the_departed(&mut self, mut res: Resolution) {
         let state = &mut self.state;
         let flow = match (&self.pending, &res.awaiting) {
+            (_, Some(AwaitingOp::RegenerationChoice)) => {
+                res.awaiting = None;
+                resolve::run(state, &mut res)
+            }
             (_, None) => Flow::Complete,
             (Pending::YesNo { .. }, Some(AwaitingOp::PlayerMayPay { .. })) => {
                 resolve::resume_tax_choice(state, &mut res, false)

@@ -858,6 +858,7 @@ impl Effect {
             | Effect::UntapChosen { .. }
             | Effect::DrainAllCountersIntoSelf
             | Effect::GraveyardToLibraryBottom { .. }
+            | Effect::PutSelfOntoBattlefield
             | Effect::PutSourceFromHandOntoBattlefield
             | Effect::ShuffleTargetsIntoOwnersLibraries
             | Effect::ShuffleGraveyardIntoLibrary
@@ -878,6 +879,7 @@ impl Effect {
             | Effect::ExileLibraryAndShuffleHand { .. }
             | Effect::SetPTFilter { .. }
             | Effect::Mill { .. }
+            | Effect::AddManaUnlessAnyPlayerPays { .. }
             | Effect::AddMana { .. }
             | Effect::AddManaFor { .. }
             | Effect::ManaForColorsAmong(_)

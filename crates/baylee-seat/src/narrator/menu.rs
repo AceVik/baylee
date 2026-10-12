@@ -885,6 +885,14 @@ pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (S
     (q.text, menu)
 }
 
+fn regeneration_words() -> (String, String, String) {
+    (
+        "Which regeneration replacement should apply?".into(),
+        "consume a regeneration shield".into(),
+        "use the permanent's standing regeneration and keep the shield".into(),
+    )
+}
+
 /// A yes/no question in words: the question, what yes does, what no does.
 fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, String) {
     match prompt {
@@ -892,6 +900,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         YesNoPrompt::SacrificeToEnter { count } => entry_sacrifice_words(*count),
         YesNoPrompt::PayLifeOrEnterTapped { amount } => entry_life_words(*amount),
         YesNoPrompt::ManaAnyType => north_star_words(),
+        YesNoPrompt::UseRegenerationShield { .. } => regeneration_words(),
         YesNoPrompt::Kicker => (
             "Pay the kicker or additional cost?".into(),
             "pay it".into(),

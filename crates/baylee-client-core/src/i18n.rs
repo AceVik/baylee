@@ -2610,6 +2610,11 @@ messages! {
         en: "Your commander would go into your library. Command zone instead?",
         de: "Dein Kommandeur käme in die Bibliothek. Stattdessen in die Kommandozone?",
     },
+    /// Choose a one-shot regeneration shield instead of the permanent's own regeneration.
+    UseRegenerationShield {
+        en: "Use up a regeneration shield? No uses the permanent's own regeneration and keeps the shield.",
+        de: "Einen Regenerationsschild verbrauchen? Nein nutzt die eigene Regeneration der bleibenden Karte und bewahrt den Schild.",
+    },
     /// Use the optional part of this ability? ("you may …")
     UseTheOptionalAbility {
         en: "This ability is optional. Use it?",

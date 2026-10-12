@@ -4,8 +4,7 @@
 use super::*;
 
 /// Rhystic Cave: "{T}: Choose a color. Add one mana of that color unless any player pays {1}. Activate only as an instant."
-/// Under `Coverage::Partial`, the payment prevention condition is omitted.
-/// Activating the land prompts for a color choice; selecting Blue adds {U} to the mana pool.
+/// The chosen mana arrives only after every player declines payment.
 #[test]
 fn rhystic_cave_adds_chosen_color_mana() {
     let p0 = PlayerId::new(0);
@@ -27,6 +26,9 @@ fn rhystic_cave_adds_chosen_color_mana() {
         .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
         .unwrap();
 
+    while let Pending::YesNo { player, .. } = engine.pending().clone() {
+        engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+    }
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Blue), 1);
     assert!(is_tapped(&engine, cave));

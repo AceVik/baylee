@@ -206,7 +206,7 @@ impl<L: CardLookup> Engine<L> {
         legal.suspendable.clear();
         legal
             .abilities
-            .retain(|&(source, index)| self.is_mana_offer(source, index));
+            .retain(|&(source, index)| self.is_payment_mana_offer(source, index));
     }
 
     /// Effective words captured for an activation, or live words before it starts.

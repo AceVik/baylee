@@ -115,6 +115,32 @@ impl<L: CardLookup> Engine<L> {
         if let Some(fault) = self.pending.answer_fault(&action) {
             return Err(fault.into());
         }
+        if matches!(
+            self.pending,
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::UseRegenerationShield { .. },
+                ..
+            }
+        ) {
+            let PlayerAction::YesNo(use_shield) = action else {
+                unreachable!("validated yes/no")
+            };
+            crate::sba::answer_regeneration_choice(&mut self.state, use_shield);
+            self.awaiting_answer = false;
+            if let Some(mut res) = self.resolution.take() {
+                res.awaiting = None;
+                match resolve::run(&mut self.state, &mut res) {
+                    resolve::Flow::Complete => self.finish_resolution(&res),
+                    resolve::Flow::Enter => self.resolution = Some(res),
+                    resolve::Flow::Wait(pending) => {
+                        self.resolution = Some(res);
+                        self.pending = pending;
+                        self.awaiting_answer = true;
+                    }
+                }
+            }
+            return Ok(());
+        }
         if self.state.entries.waiting() {
             crate::entry::answer(&mut self.state, &action);
             self.continue_entry_queue();

@@ -32,6 +32,17 @@ pub use targets::*;
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Put this exact source onto the battlefield under its owner's control.
+    PutSelfOntoBattlefield,
+    /// Choose a color, then make mana unless a player pays the specified cost.
+    AddManaUnlessAnyPlayerPays {
+        /// The color choices made before any player decides whether to pay.
+        source: ManaSource,
+        /// Mana produced if nobody pays.
+        amount: u32,
+        /// Cost offered to each player in turn order.
+        cost: baylee_core::mana::ManaCost,
+    },
     /// Exile legal graveyard targets, or every matching card in your graveyard,
     /// then optionally cast each resulting card copy for free during resolution.
     ExileAndCastCopies {

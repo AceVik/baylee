@@ -1005,6 +1005,8 @@ pub(super) fn resume_inner(
         | AwaitingOp::ManaForDamage { .. }
         | AwaitingOp::DamagePayment { .. }
         | AwaitingOp::SacrificeOpponent { .. }
+        | AwaitingOp::ManaUnlessPaidColor { .. }
+        | AwaitingOp::RegenerationChoice
         | AwaitingOp::ManaChoice { .. }
         | AwaitingOp::ProtectionColor { .. }
         | AwaitingOp::LandwalkChoice { .. }

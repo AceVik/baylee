@@ -6,6 +6,8 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Choose which regeneration replacement applies before continuing the program.
+    RegenerationChoice,
     /// All cards privately inspected by hideaway.
     Hideaway {
         /// Top cards, in their inspection order.
@@ -673,11 +675,14 @@ pub enum AwaitingOp {
     },
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
-    /// A mana color choice.
-    ///
-    /// The options are already a concrete list: commander identity and the
-    /// colors the lands on the battlefield produce are game state, so they
-    /// are settled when the effect runs, not when the answer arrives.
+    /// Color chosen before opponents can prevent mana production.
+    ManaUnlessPaidColor {
+        /// Mana produced if nobody pays.
+        amount: u32,
+        /// Payment preventing production.
+        cost: baylee_core::mana::ManaCost,
+    },
+    /// A mana color choice with already resolved production options.
     ManaChoice {
         /// Player receiving and choosing the mana.
         recipient: PlayerId,
@@ -785,6 +790,15 @@ pub enum AwaitingOp {
 /// Work to resume after a resolution-time mana payment.
 #[derive(Clone, Debug, Hash)]
 pub enum ManaPaymentOutcome {
+    /// Continue an APNAP sequence; any payment prevents the chosen mana.
+    PreventMana {
+        /// Already chosen mana color.
+        color: ManaColor,
+        /// Mana quantity to produce.
+        amount: u32,
+        /// Next APNAP offset, skipping players who have left.
+        next: usize,
+    },
     /// A printed effect branch conditioned on either payment or refusal.
     Effects {
         /// Printed branch.

@@ -254,6 +254,7 @@ pub(super) fn exec_immediate(
         | Effect::PutSourceOnTopOfLibrary
         | Effect::BottomCardFromHand { .. }
         | Effect::GraveyardToLibraryBottom { .. }
+        | Effect::PutSelfOntoBattlefield
         | Effect::PutSourceFromHandOntoBattlefield
         | Effect::ShuffleTargetsIntoOwnersLibraries
         | Effect::ShuffleGraveyardIntoLibrary
@@ -1954,6 +1955,7 @@ pub(super) fn exec_immediate(
         | Effect::SacrificeChosenByOpponent { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::ReorderTopLibraryOf { .. }
+        | Effect::AddManaUnlessAnyPlayerPays { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
         | Effect::MayDoOnceEachTurn { .. }
@@ -1973,6 +1975,22 @@ fn resolution_condition(
 ) -> bool {
     use baylee_cards_dsl::{Condition, Filter};
     match condition {
+        Condition::DiscardedForCost(filter) => state
+            .object(res.on_stack)
+            .and_then(|object| object.paid.as_ref())
+            .is_some_and(|paid| {
+                paid.discarded.iter().any(|reference| {
+                    state.source_object(*reference).is_some_and(|object| {
+                        eval::matches_with_context(
+                            filter,
+                            state,
+                            object,
+                            res.controller,
+                            res.rule_context(),
+                        )
+                    })
+                })
+            }),
         Condition::SourceMatches(Filter::PowerAtLeast(n)) => {
             state
                 .object(res.on_stack)

@@ -356,6 +356,10 @@ impl<L: CardLookup> Engine<L> {
                         if !match zone {
                             ActivationZone::Battlefield => obj.controller == player,
                             ActivationZone::BattlefieldOwner => obj.owner == player,
+                            ActivationZone::BattlefieldAnyPlayer => true,
+                            ActivationZone::BattlefieldOpponent => {
+                                self.state.is_opponent(player, obj.controller)
+                            }
                             _ => false,
                         } {
                             continue; // hand-zone abilities are scanned below
@@ -389,6 +393,10 @@ impl<L: CardLookup> Engine<L> {
                         if !match zone {
                             ActivationZone::Battlefield => obj.controller == player,
                             ActivationZone::BattlefieldOwner => obj.owner == player,
+                            ActivationZone::BattlefieldAnyPlayer => true,
+                            ActivationZone::BattlefieldOpponent => {
+                                self.state.is_opponent(player, obj.controller)
+                            }
                             _ => false,
                         } {
                             continue;
@@ -465,6 +473,7 @@ impl<L: CardLookup> Engine<L> {
         // graveyard's (eternalize): the same arms, each ability asked
         // whether the zone it is in is the zone it works from.
         for (from_zone, from) in [
+            (ZoneLocation::Command(player), ActivationZone::Command),
             (ZoneLocation::Hand(player), ActivationZone::Hand),
             (ZoneLocation::Graveyard(player), ActivationZone::Graveyard),
         ] {

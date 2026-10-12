@@ -157,18 +157,7 @@ fn derevi_empyrial_tactician() -> baylee_core::ids::CardIndex {
     card_index("afa49a09-146f-4439-850e-dd1938c93cef")
 }
 
-/// Answers Derevi's trigger: takes mode `mode`, points it at `target`, and
-/// lets it resolve.
-///
-/// Both of her trigger conditions run the same pair of modes — one printed
-/// sentence, two abilities over one `SpellMode` list — so both readings of
-/// the card go through this one door, and a difference between them would be
-/// a difference in the engine rather than in the test.
-///
-/// Mode 0 is tap and mode 1 is untap, in the order the card writes them. They
-/// are answered by *position* and not by number: a modal trigger drops the
-/// modes it cannot legally choose (CR 603.3c), so the two are the same list
-/// only while both are offered — which is asserted here rather than assumed.
+/// Targets Derevi's trigger, then chooses tap or untap as it resolves.
 #[track_caller]
 fn tap_or_untap(
     engine: &mut Engine<RegistryLookup>,
@@ -176,50 +165,13 @@ fn tap_or_untap(
     mode: usize,
     target: ObjectId,
 ) {
-    let Pending::ChooseCastMode {
-        player, options, ..
-    } = engine.pending().clone()
-    else {
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
         panic!(
-            "Derevi's trigger asked for no mode — got {:?}. \"You may tap or \
-             untap target permanent\" is two modes, chosen by the controller \
-             as the ability goes on the stack (CR 603.3c); a modal trigger \
-             that is never collected is a card with no text at all.",
+            "Derevi targets before the resolution choice: {:?}",
             engine.pending()
         )
     };
-    assert_eq!(player, seat, "Derevi's controller answers her trigger");
-    let modes: Vec<usize> = options
-        .iter()
-        .filter_map(|o| match o.kind {
-            crate::choice::CastModeKind::Mode(m) => Some(m),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(
-        modes,
-        vec![0, 1],
-        "tap *or* untap, and both are always offered: \"target permanent\" is \
-         `Filter::Any` over the battlefield, which is never empty while she \
-         is standing on it",
-    );
-    let slot = options
-        .iter()
-        .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(m) if m == mode))
-        .expect("the mode asked for is on the list");
-    engine.apply(seat, PlayerAction::ChooseMode(slot)).unwrap();
-    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
-        panic!(
-            "the chosen mode asked for no target — got {:?}. The `TargetReq` \
-             is on the mode, not on the ability.",
-            engine.pending()
-        )
-    };
-    assert!(
-        options.contains(&target),
-        "\"target permanent\" reaches any permanent on the table, whoever \
-         controls it",
-    );
+    assert!(options.contains(&target));
     engine
         .apply(
             seat,
@@ -228,7 +180,20 @@ fn tap_or_untap(
             },
         )
         .unwrap();
-    // The printed "may" is asked on resolution; `pass_until` takes it.
+    pass_until(engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    engine.apply(seat, PlayerAction::YesNo(true)).unwrap();
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending()
+    else {
+        panic!(
+            "tap or untap is chosen during resolution: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(*player, seat);
+    assert_eq!(options.len(), 2);
+    engine.apply(seat, PlayerAction::ChooseMode(mode)).unwrap();
     pass_until(engine, stack_is_empty);
 }
 
