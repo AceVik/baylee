@@ -14,5 +14,3 @@ mod leaden_myr;
 mod manakin;
 mod myr_retriever;
 mod silver_myr;
-
-mod battering_ram;

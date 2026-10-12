@@ -498,7 +498,8 @@ pub fn offers(
             // to read: the host has already reduced it to colours *and* a
             // count, which is why a grant is always a number here.
             Some(slot) => granted_source(view, object, slot).map(|source| {
-                let fixed = source.colors.len() == 1;
+                // Fixed describes the known amount, not whether a color is chosen.
+                let fixed = true;
                 (source.colors, fixed)
             }),
             None => match ability_at(view, object, index) {

@@ -73,7 +73,11 @@ fn a_mana_spending_permission_needs_no_separate_may_question() {
     });
     let mut tally = super::PrintingTally::default();
     let mut problems = 0;
-    for (name, expected) in [("Sunglasses of Urza", 0), ("Fog", 1)] {
+    for (name, expected) in [
+        ("Sunglasses of Urza", 0),
+        ("Agatha's Soul Cauldron", 0),
+        ("Fog", 1),
+    ] {
         let def = baylee_cards::decks::by_name(name)
             .and_then(baylee_cards::by_index)
             .expect("fixture is registered");
@@ -86,7 +90,7 @@ fn a_mana_spending_permission_needs_no_separate_may_question() {
         );
         assert_eq!(problems, expected, "{name}");
     }
-    assert_eq!(tally.optional_clauses, 2);
+    assert_eq!(tally.optional_clauses, 3);
 }
 
 #[test]
@@ -887,4 +891,23 @@ fn formatting_many_at_once_is_formatting_each_alone() {
         "an unparseable source is kept as it was"
     );
     assert_ne!(together[0], many[0], "and the rest were formatted");
+}
+
+#[test]
+fn the_attack_without_tapping_verb_carries_controller_scope() {
+    let payload = serde_json::json!({"oracle_text": "Attacking does not cause creatures you control to tap."});
+    for (name, expected) in [("Johan", 0), ("Fog", 1)] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .unwrap();
+        let mut problems = 0;
+        super::check_scope_matches_the_text(
+            "fixture",
+            "Not An Exception",
+            def,
+            &payload,
+            &mut problems,
+        );
+        assert_eq!(problems, expected, "{name}");
+    }
 }

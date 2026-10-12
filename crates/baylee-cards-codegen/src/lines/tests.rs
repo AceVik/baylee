@@ -1079,3 +1079,31 @@ fn suppression_effect_does_not_hide_telekinesis_or_cascade_oracle_lines() {
     );
     assert_eq!(map(&[trigger], "This land enters tapped.\nWhen this land enters, target creature an opponent controls doesn't untap during its controller's next untap step.").lines, [Some(1)]);
 }
+
+#[test]
+fn counted_color_mana_and_energy_costs_keep_their_printed_lines() {
+    assert_eq!(
+        line_shape("{T}: For each color among permanents you control, add one mana of that color."),
+        LineShape::Mana
+    );
+    assert_eq!(
+        line_shape(
+            "{1}, {T}: For each color among monocolored permanents you control, add one mana of that color."
+        ),
+        LineShape::Mana
+    );
+    assert_eq!(
+        line_shape(
+            "{T}: For each color among target player's permanents, add one mana of that color."
+        ),
+        LineShape::Activated
+    );
+    assert!(cost_fits(
+        &baylee_cards_dsl::cost!("{3}", TapSelf, PayEnergyX, SacrificeSelf),
+        "{3}, {T}, Pay X {E}, Sacrifice this land: Destroy target nonland permanent with mana value X."
+    ));
+    assert!(!cost_fits(
+        &baylee_cards_dsl::cost!("{2}", TapSelf, PayEnergyX, SacrificeSelf),
+        "{3}, {T}, Pay X {E}, Sacrifice this land: Destroy target nonland permanent with mana value X."
+    ));
+}

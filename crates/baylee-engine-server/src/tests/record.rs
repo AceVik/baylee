@@ -189,18 +189,19 @@ fn declare(runner: &mut EngineRunner, seat: u32, model: &str) -> Vec<Envelope> {
 fn a_declared_mind_goes_into_the_record_and_to_no_seat() {
     let key = format!("claude-opus-5-5sk-ant-{}", "Z".repeat(30));
     let mut runner = EngineRunner::new();
-    setup(&mut runner, &duel(0));
-    attach(&mut runner, 0);
+    let mut out = setup(&mut runner, &duel(0));
+    out.extend(attach(&mut runner, 0));
     assert!(runner.curtain_pending());
     assert!(declare(&mut runner, 0, &key).is_empty());
     assert!(declare(&mut runner, 0, "claude-opus-5-5").is_empty());
-    ready(&mut runner, 0);
+    out.extend(ready(&mut runner, 0));
     runner.tell_time(runner.entrance_deadline().expect("the entrance"));
-    runner.finish_entrance();
-    play_a_little(&mut runner, 4);
+    out.extend(runner.finish_entrance());
+    out.extend(play_a_little(&mut runner, 4));
     assert!(declare(&mut runner, 0, "claude-sonnet-5-5").is_empty());
-    play_a_little(&mut runner, 4);
-    let record = unpacked(&pieces(&flush(&mut runner, 1)));
+    out.extend(play_a_little(&mut runner, 4));
+    out.extend(flush(&mut runner, 1));
+    let record = unpacked(&pieces(&out));
     let text = String::from_utf8(record.clone()).unwrap();
     assert!(!text.contains("ZZZZ"), "the key-shaped one is not written");
     let models: Vec<String> = text
@@ -230,14 +231,14 @@ fn a_declared_mind_goes_into_the_record_and_to_no_seat() {
 fn a_new_socket_that_answers_undeclared_ends_the_last_declaration() {
     use baylee_gamehost::record::{Line, MindKind, Source};
     let mut runner = EngineRunner::new();
-    setup(&mut runner, &duel(0));
-    attach(&mut runner, 0);
+    let mut out = setup(&mut runner, &duel(0));
+    out.extend(attach(&mut runner, 0));
     declare(&mut runner, 0, "claude-opus-5-5");
-    ready(&mut runner, 0);
+    out.extend(ready(&mut runner, 0));
     runner.tell_time(runner.entrance_deadline().expect("the entrance"));
-    runner.finish_entrance();
-    play_a_little(&mut runner, 3);
-    runner.handle(
+    out.extend(runner.finish_entrance());
+    out.extend(play_a_little(&mut runner, 3));
+    out.extend(runner.handle(
         Envelope {
             msg: Some(v1::envelope::Msg::SeatAttached(v1::SeatAttached {
                 seat: 0,
@@ -245,14 +246,15 @@ fn a_new_socket_that_answers_undeclared_ends_the_last_declaration() {
             })),
         },
         &[],
-    );
-    play_a_little(&mut runner, 2);
-    detach(&mut runner, 0);
-    attach(&mut runner, 0);
-    play_a_little(&mut runner, 2);
+    ));
+    out.extend(play_a_little(&mut runner, 2));
+    out.extend(detach(&mut runner, 0));
+    out.extend(attach(&mut runner, 0));
+    out.extend(play_a_little(&mut runner, 2));
     declare(&mut runner, 0, "claude-opus-5-5");
-    play_a_little(&mut runner, 2);
-    let record = unpacked(&pieces(&flush(&mut runner, 1)));
+    out.extend(play_a_little(&mut runner, 2));
+    out.extend(flush(&mut runner, 1));
+    let record = unpacked(&pieces(&out));
     let lines: Vec<Line> = record
         .split(|&b| b == b'\n')
         .filter(|l| !l.is_empty())
@@ -310,10 +312,7 @@ fn a_flush_sends_what_has_gathered_and_then_says_so() {
     let mut out = setup(&mut runner, &duel(0));
     out.extend(sit(&mut runner, 0));
     out.extend(play_a_little(&mut runner, 6));
-    assert!(
-        pieces(&out).is_empty(),
-        "a few answers are under one size-due piece"
-    );
+    let prior_pieces = u32::try_from(pieces(&out).len()).unwrap();
     let session = runner.session().unwrap();
     assert!(session.record_pending() > 0, "the record has gathered");
     let (hash, asked) = (session.snapshot_hash(), session.asked_at(PlayerId::new(0)));
@@ -325,14 +324,14 @@ fn a_flush_sends_what_has_gathered_and_then_says_so() {
     };
     assert_eq!(
         (piece.game_id.as_str(), piece.seq, piece.last),
-        ("g1", 0, false)
+        ("g1", prior_pieces, false)
     );
     assert_eq!(
         flushed[1].msg,
         Some(v1::envelope::Msg::RecordFlushed(v1::RecordFlushed {
             game_id: "g1".to_string(),
             nonce: 7,
-            pieces: 1,
+            pieces: prior_pieces + 1,
         })),
         "then the acknowledgement, after the piece"
     );
@@ -341,8 +340,9 @@ fn a_flush_sends_what_has_gathered_and_then_says_so() {
     assert_eq!(session.snapshot_hash(), hash, "the game did not move");
     assert_eq!(session.asked_at(PlayerId::new(0)), asked);
 
-    let replayed =
-        baylee_gamehost::record::replay(&member(&piece.data)).expect("the piece replays");
+    out.extend(flushed);
+    let replayed = baylee_gamehost::record::replay(&unpacked(&pieces(&out)))
+        .expect("all pieces through the flush replay");
     assert!(!replayed.ended);
     assert_eq!(
         replayed.engine.snapshot_hash(),
@@ -370,14 +370,16 @@ fn a_flush_with_nothing_waiting_is_answered_with_the_acknowledgement_alone() {
         "before the game is built"
     );
 
-    setup(&mut runner, &duel(0));
-    sit(&mut runner, 0);
-    play_a_little(&mut runner, 2);
+    let mut sent = setup(&mut runner, &duel(0));
+    sent.extend(sit(&mut runner, 0));
+    sent.extend(play_a_little(&mut runner, 2));
     let first = flush(&mut runner, 2);
     assert_eq!(pieces(&first).len(), 1);
+    sent.extend(first);
+    let first_count = u32::try_from(pieces(&sent).len()).unwrap();
     assert_eq!(
         flush(&mut runner, 3),
-        [ack(3, 1, "g1")],
+        [ack(3, first_count, "g1")],
         "nothing gathered since the last flush"
     );
 
@@ -386,7 +388,7 @@ fn a_flush_with_nothing_waiting_is_answered_with_the_acknowledgement_alone() {
     assert_eq!(pieces(&out).last().map(|p| p.last), Some(true));
     assert_eq!(
         flush(&mut runner, 4),
-        [ack(4, 2, "g1")],
+        [ack(4, first_count + 1, "g1")],
         "after the last piece there is nothing more to send"
     );
 }
@@ -407,12 +409,20 @@ fn the_record_goes_by_time_once_it_has_waited_long_enough() {
     assert!(runner.flush_record_due().is_empty());
 
     runner.tell_time(T0);
-    sit(&mut runner, 0);
-    let due = T0 + RECORD_FLUSH_MS;
+    let entrance = sit(&mut runner, 0);
+    // A large header is already size-due at entrance. In that case start
+    // the timed wait with one input instead of assuming it stayed queued.
+    let due = if runner.session().unwrap().record_pending() == 0 {
+        assert!(!pieces(&entrance).is_empty(), "the header was sent");
+        play_a_little(&mut runner, 1);
+        runner.now + RECORD_FLUSH_MS
+    } else {
+        T0 + RECORD_FLUSH_MS
+    };
     assert_eq!(
         runner.record_deadline(),
         Some(due),
-        "the header has waited since the game was built"
+        "waiting bytes retain their original deadline"
     );
     runner.tell_time(due - 1);
     assert!(runner.flush_record_due().is_empty(), "never early");

@@ -1291,7 +1291,9 @@
           "name": "Twists and Turns // Mycoid Maze",
           "path": "crates/baylee-cards/src/cards/enchantments/mv_1/twists_and_turns.rs"
         }
-      ]
+      ],
+      "validated_complete": 1,
+      "remaining_note": "Goblin Artisans imported from origin/main at the restart checkpoint; no new batch work authorized before user Go."
     },
     {
       "batch": 66,
@@ -1371,6 +1373,7 @@
       "wait for user after app restart"
     ],
     "authorized_on": "2026-10-12",
-    "note": "Owner requested completion of begun batches only. All batches 46, 48, 52 and 54 are complete at checkpoint 427/540; after rebase/push stop and wait for an explicit Go."
+    "note": "Begun batches 46, 48, 52 and 54 complete at 427/540. Rebase additionally imports Goblin Artisans from main: 428/540, 112 remaining. Stop after validation and push; await explicit Go.",
+    "post_rebase_original_cards_complete": 428
   }
 }

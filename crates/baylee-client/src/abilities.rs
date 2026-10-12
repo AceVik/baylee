@@ -1095,13 +1095,16 @@ fn printed_sentence(
 }
 
 /// The symbols an activated ability's cost prints: its mana, then its tap or
-/// untap, apart as the card writes them (`{2}{B}, {T}`).
+/// untap and energy, apart as the card writes them (`{2}{B}, {T}`).
 ///
 /// Everything else a cost asks — a sacrifice, life, a discard, counters — is
 /// printed in words, and only the printed head can say those in the card's
 /// own ones; seventeen wordings of them lived here once. `None` when nothing
 /// is left, which is every cost printed in words alone.
 fn cost_key_of(cost: &Cost) -> Option<String> {
+    if cost.mana == ManaCost::ZERO && cost.parts.is_empty() {
+        return Some("{0}".to_string());
+    }
     let mut parts: Vec<String> = Vec::new();
     if cost.mana != ManaCost::ZERO {
         parts.push(cost.mana.to_string());
@@ -1110,6 +1113,8 @@ fn cost_key_of(cost: &Cost) -> Option<String> {
         match part {
             CostPart::TapSelf => parts.push("{T}".to_string()),
             CostPart::UntapSelf => parts.push("{Q}".to_string()),
+            CostPart::PayEnergy(n) => parts.push("{E}".repeat(usize::from(*n))),
+            CostPart::PayEnergyX => parts.push("{E}".to_string()),
             // Printed in words, which only the printed head can say.
             _ => {}
         }

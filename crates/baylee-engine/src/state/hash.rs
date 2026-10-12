@@ -1883,7 +1883,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::Attacking => h.u8(19),
         F::BandedWithSource => h.u8(50),
         F::NotTargetedByAnotherNamed(name) => {
-            h.u8(51);
+            h.u8(69);
             h.u32(u32::try_from(name.len()).unwrap_or(u32::MAX));
             h.bytes(name.as_bytes());
         }

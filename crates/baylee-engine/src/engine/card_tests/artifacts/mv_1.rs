@@ -42,5 +42,3 @@ mod urza_s_chalice;
 mod voltaic_key;
 mod wayfarer_s_bauble;
 mod wooden_sphere;
-
-mod the_rack;

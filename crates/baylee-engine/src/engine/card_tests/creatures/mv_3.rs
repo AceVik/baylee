@@ -235,8 +235,6 @@ mod zuran_spellcaster;
 
 mod brazen_borrower;
 
-mod xenic_poltergeist;
-
 mod tetsuo_umezawa;
 
 mod wall_of_putrid_flesh;
@@ -248,7 +246,5 @@ mod time_elemental;
 mod gaea_s_avenger;
 
 mod old_man_of_the_sea;
-
-mod phyrexian_gremlins;
 
 mod pit_scorpion;

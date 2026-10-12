@@ -380,6 +380,8 @@ pub(crate) fn check_optional_clauses_are_offered(
         "ReorderTopLibrary",
         "SearchTakeover",
         "SpendManaAs",
+        // Optional spending permission is exercised during activation payment.
+        "CreatureAbilityManaAnyColor",
         "GrantSpecialActionUntilEndOfTurn",
         "PlayLandsFromGraveyard",
         "PlayLandsFromLibraryTop",
@@ -803,7 +805,9 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("ControlledCreaturePowerAtLeast(")
         || built.contains("YouControl(")
         || built.contains("WhileYouControlSource")
-        || built.contains("GainControl");
+        || built.contains("GainControl")
+        // This verb installs a YOUR_CREATURE effect for the trigger controller.
+        || built.contains("AttackWithoutTappingWhileSourceUntappedThisCombat");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
         || built.contains("OpponentControlCountAtMost(")

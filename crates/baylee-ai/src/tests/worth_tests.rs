@@ -778,7 +778,8 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Mystifying Maze adds a contextual delayed blink activation.
     // The One Ring adds a contextual counter-count draw activation.
     // Quarum Trench Gnomes adds a contextual permanent mana replacement.
-    assert_eq!((read, of), (1030, 1296), "activated/loyalty reader census");
+    // Rebased main adds Goblin Artisans: one activation with a readable outcome.
+    assert_eq!((read, of), (1031, 1297), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

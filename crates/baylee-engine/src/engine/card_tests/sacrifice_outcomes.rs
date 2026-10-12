@@ -184,3 +184,5 @@ fn serendib_djinn_reads_departing_characteristics_before_a_land_copy_reverts() {
             .contains(baylee_core::generated::subtypes::land::ISLAND)
     );
 }
+
+mod retained_arm;

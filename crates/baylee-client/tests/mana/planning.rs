@@ -159,7 +159,15 @@ fn a_fetchland_under_a_chromatic_lantern_still_searches() {
         other => panic!("not a priority window: {other:?}"),
     };
     assert!(
-        legal.mana_abilities.contains(&mire),
+        legal.abilities.iter().any(|&(source, index)| {
+            source == mire
+                && baylee_engine::choice::granted_slot(index).is_some_and(|slot| {
+                    table
+                        .view()
+                        .object(mire)
+                        .is_some_and(|object| object.granted_mana_for(slot).is_some())
+                })
+        }),
         "the Lantern did not grant the fetchland a mana ability"
     );
     assert!(

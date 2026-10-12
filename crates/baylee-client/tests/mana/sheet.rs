@@ -1165,7 +1165,10 @@ fn every_written_row_draws_its_printed_cost_or_its_whole_sentence() {
 /// Waking Haven the same day, when its station was written. And Unlicensed
 /// Hearse the same day, whose "Crew 2" is the whole line: its cost is
 /// creatures, not a symbol, and the printing drops the reminder.
+/// The completed Planet stations and Smuggler's Copter's crew add five
+/// further keyword rows at the October card checkpoint.
 const DRAWN_WHOLE: &[&str] = &[
+    "Adagia, Windswept Bastion",
     "Basilisk Collar",
     "Bonesplitter",
     "Dowsing Dagger",
@@ -1174,6 +1177,7 @@ const DRAWN_WHOLE: &[&str] = &[
     "Helm of the Host",
     "Hexdrinker",
     "Inspirit, Flagship Vessel",
+    "Kavaron, Memorial World",
     "Leonin Scimitar",
     "Lightning Greaves",
     "Loxodon Warhammer",
@@ -1185,11 +1189,14 @@ const DRAWN_WHOLE: &[&str] = &[
     "Shuko",
     "Skullclamp",
     "Slagwurm Armor",
+    "Smuggler's Copter",
+    "Susur Secundi, Void Altar",
     "Swiftfoot Boots",
     "Sword of Hearth and Home",
     "Sword of the Meek",
     "U.S.S. Enterprise-D, Galaxy-Class",
     "Unlicensed Hearse",
+    "Uthros, Titanic Godcore",
     "Vulshok Battlegear",
     "Vulshok Morningstar",
 ];

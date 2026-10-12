@@ -876,18 +876,27 @@ pub(super) fn resume_inner(
                         res.rule_context(),
                     )
                 });
-                let owner = state.object(victim).map_or(res.controller, |o| o.owner);
-                if let Some(obj) = state.object_mut(victim) {
-                    obj.kind = ObjectKind::Card;
-                }
-                let _ = state.move_object(
-                    victim,
-                    ZoneLocation::Graveyard(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
-                if was && let Some(pending) = run_nested(state, res, then) {
-                    return next_choice(state, res, since, pending);
+                let before = state
+                    .object(victim)
+                    .filter(|object| {
+                        object.zone == crate::zone::Zone::Battlefield
+                            && object.controller == res.controller
+                    })
+                    .map(|object| (object.version, crate::object::SacrificedLki::of(object)));
+                if let Some((version, lki)) = before {
+                    let paid = state.sacrifice_object(victim, Cause::Effect).is_ok()
+                        && state
+                            .object(victim)
+                            .is_none_or(|object| object.version != version);
+                    if paid {
+                        res.subject.sacrificed = Some(lki);
+                    }
+                    if paid
+                        && was
+                        && let Some(pending) = run_nested(state, res, then)
+                    {
+                        return next_choice(state, res, since, pending);
+                    }
                 }
             }
         }

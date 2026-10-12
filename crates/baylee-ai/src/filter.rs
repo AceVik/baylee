@@ -437,10 +437,9 @@ impl HeuristicAgent {
     /// two modal abilities is two mode lists and one number.
     ///
     /// The rule is therefore not "at most one modal ability" but **at most
-    /// one list**, which is what the pool actually prints: Derevi, Empyrial
-    /// Tactician is one printed sentence with two trigger conditions, written
-    /// as two `modal_triggered!` over the same `TAP_OR_UNTAP` modes, and
-    /// naming that shared list is unambiguous however the trigger arrived.
+    /// one list**: naming a shared list is unambiguous however its trigger
+    /// arrived. Derevi now uses a resolution-time choice rather than a modal
+    /// trigger, so it no longer supplies a shared-list example in the pool.
     /// Two *different* lists is the ambiguity, it is refused, and
     /// `no_pool_face_states_two_mode_lists` (`baylee-gamehost`'s
     /// `tests/ai_coverage_guards.rs`) holds the pool to it.

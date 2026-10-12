@@ -221,7 +221,12 @@ pub fn line_shape(line: &str) -> LineShape {
     // color. When that mana is spent …, you may choose new targets for the
     // copy" is a mana ability whose "target" belongs to a delayed trigger.
     let makes = |s: &str| s.starts_with("add ") && (s.contains('{') || s.contains("mana"));
-    let adds_first = makes(&lower_body);
+    let adds_first = makes(&lower_body)
+        || (!lower_body.contains("target")
+            && lower_body.starts_with("for each color among ")
+            && lower_body
+                .split_once(", ")
+                .is_some_and(|(_, effect)| makes(effect)));
     let adds_later = !lower_body.contains("target") && lower_body.split(". ").skip(1).any(makes);
     // Drawing and milling move cards out of the library, so adding mana
     // beside them does not make this a mana ability (CR 605.1a). Read words
@@ -505,7 +510,8 @@ pub fn cost_fits(cost: &baylee_cards_dsl::Cost, line: &str) -> bool {
     if untaps != cost.parts.contains(&CostPart::UntapSelf) {
         return false;
     }
-    printed.retain(|s| s != "T" && s != "Q");
+    // Energy symbols belong to nonmana payments, not the mana cost.
+    printed.retain(|s| s != "T" && s != "Q" && s != "E");
     let mut want = braced(&cost.mana.to_string());
     // `{0}` and no mana at all are the same cost written two ways, and
     // equip is where they meet: Lightning Greaves prints "Equip {0}" and

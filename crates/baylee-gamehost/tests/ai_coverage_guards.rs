@@ -840,29 +840,23 @@ fn the_pool_hides_effects_behind_a_price() {
 fn no_pool_face_states_two_mode_lists() {
     let mut faces = 0;
     let mut modal = 0;
-    let mut shared = 0;
     let mut split: Vec<&'static str> = Vec::new();
     for def in baylee_cards::all() {
         for (index, face) in def.faces.iter().enumerate() {
             faces += 1;
             let mut lists: Vec<&'static [baylee_cards::dsl::SpellMode]> = Vec::new();
-            let mut here = 0;
             for ability in def.abilities_for_face(index) {
                 let (AbilityDef::ModalSpell { modes, .. }
                 | AbilityDef::ModalTriggered { modes, .. }) = ability
                 else {
                     continue;
                 };
-                here += 1;
                 if !lists.iter().any(|seen| std::ptr::eq(*seen, *modes)) {
                     lists.push(modes);
                 }
             }
-            if here > 0 {
+            if !lists.is_empty() {
                 modal += 1;
-            }
-            if here > lists.len() {
-                shared += 1;
             }
             if lists.len() > 1 {
                 split.push(face.name);
@@ -871,7 +865,7 @@ fn no_pool_face_states_two_mode_lists() {
     }
 
     // 2836 faces over 2716 cards on 19.09.2026, 10 of them modal and one —
-    // Derevi — stating one list twice. The floor is the population and not
+    // Derevi — then stating one list twice. The floor is the population and not
     // the number: a card added or removed is not news, a walk that stopped
     // descending into faces is.
     //
@@ -892,13 +886,9 @@ fn no_pool_face_states_two_mode_lists() {
         "the walk found no modal ability in the whole pool, so it is not \
          reaching `ModalSpell` at all and the emptiness below is empty"
     );
-    assert!(
-        shared > 0,
-        "no face in the pool states one mode list twice, so this test no \
-         longer distinguishes `modal_modes`'s rule from the stricter one it \
-         replaced: check that Derevi still writes its two triggers over one \
-         `TAP_OR_UNTAP` before weakening this"
-    );
+    // Derevi now makes its optional tap/untap choice during resolution.
+    // It no longer supplies a shared modal list; keep the actual invariant
+    // (at most one distinct list), plus the nonempty modal/face census above.
     assert!(
         split.is_empty(),
         "{split:?} state two different mode lists on one face. \

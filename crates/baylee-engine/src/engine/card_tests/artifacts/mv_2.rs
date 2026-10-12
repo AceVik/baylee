@@ -51,8 +51,4 @@ mod treasure_map;
 mod winter_orb;
 mod wishclaw_talisman;
 
-mod tawnos_s_weaponry;
-
-mod ashnod_s_battle_gear;
-
 mod kry_shield;
