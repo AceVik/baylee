@@ -258,6 +258,20 @@ fn count<'a>(
     Some(found)
 }
 
+/// Whether `id` is attacking, and with `player`, whether it attacks that
+/// player themself (`Filter::AttackingYou`; a planeswalker is not its
+/// controller, CR 506.2).
+fn attacking(
+    view: &PlayerView,
+    id: baylee_core::ids::ObjectId,
+    player: Option<baylee_core::ids::PlayerId>,
+) -> bool {
+    view.combat.attackers.iter().any(|attacker| {
+        attacker.creature == id
+            && player.is_none_or(|p| attacker.defending == baylee_core::ids::Defender::Player(p))
+    })
+}
+
 /// Evaluates a [`Filter`] against one object in a view.
 ///
 /// A mirror of `baylee_engine::eval::matches_projected` and held to the
@@ -361,15 +375,8 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         Filter::OwnedByYou => object.owner == view.seat,
         Filter::Tapped => object.status.is_tapped(),
         Filter::Untapped => !object.status.is_tapped(),
-        Filter::Attacking => view
-            .combat
-            .attackers
-            .iter()
-            .any(|attacker| attacker.creature == object.id),
-        Filter::AttackingYou => view.combat.attackers.iter().any(|attacker| {
-            attacker.creature == object.id
-                && attacker.defending == baylee_core::ids::Defender::Player(view.seat)
-        }),
+        Filter::Attacking => attacking(view, object.id, None),
+        Filter::AttackingYou => attacking(view, object.id, Some(view.seat)),
         Filter::Blocking => view
             .combat
             .blockers
