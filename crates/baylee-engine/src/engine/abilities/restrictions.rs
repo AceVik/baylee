@@ -215,6 +215,14 @@ impl<L: CardLookup> Engine<L> {
         source: ObjectId,
         index: u32,
     ) -> crate::text_changes::RuleContext {
+        if crate::choice::granted_slot(index).is_some()
+            && let Some(granted) = self.granted_definition(source, index)
+        {
+            return crate::text_changes::RuleContext {
+                source,
+                text: granted.text,
+            };
+        }
         let text = self
             .activating_abilities
             .as_ref()

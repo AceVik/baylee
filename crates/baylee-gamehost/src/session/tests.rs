@@ -48,6 +48,8 @@ fn island() -> CardIndex {
 fn test_preset() -> GamePreset {
     let deck: Vec<DeckEntry> = (0..60)
         .map(|_| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: island(),
             print: PrintRef::new(0),
         })
@@ -69,6 +71,7 @@ fn test_preset() -> GamePreset {
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 7,
         house_rules: HouseRules::default(),
@@ -124,6 +127,8 @@ fn split_preset() -> GamePreset {
     let deck = |card: CardIndex, print: u16| -> Vec<DeckEntry> {
         (0..60)
             .map(|_| DeckEntry {
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
                 card,
                 print: PrintRef::new(print),
             })
@@ -147,6 +152,7 @@ fn split_preset() -> GamePreset {
         finish: Finish::Normal,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 7,
         house_rules: HouseRules::default(),
@@ -158,6 +164,8 @@ fn split_preset() -> GamePreset {
                 forest(),
                 1,
                 vec![DeckEntry {
+                    rule_print: None,
+                    choices: baylee_core::card_metadata::DeckChoices::default(),
                     card: forest(),
                     print: PrintRef::new(1),
                 }],

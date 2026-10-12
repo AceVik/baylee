@@ -679,16 +679,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // Every target, each exiled with the source (CR 406.6) as the
         // object it is now.
         Effect::ExileTargetsWithSource => {
-            let version = state
-                .object(res.source)
-                .map_or(0, crate::object::Rider::version_of);
+            let version = super::source_version(state, res)
+                .or_else(|| state.object(res.source).map(|source| source.version))
+                .unwrap_or(0);
+            let acquisition = super::subjects::acquisition(state, res);
             for &target in &res.targets {
                 let owner = state.object(target).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(target) {
                     obj.kind = ObjectKind::Card;
                     obj.riders.push(crate::object::Rider::ExiledWith {
                         host: res.source,
-                        version,
+                        version: u16::try_from(version).unwrap_or(u16::MAX),
                     });
                 }
                 let _ = state.move_object(
@@ -697,6 +698,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+                if let Some(card) = state
+                    .object_mut(target)
+                    .filter(|card| card.zone == crate::zone::Zone::Exile)
+                {
+                    card.riders.push(crate::object::Rider::LinkedExile {
+                        source: baylee_core::ids::DamageSourceRef {
+                            object: res.source,
+                            version,
+                        },
+                        acquisition,
+                    });
+                }
             }
             None
         }
@@ -1362,6 +1375,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     .object(target_id)
                     .and_then(|o| o.ability.map(|a| a.source));
                 // Abilities on the stack cease to exist when countered.
+                state.remember_damage_source(target_id);
                 state.zones.remove(target_id, ZoneLocation::Stack);
                 let _ = state.arena.remove(target_id);
             }
@@ -1378,6 +1392,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     state
                         .journal
                         .record(GameEvent::SpellCountered { object: target_id });
+                    state.remember_damage_source(target_id);
                     state.zones.remove(target_id, ZoneLocation::Stack);
                     let _ = state.arena.remove(target_id);
                 } else {
@@ -1385,6 +1400,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         .journal
                         .record(GameEvent::SpellCountered { object: target_id });
                     let owner = state.object(target_id).map_or(you, |o| o.owner);
+                    state.remember_damage_source(target_id);
                     if let Some(obj) = state.object_mut(target_id) {
                         obj.kind = ObjectKind::Card;
                     }
@@ -1408,6 +1424,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     .journal
                     .record(GameEvent::SpellCountered { object: target_id });
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
+                state.remember_damage_source(target_id);
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Card;
                 }
@@ -1430,6 +1447,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     .journal
                     .record(GameEvent::SpellCountered { object: target_id });
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
+                state.remember_damage_source(target_id);
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Card;
                 }

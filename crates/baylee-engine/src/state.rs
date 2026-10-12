@@ -14,7 +14,7 @@ use crate::turn::{DayNight, TurnInfo};
 use crate::zone::{Zone, ZoneLocation, ZonePosition, Zones};
 use baylee_cards_dsl::CardDef;
 use baylee_core::ids::{CardIndex, Defender, NameRef, ObjectId, PlayerId};
-use baylee_core::mana::{ManaColor, ManaPool, ManaSymbol};
+use baylee_core::mana::{ManaPool, ManaSymbol};
 use baylee_core::preset::{FormatId, GamePreset, PresetError};
 use rustc_hash::FxHashMap;
 
@@ -332,6 +332,8 @@ pub enum DelayedAction {
     PayCostOrLose {
         /// The mana cost to pay.
         cost: baylee_core::mana::ManaCost,
+        /// Exact card imposing this debt; absent for synthetic rules-only test debts.
+        source: Option<baylee_core::ids::DamageSourceRef>,
     },
     /// Pay a cost or sacrifice the permanent (echo).
     PayCostOrSacrifice {
@@ -1176,6 +1178,8 @@ pub struct GameState {
     pub(crate) constrained_payments: Vec<crate::constrained_payment::ConstrainedPayment>,
     /// Frozen copiable characteristics of temporary copy effects.
     pub copy_snapshots: Vec<(baylee_core::ids::EffectId, Arc<Characteristics>)>,
+    /// Sparse original rules and casting decisions restored when temporary copies expire.
+    pub(crate) temporary_copy_origins: Vec<(baylee_core::ids::DamageSourceRef, Box<GameObject>)>,
     /// Text provenance that differs from an effect's ordinary source.
     pub effect_text_overrides: Vec<(baylee_core::ids::EffectId, crate::text_changes::TextOrigin)>,
     /// Registered replacement rules (Doubling Season, Panharmonicon, …).
@@ -1315,6 +1319,7 @@ impl GameState {
             text_changes,
             effect_text_overrides,
             copy_snapshots,
+            temporary_copy_origins,
             numeric_failure,
             constrained_payments,
             replacement_rules,
@@ -1429,6 +1434,10 @@ impl GameState {
                 format!("{constrained_payments:?}"),
             ),
             ("state.copy_snapshots", format!("{copy_snapshots:?}")),
+            (
+                "state.temporary_copy_origins",
+                format!("{temporary_copy_origins:?}"),
+            ),
             ("state.replacement_rules", format!("{replacement_rules:?}")),
             ("state.shields", format!("{shields:?}")),
             ("state.granted_actions", format!("{granted_actions:?}")),

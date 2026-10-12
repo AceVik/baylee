@@ -27,7 +27,7 @@ card!(
                     ManaColor::Green
                 ]),
                 amount: Amount::DevotionToManaColor,
-                combination: false,
+                distribution: baylee_cards_dsl::ManaDistribution::OneColor,
                 restriction: None,
             }]
         ),

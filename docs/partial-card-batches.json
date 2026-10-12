@@ -426,66 +426,81 @@
     {
       "batch": 46,
       "title": "Restricted mana and expenditure provenance",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Watermarket",
-          "path": "crates/baylee-cards/src/cards/lands/watermarket.rs"
+          "path": "crates/baylee-cards/src/cards/lands/watermarket.rs",
+          "status": "completed"
         },
         {
           "name": "Brotherhood Headquarters",
-          "path": "crates/baylee-cards/src/cards/lands/brotherhood_headquarters.rs"
+          "path": "crates/baylee-cards/src/cards/lands/brotherhood_headquarters.rs",
+          "status": "completed"
         },
         {
           "name": "Secret Base",
-          "path": "crates/baylee-cards/src/cards/lands/secret_base.rs"
+          "path": "crates/baylee-cards/src/cards/lands/secret_base.rs",
+          "status": "completed"
         },
         {
           "name": "Underdome",
-          "path": "crates/baylee-cards/src/cards/lands/underdome.rs"
+          "path": "crates/baylee-cards/src/cards/lands/underdome.rs",
+          "status": "partial"
         },
         {
           "name": "Cryptic Spires",
-          "path": "crates/baylee-cards/src/cards/lands/tapland/cryptic_spires.rs"
+          "path": "crates/baylee-cards/src/cards/lands/tapland/cryptic_spires.rs",
+          "status": "completed"
         },
         {
           "name": "Pit of Offerings",
-          "path": "crates/baylee-cards/src/cards/lands/caves/pit_of_offerings.rs"
+          "path": "crates/baylee-cards/src/cards/lands/caves/pit_of_offerings.rs",
+          "status": "completed"
         },
         {
           "name": "Sunken Palace",
-          "path": "crates/baylee-cards/src/cards/lands/caves/sunken_palace.rs"
+          "path": "crates/baylee-cards/src/cards/lands/caves/sunken_palace.rs",
+          "status": "completed"
         },
         {
           "name": "Interplanar Beacon",
-          "path": "crates/baylee-cards/src/cards/lands/utility/interplanar_beacon.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/interplanar_beacon.rs",
+          "status": "completed"
         },
         {
           "name": "Plaza of Harmony",
-          "path": "crates/baylee-cards/src/cards/lands/utility/plaza_of_harmony.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/plaza_of_harmony.rs",
+          "status": "completed"
         },
         {
           "name": "Avengers Tower",
-          "path": "crates/baylee-cards/src/cards/lands/utility/avengers_tower.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/avengers_tower.rs",
+          "status": "completed"
         },
         {
           "name": "The Everflowing Well // The Myriad Pools",
-          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/the_everflowing_well.rs"
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/the_everflowing_well.rs",
+          "status": "completed"
         },
         {
           "name": "Primal Amulet // Primal Wellspring",
-          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/primal_amulet.rs"
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/primal_amulet.rs",
+          "status": "completed"
         },
         {
           "name": "Agatha's Soul Cauldron",
-          "path": "crates/baylee-cards/src/cards/artifacts/mv_2/agatha_s_soul_cauldron.rs"
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_2/agatha_s_soul_cauldron.rs",
+          "status": "completed"
         }
-      ]
+      ],
+      "validated_complete": 12,
+      "remaining_note": "Underdome remains Partial: joint assignment for mixed mana costs imposed by Un-cards is not yet supported."
     },
     {
       "batch": 47,
       "title": "Activation authority and prices",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Clergy of the Holy Nimbus",
@@ -520,7 +535,7 @@
     {
       "batch": 48,
       "title": "Activation, entry and turn event predicates",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Ichneumon Druid",
@@ -583,7 +598,7 @@
     {
       "batch": 49,
       "title": "Delayed turn and untap effects",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Undiscovered Paradise",
@@ -630,7 +645,7 @@
     {
       "batch": 50,
       "title": "Combat and damage history",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Abu Ja'far",
@@ -1284,5 +1299,6 @@
         }
       ]
     }
-  ]
+  ],
+  "stop_after_cards": "Owner instruction 2026-10-12: stop after all 540 original Partial cards are fully implemented and validated; save/compact context and wait for explicit Go before post-card test/build/performance phases or final main integration/push."
 }

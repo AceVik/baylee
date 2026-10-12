@@ -3,6 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
+mod mana;
+
 impl GameState {
     /// Streaming xxh3 hash over the entire deterministic state.
     ///
@@ -88,6 +90,7 @@ impl GameState {
             text_changes,
             effect_text_overrides,
             copy_snapshots,
+            temporary_copy_origins,
             numeric_failure,
             constrained_payments,
             replacement_rules,
@@ -124,6 +127,11 @@ impl GameState {
         effect_text_overrides.hash(&mut h);
         numeric_failure.hash(&mut h);
         constrained_payments.hash(&mut h);
+        h.usize(temporary_copy_origins.len());
+        for (identity, object) in temporary_copy_origins {
+            identity.hash(&mut h);
+            hash_object(&mut h, object);
+        }
         h.usize(copy_snapshots.len());
         for (id, characteristics) in copy_snapshots {
             id.hash(&mut h);
@@ -244,8 +252,10 @@ impl GameState {
             provenance.controller.hash(&mut one);
             provenance.timestamp.hash(&mut one);
             provenance.chosen_subtype.hash(&mut one);
+            provenance.source_watermark.hash(&mut one);
             let restriction = provenance.restriction;
             filter_hash(&mut one, restriction.filter);
+            restriction.ability_filter.hash(&mut one);
             restriction.uses.hash(&mut one);
             restriction.rider.hash(&mut one);
             restriction.restricts.hash(&mut one);
@@ -340,10 +350,7 @@ impl GameState {
             h.boolean(p.citys_blessing);
             h.i8(p.hand_modifier);
             h.boolean(p.has_lost());
-            for color in ManaColor::ALL {
-                h.u32(p.mana_pool.available(color));
-                h.u32(p.mana_pool.snow_available(color));
-            }
+            mana::pool(&mut h, self, &p.mana_pool, &position);
             // The commander tax belongs here even though nothing else that
             // only grows does. It is rules-visible — a player can see what
             // the next cast costs — and it only ever rises (CR 903.8), so a
@@ -389,6 +396,24 @@ impl GameState {
                     Some(obj) => hash_object_situation(&mut h, obj, self, &position),
                     None => h.u8(0),
                 }
+            }
+        }
+        h.usize(
+            self.temporary_copy_origins
+                .iter()
+                .filter(|(identity, _)| {
+                    self.object(identity.object)
+                        .is_some_and(|object| object.version == identity.version)
+                })
+                .count(),
+        );
+        for (identity, original) in &self.temporary_copy_origins {
+            if self
+                .object(identity.object)
+                .is_some_and(|object| object.version == identity.version)
+            {
+                h.u32(position(identity.object));
+                hash_object_situation(&mut h, original, self, &position);
             }
         }
         h.usize(self.combat.participants.len());
@@ -802,6 +827,9 @@ fn hash_object_situation(
     h.u8(obj.zone_owner.map_or(255, PlayerId::get));
     h.u8(obj.kind as u8);
     h.u8(obj.face_index);
+    obj.physical_rules.hash(h);
+    obj.deck_choices.hash(h);
+    hash_copy_decisions(h, obj);
     h.u8(obj.doors.bits());
     h.u8(obj.chosen_opponent().map_or(255, PlayerId::get));
     h.boolean(obj.prototyped);
@@ -853,9 +881,13 @@ fn hash_object_situation(
     for amount in obj.paid.as_ref().map_or([0; 6], |p| p.mana_types_spent) {
         h.u32(amount);
     }
-    h.u64(obj.paid.as_ref().map_or(0, |paid| {
-        structural_fingerprint(&(&paid.mana_paid, paid.fixed_mana_cost, paid.mana_spending))
-    }));
+    h.boolean(obj.paid.is_some());
+    if let Some(paid) = &obj.paid {
+        mana::pool(h, state, &paid.mana_paid, position);
+        mana::riders(h, state, paid, position);
+        paid.fixed_mana_cost.hash(h);
+        paid.mana_spending.hash(h);
+    }
     // And which creature station tapped: its power is what the counters
     // will be.
     let followed = obj.paid.as_ref().and_then(|p| p.source_after_cost);
@@ -889,6 +921,22 @@ fn hash_object_situation(
         }
         None => h.u8(0),
     }
+}
+
+fn hash_copy_decisions(h: &mut Hasher, obj: &GameObject) {
+    // Copies of spells retain announcement decisions, and temporary copies
+    // can restore a different rules bundle on otherwise identical boards.
+    obj.x_value.hash(h);
+    obj.kicked.hash(h);
+    obj.replicated.hash(h);
+    obj.alt_cast.hash(h);
+    obj.mode_index.hash(h);
+    obj.modes.hash(h);
+    obj.chosen_player.hash(h);
+    obj.target_players.hash(h);
+    obj.own_abilities.hash(h);
+    obj.own_origin.hash(h);
+    obj.own_abilities_until_eot.hash(h);
 }
 
 /// Hash identity-sensitive riders by whether their remembered incarnation
@@ -1033,6 +1081,7 @@ fn hash_ability_list(
 
 fn hash_effects(h: &mut Hasher, table: &crate::effects::EffectTable) {
     let (effects, parked, next_id, generation) = table.hashed_parts();
+    table.grants.hash(h);
     next_id.hash(h);
     generation.hash(h);
     h.usize(effects.len());
@@ -1312,6 +1361,8 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         zone_owner,
         kind,
         card,
+        physical_rules,
+        deck_choices,
         base,
         // The layer projection of `base` under the effect table, both of
         // which are hashed; it is recomputed whenever the table moves.
@@ -1365,6 +1416,8 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     zone.hash(h);
     zone_owner.hash(h);
     kind.hash(h);
+    physical_rules.hash(h);
+    deck_choices.hash(h);
     card.hash(h);
     // Base characteristics (copiable values), and the ones a copy gives
     // back when it changes zones (CR 400.7).
@@ -1714,6 +1767,9 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::NamedBySource => h.u8(63),
         F::Kicked => h.u8(64),
         F::CastFromHand => h.u8(65),
+        F::HasWatermark => h.u8(66),
+        F::SharesWatermarkWithSource => h.u8(67),
+        F::UnCard => h.u8(68),
         F::Named(name) => {
             h.u8(29);
             h.u32(u32::try_from(name.len()).unwrap_or(u32::MAX));

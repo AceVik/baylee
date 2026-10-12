@@ -95,6 +95,8 @@ fn source_chosen_as_a_real_permanent_spell_protects_against_its_resolved_permane
     let shield = synthetic::land(SHIELD, "source shield probe", PREVENT);
     let mut preset = synthetic::preset_both(411, &[], &[SHIELD]);
     preset.seats[0].starting_hand = Some(vec![baylee_core::preset::DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_core::ids::CardIndex::new(SOURCE),
         print: baylee_core::ids::PrintRef::new(0),
     }]);

@@ -1248,18 +1248,30 @@ fn no_card_mentions_a_keyword_the_engine_ignores() {
     let enforced = enforced().bits();
     let (mut read, mut mention_one) = (0, 0);
     for (oracle_id, def) in baylee_cards::generated::ALL {
-        let (mut mentioned, mut sets) = (0u128, 0);
+        let (mut mentioned, mut unknown, mut sets) = (0u128, 0u128, 0);
         let rendering = format!("{def:?}");
-        for tail in rendering.split("KeywordSet(").skip(1) {
+        let mut fragments = rendering.split("KeywordSet(");
+        let mut prefix = fragments.next().unwrap_or_default();
+        for tail in fragments {
             let digits: String = tail.chars().take_while(char::is_ascii_digit).collect();
-            mentioned |= digits
+            let bits = digits
                 .parse::<u128>()
                 .expect("a KeywordSet renders its bits");
+            mentioned |= bits;
+            // Brotherhood reads freerunning's printed presence. This does not
+            // implement its alternative cost: the face sweep still rejects a
+            // card printing it, and grants/removals remain unsupported here.
+            let readable = if prefix.ends_with("HasKeyword(") {
+                enforced | baylee_cards_dsl::KeywordSet::FREERUNNING.bits()
+            } else {
+                enforced
+            };
+            unknown |= bits & !readable;
+            prefix = tail;
             sets += 1;
         }
         read += usize::from(sets > 0);
         mention_one += usize::from(mentioned != 0);
-        let unknown = mentioned & !enforced;
         assert_eq!(
             unknown, 0,
             "{} ({oracle_id}) names a keyword no engine rule reads (bits {:#x}); \

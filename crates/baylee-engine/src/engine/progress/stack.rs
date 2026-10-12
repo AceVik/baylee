@@ -49,7 +49,7 @@ impl<L: CardLookup> Engine<L> {
             return obj.target_req;
         }
         let loc = obj.ability?;
-        if loc.index == AbilityRef::SYNTHETIC {
+        if loc.index == AbilityRef::SYNTHETIC || crate::choice::granted_slot(loc.index).is_some() {
             // A synthetic trigger prints nothing to read a requirement off,
             // so it carries one on its object when it has one: a granted
             // triggered ability's target, or a reflexive one's. Prowess and
@@ -122,7 +122,7 @@ impl<L: CardLookup> Engine<L> {
             return obj.second_target_req();
         }
         let loc = obj.ability?;
-        if loc.index == AbilityRef::SYNTHETIC {
+        if loc.index == AbilityRef::SYNTHETIC || crate::choice::granted_slot(loc.index).is_some() {
             return None;
         }
         let abilities = obj.own_abilities.as_ref().map_or_else(
@@ -415,7 +415,9 @@ impl<L: CardLookup> Engine<L> {
                 },
                 crate::copiable_abilities::AbilityDefs::from,
             );
-            let effects = if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+            let runtime_body = loc.index == baylee_core::ids::AbilityRef::SYNTHETIC
+                || crate::choice::granted_slot(loc.index).is_some();
+            let effects = if runtime_body {
                 // Synthetic keyword trigger (prowess, ward): effects live
                 // in the side map, resolved below.
                 &[][..]
@@ -471,12 +473,16 @@ impl<L: CardLookup> Engine<L> {
             // chances to add a variant to one of them, and this workspace
             // has found six readers matching one twin and not the other.
             let targeted = self.stack_target_req(top).is_some();
-            if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+            if runtime_body {
                 // Synthetic keyword trigger (prowess & co.): effects live in
                 // the side map instead of the card definition.
                 let synthetic = self
                     .synthetic_fx
                     .remove(&top)
+                    .or_else(|| {
+                        crate::effects::granted_definition(&self.state, loc.index)
+                            .map(|granted| granted.effects)
+                    })
                     .expect("synthetic trigger has effects");
                 let mut res = Resolution {
                     source: loc.source,

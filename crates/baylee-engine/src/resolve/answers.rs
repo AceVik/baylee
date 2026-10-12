@@ -20,9 +20,7 @@ pub(super) fn resume_with_number_inner(
         if let Some(source) =
             subjects::source(state, res).filter(|source| subjects::on_battlefield(state, *source))
         {
-            let acquisition = state
-                .object(res.on_stack)
-                .map_or(0, GameObject::rules_acquisition);
+            let acquisition = super::subjects::acquisition(state, res);
             crate::entry::set_chosen_number(
                 state,
                 source.object,
@@ -61,7 +59,8 @@ pub(super) fn resume_with_number_inner(
     if let Some(AwaitingOp::DamagePayment { player, amount }) = res.awaiting {
         res.awaiting = None;
         let cost = baylee_core::mana::ManaCost::from_symbol_generic(number);
-        let paid = crate::casting::pay_mana(state, player, &cost);
+        let what = super::payment_for(state, res);
+        let paid = crate::casting::pay_mana_for(state, player, what, &cost).is_some();
         debug_assert!(paid, "the numeric payment is bounded by spendable mana");
         if let Some(pending) =
             life::damage_with_payment(state, res, player, amount, if paid { number } else { 0 })
@@ -117,7 +116,8 @@ pub(super) fn resume_with_color_inner(
     }
     let AwaitingOp::ManaChoice {
         recipient,
-        colors,
+        mut colors,
+        distinct,
         remaining,
         per_pick,
         by_color,
@@ -135,10 +135,14 @@ pub(super) fn resume_with_color_inner(
         by_color.map_or(per_pick, |amounts| amounts[color.index()]),
         restriction,
     );
-    if remaining > 1 {
+    if distinct {
+        colors.retain(|available| *available != color);
+    }
+    if remaining > 1 && !colors.is_empty() {
         res.awaiting = Some(AwaitingOp::ManaChoice {
             recipient,
             colors: colors.clone(),
+            distinct,
             remaining: remaining - 1,
             per_pick,
             by_color,
@@ -698,7 +702,8 @@ pub(super) fn resume_tax_choice_inner(
     // `pay` mutates the pool — never hide the call behind `debug_assert!`,
     // which is not evaluated in release. A failed payment takes the
     // not-paid fallback, exactly as if the player had declined.
-    let actually_paid = paid && crate::casting::pay_mana(state, player, &cost);
+    let what = super::payment_for(state, res);
+    let actually_paid = paid && crate::casting::pay_mana_for(state, player, what, &cost).is_some();
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
     let (effects, on_payment) = match outcome {
         ManaPaymentOutcome::Effects {

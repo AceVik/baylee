@@ -46,9 +46,9 @@ pub use build::{
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
     Amount, ColorSubject, CounterKind, DivisionAmount, Effect, ExilePlay, ExileUntil, Find,
-    LookRest, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp, PlayWindow,
-    PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef,
-    ZoneSel,
+    LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+    PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
+    TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{
@@ -194,11 +194,20 @@ impl CardDef {
     /// permanent that is already turned over.
     #[must_use]
     pub fn keywords_for_face(&self, face: usize) -> KeywordSet {
-        if face == 0 {
+        let keywords = if face == 0 {
             let own = self.faces.first().map_or(KeywordSet::EMPTY, |f| f.keywords);
             if own.is_empty() { self.keywords } else { own }
         } else {
             self.faces[face.min(self.faces.len() - 1)].keywords
+        };
+        if self
+            .faces
+            .get(face.min(self.faces.len().saturating_sub(1)))
+            .is_some_and(|f| f.freerunning.is_some())
+        {
+            keywords.union(KeywordSet::FREERUNNING)
+        } else {
+            keywords
         }
     }
 
@@ -397,6 +406,8 @@ pub struct FaceDef {
     /// and the permanent it becomes, "escaped" (CR 702.138b), which
     /// `Condition::Escaped` asks.
     pub escape: Option<Escape>,
+    /// Printed freerunning cost; presence is a spell characteristic even when this cost is not paid.
+    pub freerunning: Option<ManaCost>,
 }
 
 impl FaceDef {
@@ -443,6 +454,7 @@ impl FaceDef {
         adventure: false,
         dash: None,
         escape: None,
+        freerunning: None,
     };
 }
 
@@ -655,8 +667,8 @@ pub enum EnterModifier {
 /// Simple keyword abilities as a bitset.
 ///
 /// Parameterized keywords (equip {2}, crew N, kicker, ward {2}, …) are NOT
-/// bits — they are [`AbilityDef`] data. Only text-independent keywords live
-/// here.
+/// bits — their costs remain typed data. Presence markers may mirror those
+/// definitions when another rule asks whether an object has that ability.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug)]
 pub struct KeywordSet(u128);
 
@@ -738,6 +750,7 @@ keywords! {
     // A text-independent CDA, like the existing UNBLOCKABLE rule marker.
     ALL_NONBASIC_LAND_TYPES = 48, "Every nonbasic land type in every zone.";
     STORM = 49, "Storm (CR 702.40).";
+    FREERUNNING = 50, "Has freerunning; its cost remains on `FaceDef` (CR 702.173a).";
 }
 
 impl KeywordSet {

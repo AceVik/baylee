@@ -19,9 +19,7 @@ pub fn resume_name(
         && let Some(source) =
             subjects::source(state, res).filter(|source| subjects::on_battlefield(state, *source))
     {
-        let acquisition = state
-            .object(res.on_stack)
-            .map_or(0, GameObject::rules_acquisition);
+        let acquisition = super::subjects::acquisition(state, res);
         if let Some(object) = state.object_mut(source.object) {
             object.remember_name(acquisition, printed, name);
         }

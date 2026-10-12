@@ -84,6 +84,8 @@ fn duel_preset(seed: u64) -> GamePreset {
     let forest = card(FOREST);
     let deck: Vec<DeckEntry> = (0..60)
         .map(|_| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: forest,
             print: PrintRef::new(0),
         })
@@ -105,6 +107,7 @@ fn duel_preset(seed: u64) -> GamePreset {
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),
@@ -128,6 +131,8 @@ fn combat_preset(seed: u64) -> GamePreset {
     let squad = card(GREAT_DIVIDE_GUIDE);
     preset.seats[0].starting_battlefield = (0..10)
         .map(|_| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: squad,
             print: PrintRef::new(0),
         })
@@ -147,6 +152,8 @@ fn blocking_preset(seed: u64) -> GamePreset {
     let squad_of = |n: usize| -> Vec<DeckEntry> {
         (0..n)
             .map(|_| DeckEntry {
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
                 card: squad,
                 print: PrintRef::new(0),
             })
@@ -224,6 +231,8 @@ const BRIGHTCLIMB_PATHWAY: &str = "1c633e02-95ef-445e-b4e0-fbfbc5ed9cc9";
 /// One card, at the default printing.
 fn entry(oracle: &str) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: card(oracle),
         print: PrintRef::new(0),
     }
@@ -793,6 +802,8 @@ fn cavern_preset(seed: u64) -> GamePreset {
     let mut preset = duel_preset(seed);
     let cavern = card("89ca686a-7c72-4d8f-9290-e89635624a83");
     preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: cavern,
         print: PrintRef::new(0),
     }]);
@@ -969,6 +980,8 @@ fn dual_land_preset(seed: u64) -> GamePreset {
     // cannot resolve without asking, which is the whole point of it here.
     let sea = card("4b22be3a-8ce1-47d1-b82e-6c3ccfb0548b");
     preset.seats[0].starting_battlefield = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: sea,
         print: PrintRef::new(0),
     }];

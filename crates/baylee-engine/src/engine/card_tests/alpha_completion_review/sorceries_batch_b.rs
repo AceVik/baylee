@@ -270,6 +270,8 @@ fn fireball_independent_any_number_includes_256_distinct_creatures() {
     let body = card_index("8f1dae40-b307-446e-bbd2-86aa35813871");
     let mut preset = synthetic::preset_both(SEED, &[SOURCE], &[body.get(); 256]);
     preset.seats[0].starting_hand = Some(vec![baylee_core::preset::DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: fireball(),
         print: baylee_core::ids::PrintRef::new(0),
     }]);

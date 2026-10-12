@@ -65,7 +65,9 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
             continue;
         }
         let source = match baylee_engine::choice::granted_slot(index) {
-            Some(slot) => granted_source(view, id, slot),
+            Some(slot) => {
+                granted_source(view, id, slot).or_else(|| printed_source(view, id, index))
+            }
             None => printed_source(view, id, index),
         };
         if let Some(source) = source {
@@ -183,7 +185,15 @@ pub fn ability_at(
     object: baylee_core::ids::ObjectId,
     index: u32,
 ) -> Option<&'static AbilityDef> {
-    printed_abilities(view.object(object)?).get(usize::try_from(index).ok()?)
+    let object = view.object(object)?;
+    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+        let grant = object.grant(slot)?;
+        let rules = grant.rules?;
+        return baylee_cards::by_index(rules.card)?
+            .abilities_for_face(usize::from(rules.face))
+            .get(usize::try_from(grant.ability?).ok()?);
+    }
+    printed_abilities(object).get(usize::try_from(index).ok()?)
 }
 
 /// Every ability `object` prints, from the list the engine's ability index
@@ -429,6 +439,8 @@ pub(crate) fn produced_colors(
         baylee_cards_dsl::ManaSource::IntrinsicBasicLandTypes
         | baylee_cards_dsl::ManaSource::CommanderIdentity
         | baylee_cards_dsl::ManaSource::ColorsAmong { .. }
+        | baylee_cards_dsl::ManaSource::CircledColors
+        | baylee_cards_dsl::ManaSource::ExiledWithSource
         | baylee_cards_dsl::ManaSource::LandColor { .. }
         | baylee_cards_dsl::ManaSource::Chosen
         | baylee_cards_dsl::ManaSource::ChosenOr(_) => {
@@ -485,7 +497,10 @@ pub fn offers(
             // A grant is on no card the permanent has, so there is no ability
             // to read: the host has already reduced it to colours *and* a
             // count, which is why a grant is always a number here.
-            Some(slot) => granted_source(view, object, slot).map(|source| (source.colors, true)),
+            Some(slot) => granted_source(view, object, slot).map(|source| {
+                let fixed = source.colors.len() == 1;
+                (source.colors, fixed)
+            }),
             None => match ability_at(view, object, index) {
                 Some(
                     AbilityDef::Activated {
@@ -577,10 +592,7 @@ pub fn granted_source(
     object: baylee_core::ids::ObjectId,
     slot: u32,
 ) -> Option<Source> {
-    let granted = view.object(object)?.granted_mana.as_ref()?;
-    if granted.slot != slot {
-        return None;
-    }
+    let granted = view.object(object)?.granted_mana_for(slot)?;
     Some(Source {
         id: object,
         tap: Tap::Ability(baylee_engine::choice::granted_ability(slot)),
@@ -679,7 +691,7 @@ pub fn table_mana(view: &PlayerView) -> [f32; 5] {
                 }
             }
         }
-        if let Some(granted) = &object.granted_mana {
+        for granted in object.granted_mana_options() {
             for color in &granted.colors {
                 if let Some(slot) = colors.get_mut(*color as usize) {
                     *slot = true;

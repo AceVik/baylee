@@ -173,9 +173,8 @@ fn blue_source(object: &PublicObject) -> bool {
     }
     if manaplan::basic_land_color(&object.subtypes) == Some(ManaColor::Blue)
         || object
-            .granted_mana
-            .as_ref()
-            .is_some_and(|mana| mana.amount > 0 && mana.colors.contains(&ManaColor::Blue))
+            .granted_mana_options()
+            .any(|mana| mana.amount > 0 && mana.colors.contains(&ManaColor::Blue))
     {
         return true;
     }

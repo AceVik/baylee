@@ -33,6 +33,7 @@ fn state(seats: usize) -> GameState {
     };
     GameState::from_preset(
         &GamePreset {
+            rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: 4,
             house_rules: HouseRules::default(),

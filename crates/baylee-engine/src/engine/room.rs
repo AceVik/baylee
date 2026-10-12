@@ -40,9 +40,15 @@ impl<L: CardLookup> Engine<L> {
                 )
             });
         (0..2_u8).filter(move |&half| {
-            pool.is_some_and(|(player, pool)| {
+            pool.is_some_and(|(player, _pool)| {
                 self.unlock_cost(id, half).is_some_and(|cost| {
-                    super::casting::affordable(&self.state, player, pool, &cost)
+                    self.state.source_identity(id).is_some_and(|origin| {
+                        self.can_pay_mana(
+                            player,
+                            super::casting::SpendFor::OtherFrom(origin),
+                            &cost,
+                        )
+                    })
                 })
             })
         })
@@ -81,10 +87,14 @@ impl<L: CardLookup> Engine<L> {
             .lookup
             .card(card.index)
             .ok_or(EngineError::IllegalAction("no such card"))?;
+        let origin = self
+            .state
+            .source_identity(id)
+            .ok_or(EngineError::IllegalAction("missing cost source"))?;
         if super::casting::pay_mana_for(
             &mut self.state,
             player,
-            super::casting::SpendFor::Other,
+            super::casting::SpendFor::OtherFrom(origin),
             &cost,
         )
         .is_none()

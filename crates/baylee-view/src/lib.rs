@@ -215,7 +215,10 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 70 distinguishes private library inspection from hand inspection.
 /// Version 71 adds behold and numeric choices, and type-restricted card naming.
 /// Version 72 adds finality counters and the casting choices in package 45.
-pub const VIEW_VERSION: u32 = 72;
+/// Version 73 carries stable granted-ability identities, complete inherited
+/// definitions and creature-activation mana permissions from package 46.
+/// Readers must preserve sparse grant slots rather than infer list positions.
+pub const VIEW_VERSION: u32 = 73;
 
 // ------------------------------------------------------------------- targets
 

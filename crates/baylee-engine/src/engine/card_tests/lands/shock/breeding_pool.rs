@@ -72,13 +72,8 @@ fn breeding_pool_enters_untapped_for_two_life_or_tapped_for_free() {
 /// Breeding Pool under Chromatic Lantern taps for either of its colours
 /// through either door the offer lists.
 ///
-/// The land prints "Add {G} or {U}" (`legal.abilities`), and the Lantern
-/// grants it "{T}: Add one mana of any color" (`legal.mana_abilities`, the
-/// door with no index). The offer listed the second door and `apply` refused
-/// it: it asked only whether a land with basic types could be tapped, took
-/// the CR 305.6 shortcut, and found no colour there, because the card's own
-/// ability already makes both. 63 of 10,000 fuzzed games pressed that refused
-/// door (Breeding Pool 39, Stomping Ground 14, Canopy Vista 10).
+/// The printed and granted mana abilities have distinct indexed actions.
+/// Both pay the tap cost; the grant offers five colors, the printed ability two.
 #[test]
 fn breeding_pool_under_chromatic_lantern_taps_for_either_colour_through_either_door() {
     let p0 = PlayerId::new(0);
@@ -101,11 +96,18 @@ fn breeding_pool_under_chromatic_lantern_taps_for_either_colour_through_either_d
                 panic!("expected priority, got {:?}", engine.pending())
             };
             let press = if granted {
+                let grant = crate::effects::granted_activated(engine.state(), land)
+                    .next()
+                    .unwrap()
+                    .id;
                 assert!(
-                    legal.mana_abilities.contains(&land),
+                    legal.abilities.contains(&(land, grant)),
                     "the Lantern's grant is offered: {legal:?}"
                 );
-                PlayerAction::ActivateManaAbility { source: land }
+                PlayerAction::ActivateAbility {
+                    source: land,
+                    ability_index: grant,
+                }
             } else {
                 assert!(
                     legal.abilities.contains(&(land, 0)),

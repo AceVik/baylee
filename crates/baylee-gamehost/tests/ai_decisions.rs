@@ -31,6 +31,8 @@ fn asked_view(
 
 fn entry(name: &str) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name(name).expect("registered fixture"),
         print: baylee_core::ids::PrintRef::new(0),
     }
@@ -1222,6 +1224,8 @@ fn the_swing_back_finds_a_creature_home_to_block_it() {
         combat_card(90_001, 75, 75, KeywordSet::FIRST_STRIKE),
     ];
     let object = |index| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: CardIndex::new(index),
         print: PrintRef::new(0),
     };
@@ -1324,6 +1328,8 @@ fn a_creature_blocks_to_keep_a_walker_the_attack_would_kill() {
         walker(90_003, 9),
     ];
     let object = |index| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: CardIndex::new(index),
         print: PrintRef::new(0),
     };
@@ -1425,6 +1431,8 @@ fn selected_effect_context_routes_positive_and_negative_counters_in_the_engine()
             ..CardDef::DEFAULT
         }));
         let object = |index| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: CardIndex::new(index),
             print: PrintRef::new(0),
         };
@@ -1500,6 +1508,8 @@ fn combat_after_expert_blocks(
     use baylee_core::ids::{CardIndex, Defender, PrintRef};
     let mut preset = position(&[], &[]);
     let object = |index| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: CardIndex::new(index),
         print: PrintRef::new(0),
     };

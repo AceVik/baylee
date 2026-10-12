@@ -247,6 +247,7 @@ fn a_delayed_upkeep_payment_is_demanded_after_the_upkeep_priority_window_not_bef
         controller: me,
         when: crate::state::DelayedWhen::NextUpkeep,
         action: crate::state::DelayedAction::PayCostOrLose {
+            source: None,
             cost: baylee_core::mana::ManaCost::parse("{1}"),
         },
     });

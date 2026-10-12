@@ -9,7 +9,9 @@
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
 
-use baylee_cards_dsl::effect::{ManaRestriction, ManaSource};
+use baylee_cards_dsl::effect::{ManaDistribution, ManaRestriction, ManaSource};
+
+mod production;
 
 /// Executes one mana effect.
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
@@ -17,9 +19,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::AddMana {
             source,
             amount,
-            combination,
+            distribution,
             restriction,
-        } => add_mana(state, res, source, &amount, combination, restriction),
+        } => add_mana(state, res, source, &amount, distribution, restriction),
         Effect::ManaForColorsAmong(filter) => {
             let colors = eval::colors_among(state, res.controller, filter, res.rule_context());
             for color in colored(colors) {
@@ -60,12 +62,12 @@ fn add_mana(
     res: &mut Resolution,
     source: ManaSource,
     amount: &Amount,
-    combination: bool,
+    distribution: ManaDistribution,
     restriction: Option<ManaRestriction>,
 ) -> Option<Pending> {
     let you = res.controller;
     if matches!(amount, Amount::DevotionToManaColor) {
-        let options = colors_of(state, you, source, res.source);
+        let options = resolving_colors(state, res, source);
         let Some(amounts) = devotion(state, you) else {
             state.numeric_failure = Some("devotion exceeds u16 mana-production units");
             return None;
@@ -81,6 +83,7 @@ fn add_mana(
         res.awaiting = Some(AwaitingOp::ManaChoice {
             recipient: you,
             colors: options.clone(),
+            distinct: false,
             remaining: 1,
             per_pick: 0,
             by_color: Some(amounts),
@@ -98,21 +101,29 @@ fn add_mana(
     if n == 0 {
         return None;
     }
-    let options = colors_of(state, you, source, res.source);
+    let options = resolving_colors(state, res, source);
     match options[..] {
         [] => return None,
         [only] => {
-            add(state, res, only, n, restriction);
+            let amount = if distribution == ManaDistribution::DifferentColors {
+                1
+            } else {
+                n
+            };
+            add(state, res, only, amount, restriction);
             return None;
         }
         _ => {}
     }
-    // "In any combination of colors" is one pick per mana; anything else
-    // picks one color for the whole amount.
-    let (picks, per_pick) = if combination { (n, 1) } else { (1, n) };
+    let (picks, per_pick) = match distribution {
+        ManaDistribution::OneColor => (1, n),
+        ManaDistribution::AnyCombination => (n, 1),
+        ManaDistribution::DifferentColors => (n.min(options.len() as u16), 1),
+    };
     res.awaiting = Some(AwaitingOp::ManaChoice {
         recipient: you,
         colors: options.clone(),
+        distinct: distribution == ManaDistribution::DifferentColors,
         remaining: picks,
         per_pick,
         by_color: None,
@@ -142,6 +153,7 @@ fn add_like_event(state: &mut GameState, res: &mut Resolution, amount: u16) -> O
     res.awaiting = Some(AwaitingOp::ManaChoice {
         recipient: event.player,
         colors: options.clone(),
+        distinct: false,
         remaining: 1,
         per_pick: amount,
         by_color: None,
@@ -175,6 +187,9 @@ pub(super) fn add_to(
     amount: u16,
     restriction: Option<ManaRestriction>,
 ) {
+    if amount == 0 {
+        return;
+    }
     let obligation_before =
         (res.mana_ability && res.event_mana.is_none() && state.constrained_payment(you).is_some())
             .then(|| state.players[usize::from(you.get())].mana_pool.clone());
@@ -196,62 +211,15 @@ pub(super) fn add_to(
         state.numeric_failure = Some("mana production exceeds u32 per color");
         return;
     }
-    if let Some(restriction) = restriction {
-        let ManaRestriction {
-            restricts,
-            until_end_of_turn,
-            ..
-        } = restriction;
-        let id = state.next_restriction_id;
-        state.next_restriction_id += 1;
-        let provenance = crate::mana_provenance::ManaProvenance {
-            context: res.rule_context(),
-            source_version: super::source_version(state, res).or_else(|| {
-                state
-                    .source_identity(res.source)
-                    .map(|source| source.version)
-            }),
-            controller: res.controller,
-            timestamp: state
-                .damage_source(res.source, super::source_version(state, res))
-                .map_or(state.timestamp, |source| source.timestamp),
-            restriction,
-            chosen_subtype: state
-                .damage_source(res.source, super::source_version(state, res))
-                .and_then(|object| object.chosen_subtype),
-        };
-        state.restriction_info.insert(id, provenance);
-        let mana = baylee_core::mana::RestrictedMana {
-            color,
-            amount,
-            flags: (if snow {
-                baylee_core::mana::ManaFlags::SNOW
-            } else {
-                baylee_core::mana::ManaFlags::default()
-            })
-            .union(if until_end_of_turn {
-                baylee_core::mana::ManaFlags::UNTIL_END_OF_TURN
-                    .union(baylee_core::mana::ManaFlags::NO_EMPTY)
-            } else {
-                baylee_core::mana::ManaFlags::NONE
-            }),
-            restriction: baylee_core::mana::RestrictionId(id),
-        };
-        let pool = &mut state.players[you.get() as usize].mana_pool;
-        // A rider alone leaves the mana ordinary mana (CR 106.6, #232).
-        if restricts {
-            pool.add_restricted(mana);
-        } else {
-            pool.add_ridden(mana);
-        }
-    } else if snow {
-        state.players[you.get() as usize]
-            .mana_pool
-            .try_add_snow(color, u32::from(amount));
-    } else {
-        state.players[you.get() as usize]
-            .mana_pool
-            .try_add(color, u32::from(amount));
+    let provenance = crate::mana_provenance::ManaProvenance::capture(
+        state,
+        res.rule_context(),
+        super::source_version(state, res),
+        res.controller,
+        restriction,
+    );
+    if !crate::mana_provenance::deposit(state, you, color, amount, snow, provenance) {
+        return;
     }
     if let Some(before) = obligation_before {
         state.note_constrained_production(you, &before);
@@ -262,6 +230,36 @@ pub(super) fn add_to(
         amount,
         source: Some(res.source),
     });
+}
+
+fn resolving_colors(state: &GameState, res: &Resolution, source: ManaSource) -> Vec<ManaColor> {
+    if source == ManaSource::ExiledWithSource {
+        return super::subjects::source(state, res).map_or_else(Vec::new, |identity| {
+            production::exiled_colors_for(state, identity, super::subjects::acquisition(state, res))
+        });
+    }
+    if source != ManaSource::CircledColors {
+        return colors_of(state, res.controller, source, res.source);
+    }
+    let colors = if res.mana_ability {
+        res.subject.circled_colors()
+    } else {
+        state
+            .object(res.on_stack)
+            .and_then(|object| {
+                let index = object.ability?.index as usize;
+                Some(
+                    object
+                        .own_abilities
+                        .as_ref()?
+                        .entries()
+                        .get(index)?
+                        .circled_colors,
+                )
+            })
+            .unwrap_or(baylee_core::color::ColorSet::EMPTY)
+    };
+    colored(colors)
 }
 
 /// The colors this source can produce right now.
@@ -299,43 +297,24 @@ pub fn colors_of(
             you,
             eval::live_context(state, from),
         )),
-        ManaSource::LandColor { mine, any_type } => {
-            // Union of what the lands of the chosen side could produce.
-            let mut colors = ColorSet::EMPTY;
-            let mut colorless = false;
-            for id in state.battlefield_seen() {
-                let Some(obj) = state.object(id) else {
-                    continue;
-                };
-                let c = obj.characteristics();
-                if !c.types.contains(baylee_core::types::TypeSet::LAND) {
-                    continue;
-                }
-                if (obj.controller == you) != mine {
-                    continue;
-                }
-                colors = colors.union(c.produced_colors);
-                colorless |= c.produced_colorless;
-                colors = colors.union(dynamic_production_colors(state, obj));
-                // `produced_colors` is a reading of the *card*, and a land
-                // whose mana is "the chosen color" has none there to read —
-                // the answer is on this object. Without this a Reflecting
-                // Pool beside an Uncharted Haven saw a land that makes
-                // nothing.
-                if let Some(chosen) = obj.chosen_color
-                    && c.produced_chosen
-                {
-                    colors = colors.union(color_set_of(chosen));
-                }
-            }
-            let mut options = colored(colors);
-            // Colorless is a type of mana and not a colour (CR 106.1a,
-            // CR 106.1b): Reflecting Pool's "any type" makes it, and Exotic
-            // Orchard's "any color" does not, whatever the lands make.
-            if colorless && any_type {
-                options.push(ManaColor::Colorless);
-            }
-            options
+        ManaSource::LandColor {
+            filter,
+            mine,
+            any_type,
+        } => production::land_colors(state, you, from, filter, mine, any_type),
+        ManaSource::ExiledWithSource => production::exiled_colors(state, from),
+        ManaSource::CircledColors => {
+            let colors = state.printed_ability_list(from).map_or(
+                baylee_core::color::ColorSet::EMPTY,
+                |list| {
+                    list.entries()
+                        .iter()
+                        .fold(baylee_core::color::ColorSet::EMPTY, |colors, entry| {
+                            colors.union(entry.circled_colors)
+                        })
+                },
+            );
+            colored(colors)
         }
         ManaSource::Chosen => match state.object(from).and_then(|o| o.chosen_color) {
             // No colour was ever chosen — a copy that did not arrive
@@ -354,54 +333,6 @@ pub fn colors_of(
             }
             options
         }
-    }
-}
-
-/// Board-dependent production of an object's printed mana abilities.
-fn dynamic_production_colors(state: &GameState, obj: &crate::object::GameObject) -> ColorSet {
-    let c = obj.characteristics();
-    let id = obj.id;
-    let mut colors = ColorSet::EMPTY;
-    if let Some(list) = state.printed_ability_list(id)
-        && c.abilities_lost.is_none()
-        && !c.rules_text_lost
-    {
-        for ability in list.abilities.iter().filter(|a| a.is_mana_ability()) {
-            let (baylee_cards_dsl::AbilityDef::Activated { effects, .. }
-            | baylee_cards_dsl::AbilityDef::ActivatedConditional { effects, .. }) = ability
-            else {
-                continue;
-            };
-            for effect in *effects {
-                if let Effect::AddMana {
-                    source: ManaSource::ColorsAmong { filter, zone },
-                    ..
-                } = effect
-                {
-                    colors = colors.union(eval::colors_in_zone(
-                        filter,
-                        *zone,
-                        state,
-                        obj.controller,
-                        eval::live_context(state, id),
-                    ));
-                }
-            }
-        }
-    }
-    colors
-}
-
-/// One colour as a [`ColorSet`].
-fn color_set_of(c: ManaColor) -> ColorSet {
-    use baylee_core::color::Color;
-    match c {
-        ManaColor::White => ColorSet::of(Color::White),
-        ManaColor::Blue => ColorSet::of(Color::Blue),
-        ManaColor::Black => ColorSet::of(Color::Black),
-        ManaColor::Red => ColorSet::of(Color::Red),
-        ManaColor::Green => ColorSet::of(Color::Green),
-        ManaColor::Colorless => ColorSet::EMPTY,
     }
 }
 
@@ -474,6 +405,8 @@ mod tests {
             .index;
         let deck: Vec<DeckEntry> = (0..60)
             .map(|_| DeckEntry {
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
                 card: forest,
                 print: baylee_core::ids::PrintRef::new(0),
             })
@@ -491,6 +424,7 @@ mod tests {
             team: None,
         };
         let preset = GamePreset {
+            rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: 5,
             house_rules: HouseRules::default(),
@@ -521,7 +455,28 @@ mod tests {
         let base = state.object_mut(id).expect("just made it").base_mut();
         base.types = TypeSet::LAND;
         base.produced_colors = colors;
+        for (color, subtype) in [
+            (Color::White, baylee_core::generated::subtypes::land::PLAINS),
+            (Color::Blue, baylee_core::generated::subtypes::land::ISLAND),
+            (Color::Black, baylee_core::generated::subtypes::land::SWAMP),
+            (Color::Red, baylee_core::generated::subtypes::land::MOUNTAIN),
+            (Color::Green, baylee_core::generated::subtypes::land::FOREST),
+        ] {
+            if colors.contains(color) {
+                base.subtypes.insert(subtype);
+            }
+        }
         id
+    }
+
+    fn give_colorless_mana_ability(state: &mut GameState, land: ObjectId) {
+        static ABILITIES: &[baylee_cards_dsl::AbilityDef] =
+            &[baylee_cards_dsl::mana_ability!(&[Effect::mana(
+                ManaColor::Colorless,
+                1
+            )])];
+        state.object_mut(land).unwrap().own_abilities =
+            Some(crate::object::AbilityList::from_static(ABILITIES, None, None).into_bundle());
     }
 
     /// The three sources that read nothing but their own argument, and the
@@ -610,6 +565,7 @@ mod tests {
                 &state,
                 me(),
                 ManaSource::LandColor {
+                    filter: &baylee_cards_dsl::Filter::Any,
                     mine: true,
                     any_type: true
                 },
@@ -623,6 +579,7 @@ mod tests {
                 &state,
                 me(),
                 ManaSource::LandColor {
+                    filter: &baylee_cards_dsl::Filter::Any,
                     mine: false,
                     any_type: false
                 },
@@ -637,11 +594,13 @@ mod tests {
             .expect("still there")
             .base_mut()
             .produced_colorless = true;
+        give_colorless_mana_ability(&mut state, pool);
         assert_eq!(
             colors_of(
                 &state,
                 me(),
                 ManaSource::LandColor {
+                    filter: &baylee_cards_dsl::Filter::Any,
                     mine: true,
                     any_type: true
                 },
@@ -668,12 +627,15 @@ mod tests {
             .expect("just made it")
             .base_mut()
             .produced_colorless = true;
+        give_colorless_mana_ability(&mut state, wastes);
 
         let color = ManaSource::LandColor {
+            filter: &baylee_cards_dsl::Filter::Any,
             mine: false,
             any_type: false,
         };
         let kind = ManaSource::LandColor {
+            filter: &baylee_cards_dsl::Filter::Any,
             mine: false,
             any_type: true,
         };
@@ -695,6 +657,8 @@ mod tests {
     /// a land that makes nothing.
     #[test]
     fn a_land_making_the_chosen_colour_is_read_off_the_object() {
+        static CHOSEN: &[baylee_cards_dsl::AbilityDef] =
+            &[baylee_cards_dsl::mana_ability!(&[Effect::mana_chosen()])];
         let mut state = state();
         let pool = land(&mut state, me(), "Reflecting Pool", ColorSet::EMPTY);
         let haven = land(&mut state, me(), "Uncharted Haven", ColorSet::EMPTY);
@@ -703,12 +667,15 @@ mod tests {
             .expect("just made it")
             .base_mut()
             .produced_chosen = true;
+        state.object_mut(haven).unwrap().own_abilities =
+            Some(crate::object::AbilityList::from_static(CHOSEN, None, None).into_bundle());
 
         assert!(
             colors_of(
                 &state,
                 me(),
                 ManaSource::LandColor {
+                    filter: &baylee_cards_dsl::Filter::Any,
                     mine: true,
                     any_type: true
                 },
@@ -725,6 +692,7 @@ mod tests {
                 &state,
                 me(),
                 ManaSource::LandColor {
+                    filter: &baylee_cards_dsl::Filter::Any,
                     mine: true,
                     any_type: true
                 },

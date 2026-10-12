@@ -7,6 +7,8 @@ use baylee_view::{LogEvent, LogObject};
 
 fn entry(name: &str) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::generated::ALL
             .iter()
             .find(|(_, card)| card.name() == name)

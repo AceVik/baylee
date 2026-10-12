@@ -6,7 +6,8 @@ use super::*;
 /// `Enduring Vitality` prints `Vigilance`, `Creatures you control have "{{T}}: Add one mana of any color."`, and an enduring return-on-death trigger.
 ///
 /// Marked `Coverage::Partial`, it carries `KeywordSet::VIGILANCE` and its static ability grants a mana ability to `Filter::YOUR_CREATURE` via `Modifier::GrantActivated`.
-/// This offers `PlayerAction::ActivateManaAbility` in `legal.mana_abilities` on both `Enduring Vitality` and a controlled `young_wolf()`, prompting via `Pending::ChooseColor` to produce `ManaColor::Blue`, while an opponent's creature is excluded.
+/// Granted mana abilities are offered with stable indexed actions. Activating
+/// one asks for a color, pays the creature's tap cost, and excludes opponents.
 #[test]
 fn enduring_vitality_has_vigilance_and_grants_mana_ability_to_controlled_creatures() {
     let p0 = PlayerId::new(0);
@@ -26,24 +27,41 @@ fn enduring_vitality_has_vigilance_and_grants_mana_ability_to_controlled_creatur
     assert_eq!(pt(&engine, vitality), (3, 3));
     assert!(keywords(&engine, vitality).contains(KeywordSet::VIGILANCE));
 
+    let wolf_grant = crate::effects::granted_activated(engine.state(), my_wolf)
+        .next()
+        .unwrap()
+        .id;
+    let vitality_grant = crate::effects::granted_activated(engine.state(), vitality)
+        .next()
+        .unwrap()
+        .id;
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending());
     };
     assert!(
-        legal.mana_abilities.contains(&my_wolf),
-        "controlled wolf receives granted mana ability in `legal.mana_abilities`"
+        legal.abilities.contains(&(my_wolf, wolf_grant)),
+        "controlled wolf receives the stable indexed granted mana action"
     );
     assert!(
-        legal.mana_abilities.contains(&vitality),
+        legal.abilities.contains(&(vitality, vitality_grant)),
         "vitality also receives its own granted mana ability"
     );
     assert!(
-        !legal.mana_abilities.contains(&their_wolf),
+        !legal
+            .abilities
+            .iter()
+            .any(|(source, _)| *source == their_wolf),
         "opponent's creature does not receive granted mana ability"
     );
 
     engine
-        .apply(p0, PlayerAction::ActivateManaAbility { source: my_wolf })
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: my_wolf,
+                ability_index: wolf_grant,
+            },
+        )
         .unwrap();
 
     let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
@@ -114,15 +132,19 @@ fn enduring_vitality_returns_as_an_enchantment_and_only_once() {
         "Soul Warden saw no creature enter"
     );
     assert!(walk_to_own_main(&mut engine, p0), "p0's turn comes");
+    let warden_grant = crate::effects::granted_activated(engine.state(), warden)
+        .next()
+        .unwrap()
+        .id;
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending());
     };
     assert!(
-        legal.mana_abilities.contains(&warden),
+        legal.abilities.contains(&(warden, warden_grant)),
         "the enchantment still grants the Warden its mana ability"
     );
     assert!(
-        !legal.mana_abilities.contains(&back),
+        !legal.abilities.iter().any(|(source, _)| *source == back),
         "and no longer itself, which is no creature"
     );
 

@@ -97,6 +97,14 @@ impl<L: CardLookup> Engine<L> {
             | casting::SpendFor::KickedSpell(card, ..) => {
                 casting::spell_affordable(&self.state, player, card, pool, cost)
             }
+            casting::SpendFor::Ability(source) => casting::phyrexian_affordable_with(
+                &self.state,
+                player,
+                pool,
+                cost,
+                &[],
+                casting::ability_mana_spending(&self.state, player, source),
+            ),
             _ => casting::affordable(&self.state, player, pool, cost),
         }
     }
@@ -370,18 +378,21 @@ impl<L: CardLookup> Engine<L> {
             // may spend included, and before any other part. A part that
             // sacrifices, discards or exiles the source would otherwise move
             // it before a restriction naming "abilities of creatures" reads
-            // what it is. Nothing that admits an ability carries a rider, so
-            // what was spent needs no second look.
+            // what it is. Freeze matching riders now; their delayed triggers
+            // wait until a nonmana ability has reached the stack.
             let held_before = self.state.players[player.get() as usize].mana_pool.clone();
             paid.fixed_mana_cost = cost.mana.with_x(0);
-            paid.mana_spending = casting::mana_spending(&self.state, player);
-            casting::pay_mana_for(
+            paid.mana_spending = casting::ability_mana_spending(&self.state, player, source);
+            paid.spend_riders = casting::pay_mana_for(
                 &mut self.state,
                 player,
                 casting::SpendFor::Ability(source),
                 &mana,
             )
-            .ok_or(EngineError::IllegalAction("not enough mana"))?;
+            .ok_or(EngineError::IllegalAction("not enough mana"))?
+            .into_iter()
+            .filter(|(_, _, rider)| *rider != baylee_cards_dsl::SpendRider::None)
+            .collect();
             casting::record_mana_payment(
                 &mut paid,
                 &held_before,

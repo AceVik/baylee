@@ -186,19 +186,24 @@ fn settles(effects: &[Effect]) -> bool {
 
 /// The [`AbilityDef`] an offered handle names, when a card prints one.
 ///
-/// `None` for the synthetic indices — a prepared cast, a granted ability —
-/// because those are positions in the *offer* and not on the card, so the
-/// lookup misses and the agent leaves them be. `None` too for a card in
-/// hand, since [`PlayerView::object`] does not reach the hand: cycling is
-/// therefore not offered here, which is the right answer for now anyway
-/// (`Engine::can_afford` probes the floating pool, so a `{3}` cycling cost
-/// is never in `legal.abilities` in the first place).
+/// Inherited printed grants are resolved through their stable identity and
+/// donor definition. Synthetic actions without such a definition, including
+/// prepared casts, return `None`. Hand sources are also outside this lookup:
+/// [`PlayerView::object`] does not reach the hand.
 pub(crate) fn printed(
     view: &PlayerView,
     object: ObjectId,
     index: u32,
 ) -> Option<&'static AbilityDef> {
-    printed_list(view.object(object)?).get(usize::try_from(index).ok()?)
+    let object = view.object(object)?;
+    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+        let grant = object.grant(slot)?;
+        let rules = grant.rules?;
+        return baylee_cards::by_index(rules.card)?
+            .abilities_for_face(usize::from(rules.face))
+            .get(usize::try_from(grant.ability?).ok()?);
+    }
+    printed_list(object).get(usize::try_from(index).ok()?)
 }
 
 /// The list an object's abilities are printed on, which is what an offered

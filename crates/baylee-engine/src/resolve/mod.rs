@@ -363,6 +363,20 @@ pub(crate) fn source_version(state: &GameState, res: &Resolution) -> Option<u32>
         })
 }
 
+/// Identifies the card imposing a resolving mana payment, including last-known sources.
+pub(crate) fn payment_for(state: &GameState, res: &Resolution) -> crate::casting::SpendFor {
+    source_version(state, res)
+        .map(|version| baylee_core::ids::DamageSourceRef {
+            object: res.source,
+            version,
+        })
+        .or_else(|| state.source_identity(res.source))
+        .map_or(
+            crate::casting::SpendFor::Other,
+            crate::casting::SpendFor::OtherFrom,
+        )
+}
+
 /// Attachment captured when a waiting ability's source left the battlefield.
 pub(crate) fn source_attachment_lki(
     state: &GameState,
@@ -1174,6 +1188,8 @@ fn may_clause_possible(state: &GameState, res: &Resolution, effects: &[Effect]) 
         // destroyed in response to its upkeep trigger returned everything
         // exiled with it while the list was matched whole.
         [Effect::SacrificeSelf, ..] => zones::can_sacrifice_self(state, res),
+        [Effect::RemoveAllCountersSelf { .. }, ..] => subjects::source(state, res)
+            .is_some_and(|source| subjects::on_battlefield(state, source)),
         [Effect::RemoveCounterSelf { kind, n }, ..] => state.object(res.source).is_some_and(|o| {
             o.zone == crate::zone::Zone::Battlefield
                 && !o.status.contains(crate::object::Status::PHASED_OUT)

@@ -865,6 +865,8 @@ mod tests {
         let print = preset.seats[0].deck[0].print;
         preset.seats[0].starting_battlefield = vec![
             DeckEntry {
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
                 card: forest,
                 print
             };
@@ -935,6 +937,8 @@ mod tests {
             let print = seat.deck[0].print;
             seat.starting_battlefield = vec![
                 DeckEntry {
+                    rule_print: None,
+                    choices: baylee_core::card_metadata::DeckChoices::default(),
                     card: creature,
                     print
                 };

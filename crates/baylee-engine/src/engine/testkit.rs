@@ -33,6 +33,8 @@ pub fn card_index(oracle_id: &str) -> CardIndex {
 
 fn entry(card: CardIndex) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     }
@@ -195,6 +197,7 @@ impl Duel {
             team: self.team[seat],
         };
         let preset = GamePreset {
+            rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: self.seed,
             house_rules: HouseRules::default(),

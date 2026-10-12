@@ -2,7 +2,7 @@ use super::*;
 
 /// What the view cannot see, the reader says it cannot see.
 ///
-/// Each of the three refusals is a `Filter` whose answer lives in a
+/// Each refusal is a `Filter` whose answer lives in a
 /// `GameState` field the projection has no counterpart for, and the
 /// reason each one is a refusal rather than a gap is in this module's
 /// documentation. `Some(false)` here would be the fault the three-valued
@@ -24,6 +24,9 @@ fn a_filter_the_view_cannot_answer_is_not_answered_no() {
         Filter::MatchesChosenTypeOfSource,
         Filter::AttachedToBySource,
         Filter::SharesSubtypeWithCommander,
+        Filter::HasWatermark,
+        Filter::SharesWatermarkWithSource,
+        Filter::UnCard,
     ] {
         assert_eq!(
             read(&filter, Some(obj(1))),
@@ -32,7 +35,7 @@ fn a_filter_the_view_cannot_answer_is_not_answered_no() {
              would look exactly like a read answer"
         );
     }
-    // `IsToken` is the fourth, and only for the object that carries
+    // `IsToken` is also unreadable for the object that carries
     // neither handle: a face-down permanent and a token copying a card
     // are one shape in a view and opposite answers in the rules.
     assert_eq!(read(&Filter::IsToken, Some(obj(1))), None);
@@ -660,4 +663,164 @@ fn the_ai_taps_a_painland_for_its_colour_only_when_the_colour_needs_it() {
         }),
         "{both:?}"
     );
+}
+
+#[test]
+fn sparse_grant_id_is_used_for_both_mana_estimates_and_actual_offers() {
+    use baylee_core::mana::ManaColor;
+    use baylee_engine::choice::{LegalActions, granted_ability};
+    use baylee_view::{GrantSource, GrantedMana};
+    let seat = PlayerId::new(0);
+    let land = obj(1);
+    let green = baylee_core::mana::ManaCost::from_symbol(baylee_core::mana::ManaSymbol::Green);
+    let mut object = permanent(land, seat, 0);
+    object.types = TypeSet::LAND;
+    object.grants = vec![
+        GrantSource {
+            slot: 3,
+            mana_ability: true,
+            mana: Some(GrantedMana {
+                slot: 3,
+                colors: vec![ManaColor::Red],
+                amount: 1,
+            }),
+            ..Default::default()
+        },
+        GrantSource {
+            slot: 71,
+            mana_ability: true,
+            mana: Some(GrantedMana {
+                slot: 71,
+                colors: vec![ManaColor::Green],
+                amount: 1,
+            }),
+            ..Default::default()
+        },
+    ];
+    let mut v = view(0, &[20, 20], vec![object]);
+    v.awaiting = Some(seat);
+    v.owed = Some(baylee_core::mana::ManaPayment::Fixed(green));
+    let legal = LegalActions {
+        can_pass: true,
+        abilities: vec![(land, granted_ability(71))],
+        ..Default::default()
+    };
+    assert!(policy::can_pay(&v, &green));
+    assert_eq!(
+        agent().act(
+            &v,
+            &Pending::Priority {
+                player: seat,
+                legal: Box::new(legal)
+            }
+        ),
+        PlayerAction::ActivateAbility {
+            source: land,
+            ability_index: granted_ability(71)
+        }
+    );
+}
+
+#[test]
+fn inherited_definition_lookup_uses_sparse_id_and_donor_ability_index() {
+    use baylee_core::generated::index;
+    use baylee_engine::choice::granted_ability;
+    let seat = PlayerId::new(0);
+    let bearer = obj(1);
+    let mut object = permanent(bearer, seat, 2);
+    object.grants = vec![baylee_view::GrantSource {
+        slot: 71,
+        ability: Some(0),
+        mana_ability: false,
+        rules: Some(baylee_view::RulesFace {
+            card: index::SHIVAN_DRAGON,
+            face: 0,
+        }),
+        ..Default::default()
+    }];
+    let v = view(0, &[20, 20], vec![object]);
+    let definition = baylee_cards::by_index(index::SHIVAN_DRAGON)
+        .unwrap()
+        .abilities
+        .first()
+        .unwrap();
+    assert_eq!(
+        crate::activate::printed(&v, bearer, granted_ability(71)),
+        Some(definition)
+    );
+    assert!(crate::activate::printed(&v, bearer, granted_ability(0)).is_none());
+    assert!(!crate::only_makes_mana(&v, bearer, granted_ability(71)));
+}
+
+#[test]
+fn inherited_paid_wizard_mana_is_not_estimated_as_free_production() {
+    use baylee_core::generated::index;
+    use baylee_core::mana::{ManaCost, ManaSymbol};
+    use baylee_engine::choice::{LegalActions, granted_ability};
+    let seat = PlayerId::new(0);
+    let bearer = obj(1);
+    let mut object = permanent(bearer, seat, 2);
+    object.grants = vec![baylee_view::GrantSource {
+        slot: 71,
+        ability: Some(0),
+        mana_ability: true,
+        rules: Some(baylee_view::RulesFace {
+            card: index::APPRENTICE_WIZARD,
+            face: 0,
+        }),
+        ..Default::default()
+    }];
+    let v = view(0, &[20, 20], vec![object]);
+    let legal = LegalActions {
+        abilities: vec![(bearer, granted_ability(71))],
+        ..Default::default()
+    };
+    let definition = crate::activate::printed(&v, bearer, granted_ability(71)).unwrap();
+    let AbilityDef::Activated {
+        cost, mana_ability, ..
+    } = definition
+    else {
+        panic!("Wizard mana definition")
+    };
+    assert!(*mana_ability);
+    assert_eq!(cost.mana, ManaCost::from_symbol(ManaSymbol::Blue));
+    // The current planner cannot sequence paid mana conversions. Both real
+    // offers and estimates must omit them rather than count three free mana.
+    assert!(crate::mana_sources(&v, &legal).is_empty());
+    assert!(policy::remaining_sources(&v).is_empty());
+    assert!(!policy::can_pay(
+        &v,
+        &ManaCost::from_symbol(ManaSymbol::Generic(3))
+    ));
+}
+
+#[test]
+fn inherited_free_mana_definition_is_estimated_without_a_summary_or_positional_slot() {
+    use baylee_core::generated::index;
+    use baylee_core::mana::{ManaCost, ManaSymbol};
+    use baylee_engine::choice::{LegalActions, granted_ability};
+    let seat = PlayerId::new(0);
+    let bearer = obj(1);
+    let mut object = permanent(bearer, seat, 2);
+    object.grants = vec![baylee_view::GrantSource {
+        slot: 71,
+        ability: Some(0),
+        mana_ability: true,
+        rules: Some(baylee_view::RulesFace {
+            card: index::LLANOWAR_ELVES,
+            face: 0,
+        }),
+        ..Default::default()
+    }];
+    let v = view(0, &[20, 20], vec![object]);
+    let legal = LegalActions {
+        abilities: vec![(bearer, granted_ability(71))],
+        ..Default::default()
+    };
+    assert_eq!(crate::mana_sources(&v, &legal).len(), 1);
+    assert_eq!(policy::remaining_sources(&v).len(), 1);
+    assert!(policy::can_pay(
+        &v,
+        &ManaCost::from_symbol(ManaSymbol::Green)
+    ));
 }

@@ -683,6 +683,8 @@ pub enum AwaitingOp {
         recipient: PlayerId,
         /// Colors offered.
         colors: Vec<ManaColor>,
+        /// Remove each chosen color before the next pick.
+        distinct: bool,
         /// Picks still to make (a combination picks once per mana).
         remaining: u16,
         /// Mana added per pick (1 for combination, all of it otherwise).

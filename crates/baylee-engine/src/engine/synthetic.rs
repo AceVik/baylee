@@ -41,6 +41,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         loyalty: None,
         alternative_costs: &[],
         prototype: None,
+        freerunning: None,
         disguise: None,
         replicate: None,
         x_mana_color: None,
@@ -178,6 +179,8 @@ pub fn forest() -> u32 {
 
 fn entry(card: u32) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: CardIndex::new(card),
         print: PrintRef::new(0),
     }
@@ -216,6 +219,7 @@ pub fn preset_both(seed: u64, battlefield: &[u32], theirs: &[u32]) -> GamePreset
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),

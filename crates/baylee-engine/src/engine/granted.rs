@@ -88,6 +88,11 @@ pub(super) struct ActivationPayment {
     graveyard: Option<PlayerId>,
     phyrexian: Vec<bool>,
     abilities: Option<(baylee_core::ids::ObjectId, crate::object::AbilityList)>,
+    grant: Option<(
+        baylee_core::ids::ObjectId,
+        u32,
+        crate::effects::GrantedAbility,
+    )>,
     pub(super) previous: Option<Box<PaymentWindow>>,
     /// Where the window began, to give back what it made if the
     /// activation is not completed (CR 732.1).
@@ -110,6 +115,7 @@ impl ActivationPayment {
             self.x,
             self.graveyard,
             &self.phyrexian,
+            self.grant,
             self.abilities
                 .as_ref()
                 .map(|(id, list)| (id, &list.abilities, list.printed, list.token)),
@@ -173,11 +179,13 @@ impl<L: CardLookup> Engine<L> {
         let pool = planned
             .as_ref()
             .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
-        crate::casting::affordable(
+        crate::casting::phyrexian_affordable_with(
             &self.state,
             player,
             pool,
             &cost.mana.with_x(self.activation_x.unwrap_or(0)),
+            &[],
+            crate::casting::ability_mana_spending(&self.state, player, source),
         )
     }
 
@@ -202,23 +210,21 @@ impl<L: CardLookup> Engine<L> {
         source: baylee_core::ids::ObjectId,
         index: u32,
     ) -> bool {
-        let reserved = self
-            .state
-            .object(source)
-            .and_then(|o| o.abilities(&self.lookup).get(index as usize))
-            .is_none_or(|ability| match ability {
-                baylee_cards_dsl::AbilityDef::Activated { cost, .. }
-                | baylee_cards_dsl::AbilityDef::ActivatedConditional { cost, .. } => {
-                    cost.parts.iter().any(|part| {
-                        matches!(
-                            part,
-                            baylee_cards_dsl::CostPart::TapSelf
-                                | baylee_cards_dsl::CostPart::UntapSelf
-                        )
-                    })
-                }
-                _ => true,
-            });
+        let reserved =
+            self.activation_definition(source, index)
+                .is_none_or(|ability| match ability {
+                    baylee_cards_dsl::AbilityDef::Activated { cost, .. }
+                    | baylee_cards_dsl::AbilityDef::ActivatedConditional { cost, .. } => {
+                        cost.parts.iter().any(|part| {
+                            matches!(
+                                part,
+                                baylee_cards_dsl::CostPart::TapSelf
+                                    | baylee_cards_dsl::CostPart::UntapSelf
+                            )
+                        })
+                    }
+                    _ => true,
+                });
         let excluded = if reserved {
             source
         } else {
@@ -266,6 +272,7 @@ impl<L: CardLookup> Engine<L> {
             graveyard: self.activation_graveyard.take(),
             phyrexian: std::mem::take(&mut self.activation_phyrexian),
             abilities: self.activating_abilities.take(),
+            grant: self.activating_grant.take(),
             previous: self.mana_window.take().map(Box::new),
         };
         self.mana_window = Some(PaymentWindow {
@@ -312,6 +319,7 @@ impl<L: CardLookup> Engine<L> {
         self.activation_graveyard = payment.graveyard;
         self.activation_phyrexian = payment.phyrexian;
         self.activating_abilities = payment.abilities;
+        self.activating_grant = payment.grant;
         if self
             .start_activation(
                 player,

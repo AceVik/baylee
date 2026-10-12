@@ -10,10 +10,20 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         source: ObjectId,
         targets: SmallVec<[ObjectId; 2]>,
-        granted: crate::effects::GrantedAbility,
+        granted: &crate::effects::GrantedAbility,
     ) -> ObjectId {
-        self.activating_abilities = None;
+        let captured = self
+            .activating_abilities
+            .take()
+            .filter(|(id, _)| *id == source);
         let object = self.state.object(source);
+        let acquisition = granted.acquisition.unwrap_or_else(|| {
+            captured.as_ref().map_or_else(
+                || object.map_or(0, GameObject::rules_acquisition),
+                |(_, list)| list.acquisition,
+            )
+        });
+        let version = object.map(|object| object.version);
         let name = object.map_or(NameRef::new(0), |o| o.base.name);
         let card = object.and_then(|o| o.card).map(|c| c.index);
         let base = self.state.bare_base(name);
@@ -23,7 +33,7 @@ impl<L: CardLookup> Engine<L> {
                 player,
                 AbilityLoc {
                     card,
-                    index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                    index: granted.id,
                     source,
                 },
                 targets,
@@ -35,6 +45,22 @@ impl<L: CardLookup> Engine<L> {
         }
         if let Some(object) = self.state.object_mut(id) {
             object.riders.push(crate::object::Rider::GrantedActivated);
+            if acquisition != 0 {
+                object
+                    .riders
+                    .push(crate::object::Rider::RulesAcquisition(acquisition));
+            }
+            if let Some(version) = version {
+                object
+                    .riders
+                    .push(crate::object::Rider::AbilitySourceVersion(version));
+            }
+            object.target_req = match granted.definition {
+                AbilityDef::Activated { targets, .. }
+                | AbilityDef::ActivatedConditional { targets, .. }
+                | AbilityDef::Loyalty { targets, .. } => targets,
+                _ => None,
+            };
         }
         self.synthetic_fx.insert(id, granted.effects);
         self.state
@@ -44,7 +70,7 @@ impl<L: CardLookup> Engine<L> {
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source,
-            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+            ability_index: granted.id,
             controller: player,
         });
         id
@@ -87,18 +113,16 @@ impl<L: CardLookup> Engine<L> {
         // A granted ability follows the same announcements, cost choices and
         // payment as a printed one (CR 602.2b). Its effects are captured below
         // before paying can remove either the recipient or the grantor.
-        let granted = crate::choice::granted_slot(ability_index)
-            .map(|slot| {
-                crate::effects::granted_activated(&self.state, source)
-                    .nth(slot as usize)
-                    .ok_or(EngineError::IllegalAction("no granted ability"))
-            })
-            .transpose()?;
-        let granted_definition = granted.map(|grant| {
-            let mut parts = baylee_cards_dsl::ActivatedParts::new(grant.cost, grant.effects);
-            parts.mana_ability = grant.mana_ability;
-            parts.build()
-        });
+        let granted = if crate::choice::granted_slot(ability_index).is_some() {
+            let granted = self
+                .granted_definition(source, ability_index)
+                .ok_or(EngineError::IllegalAction("no granted ability"))?;
+            self.activating_grant = Some((source, ability_index, granted));
+            Some(granted)
+        } else {
+            None
+        };
+        let granted_definition = granted.map(|grant| grant.definition);
         // Loyalty abilities route to their own activation path first.
         if let Some(cost) = self.loyalty_cost(source, ability_index) {
             return self.start_loyalty_activation(player, source, ability_index, targets, cost);
@@ -604,6 +628,33 @@ impl<L: CardLookup> Engine<L> {
             },
             |grant| grant.text,
         );
+        let circled_colors = if granted.is_some() {
+            // An ability-only grant does not copy the donor's deck-building choices.
+            baylee_core::color::ColorSet::EMPTY
+        } else {
+            self.activating_abilities.as_ref().map_or_else(
+                || {
+                    self.state
+                        .printed_ability_list(source)
+                        .map_or(baylee_core::color::ColorSet::EMPTY, |list| {
+                            list.circled_colors(ability_index as usize)
+                        })
+                },
+                |(_, list)| list.circled_colors(ability_index as usize),
+            )
+        };
+        let acquisition = granted
+            .and_then(|grant| grant.acquisition)
+            .unwrap_or_else(|| {
+                self.activating_abilities.as_ref().map_or_else(
+                    || {
+                        self.state
+                            .object(source)
+                            .map_or(0, GameObject::rules_acquisition)
+                    },
+                    |(_, list)| list.acquisition,
+                )
+            });
         let paid = self.pay_cost(player, source, &cost, &answers, x)?;
         // The life the Phyrexian symbols were paid with, beside the rest of
         // the cost (CR 601.2h; CR 119.4 was asked above).
@@ -688,7 +739,9 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
-                subject: resolve::SubjectContext::after_cost(&paid),
+                subject: resolve::SubjectContext::after_cost(&paid)
+                    .with_circled_colors(circled_colors)
+                    .with_acquisition(acquisition),
                 text: activated_text,
                 event_mana: None,
                 retarget_left: None,
@@ -718,7 +771,7 @@ impl<L: CardLookup> Engine<L> {
             }
         } else {
             let ability = if let Some(granted) = granted {
-                self.push_granted_ability(player, source, targets, granted)
+                self.push_granted_ability(player, source, targets, &granted)
             } else {
                 self.push_ability_to_stack(player, source, ability_index, targets)
             };
@@ -732,10 +785,10 @@ impl<L: CardLookup> Engine<L> {
             }
             // The second instance's answer, taken so that it belongs to this
             // activation and to no other.
-            if let Some(second) = self.activation_second_targets.take()
+            if let Some(second_targets) = self.activation_second_targets.take()
                 && let Some(obj) = self.state.object_mut(ability)
             {
-                obj.set_second(second, None);
+                obj.set_second(second_targets, second);
             }
             self.state
                 .bind_target_references(ability, &self.activation_target_references);
@@ -763,6 +816,7 @@ impl<L: CardLookup> Engine<L> {
             {
                 obj.paid = Some(Box::new(paid));
             }
+            self.apply_ability_spend_riders(player, ability);
             // The seats that were targeted, written onto the ability now
             // that there is one — the same two fields the trigger path
             // writes, and for the same reason: `target_players` is the set
@@ -780,6 +834,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
+        self.activating_grant = None;
         self.after_action(player);
         Ok(())
     }

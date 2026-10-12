@@ -39,6 +39,8 @@ use baylee_gamehost::{RegistryLookup, SeatContext, owed_payment, player_view};
 
 fn entry(name: &str) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name(name).expect("registered fixture"),
         print: baylee_core::ids::PrintRef::new(0),
     }

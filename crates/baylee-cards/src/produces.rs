@@ -50,6 +50,8 @@ pub fn produces(def: &CardDef) -> String {
                 }
                 ManaSource::IntrinsicBasicLandTypes
                 | ManaSource::CommanderIdentity
+                | ManaSource::ExiledWithSource
+                | ManaSource::CircledColors
                 | ManaSource::ColorsAmong { .. }
                 | ManaSource::LandColor { .. }
                 | ManaSource::Chosen => {}

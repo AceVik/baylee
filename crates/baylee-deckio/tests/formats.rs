@@ -35,6 +35,7 @@ fn everything() -> Document {
     let mut cards = Vec::new();
     for (at, finish) in FINISHES.into_iter().enumerate() {
         cards.push(Card {
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             zone: [Zone::Main, Zone::Side, Zone::Maybe][at % 3],
             count: u32::try_from(at + 1).unwrap(),
             name: format!("Card {at}"),
@@ -49,6 +50,7 @@ fn everything() -> Document {
     cards.insert(
         0,
         Card {
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             zone: Zone::Commander,
             count: 1,
             name: "Fable of the Mirror-Breaker // Reflection of Kiki-Jiki".into(),
@@ -231,6 +233,7 @@ fn baylee_text_says_everything_but_a_number_without_a_set() {
 
 fn card(name: &str) -> Card {
     Card {
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         zone: Zone::Main,
         count: 1,
         name: name.into(),

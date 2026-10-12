@@ -52,6 +52,12 @@ pub enum Filter {
     HasSupertype(SupertypeSet),
     /// Has this subtype.
     HasSubtype(SubtypeId),
+    /// The actual printing has a watermark (Unstable's printed-card rule).
+    HasWatermark,
+    /// Shares a nonempty actual watermark with the source.
+    SharesWatermarkWithSource,
+    /// The physical card has a silver border or acorn security stamp.
+    UnCard,
     /// Has at least one of these colors.
     HasColor(ColorSet),
     /// Is colorless.

@@ -1193,6 +1193,8 @@ mod tests {
     /// A duel with `battlefield` on seat 0's side and nothing on seat 1's.
     fn game(battlefield: Vec<CardIndex>) -> Engine<TestPool> {
         let entry = |card| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card,
             print: PrintRef::new(0),
         };
@@ -1210,6 +1212,7 @@ mod tests {
             team: None,
         };
         let preset = GamePreset {
+            rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: 7,
             house_rules: HouseRules {
@@ -1339,6 +1342,8 @@ mod tests {
             .expect("Tavern Ruffian is in the pool")
             .index;
         let entry = |card| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card,
             print: PrintRef::new(0),
         };
@@ -1358,6 +1363,7 @@ mod tests {
             team: None,
         };
         let preset = GamePreset {
+            rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: 8,
             house_rules: HouseRules::default(),

@@ -355,6 +355,16 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
                 amount: 1,
             });
         }),
+        ("grants", |o| {
+            o.grants = vec![GrantSource {
+                slot: 71,
+                mana_ability: true,
+                ..GrantSource::default()
+            }];
+        }),
+        ("ability_mana_spending", |o| {
+            o.ability_mana_spending = baylee_core::mana::ManaSpending::ANY_COLOR;
+        }),
         ("board_mana", |o| {
             o.board_mana = Some(BoardMana {
                 index: 0,

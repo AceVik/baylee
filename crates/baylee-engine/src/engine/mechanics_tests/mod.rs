@@ -178,6 +178,8 @@ impl Seat {
 
 fn entry(card: u32) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: CardIndex::new(card),
         print: PrintRef::new(0),
     }
@@ -203,6 +205,7 @@ pub(super) fn bench(seed: u64, cards: Vec<&'static CardDef>, seats: [Seat; 2]) -
         team: None,
     };
     let preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),

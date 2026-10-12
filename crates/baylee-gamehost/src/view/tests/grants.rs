@@ -1,5 +1,29 @@
 use super::*;
 
+fn lantern_mana(slot: u32) -> baylee_view::GrantedMana {
+    use baylee_core::mana::ManaColor;
+    baylee_view::GrantedMana {
+        slot,
+        colors: vec![
+            ManaColor::White,
+            ManaColor::Blue,
+            ManaColor::Black,
+            ManaColor::Red,
+            ManaColor::Green,
+        ],
+        amount: 1,
+    }
+}
+
+fn hidden_lantern_grant(slot: u32) -> baylee_view::GrantSource {
+    baylee_view::GrantSource {
+        slot,
+        mana_ability: true,
+        mana: Some(lantern_mana(slot)),
+        ..baylee_view::GrantSource::default()
+    }
+}
+
 /// A land under a Chromatic Lantern taps for any colour, and there is no
 /// card anywhere a client could read that off — the ability exists only
 /// in the effect table. It is projected for the same reason as an
@@ -18,12 +42,16 @@ fn a_land_under_a_lantern_says_what_it_now_makes() {
         .index;
     let mut preset = mixed_print_preset();
     let land = DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: island(),
         print: PrintRef::new(0),
     };
     preset.seats[0].starting_battlefield = vec![
         land,
         DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: lantern,
             print: PrintRef::new(0),
         },
@@ -210,6 +238,8 @@ fn grants_seen(
 #[test]
 fn a_granted_ability_names_its_grantor_and_the_sentence_that_grants_it() {
     let card = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };
@@ -238,6 +268,10 @@ fn a_granted_ability_names_its_grantor_and_the_sentence_that_grants_it() {
     let (mine, theirs) = (land_of(me), land_of(them));
 
     let named = vec![baylee_view::GrantSource {
+        slot: 0,
+        ability: None,
+        mana_ability: true,
+        mana: Some(lantern_mana(0)),
         source: Some(lantern),
         rules: Some(baylee_view::RulesFace {
             card: chromatic_lantern(),
@@ -260,7 +294,8 @@ fn a_granted_ability_names_its_grantor_and_the_sentence_that_grants_it() {
 }
 
 /// #212, the hidden-information half. A grantor that lies where this
-/// seat cannot look is not named at all.
+/// seat cannot look is not named at all. Its public granted ability still
+/// carries its stable slot, mana classification and production.
 ///
 /// A nontoken card keeps its handle across zones (#240), so the handle
 /// would say which card in that hand or library granted it, and the
@@ -271,6 +306,8 @@ fn a_granted_ability_names_its_grantor_and_the_sentence_that_grants_it() {
 #[test]
 fn a_grantor_this_seat_cannot_see_is_not_named() {
     let card = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };
@@ -291,7 +328,7 @@ fn a_grantor_this_seat_cannot_see_is_not_named() {
 
     assert_eq!(
         grants_seen(&engine, me, land),
-        vec![baylee_view::GrantSource::default(); 2],
+        vec![hidden_lantern_grant(0), hidden_lantern_grant(1)],
         "seat 0 may see neither grantor"
     );
     let mine = player_view(engine.state(), me, 0, None, &SeatContext::default(), &[]);
@@ -303,6 +340,10 @@ fn a_grantor_this_seat_cannot_see_is_not_named() {
         grants_seen(&engine, them, land),
         vec![
             baylee_view::GrantSource {
+                slot: 0,
+                ability: None,
+                mana_ability: true,
+                mana: Some(lantern_mana(0)),
                 source: Some(in_their_hand),
                 rules: Some(baylee_view::RulesFace {
                     card: chromatic_lantern(),
@@ -314,7 +355,7 @@ fn a_grantor_this_seat_cannot_see_is_not_named() {
                     of: 2,
                 }),
             },
-            baylee_view::GrantSource::default(),
+            hidden_lantern_grant(1),
         ],
         "seat 1 holds the Lantern; nobody may look into seat 0's library"
     );
@@ -332,6 +373,8 @@ fn a_grantor_this_seat_cannot_see_is_not_named() {
 #[test]
 fn a_grant_its_source_never_wrote_names_no_sentence() {
     let card = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };
@@ -364,6 +407,10 @@ fn a_grant_its_source_never_wrote_names_no_sentence() {
     let (_, grant) = first_grant(chromatic_lantern());
     grant_from(&mut engine, opt, islands[1], grant, 1_000);
     let named_only = vec![baylee_view::GrantSource {
+        slot: 0,
+        ability: None,
+        mana_ability: true,
+        mana: Some(lantern_mana(0)),
         source: Some(opt),
         rules: None,
         text: None,
@@ -378,6 +425,8 @@ fn a_copys_own_grant_is_read_off_the_card_it_is() {
     use baylee_engine::copiable_abilities::compose;
     use baylee_engine::object::AbilityList;
     let card = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };
@@ -480,10 +529,14 @@ fn granted_mana_refuses_a_priced_grant() {
     let mut preset = mixed_print_preset();
     preset.seats[0].starting_battlefield = vec![
         DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: maw,
             print: PrintRef::new(0),
         },
         DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: monument,
             print: PrintRef::new(0),
         },

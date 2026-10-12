@@ -43,7 +43,7 @@ impl<L: CardLookup> Engine<L> {
     pub(super) fn can_settle_tax(&self, res: &crate::resolve::Resolution) -> bool {
         match res.awaiting {
             Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. }) => {
-                self.pool_pays_tax(player, &cost)
+                self.can_pay_mana(player, resolve::payment_for(&self.state, res), &cost)
             }
             _ => false,
         }
@@ -62,6 +62,7 @@ impl<L: CardLookup> Engine<L> {
     /// And of the payment rather than of the pool's size for a second
     /// reason since the price may have colour in it: two floating red do
     /// not pay Phantasmal Forces' `{U}`.
+    #[cfg(test)]
     pub(super) fn pool_pays_tax(
         &self,
         player: PlayerId,
@@ -121,8 +122,9 @@ impl<L: CardLookup> Engine<L> {
             } => {
                 return self.finish_miracle_payment(&wizard, version, &opened);
             }
-            PaymentContinuation::Pact(cost) => {
-                if !casting::pay_mana(&mut self.state, window.player, &cost) {
+            PaymentContinuation::Pact { cost, source } => {
+                let what = source.map_or(casting::SpendFor::Other, casting::SpendFor::OtherFrom);
+                if casting::pay_mana_for(&mut self.state, window.player, what, &cost).is_none() {
                     let _ = sba::lose_by_effect(&mut self.state, window.player);
                 }
                 return Ok(());
@@ -154,7 +156,11 @@ impl<L: CardLookup> Engine<L> {
             self.pending = Pending::ChooseNumber {
                 player,
                 min: 0,
-                max: casting::spendable_units(&self.state, player, casting::SpendFor::Other),
+                max: casting::spendable_units(
+                    &self.state,
+                    player,
+                    resolve::payment_for(&self.state, &res),
+                ),
                 reason: crate::choice::NumberPrompt::ManaPayment {
                     preventable_damage: amount,
                 },

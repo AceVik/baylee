@@ -1821,3 +1821,139 @@ fn looking_for_more_printings_ends_with_the_next_answer() {
         "a catalog's answer is not widened"
     );
 }
+
+#[test]
+fn spires_picker_retains_each_of_the_ten_per_copy_color_pairs() {
+    use baylee_core::color::{Color, ColorPair};
+    for (at, first) in Color::ALL.iter().enumerate() {
+        for second in &Color::ALL[at + 1..] {
+            let mut b = DeckBuilder::new();
+            b.set_pool(
+                vec![card(
+                    baylee_core::generated::index::CRYPTIC_SPIRES.get(),
+                    "Cryptic Spires",
+                    "",
+                    0,
+                    &["Land"],
+                )],
+                true,
+            );
+            b.set_name("Circles");
+            b.open_picker(0, Zone::Main);
+            assert!(!b.picker_choices_valid());
+            assert!(!b.picker_confirm());
+            let pair = ColorPair::new(*first, *second);
+            b.picker_set_circles(pair);
+            assert!(b.picker_confirm());
+            assert_eq!(
+                b.entries(Zone::Main)[0].print.choices.circled_colors,
+                Some(pair)
+            );
+            b.open_row_picker(0, Zone::Main);
+            assert_eq!(b.picker().unwrap().circles(), Some(pair));
+            assert_eq!(b.picked_choice().choices.circled_colors, Some(pair));
+        }
+    }
+}
+
+#[test]
+fn spires_picker_rejects_circles_outside_the_commanders_identity() {
+    use baylee_core::color::{Color, ColorPair};
+    let mut commander = card(1, "Blue Commander", "{U}", 1, &["Legendary", "Creature"]);
+    commander.commander = true;
+    let mut b = DeckBuilder::new();
+    b.set_pool(
+        vec![
+            card(
+                baylee_core::generated::index::CRYPTIC_SPIRES.get(),
+                "Cryptic Spires",
+                "",
+                0,
+                &["Land"],
+            ),
+            commander,
+        ],
+        true,
+    );
+    assert!(b.set_commander(1));
+    b.open_picker(0, Zone::Main);
+    b.picker_set_circles(ColorPair::new(Color::Blue, Color::Green));
+    assert_eq!(b.picker().unwrap().circles(), None);
+    assert!(!b.picker_choices_valid());
+}
+
+fn spires_review_builder() -> DeckBuilder {
+    let mut b = DeckBuilder::new();
+    let mut leader = card(1, "Blue Commander", "{U}", 1, &["Legendary", "Creature"]);
+    leader.commander = true;
+    b.set_pool(
+        vec![
+            card(
+                baylee_core::generated::index::CRYPTIC_SPIRES.get(),
+                "Cryptic Spires",
+                "",
+                0,
+                &["Land"],
+            ),
+            leader,
+            card(2, "Forest", "", 0, &["Land"]),
+        ],
+        true,
+    );
+    b.set_name("Circles");
+    b
+}
+
+#[test]
+fn imported_spires_choices_round_trip_and_commander_changes_block_saving() {
+    let mut b = spires_review_builder();
+    b.load(
+        "spires",
+        "Circles",
+        &["1 Cryptic Spires circles=GU".into()],
+        &[],
+        &[],
+    );
+    assert_eq!(b.rows(Zone::Main), vec!["1 Cryptic Spires circles=GU"]);
+    assert!(!b.problems(crate::i18n::Lang::En).iter().any(|p| p.blocking));
+    assert!(b.set_commander(1));
+    assert!(b.problems(crate::i18n::Lang::En).iter().any(|p| p.blocking));
+    let row = b
+        .entries(Zone::Main)
+        .iter()
+        .position(|entry| entry.slot == 0)
+        .unwrap();
+    b.open_row_picker(row, Zone::Main);
+    assert!(!b.picker_choices_valid());
+    assert!(!b.picker_confirm());
+    assert_eq!(b.count_of(0, Zone::Main), 1);
+}
+
+#[test]
+fn spires_choices_are_required_at_every_direct_add_boundary() {
+    use baylee_core::color::{Color, ColorPair};
+    let mut b = spires_review_builder();
+    assert!(!b.add(0, Zone::Main));
+    b.open_picker(0, Zone::Main);
+    assert!(!b.window_add(Zone::Side));
+    assert!(!b.window_step(Zone::Main, true));
+    b.picker_set_circles(ColorPair::new(Color::Blue, Color::Green));
+    assert!(b.window_add(Zone::Side));
+    assert!(b.window_step(Zone::Main, true));
+    let choices = b.entries(Zone::Main)[0].print.clone();
+    assert!(!b.add_print(2, Zone::Main, choices));
+    assert_eq!(b.count_of(2, Zone::Main), 0);
+}
+
+#[test]
+fn imported_missing_or_unexpected_circles_block_save_without_dropping_rows() {
+    let mut b = spires_review_builder();
+    for row in ["1 Cryptic Spires", "1 Forest circles=GU"] {
+        b.load("invalid", "Circles", &[row.into()], &[], &[]);
+        assert_eq!(b.rows(Zone::Main), vec![row]);
+        assert!(b.problems(crate::i18n::Lang::En).iter().any(|p| p.blocking));
+        b.open_row_picker(0, Zone::Main);
+        assert!(!b.picker_choices_valid());
+        assert!(!b.picker_confirm());
+    }
+}

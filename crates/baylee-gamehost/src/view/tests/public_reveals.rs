@@ -7,6 +7,8 @@ fn public_revelation_reaches_every_seat_and_spectators_then_becomes_private_agai
     let mut preset = mixed_print_preset();
     preset.seats.push(preset.seats[1].clone());
     preset.seats[0].starting_battlefield.push(DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: index::REVELATION,
         print: PrintRef::new(0),
     });
@@ -61,6 +63,8 @@ fn field_of_dreams_reveals_only_one_library_card_per_player_to_every_view() {
     let mut preset = mixed_print_preset();
     preset.seats.push(preset.seats[1].clone());
     preset.seats[0].starting_battlefield.push(DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: index::FIELD_OF_DREAMS,
         print: PrintRef::new(0),
     });

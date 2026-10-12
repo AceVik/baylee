@@ -488,6 +488,9 @@ mod tests {
             oracle_text: Some(String::new()),
             colors: None,
             color_identity: None,
+            watermark: None,
+            border_color: None,
+            security_stamp: None,
             set: None,
             set_name: None,
             collector_number: None,
@@ -504,6 +507,7 @@ mod tests {
 
     fn face(type_line: &str, mana_cost: &str) -> ScryfallFace {
         ScryfallFace {
+            watermark: None,
             name: String::new(),
             mana_cost: Some(mana_cost.to_string()),
             type_line: Some(type_line.to_string()),

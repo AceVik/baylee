@@ -242,6 +242,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             crate::replacement::remove_counters(state, res.source, kind, n);
             None
         }
+        Effect::RemoveAllCountersSelf { kind } => {
+            let source = subjects::source(state, res)?;
+            if subjects::on_battlefield(state, source) {
+                let n = state.object(source.object)?.counters.get(kind);
+                crate::replacement::remove_counters(state, source.object, kind, n);
+            }
+            None
+        }
         Effect::AddCounterFilter {
             filter,
             kind,

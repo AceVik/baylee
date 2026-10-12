@@ -11,17 +11,22 @@ use baylee_cards_dsl::{Filter, ManaColor, SpendRider};
 /// A land on `seat`'s battlefield whose mana is "one mana of the chosen
 /// colour", with `chosen` chosen.
 ///
-/// Bare rather than a card: what `colors_of` reads is the land's type, the
-/// flag that says its mana is the chosen colour, and the colour itself,
-/// and a printed card would put its own mana line in front of the question.
+/// A bare land with a real chosen-color mana ability. Production queries
+/// inspect its rules rather than trusting a cached presentation hint.
 fn haven(state: &mut GameState, seat: PlayerId, chosen: ManaColor) -> ObjectId {
+    static ABILITIES: &[baylee_cards_dsl::AbilityDef] = &[baylee_cards_dsl::mana_ability!(&[
+        baylee_cards_dsl::Effect::mana_chosen()
+    ])];
     let name = state.names.intern("Haven");
     let id = state.create_bare(seat, ObjectKind::Permanent, name, ZoneLocation::Battlefield);
     let obj = state.object_mut(id).expect("just made it");
     let base = obj.base_mut();
     base.types = TypeSet::LAND;
-    base.produced_chosen = true;
-    obj.chosen_color = Some(chosen);
+    obj.take_abilities(crate::object::AbilityList::from_static(
+        ABILITIES, None, None,
+    ));
+    // Colorless is the fixture sentinel for no legal color choice.
+    obj.chosen_color = (chosen != ManaColor::Colorless).then_some(chosen);
     id
 }
 
@@ -41,6 +46,7 @@ fn seen_beside(havens: &[ManaColor]) -> Vec<ManaColor> {
         state,
         me(),
         ManaSource::LandColor {
+            filter: &baylee_cards_dsl::Filter::Any,
             mine: true,
             any_type: true,
         },

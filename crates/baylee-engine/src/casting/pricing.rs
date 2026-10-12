@@ -35,6 +35,38 @@ pub fn mana_spending(state: &GameState, player: PlayerId) -> ManaSpending {
     spending
 }
 
+/// Spending permissions for an activated ability of this exact source.
+/// Creature-only permissions leave spells and colorless requirements unchanged.
+#[must_use]
+pub fn ability_mana_spending(
+    state: &GameState,
+    player: PlayerId,
+    source: ObjectId,
+) -> ManaSpending {
+    let mut spending = mana_spending(state, player);
+    let creature = state.object(source).is_some_and(|object| {
+        object.zone == Zone::Battlefield
+            && object.controller == player
+            && object.characteristics().types.contains(TypeSet::CREATURE)
+    });
+    if creature
+        && state.effects.iter().any(|effect| {
+            effect.controller == player
+                && effect.modifier == baylee_cards_dsl::Modifier::CreatureAbilityManaAnyColor
+        })
+    {
+        for actual in ManaColor::ALL {
+            for required in ManaColor::ALL
+                .into_iter()
+                .filter(|color| *color != ManaColor::Colorless)
+            {
+                spending.allow(actual, required);
+            }
+        }
+    }
+    spending
+}
+
 /// Spending permission follows the exact exiled card incarnation, not its owner.
 pub(crate) fn spell_mana_spending(
     state: &GameState,

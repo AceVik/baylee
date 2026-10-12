@@ -68,6 +68,8 @@ const BASICS_EACH: usize = 3;
 
 fn deck_entry(index: baylee_core::ids::CardIndex) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: index,
         print: PrintRef::new(0),
     }
@@ -128,6 +130,7 @@ fn sweep_preset(cards: &[&'static CardDef]) -> GamePreset {
         team: None,
     };
     let mut preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 7,
         house_rules: HouseRules::default(),

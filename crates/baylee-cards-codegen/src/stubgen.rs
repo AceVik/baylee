@@ -1300,6 +1300,9 @@ mod tests {
             oracle_text: Some(String::new()),
             colors: None,
             color_identity: None,
+            watermark: None,
+            border_color: None,
+            security_stamp: None,
             set: None,
             set_name: None,
             collector_number: None,
@@ -1372,6 +1375,7 @@ mod tests {
         let cats = SubtypeCatalogs::default();
         let mut card = bare_card("Front // Back", "Land // Creature — Demon");
         let back = |type_line: &str, cost: Option<&str>| ScryfallFace {
+            watermark: None,
             name: "Back".to_string(),
             mana_cost: cost.map(str::to_string),
             type_line: Some(type_line.to_string()),

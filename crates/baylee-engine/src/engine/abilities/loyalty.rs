@@ -18,53 +18,22 @@ impl<L: CardLookup> Engine<L> {
         targets: SmallVec<[ObjectId; 2]>,
         second: SmallVec<[ObjectId; 1]>,
     ) {
-        // A loyalty ability of a card-less permanent is a token copy of a
-        // planeswalker: nothing in the pool makes one, but `legal_actions`
-        // offers whatever the object's own list holds, so refusing here
-        // would be the engine taking back an offer it had just made.
-        let card_index = self
-            .state
-            .object(source)
-            .and_then(|o| o.card)
-            .map(|c| c.index);
-        let loc = AbilityLoc {
-            card: card_index,
-            index: ability_index,
-            source,
-        };
-        let name = self
-            .state
-            .object(source)
-            .map_or(NameRef::new(0), |o| o.base.name);
-        let base = self.state.bare_base(name);
-        // CR 608.2, as in `push_ability_to_stack`. A loyalty cost never moves
-        // the walker, so the source is still there to be read.
-        let abilities = self
-            .state
-            .object(source)
-            .map_or(crate::object::AbilityList::NONE, |o| {
-                o.ability_list(&self.lookup)
-            });
         let second_req = self.loyalty_second_targets(source, ability_index);
-        let id = self.state.arena.insert_with(|id| {
-            let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, base);
-            obj.take_abilities(abilities);
-            obj.set_second(second, second_req);
-            obj.chosen_player = self.loyalty_player_choice.take();
-            obj
-        });
-        self.state
-            .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+        let id = if let Some(grant) = self.granted_definition(source, ability_index) {
+            self.push_granted_ability(player, source, targets, &grant)
+        } else {
+            self.push_ability_to_stack(player, source, ability_index, targets)
+        };
+        if let Some(object) = self.state.object_mut(id) {
+            object.set_second(second, second_req);
+            object.chosen_player = self.loyalty_player_choice.take();
+            object.paid = self.loyalty_paid.take().map(Box::new);
+        }
+        self.apply_ability_spend_riders(player, id);
+        self.activating_grant = None;
         self.state
             .bind_target_references(id, &self.activation_target_references);
         self.activation_target_references = crate::sources::TargetReferences::default();
-        self.state.journal.record(GameEvent::AbilityTriggered {
-            object: id,
-            source,
-            ability_index,
-            controller: player,
-        });
         self.after_action(player);
     }
 
@@ -81,13 +50,8 @@ impl<L: CardLookup> Engine<L> {
     /// second activation, which refused it, and the target question was
     /// left with nothing to answer it.
     pub(crate) fn loyalty_cost(&self, source: ObjectId, ability_index: u32) -> Option<i8> {
-        match self
-            .state
-            .object(source)?
-            .abilities(&self.lookup)
-            .get(ability_index as usize)?
-        {
-            AbilityDef::Loyalty { cost, .. } => Some(*cost),
+        match self.activation_definition(source, ability_index)? {
+            AbilityDef::Loyalty { cost, .. } => Some(cost),
             _ => None,
         }
     }
@@ -99,13 +63,8 @@ impl<L: CardLookup> Engine<L> {
         source: ObjectId,
         ability_index: u32,
     ) -> Option<baylee_cards_dsl::TargetReq> {
-        match self
-            .state
-            .object(source)?
-            .abilities(&self.lookup)
-            .get(ability_index as usize)?
-        {
-            AbilityDef::Loyalty { second_targets, .. } => *second_targets,
+        match self.activation_definition(source, ability_index)? {
+            AbilityDef::Loyalty { second_targets, .. } => second_targets,
             _ => None,
         }
     }
@@ -167,21 +126,11 @@ impl<L: CardLookup> Engine<L> {
         if self.loyalty_used_this_turn.contains(&source) {
             return Err(EngineError::IllegalAction("loyalty already used this turn"));
         }
-        let wanted = {
-            let obj = self
-                .state
-                .object(source)
-                .ok_or(EngineError::IllegalAction("no such permanent"))?;
-            // The ability comes off the object's own list: a token copy of a
-            // planeswalker has one without having a card.
-            let AbilityDef::Loyalty { targets, .. } = obj
-                .abilities(&self.lookup)
-                .get(ability_index as usize)
-                .ok_or(EngineError::IllegalAction("no such ability"))?
-            else {
-                return Err(EngineError::IllegalAction("not a loyalty ability"));
-            };
-            *targets
+        let Some(AbilityDef::Loyalty {
+            targets: wanted, ..
+        }) = self.activation_definition(source, ability_index)
+        else {
+            return Err(EngineError::IllegalAction("not a loyalty ability"));
         };
         // Loyalty cost is paid at activation (CR 606.4) — after checking
         // that required targets exist, before targeting.
@@ -218,7 +167,7 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         let price = self.activation_price(player, source, &Cost::FREE, None);
-        self.pay_cost(player, source, &price, &[], 0)?;
+        self.loyalty_paid = Some(self.pay_cost(player, source, &price, &[], 0)?);
         if cost >= 0 {
             crate::replacement::record_counters_by(
                 &mut self.state,

@@ -40,6 +40,8 @@ fn reads_amount(value: Amount) -> bool {
 fn reads_event(effect: &Effect) -> bool {
     match effect {
         Effect::EventObjectDealsDamageEqualToPower { .. }
+        | Effect::CopyEventSpellOrAbility
+        | Effect::TargetsCopyEventSpellUntilEndOfTurn
         | Effect::IfEventObjectMatches { .. }
         | Effect::IfEventPowerAtLeast { .. }
         | Effect::MoveCounterToEvent { .. } => true,

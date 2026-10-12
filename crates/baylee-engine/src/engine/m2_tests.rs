@@ -41,6 +41,7 @@ fn face(name: &'static str, cost: &'static str, types: TypeSet, pt: Option<(i16,
         loyalty: None,
         alternative_costs: &[],
         prototype: None,
+        freerunning: None,
         disguise: None,
         replicate: None,
         additional_costs: &[],
@@ -305,6 +306,8 @@ impl CardLookup for TestLookup {
 
 fn entry(card: u32) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: CardIndex::new(card),
         print: PrintRef::new(0),
     }
@@ -329,6 +332,7 @@ fn preset_bf(seed: u64, bf0: &[u32], hand0: &[u32]) -> GamePreset {
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),

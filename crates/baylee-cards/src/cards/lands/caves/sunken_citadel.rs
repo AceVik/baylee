@@ -25,7 +25,7 @@ card!(
         mana_ability!(&[Effect::AddMana {
             source: ManaSource::Chosen,
             amount: Amount::Fixed(2),
-            combination: false,
+            distribution: baylee_cards_dsl::ManaDistribution::OneColor,
             restriction: None,
         }
         .restricted_for(&Filter::LAND, SpendRider::None, ManaUse::Abilities)]),

@@ -49,6 +49,8 @@ fn restricted_x_reductions_reduce_the_total_and_the_color_requirement_once() {
         let definition = probe_spell(reduction, true, false);
         let mut preset = synthetic::preset(51, &[]);
         preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: CardIndex::new(98_001),
             print: PrintRef::new(0),
         }]);
@@ -118,6 +120,8 @@ fn an_exact_x_target_spell_selects_and_pays_for_more_than_255_targets() {
     let land = synthetic::land(98_011, "Target-count probe", &[]);
     let mut preset = synthetic::preset(74, &[98_011; 256]);
     preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: definition.index,
         print: PrintRef::new(0),
     }]);
@@ -199,6 +203,8 @@ fn target_cost_increases_join_x_before_unused_generic_reductions() {
     }));
     let mut preset = synthetic::preset(73, &[]);
     preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: definition.index,
         print: PrintRef::new(0),
     }]);
@@ -328,6 +334,8 @@ fn deferred_x_payment_can_generate_and_spend_more_than_fifty_after_announcement(
     }));
     let mut preset = synthetic::preset(54, &[98_003]);
     preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: definition.index,
         print: PrintRef::new(0),
     }]);
@@ -387,6 +395,8 @@ fn paid_damage_preserves_large_x_through_damage_history_and_capped_life_gain() {
         let definition = probe_spell(0, restricted, true);
         let mut preset = synthetic::preset(53, &[]);
         preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: definition.index,
             print: PrintRef::new(0),
         }]);
@@ -491,6 +501,8 @@ fn replicate_uses_unspent_generic_reduction_in_the_offer_and_the_payment() {
     let player = PlayerId::new(0);
     let mut preset = synthetic::preset(51, &[]);
     preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: definition.index,
         print: PrintRef::new(0),
     }]);

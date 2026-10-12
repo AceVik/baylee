@@ -1178,21 +1178,22 @@ fn a_dual_land_listed_for_the_lanterns_grant_is_taken_when_pressed() {
             };
             let listed = match &pending {
                 Pending::Priority { legal, .. } => {
-                    legal.mana_abilities.iter().copied().find(|&source| {
-                        crate::casting::can_activate_mana(engine.state(), asked, source)
-                            && crate::casting::intrinsic_mana_offer(
-                                engine.state(),
-                                &RegistryLookup,
-                                source,
-                            )
-                            .is_empty()
+                    legal.abilities.iter().copied().find(|&(source, index)| {
+                        crate::choice::granted_slot(index).is_some()
+                            && engine.is_mana_offer(source, index)
+                            && engine.state().object(source).is_some_and(|object| {
+                                object
+                                    .characteristics()
+                                    .types
+                                    .intersects(baylee_core::types::TypeSet::LAND)
+                            })
                     })
                 }
                 _ => None,
             };
-            if let Some(source) = listed {
+            if let Some((source, ability_index)) = listed {
                 engine
-                    .apply(asked, PlayerAction::ActivateManaAbility { source })
+                    .apply(asked, PlayerAction::ActivateAbility { source, ability_index })
                     .unwrap_or_else(|e| {
                         panic!("seed {seed} decision {decision}: a press the offer listed is taken: {e:?}")
                     });

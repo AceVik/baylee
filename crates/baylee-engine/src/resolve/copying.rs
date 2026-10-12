@@ -27,12 +27,30 @@ pub(super) fn copy_target_ability(
     you: PlayerId,
 ) -> Option<Pending> {
     let &original = res.targets.first()?;
-    let mut copy = state
+    let identity = state
         .object(original)
-        .filter(|o| o.zone == crate::zone::Zone::Stack && o.kind == ObjectKind::AbilityOnStack)?
+        .filter(|o| o.zone == crate::zone::Zone::Stack && o.kind == ObjectKind::AbilityOnStack)
+        .and_then(|_| state.source_identity(original))?;
+    let copy = copy_ability(state, identity, you)?;
+    retarget::start_copy(state, res, copy)
+}
+
+/// Exact ability snapshot shared by targeted copies and delayed mana copies.
+fn copy_ability(
+    state: &mut GameState,
+    original: baylee_core::ids::DamageSourceRef,
+    you: PlayerId,
+) -> Option<ObjectId> {
+    state.capture_source_references();
+    let mut copy = state
+        .source_object(original)
+        .filter(|object| object.kind == ObjectKind::AbilityOnStack)?
         .clone();
     let loc = copy.ability?;
-    if copy.target_req.is_none() && loc.index != baylee_core::ids::AbilityRef::SYNTHETIC {
+    if copy.target_req.is_none()
+        && loc.index != baylee_core::ids::AbilityRef::SYNTHETIC
+        && crate::choice::granted_slot(loc.index).is_none()
+    {
         copy.target_req = copy
             .own_abilities
             .as_ref()
@@ -52,15 +70,50 @@ pub(super) fn copy_target_ability(
     state
         .zones
         .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
-    if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
-        state.synthetic_copies.push((original, id));
+    if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC
+        || crate::choice::granted_slot(loc.index).is_some()
+    {
+        state.synthetic_copies.push((original.object, id));
     }
-    let original = state
-        .source_identity(original)
-        .expect("original stack ability");
     state.copy_source_references(original, id);
     copy_division(state, original, id);
-    retarget::start_copy(state, res, id)
+    Some(id)
+}
+
+pub(super) fn copy_event(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
+    let original = super::subjects::event(state, res)?;
+    let copy = if state.source_object(original)?.kind == ObjectKind::AbilityOnStack {
+        copy_ability(state, original, res.controller)?
+    } else {
+        copy_spell(state, original, res.controller, &[], res.text)?
+    };
+    retarget::start_copy(state, res, copy)
+}
+
+pub(super) fn targets_copy_event(state: &mut GameState, res: &Resolution) {
+    let Some(original) = super::subjects::event(state, res) else {
+        return;
+    };
+    for &target in &res.targets {
+        if !super::subjects::target(state, res, target)
+            .is_some_and(|target| super::subjects::on_battlefield(state, target))
+        {
+            continue;
+        }
+        crate::copiable_abilities::apply_copy_from_reference(
+            state,
+            crate::copiable_abilities::CopyApplication {
+                source: target,
+                target: original.object,
+                mods: &[],
+                copy_index: 0,
+                until_eot: true,
+                resolving: None,
+                text: res.text,
+            },
+            original,
+        );
+    }
 }
 
 /// Damage distribution is an announcement decision, so it belongs to the

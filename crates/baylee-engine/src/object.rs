@@ -531,6 +531,8 @@ impl Characteristics {
                     // make two Pools promise each other the rainbow.
                     baylee_cards_dsl::ManaSource::IntrinsicBasicLandTypes
                     | baylee_cards_dsl::ManaSource::ColorsAmong { .. }
+                    | baylee_cards_dsl::ManaSource::ExiledWithSource
+                    | baylee_cards_dsl::ManaSource::CircledColors
                     | baylee_cards_dsl::ManaSource::LandColor { .. } => {}
                     // The chosen colour is on the *object* and this is a
                     // reading of the card, so there is nothing to put here.
@@ -1124,6 +1126,12 @@ pub struct PaidRecord {
     pub mana_types_spent: [u32; 6],
     /// Exact paid units, retaining snow quality and any restriction/rider IDs.
     pub mana_paid: baylee_core::mana::ManaPool,
+    /// Matching riders frozen before another cost can move the activation's source.
+    pub spend_riders: Vec<(
+        baylee_core::mana::RestrictedMana,
+        ObjectId,
+        baylee_cards_dsl::SpendRider,
+    )>,
     /// The fixed part of an activation's mana cost, excluding its announced X.
     pub fixed_mana_cost: baylee_core::mana::ManaCost,
     /// Spending permissions that applied when this payment was made.
@@ -1170,6 +1178,10 @@ pub struct GameObject {
     pub kind: ObjectKind,
     /// Backing card, if any (tokens/emblems have none).
     pub card: Option<CardRef>,
+    /// Validated facts of the physical printing; copy effects do not change them.
+    pub physical_rules: Option<Arc<baylee_core::card_metadata::RulePrint>>,
+    /// Choices written on this physical copy during deck construction.
+    pub deck_choices: baylee_core::card_metadata::DeckChoices,
     /// Copiable base characteristics.
     ///
     /// Shared rather than owned, for two reasons that pull the same way.
@@ -1415,6 +1427,8 @@ impl GameObject {
             zone_owner: None,
             kind: ObjectKind::Card,
             card: Some(card),
+            physical_rules: None,
+            deck_choices: baylee_core::card_metadata::DeckChoices::default(),
             cache: CachedChar::default(),
             base: base.into(),
             counters: Counters::default(),
@@ -1603,6 +1617,13 @@ impl GameObject {
             printed: self.printed_face(),
             token: self.ability_token(lookup),
         }
+        .with_circled_colors(
+            if self.own_abilities.is_none() && !self.status.contains(Status::FACE_DOWN) {
+                self.deck_choices.colors()
+            } else {
+                baylee_core::color::ColorSet::EMPTY
+            },
+        )
     }
 
     /// [`Self::printed_abilities`] and [`Self::printed_face`] together —
@@ -1617,6 +1638,13 @@ impl GameObject {
             printed: self.printed_face(),
             token: self.ability_token(lookup),
         }
+        .with_circled_colors(
+            if self.own_abilities.is_none() && !self.status.contains(Status::FACE_DOWN) {
+                self.deck_choices.colors()
+            } else {
+                baylee_core::color::ColorSet::EMPTY
+            },
+        )
     }
 
     /// Token whose rules this list carries, including through copies.
@@ -1633,6 +1661,28 @@ impl GameObject {
         }
         let id = lookup.token_id(self.token?)?;
         id.checked_add(1).and_then(std::num::NonZeroU16::new)
+    }
+
+    /// Watermark of this physical printing's current face. It is not a copiable characteristic.
+    #[must_use]
+    pub fn watermark(&self) -> Option<baylee_core::ids::WatermarkId> {
+        if self.status.contains(Status::FACE_DOWN) {
+            return None;
+        }
+        self.physical_rules
+            .as_ref()?
+            .watermarks
+            .get(usize::from(self.face_index))
+            .copied()
+            .flatten()
+    }
+
+    /// Whether the actual card is silver-bordered or acorn-stamped.
+    #[must_use]
+    pub fn is_un_card(&self) -> bool {
+        self.physical_rules
+            .as_ref()
+            .is_some_and(|rules| rules.is_un)
     }
 
     /// Makes `list` this object's own abilities, and its face with it.
@@ -1685,7 +1735,7 @@ impl GameObject {
         self.refresh_chosen_name();
     }
 
-    fn refresh_chosen_name(&mut self) {
+    pub(crate) fn refresh_chosen_name(&mut self) {
         let current = self.rules_acquisition();
         self.chosen_name = self.riders.iter().find_map(|rider| match rider {
             Rider::ChosenName {

@@ -243,9 +243,7 @@ pub(crate) fn fill_pinned_printings(
             continue;
         }
         drifted += 1;
-        if scryfall::printing_cache_path(cache, header_id).exists() {
-            continue;
-        }
+        // fetch_printing refreshes payloads missing physical rules metadata.
         scryfall::fetch_printing(header_id, agent, cache)?;
         fetched += 1;
     }

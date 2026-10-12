@@ -128,6 +128,8 @@ pub(crate) enum BuildPress {
     PickerLang(Option<usize>),
     /// Choose a finish for the printing the carousel is on.
     PickerFinish(Finish),
+    /// Circle a pair of colors on this physical copy.
+    PickerCircles(baylee_core::color::ColorPair),
     PickerRefresh,
     PickerForceFinish,
     PickerSet(Option<usize>),
@@ -334,6 +336,7 @@ impl BuildPress {
             }
             BuildPress::PickerForceFinish => state.lobby.builder_mut().picker_force_finish(),
             BuildPress::PickerSet(at) => state.lobby.builder_mut().picker_set_set(at),
+            BuildPress::PickerCircles(pair) => state.lobby.builder_mut().picker_set_circles(pair),
             BuildPress::PickerFinish(finish) => state.lobby.builder_mut().picker_set_finish(finish),
             BuildPress::PickerConfirm => {
                 if !state.lobby.room_confirm_print() && !state.lobby.builder_mut().picker_confirm()
@@ -474,7 +477,13 @@ impl BuildPress {
                     (Zone::Main, true) => Zone::Side,
                     (Zone::Side, true) => Zone::Main,
                 };
-                if !state.lobby.builder_mut().add(slot, zone) {
+                let spires = state.lobby.builder().card(slot).is_some_and(|card| {
+                    card.index == baylee_core::generated::index::CRYPTIC_SPIRES.get()
+                });
+                if spires {
+                    let request = state.lobby.builder_mut().open_picker(slot, zone);
+                    dispatch(state, mailbox, request);
+                } else if !state.lobby.builder_mut().add(slot, zone) {
                     state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
                 }
             }

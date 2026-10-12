@@ -138,6 +138,8 @@ pub fn mana_made(cost: &Cost, effects: &[Effect]) -> Option<(SimpleMana, bool)> 
         ManaSource::IntrinsicBasicLandTypes
         | ManaSource::CommanderIdentity
         | ManaSource::ColorsAmong { .. }
+        | ManaSource::ExiledWithSource
+        | ManaSource::CircledColors
         | ManaSource::LandColor { .. }
         | ManaSource::Chosen
         | ManaSource::ChosenOr(_) => return None,
@@ -341,13 +343,13 @@ pub fn mana_bundle(cost: &Cost, effects: &[Effect]) -> Option<Vec<ManaColor>> {
         let Effect::AddMana {
             source,
             amount,
-            combination,
+            distribution,
             restriction,
         } = effect
         else {
             continue;
         };
-        if *combination
+        if *distribution != crate::ManaDistribution::OneColor
             || restriction.is_some_and(|restriction| restriction.restricts)
             || !matches!(amount, Amount::Fixed(1))
         {
@@ -400,10 +402,11 @@ mod tests {
                 ManaColor::Green,
             ]),
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: Some(ManaRestriction {
                 uses: crate::ManaUse::Spells,
                 filter: &ALLY,
+                ability_filter: None,
                 rider: SpendRider::None,
                 restricts: true,
                 until_end_of_turn: false,
@@ -489,7 +492,7 @@ mod tests {
                 filter: &ALLIES,
                 zone: crate::effect::ZoneSel::Battlefield,
             },
-            combination: true,
+            distribution: crate::ManaDistribution::AnyCombination,
             restriction: None,
         }];
         assert_eq!(
@@ -517,17 +520,19 @@ mod tests {
     fn the_shape_names_the_source_it_cannot_answer_for() {
         let effects = [Effect::AddMana {
             source: ManaSource::LandColor {
+                filter: &crate::Filter::Any,
                 mine: false,
                 any_type: false,
             },
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }];
         assert_eq!(
             mana_shape(&tap(), &effects),
             Some((
                 ManaSource::LandColor {
+                    filter: &crate::Filter::Any,
                     mine: false,
                     any_type: false
                 },

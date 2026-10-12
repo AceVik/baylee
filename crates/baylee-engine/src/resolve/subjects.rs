@@ -16,6 +16,8 @@ pub struct SubjectContext {
     pub(super) found: Vec<DamageSourceRef>,
     pub(super) named: Option<(crate::object::PrintedFace, baylee_core::ids::NameRef)>,
     pub(super) sacrificed: Option<crate::object::SacrificedLki>,
+    circled_colors: baylee_core::color::ColorSet,
+    acquisition: Option<u64>,
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
 }
 impl SubjectContext {
@@ -26,14 +28,38 @@ impl SubjectContext {
             found: Vec::new(),
             named: None,
             sacrificed: paid.sacrificed_lki,
+            circled_colors: baylee_core::color::ColorSet::EMPTY,
+            acquisition: None,
             checkpoint: None,
         }
+    }
+
+    /// Deck-building words belong to the activated ability, even after costs move its source.
+    pub(crate) fn with_circled_colors(mut self, colors: baylee_core::color::ColorSet) -> Self {
+        self.circled_colors = colors;
+        self
+    }
+
+    pub(super) fn circled_colors(&self) -> baylee_core::color::ColorSet {
+        self.circled_colors
+    }
+
+    /// Immediate mana resolutions retain their linked family without a stack object.
+    pub(crate) fn with_acquisition(mut self, acquisition: u64) -> Self {
+        self.acquisition = Some(acquisition);
+        self
     }
 
     pub(crate) fn fingerprint(&self) -> u64 {
         let mut h = self
             .sacrificed
             .map_or(0, |lki| crate::state::structural_fingerprint(&lki));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(self.circled_colors.bits()));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.acquisition));
         for r in &self.followed {
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
             h = h
@@ -57,6 +83,15 @@ impl SubjectContext {
         debug_assert!(self.checkpoint.is_none());
         h
     }
+}
+
+pub(super) fn acquisition(state: &GameState, res: &Resolution) -> u64 {
+    res.subject.acquisition.unwrap_or_else(|| {
+        state
+            .object(res.on_stack)
+            .or_else(|| state.object(res.source))
+            .map_or(0, crate::object::GameObject::rules_acquisition)
+    })
 }
 
 pub(super) fn source(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {

@@ -80,6 +80,7 @@ fn grey_havens_reads_only_legendary_creatures_in_your_graveyard_and_pool_sees_th
         e.state(),
         p0,
         baylee_cards_dsl::ManaSource::LandColor {
+            filter: &baylee_cards_dsl::Filter::Any,
             mine: true,
             any_type: true,
         },

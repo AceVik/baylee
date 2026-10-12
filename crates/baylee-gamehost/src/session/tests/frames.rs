@@ -113,6 +113,8 @@ fn the_card_being_cast_is_named_to_its_caster_alone() {
         .unwrap()
         .index;
     let entry = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };

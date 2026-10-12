@@ -10,6 +10,8 @@ fn table(board: &[&str]) -> Engine<RegistryLookup> {
 
 fn table_against(board: &[&str], theirs: &[&str]) -> Engine<RegistryLookup> {
     let entry = |name| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name(name).unwrap(),
         print: baylee_core::ids::PrintRef::new(0),
     };

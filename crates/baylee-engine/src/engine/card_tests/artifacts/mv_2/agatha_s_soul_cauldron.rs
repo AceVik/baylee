@@ -3,9 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Agatha's Soul Cauldron prints three abilities and the file says two of
-/// them have no spelling, so the one that is written is the whole of what a
-/// board can hold it to: "{T}: Exile target card from a graveyard."
+/// The exile activation can target a card in either player's graveyard.
 ///
 /// "A graveyard" is the word worth playing, because it is the easy one to
 /// narrow by accident — the card says any graveyard and the DSL says so with
@@ -47,7 +45,7 @@ fn agathas_soul_cauldron_exiles_a_card_out_of_either_graveyard() {
         0,
         "the board has no land on it: the ability costs its own tap and no mana"
     );
-    activate(&mut engine, p0, agatha_s_soul_cauldron(), 0);
+    activate(&mut engine, p0, agatha_s_soul_cauldron(), 2);
     let Pending::ChooseTargets {
         player, options, ..
     } = engine.pending().clone()

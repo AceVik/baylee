@@ -179,6 +179,25 @@ impl<L: CardLookup> Engine<L> {
             _ => None,
         };
         if let Some((source, index, mode)) = handle {
+            if let Some(grant) = self.granted_definition(source, index) {
+                return DecisionContext {
+                    source: Some(source),
+                    printed: grant
+                        .provenance
+                        .and_then(|p| p.origin)
+                        .and_then(crate::object::AbilityOrigin::printed),
+                    provenance: grant.provenance,
+                    ability_index: Some(grant.provenance.map_or(index, |p| p.index)),
+                    effects: grant.effects,
+                    x: self.activation_x.unwrap_or(0),
+                    second_instance: matches!(
+                        self.pending_plan,
+                        Some(PlanKind::ActivateAbilitySecondTargets { .. })
+                    ),
+                    first_targets: first,
+                    ..DecisionContext::default()
+                };
+            }
             let captured = match self.pending_plan {
                 Some(PlanKind::Trigger { .. }) => {
                     self.trigger_queue.front().and_then(|t| t.abilities.clone())
@@ -229,11 +248,15 @@ impl<L: CardLookup> Engine<L> {
                 let mode = stack.and_then(|o| o.mode_index).map(usize::from);
                 let provenance = stack.and_then(|object| {
                     let index = object.ability?.index;
-                    Some(
-                        object
-                            .printed_ability_list(&self.lookup)
-                            .origin(index as usize),
-                    )
+                    crate::effects::granted_definition(&self.state, index)
+                        .and_then(|grant| grant.provenance)
+                        .or_else(|| {
+                            Some(
+                                object
+                                    .printed_ability_list(&self.lookup)
+                                    .origin(index as usize),
+                            )
+                        })
                 });
                 DecisionContext {
                     source: Some(res.source),

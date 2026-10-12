@@ -7,6 +7,8 @@ fn scouting_is_revoked_on_takeover_and_never_granted_to_human_standins() {
     preset.seats[0].controller = SeatController::Open;
     preset.seats[1].controller = SeatController::Ai(AIProfile::EXPERT);
     preset.seats[1].sideboard = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: forest(),
         print: PrintRef::new(1),
     }];

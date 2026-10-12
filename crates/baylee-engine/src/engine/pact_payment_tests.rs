@@ -10,7 +10,7 @@ fn asked(cost: ManaCost, board: &[baylee_core::ids::CardIndex]) -> Engine<Regist
     keep_mulligans(&mut engine);
     engine
         .upkeep_payments
-        .push_back(crate::state::DelayedAction::PayCostOrLose { cost });
+        .push_back(crate::state::DelayedAction::PayCostOrLose { cost, source: None });
     for _ in 0..12 {
         if matches!(
             engine.pending(),

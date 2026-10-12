@@ -307,15 +307,7 @@ pub fn options_for(
         return Vec::new();
     };
     if let Some(index) = asking {
-        let tap = Tap::Ability(index);
-        let offers: Vec<_> = crate::manasources::offers(view, legal, object)
-            .into_iter()
-            .filter(|offer| offer.tap == tap)
-            .collect();
-        return baylee_client_core::manaplan::pours(object, &offers)
-            .into_iter()
-            .filter_map(|pour| pip_row(view, legal, object, pour))
-            .collect();
+        return mana_pip_options(view, legal, object, index);
     }
     let mut out = Vec::new();
 
@@ -417,33 +409,19 @@ pub fn options_for(
         // named by the spell it casts; a granted one is named by its grantor
         // and is a mana ability or not by whichever the view said, per slot.
         let (label, mana) = if let Some(slot) = baylee_engine::choice::granted_slot(index) {
-            (grant_label(lang, view, object, slot), {
-                match view.object(object).and_then(|o| o.granted_mana.as_ref()) {
-                    // Whether *this* grant is the mana one, not whether the
-                    // permanent has one anywhere: Urza's Saga is granted a
-                    // mana ability and a Construct ability, and
-                    // `legal.mana_abilities` holds the Saga for the first.
-                    Some(granted) => granted.slot == slot,
-                    // The view could not reduce this grant to "n mana of
-                    // these colours" — a `LandColor` source, say. The engine
-                    // still answered the question, but per *permanent*, so
-                    // it only settles anything where the permanent offers one
-                    // grant. Where it offers several, the safe reading is
-                    // "not a mana ability": that costs an extra tap, while
-                    // the other way round fires a Construct with no arming.
-                    //
-                    // And the permanent's *own* mana ability has to be
-                    // counted out first, because it is in the same list: a
-                    // Mountain granted one non-mana ability is named there
-                    // for CR 305.6, and reading that as the grant would fire
-                    // the grant unarmed — the exact mistake this branch is
-                    // written to avoid.
-                    None => {
-                        granted_mana_offers(view, legal, object) >= 1
-                            && granted_count(legal, object) == 1
-                    }
-                }
-            })
+            (
+                grant_label(lang, view, object, slot),
+                view.object(object)
+                    .and_then(|object| object.grant(slot))
+                    .map_or_else(
+                        || {
+                            view.object(object)
+                                .and_then(|object| object.granted_mana_for(slot))
+                                .is_some()
+                        },
+                        |grant| grant.mana_ability,
+                    ),
+            )
         } else if let Some(label) = special_label(lang, view, object, index) {
             (label, false)
         } else if index == baylee_engine::choice::PREPARED_CAST {
@@ -460,8 +438,7 @@ pub fn options_for(
             mana,
             // Only a printed ability can answer this: a grant is in no list
             // this client reads and a prepared cast is not an ability.
-            tap_only: baylee_engine::choice::granted_slot(index).is_none()
-                && index != baylee_engine::choice::PREPARED_CAST
+            tap_only: index != baylee_engine::choice::PREPARED_CAST
                 && tap_only(view, object, index),
             cost: offered_cost(view, object, index),
             printed: printed_sentence(view, object, index),
@@ -508,13 +485,13 @@ pub fn mana_for(
         .into_iter()
         .filter(|s| s.id != source)
         .collect();
-    baylee_client_core::manaplan::plan(
-        cost,
-        &view
-            .seat(baylee_client_core::decision::resource_player(view))?
-            .mana_pool,
-        &sources,
-    )
+    let mut pool = view
+        .seat(baylee_client_core::decision::resource_player(view))?
+        .mana_pool;
+    if let Some(object) = view.object(source) {
+        pool.spending = object.ability_mana_spending;
+    }
+    baylee_client_core::manaplan::plan(cost, &pool, &sources)
 }
 
 /// A permanent's **mana** rows become one row per colour, at the head of the
@@ -717,85 +694,6 @@ fn tap_action(
                 ability_index,
             }),
     }
-}
-
-/// How many of `object`'s entries in `legal.mana_abilities` are *grants*.
-///
-/// The engine names a permanent there once for a mana ability of its own —
-/// printed, or the intrinsic one a basic land type carries (CR 305.6) — and
-/// once more per granted mana ability. So its own has to be subtracted before
-/// what is left can be read as grants at all.
-///
-/// The subtraction is deliberately unconditional on whether that own ability
-/// is *currently* activatable: a permanent whose own ability is already spent
-/// is named once for the grant alone, and counting it out anyway answers
-/// "not a mana ability", which costs a tap instead of firing something
-/// unarmed.
-fn granted_mana_offers(
-    view: &PlayerView,
-    legal: &baylee_engine::choice::LegalActions,
-    object: ObjectId,
-) -> usize {
-    let named = legal
-        .mana_abilities
-        .iter()
-        .filter(|o| **o == object)
-        .count();
-    named.saturating_sub(usize::from(owns_a_mana_ability(view, object)))
-}
-
-/// Whether the permanent has a mana ability that is not a grant.
-///
-/// The subtypes are the projected ones, which is what CR 305.6 asks for: an
-/// animated Mountain is still a Mountain and still taps for `{R}`.
-///
-/// Deliberately not `manaplan::basic_land_color`, which answers a different
-/// question — it returns `None` for a Taiga, because *which* colour one tap
-/// makes has no single answer there. What is asked here is whether the land
-/// has an intrinsic mana ability at all, and a dual has two.
-fn owns_a_mana_ability(view: &PlayerView, object: ObjectId) -> bool {
-    use baylee_core::generated::subtypes::land;
-    let Some(o) = view.object(object) else {
-        return false;
-    };
-    if [
-        land::PLAINS,
-        land::ISLAND,
-        land::SWAMP,
-        land::MOUNTAIN,
-        land::FOREST,
-    ]
-    .into_iter()
-    .any(|t| o.subtypes.contains(t))
-    {
-        return true;
-    }
-    let Some(rules) = o.rules else {
-        return false;
-    };
-    baylee_cards::by_index(rules.card).is_some_and(|def| {
-        def.abilities_for_face(rules.face as usize).iter().any(|a| {
-            matches!(
-                a,
-                AbilityDef::Activated {
-                    mana_ability: true,
-                    ..
-                } | AbilityDef::ActivatedConditional {
-                    mana_ability: true,
-                    ..
-                }
-            )
-        })
-    })
-}
-
-/// How many granted abilities the engine is offering for `object` right now.
-fn granted_count(legal: &baylee_engine::choice::LegalActions, object: ObjectId) -> usize {
-    legal
-        .abilities
-        .iter()
-        .filter(|(o, i)| *o == object && baylee_engine::choice::granted_slot(*i).is_some())
-        .count()
 }
 
 /// Whether a printed ability is a mana ability (CR 605.1).
@@ -1032,7 +930,7 @@ pub fn prepared_words(
 /// Who granted the ability in `slot`, as the view says (#212): the grantor's
 /// card and face, and which of that face's sentences granted it.
 fn grant_of(view: &PlayerView, object: ObjectId, slot: u32) -> Option<&baylee_view::GrantSource> {
-    view.object(object)?.grants.get(usize::try_from(slot).ok()?)
+    view.object(object)?.grant(slot)
 }
 
 /// A granted ability's label: the English name of the face that grants it,
@@ -1317,6 +1215,23 @@ pub(crate) fn required_mana_label(
     } else {
         format!("{cost}: {effect}")
     }
+}
+
+fn mana_pip_options(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    object: ObjectId,
+    index: u32,
+) -> Vec<AbilityOption> {
+    let tap = Tap::Ability(index);
+    let offers: Vec<_> = crate::manasources::offers(view, legal, object)
+        .into_iter()
+        .filter(|offer| offer.tap == tap)
+        .collect();
+    baylee_client_core::manaplan::pours(object, &offers)
+        .into_iter()
+        .filter_map(|pour| pip_row(view, legal, object, pour))
+        .collect()
 }
 
 #[cfg(test)]
@@ -1619,15 +1534,20 @@ mod tests {
     #[test]
     fn a_granted_ability_is_labelled_without_asking_the_card_it_is_not_on() {
         let id = ObjectId::new(1, 0);
-        let view = ViewBuilder::new(2)
-            .with_battlefield(0, [token(1, 0, "Ally", 2, 2)])
-            .build();
+        let mut ally = token(1, 0, "Ally", 2, 2);
+        ally.grants = vec![baylee_view::GrantSource {
+            slot: 0,
+            ability: None,
+            mana_ability: true,
+            mana: None,
+            source: None,
+            rules: None,
+            text: None,
+        }];
+        let view = ViewBuilder::new(2).with_battlefield(0, [ally]).build();
 
-        // Granted, the view has nothing to say about what it makes — and the
-        // engine says it makes mana, so it is one tap, not arm-then-act.
-        // That fallback is the only reading left when a grant cannot be
-        // reduced to "n mana of these colours", and it is sound here because
-        // the permanent is offering exactly one grant for it to be about.
+        // Production cannot be summarized, but the slot explicitly identifies
+        // this as a mana ability, so it needs no arming.
         let i = offering(vec![(id, GRANTED_ABILITY)], vec![id]);
         let out = options(Lang::En, &view, &i, id);
         assert_eq!(out.len(), 1, "one granted ability, one button: {out:?}");
@@ -1641,11 +1561,14 @@ mod tests {
             }
         );
 
-        // The same ability granted by something that is not a mana source.
+        // The same slot explicitly classified as a non-mana ability.
+        let mut ally = view.object(id).unwrap().clone();
+        ally.grants[0].mana_ability = false;
+        let view = ViewBuilder::new(2).with_battlefield(0, [ally]).build();
         let i = offering(vec![(id, GRANTED_ABILITY)], vec![]);
         assert!(
             !options(Lang::En, &view, &i, id)[0].mana,
-            "nothing else can tell the client this, so it must be the offer"
+            "the explicit slot classification determines mana routing"
         );
 
         // A prepared cast is a cast: never a mana ability, and never
@@ -1718,6 +1641,10 @@ mod tests {
         let lantern = baylee_cards::decks::by_name("Chromatic Lantern").expect("in the pool");
         let mut land = crate::registry_printed(1, 0, "Island");
         land.grants = vec![baylee_view::GrantSource {
+            slot: 0,
+            ability: None,
+            mana_ability: false,
+            mana: None,
             source: Some(ObjectId::new(2, 0)),
             rules: Some(baylee_view::RulesFace {
                 card: lantern,
@@ -1807,6 +1734,10 @@ mod tests {
         let opt = baylee_cards::decks::by_name("Opt").expect("in the pool");
         let mut land = crate::registry_printed(1, 0, "Island");
         land.grants = vec![baylee_view::GrantSource {
+            slot: 0,
+            ability: None,
+            mana_ability: false,
+            mana: None,
             source: Some(ObjectId::new(2, 0)),
             rules: Some(baylee_view::RulesFace { card: opt, face: 0 }),
             text: None,
@@ -2048,12 +1979,23 @@ mod tests {
         mountain.toughness = None;
         // The view could not reduce the grant to "n mana of these colours".
         mountain.granted_mana = None;
-        let view = ViewBuilder::new(2).with_battlefield(0, [mountain]).build();
+        mountain.grants = vec![baylee_view::GrantSource {
+            slot: 0,
+            ability: None,
+            mana_ability: false,
+            mana: None,
+            source: None,
+            rules: None,
+            text: None,
+        }];
 
         // The land really does have two things to do — its own `{R}` and the
         // grant — so both are drawn. What matters is which of them is one
         // tap: the intrinsic is, the unreadable grant is not.
-        let granted = |legal: Vec<ObjectId>| {
+        let granted = |legal: Vec<ObjectId>, mana_ability| {
+            let mut mountain = mountain.clone();
+            mountain.grants[0].mana_ability = mana_ability;
+            let view = ViewBuilder::new(2).with_battlefield(0, [mountain]).build();
             let i = offering(vec![(id, GRANTED_ABILITY)], legal);
             let out = options(Lang::En, &view, &i, id);
             assert_eq!(out.len(), 2, "the intrinsic and the grant: {out:?}");
@@ -2075,15 +2017,15 @@ mod tests {
 
         // Named once, and its own `{R}` is what that entry is.
         assert!(
-            !granted(vec![id]).mana,
+            !granted(vec![id], false).mana,
             "the Mountain's own mana is not evidence about the grant"
         );
 
-        // Named twice: its own, and a granted one. Now there is an entry
-        // left over and exactly one grant it can be about.
+        // The grant is explicitly classified as mana, independently of the
+        // land's intrinsic mana offer.
         assert!(
-            granted(vec![id, id]).mana,
-            "one entry over and one grant to be about"
+            granted(vec![id, id], true).mana,
+            "the grant has its own explicit mana classification"
         );
     }
 

@@ -32,7 +32,7 @@ fn mana_production_overflow_refuses_the_tap_and_journal_atomically() {
         &[Effect::AddMana {
             source: ManaSource::Fixed(ManaColor::Blue),
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: baylee_cards_dsl::ManaDistribution::OneColor,
             restriction: None
         }],
         mana_ability = true
@@ -155,6 +155,8 @@ fn mandatory_land_mana_fixture() -> Engine<SyntheticLookup> {
     let mut preset = synthetic::preset(909_712, &[SOURCE]);
     preset.seats[1].starting_battlefield = [FREE, FILTER, PHASED]
         .map(|id| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: CardIndex::new(id),
             print: PrintRef::new(0),
         })

@@ -293,6 +293,8 @@ fn the_reported_window() -> (LocalHost, crate::Duel, ObjectId) {
     };
 
     let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("`{name}` in the pool")),
         print: PrintRef::new(0),
     };
@@ -318,6 +320,7 @@ fn the_reported_window() -> (LocalHost, crate::Duel, ObjectId) {
     // doing. If this ever stops arriving the test says so out loud rather
     // than passing over an empty stack.
     let preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 11,
         house_rules: HouseRules::default(),
@@ -745,6 +748,8 @@ fn the_table_with(creatures: &[&str]) -> (LocalHost, crate::Duel) {
     };
 
     let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("`{name}` in the pool")),
         print: PrintRef::new(0),
     };
@@ -768,6 +773,7 @@ fn the_table_with(creatures: &[&str]) -> (LocalHost, crate::Duel) {
         team: None,
     };
     let preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 11,
         house_rules: HouseRules::default(),

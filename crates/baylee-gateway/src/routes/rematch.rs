@@ -145,7 +145,7 @@ pub(crate) async fn rematch(
     // engine must not happen underneath the lobby lock. A room that is not
     // ready yet stays waiting and the ticket is still good — whoever presses
     // last is the one who starts it.
-    try_start(&state, &room_id)?;
+    try_start(&state, &room_id).await?;
     state.lobby_moved();
     Ok(Json(serde_json::json!({
         "game_id": room_id,

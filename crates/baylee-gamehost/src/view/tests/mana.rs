@@ -27,6 +27,8 @@ fn plains() -> CardIndex {
 /// `starting_battlefield`s, which is the only input `board_mana` reads.
 fn board(seat0: &[CardIndex], seat1: &[CardIndex]) -> (Engine<Registry>, PlayerView) {
     let entry = |&card: &CardIndex| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };
@@ -172,6 +174,8 @@ fn a_command_tower_at_a_table_with_no_commander_produces_nothing() {
 fn a_command_tower_is_its_seats_commander_identity() {
     let mut preset = commander_preset();
     let tower = DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: command_tower(),
         print: PrintRef::new(0),
     };

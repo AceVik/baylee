@@ -144,6 +144,8 @@ fn start(mine: &[u32], theirs: &[u32], hand: &[u32]) -> Engine<SyntheticLookup> 
     preset.seats[0].starting_hand = Some(
         hand.iter()
             .map(|c| DeckEntry {
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
                 card: CardIndex::new(*c),
                 print: PrintRef::new(0),
             })

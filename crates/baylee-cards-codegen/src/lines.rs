@@ -563,6 +563,8 @@ fn mana_fits(effects: &[baylee_cards_dsl::Effect], line: &str) -> bool {
             ManaSource::IntrinsicBasicLandTypes
             | ManaSource::CommanderIdentity
             | ManaSource::ColorsAmong { .. }
+            | ManaSource::CircledColors
+            | ManaSource::ExiledWithSource
             | ManaSource::LandColor { .. }
             | ManaSource::Chosen
             | ManaSource::ChosenOr(_) => return true,
@@ -630,6 +632,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Dies(_) | T::DiesAfterDamageByThis(_) => &["die", "put into a graveyard"],
         T::CastThisWithMana(_)
         | T::SpellCast(_)
+        | T::SpellCastUsingSourceMana(_)
         | T::SpellCastOrCopied(_)
         | T::NthSpellCast { .. }
         | T::FirstNoncreatureSpellCast(_) => &["cast"],
@@ -778,6 +781,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::DealsDamage(filter)
         | Trigger::DealtDamage(filter)
         | Trigger::SpellCast(filter)
+        | Trigger::SpellCastUsingSourceMana(filter)
         | Trigger::SpellCastOrCopied(filter) => {
             if matches!(filter, baylee_cards_dsl::Filter::This) {
                 !about_someone_else()

@@ -968,11 +968,13 @@ pub fn mana_sources(
 /// (the object's printed list, a copy's by what it copies).
 #[must_use]
 pub fn only_makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool {
-    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
-        return view
+    if let Some(slot) = baylee_engine::choice::granted_slot(index)
+        && view
             .object(object)
-            .and_then(|o| o.granted_mana.as_ref())
-            .is_some_and(|mana| mana.slot == slot);
+            .and_then(|object| object.granted_mana_for(slot))
+            .is_some()
+    {
+        return true;
     }
     match activate::printed(view, object, index) {
         Some(

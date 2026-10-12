@@ -314,6 +314,8 @@ fn prepared_view_uses_the_exiled_spells_face_after_its_permanent_changes() {
     use baylee_core::generated::index;
     let mut preset = mixed_print_preset();
     preset.seats[0].starting_battlefield = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: index::FATEHOLD_CHRONOLOGIST,
         print: PrintRef::new(0),
     }];

@@ -25,6 +25,8 @@ pub struct DeckCard {
     pub index: CardIndex,
     /// Which physical printing this copy is.
     pub print: PrintInfo,
+    /// Deck-construction choices attached to this copy.
+    pub choices: baylee_core::card_metadata::DeckChoices,
 }
 
 impl DeckCard {
@@ -34,6 +36,7 @@ impl DeckCard {
         Self {
             index,
             print: reference_print(index),
+            choices: baylee_core::card_metadata::DeckChoices::default(),
         }
     }
 
@@ -58,7 +61,11 @@ impl DeckCard {
         if let Some(finish) = choice.finish {
             print.finish = finish;
         }
-        Self { index, print }
+        Self {
+            index,
+            print,
+            choices: choice.choices,
+        }
     }
 }
 
@@ -232,6 +239,15 @@ pub fn from_lines(
             let row = baylee_core::deckrow::parse(line)
                 .map_err(|_| format!("malformed card line: {line}"))?;
             let index = by_name(&row.name).ok_or_else(|| format!("unknown card: {}", row.name))?;
+            crate::print_rules::validate_choices(index, row.print.choices)?;
+            if row
+                .print
+                .scryfall_id
+                .as_ref()
+                .is_some_and(|id| uuid::Uuid::parse_str(id).is_err())
+            {
+                return Err("invalid printing UUID".to_string());
+            }
             for _ in 0..row.count {
                 out.push(DeckCard::chosen(index, &row.print));
             }
@@ -243,7 +259,7 @@ pub fn from_lines(
     let sideboard = expand(sideboard)?;
     // Each leader is moved out of the main list in turn, so a deck that
     // named two of them loses both from the library and neither twice.
-    let commanders = commanders
+    let commanders: Vec<DeckCard> = commanders
         .iter()
         .filter_map(|name| by_name(name))
         .map(|index| match main.iter().position(|c| c.index == index) {
@@ -251,6 +267,23 @@ pub fn from_lines(
             None => DeckCard::plain(index),
         })
         .collect();
+    if !commanders.is_empty() {
+        let allowed = commanders
+            .iter()
+            .filter_map(|card| crate::formats::identity(card.index))
+            .fold(baylee_core::color::ColorSet::EMPTY, |all, colors| {
+                all.union(colors)
+            });
+        if main
+            .iter()
+            .chain(&sideboard)
+            .any(|card| !card.choices.colors().difference(allowed).is_empty())
+        {
+            return Err(
+                "Cryptic Spires' circled colors exceed the commander's color identity".into(),
+            );
+        }
+    }
     Ok(LoadedDeck {
         name: name.to_string(),
         main,
@@ -305,6 +338,8 @@ pub fn probe_preset(seed: u64, card: CardIndex) -> Option<GamePreset> {
         cards
             .iter()
             .map(|c| DeckEntry {
+                rule_print: None,
+                choices: c.choices,
                 card: c.index,
                 print: print_ref_for(&mut prints, &c.print),
             })
@@ -338,14 +373,22 @@ pub fn probe_preset(seed: u64, card: CardIndex) -> Option<GamePreset> {
             seat(d, h, f)
         })
         .collect();
-    Some(GamePreset {
+    Some(reference_preset(GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),
         modifiers: vec![],
         prints,
         seats,
-    })
+    }))
+}
+
+/// Resolves known reference printings while leaving alternatives for a trusted catalog.
+fn reference_preset(mut preset: GamePreset) -> GamePreset {
+    crate::print_rules::hydrate_reference(&mut preset)
+        .expect("generated reference printing facts are valid");
+    preset
 }
 
 /// The print-table slot for one printing, deduplicated.
@@ -470,6 +513,8 @@ pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
         cards
             .iter()
             .map(|card| DeckEntry {
+                rule_print: None,
+                choices: card.choices,
                 card: card.index,
                 print: print_ref_for(&mut prints, &card.print),
             })
@@ -499,14 +544,15 @@ pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
             entries(&b.commanders),
         ),
     ];
-    GamePreset {
+    reference_preset(GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: format_for([a, b].into_iter()),
         seed,
         house_rules: HouseRules::default(),
         modifiers: vec![],
         prints,
         seats,
-    }
+    })
 }
 
 /// A preset for a table of any size, one seat per deck.
@@ -526,6 +572,8 @@ pub fn preset_for_all(seed: u64, decks: &[&LoadedDeck]) -> GamePreset {
         cards
             .iter()
             .map(|card| DeckEntry {
+                rule_print: None,
+                choices: card.choices,
                 card: card.index,
                 print: print_ref_for(&mut prints, &card.print),
             })
@@ -546,14 +594,15 @@ pub fn preset_for_all(seed: u64, decks: &[&LoadedDeck]) -> GamePreset {
             team: None,
         })
         .collect();
-    GamePreset {
+    reference_preset(GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: format_for(decks.iter().copied()),
         seed,
         house_rules: HouseRules::default(),
         modifiers: vec![],
         prints,
         seats,
-    }
+    })
 }
 
 /// The five basic lands, by registry index, in colour order.
@@ -704,6 +753,8 @@ pub fn deal_named(preset: &mut GamePreset, spec: &str, zone: DevZone) -> Result<
             .get_mut(seat)
             .ok_or_else(|| format!("this game has no seat {seat}"))?;
         let entry = DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: card.index,
             print,
         };
@@ -713,7 +764,7 @@ pub fn deal_named(preset: &mut GamePreset, spec: &str, zone: DevZone) -> Result<
             DevZone::Command => chair.commanders.push(entry),
         }
     }
-    Ok(())
+    crate::print_rules::hydrate_reference(preset)
 }
 
 /// Resolves a room's custom start without granting any in-game capabilities.
@@ -738,6 +789,15 @@ pub fn apply_room_setup(
                 let name = &row.name;
                 let index =
                     by_name(name).ok_or_else(|| format!("no playable permanent named `{name}`"))?;
+                crate::print_rules::validate_choices(index, row.print.choices)?;
+                if row
+                    .print
+                    .scryfall_id
+                    .as_ref()
+                    .is_some_and(|id| uuid::Uuid::parse_str(id).is_err())
+                {
+                    return Err("invalid printing UUID".into());
+                }
                 let def = by_index(index).ok_or_else(|| format!("no permanent named `{name}`"))?;
                 if !def.faces[0].types.is_permanent() {
                     return Err(format!("`{name}` is not a permanent"));
@@ -753,9 +813,12 @@ pub fn apply_room_setup(
                     &DeckCard::chosen(index, &row.print).print,
                 );
                 let permanent = candidate.seats[at].starting_battlefield.len();
-                candidate.seats[at]
-                    .starting_battlefield
-                    .push(DeckEntry { card: index, print });
+                candidate.seats[at].starting_battlefield.push(DeckEntry {
+                    card: index,
+                    print,
+                    rule_print: None,
+                    choices: row.print.choices,
+                });
                 if !counters.is_empty() {
                     candidate.house_rules.starting_counters.push(
                         baylee_core::preset::StartingCounters {
@@ -768,6 +831,7 @@ pub fn apply_room_setup(
             }
         }
     }
+    crate::print_rules::hydrate_reference(&mut candidate)?;
     *preset = candidate;
     Ok(())
 }

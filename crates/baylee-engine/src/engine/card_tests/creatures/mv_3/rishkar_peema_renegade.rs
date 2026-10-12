@@ -47,17 +47,27 @@ fn rishkar_peema_renegade_distributes_counters_and_grants_mana_to_ready_creature
     assert_eq!(counters_on(&engine, wolf, CounterKind::P1P1), 1);
     assert_eq!(pt(&engine, rishkar), (3, 3));
     assert_eq!(pt(&engine, wolf), (2, 2));
+    let grant = crate::effects::granted_activated(engine.state(), wolf)
+        .next()
+        .unwrap()
+        .id;
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending());
     };
     assert!(
-        !legal.mana_abilities.contains(&rishkar),
+        !legal.abilities.iter().any(|(source, _)| *source == rishkar),
         "summoning sickness still matters"
     );
-    assert!(legal.mana_abilities.contains(&wolf));
+    assert!(legal.abilities.contains(&(wolf, grant)));
     engine
-        .apply(p0, PlayerAction::ActivateManaAbility { source: wolf })
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: wolf,
+                ability_index: grant,
+            },
+        )
         .unwrap();
     assert_eq!(
         engine.state().players[0]
@@ -90,10 +100,14 @@ fn rishkar_grants_for_any_counter_but_only_to_your_creatures() {
             .add(CounterKind::Charge, 1);
     }
     e.refresh_offer();
+    let grant = crate::effects::granted_activated(e.state(), own)
+        .next()
+        .unwrap()
+        .id;
     let Pending::Priority { legal, .. } = e.pending() else {
         panic!("priority")
     };
-    assert!(legal.mana_abilities.contains(&own));
+    assert!(legal.abilities.contains(&(own, grant)));
     e.dev_state_mut(p0)
         .unwrap()
         .object_mut(own)
@@ -104,7 +118,7 @@ fn rishkar_grants_for_any_counter_but_only_to_your_creatures() {
     let Pending::Priority { legal, .. } = e.pending() else {
         panic!("priority")
     };
-    assert!(!legal.mana_abilities.contains(&own));
+    assert!(!legal.abilities.contains(&(own, grant)));
     pass_until(
         &mut e,
         |e| matches!(e.pending(),Pending::Priority { player,.. } if *player==p1),
@@ -112,5 +126,5 @@ fn rishkar_grants_for_any_counter_but_only_to_your_creatures() {
     let Pending::Priority { legal, .. } = e.pending() else {
         panic!("priority")
     };
-    assert!(!legal.mana_abilities.contains(&other));
+    assert!(!legal.abilities.iter().any(|(source, _)| *source == other));
 }

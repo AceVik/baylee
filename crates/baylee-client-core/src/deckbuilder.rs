@@ -523,6 +523,7 @@ pub struct Picker {
     /// The finish the pick will name.
     finish: Finish,
     force_finish: bool,
+    circles: Option<baylee_core::color::ColorPair>,
     refresh_selection: Option<(String, Finish, bool)>,
     set: Option<String>,
     set_query: crate::textbuf::TextBuffer,
@@ -541,6 +542,18 @@ pub struct Picker {
 }
 
 impl Picker {
+    /// Whether this copy needs its two deck-construction circles.
+    #[must_use]
+    pub fn needs_circles(&self) -> bool {
+        self.card == baylee_core::generated::index::CRYPTIC_SPIRES.get()
+    }
+
+    /// The circles currently selected for this physical copy.
+    #[must_use]
+    pub fn circles(&self) -> Option<baylee_core::color::ColorPair> {
+        self.circles
+    }
+
     /// Whether confirmation restyles an existing row instead of adding a copy.
     #[must_use]
     pub fn replacing(&self) -> bool {
@@ -789,6 +802,7 @@ impl Picker {
             .position(|p| Self::names(&entry.print, &self.reference_id, p))
             .unwrap_or(0);
         self.finish = entry.print.finish_or_default();
+        self.circles = entry.print.choices.circled_colors;
         self.force_finish = self.current().is_some_and(|p| !p.has(self.finish));
         if !self.loading {
             self.settle();

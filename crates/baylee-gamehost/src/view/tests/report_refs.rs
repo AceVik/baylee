@@ -21,6 +21,8 @@ fn named(name: &str) -> CardIndex {
 
 fn entry(name: &str) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: named(name),
         print: PrintRef::new(0),
     }
@@ -44,6 +46,7 @@ fn secrets_preset() -> GamePreset {
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 7,
         house_rules: HouseRules::default(),

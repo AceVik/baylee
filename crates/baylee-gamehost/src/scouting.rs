@@ -113,6 +113,8 @@ mod tests {
 
     fn preset() -> GamePreset {
         let entry = |card: CardIndex| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card,
             print: PrintRef::new(0),
         };
@@ -131,6 +133,7 @@ mod tests {
             team: None,
         };
         GamePreset {
+            rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: 7,
             house_rules: HouseRules::default(),
@@ -423,6 +426,8 @@ mod tests {
     fn deck_intel_follows_the_submitted_lists_in_seat_order() {
         let mut p = preset();
         p.seats[1].commanders = vec![DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: island(),
             print: PrintRef::new(0),
         }];

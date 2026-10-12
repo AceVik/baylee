@@ -34,11 +34,14 @@ fn forest() -> CardIndex {
 fn open_table(seats: usize, seed: u64) -> Engine<RegistryLookup> {
     let deck: Vec<DeckEntry> = (0..60)
         .map(|_| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: forest(),
             print: PrintRef::new(0),
         })
         .collect();
     let preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),

@@ -312,6 +312,7 @@ pub(super) fn exec_immediate(
         | Effect::AddCounter { .. }
         | Effect::AddCountersUpTo { .. }
         | Effect::RemoveCounterSelf { .. }
+        | Effect::RemoveAllCountersSelf { .. }
         | Effect::ChangeAttachedCounters { .. }
         | Effect::ModifyAttached { .. }
         | Effect::AddCounterFilter { .. }
@@ -846,6 +847,8 @@ pub(super) fn exec_immediate(
         Effect::CreateEmblem { .. }
         | Effect::CopyTargetSpell { .. }
         | Effect::CopyTargetAbility
+        | Effect::CopyEventSpellOrAbility
+        | Effect::TargetsCopyEventSpellUntilEndOfTurn
         | Effect::CopyThisSpell { .. }
         | Effect::CreateContinuousEffect {
             modifier: baylee_cards_dsl::Modifier::GainControl,
@@ -1092,7 +1095,13 @@ pub(super) fn exec_immediate(
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: you,
                 when: crate::state::DelayedWhen::NextUpkeep,
-                action: crate::state::DelayedAction::PayCostOrLose { cost },
+                action: crate::state::DelayedAction::PayCostOrLose {
+                    cost,
+                    source: match super::payment_for(state, res) {
+                        crate::casting::SpendFor::OtherFrom(source) => Some(source),
+                        _ => None,
+                    },
+                },
             });
             None
         }
@@ -1859,6 +1868,11 @@ pub(super) fn exec_immediate(
             retarget::start_copy(state, res, copy)
         }
         Effect::CopyTargetAbility => copy_target_ability(state, res, you),
+        Effect::CopyEventSpellOrAbility => super::copying::copy_event(state, res),
+        Effect::TargetsCopyEventSpellUntilEndOfTurn => {
+            super::copying::targets_copy_event(state, res);
+            None
+        }
         Effect::CopyThisSpell { amount } => {
             let count = amount2(&amount, state, you, res);
             // Decrement before a target choice can suspend. The next program

@@ -832,6 +832,49 @@ impl DeckBuilder {
         picker.settle();
     }
 
+    /// Whether a circled pair fits this deck's commander identity.
+    #[must_use]
+    pub fn circles_allowed(&self, pair: baylee_core::color::ColorPair) -> bool {
+        if self.commanders.is_empty() {
+            return true;
+        }
+        let allowed: String = self
+            .commanders
+            .iter()
+            .filter_map(|slot| self.pool.get(*slot))
+            .map(|card| card.identity.as_str())
+            .collect();
+        [pair.first(), pair.second()]
+            .iter()
+            .all(|color| allowed.contains(color.symbol()))
+    }
+
+    /// Fixes the two circles before adding or restyling a Cryptic Spires copy.
+    pub fn picker_set_circles(&mut self, pair: baylee_core::color::ColorPair) {
+        if pair.first() == pair.second() || !self.circles_allowed(pair) {
+            return;
+        }
+        if let Some(picker) = &mut self.picker
+            && picker.needs_circles()
+        {
+            picker.circles = Some(pair);
+        }
+    }
+
+    /// Whether the current picker has every required legal deck choice.
+    #[must_use]
+    pub fn picker_choices_valid(&self) -> bool {
+        self.picker.as_ref().is_some_and(|picker| {
+            if picker.needs_circles() {
+                picker
+                    .circles
+                    .is_some_and(|pair| pair.first() != pair.second() && self.circles_allowed(pair))
+            } else {
+                picker.circles.is_none()
+            }
+        })
+    }
+
     /// Chooses a finish, if the current printing was sold in it.
     pub fn picker_set_finish(&mut self, finish: Finish) {
         let Some(picker) = self.picker.as_mut() else {
@@ -848,6 +891,9 @@ impl DeckBuilder {
     /// applies to the *card* — four Lightning Bolts are four Lightning Bolts
     /// however many different pieces of cardboard they are.
     pub fn picker_confirm(&mut self) -> bool {
+        if !self.picker_choices_valid() {
+            return false;
+        }
         let Some(picker) = self.picker.as_ref() else {
             return false;
         };
@@ -904,6 +950,9 @@ impl DeckBuilder {
             .unwrap_or_default();
 
         let mut choice = PrintChoice {
+            choices: baylee_core::card_metadata::DeckChoices {
+                circled_colors: picker.circles,
+            },
             finish: (picker.finish != Finish::Normal).then_some(picker.finish),
             ..PrintChoice::default()
         };
@@ -949,6 +998,16 @@ impl DeckBuilder {
         let Some(card) = self.pool.get(slot) else {
             return false;
         };
+        let spires = card.index == baylee_core::generated::index::CRYPTIC_SPIRES.get();
+        if !print.choices.is_valid()
+            || spires != print.choices.circled_colors.is_some()
+            || print
+                .choices
+                .circled_colors
+                .is_some_and(|pair| !self.circles_allowed(pair))
+        {
+            return false;
+        }
         let limit = if card.basic_land {
             u16::MAX
         } else {
@@ -1405,6 +1464,33 @@ impl DeckBuilder {
         pips
     }
 
+    /// Appends construction-choice errors without discarding imported rows.
+    fn choice_problems(&self, lang: Lang, out: &mut Vec<Problem>) {
+        for entry in self.main.iter().chain(&self.side) {
+            let spires = self.pool.get(entry.slot).is_some_and(|card| {
+                card.index == baylee_core::generated::index::CRYPTIC_SPIRES.get()
+            });
+            if !entry.print.choices.is_valid()
+                || spires != entry.print.choices.circled_colors.is_some()
+            {
+                out.push(Problem {
+                    blocking: true,
+                    message: Phrase::SpiresNeedsCircles.text(lang).into(),
+                });
+            } else if entry
+                .print
+                .choices
+                .circled_colors
+                .is_some_and(|pair| !self.circles_allowed(pair))
+            {
+                out.push(Problem {
+                    blocking: true,
+                    message: Phrase::SpiresOutsideIdentity.text(lang).into(),
+                });
+            }
+        }
+    }
+
     /// Everything worth telling the player, refusals first.
     ///
     /// The blocking half is exactly what `POST /decks` enforces. Keeping the
@@ -1450,6 +1536,7 @@ impl DeckBuilder {
                 message: Phrase::CardGoneFromPool.fill(lang, &[name]),
             });
         }
+        self.choice_problems(lang, &mut out);
         // Advice from here down. None of it stops a save.
         if let Some(name) = &self.stale_commander {
             // Advice rather than a block, and the wording says what will

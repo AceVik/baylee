@@ -143,6 +143,7 @@ fn moxfield_row(card: &crate::Card, losses: &mut Tally) -> Row {
         // Moxfield's spelling of a double-faced card.
         name: card.name.replace(" // ", " / "),
         print: PrintChoice {
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             set: card.set.clone(),
             collector_number: card.collector_number.clone(),
             lang: None,

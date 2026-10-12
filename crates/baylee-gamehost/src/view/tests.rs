@@ -61,6 +61,8 @@ fn mixed_print_preset() -> GamePreset {
     let mut deck: Vec<DeckEntry> = Vec::new();
     for i in 0..60u16 {
         deck.push(DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: island(),
             print: PrintRef::new(i % 3),
         });
@@ -77,10 +79,14 @@ fn mixed_print_preset() -> GamePreset {
         starting_life: None,
         starting_hand: Some(vec![
             DeckEntry {
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
                 card: island(),
                 print: PrintRef::new(0),
             },
             DeckEntry {
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
                 card: island(),
                 print: PrintRef::new(2),
             },
@@ -90,6 +96,7 @@ fn mixed_print_preset() -> GamePreset {
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 5,
         house_rules: HouseRules::default(),
@@ -102,10 +109,14 @@ fn mixed_print_preset() -> GamePreset {
         seats: vec![
             seat(vec![
                 DeckEntry {
+                    rule_print: None,
+                    choices: baylee_core::card_metadata::DeckChoices::default(),
                     card: island(),
                     print: PrintRef::new(1),
                 },
                 DeckEntry {
+                    rule_print: None,
+                    choices: baylee_core::card_metadata::DeckChoices::default(),
                     card: island(),
                     print: PrintRef::new(2),
                 },
@@ -178,6 +189,8 @@ fn elesh_norn() -> CardIndex {
 fn commander_preset() -> GamePreset {
     let deck: Vec<DeckEntry> = (0..60)
         .map(|_| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: island(),
             print: PrintRef::new(0),
         })
@@ -190,6 +203,8 @@ fn commander_preset() -> GamePreset {
         commanders: commanders
             .into_iter()
             .map(|card| DeckEntry {
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
                 card,
                 print: PrintRef::new(0),
             })
@@ -197,6 +212,8 @@ fn commander_preset() -> GamePreset {
         starting_life: None,
         starting_hand: Some(vec![]),
         starting_battlefield: vec![DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: island(),
             print: PrintRef::new(0),
         }],
@@ -204,6 +221,7 @@ fn commander_preset() -> GamePreset {
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Commander,
         seed: 5,
         house_rules: HouseRules::default(),

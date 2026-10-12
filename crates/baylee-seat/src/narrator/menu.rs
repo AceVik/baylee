@@ -1034,6 +1034,13 @@ fn plain(object: &PublicObject) -> String {
 fn ability_def(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'static AbilityDef> {
     let view = table.view;
     let list: &'static [AbilityDef] = if let Some(object) = view.object(source) {
+        if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+            let grant = object.grant(slot)?;
+            let rules = grant.rules?;
+            return baylee_cards::by_index(rules.card)?
+                .abilities_for_face(usize::from(rules.face))
+                .get(usize::try_from(grant.ability?).ok()?);
+        }
         if let Some(rules) = object.rules {
             baylee_cards::by_index(rules.card)?.abilities_for_face(usize::from(rules.face))
         } else if !object.status.is_face_down() {
@@ -1052,6 +1059,15 @@ fn ability_def(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'stat
 /// it.
 fn ability_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'static str> {
     let view = table.view;
+    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+        let grant = view.object(source)?.grant(slot)?;
+        let rules = grant.rules?;
+        return baylee_cards::oracle::sentence(
+            rules.card,
+            usize::from(rules.face),
+            grant.text?.line,
+        );
+    }
     let rules = view.object(source).and_then(|o| o.rules).or_else(|| {
         view.hand
             .iter()

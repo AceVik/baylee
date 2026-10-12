@@ -3,6 +3,8 @@
 //! Definitions stay in the immutable registry. Only their ordered references
 //! are composed, so nested DSL references remain static without leaking memory.
 
+pub(crate) mod temporary;
+
 use crate::object::{AbilityList, AbilityOrigin};
 use baylee_cards_dsl::{AbilityDef, CopyMod};
 use std::sync::Arc;
@@ -41,6 +43,8 @@ pub struct AbilityEntry {
     pub provenance: AbilityProvenance,
     /// Wording defined when a token was created; part of its copiable text.
     pub base_text: crate::text_changes::TextChangeMap,
+    /// Circles written into this printed sentence during deck construction (CR 207.5).
+    pub circled_colors: baylee_core::color::ColorSet,
 }
 
 /// A static ability defined by a token-creating instruction, rather than a
@@ -266,6 +270,7 @@ pub fn compose(
                     definition,
                     provenance,
                     base_text: own.base_text(copy_index as usize),
+                    circled_colors: baylee_core::color::ColorSet::EMPTY,
                 });
             }
             CopyMod::KeepResolvingAbility => entries.extend(resolving),
@@ -355,6 +360,7 @@ impl AbilityList {
             definition: self.abilities.get(index)?,
             provenance: self.origin(index),
             base_text: self.base_text(index),
+            circled_colors: self.circled_colors(index),
         })
     }
 
@@ -368,6 +374,7 @@ impl AbilityList {
                 definition,
                 provenance: self.origin(index),
                 base_text: self.base_text(index),
+                circled_colors: self.circled_colors(index),
             })
             .collect()
     }
@@ -419,6 +426,36 @@ impl AbilityList {
                 }),
             AbilityDefs::Static(_) => crate::text_changes::TextChangeMap::IDENTITY,
         }
+    }
+
+    /// Colors circled into one printed ability, retained when the full text is copied.
+    #[must_use]
+    pub fn circled_colors(&self, index: usize) -> baylee_core::color::ColorSet {
+        match &self.abilities {
+            AbilityDefs::Shared(bundle) => bundle
+                .entries
+                .get(index)
+                .map_or(baylee_core::color::ColorSet::EMPTY, |entry| {
+                    entry.circled_colors
+                }),
+            AbilityDefs::Static(_) => baylee_core::color::ColorSet::EMPTY,
+        }
+    }
+
+    /// Binds original deck-construction circles without changing the static registry.
+    #[must_use]
+    pub fn with_circled_colors(mut self, colors: baylee_core::color::ColorSet) -> Self {
+        if !colors.is_empty() {
+            let mut entries = self.entries();
+            for entry in &mut entries {
+                entry.circled_colors = colors;
+            }
+            self.abilities = AbilityDefs::Shared(Arc::new(AbilityBundle {
+                entries,
+                runtime_statics: self.runtime_statics().to_vec(),
+            }));
+        }
+        self
     }
 
     /// Record wording from a token-creating instruction as copiable text.
@@ -548,8 +585,20 @@ pub struct CopyApplication<'a> {
 
 /// Snapshot and install a copy without changing zones, status, damage,
 /// attachments or counters (CR 707.2b, 707.4).
-#[allow(clippy::too_many_lines)] // The shared copy transaction keeps snapshots ahead of every write.
 pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplication<'_>) -> bool {
+    let Some(target) = state.source_identity(application.target) else {
+        return false;
+    };
+    apply_copy_from_reference(state, application, target)
+}
+
+/// Copy a retained spell incarnation after it has resolved or been countered.
+#[allow(clippy::too_many_lines)] // The shared copy transaction keeps snapshots ahead of every write.
+pub(crate) fn apply_copy_from_reference(
+    state: &mut crate::state::GameState,
+    application: CopyApplication<'_>,
+    target_identity: baylee_core::ids::DamageSourceRef,
+) -> bool {
     use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
     use baylee_cards_dsl::{Duration, Layer, Modifier};
     use baylee_core::ids::EffectId;
@@ -563,11 +612,12 @@ pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplicat
         resolving,
         text,
     } = application;
-    let (Some(previous), Some(target_base), Some(own), Some(copied)) = (
+    let Some((target_base, copied)) = copy_snapshot(state, target_identity) else {
+        return false;
+    };
+    let (Some(previous), Some(own)) = (
         crate::layers::copiable_values(state, source),
-        crate::layers::copiable_values(state, target),
         state.printed_ability_list(source),
-        state.printed_ability_list(target),
     ) else {
         return false;
     };
@@ -593,6 +643,7 @@ pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplicat
     } else {
         state.next_timestamp()
     };
+    temporary::prepare(state, source, target_identity, until_eot, entering);
     let base = Arc::new(base);
     let Some(object) = state.object_mut(source) else {
         return false;
@@ -684,6 +735,30 @@ pub fn apply_copy(state: &mut crate::state::GameState, application: CopyApplicat
     }
     state.invalidate_projections();
     true
+}
+
+fn copy_snapshot(
+    state: &crate::state::GameState,
+    target: baylee_core::ids::DamageSourceRef,
+) -> Option<(
+    Arc<crate::object::Characteristics>,
+    crate::object::AbilityList,
+)> {
+    if state
+        .object(target.object)
+        .is_some_and(|object| object.version == target.version)
+    {
+        return Some((
+            crate::layers::copiable_values(state, target.object)?,
+            state.printed_ability_list(target.object)?,
+        ));
+    }
+    let old = state.source_object(target)?;
+    let mut base = old.base.clone();
+    if base.front_mana_value.is_some_and(|value| value != 0) {
+        Arc::make_mut(&mut base).front_mana_value = Some(0);
+    }
+    Some((base, old.printed_ability_list(state.bases.as_ref())))
 }
 
 #[cfg(test)]

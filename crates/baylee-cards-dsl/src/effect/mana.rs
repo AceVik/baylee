@@ -32,6 +32,8 @@ pub enum ManaSource {
     /// A color some land could produce: yours (Reflecting Pool) or an
     /// opponent's (Exotic Orchard).
     LandColor {
+        /// Which lands contribute their possible mana types.
+        filter: &'static Filter,
         /// `true` = your lands, `false` = opponents' lands.
         mine: bool,
         /// `true` for "any **type**" (Reflecting Pool), which colorless mana
@@ -40,6 +42,10 @@ pub enum ManaSource {
         /// across the table puts nothing on an Orchard's menu.
         any_type: bool,
     },
+    /// Colors of cards still exiled by this acquisition of the source's linked ability.
+    ExiledWithSource,
+    /// The colors circled on this particular acquired ability at deck construction.
+    CircledColors,
     /// The color chosen as this permanent entered (Uncharted Haven).
     ///
     /// Read off the *source* object rather than off the card, which is why
@@ -58,6 +64,17 @@ pub enum ManaSource {
     ChosenOr(&'static [ManaColor]),
 }
 
+/// How an instruction distributes its amount among the available colors.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ManaDistribution {
+    /// Choose one color for the entire amount.
+    OneColor,
+    /// Choose independently for each mana, allowing repeated colors.
+    AnyCombination,
+    /// Choose once per mana, without repeating a color.
+    DifferentColors,
+}
+
 /// Whether a restriction names the spell being cast or an activated ability's source.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ManaUse {
@@ -70,6 +87,8 @@ pub enum ManaUse {
     /// Any nonspell payment, or casting a spell matching the filter.
     /// Powerstone mana may pay abilities, ward, echo and other nonspell costs.
     NonSpellPaymentsOrMatchingSpells,
+    /// Any cost imposed by a matching spell, ability source, or other identified source.
+    CostsFromMatchingSource,
 }
 
 /// What produced mana may be spent on (Cavern of Souls), or what spending
@@ -81,6 +100,9 @@ pub struct ManaRestriction {
     /// The spell or activated source that must match for restricted payments.
     /// A rider alone fires only when the admitted payment matches.
     pub filter: &'static Filter,
+    /// Optional separate filter for an activated ability's source.
+    /// `None` uses `filter` for every admitted payment kind.
+    pub ability_filter: Option<&'static Filter>,
     /// What happens when it is spent on a matching spell.
     pub rider: SpendRider,
     /// "Spend this mana only …". False for a rider alone ("When that mana
@@ -109,6 +131,9 @@ pub enum SpendRider {
     CommanderScry,
     /// The creature spell gains haste indefinitely (CR 400.7a, 611.2a).
     Haste,
+    /// Copy the spell or nonmana activated ability this unit pays for.
+    /// A separate delayed trigger belongs to each unit (CR 106.6a).
+    Copy,
 }
 
 /// How a card's mana value is compared with a [`ManaValueBound`]'s amount.

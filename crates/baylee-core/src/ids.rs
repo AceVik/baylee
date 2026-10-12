@@ -53,6 +53,10 @@ id_type! {
     CardIndex(u32);
     /// Opaque index into a game's print table (presentation-only payload).
     PrintRef(u16);
+    /// Index into the separately validated rules-print table of a preset.
+    RulePrintRef(u16);
+    /// A watermark interned in a preset's rules metadata, never an art id.
+    WatermarkId(u16);
     /// Player/seat handle within a game.
     PlayerId(u8);
     /// Handle of a registered continuous effect.

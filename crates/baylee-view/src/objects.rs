@@ -370,6 +370,8 @@ pub struct PublicObject {
     /// ability too complicated to reduce to "n mana of these colours".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub granted_mana: Option<GrantedMana>,
+    /// Spending permission scoped to activation costs of this object.
+    pub ability_mana_spending: baylee_core::mana::ManaSpending,
     /// Which colours a **printed** mana ability of this permanent makes, when
     /// the printing does not say.
     ///
@@ -423,12 +425,8 @@ pub struct PublicObject {
     /// card, which is only ever from its own graveyard.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flashback: Option<ManaCost>,
-    /// Who granted each of this permanent's granted activated abilities, in
-    /// slot order: entry `n` is the ability offered as `granted_ability(n)`
-    /// (#212).
-    ///
-    /// One entry per grant the engine offers, the same walk and the same
-    /// cap (`GRANTED_SLOTS`), so a slot and its entry cannot drift apart.
+    /// Granted definitions, each carrying its stable identity explicitly.
+    /// Entries may disappear without renumbering the remaining abilities.
     /// Empty for anything that is not a permanent, and for a permanent
     /// granted nothing.
     ///
@@ -446,8 +444,16 @@ pub struct PublicObject {
 /// Chromatic Lantern prints nothing about the `{T}` it was given. The
 /// grantor prints it, in a sentence saying the permanent "has" it
 /// (CR 113.10), and this says which grantor and which sentence.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct GrantSource {
+    /// Stable runtime identity in the granted action partition.
+    pub slot: u32,
+    /// Complete activated definition on `rules`, for an inherited printed ability.
+    pub ability: Option<u32>,
+    /// Exact rules classification, even when production depends on the board.
+    pub mana_ability: bool,
+    /// A free tap mana production this particular grant supports.
+    pub mana: Option<GrantedMana>,
     /// The object that granted it, when this seat may see that object.
     pub source: Option<ObjectId>,
     /// The card and face the grant's sentence is printed on.
@@ -472,14 +478,14 @@ pub struct GrantSource {
 /// Deliberately not an ability: the client already knows the handle
 /// (`choice::GRANTED_ABILITY`) and the engine already decided whether it may
 /// be activated. What it cannot know is what comes out.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct GrantedMana {
-    /// Which of the permanent's granted abilities this is, counting from 0.
+    /// Stable runtime identity of this granted ability.
     ///
     /// Carried because it is not always the first: a permanent may be granted
     /// several, and the one that makes mana is not necessarily the one at the
     /// front. Without it a client would tap the slot next to the one it was
-    /// told about. A plain ordinal rather than the engine's synthetic index,
+    /// told about. The identity excludes the engine's synthetic-index tag,
     /// because this crate does not depend on the rules kernel and the
     /// encoding is the kernel's (`choice::granted_ability`).
     pub slot: u32,
@@ -494,7 +500,7 @@ pub struct GrantedMana {
 /// The counterpart of [`GrantedMana`] for an ability that *is* printed —
 /// see [`PublicObject::board_mana`] for which cards these are and why the
 /// answer cannot be worked out from the card.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BoardMana {
     /// Which of the permanent's printed abilities this is, counting from 0 on
     /// the face it is showing.
@@ -514,6 +520,33 @@ pub struct BoardMana {
 }
 
 impl PublicObject {
+    /// The granted definition with this stable runtime identity.
+    #[must_use]
+    pub fn grant(&self, slot: u32) -> Option<&GrantSource> {
+        self.grants.iter().find(|grant| grant.slot == slot)
+    }
+
+    /// Every public free-tap mana grant, including older views' first summary.
+    pub fn granted_mana_options(&self) -> impl Iterator<Item = &GrantedMana> {
+        self.grants
+            .iter()
+            .filter_map(|grant| grant.mana.as_ref())
+            .chain(self.granted_mana.iter().filter(|mana| {
+                !self.grants.iter().any(|grant| {
+                    grant
+                        .mana
+                        .as_ref()
+                        .is_some_and(|other| other.slot == mana.slot)
+                })
+            }))
+    }
+
+    /// Mana production for this particular stable grant identity.
+    #[must_use]
+    pub fn granted_mana_for(&self, slot: u32) -> Option<&GrantedMana> {
+        self.granted_mana_options().find(|mana| mana.slot == slot)
+    }
+
     /// Effective toughness minus marked damage; `None` for non-creatures.
     ///
     /// Clients show this as the "remaining" number so a player can see lethal
@@ -584,6 +617,8 @@ impl PublicObject {
             summoning_sick: self.summoning_sick,
             granted_mana: self.granted_mana.clone(),
             board_mana: self.board_mana.clone(),
+            grants: self.grants.clone(),
+            ability_mana_spending: self.ability_mana_spending,
         }
     }
 }
@@ -642,6 +677,8 @@ pub struct ObjectSummaryKey {
     /// spell made tap for any colour is not the Forest beside it.
     granted_mana: Option<GrantedMana>,
     board_mana: Option<BoardMana>,
+    grants: Vec<GrantSource>,
+    ability_mana_spending: baylee_core::mana::ManaSpending,
 }
 
 impl core::hash::Hash for ObjectSummaryKey {
@@ -669,6 +706,10 @@ impl core::hash::Hash for ObjectSummaryKey {
         }
         self.attached.hash(state);
         self.summoning_sick.hash(state);
+        self.granted_mana.hash(state);
+        self.board_mana.hash(state);
+        self.grants.hash(state);
+        self.ability_mana_spending.hash(state);
     }
 }
 

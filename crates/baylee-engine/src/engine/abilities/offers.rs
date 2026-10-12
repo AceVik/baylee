@@ -302,10 +302,12 @@ impl<L: CardLookup> Engine<L> {
             };
             if obj.controller == player
                 && let Some(cost) = self.disguise_cost(id)
-                && casting::affordable(
-                    &self.state,
+                && self.can_pay_mana(
                     player,
-                    &self.state.players[player.get() as usize].mana_pool,
+                    casting::SpendFor::OtherFrom(baylee_core::ids::DamageSourceRef {
+                        object: id,
+                        version: obj.version,
+                    }),
                     &cost,
                 )
             {
@@ -324,7 +326,17 @@ impl<L: CardLookup> Engine<L> {
             } else {
                 obj.abilities(&self.lookup)
             };
-            for (i, ability) in offered.iter().enumerate() {
+            let granted =
+                crate::effects::granted_activated_among(&self.state, grants.iter().copied(), id)
+                    .filter(|_| !locked)
+                    .map(|grant| (grant.id, grant.definition));
+            for (i, ability) in offered
+                .iter()
+                .enumerate()
+                .map(|(index, definition)| (index as u32, *definition))
+                .chain(granted)
+            {
+                let ability = &ability;
                 if ability.is_intrinsic_mana_ability()
                     && casting::intrinsic_mana_colors(&self.state, id).is_empty()
                 {
@@ -351,19 +363,17 @@ impl<L: CardLookup> Engine<L> {
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                             continue;
                         }
-                        if self.activation_limit_spent(player, id, i as u32, *limit) {
+                        if self.activation_limit_spent(player, id, i, *limit) {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, i as u32, *targets)
-                            || !self.ability_has_a_target(player, id, i as u32, *second_targets)
+                        if !self.ability_has_a_target(player, id, i, *targets)
+                            || !self.ability_has_a_target(player, id, i, *second_targets)
                         {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
                         let payable = self.activation_affordable(player, id, &cost, &[]);
-                        self.offer_activation_payment(
-                            player, id, i as u32, &cost, payable, &mut legal,
-                        );
+                        self.offer_activation_payment(player, id, i, &cost, payable, &mut legal);
                     }
                     AbilityDef::ActivatedConditional {
                         cost,
@@ -386,27 +396,25 @@ impl<L: CardLookup> Engine<L> {
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                             continue;
                         }
-                        if self.activation_limit_spent(player, id, i as u32, *limit) {
+                        if self.activation_limit_spent(player, id, i, *limit) {
                             continue;
                         }
                         if !crate::eval::condition_holds_with_context(
                             &self.state,
                             player,
-                            self.ability_rule_context(id, i as u32),
+                            self.ability_rule_context(id, i),
                             *condition,
                         ) {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, i as u32, *targets)
-                            || !self.ability_has_a_target(player, id, i as u32, *second_targets)
+                        if !self.ability_has_a_target(player, id, i, *targets)
+                            || !self.ability_has_a_target(player, id, i, *second_targets)
                         {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
                         let payable = self.activation_affordable(player, id, &cost, &[]);
-                        self.offer_activation_payment(
-                            player, id, i as u32, &cost, payable, &mut legal,
-                        );
+                        self.offer_activation_payment(player, id, i, &cost, payable, &mut legal);
                     }
                     AbilityDef::Loyalty {
                         cost,
@@ -430,12 +438,12 @@ impl<L: CardLookup> Engine<L> {
                         if *cost < 0 && loyalty < (-*cost) as u16 {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, i as u32, *targets)
-                            || !self.ability_has_a_target(player, id, i as u32, *second_targets)
+                        if !self.ability_has_a_target(player, id, i, *targets)
+                            || !self.ability_has_a_target(player, id, i, *second_targets)
                         {
                             continue;
                         }
-                        legal.abilities.push((id, i as u32));
+                        legal.abilities.push((id, i));
                     }
                     _ => {}
                 }
@@ -451,64 +459,6 @@ impl<L: CardLookup> Engine<L> {
                 && self.has_a_legal_target(player, copy)
             {
                 legal.abilities.push((id, crate::choice::PREPARED_CAST));
-            }
-            // Karn's lock reaches the grants below as well: an ability a
-            // continuous effect gave an artifact is an activated ability of
-            // that artifact like any other. This is the third door onto the
-            // same list — printed, intrinsic, granted — and the one that made
-            // moving the check to the top of `start_activation` necessary,
-            // because `start_granted_activation` returns before the branch it
-            // used to sit in. (Prepared, in between, is the door the lock
-            // leaves open: that one offers a spell.)
-            if locked {
-                continue;
-            }
-            // Granted abilities (Urza's Saga chapters, a Chromatic Lantern's
-            // lands): each surfaces under its own synthetic index. The slot
-            // is the *position among the grants that apply*, affordable or
-            // not — an index that shifted when a cost became payable would
-            // name a different ability from one priority window to the next.
-            for (n, granted) in
-                crate::effects::granted_activated_among(&self.state, grants.iter().copied(), id)
-                    .take(crate::choice::GRANTED_SLOTS as usize)
-                    .enumerate()
-            {
-                let cost = self.activation_price(player, id, &granted.cost, None);
-                if !self.can_afford(player, id, &cost, casting::SpendFor::Ability(id)) {
-                    self.offer_activation_payment(
-                        player,
-                        id,
-                        crate::choice::granted_ability(n as u32),
-                        &cost,
-                        false,
-                        &mut legal,
-                    );
-                    continue;
-                }
-                legal
-                    .abilities
-                    .push((id, crate::choice::granted_ability(n as u32)));
-                // Once per permanent, not once per ability.
-                // `PlayerAction::ActivateManaAbility` names a *source* and no
-                // index, so a second entry for the same permanent is an offer
-                // nothing can accept: the first press takes whichever ability
-                // `activate_mana` prefers, the permanent is tapped, and the
-                // duplicate is refused by the list that put it there. A
-                // Chromatic Lantern entered every land on the board twice.
-                //
-                // Which one the single entry stands for is settled in
-                // `apply`: intrinsic first, and the granted ability is
-                // reached by naming `GRANTED_ABILITY` in `legal.abilities`,
-                // where it also appears.
-                //
-                // `last` and not `contains`: both pushes onto this list are
-                // made in this permanent's own turn of the loop, so an entry
-                // for it can only be the latest one, and searching the whole
-                // list made a board of granted mana abilities (a Great Divide
-                // Guide over a few thousand Allies) quadratic.
-                if granted.mana_ability && legal.mana_abilities.last() != Some(&id) {
-                    legal.mana_abilities.push(id);
-                }
             }
         }
         // Hand-zone activations (cycling) and suspensions, and the
@@ -638,7 +588,16 @@ impl<L: CardLookup> Engine<L> {
                         AbilityDef::Suspend { cost, .. }
                             if from == ActivationZone::Hand
                                 && sorcery_timing
-                                && self.can_pay_mana(player, casting::SpendFor::Other, cost) =>
+                                && self.can_pay_mana(
+                                    player,
+                                    casting::SpendFor::OtherFrom(
+                                        baylee_core::ids::DamageSourceRef {
+                                            object: card,
+                                            version: obj.version,
+                                        },
+                                    ),
+                                    cost,
+                                ) =>
                         {
                             legal.suspendable.push(card);
                         }

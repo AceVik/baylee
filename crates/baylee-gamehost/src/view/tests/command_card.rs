@@ -20,6 +20,8 @@ const TARGETS_PRINT: u16 = 1;
 
 fn entry_of(name: &str, print: u16) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::generated::ALL
             .iter()
             .find(|(_, card)| card.name() == name)
@@ -57,6 +59,8 @@ fn a_command_table() -> GamePreset {
         "Swamp",
         0,
         vec![DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: word_of_command(),
             print: PrintRef::new(0),
         }],

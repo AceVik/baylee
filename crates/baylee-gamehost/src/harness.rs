@@ -627,12 +627,22 @@ mod tests {
         let entry = preset.seats[1].deck[0];
         preset.seats[1].starting_hand = Some(vec![entry; 7]);
         let a = Engine::new(&preset, RegistryLookup).unwrap();
-        for card in &mut preset.seats[1].deck {
+        let island_preset = baylee_cards::decks::probe_preset(42, island).unwrap();
+        let island_entry = island_preset.seats[1].starting_hand.as_ref().unwrap()[0];
+        let island_print = island_preset.prints[usize::from(island_entry.print.get())].clone();
+        let print = baylee_core::ids::PrintRef::new(u16::try_from(preset.prints.len()).unwrap());
+        preset.prints.push(island_print);
+        let opponent = &mut preset.seats[1];
+        for card in opponent
+            .deck
+            .iter_mut()
+            .chain(opponent.starting_hand.iter_mut().flatten())
+        {
             card.card = island;
+            card.print = print;
+            card.rule_print = None;
         }
-        for card in preset.seats[1].starting_hand.as_mut().unwrap() {
-            card.card = island;
-        }
+        baylee_cards::print_rules::hydrate_reference(&mut preset).unwrap();
         let b = Engine::new(&preset, RegistryLookup).unwrap();
         let me = PlayerId::new(0);
         let view = |engine: &Engine<RegistryLookup>| {

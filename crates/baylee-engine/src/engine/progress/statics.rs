@@ -305,6 +305,7 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         crate::effects::sync_granted_statics(&mut self.state);
+        crate::effects::sync_granted_activated(&mut self.state, &self.lookup);
         self.sync_replacement_rules();
         #[cfg(test)]
         crate::ability_log::note_sources(&self.state, &self.lookup);

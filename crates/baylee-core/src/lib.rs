@@ -12,6 +12,7 @@
 #![warn(missing_docs)]
 
 pub mod acceptance;
+pub mod card_metadata;
 pub mod color;
 pub mod deckdiff;
 pub mod deckdigest;

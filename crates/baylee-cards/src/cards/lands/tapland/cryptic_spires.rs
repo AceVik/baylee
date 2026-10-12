@@ -18,17 +18,11 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::Tapped],
     )],
-    coverage = Coverage::Partial(
-        "the two colours are circled while creating the deck, and no enter modifier or \
-         mana source names a deck-construction choice",
-    ),
+    abilities = &[mana_ability!(&[Effect::AddMana {
+        source: ManaSource::CircledColors,
+        amount: Amount::Fixed(1),
+        distribution: ManaDistribution::OneColor,
+        restriction: None,
+    }])],
+    coverage = Coverage::Implemented,
 );
-
-// NOT SUPPORTED: {T}: Add one mana of either of the circled colors —
-// `ManaSource::Chosen`/`ChosenOr` name a colour chosen as the *permanent*
-// enters, and nothing in the vocabulary carries two colours fixed while the
-// deck was built. `Effect::mana_of_any_color()` would be a strictly better
-// card, and the deckbuilder would deal it as playable.
-//
-// NOT SUPPORTED: As you create your deck, circle two of the colors below —
-// deck-construction instructions have no representation at all (CR 103.1).

@@ -37,7 +37,7 @@ card!(
                         ManaColor::Green
                     ]),
                     amount: Amount::X,
-                    combination: false,
+                    distribution: baylee_cards_dsl::ManaDistribution::OneColor,
                     restriction: None
                 },
                 Effect::GainLife { amount: Amount::X },

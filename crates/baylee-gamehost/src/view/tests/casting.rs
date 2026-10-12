@@ -34,6 +34,8 @@ fn flashback_for(engine: &Engine<Registry>, seat: PlayerId, card: ObjectId) -> O
 fn a_granted_flashback_is_shown_to_the_seat_that_may_cast_it() {
     let (me, them) = (PlayerId::new(0), PlayerId::new(1));
     let card = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };
@@ -108,6 +110,8 @@ fn a_graveyard_permission_is_priced_for_the_owner_while_it_lasts() {
     use baylee_engine::{event::Cause, zone::ZonePosition};
     let (me, them) = (PlayerId::new(0), PlayerId::new(1));
     let entry = |name| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name(name).unwrap(),
         print: PrintRef::new(0),
     };
@@ -178,6 +182,8 @@ fn an_escape_is_priced_once_the_graveyard_can_pay_it() {
     use baylee_engine::{event::Cause, zone::ZonePosition};
     let (me, them) = (PlayerId::new(0), PlayerId::new(1));
     let entry = |name| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name(name).unwrap(),
         print: PrintRef::new(0),
     };
@@ -249,6 +255,8 @@ fn a_printed_flashback_is_priced_at_its_printed_cost() {
         .unwrap()
         .index;
     let entry = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };
@@ -346,6 +354,8 @@ fn uncounterable_to(engine: &Engine<Registry>, seat: PlayerId, id: ObjectId) -> 
 fn a_spell_that_cannot_be_countered_says_so_on_the_stack() {
     let (me, them) = (PlayerId::new(0), PlayerId::new(1));
     let card = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };

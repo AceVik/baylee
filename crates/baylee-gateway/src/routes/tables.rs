@@ -254,6 +254,83 @@ pub(crate) fn room_preset(
     Ok(preset)
 }
 
+/// Resolves every unresolved physical printing against trusted catalog facts.
+async fn hydrate_rules(
+    state: &Shared,
+    preset: &mut baylee_core::preset::GamePreset,
+) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    baylee_cards::print_rules::hydrate_reference(preset)
+        .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;
+    let mut ids: Vec<String> = preset
+        .seats
+        .iter()
+        .flat_map(|seat| {
+            seat.deck
+                .iter()
+                .chain(&seat.sideboard)
+                .chain(&seat.commanders)
+                .chain(seat.starting_hand.iter().flatten())
+                .chain(&seat.starting_battlefield)
+        })
+        .filter(|entry| entry.rule_print.is_none())
+        .map(|entry| {
+            preset.prints[usize::from(entry.print.get())]
+                .scryfall_id
+                .to_string()
+        })
+        .collect();
+    ids.sort_unstable();
+    ids.dedup();
+    let facts = match &state.catalog {
+        Some(catalog) => catalog.rules_of(&ids).await.map_err(|e| db_down(&e))?,
+        None => Vec::new(),
+    };
+    let facts: std::collections::BTreeMap<_, _> = facts
+        .into_iter()
+        .map(|fact| (fact.scryfall_id.clone(), fact))
+        .collect();
+    for seat in &mut preset.seats {
+        for entry in seat
+            .deck
+            .iter_mut()
+            .chain(&mut seat.sideboard)
+            .chain(&mut seat.commanders)
+            .chain(seat.starting_hand.iter_mut().flatten())
+            .chain(&mut seat.starting_battlefield)
+        {
+            baylee_cards::print_rules::validate_choices(entry.card, entry.choices)
+                .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;
+            if entry.rule_print.is_some() {
+                continue;
+            }
+            let print = &preset.prints[usize::from(entry.print.get())];
+            let Some(def) = baylee_cards::by_index(entry.card) else {
+                return Err(err(StatusCode::BAD_REQUEST, "unknown rules card"));
+            };
+            let Some(fact) = facts.get(&print.scryfall_id.to_string()) else {
+                return Err(err(
+                    StatusCode::BAD_REQUEST,
+                    "printing rules metadata is unavailable; refresh the catalog",
+                ));
+            };
+            if fact.oracle_id != def.oracle_id {
+                return Err(err(
+                    StatusCode::BAD_REQUEST,
+                    "printing belongs to another card",
+                ));
+            }
+            let marks: Vec<Option<&str>> = fact.watermarks.iter().map(Option::as_deref).collect();
+            entry.rule_print = Some(
+                preset
+                    .rules
+                    .insert(entry.card, &marks, fact.is_un)
+                    .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?,
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Starts a room whose seats are all settled.
 ///
 /// A room used to start itself the moment the last chair became ready, which
@@ -265,8 +342,28 @@ pub(crate) fn room_preset(
 /// Returns whether the game was started. The engine is ordered *outside* the
 /// lobby lock, and a failure to order one puts the room back the way it was
 /// rather than leaving a table nobody can play at.
-pub(crate) fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, Json<ErrorBody>)> {
-    let prints;
+pub(crate) async fn try_start(
+    state: &Shared,
+    id: &str,
+) -> Result<bool, (StatusCode, Json<ErrorBody>)> {
+    let seed = auth::new_game_seed();
+    let snapshot = {
+        let lobby = state.lobby.lock();
+        let Some(game) = lobby.games.get(id) else {
+            return Ok(false);
+        };
+        if game.state != LobbyState::Waiting || !game.all_ready() {
+            return Ok(false);
+        }
+        let mut preset = room_preset(&game.seats, seed)?;
+        preset.house_rules = game.house_rules.clone();
+        baylee_cards::decks::apply_room_setup(&mut preset, &game.setup)
+            .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;
+        preset
+    };
+    let mut preset = snapshot.clone();
+    hydrate_rules(state, &mut preset).await?;
+    let prints = table_prints(&preset);
     {
         let mut lobby = state.lobby.lock();
         let Some(game) = lobby.games.get_mut(id) else {
@@ -275,16 +372,15 @@ pub(crate) fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, J
         if game.state != LobbyState::Waiting || !game.all_ready() {
             return Ok(false);
         }
-        let mut preset = room_preset(&game.seats, auth::new_game_seed())?;
-        // The room's clock, onto the preset the engine is about to be given.
-        // This is the one line the whole ticket was missing: the wire already
-        // carried `HouseRules` — the gateway sends the preset as JSON and
-        // gamehost has always decoded it — so every table ran the default
-        // purely because nothing here ever wrote to this field.
-        preset.house_rules = game.house_rules.clone();
-        baylee_cards::decks::apply_room_setup(&mut preset, &game.setup)
+        let mut current = room_preset(&game.seats, seed)?;
+        current.house_rules = game.house_rules.clone();
+        baylee_cards::decks::apply_room_setup(&mut current, &game.setup)
             .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;
-        prints = table_prints(&preset);
+        // Deck rows, per-copy choices, seats and setup must still match the
+        // snapshot whose printing facts were resolved outside this lock.
+        if current != snapshot {
+            return Ok(false);
+        }
         game.preset = Some(preset);
         game.state = LobbyState::Playing;
         game.started_at = Some(auth::now_secs());

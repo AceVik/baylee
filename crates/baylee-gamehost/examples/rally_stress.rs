@@ -28,10 +28,13 @@ fn preset() -> GamePreset {
         card("Aang and Katara"),
     ];
     let entry = |i: usize| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: cards[i],
         print: PrintRef::new(i as u16),
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 37,
         house_rules: HouseRules::default(),

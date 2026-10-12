@@ -2277,6 +2277,27 @@ fn matches(
                     .object(*object)
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
+        (Trigger::SpellCastUsingSourceMana(filter), GameEvent::SpellCast { object, .. }) => {
+            state.object(*object).is_some_and(|spell| {
+                eval::matches_with_context(filter, state, spell, you, context)
+                    && spell.paid.as_ref().is_some_and(|paid| {
+                        let version = state.object(source).map(|object| object.version);
+                        paid.mana_paid
+                            .restricted()
+                            .iter()
+                            .chain(paid.mana_paid.ridden())
+                            .any(|mana| {
+                                mana.amount > 0
+                                    && state.restriction_info.get(&mana.restriction.0).is_some_and(
+                                        |provenance| {
+                                            provenance.context.source == source
+                                                && provenance.source_version == version
+                                        },
+                                    )
+                            })
+                    })
+            })
+        }
         (
             Trigger::Discarded { who, filter },
             GameEvent::Discarded {

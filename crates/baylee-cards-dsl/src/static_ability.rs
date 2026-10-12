@@ -455,6 +455,8 @@ pub enum Modifier {
     OneSpellManaAnyType,
     /// Replace the next draw this turn with a card from outside the game.
     NextDrawWish,
+    /// Mana of any color may activate creatures this effect's controller controls.
+    CreatureAbilityManaAnyColor,
     /// The effect's controller controls the affected permanent (CR 613.1b,
     /// layer 2): Mind Control, Act of Treason, Sower of Temptation.
     ///
@@ -591,6 +593,10 @@ pub enum Modifier {
         /// Whether it's a mana ability.
         mana_ability: bool,
     },
+    /// Grant a complete activated definition, retaining its restrictions and targets.
+    GrantActivatedDefinition(&'static crate::AbilityDef),
+    /// Grant the activated abilities of matching cards exiled with this acquisition.
+    GrantActivatedFromLinkedExile(&'static Filter),
     /// The affected object gains a static ability. The granted ability's
     /// filter is read relative to that object, not the object granting it.
     GrantStatic {
@@ -840,6 +846,8 @@ impl Modifier {
             | Self::LoseAllAbilities
             | Self::AddKeywordIfCountersAtLeast { .. }
             | Self::GrantActivated { .. }
+            | Self::GrantActivatedDefinition(_)
+            | Self::GrantActivatedFromLinkedExile(_)
             | Self::GrantStatic { .. }
             | Self::GrantsFlashback
             | Self::GrantsEscape(_)
@@ -869,6 +877,7 @@ impl Modifier {
             | Self::NextSpellUncounterable
             | Self::OneSpellManaAnyType
             | Self::NextDrawWish
+            | Self::CreatureAbilityManaAnyColor
             | Self::SpellsCostMore(_)
             | Self::AbilitiesCostMore(_)
             | Self::LegendRuleOff

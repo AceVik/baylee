@@ -7,13 +7,8 @@ use super::*;
 /// Ally its controller has — and it is an Ally, so it grants the ability to
 /// itself.
 ///
-/// A *granted* mana ability is offered in `LegalActions::mana_abilities`
-/// alongside the CR 305.6 shortcut, and until now it could not be taken from
-/// there: `ActivateManaAbility` went straight to `intrinsic_mana`, which
-/// answers only for a land with one basic type, so the engine refused an
-/// action it had just listed. Every caller reads that list the same way — the
-/// house AI sends `ActivateManaAbility { source: legal.mana_abilities[0] }`
-/// outright — so the list has to mean one thing.
+/// A granted mana ability is offered with its stable indexed action. Taking
+/// that exact action must resolve the color choice and pay the tap cost.
 #[test]
 fn a_granted_mana_ability_is_activatable_the_way_it_is_offered() {
     let p0 = PlayerId::new(0);
@@ -24,11 +19,15 @@ fn a_granted_mana_ability_is_activatable_the_way_it_is_offered() {
     reach_main_phase(&mut engine, p0);
 
     let guide = on_battlefield(&engine, p0, great_divide_guide()).expect("the guide is out");
+    let grant = crate::effects::granted_activated(engine.state(), guide)
+        .next()
+        .unwrap()
+        .id;
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("the main phase grants priority");
     };
     assert!(
-        legal.mana_abilities.contains(&guide),
+        legal.abilities.contains(&(guide, grant)),
         "the guide grants itself a mana ability and the engine offers it"
     );
     assert!(
@@ -37,7 +36,13 @@ fn a_granted_mana_ability_is_activatable_the_way_it_is_offered() {
     );
 
     engine
-        .apply(p0, PlayerAction::ActivateManaAbility { source: guide })
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: guide,
+                ability_index: grant,
+            },
+        )
         .expect("an offered mana ability is activatable");
 
     // "One mana of any color" asks which — the ability resolved rather than

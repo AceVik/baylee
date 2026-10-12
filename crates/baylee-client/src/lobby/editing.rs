@@ -152,6 +152,7 @@ pub(super) fn builder_keys(
                 clipboard.as_deref_mut(),
                 paste,
                 &key,
+                mailbox,
             ),
             Nav::Pool(at) => pool_key(state, codes, &key, at, mailbox),
             Nav::Deck(at) => deck_key(state, codes, &key, at, mailbox),
@@ -263,9 +264,7 @@ fn pool_key(
         return;
     }
     let added = |state: &mut ResMut<LobbyState>, zone| {
-        if !state.lobby.builder_mut().add(slot, zone) {
-            state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
-        }
+        add_pool_card(state, mailbox, slot, zone);
     };
     match &key.logical_key {
         Key::Enter => {
@@ -353,6 +352,26 @@ fn add_row(state: &mut ResMut<LobbyState>, row: usize, zone: Zone) {
     }
 }
 
+/// Adds a pool card, asking for required construction choices first.
+fn add_pool_card(
+    state: &mut ResMut<LobbyState>,
+    mailbox: &super::Mailbox,
+    slot: usize,
+    zone: Zone,
+) {
+    let spires = state
+        .lobby
+        .builder()
+        .card(slot)
+        .is_some_and(|card| card.index == baylee_core::generated::index::CRYPTIC_SPIRES.get());
+    if spires {
+        let request = state.lobby.builder_mut().open_picker(slot, zone);
+        super::http::dispatch(state, mailbox, request);
+    } else if !state.lobby.builder_mut().add(slot, zone) {
+        state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
+    }
+}
+
 /// A key while the caret is in the search or the name.
 #[allow(clippy::too_many_lines)] // the text editing keys, one arm each
 fn type_key(
@@ -362,6 +381,7 @@ fn type_key(
     mut clipboard: Option<&mut bevy::clipboard::Clipboard>,
     paste: &mut Option<Paste>,
     key: &KeyboardInput,
+    mailbox: &super::Mailbox,
 ) {
     let field = state.lobby.builder().focus();
     let epoch = state.lobby.builder().focus_epoch();
@@ -378,9 +398,8 @@ fn type_key(
             // KEYBOARD §7.7).
             BuildField::Search => {
                 let zone = target(state, shifted(codes));
-                let builder = state.lobby.builder_mut();
-                if let Some(slot) = builder.results().first().copied() {
-                    builder.add(slot, zone);
+                if let Some(slot) = state.lobby.builder().results().first().copied() {
+                    add_pool_card(state, mailbox, slot, zone);
                 }
             }
             // Enter on the name ends the renaming; the keyboard is free.

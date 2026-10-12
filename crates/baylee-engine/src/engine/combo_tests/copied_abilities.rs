@@ -257,7 +257,10 @@ fn the_copy_registers_the_static_ability_it_copied() {
         panic!("the main phase grants priority");
     };
     assert!(
-        !legal.mana_abilities.contains(&ally),
+        !legal
+            .abilities
+            .iter()
+            .any(|&(source, index)| source == ally && engine.is_mana_offer(source, index)),
         "an Ally with no mana ability of its own is offered none"
     );
 
@@ -273,12 +276,28 @@ fn the_copy_registers_the_static_ability_it_copied() {
     };
     assert_eq!(player, p0, "to the seat that cast it");
     assert!(
-        legal.mana_abilities.contains(&ally),
+        legal
+            .abilities
+            .iter()
+            .any(|&(source, index)| source == ally && engine.is_mana_offer(source, index)),
         "the copy's static ability reached my Ally"
     );
 
+    let ability_index = legal
+        .abilities
+        .iter()
+        .find_map(|&(source, index)| {
+            (source == ally && engine.is_mana_offer(source, index)).then_some(index)
+        })
+        .unwrap();
     engine
-        .apply(p0, PlayerAction::ActivateManaAbility { source: ally })
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: ally,
+                ability_index,
+            },
+        )
         .expect("an offered mana ability is activatable");
     let Pending::ChooseColor { .. } = engine.pending().clone() else {
         panic!("any-colour mana asks a colour, got {:?}", engine.pending());

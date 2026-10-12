@@ -1678,6 +1678,7 @@ mod tests {
         };
         GameState::from_preset(
             &GamePreset {
+                rules: baylee_core::card_metadata::RulesMetadata::default(),
                 format: FormatId::Freeform,
                 seed: 1,
                 house_rules: HouseRules::default(),
@@ -1795,6 +1796,7 @@ mod tests {
         };
         GameState::from_preset(
             &GamePreset {
+                rules: baylee_core::card_metadata::RulesMetadata::default(),
                 format: FormatId::Freeform,
                 seed: 1,
                 house_rules: HouseRules::default(),

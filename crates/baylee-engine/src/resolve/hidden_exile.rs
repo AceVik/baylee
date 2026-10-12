@@ -4,7 +4,6 @@ use super::{
     ask_commander_replace, bottom_in_random_order, source_version,
 };
 use crate::event::Cause;
-use crate::object::GameObject;
 use crate::object::Rider;
 use crate::zone::Zone;
 use baylee_cards_dsl::ZoneRef;
@@ -16,9 +15,7 @@ fn link(state: &GameState, res: &Resolution) -> Option<Rider> {
             object: res.source,
             version: source_version(state, res)?,
         },
-        acquisition: state
-            .object(res.on_stack)
-            .map_or(0, GameObject::rules_acquisition),
+        acquisition: super::subjects::acquisition(state, res),
     })
 }
 

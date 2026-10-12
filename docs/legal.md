@@ -1053,3 +1053,21 @@ and the cards' Wizards rulings served through Scryfall, including the distinct
 requirements for casting card copies, escape, entry counters and outside-game
 choices. Scryfall's documentation returned HTTP 403 to the web reader; the same
 page was successfully retrieved directly before this review was recorded.
+
+Batch 46's in-progress implementation was reviewed on 2026-10-12 against the
+[Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+and [Scryfall API and image terms](https://scryfall.com/docs/api). Wizards states:
+“Don’t mess with the legal notices in our stuff.” Scryfall requires:
+“Your software must create additional value for end-users.” The existing owner
+permission recorded above continues to govern independent rules implementation.
+The new printing facts describe rule-relevant watermarks, silver borders and
+acorn stamps; they introduce no artwork or copied corpus implementation.
+Cryptic Spires' circles are player choices outside the unmodified card image.
+Scryfall's page returned HTTP 403 to the web reader but its official HTML was
+successfully read directly; quotes were checked against that response.
+
+The [Lost Caverns of Ixalan release notes](https://magic.wizards.com/en/news/feature/the-lost-caverns-of-ixalan-release-notes)
+confirm that Myriad Pools copies casting decisions, retains the recipient's
+counters and other noncopy effects, and causes no new battlefield entry.
+The implementation therefore retains exact original spell incarnations for
+later copies and separately restores temporary copied rules and decisions.

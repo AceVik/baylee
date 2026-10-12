@@ -1,4 +1,4 @@
-use super::stack::{rules_face, stack_item, stack_text};
+use super::stack::{rules_face, stack_text};
 use super::zones::{entitled_viewer, shown_elsewhere};
 use super::{
     SeatContext, counter, graveyard_price, is_commander, loyalty_now, may_know_card, public_name,
@@ -334,7 +334,7 @@ pub(super) fn public_object(
         // business at resolution and nobody's on the table, so the list
         // stays one field and the view keeps its version.
         targets: object_targets(state, obj),
-        stack_item: stack_item(obj),
+        stack_item: super::stack::stack_item_with_grants(state, obj),
         // Permanents only, because the engine's answer is about a creature
         // *on the battlefield* and a creature card in hand would otherwise
         // come back asleep. The creature test itself is the engine's — one
@@ -346,6 +346,11 @@ pub(super) fn public_object(
         // else can be tapped for it. The engine's own offer reads the grant
         // through the same function, so what the planner is told a land makes
         // is what the engine will hand out when it is tapped.
+        ability_mana_spending: baylee_engine::casting::ability_mana_spending(
+            state,
+            obj.controller,
+            id,
+        ),
         granted_mana: (obj.kind == ObjectKind::Permanent)
             .then(|| granted_mana(state, id))
             .flatten(),
@@ -372,9 +377,7 @@ pub(super) fn public_object(
 /// Who granted each of `id`'s granted activated abilities, in the slot order
 /// the engine offers them (#212).
 ///
-/// The offer's own walk — `effects::granted_activated`, capped at
-/// `GRANTED_SLOTS` — so entry `n` is the ability offered as
-/// `granted_ability(n)`, and neither can be renumbered without the other.
+/// Each entry carries the registry identity used by the legal offer.
 ///
 /// A grantor is named only where this seat may see it: in a zone the view
 /// sends ([`shown_elsewhere`]) and face up ([`may_know_card`]). A nontoken
@@ -384,26 +387,55 @@ pub(super) fn public_object(
 /// from an emblem or a rule, which has no grantor at all.
 fn grants(state: &GameState, id: ObjectId, seat: PlayerId) -> Vec<baylee_view::GrantSource> {
     baylee_engine::effects::granted_activated(state, id)
-        .take(baylee_engine::choice::GRANTED_SLOTS as usize)
         .map(|granted| {
+            let slot = baylee_engine::choice::granted_slot(granted.id).expect("granted identity");
+            let mut out = baylee_view::GrantSource {
+                slot,
+                mana_ability: granted.mana_ability,
+                mana: grant_mana(&granted),
+                ..baylee_view::GrantSource::default()
+            };
             let Some(grantor) = granted
                 .source
                 .and_then(|source| state.object(source))
-                .filter(|o| shown_elsewhere(o, seat) && may_know_card(o, seat))
+                .filter(|object| shown_elsewhere(object, seat) && may_know_card(object, seat))
             else {
-                return baylee_view::GrantSource::default();
+                return out;
             };
-            let grant = baylee_cards_dsl::Modifier::GrantActivated {
-                cost: granted.cost,
-                effects: granted.effects,
-                mana_ability: granted.mana_ability,
+            out.source = Some(grantor.id);
+            let home = if let Some(provenance) = granted.provenance {
+                out.ability = Some(provenance.index);
+                provenance
+                    .origin
+                    .and_then(baylee_engine::object::AbilityOrigin::printed)
+                    .map(|face| (face, provenance.index))
+            } else {
+                let grant = baylee_cards_dsl::Modifier::GrantActivated {
+                    cost: granted.cost,
+                    effects: granted.effects,
+                    mana_ability: granted.mana_ability,
+                };
+                grant_home(grantor, &grant).or_else(|| {
+                    grant_home(
+                        grantor,
+                        &baylee_cards_dsl::Modifier::GrantActivatedDefinition(
+                            // Full static definitions retain their canonical reference in the effect.
+                            state
+                                .effects
+                                .iter()
+                                .find_map(|effect| match effect.modifier {
+                                    baylee_cards_dsl::Modifier::GrantActivatedDefinition(
+                                        definition,
+                                    ) if *definition == granted.definition => Some(definition),
+                                    _ => None,
+                                })?,
+                        ),
+                    )
+                })
             };
-            let home = grant_home(grantor, &grant);
-            baylee_view::GrantSource {
-                source: Some(grantor.id),
-                rules: home.map(|(face, _)| rules_face(face)),
-                text: home.and_then(|(face, index)| stack_text(face, index)),
-            }
+            out.rules = home.map(|(face, _)| rules_face(face));
+            out.text = home.and_then(|(face, index)| stack_text(face, index));
+            out
         })
         .collect()
 }
@@ -467,25 +499,19 @@ fn grant_home(
 /// use: a permanent may be granted several (Urza's Saga is granted two), and
 /// the plan taps it once either way.
 fn granted_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::GrantedMana> {
-    baylee_engine::effects::granted_activated(state, id)
-        .take(baylee_engine::choice::GRANTED_SLOTS as usize)
-        .enumerate()
-        // `tap_only` and not merely `mana_ability`: a `GrantedMana` has no
-        // field for a price, so a grant that charges more than `{T}` —
-        // Forgotten Monument sells its Caves a colour for `{T}` and a life —
-        // can only be reported as free, and a planner that believed it would
-        // tap the land and fail the payment. The ability is still offered in
-        // `LegalActions`, so nothing is taken away from the player; what is
-        // withheld is a claim the view cannot make honestly.
-        .filter(|(_, g)| g.mana_ability && baylee_cards_dsl::tap_only(&g.cost))
-        .find_map(|(slot, g)| {
-            let mana = baylee_cards_dsl::simple_mana(&g.cost, g.effects)?;
-            Some(baylee_view::GrantedMana {
-                slot: u32::try_from(slot).unwrap_or(u32::MAX),
-                colors: mana.colors,
-                amount: mana.amount,
-            })
-        })
+    baylee_engine::effects::granted_activated(state, id).find_map(|grant| grant_mana(&grant))
+}
+
+fn grant_mana(grant: &baylee_engine::effects::GrantedAbility) -> Option<baylee_view::GrantedMana> {
+    if !grant.mana_ability || !baylee_cards_dsl::tap_only(&grant.cost) {
+        return None;
+    }
+    let mana = baylee_cards_dsl::simple_mana(&grant.cost, grant.effects)?;
+    Some(baylee_view::GrantedMana {
+        slot: baylee_engine::choice::granted_slot(grant.id)?,
+        colors: mana.colors,
+        amount: mana.amount,
+    })
 }
 
 /// Which colours a printed mana ability of `id` makes, when the printing does
@@ -556,6 +582,8 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
                 baylee_cards_dsl::ManaSource::IntrinsicBasicLandTypes
                     | baylee_cards_dsl::ManaSource::CommanderIdentity
                     | baylee_cards_dsl::ManaSource::ColorsAmong { .. }
+                    | baylee_cards_dsl::ManaSource::CircledColors
+                    | baylee_cards_dsl::ManaSource::ExiledWithSource
                     | baylee_cards_dsl::ManaSource::LandColor { .. }
                     | baylee_cards_dsl::ManaSource::Chosen
                     | baylee_cards_dsl::ManaSource::ChosenOr(_)

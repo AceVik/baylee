@@ -682,6 +682,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             },
         );
+        crate::copiable_abilities::temporary::restore(&mut self.state);
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
@@ -707,12 +708,8 @@ impl<L: CardLookup> Engine<L> {
         // layer-projected — the copy wrote them into `own_abilities`, and the
         // loop above is what takes them back.
         //
-        // `None` rather than a stashed list because the object is card-backed
-        // and `GameObject::abilities` falls through to its own face. Nothing
-        // card-less can be flagged: the clause is on a printed card, and a
-        // token copy of a Mirror that had become a creature is handed the
-        // *creature's* list by `settle_copied_rules_text` and is not a copy
-        // that ends.
+        // Sparse snapshots also restore a prior permanent copy and casting
+        // choices inherited from a spell. Physical state is never rolled back.
         //
         // The flag is why this is not a sweep over every `own_abilities`.
         // There used to be a sweep restoring `original_base` at this point,

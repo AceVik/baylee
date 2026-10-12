@@ -163,10 +163,22 @@ pub(crate) fn parse_deck_lines(
             baylee_core::deckrow::RowError::Note => {
                 err(StatusCode::BAD_REQUEST, "card note too long")
             }
+            baylee_core::deckrow::RowError::Circles => err(
+                StatusCode::BAD_REQUEST,
+                "circles requires two different colors",
+            ),
             baylee_core::deckrow::RowError::Shape => {
                 err(StatusCode::BAD_REQUEST, "malformed card line")
             }
         })?;
+        if row
+            .print
+            .scryfall_id
+            .as_ref()
+            .is_some_and(|id| uuid::Uuid::parse_str(id).is_err())
+        {
+            return Err(err(StatusCode::BAD_REQUEST, "invalid printing UUID"));
+        }
         let count = row.count;
         let Some(index) = baylee_cards::decks::by_name(&row.name) else {
             return Err(err(
@@ -175,6 +187,8 @@ pub(crate) fn parse_deck_lines(
             ));
         };
 
+        baylee_cards::print_rules::validate_choices(index, row.print.choices)
+            .map_err(|why| crate::err_saying(StatusCode::BAD_REQUEST, why))?;
         let basic_land = baylee_cards::by_index(index).is_some_and(|def| {
             def.faces[0]
                 .supertypes
@@ -265,6 +279,27 @@ pub(crate) fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<Err
             StatusCode::BAD_REQUEST,
             "those two cards cannot lead one deck",
         ));
+    }
+    if !leaders.is_empty() {
+        let allowed = leaders
+            .iter()
+            .filter_map(|leader| baylee_cards::formats::identity(leader.index))
+            .fold(baylee_core::color::ColorSet::EMPTY, |all, colors| {
+                all.union(colors)
+            });
+        for row in parse_deck_lines(&body.cards)?
+            .iter()
+            .chain(&parse_deck_lines(&body.sideboard)?)
+        {
+            if row.index == baylee_core::generated::index::CRYPTIC_SPIRES
+                && !row.print.choices.colors().difference(allowed).is_empty()
+            {
+                return Err(err(
+                    StatusCode::BAD_REQUEST,
+                    "Cryptic Spires' circled colors exceed the commander's color identity",
+                ));
+            }
+        }
     }
     Ok(())
 }

@@ -51,6 +51,8 @@ fn swamp() -> CardIndex {
 
 fn entry(card: CardIndex) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     }
@@ -79,6 +81,7 @@ fn preset(
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),

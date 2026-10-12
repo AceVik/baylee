@@ -400,6 +400,7 @@ fn card_row(
         None
     };
     let print = PrintChoice {
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         set: card["setCode"].as_str().map(str::to_ascii_uppercase),
         collector_number: card["number"].as_str().map(str::to_string),
         lang: card["language"]

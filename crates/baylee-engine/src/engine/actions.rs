@@ -659,7 +659,11 @@ impl<L: CardLookup> Engine<L> {
                 // would refuse a suspend that this seat's every mana is
                 // allowed to pay for, which is the offer disagreeing with the
                 // answer on a second axis.
-                if !casting::pay_mana(&mut self.state, player, &cost) {
+                let origin = self
+                    .state
+                    .source_identity(card)
+                    .ok_or(EngineError::IllegalAction("missing cost source"))?;
+                if !casting::pay_mana_from(&mut self.state, player, origin, &cost) {
                     return Err(EngineError::IllegalAction("cannot pay the suspend cost"));
                 }
                 let owner = self.state.object(card).map_or(player, |o| o.owner);
@@ -1331,7 +1335,8 @@ impl<L: CardLookup> Engine<L> {
                 }
                 // Delayed pay-or-lose (Pact of Negation).
                 if matches!(self.pending_plan, Some(PlanKind::DelayedPay { .. })) {
-                    let Some(PlanKind::DelayedPay { cost }) = self.pending_plan.take() else {
+                    let Some(PlanKind::DelayedPay { cost, source }) = self.pending_plan.take()
+                    else {
                         unreachable!()
                     };
                     if answer {
@@ -1339,7 +1344,7 @@ impl<L: CardLookup> Engine<L> {
                         self.narrow_to_mana(&mut legal);
                         self.mana_window = Some(PaymentWindow {
                             player,
-                            suspended: PaymentContinuation::Pact(cost),
+                            suspended: PaymentContinuation::Pact { cost, source },
                         });
                         self.pending = Pending::Priority {
                             player,
@@ -1356,12 +1361,24 @@ impl<L: CardLookup> Engine<L> {
                     self.pending_plan,
                     Some(PlanKind::DelayedPaySacrifice { .. })
                 ) {
-                    let Some(PlanKind::DelayedPaySacrifice { cost, card }) =
-                        self.pending_plan.take()
+                    let Some(PlanKind::DelayedPaySacrifice {
+                        cost,
+                        card,
+                        version,
+                    }) = self.pending_plan.take()
                     else {
                         unreachable!()
                     };
-                    let paid = answer && casting::pay_mana(&mut self.state, player, &cost);
+                    let paid = answer
+                        && casting::pay_mana_from(
+                            &mut self.state,
+                            player,
+                            baylee_core::ids::DamageSourceRef {
+                                object: card,
+                                version,
+                            },
+                            &cost,
+                        );
                     debug_assert!(!answer || paid, "echo cost was offered as payable");
                     if !paid {
                         let owner = self.state.object(card).map_or(player, |o| o.owner);
@@ -1415,14 +1432,14 @@ impl<L: CardLookup> Engine<L> {
                     // the one they just gave.
                     let asked = self.resolution.as_ref().and_then(|r| match r.awaiting {
                         Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. }) => {
-                            Some((player, cost))
+                            Some((player, cost, resolve::payment_for(&self.state, r)))
                         }
                         _ => None,
                     });
-                    if let Some((payer, cost)) = asked
+                    if let Some((payer, cost, what)) = asked
                         && answer
                         && payer == player
-                        && !self.pool_pays_tax(player, &cost)
+                        && !self.can_pay_mana(player, what, &cost)
                     {
                         // Narrowed before any window exists, so the
                         // resolution is never lifted out of its slot for a

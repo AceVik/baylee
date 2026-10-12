@@ -59,9 +59,51 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     SpendRider::Haste => self.mana_haste(spell, provenance.controller),
+                    SpendRider::Copy => self.queue_mana_copy(provenance, spell),
                 }
             }
         }
+    }
+
+    /// Payment riders are captured before a sacrifice can remove the source.
+    /// Mana abilities never call this: they do not create a stack object.
+    pub(super) fn apply_ability_spend_riders(&mut self, player: PlayerId, ability: ObjectId) {
+        let riders = self
+            .state
+            .object_mut(ability)
+            .and_then(|object| object.paid.as_mut())
+            .map(|paid| std::mem::take(&mut paid.spend_riders))
+            .unwrap_or_default();
+        self.apply_spend_riders(player, ability, &riders);
+    }
+
+    fn queue_mana_copy(&mut self, provenance: ManaProvenance, original: ObjectId) {
+        let Some(object) = self.state.object(original) else {
+            return;
+        };
+        let identity = Some((object.version, object.characteristics().power.unwrap_or(0)));
+        self.trigger_queue.push_back(trigger::PendingTrigger {
+            source: provenance.context.source,
+            source_version: provenance.source_version,
+            counter_source_version: None,
+            event_object_identity: identity,
+            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+            abilities: None,
+            text: provenance.context.text,
+            controller: provenance.controller,
+            timestamp: provenance.timestamp,
+            event_object: Some(original),
+            event_mana_value: None,
+            event_departure: None,
+            event_mana: None,
+            event_amount: None,
+            event_player: None,
+            implicit_target: None,
+            synthetic_effects: Some(&MANA_COPY),
+            synthetic_target: None,
+            once_per_turn: false,
+            chosen_mode: None,
+        });
     }
 
     fn mana_entry_counters(&mut self, spell: ObjectId, amount: u32) {
@@ -159,3 +201,5 @@ impl<L: CardLookup> Engine<L> {
 static MANA_SCRY: [Effect; 1] = [Effect::Scry {
     amount: Amount::EventAmount,
 }];
+
+static MANA_COPY: [Effect; 1] = [Effect::CopyEventSpellOrAbility];

@@ -227,6 +227,8 @@ fn public_hands_survive_private_sharing_and_are_also_available_to_agents() {
     let mut preset = teamed_preset([Some(1), Some(1), Some(2), Some(2)]);
     preset.seats[0].capabilities.dev_commands = true;
     preset.seats[0].starting_battlefield.push(DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_core::generated::index::REVELATION,
         print: PrintRef::new(0),
     });

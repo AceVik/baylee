@@ -530,7 +530,7 @@ fn mana_retention_preserves_restrictions_and_spend_riders() {
     let Effect::AddMana {
         source,
         amount,
-        combination,
+        distribution,
         restriction: Some(mut restriction),
     } = effect
     else {
@@ -542,7 +542,7 @@ fn mana_retention_preserves_restrictions_and_spend_riders() {
         Effect::AddMana {
             source,
             amount,
-            combination,
+            distribution,
             restriction: Some(restriction)
         }
     );

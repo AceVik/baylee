@@ -414,3 +414,39 @@ fn the_printing_wire_shape_is_pinned() {
         r#"{"scryfall_id":"id","oracle_id":"oid","lang":"ja","set":"neo","set_name":"Kamigawa: Neon Dynasty","collector_number":"123","rarity":"rare","released_at":"2022-02-18","artist":"Someone","finishes":["nonfoil","foil"],"frame_effects":["showcase"],"border_color":"black","promo":false,"name":"御守り","layout":"transform"}"#
     );
 }
+
+#[test]
+fn rules_metadata_ingest_distinguishes_unknown_and_verified_absent_watermarks() {
+    let unknown = scryfall::Card::default();
+    let (_, values) = cards_statement(&[&unknown]);
+    assert_eq!(values.last().unwrap(), &Value::from(Option::<String>::None));
+    let known: scryfall::Card =
+        serde_json::from_str(r#"{"id":"printing","oracle_id":"oracle","border_color":"black"}"#)
+            .unwrap();
+    let (_, values) = cards_statement(&[&known]);
+    let Value::String(Some(facts)) = values.last().unwrap() else {
+        panic!("verified rules facts");
+    };
+    let facts: PrintingRules = serde_json::from_str(facts).unwrap();
+    assert_eq!(facts.watermarks, vec![None]);
+    assert!(!facts.is_un);
+}
+
+#[test]
+fn rules_metadata_retains_each_face_watermark_and_acorn_status() {
+    let card: scryfall::Card = serde_json::from_str(
+        r#"{"id":"printing","oracle_id":"oracle","border_color":"black","security_stamp":"acorn","card_faces":[{"name":"Front","watermark":"azorius"},{"name":"Back","watermark":"simic"}]}"#
+    ).unwrap();
+    let (_, values) = cards_statement(&[&card]);
+    let Value::String(Some(facts)) = values.last().unwrap() else {
+        panic!("verified rules facts");
+    };
+    let facts: PrintingRules = serde_json::from_str(facts).unwrap();
+    assert_eq!(facts.scryfall_id, "printing");
+    assert_eq!(facts.oracle_id, "oracle");
+    assert_eq!(
+        facts.watermarks,
+        vec![Some("azorius".into()), Some("simic".into())]
+    );
+    assert!(facts.is_un);
+}

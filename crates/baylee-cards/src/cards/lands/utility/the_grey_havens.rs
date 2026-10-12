@@ -27,7 +27,7 @@ card!(
                 zone: ZoneSel::GraveyardYou
             },
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: baylee_cards_dsl::ManaDistribution::OneColor,
             restriction: None,
         }]),
     ],

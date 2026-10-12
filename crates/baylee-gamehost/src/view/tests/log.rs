@@ -73,21 +73,15 @@ fn a_draw_names_its_cards_to_the_drawer_and_to_nobody_else() {
 /// receives only legal options, and unrelated hidden hands stay hidden.
 #[test]
 fn thoughtseize_reveals_only_the_target_hand_to_every_seat() {
-    let entry = |name: &str| DeckEntry {
-        card: baylee_cards::generated::ALL
-            .iter()
-            .find(|(_, card)| card.name() == name)
-            .unwrap()
-            .1
-            .index,
-        print: PrintRef::new(0),
-    };
     let mut preset = mixed_print_preset();
     preset.seats.push(preset.seats[1].clone());
-    preset.seats[0].starting_hand = Some(vec![entry("Thoughtseize")]);
-    preset.seats[0].starting_battlefield = vec![entry("Swamp")];
-    preset.seats[1].starting_hand = Some(vec![entry("Island"), entry("Sol Ring")]);
-    preset.seats[2].starting_hand = Some(vec![entry("Lightning Bolt")]);
+    preset.seats[0].starting_hand = Some(vec![revealed_hand_entry("Thoughtseize")]);
+    preset.seats[0].starting_battlefield = vec![revealed_hand_entry("Swamp")];
+    preset.seats[1].starting_hand = Some(vec![
+        revealed_hand_entry("Island"),
+        revealed_hand_entry("Sol Ring"),
+    ]);
+    preset.seats[2].starting_hand = Some(vec![revealed_hand_entry("Lightning Bolt")]);
     let mut engine = Engine::new(&preset, Registry).unwrap();
     let view = settle(&mut engine, None);
     let (me, them, other) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
@@ -179,6 +173,8 @@ fn thoughtseize_reveals_only_the_target_hand_to_every_seat() {
 #[test]
 fn glasses_of_urza_keeps_hand_inspection_private_and_temporary() {
     let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::generated::ALL
             .iter()
             .find(|(_, card)| card.name() == name)
@@ -276,6 +272,8 @@ fn glasses_of_urza_keeps_hand_inspection_private_and_temporary() {
 #[allow(clippy::too_many_lines)] // One played three-seat privacy boundary, before and after commitment.
 fn balance_keeps_hand_choices_private_until_all_players_have_chosen() {
     let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::generated::ALL
             .iter()
             .find(|(_, card)| card.name() == name)
@@ -1013,5 +1011,19 @@ fn discard_visibility_distinguishes_leng_from_academy() {
             vec![known.then_some(to_top), Some(to_graveyard)],
             "Academy publicly reveals the discarded card; Leng does not"
         );
+    }
+}
+
+fn revealed_hand_entry(name: &str) -> DeckEntry {
+    DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: baylee_cards::generated::ALL
+            .iter()
+            .find(|(_, card)| card.name() == name)
+            .unwrap()
+            .1
+            .index,
+        print: PrintRef::new(0),
     }
 }

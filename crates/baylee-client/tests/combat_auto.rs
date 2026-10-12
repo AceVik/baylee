@@ -13,6 +13,8 @@ use baylee_gamehost::{RegistryLookup, SeatContext, player_view};
 #[test]
 fn manual_first_share_then_auto_finishes_only_the_remaining_damage() {
     let entry = |name| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name(name).unwrap(),
         print: PrintRef::new(0),
     };

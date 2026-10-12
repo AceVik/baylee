@@ -367,6 +367,8 @@ mod tests {
             .expect("registry contains Forest")
             .index;
         let entry = DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: forest,
             print: baylee_core::ids::PrintRef::new(0),
         };
@@ -383,6 +385,7 @@ mod tests {
             team: None,
         };
         let preset = GamePreset {
+            rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: 14,
             house_rules: HouseRules::default(),

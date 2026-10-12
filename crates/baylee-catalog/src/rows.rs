@@ -10,7 +10,7 @@ use super::*;
 /// the list lives here and the tests hold the other two against it.
 pub(crate) const CARD_INSERT_COLUMNS: &str = "scryfall_id, oracle_id, lang, set_code, collector_number, \
      rarity, layout, released_at, set_name, artist, finishes, frame_effects, border_color, promo, set_type, \
-     digital, games";
+     digital, games, rules_metadata";
 
 /// How many columns that is.
 pub(crate) const CARD_COLUMNS: usize = column_count(CARD_INSERT_COLUMNS);
@@ -78,7 +78,7 @@ pub(crate) fn push_row(sql: &mut String, columns: &str, base: usize) {
             // tells Postgres which kind of null; an *empty* one would be
             // `''::date`, which is an error and not a null.
             "released_at" => write!(sql, "nullif(${at}, '')::date"),
-            "legalities" => write!(sql, "${at}::jsonb"),
+            "legalities" | "rules_metadata" => write!(sql, "${at}::jsonb"),
             _ => write!(sql, "${at}"),
         };
     }
@@ -111,6 +111,23 @@ pub(crate) fn cards_statement(cards: &[&scryfall::Card]) -> (String, Vec<Value>)
         values.push(Value::from(card.set_type.clone()));
         values.push(Value::from(card.digital));
         values.push(Value::from(card.games.join(",")));
+        // Old rows stay NULL until an authoritative ingest has seen these
+        // fields; a known absence must never be inferred from a migration.
+        let facts = card
+            .border_color
+            .as_ref()
+            .map(|border| super::PrintingRules {
+                scryfall_id: card.id.clone(),
+                oracle_id: card.oracle_identity().unwrap_or_default().to_string(),
+                watermarks: card.card_faces.as_ref().map_or_else(
+                    || vec![card.watermark.clone()],
+                    |faces| faces.iter().map(|face| face.watermark.clone()).collect(),
+                ),
+                is_un: border == "silver" || card.security_stamp.as_deref() == Some("acorn"),
+            });
+        values.push(Value::from(
+            facts.and_then(|facts| serde_json::to_string(&facts).ok()),
+        ));
     }
     sql.push_str(
         " ON CONFLICT (scryfall_id) DO UPDATE SET \
@@ -121,7 +138,7 @@ pub(crate) fn cards_statement(cards: &[&scryfall::Card]) -> (String, Vec<Value>)
          artist = EXCLUDED.artist, finishes = EXCLUDED.finishes, \
          frame_effects = EXCLUDED.frame_effects, border_color = EXCLUDED.border_color, \
          promo = EXCLUDED.promo, set_type = EXCLUDED.set_type, \
-         digital = EXCLUDED.digital, games = EXCLUDED.games, \
+         digital = EXCLUDED.digital, games = EXCLUDED.games, rules_metadata = EXCLUDED.rules_metadata, \
          updated_at = now()",
     );
     (sql, values)

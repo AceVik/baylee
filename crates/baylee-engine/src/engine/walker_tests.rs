@@ -29,6 +29,8 @@ fn jace() -> CardIndex {
 
 fn entry(card: CardIndex) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     }
@@ -49,6 +51,7 @@ fn preset(seed: u64, bf0: Vec<CardIndex>) -> GamePreset {
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),
@@ -167,20 +170,7 @@ fn jace_enters_with_loyalty_and_ticks_up_and_down() {
 fn walker_at_zero_loyalty_dies() {
     // Jace starts at 3 loyalty; three −1 bounces across three turns → 0 → dies.
     let mut preset = preset(72, vec![jace()]);
-    preset.seats[1].starting_battlefield = vec![
-        DeckEntry {
-            card: ondu_cleric(),
-            print: PrintRef::new(0),
-        },
-        DeckEntry {
-            card: ondu_cleric(),
-            print: PrintRef::new(0),
-        },
-        DeckEntry {
-            card: ondu_cleric(),
-            print: PrintRef::new(0),
-        },
-    ];
+    preset.seats[1].starting_battlefield = vec![entry(ondu_cleric()); 3];
     let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
     keep_mulligans(&mut engine);
     let p0 = PlayerId::new(0);

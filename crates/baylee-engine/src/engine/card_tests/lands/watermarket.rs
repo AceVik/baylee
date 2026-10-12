@@ -4,7 +4,7 @@
 use super::*;
 
 /// Watermarket: "{T}: Add {C}{C}. Spend this mana only to cast spells with watermarks."
-/// Under `Coverage::Partial`, watermark spend restrictions are unsupported and the mana is made unrestricted.
+/// Restricted colorless units remain separate from freely spendable mana.
 /// Activating Watermarket's printed mana ability adds two colorless mana to the pool and taps the land.
 #[test]
 fn watermarket_taps_for_two_colorless_mana() {
@@ -24,12 +24,24 @@ fn watermarket_taps_for_two_colorless_mana() {
     );
 
     activate(&mut engine, p0, watermarket(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 2, "Watermarket produces two mana");
     assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Colorless),
-        2,
-        "Watermarket produces {{C}}{{C}}"
+        pool.available(ManaColor::Colorless),
+        0,
+        "neither unit is unrestricted"
+    );
+    assert_eq!(
+        pool.restricted()
+            .iter()
+            .map(|mana| u32::from(mana.amount))
+            .sum::<u32>(),
+        2
+    );
+    assert!(
+        pool.restricted()
+            .iter()
+            .all(|mana| mana.color == ManaColor::Colorless && mana.restriction.0 != 0)
     );
     assert!(is_tapped(&engine, wm));
 }

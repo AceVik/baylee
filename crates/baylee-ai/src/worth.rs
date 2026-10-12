@@ -34,6 +34,7 @@ use crate::activate::printed_list;
 use crate::combat::{self, Fighter};
 use crate::tactics::material;
 
+mod linked_exile;
 mod permissions;
 
 /// Match engine counter identities to their public representation.
@@ -404,9 +405,32 @@ impl HeuristicAgent {
         aim: Aim,
         x: u32,
     ) -> Option<i64> {
-        effects.iter().try_fold(0i64, |sum, effect| {
-            Some(sum.saturating_add(self.effect_worth(view, origin, effect, aim, x)?))
-        })
+        effects
+            .iter()
+            .enumerate()
+            .try_fold(0i64, |sum, (at, effect)| {
+                let worth = if let Effect::Reflexive {
+                    when: when @ baylee_cards_dsl::ReflexiveEvent::Exiled(_),
+                    effects: followup,
+                    target,
+                } = effect
+                {
+                    linked_exile::reflexive_worth(
+                        self,
+                        view,
+                        origin,
+                        &effects[..at],
+                        *when,
+                        followup,
+                        *target,
+                        aim,
+                        x,
+                    )?
+                } else {
+                    self.effect_worth(view, origin, effect, aim, x)?
+                };
+                Some(sum.saturating_add(worth))
+            })
     }
 
     /// The seat's reading of an amount; `None` where the view cannot say.
@@ -1188,7 +1212,7 @@ impl HeuristicAgent {
                     .map(|o| self.removal(view, o))
                     .sum()
             }),
-            Effect::Exile { .. } => subject.map_or(0, |o| {
+            Effect::Exile { .. } | Effect::ExileTargetsWithSource => subject.map_or(0, |o| {
                 if view.battlefield.iter().any(|b| b.id == o.id) {
                     self.removal(view, o)
                 } else if self.hostile(o.owner, me) {

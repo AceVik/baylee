@@ -716,6 +716,8 @@ pub(crate) mod tests {
     pub(crate) fn duel_preset() -> GamePreset {
         let deck: Vec<DeckEntry> = (0..60)
             .map(|_| DeckEntry {
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
                 card: island(),
                 print: PrintRef::new(0),
             })
@@ -737,6 +739,7 @@ pub(crate) mod tests {
             team: None,
         };
         GamePreset {
+            rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: 11,
             house_rules: HouseRules::default(),

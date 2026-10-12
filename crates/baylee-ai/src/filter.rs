@@ -59,7 +59,12 @@
 //!   been controlled, which a view does not say for anything that is not
 //!   a creature, and says only through summoning sickness for one that is.
 //!
-//! [`Filter::IsToken`] is a seventh refusal, and only sometimes. The engine
+//! [`Filter::HasWatermark`], [`Filter::SharesWatermarkWithSource`] and
+//! [`Filter::UnCard`] require verified physical printing facts. The view
+//! carries card identity, not those facts; looking up a reference printing
+//! would answer a different question for an alternate printing.
+//!
+//! [`Filter::IsToken`] is another refusal, and only sometimes. The engine
 //! asks `card.is_none()`, which in a view is three objects and not one: a
 //! registry token, which says so through `token`; a permanent the seat may
 //! not look at, which has no card because it is not entitled to one; and a
@@ -139,6 +144,15 @@ fn named_by_source(
     Some(object.name == face.name)
 }
 
+fn banded_with_source(view: &PlayerView, object: ObjectId, source: ObjectId) -> bool {
+    object != source
+        && view
+            .combat
+            .bands
+            .iter()
+            .any(|band| band.contains(&source) && band.contains(&object))
+}
+
 impl HeuristicAgent {
     /// Whether `object`, seen in `zone`, matches `filter`.
     ///
@@ -194,14 +208,7 @@ impl HeuristicAgent {
                     .any(|attacker| attacker.creature == object.id),
             ),
             // CR 702.22c: the view names every attacking band.
-            Filter::BandedWithSource => this.map(|id| {
-                object.id != id
-                    && view
-                        .combat
-                        .bands
-                        .iter()
-                        .any(|band| band.contains(&id) && band.contains(&object.id))
-            }),
+            Filter::BandedWithSource => this.map(|id| banded_with_source(view, object.id, id)),
             Filter::Blocking => Some(
                 view.combat
                     .blockers
@@ -240,7 +247,10 @@ impl HeuristicAgent {
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             // Ability removal and granted mana abilities require engine evaluation.
-            Filter::Kicked
+            Filter::HasWatermark
+            | Filter::SharesWatermarkWithSource
+            | Filter::UnCard
+            | Filter::Kicked
             | Filter::CastFromHand
             | Filter::HasManaAbility
             | Filter::MatchesChosenTypeOfSource

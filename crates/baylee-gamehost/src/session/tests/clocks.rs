@@ -43,6 +43,8 @@ fn a_timed_out_seat_is_answered_legally() {
 fn a_clock_answer_does_not_fear_a_teammate() {
     use baylee_core::ids::Defender;
     let goblin = DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name("Raging Goblin").expect("a hasty 1/1"),
         print: PrintRef::new(0),
     };
@@ -97,10 +99,14 @@ fn a_clock_answer_does_not_fear_a_teammate() {
 fn a_seat_that_runs_out_of_time_at_priority_passes() {
     let elves_card = baylee_cards::decks::by_name("Llanowar Elves").expect("in the pool");
     let elves = DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: elves_card,
         print: PrintRef::new(0),
     };
     let forest = DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name("Forest").expect("in the pool"),
         print: PrintRef::new(0),
     };

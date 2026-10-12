@@ -27,6 +27,7 @@ mod alpha_completion_review;
 mod artifacts;
 mod batch43;
 mod batch45;
+mod batch46;
 mod counted_activation_costs;
 mod counter_movement;
 mod counter_resources;

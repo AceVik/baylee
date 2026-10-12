@@ -21,6 +21,8 @@ pub enum ReflexiveEvent {
     /// trigger exiles the card from the graveyard): this resolution exiled
     /// its own source, by `Effect::ExileSource`.
     ExiledThis,
+    /// This resolution exiled one of its targeted cards matching the filter.
+    Exiled(&'static crate::Filter),
 }
 
 /// Where a searched card goes.

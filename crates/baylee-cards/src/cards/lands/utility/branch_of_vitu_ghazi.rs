@@ -25,10 +25,11 @@ card!(
             &[Effect::AddMana {
                 source: baylee_cards_dsl::ManaSource::Choice(baylee_cards_dsl::ALL_MANA_COLORS),
                 amount: Amount::Fixed(2),
-                combination: false,
+                distribution: baylee_cards_dsl::ManaDistribution::OneColor,
                 restriction: Some(baylee_cards_dsl::ManaRestriction {
                     uses: baylee_cards_dsl::ManaUse::Spells,
                     filter: &Filter::Any,
+                    ability_filter: None,
                     rider: SpendRider::None,
                     restricts: false,
                     until_end_of_turn: true,

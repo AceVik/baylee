@@ -62,6 +62,12 @@ pub struct DeckEntry {
     pub card: CardIndex,
     /// Index into [`GamePreset::prints`].
     pub print: PrintRef,
+    /// Validated physical rules facts, independent of the artwork reference.
+    #[serde(default)]
+    pub rule_print: Option<crate::ids::RulePrintRef>,
+    /// Choices belonging to this physical copy, retained through deck changes.
+    #[serde(default)]
+    pub choices: crate::card_metadata::DeckChoices,
 }
 
 /// Endless-loop handling (house rule; see `docs/engine-internals.md`).
@@ -487,6 +493,9 @@ pub struct GamePreset {
     pub modifiers: Vec<ModifierSpec>,
     /// Print table; `DeckEntry::print` indexes into this.
     pub prints: Vec<PrintInfo>,
+    /// Independently resolved printing rules and watermark identities.
+    #[serde(default)]
+    pub rules: crate::card_metadata::RulesMetadata,
     /// Seats (2–8).
     pub seats: Vec<SeatSpec>,
 }
@@ -512,6 +521,9 @@ pub const MAX_PRINTS: usize = u16::MAX as usize + 1;
 /// Structural preset errors (rules validation is the gateway's job).
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum PresetError {
+    /// Printing rules or per-copy choices contain invalid values or references.
+    #[error("invalid printing rules or deck choices")]
+    CardMetadata,
     /// Initial counters are out of bounds or point at no starting card.
     #[error("invalid starting counter placement")]
     StartingCounters,
@@ -606,6 +618,9 @@ impl GamePreset {
     /// # Errors
     /// [`PresetError`] describing the first violation.
     pub fn validate(&self) -> Result<(), PresetError> {
+        if !self.rules.is_valid() {
+            return Err(PresetError::CardMetadata);
+        }
         if self.house_rules.starting_counters.len() > 256
             || self.house_rules.starting_counters.iter().any(|p| {
                 self.seats
@@ -675,6 +690,16 @@ impl GamePreset {
             ];
             for (list, entries) in lists {
                 for (entry, e) in entries.iter().enumerate() {
+                    if !e.choices.is_valid()
+                        || e.rule_print.is_some_and(|id| {
+                            self.rules
+                                .prints
+                                .get(usize::from(id.get()))
+                                .is_none_or(|rules| rules.card != e.card)
+                        })
+                    {
+                        return Err(PresetError::CardMetadata);
+                    }
                     if usize::from(e.print.get()) >= self.prints.len() {
                         return Err(PresetError::PrintOutOfRange {
                             seat,
@@ -696,6 +721,7 @@ mod tests {
 
     fn preset(seats: usize, prints: usize, print_ref: u16) -> GamePreset {
         GamePreset {
+            rules: crate::card_metadata::RulesMetadata::default(),
             format: FormatId::Commander,
             seed: 1,
             house_rules: HouseRules::default(),
@@ -712,6 +738,8 @@ mod tests {
                     controller: SeatController::Ai(AIProfile::default()),
                     capabilities: SeatCapabilities::default(),
                     deck: vec![DeckEntry {
+                        rule_print: None,
+                        choices: crate::card_metadata::DeckChoices::default(),
                         card: CardIndex::new(0),
                         print: PrintRef::new(print_ref),
                     }],
@@ -779,6 +807,8 @@ mod tests {
     fn a_sideboard_print_reference_is_range_checked() {
         let mut p = preset(2, 1, 0);
         p.seats[0].sideboard = vec![DeckEntry {
+            rule_print: None,
+            choices: crate::card_metadata::DeckChoices::default(),
             card: CardIndex::new(0),
             print: PrintRef::new(9),
         }];
@@ -800,6 +830,8 @@ mod tests {
         let mut p = preset(2, 1, 0);
         p.seats[1].deck = (0..=MAX_CARDS_PER_SEAT)
             .map(|_| DeckEntry {
+                rule_print: None,
+                choices: crate::card_metadata::DeckChoices::default(),
                 card: CardIndex::new(0),
                 print: PrintRef::new(0),
             })
@@ -823,6 +855,8 @@ mod tests {
     #[test]
     fn the_card_bound_counts_every_list_together() {
         let entry = DeckEntry {
+            rule_print: None,
+            choices: crate::card_metadata::DeckChoices::default(),
             card: CardIndex::new(0),
             print: PrintRef::new(0),
         };
@@ -839,6 +873,8 @@ mod tests {
 
     fn entry(print: u16) -> DeckEntry {
         DeckEntry {
+            rule_print: None,
+            choices: crate::card_metadata::DeckChoices::default(),
             card: CardIndex::new(0),
             print: PrintRef::new(print),
         }

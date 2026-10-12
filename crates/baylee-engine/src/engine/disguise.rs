@@ -65,10 +65,14 @@ impl<L: CardLookup> Engine<L> {
         if self.state.object(id).is_none_or(|o| o.controller != player) {
             return Err(EngineError::IllegalAction("not your permanent"));
         }
+        let origin = self
+            .state
+            .source_identity(id)
+            .ok_or(EngineError::IllegalAction("missing cost source"))?;
         if super::casting::pay_mana_for(
             &mut self.state,
             player,
-            super::casting::SpendFor::Other,
+            super::casting::SpendFor::OtherFrom(origin),
             &cost,
         )
         .is_none()

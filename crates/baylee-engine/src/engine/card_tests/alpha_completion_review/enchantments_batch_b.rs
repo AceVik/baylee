@@ -292,6 +292,8 @@ fn synthetic_leak(index: u32, abilities: &'static [AbilityDef]) -> Engine<Synthe
     }
     let mut preset = synthetic::preset_both(SEED, &fixture_seat0, &fixture_seat1);
     preset.seats[0].starting_hand = Some(vec![baylee_core::preset::DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: power_leak(),
         print: baylee_core::ids::PrintRef::new(0),
     }]);

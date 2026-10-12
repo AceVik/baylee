@@ -5,14 +5,14 @@ use baylee_cards_dsl::ActivationX;
 
 impl<L: CardLookup> Engine<L> {
     pub(super) fn activation_x_rule(&self, source: ObjectId, index: u32) -> ActivationX {
-        self.state
-            .object(source)
-            .and_then(|o| o.abilities(&self.lookup).get(index as usize))
-            .map_or(ActivationX::Any, |ability| match ability {
+        self.activation_definition(source, index).map_or(
+            ActivationX::Any,
+            |ability| match ability {
                 AbilityDef::Activated { x_value, .. }
-                | AbilityDef::ActivatedConditional { x_value, .. } => *x_value,
+                | AbilityDef::ActivatedConditional { x_value, .. } => x_value,
                 _ => ActivationX::Any,
-            })
+            },
+        )
     }
 
     pub(super) fn activation_x_minimum(

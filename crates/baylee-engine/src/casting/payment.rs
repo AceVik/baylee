@@ -143,6 +143,16 @@ pub(crate) fn pay_mana(state: &mut GameState, player: PlayerId, cost: &ManaCost)
     )
 }
 
+/// Pay a resolving instruction's cost with its exact imposing source retained.
+pub(crate) fn pay_mana_from(
+    state: &mut GameState,
+    player: PlayerId,
+    source: baylee_core::ids::DamageSourceRef,
+    cost: &ManaCost,
+) -> bool {
+    pay_mana_for(state, player, SpendFor::OtherFrom(source), cost).is_some()
+}
+
 /// All actual mana units by type, with restricted units counted once.
 pub(crate) fn mana_units_by_type(pool: &ManaPool) -> [u64; 6] {
     ManaColor::ALL.map(|color| {
@@ -251,6 +261,14 @@ pub(crate) enum SpendFor {
     /// Anything else that costs mana: suspend (a special action, CR 116.2f),
     /// an "unless you pay", echo, a pact. Powerstone mana admits these too.
     Other,
+    /// A nonspell payment imposed by this exact card or ability source.
+    OtherFrom(baylee_core::ids::DamageSourceRef),
+}
+
+impl SpendFor {
+    pub(crate) const fn is_other(self) -> bool {
+        matches!(self, Self::Other | Self::OtherFrom(_))
+    }
 }
 
 /// Borrow the ordinary spell; clone only an alternative projection needed by mana rules.
@@ -266,6 +284,7 @@ pub(super) fn spending_object(
         SpendFor::SpellOnFace(card, face) => (card, None, Some(face)),
         SpendFor::KickedSpell(card, face, form) => (card, form, Some(face)),
         SpendFor::Other => return None,
+        SpendFor::OtherFrom(source) => return state.source_object(source).map(Cow::Borrowed),
     };
     let original = state.object(card)?;
     if let Some(form) = form {
@@ -317,9 +336,12 @@ fn admitted_from_pool(state: &GameState, what: SpendFor, pool: &ManaPool) -> Man
         .iter()
         .filter_map(|mana| {
             let provenance = state.restriction_info.get(&mana.restriction.0)?;
-            let allows = if matches!(what, SpendFor::Other) {
+            let allows = if what.is_other() {
                 provenance.restriction.uses
                     == baylee_cards_dsl::ManaUse::NonSpellPaymentsOrMatchingSpells
+                    || spell
+                        .as_ref()
+                        .is_some_and(|source| provenance.admits_source_cost(state, source))
             } else {
                 spell
                     .as_ref()
@@ -339,10 +361,10 @@ fn admitted_from_pool(state: &GameState, what: SpendFor, pool: &ManaPool) -> Man
 /// its rider: the units whose filter matches the spell.
 ///
 /// These units are in the plain counters already, so they are nothing to
-/// merge. A spell the filter does not match, and every ability, spends them
-/// as the ordinary mana they are, and no rider goes off (CR 106.6).
+/// merge. An action the restriction does not match spends them as ordinary
+/// mana without triggering its rider (CR 106.6).
 pub(super) fn ridden_for(state: &GameState, player: PlayerId, what: SpendFor) -> ManaEntries {
-    if matches!(what, SpendFor::Ability(_) | SpendFor::Other) {
+    if what.is_other() {
         return SmallVec::new();
     }
     if state.players[usize::from(player.get())]
@@ -361,11 +383,13 @@ pub(super) fn ridden_for(state: &GameState, player: PlayerId, what: SpendFor) ->
         .iter()
         .filter_map(|mana| {
             let provenance = state.restriction_info.get(&mana.restriction.0)?;
-            provenance.admits(state, &spell, false).then_some((
-                *mana,
-                provenance.context.source,
-                provenance.restriction.rider,
-            ))
+            provenance
+                .admits(state, &spell, matches!(what, SpendFor::Ability(_)))
+                .then_some((
+                    *mana,
+                    provenance.context.source,
+                    provenance.restriction.rider,
+                ))
         })
         .collect()
 }
@@ -416,7 +440,7 @@ pub(crate) fn spendable_pool(
     let original = &state.players[player.get() as usize].mana_pool;
     let free = state
         .constrained_payment(player)
-        .filter(|_| matches!(what, SpendFor::Other))
+        .filter(|_| what.is_other())
         .map(|payment| {
             original
                 .payment_receipt(&payment.required)
@@ -530,11 +554,12 @@ pub(crate) fn pay_mana_restricting_generic(
         | SpendFor::SpellAs(card, _)
         | SpendFor::SpellOnFace(card, _)
         | SpendFor::KickedSpell(card, ..) => spell_mana_spending(state, player, card),
+        SpendFor::Ability(source) => ability_mana_spending(state, player, source),
         _ => mana_spending(state, player),
     };
     // Only unrelated payments must leave obligated mana untouched. Eligible
     // land mana abilities may consume it while paying for the instructed card.
-    let protect_reserved = matches!(what, SpendFor::Other);
+    let protect_reserved = what.is_other();
     let original = &state.players[player.get() as usize].mana_pool;
     let free = if let Some(payment) = obligation.as_ref().filter(|_| protect_reserved) {
         Some(original.payment_receipt(&payment.required)?)
@@ -544,6 +569,8 @@ pub(crate) fn pay_mana_restricting_generic(
     let real = free.as_ref().unwrap_or(original);
     let mut entries = admitted_from_pool(state, what, real);
     let mut riding = ridden_for(state, player, what);
+    // Ordinary producer tracking must not displace a beneficial mana rider.
+    riding.sort_by_key(|(_, _, rider)| *rider == SpendRider::None);
     if let Some(payment) = &obligation {
         entries.sort_by_key(|(mana, ..)| {
             !payment
@@ -562,7 +589,11 @@ pub(crate) fn pay_mana_restricting_generic(
     }
     let merged = merged(real, &entries);
     let mut prefer = [0_u32; 6];
-    for (mana, ..) in entries.iter().chain(&riding) {
+    for (mana, ..) in entries.iter().chain(
+        riding
+            .iter()
+            .filter(|(_, _, rider)| *rider != SpendRider::None),
+    ) {
         let slot = &mut prefer[mana.color.index()];
         *slot = slot.saturating_add(u32::from(mana.amount));
     }

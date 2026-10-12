@@ -58,6 +58,8 @@ pub(super) fn mana_symbol_colors(effect: &Effect) -> ColorSet {
             | ManaSource::Chosen
             | ManaSource::CommanderIdentity
             | ManaSource::ColorsAmong { .. }
+            | ManaSource::CircledColors
+            | ManaSource::ExiledWithSource
             | ManaSource::LandColor { .. } => ColorSet::EMPTY,
         },
         // A conditional resolves its branches, so a symbol inside one is

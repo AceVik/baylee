@@ -65,6 +65,10 @@ pub struct Card {
     pub frame_effects: Vec<String>,
     /// `black`, `white`, `borderless`, `silver`, `gold`.
     pub border_color: Option<String>,
+    /// Watermark on a single-face printing.
+    pub watermark: Option<String>,
+    /// Acorn security stamp marks an Un printing.
+    pub security_stamp: Option<String>,
     /// Whether this printing is a promo.
     #[serde(default)]
     pub promo: bool,
@@ -135,6 +139,8 @@ fn english() -> String {
 /// One face of a multi-face card.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Face {
+    /// Printing-specific face watermark.
+    pub watermark: Option<String>,
     /// English name of this face.
     #[serde(default)]
     pub name: String,
@@ -223,6 +229,7 @@ impl Card {
             power: self.power.clone(),
             toughness: self.toughness.clone(),
             loyalty: self.loyalty.clone(),
+            watermark: self.watermark.clone(),
         }]
     }
 

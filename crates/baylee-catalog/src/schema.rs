@@ -155,6 +155,7 @@ pub(crate) fn schema_statements() -> Vec<String> {
             finishes         text NOT NULL DEFAULT 'nonfoil',
             frame_effects    text NOT NULL DEFAULT '',
             border_color     text,
+            rules_metadata   jsonb,
             promo            boolean NOT NULL DEFAULT false,
             set_type         text,
             digital          boolean NOT NULL DEFAULT false,
@@ -172,6 +173,7 @@ pub(crate) fn schema_statements() -> Vec<String> {
              ADD COLUMN IF NOT EXISTS finishes text NOT NULL DEFAULT 'nonfoil', \
              ADD COLUMN IF NOT EXISTS frame_effects text NOT NULL DEFAULT '', \
              ADD COLUMN IF NOT EXISTS border_color text, \
+             ADD COLUMN IF NOT EXISTS rules_metadata jsonb, \
              ADD COLUMN IF NOT EXISTS promo boolean NOT NULL DEFAULT false, \
              ADD COLUMN IF NOT EXISTS set_type text, \
              ADD COLUMN IF NOT EXISTS digital boolean NOT NULL DEFAULT false, \

@@ -81,6 +81,8 @@ fn implemented_tribal_artifact_control_and_graveyard_lists_finish() {
                             "{name}: an unimplemented card cannot count as an end-to-end fixture"
                         );
                         DeckEntry {
+                            rule_print: None,
+                            choices: baylee_core::card_metadata::DeckChoices::default(),
                             card,
                             print: PrintRef::new(0),
                         }

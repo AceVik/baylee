@@ -16,6 +16,7 @@ impl GameState {
     #[allow(clippy::too_many_lines)] // setup is a linear checklist; extraction would obscure it
     pub fn from_preset(preset: &GamePreset, lookup: &impl CardLookup) -> Result<Self, SetupError> {
         preset.validate()?;
+        let rules: Vec<_> = preset.rules.prints.iter().cloned().map(Arc::new).collect();
         for placement in &preset.house_rules.starting_counters {
             for counter in &placement.counters {
                 if CounterKind::from_setup_name(&counter.kind).is_none() {
@@ -107,6 +108,7 @@ impl GameState {
             text_changes: crate::text_changes::TextChanges::default(),
             effect_text_overrides: Vec::new(),
             copy_snapshots: Vec::new(),
+            temporary_copy_origins: Vec::new(),
             numeric_failure: None,
             constrained_payments: Vec::new(),
             replacement_rules: Vec::new(),
@@ -161,7 +163,7 @@ impl GameState {
             // and are never shuffled into the library — which is why they
             // are their own list on the seat and not a marked deck entry.
             for &entry in &seat.commanders {
-                let id = state.create_card(player, entry, lookup)?;
+                let id = state.create_card(player, entry, lookup, &rules)?;
                 state
                     .move_object(
                         id,
@@ -177,7 +179,7 @@ impl GameState {
                 });
             }
             for (position, &entry) in seat.starting_battlefield.iter().enumerate() {
-                let id = state.create_card(player, entry, lookup)?;
+                let id = state.create_card(player, entry, lookup, &rules)?;
                 state.object_mut(id).expect("freshly created object").kind = ObjectKind::Permanent;
                 state
                     .move_object(
@@ -203,7 +205,7 @@ impl GameState {
                 }
             }
             for &entry in &seat.deck {
-                let id = state.create_card(player, entry, lookup)?;
+                let id = state.create_card(player, entry, lookup, &rules)?;
                 state
                     .move_object(
                         id,
@@ -219,7 +221,7 @@ impl GameState {
             // them into the library would silently make every deck bigger
             // than the one the player registered.
             for &entry in &seat.sideboard {
-                let id = state.create_card(player, entry, lookup)?;
+                let id = state.create_card(player, entry, lookup, &rules)?;
                 state
                     .move_object(
                         id,
@@ -232,7 +234,7 @@ impl GameState {
             match &seat.starting_hand {
                 Some(hand) => {
                     for &entry in hand {
-                        let id = state.create_card(player, entry, lookup)?;
+                        let id = state.create_card(player, entry, lookup, &rules)?;
                         state
                             .move_object(
                                 id,
@@ -386,6 +388,7 @@ impl GameState {
         owner: PlayerId,
         entry: baylee_core::preset::DeckEntry,
         lookup: &impl CardLookup,
+        rules: &[Arc<baylee_core::card_metadata::RulePrint>],
     ) -> Result<ObjectId, SetupError> {
         let def = lookup
             .card(entry.card)
@@ -401,6 +404,11 @@ impl GameState {
         let ts = self.timestamp;
         let id = self.arena.insert_with(|id| {
             let mut obj = GameObject::new_card(id, owner, card, base);
+            obj.physical_rules = entry
+                .rule_print
+                .and_then(|id| rules.get(usize::from(id.get())))
+                .cloned();
+            obj.deck_choices = entry.choices;
             obj.timestamp = ts;
             obj.controlled_since = ts;
             obj

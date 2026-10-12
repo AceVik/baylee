@@ -42,6 +42,8 @@ fn island() -> CardIndex {
 fn duel_preset() -> GamePreset {
     let deck: Vec<DeckEntry> = (0..60)
         .map(|_| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: island(),
             print: PrintRef::new(0),
         })
@@ -63,6 +65,7 @@ fn duel_preset() -> GamePreset {
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 7,
         house_rules: HouseRules::default(),
@@ -842,6 +845,8 @@ fn life_ward_payment_round_trips_from_session_through_the_client() {
     use baylee_engine::choice::YesNoPrompt;
 
     let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::generated::ALL
             .iter()
             .find(|(_, def)| def.name() == name)

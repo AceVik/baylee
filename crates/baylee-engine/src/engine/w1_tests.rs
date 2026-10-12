@@ -35,6 +35,8 @@ fn indatha_triome() -> CardIndex {
 
 fn entry(card: CardIndex) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     }
@@ -55,6 +57,7 @@ fn preset_with_hand(seed: u64, hand0: Vec<CardIndex>, bf0: Vec<CardIndex>) -> Ga
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),

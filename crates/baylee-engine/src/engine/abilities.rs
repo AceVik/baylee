@@ -9,6 +9,7 @@ use baylee_cards_dsl::{ActivationLimit, ActivationZone};
 
 mod activation;
 mod costs;
+mod grants;
 mod limits;
 mod loyalty;
 mod offers;
@@ -147,9 +148,9 @@ impl<L: CardLookup> Engine<L> {
         let Some(obj) = self.state.object(source) else {
             return false;
         };
-        if let Some(slot) = crate::choice::granted_slot(index) {
+        if crate::choice::granted_slot(index).is_some() {
             return crate::effects::granted_activated(&self.state, source)
-                .nth(slot as usize)
+                .find(|grant| grant.id == index)
                 .is_some_and(|granted| granted.mana_ability);
         }
         obj.abilities(&self.lookup)

@@ -400,7 +400,11 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // announced for the source, which is a number no view carries — the
         // same refusal `baylee-ai`'s reader makes about it.
         // Continuous ability removal and grants are evaluated by the engine.
-        Filter::HasManaAbility
+        // Card identity cannot establish verified physical printing facts.
+        Filter::HasWatermark
+        | Filter::SharesWatermarkWithSource
+        | Filter::UnCard
+        | Filter::HasManaAbility
         // This preflight has no resolving source or its chosen name.
         | Filter::NamedBySource
         | Filter::MatchesChosenTypeOfSource

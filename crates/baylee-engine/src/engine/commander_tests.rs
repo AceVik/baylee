@@ -987,11 +987,15 @@ fn a_bounced_commander_stays_in_the_hand_when_its_owner_declines() {
 fn rift_table(seed: u64) -> Engine<RegistryLookup> {
     let deck: Vec<baylee_core::preset::DeckEntry> = (0..60)
         .map(|_| baylee_core::preset::DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: forest(),
             print: baylee_core::ids::PrintRef::new(0),
         })
         .collect();
     let entry = |card: CardIndex| baylee_core::preset::DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: baylee_core::ids::PrintRef::new(0),
     };
@@ -1012,6 +1016,7 @@ fn rift_table(seed: u64) -> Engine<RegistryLookup> {
         }
     };
     let preset = baylee_core::preset::GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: baylee_core::preset::FormatId::Freeform,
         seed,
         house_rules: baylee_core::preset::HouseRules::default(),

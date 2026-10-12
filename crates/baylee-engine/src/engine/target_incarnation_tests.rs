@@ -59,6 +59,8 @@ fn game(spell: bool) -> Engine<SyntheticLookup> {
     let mut preset = synthetic::preset(501, if spell { &[VICTIM] } else { &[PROBE] });
     if spell {
         preset.seats[0].starting_hand = Some(vec![baylee_core::preset::DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: CardIndex::new(PROBE),
             print: baylee_core::ids::PrintRef::new(0),
         }]);

@@ -101,8 +101,10 @@ impl CardLookup for TestPool {
     }
 }
 
-const fn entry(card: CardIndex) -> DeckEntry {
+fn entry(card: CardIndex) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     }
@@ -124,6 +126,7 @@ fn looping_game(policy: LoopPolicy) -> Engine<TestPool> {
         team: None,
     };
     let preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 7,
         house_rules: HouseRules {
@@ -288,6 +291,7 @@ fn an_ordinary_long_game_is_never_called_a_loop() {
         team: None,
     };
     let preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 11,
         house_rules: HouseRules::default(),

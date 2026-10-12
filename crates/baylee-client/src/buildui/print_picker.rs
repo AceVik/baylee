@@ -394,6 +394,44 @@ pub(crate) fn printing_picker(
     commands.entity(finishes).add_children(&[gap, force]);
     commands.entity(panel).add_child(finishes);
 
+    if picker.needs_circles() {
+        let label = note(commands, fonts, metrics, Phrase::SpiresCircles.text(lang));
+        commands.entity(panel).add_child(label);
+        let choices = row(commands, metrics, true);
+        let colors = [
+            (baylee_core::color::Color::White, Phrase::ColorWhite),
+            (baylee_core::color::Color::Blue, Phrase::ColorBlue),
+            (baylee_core::color::Color::Black, Phrase::ColorBlack),
+            (baylee_core::color::Color::Red, Phrase::ColorRed),
+            (baylee_core::color::Color::Green, Phrase::ColorGreen),
+        ];
+        for (at, (first, first_name)) in colors.iter().enumerate() {
+            for (second, second_name) in &colors[at + 1..] {
+                let pair = baylee_core::color::ColorPair::new(*first, *second);
+                let allowed = deck.circles_allowed(pair);
+                let label = format!("{} / {}", first_name.text(lang), second_name.text(lang));
+                let option = button(
+                    commands,
+                    fonts,
+                    metrics,
+                    &label,
+                    Press::Build(BuildPress::PickerCircles(pair)),
+                    if picker.circles() == Some(pair) {
+                        palette::ACCENT
+                    } else {
+                        palette::PANEL_LIT
+                    },
+                    allowed,
+                );
+                if !allowed {
+                    commands.entity(option).remove::<Press>();
+                }
+                commands.entity(choices).add_child(option);
+            }
+        }
+        commands.entity(panel).add_child(choices);
+    }
+
     // ---- the way in
     let foot = row(commands, metrics, false);
     let held = note(
@@ -424,8 +462,11 @@ pub(crate) fn printing_picker(
         }
         .text(lang),
         Press::Build(BuildPress::PickerConfirm),
-        true,
+        deck.picker_choices_valid(),
     );
+    if !deck.picker_choices_valid() {
+        commands.entity(add).remove::<Press>();
+    }
     commands.entity(add).insert(Node {
         min_height: px(metrics.tap),
         align_items: AlignItems::Center,

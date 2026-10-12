@@ -582,12 +582,15 @@ impl Builder<'_, '_> {
         use baylee_engine::choice::{PREPARED_CAST, TURN_FACE_UP, door_to_unlock, granted_slot};
         let table = self.table;
         let named = table.named(source);
-        if granted_slot(index).is_some() {
+        if let Some(slot) = granted_slot(index) {
+            if let Some(sentence) = ability_sentence(table, source, index) {
+                return format!("Activate {named}: \"{sentence}\"");
+            }
             let makes_mana = table
                 .view
                 .object(source)
-                .and_then(|o| o.granted_mana.as_ref())
-                .is_some();
+                .and_then(|o| o.grant(slot))
+                .is_some_and(|grant| grant.mana_ability);
             return if makes_mana {
                 format!("Activate {named}: a mana ability it was granted")
             } else {

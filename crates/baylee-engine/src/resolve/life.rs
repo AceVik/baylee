@@ -791,6 +791,8 @@ mod tests {
             .index;
         let deck: Vec<DeckEntry> = (0..60)
             .map(|_| DeckEntry {
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
                 card: forest,
                 print: baylee_core::ids::PrintRef::new(0),
             })
@@ -808,6 +810,7 @@ mod tests {
             team: None,
         };
         let preset = GamePreset {
+            rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: 4,
             house_rules: HouseRules::default(),

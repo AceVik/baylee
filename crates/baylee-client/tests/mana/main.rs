@@ -58,6 +58,8 @@ fn card(oracle: &str) -> CardIndex {
 
 fn entry(oracle: &str) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: card(oracle),
         print: PrintRef::new(0),
     }
@@ -83,6 +85,7 @@ fn preset() -> GamePreset {
         team: None,
     };
     let mut preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 7,
         house_rules: HouseRules::default(),
@@ -260,6 +263,7 @@ fn suspend_preset() -> GamePreset {
         team: None,
     };
     let mut preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 7,
         house_rules: HouseRules::default(),
@@ -315,6 +319,7 @@ fn bubble_preset() -> GamePreset {
         team: None,
     };
     let mut preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 11,
         house_rules: HouseRules::default(),
@@ -375,6 +380,7 @@ fn white_preset(hand: &[&str], lands: usize) -> GamePreset {
         team: None,
     };
     let mut preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 7,
         house_rules: HouseRules::default(),

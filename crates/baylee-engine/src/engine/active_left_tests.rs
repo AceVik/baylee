@@ -164,6 +164,7 @@ fn a_player_who_has_left_is_not_asked_for_their_upkeep_payment() {
         engine
             .upkeep_payments
             .push_back(DelayedAction::PayCostOrLose {
+                source: None,
                 cost: baylee_core::mana::ManaCost::ZERO,
             });
         engine.apply(seat(0), PlayerAction::Concede).unwrap();

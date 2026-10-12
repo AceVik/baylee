@@ -700,6 +700,8 @@ mod tests {
     /// Read again on 12.10.2026, at **twenty-six**: completing Tarrian's
     /// Journal adds the Tomb's activated graveyard-casting permission to
     /// the existing twenty-five backs. One card, no generator round.
+    /// Batch 46 adds The Myriad Pools' spell-cast trigger as the twenty-seventh
+    /// back: its mana ability stays off the stack, while its copy trigger uses it.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -738,6 +740,7 @@ mod tests {
                 "Ojer Pakpatiq, Deepest Epoch",
                 "Ojer Taq, Deepest Foundation",
                 "Tarrian's Journal",
+                "The Everflowing Well",
                 "Walk-In Closet",
                 "Balamb Garden, SeeD Academy",
                 "Sidequest: Catch a Fish"

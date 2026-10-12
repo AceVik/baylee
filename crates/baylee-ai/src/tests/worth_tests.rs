@@ -1220,3 +1220,122 @@ fn ring_is_spent_to_prevent_decking_but_not_for_an_unknown_wish() {
         "replacing one of two draws still decks"
     );
 }
+
+#[test]
+fn cauldron_values_its_reflexive_counter_on_a_separate_friendly_creature() {
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![
+            card(1, ME, "Agatha's Soul Cauldron", TypeSet::ARTIFACT),
+            permanent(obj(2), ME, 2),
+        ],
+    );
+    main_phase(&mut v);
+    v.graveyards[0] = vec![card(40, ME, "Serra Angel", TypeSet::CREATURE)];
+    v.graveyards[1] = vec![card(41, THEM, "Sol Ring", TypeSet::ARTIFACT)];
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 2)])),
+        activates(1, 2)
+    );
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &one_of(vec![obj(41), obj(40)]),
+            &asked("Agatha's Soul Cauldron", 2, obj(1))
+        ),
+        names(40),
+        "the counter benefit outweighs exiling our own creature card"
+    );
+    // Removing the recipient removes the benefit; a creature in a graveyard
+    // must never receive the simulated +1/+1 counter itself.
+    v.battlefield.retain(|object| object.id != obj(2));
+    let context = asked("Agatha's Soul Cauldron", 2, obj(1));
+    let own_exile = agent()
+        .effects_worth(
+            &v,
+            Origin::of(&v, obj(1)),
+            context.effects,
+            Aim::Object(obj(40)),
+            0,
+        )
+        .unwrap();
+    assert!(own_exile < 0);
+    assert_eq!(
+        agent().act_with_context(&v, &one_of(vec![obj(40), obj(41)]), &context),
+        names(41),
+        "without a counter recipient, deny an opponent's graveyard card"
+    );
+}
+
+#[test]
+fn linked_graveyard_exile_prices_owned_and_opposing_cards_differently() {
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![card(1, ME, "Unlicensed Hearse", TypeSet::ARTIFACT)],
+    );
+    v.graveyards[0] = vec![card(40, ME, "Sol Ring", TypeSet::ARTIFACT)];
+    v.graveyards[1] = vec![card(41, THEM, "Sol Ring", TypeSet::ARTIFACT)];
+    let effect = &[baylee_cards_dsl::Effect::ExileTargetsWithSource];
+    let origin = Origin::of(&v, obj(1));
+    assert!(
+        agent()
+            .effects_worth(&v, origin, effect, Aim::Object(obj(40)), 0)
+            .unwrap()
+            < 0
+    );
+    assert!(
+        agent()
+            .effects_worth(&v, origin, effect, Aim::Object(obj(41)), 0)
+            .unwrap()
+            > 0
+    );
+    assert_eq!(
+        agent().effects_worth(&v, origin, effect, Aim::Nothing, 0),
+        Some(0)
+    );
+}
+
+#[test]
+fn linked_exile_does_not_hide_unread_reflexive_followups_on_empty_boards() {
+    use baylee_cards_dsl::{Effect, Filter, ReflexiveEvent, TargetSpec};
+    let aminatou = baylee_cards::decks::by_name("Aminatou, the Fateshifter").unwrap();
+    let Some(AbilityDef::Loyalty {
+        effects: unread, ..
+    }) = baylee_cards::by_index(aminatou)
+        .unwrap()
+        .abilities_for_face(0)
+        .get(2)
+    else {
+        panic!("Aminatou's third loyalty ability is deliberately unread");
+    };
+    let effects = [
+        Effect::ExileTargetsWithSource,
+        Effect::Reflexive {
+            when: ReflexiveEvent::Exiled(&Filter::CREATURE),
+            effects: unread,
+            target: Some(TargetSpec::Object(&Filter::YOUR_CREATURE)),
+        },
+    ];
+    for recipient in [false, true] {
+        let board = if recipient {
+            vec![permanent(obj(2), ME, 2)]
+        } else {
+            vec![]
+        };
+        let mut v = view(0, &[20, 20], board);
+        v.graveyards[1] = vec![card(40, THEM, "Serra Angel", TypeSet::CREATURE)];
+        let origin = Origin {
+            id: obj(1),
+            object: None,
+        };
+        for aim in [Aim::Source, Aim::Nothing, Aim::Object(obj(40))] {
+            assert_eq!(
+                agent().effects_worth(&v, origin, &effects, aim, 0),
+                None,
+                "unread follow-up must not become zero: recipient={recipient}, aim={aim:?}"
+            );
+        }
+    }
+}

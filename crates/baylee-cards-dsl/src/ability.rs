@@ -433,6 +433,9 @@ pub enum Trigger {
     DiesAfterDamageByThis(&'static Filter),
     /// A spell matching the filter is cast.
     SpellCast(&'static Filter),
+    /// A matching spell was cast using mana produced by this exact source.
+    /// This is an ordinary permanent trigger, not a delayed mana rider.
+    SpellCastUsingSourceMana(&'static Filter),
     /// Magecraft: a spell is cast or a spell copy is created (CR 707.10).
     SpellCastOrCopied(&'static Filter),
     /// This spell was cast using at least one actual mana of this type.

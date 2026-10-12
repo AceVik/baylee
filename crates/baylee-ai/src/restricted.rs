@@ -109,6 +109,7 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         targets: Vec::new(),
         stack_item: None,
         summoning_sick: false,
+        ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
         granted_mana: None,
         board_mana: None,
         flashback: None,

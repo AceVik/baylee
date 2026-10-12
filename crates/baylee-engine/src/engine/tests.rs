@@ -32,11 +32,14 @@ fn preset_2p(seed: u64, deck: &[CardIndex]) -> GamePreset {
         .cycle()
         .take(60)
         .map(|c| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: *c,
             print: PrintRef::new(0),
         })
         .collect();
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),
@@ -272,6 +275,8 @@ fn combat_kills_and_wins() {
     let mut preset = preset_2p(3, &[forest()]);
     preset.seats[0].starting_battlefield = (0..20)
         .map(|_| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: creature(),
             print: PrintRef::new(0),
         })

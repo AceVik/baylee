@@ -321,7 +321,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 68: sacrifice count prompt for entry replacements.
     // 71: behold, numeric and restricted-name prompts imported from the engine.
     // 72: finality counters and the casting choices in package 45.
-    const RECORDED: (u32, u64) = (72, 16_753_142_471_703_271_498);
+    // 73: stable grant identities, inherited definitions and activation spending.
+    const RECORDED: (u32, u64) = (73, 2_064_374_687_626_066_919);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

@@ -1263,11 +1263,11 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
         let Some(object) = view.object(id) else {
             continue;
         };
-        let source = if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+        let source = if let Some(slot) = baylee_engine::choice::granted_slot(index)
+            && object.granted_mana_for(slot).is_some()
+        {
             object
-                .granted_mana
-                .as_ref()
-                .filter(|m| m.slot == slot)
+                .granted_mana_for(slot)
                 // A granted ability is free by construction: `GrantedMana`
                 // carries colours and an amount and no cost at all, and the
                 // registry lookup below would be reaching for a printed
@@ -1757,11 +1757,29 @@ fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
         if manaplan::basic_land_color(&object.subtypes).is_some() {
             estimate.mana_abilities.push(object.id);
         }
-        if let Some(grant) = &object.granted_mana {
-            estimate.abilities.push((
-                object.id,
-                baylee_engine::choice::granted_ability(grant.slot),
-            ));
+        // Stable identities are not vector positions. Feed inherited public
+        // definitions through the same conservative reader as actual offers;
+        // it refuses mana-priced activations instead of inventing free output.
+        let slots = object
+            .grants
+            .iter()
+            .filter(|grant| grant.mana_ability)
+            .map(|grant| grant.slot)
+            .chain(object.granted_mana_options().map(|mana| mana.slot));
+        for slot in slots {
+            let index = baylee_engine::choice::granted_ability(slot);
+            // A real offer certifies a conditional activation. An estimate
+            // has no such certification and must not assume its condition.
+            if matches!(
+                crate::activate::printed(view, object.id, index),
+                Some(AbilityDef::ActivatedConditional { .. })
+            ) {
+                continue;
+            }
+            let action = (object.id, index);
+            if !estimate.abilities.contains(&action) {
+                estimate.abilities.push(action);
+            }
         }
         // What the object can tap for, which for a copy is what the copied
         // card prints (CR 707.2) — the index is into that list, as the

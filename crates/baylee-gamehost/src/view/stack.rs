@@ -48,6 +48,35 @@ pub(crate) fn stack_item(obj: &GameObject) -> Option<baylee_view::StackItem> {
     }
 }
 
+/// Granted stack abilities keep their donor identity after the grant disappears.
+pub(crate) fn stack_item_with_grants(
+    state: &baylee_engine::state::GameState,
+    obj: &GameObject,
+) -> Option<baylee_view::StackItem> {
+    if let Some(loc) = obj.ability
+        && let Some(grant) = baylee_engine::effects::granted_definition(state, loc.index)
+        && let Some(provenance) = grant.provenance
+    {
+        let printed = provenance
+            .origin
+            .and_then(baylee_engine::object::AbilityOrigin::printed);
+        return Some(baylee_view::StackItem::Ability {
+            source: loc.source,
+            ability: provenance.ability_ref(),
+            text: printed.and_then(|printed| stack_text(printed, provenance.index)),
+            rules: printed.map(rules_face),
+            token: provenance
+                .origin
+                .and_then(baylee_engine::object::AbilityOrigin::token)
+                .map(|token| baylee_view::TokenAbility {
+                    token: token.get() - 1,
+                    index: provenance.index,
+                }),
+        });
+    }
+    stack_item(obj)
+}
+
 /// The view's spelling of the engine's [`PrintedFace`].
 pub(crate) fn rules_face(face: PrintedFace) -> RulesFace {
     RulesFace {

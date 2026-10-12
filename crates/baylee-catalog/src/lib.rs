@@ -93,6 +93,19 @@ pub struct SearchHit {
     pub type_line: String,
 }
 
+/// Verified printing facts, available only after an ingest that read them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrintingRules {
+    /// Physical printing id.
+    pub scryfall_id: String,
+    /// Oracle identity verified by the provider.
+    pub oracle_id: String,
+    /// Exact watermark tags by rules face, with verified absences.
+    pub watermarks: Vec<Option<String>>,
+    /// Actual silver border or acorn security stamp.
+    pub is_un: bool,
+}
+
 /// One printing, as a picker has to show it.
 ///
 /// Everything here is *about the piece of cardboard*, not about the card: two
@@ -170,7 +183,7 @@ pub struct Catalog {
 /// Bump it whenever the projection's *content* changes — the fill query, one
 /// of the two function bodies, or a column's meaning. 4 is #35: `names->>'en'`
 /// became the Oracle name rather than the newest printing's styling.
-const SCHEMA_VERSION: i32 = 4;
+const SCHEMA_VERSION: i32 = 5;
 
 /// The key `SCHEMA_VERSION` is stamped under.
 const VERSION_KEY: &str = "search_projection";
@@ -602,6 +615,33 @@ impl Catalog {
             .context("looking up artists")?;
         rows.into_iter()
             .map(|row| Ok((row.try_get("", "scryfall_id")?, row.try_get("", "artist")?)))
+            .collect()
+    }
+
+    /// Verified physical rules metadata for the requested printing ids.
+    /// Missing and pre-migration rows are omitted, never treated as empty facts.
+    /// # Errors
+    /// Returns database or malformed stored-metadata errors.
+    pub async fn rules_of(&self, ids: &[String]) -> Result<Vec<PrintingRules>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT rules_metadata::text AS facts FROM cards \
+             WHERE scryfall_id = ANY(string_to_array($1, ',')::uuid[]) \
+             AND rules_metadata IS NOT NULL ORDER BY scryfall_id",
+                [Value::from(ids.join(","))],
+            ))
+            .await
+            .context("looking up printing rules metadata")?;
+        rows.into_iter()
+            .map(|row| {
+                let facts: String = row.try_get("", "facts")?;
+                serde_json::from_str(&facts).context("decoding printing rules metadata")
+            })
             .collect()
     }
 

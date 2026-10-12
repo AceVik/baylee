@@ -16,8 +16,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
-    AttackerBound, BlockOption, CastModeKind, GRANTED_SLOTS, NumberPrompt, Pending, PlayerAction,
-    granted_ability,
+    AttackerBound, BlockOption, CastModeKind, NumberPrompt, Pending, PlayerAction,
 };
 
 /// Which part of the net scores an option, and what `a` and `b` mean.
@@ -91,8 +90,8 @@ pub fn ability_slot(index: u32) -> i16 {
     if index < 48 {
         return index as i16;
     }
-    (0..GRANTED_SLOTS)
-        .find(|n| granted_ability(*n) == index)
+    baylee_engine::choice::granted_slot(index)
+        .filter(|n| *n < 8)
         .map_or(56, |n| 48 + n as i16)
 }
 

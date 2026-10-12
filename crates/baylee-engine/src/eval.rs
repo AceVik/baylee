@@ -96,6 +96,11 @@ pub fn matches_projected_with_context(
         Filter::LacksType(t) => !chars.types.intersects(*t),
         Filter::HasSupertype(t) => chars.supertypes.contains(*t),
         Filter::HasSubtype(s) => chars.subtypes.contains(*s),
+        Filter::HasWatermark => obj.watermark().is_some(),
+        Filter::SharesWatermarkWithSource => obj.watermark().is_some_and(|mark| {
+            state.object(this).is_some_and(|source| source.watermark() == Some(mark))
+        }),
+        Filter::UnCard => obj.is_un_card(),
         Filter::HasColor(c) => chars.colors.intersects(*c),
         Filter::IsColorless => chars.colors.is_colorless(),
         Filter::Monocolored => chars.colors.len() == 1,
@@ -2091,6 +2096,7 @@ mod tests {
         };
         GameState::from_preset(
             &GamePreset {
+                rules: baylee_core::card_metadata::RulesMetadata::default(),
                 format: FormatId::Freeform,
                 seed: 1,
                 house_rules: HouseRules::default(),

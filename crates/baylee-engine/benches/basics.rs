@@ -38,11 +38,14 @@ fn preset(seed: u64) -> GamePreset {
     let pool = [forest, plains, cleric, druid];
     let deck: Vec<DeckEntry> = (0..60)
         .map(|i| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: pool[i % pool.len()],
             print: PrintRef::new(0),
         })
         .collect();
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),
@@ -430,6 +433,8 @@ fn engine_at_attack(attackers: usize) -> Engine<RegistryLookup> {
     let kor_haven = card_index("276cece9-f9f2-46e6-ae76-daddaa2fb9ab");
     let plains = card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99");
     let entry = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };

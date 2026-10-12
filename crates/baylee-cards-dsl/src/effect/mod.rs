@@ -1817,8 +1817,8 @@ pub enum Effect {
         /// How much (dynamic amounts evaluate on resolution: Harabaz Druid
         /// produces one per Ally).
         amount: Amount,
-        /// Whether each mana may be a different color (filter lands).
-        combination: bool,
+        /// How the amount is distributed among the available colors.
+        distribution: ManaDistribution,
         /// What the mana may be spent on, if restricted.
         restriction: Option<ManaRestriction>,
     },
@@ -1882,6 +1882,11 @@ pub enum Effect {
         kind: CounterKind,
         /// How many.
         n: u16,
+    },
+    /// Remove all counters of this kind from the exact source incarnation.
+    RemoveAllCountersSelf {
+        /// Counter kind.
+        kind: CounterKind,
     },
     /// Put counters on every object matching a filter (Kazandu
     /// Blademaster's rally).
@@ -2208,6 +2213,12 @@ pub enum Effect {
     /// targets unchanged and change the rest to legal ones (CR 707.10c),
     /// one target at a time as `ChooseNewTargets` asks.
     CopyTargetAbility,
+    /// Copy the exact event spell or activated ability, even after it left
+    /// the stack; its controller may choose new targets (CR 707.10c).
+    CopyEventSpellOrAbility,
+    /// Each target permanent copies the event spell's copiable values until
+    /// end of turn, retaining the spell incarnation if it left the stack.
+    TargetsCopyEventSpellUntilEndOfTurn,
     /// Copies of the spell a cast trigger refers to (storm or replicate).
     /// The trigger captures the count at casting; the interpreter retains
     /// one instruction as each copy's target choice suspends and resumes.

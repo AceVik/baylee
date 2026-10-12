@@ -189,3 +189,26 @@ fn activating_an_ability_requires_it_to_have_been_offered() {
     assert_eq!(i.activate(obj(6), 3), None, "wrong ability index");
     assert_eq!(i.activate(obj(7), 0), None, "not a listed source");
 }
+
+#[test]
+fn sparse_granted_identity_is_sent_unchanged_and_removed_ids_are_rejected() {
+    let source = obj(4);
+    let old = baylee_engine::choice::granted_ability(3);
+    let current = baylee_engine::choice::granted_ability(71);
+    let i = interaction(Pending::Priority {
+        player: me(),
+        legal: Box::new(LegalActions {
+            abilities: vec![(source, current)],
+            ..Default::default()
+        }),
+    });
+    assert_eq!(
+        i.activate(source, current),
+        Some(PlayerAction::ActivateAbility {
+            source,
+            ability_index: current,
+        })
+    );
+    assert_eq!(i.activate(source, old), None);
+    assert_eq!(i.activate(source, 0), None);
+}

@@ -10,6 +10,9 @@
 use baylee_cards_dsl::{Duration, Filter, Layer, Modifier};
 use baylee_core::ids::{EffectId, ObjectId, PlayerId};
 
+mod grants;
+pub use grants::{GrantedAbility, granted_definition, sync_granted_activated};
+
 /// Which objects a continuous effect applies to.
 #[derive(Clone, Copy, Debug)]
 pub enum EffectFilter {
@@ -115,6 +118,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AddTypeIfCountersAtLeast { .. }
         | Modifier::AddKeywordIfCountersAtLeast { .. }
         | Modifier::GrantActivated { .. }
+        | Modifier::GrantActivatedDefinition(_)
+        | Modifier::GrantActivatedFromLinkedExile(_)
         | Modifier::GrantStatic { .. }
         | Modifier::GrantTriggered { .. }
         | Modifier::CharacteristicPT { .. }
@@ -221,7 +226,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GraveyardVampireOnce
         | Modifier::NextSpellUncounterable
         | Modifier::OneSpellManaAnyType
-        | Modifier::NextDrawWish => false,
+        | Modifier::NextDrawWish
+        | Modifier::CreatureAbilityManaAnyColor => false,
     }
 }
 
@@ -288,6 +294,8 @@ pub struct ContinuousEffect {
 #[derive(Clone, Debug, Default)]
 pub struct EffectTable {
     effects: Vec<ContinuousEffect>,
+    /// Stable definitions and handles, independent of recipient/filter ordering.
+    pub(crate) grants: grants::GrantRegistry,
     /// The static effects of permanents that are phased out. Such a
     /// permanent is treated as though it does not exist (CR 702.26b), so
     /// its statics apply to nothing, and no reader of the table sees them
@@ -330,6 +338,7 @@ impl EffectTable {
         let id = EffectId::new(self.next_id);
         self.next_id += 1;
         fx.id = id;
+        self.grants.register_fixed(&fx);
         if let Modifier::CounterMaximum { kind, .. } = fx.modifier
             && !self.counter_limit_kinds.contains(&kind)
         {
@@ -513,6 +522,7 @@ impl EffectTable {
             counter_limit_kinds: _,
             may_have_source_duration: _,
             generation,
+            grants: _,
         } = self;
         (effects, parked, *next_id, *generation)
     }
@@ -553,10 +563,14 @@ pub fn granted_activated(
 /// thousands of them, and not one grants anything. Walked once and handed
 /// to [`granted_activated_among`], it costs `effects + permanents × grants`.
 pub fn grants(state: &crate::state::GameState) -> impl Iterator<Item = &ContinuousEffect> {
-    state
-        .effects
-        .iter()
-        .filter(|fx| matches!(fx.modifier, Modifier::GrantActivated { .. }))
+    state.effects.iter().filter(|fx| {
+        matches!(
+            fx.modifier,
+            Modifier::GrantActivated { .. }
+                | Modifier::GrantActivatedDefinition(_)
+                | Modifier::GrantActivatedFromLinkedExile(_)
+        )
+    })
 }
 
 /// [`granted_activated`] over `effects` rather than the whole table.
@@ -571,24 +585,21 @@ pub fn granted_activated_among<'a>(
     source: ObjectId,
 ) -> impl Iterator<Item = GrantedAbility> + 'a {
     let obj = state.object(source);
-    effects.filter_map(move |fx| {
-        let obj = obj?;
-        let Modifier::GrantActivated {
-            cost,
-            effects,
-            mana_ability,
-        } = &fx.modifier
-        else {
-            return None;
-        };
-        applies_to(state, fx, obj).then_some(GrantedAbility {
-            cost: *cost,
-            effects,
-            mana_ability: *mana_ability
-                && baylee_cards_dsl::mana_rule::activated_mana_ability(cost, effects, false),
-            source: fx.source,
-            text: state.effect_text(fx),
-        })
+    effects.flat_map(move |fx| {
+        state
+            .effects
+            .grants
+            .for_effect(fx.id)
+            .filter_map(move |mut grant| {
+                let obj = obj?;
+                if !applies_to(state, fx, obj) {
+                    return None;
+                }
+                if grant.provenance.is_none() {
+                    grant.text = state.effect_text(fx);
+                }
+                Some(grant)
+            })
     })
 }
 
@@ -749,27 +760,6 @@ pub(crate) fn sync_granted_statics(state: &mut crate::state::GameState) {
     }
 }
 
-/// One granted activated ability, as the engine and the view both read it.
-#[derive(Clone, Copy, Debug)]
-pub struct GrantedAbility {
-    /// What activating it costs.
-    pub cost: baylee_cards_dsl::cost::Cost,
-    /// What it does.
-    pub effects: &'static [baylee_cards_dsl::effect::Effect],
-    /// Whether it is a mana ability (CR 605.1) and so uses no stack.
-    pub mana_ability: bool,
-    /// What granted it: the effect's [`ContinuousEffect::source`].
-    ///
-    /// For a view to say whose sentence the ability is (#212), and for
-    /// nothing the rules read. It is the grantor's handle, which a nontoken
-    /// card keeps across zones (#240), so the grantor may since have gone
-    /// somewhere the viewer cannot see; the view decides that, not this.
-    /// `None` for an effect with no source (an emblem's, a rule's).
-    pub source: Option<ObjectId>,
-    /// Current words of the granting effect, never the recipient's text.
-    pub text: crate::text_changes::TextChangeMap,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -800,6 +790,8 @@ mod tests {
             .expect("registry contains Forest")
             .index;
         let entry = DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: forest,
             print: baylee_core::ids::PrintRef::new(0),
         };
@@ -816,6 +808,7 @@ mod tests {
             team: None,
         };
         let preset = GamePreset {
+            rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: 8,
             house_rules: HouseRules::default(),
@@ -1024,6 +1017,8 @@ mod tests {
     #[allow(clippy::too_many_lines)] // one row per `Modifier` variant
     fn every_modifier() -> Vec<Modifier> {
         const NOTHING: &[baylee_cards_dsl::Effect] = &[];
+        const GRANTED: baylee_cards_dsl::AbilityDef =
+            baylee_cards_dsl::ActivatedParts::new(baylee_cards_dsl::Cost::TAP, NOTHING).build();
         use baylee_cards_dsl::{CounterKind, KeywordSet, PlayerRel};
         use baylee_core::color::{Color, ColorSet};
         use baylee_core::ids::SubtypeId;
@@ -1070,6 +1065,9 @@ mod tests {
                 effects: NOTHING,
                 target: None,
             },
+            Modifier::GrantActivatedDefinition(&GRANTED),
+            Modifier::GrantActivatedFromLinkedExile(&Filter::Any),
+            Modifier::CreatureAbilityManaAnyColor,
             Modifier::GrantStatic {
                 filter: &Filter::AttachedToBySource,
                 modifier: &Modifier::RemoveKeyword(KeywordSet::FLYING),
@@ -1243,7 +1241,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            111,
+            114,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1307,7 +1305,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (39, 72));
+        assert_eq!((locking, all.len() - locking), (41, 73));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

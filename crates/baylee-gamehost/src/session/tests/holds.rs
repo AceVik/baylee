@@ -88,6 +88,8 @@ fn a_seats_own_answer_clears_what_its_policies_answered() {
     let mut preset = test_preset();
     preset.seats[1].controller = SeatController::Open;
     preset.seats[0].starting_battlefield = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: arena,
         print: PrintRef::new(0),
     }];
@@ -287,6 +289,8 @@ fn passing_when_there_is_nothing_to_do_is_not_a_hold() {
 /// Throne, which prints ward {2}, and has two Plains left over to pay it.
 fn a_table_with_a_warded_creature() -> GamePreset {
     let named = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name(name).expect("a card this pool compiles"),
         print: PrintRef::new(0),
     };

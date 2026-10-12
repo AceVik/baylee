@@ -90,6 +90,9 @@ pub struct Card {
     /// The exact printing.
     #[serde(default)]
     pub scryfall_id: Option<String>,
+    /// Choices fixed while constructing this copy's deck.
+    #[serde(default)]
+    pub choices: baylee_core::card_metadata::DeckChoices,
     /// What the owner wrote about this row.
     #[serde(default)]
     pub note: Option<String>,
@@ -114,6 +117,7 @@ impl Card {
             lang: print.lang,
             finish: print.finish,
             scryfall_id: print.scryfall_id,
+            choices: print.choices,
             note,
         }
     }
@@ -125,6 +129,7 @@ impl Card {
             count: self.count,
             name: self.name.clone(),
             print: PrintChoice {
+                choices: self.choices,
                 set: self.set.clone(),
                 collector_number: self.collector_number.clone(),
                 lang: self.lang.clone(),

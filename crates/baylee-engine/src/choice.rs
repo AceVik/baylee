@@ -2059,21 +2059,18 @@ impl SeatAutomation {
 /// offered, on a card marked `Coverage::Implemented`.
 pub const GRANTED_ABILITY: u32 = granted_ability(0);
 
-/// How many granted abilities one permanent may offer at once.
-///
-/// A bound rather than an open range because these indices are carved out of
-/// the top of the same `u32` a printed ability's position lives in: a card
-/// with more abilities than this many short of `u32::MAX` is not a card.
-pub const GRANTED_SLOTS: u32 = 8;
+/// Tagged identity space, with the top 256 indices reserved for special actions.
+const MAX_GRANTED_IDS: u32 = 0x7fff_ff00;
 
-/// The index the `n`th granted ability of a permanent is offered under.
+/// Encode a deterministic registry identity, never a recipient-list position.
+/// The high bit distinguishes these identities from printed ability indices.
 ///
-/// Counting *down* from `u32::MAX` so slot 0 keeps the value it always had,
-/// and so the block sits where nothing else can reach: a printed ability is
-/// numbered by its position in a list.
+/// # Panics
+/// Panics if the registry has exhausted its reserved identity space.
 #[must_use]
 pub const fn granted_ability(n: u32) -> u32 {
-    u32::MAX - n
+    assert!(n < MAX_GRANTED_IDS, "granted ability identity exhausted");
+    0x8000_0000 | n
 }
 
 /// Which granted slot `index` names, if it names one.
@@ -2083,8 +2080,8 @@ pub const fn granted_ability(n: u32) -> u32 {
 /// encoded it would run a different ability than the player pressed.
 #[must_use]
 pub const fn granted_slot(index: u32) -> Option<u32> {
-    let n = u32::MAX - index;
-    if n < GRANTED_SLOTS { Some(n) } else { None }
+    let n = index.wrapping_sub(0x8000_0000);
+    if n < MAX_GRANTED_IDS { Some(n) } else { None }
 }
 
 /// The ability index of a prepared permanent's linked cast (Emeritus of Woe).
@@ -2093,7 +2090,7 @@ pub const fn granted_slot(index: u32) -> Option<u32> {
 /// ability the card prints. Below the granted block, which is why it moved
 /// when that block grew — these indices are per-session, chosen fresh in
 /// every `LegalActions`, so nothing outside a running game holds one.
-pub const PREPARED_CAST: u32 = u32::MAX - GRANTED_SLOTS;
+pub const PREPARED_CAST: u32 = u32::MAX - 8;
 /// A face-up special action, carried by the existing permanent action menu.
 pub const TURN_FACE_UP: u32 = PREPARED_CAST - 1;
 
@@ -2871,7 +2868,7 @@ mod choice_tests {
         // in two places, an encoder and a decoder, and an engine that
         // decoded a slot differently from how the offer encoded it would
         // run a different ability than the player pressed.
-        for n in 0..GRANTED_SLOTS {
+        for n in [0, 1, 7, 8, 255, 65_535, MAX_GRANTED_IDS - 1] {
             assert_eq!(
                 granted_slot(granted_ability(n)),
                 Some(n),
@@ -2901,12 +2898,12 @@ mod choice_tests {
     #[test]
     fn the_block_holds_exactly_its_own_slots_and_stops() {
         // The first index below the block must not decode, or the bound is
-        // decoration: `GRANTED_SLOTS` would name a size nothing enforces.
+        // decoration: `MAX_GRANTED_IDS` would name a size nothing enforces.
         assert_eq!(
-            granted_slot(granted_ability(GRANTED_SLOTS - 1)),
-            Some(GRANTED_SLOTS - 1)
+            granted_slot(granted_ability(MAX_GRANTED_IDS - 1)),
+            Some(MAX_GRANTED_IDS - 1)
         );
-        assert_eq!(granted_slot(granted_ability(GRANTED_SLOTS)), None);
+        assert_eq!(granted_slot(0xffff_ff00), None);
     }
 
     #[test]
@@ -2916,8 +2913,8 @@ mod choice_tests {
         // the block grew. Two reserved indices that collided would offer
         // one thing and activate the other.
         assert_eq!(granted_slot(PREPARED_CAST), None);
-        assert!(PREPARED_CAST < granted_ability(GRANTED_SLOTS - 1));
-        for n in 0..GRANTED_SLOTS {
+        assert!(PREPARED_CAST > granted_ability(MAX_GRANTED_IDS - 1));
+        for n in [0, 1, 7, 8, 255, 65_535, MAX_GRANTED_IDS - 1] {
             assert_ne!(PREPARED_CAST, granted_ability(n));
         }
     }
@@ -2932,7 +2929,8 @@ mod choice_tests {
         assert_eq!(door_to_unlock(unlock_door(1)), Some(1));
         assert_eq!(unlock_door(0), TURN_FACE_UP - 1);
         assert_eq!(unlock_door(1), TURN_FACE_UP - UNLOCK_SLOTS);
-        let others = (0..GRANTED_SLOTS)
+        let others = [0, 1, 7, 8, 255, 65_535, MAX_GRANTED_IDS - 1]
+            .into_iter()
             .map(granted_ability)
             .chain([PREPARED_CAST, TURN_FACE_UP, TURN_FACE_UP - UNLOCK_SLOTS - 1])
             .chain([0, 1, 2, 7, 100, 65_535]);

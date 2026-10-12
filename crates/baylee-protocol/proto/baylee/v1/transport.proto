@@ -74,6 +74,9 @@ message PrintInfo {
 message DeckEntry {
   uint32 card_index = 1;
   uint32 print_ref = 2;
+  optional uint32 rule_print_ref = 3;
+  // WUBRG bit mask, zero for no deck-construction circles.
+  uint32 circled_colors = 4;
 }
 
 message AiProfile {
@@ -151,6 +154,8 @@ message GamePresetMsg {
   repeated ModifierSpec modifiers = 5;
   repeated PrintInfo prints = 6;
   repeated SeatSpec seats = 7;
+  // Validated core RulesMetadata, independent of presentation prints.
+  bytes rules_metadata_json = 8;
 }
 
 // ----------------------------------------------------------------- envelope

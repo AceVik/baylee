@@ -85,6 +85,8 @@ pub struct PrintChoice {
     /// The exact printing, when the row names one. This wins over everything
     /// else: it is already the answer the other fields are narrowing towards.
     pub scryfall_id: Option<String>,
+    /// Per-copy choices made while constructing the deck.
+    pub choices: crate::card_metadata::DeckChoices,
 }
 
 impl PrintChoice {
@@ -156,6 +158,9 @@ pub enum RowError {
     /// A note longer than [`MAX_NOTE`].
     #[error("a card's note is at most 500 characters")]
     Note,
+    /// Circled colors must be two different W/U/B/R/G symbols.
+    #[error("circles requires two different colors, for example circles=WU")]
+    Circles,
 }
 
 /// The marker a finish is written with, and back again.
@@ -272,6 +277,12 @@ pub fn parse(row: &str) -> Result<Row, RowError> {
                 print.scryfall_id = Some(id);
                 true
             }
+            Group::Circles(pair) => {
+                if print.choices.circled_colors.replace(pair).is_some() {
+                    return Err(RowError::Circles);
+                }
+                true
+            }
             Group::None => false,
         };
         if !taken {
@@ -305,12 +316,25 @@ enum Group {
     Finish(Finish),
     /// `scryfall=…`.
     Id(String),
+    /// Deck-construction circles.
+    Circles(crate::color::ColorPair),
     /// Part of the name.
     None,
 }
 
 /// Classifies one trailing token.
 fn classify(token: &str) -> Result<Group, RowError> {
+    if let Some(rest) = token.strip_prefix("circles=") {
+        let mut colors = rest.chars().map(crate::color::Color::from_symbol);
+        let (Some(Some(a)), Some(Some(b)), None) = (colors.next(), colors.next(), colors.next())
+        else {
+            return Err(RowError::Circles);
+        };
+        if a == b {
+            return Err(RowError::Circles);
+        }
+        return Ok(Group::Circles(crate::color::ColorPair::new(a, b)));
+    }
     if let Some(rest) = token.strip_prefix("scryfall=") {
         // Not validated as a UUID here: a deck naming a printing this build
         // has never heard of should fail where printings are resolved, with a
@@ -410,6 +434,14 @@ impl fmt::Display for Row {
         }
         if let Some(id) = &self.print.scryfall_id {
             write!(f, " scryfall={id}")?;
+        }
+        if let Some(pair) = self.print.choices.circled_colors {
+            write!(
+                f,
+                " circles={}{}",
+                pair.first().symbol(),
+                pair.second().symbol()
+            )?;
         }
         // Last, because it is the one thing that may hold anything at all.
         if let Some(note) = &self.note {
@@ -690,5 +722,36 @@ mod tests {
     #[test]
     fn a_plain_row_writes_as_the_old_form() {
         assert_eq!(Row::plain(4, "Forest").to_string(), "4 Forest");
+    }
+    #[test]
+    fn circles_round_trip_all_ten_pairs_and_reject_duplicates() {
+        use crate::color::{Color, ColorPair};
+        for (at, first) in Color::ALL.iter().enumerate() {
+            for second in &Color::ALL[at + 1..] {
+                let text = format!(
+                    "1 Cryptic Spires circles={}{} # chosen pair",
+                    first.symbol(),
+                    second.symbol()
+                );
+                let row = parse(&text).unwrap();
+                assert_eq!(
+                    row.print.choices.circled_colors,
+                    Some(ColorPair::new(*first, *second))
+                );
+                assert_eq!(parse(&row.to_string()).unwrap(), row);
+            }
+        }
+        for bad in [
+            "circles=WW",
+            "circles=WC",
+            "circles=W",
+            "circles=WUB",
+            "circles=WU circles=BR",
+        ] {
+            assert_eq!(
+                parse(&format!("1 Cryptic Spires {bad}")),
+                Err(RowError::Circles)
+            );
+        }
     }
 }

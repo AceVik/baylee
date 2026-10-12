@@ -7,6 +7,36 @@ use baylee_core::preset::{
 };
 use baylee_protocol::v1;
 
+/// Bounds-check rules references and decode a physical copy's deck choices.
+fn deck_entry(d: &v1::DeckEntry) -> Result<DeckEntry, String> {
+    let print = u16::try_from(d.print_ref).map_err(|_| "printing reference is out of range")?;
+    let rule_print = d
+        .rule_print_ref
+        .map(|id| u16::try_from(id).map(baylee_core::ids::RulePrintRef::new))
+        .transpose()
+        .map_err(|_| "rules printing reference is out of range")?;
+    let circled_colors = if d.circled_colors == 0 {
+        None
+    } else {
+        if d.circled_colors > 31 || d.circled_colors.count_ones() != 2 {
+            return Err("circled colors must name exactly two different colors".into());
+        }
+        let mut colors = baylee_core::color::Color::ALL
+            .into_iter()
+            .filter(|color| d.circled_colors & u32::from(color.bit()) != 0);
+        Some(baylee_core::color::ColorPair::new(
+            colors.next().unwrap(),
+            colors.next().unwrap(),
+        ))
+    };
+    Ok(DeckEntry {
+        card: CardIndex::new(d.card_index),
+        print: PrintRef::new(print),
+        rule_print,
+        choices: baylee_core::card_metadata::DeckChoices { circled_colors },
+    })
+}
+
 /// Converts the wire preset to the engine preset.
 ///
 /// # Errors
@@ -81,43 +111,28 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
             let deck = s
                 .deck
                 .iter()
-                .map(|d| DeckEntry {
-                    card: CardIndex::new(d.card_index),
-                    print: PrintRef::new(d.print_ref as u16),
-                })
-                .collect();
+                .map(deck_entry)
+                .collect::<Result<Vec<_>, String>>()?;
             let sideboard = s
                 .sideboard
                 .iter()
-                .map(|d| DeckEntry {
-                    card: CardIndex::new(d.card_index),
-                    print: PrintRef::new(d.print_ref as u16),
-                })
-                .collect();
+                .map(deck_entry)
+                .collect::<Result<Vec<_>, String>>()?;
             let commanders = s
                 .commanders
                 .iter()
-                .map(|d| DeckEntry {
-                    card: CardIndex::new(d.card_index),
-                    print: PrintRef::new(d.print_ref as u16),
-                })
-                .collect();
+                .map(deck_entry)
+                .collect::<Result<Vec<_>, String>>()?;
             let starting_hand: Vec<DeckEntry> = s
                 .starting_hand
                 .iter()
-                .map(|d| DeckEntry {
-                    card: CardIndex::new(d.card_index),
-                    print: PrintRef::new(d.print_ref as u16),
-                })
-                .collect();
+                .map(deck_entry)
+                .collect::<Result<Vec<_>, String>>()?;
             let starting_battlefield: Vec<DeckEntry> = s
                 .starting_battlefield
                 .iter()
-                .map(|d| DeckEntry {
-                    card: CardIndex::new(d.card_index),
-                    print: PrintRef::new(d.print_ref as u16),
-                })
-                .collect();
+                .map(deck_entry)
+                .collect::<Result<Vec<_>, String>>()?;
             Ok(SeatSpec {
                 controller,
                 // Never from the request: a client does not get to ask for
@@ -141,7 +156,17 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
     if seats.len() < 2 {
         return Err("a game needs at least two seats".to_string());
     }
+    let rules = if msg.rules_metadata_json.is_empty() {
+        baylee_core::card_metadata::RulesMetadata::default()
+    } else {
+        serde_json::from_slice(&msg.rules_metadata_json)
+            .map_err(|e| format!("invalid rules metadata: {e}"))?
+    };
+    if !rules.is_valid() {
+        return Err("invalid rules metadata".into());
+    }
     Ok(GamePreset {
+        rules,
         format,
         seed: msg.seed,
         house_rules,
@@ -258,6 +283,7 @@ mod tests {
     #[test]
     fn a_wire_preset_cannot_grant_itself_any_capability() {
         let msg = v1::GamePresetMsg {
+            rules_metadata_json: Vec::new(),
             format: 2,
             seed: 1,
             house_rules: None,
@@ -279,6 +305,7 @@ mod tests {
 
     fn msg(seats: Vec<v1::SeatSpec>) -> v1::GamePresetMsg {
         v1::GamePresetMsg {
+            rules_metadata_json: Vec::new(),
             format: 2,
             seed: 1,
             house_rules: None,
@@ -376,6 +403,8 @@ mod tests {
         let entry = v1::DeckEntry {
             card_index: 5,
             print_ref: 0,
+            rule_print_ref: None,
+            circled_colors: 0,
         };
         let stacked = v1::SeatSpec {
             starting_hand: vec![entry],
@@ -463,6 +492,8 @@ mod tests {
         message.seats[0].starting_battlefield = vec![v1::DeckEntry {
             card_index: 5,
             print_ref: 0,
+            rule_print_ref: None,
+            circled_colors: 0,
         }];
         message.prints.push(v1::PrintInfo::default());
         message.house_rules = Some(v1::HouseRules {
@@ -483,5 +514,50 @@ mod tests {
         );
         message.house_rules.as_mut().unwrap().starting_counters[0].permanent = 999;
         assert!(from_proto(&message).unwrap().validate().is_err());
+    }
+
+    #[test]
+    fn physical_rules_references_and_circles_survive_the_transport() {
+        let mut rules = baylee_core::card_metadata::RulesMetadata::default();
+        let rule_print = rules
+            .insert(CardIndex::new(5), &[Some("simic"), None], true)
+            .unwrap();
+        let mut message = msg(vec![seat_msg(), seat_msg()]);
+        message.rules_metadata_json = serde_json::to_vec(&rules).unwrap();
+        message.seats[0].deck = vec![v1::DeckEntry {
+            card_index: 5,
+            print_ref: 0,
+            rule_print_ref: Some(u32::from(rule_print.get())),
+            circled_colors: 3,
+        }];
+        let preset = from_proto(&message).unwrap();
+        assert_eq!(preset.rules, rules);
+        let entry = preset.seats[0].deck[0];
+        assert_eq!(entry.rule_print, Some(rule_print));
+        assert_eq!(entry.choices.colors().bits(), 3);
+    }
+
+    #[test]
+    fn physical_rules_transport_rejects_truncated_references_and_invalid_circles() {
+        for bad in [
+            v1::DeckEntry {
+                print_ref: 65_536,
+                ..v1::DeckEntry::default()
+            },
+            v1::DeckEntry {
+                rule_print_ref: Some(65_536),
+                ..v1::DeckEntry::default()
+            },
+            v1::DeckEntry {
+                circled_colors: 1,
+                ..v1::DeckEntry::default()
+            },
+            v1::DeckEntry {
+                circled_colors: 32,
+                ..v1::DeckEntry::default()
+            },
+        ] {
+            assert!(deck_entry(&bad).is_err());
+        }
     }
 }

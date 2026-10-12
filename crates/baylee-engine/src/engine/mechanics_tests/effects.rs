@@ -293,7 +293,7 @@ fn demanded(seed: u64) -> Bench {
                 && d.when == crate::state::DelayedWhen::NextUpkeep
                 && matches!(
                     d.action,
-                    crate::state::DelayedAction::PayCostOrLose { cost } if cost == owed
+                    crate::state::DelayedAction::PayCostOrLose { cost, .. } if cost == owed
                 )
         }),
         "the debt waits for its controller's next upkeep: {:?}",

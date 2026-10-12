@@ -281,9 +281,9 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
             for &(_, index) in activations.iter().filter(|(s, _)| *s == source) {
-                let (cost, effects) = if let Some(slot) = crate::choice::granted_slot(index) {
+                let (cost, effects) = if crate::choice::granted_slot(index).is_some() {
                     let granted = crate::effects::granted_activated(&self.state, source)
-                        .nth(slot as usize)?;
+                        .find(|grant| grant.id == index)?;
                     if !granted.mana_ability {
                         return None;
                     }

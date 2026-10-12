@@ -47,6 +47,8 @@ pub mod mutate;
 pub mod oracle;
 /// The registry as deck-builder rows — what a deck may be built from.
 pub mod pool;
+/// Verified physical printing facts and per-copy deck choices.
+pub mod print_rules;
 /// Which kinds of mana a card's printed mana abilities name (`/pool`'s
 /// `produces`).
 pub mod produces;

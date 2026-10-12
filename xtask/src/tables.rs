@@ -258,6 +258,7 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
 
     let mut back = Vec::new();
     let mut dfc = Vec::new();
+    let mut facts = BTreeMap::new();
     let mut walked = 0usize;
     for name in &names {
         let Some(def) = by_name.get(name.split(" // ").next().unwrap_or(name)) else {
@@ -268,6 +269,10 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
             .with_context(|| format!("{name}: no cached printing, so its sides cannot be read"))?;
         let card: scryfall::ScryfallCard = serde_json::from_value(payload)
             .with_context(|| format!("{name}: cached printing unreadable"))?;
+        facts.insert(
+            def.index.get(),
+            reference_print_facts(root, name, def, &card)?,
+        );
         let sides = card.sides().map_err(anyhow::Error::msg)?;
         walked += 1;
         if sides.back_image {
@@ -343,6 +348,15 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
         }
         out.push_str("];\n\n");
     }
+    out.push_str("/// Verified physical facts of each reference printing, sorted by card id.\n");
+    out.push_str("pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferencePrintRules)] = &[\n");
+    for (index, (marks, is_un)) in facts {
+        let _ = writeln!(
+            out,
+            "    (CardIndex::new({index}), baylee_core::card_metadata::ReferencePrintRules {{ watermarks: &[{marks}], is_un: {is_un} }}),"
+        );
+    }
+    out.push_str("];\n");
     Ok(out)
 }
 
@@ -432,4 +446,47 @@ pub(crate) fn check_no_name_is_claimed_twice(problems: &mut usize) {
         );
         *problems += 1;
     }
+}
+
+/// Formats verified physical facts from the pinned reference printing.
+fn reference_print_facts(
+    root: &Path,
+    name: &str,
+    def: &baylee_cards::dsl::CardDef,
+    card: &scryfall::ScryfallCard,
+) -> anyhow::Result<(String, bool)> {
+    use anyhow::Context as _;
+    // Physical rules facts must come from the pinned printing, never a
+    // name lookup whose default changes when a new edition appears.
+    let pinned = if card.id == def.scryfall_id {
+        card.clone()
+    } else {
+        serde_json::from_value::<scryfall::ScryfallCard>(
+            crate::printings::cached_printing_by_id(root, def.scryfall_id)
+                .with_context(|| format!("{name}: missing pinned rules printing"))?,
+        )?
+    };
+    anyhow::ensure!(
+        pinned.oracle_id.as_deref() == Some(def.oracle_id),
+        "{name}: pinned printing has another Oracle identity"
+    );
+    anyhow::ensure!(
+        pinned.border_color.is_some(),
+        "{name}: old printing metadata; run xtask scryfall-cache --refetch"
+    );
+    let marks = pinned.card_faces.as_ref().map_or_else(
+        || vec![pinned.watermark.as_deref()],
+        |faces| faces.iter().map(|face| face.watermark.as_deref()).collect(),
+    );
+    let marks = marks
+        .iter()
+        .map(|mark| match mark {
+            Some(mark) => format!("Some({mark:?})"),
+            None => "None".to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let is_un = pinned.border_color.as_deref() == Some("silver")
+        || pinned.security_stamp.as_deref() == Some("acorn");
+    Ok((marks, is_un))
 }

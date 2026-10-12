@@ -36,6 +36,8 @@ fn urzas_saga() -> CardIndex {
 
 fn entry(card: CardIndex) -> DeckEntry {
     DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     }
@@ -56,6 +58,7 @@ fn preset(seed: u64, hand0: Vec<CardIndex>) -> GamePreset {
         team: None,
     };
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),
@@ -391,7 +394,10 @@ fn urzas_saga_makes_no_mana_until_its_first_chapter_resolves() {
         "chapter I has triggered and not resolved"
     );
     assert!(
-        !legal.mana_abilities.contains(&saga),
+        !legal
+            .abilities
+            .iter()
+            .any(|&(source, index)| source == saga && engine.is_mana_offer(source, index)),
         "the Saga taps for nothing while chapter I is still on the stack"
     );
 
@@ -408,7 +414,10 @@ fn urzas_saga_makes_no_mana_until_its_first_chapter_resolves() {
         panic!("expected priority after chapter I")
     };
     assert!(
-        legal.mana_abilities.contains(&saga),
+        legal
+            .abilities
+            .iter()
+            .any(|&(source, index)| source == saga && engine.is_mana_offer(source, index)),
         "chapter I's grant is a mana ability the Saga now has"
     );
     assert_eq!(grants_from(&engine, saga), 1, "one grant, from chapter I");

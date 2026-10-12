@@ -257,6 +257,8 @@ fn a_land_set_to_the_chosen_basic_land_type_is_that_type() {
     let me = PlayerId::new(0);
     let mut preset = preset(21, &[MARSH]);
     preset.seats[0].starting_hand = Some(vec![baylee_core::preset::DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: CardIndex::new(CHOOSER),
         print: baylee_core::ids::PrintRef::new(0),
     }]);

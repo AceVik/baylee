@@ -112,6 +112,12 @@ messages! {
     PreviewTurnCompact { en: "Turn", de: "Drehen" },
     /// Compact preview footer: hold Alt/Option.
     PreviewAlternateCompact { en: "View", de: "Ansicht" },
+    /// Deck-construction choice for this physical copy.
+    SpiresCircles { en: "Circle two colors for this copy", de: "Zwei Farben für dieses Exemplar einkreisen" },
+    /// A missing required deck choice.
+    SpiresNeedsCircles { en: "Cryptic Spires needs two circled colors. Choose them in the printing picker.", de: "Cryptic Spires benötigt zwei eingekreiste Farben. Wähle sie in der Druckauswahl." },
+    /// A circled pair outside the commanders' identity.
+    SpiresOutsideIdentity { en: "Cryptic Spires’ circled colors exceed the commander’s color identity.", de: "Die eingekreisten Farben von Cryptic Spires liegen außerhalb der Farbidentität des Kommandeurs." },
     /// Restyle an existing row, preserving quantity.
     ApplyPrinting { en: "Apply to this row", de: "Auf diese Zeile anwenden" },
     /// Explicit catalog insertion destinations.

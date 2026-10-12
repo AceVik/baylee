@@ -84,9 +84,27 @@ impl GameState {
         }
         match action.offer.effect {
             GrantedActionKind::AddMana { color, amount } => {
-                self.players[usize::from(player.get())]
-                    .mana_pool
-                    .add(color, u32::from(amount));
+                let provenance = crate::mana_provenance::ManaProvenance::capture(
+                    self,
+                    crate::text_changes::RuleContext {
+                        source: action.offer.source.object,
+                        text: crate::text_changes::TextChangeMap::IDENTITY,
+                    },
+                    Some(action.offer.source.version),
+                    player,
+                    None,
+                );
+                let snow = self
+                    .source_object(action.offer.source)
+                    .is_some_and(|object| {
+                        object
+                            .characteristics()
+                            .supertypes
+                            .contains(baylee_core::types::SupertypeSet::SNOW)
+                    });
+                if !crate::mana_provenance::deposit(self, player, color, amount, snow, provenance) {
+                    return false;
+                }
                 self.journal.record(GameEvent::ManaProduced {
                     player,
                     color,

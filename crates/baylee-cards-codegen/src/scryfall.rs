@@ -45,6 +45,15 @@ pub struct ScryfallCard {
     pub colors: Option<Vec<String>>,
     /// Color identity letters.
     pub color_identity: Option<Vec<String>>,
+    /// Printing-specific watermark; absent means this printing has none.
+    #[serde(default)]
+    pub watermark: Option<String>,
+    /// Actual border, needed for Un-card costs independently of Oracle identity.
+    #[serde(default)]
+    pub border_color: Option<String>,
+    /// Acorn identifies Un cards without a silver border.
+    #[serde(default)]
+    pub security_stamp: Option<String>,
     /// Set code.
     pub set: Option<String>,
     /// Set name.
@@ -90,6 +99,9 @@ pub struct ScryfallCard {
 /// One face of a multi-face Scryfall card.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScryfallFace {
+    /// Printing-specific watermark on this face.
+    #[serde(default)]
+    pub watermark: Option<String>,
     /// Face name.
     pub name: String,
     /// Mana cost.
@@ -351,7 +363,10 @@ pub fn fetch_printing(
     let file = printing_cache_path(cache_dir, id);
     if file.exists() {
         let text = fs::read_to_string(&file).map_err(CodegenError::io(&file))?;
-        return Ok(serde_json::from_str(&text)?);
+        let held: ScryfallCard = serde_json::from_str(&text)?;
+        if held.border_color.is_some() {
+            return Ok(held);
+        }
     }
     let url = format!("{API}/cards/{id}");
     let card: ScryfallCard = get_json(agent, &url).map_err(|e| match e {
@@ -488,7 +503,8 @@ const BULK_THRESHOLD: usize = 50;
 /// | version | what it added |
 /// |---|---|
 /// | 1 | `image_uris` / `image_status`, which [`ScryfallCard::sides`] reads |
-pub const PAYLOAD_SCHEMA: u32 = 1;
+/// | 2 | Physical `watermark`, `border_color`, and `security_stamp` rules facts |
+pub const PAYLOAD_SCHEMA: u32 = 2;
 
 /// Where the stamp sits. A leading dot, because [`slug`] never writes one, so
 /// this name can never collide with a card called "Schema".

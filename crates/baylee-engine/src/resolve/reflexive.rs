@@ -107,12 +107,12 @@ fn occurrences(state: &GameState, res: &Resolution, when: ReflexiveEvent) -> usi
     }
     entries[start + 1..]
         .iter()
-        .filter(|e| happened(when, res, &e.event))
+        .filter(|e| happened(state, when, res, &e.event))
         .count()
 }
 
 /// Whether one journal entry is the event a reflexive ability waits for.
-fn happened(when: ReflexiveEvent, res: &Resolution, event: &GameEvent) -> bool {
+fn happened(state: &GameState, when: ReflexiveEvent, res: &Resolution, event: &GameEvent) -> bool {
     match when {
         // A departure of the source by *effect*. A cost records
         // `Cause::Cost`, so a sacrifice paid in a payment window opened
@@ -136,6 +136,12 @@ fn happened(when: ReflexiveEvent, res: &Resolution, event: &GameEvent) -> bool {
         // `Effect::ExileSource` moves it from there.
         // `lints::every_reflexive_sits_where_it_can_trigger` makes that
         // exile the op directly before the reflexive.
+        ReflexiveEvent::Exiled(filter) => matches!(event,
+            GameEvent::ZoneChanged { object, to: Zone::Exile, cause: Cause::Effect, .. }
+                if res.targets.contains(object) && state.object(*object).is_some_and(|card| {
+                    crate::eval::matches(filter, state, card, res.controller, res.source)
+                })
+        ),
         ReflexiveEvent::ExiledThis => matches!(
             event,
             GameEvent::ZoneChanged {

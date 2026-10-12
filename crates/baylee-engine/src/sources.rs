@@ -892,7 +892,10 @@ fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef
         } => {
             out.insert(DamageSourceRef { object, version });
         }
-        DelayedAction::PayCostOrLose { .. } | DelayedAction::AddMana { .. } => {}
+        DelayedAction::PayCostOrLose { source, .. } => {
+            out.extend(source);
+        }
+        DelayedAction::AddMana { .. } => {}
     }
 }
 

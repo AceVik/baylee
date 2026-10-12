@@ -146,7 +146,10 @@ enum PaymentContinuation {
         id: baylee_core::ids::GrantedActionId,
         cost: baylee_core::mana::ManaCost,
     },
-    Pact(baylee_core::mana::ManaCost),
+    Pact {
+        cost: baylee_core::mana::ManaCost,
+        source: Option<baylee_core::ids::DamageSourceRef>,
+    },
     /// Miracle's choices are complete; mana abilities may now pay them.
     Miracle {
         wizard: Box<cast_wizard::CastWizard>,
@@ -227,7 +230,9 @@ impl PaymentContinuation {
                 .wrapping_add(r.pc as u64)
                 .wrapping_add(u64::from(r.on_stack.slot()))
                 .wrapping_add(u64::from(r.controller.get())),
-            Self::Pact(cost) => crate::state::mana_cost_fingerprint(cost),
+            Self::Pact { cost, source } => crate::state::mana_cost_fingerprint(cost)
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(source)),
             Self::GrantedAction { id, cost } => id
                 .get()
                 .wrapping_mul(31)
@@ -380,6 +385,7 @@ pub struct Engine<L: CardLookup> {
     library_action_tops: Option<Vec<Option<ObjectId>>>,
     /// A player chosen for a pending loyalty `AnyPlayer` target.
     loyalty_player_choice: Option<PlayerId>,
+    loyalty_paid: Option<crate::object::PaidRecord>,
     /// The seats named by a pending activation's target choice.
     ///
     /// Carried in a field for the reason [`Engine::activating_abilities`] is:
@@ -473,6 +479,7 @@ pub struct Engine<L: CardLookup> {
     ///
     /// [`Engine::hand_over_trigger_abilities`]: crate::engine::Engine
     activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
+    activating_grant: Option<(ObjectId, u32, crate::effects::GrantedAbility)>,
     /// What each seat may do beyond answering its own choices.
     ///
     /// Not game state: it never enters the snapshot hash and never changes
@@ -628,6 +635,8 @@ enum PlanKind {
     DelayedPay {
         /// The mana cost to pay.
         cost: baylee_core::mana::ManaCost,
+        /// Exact card imposing the debt.
+        source: Option<baylee_core::ids::DamageSourceRef>,
     },
     /// A delayed pay-or-sacrifice decision (echo).
     DelayedPaySacrifice {
@@ -635,6 +644,8 @@ enum PlanKind {
         cost: baylee_core::mana::ManaCost,
         /// The permanent sacrificed when not paid.
         card: ObjectId,
+        /// Incarnation imposing the cost and sacrificed if declined.
+        version: u32,
     },
     /// A clone choosing what to copy as it enters.
     CopyOnEnter {
@@ -919,6 +930,7 @@ impl<L: CardLookup> Engine<L> {
             library_action_tops: None,
             agreed_draw: false,
             loyalty_player_choice: None,
+            loyalty_paid: None,
             activation_target_players: Vec::new(),
             activation_second_targets: None,
             activation_target_references: crate::sources::TargetReferences::default(),
@@ -928,6 +940,7 @@ impl<L: CardLookup> Engine<L> {
             activation_graveyard: None,
             activation_phyrexian: Vec::new(),
             activating_abilities: None,
+            activating_grant: None,
             entry_scan_seq: 0,
             entry_questions: VecDeque::new(),
             delayed_queue: VecDeque::new(),
@@ -1042,7 +1055,7 @@ impl<L: CardLookup> Engine<L> {
         let window = self.mana_window.as_ref()?;
         match &window.suspended {
             PaymentContinuation::LandMana(_) => None,
-            PaymentContinuation::Pact(cost)
+            PaymentContinuation::Pact { cost, .. }
             | PaymentContinuation::GrantedAction { cost, .. }
             | PaymentContinuation::Cast { cost, .. }
             | PaymentContinuation::Miracle { cost, .. } => {
@@ -1408,6 +1421,7 @@ impl<L: CardLookup> Engine<L> {
             pending_plan,
             library_action_tops,
             loyalty_player_choice,
+            loyalty_paid,
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
@@ -1417,6 +1431,7 @@ impl<L: CardLookup> Engine<L> {
             activation_graveyard,
             activation_phyrexian,
             activating_abilities,
+            activating_grant,
             capabilities,
             entry_scan_seq,
             entry_questions,
@@ -1488,6 +1503,8 @@ impl<L: CardLookup> Engine<L> {
             ("activation_graveyard", format!("{activation_graveyard:?}")),
             ("activation_phyrexian", format!("{activation_phyrexian:?}")),
             ("activating_abilities", format!("{activating_abilities:?}")),
+            ("activating_grant", format!("{activating_grant:?}")),
+            ("loyalty_paid", format!("{loyalty_paid:?}")),
             ("capabilities", format!("{capabilities:?}")),
             ("entry_scan_seq", format!("{entry_scan_seq:?}")),
             ("entry_questions", format!("{entry_questions:?}")),

@@ -396,6 +396,8 @@ fn update_intrinsic_mana_summary(
                         }
                         ManaSource::IntrinsicBasicLandTypes
                         | ManaSource::ColorsAmong { .. }
+                        | ManaSource::ExiledWithSource
+                        | ManaSource::CircledColors
                         | ManaSource::LandColor { .. }
                         | ManaSource::Chosen => {}
                     }
@@ -894,7 +896,10 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_)
         | Filter::Kicked
-        | Filter::CastFromHand => false,
+        | Filter::CastFromHand
+        | Filter::HasWatermark
+        | Filter::SharesWatermarkWithSource
+        | Filter::UnCard => false,
     }
 }
 
@@ -1378,6 +1383,7 @@ fn apply(
         | Modifier::NextSpellUncounterable
         | Modifier::OneSpellManaAnyType
         | Modifier::NextDrawWish
+        | Modifier::CreatureAbilityManaAnyColor
         | Modifier::BlockableWithoutLandwalk(_)
         | Modifier::IgnoreOpponentsHexproof
         | Modifier::CounterMaximum { .. }
@@ -1385,6 +1391,8 @@ fn apply(
         | Modifier::BoastTwice
         | Modifier::PlayerHexproof
         | Modifier::GrantActivated { .. }
+        | Modifier::GrantActivatedDefinition(_)
+        | Modifier::GrantActivatedFromLinkedExile(_)
         | Modifier::GrantStatic { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash

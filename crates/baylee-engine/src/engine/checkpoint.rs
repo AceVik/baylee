@@ -34,6 +34,7 @@ pub(super) struct Checkpoint {
     pending_plan: Option<PlanKind>,
     library_action_tops: Option<Vec<Option<ObjectId>>>,
     loyalty_player_choice: Option<PlayerId>,
+    loyalty_paid: Option<crate::object::PaidRecord>,
     activation_target_players: Vec<PlayerId>,
     activation_cost_choices: Vec<Vec<ObjectId>>,
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
@@ -43,6 +44,7 @@ pub(super) struct Checkpoint {
     activation_graveyard: Option<PlayerId>,
     activation_phyrexian: Vec<bool>,
     activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
+    activating_grant: Option<(ObjectId, u32, crate::effects::GrantedAbility)>,
     capabilities: Vec<baylee_core::preset::SeatCapabilities>,
     entry_scan_seq: u64,
     entry_questions: VecDeque<(ObjectId, PlayerId, progress::EntryAsk)>,
@@ -83,6 +85,7 @@ impl Checkpoint {
             pending_plan,
             library_action_tops,
             loyalty_player_choice,
+            loyalty_paid,
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
@@ -92,6 +95,7 @@ impl Checkpoint {
             activation_graveyard,
             activation_phyrexian,
             activating_abilities,
+            activating_grant,
             capabilities,
             entry_scan_seq,
             entry_questions,
@@ -133,6 +137,7 @@ impl Checkpoint {
             pending_plan: pending_plan.clone(),
             library_action_tops: library_action_tops.clone(),
             loyalty_player_choice: *loyalty_player_choice,
+            loyalty_paid: loyalty_paid.clone(),
             activation_target_players: activation_target_players.clone(),
             activation_cost_choices: activation_cost_choices.clone(),
             activation_second_targets: activation_second_targets.clone(),
@@ -142,6 +147,7 @@ impl Checkpoint {
             activation_graveyard: *activation_graveyard,
             activation_phyrexian: activation_phyrexian.clone(),
             activating_abilities: activating_abilities.clone(),
+            activating_grant: *activating_grant,
             capabilities: capabilities.clone(),
             entry_scan_seq: *entry_scan_seq,
             entry_questions: entry_questions.clone(),
@@ -182,6 +188,7 @@ impl Checkpoint {
             pending_plan,
             library_action_tops,
             loyalty_player_choice,
+            loyalty_paid,
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
@@ -191,6 +198,7 @@ impl Checkpoint {
             activation_graveyard,
             activation_phyrexian,
             activating_abilities,
+            activating_grant,
             capabilities,
             entry_scan_seq,
             entry_questions,
@@ -229,6 +237,7 @@ impl Checkpoint {
         *pending_plan = self.pending_plan;
         *library_action_tops = self.library_action_tops;
         *loyalty_player_choice = self.loyalty_player_choice;
+        *loyalty_paid = self.loyalty_paid;
         *activation_target_players = self.activation_target_players;
         *activation_cost_choices = self.activation_cost_choices;
         *activation_second_targets = self.activation_second_targets;
@@ -238,6 +247,7 @@ impl Checkpoint {
         *activation_graveyard = self.activation_graveyard;
         *activation_phyrexian = self.activation_phyrexian;
         *activating_abilities = self.activating_abilities;
+        *activating_grant = self.activating_grant;
         *capabilities = self.capabilities;
         *entry_scan_seq = self.entry_scan_seq;
         *entry_questions = self.entry_questions;

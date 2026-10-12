@@ -17,6 +17,31 @@ pub fn server_message(lang: Lang, message: &str) -> String {
 
 const MESSAGES: &[(&str, &str)] = &[
     (
+        "circles requires two different colors",
+        "Wähle zwei verschiedene Farben.",
+    ),
+    (
+        "Cryptic Spires needs two circled colors (circles=WU)",
+        "Cryptic Spires benötigt zwei eingekreiste Farben (circles=WU).",
+    ),
+    (
+        "only Cryptic Spires may carry circled colors",
+        "Nur Cryptic Spires darf eingekreiste Farben haben.",
+    ),
+    (
+        "Cryptic Spires' circled colors exceed the commander's color identity",
+        "Die eingekreisten Farben von Cryptic Spires liegen außerhalb der Farbidentität des Kommandeurs.",
+    ),
+    (
+        "printing belongs to another card",
+        "Dieser Druck gehört zu einer anderen Karte.",
+    ),
+    (
+        "printing rules metadata is unavailable; refresh the catalog",
+        "Die Regelinformationen dieses Drucks fehlen. Aktualisiere den Katalog.",
+    ),
+    ("invalid printing UUID", "Ungültige Druck-ID."),
+    (
         "The table could not start: not every player finished loading. Return to the lobby and try again.",
         "Die Partie konnte nicht starten: Nicht alle Spieler sind mit dem Laden fertig. Kehre zur Lobby zurück und versuche es erneut.",
     ),

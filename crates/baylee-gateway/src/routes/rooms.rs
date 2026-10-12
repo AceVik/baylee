@@ -495,7 +495,7 @@ pub(crate) async fn set_ready(
     // Outside the lock, for the reason `start_room` gives, and unconditional
     // because `try_start` answers `Ok(false)` for a room that is not ready.
     if rematch {
-        try_start(&state, &id)?;
+        try_start(&state, &id).await?;
     }
     state.lobby_moved();
     Ok(Json(listing(&state, &account_id).await))
@@ -526,7 +526,7 @@ pub(crate) async fn start_room(
     }
     // Outside the lock it took to check: `try_start` takes it again, and
     // ordering the engine must not happen underneath it.
-    if !try_start(&state, &id)? {
+    if !try_start(&state, &id).await? {
         return Err(err(StatusCode::CONFLICT, "the room is no longer ready"));
     }
     state.lobby_moved();

@@ -35,6 +35,8 @@ fn fixture() -> Engine<SyntheticLookup> {
     let mut preset = synthetic::preset(115_723, &[PROBE]);
     preset.seats.push(preset.seats[1].clone());
     preset.seats[1].starting_hand = Some(vec![baylee_core::preset::DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_core::ids::CardIndex::new(SPELL),
         print: baylee_core::ids::PrintRef::new(0),
     }]);

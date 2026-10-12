@@ -3,6 +3,8 @@ use super::*;
 #[test]
 fn target_explanation_names_the_cast_and_is_only_sent_to_its_chooser() {
     let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::generated::ALL
             .iter()
             .find(|(_, c)| c.name() == name)
@@ -53,6 +55,8 @@ fn maximum_hand_size_status_is_public_and_expires_with_its_source() {
     use baylee_engine::{event::Cause, zone::ZonePosition};
     let mut preset = mixed_print_preset();
     preset.seats[0].starting_battlefield = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name("Reliquary Tower").unwrap(),
         print: PrintRef::new(0),
     }];
@@ -90,6 +94,8 @@ fn maximum_hand_size_status_is_public_and_expires_with_its_source() {
 fn courser_reveals_only_the_top_to_all_seats_and_hides_the_next_during_shock_choice() {
     use baylee_engine::{choice::PlayerAction, event::Cause, zone::ZonePosition};
     let entry = |name| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: baylee_cards::decks::by_name(name).unwrap(),
         print: PrintRef::new(0),
     };
@@ -186,10 +192,14 @@ fn suspended_cards_and_their_countdowns_are_public_to_every_seat() {
     let mut preset = mixed_print_preset();
     preset.seats.push(preset.seats[1].clone());
     preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: vision,
         print: PrintRef::new(0),
     }]);
     preset.seats[0].starting_battlefield = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: island(),
         print: PrintRef::new(0),
     }];
@@ -231,11 +241,15 @@ fn reflections_chosen_type_reaches_every_seat_after_casting() {
     let reflections = baylee_cards::decks::by_name("Reflections of Littjara").unwrap();
     let mut preset = mixed_print_preset();
     preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: reflections,
         print: PrintRef::new(0),
     }]);
     preset.seats[0].starting_battlefield = vec![
         DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: island(),
             print: PrintRef::new(0)
         };
@@ -286,10 +300,14 @@ fn a_needle_s_chosen_name_reaches_every_seat() {
     let named = baylee_cards::decks::by_name("Karn, the Great Creator").unwrap();
     let mut preset = mixed_print_preset();
     preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: needle,
         print: PrintRef::new(0),
     }]);
     preset.seats[0].starting_battlefield = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: island(),
         print: PrintRef::new(0),
     }];
@@ -353,10 +371,14 @@ fn black_vise_announces_its_chosen_opponent_to_every_seat() {
     let mut preset = mixed_print_preset();
     preset.seats.push(preset.seats[1].clone());
     preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: vise,
         print: PrintRef::new(0),
     }]);
     preset.seats[0].starting_battlefield = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: island(),
         print: PrintRef::new(0),
     }];
@@ -405,6 +427,8 @@ fn black_vise_announces_its_chosen_opponent_to_every_seat() {
 fn a_rooms_doors_reach_every_seat() {
     let room = baylee_cards::decks::by_name("Walk-In Closet").unwrap();
     let entry = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card,
         print: PrintRef::new(0),
     };
@@ -470,6 +494,8 @@ fn a_rooms_doors_reach_every_seat() {
 fn a_table_under_teferi() -> GamePreset {
     let mut preset = mixed_print_preset();
     preset.seats[1].starting_battlefield = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: teferi_time_raveler(),
         print: PrintRef::new(0),
     }];

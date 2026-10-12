@@ -251,7 +251,7 @@ impl Effect {
         Self::AddMana {
             source: ManaSource::Fixed(color),
             amount: Amount::Fixed(amount),
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -262,7 +262,7 @@ impl Effect {
         Self::AddMana {
             source: ManaSource::IntrinsicBasicLandTypes,
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -273,7 +273,7 @@ impl Effect {
         Self::AddMana {
             source: ManaSource::Choice(colors),
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -291,7 +291,7 @@ impl Effect {
         Self::AddMana {
             source: ManaSource::Chosen,
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -302,7 +302,7 @@ impl Effect {
         Self::AddMana {
             source: ManaSource::ChosenOr(colors),
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -313,7 +313,7 @@ impl Effect {
         Self::AddMana {
             source: ManaSource::CommanderIdentity,
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -324,7 +324,7 @@ impl Effect {
         Self::AddMana {
             source: ManaSource::Fixed(color),
             amount,
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -347,7 +347,7 @@ impl Effect {
         Self::AddMana {
             source: ManaSource::Choice(colors),
             amount,
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -360,7 +360,44 @@ impl Effect {
         Self::AddMana {
             source: ManaSource::Choice(colors),
             amount,
-            combination: true,
+            distribution: crate::ManaDistribution::AnyCombination,
+            restriction: None,
+        }
+    }
+
+    /// Add mana of different colors, choosing each available color at most once.
+    #[must_use]
+    pub const fn mana_different_colors(colors: &'static [ManaColor], amount: Amount) -> Self {
+        Self::AddMana {
+            source: ManaSource::Choice(colors),
+            amount,
+            distribution: crate::ManaDistribution::DifferentColors,
+            restriction: None,
+        }
+    }
+
+    /// Add one mana of a color among cards exiled by this source's linked ability.
+    #[must_use]
+    pub const fn mana_exiled_colors() -> Self {
+        Self::AddMana {
+            source: ManaSource::ExiledWithSource,
+            amount: Amount::Fixed(1),
+            distribution: crate::ManaDistribution::OneColor,
+            restriction: None,
+        }
+    }
+
+    /// Add a color or type that a matching land on the specified side could produce.
+    #[must_use]
+    pub const fn mana_from_lands(filter: &'static Filter, mine: bool, any_type: bool) -> Self {
+        Self::AddMana {
+            source: ManaSource::LandColor {
+                filter,
+                mine,
+                any_type,
+            },
+            amount: Amount::Fixed(1),
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -372,11 +409,12 @@ impl Effect {
     pub const fn mana_land_color(mine: bool) -> Self {
         Self::AddMana {
             source: ManaSource::LandColor {
+                filter: &Filter::Any,
                 mine,
                 any_type: false,
             },
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -388,11 +426,12 @@ impl Effect {
     pub const fn mana_land_type(mine: bool) -> Self {
         Self::AddMana {
             source: ManaSource::LandColor {
+                filter: &Filter::Any,
                 mine,
                 any_type: true,
             },
             amount: Amount::Fixed(1),
-            combination: false,
+            distribution: crate::ManaDistribution::OneColor,
             restriction: None,
         }
     }
@@ -421,7 +460,7 @@ impl Effect {
         let Self::AddMana {
             source,
             amount,
-            combination,
+            distribution,
             restriction,
         } = self
         else {
@@ -430,10 +469,11 @@ impl Effect {
         Self::AddMana {
             source,
             amount,
-            combination,
+            distribution,
             restriction: Some(ManaRestriction {
                 uses,
                 filter,
+                ability_filter: None,
                 rider,
                 restricts: true,
                 until_end_of_turn: matches!(
@@ -444,6 +484,30 @@ impl Effect {
                     })
                 ),
             }),
+        }
+    }
+
+    /// Use a separate filter when restricted mana pays an activated ability's source.
+    ///
+    /// # Panics
+    /// Applied before a spending restriction or to a non-mana effect.
+    #[must_use]
+    pub const fn for_abilities_matching(self, filter: &'static Filter) -> Self {
+        let Self::AddMana {
+            source,
+            amount,
+            distribution,
+            restriction: Some(mut restriction),
+        } = self
+        else {
+            panic!("for_abilities_matching() requires a mana restriction")
+        };
+        restriction.ability_filter = Some(filter);
+        Self::AddMana {
+            source,
+            amount,
+            distribution,
+            restriction: Some(restriction),
         }
     }
 
@@ -464,7 +528,7 @@ impl Effect {
         let Self::AddMana {
             source,
             amount,
-            combination,
+            distribution,
             restriction,
         } = self
         else {
@@ -473,10 +537,11 @@ impl Effect {
         Self::AddMana {
             source,
             amount,
-            combination,
+            distribution,
             restriction: Some(ManaRestriction {
                 uses: super::ManaUse::Spells,
                 filter,
+                ability_filter: None,
                 rider,
                 restricts: false,
                 until_end_of_turn: matches!(
@@ -499,7 +564,7 @@ impl Effect {
         let Self::AddMana {
             source,
             amount,
-            combination,
+            distribution,
             restriction,
         } = self
         else {
@@ -510,6 +575,7 @@ impl Effect {
             None => ManaRestriction {
                 uses: super::ManaUse::SpellsOrAbilities,
                 filter: &Filter::Any,
+                ability_filter: None,
                 rider: SpendRider::None,
                 restricts: false,
                 until_end_of_turn: false,
@@ -519,7 +585,7 @@ impl Effect {
         Self::AddMana {
             source,
             amount,
-            combination,
+            distribution,
             restriction: Some(restriction),
         }
     }
@@ -869,12 +935,15 @@ impl Effect {
             | Effect::CreateTokenCopyOfFirstToken
             | Effect::CopyTargetSpell { .. }
             | Effect::CopyTargetAbility
+            | Effect::CopyEventSpellOrAbility
+            | Effect::TargetsCopyEventSpellUntilEndOfTurn
             | Effect::CastFaceDownUsingSpentX
             | Effect::ActivateLandsAndTakeMana { .. }
             | Effect::ControlPlayerPlayCard { .. }
             | Effect::BecomeCopyOfTarget { .. }
             | Effect::ChangeTextWord { .. }
             | Effect::CopyThisSpell { .. }
+            | Effect::RemoveAllCountersSelf { .. }
             | Effect::AttachSelf { .. }
             | Effect::ReorderTopLibrary { .. }
             | Effect::ReorderTopLibraryOf { .. }

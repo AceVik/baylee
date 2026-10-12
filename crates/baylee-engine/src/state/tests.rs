@@ -1,5 +1,6 @@
 use super::*;
 use baylee_core::ids::PrintRef;
+use baylee_core::mana::ManaColor;
 use baylee_core::preset::{
     AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, SeatController, SeatSpec,
 };
@@ -125,6 +126,8 @@ fn the_remembered_hash_is_the_written_hash() {
 fn make_preset(seed: u64) -> GamePreset {
     let deck: Vec<DeckEntry> = (0..60)
         .map(|i| DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
             card: if i % 3 == 0 {
                 force_of_will()
             } else {
@@ -134,6 +137,7 @@ fn make_preset(seed: u64) -> GamePreset {
         })
         .collect();
     GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules::default(),
@@ -563,6 +567,8 @@ fn emblems_and_starting_battlefield_are_seeded() {
     let mut preset = make_preset(5);
     preset.seats[0].emblems = vec!["boss:test-emblem".to_string()];
     preset.seats[0].starting_battlefield = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
         card: forest(),
         print: PrintRef::new(0),
     }];
@@ -1427,4 +1433,70 @@ fn actual_turn_counts_participate_in_snapshot_identity() {
         changed.players[player].turns_started += 1;
         assert_ne!(changed.snapshot_hash(), expected);
     }
+}
+
+/// A pool's producer affects future cast triggers, but production IDs and
+/// splitting one production into several equal batches do not affect rules.
+#[test]
+fn mana_loop_identity_tracks_producers_without_tracking_allocation_history() {
+    use crate::mana_provenance::{ManaProvenance, deposit};
+    use crate::text_changes::{RuleContext, TextChangeMap};
+    use baylee_core::mana::{ManaColor, ManaPool};
+    let (mut baseline, first) = hash_fixture();
+    let player = PlayerId::new(0);
+    let name = baseline.names.intern("Other mana producer");
+    let second = baseline.create_bare(
+        player,
+        ObjectKind::Permanent,
+        name,
+        ZoneLocation::Battlefield,
+    );
+    let produce = |state: &mut GameState, source, amount| {
+        let provenance = ManaProvenance::capture(
+            state,
+            RuleContext {
+                source,
+                text: TextChangeMap::IDENTITY,
+            },
+            None,
+            player,
+            None,
+        );
+        assert!(deposit(
+            state,
+            player,
+            ManaColor::Blue,
+            amount,
+            false,
+            provenance
+        ));
+    };
+    let mut one_batch = baseline.clone();
+    produce(&mut one_batch, first, 2);
+    let signature = one_batch.loop_signature();
+    for next_id in [0, 7, 31, 999] {
+        let mut split = baseline.clone();
+        split.next_restriction_id = next_id;
+        produce(&mut split, first, 1);
+        produce(&mut split, first, 1);
+        assert_eq!(
+            signature,
+            split.loop_signature(),
+            "allocation history is not a different game"
+        );
+    }
+    let mut different_producer = baseline.clone();
+    produce(&mut different_producer, second, 2);
+    assert_ne!(
+        signature,
+        different_producer.loop_signature(),
+        "equal blue totals can trigger different Pools"
+    );
+    one_batch.players[0].mana_pool = ManaPool::new();
+    different_producer.players[0].mana_pool = ManaPool::new();
+    assert_eq!(
+        one_batch.loop_signature(),
+        different_producer.loop_signature(),
+        "spent provenance no longer distinguishes empty pools"
+    );
 }

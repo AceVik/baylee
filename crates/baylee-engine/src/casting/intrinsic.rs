@@ -209,12 +209,15 @@ pub fn add_intrinsic_mana(
             .supertypes
             .contains(baylee_core::types::SupertypeSet::SNOW)
     });
-    if snow {
-        state.players[player.get() as usize]
-            .mana_pool
-            .add_snow(color, 1);
-    } else {
-        state.players[player.get() as usize].mana_pool.add(color, 1);
+    let provenance = crate::mana_provenance::ManaProvenance::capture(
+        state,
+        crate::eval::live_context(state, source),
+        None,
+        player,
+        None,
+    );
+    if !crate::mana_provenance::deposit(state, player, color, 1, snow, provenance) {
+        return;
     }
     if let Some(before) = obligation_before {
         state.note_constrained_production(player, &before);
