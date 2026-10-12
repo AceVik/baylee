@@ -652,6 +652,16 @@ an additive JSON field defaulted when absent, and an old client never sends
 in either order. During the window the card is still in its zone; the
 engine moves it to the stack as the cost is paid, not first (CR 601.2a).
 
+A card in `castable` may cost more than what floats once its X is announced
+(CR 601.2b). While the seat still has a mana source to tap, its X question
+is open (`ChooseNumber.max` is `u32::MAX`, as for a `payable` card and an
+activation), and a total the pool does not cover gets the same payment
+window after the cast's choices (CR 601.2g); from there it is paid, or
+reversed when passed short, exactly as a `payable` cast. With nothing left
+to tap, `max` is the greatest X the floating mana pays for the whole cost,
+so an X the question offers is always one the cast can complete. A client
+bounds its X entry by `max`, never by its own count of the pool.
+
 ## Taking back a cast (`PlayerAction::CancelCast`)
 
 A seat may take back a cast it began from priority at any of the cast's own
@@ -677,8 +687,10 @@ painland's damage is not dealt and City of Brass's trigger never goes on the
 stack. A cast whose mana touched a library (moved a card to or from it,
 shuffled it, revealed from it), which CR 732.1 forbids reversing, is still
 taken back and its mana abilities stand. The player keeps priority
-(CR 732.2). The journal records `GameEvent::CastCancelled`; the game log
-writes no line, because the card never left its zone and naming it would
+(CR 732.2). The journal records `GameEvent::CastCancelled` with its
+`reason`: `Withdrawn` for `CancelCast`, `Unpaid` for a window passed short
+(CR 601.2h allows no partial payment), `Illegal` when the card moved or an
+object a cost named is gone. The game log writes no line, because the card never left its zone and naming it would
 reveal a card in a hidden hand.
 
 ## What a seat owes (view version 24)
