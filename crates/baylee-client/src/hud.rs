@@ -2326,7 +2326,7 @@ pub use stack::{
 };
 pub(crate) use tray::band_of;
 pub(crate) use tray::dim_the_table;
-pub use tray::{TrayReveal, TrayRevision, reveal_tray, sync_tray};
+pub use tray::{TrayCarry, TrayReveal, TrayRevision, carry_the_rows, reveal_tray, sync_tray};
 
 pub(crate) use seatbar::attached::describe_phase;
 pub(crate) use seatbar::attached::highlight_player;
