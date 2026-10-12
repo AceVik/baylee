@@ -100,11 +100,18 @@ impl<L: CardLookup> Engine<L> {
                 // asked for it; a life payment that scales with X still is.
                 let needs_x = (cost.has_variable() && !wizard.free) || pays_life_x;
                 if needs_x {
-                    // Immediate payments can use the resources already
-                    // available. A deferred mana window is bounded only by
-                    // the number type: its mana is made after this choice.
+                    // The mana for X may still be made during the cast (CR
+                    // 601.2g): a cast whose mana comes after its choices, and
+                    // a cast off the pool by a seat with a source left to
+                    // tap, both open a payment window when the total needs
+                    // it, so X is bounded only by the number type, as an
+                    // activation's is (`abilities/x_value.rs`). An answer
+                    // the window then cannot pay is reversed there and says
+                    // so (`GameEvent::CastCancelled`, CR 601.2h, 732.1).
                     // Life payments still cannot exceed payable life.
-                    let mut max = if cost.has_variable() && !wizard.free {
+                    let more_mana = !wizard.makes_mana_after_choices()
+                        && self.can_make_mana_for_cast(wizard.player);
+                    let mut max = if cost.has_variable() && !wizard.free && !more_mana {
                         self.x_resource_bound(&wizard)
                     } else {
                         u32::MAX
@@ -113,15 +120,16 @@ impl<L: CardLookup> Engine<L> {
                         let life = self.state.life_payable(wizard.player);
                         max = max.min(u32::try_from(life).unwrap_or(0));
                     }
-                    // A cast paid from the pool alone is paid by what is
-                    // floating now, so the question offers only the X that
-                    // mana pays: `{X}{W}` with one {W} floating is X = 0.
-                    // Offered the pool's size instead, an X the fixed part
-                    // left no mana for was taken and the cast then reversed
-                    // at payment (CR 601.2h, 732.1) with nothing to show the
-                    // caster why — Prismatic Ending and Finale of
-                    // Devastation in the reports of 12.10.2026.
+                    // With nothing left to tap, the pool is all that pays,
+                    // so the question offers only the X that mana pays:
+                    // `{X}{W}` with one {W} floating and no land untapped is
+                    // X = 0. Offered the pool's size instead, an X the fixed
+                    // part left no mana for was taken and the cast then
+                    // reversed at payment with nothing to show the caster
+                    // why — Prismatic Ending and Finale of Devastation in the
+                    // reports of 12.10.2026.
                     if !wizard.makes_mana_after_choices()
+                        && !more_mana
                         && (self.wizard_face(&wizard).x_mana_color.is_some()
                             || (cost.has_variable()
                                 && !wizard.free
