@@ -30,6 +30,7 @@ pub(super) fn collect(
             triggers.push(PendingTrigger {
                 text: TextChangeMap::IDENTITY,
                 source_version: None,
+                related_objects: None,
                 event_object_identity: None,
                 counter_source_version: None,
                 event_mana: None,

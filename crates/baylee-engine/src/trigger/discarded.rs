@@ -47,6 +47,7 @@ pub(super) fn collect(
                 controller: player,
                 timestamp: card.timestamp,
                 event_object: Some(object),
+                related_objects: None,
                 event_object_identity: Some((version, card.characteristics().power.unwrap_or(0))),
                 counter_source_version: None,
                 event_mana: None,

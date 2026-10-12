@@ -662,6 +662,7 @@ impl Effect {
             | Effect::ScheduleLinkedCounterCleanup { kind: _, effects }
             | Effect::AtNextUpkeep { effects }
             | Effect::AtNextEndStep { effects }
+            | Effect::AtNextCleanup { effects }
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::AtEndOfCombat { about: _, effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
@@ -819,6 +820,9 @@ impl Effect {
             | Effect::ChooseNumber { .. }
             | Effect::DestroyWeakest { .. }
             | Effect::ExileAndReturnAtEndStep
+            | Effect::ExileAndReturnTappedAtEndStep
+            | Effect::ReturnExiledGroupToOwners { .. }
+            | Effect::ReturnSelfDuringNextUntap
             | Effect::OwnerPutsOnTopOrBottom { .. }
             | Effect::ExileIfDiesThisTurn { .. }
             | Effect::CantBeRegeneratedThisTurn { .. }

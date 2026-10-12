@@ -54,6 +54,7 @@ pub(super) fn arm(
         state.reflexive.push(PendingTrigger {
             text: res.text,
             source_version: None,
+            related_objects: None,
             event_object_identity: None,
             counter_source_version: None,
             event_mana: None,

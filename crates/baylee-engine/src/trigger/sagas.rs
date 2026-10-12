@@ -47,6 +47,7 @@ pub(super) fn collect(
                 triggers.push(PendingTrigger {
                     source: object,
                     counter_source_version: Some(version),
+                    related_objects: None,
                     event_object_identity: None,
                     source_version: Some(version),
                     ability_index: index as u32,

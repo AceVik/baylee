@@ -154,6 +154,30 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Put every due stack trigger into one APNAP batch. Nontrigger delayed
+    /// actions retain their relative order and their existing progress path.
+    pub(super) fn queue_due_delayed_triggers(&mut self) {
+        let count = self.delayed_queue.len();
+        for _ in 0..count {
+            let Some((controller, action)) = self.delayed_queue.pop_front() else {
+                break;
+            };
+            if matches!(
+                action,
+                crate::state::DelayedAction::Trigger { .. }
+                    | crate::state::DelayedAction::TriggerAbout { .. }
+                    | crate::state::DelayedAction::LinkedCounterCleanup { .. }
+                    | crate::state::DelayedAction::ReturnExiledGroup { .. }
+            ) {
+                self.delayed_queue.push_front((controller, action));
+                let suspended = self.process_delayed();
+                debug_assert!(!suspended, "queuing a trigger cannot ask a question");
+            } else {
+                self.delayed_queue.push_back((controller, action));
+            }
+        }
+    }
+
     /// Processes one queued delayed action; returns `true` when a pending
     /// choice was produced.
     #[allow(clippy::too_many_lines)] // one arm per delayed action; splitting hides the list
@@ -170,6 +194,33 @@ impl<L: CardLookup> Engine<L> {
             return false;
         }
         match action {
+            crate::state::DelayedAction::ReturnExiledGroup {
+                source,
+                objects,
+                tapped,
+            } => {
+                static RETURN: &[baylee_cards_dsl::Effect] =
+                    &[baylee_cards_dsl::Effect::ReturnExiledGroupToOwners { tapped: false }];
+                static RETURN_TAPPED: &[baylee_cards_dsl::Effect] =
+                    &[baylee_cards_dsl::Effect::ReturnExiledGroupToOwners { tapped: true }];
+                self.queue_delayed_trigger(
+                    controller,
+                    source.object,
+                    if tapped { RETURN_TAPPED } else { RETURN },
+                    None,
+                    Some(source.version),
+                    crate::text_changes::TextChangeMap::IDENTITY,
+                );
+                if let Some(trigger) = self.trigger_queue.back_mut() {
+                    trigger.related_objects = Some(std::sync::Arc::new(objects));
+                }
+                false
+            }
+            crate::state::DelayedAction::ReturnToHandDuringUntap { .. } => {
+                // Consumed only by the untap turn-based action, never queued.
+                debug_assert!(false, "untap instruction reached delayed-trigger queue");
+                false
+            }
             crate::state::DelayedAction::CastFromExileWithoutPaying { card, version } => {
                 let Some(object) = self
                     .state
@@ -336,6 +387,14 @@ impl<L: CardLookup> Engine<L> {
                     Some(source_version),
                     text,
                 );
+                if still && let Some(trigger) = self.trigger_queue.back_mut() {
+                    let power = self
+                        .state
+                        .object(object)
+                        .and_then(|o| o.characteristics().power)
+                        .unwrap_or(0);
+                    trigger.event_object_identity = Some((version, power));
+                }
                 false
             }
         }
@@ -356,6 +415,7 @@ impl<L: CardLookup> Engine<L> {
             .push_back(crate::trigger::PendingTrigger {
                 text,
                 source_version,
+                related_objects: None,
                 event_object_identity: None,
                 counter_source_version: None,
                 event_amount: None,

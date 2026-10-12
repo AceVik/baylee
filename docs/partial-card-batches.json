@@ -619,7 +619,8 @@
       "cards": [
         {
           "name": "Undiscovered Paradise",
-          "path": "crates/baylee-cards/src/cards/lands/undiscovered_paradise.rs"
+          "path": "crates/baylee-cards/src/cards/lands/undiscovered_paradise.rs",
+          "status": "completed"
         },
         {
           "name": "Nafs Asp",
@@ -650,7 +651,8 @@
         },
         {
           "name": "Mystifying Maze",
-          "path": "crates/baylee-cards/src/cards/lands/utility/mystifying_maze.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/mystifying_maze.rs",
+          "status": "completed"
         },
         {
           "name": "Magosi, the Waterveil",
@@ -658,10 +660,11 @@
         },
         {
           "name": "Thawing Glaciers",
-          "path": "crates/baylee-cards/src/cards/lands/utility/thawing_glaciers.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/thawing_glaciers.rs",
+          "status": "completed"
         }
       ],
-      "validated_complete": 3
+      "validated_complete": 6
     },
     {
       "batch": 50,

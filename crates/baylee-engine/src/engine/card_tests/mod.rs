@@ -31,6 +31,7 @@ mod batch46;
 mod batch47;
 mod batch48;
 mod batch48_activations;
+mod batch49_turns;
 mod batch49_untap;
 mod counted_activation_costs;
 mod counter_movement;
@@ -5760,3 +5761,5 @@ mod divided_spells;
 mod storm;
 
 mod looting;
+
+mod batch49_returns;

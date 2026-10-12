@@ -605,7 +605,7 @@ impl<L: CardLookup> Engine<L> {
 
     /// Takes every delayed trigger waiting for `when` off the list and
     /// queues it, whoever controls it.
-    fn queue_delayed_at(&mut self, when: crate::state::DelayedWhen) {
+    pub(super) fn queue_delayed_at(&mut self, when: crate::state::DelayedWhen) {
         let mut i = 0;
         while i < self.state.delayed.len() {
             if self.state.delayed[i].when == when {

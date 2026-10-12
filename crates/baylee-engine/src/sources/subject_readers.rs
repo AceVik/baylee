@@ -39,13 +39,15 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::SacrificeSelf
             | Effect::UntapSelf
             | Effect::TapSelf
+            | Effect::ReturnSelfDuringNextUntap
             | Effect::RemoveCounterSelf { .. }
             | Effect::MoveCounterToEvent { .. }
             | Effect::DetachSource
             | Effect::IfNoCountersOnSelf { .. } => true,
             Effect::AddCounter { .. }
             | Effect::AddCountersUpTo { .. }
-            | Effect::AtNextEndStep { .. } => implicit_source,
+            | Effect::AtNextEndStep { .. }
+            | Effect::AtNextCleanup { .. } => implicit_source,
             Effect::AtEndOfCombat { about, .. } => matches!(about, TargetSpec::ThisObject),
             _ => false,
         };

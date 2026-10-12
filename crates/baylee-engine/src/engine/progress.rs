@@ -19,6 +19,7 @@ use baylee_core::preset::LoopPolicy;
 mod delayed;
 mod entering;
 mod lifetimes;
+mod untap_returns;
 use lifetimes::{emblem_statics, forget_effects_on_moved_objects};
 mod stack;
 mod statics;
@@ -531,7 +532,8 @@ impl<L: CardLookup> Engine<L> {
             if self.day_night_statics() {
                 continue;
             }
-            // 3. Triggers from new events.
+            // 3. All simultaneously due triggers share the APNAP batch.
+            self.queue_due_delayed_triggers();
             self.collect_triggers();
             if self.awaiting_answer {
                 return; // a trigger's target choice is pending

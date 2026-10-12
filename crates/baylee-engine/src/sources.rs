@@ -29,6 +29,7 @@ pub(crate) enum Slot {
     Discarded(u32),
     MovedSource,
     Linked(u32),
+    DelayedObject(u32),
 }
 
 /// Targets announced before any payment can change their incarnations.
@@ -79,6 +80,26 @@ fn identity(obj: &GameObject) -> DamageSourceRef {
         object: obj.id,
         version: obj.version,
     }
+}
+
+fn delayed_object_slots(
+    object: &GameObject,
+) -> impl Iterator<Item = (Slot, ObjectId, Option<u32>)> + '_ {
+    object
+        .riders
+        .iter()
+        .filter_map(|rider| match rider {
+            Rider::DelayedReturnObject(reference) => Some(reference),
+            _ => None,
+        })
+        .enumerate()
+        .map(|(index, reference)| {
+            (
+                Slot::DelayedObject(u32::try_from(index).expect("delayed object index")),
+                reference.object,
+                Some(reference.version),
+            )
+        })
 }
 
 impl GameState {
@@ -259,6 +280,7 @@ impl GameState {
                 .cloned()
                 .unwrap_or_default();
             let mut slots = Vec::new();
+            slots.extend(delayed_object_slots(obj));
             if let Some(ability) = obj.ability {
                 let version = obj.riders.iter().find_map(|r| match r {
                     Rider::AbilitySourceVersion(v) => Some(*v),
@@ -837,6 +859,14 @@ fn is_prevention(modifier: &Modifier) -> bool {
 
 fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef>) {
     match *action {
+        DelayedAction::ReturnExiledGroup {
+            source,
+            ref objects,
+            ..
+        } => {
+            out.insert(source);
+            out.extend(objects.iter().copied());
+        }
         DelayedAction::Trigger {
             source,
             source_version,
@@ -889,6 +919,10 @@ fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef
             ..
         }
         | DelayedAction::Sacrifice {
+            card: object,
+            version,
+        }
+        | DelayedAction::ReturnToHandDuringUntap {
             card: object,
             version,
         }

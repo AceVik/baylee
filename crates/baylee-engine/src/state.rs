@@ -234,8 +234,11 @@ pub enum DelayedWhen {
     /// turn it is (CR 511.2; Cockatrice's "destroy that creature at end of
     /// combat").
     EndOfCombat,
-    /// At the controller's next cleanup.
+    /// At the beginning of the next cleanup step, whoever's turn it is.
     NextCleanup,
+    /// During the controller's next actual untap, before untapping permanents.
+    /// This is a turn-based instruction, not a delayed triggered ability.
+    NextUntap,
     /// As the resolution that made it finishes — before anything else
     /// happens, not at a step. Cascade's cast is made "while the ability is
     /// resolving" (CR 702.85a), which a resolution that cannot start a cast
@@ -290,6 +293,22 @@ pub enum DelayedWhen {
 /// What a delayed trigger does.
 #[derive(Clone, Hash, Debug)]
 pub enum DelayedAction {
+    /// One delayed return for an entire group exiled by one instruction.
+    ReturnExiledGroup {
+        /// Original source of the creating spell or ability.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Exact exile incarnations, independent of subsequent zone moves.
+        objects: Vec<baylee_core::ids::DamageSourceRef>,
+        /// Whether the cards return tapped.
+        tapped: bool,
+    },
+    /// Return this exact permanent during the activator's next untap step.
+    ReturnToHandDuringUntap {
+        /// The permanent.
+        card: ObjectId,
+        /// Its battlefield incarnation when the instruction was created.
+        version: u32,
+    },
     /// Repeated cleanup tied to the incarnation that originally marked lands.
     LinkedCounterCleanup {
         /// Source object.

@@ -1209,6 +1209,11 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for trigger in &self.trigger_queue {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(
+                    &trigger.related_objects,
+                ));
             extra = extra.wrapping_mul(31).wrapping_add(
                 trigger
                     .abilities

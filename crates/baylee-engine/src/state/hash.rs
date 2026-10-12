@@ -1446,6 +1446,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     h.usize(riders.len());
     for rider in riders {
         match rider {
+            Rider::DelayedReturnObject(reference) => {
+                h.u8(73);
+                reference.hash(h);
+            }
             Rider::Linked { host, until } => {
                 h.u8(1);
                 host.hash(h);

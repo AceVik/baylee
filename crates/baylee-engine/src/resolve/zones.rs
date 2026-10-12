@@ -801,24 +801,16 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             );
             None
         }
-        Effect::ExileAndReturnAtEndStep => {
-            for &target in &res.targets {
-                let owner = state.object(target).map_or(you, |o| o.owner);
-                let _ = state.move_object(
-                    target,
-                    ZoneLocation::Exile(owner),
-                    ZonePosition::Top,
-                    crate::event::Cause::Effect,
-                );
-                state.delayed.push(crate::state::DelayedTrigger {
-                    controller: you,
-                    when: crate::state::DelayedWhen::NextEndStep,
-                    action: crate::state::DelayedAction::ReturnToBattlefield {
-                        card: target,
-                        version: state.object(target).map_or(0, |o| o.version),
-                    },
-                });
-            }
+        Effect::ExileAndReturnAtEndStep | Effect::ExileAndReturnTappedAtEndStep => {
+            super::delayed_returns::exile_until_end(
+                state,
+                res,
+                matches!(op, Effect::ExileAndReturnTappedAtEndStep),
+            );
+            None
+        }
+        Effect::ReturnExiledGroupToOwners { tapped } => {
+            super::delayed_returns::return_exiled(state, res, tapped);
             None
         }
         Effect::ExileLibraryAndShuffleHand { player } => {

@@ -40,6 +40,7 @@ fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect])
         Effect::Reflexive { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
         | Effect::AtNextEndStep { .. }
+        | Effect::AtNextCleanup { .. }
         | Effect::WhenTargetDiesThisTurn { .. }
         | Effect::AtEndOfCombat { .. } => (&[], &[]),
         _ => effect.branches(),

@@ -115,6 +115,7 @@ pub(super) fn collect(
                 triggers.push(PendingTrigger {
                     text: TextChangeMap::IDENTITY,
                     source_version: Some(source.version),
+                    related_objects: None,
                     event_object_identity: Some((
                         source.version.wrapping_add(1),
                         source.characteristics().power.unwrap_or(0),

@@ -785,6 +785,8 @@ impl Status {
 /// Typed payload attached to cards in exile (or similar) by effects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Rider {
+    /// One exact exiled incarnation remembered by a delayed return on the stack.
+    DelayedReturnObject(baylee_core::ids::DamageSourceRef),
     /// Face-down cast whose resolved permanent turns face up before tap/damage.
     Masked,
     /// Incarnation of the graveyard card whose printed ability triggered.
@@ -1001,7 +1003,8 @@ impl Rider {
             | Self::Foretold
             | Self::Plotted => true,
             // About the stack or the battlefield, not exile.
-            Self::GrantedActivated
+            Self::DelayedReturnObject(_)
+            | Self::GrantedActivated
             | Self::ExhaustedAbility(_)
             | Self::EntrySacrifices(_)
             | Self::ChosenNumber { .. }

@@ -1040,6 +1040,23 @@ pub enum Effect {
     /// Exile each target; return it to the battlefield under its owner's
     /// control at the beginning of the next end step (Venser +2).
     ExileAndReturnAtEndStep,
+    /// Exile each target, then return that exact exiled card tapped under
+    /// its owner's control through a delayed next-end-step stack trigger.
+    ExileAndReturnTappedAtEndStep,
+    /// Return a delayed trigger's exact exiled group under each owner's control.
+    ReturnExiledGroupToOwners {
+        /// Whether it enters tapped.
+        tapped: bool,
+    },
+    /// Return this exact permanent to its owner's hand as its activator
+    /// untaps during their next actual untap step; does not use the stack.
+    ReturnSelfDuringNextUntap,
+    /// Create a stack trigger at the next cleanup step, whoever's turn it is.
+    /// With no targets, `EventObject` retains this source's incarnation.
+    AtNextCleanup {
+        /// Instructions of the delayed triggered ability.
+        effects: &'static [Effect],
+    },
     /// "[Effects] at the beginning of the next end step": a delayed
     /// triggered ability (CR 603.7) created as this resolves, with this
     /// ability's source and controller (CR 603.7d, 603.7e). It triggers

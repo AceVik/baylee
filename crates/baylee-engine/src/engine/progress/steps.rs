@@ -408,6 +408,7 @@ impl<L: CardLookup> Engine<L> {
             self.state.phase_in(id);
         }
         self.check_day_night();
+        self.return_during_untap();
         // CR 502.3, the third turn-based action: "the active player
         // determines which permanents they control will untap. Then they
         // untap them all simultaneously."
@@ -645,6 +646,7 @@ impl<L: CardLookup> Engine<L> {
     /// Returns `true` when the discard is a question. Its answer
     /// (`Engine::apply`) performs the discard and then 514.2 itself.
     pub(crate) fn cleanup_step(&mut self) -> bool {
+        self.queue_delayed_at(crate::state::DelayedWhen::NextCleanup);
         let active = self.state.turn.active;
         let hand_size = self.state.zones.list(ZoneLocation::Hand(active)).len();
         if let Some(max_hand) = self.state.maximum_hand_size(active)

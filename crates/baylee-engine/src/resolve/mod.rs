@@ -31,6 +31,7 @@ mod copying;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod counters;
+mod delayed_returns;
 mod equalize;
 mod graveyard_choice;
 mod landwalk;

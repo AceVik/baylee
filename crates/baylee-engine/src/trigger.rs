@@ -48,6 +48,9 @@ pub struct PendingTrigger {
     pub counter_source_version: Option<u32>,
     /// Event object incarnation and power, retained for damage it deals later.
     pub event_object_identity: Option<(u32, i16)>,
+    /// Immutable exact-object group for one delayed trigger. Shared on
+    /// checkpoints; ordinary triggers allocate nothing and carry one pointer.
+    pub related_objects: Option<std::sync::Arc<Vec<baylee_core::ids::DamageSourceRef>>>,
     /// Source incarnation at the triggering event, including battlefield LKI.
     pub source_version: Option<u32>,
     /// Index into the source card's abilities.
@@ -332,6 +335,7 @@ fn collect_emblems(
                             triggers.push(PendingTrigger {
                                 text: TextChangeMap::IDENTITY,
                                 source_version: Some(obj.version),
+                                related_objects: None,
                                 event_object_identity: event_object
                                     .and_then(|id| state.event_object_identity(id, entry.seq)),
                                 counter_source_version: None,
@@ -435,6 +439,7 @@ fn graveyard_triggers(
                         source,
                         text: TextChangeMap::IDENTITY,
                         source_version: Some(object.version),
+                        related_objects: None,
                         event_object_identity: event_object_for(
                             firing.trigger,
                             &entry.event,
@@ -556,6 +561,7 @@ pub fn state_triggers(
             triggers.push(PendingTrigger {
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(obj.version),
+                related_objects: None,
                 event_object_identity: None,
                 counter_source_version: None,
                 event_mana: None,
@@ -641,6 +647,7 @@ fn cast_copy_triggers(
             collected.push(PendingTrigger {
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(spell.version),
+                related_objects: None,
                 event_object_identity: None,
                 counter_source_version: None,
                 event_amount: Some(copies),
@@ -782,6 +789,7 @@ fn watch_triggers(
             text,
             source_version: Some(source_version),
             event_object_identity,
+            related_objects: None,
             counter_source_version: None,
             event_amount: None,
             event_player: None,
@@ -984,6 +992,7 @@ fn monarch_triggers(
     let inherent = |effects, event_object| PendingTrigger {
         text: TextChangeMap::IDENTITY,
         source_version: None,
+        related_objects: None,
         event_object_identity: None,
         counter_source_version: None,
         event_mana: None,
@@ -1300,6 +1309,7 @@ fn cast_this_spell_triggers(
             triggers.push(PendingTrigger {
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(spell.version),
+                related_objects: None,
                 event_object_identity: None,
                 counter_source_version: None,
                 event_mana: None,
@@ -1653,6 +1663,7 @@ fn collect_for_objects(
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
+                            related_objects: None,
                             event_object_identity: None,
                             counter_source_version: None,
                             event_mana: None,
@@ -1734,6 +1745,7 @@ fn collect_for_objects(
                         triggers.push(PendingTrigger {
                             text,
                             source_version: Some(source.version),
+                            related_objects: None,
                             event_object_identity: event_object
                                 .and_then(|id| state.event_object_identity(id, entry.seq)),
                             counter_source_version: None,
@@ -1790,6 +1802,7 @@ fn collect_for_objects(
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
+                            related_objects: None,
                             event_object_identity: None,
                             counter_source_version: None,
                             event_mana: None,
@@ -1893,6 +1906,7 @@ fn collect_for_objects(
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
+                            related_objects: None,
                             event_object_identity: event_object
                                 .and_then(|id| state.event_object_identity(id, entry.seq)),
                             counter_source_version: crate::resolve::linked_counters::uses_links(

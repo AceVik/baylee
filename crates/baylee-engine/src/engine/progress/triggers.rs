@@ -145,6 +145,14 @@ impl<L: CardLookup> Engine<L> {
         let aura_successor = self.aura_successor(trigger);
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            if let Some(related) = &trigger.related_objects {
+                object.riders.extend(
+                    related
+                        .iter()
+                        .copied()
+                        .map(crate::object::Rider::DelayedReturnObject),
+                );
+            }
             if let Some((version, power)) = identity {
                 object
                     .riders

@@ -267,6 +267,8 @@ pub(super) fn exec_immediate(
         | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::ExileSource
         | Effect::ExileAndReturnAtEndStep
+        | Effect::ExileAndReturnTappedAtEndStep
+        | Effect::ReturnExiledGroupToOwners { .. }
         | Effect::ExileLibraryAndShuffleHand { .. }
         | Effect::Mill { .. }
         | Effect::Destroy { .. }
@@ -647,7 +649,11 @@ pub(super) fn exec_immediate(
             });
             None
         }
-        Effect::AtNextEndStep { effects } => {
+        Effect::ReturnSelfDuringNextUntap => {
+            super::delayed_returns::schedule_untap(state, res);
+            None
+        }
+        Effect::AtNextEndStep { effects } | Effect::AtNextCleanup { effects } => {
             let about_ref = subjects::this(state, res);
             let action = match about_ref.map(|r| (r.object, r.version)) {
                 Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
@@ -671,7 +677,11 @@ pub(super) fn exec_immediate(
             };
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: you,
-                when: crate::state::DelayedWhen::NextEndStep,
+                when: if matches!(op, Effect::AtNextCleanup { .. }) {
+                    crate::state::DelayedWhen::NextCleanup
+                } else {
+                    crate::state::DelayedWhen::NextEndStep
+                },
                 action,
             });
             None
