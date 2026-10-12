@@ -122,7 +122,7 @@ Gateway Baylee Sanctuary.
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/readme/table-ring.webp" alt="Ein Tisch mit vier Plätzen"><br><sub><b>Vier Plätze.</b> Größere Tische sitzen im Kreis um den Filz.</sub></td>
-    <td width="50%"><img src="docs/images/readme/report.webp" alt="Meldeformular mit freiwilligen Kästchen"><br><sub><b>Einen Fehler melden</b> (<kbd>F8</kbd>). Jede zusätzliche Angabe hat ein eigenes Kästchen, und alle sind anfangs leer.</sub></td>
+    <td width="50%"><img src="docs/images/readme/report.webp" alt="Meldeformular mit einem Kästchen je Anhang"><br><sub><b>Einen Fehler melden</b> (<kbd>F8</kbd>). Jede zusätzliche Angabe hat ein eigenes Kästchen; alle sind anfangs angehakt, und du nimmst das Häkchen weg, wo du etwas lieber behältst.</sub></td>
   </tr>
 </table>
 
@@ -415,16 +415,19 @@ für Kampf und Fähigkeitenblatt, steht in
 Drück <kbd>F8</kbd> am Tisch oder in der Lobby, oder nimm den Melde-Knopf im
 Menü. Die Meldung geht an das Gateway, an dem du angemeldet bist. Sie enthält
 immer die Art der Meldung, deinen Text, die Client-Version und, am Tisch, die
-Kennung der Partie. Das Gateway legt seine eigene Aufzeichnung dieser Partie
-bei; darin sind die Plätze nummeriert, und kein Spieler wird genannt.
+Kennung der Partie.
 
-Alles Weitere ist **freiwillig, mit je einem eigenen Kästchen**, und jedes
-Kästchen ist anfangs leer: System und Hardware, der Tisch aus deiner Sicht,
-dein Spielprotokoll (mit den Mitspielern als „Player A“, „Player B“, …),
-deine Einstellungen und ein Bildschirmfoto. Sitzungsschlüssel werden nie
+Alles Weitere hat **je ein eigenes Kästchen**, und jedes ist anfangs
+angehakt: Nimm vor dem Senden das Häkchen weg, wo du etwas lieber behältst.
+Die Kästchen sind System und Hardware, der Tisch aus deiner Sicht, dein
+Spielprotokoll (mit den Mitspielern als „Player A“, „Player B“, …), deine
+Einstellungen, ein Bild nur des Baylee-Fensters und am Tisch die ganze
+Aufzeichnung der Partie (jeder Zug und die Karten jedes Platzes, keine
+Namen). „Zeigen, was gesendet wird“ zeigt jedes Byte. Sitzungsschlüssel werden nie
 gesendet. Nach einem Absturz fragt der nächste Start einmal, ob
 Absturzberichte gesendet werden dürfen. Bist du an keinem Gateway angemeldet,
-wird nichts gesendet.
+geht die Meldung direkt an den Feedback-Dienst, den der Build nennt; nennt er
+keinen, wird nichts gesendet.
 
 Was Client, Gateway und Meldedienst speichern, steht vollständig in
 [docs/privacy.md](docs/privacy.md).
