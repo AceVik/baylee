@@ -1628,6 +1628,27 @@ mod tests {
         ));
     }
 
+    /// The console's page sends `Date.toISOString()`, fractional seconds
+    /// included; an offset is RFC 3339 too.
+    #[test]
+    fn a_block_ends_at_any_rfc_3339_moment_ahead() {
+        let now = OffsetDateTime::from_unix_timestamp(1_800_000_000).expect("a moment");
+        for until in [
+            "2027-01-20T18:00:00.000Z",
+            "2027-01-20T18:00:00Z",
+            "2027-01-20T20:00:00+02:00",
+        ] {
+            let at = block_until(Some(until), now)
+                .unwrap_or_else(|_| panic!("{until} is refused"))
+                .expect("an end");
+            assert_eq!(iso(at), "2027-01-20T18:00:00Z", "{until}");
+        }
+        assert!(matches!(block_until(None, now), Ok(None)));
+        assert!(matches!(block_until(Some(" "), now), Ok(None)));
+        assert!(block_until(Some("2027-01-15T07:59:59Z"), now).is_err());
+        assert!(block_until(Some("2027-01-20 18:00"), now).is_err());
+    }
+
     #[test]
     fn an_actor_is_a_plain_name() {
         assert!(valid_actor("viktor"));
