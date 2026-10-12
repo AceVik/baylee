@@ -258,9 +258,12 @@ impl Composer {
     /// an IME types for the client).
     pub fn typed(&mut self, text: &str) {
         let room = COMPOSE_LIMIT.saturating_sub(self.chars());
+        // Hidden characters (bidi controls, zero-width, BOM) are dropped as
+        // a paste drops them: a receiver would clean them out and lose the
+        // message's links with them.
         let clean: String = text
             .chars()
-            .filter(|c| !c.is_control())
+            .filter(|c| !c.is_control() && !super::text::is_hidden(*c))
             .take(room)
             .collect();
         if clean.is_empty() {

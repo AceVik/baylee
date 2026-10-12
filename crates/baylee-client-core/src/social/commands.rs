@@ -346,8 +346,9 @@ fn say(to: Target, text: &str) -> Command {
 
 /// Splits a name off the front of `args`: a handle with a space in its
 /// display name (`Bob Smith#0012`) runs to its first word that has a `#`
-/// tag in it, if one is among the first four; else the name is the first
-/// word. Returns the name and the rest, trimmed.
+/// tag in it, if one is among the first four (a word that *starts* with
+/// `#` counts only as the first); else the name is the first word. Returns
+/// the name and the rest, trimmed.
 #[must_use]
 pub fn split_name(args: &str) -> (String, String) {
     let args = args.trim();
@@ -355,7 +356,13 @@ pub fn split_name(args: &str) -> (String, String) {
         return (String::new(), String::new());
     }
     let words: Vec<&str> = args.split_whitespace().collect();
-    let tagged = words.iter().take(4).position(|w| has_tag(w));
+    // A bare `#tag` names a player only as the first word: later, `#1234`
+    // is an issue number or a hex word in the message (`/w Bob see #1234`).
+    let tagged = words
+        .iter()
+        .take(4)
+        .enumerate()
+        .position(|(i, w)| has_tag(w) && (i == 0 || !w.starts_with('#')));
     let take = tagged.map_or(1, |i| i + 1);
     let mut rest = args;
     for _ in 0..take {

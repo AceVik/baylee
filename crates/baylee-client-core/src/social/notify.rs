@@ -52,7 +52,7 @@ pub struct Notify {
 
 /// What a line of `kind` does. An ignored sender's line does nothing (it is
 /// hidden); a muted conversation counts only dimly (no badge, toast or
-/// sound); do not disturb leaves only the badge; a conversation the player
+/// sound); do not disturb leaves only the badge (no peek either); a conversation the player
 /// is reading does nothing at all.
 #[must_use]
 pub fn on_line(
@@ -73,9 +73,9 @@ pub fn on_line(
     }
     let peek = ctx.at_table;
     if ctx.dnd {
+        // Do not disturb: badges only (§10.6), not even a peek line.
         return Notify {
             badge: true,
-            peek,
             ..Notify::default()
         };
     }
