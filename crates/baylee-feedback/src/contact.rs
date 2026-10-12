@@ -645,3 +645,237 @@ async fn remove(
     tracing::info!(contact = %id, admin = signed_in.name, "a contact message was deleted");
     Ok(StatusCode::NO_CONTENT)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A message with nothing else filled in, for the cases that vary one field.
+    fn ok_with(
+        name: Option<&str>,
+        email: Option<&str>,
+        message: &str,
+        language: &str,
+    ) -> Result<Checked, Malformed> {
+        check(name, email, message, language)
+    }
+
+    /// A page's origin is `https://host[:port]`, lowercased, or `http://`
+    /// for a loopback host only.
+    #[test]
+    fn an_origin_is_https_or_loopback_http_and_comes_back_lowercased() {
+        for (entry, want) in [
+            ("https://baylee.acevik.de", "https://baylee.acevik.de"),
+            ("https://Example.org:8443", "https://example.org:8443"),
+            ("http://localhost:8000", "http://localhost:8000"),
+            ("http://127.0.0.1:8000", "http://127.0.0.1:8000"),
+            ("http://[::1]:8000", "http://[::1]:8000"),
+        ] {
+            assert_eq!(origin(entry).as_deref(), Some(want), "{entry}");
+        }
+    }
+
+    /// Plain http to a public host, a path, a query, credentials, another
+    /// scheme, an empty or broken authority and whitespace are no origin.
+    #[test]
+    fn an_origin_with_a_path_credentials_or_plain_http_to_the_world_is_refused() {
+        for entry in [
+            "http://baylee.acevik.de",
+            "https://x/",
+            "https://x/path",
+            "https://x?q",
+            "https://user@x",
+            "ftp://x",
+            "https://",
+            "https://x:",
+            "https://x:123456",
+            "https://a b",
+            " https://x",
+            "",
+            "baylee.acevik.de",
+        ] {
+            assert_eq!(origin(entry), None, "`{entry}`");
+        }
+    }
+
+    /// Blank name and e-mail are no answer, and the message loses its
+    /// outer whitespace.
+    #[test]
+    fn blank_optional_fields_are_none_and_the_message_is_trimmed() {
+        let checked = ok_with(Some("  "), Some(""), "  hello \n", "en").unwrap();
+        assert_eq!(
+            checked,
+            Checked {
+                name: None,
+                email: None,
+                message: "hello".to_owned(),
+                language: "en".to_owned(),
+            }
+        );
+        let checked = ok_with(Some(" Max "), Some(" max@example.org "), "hi", "de").unwrap();
+        assert_eq!(checked.name.as_deref(), Some("Max"));
+        assert_eq!(checked.email.as_deref(), Some("max@example.org"));
+        assert_eq!(checked.language, "de");
+    }
+
+    /// No message, or only whitespace, is said to be empty.
+    #[test]
+    fn an_empty_or_whitespace_message_is_empty() {
+        for message in ["", "   ", "\n\t \r\n"] {
+            assert_eq!(
+                ok_with(None, None, message, "en"),
+                Err(Malformed::Empty),
+                "{message:?}"
+            );
+        }
+    }
+
+    /// The message bound counts characters, not bytes, and is inclusive.
+    #[test]
+    fn a_message_of_the_longest_length_is_taken_and_one_more_is_too_long() {
+        assert!(ok_with(None, None, &"a".repeat(MAX_MESSAGE_CHARS), "en").is_ok());
+        assert!(ok_with(None, None, &"ä".repeat(MAX_MESSAGE_CHARS), "en").is_ok());
+        assert_eq!(
+            ok_with(None, None, &"a".repeat(MAX_MESSAGE_CHARS + 1), "en"),
+            Err(Malformed::TooLong)
+        );
+        assert_eq!(
+            ok_with(None, None, &"ä".repeat(MAX_MESSAGE_CHARS + 1), "en"),
+            Err(Malformed::TooLong)
+        );
+    }
+
+    /// A name and an address have bounds of their own.
+    #[test]
+    fn a_name_or_an_address_over_its_bound_is_too_long() {
+        assert!(ok_with(Some(&"n".repeat(MAX_NAME_CHARS)), None, "hi", "en").is_ok());
+        assert_eq!(
+            ok_with(Some(&"n".repeat(MAX_NAME_CHARS + 1)), None, "hi", "en"),
+            Err(Malformed::TooLong)
+        );
+        let address = |len: usize| format!("{}@x.de", "a".repeat(len - "@x.de".len()));
+        assert!(ok_with(None, Some(&address(MAX_EMAIL_CHARS)), "hi", "en").is_ok());
+        assert_eq!(
+            ok_with(None, Some(&address(MAX_EMAIL_CHARS + 1)), "hi", "en"),
+            Err(Malformed::TooLong)
+        );
+    }
+
+    /// What a reply could go to: one `@`, something before it, a dot in
+    /// the domain, no whitespace.
+    #[test]
+    fn an_email_without_an_at_a_second_at_a_domain_dot_or_with_whitespace_is_malformed() {
+        for email in [
+            "max.example.org",
+            "a@b@example.org",
+            "max@example",
+            "max@.org",
+            "max@example.",
+            "@example.org",
+            "ma x@example.org",
+            "max@exa mple.org",
+        ] {
+            assert_eq!(
+                ok_with(None, Some(email), "hi", "en"),
+                Err(Malformed::Malformed),
+                "{email:?}"
+            );
+        }
+        assert!(ok_with(None, Some("max@example.org"), "hi", "en").is_ok());
+    }
+
+    /// The page is written in English and German only.
+    #[test]
+    fn a_language_other_than_english_or_german_is_malformed() {
+        for language in ["en", "de"] {
+            assert!(ok_with(None, None, "hi", language).is_ok(), "{language}");
+        }
+        for language in ["fr", "EN", "", "en ", "english"] {
+            assert_eq!(
+                ok_with(None, None, "hi", language),
+                Err(Malformed::Malformed),
+                "{language:?}"
+            );
+        }
+    }
+
+    /// A message keeps its line breaks and tabs; any other control
+    /// character is refused, and a name takes none at all.
+    #[test]
+    fn control_characters_are_refused_but_line_breaks_and_tabs_belong_in_a_message() {
+        let checked = ok_with(None, None, "one\ntwo\tthree\r\nfour", "en").unwrap();
+        assert_eq!(checked.message, "one\ntwo\tthree\r\nfour");
+        for message in ["a\u{0}b", "a\u{7}b", "a\u{1b}[31mb", "a\u{7f}b"] {
+            assert_eq!(
+                ok_with(None, None, message, "en"),
+                Err(Malformed::Malformed),
+                "{message:?}"
+            );
+        }
+        for name in ["Ma\u{0}x", "Ma\nx", "Ma\tx"] {
+            assert_eq!(
+                ok_with(Some(name), None, "hi", "en"),
+                Err(Malformed::Malformed),
+                "{name:?}"
+            );
+        }
+    }
+
+    /// An entry that is no origin refuses the whole setting, and the error
+    /// names it.
+    #[test]
+    fn a_bad_contact_origin_entry_refuses_the_configuration() {
+        let config = || crate::Config::new("", None, None).unwrap();
+        for list in [
+            "https://site.example/",
+            "https://site.example, http://site.example",
+            "https://site.example,ftp://x",
+            "site.example",
+        ] {
+            let error = config().with_contact_origins(list).err().expect(list);
+            assert!(
+                error.to_string().contains("FEEDBACK_CONTACT_ORIGINS"),
+                "{list}"
+            );
+        }
+    }
+
+    /// A comma list of origins is taken; blanks and repeats are dropped, and
+    /// a request's `Origin` matches without regard to case.
+    #[test]
+    fn contact_origins_match_case_insensitively_and_nothing_else_does() {
+        let config = crate::Config::new("", None, None)
+            .unwrap()
+            .with_contact_origins(
+                " https://Site.example , http://localhost:8000,,https://site.example ",
+            )
+            .unwrap();
+        assert!(config.takes_contact());
+        assert!(config.contact_origin("https://site.example"));
+        assert!(config.contact_origin("HTTPS://SITE.EXAMPLE"));
+        assert!(config.contact_origin("http://localhost:8000"));
+        for other in [
+            "https://evil.example",
+            "https://site.example.evil.example",
+            "http://site.example",
+            "https://site.example:8443",
+            "https://site.example/",
+            "null",
+            "",
+        ] {
+            assert!(!config.contact_origin(other), "{other}");
+        }
+    }
+
+    /// Without origins the route is off, and an empty list leaves it off.
+    #[test]
+    fn contact_is_off_without_origins() {
+        let config = crate::Config::new("", None, None).unwrap();
+        assert!(!config.takes_contact());
+        assert!(!config.contact_origin("https://site.example"));
+        let config = config.with_contact_origins("").unwrap();
+        assert!(!config.takes_contact());
+        let config = config.with_contact_origins(" , ").unwrap();
+        assert!(!config.takes_contact());
+    }
+}
