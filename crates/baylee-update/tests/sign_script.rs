@@ -33,7 +33,7 @@ fn scratch(tag: &str) -> PathBuf {
     dir
 }
 
-/// What `actions/download-artifact` leaves in `out/`: five archives, each
+/// What `actions/download-artifact` leaves in `out/`: six archives, each
 /// with its `.sha256`.
 fn release_dir(tag: &str) -> (PathBuf, Vec<PathBuf>) {
     let dir = scratch(tag);
@@ -44,6 +44,7 @@ fn release_dir(tag: &str) -> (PathBuf, Vec<PathBuf>) {
         "x86_64-pc-windows-msvc.zip",
         "aarch64-pc-windows-msvc.zip",
         "aarch64-apple-darwin.zip",
+        "x86_64-apple-darwin.zip",
     ] {
         let archive = dir.join(format!("baylee-client-0.1.0-beta.3-{target}"));
         std::fs::write(&archive, format!("archive for {target}")).unwrap();
