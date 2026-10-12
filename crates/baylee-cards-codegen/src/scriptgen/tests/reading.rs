@@ -1153,3 +1153,59 @@ fn entry_history_accepts_the_four_published_subtypes_without_a_creature_gate() {
     }
     assert!(!body.abilities[0].contains("Filter::CREATURE"));
 }
+
+#[test]
+fn landwalk_removal_and_keyword_prohibition_keep_their_different_meanings() {
+    let walk = "A:AB$ Debuff | Cost$ T | ValidTgts$ Creature | AllSuffixKeywords$ walk";
+    assert!(
+        read(walk).abilities[0]
+            .contains("Effect::ModifyTargets { modifier: Modifier::LoseAllLandwalk")
+    );
+    for (a, b) in [
+        ("walk", "proof"),
+        ("ValidTgts$ Creature", "ValidTgts$ Artifact"),
+        (
+            "AllSuffixKeywords$ walk",
+            "AllSuffixKeywords$ walk | Duration$ Permanent",
+        ),
+    ] {
+        assert!(refused(&walk.replace(a, b)));
+    }
+    let light = "A:AB$ AnimateAll | Cost$ 1 T | ValidCards$ Creature.OppCtrl | RemoveKeywords$ Hexproof & Shroud | CantHaveKeyword$ Hexproof & Shroud";
+    assert!(read(light).abilities[0].contains("Modifier::CantHaveKeywords"));
+    for (a, b) in [
+        ("Creature.OppCtrl", "Creature.YouCtrl"),
+        (
+            "CantHaveKeyword$ Hexproof & Shroud",
+            "CantHaveKeyword$ Shroud",
+        ),
+        (
+            "RemoveKeywords$ Hexproof & Shroud",
+            "RemoveKeywords$ Hexproof",
+        ),
+        (
+            "CantHaveKeyword$ Hexproof & Shroud",
+            "CantHaveKeyword$ Hexproof & Shroud | SetPower$ 4",
+        ),
+    ] {
+        assert!(refused(&light.replace(a, b)));
+    }
+}
+
+#[test]
+fn chosen_source_all_damage_shield_is_repeatable_and_not_recipient_limited() {
+    let script = "A:AB$ ChooseSource | Cost$ 4 W U T | Choices$ Card,Emblem | SubAbility$ Shield\nSVar:Shield:DB$ Effect | ReplacementEffects$ Prevent | ConditionDefined$ ChosenCard | ConditionPresent$ Card,Emblem | SubAbility$ Clean\nSVar:Prevent:Event$ DamageDone | ValidSource$ Card.ChosenCardStrict,Emblem.ChosenCard | Prevent$ True\nSVar:Clean:DB$ Cleanup | ClearChosenCard$ True";
+    assert!(read(script).abilities[0].contains("Effect::ChooseDamageSourcePreventAll"));
+    for (a, b) in [
+        ("Prevent$ True", "Prevent$ False"),
+        ("Prevent$ True", "Prevent$ True | ValidTarget$ You"),
+        ("Prevent$ True", "Prevent$ True | CombatDamage$ True"),
+        (
+            "Card.ChosenCardStrict,Emblem.ChosenCard",
+            "Card.ChosenCardStrict",
+        ),
+        ("ClearChosenCard$ True", "ClearChosenCard$ False"),
+    ] {
+        assert!(refused(&script.replace(a, b)));
+    }
+}

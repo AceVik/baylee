@@ -33,6 +33,13 @@ impl DamageWork {
                         }
                     }
                     ShieldKind::AllCombat if part.view.is_combat => Kind::PreventCombat,
+                    ShieldKind::AllFrom { source }
+                        if state
+                            .damage_source(part.view.source, part.source_version)
+                            .is_some_and(|actual| source.deals_as(state, actual)) =>
+                    {
+                        Kind::PreventAll
+                    }
                     ShieldKind::NextFrom {
                         source,
                         all_but,

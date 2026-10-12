@@ -120,12 +120,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // The source is chosen as this resolves (CR 609.7a), and the choice
         // is an instruction, so `min: 1`; with no source to choose there is
         // no shield and no question (CR 609.3).
-        Effect::PreventNextFromChosenSource {
-            sources,
-            combat_only,
-            all_but,
-            gain_life,
-        } => {
+        Effect::ChooseDamageSourcePreventAllThisTurn
+        | Effect::PreventNextFromChosenSource { .. } => {
+            let (sources, combat_only, all_but, gain_life, all_recipients) = match op {
+                Effect::PreventNextFromChosenSource {
+                    sources,
+                    combat_only,
+                    all_but,
+                    gain_life,
+                } => (sources, combat_only, all_but, gain_life, false),
+                _ => (&Filter::Any, false, 0, false, true),
+            };
             let options = crate::prevention::source_options_with_context(
                 state,
                 sources,
@@ -136,6 +141,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 return None;
             }
             res.awaiting = Some(AwaitingOp::ShieldFromChosenSource {
+                all_recipients,
                 sources,
                 combat_only,
                 all_but,

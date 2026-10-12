@@ -109,6 +109,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AddKeyword(_)
         | Modifier::RemoveKeyword(_)
         | Modifier::LoseKeywords
+        | Modifier::LoseAllLandwalk
+        | Modifier::CantHaveKeywords(_)
         | Modifier::LoseAllAbilities
         | Modifier::ProtectionFrom(_)
         | Modifier::BecomeCopyOf(_)
@@ -1093,6 +1095,8 @@ mod tests {
             Modifier::AddKeyword(KeywordSet::FLYING),
             Modifier::RemoveKeyword(KeywordSet::FLYING),
             Modifier::LoseKeywords,
+            Modifier::LoseAllLandwalk,
+            Modifier::CantHaveKeywords(KeywordSet::HEXPROOF),
             Modifier::LoseAllAbilities,
             Modifier::AddKeywordIfCountersAtLeast {
                 kind: CounterKind::Charge,
@@ -1291,7 +1295,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            117,
+            119,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1355,7 +1359,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (41, 76));
+        assert_eq!((locking, all.len() - locking), (43, 76));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

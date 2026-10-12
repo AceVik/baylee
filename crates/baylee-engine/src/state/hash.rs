@@ -615,6 +615,10 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
                 h.u8(to.get());
             }
             crate::prevention::ShieldKind::AllCombat => h.u8(1),
+            crate::prevention::ShieldKind::AllFrom { source } => {
+                h.u8(5);
+                hash_chosen_source(h, state, &source, position);
+            }
             crate::prevention::ShieldKind::NextFrom {
                 source,
                 all_but,

@@ -776,6 +776,7 @@ impl Effect {
             | Effect::LoseHalfLife { .. }
             | Effect::PreventNextDamage { .. }
             | Effect::PreventAllCombatDamageThisTurn
+            | Effect::ChooseDamageSourcePreventAllThisTurn
             | Effect::PreventNextFromChosenSource { .. }
             | Effect::RedirectNextFromChosenSource { .. }
             | Effect::WishToHand { .. }

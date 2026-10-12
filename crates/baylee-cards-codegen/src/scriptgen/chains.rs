@@ -664,6 +664,20 @@ impl Tx<'_> {
             "Token" => self.token_effect(p, targets_a_player)?,
             "Investigate" => self.investigate_effect(p, targets_a_player)?,
             "Animate" => self.animate_effect(p, target)?,
+            "Debuff"
+                if target == Some("TargetSpec::Object(&Filter::CREATURE)")
+                    && p.take("AllSuffixKeywords").as_deref() == Some("walk") =>
+            {
+                vec!["Effect::ModifyTargets { modifier: Modifier::LoseAllLandwalk, duration: Duration::UntilEndOfTurn }".to_string()]
+            }
+            "AnimateAll"
+                if target.is_none()
+                    && p.take("ValidCards").as_deref() == Some("Creature.OppCtrl")
+                    && p.take("RemoveKeywords").as_deref() == Some("Hexproof & Shroud")
+                    && p.take("CantHaveKeyword").as_deref() == Some("Hexproof & Shroud") =>
+            {
+                vec!["Effect::continuous(&Filter::OPPONENT_CREATURE, Modifier::CantHaveKeywords(KeywordSet::HEXPROOF.union(KeywordSet::SHROUD)), Duration::UntilEndOfTurn)".to_string()]
+            }
             "Pump" => self.pump_effect(p, aimed)?,
             "Effect" => self.static_effect(p, target)?,
             "ChangeZone" => self.change_zone(p, target)?,

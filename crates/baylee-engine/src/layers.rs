@@ -245,6 +245,7 @@ fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> P
     // state: the next refresh starts from the copiable values again.
     let mut animations: SmallVec<[u32; 4]> = SmallVec::new();
     let all = state.effects.as_slice();
+    let mut prohibited = KeywordSet::EMPTY;
     for layer in LAYERS {
         if layer == Layer::Text {
             // Text changes affect the type line and printed/copied keywords
@@ -281,6 +282,7 @@ fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> P
                 applies(state, fx, obj, &c) && (!animation || !c.types.contains(TypeSet::CREATURE))
             };
             if applies_now {
+                prohibited = prohibited.union(prohibited_keywords(&fx.modifier));
                 if animation && layer == Layer::Type {
                     animations.push(idx);
                 }
@@ -295,6 +297,8 @@ fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> P
                     &mut read_board,
                     layer,
                 );
+                // A prohibited grant must not be visible to later filters either.
+                c.keywords = c.keywords.difference(prohibited);
             }
         }
         // CR 604.3: a characteristic-defining P/T works in every zone. On
@@ -768,6 +772,8 @@ fn could_change_keywords(modifier: &Modifier) -> bool {
         Modifier::AddKeyword(_)
             | Modifier::RemoveKeyword(_)
             | Modifier::LoseKeywords
+            | Modifier::LoseAllLandwalk
+            | Modifier::CantHaveKeywords(_)
             | Modifier::LoseAllAbilities
             | Modifier::SetLandType(_)
             | Modifier::SetLandTypeToChosen
@@ -1321,6 +1327,11 @@ fn apply(
         Modifier::AddKeyword(k) => c.keywords = c.keywords.union(*k),
         Modifier::RemoveKeyword(k) => c.keywords = c.keywords.difference(*k),
         Modifier::LoseKeywords => c.keywords = KeywordSet::EMPTY,
+        Modifier::CantHaveKeywords(bits) => c.keywords = c.keywords.difference(*bits),
+        Modifier::LoseAllLandwalk => c.keywords = c.keywords.difference(
+            KeywordSet::PLAINSWALK.union(KeywordSet::ISLANDWALK)
+                .union(KeywordSet::SWAMPWALK).union(KeywordSet::MOUNTAINWALK)
+                .union(KeywordSet::FORESTWALK)),
         Modifier::LoseAllAbilities => {
             c.keywords = KeywordSet::EMPTY;
             c.abilities_lost = Some(Characteristics::lost_at(fx.timestamp));
@@ -1478,6 +1489,13 @@ fn apply(
                 c.toughness = Some(p);
             }
         }
+    }
+}
+
+fn prohibited_keywords(modifier: &Modifier) -> KeywordSet {
+    match modifier {
+        Modifier::CantHaveKeywords(bits) => *bits,
+        _ => KeywordSet::EMPTY,
     }
 }
 

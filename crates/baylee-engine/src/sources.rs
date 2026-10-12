@@ -700,7 +700,8 @@ impl GameState {
             if let Shielded::Object(object, version) = shield.protects {
                 out.insert(DamageSourceRef { object, version });
             }
-            if let ShieldKind::NextFrom { source, .. }
+            if let ShieldKind::AllFrom { source }
+            | ShieldKind::NextFrom { source, .. }
             | ShieldKind::RedirectNextFrom { source, .. } = shield.kind
             {
                 out.insert(DamageSourceRef {

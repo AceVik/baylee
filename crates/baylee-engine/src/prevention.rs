@@ -43,6 +43,11 @@ pub enum ShieldKind {
     /// "Prevent all combat damage that would be dealt this turn" (Fog):
     /// every combat damage event, never used up.
     AllCombat,
+    /// Every damage event from this exact chosen source, until cleanup.
+    AllFrom {
+        /// Source identity, continuity and selection criterion.
+        source: ChosenSource,
+    },
     /// "The next time a red source of your choice would deal damage to you
     /// this turn, prevent that damage" (CR 615.8): the next instance of
     /// damage from the chosen source, however much, and then it is gone.

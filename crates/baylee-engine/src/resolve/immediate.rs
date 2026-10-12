@@ -233,6 +233,7 @@ pub(super) fn exec_immediate(
         | Effect::LoseHalfLife { .. }
         | Effect::PreventNextDamage { .. }
         | Effect::PreventAllCombatDamageThisTurn
+        | Effect::ChooseDamageSourcePreventAllThisTurn
         | Effect::PreventNextFromChosenSource { .. }
         | Effect::RedirectNextFromChosenSource { .. } => life::exec(state, res, op),
         Effect::Exile { .. }

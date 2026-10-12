@@ -132,6 +132,10 @@ pub enum Modifier {
     RemoveKeyword(KeywordSet),
     /// Removes all keyword abilities.
     LoseKeywords,
+    /// Removes every basic and nonbasic landwalk ability at this timestamp.
+    LoseAllLandwalk,
+    /// Removes and prohibits the specified keyword families.
+    CantHaveKeywords(KeywordSet),
     /// "Loses all abilities" (CR 613.1f): every ability the object has at
     /// this point of layer 6, keywords and its printed activated, triggered
     /// and static abilities alike (Tishana's Tidebinder, Oko, Thief of
@@ -854,6 +858,8 @@ impl Modifier {
             Self::AddKeyword(_)
             | Self::RemoveKeyword(_)
             | Self::LoseKeywords
+            | Self::LoseAllLandwalk
+            | Self::CantHaveKeywords(_)
             | Self::LoseAllAbilities
             | Self::AddKeywordIfCountersAtLeast { .. }
             | Self::GrantActivated { .. }
@@ -1259,6 +1265,11 @@ mod tests {
             (Modifier::AddKeyword(KeywordSet::FLYING), Layer::Ability),
             (Modifier::RemoveKeyword(KeywordSet::FLYING), Layer::Ability),
             (Modifier::LoseKeywords, Layer::Ability),
+            (Modifier::LoseAllLandwalk, Layer::Ability),
+            (
+                Modifier::CantHaveKeywords(KeywordSet::HEXPROOF),
+                Layer::Ability,
+            ),
             (Modifier::LoseAllAbilities, Layer::Ability),
             (
                 Modifier::AddKeywordIfCountersAtLeast {

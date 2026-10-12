@@ -110,6 +110,8 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Effect",
     "ChooseSource",
     "Fog",
+    "Debuff",
+    "AnimateAll",
     "Regenerate",
     "Tap",
     "TapOrUntap",

@@ -822,7 +822,8 @@
         },
         {
           "name": "Prahv, Spires of Order",
-          "path": "crates/baylee-cards/src/cards/lands/utility/prahv_spires_of_order.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/prahv_spires_of_order.rs",
+          "status": "completed"
         },
         {
           "name": "Glacial Chasm",
@@ -831,11 +832,13 @@
         },
         {
           "name": "Arcane Lighthouse",
-          "path": "crates/baylee-cards/src/cards/lands/utility/arcane_lighthouse.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/arcane_lighthouse.rs",
+          "status": "completed"
         },
         {
           "name": "Hammerheim",
-          "path": "crates/baylee-cards/src/cards/lands/utility/hammerheim.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/hammerheim.rs",
+          "status": "completed"
         },
         {
           "name": "Titania's Song",
@@ -850,7 +853,7 @@
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/the_one_ring.rs"
         }
       ],
-      "validated_complete": 1,
+      "validated_complete": 4,
       "remaining_note": "Remaining cards require shared engine support and actual-action validation."
     },
     {

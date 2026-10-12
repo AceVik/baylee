@@ -3883,8 +3883,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Hammerheim
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -20654,8 +20654,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Prahv, Spires of Order
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

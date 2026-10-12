@@ -614,6 +614,8 @@ pub enum AwaitingOp {
     /// After `PreventNextFromChosenSource`: the shield waits for the
     /// chosen source.
     ShieldFromChosenSource {
+        /// Repeatable prevention to every recipient until cleanup.
+        all_recipients: bool,
         /// What the source had to be, and must still be.
         sources: &'static baylee_cards_dsl::Filter,
         /// Only its combat damage.

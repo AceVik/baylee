@@ -95,12 +95,32 @@ impl Tx<'_> {
                 return self.deny(format!("`{name}` after a chosen-source shield"));
             }
         }
+        if choices == "Card,Emblem" && self.all_damage_from_chosen_source(&replacement) {
+            return Some(vec![
+                "Effect::ChooseDamageSourcePreventAllThisTurn".to_string(),
+            ]);
+        }
         let gain_life = self.chosen_source_replacement(&replacement, recheck)?;
         let sources = self.body.filter_static("SOURCE", &filter);
         Some(vec![format!(
             "Effect::PreventNextFromChosenSource {{ sources: &{sources}, combat_only: false, \
              all_but: 0, gain_life: {gain_life} }}"
         )])
+    }
+
+    /// Exact repeatable prevention, all recipients and no consumption instruction.
+    fn all_damage_from_chosen_source(&self, name: &str) -> bool {
+        self.svars
+            .get(name)
+            .and_then(|body| Params::parse(body))
+            .is_some_and(|(event, mut shield)| {
+                shield.drop_prose();
+                event == "DamageDone"
+                    && shield.take("ValidSource").as_deref()
+                        == Some("Card.ChosenCardStrict,Emblem.ChosenCard")
+                    && shield.take("Prevent").as_deref() == Some("True")
+                    && shield.exhausted()
+            })
     }
 
     /// The replacement a chosen-source shield waits with: damage from the

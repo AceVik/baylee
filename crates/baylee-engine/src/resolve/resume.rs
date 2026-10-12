@@ -1087,6 +1087,7 @@ pub(super) fn resume_source_inner(
     let since = state.journal.last_seq();
     match res.awaiting.take().expect("source choice suspended") {
         AwaitingOp::ShieldFromChosenSource {
+            all_recipients,
             sources,
             combat_only,
             all_but,
@@ -1108,12 +1109,20 @@ pub(super) fn resume_source_inner(
                 };
                 state.shields.push_from(
                     crate::prevention::Shield {
-                        protects: crate::prevention::Shielded::Player(you),
-                        kind: crate::prevention::ShieldKind::NextFrom {
-                            source,
-                            all_but: u32::from(all_but),
-                            gain_life,
-                            combat_only,
+                        protects: if all_recipients {
+                            crate::prevention::Shielded::Everything
+                        } else {
+                            crate::prevention::Shielded::Player(you)
+                        },
+                        kind: if all_recipients {
+                            crate::prevention::ShieldKind::AllFrom { source }
+                        } else {
+                            crate::prevention::ShieldKind::NextFrom {
+                                source,
+                                all_but: u32::from(all_but),
+                                gain_life,
+                                combat_only,
+                            }
                         },
                         controller: you,
                     },

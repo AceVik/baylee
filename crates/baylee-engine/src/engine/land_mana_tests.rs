@@ -1394,8 +1394,8 @@ fn check(what: &str, tally: &Tally, bounds: &Bounds) {
 const LANDS: Bounds = Bounds {
     colors: 1400,
     routes: 950,
-    // The completed land abilities through Batch49 expose 1005 printed promises.
-    promises: 700..=1008,
+    // The completed land abilities through the first Batch52 group expose 1011 printed promises.
+    promises: 700..=1011,
     opponents_lands: 1..=3,
     creature_promises: 1..=5,
     fully_read: 700,

@@ -784,6 +784,8 @@ pub enum Effect {
     /// every combat damage event until the turn's cleanup, to anything
     /// and from anything, and never used up.
     PreventAllCombatDamageThisTurn,
+    /// Choose a damage source and prevent all its damage to every recipient this turn.
+    ChooseDamageSourcePreventAllThisTurn,
     /// "The next time a red source of your choice would deal damage to you
     /// this turn, prevent that damage" (Circle of Protection: Red; CR 609.7,
     /// 615.8): the controller chooses a source as this resolves, and a

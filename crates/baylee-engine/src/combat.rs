@@ -841,6 +841,7 @@ pub fn can_block(
             return false;
         };
         crate::effects::applies_to(state, fx, a)
+            && !landwalk_removed(state, a, fx.timestamp)
             && state.battlefield_seen().any(|id| {
                 state.object(id).is_some_and(|land| {
                     land.controller == defending
@@ -1636,6 +1637,17 @@ pub(crate) fn unpreventable(state: &GameState, source: ObjectId, is_combat: bool
                 ) && crate::effects::applies_to(state, fx, obj)
             })
         })
+}
+
+/// A resolved removal suppresses older nonbasic landwalk grants, never later ones.
+fn landwalk_removed(state: &GameState, object: &crate::object::GameObject, timestamp: u64) -> bool {
+    state.effects.iter().any(|removal| {
+        matches!(
+            removal.modifier,
+            baylee_cards_dsl::Modifier::LoseAllLandwalk
+        ) && removal.timestamp >= timestamp
+            && crate::effects::applies_to(state, removal, object)
+    })
 }
 
 #[cfg(test)]
