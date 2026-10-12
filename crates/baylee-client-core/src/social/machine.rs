@@ -375,9 +375,12 @@ impl Social {
         SecretSlot::new(&self.me.tag, &self.me.gateway)
     }
 
-    /// Seals the state if it changed (a call without entropy marks it only).
-    pub fn flush(&mut self, rng: &mut dyn Entropy) -> Vec<Effect> {
+    /// Seals the state if it changed and sends what waits to be sealed (a
+    /// call without entropy — the clock, the link, the table — only marks
+    /// them; [`Social::wants_entropy`] says when to call this).
+    pub fn flush(&mut self, now_ms: u64, rng: &mut dyn Entropy) -> Vec<Effect> {
         let mut out = Vec::new();
+        self.pump(now_ms, rng, &mut out);
         self.flush_into(&mut out, rng);
         out
     }
@@ -952,6 +955,12 @@ impl Social {
     #[must_use]
     pub fn revision(&self) -> u64 {
         self.revision
+    }
+
+    /// This device's id.
+    #[must_use]
+    pub fn device_id(&self) -> &str {
+        self.device.device_id()
     }
 
     /// This account.

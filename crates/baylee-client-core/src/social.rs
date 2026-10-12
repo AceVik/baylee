@@ -30,6 +30,8 @@ pub mod words;
 
 mod machine;
 mod table;
+#[cfg(test)]
+mod tests;
 
 pub use baylee_seal::Entropy;
 pub use commands::{Command, CommandFault, GroupRef, Target};
