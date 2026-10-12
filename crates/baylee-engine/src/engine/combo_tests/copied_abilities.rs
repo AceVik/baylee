@@ -1214,3 +1214,157 @@ fn a_phantasmal_copy_is_an_illusion_that_is_sacrificed_when_targeted() {
         "the Image is gone"
     );
 }
+
+fn flametongue_kavu() -> baylee_core::ids::CardIndex {
+    card_index("b215196a-3716-451f-bdbd-d16c05ace5b4")
+}
+
+/// The same Image, aimed at by a triggered ability rather than a spell:
+/// Flametongue Kavu's "When this creature enters, it deals 4 damage to
+/// target creature". A trigger is put on the stack with the targets its
+/// controller chose for it, and "becomes the target of a spell or
+/// **ability**" reads that announcement like a cast's.
+///
+/// It read nothing: the trigger's targets were not yet remembered when the
+/// event announcing it was scanned, so the copy saw no targeting and stayed
+/// (reported from a beta game against the house AI's Image).
+#[test]
+fn a_phantasmal_copy_is_sacrificed_when_a_trigger_targets_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(63, island())
+        .battlefield(0, &[island(), island(), llanowar_elves()])
+        .hand(0, &[phantasmal_image()])
+        .battlefield(1, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(1, &[flametongue_kavu()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    tap_mana_except(&mut engine, p0, elf);
+    let image_card = in_hand(&engine, p0, phantasmal_image()).expect("in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: image_card })
+        .expect("two Islands pay {1}{U}");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elf is the creature to copy");
+    pass_until(&mut engine, stack_is_empty);
+    let image = on_battlefield(&engine, p0, phantasmal_image()).expect("a copy survives its 0/0");
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, flametongue_kavu());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    assert!(
+        target_options(&engine).contains(&image),
+        "the Kavu's trigger may aim at the copy"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![image],
+                players: vec![],
+            },
+        )
+        .expect("the copy is a creature");
+    assert_eq!(
+        abilities_on_the_stack(&engine),
+        2,
+        "becoming the trigger's target triggered the sacrifice above it"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, phantasmal_image()).is_none(),
+        "the Image is gone"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "and the Elf it copied is untouched"
+    );
+}
+
+fn saffi_eriksdotter() -> baylee_core::ids::CardIndex {
+    card_index("84ba3e2c-ea96-470b-92c6-b937dc87549b")
+}
+
+/// A clone entering as a copy of `seat 0`'s legend, answered up to the first
+/// question that is not a pass with something on the stack.
+fn a_clone_of_my_legend(
+    seed: u64,
+    clone: baylee_core::ids::CardIndex,
+) -> (Engine<RegistryLookup>, baylee_core::ids::ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(seed, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), saffi_eriksdotter()],
+        )
+        .hand(0, &[clone])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let legend = on_battlefield(&engine, p0, saffi_eriksdotter()).expect("the legend");
+    cast_from_hand(&mut engine, p0, clone);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![legend],
+            },
+        )
+        .expect("my legend is a creature I control");
+    while let Pending::Priority { player, .. } = engine.pending().clone() {
+        if stack_is_empty(&engine) {
+            break;
+        }
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    let copy = on_battlefield(&engine, p0, clone).expect("the copy arrived");
+    (engine, copy)
+}
+
+/// Spark Double's "…and it isn't legendary" (CR 707.9b): the copy of a legend
+/// is no legend, so the legend rule has nothing to ask — while Glasspool
+/// Mimic, whose exception adds only creature types, is a legendary copy
+/// sharing the legend's name and is asked about (CR 704.5j). Reported from a
+/// beta game as a legend-rule prompt beside a copy said not to be legendary;
+/// both halves read the copy's projected supertypes, which this pins.
+#[test]
+fn only_a_copy_that_stays_legendary_meets_the_legend_rule() {
+    let (engine, double) = a_clone_of_my_legend(90, spark_double());
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "no legend rule for a copy that isn't legendary: {:?}",
+        engine.pending()
+    );
+    assert!(
+        !engine
+            .state()
+            .object(double)
+            .expect("the copy")
+            .characteristics()
+            .supertypes
+            .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+    );
+
+    let (engine, mimic) = a_clone_of_my_legend(92, glasspool_mimic());
+    assert!(
+        matches!(engine.pending(), Pending::LegendChoice { options, .. } if options.contains(&mimic)),
+        "a legendary copy keeps the legend rule: {:?}",
+        engine.pending()
+    );
+}
