@@ -414,3 +414,203 @@ fn a_revealed_card_s_preview_opens_beside_the_card_not_over_it() {
         card.max.x
     );
 }
+
+/// The room the cards beside a preview leave on the roomier flank, and the
+/// height the window leaves them, written out as the rule says it and not
+/// as `beside_width` computes it.
+fn beside_room(columns: f32, rows: f32, taken: Rect, window: Vec2) -> (f32, f32) {
+    let flank = (window.x - taken.max.x).max(taken.min.x) - 8.0;
+    let across = (flank - (columns - 1.0) * 4.0) / columns;
+    let tall = (window.y - crate::hud::TOP_CLEAR - CAPTION_H - 8.0 - (rows - 1.0) * 4.0) / rows;
+    (across, tall * 63.0 / 88.0)
+}
+
+/// Report 29: the cards beside a preview were a third of it, and the pointer
+/// cannot reach them to ask for more. On a wide, tall window a full-size
+/// preview gets its neighbours at a revealed card's width and no wider.
+#[test]
+fn the_cards_beside_a_wide_preview_stop_at_a_revealed_cards_width() {
+    let window = Vec2::new(1920.0, 1080.0);
+    let taken = Rect::new(700.0, 100.0, 1000.0, 600.0);
+    let (across, height) = beside_room(1.0, 1.0, taken, window);
+    assert!(
+        across > 240.0 && height > 240.0,
+        "the premise: neither the flank nor the height is what binds here"
+    );
+    assert!(
+        (beside_width(384.0, (1, 1), taken, window) - crate::hud::revealed::WIDEST).abs() < 1e-3,
+        "two thirds of 384 is more than a revealed card is, so the revealed card's width wins"
+    );
+}
+
+/// A small preview keeps its neighbours smaller than the revealed cap: they
+/// are drawn from the preview's own size, two thirds of it, not at 240.
+#[test]
+fn the_cards_beside_a_small_preview_are_two_thirds_of_it() {
+    let window = Vec2::new(1920.0, 1080.0);
+    let taken = Rect::new(700.0, 100.0, 850.0, 300.0);
+    assert!(
+        (beside_width(150.0, (1, 1), taken, window) - 100.0).abs() < 1e-3,
+        "two thirds of 150"
+    );
+    assert!(
+        (beside_width(210.0, (2, 2), taken, window) - 140.0).abs() < 1e-3,
+        "two thirds of 210, with a flank and a window to spare for four of them"
+    );
+}
+
+/// The flank beside the preview binds before the preview does: the more
+/// columns, the narrower each, and the roomier of the two flanks is the one
+/// that counts.
+#[test]
+fn a_narrow_flank_makes_the_cards_beside_a_preview_narrower() {
+    let window = Vec2::new(600.0, 1080.0);
+    // 200 either side: the preview is in the middle.
+    let taken = Rect::new(200.0, 100.0, 400.0, 600.0);
+    let one = beside_width(384.0, (1, 1), taken, window);
+    assert!(
+        (one - (200.0 - 8.0)).abs() < 1e-3,
+        "one column takes the flank less the gaps: {one}"
+    );
+    let two = beside_width(384.0, (2, 1), taken, window);
+    assert!(
+        (two - (200.0 - 8.0 - 4.0) / 2.0).abs() < 1e-3,
+        "two columns share it: {two}"
+    );
+    // Roomier on the left, and the left is the one used.
+    let lopsided = Rect::new(500.0, 100.0, 580.0, 600.0);
+    let left = beside_width(384.0, (1, 1), lopsided, window);
+    assert!(
+        (left - crate::hud::revealed::WIDEST).abs() < 1e-3,
+        "500 to the left is room for a revealed card, and 20 on the right is not asked: {left}"
+    );
+}
+
+/// The window's height binds too: two rows of cards must fit under the top
+/// clearance with their caption, whatever the flank would allow.
+#[test]
+fn a_short_window_makes_the_cards_beside_a_preview_smaller() {
+    let window = Vec2::new(1920.0, 380.0);
+    let taken = Rect::new(700.0, 100.0, 1000.0, 360.0);
+    let (across, height) = beside_room(1.0, 2.0, taken, window);
+    assert!(
+        height < across && height < 240.0,
+        "the premise: it is the height that binds ({height} vs {across})"
+    );
+    let two_rows = beside_width(384.0, (1, 2), taken, window);
+    assert!(
+        (two_rows - height).abs() < 1e-3,
+        "two rows share the height: {two_rows} vs {height}"
+    );
+    let one_row = beside_width(384.0, (1, 1), taken, window);
+    assert!(
+        one_row > two_rows,
+        "one row has the height to itself ({one_row} vs {two_rows})"
+    );
+}
+
+/// However little room there is, the cards keep the old floor: a card
+/// smaller than that is a smudge.
+#[test]
+fn the_cards_beside_a_preview_are_never_below_the_floor() {
+    let window = Vec2::new(300.0, 200.0);
+    let taken = Rect::new(60.0, 20.0, 240.0, 190.0);
+    assert!(
+        (beside_width(384.0, (3, 2), taken, window) - 56.0).abs() < 1e-3,
+        "no room at all"
+    );
+    assert!(
+        (beside_width(30.0, (1, 1), taken, window) - 56.0).abs() < 1e-3,
+        "a preview too small to take two thirds of"
+    );
+}
+
+/// What the attached cards beside a hovered host measure, against the
+/// preview they stand beside: `(preview width, widths of the attached
+/// cards)`.
+fn attached_beside_preview(host: ObjectId, view: &PlayerView) -> (f32, Vec<f32>) {
+    let mut duel = duel_with(false);
+    duel.view = Some(view.clone());
+    duel.statics = Some(baylee_client_core::test_support::statics(8));
+    crate::rebuild_board(&mut duel);
+    duel.hovered = Some(host);
+    let mut app = bar_of(duel);
+    app.update();
+    let px_of = |val: Val| match val {
+        Val::Px(w) => w,
+        other => panic!("a width that is not in pixels: {other:?}"),
+    };
+    let preview: Vec<f32> = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&Node, With<crate::flip::Flip>>();
+        q.iter(app.world()).map(|node| px_of(node.width)).collect()
+    };
+    assert_eq!(
+        preview.len(),
+        1,
+        "the hover drew one preview to compare against: {preview:?}"
+    );
+    let children = |app: &App, of: Entity| -> Vec<Entity> {
+        app.world()
+            .get::<Children>(of)
+            .map(|c| c.iter().collect())
+            .unwrap_or_default()
+    };
+    let mut panels = app
+        .world_mut()
+        .query_filtered::<Entity, With<PreviewAttached>>();
+    let panels: Vec<Entity> = panels.iter(app.world()).collect();
+    let widths: Vec<f32> = panels
+        .iter()
+        .flat_map(|&panel| children(&app, panel).into_iter().skip(1))
+        .flat_map(|grid| children(&app, grid))
+        .flat_map(|column| children(&app, column))
+        .map(|card| {
+            px_of(
+                app.world()
+                    .get::<Node>(card)
+                    .expect("an attached card is a node")
+                    .width,
+            )
+        })
+        .collect();
+    (preview[0], widths)
+}
+
+/// Report 29: "I'd like to enlarge the card under General Tazri". The cards
+/// attached to a hovered host stood beside its preview at a third of its
+/// width, a picture to recognise and not a card to read. They are now
+/// two-thirds of it (at most a revealed card's width), and every one of them
+/// the same size.
+#[test]
+fn the_cards_attached_to_a_host_are_drawn_wider_than_a_third_of_its_preview() {
+    use baylee_client_core::test_support::{ViewBuilder, printed, token};
+    let host = ObjectId::new(5, 0);
+    let mut aura = printed(6, 0, "Pacifism", 3);
+    aura.types = baylee_core::types::TypeSet::ENCHANTMENT;
+    aura.attached_to = Some(host);
+    let mut role = token(7, 0, "Monster Role", 0, 0);
+    role.types = baylee_core::types::TypeSet::ENCHANTMENT;
+    role.attached_to = Some(host);
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, [printed(5, 0, "Grizzly Bears", 2), aura, role])
+        .build();
+    let (preview, widths) = attached_beside_preview(host, &view);
+    assert_eq!(widths.len(), 2, "the host's two attachments: {widths:?}");
+    for width in &widths {
+        assert!(
+            *width > preview * 0.34 + 1.0,
+            "an attached card is {width} wide beside a preview {preview} wide: \
+             still the old third"
+        );
+        assert!(
+            *width <= crate::hud::revealed::WIDEST + 1e-3,
+            "and no wider than a revealed card: {width}"
+        );
+    }
+    assert!(
+        (widths[0] - widths[1]).abs() < 1e-3,
+        "the attached cards are drawn at one size: {widths:?}"
+    );
+}
