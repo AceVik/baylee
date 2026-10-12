@@ -8,13 +8,12 @@
 
 use baylee_cards_dsl::prelude::*;
 
-// "attacking you" is read the way `PlayerRel::Opponent` is — heads-up, an
-// attacker an opponent controls.
+// "attacking you": attacking this land's controller, not a planeswalker of
+// theirs or a teammate.
 static ATTACKING_NONFLYER: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING)),
-    Filter::Attacking,
-    Filter::ControlledByOpponent,
+    Filter::AttackingYou,
 ]);
 
 card!(

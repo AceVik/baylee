@@ -100,6 +100,11 @@ pub enum Filter {
     Untapped,
     /// Currently attacking (in combat).
     Attacking,
+    /// Attacking `you` yourself (Ice Floe: "target creature … that's
+    /// attacking you"). A creature attacking a planeswalker you control is
+    /// attacking that planeswalker, not you (CR 506.2), and one attacking a
+    /// teammate is not attacking you either.
+    AttackingYou,
     /// Attacking in the same band as the source (CR 702.22): "creatures
     /// banded with this creature" (Camel). The source itself is not banded
     /// with itself; a creature not in a band is banded with nothing.

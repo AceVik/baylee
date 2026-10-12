@@ -203,7 +203,7 @@ the type is chosen one question later — so `ChooseSubtype` calls
 `GameState::invalidate_projections`, as anything writing a counter already
 does. Tap and combat status are others, announced through
 `GameState::board_state_changed` only when an effect reads them: a filter
-naming `Tapped`, `Attacking`, `Blocking` or `Unblocked`, or a count of what
+naming `Tapped`, `Attacking`, `AttackingYou`, `Blocking` or `Unblocked`, or a count of what
 the defending player controls (`PtCount::DefendingPlayerControls`, CR
 508.5), which changes as attackers are declared and as combat ends.
 `card_tests::rules::a_cached_projection_is_what_a_fresh_one_would_compute`

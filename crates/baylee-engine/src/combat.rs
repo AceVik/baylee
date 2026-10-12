@@ -2069,6 +2069,42 @@ mod tests {
         );
     }
 
+    /// "Attacking you" (Ice Floe) names the player the creature attacks: at
+    /// three seats a creature attacking someone else, or a planeswalker of
+    /// yours (CR 506.2), is attacking but not attacking you.
+    #[test]
+    fn attacking_you_is_attacking_that_player_and_nobody_else() {
+        use baylee_cards_dsl::Filter;
+        const P2: PlayerId = PlayerId::new(2);
+        let is = |state: &GameState, id: ObjectId| {
+            crate::eval::matches(
+                &Filter::AttackingYou,
+                state,
+                state.object(id).expect("here"),
+                P1,
+                id,
+            )
+        };
+        let mut state = seated(3);
+        let at_me = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let at_them = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let at_walker = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let home = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let walker = creature(&mut state, P1, 0, 1, KeywordSet::EMPTY);
+        attack(&mut state, at_me, P1);
+        attack(&mut state, at_them, P2);
+        state.combat.declare_attackers([AttackerInfo {
+            creature: at_walker,
+            defending: Defender::Planeswalker(walker),
+            blocked: false,
+            band: None,
+        }]);
+        assert!(is(&state, at_me));
+        assert!(!is(&state, at_them), "attacking another player");
+        assert!(!is(&state, at_walker), "attacking a planeswalker of mine");
+        assert!(!is(&state, home), "not attacking at all");
+    }
+
     /// …unless it tramples, which is the exception the owner asked for by
     /// name: CR 702.19b assigns everything past the (absent) blockers to
     /// what the creature was attacking.

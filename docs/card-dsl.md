@@ -1187,7 +1187,8 @@ opponent and no choice at all — is a different card.
 `HasType`, `LacksType`, `HasSupertype`, `HasSubtype`, `HasColor`,
 `IsColorless`, `Monocolored`, `IsToken`, `ControlledByYou`,
 `ControlledByOpponent`, `OwnedByYou`, `Tapped`, `Untapped`, `Attacking`,
-`HasKeyword`, `CmcAtMost`, `CmcAtLeast`, `MatchesChosenTypeOfSource`
+`AttackingYou` (attacking you yourself: not a planeswalker of yours, not a
+teammate; Ice Floe), `HasKeyword`, `CmcAtMost`, `CmcAtLeast`, `MatchesChosenTypeOfSource`
 (Roaming Throne & co.), `Named(&str)`, `EnteredThisTurn`,
 `InZone(ZoneRef)` (incl. `NotBattlefield` for cross-zone effects).
 

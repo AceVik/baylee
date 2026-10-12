@@ -137,6 +137,9 @@ pub fn matches_projected_with_context(
         // A lookup and not a scan: this arm runs once per object whenever a
         // filter is walked over the battlefield (`CombatState`'s doc).
         Filter::Attacking => state.combat.is_attacking(obj.id),
+        Filter::AttackingYou => {
+            state.combat.defender_of(obj.id) == Some(baylee_core::ids::Defender::Player(you))
+        }
         // CR 702.22: in the source's band, which the attack declared.
         Filter::BandedWithSource => {
             obj.id != this

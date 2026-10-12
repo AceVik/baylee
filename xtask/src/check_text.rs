@@ -388,6 +388,9 @@ pub(crate) fn check_optional_clauses_are_offered(
         "MayDiscardToLibraryTop",
         "TargetMayBlockAttackerOfChoice",
         "CastFaceDownUsingSpentX",
+        // "You may choose not to untap": the untap step asks
+        // (`untap_optional`, CR 502.3).
+        "MayChooseNotToUntap",
     ];
     if !def.is_implemented() {
         return;
@@ -743,7 +746,8 @@ pub(crate) fn check_scope_matches_the_text(
     // whose `controller == you` and hands the filter each candidate's own id,
     // so the filter inside it says *what* to count and never whose. A card
     // whose only such clause is a count — "activate only if you control an
-    // Island", "if you control three or more artifacts" — would otherwise be
+    // Island", "if you control three or more artifacts", and its
+    // `ControlCountAtMost` twin, "when you control no lands" — would otherwise be
     // asked for a `ControlledByYou` that would change nothing, and eighteen
     // generated lands landed in one commit with exactly that shape.
     //
@@ -758,6 +762,7 @@ pub(crate) fn check_scope_matches_the_text(
     // control itself, whose new controller is the effect's (CR 613.1b).
     let filters_you = built.contains("ControlledByYou")
         || built.contains("ControlCount(")
+        || built.contains("ControlCountAtMost(")
         || built.contains("YouControl(")
         || built.contains("WhileYouControlSource")
         || built.contains("GainControl");

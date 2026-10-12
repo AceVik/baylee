@@ -2384,6 +2384,7 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         Filter::Tapped
         | Filter::Untapped
         | Filter::Attacking
+        | Filter::AttackingYou
         | Filter::Blocking
         | Filter::Unblocked => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),

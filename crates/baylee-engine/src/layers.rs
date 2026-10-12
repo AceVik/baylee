@@ -787,6 +787,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Tapped
         | Filter::Untapped
         | Filter::Attacking
+        | Filter::AttackingYou
         | Filter::BandedWithSource
         | Filter::NotTargetedByAnotherNamed(_)
         | Filter::Blocking

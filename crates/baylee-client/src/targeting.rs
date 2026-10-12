@@ -366,6 +366,10 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
             .attackers
             .iter()
             .any(|attacker| attacker.creature == object.id),
+        Filter::AttackingYou => view.combat.attackers.iter().any(|attacker| {
+            attacker.creature == object.id
+                && attacker.defending == baylee_core::ids::Defender::Player(view.seat)
+        }),
         Filter::Blocking => view
             .combat
             .blockers
