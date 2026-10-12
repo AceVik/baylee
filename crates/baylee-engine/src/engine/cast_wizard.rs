@@ -1533,6 +1533,26 @@ impl<L: CardLookup> Engine<L> {
         cast
     }
 
+    /// Whether the floating mana is all that will pay this cast's total,
+    /// so the greatest X it pays is known before X is asked.
+    ///
+    /// Not when the cast makes its mana after its choices (a payment
+    /// window, CR 601.2g), and not when anything besides the pool pays
+    /// generic mana or opens that window for it: delve, convoke and
+    /// waterbend (chosen after X, and convoke may pay a coloured symbol a
+    /// generic-only probe would miss), a life-for-colorless permission,
+    /// or a surcharge per extra target. Those keep the looser
+    /// [`Self::x_resource_bound`], and the payment decides.
+    pub(super) fn pool_alone_pays_x(&self, wizard: &CastWizard) -> bool {
+        let face = self.wizard_face(wizard);
+        !wizard.makes_mana_after_choices()
+            && !face.delve
+            && !face.convoke
+            && !face.waterbend
+            && face.extra_target_cost == 0
+            && self.state.granted_colorless_capacity(wizard.player) == 0
+    }
+
     /// A finite upper bound for a mana X, including ways of paying generic
     /// mana without spending units from the pool. The final payment still
     /// validates fixed colored costs and choices made after the X question.

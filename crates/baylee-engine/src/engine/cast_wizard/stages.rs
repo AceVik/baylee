@@ -113,8 +113,19 @@ impl<L: CardLookup> Engine<L> {
                         let life = self.state.life_payable(wizard.player);
                         max = max.min(u32::try_from(life).unwrap_or(0));
                     }
-                    if self.wizard_face(&wizard).x_mana_color.is_some()
-                        && !wizard.makes_mana_after_choices()
+                    // A cast paid from the pool alone is paid by what is
+                    // floating now, so the question offers only the X that
+                    // mana pays: `{X}{W}` with one {W} floating is X = 0.
+                    // Offered the pool's size instead, an X the fixed part
+                    // left no mana for was taken and the cast then reversed
+                    // at payment (CR 601.2h, 732.1) with nothing to show the
+                    // caster why — Prismatic Ending and Finale of
+                    // Devastation in the reports of 12.10.2026.
+                    if !wizard.makes_mana_after_choices()
+                        && (self.wizard_face(&wizard).x_mana_color.is_some()
+                            || (cost.has_variable()
+                                && !wizard.free
+                                && self.pool_alone_pays_x(&wizard)))
                     {
                         let mut probe = wizard.clone();
                         max = casting::greatest_affordable(max, |x| {
