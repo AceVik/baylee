@@ -820,7 +820,8 @@
         },
         {
           "name": "Teferi's Protection",
-          "path": "crates/baylee-cards/src/cards/instants/mv_3/teferi_s_protection.rs"
+          "path": "crates/baylee-cards/src/cards/instants/mv_3/teferi_s_protection.rs",
+          "status": "completed"
         },
         {
           "name": "Prahv, Spires of Order",
@@ -852,10 +853,11 @@
         },
         {
           "name": "The One Ring",
-          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/the_one_ring.rs"
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_4/the_one_ring.rs",
+          "status": "completed"
         }
       ],
-      "validated_complete": 6,
+      "validated_complete": 8,
       "remaining_note": "Remaining cards require shared engine support and actual-action validation."
     },
     {

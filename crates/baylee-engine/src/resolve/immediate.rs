@@ -260,6 +260,7 @@ pub(super) fn exec_immediate(
         | Effect::ShuffleTargetsIntoOwnersLibraries
         | Effect::ShuffleGraveyardIntoLibrary
         | Effect::PhaseOut { .. }
+        | Effect::PhaseOutFilter(_)
         | Effect::ExileLinked { .. }
         | Effect::ExileTargetsWithSource
         | Effect::SacrificeSelf

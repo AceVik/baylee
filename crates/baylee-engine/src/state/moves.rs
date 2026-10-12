@@ -526,6 +526,9 @@ impl GameState {
         let spell_version = self.object(id).map(|o| o.version);
         {
             let obj = self.object_mut(id).expect("checked above");
+            if !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield) {
+                obj.cast_history.set_caster(None);
+            }
             obj.zone = to.zone();
             obj.zone_owner = to.player();
             obj.timestamp = ts;

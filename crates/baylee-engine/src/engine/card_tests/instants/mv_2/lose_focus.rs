@@ -205,7 +205,7 @@ fn lose_focus_replicated_once_counters_a_second_spell_with_its_copy() {
     );
     assert!(copied.riders.contains(&crate::object::Rider::SpellCopy));
     assert!(
-        !copied.cast_from_hand,
+        !copied.cast_history.was_from_hand(),
         "a copy is put on the stack, not cast"
     );
     let casts = engine

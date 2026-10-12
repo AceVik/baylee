@@ -608,6 +608,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             state.shuffle_library(you);
             None
         }
+        Effect::PhaseOutFilter(filter) => {
+            let objects: Vec<_> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|object| {
+                        eval::matches_with_context(filter, state, object, you, res.rule_context())
+                    })
+                })
+                .collect();
+            state.phase_out(&objects);
+            None
+        }
         Effect::PhaseOut { target } => {
             // Every target: Clever Concealment's "any number of target
             // nonland permanents" phases out as many as it named, and a

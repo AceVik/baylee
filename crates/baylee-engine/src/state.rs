@@ -1708,12 +1708,24 @@ impl GameState {
     /// the two can't disagree about what a player may pay.
     #[must_use]
     pub fn life_payable(&self, player: PlayerId) -> i32 {
-        if self.cant_lose_life(player) {
+        if self.cant_lose_life(player) || self.life_total_cant_change(player) {
             return 0;
         }
         self.players
             .get(player.get() as usize)
             .map_or(0, |p| p.life)
+    }
+
+    /// Whether a continuous rule forbids any change to this player's life total.
+    #[must_use]
+    pub fn life_total_cant_change(&self, player: PlayerId) -> bool {
+        self.effects.iter().any(|effect| {
+            let baylee_cards_dsl::Modifier::LifeTotalCantChange { who } = effect.modifier else {
+                return false;
+            };
+            crate::eval::players(who, self, effect.controller)
+                .is_some_and(|players| players.contains(&player))
+        })
     }
 
     /// Whether an effect says `player` can't lose life (Everybody Lives!).
@@ -2053,7 +2065,10 @@ impl GameState {
         // A resolving instruction continues after its controller leaves
         // (CR 608.2m), but the departed seat's retained information must
         // remain what it was immediately before leaving (CR 800.4i).
-        if self.has_left(player) || (by < 0 && self.cant_lose_life(player)) {
+        if self.has_left(player)
+            || self.life_total_cant_change(player)
+            || (by < 0 && self.cant_lose_life(player))
+        {
             return;
         }
         // Lich: the gain is replaced by that many draws (CR 614.1a), so no

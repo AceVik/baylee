@@ -8,11 +8,13 @@
 
 use crate::copiable_abilities::{AbilityBundle, AbilityDefs};
 use crate::zone::Zone;
+mod cast_history;
 use baylee_cards_dsl::{CardDef, KeywordSet};
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::{CardIndex, NameRef, ObjectId, PlayerId, PrintRef};
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
+pub use cast_history::CastHistory;
 use smallvec::SmallVec;
 use std::sync::Arc;
 
@@ -1149,7 +1151,7 @@ pub struct PaidRecord {
 
 /// A game object.
 ///
-/// The independent flags (`kicked`, `alt_cast`, `cast_from_hand`,
+/// The independent flags (`kicked`, `alt_cast`, `cast_history`,
 /// `deathtouched`) genuinely are unrelated one-bit facts about one object,
 /// not a state machine waiting to be an enum.
 #[allow(clippy::struct_excessive_bools)]
@@ -1410,8 +1412,8 @@ pub struct GameObject {
     pub pending_face_change: Option<u8>,
     /// The object a triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
-    /// Whether the spell was cast from the hand (rebound condition).
-    pub cast_from_hand: bool,
+    /// Casting origin and actual caster, independent of its current controller.
+    pub cast_history: CastHistory,
 }
 
 impl GameObject {
@@ -1473,7 +1475,7 @@ impl GameObject {
             own_origin: None,
             token: None,
             pending_face_change: None,
-            cast_from_hand: true,
+            cast_history: CastHistory::default(),
         }
     }
 

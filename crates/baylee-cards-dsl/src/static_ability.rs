@@ -251,6 +251,16 @@ pub enum Modifier {
     },
     /// Players can't lose the game this turn (Everybody Lives!).
     PlayersCantLose,
+    /// The named players cannot gain, lose, or pay life.
+    LifeTotalCantChange {
+        /// Affected players relative to the effect controller.
+        who: crate::PlayerRel,
+    },
+    /// The named players have protection from everything.
+    PlayerProtectionFromEverything {
+        /// Affected players relative to the effect controller.
+        who: crate::PlayerRel,
+    },
     /// These players can't lose life (Everybody Lives!: `EachPlayer`). That
     /// covers damage, effects and payments alike (CR 119.8): the loss
     /// doesn't happen, and a cost of life can't be paid.
@@ -923,6 +933,8 @@ impl Modifier {
             | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose
             | Self::CantLoseLife { .. }
+            | Self::LifeTotalCantChange { .. }
+            | Self::PlayerProtectionFromEverything { .. }
             | Self::NoLossForZeroLife { .. }
             | Self::LifeGainDrawsInstead { .. }
             | Self::CantBeAttackedExceptBy { .. }
@@ -1390,6 +1402,12 @@ mod tests {
             Modifier::CantActivate,
             Modifier::ChosenNameCantActivate,
             Modifier::PlayersCantLose,
+            Modifier::LifeTotalCantChange {
+                who: crate::PlayerRel::You,
+            },
+            Modifier::PlayerProtectionFromEverything {
+                who: crate::PlayerRel::You,
+            },
             Modifier::CantLoseLife {
                 who: crate::effect::PlayerRel::EachPlayer,
             },

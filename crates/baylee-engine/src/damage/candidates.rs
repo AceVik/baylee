@@ -110,6 +110,17 @@ impl DamageWork {
     fn continuous_candidates(&self, state: &GameState, part: &Part, out: &mut Vec<Candidate>) {
         for fx in state.effects.iter() {
             let kind = match fx.modifier {
+                Modifier::PlayerProtectionFromEverything { who } => {
+                    let DamageTarget::Player(player) = part.view.recipient else {
+                        continue;
+                    };
+                    if !crate::eval::players(who, state, fx.controller)
+                        .is_some_and(|players| players.contains(&player))
+                    {
+                        continue;
+                    }
+                    Kind::Protection
+                }
                 Modifier::ProtectionFrom(filter) => {
                     let DamageTarget::Object(target) = part.view.recipient else {
                         continue;

@@ -45,6 +45,7 @@ mod effects;
 mod horse_johan;
 mod keywords;
 mod mana;
+mod protection52;
 mod statics;
 mod support;
 mod targets;

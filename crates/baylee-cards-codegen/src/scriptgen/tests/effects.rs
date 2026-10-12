@@ -1043,3 +1043,50 @@ fn johan_reader_keeps_whole_optional_source_bound_combat_chain() {
     }
     assert!(refused(&format!("{script} | Unknown$ True")));
 }
+
+// Append to scriptgen/tests/effects.rs: synthetic structural fixtures, not corpus text.
+#[test]
+fn player_protection_life_lock_and_simultaneous_phase_chain_are_read_exactly() {
+    let text = "Name:Boundary veil\nTypes:Instant\nManaCost:2 W\nA:SP$ Effect | Duration$ UntilYourNextTurn | StaticAbilities$ Lock | SubAbility$ Shield\nSVar:Lock:Mode$ CantChangeLife | ValidPlayer$ You\nSVar:Shield:DB$ Pump | Defined$ You | Duration$ UntilYourNextTurn | KW$ Protection from everything | SubAbility$ Out\nSVar:Out:DB$ Phases | Defined$ Valid Permanent.YouCtrl | SubAbility$ Leave\nSVar:Leave:DB$ ChangeZone | Defined$ Self | Origin$ Stack | Destination$ Exile\n";
+    let body = read(text);
+    let emitted = body.abilities.join("\n");
+    for expected in [
+        "Modifier::LifeTotalCantChange",
+        "Modifier::PlayerProtectionFromEverything",
+        "Effect::PhaseOutFilter(&Filter::ControlledByYou)",
+        "Effect::ExileSource",
+    ] {
+        assert!(emitted.contains(expected), "missing {expected}: {emitted}");
+    }
+    assert!(refused(
+        &text.replace("ValidPlayer$ You", "ValidPlayer$ Opponent")
+    ));
+    assert!(refused(
+        &text.replace("Valid Permanent.YouCtrl", "Valid Permanent")
+    ));
+    assert!(refused(&text.replace(
+        "KW$ Protection from everything",
+        "KW$ Protection from everything | UnreadRule$ True"
+    )));
+    assert!(refused(
+        &text.replace("UntilYourNextTurn", "UntilEndOfTurn")
+    ));
+}
+
+#[test]
+fn cast_self_entry_protection_and_source_counter_amount_do_not_mean_announced_x() {
+    let text = "Name:Boundary ring\nTypes:Artifact\nManaCost:4\nT:Mode$ ChangesZone | ValidCard$ Card.wasCastByYou+Self | Destination$ Battlefield | Execute$ Shield\nSVar:Shield:DB$ Pump | Defined$ You | Duration$ UntilYourNextTurn | KW$ Protection from everything\nT:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ Loss | TriggerZones$ Battlefield\nSVar:Loss:DB$ LoseLife | LifeAmount$ X\nA:AB$ PutCounter | Cost$ T | Defined$ Self | CounterType$ BURDEN | CounterNum$ 1 | SubAbility$ Draw\nSVar:Draw:DB$ Draw | Defined$ You | NumCards$ X\nSVar:X:Count$CardCounters.BURDEN\n";
+    let body = read(text);
+    let emitted = body.abilities.join("\n");
+    assert!(emitted.contains("Condition::SourceWasCastByYou"));
+    assert!(emitted.contains("Amount::CountersOnSource"));
+    assert!(!emitted.contains("Amount::X"));
+    assert!(refused(&text.replace(
+        "Card.wasCastByYou+Self",
+        "Card.wasCastByYou+Self+Creature"
+    )));
+    assert!(refused(&text.replace(
+        "CardCounters.BURDEN",
+        "CardCounters.UNKNOWN_UNASSIGNED"
+    )));
+}

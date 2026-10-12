@@ -113,6 +113,9 @@ pub const DOOM: CounterKind = CounterKind::Custom(22);
 /// Eon counters mark stored turns on Magosi.
 pub const EON: CounterKind = CounterKind::Custom(23);
 
+/// Burden counters accumulated by The One Ring.
+pub const BURDEN: CounterKind = CounterKind::Custom(24);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -142,6 +145,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("dream", DREAM),
     ("doom", DOOM),
     ("eon", EON),
+    ("burden", BURDEN),
 ];
 
 #[cfg(test)]

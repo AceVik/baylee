@@ -678,6 +678,10 @@ impl Tx<'_> {
             {
                 vec!["Effect::continuous(&Filter::OPPONENT_CREATURE, Modifier::CantHaveKeywords(KeywordSet::HEXPROOF.union(KeywordSet::SHROUD)), Duration::UntilEndOfTurn)".to_string()]
             }
+            "Pump" if p.peek("KW") == Some("Protection from everything") => {
+                self.everything_protection(p)?
+            }
+            "Phases" => self.phase_your_permanents(p)?,
             "Pump" => self.pump_effect(p, aimed)?,
             "Effect" => self.static_effect(p, target)?,
             "ChangeZone" => self.change_zone(p, target)?,

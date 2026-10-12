@@ -494,6 +494,11 @@ impl Tx<'_> {
         {
             return self.johan_combat_trigger(&mode, p);
         }
+        if p.peek("ValidCard")
+            .is_some_and(|valid| valid.contains("wasCastByYou"))
+        {
+            return self.cast_self_protection_trigger(&mode, p);
+        }
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
         let (trigger, condition) = if mode == "Always" {

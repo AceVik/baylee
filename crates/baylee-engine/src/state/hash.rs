@@ -754,6 +754,7 @@ fn hash_damage_source(h: &mut Hasher, state: &GameState, id: ObjectId, version: 
     if let Some(source) = state.damage_source(id, Some(version)) {
         h.u8(1);
         h.u8(source.controller.get());
+        source.cast_history.hash(h);
         hash_characteristics(h, source.characteristics());
     } else {
         h.u8(0);
@@ -943,6 +944,7 @@ fn hash_object_situation(
     h.u8(obj.zone_owner.map_or(255, PlayerId::get));
     h.u8(obj.kind as u8);
     h.u8(obj.face_index);
+    obj.cast_history.hash(h);
     obj.physical_rules.hash(h);
     obj.deck_choices.hash(h);
     hash_copy_decisions(h, obj);
@@ -1529,7 +1531,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         token,
         pending_face_change,
         event_object,
-        cast_from_hand,
+        cast_history,
     } = obj;
     id.hash(h);
     owner.hash(h);
@@ -1737,7 +1739,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     face_index.hash(h);
     pending_face_change.hash(h);
     event_object.hash(h);
-    cast_from_hand.hash(h);
+    cast_history.hash(h);
     // What the object can do when it is not what its card says: a copy's
     // list, an emblem's, an ability's captured one. `own_origin` names it.
     h.boolean(own_abilities.is_some());

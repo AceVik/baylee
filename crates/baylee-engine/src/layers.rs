@@ -1405,6 +1405,8 @@ fn apply(
         | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
         | Modifier::BoastTwice
+        | Modifier::LifeTotalCantChange { .. }
+        | Modifier::PlayerProtectionFromEverything { .. }
         | Modifier::PlayerHexproof
         | Modifier::GrantActivated { .. }
         | Modifier::GrantActivatedDefinition(_)

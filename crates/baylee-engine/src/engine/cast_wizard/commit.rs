@@ -294,7 +294,8 @@ impl<L: CardLookup> Engine<L> {
             // exile under a play permission (Expressive Iteration) or from
             // the command zone was not cast from a hand, and rebound reads
             // this (CR 702.88a).
-            obj.cast_from_hand = obj.zone == crate::zone::Zone::Hand;
+            obj.cast_history
+                .set_from_hand(obj.zone == crate::zone::Zone::Hand);
             // The chosen permission determines the replacement, independent
             // of other permissions that happen to be available.
             if obj.zone == crate::zone::Zone::Graveyard {
@@ -305,7 +306,7 @@ impl<L: CardLookup> Engine<L> {
                 {
                     obj.riders.push(crate::object::Rider::Flashback);
                 }
-                obj.cast_from_hand = false;
+                obj.cast_history.set_from_hand(false);
             }
             // Every cast decides afresh: the same card cast later from a
             // hand, front face up, is not exiled for what it once was.
@@ -370,6 +371,11 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state
             .move_object(card, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)?;
+        self.state
+            .object_mut(card)
+            .expect("cast spell")
+            .cast_history
+            .set_caster(Some(player));
         // What was paid, written after the move for the reason the move
         // gives it up: the spell on the stack is the object that reads it.
         // A free cast spent no mana (CR 601.2h pays nothing it was not

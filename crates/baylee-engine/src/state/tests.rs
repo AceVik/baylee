@@ -1124,7 +1124,9 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
         }),
         ("cast_from_hand", |s, id| {
             let object = fixture_object(s, id);
-            object.cast_from_hand = !object.cast_from_hand;
+            object
+                .cast_history
+                .set_from_hand(!object.cast_history.was_from_hand());
         }),
         ("target_req", |s, id| {
             fixture_object(s, id).target_req = Some(REQ);

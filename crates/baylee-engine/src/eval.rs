@@ -315,7 +315,7 @@ pub fn matches_projected_with_context(
         }
         Filter::HasKeyword(k) => chars.keywords.contains(*k),
         Filter::Kicked => obj.kicked,
-        Filter::CastFromHand => obj.cast_from_hand,
+        Filter::CastFromHand => obj.cast_history.was_from_hand(),
         Filter::CmcAtMost(n) => chars.mana_value() <= *n,
         // The bound is the announced X on the ability's own source, which is
         // where `cast_wizard` writes it and what `res.x` is read from one
@@ -829,6 +829,9 @@ pub fn condition_holds_with_context(
 ) -> bool {
     let source = context.source;
     match condition {
+        Condition::SourceWasCastByYou => state
+            .object(source)
+            .is_some_and(|object| object.cast_history.caster() == Some(you)),
         Condition::DiscardedForCost(filter) => state
             .object(source)
             .and_then(|object| object.paid.as_ref())
@@ -1336,6 +1339,9 @@ pub(crate) fn intervening_if_for_incarnation(
             attachment,
             event,
         ),
+        Some(Condition::SourceWasCastByYou) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.cast_history.caster() == Some(you)),
         Some(Condition::AttachedMatches(filter)) => {
             attached_for_ability(state, source, version, attachment)
                 .is_some_and(|o| matches(filter, state, o, you, source))
@@ -1606,9 +1612,17 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
     // Build the small seat set once instead of rescanning all effects for
     // each potential player target.
     let mut protected = baylee_core::ids::SeatSet::new();
+    let mut everything = baylee_core::ids::SeatSet::new();
     let mut ignores_hexproof = false;
     for effect in state.effects.iter() {
         match effect.modifier {
+            baylee_cards_dsl::Modifier::PlayerProtectionFromEverything { who } => {
+                if let Some(players) = players(who, state, effect.controller) {
+                    for player in players {
+                        everything.insert(player);
+                    }
+                }
+            }
             baylee_cards_dsl::Modifier::PlayerHexproof => protected.insert(effect.controller),
             baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof if effect.controller == you => {
                 ignores_hexproof = true;
@@ -1620,7 +1634,7 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
         .players
         .iter()
         .filter(|p| {
-            if p.has_lost() {
+            if p.has_lost() || everything.contains(p.id) {
                 return false;
             }
             // "Target opponent" is a choice over a smaller set, not a

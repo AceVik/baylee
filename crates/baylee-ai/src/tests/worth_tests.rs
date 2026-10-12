@@ -776,7 +776,8 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Unstable Frontier adds a land-type choice whose contextual value the
     // table does not yet infer; it adds one activation, not one readable row.
     // Mystifying Maze adds a contextual delayed blink activation.
-    assert_eq!((read, of), (1030, 1294), "activated/loyalty reader census");
+    // The One Ring adds a contextual counter-count draw activation.
+    assert_eq!((read, of), (1030, 1295), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

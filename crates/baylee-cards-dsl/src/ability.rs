@@ -127,6 +127,8 @@ pub enum StepKind {
 /// as it resolves.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Condition {
+    /// This source incarnation was cast by the ability controller.
+    SourceWasCastByYou,
     /// A card discarded for this ability's cost matched before leaving the hand.
     DiscardedForCost(&'static Filter),
     /// It is one of your first N turns to actually begin.

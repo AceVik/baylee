@@ -3,27 +3,9 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Teferi's Protection — {2}{W} instant: "Until your next turn, your life
-/// total can't change and you gain protection from everything. All
-/// permanents you control phase out. Exile Teferi's Protection."
-///
-/// One of those four sentences is expressible and three are the
-/// `Coverage::Partial` gap, so the test is the exile plus the shape of what
-/// is missing. The exile is read in its own right because it is the clause
-/// that was *built and then undone*: `Effect::ExileSource` moved the card
-/// off the stack and `finalize_spell` fetched it back into the graveyard,
-/// which the rules test beside it
-/// ([`super::rules`]) now holds shut.
-///
-/// The three missing clauses are read as one absence rather than three,
-/// and deliberately: "your life total can't change" and "you gain
-/// protection from everything" would both be continuous effects, and the
-/// spell registers none at all. The phase-out is read on the permanent
-/// itself, because `Status::PHASED_OUT` exists and nothing set it — an
-/// Elf that is still an ordinary untapped creature after the spell
-/// resolved is the printed sentence not happening.
+/// The complete spell creates its two rules, phases permanents, and exiles itself.
 #[test]
-fn teferis_protection_exiles_itself_and_leaves_everything_else_exactly_as_it_was() {
+fn teferis_protection_exiles_itself_and_protects_its_controller() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
         .battlefield(0, &[plains(), plains(), plains(), llanowar_elves()])
@@ -51,15 +33,13 @@ fn teferis_protection_exiles_itself_and_leaves_everything_else_exactly_as_it_was
                     .object(*id)
                     .is_some_and(|o| o.card.is_some_and(|c| c.index == teferis_protection()))
             }),
-        "\"Exile Teferi's Protection\" is the one clause the DSL can say"
+        "the spell stays exiled"
     );
 
     assert_eq!(
         engine.state().effects.iter().count(),
-        effects_before,
-        "\"your life total can't change\" and \"you gain protection from \
-         everything\" are both continuous effects, and the spell registered \
-         neither"
+        effects_before + 2,
+        "both continuous player rules are registered"
     );
     assert_eq!(
         engine.state().players[0].life,
@@ -70,9 +50,8 @@ fn teferis_protection_exiles_itself_and_leaves_everything_else_exactly_as_it_was
         engine
             .state()
             .object(elf)
-            .is_some_and(|o| !o.status.contains(Status::PHASED_OUT)),
-        "\"All permanents you control phase out\" — the status exists and \
-         nothing set it, so the Elf is an ordinary creature still"
+            .is_some_and(|o| o.status.contains(Status::PHASED_OUT)),
+        "the Elf is phased out"
     );
     assert!(
         on_battlefield(&engine, p0, llanowar_elves()).is_some(),

@@ -3,16 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// `The One Ring` (`Coverage::Partial`):
-/// "Indestructible. When `The One Ring` enters, if you cast it, you gain protection from
-/// everything until your next turn. At the beginning of your upkeep, you lose 1 life for
-/// each burden counter on `The One Ring`. `{{T}}`: Put a burden counter on `The One Ring`,
-/// then draw a card for each burden counter on `The One Ring`."
-///
-/// Under `Coverage::Partial`, burden counters, the ETB protection clause, and the tap-draw
-/// ability are omitted, implementing `KeywordSet::INDESTRUCTIBLE` on a legendary artifact.
-/// The test verifies that `The One Ring` possesses `KeywordSet::INDESTRUCTIBLE` on the
-/// battlefield and survives a destroy effect from an opponent's `vindicate()`.
+/// Indestructible remains effective with the complete activated and triggered abilities.
 #[test]
 fn the_one_ring_has_indestructible_and_survives_destroy_effects() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -74,18 +65,9 @@ fn the_one_ring_has_indestructible_and_survives_destroy_effects() {
     );
 }
 
-/// What The One Ring does **not** do, which is three of its four sentences.
-///
-/// The card is `Coverage::Partial` with indestructible and nothing else: the
-/// cast-triggered protection, the upkeep drain per burden counter and the
-/// `{T}` draw are each refused by name at the foot of the card file. The
-/// test above plays the sentence that works. This one pins the three that do
-/// not, because a keyword is the one characteristic that keeps reading
-/// correctly while everything around it is missing — and an artifact whose
-/// whole reputation is drawing cards would look fine in a board state that
-/// never asked it to.
+/// A Ring with no burdens offers its draw ability and loses no life at upkeep.
 #[test]
-fn the_one_ring_offers_no_ability_and_costs_no_life() {
+fn the_one_ring_offers_its_draw_ability_and_zero_burdens_cost_no_life() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(305, plains())
         .battlefield(0, &[the_one_ring(), plains(), plains()])
@@ -98,9 +80,8 @@ fn the_one_ring_offers_no_ability_and_costs_no_life() {
         panic!("expected priority, got {:?}", engine.pending())
     };
     assert!(
-        !legal.abilities.iter().any(|(src, _)| *src == ring),
-        "`{{T}}: Put a burden counter on this, then draw a card for each` is \
-         not written, so the Ring offers nothing to activate"
+        legal.abilities.iter().any(|(src, _)| *src == ring),
+        "the complete Ring offers its activated draw ability"
     );
 
     // Two of its own upkeeps, which is where the drain would show. It has no
@@ -113,11 +94,10 @@ fn the_one_ring_offers_no_ability_and_costs_no_life() {
     assert_eq!(
         engine.state().players[0].life,
         life,
-        "no upkeep trigger is written, so no life is lost for a burden \
-         counter that is never placed"
+        "upkeep loses zero life without burden counters"
     );
     assert_eq!(
-        counters_on(&engine, ring, CounterKind::Charge),
+        counters_on(&engine, ring, baylee_cards_dsl::counters::BURDEN),
         0,
         "and nothing put one there"
     );

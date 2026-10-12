@@ -1066,7 +1066,7 @@ impl<L: CardLookup> Engine<L> {
             // Rebound (CR 702.88): cast from hand → exile with a rebound
             // rider and a delayed re-cast at the next upkeep.
             let rebound = self.state.object(spell).is_some_and(|o| {
-                o.cast_from_hand
+                o.cast_history.was_from_hand()
                     && o.characteristics()
                         .keywords
                         .contains(baylee_cards_dsl::KeywordSet::REBOUND)

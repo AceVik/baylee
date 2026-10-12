@@ -2465,6 +2465,8 @@ pub enum Effect {
     /// Choose left or right. Each player receives the nonland permanents
     /// of that neighbour, except the source (Aminatou −6).
     ControlRotation,
+    /// Phase all matching permanents out in one simultaneous operation.
+    PhaseOutFilter(&'static Filter),
     /// Phase a target permanent out (Clever Concealment).
     PhaseOut {
         /// What phases out (first target when set, else the source).

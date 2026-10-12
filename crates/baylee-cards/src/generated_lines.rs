@@ -45214,7 +45214,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // The One Ring
+    &[FaceLines {
+        sentences: 4,
+        stackable: 3,
+        lines: &[Some(1), Some(2), Some(3)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // The Shire
     &[FaceLines {

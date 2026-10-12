@@ -37,6 +37,12 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     if svars.get(raw).map(|def| def.trim()) == Some("PlayerCountPropertyYou$DamageThisTurn") {
         return Some("Amount::DamageDealtToYouThisTurn".to_string());
     }
+    if let Some(kind) = svars
+        .get(raw)
+        .and_then(|def| def.trim().strip_prefix("Count$CardCounters."))
+    {
+        return super::counter_kind(kind).map(|kind| format!("Amount::CountersOnSource({kind})"));
+    }
     if raw == "X" {
         return (has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid"))
             .then(|| "Amount::X".to_string());

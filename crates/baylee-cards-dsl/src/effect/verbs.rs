@@ -966,6 +966,7 @@ impl Effect {
             | Effect::AllCreaturesToOwner
             | Effect::ControlRotation
             | Effect::PhaseOut { .. }
+            | Effect::PhaseOutFilter(_)
             | Effect::ExileLinked { .. }
             | Effect::ExileTargetsWithSource
             | Effect::ReturnLinkedToBattlefield

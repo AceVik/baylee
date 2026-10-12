@@ -492,6 +492,7 @@ impl Tx<'_> {
         let body = self.svars.get(&statics)?.clone();
         let (mode, _) = Params::parse(&body)?;
         match mode.as_str() {
+            "CantChangeLife" => self.life_total_lock(p),
             "CantBlockBy" => self.unblockable_effect(p, target),
             "CantRegenerate" => self.cant_regenerate_effect(p, target),
             _ => None,
@@ -703,7 +704,7 @@ impl Tx<'_> {
         Some(match (origin.as_str(), destination.as_str(), itself) {
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
             ("Battlefield", "Exile", false) => vec![format!("Effect::exile({target})")],
-            ("Battlefield", "Exile", true) => vec!["Effect::ExileSource".to_string()],
+            ("Battlefield" | "Stack", "Exile", true) => vec!["Effect::ExileSource".to_string()],
             // "Return target card from your graveyard to your hand"
             // (Regrowth): the target is a `CardInGraveyard`, which the chain
             // read off `Origin$` before it read the valid-string.
