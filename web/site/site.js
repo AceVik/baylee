@@ -688,7 +688,7 @@
         var m = /^#set-([a-z0-9]+)$/.exec(location.hash);
         if (m) {
           var d = list.querySelector('details[data-code="' + m[1] + '"]');
-          if (d) { d.open = true; d.scrollIntoView(); }
+          if (d) { d.open = true; d.scrollIntoView({ block: "start", behavior: "instant" }); }
         }
       })
       .catch(function () { /* the static text stays: it says where the list is */ });

@@ -39,6 +39,7 @@ Standard library only. Writes `<out>/sets.json` (the overview) and
 """
 
 import argparse
+import gzip
 import io
 import json
 import os
@@ -165,7 +166,8 @@ def scryfall_sets(cache, fetch):
 def bulk_printings(path, wanted):
     """{oracle_id: {set: id, '*': id}} from a Scryfall bulk file, read a line at a time."""
     best = {}
-    with open(path, encoding="utf-8") as f:
+    opener = gzip.open if path.endswith(".gz") else open
+    with opener(path, "rt", encoding="utf-8") as f:
         for line in f:
             line = line.strip().rstrip(",")
             if not line.startswith("{"):
@@ -187,6 +189,28 @@ def bulk_printings(path, wanted):
     return {o: {s: v[1] for s, v in slots.items()} for o, slots in best.items()}
 
 
+def fetch_bulk(cache_dir):
+    """Download Scryfall's `default_cards` bulk file (JSON lines, gzip) once; its path."""
+    req = urllib.request.Request(
+        "https://api.scryfall.com/bulk-data/default-cards", headers={"User-Agent": UA, "Accept": "application/json"}
+    )
+    with urllib.request.urlopen(req, timeout=60) as r:
+        meta = json.load(r)
+    uri = meta.get("jsonl_download_uri") or meta["download_uri"]
+    path = os.path.join(cache_dir, os.path.basename(uri))
+    if not os.path.exists(path):
+        os.makedirs(cache_dir, exist_ok=True)
+        req = urllib.request.Request(uri, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=600) as r, open(path + ".part", "wb") as f:
+            while True:
+                chunk = r.read(1 << 20)
+                if not chunk:
+                    break
+                f.write(chunk)
+        os.replace(path + ".part", path)
+    return path
+
+
 def num_key(n):
     m = re.match(r"(\d+)(.*)", n)
     return (int(m.group(1)), m.group(2)) if m else (1 << 30, n)
@@ -200,7 +224,8 @@ def main():
     ap.add_argument("--out", default=os.path.join(repo, "web/site/data"))
     ap.add_argument("--sets-cache", default=os.path.join(repo, "target/site-cache/scryfall-sets.json"))
     ap.add_argument("--no-fetch", action="store_true", help="never ask Scryfall for the set list")
-    ap.add_argument("--bulk", help="a Scryfall default_cards/oracle_cards bulk file for every card's picture")
+    ap.add_argument("--bulk", help="a Scryfall default_cards/oracle_cards bulk file (.json, .jsonl, .jsonl.gz) for every card's picture")
+    ap.add_argument("--fetch-bulk", action="store_true", help="download default_cards into target/site-cache/ (once) and use it as --bulk")
     args = ap.parse_args()
     os.chdir(repo)
 
@@ -270,6 +295,8 @@ def main():
                         if c.get("img"):
                             prev_ids[c["oracle_id"]] = c["img"]
 
+    if args.fetch_bulk and not args.bulk:
+        args.bulk = fetch_bulk(os.path.dirname(args.sets_cache))
     meta = scryfall_sets(args.sets_cache, not args.no_fetch)
     printings = bulk_printings(args.bulk, ledger_ids) if args.bulk else {}
 
