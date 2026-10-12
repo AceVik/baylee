@@ -800,6 +800,9 @@ async fn a_block_ends_what_there_was_and_hides_what_follows() {
             .is_empty()
     );
     assert!(!social::relation(db, a, b).await.unwrap().blocked);
+    // The request Bob sent while blocked never arrives, not even late.
+    assert!(!social::relation(db, a, b).await.unwrap().incoming);
+    assert!(social::outgoing(db, b).await.unwrap().is_empty());
     sandbox.close().await;
 }
 
