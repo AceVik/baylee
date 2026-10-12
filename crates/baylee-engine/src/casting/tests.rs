@@ -895,3 +895,5 @@ fn flash_permissions_obey_type_scope_player_scope_and_prohibitions() {
         ));
     }
 }
+
+mod source_receipts;

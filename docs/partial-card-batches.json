@@ -118,7 +118,7 @@
           "path": "crates/baylee-cards/src/cards/creatures/mv_2/liliana_the_repentant.rs"
         },
         {
-          "name": "Barad-dûr",
+          "name": "Barad-d\u00fbr",
           "path": "crates/baylee-cards/src/cards/lands/legendary/barad_dur.rs"
         },
         {
@@ -414,7 +414,7 @@
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/north_star.rs"
         },
         {
-          "name": "Ring of Ma'rûf",
+          "name": "Ring of Ma'r\u00fbf",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_5/ring_of_ma_ruf.rs"
         },
         {
@@ -426,7 +426,7 @@
     {
       "batch": 46,
       "title": "Restricted mana and expenditure provenance",
-      "status": "in_progress",
+      "status": "completed",
       "cards": [
         {
           "name": "Watermarket",
@@ -494,8 +494,8 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 12,
-      "remaining_note": "Underdome remains Partial: joint assignment for mixed mana costs imposed by Un-cards is not yet supported."
+      "validated_complete": 13,
+      "remaining_note": "All thirteen cards completed; Underdome uses shared source-scoped pricing, exact receipt allocation and actual-action validation."
     },
     {
       "batch": 47,
@@ -513,7 +513,7 @@
           "status": "completed"
         },
         {
-          "name": "Ifh-Bíff Efreet",
+          "name": "Ifh-B\u00edff Efreet",
           "path": "crates/baylee-cards/src/cards/creatures/mv_4/ifh_biff_efreet.rs",
           "status": "completed"
         },
@@ -1371,6 +1371,6 @@
       "wait for user after app restart"
     ],
     "authorized_on": "2026-10-12",
-    "note": "Owner explicitly selected all partly completed batches; do not start further batches before restart."
+    "note": "Owner requested completion of begun batches only. All batches 46, 48, 52 and 54 are complete at checkpoint 427/540; after rebase/push stop and wait for an explicit Go."
   }
 }

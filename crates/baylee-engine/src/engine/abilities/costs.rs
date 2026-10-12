@@ -40,10 +40,12 @@ impl<L: CardLookup> Engine<L> {
         source: ObjectId,
         cost: &Cost,
         reduction: Option<baylee_cards_dsl::CostReduction>,
-    ) -> Cost {
+    ) -> ActivationPrice {
         let off = casting::reduction_amount(&self.state, reduction, player, source);
-        let increase = casting::activation_increase(&self.state, source);
-        let mut mana = cost.mana.with_more_generic(increase);
+        let (eligible, ordinary) = casting::activation_increases(&self.state, source);
+        let increase = eligible.saturating_add(ordinary);
+        let full = cost.mana.with_more_generic(increase);
+        let mut mana = full;
         // Apply reductions with a local floor first, so they do not limit
         // an independent unrestricted reduction applied afterwards.
         if let Some(object) = self.state.object(source) {
@@ -58,9 +60,18 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
-        Cost {
-            mana: mana.with_less_generic(off),
-            parts: cost.parts,
+        let mana = mana.with_less_generic(off);
+        ActivationPrice {
+            cost: Cost {
+                mana,
+                parts: cost.parts,
+            },
+            allowance: casting::base_allowance(&self.state, casting::SpendFor::Ability(source))
+                .adjusted(
+                    eligible,
+                    ordinary,
+                    full.generic_total() - mana.generic_total(),
+                ),
         }
     }
 
@@ -76,7 +87,7 @@ impl<L: CardLookup> Engine<L> {
         &self,
         player: PlayerId,
         source: ObjectId,
-        cost: &Cost,
+        cost: &ActivationPrice,
         settled: &[bool],
         additional_life: u32,
     ) -> bool {
@@ -100,10 +111,7 @@ impl<L: CardLookup> Engine<L> {
             else {
                 return false;
             };
-            let settled_cost = Cost {
-                mana: cost.mana.with_phyrexian_settled(mask),
-                parts: cost.parts,
-            };
+            let settled_cost = cost.with_mana(cost.mana.with_phyrexian_settled(mask));
             self.state.can_pay_life(player, life)
                 && self.can_plan_activation(player, source, &settled_cost, life)
         })
@@ -137,25 +145,29 @@ impl<L: CardLookup> Engine<L> {
         let pool = with_restricted
             .as_ref()
             .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
-        // Mycosynth Lattice: mana spends as though it were any colour, so a
-        // five-colour activation cost is payable off five Islands.
-        match what {
-            casting::SpendFor::Spell(card)
-            | casting::SpendFor::SpellAs(card, _)
-            | casting::SpendFor::SpellOnFace(card, _)
-            | casting::SpendFor::KickedSpell(card, ..) => {
-                casting::spell_affordable(&self.state, player, card, pool, cost)
-            }
-            casting::SpendFor::Ability(source) => casting::phyrexian_affordable_with(
-                &self.state,
-                player,
-                pool,
-                cost,
-                &[],
-                casting::ability_mana_spending(&self.state, player, source),
-            ),
-            _ => casting::affordable(&self.state, player, pool, cost),
-        }
+        casting::source_affordable(&self.state, player, what, pool, cost, &[], None)
+    }
+
+    pub(super) fn can_pay_activation_price(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        price: &ActivationPrice,
+    ) -> bool {
+        let what = casting::SpendFor::Ability(source);
+        let planned = casting::spendable_pool(&self.state, player, what);
+        let pool = planned
+            .as_ref()
+            .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
+        casting::source_affordable(
+            &self.state,
+            player,
+            what,
+            pool,
+            &price.mana,
+            &[],
+            Some(price.allowance),
+        )
     }
 
     fn can_pay_commander_colors(&self, player: PlayerId) -> bool {
@@ -375,11 +387,34 @@ impl<L: CardLookup> Engine<L> {
     /// making the play, has nothing to undo here: this engine pays out of the
     /// pool, and the mana abilities that filled it were activated before the
     /// play began, so their mana stays in the pool, as it would.
+    #[cfg(test)]
     pub(crate) fn pay_cost(
         &mut self,
         player: PlayerId,
         source: ObjectId,
         cost: &Cost,
+        chosen: &[Vec<ObjectId>],
+        x: u32,
+    ) -> Result<crate::object::PaidRecord, EngineError> {
+        let allowance =
+            casting::live_allowance(&self.state, player, casting::SpendFor::Ability(source));
+        self.pay_priced_cost(
+            player,
+            source,
+            &ActivationPrice {
+                cost: *cost,
+                allowance,
+            },
+            chosen,
+            x,
+        )
+    }
+
+    pub(super) fn pay_priced_cost(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        cost: &ActivationPrice,
         chosen: &[Vec<ObjectId>],
         x: u32,
     ) -> Result<crate::object::PaidRecord, EngineError> {
@@ -419,7 +454,7 @@ impl<L: CardLookup> Engine<L> {
         &mut self,
         player: PlayerId,
         source: ObjectId,
-        cost: &Cost,
+        cost: &ActivationPrice,
         chosen: &[Vec<ObjectId>],
         x: u32,
     ) -> Result<crate::object::PaidRecord, EngineError> {
@@ -444,11 +479,13 @@ impl<L: CardLookup> Engine<L> {
             let held_before = self.state.players[player.get() as usize].mana_pool.clone();
             paid.fixed_mana_cost = cost.mana.with_x(0);
             paid.mana_spending = casting::ability_mana_spending(&self.state, player, source);
-            paid.spend_riders = casting::pay_mana_for(
+            paid.spend_riders = casting::pay_mana_scoped(
                 &mut self.state,
                 player,
                 casting::SpendFor::Ability(source),
                 &mana,
+                None,
+                cost.allowance,
             )
             .ok_or(EngineError::IllegalAction("not enough mana"))?
             .into_iter()

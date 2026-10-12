@@ -26,8 +26,10 @@ pub(crate) use additional::{additional_card_enters_graveyard, additional_payment
 mod payment;
 mod permissions;
 mod pricing;
+mod source_cost;
 #[cfg(test)]
 pub(crate) use pricing::spell_increase;
+pub(crate) use source_cost::*;
 #[cfg(test)]
 mod tests;
 
@@ -758,8 +760,14 @@ pub(crate) fn can_cast_form_paying(
 ) -> Result<(), CastError> {
     // Every mana probe below asks the pool, unless the mana is made during
     // the cast; the other parts of a cost are asked either way.
-    let affordable = |state: &GameState, player: PlayerId, pool: &ManaPool, cost: &ManaCost| {
-        paying == Paying::DuringTheCast || spell_affordable(state, player, card, pool, cost)
+    let affordable = |state: &GameState,
+                      player: PlayerId,
+                      pool: &ManaPool,
+                      cost: &ManaCost,
+                      what: SpendFor,
+                      allowance: SourceAllowance| {
+        paying == Paying::DuringTheCast
+            || source_affordable(state, player, what, pool, cost, &[], Some(allowance))
     };
     let obj = state.object(card).ok_or(CastError::NotInHand)?;
     let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
@@ -921,18 +929,24 @@ pub(crate) fn can_cast_form_paying(
     let adjustment = spell_adjustment(state, player, obj);
     let tax = adjustment.increase;
     if let Some(form) = form {
-        return if affordable(state, player, pool, &adjustment.price(form.cost(), 0))
-            || matches!(form, SpellForm::Prototype(_))
-                && north_star_face_allowed(state, player, card, 0)
-                && normal_spell_affordable(
-                    state,
-                    player,
-                    card,
-                    pool,
-                    &adjustment.price(form.cost(), 0),
-                    &form.cost(),
-                )
-        {
+        return if affordable(
+            state,
+            player,
+            pool,
+            &adjustment.price(form.cost(), 0),
+            SpendFor::SpellAs(card, form),
+            adjustment.allowance(state, SpendFor::SpellAs(card, form), 0),
+        ) || matches!(form, SpellForm::Prototype(_))
+            && north_star_face_allowed(state, player, card, 0)
+            && normal_spell_affordable(
+                state,
+                player,
+                SpendFor::SpellAs(card, form),
+                pool,
+                &adjustment.price(form.cost(), 0),
+                &form.cost(),
+                adjustment.allowance(state, SpendFor::SpellAs(card, form), 0),
+            ) {
             Ok(())
         } else {
             Err(CastError::NotEnoughMana)
@@ -948,12 +962,19 @@ pub(crate) fn can_cast_form_paying(
             keyword_reduction(state, face, player, card)
                 .saturating_add(printed_reduction(state, face, player, card))
         }));
+    let allowance = adjustment.allowance(
+        state,
+        SpendFor::Spell(card),
+        reduction.saturating_sub(adjustment.reduction),
+    );
     let probe = |cost: &ManaCost| {
         affordable(
             state,
             player,
             pool,
             &cost.with_more_generic(tax).with_less_generic(reduction),
+            SpendFor::Spell(card),
+            allowance,
         )
     };
     let probe_normal = |cost: &ManaCost| {
@@ -962,10 +983,11 @@ pub(crate) fn can_cast_form_paying(
                 && normal_spell_affordable(
                     state,
                     player,
-                    card,
+                    SpendFor::Spell(card),
                     pool,
                     &cost.with_more_generic(tax).with_less_generic(reduction),
                     &c.mana_cost,
+                    allowance,
                 )
     };
     // A waived mana cost still pays increases (CR 601.2f).
@@ -1015,15 +1037,34 @@ pub(crate) fn can_cast_form_paying(
             .reduction
             .saturating_add(printed_reduction(state, face, player, card))
             .saturating_add(keyword_reduction(state, face, player, card));
+        let allowance = adjustment.allowance(
+            state,
+            SpendFor::SpellOnFace(card, i),
+            reduction.saturating_sub(adjustment.reduction),
+        );
         let cost = face
             .mana_cost
             .with_x(0)
             .with_more_generic(tax)
             .with_less_generic(reduction);
-        affordable(state, player, pool, &cost)
-            || !face.disturb
-                && north_star_face_allowed(state, player, card, i)
-                && normal_spell_affordable(state, player, card, pool, &cost, &face.mana_cost)
+        affordable(
+            state,
+            player,
+            pool,
+            &cost,
+            SpendFor::SpellOnFace(card, i),
+            allowance,
+        ) || !face.disturb
+            && north_star_face_allowed(state, player, card, i)
+            && normal_spell_affordable(
+                state,
+                player,
+                SpendFor::SpellOnFace(card, i),
+                pool,
+                &cost,
+                &face.mana_cost,
+                allowance,
+            )
     };
     // A back face that may be cast now, affordable and with something to
     // point at: the same three questions the wizard asks of it.
@@ -1101,17 +1142,20 @@ pub(crate) fn can_cast_form_paying(
                     .with_x(0)
                     .with_more_generic(tax)
                     .with_less_generic(reduction),
+                SpendFor::KickedSpell(card, 0, form),
+                allowance,
             ) || north_star_face_allowed(state, player, card, 0)
                 && normal_spell_affordable(
                     state,
                     player,
-                    card,
+                    SpendFor::KickedSpell(card, 0, form),
                     kicked_pool,
                     &kicked_mana_cost(face)
                         .with_x(0)
                         .with_more_generic(tax)
                         .with_less_generic(reduction),
                     &face.mana_cost,
+                    allowance,
                 ))
         {
             return Ok(());

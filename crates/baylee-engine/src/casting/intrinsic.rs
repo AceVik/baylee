@@ -151,8 +151,12 @@ pub fn can_activate_mana(state: &GameState, player: PlayerId, source: ObjectId) 
         && !crate::combat::summoning_sick(state, obj)
         && !intrinsic_mana_colors(state, source).is_empty()
         && i32::try_from(crate::mana_rules::life_price(state, source)).is_ok_and(|life| state.can_pay_life(player, life))
-        && affordable(state, player, &state.players[player.get() as usize].mana_pool,
-            &intrinsic_mana_price(state, source))
+        && {
+            let what = SpendFor::Ability(source);
+            let merged = spendable_pool(state, player, what);
+            let pool = merged.as_ref().unwrap_or(&state.players[usize::from(player.get())].mana_pool);
+            source_affordable(state, player, what, pool, &intrinsic_mana_price(state, source), &[], None)
+        }
 }
 
 /// Taps a basic land for its intrinsic mana (CR 305.6).

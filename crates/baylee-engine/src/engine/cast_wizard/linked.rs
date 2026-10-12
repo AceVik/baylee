@@ -49,7 +49,17 @@ impl<L: CardLookup> Engine<L> {
             let pool = restricted
                 .as_ref()
                 .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
-            if make_mana || casting::spell_affordable(&self.state, player, card, pool, &cost) {
+            if make_mana
+                || casting::source_affordable(
+                    &self.state,
+                    player,
+                    casting::SpendFor::SpellOnFace(card, face),
+                    pool,
+                    &cost,
+                    &[],
+                    None,
+                )
+            {
                 options.push(CastModeDesc {
                     index: 0,
                     kind: CastModeKind::Face(face),

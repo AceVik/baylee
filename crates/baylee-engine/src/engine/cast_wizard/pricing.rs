@@ -6,9 +6,22 @@ use super::*;
 pub(crate) struct FrozenReduction {
     pub total: u32,
     pub remainder: u32,
+    pub allowance: casting::SourceAllowance,
 }
 
 impl<L: CardLookup> Engine<L> {
+    pub(in crate::engine) fn wizard_source_allowance(
+        &self,
+        wizard: &CastWizard,
+    ) -> casting::SourceAllowance {
+        let frozen = wizard
+            .reduction
+            .unwrap_or_else(|| self.frozen_spell_reduction(wizard));
+        let selected = u32::try_from(wizard.delve_exiles.len() + wizard.convoke_taps.len())
+            .unwrap_or(u32::MAX);
+        frozen.allowance.reduced(selected)
+    }
+
     pub(super) fn frozen_spell_reduction(&self, wizard: &CastWizard) -> FrozenReduction {
         let def = self
             .state
@@ -36,6 +49,13 @@ impl<L: CardLookup> Engine<L> {
         FrozenReduction {
             total,
             remainder: total.saturating_sub(fixed),
+            allowance: casting::base_allowance(&self.state, spend_for(wizard, face)).adjusted(
+                adjustment.eligible_increase,
+                adjustment
+                    .increase
+                    .saturating_sub(adjustment.eligible_increase),
+                total,
+            ),
         }
     }
 }

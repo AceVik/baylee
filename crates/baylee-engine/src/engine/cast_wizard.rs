@@ -234,6 +234,9 @@ impl CastWizard {
             hash = hash
                 .wrapping_mul(31)
                 .wrapping_add(u64::from(reduction.remainder));
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&reduction.allowance));
         }
         for targets in [
             self.targets.as_slice(),
@@ -643,12 +646,15 @@ impl<L: CardLookup> Engine<L> {
         let pool = restricted
             .as_ref()
             .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
-        casting::spell_affordable(
+        let what = casting::SpendFor::Spell(card);
+        casting::source_affordable(
             &self.state,
             player,
-            card,
+            what,
             pool,
             &cost.with_less_generic(reduction),
+            &[],
+            Some(casting::live_allowance(&self.state, player, what).reduced(reduction)),
         )
     }
 
@@ -1190,20 +1196,22 @@ impl<L: CardLookup> Engine<L> {
                         casting::component_affordable(
                             &self.state,
                             wizard.player,
-                            wizard.card,
+                            spend_for(wizard, self.wizard_face(wizard)),
                             pool,
                             &price,
                             &component,
                             settled,
+                            self.wizard_source_allowance(wizard),
                         )
                     } else {
-                        casting::phyrexian_affordable_with(
+                        casting::source_affordable(
                             &self.state,
                             wizard.player,
+                            spend_for(wizard, self.wizard_face(wizard)),
                             pool,
                             &price,
                             settled,
-                            casting::spell_mana_spending(&self.state, wizard.player, wizard.card),
+                            Some(self.wizard_source_allowance(wizard)),
                         )
                     })
         };
@@ -1394,7 +1402,7 @@ impl<L: CardLookup> Engine<L> {
         )
     }
 
-    fn wizard_face(&self, wizard: &CastWizard) -> &'static baylee_cards_dsl::FaceDef {
+    pub(super) fn wizard_face(&self, wizard: &CastWizard) -> &'static baylee_cards_dsl::FaceDef {
         if wizard.masked {
             return &MASKED_FACE;
         }
@@ -1568,7 +1576,7 @@ impl<L: CardLookup> Engine<L> {
     /// Resolves an actual-mana restriction after cost reduction. A reduction
     /// can consume X as well as the fixed generic part; reductions already
     /// consumed by the option price must not be applied twice.
-    fn restricted_x_payment(
+    pub(super) fn restricted_x_payment(
         &self,
         wizard: &CastWizard,
         total: ManaCost,
@@ -1606,12 +1614,14 @@ impl<L: CardLookup> Engine<L> {
         let pool = spendable
             .as_ref()
             .unwrap_or(&self.state.players[usize::from(wizard.player.get())].mana_pool);
-        crate::mana_pay::payment_restricting_generic(
+        casting::source_plan(
+            &self.state,
+            spend_for(wizard, face),
             pool,
             &cost,
             casting::spell_mana_spending(&self.state, wizard.player, wizard.card),
-            [0; 6],
             restriction,
+            self.wizard_source_allowance(wizard),
         )
         .is_some()
     }
@@ -1728,7 +1738,10 @@ const fn pays_mana(wizard: &CastWizard) -> bool {
 /// the one reader of the payment in `finish_cast` and of the replicate
 /// question's bound, so the question never offers a count the payment
 /// would refuse over a Cavern of Souls' mana.
-fn spend_for(wizard: &CastWizard, face: &baylee_cards_dsl::FaceDef) -> casting::SpendFor {
+pub(super) fn spend_for(
+    wizard: &CastWizard,
+    face: &baylee_cards_dsl::FaceDef,
+) -> casting::SpendFor {
     if wizard.kicked {
         let form = match wizard.option {
             Some(CastModeKind::Prototype) => face.prototype.map(casting::SpellForm::Prototype),

@@ -47,12 +47,14 @@ impl<L: CardLookup> Engine<L> {
             // Restricted mana (Cavern of Souls & co.) is spent where the
             // spell may spend it, and a rider applies for each entry that
             // actually paid. A failed payment has touched nothing.
-            let Some(spent) = casting::pay_mana_restricting_generic(
+            let allowance = self.wizard_source_allowance(wizard);
+            let Some(spent) = casting::pay_mana_scoped(
                 &mut self.state,
                 player,
                 spend_for(wizard, face),
                 &payment_cost,
                 restriction,
+                allowance,
             ) else {
                 self.cast_wizard = None;
                 return Err(EngineError::IllegalAction("cannot pay the total cost"));

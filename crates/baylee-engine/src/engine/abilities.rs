@@ -18,6 +18,30 @@ mod restrictions;
 mod stack;
 mod x_value;
 
+/// A determined activation price keeps source permissions beside its mana.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ActivationPrice {
+    pub cost: Cost,
+    pub allowance: casting::SourceAllowance,
+}
+impl std::ops::Deref for ActivationPrice {
+    type Target = Cost;
+    fn deref(&self) -> &Cost {
+        &self.cost
+    }
+}
+impl ActivationPrice {
+    pub(super) fn with_mana(self, mana: baylee_core::mana::ManaCost) -> Self {
+        Self {
+            cost: Cost {
+                mana,
+                parts: self.cost.parts,
+            },
+            ..self
+        }
+    }
+}
+
 /// The cost parts an activation would leave unpaid, and think it had paid.
 ///
 /// These are paid in `cast_wizard` — the pitch of Force of Will, the X of

@@ -13,6 +13,17 @@ use baylee_core::mana::{ManaColor, ManaCost, ManaPool, ManaSpending, ManaSymbol}
 use smallvec::SmallVec;
 
 mod generic;
+mod source_credits;
+pub(crate) use source_credits::{
+    ReceiptRequirement, SourceCredits, SourcePayment, payment_with_source_credits,
+    payment_with_source_receipts,
+};
+#[cfg(test)]
+mod source_credit_extra;
+#[cfg(test)]
+mod source_credit_oracle;
+#[cfg(test)]
+mod source_receipt_oracle;
 
 /// Separate resources usable only for a bounded generic cost component.
 /// They cannot satisfy colored, colorless, hybrid or snow symbols, even under

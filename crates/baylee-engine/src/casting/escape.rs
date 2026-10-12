@@ -110,12 +110,18 @@ pub(crate) fn granted_escape_options(
                 let mut add = |modes, raw: ManaCost| {
                     let cost = adjustment.price(raw, printed);
                     if paying == Paying::FromThePool
-                        && !spell_affordable(
+                        && !source_affordable(
                             state,
                             player,
-                            card,
+                            what,
                             pool,
                             &cost.with_x(0).with_less_generic(keywords),
+                            &[],
+                            Some(adjustment.allowance(
+                                state,
+                                what,
+                                printed.saturating_add(keywords),
+                            )),
                         )
                     {
                         return;

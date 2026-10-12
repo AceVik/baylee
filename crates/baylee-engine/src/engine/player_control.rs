@@ -112,6 +112,13 @@ impl<L: CardLookup> Engine<L> {
             .constrained_payment(player)
             .filter(|payment| payment.card.object == card)?;
         let required = crate::constrained_payment::amounts(&obligation.required)?;
+        if !self.state.players[usize::from(player.get())]
+            .mana_pool
+            .restricted()
+            .is_empty()
+        {
+            return None;
+        }
         if cost.has_variable() || !obligation.required.restricted().is_empty() {
             return None;
         }
@@ -208,21 +215,16 @@ impl<L: CardLookup> Engine<L> {
         else {
             return false;
         };
-        let Some(required) = self
-            .state
-            .constrained_payment(*player)
-            .filter(|payment| payment.card.object == wizard.card)
-            .and_then(|payment| crate::constrained_payment::amounts(&payment.required))
-        else {
-            return false;
-        };
-        crate::mana_pay::payment_consuming(
-            &self.state.players[usize::from(player.get())].mana_pool,
-            cost,
-            crate::casting::mana_spending(&self.state, *player),
-            [0; 6],
-            None,
-            required,
+        let face = self.wizard_face(wizard);
+        let (cost, restriction) = self.restricted_x_payment(wizard, *cost);
+        let cost = self.north_star_payment(wizard, cost);
+        crate::casting::plan_mana_scoped(
+            &self.state,
+            *player,
+            super::cast_wizard::spend_for(wizard, face),
+            &cost,
+            restriction,
+            self.wizard_source_allowance(wizard),
         )
         .is_some()
     }

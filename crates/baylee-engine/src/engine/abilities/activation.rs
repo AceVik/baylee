@@ -97,6 +97,7 @@ impl<L: CardLookup> Engine<L> {
             baylee_core::mana::ManaCost,
             baylee_core::mana::ManaCost,
             u32,
+            casting::SourceAllowance,
         )>,
     ) -> Result<(), EngineError> {
         // The player half of a choice this activation has already answered,
@@ -301,32 +302,37 @@ impl<L: CardLookup> Engine<L> {
             return Ok(());
         }
         let variable_mana = cost.mana.has_variable();
-        let (mana, fixed_mana_cost, additional_life) = locked_price.unwrap_or_else(|| {
-            let price = |x| {
-                self.activation_price(
-                    player,
-                    source,
-                    &Cost {
-                        mana: cost.mana.with_x(x),
-                        parts: cost.parts,
+        let (mana, fixed_mana_cost, additional_life, allowance) =
+            locked_price.unwrap_or_else(|| {
+                let price = |x| {
+                    self.activation_price(
+                        player,
+                        source,
+                        &Cost {
+                            mana: cost.mana.with_x(x),
+                            parts: cost.parts,
+                        },
+                        cost_reduction,
+                    )
+                };
+                let selected = price(self.activation_x.unwrap_or(0));
+                (
+                    selected.mana,
+                    price(0).mana,
+                    if mana_ability {
+                        crate::mana_rules::life_price(&self.state, source)
+                    } else {
+                        0
                     },
-                    cost_reduction,
+                    selected.allowance,
                 )
-                .mana
-            };
-            (
-                price(self.activation_x.unwrap_or(0)),
-                price(0),
-                if mana_ability {
-                    crate::mana_rules::life_price(&self.state, source)
-                } else {
-                    0
-                },
-            )
-        });
-        let cost = Cost {
-            mana,
-            parts: cost.parts,
+            });
+        let cost = ActivationPrice {
+            cost: Cost {
+                mana,
+                parts: cost.parts,
+            },
+            allowance,
         };
         // Each Phyrexian symbol: 2 life or its mana, announced beside the X
         // (CR 601.2b through CR 602.2b; CR 118.13a). Asked only where both
@@ -388,10 +394,7 @@ impl<L: CardLookup> Engine<L> {
             .ok_or(EngineError::IllegalAction(
                 "activation life cost exceeds available life",
             ))?;
-        let cost = Cost {
-            mana: cost.mana.with_phyrexian_settled(by_life),
-            parts: cost.parts,
-        };
+        let cost = cost.with_mana(cost.mana.with_phyrexian_settled(by_life));
         // Targets, unless this activation has already answered them. That is
         // a flag and not a look at the lists, because an empty list is an
         // answer too: "up to one" answered with nothing re-enters here with
@@ -542,17 +545,14 @@ impl<L: CardLookup> Engine<L> {
         // make some (CR 601.2g, by 602.2b): only the rest is asked here, and
         // the window below is opened for the mana the pool does not cover.
         let deferred = variable_mana
-            && !self.can_pay_mana(
+            && !self.can_pay_activation_price(
                 player,
-                casting::SpendFor::Ability(source),
-                &cost.mana.with_x(self.activation_x.unwrap_or(0)),
+                source,
+                &cost.with_mana(cost.mana.with_x(self.activation_x.unwrap_or(0))),
             )
             && self.can_make_more_mana(player, source, ability_index);
         let planned = if deferred {
-            Cost {
-                mana: baylee_core::mana::ManaCost::ZERO,
-                parts: cost.parts,
-            }
+            cost.with_mana(baylee_core::mana::ManaCost::ZERO)
         } else {
             cost
         };
@@ -672,10 +672,10 @@ impl<L: CardLookup> Engine<L> {
             self.awaiting_answer = true;
             return Ok(());
         }
-        if !self.can_pay_mana(
+        if !self.can_pay_activation_price(
             player,
-            casting::SpendFor::Ability(source),
-            &cost.mana.with_x(self.activation_x.unwrap_or(0)),
+            source,
+            &cost.with_mana(cost.mana.with_x(self.activation_x.unwrap_or(0))),
         ) {
             self.activation_target_players = chosen_players;
             return self.open_activation_payment(
@@ -687,6 +687,7 @@ impl<L: CardLookup> Engine<L> {
                     cost.mana.with_x(self.activation_x.unwrap_or(0)),
                     fixed_mana_cost,
                     additional_life,
+                    cost.allowance,
                 ),
             );
         }
@@ -733,7 +734,7 @@ impl<L: CardLookup> Engine<L> {
                     |(_, list)| list.acquisition,
                 )
             });
-        let mut paid = self.pay_cost(player, source, &cost, &answers, x)?;
+        let mut paid = self.pay_priced_cost(player, source, &cost, &answers, x)?;
         paid.fixed_mana_cost = fixed_mana_cost;
         // The life the Phyrexian symbols were paid with, beside the rest of
         // the cost (CR 601.2h; CR 119.4 was asked above).

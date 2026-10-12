@@ -3,8 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
+mod source_pool;
+
 /// Admitted or consumed mana units with their provenance and spend rider.
-type ManaEntries = SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>;
+pub(super) type ManaEntries = SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>;
 
 /// A requirement whose filter reads the announced X, as the same spec over
 /// every object and the filter it widened away. `None` for every other
@@ -35,6 +37,7 @@ pub(crate) fn x_bounded(
 /// That is [`phyrexian_affordable`] with nothing settled yet: the cast
 /// wizard's Phyrexian question asks the same reader with its answers so
 /// far, so the offer and the question cannot disagree.
+#[cfg(test)]
 pub(crate) fn affordable(
     state: &GameState,
     player: PlayerId,
@@ -47,6 +50,7 @@ pub(crate) fn affordable(
 /// [`affordable`] with the first `settled.len()` Phyrexian symbols already
 /// announced (`true` = 2 life, CR 601.2b) and every way of announcing the
 /// rest tried. A cost with no Phyrexian symbol is the pool's question alone.
+#[cfg(test)]
 pub(crate) fn phyrexian_affordable(
     state: &GameState,
     player: PlayerId,
@@ -64,23 +68,6 @@ pub(crate) fn phyrexian_affordable(
     )
 }
 
-pub(crate) fn spell_affordable(
-    state: &GameState,
-    player: PlayerId,
-    card: ObjectId,
-    pool: &ManaPool,
-    cost: &ManaCost,
-) -> bool {
-    phyrexian_affordable_with(
-        state,
-        player,
-        pool,
-        cost,
-        &[],
-        spell_mana_spending(state, player, card),
-    )
-}
-
 pub(crate) fn phyrexian_affordable_with(
     state: &GameState,
     player: PlayerId,
@@ -89,12 +76,43 @@ pub(crate) fn phyrexian_affordable_with(
     settled: &[bool],
     spending: ManaSpending,
 ) -> bool {
+    phyrexian_payable(state, player, cost, settled, |cost| {
+        mana_pay::can_pay_with(pool, cost, spending)
+    })
+}
+
+pub(crate) fn source_affordable(
+    state: &GameState,
+    player: PlayerId,
+    what: SpendFor,
+    pool: &ManaPool,
+    cost: &ManaCost,
+    settled: &[bool],
+    allowance: Option<SourceAllowance>,
+) -> bool {
+    let spending = payment_spending(state, player, what);
+    if !super::source_cost::has_source_credits(state, pool) {
+        return phyrexian_affordable_with(state, player, pool, cost, settled, spending);
+    }
+    let allowance = allowance.unwrap_or_else(|| live_allowance(state, player, what));
+    phyrexian_payable(state, player, cost, settled, |cost| {
+        source_plan(state, what, pool, cost, spending, None, allowance).is_some()
+    })
+}
+
+fn phyrexian_payable(
+    state: &GameState,
+    player: PlayerId,
+    cost: &ManaCost,
+    settled: &[bool],
+    pays: impl Fn(&ManaCost) -> bool,
+) -> bool {
     let symbols = cost.phyrexian_count();
     let fixed = u32::try_from(settled.len()).unwrap_or(u32::MAX);
     // Eight symbols is 256 ways; no card prints more than four. Past that
     // only the mana is tried, which under-offers and never over-offers.
     if symbols == 0 || symbols > 8 {
-        return fixed == 0 && mana_pay::can_pay_with(pool, cost, spending);
+        return fixed == 0 && pays(cost);
     }
     if fixed > symbols {
         return false;
@@ -106,13 +124,13 @@ pub(crate) fn phyrexian_affordable_with(
     (0..(1u32 << (symbols - fixed))).any(|rest| {
         let mask = base | (rest << fixed);
         let life = 2 * i32::try_from(mask.count_ones()).unwrap_or(i32::MAX);
-        state.can_pay_life(player, life)
-            && mana_pay::can_pay_with(pool, &cost.with_phyrexian_settled(mask), spending)
+        state.can_pay_life(player, life) && pays(&cost.with_phyrexian_settled(mask))
     })
 }
 
 /// Pays a nonspell cost, admitting mana whose restriction allows such payments.
 /// Spell and activation payments use [`pay_mana_for`].
+#[cfg(test)]
 pub(crate) fn pay_mana(state: &mut GameState, player: PlayerId, cost: &ManaCost) -> bool {
     if !admitted(state, player, SpendFor::Other).is_empty() {
         return pay_mana_for(state, player, SpendFor::Other, cost).is_some();
@@ -317,6 +335,7 @@ pub(super) fn spending_object(
 /// never whether the mana may be spent. Ability restrictions match the
 /// actual source, including sources outside the battlefield. The walk is over the pool's list and never over the map, which
 /// is keyed by a hash.
+#[cfg(test)]
 pub(super) fn admitted(state: &GameState, player: PlayerId, what: SpendFor) -> ManaEntries {
     admitted_from_pool(
         state,
@@ -326,7 +345,11 @@ pub(super) fn admitted(state: &GameState, player: PlayerId, what: SpendFor) -> M
 }
 
 /// Read the actual payment pool, which may exclude reserved mana.
-fn admitted_from_pool(state: &GameState, what: SpendFor, pool: &ManaPool) -> ManaEntries {
+pub(super) fn admitted_from_pool(
+    state: &GameState,
+    what: SpendFor,
+    pool: &ManaPool,
+) -> ManaEntries {
     if pool.restricted().is_empty() {
         return SmallVec::new();
     }
@@ -336,6 +359,11 @@ fn admitted_from_pool(state: &GameState, what: SpendFor, pool: &ManaPool) -> Man
         .iter()
         .filter_map(|mana| {
             let provenance = state.restriction_info.get(&mana.restriction.0)?;
+            // Source credits remain a distinct resource class, even when the
+            // base is eligible. Never merge them through saturating counters.
+            if super::source_cost::is_source_credit(state, *mana) {
+                return None;
+            }
             let allows = if what.is_other() {
                 provenance.restriction.uses
                     == baylee_cards_dsl::ManaUse::NonSpellPaymentsOrMatchingSpells
@@ -482,7 +510,11 @@ pub(crate) fn spendable_units(state: &GameState, player: PlayerId, what: SpendFo
         .iter()
         .map(|color| u64::from(pool.available(*color)))
         .sum();
-    u32::try_from(total).unwrap_or(u32::MAX)
+    let credits: u64 = super::source_cost::source_entries(state, pool)
+        .iter()
+        .map(|(mana, ..)| u64::from(mana.amount))
+        .sum();
+    u32::try_from(total.saturating_add(credits)).unwrap_or(u32::MAX)
 }
 
 /// Greatest affordable value within a known finite bound. Increasing X
@@ -539,24 +571,49 @@ pub(crate) fn pay_mana_restricting_generic(
     cost: &ManaCost,
     restriction: Option<(ManaColor, u32)>,
 ) -> Option<ManaEntries> {
-    let obligation = state.constrained_payment(player).cloned();
-    let is_selected_spell = obligation.as_ref().is_some_and(|payment| match what {
-        SpendFor::Spell(card)
-        | SpendFor::SpellAs(card, _)
-        | SpendFor::SpellOnFace(card, _)
-        | SpendFor::KickedSpell(card, ..) => {
-            payment.card.object == card && state.source_identity(card) == Some(payment.card)
-        }
-        _ => false,
-    });
-    let spending = match what {
-        SpendFor::Spell(card)
-        | SpendFor::SpellAs(card, _)
-        | SpendFor::SpellOnFace(card, _)
-        | SpendFor::KickedSpell(card, ..) => spell_mana_spending(state, player, card),
-        SpendFor::Ability(source) => ability_mana_spending(state, player, source),
-        _ => mana_spending(state, player),
+    let allowance = if super::source_cost::has_source_credits(
+        state,
+        &state.players[usize::from(player.get())].mana_pool,
+    ) {
+        live_allowance(state, player, what)
+    } else {
+        SourceAllowance::default()
     };
+    pay_mana_scoped(state, player, what, cost, restriction, allowance)
+}
+
+pub(crate) fn pay_mana_scoped(
+    state: &mut GameState,
+    player: PlayerId,
+    what: SpendFor,
+    cost: &ManaCost,
+    restriction: Option<(ManaColor, u32)>,
+    allowance: SourceAllowance,
+) -> Option<ManaEntries> {
+    let (pool, spent) = plan_mana_scoped(state, player, what, cost, restriction, allowance)?;
+    let obligation = state.constrained_payment(player).cloned();
+    commit_mana_payment(
+        state,
+        player,
+        pool,
+        selected_obligation(state, player, what),
+        obligation.as_ref().filter(|_| !what.is_other()),
+    )?;
+    Some(spent)
+}
+
+/// Pure preview retains exact restricted identities, including mandatory units.
+pub(crate) fn plan_mana_scoped(
+    state: &GameState,
+    player: PlayerId,
+    what: SpendFor,
+    cost: &ManaCost,
+    restriction: Option<(ManaColor, u32)>,
+    allowance: SourceAllowance,
+) -> Option<(ManaPool, ManaEntries)> {
+    let obligation = state.constrained_payment(player).cloned();
+    let is_selected_spell = selected_obligation(state, player, what);
+    let spending = payment_spending(state, player, what);
     // Only unrelated payments must leave obligated mana untouched. Eligible
     // land mana abilities may consume it while paying for the instructed card.
     let protect_reserved = what.is_other();
@@ -568,6 +625,8 @@ pub(crate) fn pay_mana_restricting_generic(
     };
     let real = free.as_ref().unwrap_or(original);
     let mut entries = admitted_from_pool(state, what, real);
+    entries.retain(|(mana, ..)| !super::source_cost::is_source_credit(state, *mana));
+    entries.extend(super::source_cost::source_entries(state, real));
     let mut riding = ridden_for(state, player, what);
     // Ordinary producer tracking must not displace a beneficial mana rider.
     riding.sort_by_key(|(_, _, rider)| *rider == SpendRider::None);
@@ -587,53 +646,56 @@ pub(crate) fn pay_mana_restricting_generic(
                 .any(|unit| unit.restriction == mana.restriction)
         });
     }
-    let merged = merged(real, &entries);
-    let mut prefer = [0_u32; 6];
-    for (mana, ..) in entries.iter().chain(
-        riding
-            .iter()
-            .filter(|(_, _, rider)| *rider != SpendRider::None),
-    ) {
-        let slot = &mut prefer[mana.color.index()];
-        *slot = slot.saturating_add(u32::from(mana.amount));
-    }
-    let Some(required) = obligation.as_ref().map_or(Some([0; 6]), |payment| {
-        crate::constrained_payment::amounts(&payment.required)
-    }) else {
-        state.numeric_failure = Some("generated-mana obligation exceeds u32 per color");
-        return None;
-    };
-    for i in 0..6 {
-        prefer[i] = prefer[i].max(required[i]);
-    }
-    let paid = mana_pay::payment_consuming(
-        &merged,
+    let (mut pool, spent) = source_pool::Payment {
+        state,
+        real,
+        entries,
+        riding,
         cost,
         spending,
-        prefer,
         restriction,
-        if is_selected_spell { required } else { [0; 6] },
-    )?;
-
-    let (used_plain, used_snow) = consumed_mana(
-        &merged,
-        &paid,
-        obligation.as_ref().filter(|_| !protect_reserved),
-    );
-
-    let (mut pool, spent) = debit_tracked_units(real, entries, riding, used_plain, used_snow)?;
+        allowance,
+        obligation: obligation.as_ref().filter(|_| !protect_reserved),
+        must_consume: is_selected_spell,
+    }
+    .pay()?;
     if free.is_some() {
         let spent = real.payment_receipt(&pool)?;
         pool = original.payment_receipt(&spent)?;
     }
-    commit_mana_payment(
-        state,
-        player,
-        pool,
-        is_selected_spell,
-        obligation.as_ref().filter(|_| !protect_reserved),
-    )?;
-    Some(spent)
+    if is_selected_spell && let Some(payment) = obligation.as_ref() {
+        let receipt = original.payment_receipt(&pool)?;
+        if !required_receipt_satisfied(&receipt, &payment.required) {
+            return None;
+        }
+    }
+    Some((pool, spent))
+}
+
+fn selected_obligation(state: &GameState, player: PlayerId, what: SpendFor) -> bool {
+    state
+        .constrained_payment(player)
+        .is_some_and(|payment| match what {
+            SpendFor::Spell(card)
+            | SpendFor::SpellAs(card, _)
+            | SpendFor::SpellOnFace(card, _)
+            | SpendFor::KickedSpell(card, ..) => {
+                payment.card.object == card && state.source_identity(card) == Some(payment.card)
+            }
+            _ => false,
+        })
+}
+
+fn required_receipt_satisfied(receipt: &ManaPool, required: &ManaPool) -> bool {
+    required.restricted().iter().all(|unit| {
+        receipt
+            .restricted()
+            .iter()
+            .filter(|spent| spent.restriction == unit.restriction)
+            .map(|spent| u32::from(spent.amount))
+            .sum::<u32>()
+            >= u32::from(unit.amount)
+    })
 }
 
 /// Debit provenance before ordinary units, preserving snow and attached riders.
@@ -705,15 +767,7 @@ pub(super) fn commit_mana_payment(
     let before = state.players[player.get() as usize].mana_pool.clone();
     if is_selected_spell && let Some(payment) = obligation {
         let receipt = before.payment_receipt(&pool)?;
-        if payment.required.restricted().iter().any(|unit| {
-            receipt
-                .restricted()
-                .iter()
-                .filter(|spent| spent.restriction == unit.restriction)
-                .map(|spent| u32::from(spent.amount))
-                .sum::<u32>()
-                < u32::from(unit.amount)
-        }) {
+        if !required_receipt_satisfied(&receipt, &payment.required) {
             return None;
         }
     }
@@ -726,32 +780,6 @@ pub(super) fn commit_mana_payment(
         state.note_constrained_payment(player, &before);
     }
     Some(())
-}
-
-pub(super) fn consumed_mana(
-    merged: &ManaPool,
-    paid: &ManaPool,
-    obligation: Option<&crate::constrained_payment::ConstrainedPayment>,
-) -> ([u32; 6], [u32; 6]) {
-    // What the payment consumed, per colour, and how much of it was snow.
-    // Exact, because `spend` takes ordinary units before snow ones and
-    // `spend_snow` takes only snow ones.
-    let mut used_snow = [0_u32; 6];
-    let mut used_plain = [0_u32; 6];
-    for color in ManaColor::ALL {
-        let used = merged.available(color) - paid.available(color);
-        let mut snow = merged.snow_available(color) - paid.snow_available(color);
-        if let Some(payment) = obligation {
-            let wanted = u64::from(payment.required.snow_available(color))
-                + crate::constrained_payment::restricted_snow(&payment.required, color);
-            snow =
-                snow.max(u32::try_from(wanted.min(u64::from(used))).expect("bounded by used mana"));
-        }
-        used_snow[color.index()] = snow;
-        used_plain[color.index()] = used - snow;
-    }
-
-    (used_plain, used_snow)
 }
 
 /// Whether a face prints a mana cost at all (CR 202.1b).
@@ -777,4 +805,19 @@ pub(super) fn consumed_mana(
 /// cast for free and was never in question here.
 pub(crate) fn has_a_printed_cost(cost: &ManaCost) -> bool {
     cost.symbols().next().is_some()
+}
+
+pub(crate) fn payment_spending(
+    state: &GameState,
+    player: PlayerId,
+    what: SpendFor,
+) -> ManaSpending {
+    match what {
+        SpendFor::Spell(card)
+        | SpendFor::SpellAs(card, _)
+        | SpendFor::SpellOnFace(card, _)
+        | SpendFor::KickedSpell(card, ..) => spell_mana_spending(state, player, card),
+        SpendFor::Ability(source) => ability_mana_spending(state, player, source),
+        _ => mana_spending(state, player),
+    }
 }

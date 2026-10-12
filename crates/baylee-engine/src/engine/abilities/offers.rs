@@ -698,7 +698,7 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         source: ObjectId,
         index: u32,
-        cost: &Cost,
+        cost: &ActivationPrice,
         payable: bool,
         legal: &mut LegalActions,
     ) {
@@ -709,10 +709,7 @@ impl<L: CardLookup> Engine<L> {
         {
             return;
         }
-        let minimum_cost = Cost {
-            mana: cost.mana.with_x(minimum),
-            parts: cost.parts,
-        };
+        let minimum_cost = cost.with_mana(cost.mana.with_x(minimum));
         let payable = payable
             && (minimum == 0
                 || self.activation_affordable(
@@ -728,10 +725,7 @@ impl<L: CardLookup> Engine<L> {
             && self.activation_affordable(
                 player,
                 source,
-                &Cost {
-                    mana: baylee_core::mana::ManaCost::ZERO,
-                    parts: cost.parts,
-                },
+                &cost.with_mana(baylee_core::mana::ManaCost::ZERO),
                 &[],
                 self.mana_activation_life(source, index),
             )

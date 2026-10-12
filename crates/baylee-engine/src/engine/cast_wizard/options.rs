@@ -69,16 +69,30 @@ impl<L: CardLookup> Engine<L> {
         // spell" — which is what happened, and it is why the count lives in
         // one function rather than in each of them.
         let reduction = casting::keyword_reduction(&self.state, face, player, card);
+        let allowance = adjustment.allowance(
+            &self.state,
+            casting::SpendFor::Spell(card),
+            printed_reduction.saturating_add(reduction),
+        );
+        let back_allowance = |i| {
+            casting::face_adjustment(&self.state, player, card, def, i, None).allowance(
+                &self.state,
+                casting::SpendFor::SpellOnFace(card, i),
+                casting::printed_reduction(&self.state, &def.faces[i], player, card),
+            )
+        };
         // Mycosynth Lattice: every probe below asks whether the pool covers a
         // cost, and under the Lattice any mana answers any pip.
         let afford = |cost: &baylee_core::mana::ManaCost| {
             defer_mana
-                || casting::spell_affordable(
+                || casting::source_affordable(
                     &self.state,
                     player,
-                    card,
+                    casting::SpendFor::Spell(card),
                     pool,
                     &price(*cost).with_less_generic(reduction),
+                    &[],
+                    Some(allowance),
                 )
         };
         let afford_normal = |cost: &ManaCost| {
@@ -87,10 +101,11 @@ impl<L: CardLookup> Engine<L> {
                     && casting::normal_spell_affordable(
                         &self.state,
                         player,
-                        card,
+                        casting::SpendFor::Spell(card),
                         pool,
                         &price(*cost).with_less_generic(reduction),
                         &face.mana_cost,
+                        allowance,
                     )
         };
         let mut options =
@@ -106,12 +121,14 @@ impl<L: CardLookup> Engine<L> {
                 if back.disturb
                     && casting::face_timing_allows(&self.state, player, card, def, i)
                     && (defer_mana
-                        || casting::spell_affordable(
+                        || casting::source_affordable(
                             &self.state,
                             player,
-                            card,
+                            casting::SpendFor::SpellOnFace(card, i),
                             pool,
                             &back_price(i).with_x(0),
+                            &[],
+                            Some(back_allowance(i)),
                         ))
                     && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
                 {
@@ -252,21 +269,24 @@ impl<L: CardLookup> Engine<L> {
                 .as_ref()
                 .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
             if (defer_mana
-                || casting::spell_affordable(
+                || casting::source_affordable(
                     &self.state,
                     player,
-                    card,
+                    casting::SpendFor::KickedSpell(card, 0, None),
                     kicked_pool,
                     &price(cost).with_x(0).with_less_generic(reduction),
+                    &[],
+                    Some(allowance),
                 )
                 || casting::north_star_face_allowed(&self.state, player, card, 0)
                     && casting::normal_spell_affordable(
                         &self.state,
                         player,
-                        card,
+                        casting::SpendFor::KickedSpell(card, 0, None),
                         kicked_pool,
                         &price(cost).with_x(0).with_less_generic(reduction),
                         &face.mana_cost,
+                        allowance,
                     ))
                 && face.kicked_targets.map_or_else(
                     || casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0),
@@ -403,21 +423,24 @@ impl<L: CardLookup> Engine<L> {
                 .as_ref()
                 .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
             if (defer_mana
-                || casting::spell_affordable(
+                || casting::source_affordable(
                     &self.state,
                     player,
-                    card,
+                    casting::SpendFor::SpellOnFace(card, i),
                     pool,
                     &back_price(i).with_x(0),
+                    &[],
+                    Some(back_allowance(i)),
                 )
                 || casting::north_star_face_allowed(&self.state, player, card, i)
                     && casting::normal_spell_affordable(
                         &self.state,
                         player,
-                        card,
+                        casting::SpendFor::SpellOnFace(card, i),
                         pool,
                         &back_price(i).with_x(0),
                         &def.faces[i].mana_cost,
+                        back_allowance(i),
                     ))
                 && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
             {

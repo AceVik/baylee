@@ -25,6 +25,17 @@ pub(super) fn allocate(
     quota: u32,
     preferred: [u32; 6],
 ) -> Option<Allocation> {
+    allocate_restricting(ordinary, restricted, amount, quota, preferred, None)
+}
+
+pub(super) fn allocate_restricting(
+    ordinary: Resources,
+    restricted: Resources,
+    amount: u32,
+    quota: u32,
+    preferred: [u32; 6],
+    restriction: Option<(super::ManaColor, u32)>,
+) -> Option<Allocation> {
     if (0..6).any(|i| {
         ordinary.required[i] > ordinary.available[i]
             || restricted.required[i] > restricted.available[i]
@@ -44,6 +55,25 @@ pub(super) fn allocate(
     };
     let mut left = u64::from(amount) - mandatory_restricted - mandatory_ordinary;
     let mut allowance = (u64::from(quota) - mandatory_restricted).min(left);
+    if let Some((color, count)) = restriction {
+        let i = color.index();
+        let fixed = u64::from(count)
+            .saturating_sub(u64::from(result.ordinary[i]) + u64::from(result.restricted[i]));
+        if fixed > left {
+            return None;
+        }
+        let credit = u64::from(restricted.available[i] - result.restricted[i])
+            .min(allowance)
+            .min(fixed);
+        let normal = fixed - credit;
+        if normal > u64::from(ordinary.available[i] - result.ordinary[i]) {
+            return None;
+        }
+        result.restricted[i] += u32::try_from(credit).expect("bounded by available");
+        result.ordinary[i] += u32::try_from(normal).expect("bounded by available");
+        allowance = (allowance - credit).min(left - fixed);
+        left -= fixed;
+    }
     // All mandatory normal units are already reserved. Consuming the largest
     // allowed credit remainder can only reduce the normal generic demand.
     for i in 0..6 {

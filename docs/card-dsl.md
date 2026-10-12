@@ -3618,3 +3618,30 @@ alone. Combat stores one sole-blocker reference or an irreversible multiple
 marker per exact attacker, rather than rescanning every historical pairing.
 Removing a blocker or reusing its arena handle cannot rewrite that history;
 both state fingerprints include the distinction.
+
+### Source-scoped mana: Underdome
+
+`ManaUse::CostsFromMatchingSource` with `Filter::UnCard` follows the physical
+card imposing the cost. The receiving spell or ability alone cannot describe a
+mixed Un-imposed and ordinary cost. Physical eligibility comes from trusted
+rule-print metadata; the engine never interprets `PrintRef`.
+
+Spell and activation pricing retain a compact `SourceAllowance` across mana
+ability windows, including it in continuation fingerprints. For an ordinary
+base, eligible generic increases provide a quota capped by the final generic
+cost. For an Un base, the quota excludes the remaining ordinary-increase floor.
+Reductions and selected convoke/delve payments consume the ordinary component
+first; this is the engine's explicit mixed-component allocation policy.
+Commander tax remains ordinary. North Star's conversion does not turn ordinary
+taxes into eligible costs.
+
+Planning and payment share the same allocator. Source-credit pools stay separate
+from ordinary counters, including at saturation. Actual mana type, Snow,
+generic color requirements and mandatory plain/Snow receipts remain independent
+constraints; a successful preview must admit the same exact receipt at commit.
+Ordinary payments retain the existing fast path; generic allocation is bounded
+by the six mana types, not the numeric cost.
+
+Underdome is hand-authored using the existing DSL. The corpus reader remains
+fail-closed where its source grammar has not been verified; no speculative
+parser rule is introduced to claim automatic support.

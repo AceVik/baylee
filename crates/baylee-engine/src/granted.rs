@@ -52,12 +52,18 @@ impl GameState {
             SpecialActionCost::Life(n) => {
                 i32::try_from(n).is_ok_and(|n| self.can_pay_life(action.player, n))
             }
-            SpecialActionCost::Mana(cost) => crate::casting::affordable(
-                self,
-                action.player,
-                &self.players[usize::from(action.player.get())].mana_pool,
-                &cost,
-            ),
+            SpecialActionCost::Mana(cost) => {
+                let what = crate::casting::SpendFor::OtherFrom(action.offer.source);
+                crate::casting::plan_mana_scoped(
+                    self,
+                    action.player,
+                    what,
+                    &cost,
+                    None,
+                    crate::casting::base_allowance(self, what),
+                )
+                .is_some()
+            }
         }
     }
 
@@ -83,7 +89,7 @@ impl GameState {
                 );
             }
             SpecialActionCost::Mana(cost) => {
-                if !crate::casting::pay_mana(self, player, &cost) {
+                if !crate::casting::pay_mana_from(self, player, action.offer.source, &cost) {
                     return false;
                 }
             }

@@ -2,7 +2,7 @@
 
 use crate::state::GameState;
 use baylee_core::ids::{DamageSourceRef, PlayerId};
-use baylee_core::mana::{ManaColor, ManaFlags, ManaPool};
+use baylee_core::mana::{ManaColor, ManaPool};
 
 /// One nested, exact-card mana obligation. Entries preserve snow and restrictions.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -89,13 +89,4 @@ pub(crate) fn amounts(pool: &ManaPool) -> Option<[u32; 6]> {
             })?;
     }
     Some(amounts)
-}
-
-/// The snow subset of restricted units is charged separately by the payment reader.
-pub(crate) fn restricted_snow(pool: &ManaPool, color: ManaColor) -> u64 {
-    pool.restricted()
-        .iter()
-        .filter(|unit| unit.color == color && unit.flags.contains(ManaFlags::SNOW))
-        .map(|unit| u64::from(unit.amount))
-        .sum()
 }

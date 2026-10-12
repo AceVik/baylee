@@ -46,7 +46,11 @@ impl<L: CardLookup> Engine<L> {
         self.advance_cast_wizard()
     }
 
-    pub(super) fn north_star_payment(&self, wizard: &CastWizard, cost: ManaCost) -> ManaCost {
+    pub(in crate::engine) fn north_star_payment(
+        &self,
+        wizard: &CastWizard,
+        cost: ManaCost,
+    ) -> ManaCost {
         let Some(component) = wizard
             .north_star
             .and_then(|_| self.north_star_component(wizard))

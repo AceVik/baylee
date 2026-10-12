@@ -81,6 +81,7 @@ pub(super) struct ActivationPayment {
     pub(super) cost: baylee_core::mana::ManaCost,
     fixed_cost: baylee_core::mana::ManaCost,
     additional_life: u32,
+    allowance: crate::casting::SourceAllowance,
     players: Vec<PlayerId>,
     choices: Vec<Vec<baylee_core::ids::ObjectId>>,
     second: Option<smallvec::SmallVec<[baylee_core::ids::ObjectId; 1]>>,
@@ -108,7 +109,7 @@ impl ActivationPayment {
             &self.targets,
             self.cost,
             self.fixed_cost,
-            self.additional_life,
+            (self.additional_life, self.allowance),
             &self.players,
             &self.choices,
             &self.second,
@@ -144,7 +145,7 @@ impl<L: CardLookup> Engine<L> {
         &self,
         player: PlayerId,
         source: baylee_core::ids::ObjectId,
-        cost: &baylee_cards_dsl::Cost,
+        cost: &super::abilities::ActivationPrice,
         phyrexian_life: i32,
     ) -> bool {
         use baylee_cards_dsl::CostPart;
@@ -184,13 +185,14 @@ impl<L: CardLookup> Engine<L> {
         let pool = planned
             .as_ref()
             .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
-        crate::casting::phyrexian_affordable_with(
+        crate::casting::source_affordable(
             &self.state,
             player,
+            what,
             pool,
             &cost.mana.with_x(self.activation_x.unwrap_or(0)),
             &[],
-            crate::casting::ability_mana_spending(&self.state, player, source),
+            Some(cost.allowance),
         )
     }
 
@@ -259,9 +261,10 @@ impl<L: CardLookup> Engine<L> {
             baylee_core::mana::ManaCost,
             baylee_core::mana::ManaCost,
             u32,
+            crate::casting::SourceAllowance,
         ),
     ) -> Result<(), EngineError> {
-        let (cost, fixed_cost, additional_life) = price;
+        let (cost, fixed_cost, additional_life, allowance) = price;
         let source = self
             .state
             .source_identity(source)
@@ -275,6 +278,7 @@ impl<L: CardLookup> Engine<L> {
             cost,
             fixed_cost,
             additional_life,
+            allowance,
             players: std::mem::take(&mut self.activation_target_players),
             choices: std::mem::take(&mut self.activation_cost_choices),
             second: self.activation_second_targets.take(),
@@ -338,7 +342,12 @@ impl<L: CardLookup> Engine<L> {
                 payment.source.object,
                 payment.ability_index,
                 payment.targets,
-                Some((payment.cost, payment.fixed_cost, payment.additional_life)),
+                Some((
+                    payment.cost,
+                    payment.fixed_cost,
+                    payment.additional_life,
+                    payment.allowance,
+                )),
             )
             .is_err()
         {

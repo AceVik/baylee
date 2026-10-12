@@ -274,9 +274,23 @@ pub fn commander_tax(state: &GameState, player: PlayerId, card: ObjectId) -> u32
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct SpellAdjustment {
     pub increase: u32,
+    pub eligible_increase: u32,
     pub reduction: u32,
 }
 impl SpellAdjustment {
+    pub(crate) fn allowance(
+        self,
+        state: &GameState,
+        what: SpendFor,
+        additional_reduction: u32,
+    ) -> SourceAllowance {
+        base_allowance(state, what).adjusted(
+            self.eligible_increase,
+            self.increase.saturating_sub(self.eligible_increase),
+            self.reduction.saturating_add(additional_reduction),
+        )
+    }
+
     pub(crate) fn price(self, raw: ManaCost, printed_reduction: u32) -> ManaCost {
         raw.with_more_generic(self.increase)
             .with_less_generic(self.reduction.saturating_add(printed_reduction))
@@ -301,6 +315,7 @@ pub(crate) fn spell_adjustment(
 ) -> SpellAdjustment {
     let mut adjustment = SpellAdjustment {
         increase: commander_tax(state, player, object.id),
+        eligible_increase: 0,
         reduction: 0,
     };
     if !has_spell_adjustments(state) {
@@ -325,6 +340,13 @@ pub(crate) fn spell_adjustment(
         };
         if crate::effects::applies_to(state, effect, &spell) {
             *slot.0 = slot.0.saturating_add(slot.1);
+            if matches!(
+                effect.modifier,
+                baylee_cards_dsl::Modifier::SpellsCostMore(_)
+            ) && super::effect_is_un(state, effect.source)
+            {
+                adjustment.eligible_increase = adjustment.eligible_increase.saturating_add(slot.1);
+            }
         }
     }
     adjustment
@@ -341,6 +363,7 @@ pub(crate) fn face_adjustment(
     if !has_spell_adjustments(state) {
         return SpellAdjustment {
             increase: commander_tax(state, player, card),
+            eligible_increase: 0,
             reduction: 0,
         };
     }
@@ -433,28 +456,31 @@ pub(crate) fn north_star_face_allowed(
 pub(crate) fn normal_spell_affordable(
     state: &GameState,
     player: PlayerId,
-    card: ObjectId,
+    what: SpendFor,
     pool: &ManaPool,
     cost: &ManaCost,
     component: &ManaCost,
+    allowance: SourceAllowance,
 ) -> bool {
-    if spell_affordable(state, player, card, pool, cost) {
+    if source_affordable(state, player, what, pool, cost, &[], Some(allowance)) {
         return true;
     }
     if north_star_effect(state, player).is_none() {
         return false;
     }
-    component_affordable(state, player, card, pool, cost, component, &[])
+    component_affordable(state, player, what, pool, cost, component, &[], allowance)
 }
 
+#[allow(clippy::too_many_arguments)] // component conversion preserves the same explicit source scope
 pub(crate) fn component_affordable(
     state: &GameState,
     player: PlayerId,
-    card: ObjectId,
+    what: SpendFor,
     pool: &ManaPool,
     cost: &ManaCost,
     component: &ManaCost,
     settled: &[bool],
+    allowance: SourceAllowance,
 ) -> bool {
     let symbols = cost.phyrexian_count();
     let fixed = u32::try_from(settled.len()).unwrap_or(u32::MAX);
@@ -475,7 +501,16 @@ pub(crate) fn component_affordable(
         state.can_pay_life(
             player,
             2 * i32::try_from(life.count_ones()).unwrap_or(i32::MAX),
-        ) && mana_pay::can_pay_with(pool, &payment, spell_mana_spending(state, player, card))
+        ) && source_plan(
+            state,
+            what,
+            pool,
+            &payment,
+            payment_spending(state, player, what),
+            None,
+            allowance,
+        )
+        .is_some()
     })
 }
 
@@ -490,6 +525,7 @@ mod tests {
                     let cost = ManaCost::parse("{U}{B}").with_more_generic(base);
                     let adjusted = SpellAdjustment {
                         increase,
+                        eligible_increase: 0,
                         reduction,
                     }
                     .price(cost, 0);
