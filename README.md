@@ -262,7 +262,7 @@ file and its `.sha256` into the same folder and run:
 ```bash
 # Linux
 sha256sum -c Baylee-<version>-x86_64.AppImage.sha256
-# macOS
+# macOS (an Intel Mac: Baylee-<version>-x86_64.dmg.sha256)
 shasum -a 256 -c Baylee-<version>-aarch64.dmg.sha256
 ```
 
