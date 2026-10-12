@@ -260,10 +260,13 @@ pub(crate) async fn post(
     State(shared): State<Shared>,
     peer: Option<axum::Extension<ConnectInfo<std::net::SocketAddr>>>,
     headers: HeaderMap,
-    body: Bytes,
+    body: Result<Bytes, axum::extract::rejection::BytesRejection>,
 ) -> Response {
     let origin = allowed_origin(&shared, &headers).map(str::to_owned);
-    let answer = take(&shared, peer, &headers, origin.is_some(), &body).await;
+    // A body past the route's limit is refused here, not by the extractor,
+    // so the refusal carries CORS and the page can say what went wrong.
+    let body = body.ok();
+    let answer = take(&shared, peer, &headers, origin.is_some(), body.as_deref()).await;
     with_cors(answer.into_response(), origin.as_deref())
 }
 
@@ -272,7 +275,7 @@ async fn take(
     peer: Option<axum::Extension<ConnectInfo<std::net::SocketAddr>>>,
     headers: &HeaderMap,
     origin_allowed: bool,
-    body: &[u8],
+    body: Option<&[u8]>,
 ) -> Result<(StatusCode, Json<Taken>), Refusal> {
     if !shared.state.config.takes_contact() {
         return Err(refuse(
@@ -289,12 +292,12 @@ async fn take(
     if !shared.ui.allow_contact(&address) {
         return Err(refuse(StatusCode::TOO_MANY_REQUESTS, "too many messages"));
     }
-    if body.len() > MAX_BODY_BYTES {
+    let Some(body) = body.filter(|b| b.len() <= MAX_BODY_BYTES) else {
         return Err(refuse(
             StatusCode::PAYLOAD_TOO_LARGE,
             "the message is too large",
         ));
-    }
+    };
     let bad = |why| refuse(StatusCode::BAD_REQUEST, why);
     let input: ContactIn = serde_json::from_slice(body).map_err(|_| bad("not a message"))?;
     if input

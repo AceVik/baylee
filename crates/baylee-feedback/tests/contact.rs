@@ -568,6 +568,8 @@ async fn a_body_past_the_limit_is_too_large() {
         )
         .await;
     assert_eq!(answer.status, 413, "{}", answer.text());
+    // Refused by the handler, not the extractor: the page may read why.
+    assert_eq!(answer.header("access-control-allow-origin"), Some(SITE));
     assert_eq!(service.stored().await, 0);
     service.close().await;
 }
