@@ -167,6 +167,24 @@
         <p class="en">When the gateway carries the card catalog, cards read in your language with English as the fallback. The interface itself is in English and German.</p>
         <p class="de" lang="de">Hat das Gateway den Kartenkatalog, lesen sich Karten in deiner Sprache, Englisch als Rückfall. Die Oberfläche selbst gibt es auf Englisch und Deutsch.</p>
       </li>
+      <li>
+        <h3 class="en">Watch a running table</h3>
+        <h3 class="de" lang="de">Einem laufenden Tisch zuschauen</h3>
+        <p class="en">The lobby's <i>Watch</i> button seats you as a spectator. You see what the whole table sees and nobody's hand. A host can switch spectators off for a room.</p>
+        <p class="de" lang="de">Der Knopf <i>Zuschauen</i> in der Lobby setzt dich als Zuschauer an den Tisch. Du siehst, was der ganze Tisch sieht, und keine Hand. Ein Gastgeber kann Zuschauer für seinen Raum abschalten.</p>
+      </li>
+      <li>
+        <h3 class="en">A lost connection is not a lost game</h3>
+        <h3 class="de" lang="de">Verbindung weg, Spiel nicht verloren</h3>
+        <p class="en">When a player drops, the table shows a countdown while their chair waits for them. If time runs out, the house AI plays for them until they are back; with nobody else at the table, the game simply pauses.</p>
+        <p class="de" lang="de">Fällt ein Spieler heraus, zeigt der Tisch einen Countdown, solange sein Platz auf ihn wartet. Läuft die Zeit ab, spielt die Haus-KI für ihn, bis er zurück ist; sitzt sonst niemand am Tisch, pausiert das Spiel einfach.</p>
+      </li>
+      <li>
+        <h3 class="en">Tables your way</h3>
+        <h3 class="de" lang="de">Tische nach deinen Regeln</h3>
+        <p class="en">A Mixed table seats decks of any format together, and fourteen decision clocks run from a 15-second bullet to untimed. Starting life and mulligans are the host's to set.</p>
+        <p class="de" lang="de">Ein Tisch „Gemischt“ setzt Decks jedes Formats zusammen, und vierzehn Entscheidungsuhren reichen von 15 Sekunden bis ohne Uhr. Startleben und Mulligans legt der Gastgeber fest.</p>
+      </li>
     </ul>
   </div>
 </section>
@@ -217,18 +235,18 @@
         <p class="en">Every card in Baylee is code: one file per card, written in a small rules language and played in a test. There is no "close enough" interpreter guessing at card text. That is why the pool grows batch by batch instead of all at once.</p>
         <p class="de" lang="de">Jede Karte in Baylee ist Code: eine Datei pro Karte, in einer kleinen Regelsprache geschrieben und in einem Test gespielt. Es gibt keinen Interpreter, der Kartentext ungefähr errät. Deshalb wächst der Pool Stapel für Stapel statt auf einmal.</p>
         <dl class="numbers">
-          <div><dt><span class="en">2,698</span><span class="de" lang="de">2.698</span></dt><dd><span class="en">cards that play exactly as printed</span><span class="de" lang="de">Karten, die genau wie gedruckt spielen</span></dd></div>
-          <div><dt>575</dt><dd><span class="en">more that are partly implemented and marked as such</span><span class="de" lang="de">weitere, teilweise umgesetzt und so markiert</span></dd></div>
+          <div><dt><span class="en">3,161</span><span class="de" lang="de">3.161</span></dt><dd><span class="en">cards that play exactly as printed</span><span class="de" lang="de">Karten, die genau wie gedruckt spielen</span></dd></div>
+          <div><dt>109</dt><dd><span class="en">more that are partly implemented and marked as such</span><span class="de" lang="de">weitere, teilweise umgesetzt und so markiert</span></dd></div>
           <div><dt><span class="en">≈32,600</span><span class="de" lang="de">≈32.600</span></dt><dd><span class="en">cards in the whole corpus we are working towards</span><span class="de" lang="de">Karten im gesamten Korpus, auf den wir hinarbeiten</span></dd></div>
         </dl>
-        <p class="small en">Counted in the repository on 9 October 2026 at 0.1.0-beta.5 (<a href="https://github.com/AceVik/baylee/blob/main/data/card-pool.txt" rel="noopener">the pool list</a>, <a href="https://github.com/AceVik/baylee#what-baylee-is" rel="noopener">the README</a>). The deck builder can show only playable cards, and it warns when a deck holds cards that will not play as printed.</p>
-        <p class="small de" lang="de">Gezählt im Repository am 9. Oktober 2026 bei 0.1.0-beta.5 (<a href="https://github.com/AceVik/baylee/blob/main/data/card-pool.txt" rel="noopener">die Pool-Liste</a>, <a href="https://github.com/AceVik/baylee/blob/main/README.de.md#was-baylee-ist" rel="noopener">die README</a>). Der Deckbauer kann nur spielbare Karten zeigen und warnt, wenn ein Deck Karten enthält, die nicht wie gedruckt spielen.</p>
+        <p class="small en">Counted in the repository on 12 October 2026 for 0.1.0-beta.7 (<a href="https://github.com/AceVik/baylee/blob/main/data/card-pool.txt" rel="noopener">the pool list</a>, <a href="https://github.com/AceVik/baylee#what-baylee-is" rel="noopener">the README</a>). The deck builder can show only playable cards, and it warns when a deck holds cards that will not play as printed.</p>
+        <p class="small de" lang="de">Gezählt im Repository am 12. Oktober 2026 für 0.1.0-beta.7 (<a href="https://github.com/AceVik/baylee/blob/main/data/card-pool.txt" rel="noopener">die Pool-Liste</a>, <a href="https://github.com/AceVik/baylee/blob/main/README.de.md#was-baylee-ist" rel="noopener">die README</a>). Der Deckbauer kann nur spielbare Karten zeigen und warnt, wenn ein Deck Karten enthält, die nicht wie gedruckt spielen.</p>
       </div>
       <div>
         <h3 class="en">The plan</h3>
         <h3 class="de" lang="de">Der Plan</h3>
-        <p class="en">Sets go in release order, starting with Alpha, because every set introduces its mechanics on top of the older ones. Finishing Alpha completely is the next step after the current beta; the rest follows set by set. Bugs found at the table come before new cards, every time.</p>
-        <p class="de" lang="de">Die Sets kommen in Erscheinungsreihenfolge, beginnend mit Alpha, weil jedes Set seine Mechaniken auf die älteren setzt. Alpha vollständig fertigzustellen ist der nächste Schritt nach der aktuellen Beta; der Rest folgt Set für Set. Fehler, die am Tisch auffallen, gehen immer vor neuen Karten.</p>
+        <p class="en">Sets go in release order, starting with Alpha, because every set introduces its mechanics on top of the older ones. Alpha is complete: every playable card of it plays as printed. Arabian Nights and Antiquities come next, and the rest follows set by set. Bugs found at the table come before new cards, every time.</p>
+        <p class="de" lang="de">Die Sets kommen in Erscheinungsreihenfolge, beginnend mit Alpha, weil jedes Set seine Mechaniken auf die älteren setzt. Alpha ist vollständig: Jede spielbare Karte daraus spielt wie gedruckt. Als Nächstes kommen Arabian Nights und Antiquities, der Rest folgt Set für Set. Fehler, die am Tisch auffallen, gehen immer vor neuen Karten.</p>
         <p class="en">That means a modern deck will often hold cards Baylee does not know yet. We would rather tell you that in the deck builder than let a card resolve wrongly. Cards that cannot be played at all (ante, dexterity, subgames) are on a named skip list and never silently dropped.</p>
         <p class="de" lang="de">Das heißt: Ein modernes Deck enthält oft Karten, die Baylee noch nicht kennt. Wir sagen dir das lieber im Deckbauer, als eine Karte falsch verrechnen zu lassen. Karten, die gar nicht spielbar sind (Ante, Geschicklichkeit, Teilspiele), stehen auf einer benannten Auslassungsliste und fallen nie stillschweigend weg.</p>
       </div>
@@ -253,8 +271,10 @@
         <h3 class="de" lang="de">Ein Stuhl für ein Sprachmodell</h3>
         <p class="en">A seat bridge lets a model sit at the table as an ordinary player: a local model in LM Studio, one behind an OpenAI-compatible or Anthropic API, or an agent CLI on your own login. API keys never go in a file; a settings file names the environment variable they come from, and daily and monthly spending caps hold across games. When the model times out or answers something illegal, the house answers that question and the transcript says so.</p>
         <p class="de" lang="de">Eine Sitzbrücke lässt ein Modell als gewöhnlichen Spieler am Tisch sitzen: ein lokales Modell in LM Studio, eines hinter einer OpenAI-kompatiblen oder Anthropic-API oder ein Agent-CLI mit deinem eigenen Login. API-Schlüssel stehen nie in einer Datei; die Einstellungsdatei nennt die Umgebungsvariable, aus der sie kommen, und Tages- und Monatslimits gelten über alle Spiele. Wenn das Modell nicht antwortet oder etwas Unerlaubtes versucht, antwortet das Haus für diese Frage, und das Protokoll sagt es.</p>
-        <p class="small en">Today this is a developer feature: you start it from a terminal on a local table. <a href="https://github.com/AceVik/baylee#playing-against-a-language-model" rel="noopener">How to set it up</a>.</p>
-        <p class="small de" lang="de">Heute ist das eine Entwicklerfunktion: Du startest sie aus einem Terminal an einem lokalen Tisch. <a href="https://github.com/AceVik/baylee#playing-against-a-language-model" rel="noopener">So richtest du es ein</a> (englisch).</p>
+        <p class="en">At a gateway table the host seats one from the room: any open chair offers <i>language model</i> on a desktop client, which starts the bridge (it ships beside the game) with your own settings and key. Where the gateway's operator runs hosted models, a registered host can also pick one of those instead, and it plays on the operator's machine, so no key or bridge is needed on yours.</p>
+        <p class="small en"><a href="https://github.com/AceVik/baylee#playing-against-a-language-model" rel="noopener">How to set it up</a>.</p>
+        <p class="de" lang="de">An einem Gateway-Tisch setzt der Gastgeber es im Raum hin: Jeder freie Stuhl bietet im Desktop-Client <i>Sprachmodell</i> an, und der Client startet die Brücke (sie liegt dem Spiel bei) mit deinen eigenen Einstellungen und deinem Schlüssel. Wo der Betreiber des Gateways gehostete Modelle anbietet, kann ein registrierter Gastgeber stattdessen eines davon wählen; es spielt auf dem Rechner des Betreibers, auf deinem braucht es dann weder Schlüssel noch Brücke.</p>
+        <p class="small de" lang="de"><a href="https://github.com/AceVik/baylee#playing-against-a-language-model" rel="noopener">So richtest du es ein</a> (englisch).</p>
       </div>
     </div>
   </div>
@@ -265,8 +285,8 @@
   <div class="section-inner">
     <h2 class="en">Download</h2>
     <h2 class="de" lang="de">Herunterladen</h2>
-    <p class="section-lead en">Every download goes straight to the file on GitHub, nothing in between. Where a release has installers, they are the easy way; the archives hold the same game to unpack anywhere. An installed Baylee updates itself from the signed archives wherever it may write its own folder.</p>
-    <p class="section-lead de" lang="de">Jeder Download geht direkt zur Datei auf GitHub, nichts dazwischen. Wo eine Version Installer hat, sind sie der einfache Weg; die Archive enthalten dasselbe Spiel zum Entpacken an beliebiger Stelle. Ein installiertes Baylee aktualisiert sich selbst aus den signierten Archiven, wo es seinen eigenen Ordner beschreiben darf.</p>
+    <p class="section-lead en">Every download goes straight to the file on GitHub, nothing in between. Where a release has installers, they are the easy way; the archives hold the same game to unpack anywhere. An installed Baylee updates itself from the signed archives wherever it may write its own folder. Every package carries the seat bridge for language models beside the game.</p>
+    <p class="section-lead de" lang="de">Jeder Download geht direkt zur Datei auf GitHub, nichts dazwischen. Wo eine Version Installer hat, sind sie der einfache Weg; die Archive enthalten dasselbe Spiel zum Entpacken an beliebiger Stelle. Ein installiertes Baylee aktualisiert sich selbst aus den signierten Archiven, wo es seinen eigenen Ordner beschreiben darf. Jedes Paket enthält neben dem Spiel die Sitzbrücke für Sprachmodelle.</p>
 
     <div class="release-head" id="release-head">
       <!-- site.js: version, date, notes link -->
@@ -410,8 +430,10 @@ RUST_LOG=info ./target/release/baylee-agent</code></pre>
     <h2 class="de" lang="de">Etwas gefunden? Sag es uns</h2>
     <div class="two-col">
       <div>
-        <p class="en">Press <kbd>F8</kbd> at the table or in the lobby. A report carries its kind, your text, the client version and, at a table, the game's id; the gateway adds its own record of that game, in which seats are numbers and no player is named. Everything more is opt-in, one checkbox each, and every checkbox starts unticked: system and hardware, the table as you see it, your log, your settings, a screenshot. Session tokens are never sent.</p>
-        <p class="de" lang="de">Drück <kbd>F8</kbd> am Tisch oder in der Lobby. Eine Meldung enthält ihre Art, deinen Text, die Client-Version und am Tisch die Spiel-ID; das Gateway legt seine eigene Aufzeichnung des Spiels dazu, in der Plätze Nummern sind und kein Spieler genannt wird. Alles Weitere ist freiwillig, je ein Kästchen, und jedes Kästchen ist anfangs leer: System und Hardware, der Tisch wie du ihn siehst, dein Protokoll, deine Einstellungen, ein Screenshot. Sitzungs-Tokens werden nie gesendet.</p>
+        <p class="en">Press <kbd>F8</kbd> at the table or in the lobby. A report carries its kind, your text, the client version and, at a table, the game's id. Everything more has a checkbox of its own, and every box starts ticked, so untick what you would rather keep before you press Send: system and hardware, the table as you see it, your log (other players renamed "Player A", "Player B", …), your settings, a picture of the Baylee window only, and at a table the game's whole record (every move and every seat's cards, no names). <i>Show what is sent</i> shows every byte. Session tokens are never sent.</p>
+        <p class="en">While you play offline, the client says once a minute that a game is running: no account, no device id, nothing about the game. <i>Send anonymous usage count</i> under Settings › Privacy &amp; Data switches it off.</p>
+        <p class="de" lang="de">Drück <kbd>F8</kbd> am Tisch oder in der Lobby. Eine Meldung enthält ihre Art, deinen Text, die Client-Version und am Tisch die Spiel-ID. Alles Weitere hat ein eigenes Kästchen, und jedes Kästchen ist anfangs angehakt; nimm vor dem Senden das Häkchen weg, wo du etwas lieber behältst: System und Hardware, der Tisch wie du ihn siehst, dein Protokoll (andere Spieler als „Player A“, „Player B“, …), deine Einstellungen, ein Bild nur des Baylee-Fensters und am Tisch die ganze Aufzeichnung des Spiels (jeder Zug und die Karten jedes Platzes, keine Namen). <i>Zeigen, was gesendet wird</i> zeigt jedes Byte. Sitzungs-Tokens werden nie gesendet.</p>
+        <p class="de" lang="de">Beim Offline-Spielen sagt der Client einmal pro Minute, dass ein Spiel läuft: kein Konto, keine Geräte-ID, nichts über das Spiel. <i>Anonyme Nutzungszahl senden</i> unter Einstellungen › Datenschutz &amp; Daten schaltet das ab.</p>
       </div>
       <div>
         <p class="en">Want to talk, find opponents or hear first about new builds? Join the <a href="https://discord.gg/4pP3uAwgY" rel="noopener">Baylee community on Discord</a>.</p>
