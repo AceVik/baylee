@@ -152,6 +152,7 @@ pub fn keyboard(
     // The keyboard's half of the same rule as the pointer's: any bound key
     // forgets a half-pressed concession.
     duel.concede_armed = false;
+    duel.leave_armed = false;
     look_around(fired, &mut duel, &mut settings, &mut prefs);
     // An armed deed owns the keyboard first, and ahead of the ability menu:
     // arming is where the chooser *ends*, so a confirm key reaching the menu

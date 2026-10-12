@@ -57,12 +57,13 @@
 //! thing a short window takes its room out of. The wheel reaches it because
 //! `hud::scrolls` is the one input system that runs past `Playing`.
 
-use super::ledge::log::{LOG_ROW_GAP, LineInks, Paint, scrollbar, spawn_line, wording};
+use super::ledge::log::{
+    LOG_ROW_GAP, LineInks, LogTexts, Paint, PhaseRun, scrollbar, spawn_line, spawn_phase, wording,
+};
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 use baylee_client_core::gamelog::LogLine;
 use baylee_client_core::interaction::{ending_reason, table_losses, verdict};
-use baylee_core::ids::CardIndex;
 use bevy::text::LineHeight;
 use bevy::ui::ScrollPosition;
 
@@ -409,7 +410,7 @@ pub(crate) fn spawn_finish(
     );
 
     // The whole game, under how it ended (#262).
-    let lookup = |card: CardIndex, face: u8| texts.as_ref().and_then(|t| t.face(card, face));
+    let lookup = LogTexts(texts.as_deref());
     let lines = duel.log.lines(&wording(&duel, lang, &lookup));
     write_the_log(&mut commands, &fonts, sheet, lang, &lines);
 
@@ -590,7 +591,12 @@ fn write_the_log(
             },
         ))
         .id();
+    let mut run = PhaseRun::default();
     for line in lines {
+        if let Some(phase) = run.heading(line) {
+            let heading = spawn_phase(commands, fonts, lang, phase, &SHEET_INKS);
+            commands.entity(list).add_child(heading);
+        }
         // No seat swatch: the sheet is one reader's account of a game that
         // is over, and a column of seat colours down its left is the
         // panel's, where the table is still being played beside it.
@@ -961,6 +967,7 @@ mod tests {
                             player: PlayerId::new(1),
                         }
                     },
+                    phase: None,
                 })
                 .collect(),
         };

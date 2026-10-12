@@ -882,6 +882,7 @@ pub(crate) mod tests {
                 event: LogEvent::TurnStarted {
                     active: PlayerId::new(1),
                 },
+                phase: None,
             }],
         };
         let Some(HostMessage::View(_, Some(got))) =

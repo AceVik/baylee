@@ -51,22 +51,43 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use baylee_client_core::card_face::CardText;
 use baylee_client_core::gamelog::{CardTextLookup, LogLine, NameSpan, Wording};
 use baylee_client_core::images::{ArtSize, ImageKey};
 use baylee_core::ids::CardIndex;
-use baylee_view::CardIdentity;
+use baylee_view::{CardIdentity, Phase, RulesFace};
 use bevy::picking::events::{Click, Out, Over, Pointer};
 use bevy::ui::ScrollPosition;
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 
-/// How wide the panel is, at most.
+/// How wide the panel is at least, where the window has the room.
 ///
 /// A column of sentences, and wide enough that a line naming two cards
 /// mostly fits on one row. A narrow window gets less: see [`log_size`].
 pub(in crate::hud) const LOG_W: f32 = 360.0;
 
-/// How tall the panel is, at most.
+/// How wide the panel grows at most (the owner, 12.10.2026: "etwas
+/// breiter"): a line naming a spell, its mode and two targets reads on two
+/// rows rather than five.
+pub(in crate::hud) const LOG_W_MAX: f32 = 540.0;
+
+/// The share of the window's width the panel takes between the two.
+///
+/// About a quarter, so at 1920 × 1080 (and at every larger window, which
+/// the HUD's `UiScale` draws as that one, `hud::scale`) the panel is near
+/// its widest and three quarters of the table stay in sight beside it.
+const LOG_W_SHARE: f32 = 0.27;
+
+/// How tall the panel is at least, where the window has the room.
 pub(super) const LOG_H: f32 = 420.0;
+
+/// How tall it grows at most.
+const LOG_H_MAX: f32 = 640.0;
+
+/// The share of the band above the hand zone the panel takes between the
+/// two: the top of the right side stays the stack's and the report
+/// corner's.
+const LOG_H_SHARE: f32 = 0.72;
 
 /// The air inside the panel's border, and round the list.
 pub(super) const LOG_PAD: f32 = 10.0;
@@ -186,6 +207,8 @@ pub struct LogRevision {
     rewrites: u32,
     /// How many of the book's lines are drawn.
     drawn: usize,
+    /// Where the last drawn line left the phase headings.
+    run: PhaseRun,
 }
 
 impl LogRevision {
@@ -237,11 +260,19 @@ pub(in crate::hud) fn log_band(window: Vec2) -> (f32, f32) {
 
 /// How big the panel is in a window of this band.
 ///
-/// [`LOG_W`] by [`LOG_H`] where they fit, and otherwise the room there is:
-/// the window less its margins across, and the band above the strip up.
+/// A share of the band ([`LOG_W_SHARE`], [`LOG_H_SHARE`]) held between
+/// [`LOG_W`] by [`LOG_H`] and [`LOG_W_MAX`] by [`LOG_H_MAX`], and never more
+/// than the room there is: the window less its margins across, and the band
+/// above the strip up.
 pub(in crate::hud) fn log_size(band: (f32, f32)) -> (f32, f32) {
-    let width = LOG_W.min(band.0 - 2.0 * EDGE).max(0.0);
-    let height = LOG_H.min(band.1 - (STRIP_H - STRIP_LIP)).max(0.0);
+    let width = (band.0 * LOG_W_SHARE)
+        .clamp(LOG_W, LOG_W_MAX)
+        .min(band.0 - 2.0 * EDGE)
+        .max(0.0);
+    let height = (band.1 * LOG_H_SHARE)
+        .clamp(LOG_H, LOG_H_MAX)
+        .min(band.1 - (STRIP_H - STRIP_LIP))
+        .max(0.0);
     (width, height)
 }
 
@@ -304,6 +335,7 @@ pub fn sync_log(
         seat: duel.view.as_ref().map(|v| v.seat),
         rewrites: duel.log.rewrites(),
         drawn: revision.drawn,
+        run: revision.run,
     };
     if next.open == fold.closing {
         fold.closing = !next.open;
@@ -324,9 +356,14 @@ pub fn sync_log(
         let Some((list, mut follow)) = lists.iter_mut().next() else {
             return;
         };
-        let lookup = |card: CardIndex, face: u8| texts.as_ref().and_then(|t| t.face(card, face));
+        let lookup = LogTexts(texts.as_deref());
         let wording = wording(&duel, lang, &lookup);
+        let mut run = revision.run;
         for line in duel.log.lines_since(revision.drawn, &wording) {
+            if let Some(phase) = run.heading(&line) {
+                let heading = spawn_phase(&mut commands, &fonts, lang, phase, &PANEL_INKS);
+                commands.entity(list).add_child(heading);
+            }
             let swatch = subject_ink(&wording, line.subject);
             let row = spawn_line(
                 &mut commands,
@@ -342,6 +379,7 @@ pub fn sync_log(
             follow.unseen = true;
         }
         revision.drawn = len;
+        revision.run = run;
         return;
     }
 
@@ -352,12 +390,16 @@ pub fn sync_log(
             commands.entity(*kid).despawn();
         }
     }
-    let lookup = |card: CardIndex, face: u8| texts.as_ref().and_then(|t| t.face(card, face));
+    let lookup = LogTexts(texts.as_deref());
     let wording = wording(&duel, lang, &lookup);
     let lines = duel.log.lines(&wording);
-    let parts = draw_all(&mut commands, &fonts, &wording, &lines);
+    let (parts, run) = draw_all(&mut commands, &fonts, &wording, &lines);
     commands.entity(panel).add_children(&parts);
-    *revision = LogRevision { drawn: len, ..next };
+    *revision = LogRevision {
+        drawn: len,
+        run,
+        ..next
+    };
 }
 
 /// The whole panel's inside: the head, and the list with its scrollbar and
@@ -367,7 +409,7 @@ fn draw_all(
     fonts: &UiFonts,
     wording: &Wording,
     lines: &[LogLine],
-) -> [Entity; 2] {
+) -> ([Entity; 2], PhaseRun) {
     let lang = wording.lang;
     let head = head(commands, fonts, lang);
     let body = commands
@@ -410,7 +452,12 @@ fn draw_all(
             .id();
         commands.entity(list).add_child(empty);
     }
+    let mut run = PhaseRun::default();
     for line in lines {
+        if let Some(phase) = run.heading(line) {
+            let heading = spawn_phase(commands, fonts, lang, phase, &PANEL_INKS);
+            commands.entity(list).add_child(heading);
+        }
         let swatch = subject_ink(wording, line.subject);
         let row = spawn_line(commands, fonts, lang, line, &PANEL_INKS, Some(swatch));
         commands.entity(list).add_child(row);
@@ -426,8 +473,96 @@ fn draw_all(
     );
     let pill = new_lines_pill(commands, fonts, lang);
     commands.entity(body).add_children(&[list, track, pill]);
-    [head, body]
+    ([head, body], run)
 }
+
+/// The catalog's text as the log reads it: card names, and the words of a
+/// modal card's modes, through the cast chooser's own door
+/// ([`crate::choices::mode_words`]).
+pub(in crate::hud) struct LogTexts<'a>(pub Option<&'a crate::cardtext::CardTexts>);
+
+impl CardTextLookup for LogTexts<'_> {
+    fn text(&self, card: CardIndex, face: u8) -> Option<CardText> {
+        self.0.and_then(|texts| texts.face(card, face))
+    }
+
+    fn mode(&self, rules: RulesFace, mode: usize) -> Option<String> {
+        crate::choices::mode_words(self.0, rules.card, mode)
+    }
+}
+
+/// Where a turn's lines change phase, for a quiet heading between them.
+///
+/// The turn's own heading stands for its beginning, so the beginning phase
+/// gets none of its own; every later phase gets one before its first line,
+/// and a phase in which nothing happened gets none at all.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub(in crate::hud) struct PhaseRun {
+    /// The turn and phase of the last line read.
+    last: Option<(u32, Phase)>,
+}
+
+impl PhaseRun {
+    /// The phase whose heading stands before `line`, if one does, and the
+    /// run moved on past it.
+    pub(in crate::hud) fn heading(&mut self, line: &LogLine) -> Option<Phase> {
+        if line.header {
+            self.last = Some((line.turn, Phase::Beginning));
+            return None;
+        }
+        let phase = line.phase?;
+        let new = self.last != Some((line.turn, phase));
+        self.last = Some((line.turn, phase));
+        (new && phase != Phase::Beginning).then_some(phase)
+    }
+}
+
+/// What a phase's heading says.
+pub(in crate::hud) const fn phase_words(phase: Phase) -> Phrase {
+    match phase {
+        Phase::Beginning => Phrase::LogPhaseBeginning,
+        Phase::FirstMain => Phrase::LogPhaseFirstMain,
+        Phase::Combat => Phrase::LogPhaseCombat,
+        Phase::SecondMain => Phrase::LogPhaseSecondMain,
+        Phase::Ending => Phrase::LogPhaseEnding,
+    }
+}
+
+/// A phase's heading: a small caption in the quieter ink, set in from the
+/// lines under it.
+pub(in crate::hud) fn spawn_phase(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    phase: Phase,
+    inks: &LineInks,
+) -> Entity {
+    let mut caption = commands.spawn((
+        Text::new(phase_words(phase).text(lang).to_uppercase()),
+        TextFont {
+            font: bevy::text::FontSource::Handle(fonts.medium.clone()),
+            ..tf(fonts, inks.turn_pt * PHASE_SCALE)
+        },
+        Node {
+            margin: UiRect::new(px(PHASE_INDENT), px(0), px(PHASE_GAP), px(0)),
+            flex_shrink: 0.0,
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    (inks.paint)(&mut caption, Paint::Ink(inks.soft));
+    caption.id()
+}
+
+/// A phase heading's size, against a turn's.
+const PHASE_SCALE: f32 = 0.85;
+
+/// Above a phase's heading.
+const PHASE_GAP: f32 = 4.0;
+
+/// How far a phase's heading stands in: past the time column, over the
+/// sentences it heads.
+const PHASE_INDENT: f32 = CLOCK_W + SWATCH_GAP;
 
 /// Who the lines are written for.
 pub(in crate::hud) fn wording<'a>(
@@ -720,6 +855,9 @@ pub(in crate::hud) fn spawn_line(
     // start in one place down the list. A line the host never dated has
     // none, and neither then has any other line of that game.
     if let Some(clock) = local_clock(line) {
+        // A line that carries on the one above it stands under that line's
+        // sentence, with no time of its own: it is the same moment.
+        let clock = if line.follows { String::new() } else { clock };
         let mut time = commands.spawn((
             Text::new(clock),
             tf(fonts, inks.line_pt),
@@ -803,6 +941,12 @@ fn sentence(
     ));
     (inks.paint)(&mut sentence, Paint::Ink(inks.ink));
     let sentence = sentence.id();
+    if line.follows {
+        let mut mark = commands.spawn((TextSpan::new(FOLLOWS_MARK), tf(fonts, inks.line_pt)));
+        (inks.paint)(&mut mark, Paint::Ink(inks.soft));
+        let mark = mark.id();
+        commands.entity(sentence).add_child(mark);
+    }
     for (text, piece) in pieces {
         let face = match piece {
             Piece::Words => None,
@@ -834,6 +978,9 @@ fn sentence(
     }
     sentence
 }
+
+/// What opens a line that carries on the line above it (`LogLine::follows`).
+const FOLLOWS_MARK: &str = "\u{21b3} ";
 
 /// How wide a line's time is: "00:00" at the line's size, with a little to
 /// spare for the widest figures.
@@ -1201,6 +1348,8 @@ mod tests {
             ability: None,
             subject: None,
             crowned: false,
+            phase: None,
+            follows: false,
         }
     }
 
@@ -1438,6 +1587,7 @@ mod tests {
                     event: LogEvent::Mulliganed {
                         player: PlayerId::new(u8::try_from(i % 2).unwrap_or(0)),
                     },
+                    phase: None,
                 })
                 .collect(),
         }
@@ -1484,6 +1634,7 @@ mod tests {
                     turn: 1,
                     repeat: 1,
                     event,
+                    phase: None,
                 })
                 .collect(),
         }

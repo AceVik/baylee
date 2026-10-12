@@ -587,6 +587,11 @@ pub enum MenuAction {
     ArrangementMenu,
     /// Leave the game (sends the engine's own concession).
     Concede,
+    /// Get up from a running table without conceding (report 33): the
+    /// house plays the chair on from here, as for a client that quit
+    /// (`POST /lobby/depart`), and the table closes. Two presses, like the
+    /// concession; offline the game this client hosts ends with it.
+    LeaveGame,
     /// Offer a draw: every other player still in the game has to accept
     /// (CR 104.4i).
     OfferDraw,

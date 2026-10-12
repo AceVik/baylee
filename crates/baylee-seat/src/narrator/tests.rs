@@ -114,6 +114,7 @@ fn line(turn: u32, event: LogEvent) -> LogEntry {
         repeat: 1,
         at: 0,
         event,
+        phase: None,
     }
 }
 

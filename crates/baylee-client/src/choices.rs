@@ -125,14 +125,24 @@ fn printed_sentence(
     line: fn(CardIndex, usize, usize) -> Option<baylee_cards::lines::AbilityLine>,
     at: usize,
 ) -> Option<String> {
-    let card = cast_card(names, object)?;
+    card_sentence(names.texts, cast_card(names, object)?, line, at)
+}
+
+/// [`printed_sentence`] for a card already known: one printed sentence of
+/// `card`'s front face, as a row or a log line says it.
+fn card_sentence(
+    texts: Option<&crate::cardtext::CardTexts>,
+    card: CardIndex,
+    line: fn(CardIndex, usize, usize) -> Option<baylee_cards::lines::AbilityLine>,
+    at: usize,
+) -> Option<String> {
     let found = line(card, CAST_FACE, at)?;
     let printed = baylee_view::StackText {
         face: u8::try_from(CAST_FACE).ok()?,
         line: found.line,
         of: found.of,
     };
-    let blocks = crate::cardtext::sentence(names.texts, card, printed)?;
+    let blocks = crate::cardtext::sentence(texts, card, printed)?;
     let said: Vec<&str> = blocks
         .iter()
         .filter_map(|block| match block {
@@ -189,12 +199,22 @@ fn without_spree_cost(said: &str) -> &str {
 fn mode_label(lang: Lang, object: ObjectId, names: FaceNames<'_>, i: usize) -> String {
     // One-based in the fallback, because the printed card numbers its
     // modes from one and a player reads the card, not the index.
-    printed_sentence(names, object, baylee_cards::lines::mode_line, i)
-        .or_else(|| {
-            let card = cast_card(names, object)?;
-            baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string)
-        })
+    cast_card(names, object)
+        .and_then(|card| mode_words(names.texts, card, i))
         .unwrap_or_else(|| Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()]))
+}
+
+/// What mode `i` of `card` says: its printed sentence, else the card's own
+/// words for a choice made inside one sentence; `None` where neither is
+/// known. The cast chooser's rows and the game log's mode lines (#23) read
+/// it alike.
+pub(crate) fn mode_words(
+    texts: Option<&crate::cardtext::CardTexts>,
+    card: CardIndex,
+    i: usize,
+) -> Option<String> {
+    card_sentence(texts, card, baylee_cards::lines::mode_line, i)
+        .or_else(|| baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string))
 }
 
 /// One row of an indexed chooser.

@@ -926,6 +926,11 @@ pub struct StackItem {
     pub art: Option<ImageKey>,
     /// Distance from the top: 0 resolves next.
     pub depth: usize,
+    /// The modes chosen for it (CR 601.2b, 603.3c), as the game log
+    /// announced them ([`BoardModel::take_modes`]): the card they are
+    /// printed on, and bit `i` for mode `i`. `None` for a spell or ability
+    /// with no modes, and until the log has said.
+    pub modes: Option<(baylee_view::RulesFace, u8)>,
 }
 
 /// A card in the local seat's hand.
@@ -1079,6 +1084,21 @@ fn stack_art(
 }
 
 impl BoardModel {
+    /// Fills each stack entry's chosen modes from the game log, which every
+    /// seat is told them by ([`baylee_view::LogEvent::Aimed`], #23): the
+    /// latest announcement about the spell, or about an ability of the
+    /// entry's source. The log's hidden-information rule is the view's, so
+    /// an entry the seat may not know is never given modes.
+    pub fn take_modes(&mut self, log: &crate::gamelog::LogBook) {
+        for item in &mut self.stack {
+            let (id, ability) = match item.kind {
+                StackKind::Spell => (item.id, false),
+                StackKind::Ability { source, .. } => (source, true),
+            };
+            item.modes = log.modes_of(id, ability);
+        }
+    }
+
     /// Builds the render model from a view.
     ///
     /// `openings` says what the hand can do; the client marks it but never
@@ -1168,6 +1188,7 @@ impl BoardModel {
                         .collect(),
                     art,
                     depth: depth_base - 1 - i,
+                    modes: None,
                 }
             })
             .rev()

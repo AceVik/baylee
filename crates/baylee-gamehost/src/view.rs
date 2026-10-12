@@ -31,12 +31,12 @@ mod stack;
 mod zones;
 
 use object::{exact_object_view_with_access, public_object, target_objects};
-use stack::rules_face;
+pub(crate) use stack::rules_face;
 pub(crate) use stack::stack_item;
 use zones::{looking_at, mana_pool, per_seat_zone, zone};
 
 /// Translates the engine's phase into the wire enum.
-const fn phase(p: EnginePhase) -> Phase {
+pub(crate) const fn phase(p: EnginePhase) -> Phase {
     match p {
         EnginePhase::Beginning => Phase::Beginning,
         EnginePhase::FirstMain => Phase::FirstMain,

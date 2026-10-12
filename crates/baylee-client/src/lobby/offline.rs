@@ -367,6 +367,7 @@ impl Offline {
             | LobbyRequest::LogIn { .. }
             | LobbyRequest::PlayAsGuest { .. }
             | LobbyRequest::LogOut { .. }
+            | LobbyRequest::Depart { .. }
             | LobbyRequest::DeleteAccount { .. }
             | LobbyRequest::JoinGame { .. }
             | LobbyRequest::HandOver { .. }

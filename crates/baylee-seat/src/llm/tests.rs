@@ -1047,6 +1047,7 @@ async fn a_cast_the_table_took_back_is_said() {
                 },
                 from: None,
             },
+            phase: None,
         }],
     };
     mind.decide(cast_and_back).await.expect("a pass");

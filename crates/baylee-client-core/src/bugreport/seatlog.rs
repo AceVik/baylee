@@ -154,6 +154,7 @@ mod tests {
                 event: LogEvent::TurnStarted {
                     active: PlayerId::new(seat),
                 },
+                phase: None,
             })
             .collect();
         let mut book = LogBook::new();

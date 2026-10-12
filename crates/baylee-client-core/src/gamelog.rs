@@ -20,7 +20,8 @@ use std::ops::Range;
 use baylee_core::ids::{CardIndex, Defender, ObjectId, PlayerId};
 use baylee_view::{
     CardIdentity, ClockAnswer, CounterKind, DayNight, GameStatic, LogAbility, LogEntry, LogEvent,
-    LogFrom, LogObject, LogPlace, LogTail, LogTarget, LogZone, LossCause, PlayerView,
+    LogFrom, LogObject, LogPlace, LogTail, LogTarget, LogZone, LossCause, Phase, PlayerView,
+    RulesFace,
 };
 
 use crate::card_face::{CardText, shown_name};
@@ -35,6 +36,14 @@ use crate::interaction::loss_phrases;
 pub trait CardTextLookup {
     /// The text of face `face` of `card`, when the client has it.
     fn text(&self, card: CardIndex, face: u8) -> Option<CardText>;
+
+    /// The words of mode `mode` (from 0) of the card `rules` names, as the
+    /// card prints them, when the client can say them. A line about a modal
+    /// spell or ability falls back to the mode's number without them.
+    fn mode(&self, rules: RulesFace, mode: usize) -> Option<String> {
+        let _ = (rules, mode);
+        None
+    }
 }
 
 impl<F> CardTextLookup for F
@@ -101,6 +110,14 @@ pub struct LogLine {
     /// Whether the line crowns a monarch (CR 724), which a panel marks with
     /// the crown the monarch's plate and chip wear.
     pub crowned: bool,
+    /// The phase of the turn it happened in, for a panel that groups a
+    /// turn's lines by phase. `None` for a turn's heading and the opening
+    /// mulligans.
+    pub phase: Option<Phase>,
+    /// Whether it carries on the line before it: the modes and targets of
+    /// the spell cast or the ability put on the stack just above, written
+    /// without naming it again.
+    pub follows: bool,
 }
 
 impl LogLine {
@@ -293,12 +310,13 @@ impl LogBook {
     #[must_use]
     pub fn line(&self, index: usize, wording: &Wording<'_>) -> Option<LogLine> {
         let entry = self.entries.get(index)?;
+        let before = index.checked_sub(1).and_then(|at| self.entries.get(at));
         Some(
             Writer {
                 wording,
                 defenders: &self.defenders,
             }
-            .line(index, entry),
+            .line(index, entry, before),
         )
     }
 
@@ -319,7 +337,10 @@ impl LogBook {
             .iter()
             .enumerate()
             .skip(index)
-            .map(|(index, entry)| writer.line(index, entry))
+            .map(|(at, entry)| {
+                let before = at.checked_sub(1).and_then(|at| self.entries.get(at));
+                writer.line(at, entry, before)
+            })
             .collect()
     }
 
@@ -335,6 +356,34 @@ impl LogBook {
         let lines = self.lines_since(self.read, wording);
         self.read = self.entries.len();
         lines
+    }
+
+    /// The modes the latest line announcing `id` says were chosen: the
+    /// spell `id`, or with `ability` an ability whose source is `id`
+    /// ([`LogEvent::Aimed`]). `None` where no line said any.
+    ///
+    /// Read back to the start of the turn only: nothing stays on the stack
+    /// from one turn into the next, since a step ends only with the stack
+    /// empty (CR 500.2).
+    #[must_use]
+    pub fn modes_of(&self, id: ObjectId, ability: bool) -> Option<(RulesFace, u8)> {
+        let mut this_turn = self
+            .entries
+            .iter()
+            .rev()
+            .take_while(|entry| !matches!(entry.event, LogEvent::TurnStarted { .. }));
+        this_turn.find_map(|entry| match &entry.event {
+            LogEvent::Aimed {
+                source,
+                ability: of_ability,
+                rules: Some(rules),
+                modes,
+                ..
+            } if *of_ability == ability && *modes != 0 && handle(source) == Some(id) => {
+                Some((*rules, *modes))
+            }
+            _ => None,
+        })
     }
 
     /// Marks every line read without writing any.
@@ -430,8 +479,13 @@ struct Writer<'a> {
 }
 
 impl Writer<'_> {
-    fn line(&self, index: usize, entry: &LogEntry) -> LogLine {
-        let mut piece = self.sentence(entry);
+    fn line(&self, index: usize, entry: &LogEntry, before: Option<&LogEntry>) -> LogLine {
+        let follows = follows(entry, before);
+        let mut piece = if follows {
+            self.short(entry)
+        } else {
+            self.sentence(entry)
+        };
         if piece.lower {
             // ASCII only, so no span moves.
             if let Some(first) = piece.text.get_mut(..1) {
@@ -459,6 +513,94 @@ impl Writer<'_> {
             },
             subject: piece.subject,
             crowned: matches!(entry.event, LogEvent::BecameMonarch { .. }),
+            phase: entry.phase,
+            follows,
+        }
+    }
+
+    /// What an [`LogEvent::Aimed`] line says after its spell or ability:
+    /// "mode: …", "targeting …", or both, joined.
+    fn aim_parts(&self, entry: &LogEntry) -> Piece {
+        let LogEvent::Aimed {
+            rules,
+            modes,
+            targets,
+            ..
+        } = &entry.event
+        else {
+            return Piece::default();
+        };
+        let mut parts = Vec::new();
+        if let Some(rules) = rules.filter(|_| *modes != 0) {
+            let chosen: Vec<String> = (0..8_usize)
+                .filter(|i| modes & (1 << i) != 0)
+                .map(|i| {
+                    self.wording.texts.mode(rules, i).map_or_else(
+                        || Phrase::CastModeNumber.fill(self.wording.lang, &[&(i + 1).to_string()]),
+                        |words| Phrase::LogQuoted.fill(self.wording.lang, &[&words]),
+                    )
+                })
+                .collect();
+            let phrase = if chosen.len() > 1 {
+                Phrase::LogAimedModes
+            } else {
+                Phrase::LogAimedMode
+            };
+            parts.push(self.phrase(
+                phrase,
+                &[Piece::default(), Piece::plain(chosen.join(" + "))],
+            ));
+        }
+        if !targets.is_empty() {
+            let named: Vec<Piece> = targets
+                .iter()
+                .map(|target| match target {
+                    LogTarget::Player(player) if *player == self.wording.seat => {
+                        self.you(Phrase::LogYouSubject)
+                    }
+                    LogTarget::Player(player) => self.seat(*player),
+                    LogTarget::Object(object) => self.object(object),
+                })
+                .collect();
+            let phrase = if named.len() > 1 {
+                Phrase::LogAimedTargets
+            } else {
+                Phrase::LogAimedTarget
+            };
+            parts.push(self.phrase(phrase, &[Piece::default(), self.list(named)]));
+        }
+        let mut out = Piece::default();
+        for (i, part) in parts.iter().enumerate() {
+            if i > 0 {
+                out.text.push_str("; ");
+            }
+            out.push(part);
+        }
+        out.lower = false;
+        out
+    }
+
+    /// A line under the line it carries on ([`LogLine::follows`]), without
+    /// naming again what that line named: an [`LogEvent::Aimed`] line's
+    /// parts, about the spell's or the ability's controller, or the life
+    /// total that damage left a player at.
+    fn short(&self, entry: &LogEntry) -> Piece {
+        match entry.event {
+            LogEvent::Aimed { controller, .. } => Piece {
+                subject: Some(controller),
+                ..self.aim_parts(entry)
+            },
+            LogEvent::Life { player, old, new } => {
+                let n = usize::try_from(new).unwrap_or(0);
+                Piece {
+                    subject: Some(player),
+                    ..self.phrase(
+                        Phrase::counted(n, Phrase::LogLifeNowPoint, Phrase::LogLifeNowPoints),
+                        &[Piece::default(), Self::count(&old), Self::count(&new)],
+                    )
+                }
+            }
+            _ => self.sentence(entry),
         }
     }
 
@@ -836,13 +978,18 @@ impl Writer<'_> {
                 vec![self.object(spell), self.played_from(*player, *from)],
             ),
             LogEvent::Ability {
-                controller, source, ..
-            } => self.about(
-                *controller,
-                Phrase::LogAbilityYou,
-                Phrase::LogAbility,
-                vec![self.object(source)],
-            ),
+                controller,
+                source,
+                activated,
+                ..
+            } => {
+                let (you, other) = match activated {
+                    Some(true) => (Phrase::LogActivatedYou, Phrase::LogActivated),
+                    Some(false) => (Phrase::LogTriggeredYou, Phrase::LogTriggered),
+                    None => (Phrase::LogAbilityYou, Phrase::LogAbility),
+                };
+                self.about(*controller, you, other, vec![self.object(source)])
+            }
             LogEvent::Countered { spell } => {
                 self.about_nobody(Phrase::LogCountered, vec![self.object(spell)])
             }
@@ -966,7 +1113,14 @@ impl Writer<'_> {
                 old,
                 new,
             } => self.about_nobody(
-                Phrase::LogCounters,
+                // A permanent that had none, such as a planeswalker entering
+                // with its loyalty, got them: "went to 4 (from 0)" says the
+                // same thing as a sum.
+                if *old == 0 {
+                    Phrase::LogCountersGot
+                } else {
+                    Phrase::LogCounters
+                },
                 vec![
                     self.object(object),
                     Self::count(new),
@@ -1092,7 +1246,70 @@ impl Writer<'_> {
                 Phrase::LogMonarch,
                 Vec::new(),
             ),
+            LogEvent::Aimed {
+                controller,
+                source,
+                ability,
+                ..
+            } => {
+                let phrase = if *ability {
+                    Phrase::LogAimedAbility
+                } else {
+                    Phrase::LogAimedSpell
+                };
+                Piece {
+                    subject: Some(*controller),
+                    ..self.phrase(
+                        phrase,
+                        &[Piece::default(), self.object(source), self.aim_parts(entry)],
+                    )
+                }
+            }
         }
+    }
+}
+
+/// Whether `entry` carries on `before`: an [`LogEvent::Aimed`] line right
+/// after the cast of its spell or the line putting its ability on the
+/// stack, or a player's life right after damage to that player. A folded
+/// line never does: its count belongs to it alone.
+fn follows(entry: &LogEntry, before: Option<&LogEntry>) -> bool {
+    let Some(before) = before else {
+        return false;
+    };
+    if before.turn != entry.turn || entry.repeat != 1 || before.repeat != 1 {
+        return false;
+    }
+    // A player's life after the damage that took it there.
+    if let (
+        LogEvent::Life { player, old, new },
+        LogEvent::Damage {
+            target: LogTarget::Player(hurt),
+            ..
+        },
+    ) = (&entry.event, &before.event)
+    {
+        return player == hurt && new < old;
+    }
+    let LogEvent::Aimed {
+        source, ability, ..
+    } = &entry.event
+    else {
+        return false;
+    };
+    let named = match (&before.event, ability) {
+        (LogEvent::Cast { spell, .. }, false) => spell,
+        (LogEvent::Ability { source, .. }, true) => source,
+        _ => return false,
+    };
+    handle(named).is_some() && handle(named) == handle(source)
+}
+
+/// The handle a line names an object by, where it names one.
+const fn handle(object: &LogObject) -> Option<ObjectId> {
+    match object {
+        LogObject::Known { id, .. } | LogObject::FaceDown { id } => Some(*id),
+        LogObject::Hidden => None,
     }
 }
 
@@ -1148,6 +1365,7 @@ mod tests {
             turn,
             repeat: 1,
             event,
+            phase: None,
         }
     }
 
@@ -1610,6 +1828,7 @@ mod tests {
                     player: BO,
                     spell: bolt(3),
                 },
+                phase: None,
             },
             entry(
                 1,
@@ -1860,6 +2079,7 @@ mod tests {
             turn: 1,
             repeat: 5,
             event,
+            phase: None,
         };
         let book = book(&[
             folded(LogEvent::Cast {
@@ -1907,6 +2127,7 @@ mod tests {
                     controller: BO,
                     source: token(4, "Soldier"),
                     ability: Some(ability),
+                    activated: None,
                 },
             )]),
             Lang::En,
@@ -1979,10 +2200,11 @@ mod tests {
             LogEvent::CardsKept { .. } => 31,
             LogEvent::BecameMonarch { .. } => 32,
             LogEvent::ConnectionLost { .. } => 33,
+            LogEvent::Aimed { .. } => 36,
         }
     }
 
-    const VARIANTS: usize = 36;
+    const VARIANTS: usize = 37;
 
     /// Every kind of line, about `player`, with every answer, cause, zone and
     /// counter a line can carry.
@@ -2026,6 +2248,21 @@ mod tests {
                     id: ObjectId::new(9, 1),
                 },
                 ability: None,
+                activated: None,
+            },
+            LogEvent::Aimed {
+                controller: player,
+                source: card.clone(),
+                ability: false,
+                rules: Some(RulesFace {
+                    card: BOLT,
+                    face: 0,
+                }),
+                modes: 0b10,
+                targets: vec![
+                    LogTarget::Player(player),
+                    LogTarget::Object(token(5, "Island")),
+                ],
             },
             LogEvent::Countered {
                 spell: card.clone(),
@@ -2305,6 +2542,9 @@ mod tests {
             | LogEvent::Ability {
                 controller: player, ..
             }
+            | LogEvent::Aimed {
+                controller: player, ..
+            }
             | LogEvent::Drew { player, .. }
             | LogEvent::Discarded { player, .. }
             | LogEvent::Moved { owner: player, .. }
@@ -2564,6 +2804,8 @@ mod tests {
             ability: None,
             subject: None,
             crowned: false,
+            phase: None,
+            follows: false,
         };
         assert_eq!(line.clock(0), None, "a line the host never dated");
         // 2026-09-25 12:34:56.789 UTC.

@@ -221,7 +221,10 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 74 adds the choice between standing and one-shot regeneration.
 /// Version 75 widens explicit life payment amounts to preserve costs above 65535.
 /// Version 76 adds bore counters and exact-or-none optional tap payments.
-pub const VIEW_VERSION: u32 = 76;
+/// Version 77 adds the log's phase per line, whether an ability line's
+/// ability was activated or triggered, and its `Aimed` line: the modes and
+/// targets a spell or an ability on the stack was announced with.
+pub const VIEW_VERSION: u32 = 77;
 
 // ------------------------------------------------------------------- targets
 

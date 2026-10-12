@@ -8586,8 +8586,9 @@ A `LogLine` carries:
   `plain()` adds "(×N)" for a reader that draws plain text.
 
 **The panel** (`hud::ledge::log`) is the scroll button in the bar, `L`, and
-a column that stands on the right strip against the right margin, 360 by 420
-where the window has room and the room there is where it has not. It stands
+a column that stands on the right strip against the right margin, a share of
+the window from 360 by 420 up to 540 by 640 where the window has room (below,
+beta.8) and the room there is where it has not. It stands
 on the strip's top edge and not over the strip the way the game menu does:
 the menu goes away on the next press, and the log stays up while the game
 goes on. The strip was the tray's when this was written, and the panel must
@@ -8673,8 +8674,50 @@ Known limits, each a later view version:
 - `Defender::Planeswalker` names the planeswalker by handle only. The book
   remembers each one's name from the view that arrived with the attack, and
   says "a planeswalker" for one it never saw.
-- An ability line cannot tell activated from triggered.
 - `CounterKind::badge` is English, so the counter nouns are written here.
+
+### Wider, grouped, and saying what was chosen (beta.8)
+
+The owner, 12.10.2026: *"Der Spiellog muss verbessert werden und auch etwas
+breiter gemacht werden."* Read against real games (the beta.6 reports'
+records, replayed for one seat), the log said "Bo put an ability of X on the
+stack" for every fetch, trigger and planeswalker, "Bo played a card" and then
+a move for every shockland, and nothing at all about which mode a charm was
+cast with or what a removal spell was aimed at (report 23). What changed:
+
+- **The panel is a share of the window** (`log_size`): 27 % of its width
+  between `LOG_W` (360) and `LOG_W_MAX` (540), 72 % of the band above the
+  hand zone between `LOG_H` (420) and `LOG_H_MAX` (640). Past 1920 × 1080
+  the HUD's `UiScale` draws every window as that one, so 1080p to 4K show
+  the same proportion; it still stands on the right strip's top edge.
+- **A turn's lines are grouped by phase.** `LogLine::phase` (the host's
+  `LogEntry::phase`) puts a small caption ("COMBAT", "SECOND MAIN PHASE")
+  before the first line of each later phase (`PhaseRun`); the beginning
+  phase has the turn's heading, and a phase where nothing happened has
+  nothing. The end screen groups the same way.
+- **Modes and targets** (`LogEvent::Aimed`, docs/protocol.md §"Modes,
+  targets, phases and the kind of an ability"): right under the cast or the
+  ability it belongs to, the line carries on without naming it again
+  (`LogLine::follows`): no time, a "↳" in the quieter ink, then `mode:
+  “…”` and/or `targeting X and Bo`. Elsewhere (a trigger's targets chosen in
+  a later question, a retarget) it is a line of its own, "Spell: targeting
+  X" or "Ability of X: …". A mode is said in the card's own words: the
+  lookup's `CardTextLookup::mode`, which the client answers through the
+  cast chooser's door (`choices::mode_words`), so the log, the chooser and
+  the stack say one sentence; its number where neither is known.
+- **The stack shows the chosen modes** under a modal spell or a modal
+  trigger, as "• …" blocks after the printed sentence
+  (`BoardModel::take_modes` reads them off the log's latest `Aimed` line of
+  the turn; `stack_sentence`). A queued row keeps its heading.
+- **Abilities say what they were**: "Bo activated [Windswept Heath]",
+  "[Smothering Tithe] triggered for Bo" (`LogEvent::Ability::activated`);
+  the old sentence only where the host cannot say.
+- **Damage to a player and the life it left** read as one: the life line
+  right under the damage to that player carries on it, "↳ now at 17 life
+  (from 20)". A permanent getting counters it had none of "got 4 loyalty
+  counters" rather than "went to 4 (from 0)".
+- **A land played is one line** even when its entry asked first (the
+  host's change; "Bo played a card" before was a card still in a hand).
 
 ### Another seat's reveal is held up (07.10.2026)
 

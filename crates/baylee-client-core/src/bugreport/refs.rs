@@ -23,6 +23,14 @@
 //! it. Nothing is matched against anything but this list, so a prefix query
 //! cannot reach a hidden name.
 //!
+//! Two more sources widen it without widening what the seat knows (#14):
+//! a token that copies a card is offered as that card ([`candidates`]'s
+//! `copies`), and every card the seat's own game log named to it that the
+//! view no longer shows comes after the rest ([`logged`], [`RefZone::Logged`]),
+//! because a card revealed and shuffled away, or cast and exiled since, was
+//! seen at this table all the same. The log names a card to a seat exactly
+//! as its view showed it then, so this is the same rule over time.
+//!
 //! Outside a game the client offers the compiled pool instead (no object,
 //! no zone), which it builds itself: client-core links no card registry.
 
@@ -63,6 +71,10 @@ pub enum RefZone {
     Shown,
     /// A library's revealed top card.
     LibraryTop,
+    /// Named to the seat by its game log, and no longer anywhere its view
+    /// shows: a card revealed, cast or seen in a public zone earlier in the
+    /// game (#14).
+    Logged,
 }
 
 /// Whether a card the view showed in `seen` may be offered, and under what
@@ -210,7 +222,96 @@ pub fn candidates(
             kind: None,
         });
     }
+    copies(view, texts, &mut rows);
     rows
+}
+
+/// A token that is a copy of a card (Progenitor Mimic's, a Clone's token),
+/// face up on the battlefield or the stack: it has no card of its own for
+/// the print table's walk to find, but it is the card its rules are
+/// printed on (CR 707.2), by the name it shows.
+fn copies(view: &PlayerView, texts: &dyn CardTextLookup, rows: &mut Vec<CardRef>) {
+    let public = view
+        .battlefield
+        .iter()
+        .map(|o| (o, RefZone::Battlefield))
+        .chain(view.stack.iter().map(|o| (o, RefZone::Stack)));
+    for (object, zone) in public {
+        let (None, Some(rules)) = (object.card, object.rules) else {
+            continue;
+        };
+        if object.status.is_face_down() || object.stack_item.is_some() {
+            continue;
+        }
+        let same = |row: &CardRef| {
+            row.card == rules.card && row.zone == Some(zone) && row.owner == Some(object.owner)
+        };
+        if rows.iter().any(same) {
+            continue;
+        }
+        let text = texts.text(rules.card, rules.face);
+        rows.push(CardRef {
+            name: shown_name(&object.name, text.as_ref()).to_string(),
+            english: object.name.clone(),
+            card: rules.card,
+            face: rules.face,
+            art: None,
+            print: None,
+            object: Some(object.id),
+            zone: Some(zone),
+            owner: Some(object.owner),
+            kind: None,
+        });
+    }
+}
+
+/// Every card the seat's game log named to it that `rows` does not offer
+/// yet, once each, after them ([`RefZone::Logged`]): a card an opponent
+/// revealed and shuffled away, a spell that was cast and exiled since, a
+/// creature that died and left the graveyard. The log names a card to a
+/// seat exactly as its view showed it then, so nothing here is a card the
+/// seat was not shown: a hidden card is named by no line, and a face-down
+/// one by its handle alone.
+pub fn logged(
+    book: &crate::gamelog::LogBook,
+    statics: Option<&GameStatic>,
+    texts: &dyn CardTextLookup,
+    rows: &mut Vec<CardRef>,
+) {
+    for entry in book.entries() {
+        for object in entry.event.objects() {
+            let baylee_view::LogObject::Known {
+                card: Some(card),
+                name,
+                ..
+            } = object
+            else {
+                continue;
+            };
+            if rows.iter().any(|row| row.card == card.index) {
+                continue;
+            }
+            let text = texts.text(card.index, card.face);
+            rows.push(CardRef {
+                name: shown_name(name, text.as_ref()).to_string(),
+                english: name.clone(),
+                card: card.index,
+                face: card.face,
+                art: Some(card.print),
+                print: statics
+                    .and_then(|s| s.print(card.print))
+                    .map(|entry| RefPrint {
+                        scryfall_id: entry.scryfall_id.clone(),
+                        lang: entry.lang.to_lowercase(),
+                        finish: format!("{:?}", entry.finish).to_lowercase(),
+                    }),
+                object: None,
+                zone: Some(RefZone::Logged),
+                owner: None,
+                kind: None,
+            });
+        }
+    }
 }
 
 /// The players `@` may name at a table: every seat but the reader's own

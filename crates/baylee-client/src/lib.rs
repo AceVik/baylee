@@ -831,6 +831,14 @@ pub struct Duel {
     /// disarm it — an armed button left standing across a turn would be a
     /// worse trap than no confirmation at all.
     pub concede_armed: bool,
+    /// Whether *Leave the table* is waiting for its second press, disarmed by
+    /// everything that disarms [`Self::concede_armed`].
+    pub leave_armed: bool,
+    /// The player left a running table from the game menu (report 33): the
+    /// lobby tells the gateway on the way back (`POST /lobby/depart`), so
+    /// the house takes the chair at once rather than after the reconnect
+    /// window.
+    pub departing: bool,
     /// Whether the game menu is open.
     ///
     /// The burger at the shelf's right end, and the two ways out plus the
@@ -865,8 +873,8 @@ pub struct Duel {
     pub watching: bool,
     /// How many watch the table, as the engine last said.
     pub spectators: u32,
-    /// A spectator asked to stop watching; `hud::spectators::leave_watching`
-    /// closes the table.
+    /// A spectator asked to stop watching, or a player to leave the table;
+    /// `hud::spectators::leave_watching` closes it.
     pub leave_asked: bool,
     /// What an AI seat's mind said and the AI log has not drawn yet:
     /// filled by `poll_host`, drained by `hud::update_ai_log`. A queue on
@@ -1405,6 +1413,7 @@ impl Duel {
         self.cast_menu = None;
         // …and so is a half-pressed concession. The game moved on.
         self.concede_armed = false;
+        self.leave_armed = false;
         // An armed deed survives this, and that is the point. Only a question
         // that is *not* this seat's priority window takes it — everything
         // armable is a priority-window action.
@@ -2830,6 +2839,7 @@ pub fn rebuild_board(duel: &mut Duel) {
     ));
     if let Some(board) = &mut duel.board {
         duel.hand_groups = duel.hand_order.apply(&mut board.hand, view);
+        board.take_modes(&duel.log);
     }
     duel.layout = Some(layout);
 }
