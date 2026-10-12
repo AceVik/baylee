@@ -2678,6 +2678,13 @@ messages! {
     RevealedBy { en: "{0} reveals", de: "{0} zeigt offen vor" },
     /// Under that head: how many more reveals wait behind this one.
     RevealedWaiting { en: "{0} more to come", de: "{0} weitere folgen" },
+    /// Under that head, while nothing waits: how to see a card larger.
+    RevealedHint { en: "Point at a card to enlarge it", de: "Zeige auf eine Karte, um sie zu vergrößern" },
+    /// The reveal sheet's answer while more reveals wait behind it: puts
+    /// this one away and stands the next one up.
+    RevealNext { en: "Next", de: "Nächste" },
+    /// The reveal sheet's answer for the last reveal standing: puts it away.
+    RevealDone { en: "Done", de: "Fertig" },
     /// The indicator that says this seat is not being asked right now.
     HoldingPriority { en: "Not asking you", de: "Du wirst nicht gefragt" },
     /// The button that cancels a running hold.

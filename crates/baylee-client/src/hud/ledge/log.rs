@@ -960,7 +960,16 @@ pub struct LogHover {
     /// Where the pointer found it, in logical pixels: the preview stands
     /// beside it, as it does beside a row in the zone browser.
     pub at: Vec2,
+    /// The card the link lies over, in logical window pixels, when it is a
+    /// card's picture rather than a word in a line (a revealed card,
+    /// [`crate::hud::revealed`]): the preview then opens at that card's edge,
+    /// as a permanent's does, wherever on it the pointer came in.
+    pub card: Option<Rect>,
 }
+
+/// A link that lies over a whole card's picture ([`LogHover::card`]).
+#[derive(Component)]
+pub struct CardLens;
 
 /// Follows the pointer onto the log's links and off them again
 /// ([`Duel::hovered_log`]). Written only when it changes, so the overlay's
@@ -969,14 +978,24 @@ pub fn hover_log_links(
     mut overs: MessageReader<Pointer<Over>>,
     mut outs: MessageReader<Pointer<Out>>,
     links: Query<&LogLink>,
+    lenses: Query<(&ComputedNode, &UiGlobalTransform), With<CardLens>>,
+    ui: Option<Res<UiScale>>,
     mut duel: ResMut<Duel>,
 ) {
     for over in overs.read() {
         if let Ok(link) = links.get(over.entity) {
+            // A node's box is in physical pixels, centred; the preview's
+            // anchors are logical window pixels (`PreviewAt::in_ui` divides
+            // the UI scale back out).
+            let card = lenses.get(over.entity).ok().map(|(node, at)| {
+                let to_logical = node.inverse_scale_factor() * ui.as_deref().map_or(1.0, |ui| ui.0);
+                Rect::from_center_size(at.translation * to_logical, node.size() * to_logical)
+            });
             duel.hovered_log = Some(LogHover {
                 span: over.entity,
                 link: *link,
                 at: over.pointer_location.position,
+                card,
             });
         }
     }
@@ -1396,7 +1415,8 @@ mod tests {
             Some(LogHover {
                 span,
                 link,
-                at: Vec2::new(40.0, 50.0)
+                at: Vec2::new(40.0, 50.0),
+                card: None,
             })
         );
         app.world_mut()

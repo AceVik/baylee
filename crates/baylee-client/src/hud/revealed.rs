@@ -28,10 +28,22 @@
 //! has nothing to hold still; nothing is drawn on a print, and every card
 //! shows its own picture whole.
 //!
+//! Since 12.10.2026 (the owner: *"the revealed cards view, the hover preview
+//! flickers then"*) it survives the overlay's rebuilds (`OverlayTree::reveal`):
+//! the overlay swept it away on every rebuild, and the preview a pointer on
+//! one of its cards opens *is* a rebuild, so the sheet stood up again, the
+//! card under the pointer was a new entity, the preview closed, the pointer
+//! found the new card, and round again while it rested. Its own gate redraws
+//! it for its own pictures only ([`RevealRevision`]'s `arrivals`). The card
+//! under the pointer wears the candle edge ([`light_the_hovered`]) and its
+//! preview opens at that card's edge ([`CardLens`]); the head says how to
+//! enlarge a card while nothing waits, and the foot's answer says what it
+//! does: *Next* while another reveal waits, *Done* for the last.
+//!
 //! [`Reveals::current`]: baylee_client_core::reveals::Reveals::current
 
 use super::{
-    EDGE, HudRoot, LogLink, MenuAction, TOP_CLEAR, UiFonts, Z_LOG, card_radius, palette,
+    CardLens, EDGE, HudRoot, LogLink, MenuAction, TOP_CLEAR, UiFonts, Z_LOG, card_radius, palette,
     sheet_radius, spawn_card_art,
 };
 use crate::Duel;
@@ -92,8 +104,11 @@ pub struct RevealRevision {
     lang: Option<Lang>,
     /// The window, in whole pixels.
     window: (i32, i32),
-    /// The textures' arrivals, so a card whose picture lands is drawn again.
-    arrivals: u64,
+    /// How many of its own cards' pictures have arrived, so a card whose
+    /// picture lands is drawn again — and only then. It was the textures'
+    /// whole epoch, which moves whenever any picture anywhere lands or is
+    /// evicted, and every move stood the sheet up again under the pointer.
+    arrivals: usize,
 }
 
 /// Draws the reveal standing, and takes the sheet away when none is.
@@ -130,7 +145,7 @@ pub fn sync(
         yielding,
         lang: Some(lang),
         window: (window.x as i32, window.y as i32),
-        arrivals: if shown.is_some() { textures.epoch() } else { 0 },
+        arrivals: shown.map_or(0, |r| arrived(r, &textures)),
     };
     if *revision == next && standing.is_empty() == shown.is_none() {
         return;
@@ -204,6 +219,48 @@ pub fn sync(
     commands.entity(root).add_child(sheet);
 }
 
+/// How many of `reveal`'s pictures are on the GPU.
+fn arrived(reveal: &Reveal, textures: &CardTextures) -> usize {
+    reveal
+        .cards
+        .iter()
+        .filter_map(|shown| {
+            LogLink {
+                card: shown.card,
+                token: shown.token,
+            }
+            .art(ArtSize::Normal)
+        })
+        .filter(|key| textures.has_arrived(*key))
+        .count()
+}
+
+/// Lights the revealed card the pointer is on (`Duel::hovered_log`), so the
+/// player sees which card the preview beside it is of: the candle edge a
+/// zone dialog's tile wears, on the picture's own edge. Written only where
+/// it changes, so a resting pointer costs nothing.
+pub fn light_the_hovered(
+    mut commands: Commands,
+    duel: Res<Duel>,
+    lenses: Query<&ChildOf, With<CardLens>>,
+    cards: Query<(Entity, Has<Outline>), With<RevealCard>>,
+) {
+    let lit = duel
+        .hovered_log
+        .and_then(|hover| lenses.get(hover.span).ok())
+        .map(ChildOf::parent);
+    for (card, outlined) in &cards {
+        let want = lit == Some(card);
+        if want && !outlined {
+            commands
+                .entity(card)
+                .insert(Outline::new(px(2), px(2), palette::CANDLE));
+        } else if !want && outlined {
+            commands.entity(card).remove::<Outline>();
+        }
+    }
+}
+
 /// What one sheet says.
 struct Paper<'a> {
     reveal: &'a Reveal,
@@ -242,7 +299,7 @@ fn spawn_sheet(
         detail: if paper.waiting > 0 {
             vec![Phrase::RevealedWaiting.fill(paper.lang, &[&paper.waiting.to_string()])]
         } else {
-            Vec::new()
+            vec![Phrase::RevealedHint.text(paper.lang).to_string()]
         },
         source: None,
         folded: paper.folded,
@@ -346,6 +403,7 @@ fn spawn_grid(
         let lens = commands
             .spawn((
                 link,
+                CardLens,
                 Node {
                     position_type: PositionType::Absolute,
                     left: px(0),
@@ -376,11 +434,18 @@ fn spawn_foot(commands: &mut Commands, paper: &Paper<'_>, fonts: &UiFonts, row_w
             Pickable::IGNORE,
         ))
         .id();
+    // Says what pressing it does: the next reveal while one waits, else
+    // done with this one. "Close" read as a window being shut on the game.
+    let label = if paper.waiting > 0 {
+        Phrase::RevealNext
+    } else {
+        Phrase::RevealDone
+    };
     let close = sheet::footer_button(
         commands,
         fonts,
         MenuAction::DismissReveal,
-        Phrase::ShellClose.text(paper.lang),
+        label.text(paper.lang),
         paper.cancel_cap.as_deref(),
     );
     commands.entity(foot).add_child(close);

@@ -269,6 +269,11 @@ pub(super) fn add_present_systems(app: &mut App) {
                     // Cards another seat revealed, after the shelf for the
                     // log's reason (both hang off the overlay's root).
                     hud::revealed::sync.after(hud::sync_ledge),
+                    // Its hovered card's edge, once the sheet and the hover
+                    // of this frame are both settled.
+                    hud::revealed::light_the_hovered
+                        .after(hud::revealed::sync)
+                        .after(hud::hover_log_links),
                 ),
                 // The tray's doors stand in the shelf's row but not in its
                 // layout, so they need nothing the shelf worked out — but

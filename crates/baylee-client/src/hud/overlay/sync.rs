@@ -257,6 +257,7 @@ pub fn sync_overlay(
                 && !tree.menu.contains(*child)
                 && !tree.log.contains(*child)
                 && !tree.ai_log.contains(*child)
+                && !tree.reveal.contains(*child)
             {
                 commands.entity(*child).despawn();
             }
@@ -381,10 +382,16 @@ pub fn sync_overlay(
         // is not the object as it stands now and may be nowhere at all.
         let hovered = hovered.filter(|_| duel.hovered_log.is_none());
         let anchor = match duel.hovered_log {
-            Some(log) => log
-                .link
-                .art(ArtSize::Normal)
-                .map(|art| (Some(art), PreviewAt::Pointer(log.at))),
+            // A revealed card's link lies over the whole card, so the
+            // preview opens at that card's edge as a permanent's does — the
+            // same place wherever the pointer came in. A word in a line has
+            // no card: beside the pointer.
+            Some(log) => log.link.art(ArtSize::Normal).map(|art| {
+                (
+                    Some(art),
+                    log.card.map_or(PreviewAt::Pointer(log.at), PreviewAt::Card),
+                )
+            }),
             None => preview_anchor(
                 board,
                 view,

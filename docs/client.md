@@ -8760,6 +8760,27 @@ the foot's answer and `Esc` put it away, and a press on a card previews it.
 Tests: `a_reveal_is_the_sheet_with_its_fold_its_close_and_a_preview_on_every_card`,
 `a_folded_reveal_is_a_pill_and_the_next_one_opens`.
 
+**It holds still under the pointer (12.10.2026).** The owner: *"the revealed
+cards view, the hover preview flickers then"*. Measured with dev-control's
+`/reveal` (a reveal by another seat of this seat's first hand cards, the sheet
+only) and `/state.reveal` (the sheet's entity and `hovered_log`): with the
+pointer resting on a card the sheet's entity was a different one on every
+read and `hovered_log` came and went. The overlay's rebuild sweeps every
+child of `HudRoot` it does not name, the reveal sheet was not named, and the
+preview a pointer on a revealed card opens is part of that tree: the rebuild
+took the sheet, `revealed::sync` stood it up again, the card under the
+pointer was a new entity, `hover_log_links` let the hover go, the preview
+closed, the pointer found the new card, and round again. The sheet is now
+named (`OverlayTree::reveal`) and survives the sweep; its own gate redraws it
+for its own pictures only (the count of its cards' arrivals, not the
+textures' epoch, which every picture landing anywhere moved). The card under
+the pointer wears the candle edge (`revealed::light_the_hovered`), its
+preview opens at that card's edge (`LogHover::card`, set for a link that is a
+`CardLens` over a whole picture) rather than wherever the pointer came in,
+the head says *"Point at a card to enlarge it"* while nothing waits, and the
+foot's answer says what it does: *Next* while another reveal waits, *Done*
+for the last.
+
 ## Reporting a problem (#309, #310)
 
 One form, `src/report.rs` and `src/report/`, stands over the lobby and the

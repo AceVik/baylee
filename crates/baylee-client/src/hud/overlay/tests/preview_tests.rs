@@ -239,6 +239,7 @@ fn a_log_link_opens_the_preview_of_the_card_it_names() {
             token: None,
         },
         at: Vec2::new(300.0, 200.0),
+        card: None,
     });
     app.update();
     assert_eq!(previews(&mut app), 1, "the link opened no preview");
@@ -286,6 +287,7 @@ fn a_preview_opened_from_the_end_screen_s_log_stands_over_the_end_screen() {
                 token: None,
             },
             at: Vec2::new(300.0, 200.0),
+            card: None,
         });
         app.update();
         let mut q = app
