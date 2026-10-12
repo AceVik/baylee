@@ -10150,6 +10150,20 @@ Players' reports from the beta.6 games, the table's half (`.claude/b8`
 lists them; the game log's are under §"Wider, grouped, and saying what was
 chosen").
 
+- **A side seat's plate reads (reports 04, 19).** At a ring a seat's
+  plate lies along its mat's edge, turned most of a quarter for the seats
+  at the sides. Bevy clips a node to its *unturned* rectangle moved to where
+  the node is (`bevy_ui::update::update_clipping`), so the plate's clip lay
+  across it and cut every letter of the name, the life and the counts to a
+  sliver. A plate's nodes clip as they were built only while it reads level
+  or upside down, and not at all while it is turned
+  (`seatbar::attached::TurnedClip`, `clip_only_level`).
+- **A press on an attacker sends it where the aim is (report 24).** A
+  creature already sent at one defender, pressed again with the aim on
+  another (a planeswalker tapped on the table, or its *Aim* row), was taken
+  out of the attack, and a player who meant "attack Oko" sent nothing.
+  `Interaction::toggle` now reassigns it to the aimed defender; only a
+  press on one aimed where it already goes withdraws it.
 - **A copy wears its original's printing (report 02).** `board::art_in`
   draws a permanent that has become a copy of a card (`worn`) with the
   printing, and so the finish, of that card where the seat's own view shows
