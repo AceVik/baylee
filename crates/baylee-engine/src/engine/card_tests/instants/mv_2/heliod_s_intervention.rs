@@ -149,9 +149,12 @@ fn heliods_intervention_destroys_exactly_the_x_artifacts_or_enchantments_it_targ
     );
 }
 
-/// Heliod's Intervention is offered only the X its pool pays. Four Plains
-/// floating pay the fixed `{W}{W}` and an X of 2, so the question offers 0
-/// to 2, and 3 is refused with the question left where it was. X = 2 then
+/// With nothing left to tap, Heliod's Intervention is offered only the X its
+/// pool pays (a seat with a source left gets an open X and the CR 601.2g
+/// payment window instead, `cast_wizard::pool_x_tests`). All four Plains are
+/// tapped here and float, which pay the fixed `{W}{W}` and an X of 2, so the
+/// question offers 0 to 2, and 3 is refused with the question left where it
+/// was. X = 2 then
 /// completes the cast (the spell stands on the stack, the pool is empty) and,
 /// on resolution, the player the lifegain mode named gains twice X.
 ///

@@ -251,8 +251,10 @@ fn finale_of_devastation_at_ten_or_more_pumps_and_hastes_your_creatures() {
     assert!(!keywords(&engine, fetched).contains(KeywordSet::HASTE));
 }
 
-/// `{X}{G}{G}` off {G}{G}{W} is {1}{G}{G} at most: the white pays the one
-/// generic, so X tops out at 1. The old question offered the pool's size, 3,
+/// `{X}{G}{G}` off {G}{G}{W}, every source tapped so the pool is all that
+/// pays, is {1}{G}{G} at most: the white pays the one generic, so X tops out
+/// at 1. (A seat with a source left would get an open X and the CR 601.2g
+/// payment window, `cast_wizard::pool_x_tests`.) The old question offered the pool's size, 3,
 /// and X = 2 or 3 then found no mana for it at payment. The Air Elemental
 /// (mana value 5) is in the graveyard beside the Elves (mana value 1), so
 /// the search showing only the Elves is a bound on mana value and not an

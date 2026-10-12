@@ -5,6 +5,7 @@
 
 use super::testkit::*;
 use super::*;
+use crate::event::CastCancelReason;
 use crate::zone::{Zone, ZoneLocation};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaColor;
@@ -71,6 +72,23 @@ fn on_board(engine: &Engine<RegistryLookup>, card: CardIndex) -> ObjectId {
     on_battlefield(engine, P0, card).expect("on the battlefield")
 }
 
+/// Every permanent of seat 0 printed from `card`, in battlefield order.
+fn all_on_board(engine: &Engine<RegistryLookup>, card: CardIndex) -> Vec<ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == P0 && o.card.is_some_and(|c| c.index == card))
+        })
+        .collect()
+}
+
 fn tapped(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
     engine
         .state()
@@ -82,8 +100,24 @@ fn pool(engine: &Engine<RegistryLookup>) -> u64 {
     engine.state().players[0].mana_pool.total()
 }
 
+/// Why the journal says `card`'s casts were taken back, oldest first.
+fn cancel_reasons(engine: &Engine<RegistryLookup>, card: ObjectId) -> Vec<CastCancelReason> {
+    engine
+        .journal()
+        .entries()
+        .iter()
+        .filter_map(|e| match e.event {
+            GameEvent::CastCancelled {
+                card: c, reason, ..
+            } if c == card => Some(reason),
+            _ => None,
+        })
+        .collect()
+}
+
 /// What a cancel must leave: the card back in hand, nothing on the stack,
-/// priority with the player who was casting, and nothing cancellable.
+/// priority with the player who was casting, nothing cancellable, and the
+/// journal saying the caster took it back (`CastCancelReason::Withdrawn`).
 #[track_caller]
 fn cancelled(engine: &mut Engine<RegistryLookup>, card: ObjectId) {
     assert_eq!(engine.cancellable_cast(P0), Some(card), "a cast to cancel");
@@ -102,14 +136,10 @@ fn cancelled(engine: &mut Engine<RegistryLookup>, card: ObjectId) {
         engine.pending()
     );
     assert_eq!(engine.cancellable_cast(P0), None);
-    assert!(
-        engine
-            .journal()
-            .entries()
-            .iter()
-            .rev()
-            .any(|e| matches!(e.event, GameEvent::CastCancelled { card: c, .. } if c == card)),
-        "the journal says so"
+    assert_eq!(
+        cancel_reasons(engine, card).last(),
+        Some(&CastCancelReason::Withdrawn),
+        "the journal says the caster took it back"
     );
 }
 
@@ -261,6 +291,11 @@ fn a_window_passed_short_is_reversed_like_a_cancel() {
     assert_eq!(engine.state().players[0].life, life);
     assert!(!tapped(&engine, wastes));
     assert_eq!(pool(&engine), 0);
+    assert_eq!(
+        cancel_reasons(&engine, card),
+        vec![CastCancelReason::Unpaid],
+        "a window closed short says the pool was short, not that it was withdrawn"
+    );
 }
 
 /// An extra cost chosen in the cast is not paid: Crop Rotation's land,
@@ -415,4 +450,75 @@ fn cancelled_mana_payment_preserves_stun_counters_when_it_restores_tapped_state(
             .get(baylee_cards_dsl::CounterKind::Stun),
         2
     );
+}
+
+/// A cancel inside the payment window an open X leads to. Three Mountains, one
+/// tapped before the cast, so `{X}{R}` is asked with an open X; X = 2 and the
+/// opponent as the target open the window (CR 601.2g) for the `{2}{R}` the
+/// {R} floating cannot cover. One Mountain tapped in it, the caster takes the
+/// cast back: the card is back in hand, the Mountain tapped in the window is
+/// untapped, the {R} floated before the cast is still floating, and the
+/// journal says `CastCancelReason::Withdrawn`, not `Unpaid`: it was the
+/// caster's decision, and the window was never closed short. A cancel inside
+/// a window that only an open X could lead to is not covered by the older
+/// tests, whose windows come from a pool of nothing.
+#[test]
+fn a_cancel_inside_an_open_x_window_is_withdrawn_not_unpaid() {
+    let mut engine = table(
+        7329,
+        &[mountain(), mountain(), mountain()],
+        &[disintegrate()],
+    );
+    let lands = all_on_board(&engine, mountain());
+    let first = lands[0];
+    engine
+        .apply(P0, PlayerAction::ActivateManaAbility { source: first })
+        .expect("a Mountain makes {R}");
+    assert_eq!(pool(&engine), 1);
+
+    let card = in_hand(&engine, P0, disintegrate()).expect("in hand");
+    engine
+        .apply(P0, PlayerAction::CastSpell { card })
+        .expect("castable off the {R}");
+    let Pending::ChooseNumber { max, .. } = engine.pending().clone() else {
+        panic!("X is asked: {:?}", engine.pending())
+    };
+    assert_eq!(max, u32::MAX, "two Mountains are left to make the rest");
+    engine
+        .apply(P0, PlayerAction::ChooseNumber(2))
+        .expect("an X above what floats");
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![PlayerId::new(1)],
+            },
+        )
+        .expect("the opponent is a target");
+    assert!(
+        matches!(engine.payment_window(), Some((seat, _)) if seat == P0),
+        "the payment window is open: {:?}",
+        engine.pending()
+    );
+
+    engine
+        .apply(P0, PlayerAction::ActivateManaAbility { source: lands[1] })
+        .expect("a mana ability in the window");
+    assert!(tapped(&engine, lands[1]));
+    cancelled(&mut engine, card);
+    assert_eq!(
+        cancel_reasons(&engine, card),
+        vec![CastCancelReason::Withdrawn]
+    );
+    assert!(
+        !tapped(&engine, lands[1]) && !tapped(&engine, lands[2]),
+        "the Mountains of the window are untapped"
+    );
+    assert!(
+        tapped(&engine, first),
+        "the one tapped before the cast stays"
+    );
+    assert_eq!(pool(&engine), 1, "the {{R}} floated before the cast stays");
+    assert!(engine.payment_window().is_none());
 }

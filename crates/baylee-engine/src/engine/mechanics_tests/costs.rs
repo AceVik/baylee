@@ -342,9 +342,12 @@ fn an_additional_sacrifice_is_paid_and_its_mana_value_remembered() {
 
 // ------------------------------------------------- a total nobody can pay
 
-/// A total the pool cannot pay is not offered. The X question of a cast paid
-/// from the floating pool names only the X that mana pays for the whole
-/// cost, so with one {G} floating `{X}{G}` is asked at X = 0 and no more. An
+/// A total the pool cannot pay is not offered once nothing is left to tap.
+/// The X question of a cast paid from the floating pool by a seat with no
+/// source left names only the X that mana pays for the whole cost, so with
+/// the one Forest tapped and one {G} floating `{X}{G}` is asked at X = 0 and
+/// no more (a seat with a source left gets an open X and the CR 601.2g
+/// payment window, `cast_wizard::pool_x_tests`). An
 /// X above it is refused, the cast stays in its X question and nothing is
 /// spent; X = 0 casts the spell.
 ///
