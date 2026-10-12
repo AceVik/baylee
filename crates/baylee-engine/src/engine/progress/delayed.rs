@@ -168,6 +168,7 @@ impl<L: CardLookup> Engine<L> {
                     | crate::state::DelayedAction::TriggerAbout { .. }
                     | crate::state::DelayedAction::LinkedCounterCleanup { .. }
                     | crate::state::DelayedAction::ReturnExiledGroup { .. }
+                    | crate::state::DelayedAction::DrawStepLifeLoss { .. }
             ) {
                 self.delayed_queue.push_front((controller, action));
                 let suspended = self.process_delayed();
@@ -194,6 +195,30 @@ impl<L: CardLookup> Engine<L> {
             return false;
         }
         match action {
+            crate::state::DelayedAction::DrawStepLifeLoss {
+                source,
+                controller: trigger_controller,
+                amount,
+                ..
+            } => {
+                const LOSS: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::LoseLife {
+                    amount: baylee_cards_dsl::Amount::EventAmount,
+                    target: baylee_cards_dsl::PlayerRel::EventPlayer,
+                }];
+                self.queue_delayed_trigger(
+                    trigger_controller,
+                    source.object,
+                    LOSS,
+                    None,
+                    Some(source.version),
+                    crate::text_changes::TextChangeMap::IDENTITY,
+                );
+                if let Some(trigger) = self.trigger_queue.back_mut() {
+                    trigger.event_player = Some(controller);
+                    trigger.event_amount = Some(amount);
+                }
+                false
+            }
             crate::state::DelayedAction::ReturnExiledGroup {
                 source,
                 objects,
@@ -216,7 +241,8 @@ impl<L: CardLookup> Engine<L> {
                 }
                 false
             }
-            crate::state::DelayedAction::ReturnToHandDuringUntap { .. } => {
+            crate::state::DelayedAction::RestrictAttacksForTurn { .. }
+            | crate::state::DelayedAction::ReturnToHandDuringUntap { .. } => {
                 // Consumed only by the untap turn-based action, never queued.
                 debug_assert!(false, "untap instruction reached delayed-trigger queue");
                 false

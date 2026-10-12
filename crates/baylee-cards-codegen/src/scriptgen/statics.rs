@@ -134,6 +134,9 @@ impl Tx<'_> {
             return self.must_attack(p);
         }
         if mode == "CantAttack" {
+            if p.peek("ValidCard") == Some("Card.Self+attackedLastTurn") {
+                return self.cant_attack_after_last_own_turn(p);
+            }
             return self.cant_attack_unless(p);
         }
         if let Some(modifier) = match mode.as_str() {
@@ -375,6 +378,22 @@ impl Tx<'_> {
         self.body.abilities.push(format!(
             "static_ability!({filter}, Modifier::AttacksEachCombat{condition})"
         ));
+        Some(())
+    }
+
+    /// One source's attack during its current controller's last actual turn.
+    /// The exact historical predicate is not an ordinary battlefield filter.
+    fn cant_attack_after_last_own_turn(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ValidCard").as_deref() != Some("Card.Self+attackedLastTurn") {
+            return None;
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `CantAttack.{key}`"));
+        }
+        self.body.abilities.push(
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_ATTACK), condition = Some(Condition::SourceAttackedDuringYourLastTurn))".to_string(),
+        );
         Some(())
     }
 

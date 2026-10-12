@@ -6,6 +6,11 @@ use baylee_core::mana::ManaColor;
 /// The immediate result, with every recipient already bound.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum GrantedActionKind {
+    /// Cancel this one life-loss obligation before its player's next draw step.
+    CancelDelayedLifeLoss {
+        /// Life loss canceled by this one payment.
+        amount: u32,
+    },
     /// Add mana without using the stack.
     AddMana {
         /// Mana produced.

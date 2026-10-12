@@ -747,6 +747,18 @@ impl Tx<'_> {
                 }
                 _ => return None,
             },
+            // A fixed single skip owed by the resolving ability's controller.
+            // Other players and counts are not represented by SkipNextTurn.
+            "SkipTurn" => {
+                if target.is_some()
+                    || targets_a_player
+                    || p.take("NumTurns").as_deref() != Some("1")
+                    || p.take("Defined").as_deref() != Some("You")
+                {
+                    return None;
+                }
+                vec!["Effect::SkipNextTurn".to_string()]
+            }
             // "Take an extra turn after this one" (Time Walk; CR 500.7).
             // One turn, and yours: another count or another player is a
             // different sentence.

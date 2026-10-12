@@ -873,6 +873,14 @@ pub fn condition_holds_with_context(
                 .sum::<i64>()
                 >= i64::from(minimum)
         }
+        Condition::SourceAttackedDuringYourLastTurn => state.object(source).is_some_and(|object| {
+            state.players[usize::from(you.get())]
+                .last_turn_attackers
+                .contains(&baylee_core::ids::DamageSourceRef {
+                    object: source,
+                    version: object.version,
+                })
+        }),
         Condition::AttackedWithAtLeast(minimum) => {
             let mut seen = std::collections::BTreeSet::new();
             state

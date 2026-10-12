@@ -341,55 +341,7 @@ impl GameState {
         h.u32(self.previous_turn.map_or(0, |p| p.spells_cast));
         h.u32(self.previous_turn.map_or(0, |p| p.spells_by_all));
         h.u32(self.previous_turn.map_or(0, |p| p.most_by_one));
-        h.usize(self.players.len());
-        for p in &self.players {
-            h.u8(p.id.get());
-            h.i32(p.life);
-            h.u16(p.poison);
-            h.u16(p.energy);
-            h.u16(p.rad);
-            h.boolean(p.enduring_story);
-            h.boolean(p.citys_blessing);
-            h.i8(p.hand_modifier);
-            h.boolean(p.has_lost());
-            mana::pool(&mut h, self, &p.mana_pool, &position);
-            // The commander tax belongs here even though nothing else that
-            // only grows does. It is rules-visible — a player can see what
-            // the next cast costs — and it only ever rises (CR 903.8), so a
-            // "loop" that casts a commander is a game still making progress
-            // and must not be called a draw. The ids need no canonical
-            // position: the list is fixed for the whole game, so its order
-            // already identifies each commander.
-            //
-            // Commander damage belongs here for the same reason and by the
-            // same argument (CR 903.10a): it is rules-visible, it only ever
-            // rises, and a "loop" that lands another swing from a commander
-            // is a game walking towards a loss rather than standing still.
-            // The order is the order it was first dealt in, which is the
-            // same on every machine.
-            h.usize(p.commander_damage.len());
-            for (source, amount) in &p.commander_damage {
-                h.u32(source.slot());
-                h.u16(*amount);
-            }
-            // `Commander::answered` deliberately does *not* join it, in
-            // either form. As a timestamp it would be the tax bug in
-            // reverse — a number that only grows makes every situation
-            // unique and no loop detectable — and as a "has this arrival
-            // been offered" bit it is a constant here: this hash is taken
-            // at priority grants, the SBA fixpoint has finished by then,
-            // and a commander sitting in a graveyard has therefore always
-            // been offered already. `commander_redirect` stays out for the
-            // second of those reasons: it is filled and spent inside one
-            // resolution, so it is empty every time this hash is taken.
-            // `snapshot_hash` carries it because that one runs at any
-            // moment, including a suspended one.
-            let seat = p.id.get() as usize;
-            h.u32(self.commander_casts.get(seat).copied().unwrap_or(0));
-            for c in self.commanders.get(seat).into_iter().flatten() {
-                h.u32(c.casts);
-            }
-        }
+        self.hash_loop_players(&mut h, &position);
         for loc in &zones {
             let list = self.zones.list(*loc);
             h.usize(list.len());
@@ -450,6 +402,7 @@ impl GameState {
         // that differ only in what is shielded are two states.
         hash_shields(&mut h, self, &position);
         hash_granted_actions(&mut h, self, &position);
+        hash_waiting_turn_effects(&mut h, self, &position);
         hash_source_references(&mut h, self, &position);
         // A land already cleaned by this incarnation is not eligible again,
         // even if the visible board and counter totals are identical.
@@ -457,7 +410,73 @@ impl GameState {
         h.finish()
     }
 
+    fn hash_loop_players(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        h.usize(self.players.len());
+        for p in &self.players {
+            h.u8(p.id.get());
+            h.i32(p.life);
+            h.u32(p.turns_to_skip);
+            h.u16(p.poison);
+            h.u16(p.energy);
+            h.u16(p.rad);
+            h.boolean(p.enduring_story);
+            h.boolean(p.citys_blessing);
+            h.i8(p.hand_modifier);
+            h.boolean(p.has_lost());
+            mana::pool(h, self, &p.mana_pool, position);
+            // The commander tax belongs here even though nothing else that
+            // only grows does. It is rules-visible — a player can see what
+            // the next cast costs — and it only ever rises (CR 903.8), so a
+            // "loop" that casts a commander is a game still making progress
+            // and must not be called a draw. The ids need no canonical
+            // position: the list is fixed for the whole game, so its order
+            // already identifies each commander.
+            //
+            // Commander damage belongs here for the same reason and by the
+            // same argument (CR 903.10a): it is rules-visible, it only ever
+            // rises, and a "loop" that lands another swing from a commander
+            // is a game walking towards a loss rather than standing still.
+            // The order is the order it was first dealt in, which is the
+            // same on every machine.
+            h.usize(p.commander_damage.len());
+            for (source, amount) in &p.commander_damage {
+                h.u32(source.slot());
+                h.u16(*amount);
+            }
+            // `Commander::answered` deliberately does *not* join it, in
+            // either form. As a timestamp it would be the tax bug in
+            // reverse — a number that only grows makes every situation
+            // unique and no loop detectable — and as a "has this arrival
+            // been offered" bit it is a constant here: this hash is taken
+            // at priority grants, the SBA fixpoint has finished by then,
+            // and a commander sitting in a graveyard has therefore always
+            // been offered already. `commander_redirect` stays out for the
+            // second of those reasons: it is filled and spent inside one
+            // resolution, so it is empty every time this hash is taken.
+            // `snapshot_hash` carries it because that one runs at any
+            // moment, including a suspended one.
+            let seat = p.id.get() as usize;
+            h.u32(self.commander_casts.get(seat).copied().unwrap_or(0));
+            for c in self.commanders.get(seat).into_iter().flatten() {
+                h.u32(c.casts);
+            }
+        }
+    }
+
     fn hash_turn_history(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        for player in &self.players {
+            let mut attackers: Vec<_> = player
+                .last_turn_attackers
+                .iter()
+                .filter(|reference| {
+                    self.object(reference.object)
+                        .is_some_and(|object| object.version == reference.version)
+                })
+                .map(|reference| position(reference.object))
+                .collect();
+            attackers.sort_unstable();
+            attackers.hash(h);
+        }
         self.per_turn.revolt.hash(h);
         self.per_turn.instant_or_sorcery_cast.hash(h);
         let mut attacked: Vec<_> = self
@@ -744,6 +763,44 @@ fn hash_ability_tallies(state: &GameState, h: &mut Hasher, position: &impl Fn(Ob
     }
 }
 
+// Compare obligations by their rules meaning; allocation IDs merely link the
+// unique payment offer to its debt and must not conceal a repeating position.
+fn hash_waiting_turn_effects(
+    h: &mut Hasher,
+    state: &GameState,
+    position: &impl Fn(ObjectId) -> u32,
+) {
+    for delayed in &state.delayed {
+        match delayed.action {
+            crate::state::DelayedAction::DrawStepLifeLoss {
+                source,
+                controller,
+                amount,
+                ..
+            } => {
+                h.u8(0);
+                delayed.controller.hash(h);
+                controller.hash(h);
+                amount.hash(h);
+                h.u32(position(source.object));
+                moves_since(state.object_or_departed(source.object), source.version).hash(h);
+            }
+            crate::state::DelayedAction::RestrictAttacksForTurn { affected, .. }
+                if state.object(affected.object).is_some_and(|object| {
+                    object.zone == crate::zone::Zone::Battlefield
+                        && object.version == affected.version
+                }) =>
+            {
+                h.u8(1);
+                delayed.controller.hash(h);
+                h.u32(position(affected.object));
+            }
+            _ => {}
+        }
+    }
+    h.u8(255);
+}
+
 fn hash_granted_actions(h: &mut Hasher, state: &GameState, position: &impl Fn(ObjectId) -> u32) {
     state.granted_actions.len().hash(h);
     for grant in &state.granted_actions {
@@ -755,6 +812,10 @@ fn hash_granted_actions(h: &mut Hasher, state: &GameState, position: &impl Fn(Ob
         h.u32(position(grant.offer.source.object));
         h.u32(grant.offer.source.version);
         match grant.offer.effect {
+            crate::choice::GrantedActionKind::CancelDelayedLifeLoss { amount } => {
+                h.u8(2);
+                amount.hash(h);
+            }
             crate::choice::GrantedActionKind::AddMana { color, amount } => {
                 h.u8(0);
                 color.hash(h);
@@ -1154,6 +1215,8 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         lands_played_this_turn,
         turn_start_timestamp,
         turns_started,
+        turns_to_skip,
+        last_turn_attackers,
         tried_empty_draw,
         commander_damage,
         loss,
@@ -1173,6 +1236,8 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     lands_played_this_turn.hash(h);
     turn_start_timestamp.hash(h);
     turns_started.hash(h);
+    turns_to_skip.hash(h);
+    last_turn_attackers.hash(h);
     tried_empty_draw.hash(h);
     // Commander damage (CR 903.10a), which no life total records: two
     // seats on the same life with twelve and twenty points from the same

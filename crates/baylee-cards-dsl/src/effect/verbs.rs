@@ -793,6 +793,9 @@ impl Effect {
             | Effect::PutTargetOnBottomOfLibrary
             | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
             | Effect::GrantFlashback
+            | Effect::LoseLifeAtNextDrawUnlessPaidBefore { .. }
+            | Effect::CantAttackDuringNextControllerTurn { .. }
+            | Effect::SkipNextTurn
             | Effect::TakeExtraTurn
             | Effect::ExileSource
             | Effect::TapTarget

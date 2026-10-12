@@ -260,6 +260,9 @@ fn spawn_granted_rows(
                 blocks.push(TextBlock::Rules(oracle.oracle_text));
             }
         }
+        if let Some(label) = granted::cancellation_label(offer.effect, lang) {
+            blocks.push(TextBlock::Rules(label));
+        }
         if let Some(recipient) = recipient(offer, duel, lang, faces) {
             blocks.push(TextBlock::Rules(recipient));
         }
@@ -516,6 +519,31 @@ mod tests {
                 .iter(app.world())
                 .count(),
             0
+        );
+    }
+
+    #[test]
+    fn identical_cancellation_rows_submit_only_the_confirmed_obligation_id() {
+        let debt = |id| {
+            let mut offer = offer(id);
+            offer.timing = baylee_cards_dsl::SpecialActionTiming::Priority;
+            offer.cost =
+                SpecialActionCost::Mana(baylee_core::mana::ManaCost::from_symbol_generic(1));
+            offer.effect = GrantedActionKind::CancelDelayedLifeLoss { amount: 1 };
+            offer
+        };
+        let mut duel = duel();
+        duel.receive_choice(pending(vec![debt(31), debt(32)]));
+        granted_click(&mut duel, MenuAction::ToggleGrantedActions);
+        granted_click(&mut duel, MenuAction::PickGranted(GrantedActionId::new(32)));
+        assert!(duel.outbox().is_empty());
+        duel.receive_choice(pending(vec![debt(32), debt(31)]));
+        granted_click(&mut duel, MenuAction::ConfirmGranted);
+        assert_eq!(
+            duel.outbox(),
+            &[PlayerAction::TakeGrantedAction {
+                id: GrantedActionId::new(32)
+            }]
         );
     }
 }

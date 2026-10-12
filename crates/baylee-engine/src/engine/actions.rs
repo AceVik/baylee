@@ -1544,9 +1544,6 @@ impl<L: CardLookup> Engine<L> {
                     else {
                         unreachable!()
                     };
-                    let super::Cleanup::Ended { after } = self.cleanup else {
-                        unreachable!("a skip is offered only between two turns")
-                    };
                     if answer {
                         #[cfg(test)]
                         crate::ability_log::replaced_by(
@@ -1560,19 +1557,15 @@ impl<L: CardLookup> Engine<L> {
                         // skipped extra turn leaves it with the normal turn
                         // it was added after (CR 500.7). The untap waits for
                         // the next turn that actually occurs (CR 614.10b).
-                        let after = match self.state.extra_turns.pop_front() {
-                            Some(_) => after,
-                            None => self.next_alive_after(after),
-                        };
+                        self.skip_pending_turn();
                         if let Some(version) = self.state.object(source).map(|o| o.version) {
                             self.state.skip_followups.push((source, version));
                         }
-                        self.cleanup = super::Cleanup::Ended { after };
                         return Ok(());
                     }
                     declined.push(source);
                     if !self.offer_turn_skip(player, declined) {
-                        self.begin_turn(false);
+                        self.begin_or_skip_turn(player);
                     }
                     return Ok(());
                 }

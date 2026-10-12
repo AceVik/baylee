@@ -5,12 +5,12 @@ use super::*;
 
 /// Magosi, the Waterveil prints `This land enters tapped.`, `{{T}}: Add {{U}}.`, `{{U}}, {{T}}: Put an eon counter on this land. Skip your next turn.`, and `{{T}}, Remove an eon counter from this land and return it to its owner's hand: Take an extra turn after this one.`
 ///
-/// Under `Coverage::Partial`, the eon-counter abilities are omitted because no effect skips a turn and eon counters are not defined in `counters`.
-/// Playing Magosi, the Waterveil from hand enters tapped.
-/// In the next turn, with `{{U}}` floating from an `island()` and Magosi untapped, ability 0 is offered while abilities 1 and 2 are omitted from `legal.abilities`.
-/// Activating ability 0 adds `{{U}}` to `pool.available(ManaColor::Blue)` and taps the land.
+/// The land enters tapped. On the next own turn, floating blue mana makes
+/// its counter-and-skip activation legal, while the extra-turn activation
+/// remains unavailable until an eon counter can pay its cost.
+/// The separate ordinary mana ability still produces blue without a stack object.
 #[test]
-fn magosi_the_waterveil_enters_tapped_and_omits_eon_counter_abilities() {
+fn magosi_enters_tapped_and_offers_only_the_counter_abilities_it_can_pay() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, island())
@@ -42,12 +42,12 @@ fn magosi_the_waterveil_enters_tapped_and_omits_eon_counter_abilities() {
         "ability 0 ({{T}}: Add {{U}}) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(magosi, 1)),
-        "ability 1 is omitted under `Coverage::Partial` even with {{U}} floating"
+        legal.abilities.contains(&(magosi, 1)),
+        "the counter-and-skip ability is offered with {{U}} floating"
     );
     assert!(
         !legal.abilities.contains(&(magosi, 2)),
-        "ability 2 is omitted under `Coverage::Partial`"
+        "the extra-turn ability requires an eon counter"
     );
 
     activate(&mut engine, p0, magosi_the_waterveil(), 0);

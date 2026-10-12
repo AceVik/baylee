@@ -1395,7 +1395,7 @@ const LANDS: Bounds = Bounds {
     colors: 1400,
     routes: 950,
     // The completed land abilities through Batch49 expose 1005 printed promises.
-    promises: 700..=1005,
+    promises: 700..=1006,
     opponents_lands: 1..=3,
     creature_promises: 1..=5,
     fully_read: 700,

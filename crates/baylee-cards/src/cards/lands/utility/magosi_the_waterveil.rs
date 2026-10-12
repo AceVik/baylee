@@ -17,18 +17,28 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::Tapped],
     )],
-    coverage = Coverage::Partial("Batch 49 package validation pending"),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
         activated!(
             cost!("{U}", TapSelf),
             &[
-                Effect::AddCounter { kind: counters::EON, amount: Amount::Fixed(1) },
+                Effect::AddCounter {
+                    kind: counters::EON,
+                    amount: Amount::Fixed(1)
+                },
                 Effect::SkipNextTurn,
             ]
         ),
         activated!(
-            cost!(TapSelf, RemoveCounterSelf { kind: counters::EON, n: 1 }, ReturnSelfToHand),
+            cost!(
+                TapSelf,
+                RemoveCounterSelf {
+                    kind: counters::EON,
+                    n: 1
+                },
+                ReturnSelfToHand
+            ),
             &[Effect::TakeExtraTurn]
         ),
     ],

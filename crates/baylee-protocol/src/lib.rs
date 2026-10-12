@@ -17,7 +17,8 @@ pub mod seathost;
 /// Version 26 adds spectators (`SpectatorsChanged`, `SpectatorFrame`,
 /// `Spectators`, `/games/{id}/watch`); 25 is another branch's.
 /// Version 27 carries a damage decision's `DamageEffectKind::PreventAll`.
-pub const PROTOCOL_VERSION: u32 = 27;
+/// Version 28 carries independent delayed-life-loss cancellation offers.
+pub const PROTOCOL_VERSION: u32 = 28;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -284,7 +285,8 @@ mod tests {
         // 26: spectators (25 is another branch's): `SpectatorsChanged`,
         // `SpectatorFrame`, `Spectators`, `/games/{id}/watch`.
         // 27: a damage decision's `DamageEffectKind::PreventAll`.
-        assert_eq!(PROTOCOL_VERSION, 27);
+        // 28: independent delayed-life-loss cancellation offers.
+        assert_eq!(PROTOCOL_VERSION, 28);
     }
 
     #[test]

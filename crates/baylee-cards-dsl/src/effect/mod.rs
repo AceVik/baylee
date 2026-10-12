@@ -915,6 +915,22 @@ pub enum Effect {
     /// The controller takes an extra turn after this one (Temporal
     /// Mastery).
     TakeExtraTurn,
+    /// The controller skips their next turn, including an extra turn.
+    SkipNextTurn,
+    /// Restrict the exact affected creature during its current controller's next actual turn.
+    CantAttackDuringNextControllerTurn {
+        /// Affected creature, bound when this instruction resolves.
+        target: TargetSpec,
+    },
+    /// Create one payable obligation before the affected player's next draw step.
+    LoseLifeAtNextDrawUnlessPaidBefore {
+        /// Player who owes the payment or life loss.
+        player: PlayerRel,
+        /// Life lost if the obligation is not paid before that step.
+        amount: u32,
+        /// Optional special-action payment, before the delayed trigger fires.
+        cost: baylee_core::mana::ManaCost,
+    },
     /// Exile the source object (Temporal Mastery's self-exile rider).
     ExileSource,
     /// Remove each target from combat (CR 506.4): it stops being an

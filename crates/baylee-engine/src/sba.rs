@@ -966,7 +966,14 @@ fn leave(
     // A delayed trigger they control can never be put on the stack again
     // (CR 800.4d), and one waiting for a turn of theirs would otherwise sit
     // in the hashed state for the rest of the game.
-    state.delayed.retain(|d| d.controller != player);
+    state.delayed.retain(|d| {
+        // Already-created continuous restrictions survive their creator leaving;
+        // they await the affected creature's turn, not a new trigger they control.
+        matches!(
+            d.action,
+            crate::state::DelayedAction::RestrictAttacksForTurn { .. }
+        ) || d.controller != player
+    });
     state.granted_actions.retain(|g| g.player != player);
     exiled
 }

@@ -8,7 +8,7 @@ use baylee_cards_dsl::{SpecialActionCost, SpecialActionTiming};
 use baylee_core::ids::{GrantedActionId, PlayerId, TargetRef};
 use baylee_core::mana::ManaColor;
 
-/// One player's independently reusable permission.
+/// One player's independent permission; its effect determines whether it is reusable.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GrantedAction {
     /// Player who received this permission; it is not controlled by its source.
@@ -19,13 +19,19 @@ pub struct GrantedAction {
 
 impl GameState {
     /// Install one permission, giving it a never-reused identity.
-    pub(crate) fn grant_action(&mut self, player: PlayerId, mut offer: GrantedActionOffer) {
+    pub(crate) fn grant_action(
+        &mut self,
+        player: PlayerId,
+        mut offer: GrantedActionOffer,
+    ) -> GrantedActionId {
         offer.id = GrantedActionId::new(self.next_granted_action);
         self.next_granted_action = self
             .next_granted_action
             .checked_add(1)
             .expect("granted action ID space");
+        let id = offer.id;
         self.granted_actions.push(GrantedAction { player, offer });
+        id
     }
 
     /// Whether the payment and result fit the represented state, atomically.
@@ -83,6 +89,11 @@ impl GameState {
             }
         }
         match action.offer.effect {
+            GrantedActionKind::CancelDelayedLifeLoss { .. } => {
+                self.delayed.retain(|delayed| !matches!(delayed.action,
+                    crate::state::DelayedAction::DrawStepLifeLoss { obligation, .. } if obligation == id));
+                self.granted_actions.retain(|grant| grant.offer.id != id);
+            }
             GrantedActionKind::AddMana { color, amount } => {
                 let provenance = crate::mana_provenance::ManaProvenance::capture(
                     self,

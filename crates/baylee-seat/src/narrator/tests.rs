@@ -1400,3 +1400,49 @@ fn a_board_that_changed_past_four_lines_in_ten_is_told_whole() {
     let text = narrator.wake(&later, &[], None).text;
     assert!(!text.contains("Board as at"), "{text}");
 }
+
+#[test]
+fn identical_delayed_life_loss_offers_name_the_deadline_and_keep_independent_actions() {
+    use baylee_engine::choice::{GrantedActionKind, GrantedActionOffer};
+    let (view, log) = board();
+    let debt = |number| GrantedActionOffer {
+        id: baylee_core::ids::GrantedActionId::new(number),
+        source: baylee_core::ids::DamageSourceRef {
+            object: id(21),
+            version: 2,
+        },
+        ability: None,
+        timing: baylee_cards_dsl::SpecialActionTiming::Priority,
+        cost: baylee_cards_dsl::SpecialActionCost::Mana(
+            baylee_core::mana::ManaCost::from_symbol_generic(1),
+        ),
+        effect: GrantedActionKind::CancelDelayedLifeLoss { amount: 1 },
+    };
+    let pending = Pending::Priority {
+        player: ME,
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            granted_actions: vec![debt(91), debt(92)],
+            ..LegalActions::default()
+        }),
+    };
+    let request = request(view, pending.clone(), log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(wake.text.contains("Before your next draw step"));
+    assert!(wake.text.contains("cancel this pending 1 life loss"));
+    assert!(!wake.text.contains("Until end of turn"));
+    for (pick, number) in [("a1", 91), ("a2", 92)] {
+        let decision = Decision::from_decide(&serde_json::json!({
+            "ask": format!("q{}", wake.menu.question), "pick": [pick]
+        }))
+        .unwrap();
+        let action = wake.menu.resolve(&decision).unwrap().act.first();
+        assert_eq!(
+            action,
+            PlayerAction::TakeGrantedAction {
+                id: baylee_core::ids::GrantedActionId::new(number)
+            }
+        );
+        assert_eq!(pending.answer_fault(&action), None);
+    }
+}

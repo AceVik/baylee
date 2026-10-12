@@ -1196,6 +1196,7 @@ fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> O
                 ..
             },
         ) => *damage_source,
+        (Trigger::BlocksCreature(_), GameEvent::BecameBlocker { attacker, .. }) => Some(*attacker),
         (
             Trigger::BlocksOrBecomesBlockedBy(_),
             GameEvent::BecameBlocker {
@@ -2546,6 +2547,12 @@ fn matches(
         }
         // CR 509.3a: once per blocker, on the first of its pairs in the
         // declaration, however many attackers it blocks.
+        (Trigger::BlocksCreature(filter), GameEvent::BecameBlocker { object, attacker }) => {
+            *object == source
+                && state.object(*attacker).is_some_and(|other| {
+                    eval::matches_with_context(filter, state, other, you, context)
+                })
+        }
         (Trigger::Blocks(filter), GameEvent::BecameBlocker { object, .. }) => {
             let Some(at) = event_groups::index_of_event(event, batch) else {
                 return false;

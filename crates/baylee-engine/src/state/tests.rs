@@ -1500,3 +1500,111 @@ fn mana_loop_identity_tracks_producers_without_tracking_allocation_history() {
         "spent provenance no longer distinguishes empty pools"
     );
 }
+
+#[test]
+fn skip_obligations_change_snapshot_and_loop_identity() {
+    let (base, _) = hash_fixture();
+    for player in 0..base.players.len() {
+        let mut changed = base.clone();
+        changed.players[player].turns_to_skip = 1;
+        assert_ne!(changed.snapshot_hash(), base.snapshot_hash());
+        assert_ne!(changed.loop_signature(), base.loop_signature());
+        changed.players[player].turns_to_skip = 0;
+        assert_eq!(changed.snapshot_hash(), base.snapshot_hash());
+        assert_eq!(changed.loop_signature(), base.loop_signature());
+    }
+}
+
+#[test]
+fn last_own_turn_attackers_are_exact_and_part_of_both_hashes() {
+    use baylee_cards_dsl::Condition;
+    use baylee_core::ids::DamageSourceRef;
+    let (base, source) = hash_fixture();
+    let player = PlayerId::new(0);
+    let identity = DamageSourceRef {
+        object: source,
+        version: base.object(source).unwrap().version,
+    };
+    let mut state = base.clone();
+    state.players[0].last_turn_attackers.push(identity);
+    assert_ne!(state.snapshot_hash(), base.snapshot_hash());
+    assert_ne!(state.loop_signature(), base.loop_signature());
+    assert!(crate::eval::condition_holds(
+        &state,
+        player,
+        source,
+        Condition::SourceAttackedDuringYourLastTurn
+    ));
+    assert!(!crate::eval::condition_holds(
+        &state,
+        PlayerId::new(1),
+        source,
+        Condition::SourceAttackedDuringYourLastTurn
+    ));
+    state.object_mut(source).unwrap().version += 1;
+    assert!(!crate::eval::condition_holds(
+        &state,
+        player,
+        source,
+        Condition::SourceAttackedDuringYourLastTurn
+    ));
+    let stale = state.loop_signature();
+    state.players[0].last_turn_attackers.clear();
+    assert_eq!(
+        state.loop_signature(),
+        stale,
+        "departed incarnations cannot affect current restrictions"
+    );
+}
+
+#[test]
+fn future_draw_debts_and_attack_restrictions_change_loop_identity() {
+    use baylee_core::ids::{DamageSourceRef, GrantedActionId};
+    let (base, source) = hash_fixture();
+    let source = DamageSourceRef {
+        object: source,
+        version: base.object(source).unwrap().version,
+    };
+    let mut state = base.clone();
+    state.delayed.push(DelayedTrigger {
+        controller: PlayerId::new(1),
+        when: DelayedWhen::NextDraw,
+        action: DelayedAction::DrawStepLifeLoss {
+            obligation: GrantedActionId::new(1),
+            source,
+            controller: PlayerId::new(0),
+            amount: 1,
+        },
+    });
+    assert_ne!(state.loop_signature(), base.loop_signature());
+    let expected = state.loop_signature();
+    if let DelayedAction::DrawStepLifeLoss { obligation, .. } = &mut state.delayed[0].action {
+        *obligation = GrantedActionId::new(99);
+    }
+    assert_eq!(
+        state.loop_signature(),
+        expected,
+        "allocation identities do not conceal repeating positions"
+    );
+    if let DelayedAction::DrawStepLifeLoss { amount, .. } = &mut state.delayed[0].action {
+        *amount = 2;
+    }
+    assert_ne!(state.loop_signature(), expected);
+    state.delayed[0] = DelayedTrigger {
+        controller: PlayerId::new(1),
+        when: DelayedWhen::NextAffectedTurn,
+        action: DelayedAction::RestrictAttacksForTurn {
+            source,
+            affected: source,
+        },
+    };
+    assert_ne!(state.loop_signature(), base.loop_signature());
+    state.object_mut(source.object).unwrap().version += 1;
+    let stale = state.loop_signature();
+    state.delayed.clear();
+    assert_eq!(
+        state.loop_signature(),
+        stale,
+        "expired incarnations cannot restrict their successors"
+    );
+}

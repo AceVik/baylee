@@ -325,6 +325,8 @@ pub enum Modifier {
     /// asked of each player or planeswalker the creature could attack, with
     /// the defending player the one CR 506.2 names for it.
     CantAttackUnlessDefenderControls(&'static crate::Filter),
+    /// A declaration restriction, not an ability granted to the creature.
+    CantAttack,
     /// Landwalk of a land the filter describes (CR 702.14a, 702.14c): the
     /// affected creature can't be blocked as long as the defending player
     /// controls a land it matches. The basic five are keyword bits; this is
@@ -926,6 +928,7 @@ impl Modifier {
             | Self::CrewSaddlePowerBonus(_)
             | Self::CantBlock(_)
             | Self::CantBeBlockedBy(_)
+            | Self::CantAttack
             | Self::CantAttackUnlessDefenderControls(_)
             | Self::LandwalkMatching(_)
             | Self::AttacksEachCombat

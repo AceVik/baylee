@@ -615,7 +615,7 @@
     {
       "batch": 49,
       "title": "Delayed turn and untap effects",
-      "status": "in_progress",
+      "status": "completed",
       "cards": [
         {
           "name": "Undiscovered Paradise",
@@ -624,15 +624,18 @@
         },
         {
           "name": "Nafs Asp",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_1/nafs_asp.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_1/nafs_asp.rs",
+          "status": "completed"
         },
         {
           "name": "Giant Turtle",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_3/giant_turtle.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/giant_turtle.rs",
+          "status": "completed"
         },
         {
           "name": "Wall of Dust",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_3/wall_of_dust.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/wall_of_dust.rs",
+          "status": "completed"
         },
         {
           "name": "Telekinesis",
@@ -656,7 +659,8 @@
         },
         {
           "name": "Magosi, the Waterveil",
-          "path": "crates/baylee-cards/src/cards/lands/utility/magosi_the_waterveil.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/magosi_the_waterveil.rs",
+          "status": "completed"
         },
         {
           "name": "Thawing Glaciers",
@@ -664,7 +668,7 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 6
+      "validated_complete": 10
     },
     {
       "batch": 50,

@@ -50,6 +50,8 @@ impl GameState {
                     lands_played_this_turn: 0,
                     turn_start_timestamp: 0,
                     turns_started: 0,
+                    turns_to_skip: 0,
+                    last_turn_attackers: Vec::new(),
                     tried_empty_draw: false,
                     commander_damage: Vec::new(),
                     loss: None,

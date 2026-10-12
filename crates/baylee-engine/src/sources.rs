@@ -859,6 +859,13 @@ fn is_prevention(modifier: &Modifier) -> bool {
 
 fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef>) {
     match *action {
+        DelayedAction::RestrictAttacksForTurn { source, affected } => {
+            out.insert(source);
+            out.insert(affected);
+        }
+        DelayedAction::DrawStepLifeLoss { source, .. } => {
+            out.insert(source);
+        }
         DelayedAction::ReturnExiledGroup {
             source,
             ref objects,

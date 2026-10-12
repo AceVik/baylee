@@ -24,6 +24,7 @@ impl<L: CardLookup> Engine<L> {
             }
         });
         if !first_turn {
+            self.remember_completed_turn_attackers();
             // Turn order goes on from the last normal turn that ended or
             // was skipped (CR 614.10).
             let after = match self.cleanup {
@@ -98,6 +99,7 @@ impl<L: CardLookup> Engine<L> {
             }
             true
         });
+        self.start_awaited_attack_restrictions();
         self.state.per_turn.reset();
         self.state.per_turn.untapped_lands_at_start = untapped_lands;
         self.state.ability_fires.clear();
@@ -134,6 +136,23 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    fn remember_completed_turn_attackers(&mut self) {
+        let active = self.state.turn.active;
+        let history = &mut self.state.players[usize::from(active.get())].last_turn_attackers;
+        history.clear();
+        history.extend(
+            self.state
+                .per_turn
+                .attacked
+                .iter()
+                .filter(|(_, _, player)| *player == active)
+                .map(|&(object, version, _)| baylee_core::ids::DamageSourceRef { object, version }),
+        );
+        // Reuse the seat's buffer rather than allocate one tree node per attacker.
+        history.sort_unstable();
+        history.dedup();
+    }
+
     /// The player whose turn the normal order goes on from: the current
     /// turn's, or, during an extra turn, the normal turn it was added after
     /// (CR 500.7). In a duel an extra turn taken in the opponent's turn is
@@ -159,8 +178,32 @@ impl<L: CardLookup> Engine<L> {
         if self.offer_turn_skip(next, Vec::new()) {
             return true;
         }
-        self.begin_turn(false);
+        self.begin_or_skip_turn(next);
         false
+    }
+
+    /// Finish replacement selection, consuming one mandatory skip if owed.
+    /// Optional replacements already chosen do not consume this obligation.
+    pub(crate) fn begin_or_skip_turn(&mut self, player: PlayerId) {
+        let skips = &mut self.state.players[usize::from(player.get())].turns_to_skip;
+        if *skips == 0 {
+            self.begin_turn(false);
+        } else {
+            *skips -= 1;
+            self.skip_pending_turn();
+        }
+    }
+
+    /// Omit the pending normal or extra turn without starting or resetting it.
+    pub(crate) fn skip_pending_turn(&mut self) {
+        let Cleanup::Ended { after } = self.cleanup else {
+            unreachable!("a turn can only be skipped at its boundary")
+        };
+        let after = match self.state.extra_turns.pop_front() {
+            Some(_) => after,
+            None => self.next_alive_after(after),
+        };
+        self.cleanup = Cleanup::Ended { after };
     }
 
     /// Asks `player` about the first skip replacement they control that
@@ -603,8 +646,28 @@ impl<L: CardLookup> Engine<L> {
         self.queue_delayed_at(crate::state::DelayedWhen::EndOfCombat);
     }
 
-    /// Takes every delayed trigger waiting for `when` off the list and
-    /// queues it, whoever controls it.
+    /// End advance-payment windows before the turn-based draw or its replacement.
+    pub(super) fn queue_draw_debts(&mut self) {
+        let active = self.state.turn.active;
+        let mut expired = std::collections::BTreeSet::new();
+        let queue = &mut self.delayed_queue;
+        self.state.delayed.retain(|delayed| {
+            if delayed.when != crate::state::DelayedWhen::NextDraw || delayed.controller != active {
+                return true;
+            }
+            if let crate::state::DelayedAction::DrawStepLifeLoss { obligation, .. } = delayed.action
+            {
+                expired.insert(obligation);
+            }
+            queue.push_back((delayed.controller, delayed.action.clone()));
+            false
+        });
+        self.state
+            .granted_actions
+            .retain(|grant| !expired.contains(&grant.offer.id));
+    }
+
+    /// Queue every delayed trigger at this step, whoever controls it.
     pub(super) fn queue_delayed_at(&mut self, when: crate::state::DelayedWhen) {
         let mut i = 0;
         while i < self.state.delayed.len() {

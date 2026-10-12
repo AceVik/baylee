@@ -437,6 +437,7 @@ pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bo
         // "Can't attack" (Wayward Swordtooth, while it lacks the city's
         // blessing): the same rule as defender, from a static.
         && !obj.characteristics().keywords.contains(K::CANT_ATTACK)
+        && (!state.effects.may_forbid_attacking() || !as_though(baylee_cards_dsl::Modifier::CantAttack))
         && !obj.status.contains(Status::TAPPED)
         && !obj.status.contains(Status::PHASED_OUT)
         // Summoning sickness (CR 302.6), unless it can attack as though it

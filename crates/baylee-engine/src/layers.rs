@@ -1364,6 +1364,7 @@ fn apply(
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
+        | Modifier::CantAttack
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat

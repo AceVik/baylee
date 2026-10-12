@@ -137,6 +137,8 @@ pub enum Condition {
     CastInstantOrSorceryThisTurn,
     /// You declared at least this many distinct creature incarnations as attackers this turn.
     AttackedWithAtLeast(u32),
+    /// This exact incarnation attacked during its controller's last completed turn.
+    SourceAttackedDuringYourLastTurn,
     /// One opponent was dealt at least this much damage this turn.
     OpponentWasDealtAtLeast(u32),
     /// Every player still in the game has an empty hand.
@@ -649,6 +651,9 @@ pub enum Trigger {
     /// once when it is declared as a blocker, however many attackers it
     /// blocks (CR 509.3a). The blocker is the trigger's event object.
     Blocks(&'static Filter),
+    /// This creature blocks a matching creature, once for each blocked creature.
+    /// The event object is that attacker; becoming blocked is not this event.
+    BlocksCreature(&'static Filter),
     /// "Whenever [a creature matching the filter] attacks and isn't
     /// blocked" (Merchant Ship): once per attacker that is unblocked when
     /// the last defending player has declared blockers (CR 509.1h). The

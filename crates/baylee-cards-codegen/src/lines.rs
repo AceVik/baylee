@@ -671,7 +671,10 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // a non-Wall creature". Its filter is the *other* creature, so it
         // stays out of `whose_trigger_fits`, where a filter is the subject.
         T::Rampage => &["rampage"],
-        T::BlocksOrBecomesBlockedBy(_) | T::BecomesBlockedBy(_) | T::BecomesBlocked => &["block"],
+        T::BlocksOrBecomesBlockedBy(_)
+        | T::BecomesBlockedBy(_)
+        | T::BecomesBlocked
+        | T::BlocksCreature(_) => &["block"],
         // Ydwen Efreet, "Whenever this creature blocks".
         T::Blocks(_) => &["blocks"],
         // Merchant Ship, "Whenever this creature attacks and isn't blocked".

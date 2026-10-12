@@ -413,9 +413,16 @@ impl Builder<'_, '_> {
                 SpecialActionCost::Life(amount) => format!("pay {amount} life"),
                 SpecialActionCost::Mana(mana) => format!("pay {mana}"),
             };
+            let deadline = match offer.effect {
+                GrantedActionKind::CancelDelayedLifeLoss { .. } => "Before your next draw step",
+                _ => "Until end of turn",
+            };
             let effect = match offer.effect {
                 GrantedActionKind::AddMana { color, amount } => {
                     format!("add {amount} {color:?} mana")
+                }
+                GrantedActionKind::CancelDelayedLifeLoss { amount } => {
+                    format!("cancel this pending {amount} life loss")
                 }
                 GrantedActionKind::PreventNextDamage { target, amount } => {
                     let recipient = match target {
@@ -428,7 +435,7 @@ impl Builder<'_, '_> {
                 }
             };
             self.offer(
-                format!("Until end of turn — {cost}: {effect} (one use)"),
+                format!("{deadline} — {cost}: {effect} (one use)"),
                 Act::Now(PlayerAction::TakeGrantedAction { id: offer.id }),
                 offer.ability.map(|a| a.card),
             );

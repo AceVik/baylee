@@ -55,7 +55,8 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::CreateTokensFor { player, amount, .. } => {
             reads_player(*player) || reads_amount(*amount)
         }
-        Effect::LoseHalfLife { player }
+        Effect::LoseLifeAtNextDrawUnlessPaidBefore { player, .. }
+        | Effect::LoseHalfLife { player }
         | Effect::SacrificeChosenByOpponent { player, .. }
         | Effect::ExileLibraryAndShuffleHand { player, .. }
         | Effect::ExileGraveyard { player, .. }
@@ -83,7 +84,8 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::Poison { amount, who }
         | Effect::GainLifeFor { amount, who, .. }
         | Effect::DrawCardsFor { amount, who, .. } => reads_amount(*amount) || reads_player(*who),
-        Effect::SuppressUntap { target, .. }
+        Effect::CantAttackDuringNextControllerTurn { target }
+        | Effect::SuppressUntap { target, .. }
         | Effect::Exile { target, .. }
         | Effect::Blink { target, .. }
         | Effect::RedirectNextFromChosenSource { target, .. }

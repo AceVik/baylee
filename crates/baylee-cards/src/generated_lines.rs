@@ -2427,7 +2427,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Nafs Asp
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Oasis
     &[FaceLines {
         sentences: 1,
@@ -3781,7 +3788,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Giant Turtle
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Glyph of Destruction
     &[FaceLines {
@@ -4974,7 +4988,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Wall of Dust
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Wall of Light
@@ -24020,8 +24041,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Magosi, the Waterveil
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[Some(1), Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],

@@ -110,6 +110,8 @@ pub const DREAM: CounterKind = CounterKind::Custom(21);
 
 /// Doom counters accumulated by Armageddon Clock.
 pub const DOOM: CounterKind = CounterKind::Custom(22);
+/// Eon counters mark stored turns on Magosi.
+pub const EON: CounterKind = CounterKind::Custom(23);
 
 /// Every id this module assigns, with the word it stands for.
 ///
@@ -139,6 +141,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("pin", PIN),
     ("dream", DREAM),
     ("doom", DOOM),
+    ("eon", EON),
 ];
 
 #[cfg(test)]

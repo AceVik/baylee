@@ -53,6 +53,18 @@ impl Draft {
     }
 }
 
+/// Describe cancellation of one obligation, including its strict payment deadline.
+#[must_use]
+pub fn cancellation_label(
+    effect: baylee_engine::choice::GrantedActionKind,
+    lang: crate::i18n::Lang,
+) -> Option<String> {
+    let baylee_engine::choice::GrantedActionKind::CancelDelayedLifeLoss { amount } = effect else {
+        return None;
+    };
+    Some(crate::i18n::Phrase::GrantedCancelLifeLoss.fill(lang, &[&amount.to_string()]))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,5 +117,71 @@ mod tests {
         assert_eq!(draft.confirm(&[changed]), None);
         draft.sync(&[]);
         assert!(!draft.open);
+    }
+
+    fn debt(id: u64) -> GrantedActionOffer {
+        let mut debt = offer(id);
+        debt.timing = SpecialActionTiming::Priority;
+        debt.cost = SpecialActionCost::Mana(baylee_core::mana::ManaCost::from_symbol_generic(1));
+        debt.effect = GrantedActionKind::CancelDelayedLifeLoss { amount: 1024 };
+        debt
+    }
+    #[test]
+    fn identical_debts_keep_independent_ids_and_expired_selection_cannot_pay_another() {
+        let offers = [debt(41), debt(42)];
+        let mut draft = Draft::default();
+        draft.show(&offers);
+        draft.select(offers[1].id, &offers);
+        assert_eq!(
+            draft.confirm(&[offers[1].clone(), offers[0].clone()]),
+            Some(PlayerAction::TakeGrantedAction { id: offers[1].id })
+        );
+        draft.show(&offers);
+        draft.select(offers[1].id, &offers);
+        assert_eq!(draft.confirm(&offers[..1]), None);
+        draft.select(offers[0].id, &offers[..1]);
+        assert_eq!(
+            draft.confirm(&offers[..1]),
+            Some(PlayerAction::TakeGrantedAction { id: offers[0].id })
+        );
+        draft.show(&offers);
+        draft.select(offers[0].id, &offers);
+        let mut changed = offers[0].clone();
+        changed.effect = GrantedActionKind::CancelDelayedLifeLoss { amount: 1 };
+        assert_eq!(draft.confirm(&[changed]), None);
+    }
+    #[test]
+    fn cancellation_label_names_life_loss_and_deadline_in_each_language() {
+        let effect = debt(1).effect;
+        assert_eq!(
+            cancellation_label(effect, crate::i18n::Lang::En).unwrap(),
+            "Cancel this pending 1024 life loss before your next draw step"
+        );
+        assert_eq!(
+            cancellation_label(effect, crate::i18n::Lang::De).unwrap(),
+            "Diesen bevorstehenden Verlust von 1024 Leben vor deinem nächsten Ziehsegment aufheben"
+        );
+        assert!(cancellation_label(offer(1).effect, crate::i18n::Lang::En).is_none());
+    }
+    #[test]
+    fn priority_cancellation_offers_roundtrip_without_collapsing_obligation_ids() {
+        use baylee_engine::choice::{LegalActions, Pending};
+        let pending = Pending::Priority {
+            player: baylee_core::ids::PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                granted_actions: vec![debt(51), debt(52)],
+                can_pass: true,
+                ..LegalActions::default()
+            }),
+        };
+        let json = serde_json::to_string(&pending).unwrap();
+        assert!(json.contains("CancelDelayedLifeLoss"));
+        let decoded: Pending = serde_json::from_str(&json).unwrap();
+        let Pending::Priority { legal, .. } = decoded else {
+            panic!("priority roundtrip")
+        };
+        assert_eq!(legal.granted_actions, vec![debt(51), debt(52)]);
+        let unknown = json.replace("CancelDelayedLifeLoss", "UnknownDebtAction");
+        assert!(serde_json::from_str::<Pending>(&unknown).is_err());
     }
 }

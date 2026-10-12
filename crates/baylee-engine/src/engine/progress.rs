@@ -18,6 +18,7 @@ use baylee_core::preset::LoopPolicy;
 
 mod delayed;
 mod entering;
+mod future_attacks;
 mod lifetimes;
 mod untap_returns;
 use lifetimes::{emblem_statics, forget_effects_on_moved_objects};

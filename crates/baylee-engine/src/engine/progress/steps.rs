@@ -117,6 +117,7 @@ impl<L: CardLookup> Engine<L> {
                     // draw is made in it: `draw_cards` reads the step to know
                     // that this card is the step's first.
                     self.state.turn.step = Step::Draw;
+                    self.queue_draw_debts();
                     // Nobody draws for an active player who has left
                     // (CR 800.4j).
                     if !self.active_has_left() {
@@ -706,7 +707,12 @@ impl<L: CardLookup> Engine<L> {
         });
         // Every prevention shield says "this turn" (`crate::prevention`).
         self.state.shields.clear();
-        self.state.granted_actions.clear();
+        self.state.granted_actions.retain(|grant| {
+            matches!(
+                grant.offer.effect,
+                crate::choice::GrantedActionKind::CancelDelayedLifeLoss { .. }
+            )
+        });
         self.state.prune_damage_sources();
         for player in &mut self.state.players {
             player.mana_pool.expire_turn_retention();

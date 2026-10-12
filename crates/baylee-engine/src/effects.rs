@@ -182,6 +182,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
+        | Modifier::CantAttack
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat
@@ -314,11 +315,17 @@ pub struct EffectTable {
     counter_limit_kinds: Vec<baylee_cards_dsl::CounterKind>,
     /// Derived monotone hint: ordinary boards need no source-duration scan.
     may_have_source_duration: bool,
+    /// Derived monotone hint: ordinary attackers need no blanket-restriction scan.
+    may_forbid_attacking: bool,
     /// Bumped on every add/remove — the projection cache key.
     pub generation: u64,
 }
 
 impl EffectTable {
+    pub(crate) fn may_forbid_attacking(&self) -> bool {
+        self.may_forbid_attacking
+    }
+
     pub(crate) fn may_have_source_duration(&self) -> bool {
         self.may_have_source_duration
     }
@@ -351,6 +358,7 @@ impl EffectTable {
             fx.duration,
             Duration::WhileYouControlSource | Duration::WhileSourceTapped { .. }
         );
+        self.may_forbid_attacking |= fx.modifier == Modifier::CantAttack;
         self.effects.push(fx);
         self.generation += 1;
         id
@@ -556,6 +564,7 @@ impl EffectTable {
             may_have_counter_duration: _,
             counter_limit_kinds: _,
             may_have_source_duration: _,
+            may_forbid_attacking: _,
             generation,
             grants: _,
         } = self;
@@ -1206,6 +1215,7 @@ mod tests {
             Modifier::BlockableWithoutLandwalk(baylee_cards_dsl::KeywordSet::SWAMPWALK),
             Modifier::IgnoreOpponentsHexproof,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
+            Modifier::CantAttack,
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::LandwalkMatching(&Filter::LAND),
             Modifier::AttacksEachCombat,
@@ -1281,7 +1291,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            116,
+            117,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1345,7 +1355,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (41, 75));
+        assert_eq!((locking, all.len() - locking), (41, 76));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

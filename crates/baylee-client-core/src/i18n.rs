@@ -373,12 +373,14 @@ messages! {
     HistoryHint { en: "Every save is kept. Restoring creates a new version; later saves remain available.", de: "Jeder Stand bleibt erhalten. Wiederherstellen erzeugt eine neue Version; spätere Stände bleiben verfügbar." },
     /// Library and front-door interface.
     WorkingDiff { en: "Changes from the latest saved version", de: "Änderungen gegenüber der zuletzt gespeicherten Version" },
-    /// Temporary player actions available until cleanup.
-    GrantedActions { en: "Actions until end of turn", de: "Aktionen bis Zugende" },
+    /// Special actions currently granted to this player.
+    GrantedActions { en: "Granted actions", de: "Gewährte Aktionen" },
     /// Explicit life payment for one temporary action.
     GrantedLifeCost { en: "Pay {0} life", de: "{0} Leben bezahlen" },
     /// Bound recipient of an already granted prevention action.
     GrantedRecipient { en: "Recipient: {0}", de: "Empfänger: {0}" },
+    /// One specific delayed life-loss obligation and its payment deadline.
+    GrantedCancelLifeLoss { en: "Cancel this pending {0} life loss before your next draw step", de: "Diesen bevorstehenden Verlust von {0} Leben vor deinem nächsten Ziehsegment aufheben" },
     /// Confirms one explicitly selected temporary action.
     GrantedConfirm { en: "Perform action", de: "Aktion ausführen" },
     /// Library and front-door interface.

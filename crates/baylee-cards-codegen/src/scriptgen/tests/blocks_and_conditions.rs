@@ -1151,3 +1151,90 @@ fn an_untap_with_no_valid_string_untaps_the_source_that_paid_for_it() {
         ]
     );
 }
+
+#[test]
+fn a_single_controller_turn_skip_is_read_as_an_independent_obligation() {
+    let body =
+        read("Name:X\nTypes:Land\nA:AB$ SkipTurn | Cost$ U T | NumTurns$ 1 | Defined$ You\n");
+    assert_eq!(body.abilities.len(), 1);
+    assert!(body.abilities[0].contains("Effect::SkipNextTurn"));
+    // The skip remains a subeffect of the counter ability, not a separate
+    // activated ability or a replacement that exists before resolution.
+    let body = read(
+        "Name:X\nTypes:Land\nA:AB$ PutCounter | Cost$ U T | Defined$ Self | CounterType$ EON | CounterNum$ 1 | SubAbility$ Next\nSVar:Next:DB$ SkipTurn | NumTurns$ 1 | Defined$ You\n",
+    );
+    assert_eq!(body.abilities.len(), 1);
+    let ability = &body.abilities[0];
+    assert!(ability.contains("counters::EON"));
+    assert!(ability.contains("Effect::SkipNextTurn"));
+    assert!(ability.find("AddCounter").unwrap() < ability.find("SkipNextTurn").unwrap());
+    let body = read(
+        "Name:X\nTypes:Land\nA:AB$ AddTurn | Cost$ T SubCounter<1/EON> Return<1/CARDNAME> | NumTurns$ 1 | Defined$ You\n",
+    );
+    assert_eq!(body.abilities.len(), 1);
+    assert!(body.abilities[0].contains("RemoveCounterSelf"));
+    assert!(body.abilities[0].contains("counters::EON"));
+    assert!(body.abilities[0].contains("ReturnSelfToHand"));
+    assert!(body.abilities[0].contains("Effect::TakeExtraTurn"));
+    for fields in [
+        "NumTurns$ 2 | Defined$ You",
+        "NumTurns$ X | Defined$ You",
+        "NumTurns$ 0 | Defined$ You",
+        "NumTurns$ 1 | Defined$ Opponent",
+        "NumTurns$ 1 | Defined$ Each",
+        "NumTurns$ 1 | Defined$ TriggeredActivator",
+        "NumTurns$ 1",
+        "Defined$ You",
+        "NumTurns$ 1 | Defined$ You | ValidTgts$ Player",
+        "NumTurns$ 1 | Defined$ You | Duration$ UntilEndOfTurn",
+        "NumTurns$ 1 | Defined$ You | AtEOT$ True",
+    ] {
+        assert!(
+            refused(&format!(
+                "Name:X\nTypes:Land\nA:AB$ SkipTurn | Cost$ T | {fields}\n"
+            )),
+            "{fields}"
+        );
+    }
+}
+
+#[test]
+fn cant_attack_after_last_own_turn_reads_only_the_exact_source_history_predicate() {
+    let body = read(
+        "Name:X\nTypes:Creature Wizard\nPT:2/4\nS:Mode$ CantAttack | ValidCard$ Card.Self+attackedLastTurn\n",
+    );
+    assert_eq!(
+        body.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_ATTACK), condition = Some(Condition::SourceAttackedDuringYourLastTurn))"
+        ]
+    );
+    for valid in [
+        "Card.Self+attackedThisTurn",
+        "Card.Self+attackedLastCombat",
+        "Card.Self+attackedLastTurn+YouCtrl",
+        "Creature.attackedLastTurn",
+        "Card.Self+attackedLastTurnByOpponent",
+        "Card.Self+attackedLastTurn,Creature",
+    ] {
+        assert!(
+            refused(&format!(
+                "Name:X\nTypes:Creature Wizard\nS:Mode$ CantAttack | ValidCard$ {valid}\n"
+            )),
+            "{valid}"
+        );
+    }
+    for extra in [
+        "UnlessDefender$ controlsIsland",
+        "IsPresent$ Creature.YouCtrl",
+        "ValidPlayer$ Opponent",
+        "Duration$ UntilEndOfTurn",
+    ] {
+        assert!(
+            refused(&format!(
+                "Name:X\nTypes:Creature Wizard\nS:Mode$ CantAttack | ValidCard$ Card.Self+attackedLastTurn | {extra}\n"
+            )),
+            "{extra}"
+        );
+    }
+}

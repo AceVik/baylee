@@ -103,6 +103,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "DamageResolve",
     "PreventDamage",
     "AddTurn",
+    "SkipTurn",
     "Effect",
     "ChooseSource",
     "Fog",

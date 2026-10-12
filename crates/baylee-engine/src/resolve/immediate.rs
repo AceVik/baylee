@@ -1607,6 +1607,27 @@ pub(super) fn exec_immediate(
         Effect::ChooseNewTargets => retarget::start(state, res, None),
         // Added directly after this turn, ahead of any already queued:
         // "The most recently created turn will be taken first" (CR 500.7).
+        Effect::LoseLifeAtNextDrawUnlessPaidBefore {
+            player,
+            amount,
+            cost,
+        } => {
+            super::draw_debts::schedule(state, res, player, amount, cost);
+            None
+        }
+        Effect::CantAttackDuringNextControllerTurn { target } => {
+            super::future_attacks::schedule(state, res, target);
+            None
+        }
+        Effect::SkipNextTurn => {
+            let skips = &mut state.players[usize::from(you.get())].turns_to_skip;
+            if let Some(next) = skips.checked_add(1) {
+                *skips = next;
+            } else {
+                state.numeric_failure = Some("turn skip obligations exceed u32");
+            }
+            None
+        }
         Effect::TakeExtraTurn => {
             state.extra_turns.push_front(you);
             None

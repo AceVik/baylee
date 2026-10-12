@@ -90,6 +90,10 @@ pub struct Player {
     pub turn_start_timestamp: u64,
     /// Number of this player's turns that actually began.
     pub turns_started: u32,
+    /// Independent obligations to skip the next turn; one is consumed per omitted turn.
+    pub turns_to_skip: u32,
+    /// Exact attackers from this seat's most recently completed actual turn.
+    pub last_turn_attackers: Vec<baylee_core::ids::DamageSourceRef>,
     /// Set when a draw was attempted from an empty library (SBA loses).
     pub tried_empty_draw: bool,
     /// Combat damage this player has taken from each commander over the
@@ -221,6 +225,10 @@ pub struct DelayedTrigger {
 pub enum DelayedWhen {
     /// At the controller's next upkeep.
     NextUpkeep,
+    /// At the beginning of this player's next actual draw step.
+    NextDraw,
+    /// As the affected permanent's current controller next begins an actual turn.
+    NextAffectedTurn,
     /// Every upkeep of the controller, for the rest of the game.
     EachUpkeep,
     /// At the beginning of the next upkeep, whoever's turn it is
@@ -293,6 +301,24 @@ pub enum DelayedWhen {
 /// What a delayed trigger does.
 #[derive(Clone, Hash, Debug)]
 pub enum DelayedAction {
+    /// A rule restricting attacks for the whole awaited turn, independent of ability removal.
+    RestrictAttacksForTurn {
+        /// Original source incarnation.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Exact affected permanent, whose controller determines the awaited turn.
+        affected: baylee_core::ids::DamageSourceRef,
+    },
+    /// One life-loss obligation whose advance payment window has ended.
+    DrawStepLifeLoss {
+        /// Special-action identity whose one payment cancels this obligation.
+        obligation: baylee_core::ids::GrantedActionId,
+        /// Original source incarnation.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Controller of the ability that created the delayed trigger.
+        controller: PlayerId,
+        /// Amount lost by the player whose draw step is awaited.
+        amount: u32,
+    },
     /// One delayed return for an entire group exiled by one instruction.
     ReturnExiledGroup {
         /// Original source of the creating spell or ability.
