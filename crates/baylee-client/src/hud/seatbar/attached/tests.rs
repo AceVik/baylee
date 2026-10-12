@@ -783,3 +783,112 @@ fn the_plate_holds_its_widest_lines() {
         );
     }
 }
+
+/// A plate with a clipping child, a clipping grandchild and a child that
+/// carries no [`TurnedClip`], turned `radians`; and the world it stands in.
+fn a_turned_plate(radians: f32) -> (World, Entity, [Entity; 3]) {
+    let mut world = World::new();
+    let plate = world
+        .spawn((
+            PlateTab {
+                player: PlayerId::new(1),
+            },
+            UiTransform::from_rotation(Rot2::radians(radians)),
+            Node {
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            TurnedClip(Overflow::clip()),
+        ))
+        .id();
+    let child = world
+        .spawn((
+            Node {
+                overflow: Overflow::clip_x(),
+                ..default()
+            },
+            TurnedClip(Overflow::clip_x()),
+            ChildOf(plate),
+        ))
+        .id();
+    let grandchild = world
+        .spawn((
+            Node {
+                overflow: Overflow::clip_x(),
+                ..default()
+            },
+            TurnedClip(Overflow::clip_x()),
+            ChildOf(child),
+        ))
+        .id();
+    let plain = world.spawn((Node::default(), ChildOf(plate))).id();
+    (world, plate, [child, grandchild, plain])
+}
+
+fn overflow_of(world: &World, entity: Entity) -> Overflow {
+    world.get::<Node>(entity).expect("a node").overflow
+}
+
+fn turn_to(world: &mut World, plate: Entity, radians: f32) {
+    world
+        .get_mut::<UiTransform>(plate)
+        .expect("a turn")
+        .rotation = Rot2::radians(radians);
+}
+
+/// Bevy clips a node to its unturned rectangle, so a plate turned most of a
+/// quarter (a side seat's) cut every letter to a sliver (report 04): its
+/// nodes clip only while it is level or a half turn, and run free otherwise,
+/// and clip again as it comes level. On the old code there was no such
+/// system and a turned plate kept `Overflow::clip()`.
+#[test]
+fn a_plate_clips_only_while_it_is_level_or_upside_down() {
+    use bevy::ecs::system::RunSystemOnce;
+    let (mut world, plate, [child, grandchild, plain]) = a_turned_plate(0.0);
+    let all = [plate, child, grandchild];
+    let clips = |world: &World| all.map(|e| overflow_of(world, e));
+    let built = clips(&world);
+    world.run_system_once(clip_only_level).unwrap();
+    assert_eq!(clips(&world), built, "level: every node keeps its own clip");
+
+    turn_to(&mut world, plate, -1.43);
+    world.run_system_once(clip_only_level).unwrap();
+    assert!(
+        all.iter()
+            .all(|e| overflow_of(&world, *e) == Overflow::visible()),
+        "turned most of a quarter: nothing clips"
+    );
+    assert_eq!(
+        overflow_of(&world, plain),
+        Overflow::DEFAULT,
+        "a node with no TurnedClip is left alone"
+    );
+
+    turn_to(&mut world, plate, 0.0);
+    world.run_system_once(clip_only_level).unwrap();
+    assert_eq!(clips(&world), built, "level again: restored, each its own");
+
+    turn_to(&mut world, plate, std::f32::consts::PI);
+    world.run_system_once(clip_only_level).unwrap();
+    assert_eq!(clips(&world), built, "a half turn keeps the clip");
+}
+
+/// A table at rest costs the interface no relayout: the system writes a
+/// `Node` only when its overflow is not already what it should be, level or
+/// turned.
+#[test]
+fn clipping_a_plate_that_is_already_right_writes_nothing() {
+    use bevy::ecs::system::RunSystemOnce;
+    for radians in [0.0, -1.43] {
+        let (mut world, plate, [child, grandchild, _]) = a_turned_plate(radians);
+        world.run_system_once(clip_only_level).unwrap();
+        world.clear_trackers();
+        world.run_system_once(clip_only_level).unwrap();
+        for e in [plate, child, grandchild] {
+            assert!(
+                !world.entity(e).get_ref::<Node>().unwrap().is_changed(),
+                "turned {radians}: a second pass wrote a node that was right"
+            );
+        }
+    }
+}

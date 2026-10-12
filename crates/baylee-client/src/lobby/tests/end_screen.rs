@@ -470,3 +470,169 @@ fn playing_again_is_asked_for_from_the_button_over_a_finished_game() {
     };
     assert_eq!(handover.game_id, "g2");
 }
+
+/// What a fake gateway heard: the request line and `Authorization` of each
+/// request, in arrival order.
+type Heard = std::sync::Arc<std::sync::Mutex<Vec<(String, String)>>>;
+
+/// A gateway that answers every request `404` and remembers it.
+fn listening_gateway() -> (String, Heard) {
+    use std::io::{Read as _, Write as _};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    let heard = Heard::default();
+    let record = heard.clone();
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(mut stream) = stream else { return };
+            let mut raw = Vec::new();
+            let mut buf = [0u8; 1024];
+            while let Ok(n) = stream.read(&mut buf) {
+                raw.extend_from_slice(&buf[..n]);
+                if n == 0 || String::from_utf8_lossy(&raw).contains("\r\n\r\n") {
+                    break;
+                }
+            }
+            let text = String::from_utf8_lossy(&raw).to_string();
+            let line = text.lines().next().unwrap_or_default().to_string();
+            let bearer = text
+                .lines()
+                .find_map(|l| {
+                    let (name, value) = l.split_once(':')?;
+                    name.eq_ignore_ascii_case("authorization")
+                        .then(|| value.trim().to_string())
+                })
+                .unwrap_or_default();
+            record.lock().expect("heard").push((line, bearer));
+            let body = r#"{"error":"not here"}"#;
+            let _ = stream.write_all(
+                format!(
+                    "HTTP/1.1 404 X\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .as_bytes(),
+            );
+        }
+    });
+    (format!("http://127.0.0.1:{port}"), heard)
+}
+
+/// Waits (at most five seconds) until `heard` holds a request whose line
+/// starts with `line`, and says whether it did.
+fn waits_for(heard: &Heard, line: &str) -> bool {
+    for _ in 0..100 {
+        if heard
+            .lock()
+            .expect("heard")
+            .iter()
+            .any(|(l, _)| l.starts_with(line))
+        {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    false
+}
+
+/// A signed-in player seated at a gateway's table, the gateway at `base`,
+/// who comes back to the lobby holding `duel`.
+fn came_back_from_a_gateway_table(base: &str, duel: crate::Duel) -> App {
+    let mut app = headless();
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.gateway = base.to_string();
+        state.lobby.host(GameMode::Ai);
+        state.lobby.apply(LobbyEvent::Seated(SeatHandover {
+            game_id: "g1".to_string(),
+            seat: 0,
+            seat_token: "st".to_string(),
+            local: false,
+        }));
+        state.connected = true;
+    }
+    app.insert_resource(duel);
+    phase(&mut app, DuelPhase::Playing);
+    phase(&mut app, DuelPhase::Closed);
+    app
+}
+
+/// Report 33: a player who left from the game menu (`Duel::departing`) tells
+/// the gateway on the way back, with the session that sat there, so the
+/// house takes the chair now and not when the reconnect window runs out; the
+/// lobby notes "You left the table". Coming back without having left sends
+/// nothing: the same fake gateway hears the lobby's other requests (it is
+/// the witness that it hears at all), but no `POST /lobby/depart`. On the
+/// old code `came_back` never read `departing`, so the first wait times out.
+#[test]
+fn a_player_who_left_the_table_tells_the_gateway_with_their_session() {
+    let (base, heard) = listening_gateway();
+    let app = came_back_from_a_gateway_table(
+        &base,
+        crate::Duel {
+            departing: true,
+            ..crate::Duel::default()
+        },
+    );
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.status(),
+        Phrase::LeftTheTable.text(Lang::En),
+        "the lobby says so"
+    );
+    assert!(
+        waits_for(&heard, "POST /lobby/depart"),
+        "the gateway was not told: {:?}",
+        heard.lock().expect("heard")
+    );
+    let departs: Vec<_> = heard
+        .lock()
+        .expect("heard")
+        .iter()
+        .filter(|(l, _)| l.starts_with("POST /lobby/depart"))
+        .cloned()
+        .collect();
+    assert_eq!(departs.len(), 1, "once: {departs:?}");
+    assert_eq!(departs[0].1, "Bearer tok", "as the session that sat there");
+
+    let (base, heard) = listening_gateway();
+    let _app = came_back_from_a_gateway_table(&base, crate::Duel::default());
+    assert!(
+        waits_for(&heard, "GET /decks"),
+        "the lobby re-read the decks, so this gateway hears what is sent"
+    );
+    assert!(
+        !heard
+            .lock()
+            .expect("heard")
+            .iter()
+            .any(|(l, _)| l.contains("/lobby/depart")),
+        "nobody left, nothing was told: {:?}",
+        heard.lock().expect("heard")
+    );
+}
+
+/// Offline there is nobody to tell: leaving the house's table stands the
+/// player up with the same note and sends nothing (an offline performer
+/// refuses a `Depart` in words, so a dispatch would turn the note into a
+/// refusal one update later).
+#[test]
+fn leaving_an_offline_table_says_so_and_sends_nothing() {
+    let app = came_back_from_a_duel(Some(crate::Duel {
+        departing: true,
+        ..crate::Duel::default()
+    }));
+    let mut app = app;
+    for _ in 0..3 {
+        app.update();
+    }
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.status(), Phrase::LeftTheTable.text(Lang::En));
+    assert_ne!(
+        state.lobby.tone(),
+        Tone::Refusal,
+        "{:?}",
+        state.lobby.status()
+    );
+    assert!(state.lobby.depart().is_none(), "offline has no one to tell");
+    assert_eq!(*state.lobby.screen(), Screen::Table);
+}
