@@ -1214,3 +1214,82 @@ fn a_phantasmal_copy_is_an_illusion_that_is_sacrificed_when_targeted() {
         "the Image is gone"
     );
 }
+
+fn flametongue_kavu() -> baylee_core::ids::CardIndex {
+    card_index("b215196a-3716-451f-bdbd-d16c05ace5b4")
+}
+
+/// The same Image, aimed at by a triggered ability rather than a spell:
+/// Flametongue Kavu's "When this creature enters, it deals 4 damage to
+/// target creature". A trigger is put on the stack with the targets its
+/// controller chose for it, and "becomes the target of a spell or
+/// **ability**" reads that announcement like a cast's.
+///
+/// It read nothing: the trigger's targets were not yet remembered when the
+/// event announcing it was scanned, so the copy saw no targeting and stayed
+/// (reported from a beta game against the house AI's Image).
+#[test]
+fn a_phantasmal_copy_is_sacrificed_when_a_trigger_targets_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(63, island())
+        .battlefield(0, &[island(), island(), llanowar_elves()])
+        .hand(0, &[phantasmal_image()])
+        .battlefield(1, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(1, &[flametongue_kavu()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    tap_mana_except(&mut engine, p0, elf);
+    let image_card = in_hand(&engine, p0, phantasmal_image()).expect("in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: image_card })
+        .expect("two Islands pay {1}{U}");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elf is the creature to copy");
+    pass_until(&mut engine, stack_is_empty);
+    let image = on_battlefield(&engine, p0, phantasmal_image()).expect("a copy survives its 0/0");
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, flametongue_kavu());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    assert!(
+        target_options(&engine).contains(&image),
+        "the Kavu's trigger may aim at the copy"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![image],
+                players: vec![],
+            },
+        )
+        .expect("the copy is a creature");
+    assert_eq!(
+        abilities_on_the_stack(&engine),
+        2,
+        "becoming the trigger's target triggered the sacrifice above it"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, phantasmal_image()).is_none(),
+        "the Image is gone"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "and the Elf it copied is untouched"
+    );
+}

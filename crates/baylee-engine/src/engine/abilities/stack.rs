@@ -140,6 +140,12 @@ impl<L: CardLookup> Engine<L> {
         if let Some(reference) = self.state.source_identity(id) {
             self.state.text_changes.set(reference, captured_text);
         }
+        // The targets a trigger was put on the stack with are the ones it
+        // announced, so they are remembered before the event that says so:
+        // "becomes the target" and ward read this event against those
+        // references, and a Phantasmal Image copy aimed at by a Flametongue
+        // Kavu's trigger was never sacrificed.
+        self.state.capture_source_references();
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source,
