@@ -131,6 +131,43 @@ pub fn nearest(text: &str) -> String {
     name
 }
 
+/// Why a group's name was refused, each for its own message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupNameFault {
+    /// A control character, or one that is invisible or turns the direction
+    /// of the text.
+    Invisible,
+    /// Fewer than [`crate::social::GROUP_NAME_MIN`] or more than
+    /// [`crate::social::GROUP_NAME_MAX`] characters, or nothing but spaces.
+    Length,
+}
+
+/// `typed` as a chat group's name (`docs/protocol.md` §"Friends and
+/// chat"), or why it is not one.
+///
+/// The same refusal family as [`username`]: invisible, control and
+/// direction characters are refused first; then the name is folded to NFC
+/// (canonical, so `é` typed two ways is one name, while letters of every
+/// script stay what they are) and has to be 1 to 48 characters with at
+/// least one that is not a space. Nothing is trimmed.
+///
+/// # Errors
+///
+/// The first [`GroupNameFault`] the name has.
+pub fn group_name(typed: &str) -> Result<String, GroupNameFault> {
+    if typed.chars().any(invisible) {
+        return Err(GroupNameFault::Invisible);
+    }
+    let name: String = typed.nfc().collect();
+    let count = name.chars().count();
+    if !(crate::social::GROUP_NAME_MIN..=crate::social::GROUP_NAME_MAX).contains(&count)
+        || name.trim().is_empty()
+    {
+        return Err(GroupNameFault::Length);
+    }
+    Ok(name)
+}
+
 /// A control character, or a format character that draws nothing or turns
 /// the direction of what follows it (Unicode's `Cf` that a name could hide).
 fn invisible(c: char) -> bool {
@@ -255,6 +292,29 @@ mod tests {
             assert!(
                 near.len() < 3 || username(&near).is_ok(),
                 "{text:?} came out as {near:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_group_name_is_folded_and_bounded_and_hides_nothing() {
+        use super::{GroupNameFault, group_name};
+        assert_eq!(group_name("Friday crew").as_deref(), Ok("Friday crew"));
+        assert_eq!(
+            group_name("Draft-Nacht ☕").as_deref(),
+            Ok("Draft-Nacht ☕")
+        );
+        // Composed and decomposed é are one name.
+        assert_eq!(group_name("Cafe\u{301}"), group_name("Caf\u{e9}"));
+        assert_eq!(group_name(""), Err(GroupNameFault::Length));
+        assert_eq!(group_name("   "), Err(GroupNameFault::Length));
+        assert!(group_name(&"ä".repeat(48)).is_ok());
+        assert_eq!(group_name(&"ä".repeat(49)), Err(GroupNameFault::Length));
+        for typed in ["a\u{202E}b", "a\nb", "\u{200B}", "x\u{2066}"] {
+            assert_eq!(
+                group_name(typed),
+                Err(GroupNameFault::Invisible),
+                "{typed:?}"
             );
         }
     }
