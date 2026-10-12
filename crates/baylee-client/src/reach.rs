@@ -133,8 +133,12 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 || !castmodes::reachable_modes(view, legal, card.id).is_empty()
         })
         .filter(|card| {
+            // Only a mode with a price of its own is left (Cyclonic Rift with
+            // nothing to bounce, #00): the printed cost reaches nothing the
+            // engine will cast, so only the modes castmodes can pay count.
             if baylee_cards::by_index(card.card.index)
                 .is_some_and(|def| def.faces[0].kicked_targets.is_some())
+                || crate::targeting::only_a_dearer_mode_is_left(view, card.card)
             {
                 return !castmodes::reachable_modes(view, legal, card.id).is_empty();
             }

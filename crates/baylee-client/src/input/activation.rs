@@ -289,7 +289,7 @@ fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
     // the mana in reach does not pay (#00). Saying "the resources are not
     // available" about a `{1}{U}` card with five lands open reads as a
     // defect; this says which way is left and why it is out of reach.
-    if only_a_dearer_mode_is_left(view, card.card) {
+    if crate::targeting::only_a_dearer_mode_is_left(view, card.card) {
         return Some(Phrase::OnlyDearerModeLeft);
     }
     let priority = duel.interaction.as_ref().is_some_and(|i| {
@@ -311,34 +311,6 @@ fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
             Phrase::CardCostsUnavailable
         },
     )
-}
-
-/// Whether `card` is a "choose one" spell whose modes at the printed price
-/// all lack a legal target here while a mode with a price of its own (an
-/// overload) remains — the engine then offers only that mode (CR 702.96a).
-fn only_a_dearer_mode_is_left(
-    view: &baylee_view::PlayerView,
-    card: baylee_view::CardIdentity,
-) -> bool {
-    let Some(def) = baylee_cards::by_index(card.index) else {
-        return false;
-    };
-    let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. }) = def
-        .abilities_for_face(usize::from(card.face))
-        .iter()
-        .find(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
-    else {
-        return false;
-    };
-    let possible = |mode: &baylee_cards_dsl::SpellMode| {
-        mode.targets
-            .is_none_or(|req| crate::targeting::requirement_possible(view, req))
-    };
-    modes.iter().any(|m| m.cost_override.is_some())
-        && modes
-            .iter()
-            .filter(|m| m.cost_override.is_none())
-            .all(|m| !possible(m))
 }
 
 /// A tap that meant nothing else, on a card lying on top of a pile, opens
