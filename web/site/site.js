@@ -482,7 +482,7 @@
   });
   // ------------------------------------------------------------ sets and card status
   // data/sets.json (scripts/site/card_status.py) lists every set in release
-  // order with its counts; a set's cards are in data/sets/<code>.json and
+  // order with its counts; a set's cards are in data/sets/set-<code>.json and
   // are fetched only when that set is opened. Card pictures come straight
   // from Scryfall's image host (docs/legal.md §3), unaltered, lazily, and
   // only for an opened set; nothing is drawn on a picture, the status sits
@@ -603,7 +603,7 @@
     d.setAttribute("data-loaded", "1");
     var body = d.querySelector(".set-body");
     body.appendChild(el("p", { class: "small" }, [t("Loading…", "Lädt …")]));
-    fetch(DATA + "sets/" + encodeURIComponent(s.code) + ".json", { credentials: "omit", headers: { Accept: "application/json" } })
+    fetch(DATA + "sets/set-" + encodeURIComponent(s.code) + ".json", { credentials: "omit", headers: { Accept: "application/json" } })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (doc) {
         clear(body);
