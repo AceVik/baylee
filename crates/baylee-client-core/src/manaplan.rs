@@ -1706,4 +1706,157 @@ mod tests {
             "a five-colour tap is asked which colour, and the answer is in hand"
         );
     }
+
+    /// A Harabaz Druid: "`{T}`: Add X mana of any one color, where X is the
+    /// number of Allies you control", read off a board of three Allies.
+    fn harabaz(id: u32) -> Source {
+        Source {
+            id: ObjectId::new(id, 0),
+            tap: Tap::Ability(0),
+            colors: vec![
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green,
+            ],
+            amount: 3,
+            bundle: false,
+            priced: false,
+            preserve: 0,
+            dear: None,
+        }
+    }
+
+    /// Report 15: three mana of one chosen colour pay three pips of that
+    /// colour, with one tap that answers the colour question. Before the
+    /// fix `plan` counted the source as one mana, so `{G}{G}{G}` had no plan.
+    #[test]
+    fn harabaz_druid_alone_pays_three_pips_of_one_colour_with_one_tap() {
+        let sources = [harabaz(1)];
+        let found = plan(&cost("{G}{G}{G}"), &empty(), &sources).expect("three green");
+        assert_eq!(found.taps(), 1);
+        assert_eq!(found.steps[0].source, ObjectId::new(1, 0));
+        assert_eq!(found.steps[0].color, Some(ManaColor::Green));
+        let found = plan(&cost("{3}"), &empty(), &sources).expect("three generic");
+        assert_eq!(found.taps(), 1);
+    }
+
+    /// Report 15: the three mana are of *one* colour, so the Druid alone does
+    /// not pay two different pips (an over-count would plan `{G}` and `{U}`
+    /// out of one tap, which the engine refuses halfway through).
+    #[test]
+    fn harabaz_druid_alone_does_not_pay_two_different_colours() {
+        let sources = [harabaz(1)];
+        assert!(plan(&cost("{G}{U}"), &empty(), &sources).is_none());
+        assert!(plan(&cost("{W}{G}{G}"), &empty(), &sources).is_none());
+    }
+
+    /// Report 15: beside a Plains, the Druid pours its two green into `{G}{G}`
+    /// and the Plains pays `{W}`; the Druid's step answers Green.
+    #[test]
+    fn harabaz_druid_beside_a_plains_pays_white_green_green_with_two_taps() {
+        let sources = [harabaz(1), land(2, ManaColor::White)];
+        let found = plan(&cost("{W}{G}{G}"), &empty(), &sources).expect("W and GG");
+        assert_eq!(found.taps(), 2);
+        assert_eq!(tapped(&found), [1, 2]);
+        let druid = found
+            .steps
+            .iter()
+            .find(|s| s.source == ObjectId::new(1, 0))
+            .expect("the Druid is tapped");
+        assert_eq!(druid.color, Some(ManaColor::Green));
+    }
+
+    /// Report 15: `{1}{G}{G}` is three mana, which the Druid alone makes; a
+    /// Forest beside it does not make the plan tap both.
+    #[test]
+    fn harabaz_druid_beside_a_forest_pays_one_green_green_with_one_tap() {
+        let sources = [harabaz(1), land(2, ManaColor::Green)];
+        let found = plan(&cost("{1}{G}{G}"), &empty(), &sources).expect("three mana");
+        assert_eq!(found.taps(), 1, "{found:?}");
+        assert_eq!(tapped(&found), [1]);
+        assert_eq!(found.steps[0].color, Some(ManaColor::Green));
+    }
+
+    /// Report 26 (did not reproduce; pinned so it stays that way): floating
+    /// mana is spent before any tap for a cost shaped like an activation.
+    /// With `{C}` floating, `{1}{B}{G}` taps the Forest and the Swamp only,
+    /// never the five-colour creature (a Sylvan Caryatid) or the colourless
+    /// land.
+    #[test]
+    fn floating_mana_pays_the_generic_pip_before_a_creature_or_a_colourless_land_taps() {
+        let mut pool = empty();
+        pool.colorless = 1;
+        let caryatid = Source {
+            colors: vec![
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green,
+            ],
+            preserve: 10_000,
+            ..any_land(1)
+        };
+        let sources = [
+            caryatid,
+            land(3, ManaColor::Green),
+            land(4, ManaColor::Black),
+            land(5, ManaColor::Colorless),
+        ];
+        let found = plan(&cost("{1}{B}{G}"), &pool, &sources).expect("payable");
+        assert_eq!(tapped(&found), [3, 4]);
+    }
+
+    /// Report 20: `{X}{G}{G}` with five Forests leaves three for X.
+    #[test]
+    fn greatest_x_is_what_the_forests_pay_beyond_the_coloured_pips() {
+        let forests: Vec<Source> = (1..=5).map(|id| land(id, ManaColor::Green)).collect();
+        assert_eq!(greatest_x(&cost("{X}{G}{G}"), &empty(), &forests), Some(3));
+    }
+
+    /// Report 20: floating mana counts toward X as the taps do.
+    #[test]
+    fn greatest_x_counts_the_floating_pool() {
+        let mut pool = empty();
+        pool.green = 1;
+        let forests = [land(1, ManaColor::Green), land(2, ManaColor::Green)];
+        assert_eq!(greatest_x(&cost("{X}{G}{G}"), &pool, &forests), Some(1));
+    }
+
+    /// Report 20: a cost with no X has no greatest X.
+    #[test]
+    fn greatest_x_is_none_for_a_cost_without_x() {
+        let forests = [land(1, ManaColor::Green), land(2, ManaColor::Green)];
+        assert_eq!(greatest_x(&cost("{G}{G}"), &empty(), &forests), None);
+    }
+
+    /// Report 20: where not even X = 0 plans the sources are unreadable
+    /// here, so there is no cap (`None`), never `Some(0)`.
+    #[test]
+    fn greatest_x_is_none_when_not_even_zero_is_payable() {
+        let forests = [land(1, ManaColor::Green)];
+        assert_eq!(greatest_x(&cost("{X}{G}{G}"), &empty(), &forests), None);
+    }
+
+    /// Reports 15 and 20 together: the Druid's three green plus two Forests
+    /// is five mana, so `{X}{G}{G}` has X = 3.
+    #[test]
+    fn greatest_x_counts_a_harabaz_druids_mana() {
+        let sources = [
+            harabaz(1),
+            land(2, ManaColor::Green),
+            land(3, ManaColor::Green),
+        ];
+        assert_eq!(greatest_x(&cost("{X}{G}{G}"), &empty(), &sources), Some(3));
+    }
+
+    /// Report 20: each X in the cost is paid for, so `{X}{X}{G}` with five
+    /// Forests has X = 2.
+    #[test]
+    fn greatest_x_pays_every_x_in_the_cost() {
+        let forests: Vec<Source> = (1..=5).map(|id| land(id, ManaColor::Green)).collect();
+        assert_eq!(greatest_x(&cost("{X}{X}{G}"), &empty(), &forests), Some(2));
+    }
 }

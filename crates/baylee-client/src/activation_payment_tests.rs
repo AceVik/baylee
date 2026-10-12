@@ -362,6 +362,36 @@ fn sacrificed_food_keeps_its_stack_picture_and_sentence_after_automatic_payment(
     assert!(duel.last_error.is_none());
 }
 
+/// Report 15: on a real engine's offers, a Harabaz Druid beside two other
+/// Allies is a source of three mana of one colour, and the client's planner
+/// pays `{G}{G}{G}` with that one tap, answering Green.
+#[test]
+fn a_harabaz_druid_beside_two_allies_is_offered_as_three_mana_and_pays_three_green() {
+    let engine = table(&["Harabaz Druid", "Zulaport Cutthroat", "Sea Gate Loremaster"]);
+    let mut duel = Duel::default();
+    sync(&mut duel, &engine);
+    let druid = object(&duel, "Harabaz Druid");
+    let view = duel.view.as_ref().unwrap();
+    let legal = duel.interaction.as_ref().unwrap().legal_actions().unwrap();
+    let sources = crate::manasources::sources(view, legal);
+    let source = sources
+        .iter()
+        .find(|s| s.id == druid)
+        .unwrap_or_else(|| panic!("the Druid is offered as a source: {sources:?}"));
+    assert_eq!(source.amount, 3);
+    assert!(!source.bundle, "one colour for all of it, not three mana");
+    let cost = baylee_core::mana::ManaCost::try_parse("{G}{G}{G}").unwrap();
+    let pool = view.seats[0].mana_pool;
+    let found = baylee_client_core::manaplan::plan(&cost, &pool, &sources)
+        .expect("three green out of three Allies");
+    assert_eq!(found.taps(), 1);
+    assert_eq!(found.steps[0].source, druid);
+    assert_eq!(
+        found.steps[0].color,
+        Some(baylee_core::mana::ManaColor::Green)
+    );
+}
+
 fn settle_stack(engine: &mut Engine<RegistryLookup>) {
     for _ in 0..20 {
         if engine.state().zones.stack_is_empty() {
