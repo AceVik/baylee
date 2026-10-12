@@ -1583,6 +1583,141 @@ mod tests {
         assert_eq!(hovered(&app), None, "left by the link's going");
     }
 
+    /// A preview must not outlive its panel: shut with a link under the
+    /// pointer, the panel keeps its lines (only hidden), so no `Out` comes and
+    /// the preview of a line hovered as `L` shut the panel stayed on the
+    /// table. A span has no visibility of its own and reads its sentence's.
+    /// On the old code the hover was cleared only by the link's going, so the
+    /// hidden case below kept its `Some`.
+    #[test]
+    fn the_hover_is_dropped_when_the_panel_is_shut_under_it() {
+        let mut app = App::new();
+        app.init_resource::<Duel>()
+            .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Out>>()
+            .add_systems(Update, hover_log_links);
+        let link = LogLink {
+            card: Some(bolt_identity()),
+            token: None,
+        };
+        let sentence = app.world_mut().spawn(InheritedVisibility::VISIBLE).id();
+        let span = app.world_mut().spawn((link, ChildOf(sentence))).id();
+        let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
+        let hovered = |app: &App| app.world().resource::<Duel>().hovered_log;
+
+        app.world_mut()
+            .write_message(at(span, Over { hit: hit.clone() }));
+        app.update();
+        app.update();
+        assert!(
+            hovered(&app).is_some(),
+            "a link in a visible sentence stays hovered"
+        );
+
+        app.world_mut()
+            .entity_mut(sentence)
+            .insert(InheritedVisibility::HIDDEN);
+        app.update();
+        assert_eq!(hovered(&app), None, "its sentence went hidden under it");
+
+        // The pointer is over a link in a shut panel (events do not stop at
+        // a hidden node's door in every backend): refused at once.
+        app.world_mut().write_message(at(span, Over { hit }));
+        app.update();
+        assert_eq!(hovered(&app), None, "and a hidden link is not hovered");
+
+        // A span that does carry a visibility of its own is read as itself.
+        let own = app
+            .world_mut()
+            .spawn((link, InheritedVisibility::HIDDEN))
+            .id();
+        let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
+        app.world_mut().write_message(at(own, Over { hit }));
+        app.update();
+        assert_eq!(hovered(&app), None, "a span hidden itself");
+    }
+
+    /// A turn's heading stands for its beginning: no caption for it nor for
+    /// the beginning phase; each later phase is captioned before its first
+    /// line only; a new turn starts again; a line with no phase gives none.
+    #[test]
+    fn a_phase_is_captioned_before_its_first_line_only() {
+        let mut run = PhaseRun::default();
+        let in_phase = |turn: u32, phase: Option<Phase>| {
+            let mut l = line("x", &[], 1);
+            l.turn = turn;
+            l.phase = phase;
+            l
+        };
+        let mut head = in_phase(1, None);
+        head.header = true;
+        assert_eq!(run.heading(&head), None, "a turn's heading is no caption");
+        assert_eq!(
+            run.heading(&in_phase(1, Some(Phase::Beginning))),
+            None,
+            "the beginning phase has none of its own"
+        );
+        assert_eq!(
+            run.heading(&in_phase(1, Some(Phase::FirstMain))),
+            Some(Phase::FirstMain),
+            "the first line of a later phase"
+        );
+        assert_eq!(
+            run.heading(&in_phase(1, Some(Phase::FirstMain))),
+            None,
+            "not the second"
+        );
+        assert_eq!(
+            run.heading(&in_phase(1, None)),
+            None,
+            "a line with no phase gives none and does not end the phase"
+        );
+        assert_eq!(run.heading(&in_phase(1, Some(Phase::FirstMain))), None);
+        assert_eq!(
+            run.heading(&in_phase(1, Some(Phase::Combat))),
+            Some(Phase::Combat)
+        );
+        assert_eq!(
+            run.heading(&in_phase(1, Some(Phase::FirstMain))),
+            Some(Phase::FirstMain),
+            "a phase met again after another is a new run"
+        );
+
+        // A new turn resets it: the same phase on turn 2 is captioned again,
+        // and its heading makes the beginning quiet once more.
+        assert_eq!(
+            run.heading(&in_phase(2, Some(Phase::FirstMain))),
+            Some(Phase::FirstMain),
+            "the same phase, a turn later"
+        );
+        let mut head = in_phase(3, None);
+        head.header = true;
+        assert_eq!(run.heading(&head), None);
+        assert_eq!(run.heading(&in_phase(3, Some(Phase::Beginning))), None);
+        assert_eq!(
+            run.heading(&in_phase(3, Some(Phase::Ending))),
+            Some(Phase::Ending)
+        );
+    }
+
+    /// The log reads a modal card's modes through the cast chooser's door:
+    /// Archdruid's Charm's third mode is its English exile sentence with no
+    /// bullet, and a card with no modes has none. On the old code the
+    /// lookup had no `mode` and answered `None` for every card.
+    #[test]
+    fn the_log_says_a_modes_words_as_the_cast_chooser_does() {
+        let charm = baylee_cards::decks::by_name("Archdruid's Charm").expect("in the pool");
+        let bolt = baylee_cards::decks::by_name("Lightning Bolt").expect("in the pool");
+        let rules = |card| RulesFace { card, face: 0 };
+        let lookup = LogTexts(None);
+        assert_eq!(
+            lookup.mode(rules(charm), 2).as_deref(),
+            Some("Exile target artifact or enchantment.")
+        );
+        assert_eq!(lookup.mode(rules(bolt), 0), None, "a card with no modes");
+        assert_eq!(lookup.text(charm, 0), None, "and no text filed");
+    }
+
     /// A line that happened more than once says how often, after the
     /// sentence, and a line that happened once says nothing.
     #[test]

@@ -1985,6 +1985,79 @@ mod tests {
         );
     }
 
+    /// What `cause_before_effect` is asked about: the journal's order, a
+    /// life change first and the damage after, as `(life, damage)` would
+    /// read in the log.
+    fn life_then_damage(
+        life: (u8, i32, i32),
+        damage: (u8, u32),
+        sealed: bool,
+    ) -> Vec<&'static str> {
+        let mut log = a_log();
+        log.push(
+            LogEvent::Life {
+                player: PlayerId::new(life.0),
+                old: life.1,
+                new: life.2,
+            },
+            Vec::new(),
+        );
+        if sealed {
+            log.seal(1);
+        }
+        log.push(
+            LogEvent::Damage {
+                source: Some(known(1)),
+                target: LogTarget::Player(PlayerId::new(damage.0)),
+                amount: damage.1,
+                combat: false,
+            },
+            Vec::new(),
+        );
+        log.cause_before_effect(0);
+        log.lines
+            .iter()
+            .map(|l| match l.event {
+                LogEvent::Life { .. } => "life",
+                LogEvent::Damage { .. } => "damage",
+                _ => "other",
+            })
+            .collect()
+    }
+
+    /// The loss of life the journal wrote before the damage that caused it is
+    /// told after it: same player, same amount. A different amount (the
+    /// damage was prevented in part, or the life change is another's) or
+    /// another player's is not the same cause and keeps its place, and a
+    /// line that may already have been sent never moves.
+    #[test]
+    fn damage_is_told_before_the_life_it_cost_and_only_for_that_life() {
+        assert_eq!(
+            life_then_damage((1, 20, 17), (1, 3), false),
+            ["damage", "life"]
+        );
+        assert_eq!(
+            life_then_damage((1, 20, 18), (1, 3), false),
+            ["life", "damage"],
+            "two lost against three dealt"
+        );
+        assert_eq!(
+            life_then_damage((1, 20, 17), (0, 3), false),
+            ["life", "damage"],
+            "another player's life"
+        );
+        assert_eq!(
+            life_then_damage((1, 20, 23), (1, 3), false),
+            ["life", "damage"],
+            "a gain of the same size is not a cost"
+        );
+        assert_eq!(
+            life_then_damage((1, 20, 17), (1, 3), true),
+            ["life", "damage"],
+            "a line sent already stays where it was told"
+        );
+    }
+
     /// The modes chosen for a spell say which card it is, as the ability
     /// does: a seat that may not know the source is told neither the face
     /// nor the modes, but still the targets.

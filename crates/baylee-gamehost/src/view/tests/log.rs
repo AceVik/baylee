@@ -1547,3 +1547,54 @@ fn a_spell_aimed_at_a_face_down_permanent_names_it_as_each_view_shows_it() {
         [LogTarget::Object(LogObject::FaceDown { id: elves })]
     );
 }
+
+/// The damage a spell dealt is told before the life it cost (`GameLog::
+/// cause_before_effect`): the journal records Lightning Bolt's loss of life
+/// first, and a reader takes "Bo went to 17 life" before "Lightning Bolt
+/// dealt 3 damage to Bo" for the wrong way round. On the old code the told
+/// lines came out as `Life`, `Damage`.
+#[test]
+fn a_bolts_damage_is_told_before_the_life_it_cost() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(2, &["Lightning Bolt"], &["Mountain"], &[]);
+    let bolt = named(&engine, "Lightning Bolt");
+    let from = log.len();
+    tap_lands(&mut engine);
+    engine
+        .apply(me, PlayerAction::CastSpell { card: bolt })
+        .expect("casts it");
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![them],
+            },
+        )
+        .expect("at the other player");
+    play_on(&mut engine, &mut log, |_| None, stack_is_clear);
+
+    for seat in [me, them] {
+        let told = told_since(&log, seat, from);
+        let damage = told
+            .iter()
+            .position(|e| matches!(e, LogEvent::Damage { target: LogTarget::Player(p), amount: 3, .. } if *p == them))
+            .unwrap_or_else(|| panic!("seat {seat:?}: {told:?}"));
+        assert_eq!(
+            told[damage + 1],
+            LogEvent::Life {
+                player: them,
+                old: 20,
+                new: 17
+            },
+            "seat {seat:?}: the life follows its damage: {told:?}"
+        );
+        assert_eq!(
+            told.iter()
+                .filter(|e| matches!(e, LogEvent::Life { .. }))
+                .count(),
+            1,
+            "and is told once"
+        );
+    }
+}

@@ -2112,6 +2112,50 @@ mod tests {
         assert_eq!(unfound[0].label, "");
     }
 
+    /// [`mode_words`] is the one door the cast chooser's rows and the game
+    /// log's mode lines read (#23): a mode of Archdruid's Charm is its
+    /// printed sentence without the bullet, whether the catalog filed the
+    /// text or not (the compiled English Oracle stands in), and a card with
+    /// no modes has none to say. On the old code `mode_words` did not exist
+    /// and `mode_label` held the same chain privately, so the log (which has
+    /// no `FaceNames`) could name no mode at all.
+    #[test]
+    fn mode_words_are_the_printed_sentence_without_its_bullet() {
+        let charm = baylee_cards::decks::by_name("Archdruid's Charm").expect("in the pool");
+        let exile = "Exile target artifact or enchantment.";
+        assert_eq!(
+            mode_words(None, charm, 2).as_deref(),
+            Some(exile),
+            "no text filed: the compiled English Oracle"
+        );
+
+        let (_, texts, _) = asking_about(
+            "3c1ef404-e2c6-486d-a5a2-d5779c71d498",
+            "en",
+            "Choose one \u{2014}\n\
+             \u{2022} Search your library for a creature or land card and reveal it. \
+             Put it onto the battlefield tapped if it's a land card. Otherwise, put it \
+             into your hand. Then shuffle.\n\
+             \u{2022} Put a +1/+1 counter on target creature you control. It deals \
+             damage equal to its power to target creature you don't control.\n\
+             \u{2022} Exile target artifact or enchantment.",
+        );
+        assert_eq!(
+            mode_words(Some(&texts), charm, 2).as_deref(),
+            Some(exile),
+            "filed text: the same sentence, bullet cut"
+        );
+        assert!(
+            mode_words(Some(&texts), charm, 0)
+                .is_some_and(|words| words.starts_with("Search your library")),
+            "and the first mode is the first bullet"
+        );
+        assert_eq!(mode_words(None, charm, 3), None, "there is no fourth mode");
+
+        let bolt = baylee_cards::decks::by_name("Lightning Bolt").expect("in the pool");
+        assert_eq!(mode_words(None, bolt, 0), None, "a card without modes");
+    }
+
     /// The source of a modal trigger, on the battlefield as the view shows
     /// it: the zone a trigger's question is asked from.
     fn on_the_battlefield(name: &str) -> (baylee_view::PlayerView, ObjectId) {

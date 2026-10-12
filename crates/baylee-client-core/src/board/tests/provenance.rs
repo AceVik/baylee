@@ -409,3 +409,121 @@ fn a_token_is_not_a_copy_of_the_twin_that_shares_its_name() {
     assert_eq!(group(4).provenance, Provenance::Copy);
     assert_eq!(group(4).art, Some(ImageKey::token(ONE_ONE, ArtSize::Small)));
 }
+
+/// A Clone (own card 5) that has become a Llanowar Elves (card 9), asked for
+/// its picture in `view` through [`art_in`] and [`original_in`]. The
+/// registry answers card 9 for the name, as the shipped one does.
+fn clone_art(view: &PlayerView) -> (Option<ImageKey>, Option<ImageKey>) {
+    let clone = view
+        .object(ObjectId::new(3, 0))
+        .expect("the clone is shown");
+    let reg = Registry::of(&|name: &str| {
+        (name == "Llanowar Elves").then_some(Wears::Card(CardIndex::new(9), 0))
+    });
+    (
+        art_in(clone, ArtSize::Small, reg, view),
+        original_in(clone, ArtSize::Small, reg, view),
+    )
+}
+
+/// A printing of the Elves (card 9) that is not the registry's reference
+/// one, so a test can tell which object a copy borrowed it from.
+fn elves_printed(slot: u32, print: u16) -> PublicObject {
+    let mut elves = printed(slot, 0, "Llanowar Elves", 9);
+    elves.card = elves.card.map(|c| CardIdentity {
+        print: PrintRef::new(print),
+        ..c
+    });
+    elves
+}
+
+/// Report 02: a copy wears the printing of the card it copies where the
+/// view shows that card, the battlefield's before a graveyard's, and falls
+/// back to the registry's reference printing where it shows none. On the
+/// old code `art_in` did not exist and the group was drawn from
+/// `ImageKey::card`, so the first two arms below read the reference
+/// printing (card 9's index as print) instead of 21 and 20.
+#[test]
+fn a_copy_wears_the_printing_of_the_original_the_view_shows() {
+    let clone = printed(3, 0, "Llanowar Elves", 5);
+    let alone = ViewBuilder::new(2)
+        .with_battlefield(0, vec![clone.clone()])
+        .build();
+    assert_eq!(
+        clone_art(&alone).0,
+        Some(ImageKey::card(CardIndex::new(9), 0, ArtSize::Small)),
+        "no original shown: the registry's printing"
+    );
+
+    let in_the_yard = ViewBuilder::new(2)
+        .with_battlefield(0, vec![clone.clone()])
+        .with_graveyard(1, vec![elves_printed(7, 20)])
+        .build();
+    let (art, original) = clone_art(&in_the_yard);
+    assert_eq!(
+        art,
+        Some(ImageKey::new(PrintRef::new(20), 0, ArtSize::Small)),
+        "an original in a graveyard lends its printing"
+    );
+    assert_eq!(
+        original,
+        Some(ImageKey::new(PrintRef::new(5), 0, ArtSize::Small)),
+        "and the Clone's own cardboard is still what lies underneath"
+    );
+
+    let both = ViewBuilder::new(2)
+        .with_battlefield(0, vec![clone, elves_printed(4, 21)])
+        .with_graveyard(1, vec![elves_printed(7, 20)])
+        .build();
+    assert_eq!(
+        clone_art(&both).0,
+        Some(ImageKey::new(PrintRef::new(21), 0, ArtSize::Small)),
+        "the battlefield's original comes before the graveyard's"
+    );
+}
+
+/// A face-down object is not shown, whatever card its identity names: its
+/// printing is never lent. On a build that took any `identities()` entry the
+/// morph's print 22 would be worn here.
+#[test]
+fn a_face_down_original_lends_no_printing() {
+    let mut morph = elves_printed(4, 22);
+    morph.status = ObjectStatus::FACE_DOWN;
+    let mut view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![printed(3, 0, "Llanowar Elves", 5), morph])
+        .build();
+    // The builder snapshots every permanent as a described target, face
+    // down or not; a real host hides a face-down card's identity there.
+    view.target_objects.clear();
+    assert_eq!(
+        clone_art(&view).0,
+        Some(ImageKey::card(CardIndex::new(9), 0, ArtSize::Small)),
+        "the face-down one is passed over for the registry's printing"
+    );
+}
+
+/// The copy's own object is never its own source. The only shape where its
+/// own identity could match is an object that is both a registry token's
+/// copy and carries the copied card's index; its printing 23 must not be
+/// borrowed from itself, so the registry's printing stands.
+#[test]
+fn a_copy_is_not_its_own_source() {
+    let mut itself = elves_printed(3, 23);
+    itself.token = Some(1);
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![itself.clone()])
+        .build();
+    let reg = Registry {
+        named: &|name: &str| {
+            (name == "Llanowar Elves").then_some(Wears::Card(CardIndex::new(9), 0))
+        },
+        token_name: &|_| Some("Soldier"),
+        token_face: &|_| None,
+        card_face: None,
+        utility_land: &|_| false,
+    };
+    assert_eq!(
+        art_in(&itself, ArtSize::Small, reg, &view),
+        Some(ImageKey::card(CardIndex::new(9), 0, ArtSize::Small)),
+    );
+}
