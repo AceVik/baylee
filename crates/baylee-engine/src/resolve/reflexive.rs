@@ -55,6 +55,7 @@ pub(super) fn arm(
             text: res.text,
             source_version: None,
             related_objects: None,
+            event_ability: None,
             event_object_identity: None,
             counter_source_version: None,
             event_mana: None,

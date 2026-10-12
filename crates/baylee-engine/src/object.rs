@@ -815,6 +815,8 @@ pub enum Rider {
     AttachmentHostLeft,
     /// Incarnation and last known power of a trigger's event object.
     EventObjectIdentity(u32, i16),
+    /// Exact stack ability whose activation caused this trigger.
+    EventAbility(baylee_core::ids::DamageSourceRef),
     /// The source incarnation captured by a linked-counter ability.
     CounterSourceVersion(u32),
     /// Exiled by another object, which finds it again as a card "exiled
@@ -1017,6 +1019,7 @@ impl Rider {
             | Self::HideawayHost(_)
             | Self::EntryTappingApplied
             | Self::EntryCopyApplied
+            | Self::EventAbility(_)
             | Self::EventObjectIdentity(..)
             | Self::AbilitySourceVersion(_)
             | Self::SourceAuraSuccessor(_)

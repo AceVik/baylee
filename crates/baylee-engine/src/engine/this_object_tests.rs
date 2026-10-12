@@ -410,6 +410,7 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
     const READ: &[&str] = &[
         "spec: EventObject",
         "TapEventObject",
+        "RemoveEventObjectFromCombat",
         "SuppressUntap { target: EventObject",
         "CantAttackDuringNextControllerTurn { target: EventObject",
         "ReturnToHand { target: EventObject",

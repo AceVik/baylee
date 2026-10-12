@@ -3996,8 +3996,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Imprison
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[None],
+        stackable: 3,
+        lines: &[None, Some(1), Some(2), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

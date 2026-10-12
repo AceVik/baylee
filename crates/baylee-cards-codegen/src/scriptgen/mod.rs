@@ -47,6 +47,7 @@ mod final_portals;
 mod gond_gate;
 mod guardian52;
 mod horse_johan;
+mod imprison;
 mod keywords;
 mod mana;
 mod protection52;

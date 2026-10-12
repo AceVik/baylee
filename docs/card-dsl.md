@@ -3571,3 +3571,24 @@ creates no continuation, a replaced copied rules bundle cannot preserve a
 stale effect, and a returned Song is independent of the old continuation.
 This continuation is not a spell/ability-resolution effect whose recipient
 set is frozen by `locks_its_set`.
+
+### Activation-event countering and optional payment branches
+
+`Effect::PlayerMayPayThenElse { player, mana, paid, unpaid }` resumes the
+existing mana-payment window and chooses its branch from the actual payment
+result. Both branches participate in the shared effect walker. A yes answer
+without paid mana does not execute `paid`.
+
+`Effect::CounterEventAbility` uses the exact stack incarnation recorded when
+an activation finishes, independently of its source permanent and of ordinary
+targets. Mana activations have no stack identity. Copies of the observer retain
+that identity, while copying an activated ability does not create an activation
+event. The source observer is evaluated after costs; sacrificing the enchanted
+creature as a cost does not preserve an attachment-only observer.
+
+`Effect::RemoveEventObjectFromCombat { unblock: true }` resolves the exact event
+creature and unblocks only attackers historically blocked by that incarnation
+alone. Combat stores one sole-blocker reference or an irreversible multiple
+marker per exact attacker, rather than rescanning every historical pairing.
+Removing a blocker or reusing its arena handle cannot rewrite that history;
+both state fingerprints include the distinction.

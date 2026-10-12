@@ -1192,6 +1192,14 @@ pub enum Effect {
     /// Counter an activated or triggered ability on the stack (Tishana's
     /// Tidebinder).
     CounterTargetAbility,
+    /// Counter the exact stack ability captured by the triggering event.
+    /// This does not target that ability or any copy of it.
+    CounterEventAbility,
+    /// Remove the exact event creature incarnation from combat.
+    RemoveEventObjectFromCombat {
+        /// Unblock attackers originally blocked only by this creature.
+        unblock: bool,
+    },
     /// Counter the first target regardless of whether it is a spell or an
     /// ability on the stack (Ertai Resurrected).
     CounterTargetSpellOrAbility,
@@ -2393,6 +2401,18 @@ pub enum Effect {
         cost: &'static CostPart,
         /// What happens when they don't pay.
         effect: &'static Effect,
+    },
+    /// Offer a generic mana payment and execute exactly one outcome.
+    /// The paid branch requires successful payment; refusal or failure runs unpaid.
+    PlayerMayPayThenElse {
+        /// Player offered the payment.
+        player: PlayerRel,
+        /// Generic mana amount to pay.
+        mana: Amount,
+        /// Effects after successful payment.
+        paid: &'static [Effect],
+        /// Effects if payment is declined or cannot be completed.
+        unpaid: &'static [Effect],
     },
     /// "You may pay {1}. If you do, you gain 1 life." (Crystal Rod and its
     /// four siblings, Soul Net, Mana Vault's upkeep untap.)

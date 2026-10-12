@@ -792,6 +792,13 @@ pub enum AwaitingOp {
 /// Work to resume after a resolution-time mana payment.
 #[derive(Clone, Debug, Hash)]
 pub enum ManaPaymentOutcome {
+    /// Both outcomes of one optional payment, selected only after payment finishes.
+    Branches {
+        /// Printed successful-payment branch.
+        paid: &'static [Effect],
+        /// Printed refusal or unsuccessful-payment branch.
+        unpaid: &'static [Effect],
+    },
     /// Continue an APNAP sequence; any payment prevents the chosen mana.
     PreventMana {
         /// Already chosen mana color.

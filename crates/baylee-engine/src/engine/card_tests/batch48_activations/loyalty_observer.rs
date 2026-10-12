@@ -57,6 +57,7 @@ fn haunting_wind_observes_artifact_loyalty_only_after_target_completion() {
                 player,
                 tap_cost,
                 mana_ability,
+                ..
             } = entry.event
             {
                 (source == identity).then_some((player, tap_cost, mana_ability))

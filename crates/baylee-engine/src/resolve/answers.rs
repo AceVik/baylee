@@ -716,6 +716,9 @@ pub(super) fn resume_tax_choice_inner(
     let actually_paid = paid && crate::casting::pay_mana_for(state, player, what, &cost).is_some();
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
     let (effects, on_payment) = match outcome {
+        ManaPaymentOutcome::Branches { paid, unpaid } => {
+            return run_fallback(state, res, if actually_paid { paid } else { unpaid });
+        }
         ManaPaymentOutcome::Effects {
             effects,
             on_payment,

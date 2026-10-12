@@ -769,6 +769,7 @@ fn mana_production_reads_its_activation_across_trigger_scan_boundaries() {
                 cause: crate::event::Cause::Cost,
             });
             journal.record(GameEvent::AbilityActivated {
+                ability: None,
                 source,
                 player: me(),
                 tap_cost,

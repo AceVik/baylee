@@ -591,7 +591,8 @@
         },
         {
           "name": "Imprison",
-          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_1/imprison.rs"
+          "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_1/imprison.rs",
+          "status": "completed"
         },
         {
           "name": "Artifact Possession",
@@ -612,7 +613,7 @@
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/thousand_moons_smithy.rs"
         }
       ],
-      "validated_complete": 10,
+      "validated_complete": 11,
       "remaining_note": "Remaining cards require shared engine support and actual-action validation."
     },
     {

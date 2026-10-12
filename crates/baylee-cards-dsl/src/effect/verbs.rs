@@ -688,7 +688,8 @@ impl Effect {
                 filter: _,
                 then,
             } => (then, NONE),
-            Effect::IfTargetMatchesElse { filter: _, then, otherwise }
+            Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
+            | Effect::IfTargetMatchesElse { filter: _, then, otherwise }
             | Effect::IfKicked { then, otherwise }
             | Effect::FlipCoin {
                 won: then,
@@ -836,6 +837,8 @@ impl Effect {
             | Effect::DealDamageDivided { .. }
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetSpell
+            | Effect::CounterEventAbility
+            | Effect::RemoveEventObjectFromCombat { .. }
             | Effect::CounterTargetAbility
             | Effect::CounterTargetSpellOrAbility
             | Effect::TargetSourceLosesAbilities { .. }

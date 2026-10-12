@@ -1224,6 +1224,9 @@ impl<L: CardLookup> Engine<L> {
             extra = extra
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&trigger.text));
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&trigger.event_ability));
             if let Some((version, power)) = trigger.event_object_identity {
                 extra = extra.wrapping_mul(31).wrapping_add(u64::from(version) + 1);
                 extra = extra.wrapping_mul(31).wrapping_add(u64::from(power as u16));

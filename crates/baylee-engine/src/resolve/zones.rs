@@ -1364,20 +1364,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::CounterTargetAbility => {
             if let Some(&target_id) = res.targets.first() {
-                state
-                    .journal
-                    .record(GameEvent::SpellCountered { object: target_id });
-                // Whose ability it was, written down before the object it
-                // is written on stops existing. Nothing else in this
-                // resolution can answer that afterwards — see
-                // [`Resolution::countered_source`].
-                res.countered_source = state
-                    .object(target_id)
-                    .and_then(|o| o.ability.map(|a| a.source));
-                // Abilities on the stack cease to exist when countered.
-                state.remember_damage_source(target_id);
-                state.zones.remove(target_id, ZoneLocation::Stack);
-                let _ = state.arena.remove(target_id);
+                counter_ability(state, res, target_id);
             }
             None
         }
@@ -1462,6 +1449,24 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         _ => unreachable!("not a zone effect"),
     }
+}
+
+/// Shared countering door; the caller resolves targeting or event identity first.
+pub(super) fn counter_ability(state: &mut GameState, res: &mut Resolution, target: ObjectId) {
+    let Some(object) = state.object(target).filter(|object| {
+        object.zone == crate::zone::Zone::Stack
+            && object.kind == ObjectKind::AbilityOnStack
+            && object.can_be_countered()
+    }) else {
+        return;
+    };
+    res.countered_source = object.ability.map(|ability| ability.source);
+    state
+        .journal
+        .record(GameEvent::SpellCountered { object: target });
+    state.remember_damage_source(target);
+    state.zones.remove(target, ZoneLocation::Stack);
+    let _ = state.arena.remove(target);
 }
 
 /// Who a card put onto the battlefield by an effect comes back under: the

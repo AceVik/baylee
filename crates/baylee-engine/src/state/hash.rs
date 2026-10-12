@@ -382,6 +382,17 @@ impl GameState {
             h.u32(position(a.creature));
             hash_defender(&mut h, a.defending, position);
             h.boolean(a.blocked);
+            let sole = self
+                .source_identity(a.creature)
+                .and_then(|attacker| self.combat.sole_blocker(attacker))
+                .filter(|blocker| {
+                    self.object(blocker.object)
+                        .is_some_and(|object| object.version == blocker.version)
+                });
+            h.boolean(sole.is_some());
+            if let Some(blocker) = sole {
+                h.u32(position(blocker.object));
+            }
         }
         h.usize(self.combat.blockers.len());
         for b in &self.combat.blockers {
@@ -1138,6 +1149,10 @@ fn hash_rider_situation(
                     hash_damage_source(h, state, ability.source, *version);
                 }
             }
+            crate::object::Rider::EventAbility(reference) => {
+                h.u8(75);
+                hash_live_stack_reference(h, state, *reference);
+            }
             crate::object::Rider::EventObjectIdentity(version, power) => {
                 h.u8(22);
                 let still_here = obj
@@ -1167,6 +1182,20 @@ fn hash_rider_situation(
             }
             _ => {}
         }
+    }
+}
+
+fn hash_live_stack_reference(
+    h: &mut Hasher,
+    state: &GameState,
+    reference: baylee_core::ids::DamageSourceRef,
+) {
+    let live = state.object(reference.object).is_some_and(|object| {
+        object.version == reference.version && object.zone == crate::zone::Zone::Stack
+    });
+    h.boolean(live);
+    if live {
+        hash_damage_source(h, state, reference.object, reference.version);
     }
 }
 
@@ -1588,6 +1617,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::CounterSourceVersion(version) => {
                 h.u8(18);
                 version.hash(h);
+            }
+            Rider::EventAbility(reference) => {
+                h.u8(75);
+                reference.hash(h);
             }
             Rider::EventObjectIdentity(version, power) => {
                 h.u8(22);

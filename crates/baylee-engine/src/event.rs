@@ -53,6 +53,9 @@ pub enum DamageTarget {
 pub enum GameEvent {
     /// All choices and costs of an activated ability have been completed.
     AbilityActivated {
+        /// Exact resulting stack ability; mana abilities never use the stack.
+        #[serde(default)]
+        ability: Option<baylee_core::ids::DamageSourceRef>,
         /// Exact source incarnation, including a source sacrificed as a cost.
         source: baylee_core::ids::DamageSourceRef,
         /// The activating player.

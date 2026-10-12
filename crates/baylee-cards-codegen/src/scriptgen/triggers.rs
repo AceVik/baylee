@@ -501,6 +501,9 @@ impl Tx<'_> {
         }
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
+        if self.is_imprison_clause(&mode, &p) {
+            return self.imprison_clause(&mode, p);
+        }
         let (trigger, condition) = if mode == "Always" {
             (self.state_trigger(&mut p)?, String::new())
         } else {

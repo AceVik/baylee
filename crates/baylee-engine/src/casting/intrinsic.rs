@@ -223,6 +223,7 @@ pub fn add_intrinsic_mana(
         cause: Cause::Cost,
     });
     state.journal.record(GameEvent::AbilityActivated {
+        ability: None,
         source: state
             .source_identity(source)
             .expect("intrinsic mana source"),

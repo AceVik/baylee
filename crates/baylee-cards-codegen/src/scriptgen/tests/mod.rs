@@ -4,6 +4,7 @@ mod archon_kismet;
 mod blocks_and_conditions;
 mod costs_and_refusals;
 mod effects;
+mod imprison;
 mod reading;
 mod tokens_and_zones;
 

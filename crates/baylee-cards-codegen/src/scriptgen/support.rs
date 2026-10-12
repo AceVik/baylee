@@ -114,6 +114,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Debuff",
     "AnimateAll",
     "Regenerate",
+    "RemoveFromCombat",
     "Tap",
     "TapOrUntap",
     "TapAll",

@@ -1672,7 +1672,9 @@ pub(crate) fn pays_tax(
     if context.effects.iter().any(|effect| {
         matches!(
             effect,
-            Effect::PlayerMayPayThen { .. } | Effect::PlayerMayPayManaThen { .. }
+            Effect::PlayerMayPayThen { .. }
+                | Effect::PlayerMayPayManaThen { .. }
+                | Effect::PlayerMayPayThenElse { .. }
         )
     }) {
         return can_pay(view, &price);

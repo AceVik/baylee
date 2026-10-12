@@ -659,3 +659,21 @@ fn sacrifice_self_success_body_is_visited() {
     assert_eq!(seen, 2);
     assert!(nested);
 }
+
+#[test]
+fn both_mana_payment_outcomes_are_visited() {
+    static EFFECTS: &[Effect] = &[Effect::PlayerMayPayThenElse {
+        player: PlayerRel::You,
+        mana: Amount::Fixed(1),
+        paid: &[Effect::CounterEventAbility],
+        unpaid: &[Effect::RemoveEventObjectFromCombat { unblock: true }],
+    }];
+    let mut seen = 0;
+    let (mut paid, mut unpaid) = (false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        paid |= matches!(effect, Effect::CounterEventAbility);
+        unpaid |= matches!(effect, Effect::RemoveEventObjectFromCombat { .. });
+    });
+    assert_eq!(seen, 3);
+    assert!(paid && unpaid);
+}

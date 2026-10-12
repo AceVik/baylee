@@ -35,6 +35,7 @@ impl<L: CardLookup> Engine<L> {
             .bind_target_references(id, &self.activation_target_references);
         self.activation_target_references = crate::sources::TargetReferences::default();
         self.state.journal.record(GameEvent::AbilityActivated {
+            ability: self.state.source_identity(id),
             source: self.state.source_identity(source).expect("loyalty source"),
             player,
             tap_cost: false,

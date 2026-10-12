@@ -148,7 +148,8 @@ fn reads_event(effect: &Effect) -> bool {
             power, toughness, ..
         } => reads_amount(*power) || reads_amount(*toughness),
         Effect::PlayerMayPayOr { player, mana, .. }
-        | Effect::PlayerMayPayThen { player, mana, .. } => {
+        | Effect::PlayerMayPayThen { player, mana, .. }
+        | Effect::PlayerMayPayThenElse { player, mana, .. } => {
             reads_player(*player) || reads_amount(*mana)
         }
         Effect::PlayerMayPayLifeOr { player, life, .. } => {

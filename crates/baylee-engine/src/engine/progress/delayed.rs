@@ -442,6 +442,7 @@ impl<L: CardLookup> Engine<L> {
                 text,
                 source_version,
                 related_objects: None,
+                event_ability: None,
                 event_object_identity: None,
                 counter_source_version: None,
                 event_amount: None,

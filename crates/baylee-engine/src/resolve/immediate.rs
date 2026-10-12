@@ -1709,7 +1709,19 @@ pub(super) fn exec_immediate(
             state.per_turn.camouflage = true;
             None
         }
+        Effect::CounterEventAbility => {
+            super::event_actions::counter(state, res);
+            None
+        }
         // CR 506.4: "an effect specifically removes it from combat".
+        Effect::RemoveEventObjectFromCombat { unblock } => {
+            if let Some(reference) = subjects::event(state, res)
+                && subjects::on_battlefield(state, reference)
+            {
+                super::event_actions::remove_from_combat(state, reference.object, unblock);
+            }
+            None
+        }
         Effect::RemoveTargetFromCombat { unblock } => {
             let removed: SmallVec<[ObjectId; 2]> = if res.targets.is_empty() && !res.targeted {
                 this_to_affect(state, res).into_iter().collect()
@@ -1717,17 +1729,7 @@ pub(super) fn exec_immediate(
                 res.targets.iter().copied().collect()
             };
             for target in removed {
-                let was_blocking = state.combat.blocked_by(target);
-                state.combat.remove_from_combat(target);
-                if unblock {
-                    // "Creatures it was blocking that had become blocked by
-                    // only that creature this combat become unblocked."
-                    for attacker in was_blocking {
-                        if state.combat.blocked_only_by(attacker, target) {
-                            state.combat.unblock(attacker);
-                        }
-                    }
-                }
+                super::event_actions::remove_from_combat(state, target, unblock);
             }
             None
         }
@@ -1995,6 +1997,7 @@ pub(super) fn exec_immediate(
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayThen { .. }
+        | Effect::PlayerMayPayThenElse { .. }
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }

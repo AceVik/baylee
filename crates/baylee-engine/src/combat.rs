@@ -123,10 +123,13 @@ pub struct CombatState {
     attacking: Vec<(ObjectId, Defender)>,
     /// Declared blockers.
     pub blockers: Vec<BlockerInfo>,
-    /// Every block made this combat, `(blocker, attacker)`, kept when the
-    /// blocker leaves combat: what "had become blocked by only that
-    /// creature this combat" asks (False Orders). Cleared with the combat.
-    block_history: Vec<(ObjectId, ObjectId)>,
+    /// Per exact attacker: its sole historical blocker, or None once different
+    /// incarnations have blocked it. Idempotent repeated blocks need no extra
+    /// storage. Leaving combat does not erase history; combat end clears it.
+    block_history: std::collections::BTreeMap<
+        baylee_core::ids::DamageSourceRef,
+        Option<baylee_core::ids::DamageSourceRef>,
+    >,
     /// "That creature can't be blocked this combat except by creatures with
     /// flying and creatures in a pile with the chosen label" (Raging River):
     /// for an attacker, the creatures its chosen pile holds. Several limits
@@ -331,28 +334,46 @@ impl CombatState {
     /// the flag was set at the call site in `declare_blockers` first, and
     /// every test that built a block by hand went on assigning damage as
     /// though nothing were blocking.
-    pub fn declare_block(&mut self, blocker: ObjectId, attacker: ObjectId) {
+    pub fn declare_block(
+        &mut self,
+        blocker: baylee_core::ids::DamageSourceRef,
+        attacker: baylee_core::ids::DamageSourceRef,
+    ) {
+        self.block_history
+            .entry(attacker)
+            .and_modify(|sole| {
+                if *sole != Some(blocker) {
+                    *sole = None;
+                }
+            })
+            .or_insert(Some(blocker));
+        let (blocker, attacker) = (blocker.object, attacker.object);
         for info in &mut self.attackers {
             if info.creature == attacker {
                 info.blocked = true;
             }
         }
         self.blockers.push(BlockerInfo { blocker, attacker });
-        self.block_history.push((blocker, attacker));
     }
 
     /// Whether every block `attacker` has met this combat was `blocker`'s:
     /// "had become blocked by only that creature this combat" (False
     /// Orders). A blocker that came and went still counts.
     #[must_use]
-    pub fn blocked_only_by(&self, attacker: ObjectId, blocker: ObjectId) -> bool {
-        let mut by = self
-            .block_history
-            .iter()
-            .filter(|(_, a)| *a == attacker)
-            .map(|(b, _)| *b)
-            .peekable();
-        by.peek().is_some() && by.all(|b| b == blocker)
+    pub fn blocked_only_by(
+        &self,
+        attacker: baylee_core::ids::DamageSourceRef,
+        blocker: baylee_core::ids::DamageSourceRef,
+    ) -> bool {
+        self.sole_blocker(attacker) == Some(blocker)
+    }
+
+    /// One exact blocker, only if every historical block used that incarnation.
+    pub(crate) fn sole_blocker(
+        &self,
+        attacker: baylee_core::ids::DamageSourceRef,
+    ) -> Option<baylee_core::ids::DamageSourceRef> {
+        self.block_history.get(&attacker).copied().flatten()
     }
 
     /// Raging River's restriction on `attacker`: from now on this combat,
@@ -1597,10 +1618,22 @@ fn assign(
 }
 
 impl GameState {
+    pub(crate) fn blocked_only_by(&self, attacker: ObjectId, blocker: ObjectId) -> bool {
+        self.source_identity(attacker)
+            .zip(self.source_identity(blocker))
+            .is_some_and(|(attacker, blocker)| self.combat.blocked_only_by(attacker, blocker))
+    }
+
     /// Records a block pair and the first blocked transition separately.
     pub(crate) fn declare_block(&mut self, blocker: ObjectId, attacker: ObjectId) {
         let became_blocked = !self.combat.is_blocked(attacker);
-        self.combat.declare_block(blocker, attacker);
+        let (Some(blocker_ref), Some(attacker_ref)) = (
+            self.source_identity(blocker),
+            self.source_identity(attacker),
+        ) else {
+            return;
+        };
+        self.combat.declare_block(blocker_ref, attacker_ref);
         self.journal.record(crate::event::GameEvent::BecameBlocker {
             object: blocker,
             attacker,
@@ -1687,6 +1720,7 @@ pub fn attack_taps(state: &GameState, creature: ObjectId) -> bool {
 
 #[cfg(test)]
 mod tests {
+    mod history;
     use super::*;
     use crate::object::ObjectKind;
     use crate::state::CardLookup;
@@ -1805,7 +1839,7 @@ mod tests {
     }
 
     fn block(state: &mut GameState, blocker: ObjectId, attacker: ObjectId) {
-        state.combat.declare_block(blocker, attacker);
+        state.declare_block(blocker, attacker);
     }
 
     fn damage(state: &GameState, id: ObjectId) -> u16 {
@@ -2035,16 +2069,16 @@ mod tests {
                 blocked: false,
                 band: None,
             }));
-        state.combat.declare_block(first, attacker);
-        assert!(state.combat.blocked_only_by(attacker, first));
-        assert!(!state.combat.blocked_only_by(other, first), "never blocked");
-        state.combat.declare_block(second, attacker);
+        state.declare_block(first, attacker);
+        assert!(state.blocked_only_by(attacker, first));
+        assert!(!state.blocked_only_by(other, first), "never blocked");
+        state.declare_block(second, attacker);
         state.combat.remove_from_combat(second);
         assert!(
-            !state.combat.blocked_only_by(attacker, first),
+            !state.blocked_only_by(attacker, first),
             "the second blocker left, and still blocked it this combat"
         );
-        state.combat.declare_block(first, other);
+        state.declare_block(first, other);
         state.combat.unblock(other);
         assert!(!state.combat.is_blocked(other));
         assert!(state.combat.is_blocked(attacker));
@@ -2791,7 +2825,7 @@ mod tests {
                 band: None,
             },
         ]);
-        state.combat.declare_block(blocker, blocked);
+        state.declare_block(blocker, blocked);
         state.shields.push(crate::prevention::Shield {
             protects: crate::prevention::Shielded::Everything,
             kind: crate::prevention::ShieldKind::AllCombat,

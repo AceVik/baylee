@@ -397,6 +397,26 @@ pub(super) fn exec_choice(
         // 1 life." A player who cannot pay is still asked, for the tax's
         // reason (CR 605.3a lets them make the mana now), and one who says
         // yes and then cannot pay has not paid.
+        Effect::PlayerMayPayThenElse {
+            player,
+            mana,
+            paid,
+            unpaid,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            let mana = u16::try_from(amount2(&mana, state, you, res)).unwrap_or(u16::MAX);
+            let cost = baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana));
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player,
+                cost,
+                outcome: ManaPaymentOutcome::Branches { paid, unpaid },
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayTax { mana },
+                source: resolving_ability(state, res),
+            })
+        }
         Effect::PlayerMayPayThen {
             player,
             mana,

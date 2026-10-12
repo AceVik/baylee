@@ -14,6 +14,7 @@ fn same(a: &PendingTrigger, b: &PendingTrigger) -> bool {
         && a.text == b.text
         && a.source_version == b.source_version
         && a.event_object_identity == b.event_object_identity
+        && a.event_ability == b.event_ability
         && a.counter_source_version == b.counter_source_version
         && a.timestamp == b.timestamp
         && a.ability_index == b.ability_index

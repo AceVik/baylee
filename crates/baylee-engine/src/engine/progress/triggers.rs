@@ -124,20 +124,7 @@ impl<L: CardLookup> Engine<L> {
             req.spec = trigger.bind_target(req.spec);
             req
         });
-        let graveyard_source = trigger.abilities.as_ref().is_some_and(|list| {
-            matches!(
-                list.abilities.get(trigger.ability_index as usize),
-                Some(
-                    AbilityDef::Triggered {
-                        zone: baylee_cards_dsl::TriggerZone::Graveyard,
-                        ..
-                    } | AbilityDef::ModalTriggered {
-                        zone: baylee_cards_dsl::TriggerZone::Graveyard,
-                        ..
-                    }
-                )
-            )
-        });
+        let graveyard_source = is_graveyard_trigger(trigger);
         // An instruction about the event's exact incarnation ("destroy it",
         // Kudzu) remembers which object that was as the trigger goes on the
         // stack, so one that has left the battlefield since is a new object
@@ -162,6 +149,11 @@ impl<L: CardLookup> Engine<L> {
         let aura_successor = self.aura_successor(trigger);
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            if let Some(ability) = trigger.event_ability {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventAbility(ability));
+            }
             if let Some(related) = &trigger.related_objects {
                 object.riders.extend(
                     related
@@ -932,4 +924,21 @@ impl<L: CardLookup> Engine<L> {
             }),
         )
     }
+}
+
+fn is_graveyard_trigger(trigger: &crate::trigger::PendingTrigger) -> bool {
+    trigger.abilities.as_ref().is_some_and(|list| {
+        matches!(
+            list.abilities.get(trigger.ability_index as usize),
+            Some(
+                AbilityDef::Triggered {
+                    zone: baylee_cards_dsl::TriggerZone::Graveyard,
+                    ..
+                } | AbilityDef::ModalTriggered {
+                    zone: baylee_cards_dsl::TriggerZone::Graveyard,
+                    ..
+                }
+            )
+        )
+    })
 }

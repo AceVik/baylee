@@ -780,19 +780,8 @@ impl<L: CardLookup> Engine<L> {
                     .push(crate::object::Rider::ExhaustedAbility(ability_index));
             }
         }
-        self.state.journal.record(GameEvent::AbilityActivated {
-            source: baylee_core::ids::DamageSourceRef {
-                object: source,
-                version: activated_source_version.expect("activated source identity"),
-            },
-            player,
-            tap_cost: cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
-            mana_ability,
-        });
-        // Capture activation observers before an immediately resolving mana
-        // ability changes the state they read. No trigger is stacked here.
-        self.capture_cost_triggers();
         if mana_ability {
+            self.record_activation(player, source, activated_source_version, &cost, None);
             // Mana abilities resolve immediately, without the stack
             // (CR 605.3b). Choice-mana abilities (any-color lands, Command
             // Tower) suspend on the color choice like any resolution.
@@ -920,9 +909,37 @@ impl<L: CardLookup> Engine<L> {
                     obj.chosen_player = Some(only);
                 }
             }
+            self.record_activation(
+                player,
+                source,
+                activated_source_version,
+                &cost,
+                Some(ability),
+            );
         }
         self.activating_grant = None;
         self.after_action(player);
         Ok(())
+    }
+    fn record_activation(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        version: Option<u32>,
+        cost: &baylee_cards_dsl::Cost,
+        ability: Option<ObjectId>,
+    ) {
+        self.state.journal.record(GameEvent::AbilityActivated {
+            source: baylee_core::ids::DamageSourceRef {
+                object: source,
+                version: version.expect("activated source identity"),
+            },
+            ability: ability.and_then(|id| self.state.source_identity(id)),
+            player,
+            tap_cost: cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
+            mana_ability: ability.is_none(),
+        });
+        // Capture before an immediate mana instruction changes its observers.
+        self.capture_cost_triggers();
     }
 }
