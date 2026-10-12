@@ -386,6 +386,54 @@ mod tests {
         assert_eq!(words(&object, Lang::De, false), None);
     }
 
+    /// Reports 21 and 30: a permanent that lost all its abilities is labelled
+    /// "No abilities", first; a leveler says its level, short ("LV 5") and,
+    /// with detail, long ("Level 5"); in German "Keine Fähigkeiten", "St. 5"
+    /// and "Stufe 5"; and an object with neither has no label. On the old
+    /// code `words` knew neither, so every assertion but the last read
+    /// `None`.
+    #[test]
+    fn a_permanent_without_abilities_or_with_a_level_says_so() {
+        use baylee_view::{CounterEntry, CounterKind, ObjectStatus};
+        let mut object = crate::registry_printed(1, 0, "Reflections of Littjara");
+        assert_eq!(words(&object, Lang::En, false), None, "neither: no label");
+        assert_eq!(words(&object, Lang::De, true), None);
+
+        object.status = ObjectStatus::NO_ABILITIES;
+        assert_eq!(
+            words(&object, Lang::En, false).as_deref(),
+            Some("No abilities")
+        );
+        assert_eq!(
+            words(&object, Lang::De, false).as_deref(),
+            Some("Keine Fähigkeiten")
+        );
+
+        object.status = ObjectStatus::NONE;
+        object.counters.push(CounterEntry {
+            kind: CounterKind::Level,
+            count: 5,
+        });
+        assert_eq!(words(&object, Lang::En, false).as_deref(), Some("LV 5"));
+        assert_eq!(words(&object, Lang::En, true).as_deref(), Some("Level 5"));
+        assert_eq!(words(&object, Lang::De, false).as_deref(), Some("St. 5"));
+        assert_eq!(words(&object, Lang::De, true).as_deref(), Some("Stufe 5"));
+        object.counters[0].count = 0;
+        assert_eq!(
+            words(&object, Lang::En, false),
+            None,
+            "level 0 says nothing"
+        );
+
+        // Both at once: "No abilities" comes first.
+        object.counters[0].count = 5;
+        object.status = ObjectStatus::NO_ABILITIES;
+        assert_eq!(
+            words(&object, Lang::En, false).as_deref(),
+            Some("No abilities \u{b7} LV 5")
+        );
+    }
+
     #[test]
     fn chosen_type_label_is_localized_and_does_not_invent_a_choice() {
         let mut object = crate::registry_printed(1, 0, "Reflections of Littjara");

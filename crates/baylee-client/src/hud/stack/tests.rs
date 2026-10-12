@@ -421,6 +421,85 @@ fn a_food_ability_draws_its_sentence_without_a_source_or_card_text() {
     );
 }
 
+/// The modes chosen for a stack entry (#23) are its sentence: one bullet
+/// each under whatever it prints, for a spell that has no sentence of its
+/// own as much as for a trigger that says only "choose one". With none
+/// chosen a spell has no sentence, as before, and the queue's heading is
+/// the printed sentence alone, never the modes: a queued spell keeps its
+/// name. On the old code `stack_sentence` knew no modes, so the first
+/// assertion read `None` and the trigger's sentence carried no bullet.
+#[test]
+fn the_chosen_modes_stand_under_a_stack_entrys_sentence() {
+    use baylee_client_core::board::StackKind;
+    let charm = baylee_cards::decks::by_name("Archdruid's Charm").expect("in the pool");
+    let rules = baylee_view::RulesFace {
+        card: charm,
+        face: 0,
+    };
+    let exile = TextBlock::Rules("\u{2022} Exile target artifact or enchantment.".into());
+
+    let texts = crate::cardtext::CardTexts::default();
+    let mode = crate::face::FaceMode::default();
+    let settings = crate::settings::ClientSettings::default();
+    let (mut board, view) = a_stack_of(&[None]);
+    let faces = FaceCtx {
+        texts: &texts,
+        mode: &mode,
+        settings: &settings,
+        view: Some(&view),
+        widths: crate::face::Widths::of(None),
+    };
+
+    // A spell: the modes alone, and nothing without them.
+    board.stack[0].kind = StackKind::Spell;
+    board.stack[0].modes = None;
+    assert_eq!(stack_sentence(&board.stack[0], &faces), None);
+    board.stack[0].modes = Some((rules, 0b100));
+    assert_eq!(
+        stack_sentence(&board.stack[0], &faces),
+        Some(vec![exile.clone()])
+    );
+    assert_eq!(
+        queued_ability_line(&board.stack[0], &faces),
+        None,
+        "the queue's line is the printed sentence, and a spell prints none"
+    );
+    assert_eq!(
+        heading(&board.stack[0], false, "Archdruid's Charm".into(), &faces),
+        "Archdruid's Charm",
+        "so a queued modal spell keeps its name"
+    );
+
+    // Several modes: one bullet each, in the card's order.
+    board.stack[0].modes = Some((rules, 0b101));
+    let blocks = stack_sentence(&board.stack[0], &faces).expect("two modes");
+    assert_eq!(blocks.len(), 2);
+    assert!(
+        matches!(&blocks[0], TextBlock::Rules(t) if t.starts_with("\u{2022} Search your library"))
+    );
+    assert_eq!(blocks[1], exile);
+
+    // An ability: its printed sentence first, the modes after it, and the
+    // queue's line still the sentence alone.
+    let (mut board, view) = a_stack_of(&[Some(1)]);
+    let faces = FaceCtx {
+        view: Some(&view),
+        ..faces
+    };
+    let printed = stack_sentence(&board.stack[0], &faces).expect("her trigger has a sentence");
+    let queued = queued_ability_line(&board.stack[0], &faces);
+    board.stack[0].modes = Some((rules, 0b100));
+    let with_modes = stack_sentence(&board.stack[0], &faces).expect("sentence and mode");
+    assert_eq!(with_modes.len(), printed.len() + 1);
+    assert_eq!(with_modes[..printed.len()], printed[..]);
+    assert_eq!(with_modes.last(), Some(&exile));
+    assert_eq!(
+        queued_ability_line(&board.stack[0], &faces),
+        queued,
+        "the modes do not enter the queued heading"
+    );
+}
+
 /// A row never comes out blank because a lookup missed.
 ///
 /// The host sends no line index for some abilities, and the catalog's

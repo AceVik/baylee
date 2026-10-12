@@ -240,4 +240,42 @@ mod tests {
         assert_eq!(duel.interaction.as_ref().unwrap().declared(), 0);
         assert!(duel.outbox.is_empty());
     }
+
+    /// Report 25: the list folds away to one row and opens again. The last
+    /// row of an open list is the fold, "Hide the list"; picking it leaves
+    /// one row, "Show the list (N)" with N the options it hides; picking
+    /// that opens the list as it was. Folding is the client's own: nothing is
+    /// sent, and the assignments made stay. On the old code there was no
+    /// such row, so the first assertion fails.
+    #[test]
+    fn the_list_folds_to_one_row_and_opens_again_without_sending_or_forgetting() {
+        let mut duel = duel();
+        crate::input::pick_choice(&mut duel, 4); // first creature at the aimed defender
+        let open = rows(&duel, Lang::En);
+        let last = open.last().expect("rows");
+        assert_eq!(last.index, FOLD, "the fold is the last row");
+        assert_eq!(last.label, "Hide the list \u{25be}");
+        let count = duel.interaction.as_ref().unwrap().attack_options().len();
+        assert_eq!(count, 54, "four controls and fifty creatures");
+
+        crate::input::pick_choice(&mut duel, FOLD);
+        assert!(duel.attack_list_folded);
+        let folded = rows(&duel, Lang::En);
+        assert_eq!(folded.len(), 1, "one row stands for the list");
+        assert_eq!(folded[0].index, FOLD);
+        assert_eq!(folded[0].label, "Show the list (54) \u{25b8}");
+        assert_eq!(rows(&duel, Lang::De)[0].label, "Liste zeigen (54) \u{25b8}");
+        assert!(duel.outbox.is_empty(), "folding sends nothing");
+        assert_eq!(
+            duel.interaction.as_ref().unwrap().declared(),
+            1,
+            "and keeps what was assigned"
+        );
+
+        crate::input::pick_choice(&mut duel, FOLD);
+        assert!(!duel.attack_list_folded);
+        assert_eq!(rows(&duel, Lang::En), open, "opened again as it was");
+        assert!(duel.outbox.is_empty());
+        assert_eq!(duel.interaction.as_ref().unwrap().declared(), 1);
+    }
 }
