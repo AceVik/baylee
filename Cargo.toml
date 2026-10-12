@@ -182,6 +182,8 @@ ed25519-dalek = { version = "3", default-features = false, features = ["fast", "
 x25519-dalek = { version = "3", default-features = false, features = ["static_secrets", "zeroize"] }
 chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc", "zeroize"] }
 hkdf = "0.13"
+# Only for its `zeroize` feature: HKDF's HMAC states are wiped when dropped.
+hmac = "0.13"
 zeroize = "1"
 zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
 tar = { version = "0.4", default-features = false }

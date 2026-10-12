@@ -10,7 +10,7 @@ use common::{HDR, hex, pair};
 fn debug_of_a_device_names_its_id_and_none_of_its_secrets() {
     let secrets = device(1);
     let text = format!("{secrets:?}");
-    assert!(text.contains(&secrets.device_id()), "{text}");
+    assert!(text.contains(secrets.device_id()), "{text}");
     let bytes = secrets.to_bytes();
     for (name, part) in [
         ("ik_seed", &bytes[..32]),
@@ -34,7 +34,7 @@ fn debug_of_a_device_names_its_id_and_none_of_its_secrets() {
 fn the_alternate_debug_of_a_device_names_none_of_its_secrets_either() {
     let secrets = device(1);
     let text = format!("{secrets:#?}");
-    assert!(text.contains(&secrets.device_id()));
+    assert!(text.contains(secrets.device_id()));
     let bytes = secrets.to_bytes();
     assert!(!text.contains(&hex(&bytes[..32])));
     assert!(!text.contains(&hex(&bytes[32..64])));

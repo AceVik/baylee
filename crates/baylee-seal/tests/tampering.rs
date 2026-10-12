@@ -342,8 +342,8 @@ fn a_signature_of_the_wrong_length_is_refused_by_length() {
 }
 
 #[test]
-fn a_ciphertext_shorter_than_its_tag_is_refused_by_length() {
-    for len in [0, 1, 15] {
+fn a_ciphertext_shorter_than_its_commitment_and_tag_is_refused_by_length() {
+    for len in [0, 1, 15, 16, 31, 32, 47] {
         let mut t = parts();
         t.ct.truncate(len);
         assert_eq!(t.open(), Err(Error::Length), "ct of {len} bytes");
@@ -465,4 +465,59 @@ fn a_record_with_a_byte_cut_off_its_end_does_not_open() {
         at_rest_open(&key, RestKind::State, "state", &record[..record.len() - 1]).unwrap_err(),
         Error::Record
     );
+}
+
+#[test]
+fn a_ciphertext_of_exactly_a_commitment_and_a_tag_is_not_refused_by_length() {
+    let mut t = parts();
+    t.ct.truncate(48);
+    // Too short to be this message's, but long enough to be looked at: the signature says no.
+    assert_eq!(t.open(), Err(Error::Signature));
+}
+
+#[test]
+fn a_ciphertext_whose_commitment_names_another_key_fails_the_signature() {
+    use sha2::{Digest, Sha256};
+    let mut t = parts();
+    let other = Sha256::new()
+        .chain_update(baylee_seal::C_COMMIT)
+        .chain_update([0x42u8; 32])
+        .finalize();
+    assert_ne!(t.ct[..32], other[..]);
+    t.ct[..32].copy_from_slice(&other);
+    assert_eq!(t.open(), Err(Error::Signature));
+}
+
+#[test]
+fn a_flipped_bit_in_the_commitment_fails_the_signature() {
+    let mut t = parts();
+    t.ct[31] ^= 1;
+    assert_eq!(t.open(), Err(Error::Signature));
+}
+
+#[test]
+fn a_non_canonical_sender_key_is_refused_as_a_key() {
+    let p = pair();
+    let envelope = p.sealed.envelope(HDR);
+    let mut p_minus_nothing = [0xffu8; 32];
+    p_minus_nothing[0] = 0xed;
+    p_minus_nothing[31] = 0x7f; // y = p, which is y = 0
+    let mut p_plus_one = p_minus_nothing;
+    p_plus_one[0] = 0xee; // y = p + 1, which is y = 1
+    for (name, ik) in [
+        ("all ones", [0xffu8; 32]),
+        ("y = p", p_minus_nothing),
+        ("y = p + 1", p_plus_one),
+    ] {
+        assert_eq!(
+            verify_message(&ik, &envelope).unwrap_err(),
+            Error::Key,
+            "{name}"
+        );
+        assert_eq!(
+            open(&p.bob, &ik, &envelope, &p.sealed.wraps[0].k).unwrap_err(),
+            Error::Key,
+            "{name}"
+        );
+    }
 }

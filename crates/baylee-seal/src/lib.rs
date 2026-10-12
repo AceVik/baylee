@@ -19,7 +19,7 @@
 //! | A device's keys, its id and its signed statement (§4.1) | [`DeviceSecrets`], [`device_id`], [`verify_device`] |
 //! | Sealing a message for devices, opening it on one (§4.2) | [`seal`], [`open`], [`verify_message`] |
 //! | Checking a reported message (§4.7) | [`verify_report`] |
-//! | Records at rest under the vault key (§4.8) | [`at_rest_seal`], [`at_rest_open`] |
+//! | Records at rest under the vault key (§4.8), history file names | [`at_rest_seal`], [`at_rest_open`], [`history_name`] |
 //! | Safety numbers (§4.4) | [`fingerprint`], [`safety_number`] |
 //! | Base64 on the wire and in reports | [`b64`] |
 //!
@@ -38,7 +38,7 @@ pub use device::{DevicePublic, DeviceSecrets, device_id, device_statement, verif
 pub use message::{
     Envelope, Opened, Recipient, Sealed, Wrap, open, seal, verify_message, verify_report,
 };
-pub use rest::{RestKind, at_rest_open, at_rest_seal};
+pub use rest::{RestKind, at_rest_open, at_rest_seal, history_name};
 pub use safety::{fingerprint, safety_number, tag_order};
 
 /// `"baylee/chat/device-id/v1\0"`: the domain of a device id's hash (§4.1).
@@ -51,6 +51,15 @@ pub const C_WRAP: &[u8] = b"baylee/chat/wrap/v1\0";
 pub const C_MSG: &[u8] = b"baylee/chat/msg/v1\0";
 /// `"baylee/chat/rest/v1\0"`: the domain of a record at rest (§4.8).
 pub const C_REST: &[u8] = b"baylee/chat/rest/v1\0";
+/// `"baylee/chat/commit/v1\0"`: the domain of a ciphertext's commitment to
+/// its message key (an addition to §4.2, from the crypto review).
+pub const C_COMMIT: &[u8] = b"baylee/chat/commit/v1\0";
+/// `"baylee/chat/hedge/v1\0"`: the domain that hedges a message's drawn
+/// randomness with its sender's key and contents.
+pub const C_HEDGE: &[u8] = b"baylee/chat/hedge/v1\0";
+/// `"baylee/chat/vault/v1\0"`: the domain the vault key's two subkeys are
+/// derived under, one for records at rest and one for history file names.
+pub const C_VAULT: &[u8] = b"baylee/chat/vault/v1\0";
 
 /// A 32-byte key or seed.
 pub const KEY_LEN: usize = 32;

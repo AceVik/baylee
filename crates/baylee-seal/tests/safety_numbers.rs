@@ -102,3 +102,33 @@ fn a_shorter_tag_comes_first() {
     assert_eq!(tag_order("fff", "0000"), Ordering::Less);
     assert_eq!(tag_order("0000", "fff"), Ordering::Greater);
 }
+
+#[test]
+fn a_safety_number_of_an_account_with_itself_is_the_same_from_either_end() {
+    let a = [ik(1)];
+    let b = [ik(2)];
+    let one = safety_number(("af03", &a), ("af03", &b));
+    let other = safety_number(("af03", &b), ("af03", &a));
+    assert_eq!(one, other);
+    assert_eq!(one.len(), 60);
+    // Both halves are there, the smaller digits first.
+    let (fa, fb) = (fingerprint("af03", &a), fingerprint("af03", &b));
+    let (low, high) = if fa < fb { (fa, fb) } else { (fb, fa) };
+    assert_eq!(one, format!("{low}{high}"));
+}
+
+#[test]
+fn a_device_given_twice_counts_once() {
+    let once = fingerprint("af03", &[ik(1), ik(2)]);
+    assert_eq!(fingerprint("af03", &[ik(1), ik(2), ik(1)]), once);
+    assert_eq!(fingerprint("af03", &[ik(2), ik(2), ik(1), ik(1)]), once);
+    assert_eq!(
+        fingerprint("af03", &[ik(1), ik(1)]),
+        fingerprint("af03", &[ik(1)])
+    );
+    let other = [ik(9)];
+    assert_eq!(
+        safety_number(("af03", &[ik(1), ik(1)]), ("0012", &other)),
+        safety_number(("af03", &[ik(1)]), ("0012", &other))
+    );
+}

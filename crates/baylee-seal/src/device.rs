@@ -11,12 +11,18 @@ use zeroize::Zeroizing;
 
 use crate::{C_DEVICE, C_DEVID, Entropy, Error, KEY_LEN, MAX_TAG_LEN, SECRETS_LEN, SIG_LEN};
 
-/// One device's secrets: `ik_seed`, `dk_seed` and `vault_key`, each 32
-/// bytes, wiped when dropped. `Debug` prints the device id only.
+/// One device's secrets: the identity key's seed, the key-agreement secret
+/// and the vault key, each 32 bytes, wiped when dropped (`ed25519-dalek`'s,
+/// `x25519-dalek`'s and `zeroize`'s own wiping). The public halves and the
+/// id are worked out once, when the secrets are made. `Debug` prints the
+/// device id only.
 pub struct DeviceSecrets {
-    ik_seed: Zeroizing<[u8; KEY_LEN]>,
-    dk_seed: Zeroizing<[u8; KEY_LEN]>,
+    signing: SigningKey,
+    agreement: StaticSecret,
     vault_key: Zeroizing<[u8; KEY_LEN]>,
+    ik: [u8; KEY_LEN],
+    dk: [u8; KEY_LEN],
+    id: String,
 }
 
 /// What a device publishes: its id, both public keys and the signature that
@@ -32,6 +38,22 @@ pub struct DevicePublic {
     pub dk: [u8; KEY_LEN],
     /// Ed25519 over [`device_statement`] by the identity key.
     pub dsig: [u8; SIG_LEN],
+}
+
+impl DevicePublic {
+    /// Checks everything a fetched device claims: that `id` is its identity
+    /// key's ([`device_id`]) and that [`verify_device`] holds for `tag`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Key`] for an id that is not the key's, else as
+    /// [`verify_device`].
+    pub fn verify(&self, tag: &str) -> Result<(), Error> {
+        if device_id(&self.ik) != self.id {
+            return Err(Error::Key);
+        }
+        verify_device(tag, &self.ik, &self.dk, &self.dsig)
+    }
 }
 
 impl DeviceSecrets {
@@ -51,10 +73,17 @@ impl DeviceSecrets {
             out.copy_from_slice(&bytes[i * KEY_LEN..(i + 1) * KEY_LEN]);
             out
         };
+        let signing = SigningKey::from_bytes(&part(0));
+        let agreement = StaticSecret::from(*part(1));
+        let ik = signing.verifying_key().to_bytes();
+        let dk = PublicKey::from(&agreement).to_bytes();
         Self {
-            ik_seed: part(0),
-            dk_seed: part(1),
+            signing,
+            agreement,
             vault_key: part(2),
+            ik,
+            dk,
+            id: device_id(&ik),
         }
     }
 
@@ -63,8 +92,8 @@ impl DeviceSecrets {
     #[must_use]
     pub fn to_bytes(&self) -> Zeroizing<[u8; SECRETS_LEN]> {
         let mut out = Zeroizing::new([0u8; SECRETS_LEN]);
-        out[..KEY_LEN].copy_from_slice(&self.ik_seed[..]);
-        out[KEY_LEN..2 * KEY_LEN].copy_from_slice(&self.dk_seed[..]);
+        out[..KEY_LEN].copy_from_slice(self.signing.as_bytes());
+        out[KEY_LEN..2 * KEY_LEN].copy_from_slice(self.agreement.as_bytes());
         out[2 * KEY_LEN..].copy_from_slice(&self.vault_key[..]);
         out
     }
@@ -72,19 +101,19 @@ impl DeviceSecrets {
     /// The Ed25519 identity key.
     #[must_use]
     pub fn ik(&self) -> [u8; KEY_LEN] {
-        self.signing_key().verifying_key().to_bytes()
+        self.ik
     }
 
     /// The X25519 key wraps for this device are made for.
     #[must_use]
     pub fn dk(&self) -> [u8; KEY_LEN] {
-        PublicKey::from(&self.static_secret()).to_bytes()
+        self.dk
     }
 
     /// This device's id, [`device_id`] of its identity key.
     #[must_use]
-    pub fn device_id(&self) -> String {
-        device_id(&self.ik())
+    pub fn device_id(&self) -> &str {
+        &self.id
     }
 
     /// The key records at rest are sealed under (§4.8), and that keys the
@@ -101,38 +130,35 @@ impl DeviceSecrets {
     ///
     /// [`Error::Length`] when `tag` is longer than [`MAX_TAG_LEN`] bytes.
     pub fn public(&self, tag: &str) -> Result<DevicePublic, Error> {
-        let ik = self.ik();
-        let dk = self.dk();
-        let statement = device_statement(tag, &ik, &dk)?;
-        let dsig = self.signing_key().sign(&statement).to_bytes();
+        let statement = device_statement(tag, &self.ik, &self.dk)?;
         Ok(DevicePublic {
-            id: device_id(&ik),
-            ik,
-            dk,
-            dsig,
+            id: self.id.clone(),
+            ik: self.ik,
+            dk: self.dk,
+            dsig: self.sign(&statement),
         })
     }
 
     /// Ed25519 by the identity key over `message`.
     pub(crate) fn sign(&self, message: &[u8]) -> [u8; SIG_LEN] {
-        self.signing_key().sign(message).to_bytes()
+        self.signing.sign(message).to_bytes()
     }
 
-    /// The X25519 secret; wiped when dropped (`x25519-dalek`'s `zeroize`).
-    pub(crate) fn static_secret(&self) -> StaticSecret {
-        StaticSecret::from(*self.dk_seed)
+    /// The X25519 secret.
+    pub(crate) fn agreement(&self) -> &StaticSecret {
+        &self.agreement
     }
 
-    /// Wiped when dropped (`ed25519-dalek`'s `zeroize`).
-    fn signing_key(&self) -> SigningKey {
-        SigningKey::from_bytes(&self.ik_seed)
+    /// The identity key's seed, for hedging a message's randomness.
+    pub(crate) fn ik_seed(&self) -> &[u8; KEY_LEN] {
+        self.signing.as_bytes()
     }
 }
 
 impl fmt::Debug for DeviceSecrets {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DeviceSecrets")
-            .field("device_id", &self.device_id())
+            .field("device_id", &self.id)
             .finish_non_exhaustive()
     }
 }
@@ -210,6 +236,11 @@ pub fn verify_device(
 /// A sender's identity key, refused when malformed or of small order.
 pub(crate) fn identity_key(ik: &[u8; KEY_LEN]) -> Result<VerifyingKey, Error> {
     let key = VerifyingKey::from_bytes(ik).map_err(|_| Error::Key)?;
+    // `from_bytes` also takes a handful of non-canonical encodings (ZIP-215);
+    // a key is accepted only in the one spelling that compresses back to it.
+    if key.to_edwards().compress().to_bytes() != *ik {
+        return Err(Error::Key);
+    }
     if key.is_weak() {
         return Err(Error::WeakKey);
     }

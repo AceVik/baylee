@@ -27,11 +27,12 @@ pub fn tag_order(a: &str, b: &str) -> Ordering {
 /// `h = SHA-512(h ‖ iks)`, where `iks` is the identity keys of all the
 /// account's devices sorted bytewise and concatenated. Each of the first six
 /// 5-byte groups of `h`, read big-endian, gives five digits (mod 100 000).
-/// The order the keys are given in doesn't matter.
+/// The order the keys are given in, and a key given twice, don't matter.
 #[must_use]
 pub fn fingerprint(tag: &str, iks: &[[u8; KEY_LEN]]) -> String {
     let mut sorted = iks.to_vec();
     sorted.sort_unstable();
+    sorted.dedup();
     let joined = sorted.concat();
     let mut h = Sha512::new()
         .chain_update(0u16.to_be_bytes())
@@ -60,12 +61,13 @@ pub fn fingerprint(tag: &str, iks: &[[u8; KEY_LEN]]) -> String {
 /// account is `a`.
 #[must_use]
 pub fn safety_number(a: (&str, &[[u8; KEY_LEN]]), b: (&str, &[[u8; KEY_LEN]])) -> String {
-    let (first, second) = if tag_order(a.0, b.0) == Ordering::Greater {
-        (b, a)
-    } else {
-        (a, b)
+    let (fa, fb) = (fingerprint(a.0, a.1), fingerprint(b.0, b.1));
+    // Equal tags (one account with itself) fall back to the digits, so the
+    // number is the same from either end there too.
+    let swap = match tag_order(a.0, b.0) {
+        Ordering::Greater => true,
+        Ordering::Less => false,
+        Ordering::Equal => fa > fb,
     };
-    let mut out = fingerprint(first.0, first.1);
-    out.push_str(&fingerprint(second.0, second.1));
-    out
+    if swap { fb + &fa } else { fa + &fb }
 }

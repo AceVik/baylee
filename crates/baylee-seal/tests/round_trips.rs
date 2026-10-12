@@ -9,10 +9,7 @@ use common::{BODY, HDR};
 fn round_trip_for(count: u64) {
     let sender = device(1000);
     let receivers: Vec<_> = (0..count).map(|i| device(2000 + i)).collect();
-    let ids: Vec<String> = receivers
-        .iter()
-        .map(baylee_seal::DeviceSecrets::device_id)
-        .collect();
+    let ids: Vec<String> = receivers.iter().map(|d| d.device_id().to_owned()).collect();
     let dks: Vec<[u8; 32]> = receivers
         .iter()
         .map(baylee_seal::DeviceSecrets::dk)
@@ -57,10 +54,7 @@ fn a_message_for_250_devices_opens_on_each() {
 fn every_wrap_of_one_message_is_different() {
     let sender = device(1);
     let receivers: Vec<_> = (10..13).map(device).collect();
-    let ids: Vec<String> = receivers
-        .iter()
-        .map(baylee_seal::DeviceSecrets::device_id)
-        .collect();
+    let ids: Vec<String> = receivers.iter().map(|d| d.device_id().to_owned()).collect();
     let recipients: Vec<Recipient<'_>> = receivers
         .iter()
         .zip(&ids)
@@ -73,10 +67,10 @@ fn every_wrap_of_one_message_is_different() {
 }
 
 #[test]
-fn an_empty_body_seals_to_a_bare_tag_and_opens() {
+fn an_empty_body_seals_to_a_commitment_and_a_tag_and_opens() {
     let sender = device(1);
     let receiver = device(2);
-    let id = receiver.device_id();
+    let id = receiver.device_id().to_owned();
     let sealed = seal(
         &sender,
         HDR,
@@ -88,7 +82,7 @@ fn an_empty_body_seals_to_a_bare_tag_and_opens() {
         &mut Seeded::new(3),
     )
     .unwrap();
-    assert_eq!(sealed.ct.len(), 16);
+    assert_eq!(sealed.ct.len(), 32 + 16);
     let opened = open(
         &receiver,
         &sender.ik(),
@@ -138,4 +132,18 @@ fn two_records_of_one_plaintext_differ_by_their_nonce() {
     let b = at_rest_seal(&key, RestKind::State, "state", b"x", &mut rng).unwrap();
     assert_ne!(a[..24], b[..24]);
     assert_ne!(a, b);
+}
+
+#[test]
+fn a_record_sealed_from_the_same_draw_has_a_nonce_of_its_own_for_each_plaintext() {
+    let key = *device(1).vault_key();
+    let seal_with = |name: &str, plain: &[u8]| {
+        at_rest_seal(&key, RestKind::State, name, plain, &mut Seeded::new(4)).unwrap()
+    };
+    let a = seal_with("state", b"one");
+    let b = seal_with("state", b"two");
+    assert_ne!(a[..24], b[..24], "another plaintext");
+    let c = seal_with("other", b"one");
+    assert_ne!(a[..24], c[..24], "another file");
+    assert_eq!(a, seal_with("state", b"one"), "the same record twice");
 }
