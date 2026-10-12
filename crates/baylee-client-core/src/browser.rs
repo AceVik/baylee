@@ -779,6 +779,10 @@ pub struct Browser {
     filter: crate::textbuf::TextBuffer,
     sort: SortKey,
     descending: bool,
+    /// The sheet went to [`SortKey::Name`] for a question by itself, and
+    /// goes back to the zone's order with it (owner, beta.7: a search
+    /// read in library order). A key the player picks clears it.
+    named_for_choice: bool,
     /// The filter-string builder, while the gear inside the box is open.
     ///
     /// A *mode* of the box and not a second field: the box keeps showing the
@@ -1062,6 +1066,9 @@ impl Browser {
         // The lock belongs to the question, and the question is over. Kept
         // any longer it would pin the next sheet the player opened by hand to
         // a zone chosen by something that has already been answered.
+        if std::mem::take(&mut self.named_for_choice) && self.sort == SortKey::Name {
+            self.sort = SortKey::Place;
+        }
         self.locked = None;
     }
 
@@ -1352,6 +1359,7 @@ impl Browser {
     /// Sets the key, leaving the direction alone.
     pub const fn sort_by(&mut self, key: SortKey) {
         self.sort = key;
+        self.named_for_choice = false;
     }
 
     /// One button's worth: the next key, and back to ascending with it.
@@ -1361,6 +1369,7 @@ impl Browser {
     /// a question the player did not ask again.
     pub fn cycle_sort(&mut self) {
         self.sort = self.sort.next();
+        self.named_for_choice = false;
         self.descending = false;
     }
 
@@ -1404,6 +1413,12 @@ impl Browser {
         self.tabs.retain(|zone| alive.contains(zone));
         if let Some(it) = interaction.filter(|it| Self::wanted(view, it)) {
             self.open = Opening::ForChoice;
+            // Cards to choose from read by name, not in the order they lie:
+            // a player looks a card up by its name.
+            if self.sort == SortKey::Place && !self.descending {
+                self.sort = SortKey::Name;
+                self.named_for_choice = true;
+            }
             // Which tab the question itself asks for, before "every zone at
             // once", which is the answer for a question that spans them. It
             // also settles an ordering this used to lose: a reveal arrives as

@@ -426,3 +426,41 @@ fn a_discard_to_the_library_draws_the_hand_cards_it_asks_about() {
         ]
     );
 }
+
+/// Owner, beta.7: a search read in library order. The sheet a question
+/// opens sorts by name, and the zone's order comes back with the question.
+#[test]
+fn a_question_reads_its_cards_by_name() {
+    let names = ["Swamp", "Forest", "Island"];
+    let shown: Vec<_> = (10..13)
+        .zip(names)
+        .map(|(s, n)| printed(s, 0, n, 1))
+        .collect();
+    let view = ViewBuilder::new(2).with_looking_at(shown).build();
+    let search = Interaction::new(
+        Pending::ChooseCards {
+            player: me(),
+            options: (10..13).map(obj).collect(),
+            min: 1,
+            max: 1,
+            prompt: ChoicePrompt::SearchLibrary,
+            total: None,
+        },
+        me(),
+    );
+    let mut b = Browser::new();
+    b.follow(&view, Some(&search));
+    assert_eq!(b.sort(), SortKey::Name);
+    let rows: Vec<String> = b
+        .rows(&view, Some(&search), Names::projected())
+        .into_iter()
+        .map(|r| r.name)
+        .collect();
+    assert_eq!(rows, ["Forest", "Island", "Swamp"]);
+    b.follow(&view, None);
+    assert_eq!(
+        b.sort(),
+        SortKey::Place,
+        "the question took its sort with it"
+    );
+}
