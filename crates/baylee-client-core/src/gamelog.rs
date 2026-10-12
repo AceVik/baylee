@@ -2858,7 +2858,481 @@ mod tests {
             .map(|phrase| format!("{phrase:?}"))
             .filter(|name| name.starts_with("Log"))
             .filter(|name| !code.contains(&format!("Phrase::{name}")))
+            // The panel captions a turn's phases itself: the log only
+            // carries the phase, and `baylee-client`'s phase-caption test
+            // holds these.
+            .filter(|name| !name.starts_with("LogPhase"))
             .collect();
         assert!(unused.is_empty(), "never written: {unused:?}");
     }
 }
+
+    // ---- modes, targets, activations (the log, 12.10.2026) -----------------
+
+    /// Card text that can say a mode's words: "Words of mode N" for the
+    /// modes of Lightning Bolt's card, and nothing for any other card.
+    struct Modal;
+
+    impl CardTextLookup for Modal {
+        fn text(&self, card: CardIndex, face: u8) -> Option<CardText> {
+            Catalog(Lang::En).text(card, face)
+        }
+
+        fn mode(&self, rules: RulesFace, mode: usize) -> Option<String> {
+            (rules.card == BOLT).then(|| format!("Words of mode {mode}"))
+        }
+    }
+
+    /// Line `index` of `book` as Ada reads it in `lang`, with `texts`.
+    fn read_at(book: &LogBook, index: usize, lang: Lang, texts: &dyn CardTextLookup) -> LogLine {
+        let roster = roster();
+        let wording = Wording {
+            lang,
+            seat: ME,
+            statics: Some(&roster),
+            texts,
+        };
+        book.line(index, &wording).expect("the book holds the line")
+    }
+
+    fn cast(player: PlayerId, spell: LogObject) -> LogEvent {
+        LogEvent::Cast {
+            player,
+            spell,
+            from: None,
+        }
+    }
+
+    fn aimed(
+        controller: PlayerId,
+        source: LogObject,
+        ability: bool,
+        modes: u8,
+        targets: Vec<LogTarget>,
+    ) -> LogEvent {
+        LogEvent::Aimed {
+            controller,
+            source,
+            ability,
+            rules: (modes != 0).then_some(RulesFace {
+                card: BOLT,
+                face: 0,
+            }),
+            modes,
+            targets,
+        }
+    }
+
+    fn activation(controller: PlayerId, source: LogObject, activated: Option<bool>) -> LogEvent {
+        LogEvent::Ability {
+            controller,
+            source,
+            ability: None,
+            activated,
+        }
+    }
+
+    /// The aim right under the cast of its spell goes on from it: only the
+    /// parts, the line above having named the spell, and about whoever cast
+    /// it. Read alone, it names the spell itself.
+    #[test]
+    fn an_aim_under_its_cast_carries_on_from_it() {
+        let at_bo = || aimed(BO, bolt(3), false, 0, vec![LogTarget::Player(BO)]);
+        let under = book(&[entry(1, cast(BO, bolt(3))), entry(1, at_bo())]);
+        let line = read_at(&under, 1, Lang::En, &Catalog(Lang::En));
+        assert!(line.follows);
+        assert_eq!(line.text, "targeting Bo");
+        assert_eq!(line.subject, Some(BO));
+        assert_eq!(
+            read_at(&under, 1, Lang::De, &Catalog(Lang::De)).text,
+            "Ziel: Bo"
+        );
+        assert!(!read_at(&under, 0, Lang::En, &Catalog(Lang::En)).follows);
+
+        let at_me = book(&[
+            entry(1, cast(BO, bolt(3))),
+            entry(1, aimed(BO, bolt(3), false, 0, vec![LogTarget::Player(ME)])),
+        ]);
+        assert_eq!(
+            read_at(&at_me, 1, Lang::En, &Catalog(Lang::En)).text,
+            "targeting you"
+        );
+
+        let alone = book(&[
+            entry(1, LogEvent::Shuffled { player: BO }),
+            entry(1, at_bo()),
+        ]);
+        let line = read_at(&alone, 1, Lang::En, &Catalog(Lang::En));
+        assert!(!line.follows);
+        assert_eq!(line.text, "Lightning Bolt: targeting Bo");
+        assert_eq!(
+            read_at(&alone, 1, Lang::De, &Catalog(Lang::De)).text,
+            "Blitzschlag: Ziel: Bo"
+        );
+    }
+
+    /// An aim carries on only from the line of its own spell or ability, in
+    /// the same turn, unfolded: not from another object's cast, not from the
+    /// cast of a spell when it is the aim of an ability (or the other way
+    /// round), and not where the object is not named at all.
+    #[test]
+    fn an_aim_carries_on_only_from_its_own_object() {
+        let follows = |before: LogEvent, after: LogEvent| {
+            read_at(
+                &book(&[entry(1, before), entry(1, after)]),
+                1,
+                Lang::En,
+                &no_text,
+            )
+            .follows
+        };
+        let at = |source, ability| aimed(BO, source, ability, 0, vec![LogTarget::Player(ME)]);
+        assert!(follows(cast(BO, bolt(3)), at(bolt(3), false)));
+        assert!(!follows(cast(BO, bolt(4)), at(bolt(3), false)), "another");
+        assert!(!follows(cast(BO, bolt(3)), at(bolt(3), true)), "spell");
+        assert!(
+            follows(activation(BO, bolt(3), Some(false)), at(bolt(3), true)),
+            "an ability goes on from its own line"
+        );
+        assert!(!follows(
+            activation(BO, bolt(3), Some(false)),
+            at(bolt(3), false)
+        ));
+        assert!(!follows(
+            cast(BO, LogObject::Hidden),
+            at(LogObject::Hidden, false)
+        ));
+        // Another turn, or a line folded from several.
+        let later = LogEntry {
+            turn: 2,
+            ..entry(1, at(bolt(3), false))
+        };
+        assert!(
+            !read_at(
+                &book(&[entry(1, cast(BO, bolt(3))), later]),
+                1,
+                Lang::En,
+                &no_text
+            )
+            .follows
+        );
+        for (cast_times, aim_times) in [(2, 1), (1, 2)] {
+            let book = book(&[
+                LogEntry {
+                    repeat: cast_times,
+                    ..entry(1, cast(BO, bolt(3)))
+                },
+                LogEntry {
+                    repeat: aim_times,
+                    ..entry(1, at(bolt(3), false))
+                },
+            ]);
+            assert!(!read_at(&book, 1, Lang::En, &no_text).follows);
+        }
+    }
+
+    /// An aim that is no continuation names its spell, or says it is an
+    /// ability's.
+    #[test]
+    fn an_aim_on_its_own_names_what_it_is_the_aim_of() {
+        let line = |ability| {
+            let book = book(&[
+                entry(1, LogEvent::Shuffled { player: BO }),
+                entry(
+                    1,
+                    aimed(BO, bolt(3), ability, 0, vec![LogTarget::Player(BO)]),
+                ),
+            ]);
+            read_at(&book, 1, Lang::En, &Catalog(Lang::En)).text
+        };
+        assert_eq!(line(false), "Lightning Bolt: targeting Bo");
+        assert_eq!(line(true), "Ability of Lightning Bolt: targeting Bo");
+    }
+
+    /// Several targets read as a list, and a target that is an object is
+    /// named as an object is.
+    #[test]
+    fn an_aim_at_several_targets_lists_them() {
+        let book = book(&[
+            entry(1, cast(BO, bolt(3))),
+            entry(
+                1,
+                aimed(
+                    BO,
+                    bolt(3),
+                    false,
+                    0,
+                    vec![
+                        LogTarget::Player(ME),
+                        LogTarget::Object(token(5, "Island")),
+                        LogTarget::Player(PlayerId::new(2)),
+                    ],
+                ),
+            ),
+        ]);
+        let line = read_at(&book, 1, Lang::En, &no_text);
+        assert_eq!(line.text, "targeting you, Island and Cy");
+        assert_eq!(
+            read_at(&book, 1, Lang::De, &no_text).text,
+            "Ziele: du, Island und Cy"
+        );
+    }
+
+    /// A chosen mode is said in the card's own words, quoted, when the
+    /// client can say them; several are joined, and modes and targets are
+    /// two parts of one line.
+    #[test]
+    fn a_chosen_mode_is_said_in_the_cards_words() {
+        let line = |lang, modes, targets: Vec<LogTarget>| {
+            let book = book(&[
+                entry(1, cast(BO, bolt(3))),
+                entry(1, aimed(BO, bolt(3), false, modes, targets)),
+            ]);
+            read_at(&book, 1, lang, &Modal).text
+        };
+        assert_eq!(
+            line(Lang::En, 0b10, Vec::new()),
+            "mode: \u{201c}Words of mode 1\u{201d}"
+        );
+        assert_eq!(
+            line(Lang::De, 0b10, Vec::new()),
+            "Modus: \u{201e}Words of mode 1\u{201c}"
+        );
+        assert_eq!(
+            line(Lang::En, 0b101, Vec::new()),
+            "modes: \u{201c}Words of mode 0\u{201d} + \u{201c}Words of mode 2\u{201d}"
+        );
+        assert_eq!(
+            line(Lang::En, 0b1, vec![LogTarget::Player(BO)]),
+            "mode: \u{201c}Words of mode 0\u{201d}; targeting Bo"
+        );
+    }
+
+    /// Without the words of a mode the line says which it was, counting from
+    /// one as a player counts the bullets.
+    #[test]
+    fn a_mode_without_words_is_said_by_its_number() {
+        let book = book(&[
+            entry(1, cast(BO, bolt(3))),
+            entry(1, aimed(BO, bolt(3), false, 0b10, Vec::new())),
+        ]);
+        assert_eq!(
+            read_at(&book, 1, Lang::En, &Catalog(Lang::En)).text,
+            "mode: Mode 2"
+        );
+        assert_eq!(
+            read_at(&book, 1, Lang::De, &Catalog(Lang::De)).text,
+            "Modus: Modus 2"
+        );
+    }
+
+    /// A player's life total right under the damage that took it says where
+    /// it stands now, and only then.
+    #[test]
+    fn life_under_its_damage_says_where_it_stands() {
+        let hit = |target| LogEvent::Damage {
+            source: Some(bolt(3)),
+            target,
+            amount: 3,
+            combat: false,
+        };
+        let life = |player, old, new| LogEvent::Life { player, old, new };
+        let second = |before: LogEntry, after: LogEntry| {
+            read_at(&book(&[before, after]), 1, Lang::En, &no_text)
+        };
+
+        let line = second(
+            entry(1, hit(LogTarget::Player(BO))),
+            entry(1, life(BO, 20, 17)),
+        );
+        assert!(line.follows);
+        assert_eq!(line.text, "now at 17 life (from 20)");
+        assert_eq!(line.subject, Some(BO));
+        let german = read_at(
+            &book(&[
+                entry(1, hit(LogTarget::Player(BO))),
+                entry(1, life(BO, 20, 19)),
+            ]),
+            1,
+            Lang::De,
+            &no_text,
+        );
+        assert_eq!(german.text, "jetzt 19 Lebenspunkte (vorher 20)");
+
+        let apart = [
+            (
+                "another player",
+                entry(1, hit(LogTarget::Player(ME))),
+                entry(1, life(BO, 20, 17)),
+            ),
+            (
+                "a permanent",
+                entry(1, hit(LogTarget::Object(token(5, "Island")))),
+                entry(1, life(BO, 20, 17)),
+            ),
+            (
+                "gain",
+                entry(1, hit(LogTarget::Player(BO))),
+                entry(1, life(BO, 17, 20)),
+            ),
+            (
+                "a folded damage line",
+                LogEntry {
+                    repeat: 2,
+                    ..entry(1, hit(LogTarget::Player(BO)))
+                },
+                entry(1, life(BO, 20, 17)),
+            ),
+            (
+                "a folded life line",
+                entry(1, hit(LogTarget::Player(BO))),
+                LogEntry {
+                    repeat: 2,
+                    ..entry(1, life(BO, 20, 17))
+                },
+            ),
+        ];
+        for (why, before, after) in apart {
+            let line = second(before, after);
+            assert!(!line.follows, "{why}");
+            let (old, new) = if why == "gain" { (17, 20) } else { (20, 17) };
+            assert_eq!(
+                line.text,
+                format!("Bo went to {new} life (from {old})"),
+                "{why}"
+            );
+        }
+    }
+
+    /// A permanent that had no counters of a kind got them; one that had
+    /// some went to a new total.
+    #[test]
+    fn counters_from_nothing_are_got() {
+        let counters = |kind, old, new| LogEvent::Counters {
+            object: token(4, "Soldier"),
+            kind,
+            old,
+            new,
+        };
+        assert_eq!(
+            say(Lang::En, counters(CounterKind::Loyalty, 0, 4)),
+            "Soldier got 4 loyalty counters"
+        );
+        assert_eq!(
+            say(Lang::En, counters(CounterKind::Loyalty, 3, 4)),
+            "Soldier went to 4 loyalty counters (from 3)"
+        );
+        assert_eq!(
+            say(Lang::De, counters(CounterKind::Loyalty, 0, 4)),
+            "Soldier hat 4 Loyalitätsmarken bekommen"
+        );
+    }
+
+    /// An ability says whether it was activated or triggered, for the seat
+    /// that reads and for the others; one the host could not say keeps the
+    /// plain wording.
+    #[test]
+    fn an_ability_says_whether_it_was_activated_or_triggered() {
+        let say_it =
+            |lang, controller, activated| say(lang, activation(controller, bolt(3), activated));
+        assert_eq!(
+            say_it(Lang::En, BO, Some(true)),
+            "Bo activated Lightning Bolt"
+        );
+        assert_eq!(
+            say_it(Lang::En, ME, Some(true)),
+            "You activated Lightning Bolt"
+        );
+        assert_eq!(
+            say_it(Lang::En, BO, Some(false)),
+            "Lightning Bolt triggered for Bo"
+        );
+        assert_eq!(
+            say_it(Lang::En, ME, Some(false)),
+            "Lightning Bolt triggered for you"
+        );
+        assert_eq!(
+            say_it(Lang::En, BO, None),
+            "Bo put an ability of Lightning Bolt on the stack"
+        );
+        assert_eq!(
+            say_it(Lang::De, BO, Some(true)),
+            "Bo hat Blitzschlag aktiviert"
+        );
+        assert_eq!(
+            say_it(Lang::De, ME, Some(true)),
+            "Du hast Blitzschlag aktiviert"
+        );
+        assert_eq!(
+            say_it(Lang::De, BO, Some(false)),
+            "Blitzschlag hat für Bo ausgelöst"
+        );
+        assert_eq!(
+            say_it(Lang::De, ME, Some(false)),
+            "Blitzschlag hat für dich ausgelöst"
+        );
+    }
+
+    /// The modes the book last heard for an object this turn, of the spell
+    /// or of its ability, and none for a turn ago or an unnamed source.
+    #[test]
+    fn the_book_remembers_the_modes_of_this_turn() {
+        let face = RulesFace {
+            card: BOLT,
+            face: 0,
+        };
+        let id = |slot| ObjectId::new(slot, 0);
+        let aim = |source, ability, modes| entry(1, aimed(BO, source, ability, modes, Vec::new()));
+        let heard = book(&[
+            entry(1, LogEvent::TurnStarted { active: ME }),
+            entry(1, cast(BO, bolt(3))),
+            aim(bolt(3), false, 0b10),
+            aim(bolt(3), true, 0b100),
+            aim(bolt(4), false, 0b1),
+        ]);
+        assert_eq!(heard.modes_of(id(3), false), Some((face, 0b10)));
+        assert_eq!(heard.modes_of(id(3), true), Some((face, 0b100)));
+        assert_eq!(heard.modes_of(id(4), false), Some((face, 0b1)));
+        assert_eq!(
+            heard.modes_of(id(4), true),
+            None,
+            "a spell's, not an ability's"
+        );
+        assert_eq!(heard.modes_of(id(9), false), None, "another object");
+
+        // The latest line wins: a mode changed on the stack.
+        let changed = book(&[
+            entry(1, LogEvent::TurnStarted { active: ME }),
+            aim(bolt(3), false, 0b10),
+            aim(bolt(3), false, 0b1),
+        ]);
+        assert_eq!(changed.modes_of(id(3), false), Some((face, 0b1)));
+
+        // Nothing stays on the stack from one turn into the next.
+        let past = book(&[
+            entry(1, LogEvent::TurnStarted { active: ME }),
+            aim(bolt(3), false, 0b10),
+            entry(2, LogEvent::TurnStarted { active: BO }),
+        ]);
+        assert_eq!(past.modes_of(id(3), false), None);
+
+        // A source the seat may not know, or an aim with no modes.
+        let unknown = book(&[
+            entry(1, LogEvent::TurnStarted { active: ME }),
+            aim(LogObject::Hidden, false, 0b10),
+            aim(bolt(3), false, 0),
+        ]);
+        assert_eq!(unknown.modes_of(id(3), false), None);
+    }
+
+    /// A line says the phase its entry was written in.
+    #[test]
+    fn a_line_carries_its_phase() {
+        let shuffled = LogEvent::Shuffled { player: BO };
+        let phased = LogEntry {
+            phase: Some(Phase::Combat),
+            ..entry(1, shuffled.clone())
+        };
+        assert_eq!(read(&book(&[phased]), Lang::En).phase, Some(Phase::Combat));
+        assert_eq!(read(&book(&[entry(1, shuffled)]), Lang::En).phase, None);
+    }

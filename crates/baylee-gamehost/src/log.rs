@@ -1952,3 +1952,76 @@ mod tests {
         );
     }
 }
+
+    /// The modes chosen for a spell say which card it is, as the ability
+    /// does: a seat that may not know the source is told neither the face
+    /// nor the modes, but still the targets.
+    #[test]
+    fn an_aimed_line_whose_source_a_seat_may_not_know_names_no_modes() {
+        let rules = RulesFace {
+            card: CardIndex::new(7),
+            face: 0,
+        };
+        let aimed = line(
+            LogEvent::Aimed {
+                controller: PlayerId::new(0),
+                source: known(1),
+                ability: false,
+                rules: Some(rules),
+                modes: 0b101,
+                targets: vec![
+                    LogTarget::Player(PlayerId::new(1)),
+                    LogTarget::Object(known(2)),
+                ],
+            },
+            vec![
+                Sees::Only(std::iter::once(PlayerId::new(0)).collect()),
+                Sees::Everyone,
+            ],
+        );
+        assert!(matches!(
+            aimed.told(PlayerId::new(0)).event,
+            LogEvent::Aimed {
+                rules: Some(_),
+                modes: 0b101,
+                ..
+            }
+        ));
+        assert_eq!(
+            aimed.told(PlayerId::new(1)).event,
+            LogEvent::Aimed {
+                controller: PlayerId::new(0),
+                source: LogObject::Hidden,
+                ability: false,
+                rules: None,
+                modes: 0,
+                targets: vec![
+                    LogTarget::Player(PlayerId::new(1)),
+                    LogTarget::Object(known(2))
+                ],
+            }
+        );
+    }
+
+    /// The same public line in two different phases is two lines: a reader
+    /// that groups a turn by phase must not find one phase's line folded
+    /// into another's. In the same phase it still folds.
+    #[test]
+    fn equal_lines_in_different_phases_do_not_fold() {
+        let mut log = a_log();
+        let shuffled = || LogEvent::Shuffled {
+            player: PlayerId::new(0),
+        };
+        log.phase = Some(Phase::FirstMain);
+        log.push(shuffled(), Vec::new());
+        log.push(shuffled(), Vec::new());
+        assert_eq!(log.len(), 1, "alike in one phase folds");
+        log.phase = Some(Phase::Combat);
+        log.push(shuffled(), Vec::new());
+        assert_eq!(log.len(), 2, "the next phase starts a line of its own");
+        let told = log.told(PlayerId::new(1), 0, log.len());
+        assert_eq!(
+            told.iter().map(|e| (e.repeat, e.phase)).collect::<Vec<_>>(),
+            [(2, Some(Phase::FirstMain)), (1, Some(Phase::Combat))]
+        );
+    }

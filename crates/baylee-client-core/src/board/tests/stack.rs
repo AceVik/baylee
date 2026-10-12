@@ -190,3 +190,96 @@ fn historical_target_keeps_its_name_but_never_points_at_a_returned_object() {
     assert_eq!(missing.stack[0].targets[0].name, None);
     assert_eq!(missing.stack[0].targets[0].object(), None);
 }
+
+/// The modes the game log announced fill the stack's entries: a spell takes
+/// those of its own line, an ability those of the line about an ability of
+/// its source, and an entry nothing was announced for takes none (and loses
+/// the modes of an earlier reading).
+#[test]
+fn a_stack_entry_takes_the_modes_the_log_announced() {
+    use baylee_view::{LogEntry, LogEvent, LogObject, LogTail, RulesFace};
+
+    let face = |card| RulesFace {
+        card: CardIndex::new(card),
+        face: 0,
+    };
+    let ability_of = |slot, source| {
+        let mut ability = token(slot, 0, "Ability", 0, 0);
+        ability.card = None;
+        ability.stack_item = Some(StackItem::Ability {
+            token: None,
+            source: ObjectId::new(source, 0),
+            ability: None,
+            text: None,
+            rules: None,
+        });
+        ability
+    };
+    let view = ViewBuilder::new(2)
+        .with_battlefield(
+            0,
+            [printed(1, 0, "Source", 1), printed(2, 0, "Spellsource", 2)],
+        )
+        .with_stack(vec![
+            printed(50, 0, "Charm", 50),
+            printed(51, 0, "Plain Bolt", 51),
+            ability_of(60, 1),
+            ability_of(61, 2),
+        ])
+        .build();
+    let named = |slot| LogObject::Known {
+        id: ObjectId::new(slot, 0),
+        card: None,
+        token: None,
+        name: format!("object {slot}"),
+    };
+    let aimed = |slot, ability, card, modes| LogEntry {
+        at: 0,
+        turn: 3,
+        repeat: 1,
+        event: LogEvent::Aimed {
+            controller: PlayerId::new(0),
+            source: named(slot),
+            ability,
+            rules: Some(face(card)),
+            modes,
+            targets: Vec::new(),
+        },
+        phase: None,
+    };
+    let mut log = crate::gamelog::LogBook::new();
+    let entries = [
+        aimed(50, false, 7, 0b10),
+        // An aim of the spell with the ability's source's number is not
+        // the ability's: only `ability: true` is read for an ability.
+        aimed(2, false, 8, 0b1),
+        aimed(1, true, 9, 0b100),
+    ];
+    log.append(
+        &LogTail {
+            from: 0,
+            entries: entries.to_vec(),
+        },
+        &view,
+    );
+
+    let mut m = model(&view);
+    assert!(m.stack.iter().all(|item| item.modes.is_none()), "unread");
+    m.take_modes(&log);
+    let modes: Vec<(ObjectId, Option<(RulesFace, u8)>)> =
+        m.stack.iter().map(|item| (item.id, item.modes)).collect();
+    // The model lists the entry that resolves next first.
+    assert_eq!(
+        modes,
+        [
+            (ObjectId::new(61, 0), None),
+            (ObjectId::new(60, 0), Some((face(9), 0b100))),
+            (ObjectId::new(51, 0), None),
+            (ObjectId::new(50, 0), Some((face(7), 0b10))),
+        ]
+    );
+
+    // Read again from a log that has said nothing, the modes are gone.
+    m.take_modes(&crate::gamelog::LogBook::new());
+    assert!(m.stack.iter().all(|item| item.modes.is_none()));
+}

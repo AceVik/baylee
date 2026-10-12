@@ -961,4 +961,206 @@ mod tests {
         assert_eq!(best_players(&players, "1"), [0]);
         assert!(best_players(&players, "You").is_empty());
     }
+
+    /// A token that copies a card has no card of its own, but it is the card
+    /// its rules are printed on: it is offered under that card, once for all
+    /// the copies a player has, and never while face down or when it has no
+    /// rules to name.
+    #[test]
+    fn a_copy_token_is_offered_as_the_card_it_copies() {
+        let copy = |slot, controller, name: &str| {
+            let mut object = token(slot, controller, name, 2, 2);
+            object.rules = Some(baylee_view::RulesFace {
+                card: CardIndex::new(5),
+                face: 0,
+            });
+            object
+        };
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                [
+                    copy(30, 0, "Lightning Bolt"),
+                    copy(31, 0, "Lightning Bolt"),
+                    face_down(copy(32, 0, "Hidden Copy")),
+                    token(33, 0, "Soldier", 1, 1),
+                ],
+            )
+            .with_battlefield(1, [copy(34, 1, "Lightning Bolt")])
+            .build();
+        let rows = candidates(&view, None, &german_five);
+        let got: Vec<(&str, u32, Option<RefZone>, Option<PlayerId>)> = rows
+            .iter()
+            .map(|r| (r.name.as_str(), r.card.get(), r.zone, r.owner))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                (
+                    "Blitzschlag",
+                    5,
+                    Some(RefZone::Battlefield),
+                    Some(PlayerId::new(0))
+                ),
+                (
+                    "Blitzschlag",
+                    5,
+                    Some(RefZone::Battlefield),
+                    Some(PlayerId::new(1))
+                ),
+            ],
+            "one row per owner; a face-down copy and a plain token give none"
+        );
+        assert_eq!(rows[0].english, "Lightning Bolt");
+        assert_eq!(rows[0].object, Some(ObjectId::new(30, 0)));
+        assert_eq!(rows[0].art, None, "a token has no printing of its own");
+        assert_eq!(best(&rows, "Light").len(), 2, "matched by its English name");
+        assert!(best(&rows, "Hidden").is_empty());
+    }
+
+    /// A real card already offered is not offered again as a copy of it.
+    #[test]
+    fn a_copy_of_a_card_already_offered_in_its_zone_adds_nothing() {
+        let mut copy = token(30, 0, "Island Copy", 0, 0);
+        copy.rules = Some(baylee_view::RulesFace {
+            card: CardIndex::new(11),
+            face: 0,
+        });
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [printed(11, 0, "Island", 11), copy])
+            .build();
+        let rows = candidates(&view, None, &no_text);
+        assert_eq!(rows.len(), 1, "{rows:?}");
+        assert_eq!(rows[0].name, "Island");
+    }
+
+    fn german_five(card: CardIndex, _: u8) -> Option<CardText> {
+        (card.get() == 5).then(|| CardText {
+            lang: "de".into(),
+            name: "Blitzschlag".into(),
+            type_line: String::new(),
+            oracle_text: String::new(),
+            mana_cost: String::new(),
+            english_name: "Lightning Bolt".into(),
+        })
+    }
+
+    /// A line of the log naming `objects` (a revealing, so every one of them
+    /// is one a seat was shown).
+    fn naming(objects: Vec<baylee_view::LogObject>) -> baylee_view::LogEntry {
+        baylee_view::LogEntry {
+            at: 0,
+            turn: 3,
+            repeat: 1,
+            event: baylee_view::LogEvent::Revealed {
+                player: PlayerId::new(1),
+                cards: objects,
+            },
+            phase: None,
+        }
+    }
+
+    fn named(slot: u32, card: u32, name: &str) -> baylee_view::LogObject {
+        baylee_view::LogObject::Known {
+            id: ObjectId::new(slot, 0),
+            card: Some(baylee_view::CardIdentity {
+                index: CardIndex::new(card),
+                print: PrintRef::new(u16::try_from(card).expect("small")),
+                face: 0,
+            }),
+            token: None,
+            name: name.into(),
+        }
+    }
+
+    fn book_of(entries: Vec<baylee_view::LogEntry>) -> crate::gamelog::LogBook {
+        let mut book = crate::gamelog::LogBook::new();
+        book.append(
+            &baylee_view::LogTail { from: 0, entries },
+            &ViewBuilder::new(2).build(),
+        );
+        book
+    }
+
+    /// Every card the log named that the rows lack is added once, after
+    /// them, as seen this game: with its printing, but no object and no
+    /// owner, since it is nowhere in sight.
+    #[test]
+    fn a_card_the_log_named_is_offered_once_after_the_rest() {
+        let book = book_of(vec![
+            naming(vec![named(40, 5, "Lightning Bolt"), named(41, 6, "Opt")]),
+            // Again, in another line, and as the target of an aim.
+            naming(vec![named(40, 5, "Lightning Bolt")]),
+            baylee_view::LogEntry {
+                at: 0,
+                turn: 3,
+                repeat: 1,
+                event: baylee_view::LogEvent::Aimed {
+                    controller: PlayerId::new(1),
+                    source: named(42, 8, "Wrath of God"),
+                    ability: false,
+                    rules: None,
+                    modes: 0,
+                    targets: vec![baylee_view::LogTarget::Object(named(43, 6, "Opt"))],
+                },
+                phase: None,
+            },
+        ]);
+        let mut rows = vec![card("Island", 11, Some(RefZone::Battlefield))];
+        logged(&book, Some(&statics(30)), &german_five, &mut rows);
+        let got: Vec<(&str, u32, Option<RefZone>)> = rows
+            .iter()
+            .map(|r| (r.name.as_str(), r.card.get(), r.zone))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                ("Island", 11, Some(RefZone::Battlefield)),
+                ("Blitzschlag", 5, Some(RefZone::Logged)),
+                ("Opt", 6, Some(RefZone::Logged)),
+                ("Wrath of God", 8, Some(RefZone::Logged)),
+            ]
+        );
+        let seen = &rows[1];
+        assert_eq!(seen.english, "Lightning Bolt");
+        assert_eq!((seen.object, seen.owner), (None, None));
+        assert_eq!(seen.art, Some(PrintRef::new(5)));
+        let print = seen.print.as_ref().expect("the table's printing");
+        assert_eq!(
+            (print.lang.as_str(), print.finish.as_str()),
+            ("en", "normal")
+        );
+    }
+
+    /// A card the rows already offer, in any zone, is not offered again as
+    /// seen; neither is anything the log did not show the seat: a face-down
+    /// permanent, a card it hid, a token.
+    #[test]
+    fn the_log_adds_no_card_that_is_offered_or_was_not_shown() {
+        let token_named = baylee_view::LogObject::Known {
+            id: ObjectId::new(44, 0),
+            card: None,
+            token: None,
+            name: "Soldier".into(),
+        };
+        let book = book_of(vec![naming(vec![
+            named(40, 5, "Lightning Bolt"),
+            baylee_view::LogObject::FaceDown {
+                id: ObjectId::new(45, 0),
+            },
+            baylee_view::LogObject::Hidden,
+            token_named,
+        ])]);
+        let mut rows = vec![card("Lightning Bolt", 5, Some(RefZone::Graveyard))];
+        logged(&book, None, &no_text, &mut rows);
+        assert_eq!(rows.len(), 1, "{rows:?}");
+
+        let mut none = Vec::new();
+        logged(&book, None, &no_text, &mut none);
+        assert_eq!(
+            none.iter().map(|r| r.card.get()).collect::<Vec<_>>(),
+            [5],
+            "only the card the seat was shown"
+        );
+    }
 }
