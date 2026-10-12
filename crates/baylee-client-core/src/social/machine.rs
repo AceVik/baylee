@@ -169,6 +169,9 @@ pub struct Social {
     sent_invites: BTreeMap<String, Person>,
     leave_armed: Option<String>,
     last_group: Option<String>,
+    /// Tags whose cached keys a refusal showed out of date: fetched again
+    /// before the next seal.
+    stale: BTreeSet<String>,
     /// Effects made where no output was at hand, sent with the next batch.
     queued: Vec<Effect>,
     /// The latest time an input carried.
@@ -250,6 +253,7 @@ impl Social {
             sent_invites: BTreeMap::new(),
             leave_armed: None,
             last_group: None,
+            stale: BTreeSet::new(),
             queued: Vec::new(),
             last_now: now_ms,
             evidence: BTreeMap::new(),
@@ -451,6 +455,7 @@ impl Social {
                             continue;
                         }
                         let diff = self.state.keys.take(account, now_ms);
+                        self.stale.remove(&account.tag);
                         self.dirty = true;
                         self.keys_diff(&diff, now_ms, &mut out);
                     }
@@ -1553,11 +1558,23 @@ impl Social {
         }
     }
 
+    /// Whether `tag`'s keys are cached and not known to be out of date.
+    fn keys_fresh(&self, tag: &str) -> bool {
+        self.state.keys.has(tag) && !self.stale.contains(tag)
+    }
+
     /// Tags the gateway left out of a key answer: this account may not
     /// write to them; sends waiting on them fail.
     fn keys_refused(&mut self, tags: &[String], now_ms: u64) {
         if tags.is_empty() {
             return;
+        }
+        // The gateway no longer lets this account write to them: what was
+        // cached is no reason to keep sealing for them.
+        for tag in tags {
+            if self.stale.remove(tag) {
+                self.state.keys.forget(tag);
+            }
         }
         let failing: Vec<usize> = self
             .outbox
@@ -1565,10 +1582,9 @@ impl Social {
             .enumerate()
             .filter(|(_, p)| {
                 p.wait == Wait::Keys
-                    && self.members(&p.key.conv).is_some_and(|m| {
-                        m.iter()
-                            .any(|t| tags.contains(t) && !self.state.keys.has(t))
-                    })
+                    && self
+                        .members(&p.key.conv)
+                        .is_some_and(|m| m.iter().any(|t| tags.contains(t) && !self.keys_fresh(t)))
             })
             .map(|(i, _)| i)
             .collect();
@@ -1717,7 +1733,7 @@ impl Social {
                 failed.push((i, ChatPhrase::SendNotAllowed));
                 continue;
             };
-            let lacking: Vec<&String> = tags.iter().filter(|t| !self.state.keys.has(t)).collect();
+            let lacking: Vec<&String> = tags.iter().filter(|t| !self.keys_fresh(t)).collect();
             if !lacking.is_empty() {
                 missing.extend(lacking.into_iter().cloned());
                 self.outbox[i].wait = Wait::Keys;
@@ -1811,9 +1827,10 @@ impl Social {
                     self.outbox[i].wait = Wait::Keys;
                     let conv = self.outbox[i].key.conv.clone();
                     let tags = self.members(&conv).unwrap_or_default();
-                    for tag in &tags {
-                        self.state.keys.forget(tag);
-                    }
+                    // Fetched again, not forgotten: the cache keeps the old
+                    // set, so the answer's diff says what changed (§4.5) and
+                    // a verified mark drops only if the devices did.
+                    self.stale.extend(tags);
                     self.pump(now_ms, rng, out);
                     return;
                 }
@@ -1902,18 +1919,15 @@ impl Social {
     }
 
     fn retry_held(&mut self, now_ms: u64, rng: &mut dyn Entropy, out: &mut Vec<Effect>) {
-        let held = std::mem::take(&mut self.held);
-        let mut waiting = Vec::new();
+        // Every held delivery stays in `held` until it is done, so an ack
+        // never passes one still waiting (oldest first, as they came).
+        self.held.sort_by_key(|h| h.seq);
+        let held = self.held.clone();
         for msg in held {
-            if self.fetching.contains(&msg.from.tag) {
-                waiting.push(msg);
-            } else {
-                self.held = waiting.clone();
+            if !self.fetching.contains(&msg.from.tag) {
                 self.receive(msg, true, now_ms, rng, out);
-                waiting = std::mem::take(&mut self.held);
             }
         }
-        self.held = waiting;
         self.ack(out);
     }
 
@@ -1929,11 +1943,14 @@ impl Social {
         let Ok(conv) = msg.conv.parse::<Conv>() else {
             return Verdict::Done;
         };
-        let known_conv = self.convs.iter().any(|c| c.id == conv);
+        // A notice goes only where the sender may write: a forged delivery
+        // must not open a tab (or a state entry) for a conversation this
+        // account isn't in.
+        let member = self.may_hear(&conv, &msg.from.tag, now_ms);
         let decoded = match Decoded::read(&msg.conv, &msg.from, &msg.sealed) {
             Ok(decoded) => decoded,
             Err(fault) => {
-                if known_conv {
+                if member {
                     let phrase = if fault == OpenFault::Mismatch {
                         ChatPhrase::MisaddressedDropped
                     } else {
@@ -1960,12 +1977,16 @@ impl Social {
             if self.fetching.contains(&msg.from.tag) {
                 return Verdict::Hold;
             }
-            let name = self.shown_name(&self.person_of(&msg.from.tag));
-            self.notice(&conv, ChatPhrase::UnknownDevice, vec![name], now_ms);
+            if member {
+                let name = self.shown_name(&self.person_of(&msg.from.tag));
+                self.notice(&conv, ChatPhrase::UnknownDevice, vec![name], now_ms);
+            }
             return Verdict::Done;
         };
         let Ok(opened) = decoded.open(&self.device, &device) else {
-            self.notice(&conv, ChatPhrase::MessageDropped, Vec::new(), now_ms);
+            if member {
+                self.notice(&conv, ChatPhrase::MessageDropped, Vec::new(), now_ms);
+            }
             return Verdict::Done;
         };
         let header = &decoded.header;
@@ -1978,14 +1999,13 @@ impl Social {
         }
         // Step 5: the body.
         let Some(body) = opened.body.clone().checked() else {
-            self.notice(&conv, ChatPhrase::MessageDropped, Vec::new(), now_ms);
+            if member {
+                self.notice(&conv, ChatPhrase::MessageDropped, Vec::new(), now_ms);
+            }
             return Verdict::Done;
         };
         // Step 6: membership — what stops a forwarded message.
-        if !self.may_hear(&conv, &msg.from.tag, now_ms) {
-            if known_conv {
-                self.notice(&conv, ChatPhrase::MisaddressedDropped, Vec::new(), now_ms);
-            }
+        if !member {
             return Verdict::Done;
         }
         self.state.seen.insert(header.id.clone(), now_ms);

@@ -7,7 +7,7 @@
 
 #![allow(dead_code)] // helpers for every test module, not each one
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use baylee_protocol::social::{
     AccountKeys, Conv, Delivered, DeviceKey, DeviceList, DeviceRow as WireDeviceRow, Down, Friend,
@@ -16,7 +16,10 @@ use baylee_protocol::social::{
 use baylee_seal::b64::url;
 use baylee_seal::testkit::Seeded;
 
-use crate::social::{ChatPrefs, Effect, Me, MemoryDisk, Method, Social, SocialLink, disk};
+use crate::social::{
+    ChatLine, ChatPhrase, ChatPrefs, Conversation, Effect, LineKind, Me, MemoryDisk, Method,
+    Social, SocialLink, disk,
+};
 
 /// One registered device.
 #[derive(Clone, Debug)]
@@ -53,6 +56,9 @@ pub struct Gateway {
     pub ups: Vec<(String, Up)>,
     /// Whether a device's socket is up (welcomed).
     pub online: BTreeSet<String>,
+    /// Refusals the next sends get, in order, before any rule is applied
+    /// (a rate limit, a refusal the rules alone would not make here).
+    pub refuse_sends: VecDeque<Why>,
 }
 
 impl Gateway {
@@ -127,6 +133,38 @@ impl Gateway {
                 .collect(),
             ..Snapshot::default()
         }
+    }
+
+    /// The ids of the devices registered for `tag`, in registration order.
+    pub fn device_ids(&self, tag: &str) -> Vec<String> {
+        self.devices
+            .iter()
+            .filter(|d| d.tag == tag)
+            .map(|d| d.id.clone())
+            .collect()
+    }
+
+    /// The frames waiting in a device's slots.
+    pub fn waiting(&self, dev: &str) -> Vec<Down> {
+        self.slots
+            .get(dev)
+            .into_iter()
+            .flatten()
+            .map(|s| s.frame.clone())
+            .collect()
+    }
+
+    /// How many `Up::Send` frames the device `dev` has put on the wire.
+    pub fn sends_from(&self, dev: &str) -> usize {
+        self.ups
+            .iter()
+            .filter(|(d, up)| d == dev && matches!(up, Up::Send { .. }))
+            .count()
+    }
+
+    /// `tag` as the gateway names a person.
+    pub fn person_of(&self, tag: &str) -> Person {
+        self.person(tag)
     }
 
     fn device(&self, id: &str) -> Option<&Device> {
@@ -265,6 +303,9 @@ impl Gateway {
                         message: None,
                     }]
                 };
+                if let Some(why) = self.refuse_sends.pop_front() {
+                    return refuse(why, vec![], vec![]);
+                }
                 let Ok(hdr) = url::decode(&sealed.hdr) else {
                     return refuse(Why::BadSealed, vec![], vec![]);
                 };
@@ -342,6 +383,15 @@ pub struct Client {
     pub rng: Seeded,
     pub now: u64,
     pub tag: String,
+    /// The handle this account signed in with.
+    pub handle: String,
+    /// The chat settings this device runs with.
+    pub prefs: ChatPrefs,
+    /// Every effect the machine produced, in order, disk effects included.
+    pub log: Vec<Effect>,
+    /// Frames the gateway answers are lost (the link broke before they
+    /// came): the gateway still handles the send.
+    pub drop_answers: bool,
     /// Effects that were not for the gateway (toasts, sounds, …).
     pub seen: Vec<Effect>,
     /// Frames waiting for this client.
@@ -352,6 +402,17 @@ pub struct Client {
 impl Client {
     /// A new device for `tag` (`handle`), entropy from `seed`.
     pub fn new(gw: &mut Gateway, tag: &str, handle: &str, seed: u64) -> Self {
+        Self::with_prefs(gw, tag, handle, seed, ChatPrefs::default())
+    }
+
+    /// A new device that runs with `prefs`.
+    pub fn with_prefs(
+        gw: &mut Gateway,
+        tag: &str,
+        handle: &str,
+        seed: u64,
+        prefs: ChatPrefs,
+    ) -> Self {
         gw.handles.insert(tag.to_string(), handle.to_string());
         let mut rng = Seeded::new(seed);
         let me = Me {
@@ -360,8 +421,7 @@ impl Client {
             guest: false,
             gateway: "https://gw.test".into(),
         };
-        let (social, effects) =
-            Social::start(me, None, None, ChatPrefs::default(), 1_000, &mut rng);
+        let (social, effects) = Social::start(me, None, None, prefs.clone(), 1_000, &mut rng);
         let mut client = Self {
             social,
             disk: MemoryDisk::new(),
@@ -369,6 +429,10 @@ impl Client {
             rng,
             now: 1_000,
             tag: tag.to_string(),
+            handle: handle.to_string(),
+            prefs,
+            log: Vec::new(),
+            drop_answers: false,
             seen: Vec::new(),
             inbox: Vec::new(),
             linked: false,
@@ -379,12 +443,7 @@ impl Client {
 
     /// This device's id.
     pub fn device(&self) -> String {
-        self.social
-            .own_devices()
-            .iter()
-            .find(|d| d.this)
-            .map(|d| d.id.clone())
-            .unwrap_or_default()
+        self.social_device()
     }
 
     /// Carries out effects until none are left for the gateway.
@@ -394,6 +453,7 @@ impl Client {
         while let Some(effect) = queue.pop_front() {
             guard += 1;
             assert!(guard < 10_000, "effects never settle");
+            self.log.push(effect.clone());
             if let Some(result) = disk::apply(&effect, &mut self.disk) {
                 result.expect("memory disk");
                 continue;
@@ -420,7 +480,11 @@ impl Client {
                 Effect::Hang => self.linked = false,
                 Effect::Up(frame) => {
                     let dev = self.social_device();
+                    let lost = self.drop_answers && matches!(frame, Up::Send { .. });
                     let back = gw.up(&self.tag, &dev, frame);
+                    if lost {
+                        continue;
+                    }
                     for down in back {
                         let more = self.social.on_frame(down, self.now, &mut self.rng);
                         queue.extend(more);
@@ -474,5 +538,139 @@ impl Client {
                     .collect()
             })
             .unwrap_or_default()
+    }
+}
+
+/// Driving a client further: restarts, the clock, the link, injected frames
+/// and a reader's view of the lines.
+impl Client {
+    /// Hands the machine one frame from the socket and carries out what
+    /// comes of it.
+    pub fn feed(&mut self, gw: &mut Gateway, frame: Down) {
+        let effects = self.social.on_frame(frame, self.now, &mut self.rng);
+        self.run(gw, effects);
+    }
+
+    /// Quits and starts again from what is on its disk and in its secret
+    /// store, as the app does: the state file's bytes, the stored secret,
+    /// this device's settings. The history is not restored; call
+    /// [`Client::restore`] for that.
+    pub fn restart(&mut self, gw: &mut Gateway) {
+        let me = Me {
+            tag: self.tag.clone(),
+            handle: self.handle.clone(),
+            guest: false,
+            gateway: "https://gw.test".into(),
+        };
+        let stored = disk::ChatDisk::read(&self.disk, disk::STATE_FILE);
+        let (social, effects) = Social::start(
+            me,
+            stored,
+            self.secrets.clone(),
+            self.prefs.clone(),
+            self.now,
+            &mut self.rng,
+        );
+        self.social = social;
+        self.linked = false;
+        self.run(gw, effects);
+    }
+
+    /// Loads the history from the disk; returns what the machine said.
+    pub fn restore(&mut self, gw: &mut Gateway) -> Vec<Effect> {
+        let effects = self.social.restore(&self.disk, self.now, &mut self.rng);
+        self.run(gw, effects.clone());
+        effects
+    }
+
+    /// The player asks for something.
+    pub fn act(&mut self, gw: &mut Gateway, intent: crate::social::Intent) -> Vec<Effect> {
+        let effects = self.social.act(intent, self.now, &mut self.rng);
+        self.run(gw, effects.clone());
+        effects
+    }
+
+    /// The socket closed.
+    pub fn link_down(&mut self, gw: &mut Gateway) {
+        self.linked = false;
+        let effects = self.social.on_link(SocialLink::Down, self.now);
+        self.run(gw, effects);
+    }
+
+    /// The socket opened: the machine says Hello and goes on from the
+    /// gateway's Welcome.
+    pub fn link_up(&mut self, gw: &mut Gateway) {
+        self.linked = true;
+        let effects = self.social.on_link(SocialLink::Up, self.now);
+        self.run(gw, effects);
+    }
+
+    /// The clock reached `now`: the machine's tick, then whatever waits to
+    /// be sealed.
+    pub fn tick(&mut self, gw: &mut Gateway, now: u64) {
+        self.now = now;
+        let effects = self.social.tick(now, 0);
+        self.run(gw, effects);
+        let effects = self.social.flush(now, &mut self.rng);
+        self.run(gw, effects);
+    }
+
+    /// The conversation `conv`, if the machine has it.
+    pub fn conv(&self, conv: &str) -> Option<&Conversation> {
+        let id: Conv = conv.parse().expect("a conversation");
+        self.social.conversation(&id)
+    }
+
+    /// Every line of `conv`.
+    pub fn lines(&self, conv: &str) -> Vec<&ChatLine> {
+        self.conv(conv)
+            .map_or_else(Vec::new, |c| c.lines.iter().collect())
+    }
+
+    /// The message lines of `conv` (not the notices).
+    pub fn message_lines(&self, conv: &str) -> Vec<&ChatLine> {
+        self.lines(conv)
+            .into_iter()
+            .filter(|l| matches!(l.kind, LineKind::Message { .. }))
+            .collect()
+    }
+
+    /// The notice lines of `conv`: what they say and their values.
+    pub fn notices(&self, conv: &str) -> Vec<(ChatPhrase, Vec<String>)> {
+        self.lines(conv)
+            .into_iter()
+            .filter_map(|l| match &l.kind {
+                LineKind::Notice { phrase, args } => Some((*phrase, args.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// How many message lines the machine holds in all its conversations.
+    pub fn message_count(&self) -> usize {
+        self.social
+            .conversations()
+            .iter()
+            .flat_map(|c| c.lines.iter())
+            .filter(|l| matches!(l.kind, LineKind::Message { .. }))
+            .count()
+    }
+
+    /// The `upto` of every ack this client sent, in order.
+    pub fn acks(&self) -> Vec<u64> {
+        self.log
+            .iter()
+            .filter_map(|e| match e {
+                Effect::Up(Up::Ack { upto }) => Some(*upto),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Whether the effects hold a toast or a sound.
+    pub fn made_noise(effects: &[Effect]) -> bool {
+        effects
+            .iter()
+            .any(|e| matches!(e, Effect::Toast(_) | Effect::Sound(_)))
     }
 }

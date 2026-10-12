@@ -3,6 +3,10 @@
 mod fakegw;
 mod smoke;
 
+// Flows through the fake gateway (one writer).
+mod flows;
+mod history_disk;
+
 // Pure units (another writer).
 mod commands;
 mod compose;
