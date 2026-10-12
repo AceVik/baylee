@@ -1293,3 +1293,78 @@ fn a_phantasmal_copy_is_sacrificed_when_a_trigger_targets_it() {
         "and the Elf it copied is untouched"
     );
 }
+
+fn saffi_eriksdotter() -> baylee_core::ids::CardIndex {
+    card_index("84ba3e2c-ea96-470b-92c6-b937dc87549b")
+}
+
+/// A clone entering as a copy of `seat 0`'s legend, answered up to the first
+/// question that is not a pass with something on the stack.
+fn a_clone_of_my_legend(
+    seed: u64,
+    clone: baylee_core::ids::CardIndex,
+) -> (Engine<RegistryLookup>, baylee_core::ids::ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(seed, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), saffi_eriksdotter()],
+        )
+        .hand(0, &[clone])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let legend = on_battlefield(&engine, p0, saffi_eriksdotter()).expect("the legend");
+    cast_from_hand(&mut engine, p0, clone);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![legend],
+            },
+        )
+        .expect("my legend is a creature I control");
+    while let Pending::Priority { player, .. } = engine.pending().clone() {
+        if stack_is_empty(&engine) {
+            break;
+        }
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    let copy = on_battlefield(&engine, p0, clone).expect("the copy arrived");
+    (engine, copy)
+}
+
+/// Spark Double's "…and it isn't legendary" (CR 707.9b): the copy of a legend
+/// is no legend, so the legend rule has nothing to ask — while Glasspool
+/// Mimic, whose exception adds only creature types, is a legendary copy
+/// sharing the legend's name and is asked about (CR 704.5j). Reported from a
+/// beta game as a legend-rule prompt beside a copy said not to be legendary;
+/// both halves read the copy's projected supertypes, which this pins.
+#[test]
+fn only_a_copy_that_stays_legendary_meets_the_legend_rule() {
+    let (engine, double) = a_clone_of_my_legend(90, spark_double());
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "no legend rule for a copy that isn't legendary: {:?}",
+        engine.pending()
+    );
+    assert!(
+        !engine
+            .state()
+            .object(double)
+            .expect("the copy")
+            .characteristics()
+            .supertypes
+            .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+    );
+
+    let (engine, mimic) = a_clone_of_my_legend(92, glasspool_mimic());
+    assert!(
+        matches!(engine.pending(), Pending::LegendChoice { options, .. } if options.contains(&mimic)),
+        "a legendary copy keeps the legend rule: {:?}",
+        engine.pending()
+    );
+}
