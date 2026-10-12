@@ -82,6 +82,16 @@ impl YesBatch {
                 self.answered = Some(top);
                 PlayerAction::YesNo(true)
             }
+            // A payment window is a priority this seat owes mana in: passing
+            // it refuses the payment (#01), so the batch stops there.
+            Pending::Priority { player, .. }
+                if *player == view.seat
+                    && view.owed.is_some()
+                    && view.awaiting == Some(view.seat) =>
+            {
+                self.remaining.clear();
+                return None;
+            }
             Pending::Priority { player, .. } if *player == view.seat => PlayerAction::PassPriority,
             Pending::Priority { .. } => return None,
             _ => {

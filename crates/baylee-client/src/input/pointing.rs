@@ -180,7 +180,10 @@ pub fn pointer(
                     .and_then(|i| i.answer_mulligan(false)),
                 // In a payment window confirm pays: the lands still owed
                 // are tapped and the window settled after the last tap.
-                PromptAction::Confirm if duel.pay_owed() => None,
+                PromptAction::Confirm if duel.paying() => {
+                    duel.confirm_payment();
+                    None
+                }
                 PromptAction::Confirm => {
                     let answer = committed_answer(&duel);
                     if answer.is_none() {

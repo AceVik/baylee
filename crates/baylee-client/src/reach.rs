@@ -105,7 +105,12 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         return std::collections::HashSet::new();
     };
     let affordable = |id, cost: baylee_core::mana::ManaCost| {
-        let cost = cost.with_more_generic(
+        // An `{X}` is the player's to announce, after the cast is begun
+        // (CR 601.2b): the least it can be is 0, so a card is in reach when
+        // the rest of its cost is. Refusing every X cost left Prismatic
+        // Ending (`{X}{W}`) answering no click while the engine offered it
+        // (#17); the X question is then capped by what the mana pays.
+        let cost = least_x(cost).with_more_generic(
             legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
         );
         baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
@@ -332,4 +337,14 @@ pub(super) fn commander_cost(
     let def = baylee_cards::by_index(card.index)?;
     let face = def.faces.get(card.face as usize).or(def.faces.first())?;
     Some(face.mana_cost)
+}
+
+/// `cost` with each `{X}` at its least, 0 (CR 107.3): what reaching for an X
+/// spell has to be able to pay before the player names the X.
+pub(super) fn least_x(cost: baylee_core::mana::ManaCost) -> baylee_core::mana::ManaCost {
+    if cost.has_variable() {
+        cost.with_x(0)
+    } else {
+        cost
+    }
 }
