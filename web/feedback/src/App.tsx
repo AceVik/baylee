@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 
 import { Admin } from "./Admin";
+import { ContactList, ContactPage } from "./Contact";
 import { api, onSignedOut } from "./api";
 import { browserLang, t } from "./i18n";
 import { Login } from "./Login";
@@ -96,6 +97,8 @@ export function App() {
     );
   }
   const onAdmin = route.page === "admin" && auth.console;
+  const onContact = route.page === "contact";
+  const onReports = !onAdmin && !onContact;
   return (
     <>
       <header className={scrolled ? "bar folded" : "bar"}>
@@ -105,16 +108,19 @@ export function App() {
             Baylee
           </span>
         </a>
-        {auth.console && (
-          <nav className="tabs" aria-label={t(lang, "nav.label")}>
-            <a href={listPath()} aria-current={onAdmin ? undefined : "page"} onClick={go(listPath())}>
-              {t(lang, "nav.reports")}
-            </a>
+        <nav className="tabs" aria-label={t(lang, "nav.label")}>
+          <a href={listPath()} aria-current={onReports ? "page" : undefined} onClick={go(listPath())}>
+            {t(lang, "nav.reports")}
+          </a>
+          <a href="/contact" aria-current={onContact ? "page" : undefined} onClick={go("/contact")}>
+            {t(lang, "nav.contact")}
+          </a>
+          {auth.console && (
             <a href="/admin" aria-current={onAdmin ? "page" : undefined} onClick={go("/admin")}>
               {t(lang, "nav.admin")}
             </a>
-          </nav>
-        )}
+          )}
+        </nav>
         <span className="spacer" />
         <span className="muted who" title="Signed in as">
           {auth.name}
@@ -130,6 +136,12 @@ export function App() {
           id={route.page === "admin" ? route.id : undefined}
           search={route.page === "admin" ? route.search : undefined}
         />
+      ) : route.page === "contact" ? (
+        route.id === undefined ? (
+          <ContactList lang={lang} search={route.search} />
+        ) : (
+          <ContactPage key={route.id} lang={lang} id={route.id} />
+        )
       ) : route.page === "report" ? (
         <ReportDetail id={route.id} key={route.id} lang={lang} />
       ) : (

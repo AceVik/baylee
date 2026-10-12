@@ -52,6 +52,34 @@ export interface Report extends Summary {
   client: Record<string, unknown>;
 }
 
+/** A message from the landing page's contact form (`docs/feedback.md`). */
+export interface ContactMessage {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string | null;
+  email: string | null;
+  message: string;
+  language: "en" | "de";
+  status: ContactStatus;
+  done_at: string | null;
+}
+
+export const CONTACT_STATUSES = ["new", "done"] as const;
+export type ContactStatus = (typeof CONTACT_STATUSES)[number];
+
+/** `GET /ui/api/contact`: the newest messages the filter matches. */
+export interface ContactListing {
+  open: number;
+  total: number;
+  messages: ContactMessage[];
+}
+
+/** `GET /ui/api/contact/{id}`: one message and what was done with it. */
+export interface ContactDetail extends ContactMessage {
+  audit: AuditEntry[];
+}
+
 export interface Listing {
   total: number;
   reports: Summary[];
@@ -689,6 +717,16 @@ export const api = {
     await request("DELETE", `/ui/api/reports/${encodeURIComponent(id)}`);
   },
   recordUrl: (id: string) => `/ui/api/reports/${encodeURIComponent(id)}/record`,
+  contact: {
+    list: (status?: ContactStatus) =>
+      json<ContactListing>("GET", status === undefined ? "/ui/api/contact" : `/ui/api/contact?status=${status}`),
+    one: (id: string) => json<ContactDetail>("GET", `/ui/api/contact/${encodeURIComponent(id)}`),
+    mark: (id: string, status: ContactStatus) =>
+      json<ContactDetail>("PATCH", `/ui/api/contact/${encodeURIComponent(id)}`, { status }),
+    remove: async (id: string) => {
+      await request("DELETE", `/ui/api/contact/${encodeURIComponent(id)}`);
+    },
+  },
   admin: {
     stats: () => json<Stats>("GET", "/ui/api/admin/stats"),
     live: () => json<Live>("GET", "/ui/api/admin/live"),
