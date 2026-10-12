@@ -4,8 +4,6 @@
 //! Oracle: Creatures you control can't attack.
 //! Oracle: Prevent all damage that would be dealt to you.
 //! Set: ME2 #229 — Masters Edition II | Scryfall ID: 0c008129-daba-46bc-829c-d2c0c13ecdd3 | Oracle ID: 73e7a2ad-d11c-4867-b97d-f971809da778
-// PARTIAL — the enter trigger sacrifices a land; the other three clauses have
-// no vocabulary (see the NOT SUPPORTED lines below).
 
 use baylee_cards_dsl::prelude::*;
 
@@ -14,18 +12,39 @@ card!(
     oracle_id = "73e7a2ad-d11c-4867-b97d-f971809da778",
     scryfall_id = "0c008129-daba-46bc-829c-d2c0c13ecdd3",
     faces = &[face!(name = "Glacial Chasm", types = TypeSet::LAND,),],
-    coverage = Coverage::Partial(
-        "no cumulative upkeep; no attack prohibition; no damage prevention to a player",
-    ),
-    abilities = &[triggered!(
-        Trigger::ETB,
-        &[Effect::SacrificeFilter {
-            who: PlayerRel::You,
-            filter: &Filter::LAND,
-        }]
-    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: PlayerRel::You
+            },
+            &[
+                Effect::AddCounter {
+                    kind: counters::AGE,
+                    amount: Amount::Fixed(1)
+                },
+                Effect::PlayerMayPayLifeOr {
+                    player: PlayerRel::You,
+                    life: Amount::Times {
+                        base: &Amount::CountersOnSource(counters::AGE),
+                        factor: 2
+                    },
+                    effect: &Effect::SacrificeSelf
+                },
+            ],
+            condition = Some(Condition::SourceMatches(&Filter::InZone(
+                ZoneRef::Battlefield
+            )))
+        ),
+        triggered!(
+            Trigger::ETB,
+            &[Effect::SacrificeFilter {
+                who: PlayerRel::You,
+                filter: &Filter::LAND
+            }]
+        ),
+        static_ability!(Filter::YOUR_CREATURE, Modifier::CantAttack),
+        static_ability!(Filter::This, Modifier::PreventDamageToYouFrom(&Filter::Any)),
+    ],
 );
-
-// NOT SUPPORTED: Cumulative upkeep—Pay 2 life. (no ability kind for cumulative upkeep; `Echo` and `Prepared` are fixed one-shots and nothing models age counters)
-// NOT SUPPORTED: Creatures you control can't attack. (no `Modifier` forbids attacking)
-// NOT SUPPORTED: Prevent all damage that would be dealt to you. (`PreventDamageToIt`/`PreventDamageFromIt` reach an object; no `Modifier` prevents damage to a player)

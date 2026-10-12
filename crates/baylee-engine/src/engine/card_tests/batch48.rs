@@ -11,7 +11,11 @@ const P1: PlayerId = PlayerId::new(1);
 
 mod event_fixtures;
 mod focused;
+mod history_edges;
+mod ichneumon;
+mod lilypad;
 mod miter_edges;
+mod oscorp;
 mod storm_edges;
 mod valakut_edges;
 

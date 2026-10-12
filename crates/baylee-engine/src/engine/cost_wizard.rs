@@ -339,6 +339,9 @@ pub(crate) fn pay(
         state.record_discard(chosen, player, None, true);
     }
     state.move_object(chosen, to, ZonePosition::Top, Cause::Cost)?;
+    if matches!(part, CostPart::Discard(_)) {
+        state.record_discard_successor(chosen, player);
+    }
     Ok(())
 }
 

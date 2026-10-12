@@ -547,15 +547,18 @@
       "cards": [
         {
           "name": "Ichneumon Druid",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_3/ichneumon_druid.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/ichneumon_druid.rs",
+          "status": "completed"
         },
         {
           "name": "Lilypad Village",
-          "path": "crates/baylee-cards/src/cards/lands/restricted/lilypad_village.rs"
+          "path": "crates/baylee-cards/src/cards/lands/restricted/lilypad_village.rs",
+          "status": "completed"
         },
         {
           "name": "Oscorp Industries",
-          "path": "crates/baylee-cards/src/cards/lands/utility/oscorp_industries.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/oscorp_industries.rs",
+          "status": "completed"
         },
         {
           "name": "Havengul Laboratory // Havengul Mystery",
@@ -609,8 +612,8 @@
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/thousand_moons_smithy.rs"
         }
       ],
-      "validated_complete": 7,
-      "remaining_note": "Seven cards remain Partial: historical predicates, Imprison and transform follow-ups need further engine support."
+      "validated_complete": 10,
+      "remaining_note": "Remaining cards require shared engine support and actual-action validation."
     },
     {
       "batch": 49,
@@ -791,7 +794,7 @@
     {
       "batch": 52,
       "title": "Layered restrictions and protection",
-      "status": "pending",
+      "status": "in_progress",
       "cards": [
         {
           "name": "Johan",
@@ -823,7 +826,8 @@
         },
         {
           "name": "Glacial Chasm",
-          "path": "crates/baylee-cards/src/cards/lands/utility/glacial_chasm.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/glacial_chasm.rs",
+          "status": "completed"
         },
         {
           "name": "Arcane Lighthouse",
@@ -845,7 +849,9 @@
           "name": "The One Ring",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/the_one_ring.rs"
         }
-      ]
+      ],
+      "validated_complete": 1,
+      "remaining_note": "Remaining cards require shared engine support and actual-action validation."
     },
     {
       "batch": 53,
@@ -1330,5 +1336,22 @@
       ]
     }
   ],
-  "stop_after_cards": "Owner instruction 2026-10-12: stop after all 540 original Partial cards are fully implemented and validated; save/compact context and wait for explicit Go before post-card test/build/performance phases or final main integration/push."
+  "stop_after_cards": "Owner instruction 2026-10-12: stop after all 540 original Partial cards are fully implemented and validated; save/compact context and wait for explicit Go before post-card test/build/performance phases or final main integration/push.",
+  "current_session_scope": {
+    "batches": [
+      46,
+      48,
+      52,
+      54
+    ],
+    "target_original_cards_complete": 427,
+    "then": [
+      "rebase on current main",
+      "push",
+      "save compact handoff",
+      "wait for user after app restart"
+    ],
+    "authorized_on": "2026-10-12",
+    "note": "Owner explicitly selected all partly completed batches; do not start further batches before restart."
+  }
 }

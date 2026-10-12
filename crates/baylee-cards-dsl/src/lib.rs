@@ -750,6 +750,7 @@ keywords! {
     // A text-independent CDA, like the existing UNBLOCKABLE rule marker.
     ALL_NONBASIC_LAND_TYPES = 48, "Every nonbasic land type in every zone.";
     STORM = 49, "Storm (CR 702.40).";
+    MAYHEM = 51, "Costless permission to play this land after discarding it this turn.";
     FREERUNNING = 50, "Has freerunning; its cost remains on `FaceDef` (CR 702.173a).";
 }
 

@@ -33,6 +33,9 @@ pub fn refusal_reason(
     if !script.unknown_lines.is_empty() {
         return None;
     }
+    if script.keywords.iter().any(|word| word == "Mayhem") && !script.is_land {
+        return Some("costless Mayhem without a land type line".to_string());
+    }
     let mut tx = Tx {
         svars: &script.svars,
         cats,

@@ -322,7 +322,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 71: behold, numeric and restricted-name prompts imported from the engine.
     // 72: finality counters and the casting choices in package 45.
     // 74: regeneration replacement choice prompt.
-    const RECORDED: (u32, u64) = (74, 2_064_374_687_626_066_919);
+    // 75: explicit PayLife amount widens to u32 in the imported engine prompt.
+    const RECORDED: (u32, u64) = (75, 2_064_374_687_626_066_919);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

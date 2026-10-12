@@ -1138,8 +1138,8 @@ pub enum YesNoPrompt {
     },
     /// Pay life for a resolving ability (including ward).
     PayLife {
-        /// Life to pay.
-        amount: u16,
+        /// Life to pay without truncating computed cumulative costs.
+        amount: u32,
     },
     /// "Reveal and cast for its miracle cost?" (CR 702.94).
     Miracle {

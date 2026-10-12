@@ -432,8 +432,11 @@ pub(super) fn resume_yes_no_inner(
     }) = res.awaiting
     {
         res.awaiting = None;
-        if answer && state.can_pay_life(player, i32::from(amount)) {
-            state.change_life(player, -i32::from(amount), Cause::Cost);
+        if answer
+            && let Ok(amount) = i32::try_from(amount)
+            && state.can_pay_life(player, amount)
+        {
+            state.change_life(player, -amount, Cause::Cost);
             res.pc += 1;
             return run(state, res);
         }

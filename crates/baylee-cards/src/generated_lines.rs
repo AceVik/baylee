@@ -3970,7 +3970,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Ichneumon Druid
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Immolation
     &[FaceLines {
         sentences: 2,
@@ -5834,8 +5841,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Glacial Chasm
     &[FaceLines {
         sentences: 4,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[None, Some(1), None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -49210,8 +49217,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Lilypad Village
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0), Some(1)],
+        stackable: 1,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -52195,8 +52202,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Oscorp Industries
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

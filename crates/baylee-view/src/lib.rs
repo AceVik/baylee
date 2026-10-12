@@ -219,7 +219,8 @@ pub use turn::{DayNight, Phase, Step};
 /// definitions and creature-activation mana permissions from package 46.
 /// Readers must preserve sparse grant slots rather than infer list positions.
 /// Version 74 adds the choice between standing and one-shot regeneration.
-pub const VIEW_VERSION: u32 = 74;
+/// Version 75 widens explicit life payment amounts to preserve costs above 65535.
+pub const VIEW_VERSION: u32 = 75;
 
 // ------------------------------------------------------------------- targets
 

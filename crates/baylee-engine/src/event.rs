@@ -252,6 +252,9 @@ pub enum GameEvent {
         object: ObjectId,
         /// The casting player.
         player: PlayerId,
+        /// Instant ordinal frozen at casting; zero for noninstant spells.
+        #[serde(default)]
+        instant_number: u32,
         /// This player's spell number this turn, frozen at casting.
         number: u32,
     },

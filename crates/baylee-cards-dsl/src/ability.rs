@@ -139,6 +139,8 @@ pub enum Condition {
     AttackedWithAtLeast(u32),
     /// This exact incarnation attacked during its controller's last completed turn.
     SourceAttackedDuringYourLastTurn,
+    /// A permanent with any listed subtype entered under your control this turn.
+    EnteredSubtypeUnderYourControlThisTurn(&'static [baylee_core::ids::SubtypeId]),
     /// One opponent was dealt at least this much damage this turn.
     OpponentWasDealtAtLeast(u32),
     /// Every player still in the game has an empty hand.
@@ -437,6 +439,8 @@ pub enum Trigger {
     UnlockThisDoor(u8),
     /// An object matching the filter enters the battlefield.
     EntersBattlefield(&'static Filter),
+    /// This permanent enters from the specified absolute zone.
+    EnteredThisFrom(crate::ZoneRef),
     /// An object matching the filter leaves the battlefield.
     LeavesBattlefield(&'static Filter),
     /// An object matching the filter dies (battlefield → graveyard).
@@ -583,6 +587,11 @@ pub enum Trigger {
         n: u8,
         /// The spell filter.
         filter: &'static Filter,
+    },
+    /// An instant cast after that player's first instant in the current turn.
+    InstantCastAfterFirst {
+        /// Which casting players are observed.
+        who: crate::effect::PlayerRel,
     },
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),

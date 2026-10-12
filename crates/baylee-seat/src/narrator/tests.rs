@@ -1446,3 +1446,17 @@ fn identical_delayed_life_loss_offers_name_the_deadline_and_keep_independent_act
         assert_eq!(pending.answer_fault(&action), None);
     }
 }
+
+#[test]
+fn large_life_payment_names_the_exact_cost_in_the_seat_menu() {
+    let (view, log) = board();
+    let pending = Pending::YesNo {
+        player: ME,
+        prompt: baylee_engine::choice::YesNoPrompt::PayLife { amount: 65_536 },
+        source: None,
+    };
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(wake.text.contains("Pay 65536 life?"), "{}", wake.text);
+    assert!(wake.text.contains("pay 65536 life"), "{}", wake.text);
+}

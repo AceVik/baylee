@@ -457,7 +457,20 @@ impl<L: CardLookup> Engine<L> {
         }
         self.apply_graveyard_cast_grants(wizard);
         self.apply_next_spell_grants(player, card);
+        let instant_number = if self.state.object(card).is_some_and(|object| {
+            object
+                .characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::INSTANT)
+        }) {
+            let count = &mut self.state.per_turn.instants_cast[usize::from(player.get())];
+            *count = count.saturating_add(1);
+            *count
+        } else {
+            0
+        };
         self.state.journal.record(GameEvent::SpellCast {
+            instant_number,
             object: card,
             player,
             number: self.state.per_turn.spells_cast_by(player),

@@ -1047,3 +1047,109 @@ fn a_counted_enters_tapped_condition_becomes_a_count() {
         );
     }
 }
+
+#[test]
+fn instant_history_requires_the_exact_cast_type_count_and_player() {
+    for (player, relation) in [
+        ("Player", "EachPlayer"),
+        ("You", "You"),
+        ("Player.Opponent", "EachOpponent"),
+    ] {
+        let script = format!(
+            "T:Mode$ SpellCast | ValidCard$ Instant | ValidActivatingPlayer$ {player} | ActivatorThisTurnCast$ GT1 | TriggerZones$ Battlefield | Execute$ Reward\nSVar:Reward:DB$ GainLife | Defined$ You | LifeAmount$ 1"
+        );
+        assert!(read(&script).abilities[0].contains(&format!(
+            "Trigger::InstantCastAfterFirst {{ who: PlayerRel::{relation} }}"
+        )));
+        for (from, to) in [
+            ("ValidCard$ Instant", "ValidCard$ Sorcery"),
+            ("ValidCard$ Instant", "ValidCard$ Instant,Sorcery"),
+            ("GT1", "GT2"),
+            ("GT1", "GE1"),
+            ("GT1", "X"),
+            ("TriggerZones$ Battlefield", "TriggerZones$ Graveyard"),
+        ] {
+            assert!(refused(&script.replace(from, to)), "{from} -> {to}");
+        }
+        assert!(refused(
+            &script.replace(" | Execute$", " | UnknownHistory$ True | Execute$")
+        ));
+    }
+}
+
+#[test]
+fn entry_history_activation_reads_a_subtype_union_and_refuses_extra_predicates() {
+    let script = "A:AB$ Surveil | Cost$ U T | Amount$ 2 | CheckSVar$ Entry\nSVar:Entry:Count$ThisTurnEntered_Battlefield_Goblin.YouCtrl,Wizard.YouCtrl";
+    let body = read(script);
+    assert!(body.abilities[0].contains("Condition::EnteredSubtypeUnderYourControlThisTurn(&["));
+    assert!(body.abilities[0].contains("creature::GOBLIN"));
+    assert!(body.abilities[0].contains("creature::WIZARD"));
+    for (from, to) in [
+        ("Goblin.YouCtrl", "Goblin.OppCtrl"),
+        ("Goblin.YouCtrl", "Goblin.YouCtrl+tapped"),
+        ("Goblin.YouCtrl", "UnknownSubtype.YouCtrl"),
+        ("ThisTurnEntered", "LastTurnEntered"),
+        ("Battlefield_", "Graveyard_"),
+        ("AB$", "SP$"),
+        ("CheckSVar$ Entry", "CheckSVar$ Missing"),
+        ("CheckSVar$ Entry", "CheckSVar$ Entry | SVarCompare$ GE2"),
+        ("CheckSVar$ Entry", "CheckSVar$ Entry | PlayerTurn$ True"),
+    ] {
+        assert!(refused(&script.replace(from, to)), "{from} -> {to}");
+    }
+}
+
+#[test]
+fn costless_mayhem_is_only_a_land_permission_and_preserves_other_refusals() {
+    assert_eq!(
+        read("Types:Land\nK:Mayhem").keywords,
+        ["KeywordSet::MAYHEM"]
+    );
+    for script in [
+        "K:Mayhem",
+        "Types:Creature Goblin\nK:Mayhem",
+        "Types:Sorcery\nK:Mayhem",
+        "Types:Land\nK:Mayhem:2 U",
+        "Types:Land\nK:Mayhem\nK:UnknownPermission",
+    ] {
+        assert!(refused(script), "{script}");
+    }
+}
+
+#[test]
+fn graveyard_self_entry_keeps_the_origin_and_rejects_other_objects() {
+    let script = "Types:Land\nK:Mayhem\nT:Mode$ ChangesZone | Origin$ Graveyard | Destination$ Battlefield | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ Loss\nSVar:Loss:DB$ LoseLife | Defined$ You | LifeAmount$ 2";
+    let body = read(script);
+    assert_eq!(body.keywords, ["KeywordSet::MAYHEM"]);
+    assert!(body.abilities[0].contains("Trigger::EnteredThisFrom(ZoneRef::Graveyard)"));
+    assert!(body.abilities[0].contains("Effect::LoseLife"));
+    for (from, to) in [
+        ("Card.Self", "Card"),
+        ("Card.Self", "Land.YouCtrl"),
+        ("Card.Self", "Card.Self+tapped"),
+        ("Origin$ Graveyard", "Origin$ Graveyard,Exile"),
+        ("Origin$ Graveyard", "Origin$ Exile"),
+        ("Destination$ Battlefield", "Destination$ Hand"),
+        ("TriggerZones$ Battlefield", "TriggerZones$ Graveyard"),
+        (" | Execute$", " | UnknownOriginRule$ True | Execute$"),
+    ] {
+        assert!(refused(&script.replace(from, to)), "{from} -> {to}");
+    }
+}
+
+#[test]
+fn entry_history_accepts_the_four_published_subtypes_without_a_creature_gate() {
+    let mut catalog = cats();
+    catalog
+        .creature
+        .extend(["Frog", "Bird", "Otter", "Rat"].map(str::to_string));
+    catalog.normalize();
+    let script = parse(
+        "A:AB$ Surveil | Cost$ U T | Amount$ 2 | CheckSVar$ Entry\nSVar:Entry:Count$ThisTurnEntered_Battlefield_Frog.YouCtrl,Bird.YouCtrl,Otter.YouCtrl,Rat.YouCtrl",
+    );
+    let body = transcode(&script, &catalog, None).expect("the exact subtype union is readable");
+    for subtype in ["FROG", "BIRD", "OTTER", "RAT"] {
+        assert!(body.abilities[0].contains(&format!("creature::{subtype}")));
+    }
+    assert!(!body.abilities[0].contains("Filter::CREATURE"));
+}

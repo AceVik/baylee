@@ -409,6 +409,7 @@ fn looting_second_spell_uses_its_event_ordinal_when_several_casts_are_collected_
             ZoneLocation::Stack,
         );
         state.journal.record(GameEvent::SpellCast {
+            instant_number: 0,
             object,
             player: caster,
             number,

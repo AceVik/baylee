@@ -47,6 +47,18 @@ impl Tx<'_> {
                 return self.deny(format!("a spell cast by `{other}`"));
             }
         };
+        if let Some(count) = p.take("ActivatorThisTurnCast") {
+            if count != "GT1" || valid != "Instant" {
+                return self.deny(format!("cast history `{valid}` compared `{count}`"));
+            }
+            let who = match whose {
+                "" => "PlayerRel::EachPlayer",
+                ".YouCtrl" => "PlayerRel::You",
+                ".OppCtrl" => "PlayerRel::EachOpponent",
+                _ => unreachable!("player relation was checked above"),
+            };
+            return Some(format!("Trigger::InstantCastAfterFirst {{ who: {who} }}"));
+        }
         let valid = if whose.is_empty() {
             valid
         } else {
@@ -208,6 +220,9 @@ impl Tx<'_> {
                     }
                     ("Any", "Battlefield") => Some(format!("Trigger::EntersBattlefield({filter})")),
                     ("Battlefield", "Graveyard") => Some(format!("Trigger::Dies({filter})")),
+                    ("Graveyard", "Battlefield") if filter == "&Filter::This" => {
+                        Some("Trigger::EnteredThisFrom(ZoneRef::Graveyard)".to_string())
+                    }
                     _ => self.deny(format!("trigger on a move from {origin} to {dest}")),
                 }
             }

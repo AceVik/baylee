@@ -408,7 +408,8 @@ pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bo
     {
         return true;
     }
-    adventure_permission(state, player, card)
+    mayhem_land_permission(state, player, card)
+        || adventure_permission(state, player, card)
         || state.object(card).is_some_and(|obj| {
             if obj.zone == Zone::Exile
                 && obj
@@ -422,6 +423,28 @@ pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bo
                 && (obj.zone != Zone::Library
                     || state.zones.list(ZoneLocation::Library(player)).last() == Some(&card))
         })
+}
+
+/// Native costless Mayhem applies only to the exact discarded land incarnation.
+pub(crate) fn mayhem_land_permission(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
+    state.object(card).is_some_and(|object| {
+        object.zone == Zone::Graveyard
+            && object.zone_owner == Some(player)
+            && object.characteristics().types.contains(TypeSet::LAND)
+            && object
+                .characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::MAYHEM)
+            && state
+                .per_turn
+                .discarded_to_graveyard
+                .iter()
+                .any(|(reference, discarder)| {
+                    *discarder == player
+                        && reference.object == card
+                        && reference.version == object.version
+                })
+    })
 }
 
 /// Plays a land (special action, no stack).
@@ -474,7 +497,10 @@ pub(super) fn play_land_with_timing(
     }
     // A land from the graveyard under Muldrotha's allowance uses its land
     // for the turn; one a permission for this very card opened does not.
-    if obj.zone == Zone::Graveyard && play_permission(state, player, card).is_none() {
+    if obj.zone == Zone::Graveyard
+        && play_permission(state, player, card).is_none()
+        && !mayhem_land_permission(state, player, card)
+    {
         let permission = graveyard_land_permission(state, player);
         note_graveyard_play(state, player, permission, TypeSet::LAND);
     }

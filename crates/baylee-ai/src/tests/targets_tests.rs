@@ -621,3 +621,23 @@ fn divided_damage_can_target_a_player_on_an_empty_battlefield() {
         );
     }
 }
+
+#[test]
+fn large_life_payment_preserves_exact_price_and_reserve_without_overflow() {
+    for (amount, life, pay) in [
+        (65_536, 65_541, false),
+        (65_536, 65_542, true),
+        (2_147_483_647, i32::MAX, false),
+        (u32::MAX, i32::MAX, false),
+    ] {
+        let pending = Pending::YesNo {
+            player: PlayerId::new(0),
+            prompt: YesNoPrompt::PayLife { amount },
+            source: None,
+        };
+        assert_eq!(
+            agent().act(&view(0, &[life, 20], vec![]), &pending),
+            PlayerAction::YesNo(pay)
+        );
+    }
+}

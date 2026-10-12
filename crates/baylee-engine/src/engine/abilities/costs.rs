@@ -487,6 +487,7 @@ impl<L: CardLookup> Engine<L> {
                         ZonePosition::Top,
                         Cause::Cost,
                     )?;
+                    self.state.record_discard_successor(source, player);
                 }
                 CostPart::SacrificeSelf => {
                     self.state.sacrifice_object(source, Cause::Cost)?;

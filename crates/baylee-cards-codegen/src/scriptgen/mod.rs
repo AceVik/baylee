@@ -65,6 +65,8 @@ pub use support::{SUPPORTED_APIS, apis_used, is_supported_api, is_vanilla, refus
 /// One parsed card script.
 #[derive(Debug, Default)]
 pub struct CardScript {
+    /// Whether the type line explicitly names Land, for land-only permissions.
+    pub is_land: bool,
     /// `K:` lines, verbatim.
     pub keywords: Vec<String>,
     /// Rules lines as `(kind, body)` — kind is `A`, `T`, `S` or `R`.
@@ -80,7 +82,6 @@ pub struct CardScript {
 const IGNORED_PREFIXES: &[&str] = &[
     "Name",
     "ManaCost",
-    "Types",
     "PT",
     "Loyalty",
     "Defense",
@@ -108,6 +109,7 @@ pub fn parse(text: &str) -> CardScript {
             continue;
         };
         match prefix {
+            "Types" => out.is_land = rest.split_whitespace().any(|word| word == "Land"),
             "K" => out.keywords.push(rest.to_string()),
             "A" | "T" | "S" | "R" => out
                 .rules
@@ -469,6 +471,10 @@ pub fn transcode(
     tokens: Option<&TokenLookup>,
 ) -> Option<CardBody> {
     if !script.unknown_lines.is_empty() {
+        return None;
+    }
+    // Costless Mayhem is supported only as a land-play permission.
+    if script.keywords.iter().any(|word| word == "Mayhem") && !script.is_land {
         return None;
     }
     let mut tx = Tx {

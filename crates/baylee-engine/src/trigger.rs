@@ -2017,7 +2017,9 @@ fn trigger_count(
     controller: PlayerId,
 ) -> u32 {
     let event_kind = match trigger {
-        Trigger::EntersBattlefield(_) => baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
+        Trigger::EntersBattlefield(_) | Trigger::EnteredThisFrom(_) => {
+            baylee_cards_dsl::TriggerEventKind::EntersBattlefield
+        }
         _ => baylee_cards_dsl::TriggerEventKind::Any,
     };
     let _ = controller;
@@ -2126,6 +2128,27 @@ fn matches(
         ) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        (
+            Trigger::EnteredThisFrom(origin),
+            GameEvent::ZoneChanged {
+                object,
+                from,
+                to: Zone::Battlefield,
+                ..
+            },
+        ) => {
+            *object == source
+                && match origin {
+                    baylee_cards_dsl::ZoneRef::Battlefield => *from == Zone::Battlefield,
+                    baylee_cards_dsl::ZoneRef::Graveyard => *from == Zone::Graveyard,
+                    baylee_cards_dsl::ZoneRef::Hand => *from == Zone::Hand,
+                    baylee_cards_dsl::ZoneRef::Library => *from == Zone::Library,
+                    baylee_cards_dsl::ZoneRef::Exile => *from == Zone::Exile,
+                    baylee_cards_dsl::ZoneRef::Stack => *from == Zone::Stack,
+                    baylee_cards_dsl::ZoneRef::Command => *from == Zone::Command,
+                    baylee_cards_dsl::ZoneRef::NotBattlefield => *from != Zone::Battlefield,
+                }
+        }
         // The three leaves-the-battlefield triggers look back (CR 603.10a).
         (
             Trigger::LeavesBattlefield(filter),
@@ -2404,6 +2427,24 @@ fn matches(
         | (Trigger::SpellCastOrCopied(filter), GameEvent::SpellCopied { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        (
+            Trigger::InstantCastAfterFirst { who },
+            GameEvent::SpellCast {
+                player,
+                instant_number,
+                ..
+            },
+        ) => {
+            *instant_number > 1
+                && match who {
+                    PlayerRel::Opponent | PlayerRel::EachOpponent => {
+                        state.is_opponent(*player, you)
+                    }
+                    _ => {
+                        eval::players(*who, state, you).is_some_and(|seats| seats.contains(player))
+                    }
+                }
+        }
         (Trigger::NthSpellCast { n, filter }, GameEvent::SpellCast { object, number, .. }) => {
             *number == u32::from(*n)
                 && state

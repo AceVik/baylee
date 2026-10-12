@@ -7,10 +7,9 @@ use super::*;
 /// to cast a creature spell.`, and `{{U}}, {{T}}: Surveil 2. Activate only if a Bird,
 /// Frog, Otter, or Rat entered the battlefield under your control this turn.`
 ///
-/// Under `Coverage::Partial`, the surveil ability is omitted because tracking past
-/// creature subtype entries is unsupported. This test activates ability 1, verifying
-/// that the restricted blue mana appears in `pool.restricted()` rather than general
-/// available mana, and that the land is tapped.
+/// The historical entry restriction and surveil action are exercised by the
+/// Batch 48 history package. This regression checks the independent restricted
+/// blue mana clause and its tap cost.
 #[test]
 fn lilypad_village_adds_restricted_creature_mana() {
     let p0 = PlayerId::new(0);

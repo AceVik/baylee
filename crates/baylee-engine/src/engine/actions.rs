@@ -2029,6 +2029,7 @@ impl<L: CardLookup> Engine<L> {
                         ZonePosition::Top,
                         Cause::TurnBased,
                     )?;
+                    self.state.record_discard_successor(card, player);
                 }
                 crate::graveyard_order::capture(&mut self.state, since);
                 // Then CR 514.2, and the step's check after it (CR 514.3a):

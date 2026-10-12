@@ -1608,3 +1608,61 @@ fn future_draw_debts_and_attack_restrictions_change_loop_identity() {
         "expired incarnations cannot restrict their successors"
     );
 }
+
+#[test]
+fn cast_and_entry_history_change_both_hashes_and_reset_each_turn() {
+    let (mut base, _) = hash_fixture();
+    base.capture_entry_history();
+    for player in 0..base.players.len() {
+        let mut changed = base.clone();
+        changed.per_turn.instants_cast[player] = 1;
+        assert_ne!(changed.snapshot_hash(), base.snapshot_hash());
+        assert_ne!(changed.loop_signature(), base.loop_signature());
+        changed.per_turn.instants_cast[player] = 0;
+        changed.per_turn.entered_subtypes[player] = baylee_core::types::SubtypeSet::from_slice(&[
+            baylee_core::generated::subtypes::creature::RAT,
+        ]);
+        assert_ne!(changed.snapshot_hash(), base.snapshot_hash());
+        assert_ne!(changed.loop_signature(), base.loop_signature());
+        changed.per_turn.reset();
+        assert!(
+            changed
+                .per_turn
+                .entered_subtypes
+                .iter()
+                .all(|s| s.is_empty())
+        );
+        assert!(changed.per_turn.instants_cast.iter().all(|n| *n == 0));
+    }
+}
+
+#[test]
+fn discarded_successors_hash_the_live_incarnation_and_the_discarder() {
+    let (mut base, source) = hash_fixture();
+    let owner = base.object(source).unwrap().owner;
+    base.move_object(
+        source,
+        ZoneLocation::Graveyard(owner),
+        ZonePosition::Top,
+        Cause::Effect,
+    )
+    .unwrap();
+    let reference = baylee_core::ids::DamageSourceRef {
+        object: source,
+        version: base.object(source).unwrap().version,
+    };
+    let mut changed = base.clone();
+    changed
+        .per_turn
+        .discarded_to_graveyard
+        .push((reference, owner));
+    assert_ne!(changed.snapshot_hash(), base.snapshot_hash());
+    assert_ne!(changed.loop_signature(), base.loop_signature());
+    let remembered = changed.loop_signature();
+    changed.per_turn.discarded_to_graveyard[0].1 = PlayerId::new(1);
+    assert_ne!(changed.loop_signature(), remembered);
+    changed.per_turn.discarded_to_graveyard[0].0.version = reference.version.wrapping_add(1);
+    assert_eq!(changed.loop_signature(), base.loop_signature());
+    changed.per_turn.reset();
+    assert!(changed.per_turn.discarded_to_graveyard.is_empty());
+}

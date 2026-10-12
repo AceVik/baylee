@@ -796,12 +796,16 @@ impl HeuristicAgent {
                 piles: default_arrangement(&cards, &piles).unwrap_or_else(|| vec![cards.clone()]),
             },
             Pending::YesNo { prompt, source, .. } => match prompt {
-                YesNoPrompt::PayLifeOrEnterTapped { amount } | YesNoPrompt::PayLife { amount } => {
+                YesNoPrompt::PayLifeOrEnterTapped { amount } => {
                     PlayerAction::YesNo(
                         view.seat(player)
                             .is_some_and(|s| s.life > i32::from(amount) + 5),
                     )
                 }
+                YesNoPrompt::PayLife { amount } => PlayerAction::YesNo(
+                    view.seat(player)
+                        .is_some_and(|seat| i64::from(seat.life) > i64::from(amount) + 5),
+                ),
                 YesNoPrompt::EnterTappedForCounters { kind, .. } => {
                     PlayerAction::YesNo(kind == baylee_cards_dsl::CounterKind::Energy)
                 }

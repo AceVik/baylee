@@ -454,7 +454,7 @@ pub enum AwaitingOp {
         /// Paying player.
         player: PlayerId,
         /// Resolved life amount.
-        amount: u16,
+        amount: u32,
         /// Effect of not paying.
         effect: &'static Effect,
     },

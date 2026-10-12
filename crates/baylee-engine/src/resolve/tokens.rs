@@ -540,6 +540,7 @@ fn arrive(state: &mut GameState, id: ObjectId) {
     // invisible until something asks for the pass.
     state.invalidate_projections();
     state.per_turn.entered_battlefield.push(id);
+    state.note_entry_history(id);
     state.journal.record(crate::event::GameEvent::ZoneChanged {
         object: id,
         from: crate::zone::Zone::OutsideGame,

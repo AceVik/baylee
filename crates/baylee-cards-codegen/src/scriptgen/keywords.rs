@@ -4,6 +4,11 @@ use super::{Bound, Params, Tx, keyword_const, keyword_enter_modifier, keyword_st
 
 impl Tx<'_> {
     pub(super) fn keyword(&mut self, line: &str) -> Option<()> {
+        if line == "Mayhem" {
+            // `transcode` requires a land type line for this permission.
+            self.body.keywords.push("KeywordSet::MAYHEM".to_string());
+            return Some(());
+        }
         if let Some(modifier) = keyword_static(line) {
             self.body
                 .abilities

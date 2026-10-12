@@ -20,6 +20,7 @@ use rustc_hash::FxHashMap;
 
 mod discard;
 mod draw_offer;
+mod entry_history;
 pub use draw_offer::DrawReplacement;
 mod draw_wish;
 mod hash;
@@ -492,6 +493,14 @@ pub struct PerTurn {
     pub drew_in_draw_step: bool,
     /// All spells cast this turn, per player (second-spell triggers).
     pub spells_cast: Vec<u32>,
+    /// Completed instant casts per player, independent of spell resolution.
+    pub instants_cast: Vec<u32>,
+    /// Union of subtypes controlled at actual entry during this turn.
+    pub entered_subtypes: Vec<baylee_core::types::SubtypeSet>,
+    /// Arrivals awaiting the complete simultaneous battlefield projection.
+    pub(crate) pending_entry_history: Vec<baylee_core::ids::DamageSourceRef>,
+    /// Exact graveyard successors of actual discards, paired with their discarder.
+    pub discarded_to_graveyard: Vec<(baylee_core::ids::DamageSourceRef, PlayerId)>,
     /// Players who may cast no further spells this turn (Conduit of
     /// Worlds: "If you do, you can't cast additional spells this turn").
     /// Read by `casting::may_begin_casting`, written by the cast that
@@ -646,6 +655,10 @@ impl PerTurn {
             player_damage: std::collections::BTreeSet::new(),
             noncreature_spells: vec![0; players],
             spells_cast: vec![0; players],
+            instants_cast: vec![0; players],
+            entered_subtypes: vec![baylee_core::types::SubtypeSet::EMPTY; players],
+            pending_entry_history: Vec::new(),
+            discarded_to_graveyard: Vec::new(),
             no_more_spells: vec![false; players],
             life_lost: vec![false; players],
             life_lost_amount: vec![0; players],
@@ -717,6 +730,11 @@ impl PerTurn {
         self.draws.iter_mut().for_each(|v| *v = 0);
         self.drew_in_draw_step = false;
         self.spells_cast.iter_mut().for_each(|v| *v = 0);
+        self.instants_cast.fill(0);
+        self.entered_subtypes
+            .fill(baylee_core::types::SubtypeSet::EMPTY);
+        self.pending_entry_history.clear();
+        self.discarded_to_graveyard.clear();
         self.no_more_spells.iter_mut().for_each(|v| *v = false);
         self.life_lost.iter_mut().for_each(|v| *v = false);
         self.life_lost_amount.fill(0);

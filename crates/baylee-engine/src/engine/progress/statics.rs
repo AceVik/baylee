@@ -4,43 +4,43 @@
 use super::*;
 
 impl<L: CardLookup> Engine<L> {
+    /// Register current permanent rules through the shared state synchronizer.
+    pub(crate) fn sync_static_effects(&mut self) {
+        self.state.sync_board_rules(&self.lookup);
+    }
+}
+
+impl crate::state::GameState {
     /// Keeps the effect table in sync with the battlefield: registers
     /// static abilities of permanents, drops effects whose source left.
     #[allow(clippy::too_many_lines)] // Phasing, lapsed rules and provenance-aware registration form one sync pass.
-    pub(crate) fn sync_static_effects(&mut self) {
+    pub(crate) fn sync_board_rules(&mut self, lookup: &impl CardLookup) {
         use baylee_cards_dsl::Duration;
         // A phased-out permanent's statics apply to nothing (CR 702.26b):
         // set aside while it is phased out, back as they were once it has
         // phased in (CR 702.26d). First, so the departure sweep below also
         // drops what a source that left while phased out had set aside.
         // phasing: this walk is the one looking for phased-out permanents.
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield);
+        let battlefield = self.zones.list(ZoneLocation::Battlefield);
         let phased_out: Vec<ObjectId> = battlefield
             .iter()
             .copied()
             .filter(|&id| {
-                self.state
-                    .object(id)
+                self.object(id)
                     .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
             })
             .collect();
-        self.state
-            .effects
+        self.effects
             .follow_phasing(|source| phased_out.contains(&source));
         // Drop effects whose source left the battlefield (structural
         // anthem removal).
         let gone: Vec<ObjectId> = self
-            .state
             .effects
             .iter()
             .filter_map(|fx| fx.source)
-            .filter(|s| {
-                self.state
-                    .object(*s)
-                    .is_none_or(|o| o.zone != Zone::Battlefield)
-            })
+            .filter(|s| self.object(*s).is_none_or(|o| o.zone != Zone::Battlefield))
             .collect();
-        self.state.effects.remove_where(|fx| {
+        self.effects.remove_where(|fx| {
             matches!(fx.duration, Duration::WhileSourceOnBattlefield)
                 && fx.source.is_some_and(|s| gone.contains(&s))
         });
@@ -48,7 +48,6 @@ impl<L: CardLookup> Engine<L> {
         // a new rules identity. Its former printed/copied static must end
         // before the replacement registration affects the projection.
         let stale: Vec<_> = self
-            .state
             .effects
             .iter()
             .filter_map(|effect| {
@@ -58,7 +57,6 @@ impl<L: CardLookup> Engine<L> {
                     return None;
                 }
                 let (_, origin) = self
-                    .state
                     .effect_text_overrides
                     .iter()
                     .find(|(id, _)| *id == effect.id)?;
@@ -70,14 +68,13 @@ impl<L: CardLookup> Engine<L> {
                 // A gained static may instead quote a different grantor: that
                 // identity cannot be compared with the recipient's incarnation.
                 (effect.source == Some(reference.object)
-                    && self.state.source_identity(reference.object) != Some(reference))
+                    && self.source_identity(reference.object) != Some(reference))
                 .then_some(effect.id)
             })
             .collect();
-        self.state
-            .effects
+        self.effects
             .remove_where(|effect| stale.contains(&effect.id));
-        forget_effects_on_moved_objects(&mut self.state);
+        forget_effects_on_moved_objects(self);
         // Collect statics of permanents not yet registered (then apply,
         // so the borrow of `state` ends before mutation).
         //
@@ -146,19 +143,19 @@ impl<L: CardLookup> Engine<L> {
         // remain separate effects and do not share that continuation.
         // That reads the projection, so it is made current first: the effect
         // that took the abilities may have been registered a moment ago.
-        self.state.refresh_characteristics();
+        self.refresh_characteristics();
         // Not a phased-out permanent: its statics wait parked for it, and a
         // condition on it is not asked while it does not exist.
-        let ids: Vec<ObjectId> = self.state.battlefield_view();
+        let ids: Vec<ObjectId> = self.battlefield_view();
         let mut to_register = Vec::new();
         let mut lapsed = Vec::new();
         for id in ids {
-            let Some(obj) = self.state.object(id) else {
+            let Some(obj) = self.object(id) else {
                 continue;
             };
             let lost = obj.characteristics().abilities_lost.is_some();
             let text_lost = obj.characteristics().rules_text_lost;
-            let list = obj.printed_ability_list(&self.lookup);
+            let list = obj.printed_ability_list(lookup);
             for (index, ability) in list.abilities.iter().enumerate() {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
@@ -174,10 +171,9 @@ impl<L: CardLookup> Engine<L> {
                 };
                 let context = crate::text_changes::RuleContext {
                     source: id,
-                    text: origin.resolve(&self.state.text_changes),
+                    text: origin.resolve(&self.text_changes),
                 };
                 let registered = self
-                    .state
                     .effects
                     .iter()
                     .find(|fx| {
@@ -185,7 +181,6 @@ impl<L: CardLookup> Engine<L> {
                             && fx.origin == crate::effects::EffectOrigin::Static
                             && fx.modifier == sa.modifier
                             && self
-                                .state
                                 .effect_text_overrides
                                 .iter()
                                 .find(|(effect, _)| *effect == fx.id)
@@ -197,7 +192,7 @@ impl<L: CardLookup> Engine<L> {
                 if gone_with_the_ability
                     || sa.condition.is_some_and(|condition| {
                         !crate::eval::condition_holds_with_context(
-                            &self.state,
+                            self,
                             obj.controller,
                             context,
                             condition,
@@ -212,7 +207,6 @@ impl<L: CardLookup> Engine<L> {
                 if let Some(effect) = registered {
                     // Adopt legacy registrations without an origin sidecar.
                     if !self
-                        .state
                         .effect_text_overrides
                         .iter()
                         .any(|(id, _)| *id == effect)
@@ -249,7 +243,6 @@ impl<L: CardLookup> Engine<L> {
                     base: ability.base_text,
                 };
                 let registered = self
-                    .state
                     .effects
                     .iter()
                     .find(|fx| {
@@ -257,7 +250,6 @@ impl<L: CardLookup> Engine<L> {
                             && fx.origin == crate::effects::EffectOrigin::Static
                             && fx.modifier == ability.modifier
                             && self
-                                .state
                                 .effect_text_overrides
                                 .iter()
                                 .any(|(effect, text)| *effect == fx.id && *text == origin)
@@ -281,7 +273,7 @@ impl<L: CardLookup> Engine<L> {
                             layer,
                             timestamp: obj.timestamp,
                             duration: Duration::WhileSourceOnBattlefield,
-                            filter: crate::effects::EffectFilter::object(&self.state, id),
+                            filter: crate::effects::EffectFilter::object(self, id),
                             modifier: ability.modifier,
                         }),
                         baylee_core::ids::EffectId::new(0),
@@ -290,39 +282,37 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
-        self.state
-            .effects
+        self.effects
             .remove_where(|effect| lapsed.contains(&effect.id));
         to_register.extend(
-            emblem_statics(&self.state)
+            emblem_statics(self)
                 .into_iter()
                 .map(|effect| (Some(effect), baylee_core::ids::EffectId::new(0), None)),
         );
         for (effect, existing, origin) in to_register {
-            let id = effect.map_or(existing, |effect| self.state.effects.register(effect));
+            let id = effect.map_or(existing, |effect| self.effects.register(effect));
             if let Some(origin) = origin {
-                self.state.effect_text_overrides.push((id, origin));
+                self.effect_text_overrides.push((id, origin));
             }
         }
-        crate::effects::sync_granted_statics(&mut self.state);
-        crate::effects::sync_granted_activated(&mut self.state, &self.lookup);
-        self.sync_replacement_rules();
+        crate::effects::sync_granted_statics(self);
+        crate::effects::sync_granted_activated(self, lookup);
+        self.sync_replacement_rules(lookup);
         #[cfg(test)]
-        crate::ability_log::note_sources(&self.state, &self.lookup);
+        crate::ability_log::note_sources(self, lookup);
     }
 
     /// Drops the replacement rules of sources that left the battlefield,
     /// phased out (CR 702.26b) or lost their abilities (CR 613.1f) and
     /// registers the new ones. A permanent that phases in is scanned again
     /// like one that arrived, so its rules come back from its abilities.
-    fn sync_replacement_rules(&mut self) {
+    fn sync_replacement_rules(&mut self, lookup: &impl CardLookup) {
         let gone_rules: Vec<ObjectId> = self
-            .state
             .replacement_rules
             .iter()
             .map(|r| r.source)
             .filter(|s| {
-                self.state.object(*s).is_none_or(|o| {
+                self.object(*s).is_none_or(|o| {
                     o.zone != Zone::Battlefield
                         || o.status.contains(crate::object::Status::PHASED_OUT)
                         || o.characteristics().abilities_lost.is_some()
@@ -330,20 +320,18 @@ impl<L: CardLookup> Engine<L> {
                 })
             })
             .collect();
-        self.state
-            .replacement_rules
+        self.replacement_rules
             .retain(|r| !gone_rules.contains(&r.source));
         let mut rules_to_add = Vec::new();
-        for id in self.state.battlefield_view() {
-            let Some(obj) = self.state.object(id) else {
+        for id in self.battlefield_view() {
+            let Some(obj) = self.object(id) else {
                 continue;
             };
-            for ability in obj.abilities(&self.lookup) {
+            for ability in obj.abilities(lookup) {
                 let AbilityDef::Replacement(rule) = ability else {
                     continue;
                 };
                 if self
-                    .state
                     .replacement_rules
                     .iter()
                     .any(|r| r.source == id && r.rule == *rule)
@@ -357,6 +345,6 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
-        self.state.replacement_rules.extend(rules_to_add);
+        self.replacement_rules.extend(rules_to_add);
     }
 }

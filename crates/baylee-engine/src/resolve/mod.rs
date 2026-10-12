@@ -919,6 +919,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         // the same resolution read the creature as it had been before it.
         // One generation compare when nothing moved, which is every effect
         // that did not just change a characteristic.
+        state.capture_entry_history();
         state.refresh_characteristics();
         state.award_enduring_stories();
         state.award_citys_blessings();

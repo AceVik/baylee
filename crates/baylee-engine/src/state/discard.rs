@@ -140,7 +140,21 @@ impl GameState {
                 );
             }
         }
+        self.record_discard_successor(card, player);
         types
+    }
+
+    /// Retain only the actual graveyard incarnation after a completed discard move.
+    pub(crate) fn record_discard_successor(&mut self, card: ObjectId, player: PlayerId) {
+        if let Some(object) = self.object(card).filter(|o| o.zone == Zone::Graveyard) {
+            let reference = baylee_core::ids::DamageSourceRef {
+                object: card,
+                version: object.version,
+            };
+            self.per_turn
+                .discarded_to_graveyard
+                .push((reference, player));
+        }
     }
 
     /// Record the hand incarnation before its move; undefined characteristics

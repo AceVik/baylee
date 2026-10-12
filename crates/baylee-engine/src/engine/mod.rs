@@ -1135,6 +1135,7 @@ impl<L: CardLookup> Engine<L> {
     /// asking code computed from the board it meant; recomputing one here
     /// would be a second answer to a question already asked.
     pub fn refresh_offer(&mut self) {
+        self.state.capture_entry_history();
         let Pending::Priority { player, .. } = self.pending else {
             return;
         };

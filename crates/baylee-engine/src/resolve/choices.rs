@@ -435,8 +435,11 @@ pub(super) fn exec_choice(
             effect,
         } => {
             let player = players_of(player, state, you, res).first().copied()?;
-            let amount = u16::try_from(amount2(&life, state, you, res)).unwrap_or(u16::MAX);
-            if !state.can_pay_life(player, i32::from(amount)) {
+            let amount = amount2(&life, state, you, res);
+            if i32::try_from(amount)
+                .ok()
+                .is_none_or(|amount| !state.can_pay_life(player, amount))
+            {
                 return run_nested(state, res, std::slice::from_ref(effect));
             }
             res.awaiting = Some(AwaitingOp::PlayerMayPayLife {

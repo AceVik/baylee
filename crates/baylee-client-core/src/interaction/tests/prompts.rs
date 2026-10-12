@@ -1448,3 +1448,34 @@ fn regeneration_choice_explains_that_no_preserves_the_shield_and_still_regenerat
         "Einen Regenerationsschild verbrauchen? Nein nutzt die eigene Regeneration der bleibenden Karte und bewahrt den Schild."
     );
 }
+
+#[test]
+fn large_life_payment_round_trips_and_labels_the_exact_amount() {
+    for amount in [65_536, u32::MAX] {
+        let payer = PlayerId::new(1);
+        let pending = Pending::YesNo {
+            player: payer,
+            prompt: YesNoPrompt::PayLife { amount },
+            source: None,
+        };
+        let decoded: Pending =
+            serde_json::from_slice(&serde_json::to_vec(&pending).unwrap()).unwrap();
+        let mine = Interaction::new(decoded.clone(), payer);
+        assert_eq!(mine.answer_yes_no(true), Some(PlayerAction::YesNo(true)));
+        assert_eq!(
+            Interaction::new(decoded, PlayerId::new(0)).answer_yes_no(true),
+            None
+        );
+        let prompt = Prompt::YesNo {
+            question: YesNoPrompt::PayLife { amount },
+        };
+        assert_eq!(
+            prompt.headline(Lang::En, Turn::Mine, None, false),
+            format!("Pay {amount} life?")
+        );
+        assert_eq!(
+            prompt.headline(Lang::De, Turn::Mine, None, false),
+            format!("{amount} Lebenspunkte bezahlen?")
+        );
+    }
+}

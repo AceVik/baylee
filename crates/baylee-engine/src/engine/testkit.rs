@@ -1843,7 +1843,7 @@ pub fn pay_life_ward(engine: &mut Engine<RegistryLookup>, payer: PlayerId, amoun
     assert!(
         matches!(engine.pending(), Pending::YesNo {
         player, prompt: crate::choice::YesNoPrompt::PayLife { amount: offered }, ..
-    } if *player == payer && *offered == amount),
+    } if *player == payer && *offered == u32::from(amount)),
         "{:?}",
         engine.pending()
     );

@@ -149,6 +149,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("phasing", K::PHASING), // progress::steps::untap_step
         ("rangeling", K::RANGELING), // object::Characteristics::from_face
         ("all nonbasic land types", K::ALL_NONBASIC_LAND_TYPES), // object::Characteristics::from_face
+        ("costless land mayhem", K::MAYHEM),                     // casting::mayhem_land_permission
         ("banding", K::BANDING), // Engine::ask_band, combat::divisions_owed
     ]
 };

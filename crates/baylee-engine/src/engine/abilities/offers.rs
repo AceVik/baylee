@@ -109,27 +109,35 @@ impl<L: CardLookup> Engine<L> {
         let main_phase = matches!(self.state.turn.phase, Phase::FirstMain | Phase::SecondMain);
         let sorcery_timing =
             main_phase && self.state.turn.active == player && self.state.zones.stack_is_empty();
-        // The graveyard is walked beside the hand, and only for the lands
-        // in it: Crucible of Worlds is a permission to *play a land* from
-        // there and says nothing about casting anything, so the loop below
-        // asks `can_cast` of a hand card and never of this one. Which zones
-        // are open is `casting::land_zone_open`, the same reader
-        // `casting::play_land` refuses with — an offer and a refusal that
-        // disagreed would be a land this engine lists and then will not
-        // let go of.
-        let graveyard: &[ObjectId] =
-            if casting::land_zone_open(&self.state, player, Zone::Graveyard) {
-                self.state.zones.list(ZoneLocation::Graveyard(player))
-            } else {
-                &[]
-            };
+        // Check broad zone access once; native Mayhem opens only its own card.
+        let graveyard_open = casting::land_zone_open(&self.state, player, Zone::Graveyard);
+        let graveyard: &[ObjectId] = if graveyard_open
+            || self
+                .state
+                .per_turn
+                .discarded_to_graveyard
+                .iter()
+                .any(|(_, discarder)| *discarder == player)
+        {
+            self.state.zones.list(ZoneLocation::Graveyard(player))
+        } else {
+            &[]
+        };
         for (&card, from_hand) in self
             .state
             .zones
             .list(ZoneLocation::Hand(player))
             .iter()
             .map(|c| (c, true))
-            .chain(graveyard.iter().map(|c| (c, false)))
+            .chain(
+                graveyard
+                    .iter()
+                    .filter(|card| {
+                        graveyard_open
+                            || casting::mayhem_land_permission(&self.state, player, **card)
+                    })
+                    .map(|c| (c, false)),
+            )
             .chain(
                 self.state
                     .zones

@@ -614,6 +614,7 @@ fn a_keyword_trigger_is_multiplied_like_a_printed_one() {
     let spell = state.create_bare(me(), ObjectKind::Spell, name, ZoneLocation::Stack);
     let from = state.journal.len() as u64;
     state.journal.record(GameEvent::SpellCast {
+        instant_number: 0,
         number: 1,
         object: spell,
         player: me(),
@@ -709,6 +710,7 @@ fn printed_and_granted_triggers_freeze_their_own_word_context() {
         let spell = state.create_bare(me(), ObjectKind::Spell, name, ZoneLocation::Stack);
         state.object_mut(spell).unwrap().base_mut().colors = ColorSet::of(color);
         state.journal.record(GameEvent::SpellCast {
+            instant_number: 0,
             number: 1,
             object: spell,
             player: me(),

@@ -417,6 +417,9 @@ impl GameState {
             let obj = self.object(id).ok_or(StateError::NoSuchObject(id))?;
             (obj.zone, obj.zone_owner.unwrap_or(obj.owner))
         };
+        if from_zone == Zone::Battlefield {
+            self.capture_entry_history();
+        }
         if from_zone != Zone::Battlefield
             && to == ZoneLocation::Battlefield
             && crate::entry::defer(self, id, pos, cause)
@@ -779,6 +782,9 @@ impl GameState {
         }
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
+            if from_zone != Zone::Battlefield {
+                self.note_entry_history(id);
+            }
         }
         // "For as long as you control [this]" ends as its source leaves
         // (CR 611.2b), here rather than at the next pass over the effect

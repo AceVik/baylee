@@ -68,6 +68,7 @@ impl<L: CardLookup> Engine<L> {
                 }
                 // Trigger now, but do not put anything on the stack until the
                 // replacement's remaining actions have all completed (CR 603.3).
+                self.state.capture_entry_history();
                 self.queue_new_triggers();
                 if let Some(pending) = crate::entry::after_entry(&mut self.state) {
                     self.pending = pending;
@@ -482,6 +483,7 @@ impl<L: CardLookup> Engine<L> {
             if wrote {
                 continue;
             }
+            self.state.capture_entry_history();
             // 0c. An Aura's return finishes once the card it returned has
             //     entered: its as-it-enters choices made (a Clone's copy) and
             //     its statics registered at 0a, so the attachment asks the

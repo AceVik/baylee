@@ -37,6 +37,33 @@ impl Tx<'_> {
             *condition = ", condition = Some(Condition::DuringCombat)".to_string();
             claimed.push("ActivationPhases$");
         }
+        if let Some(name) = probe.take("CheckSVar") {
+            if !is_activated || !condition.is_empty() {
+                return self
+                    .deny("an entry-history activation clause beside another clause".to_string());
+            }
+            let Some(raw) = self.svars.get(&name) else {
+                return self.deny(format!("activation check `{name}` without an SVar"));
+            };
+            let Some(alternatives) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_") else {
+                return self.deny(format!("activation check `{name}`"));
+            };
+            let mut subtypes = Vec::new();
+            for alternative in alternatives.split(',') {
+                let Some(subtype) = alternative.strip_suffix(".YouCtrl") else {
+                    return self.deny(format!("entry-history alternative `{alternative}`"));
+                };
+                let Some(path) = self.cats.const_path(subtype) else {
+                    return self.deny(format!("entry-history subtype `{subtype}`"));
+                };
+                subtypes.push(path);
+            }
+            *condition = format!(
+                ", condition = Some(Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}]))",
+                subtypes.join(", ")
+            );
+            claimed.push("CheckSVar$");
+        }
         Some(claimed)
     }
 

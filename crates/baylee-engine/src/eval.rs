@@ -917,6 +917,11 @@ pub fn condition_holds_with_context(
             amount_with_context(&amount, state, you, context, None) >= minimum
         }
         Condition::CreaturesDiedThisTurnAtLeast(n) => state.per_turn.creatures_died >= n,
+        Condition::EnteredSubtypeUnderYourControlThisTurn(types) => state
+            .per_turn
+            .entered_subtypes
+            .get(usize::from(you.get()))
+            .is_some_and(|entered| types.iter().any(|kind| entered.contains(*kind))),
         Condition::DuringYourFirstTurns(maximum) => {
             state.turn.active == you
                 && (1..=maximum).contains(&state.players[usize::from(you.get())].turns_started)

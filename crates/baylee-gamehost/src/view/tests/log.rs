@@ -615,6 +615,7 @@ fn a_cast_says_where_the_spell_came_from() {
         .move_object(spell, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)
         .expect("cast");
     state.journal.record(GameEvent::SpellCast {
+        instant_number: 0,
         number: 1,
         object: spell,
         player: me,

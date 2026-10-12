@@ -479,6 +479,29 @@ impl GameState {
         }
         self.per_turn.revolt.hash(h);
         self.per_turn.instant_or_sorcery_cast.hash(h);
+        self.per_turn.instants_cast.hash(h);
+        self.per_turn.entered_subtypes.hash(h);
+        for reference in &self.per_turn.pending_entry_history {
+            h.u32(position(reference.object));
+            h.u8(moves_since(
+                self.object_or_departed(reference.object),
+                reference.version,
+            ));
+        }
+        h.usize(self.per_turn.pending_entry_history.len());
+        let mut discards: Vec<_> = self
+            .per_turn
+            .discarded_to_graveyard
+            .iter()
+            .filter(|(reference, _)| {
+                self.object(reference.object)
+                    .is_some_and(|o| o.version == reference.version && o.zone == Zone::Graveyard)
+            })
+            .map(|(reference, player)| (*player, position(reference.object)))
+            .collect();
+        discards.sort_unstable();
+        discards.dedup();
+        discards.hash(h);
         let mut attacked: Vec<_> = self
             .per_turn
             .attacked
