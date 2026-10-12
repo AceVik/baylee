@@ -303,3 +303,114 @@ fn a_preview_opened_from_the_end_screen_s_log_stands_over_the_end_screen() {
     );
     assert_eq!(preview_rung(false), 0, "and in play, with the overlay");
 }
+
+/// A hover on a card link, as `hover_log_links` writes it.
+fn log_hover(span: Entity, at: Vec2, card: Option<Rect>) -> super::super::LogHover {
+    super::super::LogHover {
+        span,
+        link: super::super::LogLink {
+            card: Some(baylee_view::CardIdentity {
+                index: baylee_core::ids::CardIndex::new(7),
+                print: baylee_core::ids::PrintRef::new(3),
+                face: 0,
+            }),
+            token: None,
+        },
+        at,
+        card,
+    }
+}
+
+/// The overlay's rebuild sweeps every child of the root it does not name, and
+/// the reveal sheet is named: a pointer resting on a revealed card opens a
+/// preview, which is itself a rebuild, and the sheet it took with it stood
+/// up again as new cards under the pointer, so the reveal flickered while
+/// the pointer rested (owner, 12.10.2026).
+///
+/// The loose node beside the sheet is the control: it is swept, which is
+/// what shows the rebuild ran at all and the sheet came through it.
+#[test]
+fn the_reveal_sheet_survives_the_overlay_s_rebuild() {
+    let mut duel = duel_with(false);
+    duel.statics = Some(baylee_client_core::test_support::statics(8));
+    let mut app = bar_of(duel);
+    app.update();
+    let root = app
+        .world_mut()
+        .query_filtered::<Entity, With<super::super::HudRoot>>()
+        .single(app.world())
+        .expect("the overlay's root");
+    let sheet = app
+        .world_mut()
+        .spawn((crate::hud::revealed::RevealSheet, Node::default()))
+        .id();
+    let loose = app.world_mut().spawn(Node::default()).id();
+    app.world_mut()
+        .entity_mut(root)
+        .add_children(&[sheet, loose]);
+    let span = app.world_mut().spawn_empty().id();
+    app.world_mut().resource_mut::<Duel>().hovered_log =
+        Some(log_hover(span, Vec2::new(300.0, 200.0), None));
+    app.update();
+    assert!(
+        app.world().get_entity(loose).is_err(),
+        "the premise: the hover rebuilt the overlay and swept what it does not name"
+    );
+    assert!(
+        app.world().get_entity(sheet).is_ok(),
+        "the rebuild took the reveal sheet with it"
+    );
+    assert_eq!(
+        app.world().get::<ChildOf>(sheet).map(ChildOf::parent),
+        Some(root),
+        "and the sheet still hangs off the overlay's root"
+    );
+}
+
+/// The preview a revealed card opens stands beside that card's edge, not
+/// beside the pointer: the pointer is on the card, so a preview opened at it
+/// would cover the card it is of. The control is the same hover without the
+/// card's box, which opens at the pointer, over the card.
+///
+/// The card is a 120 x 168 box in the left of the harness's 1200 x 800
+/// window, so there is room to its right for the whole panel.
+#[test]
+fn a_revealed_card_s_preview_opens_beside_the_card_not_over_it() {
+    let card = Rect::from_center_size(Vec2::new(300.0, 400.0), Vec2::new(120.0, 168.0));
+    let left_of_the_preview = |box_of_the_card: Option<Rect>| {
+        let mut duel = duel_with(false);
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        let mut app = bar_of(duel);
+        app.update();
+        let span = app.world_mut().spawn_empty().id();
+        app.world_mut().resource_mut::<Duel>().hovered_log =
+            Some(log_hover(span, card.center(), box_of_the_card));
+        app.update();
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&Node, With<super::super::PreviewBounds>>();
+        let panels: Vec<&Node> = q.iter(app.world()).collect();
+        assert_eq!(panels.len(), 1, "the link opened one preview panel");
+        let (left, top) = (panels[0].left, panels[0].top);
+        assert!(
+            matches!(top, Val::Px(_)),
+            "the panel is placed in pixels: {top:?}"
+        );
+        match left {
+            Val::Px(x) => x,
+            other => panic!("the panel's left is not in pixels: {other:?}"),
+        }
+    };
+    let at_the_pointer = left_of_the_preview(None);
+    assert!(
+        at_the_pointer < card.max.x,
+        "the control: beside the pointer the panel starts over the card ({at_the_pointer} vs {})",
+        card.max.x
+    );
+    let beside_the_card = left_of_the_preview(Some(card));
+    assert!(
+        beside_the_card >= card.max.x,
+        "the panel starts at {beside_the_card}, over the card that ends at {}",
+        card.max.x
+    );
+}
