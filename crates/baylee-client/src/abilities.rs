@@ -1405,7 +1405,7 @@ mod tests {
         assert_eq!(
             rows[0].cost.as_deref(),
             Some("{0}"),
-            "a printed {0} is the cost column, as every other cost is"
+            "a printed {{0}} is the cost column, as every other cost is"
         );
         let words = printed_words(None, &view, id, &rows[0]).unwrap();
         let sentence = words
