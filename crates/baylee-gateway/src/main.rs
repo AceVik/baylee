@@ -11,6 +11,7 @@ mod admin;
 mod admission;
 mod art;
 mod auth;
+mod blocks;
 mod chair;
 mod clock;
 mod cosmetics;
@@ -233,6 +234,8 @@ struct AppState {
     /// (`BAYLEE_ADMISSION_HOLD`, `admission.rs`), for a deploy draining
     /// every agent's games.
     admission: admission::Hold,
+    /// The cards blocked on this gateway (`blocks.rs`).
+    blocks: blocks::Blocks,
 }
 
 impl AppState {
@@ -392,7 +395,16 @@ async fn main() {
             .filter(|url| !url.trim().is_empty())
             .unwrap_or_else(|| format!("http://127.0.0.1:{port}")),
         admission,
+        blocks: blocks::Blocks::default(),
     });
+    // Before serving: a deck holding a blocked card must not slip into the
+    // first game after a restart.
+    state
+        .blocks
+        .reload(&state.db)
+        .await
+        .unwrap_or_else(|e| panic!("card blocks: {e}"));
+    blocks::spawn_refresh(state.clone());
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
     spawn_cleanup(state.clone());

@@ -17,6 +17,12 @@
 //! - `POST /ui/api/admin/invites` `{uses?, expires?, note?, count?}`: makes
 //!   keys and answers them, the one time they are shown.
 //! - `DELETE /ui/api/admin/invites/{id}`: revokes one.
+//! - `GET /ui/api/admin/cards/search?q=`: the pool's cards by name, each
+//!   saying whether it is blocked.
+//! - `GET /ui/api/admin/cards/blocks`: every card block, newest first.
+//! - `POST /ui/api/admin/cards/blocks` `{index, reason, until?}`: blocks a
+//!   card on the gateway, for good or until a moment.
+//! - `DELETE /ui/api/admin/cards/blocks/{id}`: lifts a block.
 //! - `GET /ui/api/admin/audit`: the latest changes made through here.
 //! - `GET /ui/api/admin/offline`: offline games going now, this service's
 //!   own anonymous count (`crate::alive`); needs no gateway.
@@ -125,6 +131,12 @@ pub(crate) fn routes() -> Router<Shared> {
         .route("/ui/api/admin/accounts/{id}", get(account))
         .route("/ui/api/admin/invites", get(invites).post(create))
         .route("/ui/api/admin/invites/{id}", delete(revoke))
+        .route("/ui/api/admin/cards/search", get(search_cards))
+        .route(
+            "/ui/api/admin/cards/blocks",
+            get(card_blocks).post(block_card),
+        )
+        .route("/ui/api/admin/cards/blocks/{id}", delete(unblock_card))
         .route("/ui/api/admin/audit", get(audit))
         .route("/ui/api/admin/offline", get(offline))
         .route("/ui/api/admin/llm/seathosts", get(llm_seathosts))
@@ -531,6 +543,124 @@ async fn revoke(
         let detail = format!("key {id}");
         tracing::info!(admin, action = "gateway.invite.revoke", %detail, "admin console");
         if let Err(e) = note(&shared, &admin, "gateway.invite.revoke", &detail).await {
+            tracing::error!("admin console: the audit row was not written: {e}");
+        }
+    }
+    Ok(answer(done))
+}
+
+// ------------------------------------------------------------ blocked cards
+
+/// What `GET /ui/api/admin/cards/search` takes, and all it passes on.
+#[derive(Deserialize, Default)]
+#[serde(default, deny_unknown_fields)]
+struct CardSearch {
+    q: String,
+}
+
+async fn search_cards(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    query: Result<axum::extract::Query<CardSearch>, axum::extract::rejection::QueryRejection>,
+) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let axum::extract::Query(query) =
+        query.map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a search for cards"))?;
+    ask(
+        &gateway,
+        "GET",
+        format!("/admin/cards/search?q={}", encoded(&query.q)),
+        &admin,
+        None,
+    )
+    .await
+    .map(answer)
+}
+
+async fn card_blocks(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/cards/blocks".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+/// What `POST /ui/api/admin/cards/blocks` takes, and all it passes on.
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct BlockOrder {
+    index: u32,
+    reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    until: Option<String>,
+}
+
+/// One line for the audit: which card, which block, until when; never
+/// the reason, which may name a person.
+fn block_detail(made: &serde_json::Value) -> String {
+    format!(
+        "{} (#{}), {}; block {}",
+        made["name"].as_str().unwrap_or("?"),
+        made["index"].as_u64().unwrap_or(0),
+        made["until"]
+            .as_str()
+            .map_or_else(|| "without an end".to_owned(), |at| format!("until {at}")),
+        made["id"].as_str().unwrap_or("?"),
+    )
+}
+
+async fn block_card(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let order: BlockOrder = serde_json::from_slice(&body)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a request to block a card"))?;
+    let body = serde_json::to_vec(&order)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a request to block a card"))?;
+    let made = ask(
+        &gateway,
+        "POST",
+        "/admin/cards/blocks".into(),
+        &admin,
+        Some(body),
+    )
+    .await?;
+    if made.status == 201 {
+        let detail = block_detail(&made.json);
+        tracing::info!(admin, action = "gateway.card.block", %detail, "admin console");
+        if let Err(e) = note(&shared, &admin, "gateway.card.block", &detail).await {
+            tracing::error!("admin console: the audit row was not written: {e}");
+        }
+    }
+    Ok(answer(made))
+}
+
+async fn unblock_card(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let id =
+        Uuid::parse_str(&id).map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a block's id"))?;
+    let done = ask(
+        &gateway,
+        "DELETE",
+        format!("/admin/cards/blocks/{id}"),
+        &admin,
+        None,
+    )
+    .await?;
+    if done.status == 204 {
+        let detail = format!("block {id}");
+        tracing::info!(admin, action = "gateway.card.unblock", %detail, "admin console");
+        if let Err(e) = note(&shared, &admin, "gateway.card.unblock", &detail).await {
             tracing::error!("admin console: the audit row was not written: {e}");
         }
     }
