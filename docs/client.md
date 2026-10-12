@@ -1449,6 +1449,24 @@ under the threshold lights the mark, one that shows leaves it dark.
 Hovering the host lays its attachments beside the preview, in columns of
 two under "ATTACHED", art or, for a Role, its characteristics
 (`a_hovered_host_shows_what_is_attached_to_it_beside_its_preview`).
+Since report 29 (12.10.2026: *"I'd like to enlarge the card under General
+Tazri"*) they, and the card underneath a copy, are drawn to be read rather
+than recognised: `overlay::beside_width` makes them two-thirds of the preview
+and at most a revealed card's 240 (`revealed::WIDEST`), then no wider than
+the roomier flank beside the preview and the window's height allow, from the
+`Normal` picture. They were a third of the preview from the table's
+thumbnail, and the pointer cannot reach them to ask for more: it is on the
+host, and leaving it closes the preview.
+
+The preview also says what the permanent has been **granted** (report 22:
+*"when Great Divide Guide grants another Ally its ability, the other Allies
+don't show they can now do it too"*): under the card, the slip the stack's
+sentence stands on (`hud::slip`), headed "Granted abilities" and its
+controller, one paragraph a grant — the grantor's name and the sentence on
+its card that grants it, in the player's language where it has arrived
+(`slip::granted`, from `PublicObject::grants`; nothing in the client works out
+a grant). A hidden grantor is "Granted ability". Keywords a permanent gains
+are already on its strip (`marksmat::strip_of` reads the projected keywords).
 
 Everything under a host lies within half the height between a face and
 the top of Defender's wall (`ATTACH_DEPTH`), so the wall stays under every
@@ -7457,6 +7475,19 @@ picking frame by frame with nothing rebuilt, and a row's focus ring is
 placement is deliberately not in the gate either; `input::tray_drag` writes
 the panel's `Node` directly so that dragging the sheet does not rebuild it.
 
+**A tick still rebuilds the rows, so the rows hand their warmth on (report
+11, 12.10.2026).** What is ticked is in the gate, as it must be, and so the
+row just clicked — the row under the pointer — came back as a new entity at
+`warmth: 0` with no picking state: it went dark and lit again on every
+choice, and a tile shrank and grew back. Measured at a twentieth of the
+clock: the clicked row read `(89, 61, 27)` right after the click and rose to
+`(111, 76, 31)`; now it reads `(110, 75, 31)` on the first frame. `sync_tray`
+writes each row's `Feel::warmth` and `PickingInteraction` into `TrayCarry`
+before it tears them down, and `tray::carry_the_rows` (after `sync_tray`,
+before `ambience::feel`) gives them to the new rows by object. The table's
+veil is kept rather than spawned again (a new one stood clear until
+`dim_the_table` painted it), and `dim_the_table` runs after `sync_tray`.
+
 **A gate field may not be a projection that throws state away.** Naming every
 field closed the hole the sort buttons fell into; it did not close the one a
 field's *type* can open. `BrowserGate::filter` was the box's `String`, and the
@@ -9448,7 +9479,10 @@ and a person watching an agent's run cannot hover or click into its checks
 (the injected input never came from the OS and is unaffected), and an
 injected move no longer warps the real mouse (bevy_winit warps the OS cursor to
 a changed `Window`'s cursor position; a passive window writes it without change
-detection). Agents start their dev-control clients with it.
+detection). Agents start their dev-control clients with it. Covered by other
+windows, a passive window is not paced as hidden (`quality::note_hidden`):
+it is meant to stand behind, and at one frame a second a click was five
+seconds and a two-frame comparison a guess (12.10.2026).
 
 Seven things about it are load-bearing.
 

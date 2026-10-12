@@ -865,11 +865,11 @@ pub fn sync_overlay(
             if let Some(under) = hovered.and_then(|id| view.object(id)).and_then(|o| {
                 baylee_client_core::board::original_of(
                     o,
-                    ArtSize::Small,
+                    ArtSize::Normal,
                     crate::cardart::registry(),
                 )
             }) {
-                let thumb_w = (img_w * 0.34).max(56.0);
+                let thumb_w = beside_width(img_w, (1, 1), taken, window);
                 let thumb_h = thumb_w * 88.0 / 63.0;
                 let size = Vec2::new(thumb_w, thumb_h + CAPTION_H);
                 let at = underneath_place(taken, size, window);
@@ -941,10 +941,10 @@ pub fn sync_overlay(
                 .map_or(&[][..], |group| group.attached.as_slice());
             if !attached.is_empty() {
                 const GAP: f32 = 4.0;
-                let thumb_w = (img_w * 0.34).max(56.0);
-                let thumb_h = thumb_w * 88.0 / 63.0;
                 let rows = attached.len().min(2);
                 let columns = attached.len().div_ceil(2);
+                let thumb_w = beside_width(img_w, (columns, rows), taken, window);
+                let thumb_h = thumb_w * 88.0 / 63.0;
                 #[expect(clippy::cast_precision_loss)] // a handful of cards
                 let size = Vec2::new(
                     columns as f32 * (thumb_w + GAP) - GAP,
@@ -967,7 +967,12 @@ pub fn sync_overlay(
                         })
                         .id();
                     for group in pair {
-                        let key = group.art;
+                        // At the size it is drawn at now (report 29), not
+                        // the table's thumbnail.
+                        let key = group.art.map(|key| ImageKey {
+                            size: ArtSize::Normal,
+                            ..key
+                        });
                         let built = match key {
                             Some(_) => None,
                             None => {

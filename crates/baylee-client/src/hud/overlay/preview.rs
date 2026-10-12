@@ -134,6 +134,38 @@ pub(in crate::hud) fn preview_taken(place: Vec2, panel: Vec2, plate: f32, shell:
     )
 }
 
+/// How wide the cards standing beside a preview are drawn — the card
+/// underneath a copy and the cards attached to a permanent (#305) — for
+/// `(columns, rows)` of them beside a preview taking `taken` of a `window`.
+///
+/// Large enough to read (report 29: *"I'd like to enlarge the card currently
+/// under General Tazri"*): they were a third of the preview, a picture to
+/// recognise and not a card to read, and the pointer cannot reach them to ask
+/// for more — it is on the permanent, and leaving it closes the preview. So
+/// as wide as a revealed card ([`crate::hud::revealed::WIDEST`]) and at most
+/// two-thirds of the preview, and then no wider than the room beside the
+/// preview on its roomier flank and the window's height allow, never under
+/// the old floor.
+pub(in crate::hud) fn beside_width(
+    img_w: f32,
+    (columns, rows): (usize, usize),
+    taken: Rect,
+    window: Vec2,
+) -> f32 {
+    const GAP: f32 = 4.0;
+    const FLOOR: f32 = 56.0;
+    #[expect(clippy::cast_precision_loss)] // a handful of cards
+    let (columns, rows) = (columns.max(1) as f32, rows.max(1) as f32);
+    let flank = (window.x - taken.max.x).max(taken.min.x) - 2.0 * GAP;
+    let across = (flank - (columns - 1.0) * GAP) / columns;
+    let tall = (window.y - TOP_CLEAR - super::CAPTION_H - 2.0 * GAP - (rows - 1.0) * GAP) / rows;
+    (img_w * 2.0 / 3.0)
+        .min(crate::hud::revealed::WIDEST)
+        .min(across)
+        .min(tall * 63.0 / 88.0)
+        .max(FLOOR)
+}
+
 /// Where the preview panel's top-left corner goes when a badge reaches
 /// `reach` over its top edge: placed as a panel that much taller, so the
 /// badge lands on the screen wherever the panel does.
