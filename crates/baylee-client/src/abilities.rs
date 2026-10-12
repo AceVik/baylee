@@ -1414,7 +1414,8 @@ mod tests {
             .map(TextBlock::text)
             .collect::<Vec<_>>()
             .join(" ");
-        assert!(sentence.starts_with("{0}:"), "{sentence}");
+        // The `{0}` is the cost column; the words follow it.
+        assert!(sentence.starts_with("The next 1 damage"), "{sentence}");
         assert!(sentence.contains("owner may activate"), "{sentence}");
     }
 
