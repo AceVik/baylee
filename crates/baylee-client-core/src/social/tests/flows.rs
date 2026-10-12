@@ -1209,3 +1209,49 @@ fn the_unread_total_leaves_muted_conversations_out() {
     bob.act(&mut gw, Intent::UnmuteConv(alice_conv));
     assert_eq!(bob.social.unread_total(), 3);
 }
+
+#[test]
+fn a_table_line_sent_before_the_member_list_waits_for_it() {
+    let mut gw = world();
+    // Alice connects before the gateway lists the table: her snapshot
+    // does not carry it. Bob's does.
+    let mut alice = Client::new(&mut gw, ALICE, "Alice#af03", 1);
+    gw.tables
+        .insert("tbl:g1".into(), vec![ALICE.into(), BOB.into()]);
+    let mut bob = Client::new(&mut gw, BOB, "Bob#0012", 2);
+    alice.social.on_table(Some(waiting_room(vec![
+        seat(0, "Alice#af03"),
+        seat(1, "Bob#0012"),
+    ])));
+
+    let sends_before = gw.sends_from(&alice.device());
+    alice.say(&mut gw, "/t gl hf");
+    assert_eq!(
+        gw.sends_from(&alice.device()),
+        sends_before,
+        "no member list yet: nothing is sealed for nobody"
+    );
+    let line = alice.message_lines("tbl:g1").pop().unwrap();
+    assert_eq!(line.state, LineState::Pending);
+    assert_eq!(line.failure, None);
+
+    // The gateway's member list arrives; the line goes.
+    let members = vec![gw.person_of(ALICE), gw.person_of(BOB)];
+    alice.feed(
+        &mut gw,
+        Down::Members {
+            conv: "tbl:g1".into(),
+            members,
+        },
+    );
+    assert_eq!(
+        gw.sends_from(&alice.device()),
+        sends_before + 1,
+        "sent once, no refusal and no reseal"
+    );
+    let line = alice.message_lines("tbl:g1").pop().unwrap();
+    assert_eq!(line.state, LineState::Final);
+    assert!(!phrases(&alice, "tbl:g1").contains(&ChatPhrase::RosterMismatch));
+    bob.deliver(&mut gw);
+    assert_eq!(bob.texts("tbl:g1"), ["gl hf"]);
+}

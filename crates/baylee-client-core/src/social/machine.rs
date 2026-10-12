@@ -1733,6 +1733,16 @@ impl Social {
                 failed.push((i, ChatPhrase::SendNotAllowed));
                 continue;
             };
+            // A table whose member list hasn't come yet (just sat down):
+            // wait for `Members` rather than seal for nobody.
+            let unlisted = matches!(conv, Conv::Table { .. } | Conv::Team { .. })
+                && self
+                    .conversation(&conv)
+                    .is_none_or(|c| c.members.is_empty());
+            if unlisted {
+                self.outbox[i].wait = Wait::Keys;
+                continue;
+            }
             let lacking: Vec<&String> = tags.iter().filter(|t| !self.keys_fresh(t)).collect();
             if !lacking.is_empty() {
                 missing.extend(lacking.into_iter().cloned());
