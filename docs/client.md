@@ -4438,8 +4438,9 @@ search answers at keystroke latency and never at the gateway's.
 `DeckBuilder::blocked`: a pool row says "blocked here", a deck row's name is
 drawn in the danger ink, and the card sheet gives the operator's reason and
 the end. A deck tile holding one wears a danger badge (`shelf::blocked_badge`,
-from the row's `blocked`), and a room's deck choices show such a deck off
-with the same sentence. Nothing in the client refuses it: the gateway does,
+from the row's `blocked`); Play's next-game card says the sentence and its
+deck picker the badge; a room's deck choices show such a deck off with the
+same sentence; the first-run mini tiles pass blocked house decks over. Nothing in the client refuses it: the gateway does,
 and a local game is not affected.
 
 It was on by default in three comments and in `DeckBuilder::new`, and **off
