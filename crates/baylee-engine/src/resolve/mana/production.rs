@@ -21,6 +21,7 @@ struct Dependency {
     mine: bool,
     mask: u8,
     context: RuleContext,
+    tapped: bool,
 }
 
 #[derive(Default)]
@@ -59,7 +60,7 @@ pub(super) fn land_colors(
                         dependency.context,
                     )
                 {
-                    dependants[provider].push((recipient, dependency.mask));
+                    dependants[provider].push((recipient, dependency.mask, dependency.tapped));
                 }
             }
         }
@@ -75,8 +76,13 @@ pub(super) fn land_colors(
     while let Some(provider) = pending.pop_front() {
         queued[provider] = false;
         let available = production[provider].types;
-        for &(recipient, mask) in &dependants[provider] {
-            let extra = available & mask & !production[recipient].types;
+        for &(recipient, mask, tapped) in &dependants[provider] {
+            let output = if tapped {
+                crate::mana_rules::replace_types(state, lands[recipient], available & mask)
+            } else {
+                available & mask
+            };
+            let extra = output & !production[recipient].types;
             if extra == 0 {
                 continue;
             }
@@ -101,7 +107,11 @@ pub(super) fn land_colors(
 
 fn read(state: &GameState, land: &GameObject) -> Production {
     let mut production = Production {
-        types: mask(crate::casting::intrinsic_mana_colors(state, land.id)),
+        types: crate::mana_rules::replace_types(
+            state,
+            land,
+            mask(crate::casting::intrinsic_mana_colors(state, land.id)),
+        ),
         ..Production::default()
     };
     let current = land.characteristics();
@@ -154,21 +164,50 @@ fn read_ability(
     // Activation restrictions and costs do not prevent hypothetical resolution
     // (CR 106.7). Conditions inside the instructions still control production.
     match ability {
-        AbilityDef::Activated { effects, .. }
-        | AbilityDef::ActivatedConditional { effects, .. }
-        | AbilityDef::Triggered { effects, .. } => {
-            read_effects(state, land, effects, context, acquisition, production);
+        AbilityDef::Activated { cost, effects, .. }
+        | AbilityDef::ActivatedConditional { cost, effects, .. } => {
+            read_effects(
+                state,
+                land,
+                effects,
+                ProductionContext {
+                    rules: context,
+                    acquisition,
+                    tapped: ability.is_mana_ability()
+                        && cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
+                },
+                production,
+            );
+        }
+        AbilityDef::Triggered { effects, .. } => {
+            read_effects(
+                state,
+                land,
+                effects,
+                ProductionContext {
+                    rules: context,
+                    acquisition,
+                    tapped: false,
+                },
+                production,
+            );
         }
         _ => {}
     }
+}
+
+#[derive(Clone, Copy)]
+struct ProductionContext {
+    rules: RuleContext,
+    acquisition: u64,
+    tapped: bool,
 }
 
 fn read_effects(
     state: &GameState,
     land: &GameObject,
     effects: &[Effect],
-    context: RuleContext,
-    acquisition: u64,
+    context: ProductionContext,
     production: &mut Production,
 ) {
     for effect in effects {
@@ -186,67 +225,24 @@ fn read_effects(
                         restriction: None,
                     }],
                     context,
-                    acquisition,
                     production,
                 );
             }
             Effect::AddMana { source, amount, .. } => {
-                if *amount != Amount::DevotionToManaColor
-                    && eval::amount_with_context(
-                        amount,
-                        state,
-                        land.controller,
-                        context,
-                        Some(u32::MAX),
-                    ) == 0
-                {
-                    continue;
-                }
-                if let ManaSource::LandColor {
-                    filter,
-                    mine,
-                    any_type,
-                } = source
-                {
-                    production.dependencies.push(Dependency {
-                        filter,
-                        mine: *mine,
-                        mask: if *any_type { TYPES } else { COLORS },
-                        context,
-                    });
-                } else {
-                    let options = if *source == ManaSource::ExiledWithSource {
-                        exiled_colors_for(
-                            state,
-                            DamageSourceRef {
-                                object: land.id,
-                                version: land.version,
-                            },
-                            acquisition,
-                        )
-                    } else {
-                        colors_of(state, land.controller, *source, land.id)
-                    };
-                    let available = if *amount == Amount::DevotionToManaColor {
-                        let devotion = super::devotion(state, land.controller).unwrap_or([0; 6]);
-                        mask(
-                            options
-                                .into_iter()
-                                .filter(|color| devotion[color.index()] != 0),
-                        )
-                    } else {
-                        mask(options)
-                    };
-                    production.types |= available;
-                }
+                read_mana(state, land, source, amount, context, production);
             }
             Effect::ManaForColorsAmong(filter) => {
-                production.types |= mask(super::colored(eval::colors_among(
+                let available = mask(super::colored(eval::colors_among(
                     state,
                     land.controller,
                     filter,
-                    context,
+                    context.rules,
                 )));
+                production.types |= if context.tapped {
+                    crate::mana_rules::replace_types(state, land, available)
+                } else {
+                    available
+                };
             }
             Effect::IfCondition {
                 condition,
@@ -256,20 +252,83 @@ fn read_effects(
                 let effects = if eval::condition_holds_with_context(
                     state,
                     land.controller,
-                    context,
+                    context.rules,
                     *condition,
                 ) {
                     then
                 } else {
                     otherwise
                 };
-                read_effects(state, land, effects, context, acquisition, production);
+                read_effects(state, land, effects, context, production);
             }
             Effect::Sequence(effects) | Effect::MayDo { effects } => {
-                read_effects(state, land, effects, context, acquisition, production);
+                read_effects(state, land, effects, context, production);
             }
             _ => {}
         }
+    }
+}
+
+fn read_mana(
+    state: &GameState,
+    land: &GameObject,
+    source: &ManaSource,
+    amount: &Amount,
+    context: ProductionContext,
+    production: &mut Production,
+) {
+    if *amount != Amount::DevotionToManaColor
+        && eval::amount_with_context(
+            amount,
+            state,
+            land.controller,
+            context.rules,
+            Some(u32::MAX),
+        ) == 0
+    {
+        return;
+    }
+    if let ManaSource::LandColor {
+        filter,
+        mine,
+        any_type,
+    } = source
+    {
+        production.dependencies.push(Dependency {
+            filter,
+            mine: *mine,
+            mask: if *any_type { TYPES } else { COLORS },
+            context: context.rules,
+            tapped: context.tapped,
+        });
+    } else {
+        let options = if *source == ManaSource::ExiledWithSource {
+            exiled_colors_for(
+                state,
+                DamageSourceRef {
+                    object: land.id,
+                    version: land.version,
+                },
+                context.acquisition,
+            )
+        } else {
+            colors_of(state, land.controller, *source, land.id)
+        };
+        let available = if *amount == Amount::DevotionToManaColor {
+            let devotion = super::devotion(state, land.controller).unwrap_or([0; 6]);
+            mask(
+                options
+                    .into_iter()
+                    .filter(|color| devotion[color.index()] != 0),
+            )
+        } else {
+            mask(options)
+        };
+        production.types |= if context.tapped {
+            crate::mana_rules::replace_types(state, land, available)
+        } else {
+            available
+        };
     }
 }
 

@@ -1160,3 +1160,55 @@ fn graveyard_land_grant_has_exact_source_zone_and_refuses_unknowns() {
         assert!(refused(&text.replace(from, to)), "{to}");
     }
 }
+
+fn portals_body(text: &str) -> Option<CardBody> {
+    let mut catalog = cats();
+    catalog
+        .land
+        .extend(["Gate".into(), "Plains".into(), "Swamp".into()]);
+    catalog.normalize();
+    transcode(&parse(text), &catalog, None)
+}
+#[test]
+fn remembered_white_mana_replacement_preserves_indefinite_incarnation_binding() {
+    let script = "Name:X\nTypes:Creature Gnome\nManaCost:3 R\nPT:1/1\nA:AB$ Effect | Cost$ T | ValidTgts$ Plains | IsCurse$ True | RememberObjects$ Targeted | ForgetOnMoved$ Battlefield | Duration$ Permanent | ReplacementEffects$ Rewrite\nSVar:Rewrite:Event$ ProduceMana | ValidCard$ Card.IsRemembered | ReplaceWith$ Mana\nSVar:Mana:DB$ ReplaceMana | ReplaceColor$ C | ReplaceOnly$ W";
+    // The shared tiny test catalog does not contain Gnome; this grammar does
+    // not depend on the source's creature subtype.
+    let script = script.replace("Types:Creature Gnome", "Types:Creature Goblin");
+    let body = portals_body(&script).unwrap();
+    let ability = body.abilities.join("");
+    assert!(ability.contains("Modifier::ReplaceTappedMana"));
+    assert!(ability.contains("Duration::Indefinitely"));
+    for (from, to) in [
+        ("ReplaceOnly$ W", "ReplaceOnly$ U"),
+        ("Card.IsRemembered", "Card"),
+        ("Duration$ Permanent", "Duration$ UntilEndOfTurn"),
+        ("ForgetOnMoved$ Battlefield", "ForgetOnMoved$ Graveyard"),
+    ] {
+        assert!(portals_body(&script.replace(from, to)).is_none(), "{to}");
+    }
+}
+#[test]
+fn self_mana_life_tax_refuses_general_abilities_and_unproven_all_zone_semantics() {
+    let script = "Name:X\nTypes:Land\nS:Mode$ RaiseCost | Type$ Ability | ValidSpell$ Activated.ManaAbility | ValidCard$ Card.Self | Cost$ PayLife<1>";
+    assert!(portals_body(script).unwrap().abilities[0].contains("ManaAbilitiesCostLife(1)"));
+    assert!(portals_body(&script.replace("Activated.ManaAbility", "Activated")).is_none());
+    assert!(portals_body(&format!("{script} | EffectZone$ All")).is_none());
+}
+
+#[test]
+fn thran_additive_chosen_type_requires_its_own_basic_land_choice() {
+    let script = "Name:X\nTypes:Land Gate\nK:ETBReplacement:Other:Pick\nSVar:Pick:DB$ ChooseType | Type$ Basic Land\nS:Mode$ Continuous | Affected$ Card.Self | AddType$ ChosenType";
+    let body = portals_body(script).unwrap();
+    assert_eq!(body.enter_modifiers, ["EnterModifier::ChooseBasicLandType"]);
+    assert_eq!(
+        body.abilities,
+        ["static_ability!(Filter::This, Modifier::AddChosenBasicLandType)"]
+    );
+    assert!(portals_body(&script.replace("Card.Self", "Land.YouCtrl")).is_none());
+    assert!(portals_body(&script.replace("K:ETBReplacement:Other:Pick\n", "")).is_none());
+    assert!(
+        portals_body(&script.replace("AddType$ ChosenType", "AddType$ ChosenType | Unknown$ True"))
+            .is_none()
+    );
+}

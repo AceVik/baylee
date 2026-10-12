@@ -93,7 +93,11 @@ impl<L: CardLookup> Engine<L> {
         source: ObjectId,
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
-        locked_price: Option<(baylee_core::mana::ManaCost, baylee_core::mana::ManaCost)>,
+        locked_price: Option<(
+            baylee_core::mana::ManaCost,
+            baylee_core::mana::ManaCost,
+            u32,
+        )>,
     ) -> Result<(), EngineError> {
         // The player half of a choice this activation has already answered,
         // put here by `apply`. Read out before anything at all can return,
@@ -297,7 +301,7 @@ impl<L: CardLookup> Engine<L> {
             return Ok(());
         }
         let variable_mana = cost.mana.has_variable();
-        let (mana, fixed_mana_cost) = locked_price.unwrap_or_else(|| {
+        let (mana, fixed_mana_cost, additional_life) = locked_price.unwrap_or_else(|| {
             let price = |x| {
                 self.activation_price(
                     player,
@@ -310,7 +314,15 @@ impl<L: CardLookup> Engine<L> {
                 )
                 .mana
             };
-            (price(self.activation_x.unwrap_or(0)), price(0))
+            (
+                price(self.activation_x.unwrap_or(0)),
+                price(0),
+                if mana_ability {
+                    crate::mana_rules::life_price(&self.state, source)
+                } else {
+                    0
+                },
+            )
         });
         let cost = Cost {
             mana,
@@ -326,8 +338,10 @@ impl<L: CardLookup> Engine<L> {
             with_life.push(true);
             let mut with_mana = self.activation_phyrexian.clone();
             with_mana.push(false);
-            let life_ok = self.activation_affordable(player, source, &cost, &with_life);
-            let mana_ok = self.activation_affordable(player, source, &cost, &with_mana);
+            let life_ok =
+                self.activation_affordable(player, source, &cost, &with_life, additional_life);
+            let mana_ok =
+                self.activation_affordable(player, source, &cost, &with_mana, additional_life);
             match (life_ok, mana_ok) {
                 (true, true) => {
                     self.pending_plan = Some(PlanKind::ChoosePhyrexianLife {
@@ -368,6 +382,12 @@ impl<L: CardLookup> Engine<L> {
             .enumerate()
             .fold(0u32, |mask, (i, life)| mask | (u32::from(*life) << i));
         let phyrexian_life = 2 * i32::try_from(by_life.count_ones()).unwrap_or(i32::MAX);
+        let activation_life = i32::try_from(additional_life)
+            .ok()
+            .and_then(|life| life.checked_add(phyrexian_life))
+            .ok_or(EngineError::IllegalAction(
+                "activation life cost exceeds available life",
+            ))?;
         let cost = Cost {
             mana: cost.mana.with_phyrexian_settled(by_life),
             parts: cost.parts,
@@ -534,8 +554,8 @@ impl<L: CardLookup> Engine<L> {
         } else {
             cost
         };
-        if !self.can_plan_activation(player, source, &planned, phyrexian_life)
-            || !self.state.can_pay_life(player, phyrexian_life)
+        if !self.can_plan_activation(player, source, &planned, activation_life)
+            || !self.state.can_pay_life(player, activation_life)
         {
             self.activation_cost_choices.clear();
             self.activation_x = None;
@@ -651,8 +671,11 @@ impl<L: CardLookup> Engine<L> {
                 source,
                 ability_index,
                 targets,
-                cost.mana.with_x(self.activation_x.unwrap_or(0)),
-                fixed_mana_cost,
+                (
+                    cost.mana.with_x(self.activation_x.unwrap_or(0)),
+                    fixed_mana_cost,
+                    additional_life,
+                ),
             );
         }
         let answers = std::mem::take(&mut self.activation_cost_choices);
@@ -702,9 +725,9 @@ impl<L: CardLookup> Engine<L> {
         paid.fixed_mana_cost = fixed_mana_cost;
         // The life the Phyrexian symbols were paid with, beside the rest of
         // the cost (CR 601.2h; CR 119.4 was asked above).
-        if phyrexian_life > 0 {
+        if activation_life > 0 {
             self.state
-                .change_life(player, -phyrexian_life, crate::event::Cause::Cost);
+                .change_life(player, -activation_life, crate::event::Cause::Cost);
         }
         // "When you cycle this card" is "when you discard this card to pay
         // an activation cost of a cycling ability" (CR 702.29c), and this is
@@ -796,6 +819,12 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 subject: resolve::SubjectContext::after_cost(&paid)
+                    .with_mana_tap_source(cost.parts.contains(&CostPart::TapSelf).then_some(
+                        baylee_core::ids::DamageSourceRef {
+                            object: source,
+                            version: activated_source_version.expect("activated source"),
+                        },
+                    ))
                     .with_circled_colors(circled_colors)
                     .with_acquisition(acquisition),
                 text: activated_text,

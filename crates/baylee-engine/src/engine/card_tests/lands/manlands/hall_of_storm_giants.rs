@@ -49,6 +49,14 @@ fn a_counted_entry_clause_counts_only_its_controller_s_other_lands() {
         reach_main_phase(&mut engine, p0);
         let card = in_hand(&engine, p0, land).expect("the land is in hand");
         engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+        if land == thran_portal() {
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseSubtype(baylee_core::generated::subtypes::land::FOREST),
+                )
+                .unwrap();
+        }
         pass_until(&mut engine, stack_is_empty);
         assert!(
             !entered_tapped(&engine, card),
@@ -65,6 +73,14 @@ fn a_counted_entry_clause_counts_only_its_controller_s_other_lands() {
         reach_main_phase(&mut engine, p0);
         let card = in_hand(&engine, p0, land).expect("the land is in hand");
         engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+        if land == thran_portal() {
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseSubtype(baylee_core::generated::subtypes::land::FOREST),
+                )
+                .unwrap();
+        }
         pass_until(&mut engine, stack_is_empty);
         assert!(
             entered_tapped(&engine, card),

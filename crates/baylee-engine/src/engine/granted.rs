@@ -80,6 +80,7 @@ pub(super) struct ActivationPayment {
     targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
     pub(super) cost: baylee_core::mana::ManaCost,
     fixed_cost: baylee_core::mana::ManaCost,
+    additional_life: u32,
     players: Vec<PlayerId>,
     choices: Vec<Vec<baylee_core::ids::ObjectId>>,
     second: Option<smallvec::SmallVec<[baylee_core::ids::ObjectId; 1]>>,
@@ -107,6 +108,7 @@ impl ActivationPayment {
             &self.targets,
             self.cost,
             self.fixed_cost,
+            self.additional_life,
             &self.players,
             &self.choices,
             &self.second,
@@ -159,9 +161,10 @@ impl<L: CardLookup> Engine<L> {
                         _ => 0,
                     })
                 });
-        if !self
-            .state
-            .can_pay_life(player, i32::try_from(reserved).unwrap_or(i32::MAX))
+        if i32::try_from(reserved).is_err()
+            || !self
+                .state
+                .can_pay_life(player, i32::try_from(reserved).unwrap_or(i32::MAX))
         {
             return false;
         }
@@ -252,9 +255,13 @@ impl<L: CardLookup> Engine<L> {
         source: baylee_core::ids::ObjectId,
         ability_index: u32,
         targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
-        cost: baylee_core::mana::ManaCost,
-        fixed_cost: baylee_core::mana::ManaCost,
+        price: (
+            baylee_core::mana::ManaCost,
+            baylee_core::mana::ManaCost,
+            u32,
+        ),
     ) -> Result<(), EngineError> {
+        let (cost, fixed_cost, additional_life) = price;
         let source = self
             .state
             .source_identity(source)
@@ -267,6 +274,7 @@ impl<L: CardLookup> Engine<L> {
             targets,
             cost,
             fixed_cost,
+            additional_life,
             players: std::mem::take(&mut self.activation_target_players),
             choices: std::mem::take(&mut self.activation_cost_choices),
             second: self.activation_second_targets.take(),
@@ -330,7 +338,7 @@ impl<L: CardLookup> Engine<L> {
                 payment.source.object,
                 payment.ability_index,
                 payment.targets,
-                Some((payment.cost, payment.fixed_cost)),
+                Some((payment.cost, payment.fixed_cost, payment.additional_life)),
             )
             .is_err()
         {

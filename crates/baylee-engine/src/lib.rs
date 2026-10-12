@@ -85,6 +85,7 @@ mod damage_history;
 mod entry;
 mod graveyard_order;
 mod hasher;
+mod mana_rules;
 mod phasing;
 mod preparation;
 mod sources;

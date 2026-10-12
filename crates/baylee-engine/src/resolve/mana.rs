@@ -208,6 +208,13 @@ pub(super) fn add_to(
     if amount == 0 {
         return;
     }
+    let color = res
+        .subject
+        .mana_tap_source()
+        .and_then(|identity| state.damage_source(identity.object, Some(identity.version)))
+        .map_or(color, |object| {
+            crate::mana_rules::replace(state, object, color)
+        });
     let obligation_before =
         (res.mana_ability && res.event_mana.is_none() && state.constrained_payment(you).is_some())
             .then(|| state.players[usize::from(you.get())].mana_pool.clone());

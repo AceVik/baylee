@@ -5772,4 +5772,5 @@ mod batch49_returns;
 
 mod batch54_gond;
 
+mod batch54_final_two;
 mod batch54_riftstone;

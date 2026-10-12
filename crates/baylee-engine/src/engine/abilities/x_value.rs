@@ -150,6 +150,10 @@ impl<L: CardLookup> Engine<L> {
                 casting::spendable_units(&self.state, player, casting::SpendFor::Ability(source))
                     .saturating_add(self.state.granted_colorless_capacity(player))
                     .saturating_add(credit);
+            let additional_life =
+                i32::try_from(self.mana_activation_life(source, index)).map_err(|_| {
+                    EngineError::IllegalAction("activation life exceeds available life")
+                })?;
             max = max.min(casting::greatest_affordable(upper, |x| {
                 self.can_plan_activation(
                     player,
@@ -163,7 +167,7 @@ impl<L: CardLookup> Engine<L> {
                         },
                         reduction,
                     ),
-                    0,
+                    additional_life,
                 )
             }));
         }

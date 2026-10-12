@@ -3,6 +3,18 @@
 use super::*;
 
 impl<L: CardLookup> Engine<L> {
+    pub(super) fn mana_activation_life(&self, source: ObjectId, index: u32) -> u32 {
+        if self.state.effects.may_tax_mana_life()
+            && self
+                .activation_definition(source, index)
+                .is_some_and(|ability| ability.is_mana_ability())
+        {
+            crate::mana_rules::life_price(&self.state, source)
+        } else {
+            0
+        }
+    }
+
     /// What an activated ability costs `player` right now: its printed cost
     /// less the generic mana its own printed reduction takes off ("This
     /// ability costs {1} less to activate for each legendary creature you
@@ -52,7 +64,11 @@ impl<L: CardLookup> Engine<L> {
         source: ObjectId,
         cost: &Cost,
         settled: &[bool],
+        additional_life: u32,
     ) -> bool {
+        let Ok(additional_life) = i32::try_from(additional_life) else {
+            return false;
+        };
         let symbols = cost.mana.phyrexian_count();
         // Eight symbols is 256 ways; no card prints more than four.
         let fixed = u32::try_from(settled.len()).unwrap_or(u32::MAX);
@@ -65,7 +81,11 @@ impl<L: CardLookup> Engine<L> {
             .fold(0u32, |mask, (i, life)| mask | (u32::from(*life) << i));
         (0..(1u32 << (symbols - fixed))).any(|rest| {
             let mask = base | (rest << fixed);
-            let life = 2 * i32::try_from(mask.count_ones()).unwrap_or(i32::MAX);
+            let Some(life) = (2 * i32::try_from(mask.count_ones()).unwrap_or(i32::MAX))
+                .checked_add(additional_life)
+            else {
+                return false;
+            };
             let settled_cost = Cost {
                 mana: cost.mana.with_phyrexian_settled(mask),
                 parts: cost.parts,

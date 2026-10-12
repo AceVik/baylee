@@ -69,6 +69,15 @@ pub enum Modifier {
     SpellsCostLess(u32),
     /// Generic cost increase for activated abilities of matching objects.
     AbilitiesCostMore(u32),
+    /// Additional life paid when activating a mana ability of the affected object.
+    ManaAbilitiesCostLife(u32),
+    /// Replace a type of mana produced by tapping the affected object for mana.
+    ReplaceTappedMana {
+        /// Produced type replaced.
+        from: crate::ManaColor,
+        /// Actual type deposited instead, preserving quantity and restrictions.
+        to: crate::ManaColor,
+    },
     /// Reduce generic activation costs, retaining this minimum total mana cost.
     AbilitiesCostLess {
         /// Generic reduction from each matching activated ability.
@@ -122,6 +131,8 @@ pub enum Modifier {
     /// given as it entered (`EnterModifier::ChooseBasicLandType`). Nothing
     /// while no type was chosen.
     SetLandTypeToChosen,
+    /// Add the source's chosen basic land type, retaining its other types and rules.
+    AddChosenBasicLandType,
     /// Adds colors.
     AddColor(ColorSet),
     /// Sets colors (Mycosynth Lattice: "…are colorless").
@@ -872,6 +883,7 @@ impl Modifier {
             | Self::AllBasicLandTypes
             | Self::SetLandType(_)
             | Self::SetLandTypeToChosen
+            | Self::AddChosenBasicLandType
             | Self::BecomeType { .. }
             | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
             // Layer 5: color-changing effects.
@@ -919,6 +931,8 @@ impl Modifier {
             | Self::CreatureAbilityManaAnyColor
             | Self::SpellsCostMore(_)
             | Self::AbilitiesCostMore(_)
+            | Self::ManaAbilitiesCostLife(_)
+            | Self::ReplaceTappedMana { .. }
             | Self::AbilitiesCostLess { .. }
             | Self::RegenerateInsteadOfDestroy
             | Self::LegendRuleOff
@@ -1279,6 +1293,7 @@ mod tests {
             (Modifier::AllBasicLandTypes, Layer::Type),
             (Modifier::SetLandType(SubtypeId::new(1)), Layer::Type),
             (Modifier::SetLandTypeToChosen, Layer::Type),
+            (Modifier::AddChosenBasicLandType, Layer::Type),
             (
                 Modifier::BecomeType {
                     types: TypeSet::CREATURE,
@@ -1400,6 +1415,11 @@ mod tests {
             Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
             Modifier::AbilitiesCostMore(3),
+            Modifier::ManaAbilitiesCostLife(1),
+            Modifier::ReplaceTappedMana {
+                from: crate::ManaColor::White,
+                to: crate::ManaColor::Colorless,
+            },
             Modifier::AbilitiesCostLess {
                 amount: 2,
                 minimum: 1,

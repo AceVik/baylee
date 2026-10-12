@@ -3514,3 +3514,18 @@ is in its owner's graveyard. The engine indexes eligible physical cards at
 creation, uses their owner outside battlefield/stack, and expires grants at
 the source zone or incarnation change. Only the exact supported graveyard
 land-grant grammar is admitted by codegen; other source zones fail closed.
+
+### Mana production and activation life prices
+
+`AddChosenBasicLandType` adds the entry-chosen basic subtype without erasing
+other types or rules. `ManaAbilitiesCostLife(n)` adds a life payment to every
+mana activation of the affected permanent, including intrinsic and granted
+abilities. Announcement, X affordability and suspended payment share the same
+locked price; cancellation restores the payment checkpoint.
+
+`ReplaceTappedMana { from, to }` rewrites production from actually tapping
+that permanent for mana. Tapless and nonmana abilities are excluded. The
+replacement preserves quantity and spending restrictions, and reflected
+production uses the same rewrite inside its finite six-bit fixed-point graph.
+The color words follow the resolving effect's frozen text changes. Codegen
+rejects unsupported all-zone surcharge grammar rather than silently narrowing it.

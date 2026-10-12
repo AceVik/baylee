@@ -820,6 +820,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::AllBasicLandTypes
                     | Modifier::SetLandType(_)
                     | Modifier::SetLandTypeToChosen
+                    | Modifier::AddChosenBasicLandType
                     | Modifier::BecomeType { .. }
                     | Modifier::AddTypeIfCountersAtLeast { .. }
                     | Modifier::BecomeCopyOf(_)
@@ -1340,6 +1341,13 @@ fn apply(
                 set_land_type(c, s);
             }
         }
+        Modifier::AddChosenBasicLandType => {
+            if let Some(subtype) = fx.source.and_then(|id| state.object(id))
+                .and_then(|source| source.chosen_subtype)
+            {
+                c.subtypes.insert(subtype);
+            }
+        }
         Modifier::AddColor(col) => c.colors = c.colors.union(*col),
         Modifier::SetColor(col) => c.colors = *col,
         Modifier::AddKeyword(k) => c.keywords = c.keywords.union(*k),
@@ -1358,6 +1366,8 @@ fn apply(
         Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostMore(_)
         | Modifier::AbilitiesCostMore(_)
+        | Modifier::ManaAbilitiesCostLife(_)
+        | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostLess { .. }
         | Modifier::RegenerateInsteadOfDestroy
         | Modifier::LegendRuleOff

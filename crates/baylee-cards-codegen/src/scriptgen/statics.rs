@@ -127,6 +127,9 @@ impl Tx<'_> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("an `S:` line with no `$` in it".to_string());
         };
+        if mode == "RaiseCost" {
+            return self.mana_life_tax(p);
+        }
         if p.peek("EffectZone") == Some("Graveyard") {
             return self.riftstone_graveyard_grant(&mode, p);
         }
@@ -605,6 +608,22 @@ impl Tx<'_> {
         }
         for (key, modifier) in [("AddType", "AddType"), ("RemoveType", "RemoveType")] {
             let Some(raw) = p.take(key) else { continue };
+            if raw == "ChosenType" && modifier == "AddType" {
+                if filter != "Filter::This"
+                    || !self
+                        .body
+                        .enter_modifiers
+                        .iter()
+                        .any(|m| m == "EnterModifier::ChooseBasicLandType")
+                {
+                    return None;
+                }
+                out.push(Self::static_expr(
+                    filter,
+                    "Modifier::AddChosenBasicLandType",
+                ));
+                continue;
+            }
             let mut types = Vec::new();
             let mut subtypes = Vec::new();
             for word in raw.split_whitespace() {

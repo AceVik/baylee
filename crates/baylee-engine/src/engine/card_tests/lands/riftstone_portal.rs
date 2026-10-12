@@ -4,7 +4,7 @@
 use super::*;
 
 /// Riftstone Portal: "{T}: Add {C}." / "As long as this card is in your graveyard, lands you control have '{T}: Add {G} or {W}.'"
-/// Graveyard grant behavior is covered by the batch54_riftstone action tests.
+/// Graveyard grant behavior is covered by the `batch54_riftstone` action tests.
 /// The land taps for its base mana ability to add {C} to the mana pool.
 #[test]
 fn riftstone_portal_taps_for_colorless_mana() {

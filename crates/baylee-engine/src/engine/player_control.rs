@@ -262,6 +262,11 @@ impl<L: CardLookup> Engine<L> {
         let mut lands = Vec::with_capacity(sources.len());
         for source in sources {
             let object = self.state.object(source)?;
+            if crate::mana_rules::life_price(&self.state, source) != 0
+                || self.state.effects.may_replace_mana()
+            {
+                return None; // The exact action-search fallback models life and replacements.
+            }
             let increase = crate::casting::activation_increase(&self.state, source);
             let mut land = LandSource::default();
             let push = |land: &mut LandSource, color, amount, price: Price| {
@@ -352,7 +357,10 @@ impl<L: CardLookup> Engine<L> {
             {
                 continue;
             }
-            if crate::casting::activation_increase(&self.state, id) != 0 {
+            if crate::casting::activation_increase(&self.state, id) != 0
+                || crate::mana_rules::life_price(&self.state, id) != 0
+                || self.state.effects.may_replace_mana()
+            {
                 return true;
             }
             for ability in object.abilities(&self.lookup) {

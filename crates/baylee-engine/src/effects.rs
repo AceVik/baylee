@@ -103,6 +103,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AllBasicLandTypes
         | Modifier::SetLandType(_)
         | Modifier::SetLandTypeToChosen
+        | Modifier::AddChosenBasicLandType
         | Modifier::BecomeType { .. }
         | Modifier::AddColor(_)
         | Modifier::SetColor(_)
@@ -143,6 +144,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // fixed at resolution would mean the cards in hand at that moment.
         Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostMore(_)
+        | Modifier::ManaAbilitiesCostLife(_)
+        | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostMore(_)
             | Modifier::AbilitiesCostLess { .. }
             | Modifier::RegenerateInsteadOfDestroy
@@ -330,6 +333,8 @@ impl RuleHints {
     const SOURCE_DURATION: u8 = 2;
     const ATTACK_PROHIBITION: u8 = 4;
     const ATTACK_TAPPING: u8 = 8;
+    const MANA_LIFE: u8 = 16;
+    const MANA_REPLACEMENT: u8 = 32;
 
     fn contains(&self, bit: u8) -> bool {
         self.0 & bit != 0
@@ -342,6 +347,12 @@ impl RuleHints {
 }
 
 impl EffectTable {
+    pub(crate) fn may_tax_mana_life(&self) -> bool {
+        self.hints.contains(RuleHints::MANA_LIFE)
+    }
+    pub(crate) fn may_replace_mana(&self) -> bool {
+        self.hints.contains(RuleHints::MANA_REPLACEMENT)
+    }
     pub(crate) fn may_change_attack_tapping(&self) -> bool {
         self.hints.contains(RuleHints::ATTACK_TAPPING)
     }
@@ -398,6 +409,14 @@ impl EffectTable {
                 fx.modifier,
                 Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
             ),
+        );
+        self.hints.insert_if(
+            RuleHints::MANA_LIFE,
+            matches!(fx.modifier, Modifier::ManaAbilitiesCostLife(_)),
+        );
+        self.hints.insert_if(
+            RuleHints::MANA_REPLACEMENT,
+            matches!(fx.modifier, Modifier::ReplaceTappedMana { .. }),
         );
         self.effects.push(fx);
         self.generation += 1;
@@ -1142,6 +1161,7 @@ mod tests {
             Modifier::AllBasicLandTypes,
             Modifier::SetLandType(SubtypeId::new(1)),
             Modifier::SetLandTypeToChosen,
+            Modifier::AddChosenBasicLandType,
             Modifier::BecomeType {
                 types: TypeSet::CREATURE,
                 subtype: SubtypeId::new(1),
@@ -1225,6 +1245,11 @@ mod tests {
             Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
             Modifier::AbilitiesCostMore(3),
+            Modifier::ManaAbilitiesCostLife(1),
+            Modifier::ReplaceTappedMana {
+                from: baylee_core::mana::ManaColor::White,
+                to: baylee_core::mana::ManaColor::Colorless,
+            },
             Modifier::AbilitiesCostLess {
                 amount: 2,
                 minimum: 1,
@@ -1367,7 +1392,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            123,
+            126,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1431,7 +1456,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (43, 80));
+        assert_eq!((locking, all.len() - locking), (44, 82));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

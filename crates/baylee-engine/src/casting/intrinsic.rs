@@ -121,7 +121,18 @@ pub(crate) fn pay_intrinsic_mana_price(
     source: ObjectId,
 ) -> bool {
     let cost = intrinsic_mana_price(state, source);
-    pay_mana_for(state, player, SpendFor::Ability(source), &cost).is_some()
+    let Ok(life) = i32::try_from(crate::mana_rules::life_price(state, source)) else {
+        return false;
+    };
+    if !state.can_pay_life(player, life)
+        || pay_mana_for(state, player, SpendFor::Ability(source), &cost).is_none()
+    {
+        return false;
+    }
+    if life > 0 {
+        state.change_life(player, -life, Cause::Cost);
+    }
+    true
 }
 
 /// Whether the intrinsic mana ability of `source` can be activated now.
@@ -139,6 +150,7 @@ pub fn can_activate_mana(state: &GameState, player: PlayerId, source: ObjectId) 
         // ability of a creature like any other (CR 302.6).
         && !crate::combat::summoning_sick(state, obj)
         && !intrinsic_mana_colors(state, source).is_empty()
+        && i32::try_from(crate::mana_rules::life_price(state, source)).is_ok_and(|life| state.can_pay_life(player, life))
         && affordable(state, player, &state.players[player.get() as usize].mana_pool,
             &intrinsic_mana_price(state, source))
 }
@@ -191,6 +203,9 @@ pub fn add_intrinsic_mana(
     source: ObjectId,
     color: ManaColor,
 ) {
+    let color = state.object(source).map_or(color, |object| {
+        crate::mana_rules::replace(state, object, color)
+    });
     if state.players[player.get() as usize]
         .mana_pool
         .available(color)

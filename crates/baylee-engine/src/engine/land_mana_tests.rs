@@ -883,9 +883,10 @@ fn types_itself(def: &CardDef, index: usize) -> bool {
             AbilityDef::Static(baylee_cards_dsl::StaticAbility {
                 source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
                 layer: baylee_cards_dsl::Layer::Type,
-                modifier: baylee_cards_dsl::Modifier::AddSubtype(s),
+                modifier,
                 ..
-            }) if is_a_basic_type(*s)
+            }) if matches!(modifier, baylee_cards_dsl::Modifier::AddChosenBasicLandType)
+                || matches!(modifier, baylee_cards_dsl::Modifier::AddSubtype(s) if is_a_basic_type(*s))
         )
     })
 }
@@ -1406,8 +1407,8 @@ fn check(what: &str, tally: &Tally, bounds: &Bounds) {
 const LANDS: Bounds = Bounds {
     colors: 1400,
     routes: 950,
-    // The completed land abilities through Riftstone Portal expose 1012 printed promises.
-    promises: 700..=1012,
+    // The completed land abilities through Thran Portal expose 1013 printed promises.
+    promises: 700..=1013,
     opponents_lands: 1..=3,
     creature_promises: 1..=5,
     fully_read: 700,

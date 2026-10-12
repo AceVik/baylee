@@ -488,6 +488,9 @@ impl Tx<'_> {
         p: &mut Params,
         target: Option<&str>,
     ) -> Option<Vec<String>> {
+        if p.peek("ReplacementEffects").is_some() {
+            return self.replace_target_white_mana(p, target);
+        }
         let statics = p.peek("StaticAbilities")?.trim().to_string();
         let body = self.svars.get(&statics)?.clone();
         let (mode, _) = Params::parse(&body)?;

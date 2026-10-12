@@ -209,6 +209,20 @@ impl TextChangeMap {
         match modifier {
             Modifier::AddColor(colors) => Modifier::AddColor(self.color_words(colors)),
             Modifier::SetColor(colors) => Modifier::SetColor(self.color_words(colors)),
+            Modifier::ReplaceTappedMana { from, to } => {
+                let word = |mana| {
+                    baylee_core::color::Color::ALL
+                        .into_iter()
+                        .find(|color| baylee_core::mana::ManaColor::from_color(*color) == mana)
+                        .map_or(mana, |color| {
+                            baylee_core::mana::ManaColor::from_color(self.color_word(color))
+                        })
+                };
+                Modifier::ReplaceTappedMana {
+                    from: word(from),
+                    to: word(to),
+                }
+            }
             Modifier::AddSubtype(subtype) => Modifier::AddSubtype(self.land_type(subtype)),
             Modifier::SetLandType(subtype) => Modifier::SetLandType(self.land_type(subtype)),
             Modifier::ReplaceCreatureTypes(subtype) => {

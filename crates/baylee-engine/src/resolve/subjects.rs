@@ -18,6 +18,7 @@ pub struct SubjectContext {
     pub(super) sacrificed: Option<crate::object::SacrificedLki>,
     circled_colors: baylee_core::color::ColorSet,
     acquisition: Option<u64>,
+    mana_tap_source: Option<DamageSourceRef>,
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
 }
 impl SubjectContext {
@@ -30,6 +31,7 @@ impl SubjectContext {
             sacrificed: paid.sacrificed_lki,
             circled_colors: baylee_core::color::ColorSet::EMPTY,
             acquisition: None,
+            mana_tap_source: None,
             checkpoint: None,
         }
     }
@@ -50,6 +52,14 @@ impl SubjectContext {
         self
     }
 
+    pub(crate) fn with_mana_tap_source(mut self, source: Option<DamageSourceRef>) -> Self {
+        self.mana_tap_source = source;
+        self
+    }
+    pub(super) fn mana_tap_source(&self) -> Option<DamageSourceRef> {
+        self.mana_tap_source
+    }
+
     pub(crate) fn fingerprint(&self) -> u64 {
         let mut h = self
             .sacrificed
@@ -60,6 +70,9 @@ impl SubjectContext {
         h = h
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.acquisition));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.mana_tap_source));
         for r in &self.followed {
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
             h = h

@@ -892,7 +892,7 @@
     {
       "batch": 54,
       "title": "Land types and mana production",
-      "status": "in_progress",
+      "status": "completed",
       "cards": [
         {
           "name": "Riftstone Portal",
@@ -919,7 +919,9 @@
       ],
       "validated_complete": 2,
       "completed_cards": [
-        "Riftstone Portal"
+        "Riftstone Portal",
+        "Thran Portal",
+        "Quarum Trench Gnomes"
       ]
     },
     {

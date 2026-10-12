@@ -384,7 +384,13 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
-                        let payable = self.activation_affordable(player, id, &cost, &[]);
+                        let payable = self.activation_affordable(
+                            player,
+                            id,
+                            &cost,
+                            &[],
+                            self.mana_activation_life(id, i),
+                        );
                         self.offer_activation_payment(player, id, i, &cost, payable, &mut legal);
                     }
                     AbilityDef::ActivatedConditional {
@@ -429,7 +435,13 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
-                        let payable = self.activation_affordable(player, id, &cost, &[]);
+                        let payable = self.activation_affordable(
+                            player,
+                            id,
+                            &cost,
+                            &[],
+                            self.mana_activation_life(id, i),
+                        );
                         self.offer_activation_payment(player, id, i, &cost, payable, &mut legal);
                     }
                     AbilityDef::Loyalty {
@@ -447,7 +459,7 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         let price = self.activation_price(player, id, &Cost::FREE, None);
-                        if !self.activation_affordable(player, id, &price, &[]) {
+                        if !self.activation_affordable(player, id, &price, &[], 0) {
                             continue;
                         }
                         let loyalty = obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty);
@@ -536,7 +548,13 @@ impl<L: CardLookup> Engine<L> {
                                 continue;
                             }
                             let cost = self.activation_price(player, card, cost, *cost_reduction);
-                            if self.activation_affordable(player, card, &cost, &[]) {
+                            if self.activation_affordable(
+                                player,
+                                card,
+                                &cost,
+                                &[],
+                                self.mana_activation_life(card, i as u32),
+                            ) {
                                 legal.abilities.push((card, i as u32));
                             }
                         }
@@ -586,7 +604,13 @@ impl<L: CardLookup> Engine<L> {
                                 continue;
                             }
                             let cost = self.activation_price(player, card, cost, *cost_reduction);
-                            if self.activation_affordable(player, card, &cost, &[]) {
+                            if self.activation_affordable(
+                                player,
+                                card,
+                                &cost,
+                                &[],
+                                self.mana_activation_life(card, i as u32),
+                            ) {
                                 legal.abilities.push((card, i as u32));
                             }
                         }
@@ -690,7 +714,14 @@ impl<L: CardLookup> Engine<L> {
             parts: cost.parts,
         };
         let payable = payable
-            && (minimum == 0 || self.activation_affordable(player, source, &minimum_cost, &[]));
+            && (minimum == 0
+                || self.activation_affordable(
+                    player,
+                    source,
+                    &minimum_cost,
+                    &[],
+                    self.mana_activation_life(source, index),
+                ));
         if payable {
             legal.abilities.push((source, index));
         } else if cost.mana != baylee_core::mana::ManaCost::ZERO
@@ -702,6 +733,7 @@ impl<L: CardLookup> Engine<L> {
                     parts: cost.parts,
                 },
                 &[],
+                self.mana_activation_life(source, index),
             )
         {
             legal.abilities.push((source, index));

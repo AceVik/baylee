@@ -129,7 +129,8 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         Modifier::AddSubtype(_)
         | Modifier::AllCreatureTypes
         | Modifier::ReplaceCreatureTypes(_)
-        | Modifier::AllBasicLandTypes => &[Field::Subtypes],
+        | Modifier::AllBasicLandTypes
+        | Modifier::AddChosenBasicLandType => &[Field::Subtypes],
         // CR 305.7: the land types, and the keywords its text gave it.
         Modifier::SetLandType(_) | Modifier::SetLandTypeToChosen => {
             &[Field::Subtypes, Field::Keywords]

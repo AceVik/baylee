@@ -43,6 +43,7 @@ mod atoms;
 mod chains;
 mod constants;
 mod effects;
+mod final_portals;
 mod gond_gate;
 mod horse_johan;
 mod keywords;
