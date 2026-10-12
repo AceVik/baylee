@@ -8698,7 +8698,7 @@ cast with or what a removal spell was aimed at (report 23). What changed:
 - **Modes and targets** (`LogEvent::Aimed`, docs/protocol.md §"Modes,
   targets, phases and the kind of an ability"): right under the cast or the
   ability it belongs to, the line carries on without naming it again
-  (`LogLine::follows`): no time, a "↳" in the quieter ink, then `mode:
+  (`LogLine::follows`): no time, a "→" in the quieter ink, then `mode:
   “…”` and/or `targeting X and Bo`. Elsewhere (a trigger's targets chosen in
   a later question, a retarget) it is a line of its own, "Spell: targeting
   X" or "Ability of X: …". A mode is said in the card's own words: the
@@ -8713,7 +8713,7 @@ cast with or what a removal spell was aimed at (report 23). What changed:
   "[Smothering Tithe] triggered for Bo" (`LogEvent::Ability::activated`);
   the old sentence only where the host cannot say.
 - **Damage to a player and the life it left** read as one: the life line
-  right under the damage to that player carries on it, "↳ now at 17 life
+  right under the damage to that player (the host writes the damage first, `GameLog::cause_before_effect`) carries on it when the two amounts agree, "→ now at 17 life
   (from 20)". A permanent getting counters it had none of "got 4 loyalty
   counters" rather than "went to 4 (from 0)".
 - **A land played is one line** even when its entry asked first (the
@@ -10143,3 +10143,56 @@ position exists, the label is hidden rather than covering a printing.
 The personal deck overview displays copy counts supplied by both the gateway
 and offline performer. Responses without these totals still say “rows”; the
 house-library catalog retains that wording until its summary supplies totals.
+
+## The table's beta.8 reports (12.10.2026)
+
+Players' reports from the beta.6 games, the table's half (`.claude/b8`
+lists them; the game log's are under §"Wider, grouped, and saying what was
+chosen").
+
+- **A copy wears its original's printing (report 02).** `board::art_in`
+  draws a permanent that has become a copy of a card (`worn`) with the
+  printing, and so the finish, of that card where the seat's own view shows
+  it face up, the battlefield's first (`shown_print`); only where the view
+  shows none is it the registry's reference printing as before. The board
+  (`wear_shown_prints`, after grouping) and the texture preloader ask the
+  same function, so the picture warmed is the one drawn. Nothing new crosses
+  the wire and nothing hidden is read: the printing is one the seat was
+  shown.
+- **What a question will take is lit (report 09).** A card the pending
+  choice accepts and has not taken yet wears `glow::CHOOSABLE`, a pale
+  breathing ring of light on the felt (`floor_light`), chosen over every
+  other offer but the armed one (`table::placement::choosable`). The report
+  asked for the others darkened: darkening a print tints a Scryfall image,
+  which the image terms rule out (`docs/legal.md` §"Nothing we paint lies on
+  a card image"), so the legal ones are lit instead and the rest stay as
+  they are. A press on one the choice will not take answers nothing, as it
+  did (`activate_card` falls through to `Answer::Refused`).
+- **The name and type choosers' box looks like a search box (report 16):**
+  a magnifier, the words typed or "type to search…" in the quieter ink, a
+  caret, at least 280 wide (`drawer::filter_field`).
+- **The attack chooser folds (report 25).** Its last row hides the list,
+  leaving one row that opens it again with how many rows it holds
+  (`attack::FOLD`, `Duel::attack_list_folded`, for the whole game): with
+  many defenders and creatures the list stood over the player's own board,
+  and every creature can be sent from the table as well.
+- **A leveler's level and a permanent with no abilities (reports 30,
+  21)** are labels beside the card, the persistent ones that already say
+  what a Pithing Needle named or how many charge counters a permanent has
+  (`hud::chosen_type`): "LV 5" ("Level 5" under the pointer) from its level
+  counters, and "No abilities" from the view's new
+  `ObjectStatus::NO_ABILITIES` (the host sets it where the projection says
+  every ability is gone, `Characteristics::abilities_lost`, never on a
+  face-down permanent). A label lies beside the print and never on it, as
+  every annotation does. The strip's marks stay keywords only: a new mark is
+  a new glyph through `MARK_GLYPHS`, which docs/legal.md §2a would have to
+  allow first.
+- **Leaving a table (report 33).** The game menu's *Leave the table*
+  (`MenuAction::LeaveGame`, two presses like the concession, disarmed by the
+  same things) closes the table without conceding. At a networked table the
+  lobby says so on the way back (`LobbyRequest::Depart`, `POST
+  /lobby/depart`, docs/protocol.md §"Leaving, and losing the connection"),
+  so the house takes the chair at once rather than after the reconnect
+  window, and the lobby says "You left the table". Offline the game this
+  client hosts ends with it, which its armed words say. A spectator's way
+  out stays *Stop watching*; a finished game's stays the end screen's.

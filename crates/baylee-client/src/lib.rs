@@ -447,6 +447,10 @@ pub struct Duel {
     pub(crate) combat_auto: Option<baylee_client_core::combat_auto::CombatAuto>,
     /// Page of the current legal target list.
     pub target_page: usize,
+    /// Whether the attack chooser's rows are folded away (report 25): with
+    /// many defenders and creatures they stand over the player's own board.
+    /// The player's, for the whole game: the fold row toggles it.
+    pub attack_list_folded: bool,
     /// Show legal targets controlled by this seat; `None` shows every seat.
     pub target_filter: Option<PlayerId>,
     /// Stable random surface for this local duel lifetime.

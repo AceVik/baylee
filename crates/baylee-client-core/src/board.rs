@@ -1517,6 +1517,60 @@ pub fn art_of(obj: &PublicObject, size: ArtSize, reg: Registry<'_>) -> Option<Im
         .or_else(|| obj.token.map(|t| ImageKey::token(t, size)))
 }
 
+/// [`art_of`] for an object in `view`: a copy of a card wears the printing,
+/// and so the finish, of that card where `view` shows it face up (report
+/// 02), rather than the registry's reference printing. The battlefield is
+/// asked first, where a copy's original nearly always is; then every other
+/// place the view shows a card. Only what the seat's own view shows is
+/// read, so a copy names no printing the seat was not shown. Its face stays
+/// the one the copy wears.
+#[must_use]
+pub fn art_in(
+    obj: &PublicObject,
+    size: ArtSize,
+    reg: Registry<'_>,
+    view: &PlayerView,
+) -> Option<ImageKey> {
+    if let Some(Wears::Card(index, face)) = worn(obj, reg)
+        && let Some(print) = shown_print(view, index, obj.id)
+    {
+        return Some(ImageKey::new(print, face, size));
+    }
+    art_of(obj, size, reg)
+}
+
+/// A printing of `card` the view shows face up on another object than
+/// `not`, the battlefield's first.
+fn shown_print(
+    view: &PlayerView,
+    card: CardIndex,
+    not: ObjectId,
+) -> Option<baylee_core::ids::PrintRef> {
+    let mut seen = view
+        .identities()
+        .filter(|seen| !seen.face_down && seen.card.index == card && seen.object != Some(not));
+    let mut found = None;
+    for seen in seen.by_ref() {
+        if seen.zone == baylee_view::SeenIn::Battlefield {
+            return Some(seen.card.print);
+        }
+        found.get_or_insert(seen.card.print);
+    }
+    found
+}
+
+/// [`original_of`] for an object in `view`, against [`art_in`]'s picture.
+#[must_use]
+pub fn original_in(
+    obj: &PublicObject,
+    size: ArtSize,
+    reg: Registry<'_>,
+    view: &PlayerView,
+) -> Option<ImageKey> {
+    let own = obj.card.map(|c| ImageKey::new(c.print, c.face, size))?;
+    (art_in(obj, size, reg, view)? != own).then_some(own)
+}
+
 /// The piece of cardboard actually on the table, when it is not the card
 /// being drawn.
 ///
@@ -1869,6 +1923,11 @@ fn build_pod(
                     })
                     .collect();
             }
+            // A copy wears its original's printing where this view shows
+            // it (report 02), which the grouping above has no view to ask.
+            for group in &mut groups {
+                wear_shown_prints(group, view, reg);
+            }
             Lane { kind, groups }
         })
         .collect();
@@ -1965,6 +2024,19 @@ fn group_objects(
         group.members.sort();
     }
     groups
+}
+
+/// Draws `group`, and every card under it, through [`art_in`] and
+/// [`original_in`]: the printing a copy wears is the one `view` shows of its
+/// original.
+fn wear_shown_prints(group: &mut CardGroup, view: &PlayerView, reg: Registry<'_>) {
+    if let Some(obj) = view.object(group.representative) {
+        group.art = art_in(obj, ArtSize::Small, reg, view);
+        group.original = original_in(obj, ArtSize::Small, reg, view);
+    }
+    for under in &mut group.attached {
+        wear_shown_prints(under, view, reg);
+    }
 }
 
 fn card_group(

@@ -94,6 +94,45 @@ impl Panel {
     }
 }
 
+/// How a node of a seat's plate clips while the plate reads level.
+///
+/// Bevy clips a node to its *unturned* rectangle moved to where it is
+/// (`bevy_ui::update::update_clipping`), and a plate along a side seat's
+/// edge is turned most of a quarter: the clip lay across it, and every
+/// letter of the name, the life and the counts was cut to a sliver (report
+/// 04, "the opponents' player details look quite broken"). So a plate clips
+/// only while it is level or upside down, where the two rectangles are one;
+/// turned any other way it lets its contents run, which the plate's own
+/// size keeps them inside but for a very long name ([`clip_only_level`]).
+#[derive(Component, Clone, Copy, Debug)]
+pub(crate) struct TurnedClip(pub(crate) Overflow);
+
+/// Whether a turn this far leaves a node's clip rectangle where its drawing
+/// is: level, or a half turn.
+fn clips_true(tilt: f32) -> bool {
+    tilt.sin().abs() < 0.02
+}
+
+/// [`TurnedClip`]: every plate node clips as it was built while its plate
+/// reads level, and not at all while it is turned.
+pub(crate) fn clip_only_level(
+    plates: Query<(Entity, &UiTransform), With<PlateTab>>,
+    children: Query<&Children>,
+    mut nodes: Query<(&mut Node, &TurnedClip)>,
+) {
+    for (plate, turn) in &plates {
+        let level = clips_true(turn.rotation.as_radians());
+        for id in std::iter::once(plate).chain(children.iter_descendants(plate)) {
+            if let Ok((mut node, clip)) = nodes.get_mut(id) {
+                let want = if level { clip.0 } else { Overflow::visible() };
+                if node.overflow != want {
+                    node.overflow = want;
+                }
+            }
+        }
+    }
+}
+
 /// A seat's plate: a press chooses that seat while a question can target
 /// it, and does nothing otherwise (no camera, by the owner's word).
 #[derive(Component, Clone, Copy, Debug)]
@@ -769,6 +808,7 @@ fn spawn_identity(
             overflow: Overflow::clip(),
             ..default()
         },
+        TurnedClip(Overflow::clip()),
         BackgroundColor(PLATE_GROUND),
         BorderColor::all(PLATE_RIM),
     ));
@@ -925,6 +965,7 @@ fn plate_first_line(
                     overflow: Overflow::clip_x(),
                     ..default()
                 },
+                TurnedClip(Overflow::clip_x()),
                 Pickable::IGNORE,
             ))
             .id(),
@@ -1066,6 +1107,7 @@ fn plate_details(
                 overflow: Overflow::clip_x(),
                 ..default()
             },
+            TurnedClip(Overflow::clip_x()),
             Pickable::IGNORE,
         ))
         .id();
@@ -1269,6 +1311,7 @@ fn spawn_seat_pool(
                 overflow: Overflow::clip_x(),
                 ..default()
             },
+            TurnedClip(Overflow::clip_x()),
             Pickable::IGNORE,
         ))
         .id();

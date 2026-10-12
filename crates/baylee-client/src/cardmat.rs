@@ -95,9 +95,19 @@ pub mod glow {
     /// are left kept their numbers rather than moving, because
     /// `card_common.wgsl`'s `GLOW_*` constants are the other half of each.
     pub const REACHABLE: u32 = 1 << 23;
+    /// This card is one the question this seat is answering will take: a
+    /// legal target, or a card it may choose (report 09).
+    ///
+    /// Light on the felt and not a shade on the cards it will not take,
+    /// which is what the report asked for: darkening a print tints a
+    /// Scryfall image, which the image terms rule out (`docs/legal.md`
+    /// §"Nothing we paint lies on a card image"). The legal ones are lit
+    /// instead, and the rest stay as they are and take no press
+    /// (`input::table_click`'s choice gate).
+    pub const CHOOSABLE: u32 = 1 << 24;
 
-    /// The four offers: what the felt round a card is lit with.
-    pub const OFFERS: u32 = ACTIVATABLE | ARMED | WILL_TAP | REACHABLE;
+    /// The five offers: what the felt round a card is lit with.
+    pub const OFFERS: u32 = ACTIVATABLE | ARMED | WILL_TAP | REACHABLE | CHOOSABLE;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.
@@ -157,6 +167,8 @@ pub struct Offer {
     pub armed: bool,
     /// An armed mana run would tap this permanent to pay for its deed.
     pub will_tap: bool,
+    /// The question this seat is answering will take this card ([`glow::CHOOSABLE`]).
+    pub choosable: bool,
 }
 
 impl Offer {
@@ -167,6 +179,7 @@ impl Offer {
         reachable: false,
         armed: false,
         will_tap: false,
+        choosable: false,
     };
 
     /// Only the offer the engine itself made — what a card outside the
@@ -178,6 +191,7 @@ impl Offer {
             reachable: false,
             armed: false,
             will_tap: false,
+            choosable: false,
         }
     }
 
@@ -187,6 +201,12 @@ impl Offer {
     #[must_use]
     pub const fn reaching(self, reachable: bool) -> Self {
         Self { reachable, ..self }
+    }
+
+    /// Add whether the question this seat is answering will take this card.
+    #[must_use]
+    pub const fn choosing(self, choosable: bool) -> Self {
+        Self { choosable, ..self }
     }
 
     /// What one drawn card is being offered, given what this client has
@@ -222,6 +242,7 @@ impl Offer {
                 activatable,
                 reachable: false,
                 armed: members.contains(&armed.object),
+                choosable: false,
                 will_tap: match &armed.deed {
                     // Whichever end the run has: a land the plan spends is a
                     // land the player has to see marked before the second
@@ -241,6 +262,7 @@ impl Offer {
                 reachable: false,
                 armed: false,
                 will_tap: spends(plan),
+                choosable: false,
             },
         }
     }
@@ -260,8 +282,12 @@ pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 
     // The engine's yes beats this client's offer for the same reason: a card
     // the engine will take as it stands needs no lands tapped for it, and
     // `Duel::reachable` leaves such a card out anyway.
+    // A card the question will take is what the player is looking for
+    // while it is asked, and nothing is activated in the middle of one.
     let offered = if offer.armed {
         glow::ARMED
+    } else if offer.choosable {
+        glow::CHOOSABLE
     } else if offer.activatable {
         glow::ACTIVATABLE
     } else if offer.reachable {
@@ -1721,6 +1747,7 @@ pub(crate) mod tests {
             ("GLOW_ARMED", glow::ARMED, true),
             ("GLOW_WILL_TAP", glow::WILL_TAP, true),
             ("GLOW_REACHABLE", glow::REACHABLE, true),
+            ("GLOW_CHOOSABLE", glow::CHOOSABLE, true),
         ] {
             if drawn {
                 let theirs = wgsl_const(common, name);
@@ -1740,8 +1767,8 @@ pub(crate) mod tests {
         }
         assert_eq!(
             glow::OFFERS.count_ones(),
-            4,
-            "the felt is lit for four offers, and the protection is not one"
+            5,
+            "the felt is lit for five offers, and the protection is not one"
         );
         for (which, src) in [
             ("card.wgsl", include_str!("shaders/card.wgsl")),
@@ -1868,6 +1895,7 @@ pub(crate) mod tests {
             reachable: false,
             armed: true,
             will_tap: false,
+            choosable: false,
         };
         assert_eq!(glow_of(Some(&obj), offer), glow::ARMED);
         assert_eq!(
@@ -1881,6 +1909,7 @@ pub(crate) mod tests {
             reachable: false,
             armed: false,
             will_tap: true,
+            choosable: false,
         };
         assert_eq!(
             glow_of(Some(&obj), paying),

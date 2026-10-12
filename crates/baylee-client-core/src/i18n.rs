@@ -2088,6 +2088,10 @@ messages! {
     AttackRemaining { en: "Attack with all remaining → {0}", de: "Mit allen übrigen angreifen → {0}" },
     /// Clears the draft without submitting it.
     AttackWithdrawAll { en: "Withdraw all attackers", de: "Alle Angreifer zurückziehen" },
+    /// The attack chooser's fold row while its rows show (report 25).
+    AttackListHide { en: "Hide the list \u{25be}", de: "Liste ausblenden \u{25be}" },
+    /// The fold row while folded. `{0}` is how many rows it holds.
+    AttackListShow { en: "Show the list ({0}) \u{25b8}", de: "Liste zeigen ({0}) \u{25b8}" },
     /// A single unassigned creature.
     AttackSend { en: "Attack: {0} → {1}", de: "Angreifen: {0} → {1}" },
     /// A single assigned creature, naming its existing defender.
@@ -2521,6 +2525,14 @@ messages! {
     HintClickBoard { en: "Click what you are choosing", de: "Klicke an, was du wählst" },
     /// Type to narrow the list
     HintTypeToFilter { en: "Type to narrow the list", de: "Tippe, um die Liste einzugrenzen" },
+    /// A permanent's label: it has lost all its abilities (report 21).
+    NoAbilities { en: "No abilities", de: "Keine Fähigkeiten" },
+    /// A leveler's label, short (report 30). `{0}` is its level.
+    LevelShort { en: "LV {0}", de: "St. {0}" },
+    /// The same label under the pointer, in full.
+    LevelLong { en: "Level {0}", de: "Stufe {0}" },
+    /// What an empty search box in the question's sheet says (report 16).
+    FilterPlaceholder { en: "type to search…", de: "zum Suchen tippen…" },
     /// Put these in order
     PutInOrder { en: "Put these in order", de: "Bringe diese in eine Reihenfolge" },
     /// The first card in a graveyard ordering will be on top of the others.

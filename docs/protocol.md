@@ -1155,10 +1155,18 @@ version adds three things, each defaulted on the wire:
   definition the ability was put on the stack from; `None` where it cannot
   say.
 
+The same view version gives `ObjectStatus` a fifth bit beside CR 110.5's
+four, `NO_ABILITIES` (16): set where the projection says the permanent has
+lost all its abilities (`Characteristics::abilities_lost`, CR 613.1f), never
+on a face-down permanent. The printed text a client shows cannot say it.
+
 A land whose entry asks a question first (enters tapped unless…, a
 shockland's life) is recorded played before it moves, sometimes actions
 before. Its play is now written when it moves, with where from, instead of
-"played a card" while it was still in a hand followed by a move line.
+"played a card" while it was still in a hand followed by a move line. And
+the journal records a player's life loss before the damage that caused it:
+where the two are the same player and amount, in one action, the damage
+line now comes first (`GameLog::cause_before_effect`).
 
 ### What a line cannot name
 

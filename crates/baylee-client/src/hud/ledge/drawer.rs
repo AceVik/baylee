@@ -44,6 +44,7 @@ use baylee_client_core::decisionfold::{Asked, Fate, Hung, reconcile};
 use baylee_engine::choice::Pending;
 
 mod attack;
+pub(crate) use attack::FOLD as ATTACK_LIST_FOLD;
 pub(in crate::hud) mod sheet;
 
 pub use sheet::{SheetPill, SheetSource, SheetTitle};
@@ -423,7 +424,7 @@ fn fill_panel(
     }
 
     if let Some(typed) = revision.filter.clone() {
-        let field = filter_field(commands, fonts, &typed);
+        let field = filter_field(commands, fonts, lang, &typed);
         commands.entity(panel).add_child(field);
     }
 
@@ -1136,7 +1137,11 @@ fn letter_groups(
 
 /// The type-to-filter box, for the one choice whose list is too long to look
 /// at.
-fn filter_field(commands: &mut Commands, fonts: &UiFonts, typed: &str) -> Entity {
+fn filter_field(commands: &mut Commands, fonts: &UiFonts, lang: Lang, typed: &str) -> Entity {
+    // A search box that looks like one (report 16: a player naming a card
+    // for Pithing Needle saw "no text box to search"): a magnifier, the
+    // words typed or, before any, what to type in the quieter ink, and the
+    // caret. The keys reach it wherever the pointer is.
     let field = commands
         .spawn((
             Node {
@@ -1144,26 +1149,46 @@ fn filter_field(commands: &mut Commands, fonts: &UiFonts, typed: &str) -> Entity
                 border: UiRect::all(px(1)),
                 border_radius: btn_radius(),
                 align_items: AlignItems::Center,
+                column_gap: px(8),
+                min_width: px(FILTER_MIN_W),
                 ..default()
             },
             BackgroundColor(palette::DOCK_GROUND),
-            BorderColor::all(palette::DIALOG_LINE),
+            BorderColor::all(palette::CANDLE.with_alpha(0.55)),
             Pickable::IGNORE,
         ))
         .id();
-    // A caret with nothing before it, so an empty box still reads as somewhere
-    // to type rather than as a blank panel.
+    let glass = commands
+        .spawn((
+            Text::new(glyph::MAGNIFIER.to_string()),
+            icon_tf(fonts, SENTENCE_PT * 0.8),
+            TextColor(palette::DOCK_INK.with_alpha(0.55)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let (words, ink) = if typed.is_empty() {
+        (
+            format!("_ {}", Phrase::FilterPlaceholder.text(lang)),
+            palette::DOCK_INK.with_alpha(0.55),
+        )
+    } else {
+        (format!("{typed}_"), palette::DOCK_INK)
+    };
     let text = commands
         .spawn((
-            Text::new(format!("{typed}_")),
+            Text::new(words),
             tf(fonts, SENTENCE_PT),
-            TextColor(palette::DOCK_INK),
+            TextColor(ink),
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(field).add_child(text);
+    commands.entity(field).add_children(&[glass, text]);
     field
 }
+
+/// The search box's least width: wide enough to read as a box to type in
+/// before anything is typed.
+const FILTER_MIN_W: f32 = 280.0;
 
 /// The indexed chooser: a colour, a seat, a card, a way to cast.
 ///

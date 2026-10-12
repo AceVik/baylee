@@ -289,7 +289,8 @@ fn tuck(
                     card.members
                         .iter()
                         .all(|id| duel.ability_reach.contains(id)),
-                ),
+                )
+                .choosing(choosable(duel, &card.members)),
             corner: baylee_client_core::cardplate::Corner::default(),
             selected: duel
                 .interaction
@@ -419,7 +420,8 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
                             .members
                             .iter()
                             .all(|id| duel.ability_reach.contains(id)),
-                    ),
+                    )
+                    .choosing(choosable(duel, &group.members)),
                     // Power, toughness, marked damage and the counters — the
                     // rules facts printed on every real card and drawn nowhere
                     // in this client on a card showing art. Resolved here for
@@ -583,6 +585,20 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
 /// Until #242 both pile sites passed `false` here, so nothing in a pile was
 /// ever lit — not the Opt Snapcaster Mage had just made castable, and not a
 /// commander standing in the command zone with the lands to pay for it.
+/// Whether the question this seat is answering will take one of `members`
+/// that it has not taken yet: a legal target, a card it may choose, a card
+/// to order (report 09). Combat's declarations are their own picture
+/// (`combatlines`), and a choice that names nothing (a discard from the
+/// hand, which the engine leaves implicit) lights nothing on the table.
+pub(crate) fn choosable(duel: &Duel, members: &[ObjectId]) -> bool {
+    duel.interaction.as_ref().is_some_and(|i| {
+        i.bounds().is_some()
+            && !i.selectable().is_empty()
+            && members.iter().any(|id| i.is_selectable(*id))
+            && !members.iter().any(|id| i.is_selected(*id))
+    })
+}
+
 fn pile_offer(duel: &Duel, object: ObjectId) -> crate::cardmat::Offer {
     let reach = duel.reach_of(object);
     crate::cardmat::Offer::on(

@@ -50,6 +50,13 @@ pub(super) fn reading(
         .min(creatures.saturating_sub(1) / targeting::PAGE_SIZE)
         * targeting::PAGE_SIZE;
     let end = (start + targeting::PAGE_SIZE).min(creatures);
+    // Folded, the list is one row that opens it again (report 25): the
+    // creatures are clicked on the table as well, and a long list stands
+    // over the player's own board.
+    if duel.attack_list_folded {
+        *rows = vec![fold_row(lang, true, options.len())];
+        return;
+    }
     *rows = options
         .iter()
         .enumerate()
@@ -100,6 +107,24 @@ pub(super) fn reading(
                 cost: None,
             });
         }
+    }
+    rows.push(fold_row(lang, false, options.len()));
+}
+
+/// The row that folds the attack chooser's list away, or opens it again.
+/// Its index is in no engine's namespace, like the page arrows'.
+pub(crate) const FOLD: usize = usize::MAX - 64;
+
+fn fold_row(lang: Lang, folded: bool, count: usize) -> crate::choices::ChoiceOption {
+    crate::choices::ChoiceOption {
+        index: FOLD,
+        label: if folded {
+            Phrase::AttackListShow.fill(lang, &[&count.to_string()])
+        } else {
+            Phrase::AttackListHide.text(lang).into()
+        },
+        pip: None,
+        cost: None,
     }
 }
 
@@ -191,7 +216,8 @@ mod tests {
         let mut seen = Vec::new();
         loop {
             let page = rows(&duel, Lang::En);
-            assert!(page.len() <= targeting::PAGE_SIZE + 6);
+            // Four controls, a page of creatures, two arrows and the fold.
+            assert!(page.len() <= targeting::PAGE_SIZE + 7);
             assert_eq!(
                 page.iter().take(4).map(|r| r.index).collect::<Vec<_>>(),
                 vec![0, 1, 2, 3]

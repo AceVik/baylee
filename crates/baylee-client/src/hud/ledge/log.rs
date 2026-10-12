@@ -980,7 +980,7 @@ fn sentence(
 }
 
 /// What opens a line that carries on the line above it (`LogLine::follows`).
-const FOLLOWS_MARK: &str = "\u{21b3} ";
+const FOLLOWS_MARK: &str = "\u{2192} ";
 
 /// How wide a line's time is: "00:00" at the line's size, with a little to
 /// spare for the widest figures.
@@ -1116,6 +1116,8 @@ pub fn hover_log_links(
     mut overs: MessageReader<Pointer<Over>>,
     mut outs: MessageReader<Pointer<Out>>,
     links: Query<&LogLink>,
+    shown: Query<&InheritedVisibility>,
+    parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
 ) {
     for over in overs.read() {
@@ -1136,10 +1138,25 @@ pub fn hover_log_links(
         }
     }
     // A link that is gone with its panel, or with its game, shows nothing:
-    // a despawned span is never left by the pointer.
+    // a despawned span is never left by the pointer. Nor is one whose panel
+    // was shut under it, which keeps its lines while it is hidden: the
+    // preview of a line hovered as `L` shut the panel stayed on the table.
+    // A span has no visibility of its own: its sentence's node has.
+    let hidden = |span: Entity| {
+        shown
+            .get(span)
+            .ok()
+            .or_else(|| {
+                parents
+                    .get(span)
+                    .ok()
+                    .and_then(|up| shown.get(up.parent()).ok())
+            })
+            .is_some_and(|seen| !seen.get())
+    };
     if duel
         .hovered_log
-        .is_some_and(|hover| !links.contains(hover.span))
+        .is_some_and(|hover| !links.contains(hover.span) || hidden(hover.span))
     {
         duel.hovered_log = None;
     }
@@ -1285,7 +1302,12 @@ mod tests {
     /// that always shrank both fail.
     #[test]
     fn a_narrow_window_gets_the_room_there_is() {
-        assert_eq!(log_size((1600.0, 1000.0)), (LOG_W, LOG_H));
+        // A share of a middling window, and the ceiling of a large one.
+        let (w, h) = log_size((1600.0, 1000.0));
+        assert!((w - 1600.0 * LOG_W_SHARE).abs() < 0.01, "{w}");
+        assert!((h - LOG_H_MAX).abs() < 0.01, "{h}");
+        assert_eq!(log_size((4000.0, 2000.0)), (LOG_W_MAX, LOG_H_MAX));
+        assert_eq!(log_size((1000.0, 560.0)), (LOG_W, LOG_H));
         let (w, h) = log_size((300.0, 200.0));
         assert!(
             (w - (300.0 - 2.0 * EDGE)).abs() < 0.01,

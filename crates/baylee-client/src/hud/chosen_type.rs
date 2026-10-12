@@ -1,6 +1,7 @@
 //! Persistent labels for what a permanent named on entering: a creature type
-//! (Cavern of Souls), or a card name (Pithing Needle); and for the doors of a
-//! Room still locked (CR 709.5).
+//! (Cavern of Souls), or a card name (Pithing Needle); for the doors of a
+//! Room still locked (CR 709.5); for a leveler's level (report 30), and for a
+//! permanent that has lost all its abilities (report 21).
 use super::{UiFonts, glyph, icon_tf, palette, tf};
 use crate::{Duel, settings::ClientSettings, table};
 use baylee_client_core::{
@@ -19,7 +20,25 @@ pub(crate) struct ChosenTypeLabel(ObjectId);
 pub(crate) struct ChargeIcon;
 
 fn words(object: &baylee_view::PublicObject, lang: Lang, detail: bool) -> Option<String> {
-    let mut parts: Vec<String> = choice_words(object, lang).into_iter().collect();
+    let mut parts: Vec<String> = Vec::new();
+    // Lost every ability (report 21: Oko's Elk): its printed text, which
+    // the preview still shows, no longer applies.
+    if object.status.has_no_abilities() {
+        parts.push(Phrase::NoAbilities.text(lang).to_string());
+    }
+    parts.extend(choice_words(object, lang));
+    // A leveler's level (report 30: Hexdrinker), which nothing on the card
+    // says; the plate shows the body it bought.
+    for counter in &object.counters {
+        if counter.kind == baylee_view::CounterKind::Level && counter.count > 0 {
+            let level = if detail {
+                Phrase::LevelLong
+            } else {
+                Phrase::LevelShort
+            };
+            parts.push(level.fill(lang, &[&counter.count.to_string()]));
+        }
+    }
     for counter in &object.counters {
         if counter.kind == baylee_view::CounterKind::Charge && counter.count > 0 {
             let noun = Phrase::counted(
@@ -78,7 +97,7 @@ type Geometry<'w, 's> = (
 );
 
 /// Follow the actual card pose without taking its pointer events. Only cards
-/// carrying a choice or charge counters get a label.
+/// carrying a choice, a level, charge counters or no abilities get a label.
 pub(crate) fn sync(
     mut commands: Commands,
     duel: Res<Duel>,

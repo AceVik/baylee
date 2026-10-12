@@ -1285,11 +1285,12 @@ fn follows(entry: &LogEntry, before: Option<&LogEntry>) -> bool {
         LogEvent::Life { player, old, new },
         LogEvent::Damage {
             target: LogTarget::Player(hurt),
+            amount,
             ..
         },
     ) = (&entry.event, &before.event)
     {
-        return player == hurt && new < old;
+        return player == hurt && i64::from(*old) - i64::from(*new) == i64::from(*amount);
     }
     let LogEvent::Aimed {
         source, ability, ..
@@ -2857,15 +2858,14 @@ mod tests {
             .iter()
             .map(|phrase| format!("{phrase:?}"))
             .filter(|name| name.starts_with("Log"))
-            .filter(|name| !code.contains(&format!("Phrase::{name}")))
             // The panel captions a turn's phases itself: the log only
             // carries the phase, and `baylee-client`'s phase-caption test
             // holds these.
             .filter(|name| !name.starts_with("LogPhase"))
+            .filter(|name| !code.contains(&format!("Phrase::{name}")))
             .collect();
         assert!(unused.is_empty(), "never written: {unused:?}");
     }
-}
 
     // ---- modes, targets, activations (the log, 12.10.2026) -----------------
 
@@ -3151,13 +3151,13 @@ mod tests {
         let german = read_at(
             &book(&[
                 entry(1, hit(LogTarget::Player(BO))),
-                entry(1, life(BO, 20, 19)),
+                entry(1, life(BO, 20, 17)),
             ]),
             1,
             Lang::De,
             &no_text,
         );
-        assert_eq!(german.text, "jetzt 19 Lebenspunkte (vorher 20)");
+        assert_eq!(german.text, "jetzt 17 Lebenspunkte (vorher 20)");
 
         let apart = [
             (
@@ -3174,6 +3174,11 @@ mod tests {
                 "gain",
                 entry(1, hit(LogTarget::Player(BO))),
                 entry(1, life(BO, 17, 20)),
+            ),
+            (
+                "another amount (lifelink, a second source)",
+                entry(1, hit(LogTarget::Player(BO))),
+                entry(1, life(BO, 20, 19)),
             ),
             (
                 "a folded damage line",
@@ -3195,7 +3200,11 @@ mod tests {
         for (why, before, after) in apart {
             let line = second(before, after);
             assert!(!line.follows, "{why}");
-            let (old, new) = if why == "gain" { (17, 20) } else { (20, 17) };
+            let (old, new) = match why {
+                "gain" => (17, 20),
+                "another amount (lifelink, a second source)" => (20, 19),
+                _ => (20, 17),
+            };
             assert_eq!(
                 line.text,
                 format!("Bo went to {new} life (from {old})"),
@@ -3336,3 +3345,4 @@ mod tests {
         assert_eq!(read(&book(&[phased]), Lang::En).phase, Some(Phase::Combat));
         assert_eq!(read(&book(&[entry(1, shuffled)]), Lang::En).phase, None);
     }
+}

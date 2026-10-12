@@ -281,6 +281,7 @@ fn pick_attack_choice(duel: &mut Duel, index: usize) -> bool {
     }
     let options = i.attack_options();
     match index {
+        crate::hud::ATTACK_LIST_FOLD => duel.attack_list_folded = !duel.attack_list_folded,
         PREVIOUS => duel.target_page = duel.target_page.saturating_sub(1),
         NEXT => {
             let creatures = options

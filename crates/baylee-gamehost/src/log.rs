@@ -668,6 +668,7 @@ impl GameLog {
                     },
                     sees,
                 );
+                self.cause_before_effect(batch);
             }
             GameEvent::CoinFlipped { player, won } => self.push(
                 LogEvent::CoinFlipped {
@@ -924,6 +925,38 @@ impl GameLog {
             },
             vec![sees],
         );
+    }
+
+    /// Puts the damage just written before the life it cost, where the
+    /// journal recorded the loss first: "Bo dealt 2 damage to you", then
+    /// "you went to 14 life (from 16)", which a reader takes in that order
+    /// and a client writes as one (`LogLine::follows`). Only this batch's
+    /// lines that nobody has been sent move, and only a pair that is the
+    /// same amount for the same player.
+    fn cause_before_effect(&mut self, batch: usize) {
+        let first = batch.max(self.sealed);
+        let n = self.lines.len();
+        if n < first + 2 {
+            return;
+        }
+        let (life, damage) = (&self.lines[n - 2], &self.lines[n - 1]);
+        let pair = matches!(
+            (&life.event, &damage.event),
+            (
+                LogEvent::Life { player, old, new },
+                LogEvent::Damage {
+                    target: LogTarget::Player(hurt),
+                    amount,
+                    ..
+                },
+            ) if player == hurt
+                && life.repeat == 1
+                && damage.repeat == 1
+                && i64::from(*old) - i64::from(*new) == i64::from(*amount)
+        );
+        if pair {
+            self.lines.swap(n - 2, n - 1);
+        }
     }
 
     /// `player`'s library was shuffled: this batch's lines putting cards into
@@ -1951,7 +1984,6 @@ mod tests {
             [(2, life(20, 22)), (1, life(22, 20)), (1, life(20, 25))]
         );
     }
-}
 
     /// The modes chosen for a spell say which card it is, as the ability
     /// does: a seat that may not know the source is told neither the face
@@ -2025,3 +2057,4 @@ mod tests {
             [(2, Some(Phase::FirstMain)), (1, Some(Phase::Combat))]
         );
     }
+}

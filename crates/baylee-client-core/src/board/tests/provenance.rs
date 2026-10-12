@@ -126,9 +126,11 @@ fn a_permanent_that_has_become_a_copy_is_drawn_as_the_card_it_copies() {
             .expect("group")
             .art
     };
+    // The printing of the Elves this view shows, object 4's (report 02):
+    // the copy wears its picture and its finish.
     assert_eq!(
         of(3),
-        Some(ImageKey::card(elves, 0, ArtSize::Small)),
+        Some(ImageKey::new(PrintRef::new(9), 0, ArtSize::Small)),
         "the copy wears the picture of the card it copies"
     );
     assert_eq!(
@@ -271,8 +273,8 @@ fn a_copy_offers_the_card_underneath_it() {
     // the table draws is still the card the copy is wearing.
     assert_eq!(
         group(3).art,
-        Some(ImageKey::card(elves, 0, ArtSize::Small)),
-        "the copy is still drawn as what it copies"
+        Some(ImageKey::new(PrintRef::new(9), 0, ArtSize::Small)),
+        "the copy is still drawn as what it copies, in the printing shown beside it"
     );
     assert!(
         m.required_images().contains(&cardboard),
