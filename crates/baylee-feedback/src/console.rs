@@ -122,7 +122,10 @@ pub(crate) fn routes() -> Router<Shared> {
         .route("/ui/api/admin/sets", get(sets))
         .route("/ui/api/admin/sets/{code}", get(one_set))
         .route("/ui/api/admin/accounts", get(accounts))
-        .route("/ui/api/admin/accounts/{id}", get(account))
+        .route(
+            "/ui/api/admin/accounts/{id}",
+            get(account).delete(crate::moderation::delete_account),
+        )
         .route("/ui/api/admin/invites", get(invites).post(create))
         .route("/ui/api/admin/invites/{id}", delete(revoke))
         .route("/ui/api/admin/audit", get(audit))
@@ -160,13 +163,13 @@ async fn offline(State(shared): State<Shared>, headers: HeaderMap) -> Result<Res
 }
 
 /// What the gateway answered: its status and its JSON (`null` for none).
-struct Answer {
-    status: u16,
-    json: serde_json::Value,
+pub(crate) struct Answer {
+    pub(crate) status: u16,
+    pub(crate) json: serde_json::Value,
 }
 
 /// Asks the gateway, off the runtime's threads.
-async fn ask(
+pub(crate) async fn ask(
     gateway: &Gateway,
     method: &'static str,
     path: String,
@@ -273,7 +276,7 @@ fn send(
 }
 
 /// The gateway's answer as this service's.
-fn answer(answer: Answer) -> Response {
+pub(crate) fn answer(answer: Answer) -> Response {
     let status = StatusCode::from_u16(answer.status).unwrap_or(StatusCode::BAD_GATEWAY);
     let mut response = if answer.json.is_null() {
         status.into_response()
@@ -294,7 +297,10 @@ fn not_configured() -> Refusal {
 }
 
 /// The signed-in admin's name and the gateway, or why not.
-async fn signed_in(shared: &Shared, headers: &HeaderMap) -> Result<(String, Gateway), Refusal> {
+pub(crate) async fn signed_in(
+    shared: &Shared,
+    headers: &HeaderMap,
+) -> Result<(String, Gateway), Refusal> {
     let admin = session(&shared.state, &shared.ui, headers).await?;
     let gateway = shared
         .state
@@ -744,7 +750,7 @@ async fn llm_key(
 }
 
 /// An audit row about no report: a change made through the console.
-async fn note(
+pub(crate) async fn note(
     shared: &Shared,
     actor: &str,
     action: &str,

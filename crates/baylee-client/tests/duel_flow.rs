@@ -391,7 +391,8 @@ impl Client {
                 HostMessage::Curtain
                 | HostMessage::Preparing { .. }
                 | HostMessage::AiLog(_)
-                | HostMessage::Spectators(_) => {}
+                | HostMessage::Spectators(_)
+                | HostMessage::Closed(_) => {}
             }
         }
     }

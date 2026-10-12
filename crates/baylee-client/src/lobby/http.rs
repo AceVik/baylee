@@ -101,6 +101,22 @@ pub(super) fn build(
             ),
             Expect::LoggedIn,
         ),
+        LobbyRequest::ChangePassword {
+            username,
+            password,
+            new_password,
+        } => (
+            json_post(
+                &format!("{base}/auth/password"),
+                &serde_json::json!({
+                    "username": username,
+                    "password": password,
+                    "new_password": new_password,
+                }),
+            ),
+            // Answered as a sign-in is: a session.
+            Expect::LoggedIn,
+        ),
         LobbyRequest::PlayAsGuest {
             display_name,
             invite_key,
@@ -409,11 +425,20 @@ fn fetch(
             }
             _ => None,
         };
+        let refused = match &result {
+            Ok(response) if !response.ok => {
+                client_core::lobby::account_refusal(response.status, &response.bytes)
+            }
+            _ => None,
+        };
         let reply = match result {
             Ok(response) if response.ok => Reply::Event(decode(lang, expect, &response)),
             // Only a *signed* 401 means the token is spent; on the sign-in
             // form it means the password was wrong.
             Ok(response) if signed && response.status == 401 => Reply::Expired,
+            // A ban, or a password an admin reset (beta.8): the account's
+            // own answer, said in the player's words.
+            Ok(_) if refused.is_some() => Reply::Event(refused.unwrap_or(LobbyEvent::GatewayLost)),
             // A proxy answering for a gateway that is not behind it.
             Ok(response) if matches!(response.status, 502 | 504) => {
                 Reply::Event(LobbyEvent::GatewayLost)

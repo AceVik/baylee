@@ -76,6 +76,23 @@ const GUEST_STOPS: &[&str] = &[
     "notice",
 ];
 
+const NEW_PASSWORD_STOPS: &[&str] = &[
+    "back",
+    "password",
+    "eye",
+    "again",
+    "eye-again",
+    "submit",
+    "lang",
+    "music",
+    "settings",
+    "offline",
+    "about",
+    "source",
+    "discord",
+    "notice",
+];
+
 /// The gateway picker: the address (its list is the saved gateways, walked
 /// with the arrows), Check / Save, the text row, the colophon.
 pub(crate) const GATEWAY: TabOrder = TabOrder {
@@ -99,6 +116,12 @@ pub(crate) const CREATE: TabOrder = TabOrder {
 pub(crate) const GUEST: TabOrder = TabOrder {
     name: "front-guest",
     stops: GUEST_STOPS,
+    modal: false,
+};
+/// The new-password face, after an admin reset the password (beta.8).
+pub(crate) const NEW_PASSWORD: TabOrder = TabOrder {
+    name: "front-new-password",
+    stops: NEW_PASSWORD_STOPS,
     modal: false,
 };
 /// The terms sheet: the text (a focusable scroll region), then its
@@ -128,6 +151,7 @@ pub(crate) fn table_of(state: &LobbyState) -> &'static TabOrder {
         Face::SignIn => &SIGN_IN,
         Face::Create => &CREATE,
         Face::Guest => &GUEST,
+        Face::NewPassword => &NEW_PASSWORD,
     }
 }
 

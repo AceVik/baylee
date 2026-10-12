@@ -865,6 +865,9 @@ pub struct Duel {
     pub watching: bool,
     /// How many watch the table, as the engine last said.
     pub spectators: u32,
+    /// An admin ended the game, and why (`docs/protocol.md` §"Acting on a
+    /// game"): the end screen says so instead of who won.
+    pub closed: Option<String>,
     /// A spectator asked to stop watching; `hud::spectators::leave_watching`
     /// closes the table.
     pub leave_asked: bool,
@@ -1789,6 +1792,20 @@ fn poll_host(
                 }
             }
             HostMessage::Curtain => duel.curtain_up = true,
+            // An admin ended the game: nobody won or lost, and the end
+            // screen says why. The game is over as any other is, so the
+            // way out is the end screen's.
+            HostMessage::Closed(reason) => {
+                if duel.ending().is_none() {
+                    duel.closed = Some(reason);
+                    next.set(DuelPhase::Finished);
+                    reports.write(DuelReport::Finished);
+                    duel.receive_choice(Pending::GameOver(baylee_engine::win::GameResult {
+                        winner: None,
+                        reason: baylee_engine::win::EndReason::Draw,
+                    }));
+                }
+            }
             // Debug builds only (`docs/protocol.md` §"An AI seat's
             // reasoning"): a release engine sends none, and one that came
             // anyway is not queued, so a release client's door never stands.

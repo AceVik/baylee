@@ -1037,6 +1037,47 @@ messages! {
         en: "the two passwords differ",
         de: "die beiden Passwörter sind verschieden",
     },
+    /// A sign-in refused for a ban with an end (beta.8): `{0}` the end,
+    /// `{1}` the admin's reason.
+    BannedUntil {
+        en: "This account is banned until {0}. Reason: {1}",
+        de: "Dieses Konto ist bis {0} gesperrt. Grund: {1}",
+    },
+    /// A sign-in refused for a ban for good: `{0}` the admin's reason.
+    BannedForGood {
+        en: "This account is banned. Reason: {0}",
+        de: "Dieses Konto ist gesperrt. Grund: {0}",
+    },
+    /// The face that asks for a new password after an admin reset it.
+    ChooseNewPassword {
+        en: "Choose a new password",
+        de: "Neues Passwort wählen",
+    },
+    /// What that face says, under its title.
+    PasswordWasReset {
+        en: "An admin reset your password. Choose a new one to sign in.",
+        de: "Ein Admin hat dein Passwort zurückgesetzt. Wähle ein neues, um dich anzumelden.",
+    },
+    /// The new password's caption.
+    NewPassword {
+        en: "New password",
+        de: "Neues Passwort",
+    },
+    /// That face's button.
+    SetNewPassword {
+        en: "Set password and sign in",
+        de: "Passwort setzen und anmelden",
+    },
+    /// The new password is the one the admin gave.
+    NewPasswordIsTheOld {
+        en: "choose a password other than the one you were given",
+        de: "wähle ein anderes Passwort als das, das du bekommen hast",
+    },
+    /// Sending the new password.
+    SettingPassword {
+        en: "setting your password…",
+        de: "dein Passwort wird gesetzt…",
+    },
     /// This gateway does not take sign-ups.
     NoSignUps {
         en: "this gateway is not taking new accounts",
@@ -3246,6 +3287,17 @@ messages! {
     TheGameIsADraw {
         en: "The game is a draw",
         de: "Das Spiel endet unentschieden",
+    },
+    /// The end screen's verdict for a game an admin ended (beta.8): nobody
+    /// won or lost.
+    GameClosedVerdict {
+        en: "The game was ended",
+        de: "Das Spiel wurde beendet",
+    },
+    /// The line under it: `{0}` the admin's reason.
+    GameClosedReason {
+        en: "An admin ended it: {0}",
+        de: "Ein Admin hat es beendet: {0}",
     },
     /// Why a game ended: one seat outlived every other
     /// (`EndReason::LastPlayerStanding`).

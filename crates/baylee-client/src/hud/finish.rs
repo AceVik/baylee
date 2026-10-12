@@ -405,6 +405,7 @@ pub(crate) fn spawn_finish(
             losses: (duel.view.as_ref())
                 .map_or_else(Vec::new, |v| table_losses(lang, v, Some(statics), seat)),
             watched: spectators_verdict(lang, *result, statics, duel.watching),
+            closed: duel.closed.as_deref(),
         },
     );
 
@@ -451,6 +452,9 @@ struct Said<'a> {
     losses: Vec<String>,
     /// The verdict as a spectator reads it, who neither won nor lost.
     watched: Option<String>,
+    /// Why an admin ended the game, when one did: then nobody won or lost,
+    /// and the sheet says that instead.
+    closed: Option<&'a str>,
 }
 
 /// Who won, named, for a spectator (`docs/protocol.md` §"Spectators"):
@@ -479,10 +483,15 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
         team,
         losses,
         watched,
+        closed,
     } = said;
+    let said = match closed {
+        Some(_) => Phrase::GameClosedVerdict.text(lang).to_string(),
+        None => watched.unwrap_or_else(|| verdict(lang, result, seat, team)),
+    };
     let headline = commands
         .spawn((
-            Text::new(watched.unwrap_or_else(|| verdict(lang, result, seat, team))),
+            Text::new(said),
             // The one place this client asks a face for a weight, and Faustina
             // is the one it can ask: Alegreya Sans ships as static cuts,
             // where `weight` reaches nothing at all.
@@ -501,7 +510,11 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
 
     // A draw gets no second line at all, gap included — `ending_reason`
     // refuses it, because the only thing it could say is the verdict again.
-    if let Some(reason) = ending_reason(lang, result) {
+    let reason = match closed {
+        Some(why) => Some(Phrase::GameClosedReason.fill(lang, &[why])),
+        None => ending_reason(lang, result),
+    };
+    if let Some(reason) = reason {
         let line = commands
             .spawn((
                 Text::new(reason),

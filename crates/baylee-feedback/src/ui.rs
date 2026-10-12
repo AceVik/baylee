@@ -460,6 +460,7 @@ pub(crate) fn routes() -> Router<Shared> {
         .route("/ui/api/reports/{id}/record", get(record))
         .route("/ui/api/reports/{id}/audit", get(audit_trail))
         .merge(crate::console::routes())
+        .merge(crate::moderation::routes())
         .route("/ui/api/{*rest}", axum::routing::any(no_such_route))
 }
 

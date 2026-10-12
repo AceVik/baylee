@@ -365,6 +365,7 @@ impl Offline {
             // from a client that has stopped working.
             LobbyRequest::Register { .. }
             | LobbyRequest::LogIn { .. }
+            | LobbyRequest::ChangePassword { .. }
             | LobbyRequest::PlayAsGuest { .. }
             | LobbyRequest::LogOut { .. }
             | LobbyRequest::DeleteAccount { .. }
