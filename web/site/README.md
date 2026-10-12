@@ -37,7 +37,7 @@ repository, never from the working tree:
 
 ```sh
 python3 scripts/site/card_status.py --rev origin/main     # or any commit
-python3 scripts/site/card_status.py --rev origin/main --bulk default-cards.json
+python3 scripts/site/card_status.py --rev origin/main --fetch-bulk   # pictures for every card
 ```
 
 It reads the CardIndex ledger (every card, the set it first appeared in, in
@@ -45,8 +45,9 @@ release order), every card file's `coverage` and `scryfall_id`, and
 `data/unplayable.tsv`; it checks each set's count against the core index's
 per-set file and prints the totals. Set names come from one request to
 Scryfall's set list, cached under `target/site-cache/`. A card outside the
-pool has no printing id in the repository; `--bulk` names a Scryfall
-`default_cards` bulk file, which gives every card the picture of its printing
+pool has no printing id in the repository; `--fetch-bulk` downloads Scryfall's
+`default_cards` bulk file once into `target/site-cache/` (`--bulk` names one
+already on disk), which gives every card the picture of its printing
 in the set it is listed under (without it, the ids of the previous output are
 kept). Regenerate and redeploy the page when cards land.
 
