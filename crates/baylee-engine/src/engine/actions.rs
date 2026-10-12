@@ -2160,12 +2160,7 @@ impl<L: CardLookup> Engine<L> {
             return Err(crate::choice::AnswerFault::MustAttack.into());
         }
         for &(creature, defending) in &attackers {
-            let vigilance = self.state.object(creature).is_some_and(|o| {
-                o.characteristics()
-                    .keywords
-                    .contains(baylee_cards_dsl::KeywordSet::VIGILANCE)
-            });
-            if !vigilance {
+            if combat::attack_taps(&self.state, creature) {
                 self.state.set_tapped(creature, true);
                 self.state.journal.record(GameEvent::ObjectTapped {
                     object: creature,

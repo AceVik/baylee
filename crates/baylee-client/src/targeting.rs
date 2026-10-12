@@ -449,6 +449,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::Enchanted
         | Filter::BlockingSource
         | Filter::BlockedBySource
+        | Filter::SpellTargetingAffected
         | Filter::InZone(_)
         | Filter::Kicked
         | Filter::CastFromHand => return None,

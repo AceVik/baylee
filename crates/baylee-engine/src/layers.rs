@@ -890,6 +890,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::HasAnyCounter
         | Filter::Enchanted
         | Filter::BlockingSource
+        | Filter::SpellTargetingAffected
         | Filter::BlockedBySource
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
@@ -1376,6 +1377,7 @@ fn apply(
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
         | Modifier::CantAttack
+        | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat

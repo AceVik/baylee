@@ -1005,3 +1005,41 @@ fn an_untap_limit_is_read_for_the_players_it_names() {
         );
     }
 }
+
+#[test]
+fn bronze_horse_damage_reader_requires_exact_source_and_other_creature_predicates() {
+    let script = "Name:X\nTypes:Artifact Creature Goblin\nPT:4/4\nR:Event$ DamageDone | Prevent$ True | ValidCause$ Spell.IsTargeting Self | ValidTarget$ Creature.Self | CauseIsSource$ True | IsPresent$ Creature.YouCtrl+Other";
+    let body = read(script);
+    assert!(body.abilities[0].contains("SpellTargetingAffected"));
+    assert!(body.abilities[0].contains("Condition::ControlCount(&Filter::CREATURE, 2)"));
+    assert!(!body.abilities[0].contains("Filter::Another"));
+    for (from, to) in [
+        ("Spell.IsTargeting Self", "Ability.IsTargeting Self"),
+        ("CauseIsSource$ True", "CauseIsSource$ False"),
+        ("Creature.YouCtrl+Other", "Creature.YouCtrl"),
+        ("Creature.Self", "Creature.YouCtrl"),
+    ] {
+        assert!(refused(&script.replace(from, to)), "{to}");
+    }
+    assert!(refused(&format!("{script} | IsCombat$ True")));
+}
+#[test]
+fn johan_reader_keeps_whole_optional_source_bound_combat_chain() {
+    let script = "Name:X\nTypes:Creature Goblin\nPT:5/4\nT:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | Execute$ Stop | TriggerZones$ Battlefield | OptionalDecider$ You\nSVar:Stop:DB$ Pump | Defined$ Self | KW$ CARDNAME can't attack. | Duration$ UntilEndOfCombat | SubAbility$ Rule\nSVar:Rule:DB$ Effect | StaticAbilities$ Untapped | Duration$ UntilEndOfCombat\nSVar:Untapped:Mode$ AttackVigilance | ValidCard$ Creature.YouCtrl | IsPresent$ Card.EffectSource+untapped";
+    let body = read(script);
+    let ability = &body.abilities[0];
+    assert!(ability.contains("Effect::MayDo"));
+    assert!(ability.contains("KeywordSet::CANT_ATTACK"));
+    assert!(ability.contains("AttackWithoutTappingWhileSourceUntappedThisCombat"));
+    assert!(!ability.contains("KeywordSet::VIGILANCE"));
+    for (from, to) in [
+        ("ValidPlayer$ You", "ValidPlayer$ Opponent"),
+        ("OptionalDecider$ You", "OptionalDecider$ Opponent"),
+        ("UntilEndOfCombat", "UntilEndOfTurn"),
+        ("Card.EffectSource+untapped", "Card.EffectSource+tapped"),
+        ("Creature.YouCtrl", "Creature"),
+    ] {
+        assert!(refused(&script.replace(from, to)), "{to}");
+    }
+    assert!(refused(&format!("{script} | Unknown$ True")));
+}

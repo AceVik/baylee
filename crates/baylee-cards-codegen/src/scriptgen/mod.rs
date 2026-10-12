@@ -42,6 +42,7 @@ mod atoms;
 mod chains;
 mod constants;
 mod effects;
+mod horse_johan;
 mod keywords;
 mod mana;
 mod statics;

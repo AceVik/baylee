@@ -775,6 +775,7 @@ impl Effect {
             | Effect::RedirectNextDamage { .. }
             | Effect::LoseHalfLife { .. }
             | Effect::PreventNextDamage { .. }
+            | Effect::AttackWithoutTappingWhileSourceUntappedThisCombat
             | Effect::PreventAllCombatDamageThisTurn
             | Effect::ChooseDamageSourcePreventAllThisTurn
             | Effect::PreventNextFromChosenSource { .. }

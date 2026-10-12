@@ -187,6 +187,8 @@ pub enum Filter {
     BlockingSource,
     /// Is blocked by the source creature.
     BlockedBySource,
+    /// A spell whose selected targets include the exact affected source incarnation.
+    SpellTargetingAffected,
     /// The candidate has at least this many counters of the specified kind.
     CountersAtLeast(crate::CounterKind, u16),
     /// Has the subtype the SOURCE object chose as it entered ("the chosen

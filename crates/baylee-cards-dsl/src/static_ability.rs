@@ -331,6 +331,11 @@ pub enum Modifier {
     CantAttackUnlessDefenderControls(&'static crate::Filter),
     /// A declaration restriction, not an ability granted to the creature.
     CantAttack,
+    /// A dynamic attack-tapping rule tied to the source incarnation.
+    AttackWithoutTappingWhileSourceUntapped {
+        /// Source version captured when the instruction resolved.
+        source_version: u32,
+    },
     /// Landwalk of a land the filter describes (CR 702.14a, 702.14c): the
     /// affected creature can't be blocked as long as the defending player
     /// controls a land it matches. The basic five are keyword bits; this is
@@ -935,6 +940,7 @@ impl Modifier {
             | Self::CantBlock(_)
             | Self::CantBeBlockedBy(_)
             | Self::CantAttack
+            | Self::AttackWithoutTappingWhileSourceUntapped { .. }
             | Self::CantAttackUnlessDefenderControls(_)
             | Self::LandwalkMatching(_)
             | Self::AttacksEachCombat
@@ -1408,6 +1414,7 @@ mod tests {
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::LandwalkMatching(&Filter::LAND),
+            Modifier::AttackWithoutTappingWhileSourceUntapped { source_version: 0 },
             Modifier::AttacksEachCombat,
             Modifier::CanBlockAdditional(1),
             Modifier::CanBlockAnyNumber,

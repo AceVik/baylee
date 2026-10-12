@@ -212,6 +212,9 @@ impl Tx<'_> {
         let Some((event, mut p)) = Params::parse(spec) else {
             return self.deny("an `R:` line with no `$` in it".to_string());
         };
+        if event == "DamageDone" && p.peek("ValidCause") == Some("Spell.IsTargeting Self") {
+            return self.bronze_horse_prevention(p);
+        }
         if event == "Untap" {
             return self.does_not_untap(&mut p);
         }

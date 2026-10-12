@@ -784,6 +784,8 @@ pub enum Effect {
     /// every combat damage event until the turn's cleanup, to anything
     /// and from anything, and never used up.
     PreventAllCombatDamageThisTurn,
+    /// This combat, your creatures attack without tapping while this exact source is untapped.
+    AttackWithoutTappingWhileSourceUntappedThisCombat,
     /// Choose a damage source and prevent all its damage to every recipient this turn.
     ChooseDamageSourcePreventAllThisTurn,
     /// "The next time a red source of your choice would deal damage to you

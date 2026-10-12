@@ -871,6 +871,31 @@ pub(super) fn exec_immediate(
             duration: baylee_cards_dsl::Duration::WhileSourceTapped { .. },
             ..
         } if !source_still_tapped(state, res) => None,
+        Effect::AttackWithoutTappingWhileSourceUntappedThisCombat => {
+            if let Some(source) = subjects::source(state, res)
+                && subjects::on_battlefield(state, source)
+            {
+                let timestamp = state.next_timestamp();
+                let modifier =
+                    baylee_cards_dsl::Modifier::AttackWithoutTappingWhileSourceUntapped {
+                        source_version: source.version,
+                    };
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(source.object),
+                    controller: you,
+                    origin: crate::effects::EffectOrigin::Resolution,
+                    layer: modifier.layer(),
+                    timestamp,
+                    duration: baylee_cards_dsl::Duration::UntilEndOfCombat,
+                    filter: crate::effects::EffectFilter::Dsl(
+                        &baylee_cards_dsl::Filter::YOUR_CREATURE,
+                    ),
+                    modifier,
+                });
+            }
+            None
+        }
         Effect::CreateContinuousEffect {
             layer,
             filter,

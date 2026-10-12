@@ -537,6 +537,24 @@ impl GameState {
             .copied()
     }
 
+    /// Read the chosen target identities of this exact spell, including retained LKI.
+    pub(crate) fn spell_targets_affected(&self, spell: &GameObject, affected: ObjectId) -> bool {
+        if spell.kind != crate::object::ObjectKind::Spell {
+            return false;
+        }
+        let Some(affected) = self.source_identity(affected) else {
+            return false;
+        };
+        self.source_memory
+            .stack
+            .get(&identity(spell))
+            .is_some_and(|refs| {
+                refs.iter().any(|(slot, target)| {
+                    matches!(slot, Slot::Target(_) | Slot::Second(_)) && *target == affected
+                })
+            })
+    }
+
     pub(crate) fn targets_current_object(&self, holder: ObjectId, target: ObjectId) -> bool {
         let Some(current) = self.source_identity(target) else {
             return false;

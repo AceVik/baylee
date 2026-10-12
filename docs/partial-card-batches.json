@@ -798,7 +798,8 @@
       "cards": [
         {
           "name": "Johan",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_6/johan.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_6/johan.rs",
+          "status": "completed"
         },
         {
           "name": "Wall of Shadows",
@@ -814,7 +815,8 @@
         },
         {
           "name": "Bronze Horse",
-          "path": "crates/baylee-cards/src/cards/creatures/artifacts/mv_7/bronze_horse.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/artifacts/mv_7/bronze_horse.rs",
+          "status": "completed"
         },
         {
           "name": "Teferi's Protection",
@@ -853,7 +855,7 @@
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/the_one_ring.rs"
         }
       ],
-      "validated_complete": 4,
+      "validated_complete": 6,
       "remaining_note": "Remaining cards require shared engine support and actual-action validation."
     },
     {

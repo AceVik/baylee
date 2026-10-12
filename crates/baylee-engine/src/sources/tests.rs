@@ -512,3 +512,28 @@ fn wording_and_copy_metadata_keep_phased_readers_and_release_retired_incarnation
     state.prune_damage_sources();
     assert_eq!(state.text_changes.get(old), TextChangeMap::IDENTITY);
 }
+
+#[test]
+fn targeting_spell_predicate_keeps_second_targets_lki_and_exact_incarnations() {
+    let mut state = game();
+    let target = object(&mut state, ZoneLocation::Battlefield, ObjectKind::Permanent);
+    let spell = object(&mut state, ZoneLocation::Stack, ObjectKind::Spell);
+    let reference = identity(state.object(target).unwrap());
+    state.bind_target_references(
+        spell,
+        &TargetReferences {
+            first: vec![],
+            second: vec![reference],
+        },
+    );
+    let original = state.object(spell).unwrap().clone();
+    assert!(state.spell_targets_affected(&original, target));
+    state.object_mut(spell).unwrap().kind = ObjectKind::AbilityOnStack;
+    assert!(!state.spell_targets_affected(state.object(spell).unwrap(), target));
+    assert!(
+        state.spell_targets_affected(&original, target),
+        "retained spell kind and decisions"
+    );
+    state.object_mut(target).unwrap().version += 1;
+    assert!(!state.spell_targets_affected(&original, target));
+}

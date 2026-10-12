@@ -36,6 +36,7 @@ mod batch49_turns;
 mod batch49_turtle;
 mod batch49_untap;
 mod batch49_wall;
+mod batch52_horse_johan;
 mod counted_activation_costs;
 mod counter_movement;
 mod counter_resources;

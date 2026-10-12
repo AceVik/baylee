@@ -485,6 +485,15 @@ impl Tx<'_> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("a `T:` line with no `$` in it".to_string());
         };
+        if p.peek("Execute")
+            .and_then(|name| self.svars.get(name))
+            .and_then(|body| Params::parse(body))
+            .is_some_and(|(api, child)| {
+                api == "Pump" && child.peek("KW") == Some("CARDNAME can't attack.")
+            })
+        {
+            return self.johan_combat_trigger(&mode, p);
+        }
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
         let (trigger, condition) = if mode == "Always" {

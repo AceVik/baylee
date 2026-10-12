@@ -403,6 +403,7 @@ impl GameState {
         hash_shields(&mut h, self, &position);
         hash_granted_actions(&mut h, self, &position);
         hash_waiting_turn_effects(&mut h, self, &position);
+        hash_attack_tap_rules(&mut h, self, &position);
         hash_source_references(&mut h, self, &position);
         // A land already cleaned by this incarnation is not eligible again,
         // even if the visible board and counter totals are identical.
@@ -788,6 +789,31 @@ fn hash_ability_tallies(state: &GameState, h: &mut Hasher, position: &impl Fn(Ob
         h.u32(index);
         h.u32(n);
     }
+}
+
+fn hash_attack_tap_rules(h: &mut Hasher, state: &GameState, position: &impl Fn(ObjectId) -> u32) {
+    if !state.effects.may_change_attack_tapping() {
+        Vec::<(PlayerId, u32)>::new().hash(h);
+        return;
+    }
+    let mut rules: Vec<_> = state
+        .effects
+        .iter()
+        .filter_map(|effect| {
+            let baylee_cards_dsl::Modifier::AttackWithoutTappingWhileSourceUntapped {
+                source_version,
+            } = effect.modifier
+            else {
+                return None;
+            };
+            let source = state.object(effect.source?)?;
+            (source.version == source_version && source.zone == crate::zone::Zone::Battlefield)
+                .then_some((effect.controller, position(source.id)))
+        })
+        .collect();
+    rules.sort_unstable();
+    rules.dedup();
+    rules.hash(h);
 }
 
 // Compare obligations by their rules meaning; allocation IDs merely link the
@@ -1735,6 +1761,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
     use baylee_cards_dsl::Filter as F;
     match f {
         F::Any => h.u8(0),
+        F::SpellTargetingAffected => h.u8(69),
         F::This => h.u8(1),
         F::Another => h.u8(2),
         F::And(parts) | F::Or(parts) => {

@@ -271,6 +271,7 @@ pub fn matches_projected_with_context(
         }),
         Filter::BlockingSource => state.combat.is_blocking(obj.id, this),
         Filter::BlockedBySource => state.combat.is_blocking(this, obj.id),
+        Filter::SpellTargetingAffected => state.spell_targets_affected(obj, this),
         Filter::CountersAtLeast(kind, n) => obj.counters.get(*kind) >= *n,
         Filter::MatchesChosenTypeOfSource => state
             .object(this)

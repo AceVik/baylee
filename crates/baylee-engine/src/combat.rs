@@ -1650,6 +1650,41 @@ fn landwalk_removed(state: &GameState, object: &crate::object::GameObject, times
     })
 }
 
+/// Whether declaring this creature as an attacker taps it.
+#[must_use]
+pub fn attack_taps(state: &GameState, creature: ObjectId) -> bool {
+    let Some(object) = state.object(creature) else {
+        return false;
+    };
+    if object
+        .characteristics()
+        .keywords
+        .contains(baylee_cards_dsl::KeywordSet::VIGILANCE)
+    {
+        return false;
+    }
+    if !state.effects.may_change_attack_tapping() {
+        return true;
+    }
+    !state.effects.iter().any(|effect| {
+        let baylee_cards_dsl::Modifier::AttackWithoutTappingWhileSourceUntapped { source_version } =
+            effect.modifier
+        else {
+            return false;
+        };
+        effect.controller == object.controller
+            && effect
+                .source
+                .and_then(|id| state.object(id))
+                .is_some_and(|source| {
+                    source.version == source_version
+                        && source.zone == crate::zone::Zone::Battlefield
+                        && !source.status.contains(crate::object::Status::TAPPED)
+                        && !source.status.contains(crate::object::Status::PHASED_OUT)
+                })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

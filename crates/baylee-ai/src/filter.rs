@@ -280,6 +280,7 @@ impl HeuristicAgent {
         | Filter::HasAnyCounter
         | Filter::Enchanted
         | Filter::BlockingSource
+        | Filter::SpellTargetingAffected
         | Filter::BlockedBySource => None,
         }
     }

@@ -185,6 +185,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
         | Modifier::CantAttack
+        | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::LandwalkMatching(_)
         | Modifier::AttacksEachCombat
@@ -310,30 +311,48 @@ pub struct EffectTable {
     /// rescanned (a copy's own statics, a token's).
     parked: Vec<ContinuousEffect>,
     next_id: u32,
-    /// Monotone performance hint; false proves there is no counter duration.
-    /// Derived cache only, with no effect on rules or snapshot identity.
-    may_have_counter_duration: bool,
-    /// Derived monotone cache: uncapped kinds skip the limit scan entirely.
+    /// Derived monotone hints; absent bits prove the corresponding scan unnecessary.
+    hints: RuleHints,
+    /// Derived cache: uncapped counter kinds skip the limit scan entirely.
     counter_limit_kinds: Vec<baylee_cards_dsl::CounterKind>,
-    /// Derived monotone hint: ordinary boards need no source-duration scan.
-    may_have_source_duration: bool,
-    /// Derived monotone hint: ordinary attackers need no blanket-restriction scan.
-    may_forbid_attacking: bool,
     /// Bumped on every add/remove — the projection cache key.
     pub generation: u64,
 }
 
+#[derive(Clone, Debug, Default)]
+struct RuleHints(u8);
+
+impl RuleHints {
+    const COUNTER_DURATION: u8 = 1;
+    const SOURCE_DURATION: u8 = 2;
+    const ATTACK_PROHIBITION: u8 = 4;
+    const ATTACK_TAPPING: u8 = 8;
+
+    fn contains(&self, bit: u8) -> bool {
+        self.0 & bit != 0
+    }
+    fn insert_if(&mut self, bit: u8, applies: bool) {
+        if applies {
+            self.0 |= bit;
+        }
+    }
+}
+
 impl EffectTable {
+    pub(crate) fn may_change_attack_tapping(&self) -> bool {
+        self.hints.contains(RuleHints::ATTACK_TAPPING)
+    }
+
     pub(crate) fn may_forbid_attacking(&self) -> bool {
-        self.may_forbid_attacking
+        self.hints.contains(RuleHints::ATTACK_PROHIBITION)
     }
 
     pub(crate) fn may_have_source_duration(&self) -> bool {
-        self.may_have_source_duration
+        self.hints.contains(RuleHints::SOURCE_DURATION)
     }
 
     pub(crate) fn may_have_counter_duration(&self) -> bool {
-        self.may_have_counter_duration
+        self.hints.contains(RuleHints::COUNTER_DURATION)
     }
 
     pub(crate) fn has_counter_limits(&self) -> bool {
@@ -355,12 +374,28 @@ impl EffectTable {
         {
             self.counter_limit_kinds.push(kind);
         }
-        self.may_have_counter_duration |= matches!(fx.duration, Duration::WhileCounterRemains(_));
-        self.may_have_source_duration |= matches!(
-            fx.duration,
-            Duration::WhileYouControlSource | Duration::WhileSourceTapped { .. }
+        self.hints.insert_if(
+            RuleHints::COUNTER_DURATION,
+            matches!(fx.duration, Duration::WhileCounterRemains(_)),
         );
-        self.may_forbid_attacking |= fx.modifier == Modifier::CantAttack;
+        self.hints.insert_if(
+            RuleHints::SOURCE_DURATION,
+            matches!(
+                fx.duration,
+                Duration::WhileYouControlSource | Duration::WhileSourceTapped { .. }
+            ),
+        );
+        self.hints.insert_if(
+            RuleHints::ATTACK_PROHIBITION,
+            fx.modifier == Modifier::CantAttack,
+        );
+        self.hints.insert_if(
+            RuleHints::ATTACK_TAPPING,
+            matches!(
+                fx.modifier,
+                Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
+            ),
+        );
         self.effects.push(fx);
         self.generation += 1;
         id
@@ -563,10 +598,8 @@ impl EffectTable {
             effects,
             parked,
             next_id,
-            may_have_counter_duration: _,
             counter_limit_kinds: _,
-            may_have_source_duration: _,
-            may_forbid_attacking: _,
+            hints: _,
             generation,
             grants: _,
         } = self;
@@ -1096,6 +1129,7 @@ mod tests {
             Modifier::RemoveKeyword(KeywordSet::FLYING),
             Modifier::LoseKeywords,
             Modifier::LoseAllLandwalk,
+            Modifier::AttackWithoutTappingWhileSourceUntapped { source_version: 0 },
             Modifier::CantHaveKeywords(KeywordSet::HEXPROOF),
             Modifier::LoseAllAbilities,
             Modifier::AddKeywordIfCountersAtLeast {
@@ -1295,7 +1329,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            119,
+            120,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1359,7 +1393,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (43, 76));
+        assert_eq!((locking, all.len() - locking), (43, 77));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole
