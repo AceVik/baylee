@@ -263,3 +263,21 @@ fn optional_exact_tap_payment_never_confirms_a_partial_group() {
     assert!(!i.can_confirm());
     assert!(i.confirm().is_none());
 }
+
+/// A choice of one: clicking another card moves the pick there (owner,
+/// beta.7), instead of refusing until the first is taken back.
+#[test]
+fn a_choice_of_one_moves_the_pick_to_the_newer_click() {
+    let mut i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(1), obj(2), obj(3)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::Generic,
+        total: None,
+    });
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+    assert_eq!(i.toggle(obj(2)), SelectionOutcome::Added);
+    assert_eq!(i.selected().collect::<Vec<_>>(), vec![obj(2)]);
+    assert!(i.can_confirm());
+}
