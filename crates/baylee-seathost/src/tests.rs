@@ -320,3 +320,28 @@ async fn checks_and_switches_show_in_the_state() {
     host.drain();
     assert_eq!(reported(&host, "sonnet").state, State::Disabled);
 }
+
+#[tokio::test]
+async fn managed_session_profiles_reach_hosted_bridges_unchanged() {
+    let (host, fake, _) = host("managed-sessions", 0);
+    let mut definition = sonnet(None, None);
+    definition.profile = json!({"provider":"openai", "model":"local-model",
+        "base_url":"http://127.0.0.1:1234/v1", "answer":"json",
+        "session_api":true,"game_tokens":5_000_000});
+    host.write("sonnet", definition).unwrap();
+    let mut rx = host.attach();
+    host.handle(start("managed-game"));
+    let frame = next_but_reports(&mut rx).await;
+    assert!(
+        matches!(
+            frame,
+            Frame::SeatStatus {
+                kind: SeatStatusKind::Started,
+                ..
+            }
+        ),
+        "{frame:?}"
+    );
+    let settings = SeatSettings::parse(&fake.jobs.lock().unwrap()[0].2).unwrap();
+    assert_eq!(settings.profiles["sonnet"].session_api, Some(true));
+}

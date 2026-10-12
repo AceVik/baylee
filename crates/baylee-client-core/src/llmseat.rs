@@ -424,6 +424,10 @@ pub struct Profile {
     /// CLI, and a CLI only in JSON.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub answer: Option<AnswerMode>,
+    /// Opt into the endpoint's session lifecycle extension. Disabled by default;
+    /// only for an OpenAI-compatible server that implements `/sessions`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_api: Option<bool>,
     /// The most tokens one reply may take, thinking included [default:
     /// [`Provider::default_max_tokens`]].
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -475,6 +479,7 @@ impl Profile {
             model: model.to_string(),
             effort: None,
             answer: None,
+            session_api: None,
             max_tokens: None,
             price: None,
             game_usd: None,
@@ -550,6 +555,13 @@ impl Profile {
         }
         if let Some((why, sentence)) = self.answer_fault() {
             say(Field::Answer, why, sentence);
+        }
+        if self.session_api == Some(true) && self.provider != Provider::OpenAi {
+            say(
+                Field::SessionApi,
+                Why::SessionNeedsOpenAi,
+                "session_api requires an OpenAI-compatible endpoint with session support".into(),
+            );
         }
         if self.max_tokens == Some(0) {
             say(
@@ -745,6 +757,8 @@ pub enum Field {
     Effort,
     /// `answer`.
     Answer,
+    /// `session_api`.
+    SessionApi,
     /// `max_tokens`.
     MaxTokens,
     /// `price.input`.
@@ -769,11 +783,12 @@ pub enum Field {
 
 impl Field {
     /// Every field, in the order a profile writes them.
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::Provider,
         Self::Model,
         Self::Effort,
         Self::Answer,
+        Self::SessionApi,
         Self::MaxTokens,
         Self::PriceInput,
         Self::PriceOutput,
@@ -795,6 +810,7 @@ impl Field {
             Self::Model => &["model"],
             Self::Effort => &["effort"],
             Self::Answer => &["answer"],
+            Self::SessionApi => &["session_api"],
             Self::MaxTokens => &["max_tokens"],
             Self::PriceInput => &["price", "input"],
             Self::PriceOutput => &["price", "output"],
@@ -919,6 +935,8 @@ pub enum Why {
     NotAWord,
     /// JSON answers (`json`, `json_schema`) asked of Anthropic's models.
     JsonNeedsOpenAi,
+    /// Managed sessions require an OpenAI-compatible endpoint.
+    SessionNeedsOpenAi,
     /// What a CLI does not take: a key, an address, a price, answers by
     /// tool.
     NotForCli,

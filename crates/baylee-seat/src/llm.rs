@@ -8,7 +8,7 @@
 //! tools, answering one JSON object ([`AnswerMode::Json`]), or one held to
 //! the answer's schema ([`AnswerMode::JsonSchema`]).
 //!
-//! # One conversation per turn
+//! # Conversations across decisions
 //!
 //! A seat's conversation starts with the game and its deck (the cached
 //! prefix) and grows by one decision and one answer at a time, appended
@@ -17,7 +17,8 @@
 //! from the prefix, with the seat's own earlier `say` lines as its notes:
 //! the board in every message is whole, so nothing else is lost. A turn
 //! whose conversation outgrows [`Settings::conversation_tokens`] starts
-//! again the same way at its next question.
+//! again the same way at its next question. Profiles opting into endpoint-managed
+//! sessions keep this conversation across turns up to the same size bound.
 //!
 //! # Answers the model does not need to give
 //!
@@ -53,6 +54,7 @@ mod openai;
 pub mod prompt;
 pub(crate) mod seatstate;
 mod secret;
+mod sessions;
 #[cfg(test)]
 mod tests;
 
@@ -207,6 +209,8 @@ pub struct Settings {
     pub effort: Option<String>,
     /// How it answers.
     pub answer: AnswerMode,
+    /// Use the optional OpenAI-compatible session lifecycle extension.
+    pub session_api: bool,
     /// The most tokens one reply may take, thinking included.
     pub max_tokens: u32,
     /// What the model costs: this build's price for it ([`price`]) or one
@@ -256,6 +260,7 @@ impl Settings {
             model: spec.model.clone(),
             effort: spec.provider.default_effort().map(str::to_string),
             answer: spec.provider.default_answer(),
+            session_api: false,
             max_tokens: spec.provider.default_max_tokens(),
             price,
             spend_usd: price.map(|_| DEFAULT_SPEND_USD),
@@ -839,6 +844,7 @@ struct ToolResult {
 /// takes it.
 struct SeatState {
     seat: Seat,
+    remote: Option<Arc<sessions::Session>>,
     /// The conversation, as the provider takes it.
     messages: Vec<Value>,
     /// What the seat owes the model's last tool calls.
@@ -924,6 +930,16 @@ impl ApiMind {
         Arc::clone(seats.entry(key).or_insert_with(|| {
             Arc::new(Mutex::new(SeatState {
                 seat: Seat::new(context, self.settings.transcripts.as_deref(), self.style),
+                remote: (self.settings.session_api && self.credentials.api == Api::OpenAi).then(
+                    || {
+                        sessions::Session::new(
+                            self.agent.clone(),
+                            self.credentials.base.clone(),
+                            self.headers(),
+                            context.seat.get(),
+                        )
+                    },
+                ),
                 messages: Vec::new(),
                 results: Vec::new(),
             }))
@@ -969,7 +985,8 @@ impl ApiMind {
             Api::Anthropic => anthropic::url(&self.credentials.base),
             Api::OpenAi => openai::url(&self.credentials.base),
         };
-        let headers = self.headers();
+        let mut headers = self.headers();
+        let remote = lock(&seat).remote.clone();
         let agent = self.agent.clone();
         let tally = Arc::clone(&self.tally);
         let price = self.settings.price;
@@ -989,7 +1006,25 @@ impl ApiMind {
             }
         }
         let result = tokio::task::spawn_blocking(move || {
-            let result = call(&agent, &url, &headers, &bytes, timeout, api, mode);
+            let started = Instant::now();
+            let result = (|| {
+                if let Some(remote) = &remote {
+                    headers.push((
+                        "x-session-id",
+                        remote.id(timeout).map_err(Failed::unbilled)?,
+                    ));
+                }
+                let remaining = timeout.saturating_sub(started.elapsed());
+                if remaining.is_zero() {
+                    return Err(Failed::unbilled("no time left after session setup".into()));
+                }
+                call(&agent, &url, &headers, &bytes, remaining, api, mode)
+            })();
+            if result.as_ref().is_err_and(|failed| failed.session_gone)
+                && let Some(remote) = &remote
+            {
+                remote.forget_expired();
+            }
             let billed = match &result {
                 Ok(reply) => Ok(reply.usage),
                 Err(failed) => Err(failed.unknown_bill),
@@ -1236,6 +1271,8 @@ struct Failed {
     /// that never reached a server, or that the provider answered with an
     /// error, is not billed.
     unknown_bill: bool,
+    /// The optional endpoint-owned session expired; recreate on the next call.
+    session_gone: bool,
 }
 
 impl From<String> for Failed {
@@ -1246,6 +1283,7 @@ impl From<String> for Failed {
             why,
             turned_down: false,
             unknown_bill: true,
+            session_gone: false,
         }
     }
 }
@@ -1333,6 +1371,7 @@ fn call(
         };
         return Err(Failed {
             turned_down: matches!(status, 400 | 413),
+            session_gone: status == 410,
             ..Failed::unbilled(format!("{status}: {why}"))
         });
     }
@@ -1408,7 +1447,9 @@ impl SeatState {
             serde_json::to_string(&self.messages).map_or(0, |text| narrator::estimate_tokens(&text))
                 > settings.conversation_tokens
         };
-        let fresh = self.messages.is_empty() || request.view.turn != self.seat.turn || long();
+        let fresh = self.messages.is_empty()
+            || (!settings.session_api && request.view.turn != self.seat.turn)
+            || long();
         let told = self.seat.told(fresh);
         let mut narrator = self.seat.narrator.clone();
         if fresh {
@@ -1527,6 +1568,14 @@ impl Mind for ApiMind {
         })
     }
 
+    fn end_game(&self, game: &str, seat: u8) {
+        if let Some(state) = lock(&self.seats).remove(&(game.to_owned(), seat))
+            && let Some(remote) = &lock(&state).remote
+        {
+            remote.close();
+        }
+    }
+
     fn disclosure(&self) -> Disclosure {
         Disclosure::Llm
     }
@@ -1537,5 +1586,15 @@ impl Mind for ApiMind {
 
     fn check(&self) -> crate::mind::Checked<'_> {
         Box::pin(self.check_endpoint())
+    }
+}
+
+impl Drop for ApiMind {
+    fn drop(&mut self) {
+        for state in lock(&self.seats).values() {
+            if let Some(remote) = &lock(state).remote {
+                remote.close();
+            }
+        }
     }
 }

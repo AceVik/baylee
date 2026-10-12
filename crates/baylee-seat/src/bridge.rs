@@ -182,6 +182,7 @@ async fn run(
 ) -> anyhow::Result<Played> {
     let mut bridge = Bridge {
         mind,
+        game_seat: None,
         options: options.clone(),
         thinking: None,
         asked: None,
@@ -285,6 +286,7 @@ fn record(core: &mut SeatCore, transcript: &mut Transcript) {
 
 struct Bridge {
     mind: Arc<dyn Mind>,
+    game_seat: Option<(String, u8)>,
     options: PlayOptions,
     thinking: Option<Thinking>,
     /// The question last handed to the mind, and when it was first asked.
@@ -307,6 +309,9 @@ impl Bridge {
             return;
         };
         while let Ok(swap) = swaps.try_recv() {
+            if let Some((game, seat)) = &self.game_seat {
+                self.mind.end_game(game, *seat);
+            }
             self.mind = swap.mind;
             self.rethink = swap.think.or(self.rethink);
             if let Some(declared) = swap.declared {
@@ -437,6 +442,8 @@ impl Bridge {
                         self.asked = Some((request.question, now));
                     }
                     self.take_swaps();
+                    self.game_seat =
+                        Some((request.context.game_id.clone(), request.context.seat.get()));
                     // A mind taken only now was asked under the old think
                     // time: held to its own where that is shorter (the
                     // core is told before the next question).
@@ -496,6 +503,17 @@ async fn send(ws: Option<&mut Socket>, envelope: &Envelope) -> bool {
     ws.send(Message::Binary(envelope.encode_to_vec().into()))
         .await
         .is_ok()
+}
+
+impl Drop for Bridge {
+    fn drop(&mut self) {
+        if let Some(thinking) = self.thinking.take() {
+            thinking.task.abort();
+        }
+        if let Some((game, seat)) = &self.game_seat {
+            self.mind.end_game(game, *seat);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -605,6 +623,7 @@ mod tests {
         let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
         let mut bridge = Bridge {
             mind: mind(ManaColor::Red),
+            game_seat: None,
             options: PlayOptions::default(),
             thinking: None,
             asked: None,
@@ -681,6 +700,7 @@ mod tests {
         let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
         let mut bridge = Bridge {
             mind: mind(ManaColor::Red),
+            game_seat: None,
             options: PlayOptions::default(),
             thinking: None,
             asked: None,
@@ -730,6 +750,7 @@ mod tests {
         let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
         let mut bridge = Bridge {
             mind: mind(ManaColor::Red),
+            game_seat: None,
             options: PlayOptions::default(),
             thinking: None,
             asked: None,
@@ -778,5 +799,60 @@ mod tests {
             bridge.declaring.is_empty(),
             "sent once, ahead of the answer"
         );
+    }
+    struct Ending(Arc<Mutex<Vec<(String, u8)>>>);
+    impl Mind for Ending {
+        fn decide(&self, _request: Request) -> Thinking<'_> {
+            Box::pin(std::future::pending())
+        }
+        fn disclosure(&self) -> Disclosure {
+            Disclosure::Llm
+        }
+        fn end_game(&self, game: &str, seat: u8) {
+            self.0.lock().unwrap().push((game.into(), seat));
+        }
+    }
+
+    #[tokio::test]
+    async fn swapping_and_dropping_a_bridge_release_its_owned_session() {
+        let ended = Arc::new(Mutex::new(Vec::new()));
+        let mind: Arc<dyn Mind> = Arc::new(Ending(ended.clone()));
+        let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
+        let task = tokio::spawn(std::future::pending());
+        let aborted = task.abort_handle();
+        let mut bridge = Bridge {
+            mind: mind.clone(),
+            game_seat: Some(("game-owned".into(), 2)),
+            options: PlayOptions::default(),
+            thinking: Some(super::Thinking {
+                question: 1,
+                deadline: Instant::now(),
+                task,
+            }),
+            asked: None,
+            swaps: Some(swaps),
+            rethink: None,
+            redeclare: None,
+            declaring: Vec::new(),
+        };
+        send.send(Swap {
+            mind: Arc::new(Ending(ended.clone())),
+            think: None,
+            taken: None,
+            declared: None,
+        })
+        .unwrap();
+        bridge.take_swaps();
+        assert_eq!(*ended.lock().unwrap(), [("game-owned".into(), 2)]);
+        drop(bridge);
+        tokio::task::yield_now().await;
+        assert!(aborted.is_finished());
+        assert_eq!(
+            *ended.lock().unwrap(),
+            [("game-owned".into(), 2), ("game-owned".into(), 2)]
+        );
+        // Other users may still own the old mind; teardown is tied to this
+        // bridge's game/seat rather than waiting for its last Arc to disappear.
+        assert_eq!(Arc::strong_count(&mind), 1);
     }
 }

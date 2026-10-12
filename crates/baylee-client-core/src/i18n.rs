@@ -4233,6 +4233,16 @@ messages! {
     SeatEffort { en: "Effort", de: "Denkaufwand" },
     /// How the model answers.
     SeatAnswer { en: "Answers with", de: "Antwortet mit" },
+    /// Optional endpoint-managed game conversations.
+    SeatSessionApi { en: "Managed game sessions", de: "Verwaltete Spielsitzungen" },
+    /// Explicit opt-in; ordinary compatible endpoints need no extra API.
+    SeatSessionApiAbout { en: "Enable only if this server supports the session extension. Keeps a game conversation and closes it when the seat leaves.", de: "Nur aktivieren, wenn dieser Server die Sitzungserweiterung unterstützt. Behält das Spielgespräch und beendet es beim Verlassen des Platzes." },
+    /// Managed sessions are not part of other provider protocols.
+    SeatFaultSessionApi { en: "Managed sessions require an OpenAI-compatible server with session support.", de: "Verwaltete Sitzungen benötigen einen OpenAI-kompatiblen Server mit Sitzungsunterstützung." },
+    /// Session lifecycle disabled.
+    SeatSessionOff { en: "Off", de: "Aus" },
+    /// Session lifecycle enabled.
+    SeatSessionOn { en: "On", de: "Ein" },
     /// The build's way of answering.
     SeatAnswerBuild { en: "Default", de: "Standard" },
     /// Answering by calling a tool.

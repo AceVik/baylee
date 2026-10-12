@@ -265,6 +265,7 @@ fn tune(spec: &Spec, chosen: Option<&Chosen>, flags: &Overrides) -> Result<Setti
     let profile = chosen.map(|c| c.profile);
     let mut settings = Settings::new(spec);
     if let Some(profile) = profile {
+        settings.session_api = profile.session_api.unwrap_or(false);
         if let Some(effort) = profile.effort.as_ref().filter(|_| !flags.default_effort) {
             settings.effort = Some(effort.clone());
         }

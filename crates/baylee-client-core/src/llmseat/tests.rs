@@ -680,6 +680,7 @@ fn the_field_paths_are_the_file_s_own() {
         }
     }
     let full = Profile {
+        session_api: Some(true),
         effort: Some("high".into()),
         answer: Some(AnswerMode::Tools),
         max_tokens: Some(1),

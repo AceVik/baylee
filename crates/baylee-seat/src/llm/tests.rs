@@ -47,6 +47,7 @@ struct Seen {
     path: String,
     key: Option<String>,
     bearer: Option<String>,
+    session: Option<String>,
     body: Value,
 }
 
@@ -86,6 +87,7 @@ async fn answer(
         path: uri.path().to_string(),
         key: key.clone(),
         bearer: bearer.clone(),
+        session: header("x-session-id"),
         body: serde_json::from_slice(&body).unwrap_or(Value::Null),
     });
     let next = lock(&provider.replies).pop_front();
@@ -1416,3 +1418,83 @@ async fn a_call_whose_bill_is_unknown_counts_at_its_worst() {
 }
 
 mod plan;
+
+#[tokio::test]
+async fn managed_sessions_keep_the_transcript_across_turns_and_close_only_their_seat() {
+    let (base, provider) = stand_in().await;
+    let mind = mind(&base, Provider::OpenAi, |s| {
+        s.answer = AnswerMode::Json;
+        s.session_api = true;
+    });
+    provider.script(Scripted::ok(
+        json!({"id":"session_test","idle_timeout_secs":7200}),
+    ));
+    let reply = |ask: &str| {
+        json!({"choices":[{"message":{"role":"assistant","content":json!({"ask":ask,"pick":["p"]}).to_string()},"finish_reason":"stop"}],
+        "usage":{"prompt_tokens":100,"completion_tokens":10}})
+    };
+    provider.script(Scripted::ok(reply("q12")));
+    let first = a_priority();
+    let game = first.context.game_id.clone();
+    let seat = first.context.seat.get();
+    mind.decide(first).await.unwrap();
+    let mut second = a_priority();
+    second.view.turn += 1;
+    second.question += 1;
+    provider.script(Scripted::ok(reply("q13")));
+    mind.decide(second).await.unwrap();
+    let seen = provider.seen();
+    assert_eq!(seen[0].path, "/sessions");
+    assert_eq!(seen[1].session.as_deref(), Some("session_test"));
+    assert_eq!(seen[2].session, seen[1].session);
+    let before = seen[1].body["messages"].as_array().unwrap();
+    let after = seen[2].body["messages"].as_array().unwrap();
+    assert!(after.starts_with(before));
+    assert_eq!(after.len(), before.len() + 2);
+    provider.script(Scripted::ok(json!({"deleted":true})));
+    mind.end_game(&game, seat);
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while provider.seen().len() < 4 {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(provider.seen()[3].path, "/sessions/session_test");
+    assert!(lock(&mind.seats).is_empty());
+}
+
+#[tokio::test]
+async fn an_expired_managed_session_is_recreated_only_on_the_next_decision() {
+    let (base, provider) = stand_in().await;
+    let mind = mind(&base, Provider::OpenAi, |s| {
+        s.answer = AnswerMode::Json;
+        s.session_api = true;
+    });
+    provider.script(Scripted::ok(json!({"id":"old_session"})));
+    provider.script(Scripted {
+        status: 410,
+        body: json!({"error":{"message":"session expired"}}),
+        delay: Duration::ZERO,
+    });
+    assert!(mind.decide(a_priority()).await.is_err());
+    assert_eq!(
+        provider.seen().len(),
+        2,
+        "never retry a model call automatically"
+    );
+    provider.script(Scripted::ok(json!({"id":"new_session"})));
+    provider.script(Scripted::ok(
+        json!({"choices":[{"message":{"role":"assistant",
+        "content":"{\"ask\":\"q12\",\"pick\":[\"p\"]}"},"finish_reason":"stop"}]}),
+    ));
+    assert!(mind.decide(a_priority()).await.is_ok());
+    let seen = provider.seen();
+    assert_eq!(seen.len(), 4);
+    assert_eq!(seen[2].path, "/sessions");
+    assert_eq!(seen[3].session.as_deref(), Some("new_session"));
+    assert_eq!(seen[3].body["messages"][0]["role"], "system");
+    provider.script(Scripted::ok(json!({"deleted":true})));
+    let request = a_priority();
+    mind.end_game(&request.context.game_id, request.context.seat.get());
+}

@@ -83,6 +83,7 @@ the profile: a file is played as written or not at all.
 | `model` | The provider's model id; for `cli` the tool, then its own model if any: `claude`, `claude:opus`. Required. |
 | `effort` | A word such as `low`, `medium`, `high` (default medium on Anthropic, the endpoint's or the CLI's own elsewhere). |
 | `answer` | `tools`, `json` or `json_schema` (the last two for OpenAI-compatible endpoints and CLIs; a CLI answers only these, `json_schema` by default). `json` asks the endpoint for a JSON object (`response_format` `json_object`, which `DeepSeek` takes); `json_schema` for one held to the answer's schema (`json_schema`, for an endpoint that refuses a bare object, such as LM Studio). Either way the model is told the answer's fields in its instructions, and when an endpoint turns the one mode down, the error says to try the other. |
+| `session_api` | Optional boolean, disabled by default. OpenAI-compatible servers implementing the managed-session extension only; see below. The same profile works in a local bridge and a hosted seat agent. |
 | `max_tokens` | The most one reply may take (default 16000 Anthropic, 8000 OpenAI-compatible). A CLI takes no such limit: for one it is only what a call is held at for its reply (default 16000). |
 | `price` | `{"input": …, "output": …}`, US dollars per million tokens: the price of a model this build has none for, or a better one. It applies to the profile's own model only. A cache write is billed at 1.25× the input price for five minutes' entry and 2× for an hour's (the API path caches the game's constant head for an hour, `docs/llm-protocol.md` §"The cache"), a cache read at the input price unless the build knows better. |
 | `game_usd` | The most one game may spend in dollars (default $5); only for a model with a price. |
@@ -97,6 +98,40 @@ A model without a price in this build plays only with a `price` or a
 `game_tokens`, as `--spend-tokens` on the command line (`join --help`);
 where the caps count dollars a day or a month, it also needs the token cap
 of that period, or its spend would count nowhere.
+
+## Managed API sessions (optional)
+
+Set `"session_api": true` only for an OpenAI-compatible endpoint that implements
+this extension. In the desktop settings panel it is **Advanced → Managed game
+sessions**. Ordinary API profiles remain unchanged; no capability is guessed
+from a vendor, model name, port or address.
+
+- Before its first model call, each game/seat creates `POST {base}/sessions`
+  with `{"label":"game <anonymous UUID> / seat <number>"}`. The label contains
+  no player names, profile names or actual game identifier. The response names
+  `id` (1–128 ASCII letters/digits, `_`, `-`) and optionally `idle_timeout_secs`.
+- The bridge adds `X-Session-Id` to Chat Completions. It still sends the complete
+  ordered transcript, including the exact assistant content; the endpoint can
+  recognize an extension and reuse context. Unlike ordinary API conversations,
+  these continue across game turns until the existing context-size limit rotates
+  them. A fresh conversation always carries a full board and prefix.
+- While the seat owns the game it sends `POST {base}/sessions/{id}/touch` every
+  third of the advertised inactivity interval, at most five minutes apart (five
+  minutes when no interval is returned). Heartbeats have a two-second deadline
+  and do not count as model calls. A 404/410 on a heartbeat forgets the expired
+  id; the next decision creates a new session and sends its complete context.
+- At game end, a permanently closed room, model swap or bridge cancellation,
+  `DELETE {base}/sessions/{id}` releases that seat's session. Temporary socket
+  reconnects keep it. The deletion worker has a two-second deadline; server-side
+  inactivity expiry remains necessary for SIGKILL, machine failure and lost
+  network responses. An id returned by a creation already in flight at game end
+  is still tracked and deleted.
+
+All lifecycle calls use the same address, authentication and no-redirect policy
+as the model call. A completion returning 410 is not replayed automatically:
+that decision follows the usual failure policy; the next call starts a session.
+Servers may return 202 while their own cleanup continues. Labels and session ids
+are never put in the table's public mind declaration, prompts or transcripts.
 
 ## Where a key is kept
 

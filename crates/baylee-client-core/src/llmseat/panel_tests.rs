@@ -261,6 +261,7 @@ fn every_refusal_has_a_place_and_words() {
         Why::NoSuchTool,
         Why::NotAWord,
         Why::JsonNeedsOpenAi,
+        Why::SessionNeedsOpenAi,
         Why::NotForCli,
         Why::CliOnly,
         Why::NotAbsolute,
@@ -278,6 +279,7 @@ fn every_refusal_has_a_place_and_words() {
             Why::NoSuchProfile => Spot::Default,
             Why::NotAModelId | Why::NoSuchTool => Spot::Profile(0, Slot::Model),
             Why::NotAWord => Spot::Profile(0, Slot::Effort),
+            Why::SessionNeedsOpenAi => Spot::Profile(0, Slot::SessionApi),
             Why::JsonNeedsOpenAi => Spot::Profile(0, Slot::Answer),
             Why::NotForCli => Spot::Profile(0, Slot::PriceIn),
             Why::CliOnly | Why::NotAbsolute => Spot::Profile(0, Slot::Command),
@@ -950,4 +952,26 @@ fn a_preset_fills_an_adapter_and_the_key_follows_its_address() {
     assert_eq!(panel.key_entry(1, &none), None, "a CLI reads no key");
     panel.act(Act::AddPreset(Preset::DeepSeekAnthropic));
     assert_eq!(panel.name(2), Some("deepseek-anthropic-2"));
+}
+
+#[test]
+fn managed_sessions_are_explicit_preserved_and_validate_the_provider() {
+    let mut panel = panel();
+    assert!(!panel.session_api(2));
+    panel.act(Act::SessionApi(2, true));
+    assert!(panel.changed());
+    assert!(panel.session_api(2));
+    let written = panel.to_save().expect("valid profile");
+    assert_eq!(written.profiles["c"].session_api, Some(true));
+    let reopened = SeatPanel::new(Disk::Read(written));
+    assert!(reopened.session_api(2));
+    panel.act(Act::Provider(2, Provider::Anthropic));
+    assert!(
+        panel
+            .faults()
+            .iter()
+            .any(|f| f.spot == Spot::Profile(2, Slot::SessionApi))
+    );
+    panel.act(Act::SessionApi(2, false));
+    assert!(!panel.session_api(2));
 }

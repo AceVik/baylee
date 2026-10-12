@@ -1140,6 +1140,27 @@ impl Drawn<'_, '_, '_> {
         });
         self.choice(first, Phrase::SeatAnswer.text(lang), &answers);
         self.faults_at(first, spot(Slot::Answer));
+        if provider == Provider::OpenAi || self.panel.session_api(at) {
+            let sessions = self.cells(parent);
+            let choices = [
+                (Phrase::SeatSessionOff, false),
+                (Phrase::SeatSessionOn, true),
+            ]
+            .map(|(label, enabled)| {
+                (
+                    label.text(lang),
+                    Press::Settings(SettingsPress::Seat(Act::SessionApi(at, enabled))),
+                    self.panel.session_api(at) == enabled,
+                )
+            });
+            self.choice(sessions, Phrase::SeatSessionApi.text(lang), &choices);
+            self.line(
+                parent,
+                Phrase::SeatSessionApiAbout.text(lang),
+                palette::MUTED,
+            );
+            self.faults_at(sessions, spot(Slot::SessionApi));
+        }
         let reach = self.cells(parent);
         for slot in [Slot::BaseUrl, Slot::Command] {
             if self.panel.shows(spot(slot)) {

@@ -523,7 +523,9 @@ fn main() -> std::process::ExitCode {
             // A stopped game has settled by now (`stopped`). A request
             // still out, such as a lobby call waiting on its timeout, is not
             // waited for: a process that was asked to stop stops.
-            runtime.shutdown_timeout(Duration::from_secs(1));
+            // Session DELETE workers have a two-second network deadline.
+            // This is an upper bound, not a delay when no worker remains.
+            runtime.shutdown_timeout(Duration::from_secs(5));
             done
         });
     match done {

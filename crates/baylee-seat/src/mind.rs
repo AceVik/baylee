@@ -85,6 +85,11 @@ pub trait Mind: Send + Sync {
     /// say would be taken for whatever the default claimed.
     fn disclosure(&self) -> Disclosure;
 
+    /// The bridge permanently leaves this game/seat (including cancellation
+    /// and a mind swap). Release only that seat's external session; a temporary
+    /// socket reconnect does not call this. Implementations must not block.
+    fn end_game(&self, _game: &str, _seat: u8) {}
+
     /// Whether the mind can answer again, asked after it was taken off the
     /// table for failing ([`crate::BridgeConfig::down_after`]). A mind that is
     /// never down need not say anything.
@@ -118,6 +123,10 @@ impl<M: Mind + ?Sized> Mind for Arc<M> {
         (**self).disclosure()
     }
 
+    fn end_game(&self, game: &str, seat: u8) {
+        (**self).end_game(game, seat);
+    }
+
     fn ready(&self) -> Readiness<'_> {
         (**self).ready()
     }
@@ -134,6 +143,10 @@ impl<M: Mind + ?Sized> Mind for Box<M> {
 
     fn disclosure(&self) -> Disclosure {
         (**self).disclosure()
+    }
+
+    fn end_game(&self, game: &str, seat: u8) {
+        (**self).end_game(game, seat);
     }
 
     fn ready(&self) -> Readiness<'_> {

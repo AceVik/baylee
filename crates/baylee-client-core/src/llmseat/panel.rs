@@ -70,6 +70,8 @@ pub enum Slot {
     Effort,
     /// How it answers: a choice.
     Answer,
+    /// Opt into endpoint-managed game sessions.
+    SessionApi,
     /// The most one reply may take.
     MaxTokens,
     /// The price of input, over this build's.
@@ -118,6 +120,7 @@ impl Slot {
             Field::Model => Self::Model,
             Field::Effort => Self::Effort,
             Field::Answer => Self::Answer,
+            Field::SessionApi => Self::SessionApi,
             Field::MaxTokens => Self::MaxTokens,
             Field::PriceInput => Self::PriceIn,
             Field::PriceOutput => Self::PriceOut,
@@ -140,6 +143,7 @@ impl Slot {
             Self::Model => Phrase::SeatModel,
             Self::Effort => Phrase::SeatEffort,
             Self::Answer => Phrase::SeatAnswer,
+            Self::SessionApi => Phrase::SeatSessionApi,
             Self::MaxTokens => Phrase::SeatMaxTokens,
             Self::PriceIn => Phrase::SeatPriceIn,
             Self::PriceOut => Phrase::SeatPriceOut,
@@ -225,6 +229,8 @@ pub enum Act {
     Provider(usize, Provider),
     /// Set how a profile answers; `None` is the build's way.
     Answer(usize, Option<AnswerMode>),
+    /// Enable or disable endpoint-managed sessions.
+    SessionApi(usize, bool),
     /// Put a priced model, by its place in [`PRICED`], in a profile's box.
     Suggest(usize, usize),
     /// Put the caret in a box.
@@ -265,6 +271,7 @@ struct Draft {
     name: TextBuffer,
     provider: Provider,
     answer: Option<AnswerMode>,
+    session_api: Option<bool>,
     model: TextBuffer,
     effort: TextBuffer,
     max_tokens: TextBuffer,
@@ -281,7 +288,7 @@ struct Draft {
 
 /// A form's texts and choices, to tell whether anything was edited.
 type Form = (
-    Vec<(Provider, Option<AnswerMode>, Vec<String>)>,
+    Vec<(Provider, Option<AnswerMode>, Option<bool>, Vec<String>)>,
     Option<usize>,
     Vec<String>,
 );
@@ -297,6 +304,7 @@ impl Draft {
             name: TextBuffer::new(name),
             provider: profile.provider,
             answer: profile.answer,
+            session_api: profile.session_api,
             model: TextBuffer::new(&profile.model),
             effort: text(profile.effort.as_deref()),
             max_tokens: number(profile.max_tokens.map(u64::from)),
@@ -327,7 +335,7 @@ impl Draft {
             Slot::KeyEnv => &self.key_env,
             Slot::BaseUrl => &self.base_url,
             Slot::Command => &self.command,
-            Slot::Provider | Slot::Answer => return None,
+            Slot::Provider | Slot::Answer | Slot::SessionApi => return None,
         })
     }
 
@@ -346,7 +354,7 @@ impl Draft {
             Slot::KeyEnv => &mut self.key_env,
             Slot::BaseUrl => &mut self.base_url,
             Slot::Command => &mut self.command,
-            Slot::Provider | Slot::Answer => return None,
+            Slot::Provider | Slot::Answer | Slot::SessionApi => return None,
         })
     }
 
@@ -391,6 +399,7 @@ impl Draft {
             model: self.model.text().trim().to_string(),
             effort: word(&self.effort),
             answer: self.answer,
+            session_api: self.session_api,
             max_tokens,
             price,
             game_usd: noted(Slot::GameUsd, dollars(&self.game_usd), &mut problems),
@@ -632,7 +641,7 @@ impl SeatPanel {
         (
             self.drafts
                 .iter()
-                .map(|d| (d.provider, d.answer, d.texts()))
+                .map(|d| (d.provider, d.answer, d.session_api, d.texts()))
                 .collect(),
             self.default,
             self.caps.iter().map(|b| b.text().to_string()).collect(),
@@ -685,6 +694,14 @@ impl SeatPanel {
     #[must_use]
     pub fn answer(&self, at: usize) -> Option<AnswerMode> {
         self.drafts.get(at).and_then(|d| d.answer)
+    }
+
+    /// Whether the profile opts into the endpoint's session extension.
+    #[must_use]
+    pub fn session_api(&self, at: usize) -> bool {
+        self.drafts
+            .get(at)
+            .is_some_and(|d| d.session_api == Some(true))
     }
 
     /// The box at `spot`, if it is one that is typed into.
@@ -830,6 +847,9 @@ impl SeatPanel {
             }
             Act::Answer(at, answer) if at < self.drafts.len() => {
                 self.drafts[at].answer = answer;
+            }
+            Act::SessionApi(at, enabled) if at < self.drafts.len() => {
+                self.drafts[at].session_api = enabled.then_some(true);
             }
             Act::Suggest(at, model) if at < self.drafts.len() => {
                 if let Some((_, id, _)) = PRICED.get(model) {
@@ -1204,7 +1224,9 @@ impl SeatPanel {
                 let tool = cli_model(draft.model.text().trim()).ok()?.0;
                 Phrase::SeatCommandByDefault.fill(lang, &[tool.name()])
             }
-            Slot::Name | Slot::Provider | Slot::Model | Slot::Answer => return None,
+            Slot::Name | Slot::Provider | Slot::Model | Slot::Answer | Slot::SessionApi => {
+                return None;
+            }
         })
     }
 
@@ -1326,6 +1348,7 @@ impl SeatPanel {
                 Why::NoSuchTool => Phrase::SeatFaultTool,
                 Why::NotAWord => Phrase::SeatFaultEffort,
                 Why::JsonNeedsOpenAi => Phrase::SeatFaultJson,
+                Why::SessionNeedsOpenAi => Phrase::SeatFaultSessionApi,
                 Why::NotForCli => match fault.spot {
                     Spot::Profile(_, Slot::Answer) => Phrase::SeatFaultCliAnswer,
                     Spot::Profile(_, Slot::KeyEnv | Slot::BaseUrl) => Phrase::SeatFaultCliKey,

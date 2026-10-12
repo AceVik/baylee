@@ -121,6 +121,14 @@ per process, and a process idle five minutes is ended (`docs/llm-seat.md`
 §"A CLI as the model"): the tool sets its own cache entries, and the hour's
 TTL is the API path's, set by the bridge.
 
+For an OpenAI-compatible profile with `session_api: true`, the conversation
+continues across turns up to the configured size bound. The complete transcript
+is still sent with its session header, so an endpoint can safely recognize the
+unchanged prefix and append only new messages. This is context reuse, not a
+claim about provider token accounting; only usage reported by the endpoint is
+booked. Lifecycle and inactivity heartbeats are specified in `docs/llm-seat.md`
+§"Managed API sessions (optional)".
+
 ## Boilerplate
 
 - The header is the question, the turn and whose, the step by the name

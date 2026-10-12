@@ -653,3 +653,32 @@ fn with_no_default_and_no_mind_the_house_plays() {
     let named = planned(None, Some(&no_default), Some("a"), &Overrides::default());
     assert_eq!(named.profile.as_deref(), Some("a"));
 }
+
+#[test]
+fn session_lifecycle_is_an_explicit_profile_option() {
+    let mut settings = file();
+    assert!(
+        !planned(
+            None,
+            Some(&settings),
+            Some("local"),
+            &Overrides {
+                spend_tokens: Some(5_000_000),
+                ..Overrides::default()
+            }
+        )
+        .settings
+        .session_api
+    );
+    settings.profiles.get_mut("local").unwrap().session_api = Some(true);
+    let plan = planned(
+        None,
+        Some(&settings),
+        Some("local"),
+        &Overrides {
+            spend_tokens: Some(5_000_000),
+            ..Overrides::default()
+        },
+    );
+    assert!(plan.settings.session_api);
+}
