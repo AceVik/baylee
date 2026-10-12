@@ -453,6 +453,10 @@ the browser never sees:
 | `GET /ui/api/admin/sets/{code}` | the gateway's `GET /admin/sets/{code}`, the code lower-cased; `400` unless it is one to eight letters and digits |
 | `GET /ui/api/admin/accounts` | the gateway's `GET /admin/accounts`; the query is read into `q`, `kind`, `sort`, `online`, `offset`, `limit` and written out again (anything else `400`) |
 | `GET /ui/api/admin/accounts/{id}` | the gateway's `GET /admin/accounts/{id}`; `400` for an id that is not a UUID |
+| `DELETE /ui/api/admin/accounts/{id}` | the gateway's `DELETE /admin/accounts/{id}`: the account deleted as its player's own deletion does (beta.8) |
+| `POST /ui/api/admin/accounts/{id}/password` | the gateway's reset: `200 {"password"}`, the one time the new password is shown; nothing here writes it down (beta.8) |
+| `PUT /ui/api/admin/accounts/{id}/ban` | `{"reason", "until"?}`, read into those two fields and written out again; `DELETE` the same path lifts the ban (beta.8) |
+| `POST /ui/api/admin/games/{id}/close` | `{"reason"}`: the gateway ends the running game through its engine; `202` (beta.8) |
 | `GET /ui/api/admin/invites` | its keys, newest first; never a key |
 | `POST /ui/api/admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}` as `invite create` takes them (`"30d"`, `"12h"`); `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`, the only time a key is shown |
 | `DELETE /ui/api/admin/invites/{id}` | revokes one: `204`, or `404` for no key not already revoked |
@@ -481,7 +485,13 @@ the browser never sees:
   `gateway.invite.revoke`, the admin, the time, and the ids, uses and
   expiry; never a key or a note) and an `info` line in the log; the gateway
   logs its own line too. A key's note may name a person, so it is kept only
-  at the gateway, as the command keeps it.
+  at the gateway, as the command keeps it. The acts on an account or a game
+  (beta.8, `crates/baylee-feedback/src/moderation.rs`) are rows too:
+  `gateway.account.password.reset`, `gateway.account.ban` (with the ban's
+  end), `gateway.account.unban`, `gateway.account.delete` and
+  `gateway.game.close`, each with the account's or game's id; never the
+  password, nor a ban's or game's reason, which may name a person and is
+  kept only on the account row (the ban's) or nowhere (the game's).
 - **The page.** Mobile first (one column on a phone, 44 px targets, safe-area
   insets, a sticky bar that folds as the page scrolls), light and dark as
   the system says, English or German as the browser asks. The numbers are
@@ -489,6 +499,18 @@ the browser never sees:
   is hidden. New keys are shown once with Copy, Copy all and, where the
   browser has it, Share; there is no invite link, because the client takes
   a key only typed into its sign-up form. Revoking asks once more.
+- **Acting on an account or a game** (beta.8, `src/admin/Moderation.tsx`).
+  An account's page has *Act on this account*: **Reset password**
+  (registered accounts only; asks first, then shows the new password once
+  in a dialog with Copy and says it is not shown again), **Ban** (a reason,
+  shown to the player, and an end: a moment in the browser's time zone,
+  sent in UTC, or permanently; asks in its form) or **Lift ban** while one
+  holds (asks first), and **Delete account** (its handle typed out before
+  the button wakes; then back to the list). The page shows a ban in force
+  with its end, its admin and its reason, and a reset still to be finished.
+  A running table on Live has **End game** (a reason, prefilled, shown to
+  the players; asks in its dialog). Every dialog is the browser's own
+  `<dialog>`: focus held inside, Escape cancels.
 
 #### Hosted models (`/ui/api/admin/llm/…`)
 
