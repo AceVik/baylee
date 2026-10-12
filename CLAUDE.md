@@ -13,7 +13,7 @@ DATABASE_URL=… ./scripts/gate.sh             # full gate as CI: fmt --check, c
 ./scripts/gate-rules.sh                      # while working: fmt, lint-rules, test-rules, validate (if data/scryfall-cache)
 ./scripts/gate-touched.sh [<rev>]            # fmt + clippy on changed files only; not a gate
 DATABASE_URL=… ./scripts/gate-features.sh    # the eight non-default features
-./scripts/gate-wasm.sh                       # the seven browser crates for wasm32 (CI's wasm job)
+./scripts/gate-wasm.sh                       # the eight browser crates for wasm32 (CI's wasm job)
 DATABASE_URL=… ./scripts/land.sh [--check]   # gate.sh + gate-features.sh + gate-wasm.sh under the cargo lock, then ff-push to main
 ```
 
@@ -133,7 +133,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - `baylee-protocol`: protobuf `Envelope`; `Pending`/`PlayerAction` ride as `serde_json`; shared by `LocalHost` and both servers.
 - `baylee-deckio` (core → deckio → client-core): deck documents in four formats (Baylee text, JSON, YAML, Moxfield text), auto-detect, and a registry of deck-link sources that answer an instruction or a fetch plan; pure, never fetches (Moxfield is its text export only). `docs/deck-format.md`.
 - `baylee-cardtext` sits under core, links only serde: `/catalog/text` wire shape and sentence pairing (`pick`, `align`, `verify`, `split_cost`) for catalog and client.
-- Must build for `wasm32-unknown-unknown`: `baylee-cardtext`, `-core`, `-deckio`, `-protocol`, `-view`, `-client-core`, `-client`.
+- Must build for `wasm32-unknown-unknown`: `baylee-cardtext`, `-core`, `-deckio`, `-protocol`, `-seal`, `-view`, `-client-core`, `-client`.
 
 ### Engine
 
