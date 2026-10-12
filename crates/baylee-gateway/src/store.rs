@@ -123,6 +123,52 @@ pub struct Account {
     /// The version of the gateway's terms it last accepted (WG-1), `None`
     /// for never.
     pub terms_version: Option<String>,
+    /// An admin reset its password (beta.8): it signs in with the one it was
+    /// given only to choose its own (`POST /auth/password`).
+    pub must_change_password: bool,
+    /// The ban an admin set on it, in force or lapsed; see
+    /// [`Account::ban_in_force`].
+    pub ban: Option<Ban>,
+}
+
+impl Account {
+    /// Its ban, if one is in force at `now` (unix seconds).
+    #[must_use]
+    pub fn ban_in_force(&self, now: u64) -> Option<&Ban> {
+        self.ban.as_ref().filter(|ban| ban.in_force(now))
+    }
+}
+
+/// A ban an admin set on an account (beta.8, `docs/protocol.md` §"Acting on
+/// an account").
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Ban {
+    /// Why, in the admin's words: what the player is shown.
+    pub reason: String,
+    /// Until when (unix seconds); `None` for good.
+    pub until: Option<u64>,
+    /// Since when.
+    pub at: u64,
+    /// Which admin, as the console named them.
+    pub by: String,
+}
+
+impl Ban {
+    /// Whether it still holds at `now`: a ban whose end has passed is none.
+    #[must_use]
+    pub fn in_force(&self, now: u64) -> bool {
+        self.until.is_none_or(|until| until > now)
+    }
+
+    /// The ban on `row`, in force or not.
+    fn of(row: &account::Model) -> Option<Self> {
+        Some(Self {
+            reason: row.ban_reason.clone()?,
+            until: row.banned_until.map(secs),
+            at: row.banned_at.map_or(0, secs),
+            by: row.banned_by.clone().unwrap_or_default(),
+        })
+    }
 }
 
 /// Whose a live session is.
@@ -133,6 +179,14 @@ pub struct Session {
     /// Whether that account is a guest's, which is what decides how long the
     /// session lives ([`auth::Lifetime`]) and what it may do.
     pub guest: bool,
+    /// The account's ban, when one is in force: the session is refused
+    /// with it ([`crate::authed_session`]). A banned registered account has
+    /// no sessions left; a banned guest keeps its own, which is the guest.
+    pub ban: Option<Ban>,
+    /// The account must choose a new password before anything else. Its
+    /// sessions went when the password was reset, so this is only ever a
+    /// session that slipped in between.
+    pub must_change_password: bool,
 }
 
 /// An outstanding "confirm your address" link.
@@ -268,6 +322,7 @@ fn uuid(raw: &str) -> Option<Uuid> {
 
 impl From<account::Model> for Account {
     fn from(row: account::Model) -> Self {
+        let ban = Ban::of(&row);
         Self {
             id: id(row.id),
             email: row.email,
@@ -278,7 +333,9 @@ impl From<account::Model> for Account {
             confirmed_at: row.confirmed_at.map(secs),
             lang: row.lang,
             guest: row.guest,
+            ban,
             terms_version: row.terms_version,
+            must_change_password: row.must_change_password,
         }
     }
 }
@@ -504,6 +561,11 @@ pub async fn create_account(
         invite_id: Set(invite_id),
         terms_version: Set(None),
         terms_accepted_at: Set(None),
+        must_change_password: Set(false),
+        banned_at: Set(None),
+        banned_until: Set(None),
+        ban_reason: Set(None),
+        banned_by: Set(None),
     };
     match Accounts::insert(row).exec_with_returning(&txn).await {
         Ok(_) => {
@@ -563,6 +625,11 @@ pub async fn create_guest(
         invite_id: Set(invite_id),
         terms_version: Set(None),
         terms_accepted_at: Set(None),
+        must_change_password: Set(false),
+        banned_at: Set(None),
+        banned_until: Set(None),
+        ban_reason: Set(None),
+        banned_by: Set(None),
     })
     .exec_with_returning(&txn)
     .await?;
@@ -835,9 +902,18 @@ pub async fn resolve_digest(
         return Ok(None);
     }
 
-    let guest = owner.is_some_and(|account| account.guest);
+    let guest = owner.as_ref().is_some_and(|account| account.guest);
+    let ban = owner
+        .as_ref()
+        .and_then(Ban::of)
+        .filter(|ban| ban.in_force(now));
+    let must_change_password = owner
+        .as_ref()
+        .is_some_and(|account| account.must_change_password);
     let lifetime = auth::Lifetime::of(guest);
-    if lifetime.renews(expires.saturating_sub(now)) {
+    // A refused session is not kept alive by being refused: a banned
+    // guest's lapses as an unused one does, and the guest goes with it.
+    if ban.is_none() && lifetime.renews(expires.saturating_sub(now)) {
         Sessions::update_many()
             .col_expr(
                 session_token::Column::ExpiresAt,
@@ -850,6 +926,8 @@ pub async fn resolve_digest(
     Ok(Some(Session {
         account_id: id(row.account_id),
         guest,
+        ban,
+        must_change_password,
     }))
 }
 
@@ -1272,6 +1350,158 @@ pub async fn accept_terms(db: &DatabaseConnection, account_id: &str, version: &s
         .exec(db)
         .await?;
     Ok(())
+}
+
+// ----------------------------------------------- an admin's acts (beta.8)
+
+/// Every session of `account`, signed out: a reset password or a ban
+/// revokes them (`docs/protocol.md` §"Acting on an account").
+async fn drop_sessions_of<C: ConnectionTrait>(db: &C, account: Uuid) -> Result<u64> {
+    Ok(Sessions::delete_many()
+        .filter(session_token::Column::AccountId.eq(account))
+        .exec(db)
+        .await?
+        .rows_affected)
+}
+
+/// An admin reset a registered account's password to `password_hash`:
+/// the account must choose its own at its next sign-in, and every session
+/// it has is signed out, in one transaction. `false` for no such account,
+/// or a guest's, which has no password to reset.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn reset_password(
+    db: &DatabaseConnection,
+    account_id: &str,
+    password_hash: &str,
+) -> Result<bool> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(false);
+    };
+    let tx = db.begin().await?;
+    let changed = Accounts::update_many()
+        .col_expr(account::Column::PasswordHash, Expr::value(password_hash))
+        .col_expr(account::Column::MustChangePassword, Expr::value(true))
+        .filter(account::Column::Id.eq(id))
+        .filter(account::Column::Guest.eq(false))
+        .exec(&tx)
+        .await?
+        .rows_affected
+        > 0;
+    if changed {
+        drop_sessions_of(&tx, id).await?;
+    }
+    tx.commit().await?;
+    Ok(changed)
+}
+
+/// The account chose a new password, `password_hash`: the admin's reset is
+/// finished, and every session it had is signed out (the caller makes the
+/// one it is answered with), in one transaction.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn set_password(
+    db: &DatabaseConnection,
+    account_id: &str,
+    password_hash: &str,
+) -> Result<()> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(());
+    };
+    let tx = db.begin().await?;
+    Accounts::update_many()
+        .col_expr(account::Column::PasswordHash, Expr::value(password_hash))
+        .col_expr(account::Column::MustChangePassword, Expr::value(false))
+        .filter(account::Column::Id.eq(id))
+        .filter(account::Column::Guest.eq(false))
+        .exec(&tx)
+        .await?;
+    drop_sessions_of(&tx, id).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// What banning an account found.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Banned {
+    /// No such account.
+    Nobody,
+    /// A registered account, banned, its sessions signed out.
+    Account,
+    /// A guest, banned. Its sessions stay, refused while the ban holds:
+    /// the session is the guest, and a guest has no sign-in to be told the
+    /// reason at.
+    Guest,
+}
+
+/// Bans `account_id` for `reason` until `until` (unix seconds, `None` for
+/// good), by the admin `by`, replacing any ban it had; a registered
+/// account's sessions are signed out in the same transaction.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn ban(
+    db: &DatabaseConnection,
+    account_id: &str,
+    reason: &str,
+    until: Option<u64>,
+    by: &str,
+) -> Result<Banned> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(Banned::Nobody);
+    };
+    let tx = db.begin().await?;
+    let Some(row) = Accounts::find_by_id(id).one(&tx).await? else {
+        return Ok(Banned::Nobody);
+    };
+    Accounts::update_many()
+        .col_expr(
+            account::Column::BannedAt,
+            Expr::value(OffsetDateTime::now_utc()),
+        )
+        .col_expr(account::Column::BannedUntil, Expr::value(until.map(at)))
+        .col_expr(account::Column::BanReason, Expr::value(reason))
+        .col_expr(account::Column::BannedBy, Expr::value(by))
+        .filter(account::Column::Id.eq(id))
+        .exec(&tx)
+        .await?;
+    let banned = if row.guest {
+        Banned::Guest
+    } else {
+        drop_sessions_of(&tx, id).await?;
+        Banned::Account
+    };
+    tx.commit().await?;
+    Ok(banned)
+}
+
+/// Lifts the ban on `account_id`, lapsed or not; `false` when it had none.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn unban(db: &DatabaseConnection, account_id: &str) -> Result<bool> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(false);
+    };
+    let none: Option<OffsetDateTime> = None;
+    let no_text: Option<String> = None;
+    Ok(Accounts::update_many()
+        .col_expr(account::Column::BannedAt, Expr::value(none))
+        .col_expr(account::Column::BannedUntil, Expr::value(none))
+        .col_expr(account::Column::BanReason, Expr::value(no_text.clone()))
+        .col_expr(account::Column::BannedBy, Expr::value(no_text))
+        .filter(account::Column::Id.eq(id))
+        .filter(account::Column::BannedAt.is_not_null())
+        .exec(db)
+        .await?
+        .rows_affected
+        > 0)
 }
 
 // ------------------------------------------------------------- settings

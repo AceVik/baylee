@@ -138,6 +138,11 @@ fn named(email: &str, display_name: &str) -> account::ActiveModel {
         invite_id: Set(None),
         terms_version: Set(None),
         terms_accepted_at: Set(None),
+        must_change_password: Set(false),
+        banned_at: Set(None),
+        banned_until: Set(None),
+        ban_reason: Set(None),
+        banned_by: Set(None),
     }
 }
 
@@ -879,6 +884,11 @@ async fn a_picture_on_a_deck_belongs_to_the_decks_player() {
         account.invite_id = NotSet;
         account.terms_version = NotSet;
         account.terms_accepted_at = NotSet;
+        account.must_change_password = NotSet;
+        account.banned_at = NotSet;
+        account.banned_until = NotSet;
+        account.ban_reason = NotSet;
+        account.banned_by = NotSet;
         let Set(id) = account.id else { unreachable!() };
         Account::insert(account).exec(&sandbox.db).await.unwrap();
         players.push(id);

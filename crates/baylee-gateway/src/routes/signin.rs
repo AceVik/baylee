@@ -263,6 +263,33 @@ pub(crate) async fn login(
     State(state): State<Shared>,
     Json(creds): Json<Credentials>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account = proven(&state, &creds.username, &creds.password).await?;
+    // Only to the one who proved who they are: a ban's reason and a reset
+    // are nobody else's business (beta.8, `moderation.rs`).
+    if let Some(ban) = account.ban_in_force(auth::now_secs()) {
+        return Err(crate::moderation::ban_refusal(ban));
+    }
+    if account.must_change_password {
+        return Err(crate::moderation::password_change_refusal());
+    }
+    // An unconfirmed address no longer keeps anyone out (#269): the account
+    // signs in with its name, and the address is only a way to reach them.
+    signed_in(&state, &account).await
+}
+
+/// The account `typed` names whose password is `password`, or the refusal
+/// a sign-in is answered: what `POST /auth/login` and `POST /auth/password`
+/// both ask first.
+///
+/// # Errors
+///
+/// `401` for a name that is nobody's or a wrong password, alike; `429` past
+/// the tries; `503` when the database refuses.
+pub(crate) async fn proven(
+    state: &Shared,
+    typed: &str,
+    password: &str,
+) -> Result<store::Account, (StatusCode, Json<ErrorBody>)> {
     // The account first, so that the tries are counted against it.
     //
     // By address only while there are players who have not yet learnt the
@@ -270,10 +297,10 @@ pub(crate) async fn login(
     // and the answer below tells them their username. A username cannot hold an `@`, so the two
     // never mean the same input. Anything that is not a username at all is
     // simply nobody.
-    let account = if creds.username.contains('@') {
-        store::account_by_email(&state.db, &creds.username).await
+    let account = if typed.contains('@') {
+        store::account_by_email(&state.db, typed).await
     } else {
-        match names::username(&creds.username) {
+        match names::username(typed) {
             Ok(name) => store::account_by_username_key(&state.db, &name.key).await,
             Err(_) => Ok(None),
         }
@@ -285,7 +312,7 @@ pub(crate) async fn login(
     // bounded too, and it is answered exactly as a wrong password is.
     let budget = match &account {
         Some(account) => format!("account:{}", account.id),
-        None => format!("typed:{}", creds.username.to_lowercase()),
+        None => format!("typed:{}", typed.to_lowercase()),
     };
     if !state.sign_in_limiter.allow(&budget) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
@@ -295,7 +322,7 @@ pub(crate) async fn login(
     // A guest has no hash, and no username or address to be found by
     // either; were one found, the dummy would refuse it like a stranger.
     let stored_hash = account.as_ref().and_then(|a| a.password_hash.clone());
-    let password = creds.password.clone();
+    let password = password.to_owned();
     let ok = tokio::task::spawn_blocking(move || {
         auth::verify_password(stored_hash.as_deref(), &password)
     })
@@ -311,15 +338,25 @@ pub(crate) async fn login(
     // typos on the clock would refuse the next sign-in from a player who has
     // just proved who they are.
     state.sign_in_limiter.forget(&budget);
-    // An unconfirmed address no longer keeps anyone out (#269): the account
-    // signs in with its name, and the address is only a way to reach them.
-    let account_id = account.id;
+    Ok(account)
+}
+
+/// A new session for `account`, answered as a sign-in is: the token, its
+/// expiry, the username and, on a gateway with terms, `terms_stale`.
+///
+/// # Errors
+///
+/// `503` when the database refuses.
+pub(crate) async fn signed_in(
+    state: &Shared,
+    account: &store::Account,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let issued = auth::IssuedToken::new();
     store::put_token(
         &state.db,
         StoredToken {
             token_hash: auth::token_digest(&issued.token),
-            account_id,
+            account_id: account.id.clone(),
             expires_at: issued.expires_at,
         },
     )
@@ -332,7 +369,7 @@ pub(crate) async fn login(
         // in with an address is told the username they were given (#269).
         "username": account.username,
     });
-    mark_stale(&state, account.terms_version.as_deref(), &mut answer);
+    mark_stale(state, account.terms_version.as_deref(), &mut answer);
     Ok(Json(answer))
 }
 
@@ -465,6 +502,7 @@ pub(crate) fn account_routes() -> Router<Shared> {
         .route("/auth/config", get(auth_config))
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
+        .route("/auth/password", post(crate::moderation::change_password))
         .route("/auth/guest", post(guest))
         .route("/auth/confirm", get(confirm))
         .route("/auth/confirm/resend", post(resend_confirmation))

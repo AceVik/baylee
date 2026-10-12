@@ -144,9 +144,9 @@ fn digest(token: &str) -> [u8; 32] {
 }
 
 /// What the console's routes share.
-struct Console {
+pub(crate) struct Console {
     /// The gateway's state.
-    app: Shared,
+    pub(crate) app: Shared,
     /// SHA-256 of `BAYLEE_ADMIN_TOKEN`.
     token: [u8; 32],
     /// Wrong tokens.
@@ -155,7 +155,7 @@ struct Console {
     requests: auth::RateLimiter,
 }
 
-type Admin = Arc<Console>;
+pub(crate) type Admin = Arc<Console>;
 
 /// The console's routes, guarded.
 fn router(app: Shared, token: [u8; 32]) -> Router {
@@ -172,7 +172,10 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
         .route("/admin/sets", get(sets))
         .route("/admin/sets/{code}", get(one_set))
         .route("/admin/accounts", get(list_accounts))
-        .route("/admin/accounts/{id}", get(one_account))
+        .route(
+            "/admin/accounts/{id}",
+            get(one_account).delete(crate::moderation::delete_account),
+        )
         .route("/admin/invites", get(list_invites).post(create_invites))
         .route("/admin/invites/{id}", delete(revoke_invite))
         .route("/admin/llm/seathosts", get(llm_seathosts))
@@ -193,6 +196,8 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
             "/admin/llm/seathosts/{host}/profiles/{id}/key",
             post(llm_key),
         )
+        // Acting on an account or a game (beta.8): `moderation.rs`.
+        .merge(crate::moderation::console_routes())
         .fallback(no_such_route)
         .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY_BYTES))
         .layer(axum::middleware::from_fn_with_state(console.clone(), guard))
@@ -229,11 +234,11 @@ pub(crate) fn serve(listener: tokio::net::TcpListener, app: Shared, settings: &S
     });
 }
 
-type Refusal = (StatusCode, Json<ErrorBody>);
+pub(crate) type Refusal = (StatusCode, Json<ErrorBody>);
 
 /// Who asked for a change, from [`ACTOR_HEADER`].
 #[derive(Clone)]
-struct Actor(String);
+pub(crate) struct Actor(pub(crate) String);
 
 /// Whether `name` may stand in an audit line: what the feedback service
 /// allows as an admin's name, 1–64 letters, digits, `.`, `-`, `_`.
@@ -354,7 +359,7 @@ async fn no_such_route() -> Refusal {
 }
 
 /// A moment as the console reads it: `2026-10-08T12:00:00Z`.
-fn iso(at: OffsetDateTime) -> String {
+pub(crate) fn iso(at: OffsetDateTime) -> String {
     let at = at.to_offset(time::UtcOffset::UTC);
     format!(
         "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
