@@ -71,14 +71,21 @@ fn payment_row(duel: &Duel, lang: Lang) -> Vec<(Says, String)> {
     let say = |action, phrase: Phrase| (Says::Answer(action), phrase.text(lang).to_string());
     // With no plan (nothing this client can tap pays it, or a
     // granted action has to make the mana first) "Pay" is the plain
-    // pass, and the engine settles with whatever is floating.
-    let mut row = vec![match duel.owed_plan.as_ref() {
-        Some(plan) if !plan.is_empty() => (
+    // pass, offered only once the floating mana settles it.
+    // A "Pay" that could only pass the window short is not offered: passing
+    // short refuses the payment (#01), which is what "Don't pay" says.
+    let mut row = match duel.owed_plan.as_ref() {
+        Some(plan) if !plan.is_empty() => vec![(
             Says::Answer(PromptAction::Confirm),
             Phrase::PayRemainder.fill(lang, &[&plan.taps().to_string()]),
-        ),
-        _ => say(PromptAction::Confirm, Phrase::PayNow),
-    }];
+        )],
+        // A granted action makes the mana first and the same press settles
+        // it after (`Duel::confirm_payment` re-reads the pool).
+        _ if duel.pool_covers_owed() || !super::granted_offers(duel).is_empty() => {
+            vec![say(PromptAction::Confirm, Phrase::PayNow)]
+        }
+        _ => Vec::new(),
+    };
     row.push((
         Says::Command(super::MenuAction::DeclinePayment),
         Phrase::DeclinePayment.text(lang).to_string(),
