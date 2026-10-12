@@ -55,6 +55,7 @@ function Row({ lang, row, now }: { lang: Lang; row: AccountRow; now: number }) {
           <Presence lang={lang} row={row} />
           {row.guest ? <Badge>{t(lang, "acc.guest")}</Badge> : null}
           {row.by_key && <Badge tone="accent">{t(lang, "acc.byKey")}</Badge>}
+          {row.ban != null && <Badge tone="danger">{t(lang, "mod.banned")}</Badge>}
         </span>
         {row.username !== null && <span className="muted small mono">@{row.username}</span>}
       </td>
