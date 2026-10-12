@@ -323,6 +323,11 @@ pub(crate) async fn post(
     if !report.client.is_object() {
         return Err(bad("client must be an object"));
     }
+    // A chat report is checked by the gateway the message went through;
+    // a client signed in nowhere has none to send.
+    if report.kind == Kind::Chat {
+        return Err(bad("a chat message is reported through its gateway"));
+    }
     if report.text.trim().is_empty() && report.kind != Kind::Crash {
         return Err(bad("a report says something"));
     }

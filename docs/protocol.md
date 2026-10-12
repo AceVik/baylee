@@ -1857,6 +1857,7 @@ other's protocol.
 | agent | `AgentHello.protocol_version` | the agent token | `Error{code: 1, message}`, and the socket closes | not registered; it logs the sentence at error level and dials again on its back-off |
 | engine | `EngineHello.protocol_version` | the game's engine token | `Error{code: 1, message}`, and the socket closes | the game ends: it leaves the listing and its agent is sent `StopEngine`. The process exits with the sentence |
 | seat socket | `&protocol=` in the socket's query | the ticket (or, until 2026-10-31, the seat token), and before the engine hears of the socket | `HelloAck{protocol_version: <the gateway's>, compatible: false, message}`, the only frame, and the socket closes | the client stops for good (below) |
+| social socket | `&protocol=` and `&social=` in the socket's query | the ticket, and the session it was bought with still standing | `{"t":"refused","why":"protocol","message":…}`, the only frame, and the socket closes | the client stops dialling the social socket (§"Friends and chat") |
 
 - **One sentence for all three**, `baylee_protocol::version_refusal`, and it
   names both numbers: a mismatch is fixed by knowing which side is behind.
@@ -1910,6 +1911,8 @@ with that.
 | buy a seat ticket | `POST /ws-ticket` `{"socket":"seat","game":"<id>"}`, `Authorization: Bearer <seat token>` | `{ticket, expires_in}`; `401` for a seat token that is not this game's (or not any more), `404` for no such game |
 | open the lobby feed | `GET /lobby/ws?ticket=…&q=&offset=&limit=&waiting_only=` | the feed |
 | open a seat | `GET /games/{id}/ws?ticket=…&protocol=…` (`baylee_protocol::seat_socket_path`) | the table |
+| buy a social ticket | `POST /ws-ticket` `{"socket":"social"}`, `Authorization: Bearer <session>` | `{ticket, expires_in}`; `403 {"error":"this gateway has no chat"}` with `BAYLEE_SOCIAL=off` |
+| open the social socket | `GET /social/ws?ticket=…&protocol=…&social=…` (`baylee_protocol::social::social_socket_path`) | friends and chat (§"Friends and chat (beta.8)") |
 
 What a ticket is (`crates/baylee-gateway/src/wsticket.rs`):
 
@@ -2576,8 +2579,159 @@ frames, tagged by `"t"`: `Up` from the client (`hello`, `send`, `ack`,
 `refused`, `presence`, `friend`, `group`, `members`, `keys_changed`,
 `invite`, `invite_gone`, `notice`).
 
-(The rest of this section, routes and rules, lands with the gateway's
-social routes.)
+The client's **first frame is `hello`** `{device, presence}`, naming one of
+its account's registered devices; nothing else is accepted before it, and a
+device that is not this account's is answered `refused {why:"device"}` and
+the socket closes (the client registers again). The gateway answers
+`welcome`, then a whole `snapshot` (friends with their presence, requests
+both ways, blocks, groups, group invites, the table and team conversations
+the account is in, open table invites, settings), then up to 256 pending
+deliveries.
+
+- **One socket per device.** A second `hello` for a device closes the older
+  socket with code 4001; a device removed (or a guest's replaced) closes with
+  4003 (4002).
+- **Bounds.** A client frame over `MAX_SOCIAL_FRAME` (48 KiB) closes the
+  socket with 1008 (over 64 KiB the transport drops it); 40 frames at once,
+  then 10 a second, and past that 1008; a binary frame 1003. Pings as on
+  the lobby feed (20 s, 50 s of silence ends it). A deleted account's
+  sockets close.
+- **Presence**: the social socket counts the account online
+  (`GET /lobby/stats`, the room grace) as a lobby socket does.
+
+### Conversations and who is in them
+
+| kind | id | members, computed at send time |
+| --- | --- | --- |
+| whisper | `dm:<tagA>:<tagB>`, tags in numeric order (by length, then text) | the two accounts, if friends, or if both have a chair at one table now and the recipient's `whispers_from` is `friends_and_tables` |
+| group | `grp:<uuid>` | `group_member` rows |
+| table | `tbl:<game_id>` | the accounts in a chair of that lobby game (waiting, playing or over until the lobby sweeps it) |
+| team | `team:<game_id>:<n>` | the accounts in a chair with `team == n` |
+
+A table's members are read from the lobby's chairs, so **an AI chair, a
+seat bridge's delegate chair and a spectator are never members**, and the
+engine never sees a social frame: no view, agent view or game record can
+contain chat. A rematch is a new `tbl:`. `members` frames are pushed to the
+accounts in a table or team conversation whenever it changes (and to one
+who left it). Every refusal of membership is `not_member`, whether the
+reason was not being friends, a whisper setting or the conversation not
+existing.
+
+### Sending: `send` → `sent` or `refused`
+
+`{"t":"send","req":7,"conv":"dm:0012:af03","sealed":{hdr,n,ct,epk,sig,wraps:[{d,k}]}}`,
+every value base64url without padding. The gateway checks, in this order:
+
+1. shapes: `hdr` ≤ 512 bytes and JSON, `n` 24, `epk` 32, `sig` 64, `ct` at
+   most 4096 + 16, each wrap a device id and 48 bytes, no device twice
+   (`bad_sealed`, `too_large`);
+2. the header: `v` 1, `from` the socket's tag, `dev` the socket's device,
+   `conv` the frame's, `id` a `UUIDv7`, `kind` `text` (`bad_sealed`), `ts`
+   within ten minutes of the gateway's clock (`stale`);
+3. membership (`not_member`);
+4. the send allowance: 8 at once then 1 a second, a guest 4 then 1 every
+   3 s (`rate`; retry after a second);
+5. **completeness**: the wraps name exactly the current devices of every
+   member except the sending one, blocked recipients included (`devices`,
+   with `missing` and `extra` device ids; refetch the keys and seal again);
+6. the per-device cap of 5000 undelivered slots (`recipient_full`), a
+   duplicate `id` (`duplicate`), then storage: the message once
+   (`chat_message`, without its wraps) and one slot per recipient device
+   (`chat_delivery`, that device's wrap), in one transaction.
+
+A recipient who **blocks the sender** is wrapped for like anyone else and
+given no slot, so the sender sees `sent` and learns nothing. The sending
+device gets no slot; the account's other devices do.
+
+### Delivering: `msg`, `ack`
+
+`{"t":"msg","seq":41,"at":…,"conv":…,"from":{tag,handle,device},"sealed":{hdr,n,ct,epk,sig,k}}`
+carries only that device's wrap `k`. `from` is the gateway's word for who
+sent it; the client checks the header's `from` and `dev` against it.
+`{"t":"ack","upto":41}` deletes the slots up to 41 **that this socket sent**;
+a slot never sent is never deleted by an ack, so `seq`s may arrive out of
+order (a later-committed message can carry a lower `seq`) and a client
+de-duplicates by the message `id`, never by `seq`. Up to 256 deliveries are
+in flight per socket; more follow as acks come. A slot not acked is sent
+again on the next connection (at least once). Undelivered slots expire
+after `BAYLEE_SOCIAL_KEEP_DAYS` (14 unless set, 1 to 30), **1 day for a
+guest's device**; a message goes with its last slot (the sweep runs at start
+and every ten minutes, logging counts).
+
+### Presence
+
+Memory only, shown **to accepted friends only**, never logged:
+`{"t":"presence","tag":…,"presence":{"status":"online|away|dnd|offline","place":{…}}}`.
+`invisible` reads `offline`. The place is the waiting room, running table or
+watched table from lobby memory, else `building`/`house` as the client says
+(`{"t":"presence","status":…,"activity":…}`), else `lobby`. A place names its
+`game` only when the friend has `share_table` on and the room has no
+password. Pushed on a change, at most once a second per account (the running
+time of a game is not a change); an account's last socket closing pushes
+`offline` at once.
+
+### HTTP routes (all `Authorization: Bearer <session>`)
+
+Types in `baylee_protocol::social` (`DeviceRegistration`, `KeysAnswer`,
+`PlayerLookup`, …). With `BAYLEE_SOCIAL=off` every route is
+`403 {"error":"this gateway has no chat"}`. A guest has no friends list,
+groups or table invites (`403 guests have no friends list`); it may register
+its one device, fetch keys, block, set its settings and report.
+
+| call | body | answer | refusals |
+| --- | --- | --- | --- |
+| `POST /social/devices` | `{ik, dk, dsig, label}` | `201 {id}` (the same device again: `201`) | `400` a bad key, label or statement (`baylee_seal::verify_device` for the account's tag); `409` five devices already, or a key another device has (a guest's new device replaces its old one); `429` past 5 a day |
+| `GET /social/devices` | — | `{devices:[{id,label,added_at,seen_at}]}` | |
+| `DELETE /social/devices/{id}` | — | `204`; its socket closes | `404` |
+| `GET /social/keys?tag=a&tag=b` (or `tag=a,b`; up to 60) | — | `{keys:[{tag,handle,devices:[{id,ik,dk,dsig,label,added_at}]}]}` | only tags the caller may write to (itself, friends, group co-members, players at its tables); any other is left out. `429` past 20 at once then 1 a second |
+| `GET /social/players/{handle}` | — | `{tag,handle,friend,incoming,outgoing,blocked}`, never an id | `400` without `#`, `404` |
+| `POST /social/friends/requests` | `{handle}` | `201 {state:"pending"\|"friends"}` | `403` a guest either side, or requests off; `404`; `409` already friends, or 300 friends / 50 open requests; `429` past 20 an hour. A request to someone who blocks you looks sent and never arrives |
+| `POST /social/friends/requests/{tag}/accept` · `…/decline` | — | `204` | `404` |
+| `DELETE /social/friends/requests/{tag}` | — | `204` (cancels your own) | `404` |
+| `DELETE /social/friends/{tag}` | — | `204` | `404` |
+| `POST /social/blocks` · `DELETE /social/blocks/{tag}` | `{tag}` · — | `204`; a block ends a friendship and requests both ways | `404` |
+| `PUT /social/settings` | `{whispers_from, requests_open, share_table}` | `204` | |
+| `POST /social/groups` | `{name}` | `201 {id}` | `400` a name that is not 1–48 characters or hides characters (`names::group_name`); `409` in 20 groups; `429` past 10 a day |
+| `PATCH /social/groups/{id}` | `{name}` | `204` | `403` anyone but the owner |
+| `POST /social/groups/{id}/invites` | `{tag}` | `204` | `403` unless a member inviting a friend; `409` full (50 members and invites) or already a member; `429` past 30 an hour |
+| `POST /social/groups/{id}/join` | — | `204` | `404` no invite; `409` in 20 groups |
+| `DELETE /social/groups/{id}/invites/{tag}` | — | `204` (the invitee declines; its inviter or the owner withdraws) | `403`, `404` |
+| `DELETE /social/groups/{id}/members/{tag}` | — | `204` (leaving, or the owner removing) | `403`, `404` |
+| `POST /social/groups/{id}/owner` | `{tag}` | `204` | `403`, `404` |
+| `DELETE /social/groups/{id}` | — | `204` | `403` anyone but the owner |
+| `POST /social/invites` | `{tag, game}` | `201 {id}` | `403` unless friends and the caller sits in `game`: a waiting room with an open person's chair (`join`) or a running table that allows spectators (`watch`); `429` past 30 an hour |
+| `DELETE /social/invites/{id}` | `{"answer":"declined"}` or nothing | `204` | `404` |
+| `POST /social/reports` | `{conv, sealed, mk, body, note}` | `201 {report_id}` | `400`; `429` past 10 an hour; `503` without reports configured |
+
+Group changes reach every member as `group` frames (`joined`, `updated`,
+`left`, `invited`, `invite_gone`, `deleted`) and, for joins, departures,
+renames and new owners, as `notice` lines the client draws as server
+notices. An owner who leaves or is deleted hands the group to the member who
+joined first; a group nobody is left in is deleted.
+
+**Table invites** live ten minutes in the gateway's memory.
+`POST /lobby/games/{id}/join` takes an additive `invite: "<id>"`: a live
+`join` invite for the caller and this room stands in for the room's password
+and is spent by the join (`invite_gone {answer:"accepted"}` to both). A
+`watch` invite is only a pointer: watching uses the spectator door as
+always.
+
+### Reporting a message
+
+The reporter sends the message as delivered, its message key `mk` and the
+body it decrypted to (base64url). The gateway looks the header's `dev` up,
+checks it is the account the header's `from` names, and runs
+`baylee_seal::verify_report` (the signature, then that `mk` opens `ct` to
+exactly `body`). It forwards to the feedback service as `kind: "chat"`, the
+text being the reporter's note and the message's text, with
+`client.chat = {verified, conversation, sender (a pseudonym), sent_at,
+message, note}`. A device removed since cannot be checked: the report goes
+on with `verified: false`. Revealing `mk` reveals that one message.
+
+### What the gateway logs
+
+Counts at `info` (the sweep, a report taken), refusals at `debug` by kind
+only. Never a frame, ticket, ciphertext, key, tag, handle or conversation id.
 
 ## Terms of use (WG-1)
 

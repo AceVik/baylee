@@ -1180,6 +1180,7 @@ dependencies = [
  "baylee-feedback",
  "baylee-gamehost",
  "baylee-protocol",
+ "baylee-seal",
  "baylee-seat",
  "baylee-seathost",
  "baylee-view",

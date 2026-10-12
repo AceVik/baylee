@@ -27,6 +27,15 @@ the pointers, because line numbers move.
 | Socket ticket (hash only) | gateway memory | ≤ 45 s (`BAYLEE_WS_TICKET_SECS`), or until used | use, the ticket sweep, a restart |
 | Chair ticket (hash only), with the room, chair and host account it is for | gateway memory | ≤ 120 s (`BAYLEE_CHAIR_TICKET_SECS`), or until used | use, its host leaving the room or being deleted, the ticket sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
+| Chat devices (public keys, the OS family as a label, when added and last seen) | Postgres `social_device` | until removed | the player (Settings → Chat & privacy), or the account's deletion |
+| Friends, friend requests, blocks | Postgres `friendship`, `friend_request`, `social_block` | until changed | the player, or either account's deletion |
+| Groups (name, members, invites) | Postgres `chat_group`, `group_member`, `group_invite` | until the group is deleted | the owner; a group nobody is left in; an account's deletion removes its membership |
+| Undelivered messages (encrypted; the gateway can't read them) and who they're for | Postgres `chat_message`, `chat_delivery` | until delivered, at most `BAYLEE_SOCIAL_KEEP_DAYS` (14 unless set, 1 to 30; 1 day to a guest) | delivery, the sweep, the sender's or recipient's deletion |
+| Whisper and request settings, "show my table to friends" | Postgres `account` (`whispers_from`, `requests_open`, `share_table`) | until changed | the account's deletion |
+| Presence (status, where, which social sockets are open), table invites, chat rate limits | gateway memory | while connected, 10 minutes for an invite | disconnecting, a restart |
+| Chat keys | the player's device: the OS credential store (`baylee-chat`), or a `0600` file where there is none | until the device is forgotten | the player, or a guest's sign-out |
+| Chat history and state (encrypted) | the player's device, `chat/` beside the settings | 30 days by default (the player chooses off, 7, 30 or 365) | the client's pruning, or the player |
+| A reported chat message (its text, whether its signature checked, the sender's pseudonym) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
 | Game state | engine process memory | the game | the process exits |
 | A hosted model's game data (its seat's view: board, its own hand, log lines, card text, seat numbers, no display name) | leaves the seat agent's machine for the profile's provider | the provider's own terms | — |
 | Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
@@ -44,6 +53,39 @@ the pointers, because line numbers move.
 | Update check (#326) | leaves a desktop client for `api.github.com` and GitHub's download hosts | GitHub's own terms | switching "Check for updates automatically" off |
 | Update choice and payloads | the player's device: `update.json`; per-user updater state (paths below) | choices until changed; active and previous payload retained; older payloads removed on a safe next launch | the player; the launcher when no runtime is using them |
 | Where the player was, across "Restart now" (no secret) | the player's device, `resume.json` beside the settings (desktop only) | until the next start reads it; ignored after ten minutes | the client, at the next start |
+
+## Friends and chat (beta.8)
+
+**What the gateway can't read.** Message text, card links and mentions are
+end-to-end encrypted on the sender's device for the recipients' devices
+(`docs/protocol.md` §"Friends and chat (beta.8)"). The gateway stores the
+ciphertext until each device has it, at most `BAYLEE_SOCIAL_KEEP_DAYS` (14
+unless set, 1 to 30; 1 day to a guest), and holds no key that opens it.
+
+**What it does see and keep.** Who is friends with whom, requests and
+blocks; the name and members of each group; which devices an account has
+(public keys and an OS family); which account sent a message to which
+conversation, when, and how large it was, until it is delivered; who is
+online, what status they chose and at which table they are, in memory, and
+shown only to their friends. None of this is logged: a log line carries
+counts, never a tag, handle, conversation or ciphertext.
+
+**What leaves the device on purpose.** A report of a message sends its text
+and the key of that one message, so that the gateway can check that the
+sender really wrote it. A report never carries other messages or the
+history. The feedback service is sent the text, whether the check held, and
+the sender as a pseudonym (the same keyed hash reporters get), never an
+account id or handle.
+
+**What is never chat.** The engine, game records (#315), record exports,
+the AI's view and bug reports never contain chat. AI and language-model
+seats receive none: a table's members are the accounts in its chairs, and
+those seats have no account.
+
+**Deletion.** Deleting an account deletes its devices, friendships,
+requests, blocks, group memberships and every message still waiting for or
+from it. Its groups pass to the member who joined first. Signing a guest
+out deletes it, and the client deletes its local chat folder and keys.
 
 ## Hosted models
 

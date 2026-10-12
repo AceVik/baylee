@@ -110,6 +110,13 @@ pub(crate) async fn info(State(state): State<Shared>) -> Json<serde_json::Value>
         "hosted_llm".into(),
         (state.seathost_token.is_some() && !state.seathosts.lock().hosts.is_empty()).into(),
     );
+    // Friends and chat (beta.8): the social version and how many days an
+    // undelivered message is kept, which the client's notice says; `null`
+    // when the gateway has none (`BAYLEE_SOCIAL=off`).
+    body.insert(
+        "social".into(),
+        serde_json::to_value(state.social.info()).unwrap_or(serde_json::Value::Null),
+    );
     // The version of the terms a player accepts here (WG-1), `null` when
     // the gateway has none; `GET /terms` has the text.
     body.insert(

@@ -122,9 +122,20 @@ impl Feedback {
         }
     }
 
+    /// Where a report goes and the token it is sent with, when reports are
+    /// configured; for a reported chat message (`social::report`).
+    pub(crate) fn target(&self) -> Option<(String, String)> {
+        self.url.clone().map(|url| (url, self.token.clone()))
+    }
+
+    /// What this gateway calls its own address (`BAYLEE_PUBLIC_URL`).
+    pub(crate) fn public_url(&self) -> Option<&str> {
+        self.public_url.as_deref()
+    }
+
     /// The reporter's pseudonym: HMAC-SHA256 of the account id under this
     /// gateway's key, in hex.
-    fn pseudonym(&self, account_id: &str) -> String {
+    pub(crate) fn pseudonym(&self, account_id: &str) -> String {
         hex(&hmac_sha256(&self.key, account_id.as_bytes()))
     }
 }
@@ -271,10 +282,10 @@ struct Forward<'a> {
 }
 
 #[derive(Serialize)]
-struct GatewayInfo<'a> {
-    name: Option<&'a str>,
-    url: Option<&'a str>,
-    version: &'static str,
+pub(crate) struct GatewayInfo<'a> {
+    pub(crate) name: Option<&'a str>,
+    pub(crate) url: Option<&'a str>,
+    pub(crate) version: &'static str,
 }
 
 /// A game's record as the service is sent it.
@@ -440,7 +451,7 @@ async fn flush_record(state: &Shared, game_id: &str, account_id: &str) -> bool {
 }
 
 /// Posts one report to the service; its id, or why not.
-fn send(url: &str, token: &str, payload: &[u8]) -> Result<String, String> {
+pub(crate) fn send(url: &str, token: &str, payload: &[u8]) -> Result<String, String> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(FORWARD_TIMEOUT))
         .build()

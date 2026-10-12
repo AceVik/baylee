@@ -97,6 +97,13 @@ pub async fn depart(
         forget_pictures(state, &gone.pictures, &held).await;
         gone
     };
+    // A group its owner left passes to the member who joined first, and a
+    // group nobody is left in goes (`docs/protocol.md` §"Friends and chat").
+    if !gone.accounts.is_empty()
+        && let Err(e) = baylee_db::social::reown(&state.db).await
+    {
+        tracing::warn!("social: groups not handed on: {e}");
+    }
     forget_accounts(state, &gone.accounts);
     Ok(gone)
 }
@@ -185,6 +192,9 @@ pub fn forget_accounts(state: &Shared, accounts: &[String]) {
     for account in accounts {
         let _ = state.departed.send(account.clone());
     }
+    // Their social sockets close, their friends are told and their table
+    // invites lapse.
+    state.social.forget(accounts);
     if sat {
         crate::seathost::stop_unseated(state);
         state.lobby_moved();

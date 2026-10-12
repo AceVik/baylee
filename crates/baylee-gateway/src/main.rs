@@ -32,6 +32,7 @@ mod routes;
 mod seathost;
 mod seatrate;
 mod sets;
+mod social;
 mod store;
 mod terms;
 mod texts;
@@ -233,6 +234,9 @@ struct AppState {
     /// (`BAYLEE_ADMISSION_HOLD`, `admission.rs`), for a deploy draining
     /// every agent's games.
     admission: admission::Hold,
+    /// Friends, presence and chat (`social/`, `BAYLEE_SOCIAL`,
+    /// `BAYLEE_SOCIAL_KEEP_DAYS`); memory beside the database's tables.
+    social: social::Social,
 }
 
 impl AppState {
@@ -310,6 +314,11 @@ async fn main() {
             var("BAYLEE_FEEDBACK_TOKEN").as_deref(),
             var("BAYLEE_FEEDBACK_KEY").as_deref(),
         ],
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    let social = social::Social::from_env(
+        var("BAYLEE_SOCIAL").as_deref(),
+        var("BAYLEE_SOCIAL_KEEP_DAYS").as_deref(),
     )
     .unwrap_or_else(|why| panic!("{why}"));
     let seathost_token = seathost::token_from_env(
@@ -392,12 +401,15 @@ async fn main() {
             .filter(|url| !url.trim().is_empty())
             .unwrap_or_else(|| format!("http://127.0.0.1:{port}")),
         admission,
+        social,
     });
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
     spawn_cleanup(state.clone());
     spawn_ticket_sweep(state.clone());
     metrics::spawn(state.clone());
+    social::sweep::sweep(&state).await;
+    social::presence::spawn(state.clone());
     if let (Some(settings), Some((listener, admin_port))) = (&console, console_listener) {
         admin::serve(listener, state.clone(), settings);
         // Before `BAYLEE_PORT_FILE`, which says the gateway is up: whoever
@@ -415,6 +427,8 @@ async fn main() {
         .merge(account_routes())
         .merge(deck_routes())
         .merge(report::routes())
+        .merge(social::routes::routes())
+        .route("/social/ws", get(social::socket::social_ws))
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/lobby/stats", get(lobby_stats))
         .route("/lobby/depart", post(departure::depart))
@@ -742,6 +756,7 @@ fn spawn_cleanup(state: Shared) {
                 Ok(_) => {}
                 Err(e) => tracing::warn!("{e:#}"),
             }
+            social::sweep::sweep(&state).await;
         }
     });
 }
@@ -983,7 +998,7 @@ async fn cors(
     /// are what turns an otherwise simple request into a preflighted one.
     const ALLOW_HEADERS: &str = "authorization, content-type";
     /// Every method this gateway routes.
-    const ALLOW_METHODS: &str = "GET, POST, PUT, DELETE, OPTIONS";
+    const ALLOW_METHODS: &str = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 
     let preflight = request.method() == Method::OPTIONS;
     let mut response = if preflight {
