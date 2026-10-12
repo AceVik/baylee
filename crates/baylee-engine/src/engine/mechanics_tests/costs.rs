@@ -342,15 +342,21 @@ fn an_additional_sacrifice_is_paid_and_its_mana_value_remembered() {
 
 // ------------------------------------------------- a total nobody can pay
 
-/// A total the pool cannot pay is not paid in part (CR 601.2h: "Partial
-/// payments are not allowed"), and a casting that cannot finish is undone
-/// (CR 732.1): X is announced before the mana is counted (CR 601.2b), so an
-/// X of five over one floating mana is an answer the question offered and
-/// is taken, and the casting it names is reversed at the payment, with the
-/// card still in hand, the mana still floating and the caster holding
-/// priority again. The same card at an X the pool covers is then cast.
+/// A total the pool cannot pay is not offered. The X question of a cast paid
+/// from the floating pool names only the X that mana pays for the whole
+/// cost, so with one {G} floating `{X}{G}` is asked at X = 0 and no more. An
+/// X above it is refused, the cast stays in its X question and nothing is
+/// spent; X = 0 casts the spell.
+///
+/// The version of this test before the fix pinned the defect itself: the
+/// question offered the pool's size, the test picked that X, and the cast was
+/// reversed at payment (CR 601.2h, 732.1), the card back in hand. The reversal
+/// is still covered where it can still happen, in a payment window that
+/// closes short:
+/// `cancel_cast_tests::a_window_passed_short_is_reversed_like_a_cancel` and
+/// `pay_in_cast_tests::a_cast_its_window_cannot_pay_goes_back_to_the_hand`.
 #[test]
-fn a_total_the_pool_cannot_pay_undoes_the_whole_cast() {
+fn an_x_the_pool_cannot_pay_is_not_offered() {
     let mut engine = bench(
         7193,
         cards(),
@@ -362,28 +368,29 @@ fn a_total_the_pool_cannot_pay_undoes_the_whole_cast() {
     let Pending::ChooseNumber { min, max, .. } = engine.pending() else {
         panic!("X must be announced: {:?}", engine.pending());
     };
-    let announced = *max;
-    assert_eq!(*min, 0);
-    assert!(u64::from(announced) + 1 > engine.state().players[0].mana_pool.total());
-    // The offered X plus the fixed {G} exceeds the pool, testing rollback.
-    engine
-        .apply(me(), PlayerAction::ChooseNumber(announced))
-        .expect("an X the question offered is taken; the cast is reversed");
     assert_eq!(
-        objects(&engine, ZoneLocation::Hand(me()), RAY),
-        vec![ray],
-        "the card never left the hand"
+        (*min, *max),
+        (0, 0),
+        "one {{G}} floating pays the fixed {{G}} and no X"
+    );
+    assert!(
+        engine.apply(me(), PlayerAction::ChooseNumber(1)).is_err(),
+        "X = 1 would cost two"
+    );
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::ChooseNumber { min: 0, max: 0, .. }
+        ),
+        "the refusal leaves the X question where it was: {:?}",
+        engine.pending()
     );
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
         1,
         "and nothing of the mana was spent"
     );
-    let (player, legal) = offer(&engine);
-    assert_eq!(player, me(), "the caster holds priority again");
-    assert!(legal.castable.contains(&ray));
 
-    cast(&mut engine, RAY);
     engine.apply(me(), PlayerAction::ChooseNumber(0)).unwrap();
     assert_eq!(on_the_stack(&engine, ray).x_value, 0);
     assert_eq!(engine.state().players[0].mana_pool.total(), 0, "{{G}} paid");
