@@ -200,8 +200,9 @@ pub(super) struct Slip {
 
 /// What the slip under the preview should say, if anything.
 ///
-/// `None` for everything that is not an object on the stack — a card in hand,
-/// a permanent, a pile's top card, a row in the zone browser. A stack entry's
+/// For an object on the stack, its sentence; for a permanent granted
+/// abilities, what it was granted ([`granted`]); `None` for everything else —
+/// a card in hand, a pile's top card, a row in the zone browser. A stack entry's
 /// *target* qualifies only when it is itself on the stack, which is the case
 /// a counterspell makes and is right: the same object is about to resolve.
 pub(super) fn says(
@@ -212,14 +213,18 @@ pub(super) fn says(
     faces: &FaceCtx<'_>,
     hovered: Option<ObjectId>,
 ) -> Option<Slip> {
+    let id = hovered?;
+    // Not on the stack: what a permanent has been granted, which no face
+    // prints — the text face included, so this is asked before the latch.
+    let Some(item) = board.stack.iter().find(|item| item.id == id) else {
+        return granted(view, statics, lang, faces.texts, id);
+    };
     // The face is the slip when the player has asked for it. Not
     // `preview_face(..).is_some()`: that is also how a card with no art yet
     // is drawn, which is every card offline.
     if faces.always() {
         return None;
     }
-    let id = hovered?;
-    let item = board.stack.iter().find(|item| item.id == id)?;
     let seat = statics.seat_name(item.controller).to_string();
     match item.kind {
         baylee_client_core::board::StackKind::Ability { source, .. } => {
@@ -268,6 +273,75 @@ pub(super) fn says(
                 blocks,
             })
         }
+    }
+}
+
+/// The abilities another permanent has handed this one (report 22: *"when
+/// Great Divide Guide grants another Ally its ability, the other Allies don't
+/// show they can now do it too"*), one paragraph a grant: the grantor's name
+/// and the sentence on its card that grants it (CR 113.10), in the player's
+/// language where it has arrived, else in English. Read off
+/// [`baylee_view::PublicObject::grants`], which the host fills from the
+/// effect table; nothing here works out what a card grants.
+///
+/// A grantor this seat may not see is "Granted ability" and nothing more,
+/// and two grants by one sentence (a grantor's ability granting two) are one
+/// paragraph. `None` for a permanent granted nothing: its picture says it all.
+fn granted(
+    view: &PlayerView,
+    statics: &GameStatic,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+    id: ObjectId,
+) -> Option<Slip> {
+    let object = view.object(id)?;
+    let mut blocks: Vec<Vec<TextBlock>> = Vec::new();
+    for grant in &object.grants {
+        let para = grant_paragraph(grant, texts, lang);
+        if !blocks.contains(&para) {
+            blocks.push(para);
+        }
+    }
+    if blocks.is_empty() {
+        return None;
+    }
+    Some(Slip {
+        says: id,
+        kind: Some(Phrase::GrantedAbilities.text(lang).to_string()),
+        seat: statics.seat_name(object.controller).to_string(),
+        blocks,
+    })
+}
+
+/// One grant's paragraph: `Grantor: the sentence`, the grantor alone where
+/// its card wrote this grant in no sentence the client can name, and the
+/// bare "Granted ability" where the grantor is hidden from this seat.
+fn grant_paragraph(
+    grant: &baylee_view::GrantSource,
+    texts: &crate::cardtext::CardTexts,
+    lang: Lang,
+) -> Vec<TextBlock> {
+    let bare = || {
+        vec![TextBlock::Rules(
+            Phrase::GrantedAbility.text(lang).to_string(),
+        )]
+    };
+    let Some(rules) = grant.rules else {
+        return bare();
+    };
+    let Some(name) = texts.face(rules.card, rules.face).map(|text| text.name) else {
+        return bare();
+    };
+    match grant
+        .text
+        .and_then(|at| crate::cardtext::said(Some(texts), rules.card, at))
+    {
+        Some((sentence, _)) => {
+            let mut para = vec![TextBlock::Rules(format!("{name}: "))];
+            para.extend(sentence);
+            para
+        }
+        None => vec![TextBlock::Rules(name)],
     }
 }
 

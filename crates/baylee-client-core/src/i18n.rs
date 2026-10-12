@@ -3172,6 +3172,9 @@ messages! {
     /// the card to be numbered by, so "Ability 1" would be a lie about a
     /// printed ability that is also there.
     GrantedAbility { en: "Granted ability", de: "Verliehene Fähigkeit" },
+    /// The head of the sheet under a permanent's preview that lists what
+    /// other permanents have granted it, one grantor's sentence a paragraph.
+    GrantedAbilities { en: "Granted abilities", de: "Verliehene Fähigkeiten" },
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 
