@@ -365,7 +365,9 @@ pub enum Up {
         sealed: Sealed,
     },
     /// Every delivery up to and including `upto` is stored or shown; the
-    /// gateway deletes their slots.
+    /// gateway deletes the slots up to it that it sent this socket. A
+    /// `seq` may arrive below one already seen (messages committed out of
+    /// order): de-duplicate by the message id, never by `seq`.
     Ack {
         /// The highest [`Down::Msg`] `seq` the client has.
         upto: u64,
