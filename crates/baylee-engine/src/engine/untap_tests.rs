@@ -34,6 +34,7 @@ static MANA: &[Effect] = &[Effect::mana(ManaColor::Colorless, 1)];
 
 static BASIN_ABILITIES: &[AbilityDef] = &[
     AbilityDef::Static(StaticAbility {
+        source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
         layer: Layer::Text,
         filter: THIS_F,
         modifier: Modifier::MayChooseNotToUntap,
@@ -55,12 +56,14 @@ static BASIN_ABILITIES: &[AbilityDef] = &[
 
 static FROZEN_ABILITIES: &[AbilityDef] = &[
     AbilityDef::Static(StaticAbility {
+        source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
         layer: Layer::Text,
         filter: THIS_F,
         modifier: Modifier::MayChooseNotToUntap,
         condition: None,
     }),
     AbilityDef::Static(StaticAbility {
+        source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
         layer: Layer::Text,
         filter: THIS_F,
         modifier: Modifier::DoesNotUntap,
@@ -388,6 +391,7 @@ const STILL_BASIN: u32 = 1103;
 
 static STILL_ABILITIES: &[AbilityDef] = &[
     AbilityDef::Static(StaticAbility {
+        source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
         layer: Layer::Text,
         filter: Filter::Any,
         modifier: Modifier::SkipUntapStep {
@@ -511,6 +515,7 @@ static BASIC_LAND_F: Filter = Filter::BASIC_LAND;
 static LAND_F: Filter = Filter::LAND;
 
 static ORB_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
+    source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
     layer: Layer::Text,
     filter: Filter::Any,
     modifier: Modifier::UntapAtMost {
@@ -523,6 +528,7 @@ static ORB_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
 
 static MOON_ABILITIES: &[AbilityDef] = &[
     AbilityDef::Static(StaticAbility {
+        source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
         layer: Layer::Text,
         filter: Filter::Any,
         modifier: Modifier::UntapAtMost {
@@ -533,6 +539,7 @@ static MOON_ABILITIES: &[AbilityDef] = &[
         condition: None,
     }),
     AbilityDef::Static(StaticAbility {
+        source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
         layer: Layer::Text,
         filter: Filter::Any,
         modifier: Modifier::UntapAtMost {

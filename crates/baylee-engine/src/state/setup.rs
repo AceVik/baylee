@@ -125,6 +125,7 @@ impl GameState {
             projection_ids: Vec::new(),
             projected_cross_zone: false,
             printed_pt_cda: Vec::new(),
+            offboard_static_candidates: Vec::new(),
             token_cleanup: Vec::new(),
             snapshot_memo: SnapshotMemo::default(),
         };
@@ -416,6 +417,11 @@ impl GameState {
             obj.controlled_since = ts;
             obj
         });
+        if (0..def.faces.len()).any(|face| def.abilities_for_face(face).iter().any(|ability| {
+            matches!(ability, baylee_cards_dsl::AbilityDef::Static(sa) if sa.source_zone != baylee_cards_dsl::ZoneRef::Battlefield)
+        })) {
+            self.offboard_static_candidates.push(id);
+        }
         if let Some(modifier) = printed_pt_cda(def) {
             self.printed_pt_cda.push((id, modifier));
         }

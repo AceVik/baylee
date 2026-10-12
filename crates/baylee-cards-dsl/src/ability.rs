@@ -1402,6 +1402,7 @@ mod tests {
                 cost: baylee_core::mana::ManaCost::ZERO,
             },
             AbilityDef::Static(StaticAbility {
+                source_zone: crate::ZoneRef::Battlefield,
                 layer: Layer::Ability,
                 filter: crate::Filter::This,
                 modifier: Modifier::GrantActivated {

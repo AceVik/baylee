@@ -3503,3 +3503,14 @@ Agadeem's set of targets in the engine and is carried into the player's prompt.
 when needed, then puts loyalty on one controlled Jace token. `TokenDef::loyalty`
 defines planeswalker entry loyalty independently of power and toughness.
 `CounterKind::Finality` replaces a permanent's move to the graveyard with exile.
+
+### Static source zones
+
+`static_ability!(filter, modifier, zone = ZoneRef::Graveyard)` makes the
+source ability function from the graveyard. Omission defaults to the battlefield.
+This is independent of recipient `Filter::InZone`: Riftstone Portal grants
+current battlefield lands an additional mana ability while its physical card
+is in its owner's graveyard. The engine indexes eligible physical cards at
+creation, uses their owner outside battlefield/stack, and expires grants at
+the source zone or incarnation change. Only the exact supported graveyard
+land-grant grammar is admitted by codegen; other source zones fail closed.

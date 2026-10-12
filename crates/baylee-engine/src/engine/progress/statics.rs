@@ -32,18 +32,15 @@ impl crate::state::GameState {
             .collect();
         self.effects
             .follow_phasing(|source| phased_out.contains(&source));
-        // Drop effects whose source left the battlefield (structural
-        // anthem removal).
-        let gone: Vec<ObjectId> = self
+        // Explicit source-zone statics stop at the actual zone change, including
+        // graveyard removal before the next registration sweep.
+        let gone: Vec<_> = self
             .effects
             .iter()
-            .filter_map(|fx| fx.source)
-            .filter(|s| self.object(*s).is_none_or(|o| o.zone != Zone::Battlefield))
+            .filter(|fx| !crate::effects::source_is_present(self, fx))
+            .map(|fx| fx.id)
             .collect();
-        self.effects.remove_where(|fx| {
-            matches!(fx.duration, Duration::WhileSourceOnBattlefield)
-                && fx.source.is_some_and(|s| gone.contains(&s))
-        });
+        self.effects.remove_where(|fx| gone.contains(&fx.id));
         // A blink can leave the same arena object on the battlefield with
         // a new rules identity. Its former printed/copied static must end
         // before the replacement registration affects the projection.
@@ -52,7 +49,10 @@ impl crate::state::GameState {
             .iter()
             .filter_map(|effect| {
                 if effect.origin != crate::effects::EffectOrigin::Static
-                    || effect.duration != Duration::WhileSourceOnBattlefield
+                    || !matches!(
+                        effect.duration,
+                        Duration::WhileSourceOnBattlefield | Duration::WhileSourceInZone(_)
+                    )
                 {
                     return None;
                 }
@@ -146,7 +146,17 @@ impl crate::state::GameState {
         self.refresh_characteristics();
         // Not a phased-out permanent: its statics wait parked for it, and a
         // condition on it is not asked while it does not exist.
-        let ids: Vec<ObjectId> = self.battlefield_view();
+        let mut ids: Vec<ObjectId> = self.battlefield_view();
+        ids.extend(
+            self.offboard_static_candidates
+                .iter()
+                .copied()
+                .filter(|id| {
+                    self.object(*id).is_some_and(|object| {
+                        !matches!(object.zone, Zone::Battlefield | Zone::OutsideGame)
+                    })
+                }),
+        );
         let mut to_register = Vec::new();
         let mut lapsed = Vec::new();
         for id in ids {
@@ -159,6 +169,14 @@ impl crate::state::GameState {
             for (index, ability) in list.abilities.iter().enumerate() {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
+                };
+                if !obj.zone.matches_ref(sa.source_zone) {
+                    continue;
+                }
+                let controller = if matches!(obj.zone, Zone::Battlefield | Zone::Stack) {
+                    obj.controller
+                } else {
+                    obj.owner
                 };
                 let identity = baylee_core::ids::DamageSourceRef {
                     object: id,
@@ -192,10 +210,7 @@ impl crate::state::GameState {
                 if gone_with_the_ability
                     || sa.condition.is_some_and(|condition| {
                         !crate::eval::condition_holds_with_context(
-                            self,
-                            obj.controller,
-                            context,
-                            condition,
+                            self, controller, context, condition,
                         )
                     })
                 {
@@ -219,17 +234,24 @@ impl crate::state::GameState {
                     Some(crate::effects::ContinuousEffect {
                         id: baylee_core::ids::EffectId::new(0),
                         source: Some(id),
-                        controller: obj.controller,
+                        controller,
                         origin: crate::effects::EffectOrigin::Static,
                         layer: sa.layer,
                         timestamp: obj.timestamp,
-                        duration: Duration::WhileSourceOnBattlefield,
+                        duration: if sa.source_zone == baylee_cards_dsl::ZoneRef::Battlefield {
+                            Duration::WhileSourceOnBattlefield
+                        } else {
+                            Duration::WhileSourceInZone(sa.source_zone)
+                        },
                         filter: crate::effects::EffectFilter::Dsl(&sa.filter),
                         modifier: sa.modifier,
                     }),
                     baylee_core::ids::EffectId::new(0),
                     Some(origin),
                 ));
+            }
+            if obj.zone != Zone::Battlefield {
+                continue;
             }
             for (offset, ability) in list.runtime_statics().iter().enumerate() {
                 let layer = ability.modifier.layer();

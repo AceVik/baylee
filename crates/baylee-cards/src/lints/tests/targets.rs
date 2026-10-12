@@ -217,12 +217,14 @@ fn no_ability_reads_the_controller_of_a_player_target() {
 #[test]
 fn the_layer_lint_catches_a_modifier_on_the_wrong_layer() {
     let wrong = AbilityDef::Static(crate::dsl::StaticAbility {
+        source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
         layer: Layer::Color,
         filter: Filter::Any,
         modifier: Modifier::AddType(TypeSet::ARTIFACT),
         condition: None,
     });
     let right = AbilityDef::Static(crate::dsl::StaticAbility {
+        source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
         layer: Layer::Type,
         filter: Filter::Any,
         modifier: Modifier::AddType(TypeSet::ARTIFACT),

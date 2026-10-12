@@ -46,6 +46,7 @@ static MARSH_ABILITIES: &[AbilityDef] = &[
         cost_reduction: None,
     },
     AbilityDef::Static(StaticAbility {
+        source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
         layer: Layer::Color,
         filter: Filter::This,
         modifier: Modifier::AddColor(ColorSet::of(Color::Red)),
@@ -54,6 +55,7 @@ static MARSH_ABILITIES: &[AbilityDef] = &[
 ];
 
 static SETTER_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
+    source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
     layer: Layer::Type,
     filter: Filter::HasSubtype(land::FOREST),
     modifier: Modifier::SetLandType(land::SWAMP),
@@ -61,6 +63,7 @@ static SETTER_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
 })];
 
 static GRANTER_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
+    source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
     layer: Layer::Ability,
     filter: Filter::LAND,
     modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
@@ -74,6 +77,7 @@ static MARSH_TYPES: &[baylee_core::ids::SubtypeId] = &[land::FOREST];
 const CHOOSER: u32 = 1113;
 
 static CHOOSER_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
+    source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
     layer: Layer::Type,
     filter: Filter::HasSubtype(land::FOREST),
     modifier: Modifier::SetLandTypeToChosen,

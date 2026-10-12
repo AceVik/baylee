@@ -252,7 +252,22 @@ impl GameState {
                 .filter(|o| o.zone == Zone::Battlefield)
                 .map(|o| o.controller)
         };
-        effects.follow_sources(now);
+        effects.follow_sources(|source, duration| {
+            if let baylee_cards_dsl::Duration::WhileSourceInZone(zone) = duration {
+                arena
+                    .get(source)
+                    .filter(|object| object.zone.matches_ref(zone))
+                    .map(|object| {
+                        if matches!(object.zone, Zone::Battlefield | Zone::Stack) {
+                            object.controller
+                        } else {
+                            object.owner
+                        }
+                    })
+            } else {
+                now(source)
+            }
+        });
         for entry in replacement_rules.iter_mut() {
             if let Some(controller) = now(entry.source) {
                 entry.controller = controller;
@@ -270,7 +285,25 @@ impl GameState {
                 .map(|o| o.controller)
         };
         self.effects.iter().all(|fx| {
-            !fx.origin.is_static() || fx.source.and_then(now).is_none_or(|c| c == fx.controller)
+            !fx.origin.is_static()
+                || fx
+                    .source
+                    .and_then(|source| {
+                        if let baylee_cards_dsl::Duration::WhileSourceInZone(zone) = fx.duration {
+                            self.object(source)
+                                .filter(|object| object.zone.matches_ref(zone))
+                                .map(|object| {
+                                    if matches!(object.zone, Zone::Battlefield | Zone::Stack) {
+                                        object.controller
+                                    } else {
+                                        object.owner
+                                    }
+                                })
+                        } else {
+                            now(source)
+                        }
+                    })
+                    .is_none_or(|c| c == fx.controller)
         }) && self
             .replacement_rules
             .iter()

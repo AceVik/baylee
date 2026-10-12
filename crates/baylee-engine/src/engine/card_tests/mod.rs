@@ -5771,3 +5771,5 @@ mod looting;
 mod batch49_returns;
 
 mod batch54_gond;
+
+mod batch54_riftstone;

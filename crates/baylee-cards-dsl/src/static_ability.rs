@@ -994,9 +994,11 @@ impl Modifier {
 }
 
 /// A static ability on a card: `modifier` applies to objects matching
-/// `filter` starting on `layer`, while the source is on the battlefield.
+/// `filter` starting on `layer`, while the source is in its declared zone.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct StaticAbility {
+    /// Zone in which this source's ability functions; independent of recipient filters.
+    pub source_zone: crate::ZoneRef,
     /// The first layer the effect applies in ([`Modifier::layer`]).
     pub layer: Layer,
     /// Which objects are affected — including *where* they are.
@@ -1034,6 +1036,8 @@ pub struct StaticAbility {
 pub enum Duration {
     /// While the source permanent is on the battlefield.
     WhileSourceOnBattlefield,
+    /// While its exact source remains in the explicitly declared source zone.
+    WhileSourceInZone(crate::ZoneRef),
     /// "For as long as you control this creature" (Extraction Specialist,
     /// CR 611.2b): over once the source leaves the battlefield or another
     /// player gains control of it. A duration that is already over as the

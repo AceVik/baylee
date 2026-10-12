@@ -30,6 +30,7 @@ const SECOND_EXPLORATION: u32 = 1_303;
 /// keeps a card from disagreeing with it.
 const fn rules_static(modifier: Modifier) -> AbilityDef {
     AbilityDef::Static(StaticAbility {
+        source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
         layer: Layer::Text,
         filter: Filter::Any,
         modifier,

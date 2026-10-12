@@ -109,6 +109,8 @@ impl GameState {
             // Read off the cards at setup and never written again; each
             // object's card is hashed with the object.
             printed_pt_cda: _,
+            // Derived from the immutable physical card definitions.
+            offboard_static_candidates: _,
             // Drained by every pass, before anyone can look.
             token_cleanup: _,
             // This hash's cache of its own bytes, read below.

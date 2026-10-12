@@ -127,6 +127,9 @@ impl Tx<'_> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("an `S:` line with no `$` in it".to_string());
         };
+        if p.peek("EffectZone") == Some("Graveyard") {
+            return self.riftstone_graveyard_grant(&mode, p);
+        }
         if mode == "CantBeCast" {
             return self.one_spell_each_turn(p);
         }

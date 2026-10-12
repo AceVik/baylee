@@ -1291,6 +1291,9 @@ pub struct GameState {
     /// (CR 712.8a), and never changed: a list the size of a handful of
     /// cards.
     pub printed_pt_cda: Vec<(ObjectId, baylee_cards_dsl::Modifier)>,
+    /// Derived small index of physical cards declaring off-battlefield static abilities.
+    /// Populated once at card creation; active zone and incarnation are read live.
+    pub(crate) offboard_static_candidates: Vec<ObjectId>,
     /// Objects that may have become a token outside the battlefield
     /// (CR 704.5d), queued for the next state-based-action pass.
     ///
@@ -1400,6 +1403,7 @@ impl GameState {
             projected_cross_zone,
             token_cleanup,
             printed_pt_cda,
+            offboard_static_candidates,
             // The snapshot hash's cache of its own bytes, not state.
             snapshot_memo: _,
         } = self;
@@ -1529,6 +1533,10 @@ impl GameState {
             ),
             ("state.token_cleanup", format!("{token_cleanup:?}")),
             ("state.printed_pt_cda", format!("{printed_pt_cda:?}")),
+            (
+                "state.offboard_static_candidates",
+                format!("{offboard_static_candidates:?}"),
+            ),
         ]);
     }
 }

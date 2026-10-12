@@ -349,24 +349,7 @@ pub fn matches_projected_with_context(
         }),
         Filter::PowerLessThanSourcePower => below_source_power(chars.power, state, this),
         Filter::ToughnessLessThanSourcePower => below_source_power(chars.toughness, state, this),
-        Filter::InZone(z) => {
-            use baylee_cards_dsl::ZoneRef;
-            match z {
-                ZoneRef::Battlefield => obj.zone == crate::zone::Zone::Battlefield,
-                ZoneRef::Stack => obj.zone == crate::zone::Zone::Stack,
-                ZoneRef::Library => obj.zone == crate::zone::Zone::Library,
-                ZoneRef::Hand => obj.zone == crate::zone::Zone::Hand,
-                ZoneRef::Graveyard => obj.zone == crate::zone::Zone::Graveyard,
-                ZoneRef::Exile => obj.zone == crate::zone::Zone::Exile,
-                ZoneRef::Command => obj.zone == crate::zone::Zone::Command,
-                // Cards outside the game are in no zone at all, so "not on the
-                // battlefield" must not sweep the sideboard in with them.
-                ZoneRef::NotBattlefield => {
-                    obj.zone != crate::zone::Zone::Battlefield
-                        && obj.zone != crate::zone::Zone::OutsideGame
-                }
-            }
-        }
+        Filter::InZone(z) => obj.zone.matches_ref(*z),
     }
 }
 

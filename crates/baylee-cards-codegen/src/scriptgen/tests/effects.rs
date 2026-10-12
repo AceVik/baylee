@@ -1139,3 +1139,24 @@ fn gond_reflection_is_color_only_own_gate_and_keeps_unknown_guards() {
         assert!(gond_read(&text.replace(from, to)).is_none(), "{to}");
     }
 }
+
+// Append to scriptgen/tests/effects.rs. Synthetic grammar, no corpus script copied.
+#[test]
+fn graveyard_land_grant_has_exact_source_zone_and_refuses_unknowns() {
+    let text = "Name:Buried boundary\nTypes:Land\nS:Mode$ Continuous | EffectZone$ Graveyard | Affected$ Land.YouCtrl | AddAbility$ Gift\nSVar:Gift:AB$ Mana | Cost$ T | Produced$ Combo G W\n";
+    let body = read(text);
+    assert!(body.abilities[0].contains("zone = ZoneRef::Graveyard"));
+    assert!(body.abilities[0].contains("Modifier::GrantActivated"));
+    for (from, to) in [
+        ("EffectZone$ Graveyard", "EffectZone$ Exile"),
+        ("EffectZone$ Graveyard", "EffectZone$ Hand"),
+        ("EffectZone$ Graveyard", "EffectZone$ All"),
+        ("Land.YouCtrl", "Land.OppCtrl"),
+        ("AddAbility$ Gift", "AddAbility$ Gift | Unknown$ True"),
+        ("Cost$ T", "Cost$ 1 T"),
+        ("Combo G W", "Combo G W | Amount$ 2"),
+        ("Combo G W", "Combo G W | Unknown$ True"),
+    ] {
+        assert!(refused(&text.replace(from, to)), "{to}");
+    }
+}

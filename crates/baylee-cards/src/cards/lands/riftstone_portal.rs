@@ -2,30 +2,24 @@
 //! Oracle: {T}: Add {C}.
 //! Oracle: As long as this card is in your graveyard, lands you control have "{T}: Add {G} or {W}."
 //! Set: JUD #143 — Judgment | Scryfall ID: 92ece630-e484-4221-911f-e32048894f23 | Oracle ID: 8d7e05ba-5406-4d5e-bb8f-a4a6f3b0eaa7
-// PARTIAL — the printed {T}: Add {C} is implemented; the graveyard clause
-// cannot be said at all (see below), so the land taps for colorless mana and
-// nothing else.
-
 use baylee_cards_dsl::prelude::*;
-
 card!(
     index = index::RIFTSTONE_PORTAL,
     oracle_id = "8d7e05ba-5406-4d5e-bb8f-a4a6f3b0eaa7",
     scryfall_id = "92ece630-e484-4221-911f-e32048894f23",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    faces = &[face!(name = "Riftstone Portal", types = TypeSet::LAND,),],
-    coverage = Coverage::Partial(
-        "a StaticAbility has no zone to function from: its source is read only \
-         while it is a permanent on the battlefield, so the graveyard clause \
-         never switches on"
-    ),
+    faces = &[face!(name = "Riftstone Portal", types = TypeSet::LAND)],
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        // NOT SUPPORTED: As long as this card is in your graveyard, lands you
-        // control have "{T}: Add {G} or {W}." — the *grant* is expressible,
-        // and Chromatic Lantern writes that very sentence; what is missing is
-        // the zone. A `StaticAbility` has no field saying where its source
-        // functions from, and the layer projection walks the battlefield and
-        // the stack, so a card in a graveyard applies nothing.
+        static_ability!(
+            Filter::YOUR_LAND,
+            Modifier::GrantActivated {
+                cost: Cost::TAP,
+                effects: &[Effect::mana_choice(&[ManaColor::Green, ManaColor::White])],
+                mana_ability: true,
+            },
+            zone = ZoneRef::Graveyard
+        ),
     ],
 );

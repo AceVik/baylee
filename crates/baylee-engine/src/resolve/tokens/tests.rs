@@ -149,6 +149,7 @@ fn token_copy_exceptions_remove_defining_abilities_and_keep_other_subtypes() {
     base.keywords = KeywordSet::CHANGELING;
     object.take_abilities(crate::object::AbilityList::from_static(
         &[AbilityDef::Static(StaticAbility {
+            source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
             layer: baylee_cards_dsl::Layer::PtCda,
             filter: Filter::This,
             condition: None,

@@ -33,6 +33,21 @@ pub enum Zone {
 }
 
 impl Zone {
+    /// Match a rules-zone selector; outside-game cards are not in any game zone.
+    pub(crate) const fn matches_ref(self, zone: baylee_cards_dsl::ZoneRef) -> bool {
+        use baylee_cards_dsl::ZoneRef;
+        match zone {
+            ZoneRef::Battlefield => matches!(self, Self::Battlefield),
+            ZoneRef::Stack => matches!(self, Self::Stack),
+            ZoneRef::Library => matches!(self, Self::Library),
+            ZoneRef::Hand => matches!(self, Self::Hand),
+            ZoneRef::Graveyard => matches!(self, Self::Graveyard),
+            ZoneRef::Exile => matches!(self, Self::Exile),
+            ZoneRef::Command => matches!(self, Self::Command),
+            ZoneRef::NotBattlefield => !matches!(self, Self::Battlefield | Self::OutsideGame),
+        }
+    }
+
     /// Whether the zone is shared rather than per-player.
     #[must_use]
     pub const fn is_shared(self) -> bool {

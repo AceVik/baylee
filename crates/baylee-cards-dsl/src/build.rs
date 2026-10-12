@@ -362,6 +362,8 @@ impl LoyaltyParts {
 /// exception. A card says *what changes* and *to what*; CR 613.1 says when.
 #[derive(Clone, Copy, Debug)]
 pub struct StaticParts {
+    /// Zone in which the source's static ability functions (battlefield by default).
+    pub zone: crate::ZoneRef,
     /// Which objects are affected.
     pub filter: Filter,
     /// What changes.
@@ -378,6 +380,7 @@ impl StaticParts {
     #[must_use]
     pub const fn new(filter: Filter, modifier: Modifier) -> Self {
         Self {
+            zone: crate::ZoneRef::Battlefield,
             filter,
             modifier,
             condition: None,
@@ -388,6 +391,7 @@ impl StaticParts {
     #[must_use]
     pub const fn build(self) -> AbilityDef {
         AbilityDef::Static(StaticAbility {
+            source_zone: self.zone,
             layer: self.modifier.layer(),
             filter: self.filter,
             modifier: self.modifier,

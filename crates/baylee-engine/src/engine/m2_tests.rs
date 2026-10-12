@@ -100,6 +100,7 @@ struct TestLookup {
 }
 
 static ANTHEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
+    source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
     layer: Layer::PtModify,
     filter: CREATURE_YOU,
     modifier: Modifier::ModifyPT(1, 1),
@@ -107,6 +108,7 @@ static ANTHEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
 })];
 
 static LATTICE_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
+    source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
     layer: Layer::Type,
     filter: Filter::Any,
     modifier: Modifier::AddType(TypeSet::ARTIFACT),

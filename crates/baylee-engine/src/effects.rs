@@ -537,15 +537,20 @@ impl EffectTable {
     /// Points every static ability's "you" at whoever controls its source
     /// now (CR 109.5).
     ///
-    /// `controller_of` answers for a source on the battlefield and `None`
-    /// otherwise, so an effect whose source has left keeps the controller
-    /// the source last had there until `sync_static_effects` drops it. The
+    /// `controller_of` answers for a source in its declared zone: its controller
+    /// on the battlefield or stack, otherwise its owner. A departed source
+    /// retains its last authority until static synchronization drops it. The
     /// generation does not move: this is the projection being written, as
     /// `GameObject::controller` is, and not the table changing.
-    pub(crate) fn follow_sources(&mut self, controller_of: impl Fn(ObjectId) -> Option<PlayerId>) {
+    pub(crate) fn follow_sources(
+        &mut self,
+        controller_of: impl Fn(ObjectId, Duration) -> Option<PlayerId>,
+    ) {
         for fx in &mut self.effects {
             if fx.origin.is_static()
-                && let Some(now) = fx.source.and_then(&controller_of)
+                && let Some(now) = fx
+                    .source
+                    .and_then(|source| controller_of(source, fx.duration))
             {
                 fx.controller = now;
             }
@@ -716,12 +721,32 @@ pub fn applies_to(
 /// Static grants are retained until death triggers have read their lookback;
 /// characteristic projection must stop using them as soon as the source leaves.
 pub(crate) fn source_is_present(state: &crate::state::GameState, fx: &ContinuousEffect) -> bool {
-    fx.duration != Duration::WhileSourceOnBattlefield
-        || fx.source.is_none_or(|source| {
-            state
-                .object(source)
-                .is_some_and(|object| object.zone == crate::zone::Zone::Battlefield)
-        })
+    let zone = match fx.duration {
+        Duration::WhileSourceOnBattlefield => baylee_cards_dsl::ZoneRef::Battlefield,
+        Duration::WhileSourceInZone(zone) => zone,
+        _ => return true,
+    };
+    fx.source.is_none_or(|source| {
+        state
+            .object(source)
+            .is_some_and(|object| object.zone.matches_ref(zone))
+            && (!matches!(fx.duration, Duration::WhileSourceInZone(_))
+                || state
+                    .effect_text_overrides
+                    .iter()
+                    .find(|(id, _)| *id == fx.id)
+                    .is_none_or(|(_, origin)| {
+                        let reference = match *origin {
+                            crate::text_changes::TextOrigin::Live(reference)
+                            | crate::text_changes::TextOrigin::Ability {
+                                source: reference, ..
+                            } => reference,
+                            crate::text_changes::TextOrigin::Frozen(_) => return true,
+                        };
+                        reference.object != source
+                            || state.source_identity(source) == Some(reference)
+                    }))
+    })
 }
 
 /// A captured pre-departure object may still have its now-departed grantor's ability.
