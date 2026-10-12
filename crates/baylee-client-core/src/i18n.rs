@@ -5652,6 +5652,27 @@ messages! {
     DecksUnplayableOne { en: "{0} card won\u{2019}t play", de: "{0} Karte spielt nicht" },
     /// A tile's badge: cards that will not play. `{0}` the count.
     DecksUnplayableMany { en: "{0} cards won\u{2019}t play", de: "{0} Karten spielen nicht" },
+    /// A tile's badge: the deck holds a card blocked on this gateway.
+    /// `{0}` the card's name.
+    DecksBlockedOne { en: "{0} blocked here", de: "{0} hier gesperrt" },
+    /// A tile's badge: the deck holds several cards blocked on this
+    /// gateway. `{0}` the count.
+    DecksBlockedMany { en: "{0} cards blocked here", de: "{0} Karten hier gesperrt" },
+    /// Why a deck cannot be played on this gateway, or a card is marked in
+    /// the builder: a block without an end. `{0}` the card, `{1}` the
+    /// operator's reason.
+    CardBlocked {
+        en: "{0} is blocked on this server: {1}",
+        de: "{0} ist auf diesem Server gesperrt: {1}",
+    },
+    /// The same, for a block that ends. `{0}` the card, `{1}` the reason,
+    /// `{2}` when it ends (`2026-10-20 18:00 UTC`).
+    CardBlockedUntil {
+        en: "{0} is blocked on this server until {2}: {1}",
+        de: "{0} ist auf diesem Server bis {2} gesperrt: {1}",
+    },
+    /// The deck builder's mark on a card blocked on this gateway.
+    BuildBlocked { en: "blocked here", de: "hier gesperrt" },
     /// The shelf's search box, while empty.
     DecksSearchHint { en: "Search decks…", de: "Decks suchen …" },
     /// Play's table sort button. `{0}` the order (German: the order alone,

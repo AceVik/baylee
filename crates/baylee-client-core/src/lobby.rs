@@ -233,6 +233,58 @@ pub struct DeckSummary {
     /// whose [`Self::leaders`] are its picture.
     #[serde(default)]
     pub signature: Option<Leader>,
+    /// Its cards blocked on the gateway that listed it (`docs/protocol.md`
+    /// §"Blocked cards"): the gateway refuses the deck for its tables while
+    /// any is. Empty from an older gateway, and for a deck listed offline.
+    #[serde(default)]
+    pub blocked: Vec<BlockedCard>,
+}
+
+/// A card the gateway's operator took out of play there, as `GET
+/// /cards/blocked` and a deck row's `blocked` say it (`docs/protocol.md`
+/// §"Blocked cards"). Only the gateway acts on it; the client marks it, and
+/// a local game never looks.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+pub struct BlockedCard {
+    /// The card's registry index.
+    pub index: u32,
+    /// Its English name.
+    pub name: String,
+    /// Why, in the operator's words.
+    #[serde(default)]
+    pub reason: String,
+    /// When it ends by itself (RFC 3339, UTC); `None` for no end.
+    #[serde(default)]
+    pub until: Option<String>,
+}
+
+impl BlockedCard {
+    /// The end as a reader takes it in: `2026-10-20 18:00 UTC`, read off
+    /// the gateway's RFC 3339 (`2026-10-20T18:00:00Z`) as it is written;
+    /// anything else as it came.
+    #[must_use]
+    pub fn until_said(&self) -> Option<String> {
+        self.until.as_deref().map(|at| {
+            match (
+                at.get(..10),
+                at.get(10..11),
+                at.get(11..16),
+                at.ends_with('Z'),
+            ) {
+                (Some(day), Some("T"), Some(time), true) => format!("{day} {time} UTC"),
+                _ => at.to_owned(),
+            }
+        })
+    }
+
+    /// The sentence a player reads: which card, why and until when.
+    #[must_use]
+    pub fn sentence(&self, lang: Lang) -> String {
+        match self.until_said() {
+            Some(until) => Phrase::CardBlockedUntil.fill(lang, &[&self.name, &self.reason, &until]),
+            None => Phrase::CardBlocked.fill(lang, &[&self.name, &self.reason]),
+        }
+    }
 }
 
 /// The fewest chairs a table may have.
@@ -814,6 +866,9 @@ pub enum LobbyEvent {
         /// Whether the gateway could serve rules text with them.
         has_text: bool,
     },
+    /// The cards blocked on the gateway (`GET /cards/blocked`), asked
+    /// beside the pool; never offline.
+    BlockedCards(Vec<BlockedCard>),
     /// Every printing of one card.
     Printings {
         /// Which card was asked about.
@@ -3086,6 +3141,10 @@ impl Lobby {
             LobbyEvent::Pool { cards, has_text } => {
                 self.builder.set_pool(cards, has_text);
                 self.clear_status();
+                None
+            }
+            LobbyEvent::BlockedCards(blocked) => {
+                self.builder.set_blocked(blocked);
                 None
             }
             LobbyEvent::Printings {

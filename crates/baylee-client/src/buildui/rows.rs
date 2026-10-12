@@ -170,6 +170,24 @@ pub(crate) fn pool_row(
             .id();
         top.push(flag);
     }
+    // Blocked on this gateway: the deck that holds it will not sit down
+    // here (`docs/protocol.md` §"Blocked cards"); the sheet says why.
+    if deck.blocked(card.index).is_some() {
+        let flag = commands
+            .spawn((
+                Text::new(Phrase::BuildBlocked.text(lang)),
+                tf_bold(kit.fonts, m.small * 0.9),
+                TextColor(tokens::DANGER),
+                TextLayout::no_wrap(),
+                Node {
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        top.push(flag);
+    }
     let first = line(commands, kit, &top);
     let second = cell(commands, kit, &subline(card), m.small, tokens::MUTED, false);
     commands.entity(info).add_children(&[first, second]);
@@ -307,7 +325,10 @@ pub(crate) fn deck_row(
         Press::Build(BuildPress::PickRowPrint(at)),
         Pickable::default(),
     ));
-    let ink = if card.coverage.trustworthy() {
+    let blocked = deck.blocked(card.index).is_some();
+    let ink = if blocked {
+        tokens::DANGER
+    } else if card.coverage.trustworthy() {
         tokens::INK
     } else {
         tokens::MUTED
