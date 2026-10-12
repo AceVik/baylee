@@ -741,6 +741,10 @@ enum Opening {
 
 /// The panel's own state — what the player has said about it, nothing more.
 #[derive(Clone, Default, Debug)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent facts about the sheet, each with its own reader"
+)]
 pub struct Browser {
     /// A mixed choice sheet must not hide the offered battlefield answers.
     obscured_battlefield: bool,
