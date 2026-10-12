@@ -1219,6 +1219,26 @@ pub async fn join_group(
     Ok(outcome)
 }
 
+/// Who invited `invitee` to group `id`, if it is invited.
+///
+/// # Errors
+///
+/// When the query fails.
+pub async fn group_inviter(
+    db: &impl ConnectionTrait,
+    id: Uuid,
+    invitee: Uuid,
+) -> Result<Option<Uuid>, DbErr> {
+    let row = db
+        .query_one_raw(stmt(
+            db,
+            "SELECT inviter_id FROM group_invite WHERE group_id = $1 AND account_id = $2",
+            vec![id.into(), invitee.into()],
+        ))
+        .await?;
+    row.map(|row| row.try_get("", "inviter_id")).transpose()
+}
+
 /// Drops `invitee`'s invite to group `id`, answering who had invited them.
 ///
 /// # Errors
