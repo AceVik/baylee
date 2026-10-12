@@ -1007,12 +1007,17 @@ impl ApiMind {
         }
         let result = tokio::task::spawn_blocking(move || {
             let started = Instant::now();
+            let mut session_id = None;
             let result = (|| {
+                let _turn = remote
+                    .as_ref()
+                    .map(|r| r.turn())
+                    .transpose()
+                    .map_err(Failed::unbilled)?;
                 if let Some(remote) = &remote {
-                    headers.push((
-                        "x-session-id",
-                        remote.id(timeout).map_err(Failed::unbilled)?,
-                    ));
+                    let id = remote.id(timeout).map_err(Failed::unbilled)?;
+                    headers.push(("x-session-id", id.clone()));
+                    session_id = Some(id);
                 }
                 let remaining = timeout.saturating_sub(started.elapsed());
                 if remaining.is_zero() {
@@ -1021,9 +1026,9 @@ impl ApiMind {
                 call(&agent, &url, &headers, &bytes, remaining, api, mode)
             })();
             if result.as_ref().is_err_and(|failed| failed.session_gone)
-                && let Some(remote) = &remote
+                && let (Some(remote), Some(id)) = (&remote, &session_id)
             {
-                remote.forget_expired();
+                remote.forget_expired(id);
             }
             let billed = match &result {
                 Ok(reply) => Ok(reply.usage),
@@ -1356,7 +1361,11 @@ fn call(
             if success {
                 Failed::from(why)
             } else {
-                Failed::unbilled(why)
+                Failed {
+                    turned_down: matches!(status, 400 | 413),
+                    session_gone: status == 410,
+                    ..Failed::unbilled(why)
+                }
             }
         })?;
     if !success {

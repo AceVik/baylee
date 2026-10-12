@@ -1498,3 +1498,80 @@ async fn an_expired_managed_session_is_recreated_only_on_the_next_decision() {
     let request = a_priority();
     mind.end_game(&request.context.game_id, request.context.seat.get());
 }
+
+#[tokio::test]
+async fn lifecycle_status_survives_a_non_json_error_page() {
+    async fn plain_error() -> (StatusCode, &'static str) {
+        (StatusCode::GONE, "This session has expired")
+    }
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        axum::serve(listener, Router::new().fallback(plain_error))
+            .await
+            .unwrap();
+    });
+    let result = tokio::task::spawn_blocking(move || {
+        let agent = ureq::Agent::config_builder()
+            .http_status_as_error(false)
+            .build()
+            .new_agent();
+        call(
+            &agent,
+            &url,
+            &[],
+            b"{}",
+            Duration::from_secs(2),
+            Api::OpenAi,
+            AnswerMode::Json,
+        )
+    })
+    .await
+    .unwrap()
+    .unwrap_err();
+    assert!(result.session_gone);
+    assert!(!result.unknown_bill);
+    server.abort();
+}
+
+#[tokio::test]
+async fn cancelled_managed_decisions_do_not_overlap_their_blocking_workers() {
+    let (base, provider) = stand_in().await;
+    let mind = Arc::new(mind(&base, Provider::OpenAi, |s| {
+        s.answer = AnswerMode::Json;
+        s.session_api = true;
+    }));
+    provider.script(Scripted::ok(json!({"id":"cancel_fixture"})));
+    provider.script(
+        Scripted::ok(json!({"choices":[{"message":{"role":"assistant",
+        "content":"{\"ask\":\"q12\",\"pick\":[\"p\"]}"},"finish_reason":"stop"}]}))
+        .slow(Duration::from_millis(500)),
+    );
+    let first = mind.clone();
+    let pending = tokio::spawn(async move { first.decide(a_priority()).await });
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while provider.seen().len() < 2 {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    pending.abort();
+    let _ = pending.await;
+    let error = mind.decide(a_priority()).await.unwrap_err();
+    assert!(
+        error.to_string().contains("previous session turn"),
+        "{error}"
+    );
+    assert_eq!(provider.seen().len(), 2);
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while lock(&mind.tally).held != Worst::default() {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    provider.script(Scripted::ok(json!({"deleted":true})));
+    let request = a_priority();
+    mind.end_game(&request.context.game_id, request.context.seat.get());
+}

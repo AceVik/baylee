@@ -141,3 +141,23 @@ fn identifiers_cannot_inject_a_header_or_escape_the_session_path() {
     assert!(!valid_id(&"a".repeat(129)));
     assert!(valid_id("sess_example-0123"));
 }
+
+#[tokio::test]
+async fn late_expiry_does_not_forget_a_replacement_and_turns_are_exclusive() {
+    let (session, f, server) = fixture().await;
+    let first = id(&session).await.unwrap();
+    session.forget_expired(&first);
+    let second = id(&session).await.unwrap();
+    session.forget_expired(&first);
+    assert_eq!(id(&session).await.unwrap(), second);
+    assert_eq!(f.creates.load(Ordering::SeqCst), 2);
+    {
+        let turn = session.turn().unwrap();
+        assert!(session.turn().is_err());
+        drop(turn);
+        assert!(session.turn().is_ok());
+    }
+    session.close();
+    until(&f, &format!("/{second}"), Method::DELETE).await;
+    server.abort();
+}

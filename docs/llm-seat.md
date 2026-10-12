@@ -130,6 +130,10 @@ from a vendor, model name, port or address.
 All lifecycle calls use the same address, authentication and no-redirect policy
 as the model call. A completion returning 410 is not replayed automatically:
 that decision follows the usual failure policy; the next call starts a session.
+This also applies when a proxy returns a non-JSON error page. A late expiry
+response cannot discard a newer session. If an aborted decision still has a
+blocking HTTP call in flight, another decision for that session fails locally
+until the old call finishes; different seats continue independently.
 Servers may return 202 while their own cleanup continues. Labels and session ids
 are never put in the table's public mind declaration, prompts or transcripts.
 

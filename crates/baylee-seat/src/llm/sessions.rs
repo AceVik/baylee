@@ -3,7 +3,7 @@ use super::lock;
 use serde_json::{Value, json};
 use std::{
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, MutexGuard,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Duration,
@@ -24,6 +24,7 @@ pub(super) struct Session {
     closed: AtomicBool,
     heartbeat_secs: AtomicU64,
     state: Mutex<State>,
+    turn: Mutex<()>,
     changed: Arc<tokio::sync::Notify>,
 }
 impl Session {
@@ -43,6 +44,7 @@ impl Session {
             heartbeat_secs: AtomicU64::new(300),
             changed: Arc::default(),
             state: Mutex::new(State { id: None }),
+            turn: Mutex::new(()),
         });
         let weak = Arc::downgrade(&session);
         tokio::spawn(async move {
@@ -97,8 +99,18 @@ impl Session {
         }
         Ok(state.id.as_ref().expect("created above").clone())
     }
-    pub fn forget_expired(&self) {
-        lock(&self.state).id = None;
+    // The blocking HTTP worker outlives a cancelled decision future. Never send
+    // another turn into the same conversation until that worker has returned.
+    pub fn turn(&self) -> Result<MutexGuard<'_, ()>, String> {
+        self.turn
+            .try_lock()
+            .map_err(|_| "a previous session turn is still finishing".into())
+    }
+    pub fn forget_expired(&self, expired: &str) {
+        let mut state = lock(&self.state);
+        if state.id.as_deref() == Some(expired) {
+            state.id = None;
+        }
     }
     fn touch(&self) {
         let mut state = lock(&self.state);
