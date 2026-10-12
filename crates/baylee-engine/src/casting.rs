@@ -182,21 +182,23 @@ pub fn face_has_a_legal_target(
         _ => None,
     });
     if let Some((modes, choose)) = modal.next() {
-        let takeable = modes
-            .iter()
-            .filter(|mode| {
-                requirement_is_reachable_for(mode.targets, state, player, card, Some((def, face)))
-                    && requirement_is_reachable_for(
-                        mode.second_targets,
+        return mode_sets(modes, *choose).any(|set| {
+            let wall_only = crate::eval::target_domain::modes_wall_only(modes, set);
+            chosen_modes(modes, set).all(|(_, mode)| {
+                [mode.targets, mode.second_targets].into_iter().all(|req| {
+                    requirement_is_reachable_for(
+                        req,
                         state,
                         player,
                         card,
                         Some((def, face)),
+                        wall_only,
                     )
+                })
             })
-            .count();
-        return takeable >= usize::from(choose.min.max(1));
+        });
     }
+
     let spell = abilities.iter().find_map(|a| match a {
         baylee_cards_dsl::AbilityDef::Spell {
             targets,
@@ -209,15 +211,35 @@ pub fn face_has_a_legal_target(
     // Every instance of the word has to be satisfiable (CR 601.2c): Khalni
     // Ambush with no creature on the other side of the table is not a spell
     // that can be cast, however many of the caster's own it could name.
-    (requirement_is_reachable_for(req, state, player, card, Some((def, face)))
-        || def
-            .faces
-            .get(face)
-            .and_then(|f| f.kicked_targets)
-            .is_some_and(|req| {
-                requirement_is_reachable_for(Some(req), state, player, card, Some((def, face)))
-            }))
-        && requirement_is_reachable_for(second, state, player, card, Some((def, face)))
+    (requirement_is_reachable_for(
+        req,
+        state,
+        player,
+        card,
+        Some((def, face)),
+        crate::eval::target_domain::walls(req, second),
+    ) || def
+        .faces
+        .get(face)
+        .and_then(|f| f.kicked_targets)
+        .is_some_and(|req| {
+            requirement_is_reachable_for(
+                Some(req),
+                state,
+                player,
+                card,
+                Some((def, face)),
+                crate::eval::target_domain::walls(Some(req), second),
+            )
+        }))
+        && requirement_is_reachable_for(
+            second,
+            state,
+            player,
+            card,
+            Some((def, face)),
+            crate::eval::target_domain::walls(req, second),
+        )
 }
 
 /// Whether the ordinary spell target requirement can be satisfied.
@@ -232,10 +254,7 @@ pub(crate) fn ordinary_targets_reachable(
             targets,
             second_targets,
             ..
-        } => {
-            requirement_is_reachable(*targets, state, player, card)
-                && requirement_is_reachable(*second_targets, state, player, card)
-        }
+        } => requirements_are_reachable(*targets, *second_targets, state, player, card),
         _ => true,
     })
 }
@@ -285,10 +304,7 @@ pub fn mode_has_a_legal_target(
     // (CR 601.2c): Archdruid's Charm's second mode with no creature on the
     // other side of the table is not a mode that can be chosen (CR 700.2a).
     match reqs {
-        Some((first, second)) => {
-            requirement_is_reachable(first, state, player, card)
-                && requirement_is_reachable(second, state, player, card)
-        }
+        Some((first, second)) => requirements_are_reachable(first, second, state, player, card),
         None => true,
     }
 }
@@ -350,9 +366,27 @@ pub fn mode_set_has_legal_targets(
     card: ObjectId,
     set: u8,
 ) -> bool {
-    (0..8_usize)
-        .filter(|i| set & (1 << i) != 0)
-        .all(|i| mode_has_a_legal_target(state, lookup, player, card, i))
+    let Some(def) = state
+        .object(card)
+        .and_then(|object| object.card)
+        .and_then(|card| lookup.card(card.index))
+    else {
+        return true;
+    };
+    def.abilities
+        .iter()
+        .filter_map(|ability| match ability {
+            baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => Some(*modes),
+            _ => None,
+        })
+        .all(|modes| {
+            let wall_only = crate::eval::target_domain::modes_wall_only(modes, set);
+            chosen_modes(modes, set).all(|(_, mode)| {
+                [mode.targets, mode.second_targets].into_iter().all(|req| {
+                    requirement_is_reachable_for(req, state, player, card, None, wall_only)
+                })
+            })
+        })
 }
 
 /// Whether choosing a mode is the **only** way to cast this face (CR 700.2).
@@ -383,19 +417,32 @@ pub fn modes_are_the_only_way(def: &baylee_cards_dsl::CardDef, face: usize) -> b
         && !f.types.is_permanent()
 }
 
-/// Whether a target requirement can be met on this board.
-///
-/// Deliberately conservative, and answers `true` whenever it cannot be sure:
-/// no requirement at all, a minimum of zero, an X-counted requirement whose
-/// number nobody has picked yet, and anything naming a *player*, who is not
-/// an object and is never absent. All of those stay the wizard's problem.
-pub(crate) fn requirement_is_reachable(
-    req: Option<baylee_cards_dsl::TargetReq>,
+fn requirements_are_reachable(
+    first: Option<baylee_cards_dsl::TargetReq>,
+    second: Option<baylee_cards_dsl::TargetReq>,
     state: &GameState,
     player: PlayerId,
     card: ObjectId,
 ) -> bool {
-    requirement_is_reachable_for(req, state, player, card, None)
+    let wall_only = crate::eval::target_domain::walls(first, second);
+    [first, second]
+        .into_iter()
+        .all(|req| requirement_is_reachable_for(req, state, player, card, None, wall_only))
+}
+
+/// Kicker replaces the first targeting group, retaining the second group.
+pub(crate) fn kicked_targets_reachable(
+    state: &GameState,
+    def: &baylee_cards_dsl::CardDef,
+    player: PlayerId,
+    card: ObjectId,
+    first: baylee_cards_dsl::TargetReq,
+) -> bool {
+    let second = def.abilities.iter().find_map(|ability| match ability {
+        baylee_cards_dsl::AbilityDef::Spell { second_targets, .. } => *second_targets,
+        _ => None,
+    });
+    requirements_are_reachable(Some(first), second, state, player, card)
 }
 
 fn requirement_is_reachable_for(
@@ -404,6 +451,7 @@ fn requirement_is_reachable_for(
     player: PlayerId,
     card: ObjectId,
     face: Option<(&baylee_cards_dsl::CardDef, usize)>,
+    wall_only: bool,
 ) -> bool {
     let Some(req) = req else {
         return true;
@@ -435,19 +483,20 @@ fn requirement_is_reachable_for(
         // target for some X (`eval::matches_for_some_x`). Enumerated through
         // the same reader with the filter widened, so what makes a spell or
         // permanent targetable at all is still asked the one way.
-        Some((widened, filter)) => {
-            crate::eval::spell_target_options_for(&widened, state, player, card, face, None)
-                .into_iter()
-                .filter(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        crate::eval::matches_for_some_x(filter, state, o, player, card)
-                    })
-                })
-                .count()
-        }
-        None => {
-            crate::eval::spell_target_options_for(&req.spec, state, player, card, face, None).len()
-        }
+        Some((widened, filter)) => crate::eval::spell_target_options_for(
+            &widened, state, player, card, face, None, wall_only,
+        )
+        .into_iter()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|o| crate::eval::matches_for_some_x(filter, state, o, player, card))
+        })
+        .count(),
+        None => crate::eval::spell_target_options_for(
+            &req.spec, state, player, card, face, None, wall_only,
+        )
+        .len(),
     };
     let players = crate::eval::target_player_options(state, &req.spec, player).len();
     objects + players >= req.min as usize
@@ -1041,7 +1090,7 @@ pub(crate) fn can_cast_form_paying(
             .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
         let reachable = face.kicked_targets.map_or_else(
             || face_has_a_legal_target(state, lookup, player, card, 0),
-            |req| requirement_is_reachable(Some(req), state, player, card),
+            |req| kicked_targets_reachable(state, def, player, card, req),
         );
         if reachable
             && (affordable(
@@ -1073,7 +1122,7 @@ pub(crate) fn can_cast_form_paying(
     {
         let ordinary = ordinary_targets_reachable(state, def, player, card)
             && probe_normal(&c.mana_cost.with_x(0));
-        let kicked = requirement_is_reachable(Some(req), state, player, card)
+        let kicked = kicked_targets_reachable(state, def, player, card, req)
             && probe_normal(&kicked_mana_cost(&def.faces[0]).with_x(0));
         return if ordinary || kicked {
             Ok(())

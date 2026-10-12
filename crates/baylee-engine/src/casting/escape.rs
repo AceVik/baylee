@@ -136,20 +136,29 @@ pub(crate) fn granted_escape_options(
                         }
                     }
                 };
-                let reachable = |first, second| {
+                let reachable = |first, second, selected_domain: Option<bool>| {
                     let first = if kicked {
                         face.kicked_targets.or(first)
                     } else {
                         first
                     };
-                    requirement_is_reachable_for(first, state, player, card, Some((def, index)))
-                        && requirement_is_reachable_for(
-                            second,
-                            state,
-                            player,
-                            card,
-                            Some((def, index)),
-                        )
+                    requirement_is_reachable_for(
+                        first,
+                        state,
+                        player,
+                        card,
+                        Some((def, index)),
+                        selected_domain
+                            .unwrap_or_else(|| crate::eval::target_domain::walls(first, second)),
+                    ) && requirement_is_reachable_for(
+                        second,
+                        state,
+                        player,
+                        card,
+                        Some((def, index)),
+                        selected_domain
+                            .unwrap_or_else(|| crate::eval::target_domain::walls(first, second)),
+                    )
                 };
                 if !modes_are_the_only_way(def, index)
                     && def
@@ -160,7 +169,7 @@ pub(crate) fn granted_escape_options(
                                 targets,
                                 second_targets,
                                 ..
-                            } => reachable(*targets, *second_targets),
+                            } => reachable(*targets, *second_targets, None),
                             _ => true,
                         })
                 {
@@ -173,7 +182,11 @@ pub(crate) fn granted_escape_options(
                     for set in mode_sets(modes, *choose) {
                         if chosen_modes(modes, set).all(|(_, mode)| {
                             mode.cost_override.is_none()
-                                && reachable(mode.targets, mode.second_targets)
+                                && reachable(
+                                    mode.targets,
+                                    mode.second_targets,
+                                    Some(crate::eval::target_domain::modes_wall_only(modes, set)),
+                                )
                         }) {
                             add(set, mode_set_cost(base, modes, set));
                         }

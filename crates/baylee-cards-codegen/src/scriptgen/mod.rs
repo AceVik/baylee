@@ -54,6 +54,7 @@ mod statics;
 mod support;
 mod targets;
 mod triggers;
+mod wall52;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,

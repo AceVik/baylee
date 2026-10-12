@@ -171,6 +171,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::OpponentsCantCast(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
+        | Modifier::CantBeTargetedByWallOnly
         | Modifier::CantBeTargetedByAbilitiesFrom(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
@@ -1271,6 +1272,7 @@ mod tests {
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
             Modifier::CantBeEnchantedExceptSource,
             Modifier::CantBeTargetedBy(&Filter::CREATURE),
+            Modifier::CantBeTargetedByWallOnly,
             Modifier::CantBeTargetedByAbilitiesFrom(&Filter::ARTIFACT),
             Modifier::DrawLimitPerTurn {
                 who: PlayerRel::EachPlayer,
@@ -1392,7 +1394,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            126,
+            127,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1456,7 +1458,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (44, 82));
+        assert_eq!((locking, all.len() - locking), (44, 83));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

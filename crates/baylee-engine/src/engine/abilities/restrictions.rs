@@ -209,6 +209,18 @@ impl<L: CardLookup> Engine<L> {
             .retain(|&(source, index)| self.is_payment_mana_offer(source, index));
     }
 
+    /// Target permissions of the actual activation, including runtime grants.
+    pub(super) fn activation_wall_only(&self, source: ObjectId, index: u32) -> bool {
+        let frozen = self
+            .activating_abilities
+            .as_ref()
+            .filter(|(id, _)| *id == source)
+            .and_then(|(_, list)| list.abilities.get(index as usize).copied());
+        frozen
+            .or_else(|| self.activation_definition(source, index))
+            .is_some_and(|definition| eval::target_domain::ability_walls(&definition, None))
+    }
+
     /// Effective words captured for an activation, or live words before it starts.
     pub(super) fn ability_rule_context(
         &self,
@@ -273,12 +285,13 @@ impl<L: CardLookup> Engine<L> {
         // player is always there to point at. `target_player_options`
         // answers empty for every object-only spec, which is what lets one
         // sum serve every spec; the cast wizard adds them the same way.
-        let objects = eval::target_options_with_x(
+        let objects = eval::target_options_in_domain(
             &req.spec,
             &self.state,
             player,
             self.ability_rule_context(source, ability_index),
             None,
+            self.activation_wall_only(source, ability_index),
         )
         .len();
         let players = eval::target_player_options(&self.state, &req.spec, player).len();

@@ -136,6 +136,9 @@ impl Tx<'_> {
         if mode == "CantBeCast" {
             return self.one_spell_each_turn(p);
         }
+        if mode == "CantTarget" && p.peek("SourceCanOnlyTarget") == Some("Wall") {
+            return self.wall_only_target_prohibition(p);
+        }
         if mode == "CantBlockBy" {
             return self.cant_block_by(p);
         }

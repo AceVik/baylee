@@ -803,7 +803,8 @@
         },
         {
           "name": "Wall of Shadows",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_3/wall_of_shadows.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_3/wall_of_shadows.rs",
+          "status": "completed"
         },
         {
           "name": "Archon of Emeria",
@@ -859,7 +860,7 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 10,
+      "validated_complete": 11,
       "remaining_note": "Remaining cards require shared engine support and actual-action validation."
     },
     {
@@ -896,11 +897,13 @@
       "cards": [
         {
           "name": "Riftstone Portal",
-          "path": "crates/baylee-cards/src/cards/lands/riftstone_portal.rs"
+          "path": "crates/baylee-cards/src/cards/lands/riftstone_portal.rs",
+          "status": "completed"
         },
         {
           "name": "Quarum Trench Gnomes",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_4/quarum_trench_gnomes.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/quarum_trench_gnomes.rs",
+          "status": "completed"
         },
         {
           "name": "Gond Gate",
@@ -909,7 +912,8 @@
         },
         {
           "name": "Thran Portal",
-          "path": "crates/baylee-cards/src/cards/lands/gates/thran_portal.rs"
+          "path": "crates/baylee-cards/src/cards/lands/gates/thran_portal.rs",
+          "status": "completed"
         },
         {
           "name": "Unstable Frontier",
@@ -917,12 +921,7 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 2,
-      "completed_cards": [
-        "Riftstone Portal",
-        "Thran Portal",
-        "Quarum Trench Gnomes"
-      ]
+      "validated_complete": 5
     },
     {
       "batch": 55,

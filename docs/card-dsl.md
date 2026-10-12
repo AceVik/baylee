@@ -3529,3 +3529,15 @@ replacement preserves quantity and spending restrictions, and reflected
 production uses the same rewrite inside its finite six-bit fixed-point graph.
 The color words follow the resolving effect's frozen text changes. Codegen
 rejects unsupported all-zone surcharge grammar rather than silently narrowing it.
+
+### Whole targeting domains
+
+`CantBeTargetedByWallOnly` examines every allowed target group of the chosen
+spell or ability, including optional groups and selected modes. A broad
+artifact/player group permits targeting even when that group has no current
+candidates or no chosen targets. Positive Wall subtype constraints prove the
+restriction structurally; the current battlefield is never used as a proof.
+Announcements use the actual activated/granted definition and selected spell
+face. Stack copies and resolution rechecks use frozen target requirements,
+retaining the domain after a source leaves or changes abilities. No additional
+per-object storage is needed. Nontargeting choices remain independent.

@@ -85,20 +85,27 @@ impl<L: CardLookup> Engine<L> {
         &mut self,
         controller: PlayerId,
         context: crate::text_changes::RuleContext,
+        wall_only: bool,
         mut asking: PerOpponent,
         plan: impl FnOnce(Box<PerOpponent>) -> PlanKind,
     ) -> Option<SmallVec<[ObjectId; 2]>> {
         while !asking.remaining.is_empty() {
             let opponent = asking.remaining.remove(0);
-            let options: Vec<ObjectId> =
-                eval::target_options_with_context(&asking.spec, &self.state, controller, context)
-                    .into_iter()
-                    .filter(|id| {
-                        self.state
-                            .object(*id)
-                            .is_some_and(|o| o.controller == opponent)
-                    })
-                    .collect();
+            let options: Vec<ObjectId> = eval::target_options_in_domain(
+                &asking.spec,
+                &self.state,
+                controller,
+                context,
+                None,
+                wall_only,
+            )
+            .into_iter()
+            .filter(|id| {
+                self.state
+                    .object(*id)
+                    .is_some_and(|o| o.controller == opponent)
+            })
+            .collect();
             if options.is_empty() {
                 continue;
             }

@@ -4,6 +4,7 @@
 //! ability/spell controller, `this` its source object.
 
 mod stack_filters;
+pub(crate) mod target_domain;
 
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
@@ -1833,6 +1834,20 @@ pub(crate) fn target_options_with_x(
     options
 }
 
+/// Enumerate one instance using the complete selected targeting domain.
+pub(crate) fn target_options_in_domain(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    x: Option<u32>,
+    wall_only: bool,
+) -> Vec<ObjectId> {
+    let mut options = target_options_with_x(spec, state, you, context, x);
+    target_domain::retain(state, &mut options, wall_only);
+    options
+}
+
 /// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
 #[must_use]
 pub fn target_options(
@@ -1874,6 +1889,7 @@ pub(crate) fn spell_target_options_for(
     source: ObjectId,
     face: Option<(&baylee_cards_dsl::CardDef, usize)>,
     form: Option<crate::casting::SpellForm>,
+    wall_only: bool,
 ) -> Vec<ObjectId> {
     let Some(original) = state.object(source) else {
         return Vec::new();
@@ -1899,14 +1915,16 @@ pub(crate) fn spell_target_options_for(
     let projected = crate::layers::recompute(state, &spell);
     spell.base = std::sync::Arc::new(projected.characteristics);
     spell.controller = projected.controller;
-    choice_options(spec, state, you, source)
+    let mut options = choice_options(spec, state, you, source)
         .into_iter()
         .filter(|id| {
             !protected_from_object(state, *id, &spell)
                 && !untargetable_by_source_object(state, *id, &spell)
                 && !untargetable_by(state, *id, you)
         })
-        .collect()
+        .collect();
+    target_domain::retain(state, &mut options, wall_only);
+    options
 }
 
 /// The objects `spec` describes, for a choice that does **not** target.
@@ -2108,6 +2126,7 @@ pub fn stack_target_options(
         text: live_context(state, obj.id).text,
     };
     let mut objects = target_options_with_x(spec, state, you, context, Some(obj.x_value));
+    target_domain::retain(state, &mut objects, target_domain::stack_walls(obj));
     objects.retain(|id| *id != obj.id);
     (objects, target_player_options(state, spec, you))
 }

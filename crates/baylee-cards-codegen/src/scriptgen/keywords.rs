@@ -218,6 +218,9 @@ impl Tx<'_> {
         if event == "Moved" && p.peek("ValidCard") == Some("Gate.YouCtrl") {
             return self.gond_entry(p);
         }
+        if event == "DamageDone" && p.peek("ValidSource") == Some("Creature.blockedBySource") {
+            return self.wall_blocked_damage_prevention(p);
+        }
         if event == "Untap" {
             return self.does_not_untap(&mut p);
         }

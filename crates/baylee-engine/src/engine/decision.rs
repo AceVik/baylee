@@ -336,13 +336,7 @@ impl<L: CardLookup> Engine<L> {
                 .wizard_target_req(wizard)
                 .filter(|req| req.count_is_x)
                 .map(|req| {
-                    let objects = crate::eval::target_options(
-                        &req.spec,
-                        &self.state,
-                        wizard.player,
-                        wizard.card,
-                    )
-                    .len();
+                    let objects = self.wizard_target_options(wizard, &req.spec).len();
                     let players =
                         crate::eval::target_player_options(&self.state, &req.spec, wizard.player)
                             .len();

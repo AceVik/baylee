@@ -51,6 +51,7 @@ fn anti_magic_aura_stops_spells_but_allows_activated_abilities() {
             swords,
             None,
             None,
+            false,
         )
         .is_empty()
     );

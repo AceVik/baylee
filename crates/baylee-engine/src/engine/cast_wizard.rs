@@ -1361,7 +1361,11 @@ impl<L: CardLookup> Engine<L> {
         Ok(())
     }
 
-    fn wizard_target_options(&self, wizard: &CastWizard, spec: &TargetSpec) -> Vec<ObjectId> {
+    pub(super) fn wizard_target_options(
+        &self,
+        wizard: &CastWizard,
+        spec: &TargetSpec,
+    ) -> Vec<ObjectId> {
         let Some(def) = self
             .state
             .object(wizard.card)
@@ -1383,6 +1387,10 @@ impl<L: CardLookup> Engine<L> {
             wizard.card,
             Some((def, face)),
             form,
+            eval::target_domain::walls(
+                self.wizard_target_req(wizard),
+                self.wizard_second_target_req(wizard),
+            ),
         )
     }
 

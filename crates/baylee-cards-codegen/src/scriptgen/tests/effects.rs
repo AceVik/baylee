@@ -1212,3 +1212,16 @@ fn thran_additive_chosen_type_requires_its_own_basic_land_choice() {
             .is_none()
     );
 }
+#[test]
+fn wall_reader_keeps_blocked_source_and_wall_only_permission_distinct() {
+    let damage = "Name:X\nTypes:Creature Goblin\nPT:0/1\nR:Event$ DamageDone | Prevent$ True | ValidSource$ Creature.blockedBySource | ValidTarget$ Creature.Self";
+    assert!(read(damage).abilities[0].contains("PreventDamageFrom(&Filter::BlockedBySource)"));
+    assert!(refused(&format!("{damage} | IsCombat$ True")));
+    let permission = "Name:X\nTypes:Creature Goblin\nPT:0/1\nS:Mode$ CantTarget | ValidTarget$ Card.Self | SourceCanOnlyTarget$ Wall";
+    assert!(read(permission).abilities[0].contains("CantBeTargetedByWallOnly"));
+    assert!(refused(&permission.replace(
+        "SourceCanOnlyTarget$ Wall",
+        "SourceCanOnlyTarget$ Creature"
+    )));
+    assert!(refused(&format!("{permission} | ValidSource$ Spell")));
+}

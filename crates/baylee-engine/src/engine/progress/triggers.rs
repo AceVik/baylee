@@ -25,6 +25,23 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// The frozen selected trigger, not its source's later printed identity.
+    pub(in crate::engine) fn trigger_wall_only(
+        &self,
+        trigger: &crate::trigger::PendingTrigger,
+    ) -> bool {
+        if trigger.synthetic_effects.is_some() {
+            return trigger
+                .synthetic_target
+                .is_some_and(eval::target_domain::wall_spec);
+        }
+        self.trigger_abilities(trigger)
+            .get(trigger.ability_index as usize)
+            .is_some_and(|definition| {
+                eval::target_domain::ability_walls(definition, trigger.chosen_mode)
+            })
+    }
+
     /// The ability list a queued trigger's index points into.
     ///
     /// The source answers for itself in every ordinary case, and the trigger
@@ -224,28 +241,33 @@ impl<L: CardLookup> Engine<L> {
     /// mode that survives this test is one the question can actually be
     /// answered for.
     fn mode_is_choosable(&self, t: &crate::trigger::PendingTrigger, mode: &SpellMode) -> bool {
-        let Some(req) = mode.targets else {
-            return true;
-        };
-        if req.min == 0 {
-            // "Up to one target": choosable with nothing to point at.
-            return true;
-        }
-        if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
-            return t.event_object.is_some();
-        }
-        let objects = eval::target_options_with_context(
-            &t.bind_target(req.spec),
-            &self.state,
-            t.controller,
-            crate::text_changes::RuleContext {
-                source: t.source,
-                text: t.text,
-            },
-        )
-        .len();
-        let players = eval::target_player_options(&self.state, &req.spec, t.controller).len();
-        objects + players >= req.min as usize
+        let wall_only = eval::target_domain::walls(mode.targets, mode.second_targets);
+        [mode.targets, mode.second_targets]
+            .into_iter()
+            .flatten()
+            .all(|req| {
+                if req.min == 0 {
+                    return true;
+                }
+                if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
+                    return t.event_object.is_some();
+                }
+                let objects = eval::target_options_in_domain(
+                    &t.bind_target(req.spec),
+                    &self.state,
+                    t.controller,
+                    crate::text_changes::RuleContext {
+                        source: t.source,
+                        text: t.text,
+                    },
+                    None,
+                    wall_only,
+                )
+                .len();
+                let players =
+                    eval::target_player_options(&self.state, &req.spec, t.controller).len();
+                objects + players >= usize::from(req.min)
+            })
     }
 
     /// Resolves every queued triggered mana ability at once, off the stack
@@ -560,7 +582,7 @@ impl<L: CardLookup> Engine<L> {
                     }
                     continue;
                 }
-                let options = eval::target_options_with_context(
+                let options = eval::target_options_in_domain(
                     &t.bind_target(req.spec),
                     &self.state,
                     t.controller,
@@ -568,6 +590,8 @@ impl<L: CardLookup> Engine<L> {
                         source: t.source,
                         text: t.text,
                     },
+                    None,
+                    self.trigger_wall_only(&t),
                 );
                 // A trigger may point at a player as readily as a spell does
                 // ("it deals 1 damage to target opponent"), and "any target"
@@ -621,6 +645,7 @@ impl<L: CardLookup> Engine<L> {
                                 source: t.source,
                                 text: t.text,
                             },
+                            self.trigger_wall_only(&t),
                             first,
                             |asking| PlanKind::Trigger {
                                 source,
@@ -699,6 +724,7 @@ impl<L: CardLookup> Engine<L> {
                             source: t.source,
                             text: t.text,
                         },
+                        self.trigger_wall_only(&t),
                         first,
                         |asking| PlanKind::SyntheticTriggerTarget {
                             trigger: plan_t,
@@ -713,7 +739,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                 }
-                let options = eval::target_options_with_context(
+                let options = eval::target_options_in_domain(
                     &t.bind_target(spec),
                     &self.state,
                     t.controller,
@@ -721,6 +747,8 @@ impl<L: CardLookup> Engine<L> {
                         source: t.source,
                         text: t.text,
                     },
+                    None,
+                    self.trigger_wall_only(&t),
                 );
                 if options.is_empty() {
                     // No legal target, so the trigger is removed (CR 603.3d)

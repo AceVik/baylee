@@ -88,11 +88,13 @@ impl<L: CardLookup> Engine<L> {
         targets: SmallVec<[ObjectId; 2]>,
     ) {
         if let Some(req) = self.loyalty_second_targets(source, ability_index) {
-            let options = eval::target_options_with_context(
+            let options = eval::target_options_in_domain(
                 &req.spec,
                 &self.state,
                 player,
                 self.ability_rule_context(source, ability_index),
+                None,
+                self.activation_wall_only(source, ability_index),
             );
             if !options.is_empty() && req.max > 0 {
                 self.pending_plan = Some(PlanKind::ActivateAbilitySecondTargets {
@@ -160,11 +162,13 @@ impl<L: CardLookup> Engine<L> {
             ) {
                 eval::target_player_options(&self.state, &req.spec, player).len()
             } else {
-                eval::target_options_with_context(
+                eval::target_options_in_domain(
                     &req.spec,
                     &self.state,
                     player,
                     self.ability_rule_context(source, ability_index),
+                    None,
+                    self.activation_wall_only(source, ability_index),
                 )
                 .len()
             };
@@ -211,11 +215,13 @@ impl<L: CardLookup> Engine<L> {
                 self.awaiting_answer = true;
                 return Ok(());
             }
-            let options = eval::target_options_with_context(
+            let options = eval::target_options_in_domain(
                 &req.spec,
                 &self.state,
                 player,
                 self.ability_rule_context(source, ability_index),
+                None,
+                self.activation_wall_only(source, ability_index),
             );
             if options.len() < req.min as usize {
                 return Err(EngineError::IllegalAction("no legal targets"));

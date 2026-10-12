@@ -914,6 +914,9 @@ impl<L: CardLookup> Engine<L> {
                                 match self.ask_next_opponent_with_context(
                                     controller,
                                     context,
+                                    self.trigger_queue
+                                        .front()
+                                        .is_some_and(|trigger| self.trigger_wall_only(trigger)),
                                     *asking,
                                     |asking| PlanKind::Trigger {
                                         source,
@@ -1052,6 +1055,7 @@ impl<L: CardLookup> Engine<L> {
                                         source: trigger.source,
                                         text: trigger.text,
                                     },
+                                    self.trigger_wall_only(&trigger),
                                     *asking,
                                     |asking| PlanKind::SyntheticTriggerTarget {
                                         trigger: plan_t,

@@ -478,6 +478,8 @@ pub enum Modifier {
     /// about the permanent and not a characteristic of it, so it has no
     /// layer.
     CantBeTargetedBy(&'static crate::Filter),
+    /// Cannot be targeted by spells or abilities whose whole chosen domain requires Walls.
+    CantBeTargetedByWallOnly,
     /// "[The affected permanent] can't be the target of abilities from
     /// [sources the filter matches]" (Artifact Ward: "artifact sources"):
     /// [`Self::CantBeTargetedBy`] for activated and triggered abilities
@@ -951,6 +953,7 @@ impl Modifier {
             | Self::OpponentsCantCast(_)
             | Self::CantBeEnchantedExceptSource
             | Self::CantBeTargetedBy(_)
+            | Self::CantBeTargetedByWallOnly
             | Self::CantBeTargetedByAbilitiesFrom(_)
             | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose

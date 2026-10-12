@@ -270,7 +270,7 @@ impl<L: CardLookup> Engine<L> {
                     ))
                 && face.kicked_targets.map_or_else(
                     || casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0),
-                    |req| casting::requirement_is_reachable(Some(req), &self.state, player, card),
+                    |req| casting::kicked_targets_reachable(&self.state, def, player, card, req),
                 )
             {
                 options.push(CastModeDesc {

@@ -415,12 +415,13 @@ impl<L: CardLookup> Engine<L> {
             // (CR 601.2c, by CR 602.2b). X is answered by now (CR 601.2b
             // comes first), so an X count is a number here.
             let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
-            let mut options = eval::target_options_with_x(
+            let mut options = eval::target_options_in_domain(
                 &req.spec,
                 &self.state,
                 player,
                 self.ability_rule_context(source, ability_index),
                 self.activation_x,
+                eval::target_domain::walls(first, second),
             );
             // "Target cards from a single graveyard" (Unlicensed Hearse):
             // which graveyard is asked first, when more than one holds a
@@ -502,12 +503,13 @@ impl<L: CardLookup> Engine<L> {
         if let Some(req) = second
             && self.activation_second_targets.is_none()
         {
-            let options = eval::target_options_with_x(
+            let options = eval::target_options_in_domain(
                 &req.spec,
                 &self.state,
                 player,
                 self.ability_rule_context(source, ability_index),
                 self.activation_x,
+                eval::target_domain::walls(first, second),
             );
             if options.len() < req.min as usize {
                 self.activation_x = None;
