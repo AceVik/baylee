@@ -74,6 +74,7 @@ pub mod migration;
 pub mod pictures;
 pub mod precons;
 pub mod records;
+pub mod social;
 pub mod stats;
 pub mod usernames;
 
