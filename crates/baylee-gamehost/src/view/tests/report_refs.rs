@@ -172,8 +172,29 @@ fn a_reference_never_offers_a_hidden_name() {
             ][..],
         ),
     ] {
+        // A query also matches inside a word (beta.7), so "W" may find a
+        // card the seat does see (Giant Growth in seat 1's own hand); what
+        // must never come back is a name hidden from it.
+        let secret: &[&str] = if seat == them {
+            &[
+                "Wrath of God",
+                "Lightning Bolt",
+                "Grizzly Bears",
+                "Llanowar Elves",
+            ]
+        } else {
+            &[
+                "Wrath of God",
+                "Giant Growth",
+                "Llanowar Elves",
+                "Grizzly Bears",
+            ]
+        };
         for query in hidden {
-            let got = offered(&engine, seat, query);
+            let got: Vec<_> = offered(&engine, seat, query)
+                .into_iter()
+                .filter(|c| secret.contains(&c.english.as_str()))
+                .collect();
             assert!(
                 got.is_empty(),
                 "{seat:?} was offered {:?} for {query:?}",
