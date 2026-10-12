@@ -2543,6 +2543,42 @@ only, at every hop: no database row, no log line, no argument, no
 environment; the seat agent writes it into its key store
 (`docs/llm-seat.md` §"Where a key is kept", `file:<dir>`).
 
+## Friends and chat (beta.8)
+
+Friends, presence for friends, whispers, groups and table chat, every
+message body end-to-end encrypted. The types are
+`baylee_protocol::social` (`crates/baylee-protocol/src/social.rs`), the
+gateway's side `crates/baylee-gateway/src/social/`, the crypto
+`crates/baylee-seal`.
+
+- **Nothing here touches the engine** or the protobuf `Envelope`, so
+  `PROTOCOL_VERSION` does not move. The social socket still states it and is
+  refused like a seat socket on a mismatch, and it states its own
+  `social::SOCIAL_VERSION` (1) too.
+- **The public identifier is the tag** (`af03`). Account ids never leave the
+  gateway.
+- **The gateway never sees plaintext.** It carries sealed bodies as opaque
+  base64url, checks only shapes, sizes, membership and that a send wraps the
+  message key for exactly the current devices of every recipient, and never
+  logs a frame, ticket, ciphertext, key, tag or handle.
+- `GET /info` says `"social": {"version": 1, "keep_days": 14}`, or `null`
+  when the gateway has `BAYLEE_SOCIAL=off`. An older gateway sends no key,
+  which means no chat.
+
+### The socket: `GET /social/ws`
+
+Buy a ticket with `POST /ws-ticket {"socket":"social"}` (the session in
+`Authorization`), then open
+`/social/ws?ticket=…&protocol=<PROTOCOL_VERSION>&social=<SOCIAL_VERSION>`,
+built only by `baylee_protocol::social::social_socket_path`. JSON text
+frames, tagged by `"t"`: `Up` from the client (`hello`, `send`, `ack`,
+`presence`), `Down` from the gateway (`welcome`, `snapshot`, `msg`, `sent`,
+`refused`, `presence`, `friend`, `group`, `members`, `keys_changed`,
+`invite`, `invite_gone`, `notice`).
+
+(The rest of this section, routes and rules, lands with the gateway's
+social routes.)
+
 ## Terms of use (WG-1)
 
 A gateway may ask its players to accept terms of use. The operator points
