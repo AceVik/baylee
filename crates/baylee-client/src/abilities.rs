@@ -1102,9 +1102,6 @@ fn printed_sentence(
 /// own ones; seventeen wordings of them lived here once. `None` when nothing
 /// is left, which is every cost printed in words alone.
 fn cost_key_of(cost: &Cost) -> Option<String> {
-    if cost.mana == ManaCost::ZERO && cost.parts.is_empty() {
-        return Some("{0}".to_string());
-    }
     let mut parts: Vec<String> = Vec::new();
     if cost.mana != ManaCost::ZERO {
         parts.push(cost.mana.to_string());
