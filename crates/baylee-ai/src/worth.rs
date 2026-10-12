@@ -116,6 +116,51 @@ impl<'a> Origin<'a> {
     }
 }
 
+/// How much mana one activation of a mana ability pours on this board, read
+/// off its one `AddMana` (CR 106.1, 605.1a): a fixed number, or a count of
+/// the battlefield the view shows whole — Harabaz Druid's "X mana of any one
+/// color, where X is the number of Allies you control".
+///
+/// `None` wherever the view cannot count it, which is the answer a planner
+/// must get: an `{X}` the activation announces, a target's mana value, a
+/// sacrificed card's, a filter the view cannot read (a type chosen as the
+/// permanent entered). Counting those would plan mana that never arrives
+/// and strand a half-tapped board mid-cast.
+///
+/// Shared by the client's planner (`manasources`) and the house AI's
+/// (`policy::offers`), so the two count the same tap the same way.
+#[must_use]
+pub fn mana_poured(view: &PlayerView, source: ObjectId, effects: &[Effect]) -> Option<u8> {
+    let mut amounts = effects.iter().filter_map(|effect| match effect {
+        Effect::AddMana { amount, .. } => Some(*amount),
+        _ => None,
+    });
+    let amount = amounts.next()?;
+    if amounts.next().is_some() || !countable(amount) {
+        return None;
+    }
+    let poured = HeuristicAgent::new(crate::AIProfile::STEADY).count(
+        view,
+        Origin::of(view, source),
+        amount,
+        Aim::Source,
+        0,
+    )?;
+    u8::try_from(poured.max(0)).ok()
+}
+
+/// Whether `amount` is made only of numbers and battlefield counts, the two
+/// things a view can answer before the ability is activated.
+fn countable(amount: Amount) -> bool {
+    match amount {
+        Amount::Fixed(_) => true,
+        Amount::CountOf { zone, .. } => matches!(zone, ZoneSel::Battlefield),
+        Amount::Plus { base, .. } | Amount::Times { base, .. } => countable(*base),
+        Amount::Sum { left, right } => countable(*left) && countable(*right),
+        _ => false,
+    }
+}
+
 /// What a point of `player`'s life is worth to them: little at twenty, a
 /// great deal at five.
 pub(crate) fn life_price(view: &PlayerView, player: PlayerId) -> i64 {

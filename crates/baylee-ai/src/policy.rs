@@ -1304,9 +1304,14 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                         .colors
                         .clone(),
                 };
+                // A count of the board (Harabaz Druid's Allies) is read the
+                // way the client's planner reads it, so both plan one tap.
+                let amount = amount
+                    .or_else(|| crate::mana_poured(view, id, effects))
+                    .filter(|amount| *amount > 0)?;
                 Some((
                     colors,
-                    amount?,
+                    amount,
                     priced(cost) || effects.iter().any(|e| !matches!(e, Effect::AddMana { .. })),
                     crate::restricted::only_for(effects),
                 ))

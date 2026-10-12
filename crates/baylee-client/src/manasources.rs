@@ -383,11 +383,16 @@ fn mana_ability(
     if restricted {
         return None;
     }
-    // And an amount only the board can count is refused here for the reason
-    // the shape stopped short of naming one: a plan that guessed at Harabaz
-    // Druid's X would leave a board half tapped. A bubble asks a smaller
-    // question and takes it — see [`offers`].
-    let amount = amount?;
+    // An amount only the board can count is read off the board, where the
+    // view shows all of it: Harabaz Druid's X is the Allies its controller
+    // has (`baylee_ai::mana_poured`, the house AI's reading too). What the
+    // view cannot count — an announced X, a target's mana value — is still
+    // refused, because a plan that guessed would leave a board half tapped.
+    // A bubble asks a smaller question and takes it — see [`offers`]. A tap
+    // that pours nothing at this board is no source at all.
+    let amount = amount
+        .or_else(|| baylee_ai::mana_poured(view, id, effects))
+        .filter(|amount| *amount > 0)?;
     let colors = produced_colors(view, id, index, source)?;
     Some(Source {
         id,

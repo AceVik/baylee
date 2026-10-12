@@ -30,6 +30,9 @@
 //!    that must share a colour are not two independent units and pretending
 //!    otherwise would build a plan the engine rejects halfway through. The
 //!    cost of being wrong in this direction is one extra land tapped.
+//!    [`plan`] also tries such a source as *all* its mana in each one colour
+//!    it offers, which is a reading the engine cannot reject: the colour is
+//!    the plan's answer to the question the tap asks.
 
 use std::collections::BTreeSet;
 
@@ -363,8 +366,96 @@ impl Plan {
 ///
 /// `pool` is what is already floating and is spent first — it costs nothing
 /// and it is about to empty at the end of the step anyway.
+///
+/// A permanent that pours **several mana of one colour it chooses** —
+/// Harabaz Druid's "X mana of any one color" — is tried both ways: as the
+/// one mana of any colour rule 3 counts it as, and as all of its mana in
+/// each colour it offers. Of the plans that pay, the one with the fewest
+/// priced taps, then the fewest taps, then the least worth keeping
+/// untapped is taken; a tie keeps the one-mana reading, which is what
+/// every board without such a permanent plans.
 #[must_use]
 pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
+    let pours: Vec<usize> = sources
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| !s.bundle && s.colors.len() > 1 && s.amount > 1)
+        .map(|(index, _)| index)
+        .collect();
+    if pours.is_empty() || pours.len() > MAX_POURS {
+        return plan_once(cost, pool, sources);
+    }
+    // Every reading at once: `None` keeps a permanent's one-mana reading,
+    // `Some(c)` names the colour all of its mana is poured in.
+    let mut readings: Vec<Vec<Option<ManaColor>>> = vec![Vec::new()];
+    for &index in &pours {
+        readings = readings
+            .into_iter()
+            .flat_map(|reading| {
+                std::iter::once(None)
+                    .chain(sources[index].colors.iter().copied().map(Some))
+                    .map(move |choice| {
+                        let mut next = reading.clone();
+                        next.push(choice);
+                        next
+                    })
+            })
+            .collect();
+    }
+    let price = |found: &Plan| {
+        let of = |id: ObjectId| sources.iter().find(|s| s.id == id);
+        (
+            found
+                .steps
+                .iter()
+                .filter(|step| of(step.source).is_some_and(|s| s.priced))
+                .count(),
+            found.taps(),
+            found
+                .steps
+                .iter()
+                .filter_map(|step| of(step.source))
+                .map(|s| u64::from(s.preserve))
+                .sum::<u64>(),
+        )
+    };
+    let mut best: Option<Plan> = None;
+    for reading in readings {
+        let mut narrowed = sources.to_vec();
+        for (&index, choice) in pours.iter().zip(&reading) {
+            if let Some(color) = choice {
+                narrowed[index].colors = vec![*color];
+                narrowed[index].dear = None;
+            }
+        }
+        let Some(mut found) = plan_once(cost, pool, &narrowed) else {
+            continue;
+        };
+        // The engine still asks such a permanent its colour: narrowing it
+        // here was the plan's choice, not the card's.
+        for step in &mut found.steps {
+            if let Some((_, Some(color))) = pours
+                .iter()
+                .zip(&reading)
+                .find(|(index, _)| sources[**index].id == step.source)
+            {
+                step.color = Some(*color);
+            }
+        }
+        if best.as_ref().is_none_or(|kept| price(&found) < price(kept)) {
+            best = Some(found);
+        }
+    }
+    best
+}
+
+/// How many permanents pouring several mana of one chosen colour [`plan`]
+/// reads both ways. Each multiplies the plans tried by up to seven; past
+/// this many every one is read as one mana, which under-counts and is safe.
+const MAX_POURS: usize = 3;
+
+/// [`plan`] for one reading of every source.
+fn plan_once(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
     // `{2/C}` reads two ways and only the player knows which they meant, so
     // both are tried: the coloured half first (it is one mana, not two), then
     // the generic one. Everything else has a single reading.
@@ -1181,10 +1272,11 @@ mod tests {
         assert!(plan(&cost("{S}"), &empty(), &sources).is_none());
     }
 
-    /// A source that makes two of *one chosen* colour is worth one mana here.
-    /// Counting it as two would build a plan asking it for `{W}` and `{U}`,
-    /// which the engine would refuse halfway through — with the land already
-    /// tapped.
+    /// A source that makes two of *one chosen* colour pays two pips only of
+    /// that one colour. Counting it as two independent mana would build a
+    /// plan asking it for `{W}` and `{U}`, which the engine would refuse
+    /// halfway through — with the land already tapped. Two of one colour it
+    /// does pay, and `{2}` is exactly that (#15, Harabaz Druid).
     #[test]
     fn two_mana_of_one_colour_counts_once_and_a_fixed_pair_counts_twice() {
         let coupled = [Source {
@@ -1197,7 +1289,10 @@ mod tests {
             preserve: 0,
             dear: None,
         }];
-        assert!(plan(&cost("{2}"), &empty(), &coupled).is_none());
+        assert!(plan(&cost("{W}{U}"), &empty(), &coupled).is_none());
+        let found = plan(&cost("{2}"), &empty(), &coupled).expect("two of one colour");
+        assert_eq!(found.taps(), 1);
+        assert_eq!(found.steps[0].color, Some(ManaColor::White));
 
         let sol_ring = [Source {
             id: ObjectId::new(1, 0),
