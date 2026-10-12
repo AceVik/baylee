@@ -139,7 +139,8 @@ reaches the built page.
   `docs/feedback.md` §"The admin console"), a sidebar on a wide screen and
   a tab bar under the thumb on a phone:
   - Overview (`/admin`): headline tiles (online, games running, accounts,
-    new today, games today, new reports), four 30-day bar charts (reports,
+    new today, games today, new reports, and "Offline now": the anonymous
+    count of offline games this service hears beat, `/ui/api/admin/offline`), four 30-day bar charts (reports,
     with bugs and crashes apart; games; players; new accounts and guests;
     hover, touch or arrow keys for a day, and a table view), the open
     tables, every count the gateway keeps, and a Services panel: whether
@@ -172,6 +173,13 @@ reaches the built page.
     and, where the browser can, Share), listed and filtered by state
     (never the key, which is kept only as a hash), revoked after a second
     question; the latest console changes.
+  - Models (`/admin/models`, `src/admin/Models.tsx`, beta.7): the hosted
+    language models (`docs/feedback.md` §"Hosted models"): the connected
+    seat agents, each profile with its state, games, caps and spend, per
+    agent; a profile added, edited or removed on a seat agent, switched on
+    or off, probed, and its key set or forgotten (write-only: typed, sent,
+    cleared, never shown again). Each change is passed on to the gateway
+    and answered as it answers.
 
   The admin area and the reports (since beta.7) are in German when the
   browser asks for German, else English; the sign-in form is English only.
