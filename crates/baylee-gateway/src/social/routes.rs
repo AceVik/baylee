@@ -186,18 +186,31 @@ async fn register_device(
             "the device's statement does not hold",
         ));
     }
-    if !state.social.registrations.allow(&caller.account) {
-        return Err(err(
-            StatusCode::TOO_MANY_REQUESTS,
-            "too many new devices today",
-        ));
-    }
     let id = baylee_seal::device_id(&ik_arr);
     let max = if caller.guest {
         wire::GUEST_DEVICES
     } else {
         wire::MAX_DEVICES
     };
+    // The day's allowance counts new devices only: the same device again
+    // (a client registering on each start) is free, and a full account is
+    // told it is full rather than that it asked too often.
+    let have = db::devices_of(&state.db, &[caller.id])
+        .await
+        .map_err(down)?;
+    let again = have.iter().any(|d| d.id == id);
+    if !again && !caller.guest && have.len() >= max {
+        return Err(err(
+            StatusCode::CONFLICT,
+            "this account has as many devices as it may",
+        ));
+    }
+    if !again && !state.social.registrations.allow(&caller.account) {
+        return Err(err(
+            StatusCode::TOO_MANY_REQUESTS,
+            "too many new devices today",
+        ));
+    }
     let new = db::NewDevice {
         id: id.clone(),
         ik,

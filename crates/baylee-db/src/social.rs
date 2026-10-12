@@ -696,9 +696,12 @@ pub async fn block(db: &DatabaseConnection, me: Uuid, other: Uuid) -> Result<Blo
 
 /// `me` unblocks `other`; whether there was a block.
 ///
+/// A request `other` sent while blocked goes with the block: it looked sent
+/// and was never to arrive, and an unblock does not deliver it late.
+///
 /// # Errors
 ///
-/// When the delete fails.
+/// When a delete fails.
 pub async fn unblock(db: &impl ConnectionTrait, me: Uuid, other: Uuid) -> Result<bool, DbErr> {
     let done = db
         .execute_raw(stmt(
@@ -707,7 +710,11 @@ pub async fn unblock(db: &impl ConnectionTrait, me: Uuid, other: Uuid) -> Result
             vec![me.into(), other.into()],
         ))
         .await?;
-    Ok(done.rows_affected() == 1)
+    let unblocked = done.rows_affected() == 1;
+    if unblocked {
+        drop_request(db, other, me).await?;
+    }
+    Ok(unblocked)
 }
 
 /// `me`'s friends and since when, by name.
