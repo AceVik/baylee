@@ -1663,7 +1663,12 @@ impl Lobby {
 
     /// Puts the caret in a field.
     pub fn focus_on(&mut self, field: Field) {
-        if matches!(field, Field::DisplayName | Field::PasswordAgain) && !self.registering() {
+        if field == Field::DisplayName && !self.registering() {
+            return;
+        }
+        // The password again: creating an account, or choosing a new
+        // password after an admin's reset.
+        if field == Field::PasswordAgain && !self.registering() && self.password_change.is_none() {
             return;
         }
         if field == Field::GuestName && !self.guest_name_offered() {
@@ -1833,10 +1838,14 @@ impl Lobby {
                 Field::Gateway => !self.gateway_chosen(),
                 Field::GuestName => self.guest_name_offered(),
                 Field::InviteKey => self.invite_key_offered(),
-                Field::Username | Field::Password => {
-                    self.gateway_chosen() && self.face() != Face::Guest
+                Field::Username => {
+                    self.gateway_chosen() && !matches!(self.face(), Face::Guest | Face::NewPassword)
                 }
-                Field::DisplayName | Field::PasswordAgain => registering && self.gateway_chosen(),
+                Field::Password => self.gateway_chosen() && self.face() != Face::Guest,
+                Field::DisplayName => registering && self.gateway_chosen(),
+                Field::PasswordAgain => {
+                    (registering || self.password_change.is_some()) && self.gateway_chosen()
+                }
                 Field::RoomPassword
                 | Field::RoomName
                 | Field::RoomBoard(_)

@@ -1058,10 +1058,10 @@ messages! {
         en: "An admin reset your password. Choose a new one to sign in.",
         de: "Ein Admin hat dein Passwort zurückgesetzt. Wähle ein neues, um dich anzumelden.",
     },
-    /// The new password's caption.
+    /// The new password's caption, in capitals as every caption is.
     NewPassword {
-        en: "New password",
-        de: "Neues Passwort",
+        en: "NEW PASSWORD",
+        de: "NEUES PASSWORT",
     },
     /// That face's button.
     SetNewPassword {

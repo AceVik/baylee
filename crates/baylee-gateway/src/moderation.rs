@@ -45,8 +45,9 @@ pub(crate) const MAX_CLOSE_REASON: usize = 200;
 /// it ends the game itself: an engine from before `CloseGame` passes over it.
 const CLOSE_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
 
-/// The symbols a reset password is written in: no `0`/`O`, `1`/`I`/`L`, `U`,
-/// so a password read aloud or copied by hand survives.
+/// The symbols a reset password is written in, Crockford's base 32: the
+/// digits and the letters but `I`, `L`, `O` and `U`, so no letter reads as
+/// a digit when the password is copied by hand.
 const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 /// How a ban reads on a refusal: `{"reason", "until"}`, `until` an RFC 3339
