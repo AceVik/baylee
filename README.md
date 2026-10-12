@@ -115,7 +115,7 @@ the sign-in panel show the real Baylee Sanctuary gateway.
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/readme/table-ring.webp" alt="A four-seat table"><br><sub><b>Four seats.</b> Larger tables sit in a ring around the felt.</sub></td>
-    <td width="50%"><img src="docs/images/readme/report.webp" alt="Report form with opt-in checkboxes"><br><sub><b>Reporting a problem</b> (<kbd>F8</kbd>). Every extra piece of data is its own checkbox, and all of them start unticked.</sub></td>
+    <td width="50%"><img src="docs/images/readme/report.webp" alt="Report form with a checkbox for each attachment"><br><sub><b>Reporting a problem</b> (<kbd>F8</kbd>). Every extra piece of data is its own checkbox; all start ticked, and you untick what you would rather keep.</sub></td>
   </tr>
 </table>
 
@@ -395,15 +395,17 @@ complete list, including combat and the ability sheet.
 Press <kbd>F8</kbd> at the table or in the lobby, or use the report button in
 the menu. A report is sent to the gateway you are signed in to. It always
 includes its kind, your text, the client version and, at a table, the game's
-id. The gateway adds its own record of that game, in which seats are numbers
-and no player is named.
+id.
 
-Anything more is **opt-in, one checkbox each**, and every checkbox starts
-unticked: system and hardware, the table as you see it, your game log (with
-players renamed to "Player A", "Player B", …), your settings, and a
-screenshot. Session tokens are never sent. After a crash, the next start asks
+Anything more has **one checkbox each**, and every box starts ticked: untick
+what you would rather keep before you press Send. The boxes are system and
+hardware, the table as you see it, your game log (with players renamed to
+"Player A", "Player B", …), your settings, a picture of the Baylee window
+only, and at a table the game's whole record (every move and every seat's
+cards, no names). "Show what is sent" shows every byte. Session tokens are never sent. After a crash, the next start asks
 once whether crash reports may be sent. If you are not signed in to any
-gateway, nothing is sent.
+gateway, the report goes straight to the feedback service the build names,
+and with none named nothing is sent.
 
 [docs/privacy.md](docs/privacy.md) lists everything the client, the gateway
 and the feedback service keep.
