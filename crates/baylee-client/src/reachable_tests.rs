@@ -339,3 +339,57 @@ fn a_rift_with_nothing_to_bounce_says_only_the_costlier_mode_is_left() {
         "a nonland permanent to bounce leaves the normal mode"
     );
 }
+
+/// Report 00, the reach half: a Cyclonic Rift with nothing to bounce is out of
+/// reach on two Islands (its printed `{1}{U}` mode has no target and the
+/// overload `{6}{U}` is not paid), in reach on seven (overload is), and in
+/// reach on two beside an opponent's nonland permanent (the normal mode).
+/// Before the fix the first case was in reach, so the click armed lands to
+/// tap for a cast the engine then opened an unpayable window for.
+#[test]
+fn a_rift_with_nothing_to_bounce_is_reached_for_only_at_overloads_price() {
+    let island = |slot| basic(slot, "Island", land::ISLAND);
+    let card = ObjectId::new(50, 0);
+
+    let bare = duel_holding_named("Cyclonic Rift", (1..=2).map(island).collect(), vec![]);
+    assert!(!reachable(&bare).contains(&card), "two Islands, no target");
+
+    let seven = duel_holding_named("Cyclonic Rift", (1..=7).map(island).collect(), vec![]);
+    assert!(reachable(&seven).contains(&card), "overload is paid");
+
+    let target = duel_holding_named(
+        "Cyclonic Rift",
+        (1..=2).map(island).collect(),
+        vec![their_bears()],
+    );
+    assert!(reachable(&target).contains(&card), "the normal mode");
+}
+
+/// Report 00, the click: with the reach set filled as the frame fills it, the
+/// bare two-Island Rift is answered with the refusal that says why, and arms
+/// nothing; beside a target the same click arms the cast.
+#[test]
+fn clicking_an_unreached_rift_says_why_and_arms_nothing_while_a_target_arms_it() {
+    use baylee_client_core::i18n::{Phrase, Refusal};
+    let island = |slot| basic(slot, "Island", land::ISLAND);
+    let card = ObjectId::new(50, 0);
+
+    let mut bare = duel_holding_named("Cyclonic Rift", (1..=2).map(island).collect(), vec![]);
+    bare.reachable = reachable(&bare);
+    crate::input::activate_card(&mut bare, card);
+    assert_eq!(
+        bare.last_error,
+        Some(Refusal::Said(Phrase::OnlyDearerModeLeft))
+    );
+    assert!(bare.armed.is_none() && bare.outbox().is_empty());
+
+    let mut target = duel_holding_named(
+        "Cyclonic Rift",
+        (1..=2).map(island).collect(),
+        vec![their_bears()],
+    );
+    target.reachable = reachable(&target);
+    crate::input::activate_card(&mut target, card);
+    assert_eq!(target.last_error, None);
+    assert!(target.armed.is_some());
+}
