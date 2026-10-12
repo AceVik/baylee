@@ -550,6 +550,9 @@ pub enum LossReason {
 /// journal entry because an object may move again before triggers are collected.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct Departure {
+    /// The operation was a sacrifice, even if a replacement changed its destination.
+    #[serde(default)]
+    pub sacrificed: bool,
     /// Independent undying and persist instances immediately before departure.
     #[serde(default)]
     pub return_keywords: [u32; 2],
@@ -572,6 +575,9 @@ impl Departure {
     pub(crate) fn fingerprint(&self) -> u64 {
         let mut hash =
             1 + u64::from(self.controller.get()) + (u64::from(self.toughness as u16) << 8);
+        hash = hash
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(self.sacrificed));
         hash = hash.wrapping_mul(31).wrapping_add(u64::from(self.version));
         hash = hash
             .wrapping_mul(31)

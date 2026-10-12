@@ -724,16 +724,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if !can_sacrifice_self(state, res) {
                 return None;
             }
-            let owner = state.object(res.source).map_or(you, |o| o.owner);
             if let Some(obj) = state.object_mut(res.source) {
                 obj.kind = ObjectKind::Card;
             }
-            let _ = state.move_object(
-                res.source,
-                ZoneLocation::Graveyard(owner),
-                ZonePosition::Top,
-                Cause::Effect,
-            );
+            let _ = state.sacrifice_object(res.source, Cause::Effect);
             None
         }
         // "Sacrifice that creature": by the ability's controller, and only a
@@ -741,7 +735,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // (CR 701.21a; an event object that has left is none, CR 603.7c).
         Effect::SacrificeObject { target } => {
             let id = spec_object(state, res, target)?;
-            let owner = state.object(id).and_then(|o| {
+            let _owner = state.object(id).and_then(|o| {
                 (o.zone == crate::zone::Zone::Battlefield
                     && o.controller == res.controller
                     && !o.status.contains(crate::object::Status::PHASED_OUT))
@@ -750,12 +744,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(obj) = state.object_mut(id) {
                 obj.kind = ObjectKind::Card;
             }
-            let _ = state.move_object(
-                id,
-                ZoneLocation::Graveyard(owner),
-                ZonePosition::Top,
-                Cause::Effect,
-            );
+            let _ = state.sacrifice_object(id, Cause::Effect);
             None
         }
         Effect::PutTargetOnBottomOfLibrary => {

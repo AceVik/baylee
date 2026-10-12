@@ -883,6 +883,17 @@ impl<L: CardLookup> Engine<L> {
             loc.source,
             version,
             crate::resolve::source_attachment_lki(&self.state, on_stack),
+            obj.event_object.and_then(|object| {
+                obj.riders.iter().find_map(|rider| match rider {
+                    crate::object::Rider::EventObjectIdentity(version, _) => {
+                        Some(baylee_core::ids::DamageSourceRef {
+                            object,
+                            version: *version,
+                        })
+                    }
+                    _ => None,
+                })
+            }),
         )
     }
 }

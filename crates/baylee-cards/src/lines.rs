@@ -722,6 +722,7 @@ mod tests {
                 "Archangel Avacyn",
                 "Arguel's Blood Fast",
                 "Conqueror's Galleon",
+                "Legion's Landing",
                 "Search for Azcanta",
                 "Thaumatic Compass",
                 "Treasure Map",

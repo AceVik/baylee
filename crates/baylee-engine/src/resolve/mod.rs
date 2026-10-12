@@ -1299,7 +1299,7 @@ fn sacrifice_together(state: &mut GameState, victims: &[ObjectId]) {
         .map(|&id| state.departure_snapshot(id))
         .collect();
     for (&victim, departure) in victims.iter().zip(departures) {
-        let Some(owner) = state
+        let Some(_owner) = state
             .object(victim)
             .filter(|o| o.zone == crate::zone::Zone::Battlefield)
             .map(|o| o.owner)
@@ -1309,13 +1309,7 @@ fn sacrifice_together(state: &mut GameState, victims: &[ObjectId]) {
         if let Some(obj) = state.object_mut(victim) {
             obj.kind = ObjectKind::Card;
         }
-        let _ = state.move_object_with_departure(
-            victim,
-            ZoneLocation::Graveyard(owner),
-            ZonePosition::Top,
-            Cause::Effect,
-            departure,
-        );
+        let _ = state.sacrifice_object_with_departure(victim, Cause::Effect, departure);
     }
 }
 

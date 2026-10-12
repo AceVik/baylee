@@ -911,3 +911,50 @@ fn pitch_only() -> baylee_cards_dsl::Cost {
         parts: &[CostPart::ExileFromHand(&baylee_cards_dsl::Filter::Any)],
     }
 }
+
+#[test]
+fn batch48_trigger_variants_keep_their_printed_event_and_subject() {
+    use baylee_cards_dsl::{Trigger, triggered};
+    let attack = triggered!(Trigger::AttackWithAtLeast(3), draw(1));
+    assert_eq!(
+        map(
+            &[attack],
+            "Whenever you attack with three or more creatures, draw a card."
+        )
+        .lines,
+        [Some(0)]
+    );
+    assert!(!content_fits(
+        &attack,
+        "Whenever this creature dies, draw a card."
+    ));
+
+    let combat = triggered!(
+        Trigger::OneOrMoreDealCombatDamageToPlayer(&Filter::YOUR_CREATURE),
+        draw(1)
+    );
+    assert_eq!(map(&[combat],
+        "Whenever one or more creatures you control deal combat damage to a player, draw a card."
+    ).lines, [Some(0)]);
+    assert!(!content_fits(
+        &combat,
+        "Whenever this creature deals combat damage to a player, draw a card."
+    ));
+    assert!(!content_fits(
+        &combat,
+        "Whenever a creature you control dies, draw a card."
+    ));
+
+    let death = triggered!(Trigger::DiesNotSacrificed(&Filter::YOUR_ARTIFACT), draw(1));
+    assert_eq!(map(&[death],
+        "Whenever an artifact you control is put into a graveyard from the battlefield, if it wasn't sacrificed, draw a card."
+    ).lines, [Some(0)]);
+    assert!(!content_fits(
+        &death,
+        "Whenever this artifact is put into a graveyard from the battlefield, draw a card."
+    ));
+    assert!(!content_fits(
+        &death,
+        "Whenever an artifact you control enters, draw a card."
+    ));
+}

@@ -471,13 +471,7 @@ impl<L: CardLookup> Engine<L> {
                     )?;
                 }
                 CostPart::SacrificeSelf => {
-                    let owner = self.state.object(source).map_or(player, |o| o.owner);
-                    self.state.move_object(
-                        source,
-                        ZoneLocation::Graveyard(owner),
-                        ZonePosition::Top,
-                        Cause::Cost,
-                    )?;
+                    self.state.sacrifice_object(source, Cause::Cost)?;
                 }
                 CostPart::ReturnSelfToHand => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);

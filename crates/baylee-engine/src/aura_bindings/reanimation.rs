@@ -134,14 +134,9 @@ pub(crate) fn sacrifice_event(state: &mut GameState, res: &Resolution) {
     let Some(object) = state.object(event.object) else {
         return;
     };
-    let (owner, controller) = (object.owner, object.controller);
+    let controller = object.controller;
     if state.has_left(controller) {
         return;
     }
-    let _ = state.move_object(
-        event.object,
-        ZoneLocation::Graveyard(owner),
-        ZonePosition::Top,
-        Cause::Effect,
-    );
+    let _ = state.sacrifice_object(event.object, Cause::Effect);
 }

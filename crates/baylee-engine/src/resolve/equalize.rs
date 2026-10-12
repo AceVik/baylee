@@ -9,10 +9,9 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 use super::{AwaitingOp, Resolution, chosen};
 use crate::choice::{ChoicePrompt, Pending};
-use crate::event::{Cause, GameEvent};
-use crate::object::ObjectKind;
+use crate::event::GameEvent;
 use crate::state::GameState;
-use crate::zone::{ZoneLocation, ZonePosition};
+use crate::zone::ZoneLocation;
 
 /// A suspended simultaneous choice. No objects move while this is pending.
 #[derive(Clone, Debug)]
@@ -175,17 +174,11 @@ fn advance(
     }
     // No refresh, trigger placement, state-based action or priority between
     // these moves. The resolver refreshes once the entire instruction ends.
-    for (player, card) in selection.removals {
-        let owner = state.object(card).map_or(player, |object| object.owner);
-        if let Some(object) = state.object_mut(card) {
-            object.kind = ObjectKind::Card;
-        }
-        let _ = state.move_object(
-            card,
-            ZoneLocation::Graveyard(owner),
-            ZonePosition::Top,
-            Cause::Effect,
-        );
-    }
+    let victims: Vec<_> = selection
+        .removals
+        .into_iter()
+        .map(|(_, card)| card)
+        .collect();
+    super::sacrifice_together(state, &victims);
     None
 }

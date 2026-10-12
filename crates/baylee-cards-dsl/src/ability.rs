@@ -188,6 +188,8 @@ pub enum Condition {
     APlayerCastLastTurnAtLeast(u8),
     /// You control at least N permanents matching the filter.
     ControlCount(&'static Filter, u8),
+    /// At least this many controlled matches, excluding the exact event object.
+    ControlCountExceptEvent(&'static Filter, u8),
     /// You control **at most** N permanents matching the filter —
     /// Glimmervoid's "if you control no artifacts" and Thran Quarry's "if
     /// you control no creatures", both at nought.
@@ -437,6 +439,8 @@ pub enum Trigger {
     LeavesBattlefield(&'static Filter),
     /// An object matching the filter dies (battlefield → graveyard).
     Dies(&'static Filter),
+    /// A matching permanent died through an operation other than sacrifice.
+    DiesNotSacrificed(&'static Filter),
     /// An object matching the filter dies after this source dealt damage to
     /// it this turn. Both objects retain their zone-change identities; the
     /// filter and the source's ability are read immediately before death.
@@ -478,6 +482,8 @@ pub enum Trigger {
     /// A source matching the filter deals combat damage to a player
     /// (Sword of Hearth and Home: the equipped creature).
     DealsCombatDamageToPlayer(&'static Filter),
+    /// Once per damaged player and simultaneous combat-damage event.
+    OneOrMoreDealCombatDamageToPlayer(&'static Filter),
     /// A source matching the filter deals combat damage to an **opponent**
     /// of the ability's controller (Questing Beast). The player dealt to
     /// and the amount ride on the trigger, for "that player" and "that
@@ -605,6 +611,8 @@ pub enum Trigger {
     /// (Raging River): once for a declaration of attackers that holds at
     /// least one, however many (CR 508.3a, 603.2c).
     OneOrMoreAttack(&'static Filter),
+    /// Once when this controller declares at least this many creature attackers.
+    AttackWithAtLeast(u8),
     /// This creature blocks a creature matching the filter (CR 509.3b) or
     /// becomes blocked by one (CR 509.3d): once for each such pair, each
     /// time a blocker is declared, so a creature blocked by two of them

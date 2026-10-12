@@ -319,6 +319,13 @@ pub(crate) fn pay(
         });
         return Ok(());
     }
+    if matches!(
+        part,
+        CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
+    ) {
+        state.sacrifice_object(chosen, Cause::Cost)?;
+        return Ok(());
+    }
     let owner = state.object(chosen).map_or(player, |o| o.owner);
     // Owner's hand, never the payer's: CR 400.3 puts a returned card in the
     // zone of the player who owns it, and a Forest borrowed off somebody

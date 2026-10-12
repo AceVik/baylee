@@ -205,13 +205,10 @@ impl<L: CardLookup> Engine<L> {
                         && o.controller == controller)
                         .then_some(o.owner)
                 });
-                if let Some(owner) = owner {
-                    let _ = self.state.move_object(
-                        card,
-                        ZoneLocation::Graveyard(owner),
-                        ZonePosition::Top,
-                        crate::event::Cause::Effect,
-                    );
+                if owner.is_some() {
+                    let _ = self
+                        .state
+                        .sacrifice_object(card, crate::event::Cause::Effect);
                 }
                 false
             }
@@ -411,16 +408,12 @@ impl<L: CardLookup> Engine<L> {
         );
         if !can_pay {
             // Echo with an empty pool: sacrifice immediately.
-            let owner = self.state.object(card).map_or(active, |o| o.owner);
             if let Some(obj) = self.state.object_mut(card) {
                 obj.kind = ObjectKind::Card;
             }
-            let _ = self.state.move_object(
-                card,
-                ZoneLocation::Graveyard(owner),
-                ZonePosition::Top,
-                crate::event::Cause::Effect,
-            );
+            let _ = self
+                .state
+                .sacrifice_object(card, crate::event::Cause::Effect);
             return false;
         }
         let source = self

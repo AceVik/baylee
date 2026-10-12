@@ -354,16 +354,10 @@ pub(super) fn exec_immediate(
                 gain_control(state, &[(target, you), (res.source, their_controller)]);
             } else {
                 // No exchange: sacrifice the source (Gilded Drake).
-                let owner = state.object(res.source).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(res.source) {
                     obj.kind = ObjectKind::Card;
                 }
-                let _ = state.move_object(
-                    res.source,
-                    ZoneLocation::Graveyard(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
+                let _ = state.sacrifice_object(res.source, Cause::Effect);
             }
             None
         }

@@ -201,17 +201,12 @@ pub(super) fn resume_inner(
         }
         AwaitingOp::SacrificeChosen { player } => {
             if let Some(&victim) = chosen.first()
-                && let Some(owner) = state
+                && let Some(_owner) = state
                     .object(victim)
                     .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.controller == player)
                     .map(|o| o.owner)
             {
-                let _ = state.move_object(
-                    victim,
-                    ZoneLocation::Graveyard(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
+                let _ = state.sacrifice_object(victim, Cause::Effect);
             }
         }
         AwaitingOp::SearchLibrary {
@@ -836,16 +831,10 @@ pub(super) fn resume_inner(
         }
         AwaitingOp::SacrificeFilter { filter, remaining } => {
             if let Some(&victim) = chosen.first() {
-                let owner = state.object(victim).map_or(res.controller, |o| o.owner);
                 if let Some(obj) = state.object_mut(victim) {
                     obj.kind = ObjectKind::Card;
                 }
-                let _ = state.move_object(
-                    victim,
-                    ZoneLocation::Graveyard(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
+                let _ = state.sacrifice_object(victim, Cause::Effect);
             }
             // Ask the next player who still has a legal sacrifice.
             let mut remaining = remaining;

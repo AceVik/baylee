@@ -9,20 +9,14 @@ pub(super) fn sacrifice(state: &mut GameState, chosen: &[ObjectId]) {
         .map(|id| state.departure_snapshot(*id))
         .collect();
     for (&id, departure) in chosen.iter().zip(departures) {
-        let Some(owner) = state
+        let Some(_owner) = state
             .object(id)
             .filter(|o| o.zone == Zone::Battlefield)
             .map(|o| o.owner)
         else {
             continue;
         };
-        let _ = state.move_object_with_departure(
-            id,
-            ZoneLocation::Graveyard(owner),
-            ZonePosition::Top,
-            Cause::Effect,
-            departure,
-        );
+        let _ = state.sacrifice_object_with_departure(id, Cause::Effect, departure);
     }
     crate::graveyard_order::capture(state, since);
 }

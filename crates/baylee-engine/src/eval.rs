@@ -838,6 +838,8 @@ pub fn condition_holds_with_context(
                     })
                 })
             }),
+        // This condition requires the triggering incarnation, supplied separately.
+        Condition::ControlCountExceptEvent(_, _) => false,
         Condition::Revolt => state.per_turn.revolt[usize::from(you.get())],
         Condition::CastInstantOrSorceryThisTurn => {
             state.per_turn.instant_or_sorcery_cast[usize::from(you.get())]
@@ -1286,6 +1288,7 @@ pub(crate) fn intervening_if_for_incarnation(
     source: ObjectId,
     version: Option<u32>,
     attachment: Option<(ObjectId, u32)>,
+    event: Option<baylee_core::ids::DamageSourceRef>,
 ) -> bool {
     match condition {
         Some(Condition::All(conditions)) => conditions.iter().all(|condition| {
@@ -1296,6 +1299,7 @@ pub(crate) fn intervening_if_for_incarnation(
                 source,
                 version,
                 attachment,
+                event,
             )
         }),
         Some(Condition::Any(conditions)) => conditions.iter().any(|condition| {
@@ -1306,6 +1310,7 @@ pub(crate) fn intervening_if_for_incarnation(
                 source,
                 version,
                 attachment,
+                event,
             )
         }),
         Some(Condition::Not(condition)) => !intervening_if_for_incarnation(
@@ -1315,6 +1320,7 @@ pub(crate) fn intervening_if_for_incarnation(
             source,
             version,
             attachment,
+            event,
         ),
         Some(Condition::AttachedMatches(filter)) => {
             attached_for_ability(state, source, version, attachment)
@@ -1324,7 +1330,57 @@ pub(crate) fn intervening_if_for_incarnation(
             version.is_none_or(|version| state.object(source).is_some_and(|o| o.version == version))
                 && intervening_if(state, condition, you, source)
         }
-        _ => intervening_if(state, condition, you, source),
+        Some(condition) => {
+            condition_with_event(state, you, live_context(state, source), condition, event)
+        }
+        None => true,
+    }
+}
+
+/// An event-dependent clause excludes an incarnation, never a reusable handle.
+pub(crate) fn condition_reads_event(condition: Condition) -> bool {
+    match condition {
+        Condition::ControlCountExceptEvent(_, _) => true,
+        Condition::All(conditions) | Condition::Any(conditions) => {
+            conditions.iter().copied().any(condition_reads_event)
+        }
+        Condition::Not(condition) => condition_reads_event(*condition),
+        _ => false,
+    }
+}
+
+/// Evaluate a condition with the triggering incarnation available to its clauses.
+pub(crate) fn condition_with_event(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    condition: Condition,
+    event: Option<baylee_core::ids::DamageSourceRef>,
+) -> bool {
+    match condition {
+        Condition::ControlCountExceptEvent(filter, minimum) => {
+            let Some(event) = event else { return false };
+            state
+                .battlefield_seen()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|object| {
+                        object.controller == you
+                            && (id != event.object || object.version != event.version)
+                            && matches_with_context(filter, state, object, you, context)
+                    })
+                })
+                .take(usize::from(minimum))
+                .count()
+                >= usize::from(minimum)
+        }
+        Condition::All(conditions) => conditions
+            .iter()
+            .all(|&condition| condition_with_event(state, you, context, condition, event)),
+        Condition::Any(conditions) => conditions
+            .iter()
+            .any(|&condition| condition_with_event(state, you, context, condition, event)),
+        Condition::Not(condition) => !condition_with_event(state, you, context, *condition, event),
+        _ => condition_holds_with_context(state, you, context, condition),
     }
 }
 
@@ -2233,6 +2289,7 @@ mod tests {
             P0,
             source,
             Some(version),
+            None,
             None
         ));
         state
@@ -2256,7 +2313,15 @@ mod tests {
             "the new card independently satisfies the clause"
         );
         assert!(
-            !intervening_if_for_incarnation(&state, condition, P0, source, Some(version), None),
+            !intervening_if_for_incarnation(
+                &state,
+                condition,
+                P0,
+                source,
+                Some(version),
+                None,
+                None
+            ),
             "the old trigger cannot find that new card"
         );
     }

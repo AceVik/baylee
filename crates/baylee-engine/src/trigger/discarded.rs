@@ -35,7 +35,7 @@ pub(super) fn collect(
                 continue;
             }
             let context = ability_context(state, card, &list, index);
-            if !condition_matches(state, firing.condition, player, context) {
+            if !condition_matches(state, firing.condition, player, context, Some(entry)) {
                 continue;
             }
             triggers.push(PendingTrigger {

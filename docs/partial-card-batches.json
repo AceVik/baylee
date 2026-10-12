@@ -563,15 +563,18 @@
         },
         {
           "name": "Valakut, the Molten Pinnacle",
-          "path": "crates/baylee-cards/src/cards/lands/utility/valakut_the_molten_pinnacle.rs"
+          "path": "crates/baylee-cards/src/cards/lands/utility/valakut_the_molten_pinnacle.rs",
+          "status": "completed"
         },
         {
           "name": "Legion's Landing // Adanto, the First Fort",
-          "path": "crates/baylee-cards/src/cards/enchantments/mv_1/legion_s_landing.rs"
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_1/legion_s_landing.rs",
+          "status": "completed"
         },
         {
           "name": "Storm the Vault // Vault of Catlacan",
-          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/storm_the_vault.rs"
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/storm_the_vault.rs",
+          "status": "completed"
         },
         {
           "name": "Haunting Wind",
@@ -591,7 +594,8 @@
         },
         {
           "name": "Urza's Miter",
-          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/urza_s_miter.rs"
+          "path": "crates/baylee-cards/src/cards/artifacts/mv_3/urza_s_miter.rs",
+          "status": "completed"
         },
         {
           "name": "Brass's Tunnel-Grinder // Tecutlan, the Searing Rift",
@@ -601,7 +605,9 @@
           "name": "Thousand Moons Smithy // Barracks of the Thousand",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_4/thousand_moons_smithy.rs"
         }
-      ]
+      ],
+      "validated_complete": 4,
+      "remaining_note": "Ten cards remain Partial; activation observers and historical turn predicates need further engine support."
     },
     {
       "batch": 49,

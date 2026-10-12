@@ -772,7 +772,8 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // The former whole-percent floor rounded 1027/1286 down to 79, hiding that
     // this is pool growth rather than a lost reader row. Pin both populations
     // so additions and reader regressions require an explicit review.
-    assert_eq!((read, of), (1027, 1286), "activated/loyalty reader census");
+    // Batch48 adds Adanto’s token activation: one new, fully read row.
+    assert_eq!((read, of), (1028, 1287), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

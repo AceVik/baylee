@@ -7,6 +7,7 @@
 //! player-facing ordering choice is M2 (documented in engine-internals).
 
 mod discarded;
+mod event_groups;
 mod radiation;
 mod return_keywords;
 mod sagas;
@@ -140,9 +141,23 @@ fn condition_matches(
     condition: Option<Condition>,
     you: PlayerId,
     context: RuleContext,
+    entry: Option<&crate::event::JournalEntry>,
 ) -> bool {
-    condition
-        .is_none_or(|condition| eval::condition_holds_with_context(state, you, context, condition))
+    let Some(condition) = condition else {
+        return true;
+    };
+    if !eval::condition_reads_event(condition) {
+        return eval::condition_holds_with_context(state, you, context, condition);
+    }
+    let event = entry.and_then(|entry| {
+        let GameEvent::ZoneChanged { object, .. } = entry.event else {
+            return None;
+        };
+        state
+            .event_object_identity(object, entry.seq)
+            .map(|(version, _)| baylee_core::ids::DamageSourceRef { object, version })
+    });
+    eval::condition_with_event(state, you, context, condition, event)
 }
 
 fn freeze_trigger(state: &GameState, trigger: &mut PendingTrigger) {
@@ -290,10 +305,16 @@ fn collect_emblems(
                 let list = obj.ability_list(lookup);
                 let context = ability_context(state, obj, &list, index);
                 // CR 603.4's first check, as in the battlefield loop below.
-                if !condition_matches(state, firing.condition, obj.controller, context) {
-                    continue;
-                }
                 for entry in events {
+                    if !condition_matches(
+                        state,
+                        firing.condition,
+                        obj.controller,
+                        context,
+                        Some(entry),
+                    ) {
+                        continue;
+                    }
                     let hit = hits_with_context(
                         trigger,
                         &entry.event,
@@ -392,14 +413,15 @@ fn graveyard_triggers(
                 continue;
             };
             let context = ability_context(state, object, &list, index);
-            if firing.zone != TriggerZone::Graveyard
-                || !condition_matches(state, firing.condition, owner, context)
-            {
+            if firing.zone != TriggerZone::Graveyard {
                 continue;
             }
             for entry in events {
                 let at_event = source_at_event(state, current, events, entry, false);
-                if at_event.zone != Zone::Graveyard || at_event.version != object.version {
+                if at_event.zone != Zone::Graveyard
+                    || at_event.version != object.version
+                    || !condition_matches(state, firing.condition, owner, context, Some(entry))
+                {
                     continue;
                 }
                 let hit =
@@ -526,7 +548,7 @@ pub fn state_triggers(
             let index = index as u32;
             if in_flight(permanent, index)
                 || !eval::condition_holds_with_context(state, obj.controller, context, **condition)
-                || !condition_matches(state, firing.condition, obj.controller, context)
+                || !condition_matches(state, firing.condition, obj.controller, context, None)
             {
                 continue;
             }
@@ -798,10 +820,7 @@ fn first_mana_of_a_tap(
     batch: &[crate::event::JournalEntry],
     object: ObjectId,
 ) -> bool {
-    let Some(at) = batch
-        .iter()
-        .position(|entry| std::ptr::eq(&raw const entry.event, event))
-    else {
+    let Some(at) = event_groups::index_of_event(event, batch) else {
         return false;
     };
     batch[..at]
@@ -831,9 +850,7 @@ fn produced_mana(event: &GameEvent, batch: &[crate::event::JournalEntry]) -> Opt
     else {
         return None;
     };
-    let at = batch
-        .iter()
-        .position(|entry| std::ptr::eq(&raw const entry.event, event))?;
+    let at = event_groups::index_of_event(event, batch)?;
     let mut types = 0;
     for entry in &batch[at..] {
         match entry.event {
@@ -867,10 +884,7 @@ fn first_combat_damage_to(
     batch: &[crate::event::JournalEntry],
     dealt: crate::event::DamageTarget,
 ) -> bool {
-    let Some(at) = batch
-        .iter()
-        .position(|entry| std::ptr::eq(&raw const entry.event, event))
-    else {
+    let Some(at) = event_groups::index_of_event(event, batch) else {
         return false;
     };
     !batch[..at].iter().any(|entry| {
@@ -926,10 +940,7 @@ fn first_combat_damage_by(
     batch: &[crate::event::JournalEntry],
     source: ObjectId,
 ) -> bool {
-    let Some(at) = batch
-        .iter()
-        .position(|entry| std::ptr::eq(&raw const entry.event, event))
-    else {
+    let Some(at) = event_groups::index_of_event(event, batch) else {
         return false;
     };
     !batch[..at].iter().any(|entry| {
@@ -1155,7 +1166,7 @@ fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> O
             },
         ) => Some(*blocker),
         (
-            Trigger::DealsDamageToPlayer { .. },
+            Trigger::DealsDamageToPlayer { .. } | Trigger::OneOrMoreDealCombatDamageToPlayer(_),
             GameEvent::DamageDealt {
                 source: damage_source,
                 ..
@@ -1267,7 +1278,7 @@ fn cast_this_spell_triggers(
                 continue;
             }
             let context = ability_context(state, spell, &list, index);
-            if !condition_matches(state, firing.condition, player, context) {
+            if !condition_matches(state, firing.condition, player, context, None) {
                 continue;
             }
             triggers.push(PendingTrigger {
@@ -1671,7 +1682,10 @@ fn collect_for_objects(
                 source: permanent,
                 text,
             };
-            let look_back = matches!(trigger, Trigger::Dies(_) | Trigger::LeavesBattlefield(_));
+            let look_back = matches!(
+                trigger,
+                Trigger::Dies(_) | Trigger::DiesNotSacrificed(_) | Trigger::LeavesBattlefield(_)
+            );
             if !all_kinds && !look_back {
                 continue;
             }
@@ -1797,7 +1811,10 @@ fn collect_for_objects(
             if !all_kinds
                 && !matches!(
                     trigger,
-                    Trigger::LeavesBattlefield(_) | Trigger::Dies(_) | Trigger::CycledThis
+                    Trigger::LeavesBattlefield(_)
+                        | Trigger::Dies(_)
+                        | Trigger::DiesNotSacrificed(_)
+                        | Trigger::CycledThis
                 )
             {
                 continue;
@@ -1813,10 +1830,21 @@ fn collect_for_objects(
                     obj,
                     events,
                     entry,
-                    matches!(trigger, Trigger::Dies(_) | Trigger::LeavesBattlefield(_)),
+                    matches!(
+                        trigger,
+                        Trigger::Dies(_)
+                            | Trigger::DiesNotSacrificed(_)
+                            | Trigger::LeavesBattlefield(_)
+                    ),
                 );
                 let context = ability_context(state, source, &list, index);
-                if !condition_matches(state, firing.condition, source.controller, context) {
+                if !condition_matches(
+                    state,
+                    firing.condition,
+                    source.controller,
+                    context,
+                    Some(entry),
+                ) {
                     continue;
                 }
                 let hit = departure_hit(trigger, entry, permanent).unwrap_or_else(|| {
@@ -1839,7 +1867,12 @@ fn collect_for_objects(
                             obj,
                             events,
                             entry,
-                            matches!(trigger, Trigger::Dies(_) | Trigger::LeavesBattlefield(_)),
+                            matches!(
+                                trigger,
+                                Trigger::Dies(_)
+                                    | Trigger::DiesNotSacrificed(_)
+                                    | Trigger::LeavesBattlefield(_)
+                            ),
                         );
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
@@ -2090,6 +2123,34 @@ fn matches(
             },
         ) => departed_matches(filter, state, *object, you, context),
         (
+            Trigger::DiesNotSacrificed(filter),
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                to: Zone::Graveyard,
+                ..
+            },
+        ) => {
+            event_groups::index_of_event(event, batch)
+                .and_then(|index| batch.get(index))
+                .is_some_and(|entry| {
+                    entry
+                        .departure
+                        .as_ref()
+                        .is_some_and(|departure| !departure.sacrificed)
+                })
+                && departed_matches(filter, state, *object, you, context)
+        }
+        (
+            Trigger::OneOrMoreDealCombatDamageToPlayer(filter),
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Player(_),
+                is_combat: true,
+                amount: 1..,
+                ..
+            },
+        ) => event_groups::first_matching_damage(event, batch, state, you, context, filter),
+        (
             Trigger::DealsCombatDamageToPlayer(filter),
             GameEvent::DamageDealt {
                 source: Some(damage_source),
@@ -2338,6 +2399,9 @@ fn matches(
             PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*player, you),
             _ => true,
         },
+        (Trigger::AttackWithAtLeast(minimum), GameEvent::BecameAttacker { .. }) => {
+            event_groups::attack_threshold(event, batch, state, you, *minimum)
+        }
         (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
@@ -2349,10 +2413,7 @@ fn matches(
                     .object(id)
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
             };
-            let Some(at) = batch
-                .iter()
-                .position(|entry| std::ptr::eq(&raw const entry.event, event))
-            else {
+            let Some(at) = event_groups::index_of_event(event, batch) else {
                 return false;
             };
             hit(*object)
@@ -2415,10 +2476,7 @@ fn matches(
         // CR 509.3a: once per blocker, on the first of its pairs in the
         // declaration, however many attackers it blocks.
         (Trigger::Blocks(filter), GameEvent::BecameBlocker { object, .. }) => {
-            let Some(at) = batch
-                .iter()
-                .position(|entry| std::ptr::eq(&raw const entry.event, event))
-            else {
+            let Some(at) = event_groups::index_of_event(event, batch) else {
                 return false;
             };
             !batch[..at].iter().any(|entry| {

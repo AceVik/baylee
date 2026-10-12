@@ -1407,16 +1407,10 @@ impl<L: CardLookup> Engine<L> {
                         );
                     debug_assert!(!answer || paid, "echo cost was offered as payable");
                     if !paid {
-                        let owner = self.state.object(card).map_or(player, |o| o.owner);
                         if let Some(obj) = self.state.object_mut(card) {
                             obj.kind = ObjectKind::Card;
                         }
-                        let _ = self.state.move_object(
-                            card,
-                            ZoneLocation::Graveyard(owner),
-                            ZonePosition::Top,
-                            Cause::Effect,
-                        );
+                        let _ = self.state.sacrifice_object(card, Cause::Effect);
                     }
                     return Ok(());
                 }

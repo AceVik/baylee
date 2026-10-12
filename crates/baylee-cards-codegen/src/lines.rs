@@ -629,7 +629,9 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::CycledThis => &["cycle"],
         T::Discarded { .. } | T::DiscardedThisByOpponent => &["discard"],
         T::LeavesBattlefield(_) => &["leave"],
-        T::Dies(_) | T::DiesAfterDamageByThis(_) => &["die", "put into a graveyard"],
+        T::Dies(_) | T::DiesNotSacrificed(_) | T::DiesAfterDamageByThis(_) => {
+            &["die", "put into a graveyard"]
+        }
         T::CastThisWithMana(_)
         | T::SpellCast(_)
         | T::SpellCastUsingSourceMana(_)
@@ -643,6 +645,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Ward => &["ward"],
         T::ExiledFromBattlefield(_) => &["exiled"],
         T::DealsCombatDamageToPlayer(_)
+        | T::OneOrMoreDealCombatDamageToPlayer(_)
         | T::DealsCombatDamageToOpponent(_)
         | T::DealsDamageToPlayer { .. }
         | T::DealsDamageToOpponent(_)
@@ -660,7 +663,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // Fastbond, "Whenever you play a land".
         T::PlaysLand(_) => &["play a land"],
         T::PlaysAnotherLand => &["play another land"],
-        T::Attacks(_) | T::OneOrMoreAttack(_) => &["attack"],
+        T::Attacks(_) | T::OneOrMoreAttack(_) | T::AttackWithAtLeast(_) => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
         // Cockatrice, "Whenever this creature blocks or becomes blocked by
         // a non-Wall creature". Its filter is the *other* creature, so it
@@ -766,6 +769,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         Trigger::EntersBattlefield(filter)
         | Trigger::LeavesBattlefield(filter)
         | Trigger::Dies(filter)
+        | Trigger::DiesNotSacrificed(filter)
         | Trigger::Attacks(filter)
         | Trigger::AttacksAlone(filter)
         | Trigger::OneOrMoreAttack(filter)
@@ -775,6 +779,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::TappedForMana { filter, .. }
         | Trigger::ExiledFromBattlefield(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)
+        | Trigger::OneOrMoreDealCombatDamageToPlayer(filter)
         | Trigger::DealsCombatDamageToOpponent(filter)
         | Trigger::DealsDamageToPlayer { source: filter, .. }
         | Trigger::DealsDamageToOpponent(filter)
