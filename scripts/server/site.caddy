@@ -48,18 +48,22 @@ handle @baylee_site {
 	# and pictures a week. Everything is revalidated once it is stale.
 	@page path /
 	header @page Cache-Control "no-cache"
-	@code path *.css *.js
+	# The card status (data/*.json, scripts/site/card_status.py) is
+	# regenerated with the cards, so it is treated like the code.
+	@code path *.css *.js *.json
 	header @code Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
-	@assets not path / *.css *.js
+	@assets not path / *.css *.js *.json
 	header @assets Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
 
-	# What the page may do: its own files, and GitHub's API for the release
-	# list and the CI status (site.js). No inline style or script, nothing
-	# from any other host; the downloads are links the browser follows,
-	# which no CSP directive governs. The gateway's /info and /health are
-	# 'self'.
+	# What the page may do: its own files, GitHub's API for the release
+	# list and the CI status (site.js), and card pictures straight from
+	# Scryfall's image host when a visitor opens a set in the card status
+	# (docs/legal.md §3; never Scryfall's API, nothing re-hosted). No inline
+	# style or script, nothing else from any other host; the downloads are
+	# links the browser follows, which no CSP directive governs. The
+	# gateway's /info and /health are 'self'.
 	header {
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://cards.scryfall.io; font-src 'self'; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer
 	}

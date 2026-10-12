@@ -480,4 +480,217 @@
     var running = h.games.running | 0, waiting = h.games.waiting | 0;
     setKV("gateway-card", "games", [t(running + " running, " + waiting + " waiting for players", running + " laufen, " + waiting + " warten auf Spieler")]);
   });
+  // ------------------------------------------------------------ sets and card status
+  // data/sets.json (scripts/site/card_status.py) lists every set in release
+  // order with its counts; a set's cards are in data/sets/<code>.json and
+  // are fetched only when that set is opened. Card pictures come straight
+  // from Scryfall's image host (docs/legal.md §3), unaltered, lazily, and
+  // only for an opened set; nothing is drawn on a picture, the status sits
+  // under it.
+  var DATA = "/site/data/";
+  var IMG_HOST = "https://cards.scryfall.io";
+  var SCRYFALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  var STATUS = {
+    implemented: { group: "implemented", en: "Full", de: "Voll" },
+    partial: { group: "partial", en: "Partial", de: "Teilweise" },
+    unimplemented: { group: "none", en: "Not yet", de: "Noch nicht" },
+    absent: { group: "none", en: "Not yet", de: "Noch nicht" },
+    never: { group: "never", en: "Never", de: "Nie" }
+  };
+  var NEVER = {
+    ante: ["it plays for ante (CR 407), and no table here plays for ante", "sie spielt um Ante (CR 407), und kein Tisch hier spielt um Ante"],
+    dexterity: ["it asks a physical act of the player, which no game state describes", "sie verlangt eine körperliche Handlung, die kein Spielzustand beschreibt"],
+    subgame: ["it starts a game within the game (CR 728), which the engine does not host", "sie startet ein Spiel im Spiel (CR 728), das die Engine nicht ausrichtet"]
+  };
+  function num(n) { return Number(n).toLocaleString(lang === "de" ? "de-DE" : "en-GB"); }
+  function numT(n) { return t(Number(n).toLocaleString("en-GB"), Number(n).toLocaleString("de-DE")); }
+  function pct(done, of) {
+    if (!of) return 100;
+    var p = done * 100 / of;
+    return p > 0 && p < 1 ? 1 : (p > 99 && p < 100 ? 99 : Math.round(p));
+  }
+  function why(c) {
+    switch (c.status) {
+      case "implemented": return [tt("Plays as printed.", "Spielt wie gedruckt.")];
+      case "partial": return [tt("Partly implemented. Missing: ", "Teilweise umgesetzt. Es fehlt (Notiz auf Englisch): ") + (c.note || "")];
+      case "unimplemented": return [tt("In the card pool, but its abilities are not written yet: not playable.", "Im Kartenpool, aber ihre Fähigkeiten sind noch nicht geschrieben: nicht spielbar.")];
+      case "absent": return [tt("Not in the card pool yet.", "Noch nicht im Kartenpool.")];
+      case "never":
+        var r = NEVER[c.note];
+        return [tt("Never built: ", "Wird nie gebaut: ") + (r ? tt(r[0], r[1]) : (c.note || ""))];
+    }
+    return [""];
+  }
+  function tileTitle(c) { return c.name + " — " + tt(STATUS[c.status].en, STATUS[c.status].de) + ". " + why(c)[0]; }
+  function imgUrl(id) {
+    return SCRYFALL_ID.test(id) ? IMG_HOST + "/small/front/" + id[0] + "/" + id[1] + "/" + id + ".jpg" : null;
+  }
+
+  function bar(s) {
+    var of = s.total - s.never;
+    var b = el("div", { class: "pbar", "aria-hidden": "true" }, [
+      el("span", { class: "pbar-full" }), el("span", { class: "pbar-partial" })
+    ]);
+    // CSSOM, not a style attribute: the page's CSP allows no inline style.
+    b.firstChild.style.width = (of ? s.implemented * 100 / of : 100) + "%";
+    b.lastChild.style.width = (of ? s.partial * 100 / of : 0) + "%";
+    return b;
+  }
+  function counts(s) {
+    var none = s.unimplemented + s.absent;
+    var parts = [
+      el("span", { class: "c c-implemented" }, [numT(s.implemented), " ", t("full", "voll")]),
+      el("span", { class: "c c-partial" }, [numT(s.partial), " ", t("partial", "teilweise")]),
+      el("span", { class: "c c-none" }, [numT(none), " ", t("not yet", "noch nicht")])
+    ];
+    if (s.never) parts.push(el("span", { class: "c c-never" }, [numT(s.never), " ", t("never", "nie")]));
+    return el("span", { class: "set-counts" }, parts);
+  }
+
+  var tiles = []; // every rendered card tile, retitled when the language changes
+  redraw.push(function () {
+    for (var i = 0; i < tiles.length; i++) tiles[i].node.setAttribute("title", tileTitle(tiles[i].card));
+  });
+
+  function tile(c) {
+    var st = STATUS[c.status];
+    var src = c.img ? imgUrl(c.img) : null;
+    var pic = src
+      ? el("img", { src: src, alt: "", loading: "lazy", decoding: "async", width: "146", height: "204", referrerpolicy: "no-referrer" })
+      : el("span", { class: "ctile-blank", "aria-hidden": "true" }, [c.name]);
+    var badge = el("span", { class: "badge b-" + st.group }, [t(st.en, st.de)]);
+    // the reason, in both languages like every other run, for assistive technology
+    var reason = el("span", { class: "vh" }, [t(" " + whyIn(c, "en"), " " + whyIn(c, "de"))]);
+    var n = el("li", { class: "ctile", tabindex: "0", "data-group": st.group }, [
+      el("div", { class: "ctile-pic" }, [pic]),
+      el("div", { class: "ctile-cap" }, [el("span", { class: "ctile-name", text: c.name }), badge, reason])
+    ]);
+    n.setAttribute("title", tileTitle(c));
+    tiles.push({ node: n, card: c });
+    return n;
+  }
+  function whyIn(c, l) { var keep = lang; lang = l; var w = why(c)[0]; lang = keep; return w; }
+
+  function filterBar(grid, s) {
+    var groups = [
+      ["all", "All", "Alle", s.total],
+      ["implemented", "Full", "Voll", s.implemented],
+      ["partial", "Partial", "Teilweise", s.partial],
+      ["none", "Not yet", "Noch nicht", s.unimplemented + s.absent],
+      ["never", "Never", "Nie", s.never]
+    ];
+    var bar = el("div", { class: "cfilter", role: "group" });
+    bar.setAttribute("aria-label", "Filter");
+    groups.forEach(function (g) {
+      if (g[0] !== "all" && !g[3]) return;
+      var b = el("button", { type: "button", class: "cfilter-btn", "aria-pressed": g[0] === "all" ? "true" : "false", "data-filter": g[0] },
+        [t(g[1], g[2]), " ", el("span", { class: "cfilter-n" }, [numT(g[3])])]);
+      bar.appendChild(b);
+    });
+    bar.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest(".cfilter-btn");
+      if (!b) return;
+      var f = b.getAttribute("data-filter");
+      grid.setAttribute("data-filter", f);
+      var all = bar.querySelectorAll(".cfilter-btn");
+      for (var i = 0; i < all.length; i++) all[i].setAttribute("aria-pressed", all[i] === b ? "true" : "false");
+    });
+    return bar;
+  }
+
+  function openSet(d, s) {
+    if (d.getAttribute("data-loaded")) return;
+    d.setAttribute("data-loaded", "1");
+    var body = d.querySelector(".set-body");
+    body.appendChild(el("p", { class: "small" }, [t("Loading…", "Lädt …")]));
+    fetch(DATA + "sets/" + encodeURIComponent(s.code) + ".json", { credentials: "omit", headers: { Accept: "application/json" } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (doc) {
+        clear(body);
+        var grid = el("ul", { class: "cgrid", "data-filter": "all" });
+        var frag = document.createDocumentFragment();
+        for (var i = 0; i < doc.cards.length; i++) frag.appendChild(tile(doc.cards[i]));
+        grid.appendChild(frag);
+        body.appendChild(filterBar(grid, s));
+        body.appendChild(grid);
+        body.appendChild(el("p", { class: "small set-foot" }, [
+          el("a", { href: "https://scryfall.com/sets/" + encodeURIComponent(s.code), rel: "noopener" }, [t("This set on Scryfall", "Dieses Set bei Scryfall")]),
+          " · ", t("Images: Scryfall", "Bilder: Scryfall")
+        ]));
+      })
+      .catch(function () {
+        d.removeAttribute("data-loaded");
+        clear(body);
+        body.appendChild(el("p", { class: "small" }, [t("The card list did not load. Close and open the set to try again.", "Die Kartenliste wurde nicht geladen. Schließe das Set und öffne es erneut.")]));
+      });
+  }
+
+  function setRow(s) {
+    var of = s.total - s.never;
+    var p = pct(s.implemented, of);
+    var year = s.released ? s.released.slice(0, 4) : "";
+    var label = el("span", { class: "vh" }, [t(p + " percent full", p + " Prozent voll")]);
+    var sum = el("summary", { class: "set-sum" }, [
+      el("span", { class: "set-title" }, [
+        el("span", { class: "set-name", text: s.name }),
+        el("span", { class: "set-meta" }, [s.code.toUpperCase() + (year ? " · " + year : "") + " · ", numT(s.total), " ", t(s.total === 1 ? "card" : "cards", s.total === 1 ? "Karte" : "Karten")])
+      ]),
+      el("span", { class: "set-progress" }, [
+        el("span", { class: "set-pct" + (p === 100 ? " done" : ""), "aria-hidden": "true", text: p + " %" }), label, bar(s)
+      ]),
+      counts(s)
+    ]);
+    var d = el("details", { class: "set", "data-code": s.code }, [sum, el("div", { class: "set-body" })]);
+    d.setAttribute("data-search", (s.name + " " + s.code).toLowerCase());
+    d.setAttribute("data-started", s.implemented + s.partial > 0 ? "1" : "0");
+    d.addEventListener("toggle", function () { if (d.open) openSet(d, s); });
+    return d;
+  }
+
+  (function sets() {
+    var list = document.getElementById("sets-list");
+    if (!list || !window.fetch) return;
+    fetch(DATA + "sets.json", { credentials: "omit", headers: { Accept: "application/json" } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (doc) {
+        var tot = doc.totals, all = doc.corpus - tot.never;
+        var full = document.getElementById("num-full"), part = document.getElementById("num-partial"), corp = document.getElementById("num-corpus");
+        if (full) { clear(full); full.appendChild(numT(tot.implemented)); }
+        if (part) { clear(part); part.appendChild(numT(tot.partial)); }
+        if (corp) { clear(corp); corp.appendChild(numT(all)); }
+        var total = document.getElementById("sets-total");
+        if (total) {
+          clear(total);
+          var p = pct(tot.implemented, all);
+          total.appendChild(t(
+            doc.sets.length + " sets, " + Number(doc.corpus).toLocaleString("en-GB") + " cards: " + Number(tot.implemented).toLocaleString("en-GB") + " full (" + p + " %), " + tot.partial + " partial, " + Number(tot.unimplemented + tot.absent).toLocaleString("en-GB") + " not yet, " + tot.never + " never. Measured at commit " + String(doc.rev).slice(0, 9) + ".",
+            doc.sets.length + " Sets, " + Number(doc.corpus).toLocaleString("de-DE") + " Karten: " + Number(tot.implemented).toLocaleString("de-DE") + " voll (" + p + " %), " + tot.partial + " teilweise, " + Number(tot.unimplemented + tot.absent).toLocaleString("de-DE") + " noch nicht, " + tot.never + " nie. Gemessen an Commit " + String(doc.rev).slice(0, 9) + "."
+          ));
+        }
+        clear(list);
+        var frag = document.createDocumentFragment();
+        for (var i = 0; i < doc.sets.length; i++) frag.appendChild(setRow(doc.sets[i]));
+        list.appendChild(frag);
+        var tools = document.getElementById("sets-tools"), q = document.getElementById("sets-q"), started = document.getElementById("sets-started");
+        if (tools) tools.hidden = false;
+        function filter() {
+          var needle = (q && q.value || "").trim().toLowerCase();
+          var only = started && started.checked;
+          var rows = list.children;
+          for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            r.hidden = (needle && r.getAttribute("data-search").indexOf(needle) < 0) || (only && r.getAttribute("data-started") !== "1");
+          }
+        }
+        if (q) q.addEventListener("input", filter);
+        if (started) started.addEventListener("change", filter);
+        // a link to #set-<code> opens that set
+        var m = /^#set-([a-z0-9]+)$/.exec(location.hash);
+        if (m) {
+          var d = list.querySelector('details[data-code="' + m[1] + '"]');
+          if (d) { d.open = true; d.scrollIntoView({ block: "start", behavior: "instant" }); }
+        }
+      })
+      .catch(function () { /* the static text stays: it says where the list is */ });
+  })();
 })();

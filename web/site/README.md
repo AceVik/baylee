@@ -26,7 +26,38 @@ Safari, Windows on ARM from Firefox) is said beside the button instead of
 guessed. Installers (`.exe`, `.dmg`, `.AppImage`, `.deb`) are offered first
 when a release carries them, the archives otherwise.
 
-No request leaves the origin but the ones to GitHub: the fonts (Faustina,
+## The card status (`data/`)
+
+The "Sets and card status" list under the cards section reads
+`data/sets.json` (every set in release order, its counts) and, when a visitor
+opens a set, `data/sets/<code>.json` (that set's cards: name, oracle id,
+status, the reason for a partial or never-built card, and a Scryfall printing
+id). `scripts/site/card_status.py` writes both from one git revision of the
+repository, never from the working tree:
+
+```sh
+python3 scripts/site/card_status.py --rev origin/main     # or any commit
+python3 scripts/site/card_status.py --rev origin/main --fetch-bulk   # pictures for every card
+```
+
+It reads the CardIndex ledger (every card, the set it first appeared in, in
+release order), every card file's `coverage` and `scryfall_id`, and
+`data/unplayable.tsv`; it checks each set's count against the core index's
+per-set file and prints the totals. Set names come from one request to
+Scryfall's set list, cached under `target/site-cache/`. A card outside the
+pool has no printing id in the repository; `--fetch-bulk` downloads Scryfall's
+`default_cards` bulk file once into `target/site-cache/` (`--bulk` names one
+already on disk), which gives every card the picture of its printing
+in the set it is listed under (without it, the ids of the previous output are
+kept). Regenerate and redeploy the page when cards land.
+
+The pictures are loaded by the visitor's browser straight from
+`cards.scryfall.io`, only for a set that is opened, lazily, unaltered, with
+nothing drawn on them, and credited (`docs/legal.md` §3). The page never calls
+Scryfall's API and nothing is re-hosted.
+
+No request leaves the origin but the ones to GitHub and, for an opened set,
+Scryfall's image host: the fonts (Faustina,
 Alegreya Sans; subsets of the client's own files, OFL 1.1, licences beside
 them in `fonts/`), the painting and the logo (ours, `docs/legal.md` §10)
 and the screenshots (`docs/images/readme/`, Baylee's text view, no card
