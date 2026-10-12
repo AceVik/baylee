@@ -203,3 +203,139 @@ fn and_on_somebody_elses_turn_as_well() {
         "the reported window: an opponent's spell on the stack, on their turn"
     );
 }
+
+/// A basic land of `kind` on the table, an untapped source the engine offers.
+fn basic(slot: u32, name: &str, kind: baylee_core::ids::SubtypeId) -> baylee_view::PublicObject {
+    let mut obj = token(slot, 0, name, 0, 0);
+    // A card, as a player's land is: an object with neither a card nor a
+    // token is unreadable to `targeting` and reads as "might be a target".
+    obj.card = Some(CardIdentity {
+        index: baylee_cards::decks::by_name(name).expect("a basic land"),
+        print: PrintRef::new(0),
+        face: 0,
+    });
+    obj.rules = obj.card.map(baylee_view::RulesFace::from);
+    obj.types = TypeSet::LAND;
+    obj.power = None;
+    obj.toughness = None;
+    obj.subtypes.insert(kind);
+    obj
+}
+
+/// An opponent's Grizzly Bears, a card the way a real permanent is.
+fn their_bears() -> baylee_view::PublicObject {
+    let mut obj = token(90, 1, "Grizzly Bears", 2, 2);
+    obj.card = Some(CardIdentity {
+        index: baylee_cards::decks::by_name("Grizzly Bears").expect("in the pool"),
+        print: PrintRef::new(0),
+        face: 0,
+    });
+    obj.rules = obj.card.map(baylee_view::RulesFace::from);
+    obj
+}
+
+/// A seat holding `name`, id 50, with `lands` it may tap and `theirs` on the
+/// opponent's side of the table.
+fn duel_holding_named(
+    name: &str,
+    lands: Vec<baylee_view::PublicObject>,
+    theirs: Vec<baylee_view::PublicObject>,
+) -> Duel {
+    let def = baylee_cards::by_index(baylee_cards::decks::by_name(name).expect("a card by name"))
+        .expect("a registered card");
+    let ids: Vec<ObjectId> = lands.iter().map(|o| o.id).collect();
+    let mut view = ViewBuilder::new(2)
+        .with_battlefield(0, lands)
+        .with_battlefield(1, theirs)
+        .build();
+    view.hand = vec![HandObject {
+        id: ObjectId::new(50, 0),
+        card: CardIdentity {
+            index: def.index,
+            print: PrintRef::new(0),
+            face: 0,
+        },
+        name: def.faces[0].name.to_string(),
+        mana_value: def.faces[0].mana_cost.cmc(),
+        colors: def.faces[0].mana_cost.colors(),
+        types: def.faces[0].types,
+        commander: false,
+    }];
+    Duel {
+        view: Some(view),
+        interaction: Some(Interaction::new(
+            Pending::Priority {
+                player: PlayerId::new(0),
+                legal: Box::new(LegalActions {
+                    can_pass: true,
+                    mana_abilities: ids,
+                    ..LegalActions::default()
+                }),
+            },
+            PlayerId::new(0),
+        )),
+        ..Duel::default()
+    }
+}
+
+/// Report 17: Prismatic Ending (`{X}{W}`) beside a Plains is in reach, and the
+/// click's plan taps the Plains. An `{X}` cost used to be unreadable for
+/// reach (the planner refuses X), so a card the engine offered as payable
+/// answered no click. Reach reads X at its least, 0 (CR 107.3).
+#[test]
+fn an_x_spell_is_reached_for_when_the_rest_of_its_cost_is_paid() {
+    let creature = their_bears();
+    let duel = duel_holding_named(
+        "Prismatic Ending",
+        vec![basic(1, "Plains", land::PLAINS)],
+        vec![creature.clone()],
+    );
+    let card = ObjectId::new(50, 0);
+    assert!(
+        reachable(&duel).contains(&card),
+        "one Plains pays {{W}} with X at 0"
+    );
+    let plan = crate::mana_for(&duel, card).expect("the click has a plan");
+    assert_eq!(plan.steps.len(), 1);
+    assert_eq!(plan.steps[0].source, ObjectId::new(1, 0));
+
+    // The counter-test: the same card with no white source is out of reach,
+    // so the first half is about the Plains and not about X being waved by.
+    let duel = duel_holding_named("Prismatic Ending", vec![forest(1)], vec![creature]);
+    assert!(!reachable(&duel).contains(&card));
+    assert!(crate::mana_for(&duel, card).is_none());
+}
+
+/// Report 00: Cyclonic Rift with no nonland permanent an opponent controls has
+/// no legal target for its normal mode, leaving only overload `{6}{U}`. A click
+/// the client does not answer (the card is not in `Duel::reachable`, which
+/// this harness leaves empty, as `input::tests` documents) says so, not "the
+/// resources are not available"; with such a permanent present the refusal is
+/// not that sentence.
+#[test]
+fn a_rift_with_nothing_to_bounce_says_only_the_costlier_mode_is_left() {
+    use baylee_client_core::i18n::{Phrase, Refusal};
+    let island = |slot| basic(slot, "Island", land::ISLAND);
+    let card = ObjectId::new(50, 0);
+
+    let mut bare = duel_holding_named("Cyclonic Rift", vec![island(1), island(2)], vec![]);
+    crate::input::activate_card(&mut bare, card);
+    assert_eq!(
+        bare.last_error,
+        Some(Refusal::Said(Phrase::OnlyDearerModeLeft)),
+        "nothing to target in the normal mode"
+    );
+    assert!(bare.armed.is_none() && bare.outbox().is_empty());
+
+    let mut with_target = duel_holding_named(
+        "Cyclonic Rift",
+        vec![island(1), island(2)],
+        vec![their_bears()],
+    );
+    crate::input::activate_card(&mut with_target, card);
+    assert_ne!(
+        with_target.last_error,
+        Some(Refusal::Said(Phrase::OnlyDearerModeLeft)),
+        "a nonland permanent to bounce leaves the normal mode"
+    );
+}
