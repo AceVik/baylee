@@ -95,6 +95,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // Characteristics: types, colors, abilities, P/T — and control,
         // which the rule names beside them.
         Modifier::AddType(_)
+        | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
         | Modifier::AnimateNoncreatureArtifact
         | Modifier::RemoveType(_)
         | Modifier::AddSubtype(_)
@@ -339,6 +340,7 @@ impl RuleHints {
     const MANA_LIFE: u8 = 16;
     const MANA_REPLACEMENT: u8 = 32;
     const PERMANENT_GUARD: u8 = 64;
+    const SONG: u8 = 128;
 
     fn contains(&self, bit: u8) -> bool {
         self.0 & bit != 0
@@ -351,6 +353,9 @@ impl RuleHints {
 }
 
 impl EffectTable {
+    pub(crate) fn may_continue_song(&self) -> bool {
+        self.hints.contains(RuleHints::SONG)
+    }
     pub(crate) fn may_guard_permanents(&self) -> bool {
         self.hints.contains(RuleHints::PERMANENT_GUARD)
     }
@@ -431,6 +436,10 @@ impl EffectTable {
                 fx.modifier,
                 Modifier::CantBecomeEnchanted | Modifier::OtherPlayersCantGainControl
             ),
+        );
+        self.hints.insert_if(
+            RuleHints::SONG,
+            crate::artifact_animation::contains_song(fx.modifier),
         );
         self.effects.push(fx);
         self.generation += 1;
@@ -835,31 +844,43 @@ pub(crate) fn matches_filter(
     }
 }
 
+/// The same recipient predicate for ordinary synchronization and a departure snapshot.
+pub(crate) fn granted_static_for(
+    state: &crate::state::GameState,
+    grant: &ContinuousEffect,
+    object: &crate::object::GameObject,
+) -> Option<ContinuousEffect> {
+    let Modifier::GrantStatic { filter, modifier } = grant.modifier else {
+        return None;
+    };
+    applies_to(state, grant, object).then_some(ContinuousEffect {
+        id: EffectId::new(0),
+        source: Some(object.id),
+        controller: object.controller,
+        origin: EffectOrigin::GrantedStatic(grant.id),
+        layer: modifier.layer(),
+        timestamp: grant.timestamp.max(object.timestamp),
+        duration: Duration::WhileSourceOnBattlefield,
+        filter: EffectFilter::Dsl(filter),
+        modifier: *modifier,
+    })
+}
+
 /// Materialize gained static abilities as effects whose source is the
 /// recipient. Keep their filters live (CR 611.3a) and their timestamp at
 /// the later of the grant and recipient timestamps (CR 613.7a).
 pub(crate) fn sync_granted_statics(state: &mut crate::state::GameState) {
     let mut wanted = Vec::new();
     for grant in state.effects.iter() {
-        let Modifier::GrantStatic { filter, modifier } = grant.modifier else {
+        if !matches!(grant.modifier, Modifier::GrantStatic { .. }) {
             continue;
-        };
+        }
         for id in state.battlefield_seen() {
-            let Some(object) = state.object(id) else {
-                continue;
-            };
-            if applies_to(state, grant, object) {
-                wanted.push(ContinuousEffect {
-                    id: EffectId::new(0),
-                    source: Some(id),
-                    controller: object.controller,
-                    origin: EffectOrigin::GrantedStatic(grant.id),
-                    layer: modifier.layer(),
-                    timestamp: grant.timestamp.max(object.timestamp),
-                    duration: Duration::WhileSourceOnBattlefield,
-                    filter: EffectFilter::Dsl(filter),
-                    modifier: *modifier,
-                });
+            if let Some(effect) = state
+                .object(id)
+                .and_then(|object| granted_static_for(state, grant, object))
+            {
+                wanted.push(effect);
             }
         }
     }
@@ -1168,6 +1189,7 @@ mod tests {
             Modifier::GainControl,
             Modifier::AddType(TypeSet::ARTIFACT),
             Modifier::AnimateNoncreatureArtifact,
+            Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture,
             Modifier::RemoveType(TypeSet::CREATURE),
             Modifier::AddSubtype(SubtypeId::new(1)),
             Modifier::AllCreatureTypes,
@@ -1409,7 +1431,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            129,
+            130,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1473,7 +1495,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (44, 85));
+        assert_eq!((locking, all.len() - locking), (45, 85));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

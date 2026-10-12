@@ -101,3 +101,37 @@ fn filter(valid: &str) -> String {
     };
     tx.filter_expr(valid).expect("the valid-string is read")
 }
+
+#[test]
+fn song_reader_requires_whole_immediate_continuation_and_layer_cohort() {
+    let active = "S:Mode$ Continuous | Affected$ Artifact.nonCreature | SetPower$ AffectedX | SetToughness$ AffectedX | AddType$ Artifact & Creature | RemoveCardTypes$ True | RemoveAllAbilities$ True";
+    let script = format!(
+        "Name:X\nTypes:Enchantment\n{active}\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ Continue | Static$ True\nSVar:Continue:DB$ Effect | StaticAbilities$ Animate\nSVar:Animate:Mode$ Continuous | AffectedZone$ Battlefield | Affected$ Artifact.nonCreature | SetPower$ AffectedX | SetToughness$ AffectedX | AddType$ Creature | RemoveAllAbilities$ True\nSVar:AffectedX:Count$CardManaCost"
+    );
+    let body = read(&script);
+    assert_eq!(body.abilities.len(), 1);
+    assert!(
+        body.abilities[0]
+            .contains("AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture")
+    );
+    assert!(!body.abilities[0].contains("triggered!"));
+    assert!(
+        refused(&format!(
+            "Name:X\nTypes:Enchantment\n{active}\nSVar:AffectedX:Count$CardManaCost"
+        )),
+        "missing continuation may not claim half card"
+    );
+    for (from, to) in [
+        ("Static$ True", "Static$ False"),
+        ("Destination$ Any", "Destination$ Graveyard"),
+        ("Count$CardManaCost", "Count$CardPower"),
+        ("RemoveAllAbilities$ True", "RemoveAllAbilities$ False"),
+        ("AffectedZone$ Battlefield", "AffectedZone$ Graveyard"),
+    ] {
+        assert!(refused(&script.replace(from, to)), "{to}");
+    }
+    assert!(refused(&script.replace(
+        "DB$ Effect | StaticAbilities$ Animate",
+        "DB$ Effect | StaticAbilities$ Animate | Duration$ Permanent"
+    )));
+}

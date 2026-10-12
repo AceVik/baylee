@@ -5778,3 +5778,5 @@ mod batch54_riftstone;
 mod batch52_wall;
 
 mod batch52_guardian;
+
+mod batch52_song;

@@ -3555,3 +3555,19 @@ Historical layer-2 writes remain ordered normally, with the final transition
 checked against the current controller. Exchanges preflight both legs on the
 same board. Neither prohibition depends on a stale tapped/phased-out source
 snapshot between resolving instructions.
+
+
+`AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture`
+models Titania's Song as one continuous effect. It selects its noncreature
+artifact cohort in layer 4, strips abilities from that same cohort in layer 6,
+and sets its mana-value P/T in layer 7b. Keyword-dependent effects can depend
+on its layer-6 contribution. The cohort is reconstructed for every projection,
+not permanently frozen onto the artifacts present when Song entered.
+
+A successful departure immediately carries the current printed/copied or
+live granted clause forward until cleanup. The engine freezes its wording
+and detaches its source dependency; later artifacts remain eligible. Phasing
+creates no continuation, a replaced copied rules bundle cannot preserve a
+stale effect, and a returned Song is independent of the old continuation.
+This continuation is not a spell/ability-resolution effect whose recipient
+set is frozen by `locks_its_set`.

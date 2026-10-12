@@ -3090,8 +3090,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Titania's Song
     &[FaceLines {
         sentences: 1,
-        stackable: 1,
-        lines: &[None, None],
+        stackable: 0,
+        lines: &[None],
         modes: &[],
         alternatives: &[],
     }],

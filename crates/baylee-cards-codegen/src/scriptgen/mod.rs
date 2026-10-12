@@ -51,6 +51,7 @@ mod keywords;
 mod mana;
 mod protection52;
 mod riftstone_portal;
+mod song52;
 mod statics;
 mod support;
 mod targets;
@@ -498,6 +499,13 @@ pub fn transcode(
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
+    if song52::song_candidate(script) {
+        tx.song_whole_card(script)?;
+        tx.body
+            .notes
+            .push("transcoded from the card's rules".into());
+        return Some(tx.body);
+    }
     for line in &script.keywords {
         tx.keyword(line)?;
     }

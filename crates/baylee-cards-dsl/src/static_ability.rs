@@ -95,6 +95,9 @@ pub enum Modifier {
     /// effect across both layers (CR 613.6): its layer-4 choice of objects
     /// survives becoming a creature and losing the source ability.
     AnimateNoncreatureArtifact,
+    /// Titania's Song: one layer-4 cohort loses abilities in layer 6 and gets
+    /// mana-value P/T in 7b; its static continues until cleanup after departure.
+    AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture,
     /// Removes types.
     RemoveType(TypeSet),
     /// Adds a subtype.
@@ -881,6 +884,7 @@ impl Modifier {
                         Self::GainControl => Layer::Control,
             // Layer 4: type-changing effects.
             Self::AddType(_)
+            | Self::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
             | Self::AnimateNoncreatureArtifact
             | Self::RemoveType(_)
             | Self::AddSubtype(_)

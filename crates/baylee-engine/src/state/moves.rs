@@ -493,6 +493,9 @@ impl GameState {
         }
         self.remember_damage_source(id);
         let previous_source = self.source_identity(id);
+        if from_zone == Zone::Battlefield && to.zone() != Zone::Battlefield {
+            crate::artifact_animation::retain_departing_song(self, id);
+        }
         self.zones.remove(id, from_loc);
         self.timestamp += 1;
         let ts = self.timestamp;

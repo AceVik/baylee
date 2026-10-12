@@ -111,7 +111,7 @@ impl LayerPlan {
             spans: [(0, 0); LAYER_COUNT],
             conditional_animation: effects
                 .iter()
-                .any(|fx| matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact)),
+                .any(|fx| crate::artifact_animation::animates(fx.modifier)),
             index: None,
         };
         if effects.is_empty() {
@@ -129,8 +129,7 @@ impl LayerPlan {
                     .filter(|(_, fx)| {
                         include(fx)
                             && (fx.layer == layer
-                                || (layer == Layer::PtSet
-                                    && matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact)))
+                                || crate::artifact_animation::continues_in(fx.modifier, layer))
                     })
                     .map(|(i, _)| i as u32),
             );
@@ -292,8 +291,8 @@ fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> P
             // every earlier layer, so the filter is evaluated against the
             // in-progress projection — an "all creatures get +1/+1" anthem
             // has to see a land that layer 4 just animated.
-            let animation = matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact);
-            let applies_now = if animation && layer == Layer::PtSet {
+            let animation = crate::artifact_animation::animates(fx.modifier);
+            let applies_now = if animation && layer != Layer::Type {
                 animations.contains(&idx)
             } else {
                 applies(state, fx, obj, &c) && (!animation || !c.types.contains(TypeSet::CREATURE))
@@ -669,7 +668,7 @@ fn sort_by_dependency(all: &[ContinuousEffect], fxs: &mut [u32], layer: Layer) {
 }
 
 fn depends_on(dependent: &ContinuousEffect, depended: &ContinuousEffect, layer: Layer) -> bool {
-    if matches!(dependent.modifier, Modifier::AnimateNoncreatureArtifact) {
+    if crate::artifact_animation::animates(dependent.modifier) {
         // Layer 4 uses `depends_on_in_type_layer` against the projection.
         // In 7b this effect's affected objects are fixed by layer 4
         // (CR 613.6), so its filter and condition create no dependency.
@@ -758,14 +757,14 @@ fn depends_on_in_type_layer(
     obj: &GameObject,
     projected: &Characteristics,
 ) -> bool {
-    if !matches!(dependent.modifier, Modifier::AnimateNoncreatureArtifact)
-        && !matches!(depended.modifier, Modifier::AnimateNoncreatureArtifact)
+    if !crate::artifact_animation::animates(dependent.modifier)
+        && !crate::artifact_animation::animates(depended.modifier)
     {
         return depends_on(dependent, depended, Layer::Type);
     }
     let matches = |fx: &ContinuousEffect, c: &Characteristics| {
         applies(state, fx, obj, c)
-            && (!matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact)
+            && (!crate::artifact_animation::animates(fx.modifier)
                 || !c.types.contains(TypeSet::CREATURE))
     };
     if !matches(depended, projected) {
@@ -806,6 +805,7 @@ fn could_change_keywords(modifier: &Modifier) -> bool {
             | Modifier::LoseAllLandwalk
             | Modifier::CantHaveKeywords(_)
             | Modifier::LoseAllAbilities
+            | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
             | Modifier::SetLandType(_)
             | Modifier::SetLandTypeToChosen
             | Modifier::AddKeywordIfCountersAtLeast { .. }
@@ -838,7 +838,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::BecomeType { .. }
                     | Modifier::AddTypeIfCountersAtLeast { .. }
                     | Modifier::BecomeCopyOf(_)
-            ) || (layer == Layer::Type && matches!(modifier, Modifier::AnimateNoncreatureArtifact))
+            ) || (layer == Layer::Type && crate::artifact_animation::animates(*modifier))
         }
         Filter::HasColor(_) | Filter::IsColorless | Filter::Monocolored => matches!(
             modifier,
@@ -868,7 +868,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::ModifyPTHalfCount(_)
                     | Modifier::ModifyPTPerGraveyardCard { .. }
                     | Modifier::BecomeCopyOf(_)
-            ) || (layer == Layer::PtSet && matches!(modifier, Modifier::AnimateNoncreatureArtifact))
+            ) || (layer == Layer::PtSet && crate::artifact_animation::animates(*modifier))
         }
         // Layer 2 moves a permanent from one side of the table to the
         // other, which is the whole of what these read: a change of
@@ -1209,9 +1209,13 @@ fn apply(
         text: state.effect_text(fx),
     };
     match &context.text.modifier(fx.modifier) {
-        Modifier::AnimateNoncreatureArtifact => {
+        Modifier::AnimateNoncreatureArtifact
+        | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture => {
             if layer == Layer::Type {
                 c.types = c.types.union(TypeSet::ARTIFACT).union(TypeSet::CREATURE);
+            } else if layer == Layer::Ability {
+                c.keywords = KeywordSet::EMPTY;
+                c.abilities_lost = Some(Characteristics::lost_at(fx.timestamp));
             } else if layer == Layer::PtSet && c.types.contains(TypeSet::CREATURE) {
                 // Read the in-progress values, including layer-1 copies,
                 // rather than this object's cache from the last refresh.

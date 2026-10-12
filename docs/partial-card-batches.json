@@ -794,7 +794,7 @@
     {
       "batch": 52,
       "title": "Layered restrictions and protection",
-      "status": "in_progress",
+      "status": "completed",
       "cards": [
         {
           "name": "Johan",
@@ -848,7 +848,8 @@
         },
         {
           "name": "Titania's Song",
-          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/titania_s_song.rs"
+          "path": "crates/baylee-cards/src/cards/enchantments/mv_4/titania_s_song.rs",
+          "status": "completed"
         },
         {
           "name": "Kismet",
@@ -861,8 +862,7 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 12,
-      "remaining_note": "Remaining cards require shared engine support and actual-action validation."
+      "validated_complete": 13
     },
     {
       "batch": 53,

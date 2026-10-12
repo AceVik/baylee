@@ -106,3 +106,5 @@ mod constrained_payment;
 
 /// Aura attachment legality and the relationships effects bind to Auras.
 mod aura_bindings;
+
+mod artifact_animation;
