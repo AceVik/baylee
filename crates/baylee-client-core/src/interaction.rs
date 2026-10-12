@@ -1974,7 +1974,13 @@ impl Interaction {
                     return SelectionOutcome::Removed;
                 }
                 if self.picks.len() >= self.capacity() {
-                    return SelectionOutcome::Full;
+                    // A choice of one takes the newer click: picking another
+                    // card replaces the one picked (owner, beta.7), rather
+                    // than asking for the first to be taken back.
+                    if self.capacity() != 1 {
+                        return SelectionOutcome::Full;
+                    }
+                    self.picks.clear();
                 }
                 self.picks.push(Pick::Object(id));
                 SelectionOutcome::Added
@@ -2486,7 +2492,11 @@ impl Interaction {
             return SelectionOutcome::Removed;
         }
         if self.picks.len() >= max {
-            return SelectionOutcome::Full;
+            // One to choose: the newer click replaces the pick.
+            if max != 1 {
+                return SelectionOutcome::Full;
+            }
+            self.picks.clear();
         }
         self.picks.push(Pick::Seat(player));
         SelectionOutcome::Added

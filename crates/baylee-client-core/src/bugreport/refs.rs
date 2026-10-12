@@ -303,8 +303,8 @@ pub fn trigger(text: &str, caret: usize) -> Option<Trigger> {
     })
 }
 
-/// Where `query` starts a word of `name`, case aside: `Some(true)` at the
-/// first word, `Some(false)` at a later one.
+/// Where `query` is in `name`, case aside: `Some(true)` at the start of the
+/// first word, `Some(false)` at a later word or inside one.
 fn word_prefix(name: &str, query: &str) -> Option<bool> {
     let name = name.to_lowercase();
     let query = query.to_lowercase();
@@ -319,7 +319,9 @@ fn word_prefix(name: &str, query: &str) -> Option<bool> {
             return Some(false);
         }
     }
-    None
+    // Inside a word too (owner, beta.7: `#mimic` should find a
+    // Mimic within a longer word), ranked with the later words.
+    name.contains(&query).then_some(false)
 }
 
 /// The best [`SHOWN`] cards for `query`, as indexes into `cards`: a prefix
@@ -623,6 +625,13 @@ mod tests {
         assert_eq!(best(&cards, "of w"), [2]);
         assert_eq!(best(&cards, "bolt"), [4]);
         assert!(best(&cards, "zz").is_empty());
+        // Inside a word too (owner, beta.7).
+        let inside = vec![
+            card("Phantasmal Image", 1, None),
+            card("Metamimic", 2, None),
+        ];
+        assert_eq!(best(&inside, "mimic"), [1]);
+        assert_eq!(best(&inside, "TASM"), [0]);
         let many: Vec<CardRef> = (0..10)
             .map(|i| card(&format!("Island {i}"), i, Some(RefZone::Battlefield)))
             .collect();
