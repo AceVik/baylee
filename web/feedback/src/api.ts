@@ -352,7 +352,7 @@ export interface AccountRow {
   playing: boolean;
   online: boolean;
   /** An admin reset its password and it has not chosen its own yet. */
-  must_change_password?: boolean;
+  reset_pending?: boolean;
   /** The ban in force, if one is. */
   ban?: AccountBan | null;
 }

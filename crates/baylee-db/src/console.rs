@@ -177,7 +177,7 @@ pub struct Account {
     pub active_at: Option<String>,
     /// An admin reset its password and it has not chosen its own yet
     /// (beta.8).
-    pub must_change_password: bool,
+    pub reset_pending: bool,
     /// The ban in force on it, if one is (beta.8); a lapsed one is none.
     pub ban: Option<Ban>,
 }
@@ -315,7 +315,7 @@ const ACCOUNT_COLUMNS: &str = concat!(
      (SELECT max(t.expires_at) FROM session_token t \
         WHERE t.account_id = a.id AND t.expires_at > $1) \
         - make_interval(secs => CASE WHEN a.guest THEN $3 ELSE $2 END) AS renewed_at, \
-     a.must_change_password, \
+     a.must_change_password AS reset_pending, \
      a.banned_at IS NOT NULL AND (a.banned_until IS NULL OR a.banned_until > $1) AS banned, \
      a.ban_reason, a.banned_by, ",
     iso!("a.banned_at"),
@@ -372,7 +372,7 @@ fn account_row(row: &QueryResult) -> Result<Account, DbErr> {
         games: row.try_get("", "games")?,
         sessions: row.try_get("", "sessions")?,
         active_at: renewed.map(iso_of),
-        must_change_password: row.try_get("", "must_change_password")?,
+        reset_pending: row.try_get("", "reset_pending")?,
         ban: if row.try_get("", "banned")? {
             Some(Ban {
                 reason: row

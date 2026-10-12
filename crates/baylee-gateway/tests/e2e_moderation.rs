@@ -182,7 +182,7 @@ fn a_reset_password_is_shown_once_and_only_buys_a_new_one() {
 
     // The console says it is waiting for the new password.
     let (_, body) = admin(&c, "GET", &format!("/admin/accounts/{id}"), "");
-    assert_eq!(json(&body)["must_change_password"], true, "{body}");
+    assert_eq!(json(&body)["reset_pending"], true, "{body}");
 
     // Choosing one: the weak, and the same as the reset, are refused.
     let change = |new: &str| {
@@ -217,7 +217,7 @@ fn a_reset_password_is_shown_once_and_only_buys_a_new_one() {
     let (status, _) = sign_in(&c, "alice", &reset);
     assert_eq!(status, 401, "the reset password is spent");
     let (_, body) = admin(&c, "GET", &format!("/admin/accounts/{id}"), "");
-    assert_eq!(json(&body)["must_change_password"], false, "{body}");
+    assert_eq!(json(&body)["reset_pending"], false, "{body}");
 }
 
 #[test]
@@ -466,11 +466,11 @@ fn an_unbanned_account_has_no_ban_in_the_console() {
     let (_, body) = admin(&c, "GET", &format!("/admin/accounts/{id}"), "");
     let detail = json(&body);
     assert!(detail["ban"].is_null(), "{detail}");
-    assert_eq!(detail["must_change_password"], false, "{detail}");
+    assert_eq!(detail["reset_pending"], false, "{detail}");
     let (_, body) = admin(&c, "GET", "/admin/accounts", "");
     let row = &json(&body)["accounts"][0];
     assert!(row["ban"].is_null(), "{row}");
-    assert_eq!(row["must_change_password"], false, "{row}");
+    assert_eq!(row["reset_pending"], false, "{row}");
 }
 
 fn deck(port: u16, token: &str) -> String {

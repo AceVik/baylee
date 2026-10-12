@@ -226,13 +226,13 @@ describe("banning", () => {
 
   test("an account that must choose a new password says so", () => {
     serve(() => undefined);
-    render(<AccountActions lang="en" target={{ ...alice, must_change_password: true }} onChanged={() => undefined} />);
+    render(<AccountActions lang="en" target={{ ...alice, reset_pending: true }} onChanged={() => undefined} />);
     expect(screen.getByText("must choose a new password")).toBeTruthy();
   });
 
   test("an account that chose its own does not", () => {
     serve(() => undefined);
-    render(<AccountActions lang="en" target={{ ...alice, must_change_password: false }} onChanged={() => undefined} />);
+    render(<AccountActions lang="en" target={{ ...alice, reset_pending: false }} onChanged={() => undefined} />);
     expect(screen.queryByText("must choose a new password")).toBeNull();
   });
 });

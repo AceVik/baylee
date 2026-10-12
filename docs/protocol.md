@@ -2428,7 +2428,9 @@ refused.
   (§"Deleting an account (#292)": the cascade, the pictures nobody claims,
   the chairs and sockets); `204`, `404` for none.
 - **In the console's rows**: `GET /admin/accounts` and `/admin/accounts/{id}`
-  carry `must_change_password` and `ban` (`{"reason", "until", "at", "by"}`,
+  carry `reset_pending` (the account's `must_change_password`: named so
+  that no field of the console's answers says "password") and `ban`
+  (`{"reason", "until", "at", "by"}`,
   only while in force, else `null`).
 
 `PROTOCOL_VERSION` and `VIEW_VERSION` do not move for this: an HTTP route,

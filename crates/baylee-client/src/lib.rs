@@ -1713,6 +1713,22 @@ fn handle_commands(
     }
 }
 
+/// An admin ended the game (`docs/protocol.md` §"Acting on a game"): nobody
+/// won or lost, and the end screen says why ([`Duel::closed`]). The game is
+/// over as any other is, so its question becomes `GameOver` with no winner.
+/// Whether it ended now; a game already over stays as it ended.
+fn close_by_admin(duel: &mut Duel, reason: String) -> bool {
+    if duel.ending().is_some() {
+        return false;
+    }
+    duel.closed = Some(reason);
+    duel.receive_choice(Pending::GameOver(baylee_engine::win::GameResult {
+        winner: None,
+        reason: baylee_engine::win::EndReason::Draw,
+    }));
+    true
+}
+
 /// Drains the host and keeps the client's state current.
 #[allow(clippy::too_many_arguments)]
 fn poll_host(
@@ -1796,14 +1812,9 @@ fn poll_host(
             // screen says why. The game is over as any other is, so the
             // way out is the end screen's.
             HostMessage::Closed(reason) => {
-                if duel.ending().is_none() {
-                    duel.closed = Some(reason);
+                if close_by_admin(&mut duel, reason) {
                     next.set(DuelPhase::Finished);
                     reports.write(DuelReport::Finished);
-                    duel.receive_choice(Pending::GameOver(baylee_engine::win::GameResult {
-                        winner: None,
-                        reason: baylee_engine::win::EndReason::Draw,
-                    }));
                 }
             }
             // Debug builds only (`docs/protocol.md` §"An AI seat's

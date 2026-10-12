@@ -17,7 +17,7 @@ export interface Target {
   handle: string;
   guest: boolean;
   ban?: AccountBan | null;
-  must_change_password?: boolean;
+  reset_pending?: boolean;
 }
 
 const accountPath = (id: string) => `/ui/api/admin/accounts/${encodeURIComponent(id)}`;
@@ -283,7 +283,7 @@ export function AccountActions({ lang, target, onChanged }: { lang: Lang; target
     <div className="mod-actions">
       <p className="muted small">{t(lang, "mod.hint")}</p>
       {target.ban != null && <BanLine lang={lang} ban={target.ban} />}
-      {target.must_change_password === true && <Badge tone="warn">{t(lang, "mod.mustChange")}</Badge>}
+      {target.reset_pending === true && <Badge tone="warn">{t(lang, "mod.mustChange")}</Badge>}
       <div className="row-actions">
         <button
           type="button"
