@@ -10,7 +10,7 @@ card!(
     oracle_id = "8375aaaa-edc2-4a0c-98f6-af07d61ebd0a",
     scryfall_id = "d5c362ea-16e2-4c13-bed2-735c8c09d975",
     faces = &[face!(name = "Underdome", types = TypeSet::LAND,)],
-    coverage = Coverage::Partial("joint payment of mixed costs imposed by Un-cards remains unsupported"),
+    coverage = Coverage::Partial("mixed Un-card and ordinary costs need joint payment"),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         mana_ability!(&[Effect::mana_of_any_color().restricted_for(

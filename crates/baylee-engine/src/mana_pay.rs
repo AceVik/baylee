@@ -12,6 +12,46 @@
 use baylee_core::mana::{ManaColor, ManaCost, ManaPool, ManaSpending, ManaSymbol};
 use smallvec::SmallVec;
 
+mod generic;
+
+/// Separate resources usable only for a bounded generic cost component.
+/// They cannot satisfy colored, colorless, hybrid or snow symbols, even under
+/// spending permissions. Required units are separate from ordinary obligations.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct GenericCredits {
+    pub available: [u32; 6],
+    pub required: [u32; 6],
+    pub quota: u32,
+}
+
+impl GenericCredits {
+    fn capacity(self) -> Option<u64> {
+        let required: u64 = self.required.iter().map(|&n| u64::from(n)).sum();
+        if required > u64::from(self.quota)
+            || self
+                .required
+                .iter()
+                .zip(self.available)
+                .any(|(&need, have)| need > have)
+        {
+            return None;
+        }
+        Some(
+            self.available
+                .iter()
+                .map(|&n| u64::from(n))
+                .sum::<u64>()
+                .min(u64::from(self.quota)),
+        )
+    }
+}
+
+/// Ordinary remainder and the actual types of generic-only resources consumed.
+pub(crate) struct CreditedPayment {
+    pub remaining: ManaPool,
+    pub credits: [u32; 6],
+}
+
 /// Whether `pool` can pay `cost` at all (ignoring Phyrexian life).
 #[must_use]
 pub fn can_pay(pool: &ManaPool, cost: &ManaCost) -> bool {
@@ -129,9 +169,39 @@ pub fn payment_consuming(
     restriction: Option<(ManaColor, u32)>,
     required: [u32; 6],
 ) -> Option<ManaPool> {
+    payment_with_generic_credits(
+        pool,
+        cost,
+        spending,
+        prefer,
+        restriction,
+        required,
+        GenericCredits::default(),
+    )
+    .map(|payment| {
+        debug_assert_eq!(payment.credits, [0; 6]);
+        payment.remaining
+    })
+}
+
+/// Joint assignment of ordinary symbols and a bounded generic-only component.
+/// Actual-type generic reservations are ordinary obligations; they are kept
+/// disjoint from credits for an independently imposed generic component.
+#[must_use]
+pub(crate) fn payment_with_generic_credits(
+    pool: &ManaPool,
+    cost: &ManaCost,
+    spending: ManaSpending,
+    prefer: [u32; 6],
+    restriction: Option<(ManaColor, u32)>,
+    required: [u32; 6],
+    credits: GenericCredits,
+) -> Option<CreditedPayment> {
     let consumption = Consumption {
         original: ManaColor::ALL.map(|color| pool.available(color)),
         required,
+        credits,
+        credit_capacity: credits.capacity()?,
     };
     if required
         .iter()
@@ -165,24 +235,43 @@ pub fn payment_consuming(
 struct Consumption {
     original: [u32; 6],
     required: [u32; 6],
+    credits: GenericCredits,
+    credit_capacity: u64,
 }
 
 impl Consumption {
-    fn pay_generic(&self, pool: &mut ManaPool, mut amount: u32, mut prefer: [u32; 6]) -> bool {
+    fn pay_generic(
+        &self,
+        mut pool: ManaPool,
+        amount: u32,
+        prefer: [u32; 6],
+    ) -> Option<CreditedPayment> {
+        let available = ManaColor::ALL.map(|color| pool.available(color));
+        let required = std::array::from_fn(|i| {
+            self.required[i].saturating_sub(self.original[i] - available[i])
+        });
+        let allocation = generic::allocate(
+            generic::Resources {
+                available,
+                required,
+            },
+            generic::Resources {
+                available: self.credits.available,
+                required: self.credits.required,
+            },
+            amount,
+            self.credits.quota,
+            prefer,
+        )?;
         for color in ManaColor::ALL {
-            let i = color.index();
-            let already = self.original[i] - pool.available(color);
-            let remaining = self.required[i].saturating_sub(already);
-            let Some(left) = amount.checked_sub(remaining) else {
-                return false;
-            };
-            if !pool.spend(color, remaining) {
-                return false;
+            if !pool.spend(color, allocation.ordinary[color.index()]) {
+                return None;
             }
-            amount = left;
-            prefer[i] = prefer[i].saturating_sub(remaining);
         }
-        pay_any(pool, amount, prefer)
+        Some(CreditedPayment {
+            remaining: pool,
+            credits: allocation.restricted,
+        })
     }
 }
 
@@ -207,13 +296,13 @@ fn preferred_first(options: &[ManaColor], prefer: [u32; 6]) -> SmallVec<[ManaCol
 /// Reserve constrained symbols first, backtracking on flexible choices.
 /// Generic fallback is deferred so it cannot consume a later symbol's color.
 fn assign(
-    mut pool: ManaPool,
+    pool: ManaPool,
     symbols: &[ManaSymbol],
     generic: u32,
     prefer: [u32; 6],
     spending: ManaSpending,
     consumption: &Consumption,
-) -> Option<ManaPool> {
+) -> Option<CreditedPayment> {
     // Reject an undersized pool before exploring equivalent color choices.
     // A two-or-color pip needs at least one mana; deferred generic fallback
     // is counted separately. Restricted entries are not plain spendable units.
@@ -228,13 +317,11 @@ fn assign(
         .into_iter()
         .map(|c| u64::from(pool.available(c)))
         .sum();
-    if u64::from(minimum) > available {
+    if u64::from(minimum) > available + consumption.credit_capacity {
         return None;
     }
     let Some((symbol, rest)) = symbols.split_first() else {
-        return consumption
-            .pay_generic(&mut pool, generic, prefer)
-            .then_some(pool);
+        return consumption.pay_generic(pool, generic, prefer);
     };
     let colors: &[ManaColor] = match *symbol {
         ManaSymbol::White => &[ManaColor::White],
@@ -318,29 +405,6 @@ fn assign(
         );
     }
     None
-}
-
-/// Pays `n` generic out of whatever is left, the preferred units first.
-///
-/// It succeeds exactly when the pool holds `n` units in all, whatever the
-/// preference: the first pass only decides which units the second pass
-/// does not have to find.
-fn pay_any(pool: &mut ManaPool, n: u32, prefer: [u32; 6]) -> bool {
-    let mut remaining = n;
-    for color in ManaColor::ALL {
-        let take = pool
-            .available(color)
-            .min(prefer[color.index()])
-            .min(remaining);
-        pool.spend(color, take);
-        remaining -= take;
-    }
-    for color in ManaColor::ALL {
-        let take = pool.available(color).min(remaining);
-        pool.spend(color, take);
-        remaining -= take;
-    }
-    remaining == 0
 }
 
 /// Whether one subset of an actual payment can pay `subset` while the
@@ -447,3 +511,6 @@ fn split_assign(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod credit_tests;
