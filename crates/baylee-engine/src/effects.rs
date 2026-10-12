@@ -171,6 +171,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::OpponentsCantCast(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
+        | Modifier::CantBecomeEnchanted
+        | Modifier::OtherPlayersCantGainControl
         | Modifier::CantBeTargetedByWallOnly
         | Modifier::CantBeTargetedByAbilitiesFrom(_)
         | Modifier::DrawLimitPerTurn { .. }
@@ -336,6 +338,7 @@ impl RuleHints {
     const ATTACK_TAPPING: u8 = 8;
     const MANA_LIFE: u8 = 16;
     const MANA_REPLACEMENT: u8 = 32;
+    const PERMANENT_GUARD: u8 = 64;
 
     fn contains(&self, bit: u8) -> bool {
         self.0 & bit != 0
@@ -348,6 +351,9 @@ impl RuleHints {
 }
 
 impl EffectTable {
+    pub(crate) fn may_guard_permanents(&self) -> bool {
+        self.hints.contains(RuleHints::PERMANENT_GUARD)
+    }
     pub(crate) fn may_tax_mana_life(&self) -> bool {
         self.hints.contains(RuleHints::MANA_LIFE)
     }
@@ -418,6 +424,13 @@ impl EffectTable {
         self.hints.insert_if(
             RuleHints::MANA_REPLACEMENT,
             matches!(fx.modifier, Modifier::ReplaceTappedMana { .. }),
+        );
+        self.hints.insert_if(
+            RuleHints::PERMANENT_GUARD,
+            matches!(
+                fx.modifier,
+                Modifier::CantBecomeEnchanted | Modifier::OtherPlayersCantGainControl
+            ),
         );
         self.effects.push(fx);
         self.generation += 1;
@@ -1272,6 +1285,8 @@ mod tests {
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
             Modifier::CantBeEnchantedExceptSource,
             Modifier::CantBeTargetedBy(&Filter::CREATURE),
+            Modifier::CantBecomeEnchanted,
+            Modifier::OtherPlayersCantGainControl,
             Modifier::CantBeTargetedByWallOnly,
             Modifier::CantBeTargetedByAbilitiesFrom(&Filter::ARTIFACT),
             Modifier::DrawLimitPerTurn {
@@ -1394,7 +1409,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            127,
+            129,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1458,7 +1473,7 @@ mod tests {
     fn characteristic_modifiers_lock_sets_and_rules_modifiers_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (44, 83));
+        assert_eq!((locking, all.len() - locking), (44, 85));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

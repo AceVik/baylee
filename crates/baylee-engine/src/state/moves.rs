@@ -435,8 +435,10 @@ impl GameState {
                 o.characteristics()
                     .subtypes
                     .contains(baylee_core::generated::subtypes::enchantment::AURA)
-                    && o.attached_to
-                        .is_some_and(|host| !crate::eval::permits_enchantment(self, host, id))
+                    && o.attached_to.is_some_and(|host| {
+                        !crate::eval::permits_enchantment(self, host, id)
+                            || !crate::permanent_guards::permits_new_enchantment(self, host, id)
+                    })
             });
         let to = if blocked_aura {
             if let Some(o) = self.object_mut(id) {

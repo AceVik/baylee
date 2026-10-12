@@ -126,6 +126,32 @@ fn rotate(state: &mut GameState, res: &Resolution, seats: &[PlayerId], distance:
     gain_control(state, &changes);
 }
 
+/// Preflight both transfers against the same board, then perform one exchange.
+pub(super) fn exchange(
+    state: &mut GameState,
+    a: baylee_core::ids::ObjectId,
+    b: baylee_core::ids::ObjectId,
+) -> bool {
+    let controllers = state
+        .object(a)
+        .zip(state.object(b))
+        .filter(|(a, b)| {
+            a.zone == crate::zone::Zone::Battlefield && b.zone == crate::zone::Zone::Battlefield
+        })
+        .map(|(a, b)| (a.controller, b.controller));
+    let Some((a_controller, b_controller)) = controllers else {
+        return false;
+    };
+    if a_controller == b_controller
+        || !crate::permanent_guards::can_gain_control(state, a, b_controller)
+        || !crate::permanent_guards::can_gain_control(state, b, a_controller)
+    {
+        return false;
+    }
+    gain_control(state, &[(a, b_controller), (b, a_controller)]);
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

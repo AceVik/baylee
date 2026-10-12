@@ -139,11 +139,13 @@ impl Tx<'_> {
         if mode == "CantTarget" && p.peek("SourceCanOnlyTarget") == Some("Wall") {
             return self.wall_only_target_prohibition(p);
         }
-        if mode == "CantBlockBy" {
-            return self.cant_block_by(p);
+        if super::guardian52::candidate(&mode, &p) {
+            return self.guardian_permission(&mode, p);
         }
-        if mode == "MustAttack" {
-            return self.must_attack(p);
+        match mode.as_str() {
+            "CantBlockBy" => return self.cant_block_by(p),
+            "MustAttack" => return self.must_attack(p),
+            _ => {}
         }
         if mode == "CantAttack" {
             if p.peek("ValidCard") == Some("Card.Self+attackedLastTurn") {

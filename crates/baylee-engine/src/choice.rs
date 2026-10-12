@@ -724,8 +724,8 @@ pub enum ChoicePrompt {
     },
     /// Choose the card a controlled player must play if able.
     CommandCard,
-    /// Choose a new permanent for an Aura already on the battlefield to be
-    /// attached to (Kudzu's move); none leaves it where it is. Not a target.
+    /// Choose an Aura host as it enters or moves (Kudzu). Not a target.
+    /// Relocation may allow none to leave the Aura where it is.
     NewHost {
         /// The Aura that moves.
         aura: baylee_core::ids::ObjectId,

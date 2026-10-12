@@ -3541,3 +3541,17 @@ Announcements use the actual activated/granted definition and selected spell
 face. Stack copies and resolution rechecks use frozen target requirements,
 retaining the domain after a source leaves or changes abilities. No additional
 per-object storage is needed. Nontargeting choices remain independent.
+
+`CantBecomeEnchanted` forbids a new Aura attachment, including untargeted
+entry and relocation, without invalidating an existing attachment. Untargeted
+Aura entry chooses a legal host before the zone change; without one the Aura
+stays in its old zone (CR 303.4f–g). The existing `NewHost` object-choice prompt
+is also used for this mandatory entry decision.
+
+`OtherPlayersCantGainControl` guards the actual final controller transition.
+Resolving control instructions exclude forbidden recipients before registering
+continuous effects; otherwise a failed indefinite steal would wake later.
+Historical layer-2 writes remain ordered normally, with the final transition
+checked against the current controller. Exchanges preflight both legs on the
+same board. Neither prohibition depends on a stale tapped/phased-out source
+snapshot between resolving instructions.

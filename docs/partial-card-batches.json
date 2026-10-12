@@ -813,7 +813,8 @@
         },
         {
           "name": "Guardian Beast",
-          "path": "crates/baylee-cards/src/cards/creatures/mv_4/guardian_beast.rs"
+          "path": "crates/baylee-cards/src/cards/creatures/mv_4/guardian_beast.rs",
+          "status": "completed"
         },
         {
           "name": "Bronze Horse",
@@ -860,7 +861,7 @@
           "status": "completed"
         }
       ],
-      "validated_complete": 11,
+      "validated_complete": 12,
       "remaining_note": "Remaining cards require shared engine support and actual-action validation."
     },
     {

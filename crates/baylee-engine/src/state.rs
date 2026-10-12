@@ -1909,6 +1909,15 @@ impl GameState {
             return;
         }
         let on_battlefield = object.zone == Zone::Battlefield;
+        if on_battlefield
+            && object
+                .characteristics()
+                .subtypes
+                .contains(baylee_core::generated::subtypes::enchantment::AURA)
+            && !crate::permanent_guards::permits_new_enchantment(self, host, source)
+        {
+            return;
+        }
         let timestamp = on_battlefield.then(|| self.next_timestamp());
         if let Some(object) = self.object_mut(source) {
             object.attached_to = Some(host);

@@ -1225,3 +1225,31 @@ fn wall_reader_keeps_blocked_source_and_wall_only_permission_distinct() {
     )));
     assert!(refused(&format!("{permission} | ValidSource$ Spell")));
 }
+#[test]
+fn guardian_reader_does_not_drop_hidden_control_or_new_attachment_predicate() {
+    let rule = "Name:X\nTypes:Creature Goblin\nPT:2/4\nS:Mode$ Continuous | Affected$ Artifact.nonCreature+YouCtrl | AddKeyword$ Indestructible | AddHiddenKeyword$ Other players can't gain control of CARDNAME. | IsPresent$ Card.Self+untapped";
+    let body = read(rule);
+    assert_eq!(body.abilities.len(), 2);
+    assert!(
+        body.abilities
+            .iter()
+            .any(|a| a.contains("OtherPlayersCantGainControl"))
+    );
+    assert!(
+        body.abilities
+            .iter()
+            .all(|a| a.contains("Condition::SourceMatches(&Filter::Untapped)"))
+    );
+    assert!(refused(
+        &rule.replace("Card.Self+untapped", "Card.Self+tapped")
+    ));
+    let attach = "Name:X\nTypes:Creature Goblin\nPT:2/4\nS:Mode$ CantAttach | ValidCardToTarget$ Aura.!Attached | Target$ Artifact.nonCreature+YouCtrl | IsPresent$ Card.Self+untapped";
+    assert!(read(attach).abilities[0].contains("Modifier::CantBecomeEnchanted"));
+    for (from, to) in [
+        ("Aura.!Attached", "Aura"),
+        ("Artifact.nonCreature+YouCtrl", "Artifact.YouCtrl"),
+        ("Card.Self+untapped", "Card.Self"),
+    ] {
+        assert!(refused(&attach.replace(from, to)), "{to}");
+    }
+}

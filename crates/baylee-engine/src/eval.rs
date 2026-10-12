@@ -1920,11 +1920,21 @@ pub(crate) fn spell_target_options_for(
         .filter(|id| {
             !protected_from_object(state, *id, &spell)
                 && !untargetable_by_source_object(state, *id, &spell)
+                && aura_target_permitted(state, &spell, *id)
                 && !untargetable_by(state, *id, you)
         })
         .collect();
     target_domain::retain(state, &mut options, wall_only);
     options
+}
+
+fn aura_target_permitted(state: &GameState, spell: &GameObject, host: ObjectId) -> bool {
+    spell.kind != crate::object::ObjectKind::Spell
+        || !spell
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::enchantment::AURA)
+        || crate::permanent_guards::permits_new_enchantment(state, host, spell.id)
 }
 
 /// The objects `spec` describes, for a choice that does **not** target.
@@ -2127,7 +2137,7 @@ pub fn stack_target_options(
     };
     let mut objects = target_options_with_x(spec, state, you, context, Some(obj.x_value));
     target_domain::retain(state, &mut objects, target_domain::stack_walls(obj));
-    objects.retain(|id| *id != obj.id);
+    objects.retain(|id| *id != obj.id && aura_target_permitted(state, obj, *id));
     (objects, target_player_options(state, spec, you))
 }
 

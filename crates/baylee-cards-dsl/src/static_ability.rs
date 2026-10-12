@@ -480,6 +480,10 @@ pub enum Modifier {
     CantBeTargetedBy(&'static crate::Filter),
     /// Cannot be targeted by spells or abilities whose whole chosen domain requires Walls.
     CantBeTargetedByWallOnly,
+    /// Forbid new Aura attachments, retaining Auras already on the permanent.
+    CantBecomeEnchanted,
+    /// Other players cannot newly gain control of the affected permanent.
+    OtherPlayersCantGainControl,
     /// "[The affected permanent] can't be the target of abilities from
     /// [sources the filter matches]" (Artifact Ward: "artifact sources"):
     /// [`Self::CantBeTargetedBy`] for activated and triggered abilities
@@ -953,6 +957,8 @@ impl Modifier {
             | Self::OpponentsCantCast(_)
             | Self::CantBeEnchantedExceptSource
             | Self::CantBeTargetedBy(_)
+            | Self::CantBecomeEnchanted
+            | Self::OtherPlayersCantGainControl
             | Self::CantBeTargetedByWallOnly
             | Self::CantBeTargetedByAbilitiesFrom(_)
             | Self::DrawLimitPerTurn { .. }

@@ -5776,3 +5776,5 @@ mod batch54_final_two;
 mod batch54_riftstone;
 
 mod batch52_wall;
+
+mod batch52_guardian;

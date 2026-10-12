@@ -1424,7 +1424,7 @@ fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
         .collect();
     let timestamp = state.next_timestamp();
     for &(id, player) in changes {
-        if state.has_left(player) {
+        if state.has_left(player) || !crate::permanent_guards::can_gain_control(state, id, player) {
             continue;
         }
         let Some(obj) = state.object(id) else {

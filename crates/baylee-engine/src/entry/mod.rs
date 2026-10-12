@@ -1,4 +1,5 @@
 //! Entry replacements which must finish before an object reaches the battlefield.
+mod auras;
 mod choices;
 mod commit;
 mod copying;
@@ -70,12 +71,18 @@ struct Attempt {
     cause: Cause,
     modifiers: &'static [EnterModifier],
     next: usize,
-    denied: bool,
+    refusal: Option<Refusal>,
     sacrifices: Option<u32>,
     chosen_number: Option<u8>,
     counters: Vec<(Option<PlayerId>, CounterKind, u16)>,
     copy: CopyStatus,
     preview_effects: Vec<baylee_core::ids::EffectId>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum Refusal {
+    Graveyard,
+    StayInZone,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -87,6 +94,7 @@ enum CopyStatus {
 
 #[derive(Clone, Debug, Hash)]
 enum Question {
+    AuraHost,
     TapLife(u16),
     TapCounters {
         kind: CounterKind,
@@ -273,7 +281,8 @@ pub(crate) fn defer(
     let mut modifiers = modifiers(state, id);
     let copy = copy_clause(state, id);
     let external = equilibrium::exists(state);
-    if !external && copy.is_none() && !modifiers.iter().any(needs_before_entry) {
+    let aura = auras::needs_choice(state, id);
+    if !aura && !external && copy.is_none() && !modifiers.iter().any(needs_before_entry) {
         return false;
     }
     let Some(object) = state.object(id) else {
@@ -289,7 +298,7 @@ pub(crate) fn defer(
     if lost {
         modifiers = &[];
     }
-    if (lost || copy.is_none()) && !modifiers.iter().any(needs_before_entry) && !external {
+    if (lost || copy.is_none()) && !modifiers.iter().any(needs_before_entry) && !external && !aura {
         return false;
     }
     let attempt = Attempt {
@@ -305,7 +314,7 @@ pub(crate) fn defer(
         cause,
         modifiers,
         next: 0,
-        denied: false,
+        refusal: None,
         sacrifices: None,
         chosen_number: None,
         counters: Vec::new(),

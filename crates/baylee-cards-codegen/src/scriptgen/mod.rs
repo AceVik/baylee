@@ -45,6 +45,7 @@ mod constants;
 mod effects;
 mod final_portals;
 mod gond_gate;
+mod guardian52;
 mod horse_johan;
 mod keywords;
 mod mana;

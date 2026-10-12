@@ -2275,15 +2275,15 @@ messages! {
         en: "permanents to leave tapped",
         de: "bleibende Karten, die getappt bleiben",
     },
-    /// permanent to move {0} onto (an Aura's new host, Kudzu): not a target
+    /// object for {0} to enchant: card or token, not a target
     NounNewHostFor {
-        en: "permanent to move {0} onto",
-        de: "bleibende Karte, an die {0} wandert",
+        en: "object for {0} to enchant",
+        de: "Objekt, das {0} verzaubert",
     },
-    /// permanents to move {0} onto
+    /// objects for {0} to enchant
     NounNewHostsFor {
-        en: "permanents to move {0} onto",
-        de: "bleibende Karten, an die {0} wandert",
+        en: "objects for {0} to enchant",
+        de: "Objekte, die {0} verzaubert",
     },
     /// The Aura of a new-host question, where it cannot be named.
     NounTheAura { en: "the Aura", de: "die Aura" },

@@ -61,13 +61,10 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
         if discard_stale(state, &entry) {
             continue;
         }
-        if let Some((question, pending)) = copy_question(state, &mut entry) {
+        if let Some((question, pending)) = initial_question(state, &mut entry) {
             return Some(ask(state, entry, question, pending));
         }
-        if !entry.denied {
-            if let Some(pending) = equilibrium::replacement_order(state, &mut entry) {
-                return Some(ask(state, entry, Question::Replacement, pending));
-            }
+        if entry.refusal.is_none() {
             while let Some(&modifier) = entry.modifiers.get(entry.next) {
                 entry.next += 1;
                 let player = entry.controller;
@@ -86,7 +83,7 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                     EnterModifier::SacrificeOrGraveyard { filter, count } => {
                         let options = options(state, &entry, filter, false);
                         if options.len() < usize::from(count) {
-                            entry.denied = true;
+                            entry.refusal = Some(Refusal::Graveyard);
                             break;
                         }
                         return Some(accept_sacrifice(state, entry, options, count));
@@ -94,7 +91,7 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                     EnterModifier::DiscardOrGraveyard(filter) => {
                         let options = options(state, &entry, filter, true);
                         if options.is_empty() {
-                            entry.denied = true;
+                            entry.refusal = Some(Refusal::Graveyard);
                             break;
                         }
                         return Some(ask(
@@ -143,6 +140,9 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                 continue 'entries;
             }
         }
+        if let Some((question, pending)) = super::auras::question(state, &mut entry) {
+            return Some(ask(state, entry, question, pending));
+        }
         state.entries.chosen_entry = None;
         finish(state, entry);
     }
@@ -178,6 +178,9 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
         .pop_front()
         .expect("entry continuation");
     match (question, action) {
+        (Question::AuraHost, PlayerAction::ChooseObjects { objects }) => {
+            state.attach(entry.object, objects[0]);
+        }
         (Question::Number, PlayerAction::ChooseNumber(number)) => {
             entry.chosen_number = Some(u8::try_from(*number).expect("bounded choice"));
         }
@@ -186,7 +189,7 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
                 select(state, entry, options, count, Vec::new());
                 return;
             }
-            entry.denied = true;
+            entry.refusal = Some(Refusal::Graveyard);
         }
         (Question::SacrificeCount { options }, PlayerAction::ChooseNumber(count)) => {
             entry.sacrifices = Some(*count);
@@ -226,7 +229,7 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
                 let player = entry.controller;
                 state.discard_card(card, player, Cause::Effect, Some(player));
             } else {
-                entry.denied = true;
+                entry.refusal = Some(Refusal::Graveyard);
             }
         }
         (Question::DiscardDestination { card }, PlayerAction::Arrange { piles }) => {
@@ -327,4 +330,13 @@ fn completed(state: &mut GameState) -> bool {
     state.entries.putter = None;
     state.entries.chosen_entry = None;
     true
+}
+
+fn initial_question(state: &mut GameState, entry: &mut Attempt) -> Option<(Question, Pending)> {
+    copy_question(state, entry).or_else(|| {
+        if entry.refusal.is_some() {
+            return None;
+        }
+        equilibrium::replacement_order(state, entry).map(|pending| (Question::Replacement, pending))
+    })
 }

@@ -348,39 +348,20 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokenFromLinked { .. } => tokens::exec(state, res, op),
         // --- Control ---------------------------------------------------
         Effect::ExchangeControlOrSacrifice => {
-            let exchange = res.targets.first().copied().filter(|t| {
-                state.object(*t).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield && o.controller != you
-                })
-            });
-            if let Some(target) = exchange {
-                let their_controller = state.object(target).map_or(you, |o| o.controller);
-                gain_control(state, &[(target, you), (res.source, their_controller)]);
-            } else {
-                // No exchange: sacrifice the source (Gilded Drake).
-                if let Some(obj) = state.object_mut(res.source) {
-                    obj.kind = ObjectKind::Card;
-                }
-                let _ = state.sacrifice_object(res.source, Cause::Effect);
+            let source = subjects::source(state, res)
+                .filter(|source| subjects::on_battlefield(state, *source));
+            let exchanged = source
+                .zip(res.targets.first().copied())
+                .is_some_and(|(source, target)| control::exchange(state, source.object, target));
+            if !exchanged && let Some(source) = source {
+                let _ = state.sacrifice_object(source.object, Cause::Effect);
             }
             None
         }
         Effect::ExchangeControl => {
-            // CR 608.2b has already dropped a target that became illegal, and
-            // CR 701.12a makes an exchange all or nothing: one side missing
-            // is no exchange. Two permanents of one player swap nothing
-            // (CR 701.12b).
-            let controller_of = |id: Option<&ObjectId>| {
-                id.and_then(|id| state.object(*id))
-                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
-                    .map(|o| (o.id, o.controller))
-            };
-            if let (Some((a, a_ctrl)), Some((b, b_ctrl))) = (
-                controller_of(res.targets.first()),
-                controller_of(res.second_targets.first()),
-            ) && a_ctrl != b_ctrl
-            {
-                gain_control(state, &[(a, b_ctrl), (b, a_ctrl)]);
+            // Both legs use the same pre-exchange board; neither is applied on failure.
+            if let (Some(&a), Some(&b)) = (res.targets.first(), res.second_targets.first()) {
+                control::exchange(state, a, b);
             }
             None
         }
@@ -922,7 +903,9 @@ pub(super) fn exec_immediate(
             };
             let timestamp = state.next_timestamp();
             for filter in filters {
-                if !state.source_duration_holds(duration, res.source, you, filter) {
+                if !crate::permanent_guards::permits_resolution_effect(state, filter, modifier, you)
+                    || !state.source_duration_holds(duration, res.source, you, filter)
+                {
                     continue;
                 }
                 state.effects.register(crate::effects::ContinuousEffect {
@@ -947,6 +930,14 @@ pub(super) fn exec_immediate(
         Effect::ModifyEvent { modifier, duration } => {
             let subject =
                 subjects::event(state, res).filter(|r| subjects::is_current(state, *r))?;
+            if !crate::permanent_guards::permits_resolution_effect(
+                state,
+                crate::effects::EffectFilter::ObjectIs(subject.object, subject.version),
+                modifier,
+                you,
+            ) {
+                return None;
+            }
             let timestamp = state.next_timestamp();
             state.effects.register(crate::effects::ContinuousEffect {
                 id: baylee_core::ids::EffectId::new(0),
@@ -990,7 +981,9 @@ pub(super) fn exec_immediate(
                     continue;
                 }
                 let filter = crate::effects::EffectFilter::object(state, target);
-                if !state.source_duration_holds(duration, res.source, you, filter) {
+                if !crate::permanent_guards::permits_resolution_effect(state, filter, modifier, you)
+                    || !state.source_duration_holds(duration, res.source, you, filter)
+                {
                     continue;
                 }
                 state.effects.register(crate::effects::ContinuousEffect {

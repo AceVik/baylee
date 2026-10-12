@@ -86,7 +86,8 @@ pub(crate) fn can_attach(state: &GameState, aura: ObjectId, host: ObjectId) -> b
         &Filter::Any,
         crate::eval::live_context(state, aura),
     ));
-    can_enchant(state, aura, host, restriction)
+    crate::permanent_guards::permits_new_enchantment(state, host, aura)
+        && can_enchant(state, aura, host, restriction)
 }
 
 /// Attachment legality is distinct from targeting. Shroud and hexproof do

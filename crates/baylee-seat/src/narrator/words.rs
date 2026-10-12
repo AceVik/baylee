@@ -217,7 +217,7 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         ChoicePrompt::EntryReplacement => "Choose the source whose entry replacement applies next".into(),
         ChoicePrompt::CommandCard => "Choose the card the affected player must play".into(),
         ChoicePrompt::NewHost { .. } => {
-            "Choose a permanent to move the Aura onto (not a target), or none to leave it".into()
+            "Choose an object for the Aura to enchant (not a target)".into()
         }
         ChoicePrompt::CastFaceDown {
             x,

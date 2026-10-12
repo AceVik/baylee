@@ -86,6 +86,7 @@ mod entry;
 mod graveyard_order;
 mod hasher;
 mod mana_rules;
+mod permanent_guards;
 mod phasing;
 mod preparation;
 mod sources;

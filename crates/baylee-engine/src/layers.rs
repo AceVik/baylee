@@ -355,9 +355,23 @@ fn recompute_visible(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> P
             apply_pt_counters(&mut c, obj);
         }
     }
+    finish_projection(state, obj, c, controller, read_board)
+}
+
+fn finish_projection(
+    state: &GameState,
+    obj: &GameObject,
+    mut c: Characteristics,
+    mut controller: PlayerId,
+    mut read_board: bool,
+) -> Projection {
     // Changeling (CR 702.73): every creature type, in eight word ORs.
     if c.keywords.contains(KeywordSet::CHANGELING) {
         c.subtypes = c.subtypes.union(SubtypeSet::ALL_CREATURE);
+    }
+    if state.effects.may_guard_permanents() {
+        controller = crate::permanent_guards::permitted_controller(state, obj, &c, controller);
+        read_board = true;
     }
     Projection {
         characteristics: c,
@@ -1387,6 +1401,8 @@ fn apply(
         | Modifier::OpponentsCantCast(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
+        | Modifier::CantBecomeEnchanted
+        | Modifier::OtherPlayersCantGainControl
         | Modifier::CantBeTargetedByWallOnly
         | Modifier::CantBeTargetedByAbilitiesFrom(_)
         | Modifier::DrawLimitPerTurn { .. }

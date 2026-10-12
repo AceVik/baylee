@@ -36,12 +36,12 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
             remaining: entry.sacrifices_after,
         });
     }
-    let destination = if entry.denied {
+    let destination = if entry.refusal.is_some() {
         ZoneLocation::Graveyard(owner)
     } else {
         ZoneLocation::Battlefield
     };
-    if entry.denied {
+    if entry.refusal.is_some() {
         state.restore_tapped(entry.object, false);
         state
             .effects
@@ -56,19 +56,21 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
             }
             object.drop_own_abilities();
             object.own_abilities_until_eot = false;
-            if object.zone == Zone::Graveyard {
+            if object.zone == Zone::Graveyard
+                || (entry.refusal == Some(Refusal::StayInZone) && object.zone != Zone::Stack)
+            {
                 return;
             }
         }
     }
-    if entry.copy == CopyStatus::Handled && !entry.denied {
+    if entry.copy == CopyStatus::Handled && entry.refusal.is_none() {
         state
             .object_mut(entry.object)
             .expect("current entry")
             .riders
             .push(crate::object::Rider::EntryCopyApplied);
     }
-    if !entry.denied
+    if entry.refusal.is_none()
         && let Some(number) = entry.chosen_number
     {
         let acquisition = state
@@ -76,7 +78,7 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
             .map_or(0, crate::object::GameObject::rules_acquisition);
         super::set_chosen_number(state, entry.object, number, acquisition);
     }
-    if !entry.denied {
+    if entry.refusal.is_none() {
         state.restore_tapped(entry.object, entry.tapped);
     }
     state.entries.committing = Some(entry.object);

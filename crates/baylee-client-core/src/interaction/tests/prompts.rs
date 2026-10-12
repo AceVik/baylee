@@ -483,11 +483,11 @@ fn four_card_choices_read_as_four_different_decisions() {
     let host = ChoicePrompt::NewHost { aura: obj(9) };
     assert_eq!(
         line(host, 0, 1, Lang::En),
-        "Choose up to 1 permanent to move the Aura onto"
+        "Choose up to 1 object for the Aura to enchant"
     );
     assert_eq!(
         line(host, 0, 1, Lang::De),
-        "Wähle bis zu 1 bleibende Karte, an die die Aura wandert"
+        "Wähle bis zu 1 Objekt, das die Aura verzaubert"
     );
 }
 
@@ -1478,4 +1478,24 @@ fn large_life_payment_round_trips_and_labels_the_exact_amount() {
             format!("{amount} Lebenspunkte bezahlen?")
         );
     }
+}
+
+#[test]
+fn mandatory_aura_host_choice_covers_cards_and_tokens_without_optional_wording() {
+    let prompt = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(1)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::NewHost { aura: obj(9) },
+        total: None,
+    });
+    assert_eq!(
+        prompt.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Choose 1 object for the Aura to enchant"
+    );
+    assert_eq!(
+        prompt.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Wähle 1 Objekt, das die Aura verzaubert"
+    );
 }
