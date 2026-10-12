@@ -59,6 +59,9 @@ pub(crate) enum TicketFor {
         /// The game.
         game: String,
     },
+    /// `/social/ws`, proven by the session; refused `403` on a gateway
+    /// without chat.
+    Social,
     /// `/games/{game}/watch`, proven by the session; refused `403` at a
     /// table that allows no spectators.
     Watch {
@@ -84,6 +87,17 @@ pub(crate) async fn ws_ticket(
             let session = authed_session(&state, &headers).await?;
             let bearer = bearer_token(&headers).unwrap_or_default();
             wsticket::Grant::Lobby {
+                account_id: session.account_id,
+                session: auth::token_digest(bearer),
+            }
+        }
+        TicketFor::Social => {
+            if !state.social.on() {
+                return Err(err(StatusCode::FORBIDDEN, "this gateway has no chat"));
+            }
+            let session = authed_session(&state, &headers).await?;
+            let bearer = bearer_token(&headers).unwrap_or_default();
+            wsticket::Grant::Social {
                 account_id: session.account_id,
                 session: auth::token_digest(bearer),
             }

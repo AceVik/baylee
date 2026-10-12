@@ -448,6 +448,7 @@ async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, 
             .into(),
     );
     gateway.insert("terms".into(), app.terms.is_some().into());
+    let social = crate::social::console_counts(app).await;
     gateway.insert(
         "mail".into(),
         (!matches!(app.mail, crate::mail::Mailer::Off)).into(),
@@ -489,6 +490,7 @@ async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, 
             "avg_secs_30d": stored.avg_game_secs_30d,
         },
         "agents": agents(app),
+        "social": social,
         "invites": {
             "total": stored.invites_total,
             "active": stored.invites_active,

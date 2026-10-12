@@ -33,6 +33,9 @@ baylee-catalog.workspace = true
 baylee-core.workspace = true
 baylee-db.workspace = true
 baylee-protocol.workspace = true
+# Chat (`social/`): checks a device statement and a reported message, never
+# opens one it carries.
+baylee-seal.workspace = true
 # For one number: the view shape this build speaks, which `GET /info` tells a
 # client before it saves the gateway. Core ids and serde, nothing that runs a
 # rule, and the end-to-end tests check the opening payload against the same
