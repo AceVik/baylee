@@ -65,5 +65,29 @@ fn arguel_checks_life_again_then_its_temple_uses_sacrificed_toughness() {
         .unwrap();
         pass_until(&mut e, stack_is_empty);
         assert_eq!(e.state().players[0].life, 8);
+        assert_eq!(
+            e.state().object(wall).unwrap().zone,
+            Zone::Graveyard,
+            "the sacrificed creature is in the graveyard"
+        );
+        assert!(
+            is_tapped(&e, source),
+            "{{T}} is part of the cost, not just the sacrifice"
+        );
     }
+}
+
+/// Temple of Aclazotz: "{T}: Add {B}." One black, no more, and the tap is
+/// the cost.
+#[test]
+fn temple_of_aclazotz_taps_for_exactly_one_black() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, temple) =
+        placed_face(arguel_s_blood_fast(), 1, &[]).expect("the Temple on the battlefield");
+    assert!(!is_tapped(&engine, temple));
+    activate(&mut engine, p0, arguel_s_blood_fast(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1, "{{T}}: Add {{B}}");
+    assert_eq!(pool.total(), 1, "and nothing else");
+    assert!(is_tapped(&engine, temple), "{{T}} is part of the cost");
 }
