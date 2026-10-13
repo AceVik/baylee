@@ -21,6 +21,7 @@ mod answers;
 mod chairs;
 mod clocks;
 mod frames;
+pub mod project;
 mod pump;
 mod resume;
 mod spectators;

@@ -75,7 +75,7 @@ impl Session {
     /// applied it ([`Session::answer`] for a seat or its clock,
     /// `apply_house_action` for the house), without recording it again.
     /// `false` when the engine refuses it.
-    fn replayed(&mut self, player: PlayerId, by: Source, action: PlayerAction) -> bool {
+    pub(super) fn replayed(&mut self, player: PlayerId, by: Source, action: PlayerAction) -> bool {
         let moves_the_game = !action.is_automation_setting();
         let deciding = self.deciding();
         let asked = self.answering(player, &action);
