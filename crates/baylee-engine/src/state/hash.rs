@@ -1318,6 +1318,12 @@ fn hash_effect(h: &mut Hasher, fx: &crate::effects::ContinuousEffect) {
             id.hash(h);
             version.hash(h);
         }
+        crate::effects::EffectFilter::DslAbout(filter, id, version) => {
+            h.u8(2);
+            filter_hash(h, filter);
+            id.hash(h);
+            version.hash(h);
+        }
     }
     hash_modifier(h, modifier);
 }

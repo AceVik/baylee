@@ -42,7 +42,8 @@ impl GameState {
         // hand, graveyard — then every object must be projected, not only
         // battlefield + stack.
         let cross_zone = self.effects.iter().any(|fx| match fx.filter {
-            crate::effects::EffectFilter::Dsl(f) => filter_reaches_other_zones(f),
+            crate::effects::EffectFilter::Dsl(f)
+            | crate::effects::EffectFilter::DslAbout(f, ..) => filter_reaches_other_zones(f),
             crate::effects::EffectFilter::ObjectIs(id, version) => {
                 self.object(id).is_some_and(|o| {
                     o.version == version && !matches!(o.zone, Zone::Battlefield | Zone::Stack)

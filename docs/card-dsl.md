@@ -3840,11 +3840,16 @@ Filters:
   (CR 508.5), at any table size, and still that player once it has been
   removed from combat (killed in response to its own attack trigger).
 
-A continuous effect whose filter reads the reference is bound as it resolves:
-Feint's "prevent all combat damage that would be dealt this turn by that
-creature and each creature blocking it" is
-`Effect::continuous(&Filter::Or(&[Filter::Reference, Filter::BlockingReference]), Modifier::PreventDamageFromIt, Duration::UntilEndOfTurn)`
-(a creature that blocks it later is not covered).
+A continuous effect whose filter reads the reference keeps the object it is
+about: Feint's "prevent all combat damage that would be dealt this turn by
+that creature and each creature blocking it" is
+`Effect::continuous(&Filter::Or(&[Filter::Reference, Filter::BlockingReference]), Modifier::PreventDamageFromIt, Duration::UntilEndOfTurn)`,
+and since a prevention does not lock its set (CR 611.2c) a creature that
+blocks it later is covered too; an effect that changes characteristics or
+control is bound to the objects the filter names as it resolves. A second
+target whose requirement reads the reference makes the spell or ability
+castable or activatable only when some legal first target leaves a legal
+second one.
 
 Amounts:
 

@@ -267,6 +267,49 @@ impl<L: CardLookup> Engine<L> {
     /// an ability nobody could activate with an empty board — which on Karn,
     /// the Great Creator hides a loyalty tick and on Teferi, Time Raveler
     /// hides a drawn card.
+    /// Whether both instances of "target" can be satisfied together
+    /// (CR 601.2c, 602.2b): a second instance whose requirement names the
+    /// first (`Filter::Reference` and its family, Gauntlets of Chaos) needs a
+    /// legal first target that leaves enough second ones, read with that
+    /// first target as the reference.
+    pub(super) fn ability_has_targets(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        first: Option<baylee_cards_dsl::TargetReq>,
+        second: Option<baylee_cards_dsl::TargetReq>,
+    ) -> bool {
+        if !self.ability_has_a_target(player, source, ability_index, first) {
+            return false;
+        }
+        let (Some(first), Some(second_req)) = (first, second) else {
+            return self.ability_has_a_target(player, source, ability_index, second);
+        };
+        if second_req.min == 0 || !crate::casting::spec_reads_reference(second_req.spec) {
+            return self.ability_has_a_target(player, source, ability_index, second);
+        }
+        let context = self.ability_rule_context(source, ability_index);
+        let wall_only = self.activation_wall_only(source, ability_index);
+        eval::target_options_in_domain(&first.spec, &self.state, player, context, None, wall_only)
+            .into_iter()
+            .any(|reference| {
+                eval::target_options_in_domain(
+                    &second_req.spec,
+                    &self.state,
+                    player,
+                    crate::text_changes::RuleContext {
+                        reference: Some(reference),
+                        ..context
+                    },
+                    None,
+                    wall_only,
+                )
+                .len()
+                    >= usize::from(second_req.min)
+            })
+    }
+
     pub(super) fn ability_has_a_target(
         &self,
         player: PlayerId,

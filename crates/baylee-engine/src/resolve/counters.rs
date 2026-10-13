@@ -758,7 +758,10 @@ mod pump_tests {
             .iter()
             .map(|fx| match fx.filter {
                 crate::effects::EffectFilter::ObjectIs(id, _) => id,
-                crate::effects::EffectFilter::Dsl(f) => panic!("a dynamic filter: {f:?}"),
+                crate::effects::EffectFilter::Dsl(f)
+                | crate::effects::EffectFilter::DslAbout(f, ..) => {
+                    panic!("a dynamic filter: {f:?}")
+                }
             })
             .collect();
         assert_eq!(named, vec![first, second]);
@@ -811,7 +814,10 @@ mod pump_tests {
             .iter()
             .map(|fx| match fx.filter {
                 crate::effects::EffectFilter::ObjectIs(id, _) => id,
-                crate::effects::EffectFilter::Dsl(f) => panic!("a dynamic filter: {f:?}"),
+                crate::effects::EffectFilter::Dsl(f)
+                | crate::effects::EffectFilter::DslAbout(f, ..) => {
+                    panic!("a dynamic filter: {f:?}")
+                }
             })
             .collect();
         assert_eq!(named, vec![theirs]);

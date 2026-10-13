@@ -593,6 +593,18 @@ fn applies(
                 reference: None,
             },
         ),
+        EffectFilter::DslAbout(filter, id, version) => eval::matches_projected_with_context(
+            filter,
+            state,
+            obj,
+            projected,
+            fx.controller,
+            crate::text_changes::RuleContext {
+                source: fx.source.unwrap_or(obj.id),
+                text: state.effect_text(fx),
+                reference: crate::effects::still_the_object(state, *id, *version),
+            },
+        ),
     }
 }
 
