@@ -109,6 +109,11 @@ impl Jobs {
         }
     }
 
+    /// Gives `account`'s latest ask back: no engine took it.
+    pub fn give_back(&self, account: &str) {
+        self.asks.give_back(account);
+    }
+
     /// Whether replays are served at all.
     #[must_use]
     pub const fn on(&self) -> bool {
@@ -482,6 +487,201 @@ mod tests {
             drop(admit(&jobs, "a").unwrap_or_else(|e| panic!("ask {i}: {e:?}")));
         }
         assert_eq!(admit(&jobs, "a").err(), Some(Refused::TooMany));
+    }
+
+    /// `source` with its `//` comments (doc comments too) taken out. A `//`
+    /// inside a string literal is code and stays, as does a `'"'` char.
+    fn code_of(source: &str) -> String {
+        let mut out = String::with_capacity(source.len());
+        for line in source.lines() {
+            let bytes = line.as_bytes();
+            let (mut in_string, mut escaped, mut end, mut i) = (false, false, line.len(), 0);
+            while i < bytes.len() {
+                let c = bytes[i];
+                if in_string {
+                    if escaped {
+                        escaped = false;
+                    } else if c == b'\\' {
+                        escaped = true;
+                    } else if c == b'"' {
+                        in_string = false;
+                    }
+                } else if c == b'"' {
+                    in_string = true;
+                } else if bytes[i..].starts_with(b"'\"'") {
+                    i += 2;
+                } else if bytes[i..].starts_with(b"//") {
+                    end = i;
+                    break;
+                }
+                i += 1;
+            }
+            out.push_str(&line[..end]);
+            out.push('\n');
+        }
+        out
+    }
+
+    /// How many times `source` calls `records::<function>(`, comments and
+    /// docs not counted.
+    fn call_sites(source: &str, function: &str) -> usize {
+        code_of(source)
+            .matches(&format!("records::{function}("))
+            .count()
+    }
+
+    /// How many times `source` names `function` at all outside a comment:
+    /// more than its call sites when it is imported, passed on as a value or
+    /// re-exported, which is a second way to the same record.
+    fn mentions(source: &str, function: &str) -> usize {
+        code_of(source).matches(function).count()
+    }
+
+    /// Every `.rs` file under `dir`, by path.
+    fn rust_files(dir: &std::path::Path, found: &mut Vec<std::path::PathBuf>) {
+        let mut entries: Vec<_> = std::fs::read_dir(dir)
+            .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
+            .map(|entry| entry.expect("a directory entry").path())
+            .collect();
+        entries.sort();
+        for path in entries {
+            if path.is_dir() {
+                rust_files(&path, found);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                found.push(path);
+            }
+        }
+    }
+
+    #[test]
+    fn the_scanner_counts_calls_and_not_mentions() {
+        // Built from parts, so this file does not hold the names it looks
+        // for outside a comment.
+        let function = ["for", "seated"].join("_");
+        let calls = format!(
+            "fn a() {{ baylee_db::records::{function}(&db, 1); }}\n\
+             fn b() {{ records::{function}(&db, 2) }}\n"
+        );
+        assert_eq!(call_sites(&calls, &function), 2);
+        assert_eq!(mentions(&calls, &function), 2);
+
+        let comments = format!(
+            "//! A record goes out only by `records::{function}(` and a test.\n\
+             /// `records::{function}(&db)` is called once.\n\
+             fn a() {{}} // records::{function}(&db) in a trailing comment\n"
+        );
+        assert!(comments.contains(&format!("records::{function}(")));
+        assert_eq!(call_sites(&comments, &function), 0);
+        assert_eq!(mentions(&comments, &function), 0);
+
+        // A `//` in a string is not a comment: the call after it counts.
+        let string = format!("fn a() {{ let _ = \"a//b\"; records::{function}(&db) }}\n");
+        assert_eq!(call_sites(&string, &function), 1);
+        let ch = format!("fn a() {{ let _ = '\"'; records::{function}(&db) }} // x\n");
+        assert_eq!(call_sites(&ch, &function), 1);
+
+        // Imported, it is mentioned without being called as `records::f(`.
+        let imported =
+            format!("use baylee_db::records::{function};\nfn a() {{ {function}(&db) }}\n");
+        assert_eq!(call_sites(&imported, &function), 0);
+        assert_eq!(mentions(&imported, &function), 2);
+    }
+
+    /// A file's path under `src` and how often something is in it.
+    type Counts = Vec<(String, usize)>;
+
+    /// The files under `src` that call `records::<function>(`, and those
+    /// that name `function` at all outside a comment, each with its count.
+    fn callers(src: &std::path::Path, function: &str) -> (Counts, Counts) {
+        let mut files = Vec::new();
+        rust_files(src, &mut files);
+        let (mut sites, mut named) = (Vec::new(), Vec::new());
+        for path in &files {
+            let source =
+                std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            let name = path
+                .strip_prefix(src)
+                .expect("under src")
+                .to_string_lossy()
+                .replace('\\', "/");
+            let (calls, names) = (call_sites(&source, function), mentions(&source, function));
+            if calls > 0 {
+                sites.push((name.clone(), calls));
+            }
+            if names > 0 {
+                named.push((name, names));
+            }
+        }
+        (sites, named)
+    }
+
+    #[test]
+    fn a_second_caller_in_another_file_is_found() {
+        let function = ["for", "projection"].join("_");
+        let dir = std::env::temp_dir().join(format!("baylee-callers-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("routes")).unwrap();
+        let call = format!("fn a() {{ records::{function}(&db) }}\n");
+        std::fs::write(dir.join("replays.rs"), &call).unwrap();
+        std::fs::write(dir.join("routes/mod.rs"), "// records::x(\nfn b() {}\n").unwrap();
+        let (sites, named) = callers(&dir, &function);
+        assert_eq!(sites, [("replays.rs".to_owned(), 1)]);
+        assert_eq!(named, sites);
+
+        // A second call in the same file, a call in another, and an import.
+        std::fs::write(dir.join("replays.rs"), call.repeat(2)).unwrap();
+        std::fs::write(dir.join("routes/mod.rs"), &call).unwrap();
+        std::fs::write(
+            dir.join("routes/other.rs"),
+            format!("use baylee_db::records::{function};\n"),
+        )
+        .unwrap();
+        let (sites, named) = callers(&dir, &function);
+        assert_eq!(
+            sites,
+            [
+                ("replays.rs".to_owned(), 2),
+                ("routes/mod.rs".to_owned(), 1)
+            ]
+        );
+        assert_eq!(
+            named,
+            [
+                ("replays.rs".to_owned(), 2),
+                ("routes/mod.rs".to_owned(), 1),
+                ("routes/other.rs".to_owned(), 1)
+            ]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A record leaves the store to a player's hand only through
+    /// `POST /reports`, and to an engine only through a replay job
+    /// (`docs/protocol.md` §"Replays"): one call site of each reader, in
+    /// the one file that has the check before it.
+    #[test]
+    fn each_reader_of_a_whole_record_has_its_one_caller() {
+        let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut files = Vec::new();
+        rust_files(&src, &mut files);
+        // The population: the whole crate's sources, and not a stray few.
+        assert!(
+            (20..=500).contains(&files.len()),
+            "{} files under src",
+            files.len()
+        );
+        for (function, only) in [
+            (["for", "seated"].join("_"), "report.rs"),
+            (["for", "projection"].join("_"), "replays.rs"),
+        ] {
+            let (sites, named) = callers(&src, &function);
+            let expected = vec![(only.to_owned(), 1)];
+            assert_eq!(sites, expected, "the call sites of {function}");
+            assert_eq!(
+                named, expected,
+                "{function} is named outside a comment only at its call"
+            );
+        }
     }
 
     #[test]

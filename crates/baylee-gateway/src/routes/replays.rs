@@ -222,14 +222,14 @@ pub(crate) struct TapeAsk {
     verify: VerifyArg,
 }
 
-/// Whether the game is still being played here.
-fn playing(state: &Shared, game_id: &str) -> bool {
-    state
-        .lobby
-        .lock()
-        .games
-        .get(game_id)
-        .is_some_and(|g| g.state == crate::lobby::LobbyState::Playing)
+/// Whether the game is still being played here with `account` in a seat.
+fn playing_at(state: &Shared, game_id: &str, account: &str) -> bool {
+    state.lobby.lock().games.get(game_id).is_some_and(|g| {
+        g.state == crate::lobby::LobbyState::Playing
+            && g.seats
+                .iter()
+                .any(|seat| seat.account_id.as_deref() == Some(account))
+    })
 }
 
 /// Whether the game ended here in the last [`JUST_ENDED_SECS`].
@@ -264,29 +264,21 @@ pub(crate) async fn replay_tape(
         ));
     }
     let db_down = |e: sea_orm::DbErr| crate::db_down(&anyhow::Error::from(e));
-    let Some((_, _)) = baylee_db::records::stored_size(&state.db, &game_id)
-        .await
-        .map_err(db_down)?
-    else {
-        return Err(err(StatusCode::NOT_FOUND, "no such game"));
-    };
-    let Some(seat) = baylee_db::records::seat_of(&state.db, &game_id, me)
-        .await
-        .map_err(db_down)?
-    else {
-        return Err(err(StatusCode::FORBIDDEN, "you did not sit at that game"));
-    };
-    if playing(&state, &game_id) {
+    // A game that goes on is said so to a player who sits at it, before its
+    // record is looked for: the record's row is written with its first
+    // piece, which a short game has not sent yet. Anyone else is told what
+    // the store says.
+    if playing_at(&state, &game_id, &session.account_id) {
         return Err(err(StatusCode::CONFLICT, "the game is still being played"));
     }
-    // A game that just ended may still have its last piece on the way, as
-    // a report's does.
+    // A game that just ended may still have its last piece on the way (or,
+    // a short one, its only piece), as a report's does.
     let mut size = baylee_db::records::stored_size(&state.db, &game_id)
         .await
         .map_err(db_down)?;
     if just_ended(&state, &game_id) {
         let deadline = tokio::time::Instant::now() + END_WAIT;
-        while size.is_some_and(|(_, complete)| !complete) && tokio::time::Instant::now() < deadline
+        while !size.is_some_and(|(_, complete)| complete) && tokio::time::Instant::now() < deadline
         {
             tokio::time::sleep(Duration::from_millis(100)).await;
             size = baylee_db::records::stored_size(&state.db, &game_id)
@@ -294,6 +286,15 @@ pub(crate) async fn replay_tape(
                 .map_err(db_down)?;
         }
     }
+    if size.is_none() {
+        return Err(err(StatusCode::NOT_FOUND, "no such game"));
+    }
+    let Some(seat) = baylee_db::records::seat_of(&state.db, &game_id, me)
+        .await
+        .map_err(db_down)?
+    else {
+        return Err(err(StatusCode::FORBIDDEN, "you did not sit at that game"));
+    };
     let Some((bytes, _)) = size else {
         return Err(err(StatusCode::NOT_FOUND, "no such game"));
     };
@@ -302,6 +303,9 @@ pub(crate) async fn replay_tape(
             StatusCode::PAYLOAD_TOO_LARGE,
             "that game's record is too large to replay",
         ));
+    }
+    if state.admission.held() {
+        return Err(err(StatusCode::SERVICE_UNAVAILABLE, crate::admission::HELD));
     }
     let _slot = replays::admit(&state.replay_jobs, &session.account_id).map_err(|r| match r {
         Refused::TooMany => err(StatusCode::TOO_MANY_REQUESTS, "too many replays asked for"),
@@ -328,6 +332,12 @@ pub(crate) async fn replay_tape(
         },
     )
     .await
+    .inspect_err(|e| {
+        // An ask no engine took costs the account nothing of its budget.
+        if matches!(e, JobError::Held | JobError::NoCapacity) {
+            state.replay_jobs.give_back(&session.account_id);
+        }
+    })
     .map_err(|e| match e {
         JobError::Held => err(StatusCode::SERVICE_UNAVAILABLE, crate::admission::HELD),
         JobError::NoCapacity => err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"),
