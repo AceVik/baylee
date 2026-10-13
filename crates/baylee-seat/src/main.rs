@@ -1754,8 +1754,16 @@ impl OrderReader {
     }
 }
 
-/// The line a game ends with.
+/// The line a game ends with, said.
 fn report(played: &bridge::Played) {
+    say!("{}", summary_line(played));
+}
+
+/// The line a game ends with: how it ended, who answered how often, and,
+/// where a fallback profile took over, how often it answered from which
+/// turn (`…; the fallback (deepseek-api) answered 12 from turn 3`). A seat
+/// agent keeps it in its operator's log.
+fn summary_line(played: &bridge::Played) -> String {
     let stats = &played.stats;
     let outcome = match stats.outcome {
         Some(Outcome::Won) => "won",
@@ -1774,7 +1782,7 @@ fn report(played: &bridge::Played) {
             )
         })
         .unwrap_or_default();
-    say!(
+    format!(
         "{outcome} after {} turns: {} questions, {} answered by standing orders, {} wakes \
          and {} payment steps, {} questions in a plan; the mind answered {}, the house {}, the least answer {}; \
          {} fallbacks, {} refused, {} ms of model time, {} sockets{fallback}",
@@ -1791,7 +1799,7 @@ fn report(played: &bridge::Played) {
         stats.refused_by_referee + stats.refused_by_table,
         stats.model_ms,
         played.dials,
-    );
+    )
 }
 
 #[cfg(test)]
