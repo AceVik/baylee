@@ -182,7 +182,87 @@ pub(crate) fn check_def_against_the_printing(
     check_optional_clauses_are_offered(slug, def, payload, tally, problems);
     check_enters_tapped_bound_matches_the_printing(slug, def, payload, tally, problems);
     check_back_face_castability_matches_the_layout(slug, def, payload, tally, problems);
+    check_color_indicator_matches_the_printing(slug, def, payload, tally, problems);
     check_flashback_matches_the_printing(slug, def, payload, problems);
+}
+
+/// A face of a double-faced card that prints no mana cost and is still
+/// coloured has a colour indicator (CR 202.2e, 204.2), and `FaceDef::color_indicator`
+/// is the only place the engine learns that colour: a face's colours are its
+/// mana cost's and its indicator's (`object.rs`). Leave it out and the back
+/// face is colourless — Ormendahl, Profane Prince was, and seven more were.
+///
+/// Read off the printing's face `colors`, because the cached payload keeps
+/// no `color_indicator` field: on a face with no mana cost those colours
+/// *are* the indicator. Both ways: an indicator the printing does not have
+/// is a colour nobody printed. Every coverage level, since colour is a
+/// characteristic a stub has too. Transforming and modal double-faced
+/// cards only, where Scryfall's faces pair one to one with the `FaceDef`s.
+pub(crate) fn check_color_indicator_matches_the_printing(
+    slug: &str,
+    def: &'static baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    if !matches!(
+        payload.get("layout").and_then(serde_json::Value::as_str),
+        Some("transform" | "modal_dfc")
+    ) {
+        return;
+    }
+    let Some(faces) = payload
+        .get("card_faces")
+        .and_then(serde_json::Value::as_array)
+    else {
+        return;
+    };
+    if faces.len() != def.faces.len() {
+        return;
+    }
+    for (printed, face) in faces.iter().zip(def.faces) {
+        let costless = printed
+            .get("mana_cost")
+            .and_then(serde_json::Value::as_str)
+            .is_none_or(str::is_empty);
+        let colors = printed
+            .get("colors")
+            .and_then(serde_json::Value::as_array)
+            .map(|letters| {
+                letters
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .filter_map(color_of_letter)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let want = if costless {
+            baylee_cards::dsl::ColorSet::from_slice(&colors)
+        } else {
+            baylee_cards::dsl::ColorSet::EMPTY
+        };
+        if costless && !colors.is_empty() {
+            tally.color_indicators += 1;
+        }
+        if face.color_indicator != want {
+            println!(
+                "{slug}: face `{}` prints no mana cost and is {} (a colour indicator, \
+                 CR 202.2e), and the code's color_indicator says {}",
+                face.name,
+                if want.is_empty() {
+                    "colourless".to_owned()
+                } else {
+                    color_letters(want)
+                },
+                if face.color_indicator.is_empty() {
+                    "nothing".to_owned()
+                } else {
+                    color_letters(face.color_indicator)
+                },
+            );
+            *problems += 1;
+        }
+    }
 }
 
 /// A printed "Flashback {…}" is `FaceDef::flashback`, at the printed price,
