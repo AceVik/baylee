@@ -217,42 +217,31 @@ Urheber- und Medienrecht.
    - the **offer's light** on the felt round a card, which the card lies on
      and which the next card of a fanned lane covers; the owner accepted
      that it shows only on the felt there.
-   - the **shell** of a protected permanent: indestructible's steel rim,
-     which stands round the card from just above its face down to the
-     felt, hexproof's or shroud's dome of glass over it, and defender's
-     brick wall on the felt past its top edge, lower than every card's
-     face, and summoning sickness's wave of moonlight a hair over the
-     face. Two rules hold them, by the owner's and the PM's decisions
-     under #298. Over its own print the rim, a ring lying on the felt and
-     the wall are exactly transparent: a mask follows the real camera's
+   - the **shell** of a protected permanent: since 13.10.2026 a slim
+     animated **border** standing round the card from a hair above its face
+     down to the felt, one layer each for indestructible, defender and
+     hexproof or shroud (the owner replaced #298's steel rim, glass domes
+     and brick wall with it), and summoning sickness's wave of moonlight a
+     hair over the face. Two rules hold them, by the owner's and the PM's
+     decisions under #298. Over its own print the border and the ring it
+     lies down to are exactly transparent: a mask follows the real camera's
      ray through each of their points to the card's face
      (`shellmat::the_mask_is_exactly_zero_over_the_print`, and
-     `every_colour_but_the_domes_and_the_waves_carries_the_mask` holds
-     every other return to it). **A dome is the one exception, by the owner's okay of
-     25.09:** a real, tall dome of glass, nearly clear at its crown and
-     deepening to its colour at its foot, may lie over its own card's whole
-     print, the name and the artist and © line included. **So may the
-     wave, by the same okay:** it passes over the print and leaves nothing
-     behind, as the arrival sweep does, and where no crest is it draws
-     nothing. The test holds that the dome's and the wave's branches each
-     return exactly once and that nothing else goes unmasked. No shell
-     ever lands on another card's print: where a shell standing round its
-     card would reach another card's face this frame, a dome stands lower,
-     then narrower, and lies down on the felt as a band of plates only
-     last, the rim lies down as a ring, and the wave is not drawn
-     (`table::shell_tests::a_standing_rim_never_lands_on_another_cards_print`,
-     `a_standing_dome_never_lands_on_another_cards_print` and
-     `a_wave_never_lands_on_another_cards_print`, swept over duels and
-     rings, fanned rows, fliers, hovers and every seat's camera); the wall stands under every face, so every print in front
-     of it hides it by depth (`a_wall_never_draws_over_a_print`, the same
-     sweep), and so do the shadows a standing dome and the wall cast on
-     the felt, which also carry the mask and are gone before a hover
-     lifts them to a face (`a_shadow_lies_on_the_felt_outside_its_card`).
-     The hover preview wears the same shells, standing, and holds the same
-     rule: its rim and wall are exactly transparent over the preview's
-     print, the mask being the card's own outline seen from straight over
-     it, and only its dome and the wave lie over it
-     (`shellui::tests::every_colour_but_the_domes_and_the_waves_carries_the_mask`).
+     `every_colour_but_the_waves_carries_the_mask` holds every other return
+     to it); a keyword lasts as long as the keyword, so it is no passing
+     state (below). **The wave is the one exception, by the owner's okay of
+     25.09:** it passes over the print and leaves nothing behind, as the
+     arrival sweep does, and where no crest is it draws nothing. No shell
+     ever lands on another card's print: where a border standing round its
+     card would reach another card's face this frame it lies down on the
+     felt as a ring, and the wave is not drawn
+     (`table::shell_tests::a_standing_border_never_lands_on_another_cards_print`
+     and `a_wave_never_lands_on_another_cards_print`, swept over duels and
+     rings, fanned rows, fliers, hovers and every seat's camera). The hover
+     preview wears the same shells, standing, and holds the same rule: its
+     border is exactly transparent over the preview's print, the mask being
+     the card's own outline seen from straight over it, and only the wave
+     lies over it (`shellui::tests::every_colour_but_the_waves_carries_the_mask`).
    What reaches the image itself: its own **finish** (a foil is what that printing is, the one
    exception the owner accepted) and light that passes over the whole card
    and leaves nothing behind — the table's lamp pool, the one-second arrival
@@ -261,6 +250,22 @@ Urheber- und Medienrecht.
    off. `cardmat::nothing_but_the_finish_is_drawn_on_the_print` holds both
    card shaders to that; `docs/client.md` §"The print fills the card" has
    the rest.
+
+   **Owner decision (13.10.2026): the rule is about lasting alteration.**
+   Scryfall's "not tinted or stamped" forbids changing the image for good;
+   the owner reads it so, and a *passing* visual state may lie on the print
+   for as long as it lasts ("gilt nur für permanent, für vorübergehend ist
+   es voll okay"). Three states do, each ending with the game state that
+   causes it and leaving the print exactly as it was: a card the question
+   this seat is answering will not take is **dimmed** until it is answered;
+   a **phased-out** permanent is drawn grey and faded until it phases in
+   (CR 702.26b); a creature under **summoning sickness** wears a cool
+   moonlit edge until it may attack (CR 302.6). They are one term in each
+   card shader, weighed by the card's own `veil` and zero on every other
+   card (`cardmat::veil`, `card_common.wgsl`'s `veiled`); the guard test
+   above allows that one term and no other, so a lasting stamp, a keyword
+   for instance, is still refused there. A keyword lasts as long as the
+   keyword, so its border stays off the print (the shell's mask, above).
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account
    (#292)"); no tracking. As a private, GitHub-hosted open-source project

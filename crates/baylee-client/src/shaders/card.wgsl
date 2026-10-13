@@ -17,7 +17,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON, veiled, veil_amounts}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
@@ -43,6 +43,13 @@ struct CardParams {
     face: u32,
     /// The flat colour a card with no art is drawn in.
     tint: vec4<f32>,
+    /// Its passing states (`cardmat::veil`): where they are going in the
+    /// low byte, where they come from in the next.
+    veil: u32,
+    /// When they set out, on `globals.time`'s clock.
+    veil_at: f32,
+    /// One over how long they take, or 0 once they have arrived.
+    veil_rate: f32,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var art: texture_2d<f32>;
@@ -147,6 +154,11 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         color.a,
     );
     color = vec4<f32>(color.rgb + door_layer(uv, phase, door), color.a);
+
+    // ---- a passing state: dimmed while a question leaves it out, phased
+    // out, asleep (the owner, 13.10.2026: a state that comes and goes may
+    // lie on the print while it lasts). Nothing for every other card.
+    color = veiled(color, uv, veil_amounts(params.veil, params.veil_at, params.veil_rate, globals.time), t);
 
     // ---- the card's own corners
     //

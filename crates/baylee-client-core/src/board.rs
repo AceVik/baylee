@@ -1818,14 +1818,14 @@ fn individual_objects(view: &PlayerView, lookup: &Lookup<'_>) -> HashMap<ObjectI
 /// the equipped creature's (CR 301.5d), and Pacifism lies on the creature it
 /// enchants, on that creature's side of the table. One attached to an
 /// attachment lies under the same host, after it. Only a host that is drawn
-/// takes anything: attachments phase out with their host (CR 702.26g), and
-/// one whose host is not on the battlefield stays in its own row, where it
-/// can still be seen.
+/// takes anything, and one whose host is not on the battlefield stays in its
+/// own row, where it can still be seen. A phased-out host is drawn (grey,
+/// [`CardGroup::status`]), and what phased out with it (CR 702.26g) lies
+/// under it as before.
 fn tucked_under(view: &PlayerView) -> HashMap<ObjectId, Vec<ObjectId>> {
     let drawn: HashMap<ObjectId, Option<ObjectId>> = view
         .battlefield
         .iter()
-        .filter(|o| !o.status.is_phased_out())
         .map(|o| (o.id, o.attached_to))
         .collect();
     let mut under: HashMap<ObjectId, Vec<(usize, ObjectId)>> = HashMap::new();
@@ -1883,8 +1883,15 @@ fn build_pod(
     reg: Registry<'_>,
 ) -> SeatPod {
     let seat = view.seat(player);
-    let permanents: Vec<&PublicObject> = view
-        .battlefield_of(player)
+    // A phased-out permanent is treated as though it does not exist (CR
+    // 702.26b), so it counts in no summary; but it is still on the
+    // battlefield and comes back, so the rows draw it, grey and faded, where
+    // it lies (the owner, 13.10.2026). Its status keeps it out of every pile
+    // of phased-in permanents (`ObjectSummaryKey` carries the status).
+    let drawn: Vec<&PublicObject> = view.battlefield_of(player).collect();
+    let permanents: Vec<&PublicObject> = drawn
+        .iter()
+        .copied()
         .filter(|o| !o.status.is_phased_out())
         .collect();
     let hanging: HashSet<ObjectId> = tucked.values().flatten().copied().collect();
@@ -1892,7 +1899,7 @@ fn build_pod(
     let lanes = LaneKind::ALL
         .iter()
         .map(|&kind| {
-            let members: Vec<&PublicObject> = permanents
+            let members: Vec<&PublicObject> = drawn
                 .iter()
                 .copied()
                 .filter(|o| lane_of(o.types) == kind && !hanging.contains(&o.id))

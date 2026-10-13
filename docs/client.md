@@ -2615,198 +2615,92 @@ on objects of its own:
   motion; the material key is the four offers (`cardmat::glow::OFFERS`).
 - **Protection** is a mark on the strip (hexproof, indestructible and shroud
   were appended to `MARK_ORDER` as slots 12–14, the index being the wire and
-  the atlas cell), and a **shell** round the card is its glance
-  (`shellmat.rs`, `shell.wgsl`). Indestructible's is a rim of darksteel,
-  Magic's own indestructible metal (the owner, 25.09): nearly black, darker
-  than the felt, and read as metal by what it mirrors. Its section is a
-  flat lip along its crest, then a quarter round to its foot (the shader's
-  normal, which the mesh is too coarse to carry), so its lip mirrors the
-  blue hour over the table, the brightest of it, and its foot the felt,
-  dim and not black, with the crisp line between them that tells metal
-  from paint, and it catches a broad glint of the key light
-  (`shell_common.wgsl`'s `steel`). It stands round the card from `RIM_RISE`
-  (0.010) above its face down to the felt, `RIM_MARGIN` (0.06) out, with a
-  silver band of light going round it once every seven seconds (its mean,
-  when motion is off). Hexproof's is a dome of glass, blue, and shroud's
-  the same dome in violet, which swallows hexproof as the strip's marks
-  do: one dome, never two colours in one (`shellmat::Dome`, a row of
-  margin, height and colour, so ward and protection (#302) will be rows).
-  It is a real, tall dome (the owner, 25.09): its crown `DOME_HEIGHT`
-  (0.32) over the face, a ridge `DOME_CROWN` in from the card's edge, and
-  a quarter ellipse across the whole card down to its foot on the felt
-  `DOME_MARGIN` (0.10) past the edge. A flat top on a steep skirt, as
-  first built, read from a duel's nearly overhead shot as a frame: a wall
-  seen edge-on glows all the way round. So did a band of colour at its
-  foot with an edge on the inside (the owner: "eher einfach nur ein Rand";
-  the PM's second review). From above, the more glass a ray crosses, the
-  deeper its colour, and that is how far out from its crown the point
-  lies (the mesh's `uv.x`): the glass deepens from nearly clear at the
-  crown to its colour at the foot as a smooth ramp with no edge on the
-  way, brighter and paler on the side turned to the key light and faint
-  on the side away from it, which is what reads as a lit volume from a
-  duel's nearly overhead shot. The moon is one arc mirrored low on its lit
-  side, as far round as it faces the light and the camera. Inside the
-  card's edge its rings round their corners the more the further in they
-  stand (`DOME_ROUNDING`), so its crown is a ridge with round ends and the
-  arc bends round a corner instead of turning it. Where its foot stands on
-  the felt (the first two steps) it casts a soft shadow on the felt,
-  `DOME_SHADE` (0.12) out from its foot (`shellmat::dome_shade_mesh`). It
-  breathes between 1 and 1.1 every six seconds. It may lie over
-  its own print, name and artist line included (the owner, 25.09;
-  `docs/legal.md` §3). It is blended, not added: Bevy draws `Add`
-  premultiplied, where a colour with alpha zero is still added. Its back
-  faces are drawn, the inside of its far side seen through its near side,
-  and it comes last in the pass (`DOME_RUNG`), over the strip.
-  Defender's is a low wall of brick on the felt past the card's top edge,
-  towards the table's middle: two courses and a row of `WALL_MERLONS` (5)
-  merlons, `WALL_HEIGHT` (0.08) high, along a shallow arc, its foot
-  `WALL_NEAR` (0.12) past the edge at its ends and `WALL_BULGE` (0.04)
-  further at its middle, `WALL_OVERHANG` (0.06) wider than the card each
-  side (`shellmat::wall_mesh`). A duel's camera, nearly over it, sees a
-  wall's top and little of its face, so the courses' face towards the card
-  leans back `WALL_BATTER` (0.06), and its top is `WALL_THICK` (0.04)
-  across. Brick at dusk in running bond laid along the arc, the joints in
-  pale mortar, lit by the key light and the blue hour in its shade; the
-  merlons capped with pale stone, brick in their shade between them. It
-  casts a shadow on the felt behind it, `WALL_SHADE` (0.12) deep, and a
-  shade at its foot (`shellmat::wall_shade_mesh`). It turns with its card and always
-  stands, on the felt whatever the card does (`table::wall_pose`: never
-  lifted or grown with a hover or a flier's bob). It is solid, so it
-  writes depth, and it comes first in the pass (`WALL_RUNG`).
-  Summoning sickness (CR 302.6) is the fourth shell: a slow wave of
-  moonlight running out over the card from its middle line to
-  `WAVE_INSET` (0.05) inside its edge, a real ripple on a sheet
-  `WAVE_LIFT` (0.003) over the face whose crest rises `WAVE_CREST`
-  (0.009) as its front passes (`shellmat::wave_mesh`, lifted in
-  `shell.wgsl`'s vertex stage). One wave takes `WAVE_TRAVEL` (3.6 s) and
-  the next follows `WAVE_PERIOD` (6 s) after it, each card at its own
-  moment from where it lies, so a board of new creatures does not pulse
-  as one; with motion off it holds still most of the way out, crest and
-  all. It shades only its crest's slopes, with a glint of the key light
-  along it, and is nothing where there is no crest, so it passes and
-  leaves the print as it was, the way the arrival sweep does (the owner,
-  25.09; `docs/legal.md` §3). It lies over the rings and under the rim,
-  the strip and a dome (`WAVE_RUNG`). Two rules hold the shells:
-  - **Exactly nothing of the rim, a ring or the wall over its own print.**
-    Its vertex stage hands the fragment the camera in the shell's own
-    space (`get_local_from_world`), the fragment follows its ray to the
-    card's face, and where that meets the print its alpha is zero, opening
-    over `MASK_FEATHER` (0.012) off it (`clear_over_print`, mirrored in
-    Rust and read against the shader by
-    `the_shader_measures_the_card_this_file_does`). Every `return` of the
-    fragment but the dome's and the wave's carries it
-    (`every_colour_but_the_domes_and_the_waves_carries_the_mask`). It is
-    the real camera, so it holds at every yaw, hover and tap. From the
-    table's real shots it leaves 0.93 of a standing rim's width to see.
-    The dome is glass over its whole card, and the wave passes over its
-    own print, both by the owner's choice (25.09).
+  the atlas cell), and a **border** round the card is its glance
+  (`shellmat.rs`, `shell.wgsl`; the owner, 13.10.2026: "nicht mehr
+  3D-Kuppel, nur schöner animierter schlanker Rand", replacing the
+  darksteel rim, the domes of glass and defender's brick wall of #298).
+  Indestructible, defender, hexproof and shroud each draw one layer of a
+  slim band standing round the card from `RIM_RISE` (0.010) over its face
+  down to the felt, `shellmat::border_margin` out (`BORDER_BASE` 0.02 plus
+  `BORDER_LAYER` 0.03 a layer: 0.05 for one, 0.11 for three), nested inside
+  out in that order (`shellmat::Ward`; shroud swallows hexproof, as the
+  strip's marks do). One mesh per layer count and one material per set of
+  keywords, so a card wearing three is one draw. Each layer is told apart
+  by its pattern and its motion as well as its colour (`shell_common.wgsl`'s
+  `ward_layer`), so a player who cannot tell the hues apart still can:
+  **indestructible** a steady golden rim, rounded across, with one glint
+  going round it every twelve seconds; **defender** a wall of slate-grey
+  stone blocks (`BLOCK` 0.11 along the edge) with dark joints, still, as a
+  wall is, and grey so it is never taken for the offer's gold on the felt;
+  **hexproof** a thin blue line with three streaks of light flowing round
+  it; **shroud** a soft violet mist with no edge, drifting. A dark hairline
+  parts the layers. Under `reduce_motion` every pattern holds where it
+  stands. It is blended, not added (Bevy's `Add` is premultiplied, so alpha
+  0 still adds colour), and stands under the strip and the badge
+  (`BORDER_RUNG`). Summoning sickness (CR 302.6) wears a wave of moonlight
+  running out over the card from its middle line to `WAVE_INSET` (0.05)
+  inside its edge, a real ripple on a sheet `WAVE_LIFT` (0.003) over the
+  face whose crest rises `WAVE_CREST` (0.009) as its front passes
+  (`shellmat::wave_mesh`, lifted in `shell.wgsl`'s vertex stage). One wave
+  takes `WAVE_TRAVEL` (2.8 s) and the next follows `WAVE_PERIOD` (4.2 s)
+  after it, each card at its own moment from where it lies; with motion off
+  it holds still most of the way out. It passes and leaves the print as it
+  was (the owner, 25.09; `docs/legal.md` §3), beside the moonlight the
+  card's own print breathes while it is asleep (`veil::ASLEEP`, "A passing
+  state lies on the print"). Two rules hold the shells:
+  - **Exactly nothing of a border or its ring over its own print.** A
+    keyword lasts as long as the keyword, so it is not a passing state.
+    The vertex stage hands the fragment the camera in the shell's own space
+    (`get_local_from_world`), the fragment follows its ray to the card's
+    face, and where that meets the print its alpha is zero, opening over
+    `MASK_FEATHER` (0.012) off it (`clear_over_print`, mirrored in Rust and
+    read against the shader by `the_shader_measures_the_card_this_file_does`).
+    Every `return` of the fragment but the wave's carries it
+    (`every_colour_but_the_waves_carries_the_mask`). It is the real camera,
+    so it holds at every yaw, hover and tap.
   - **Never on another card's print.** The mask cannot see a neighbour, so
     `table::fit_the_shells` asks, after the glide and from where every card
     and the camera are this frame, whether a shell standing round its card
     would land on any other card's print (`shellmat::shell_stands`, one
-    guard over a shell's profile). A point of the shell above another
-    card's face lands on that face further along the camera's ray, away
-    from the camera, by its height over it × the ray's tangent. So each
-    run of the profile, clipped to the part above that face, lands inside
-    the hull of its own card grown by the run's ends and carried away from
-    the camera by the least and the most any of its rays carries it; the
-    shell stands if no hull meets another card's face. A face above the
-    shell's top hides it, and the shell's own print hides what lies under
-    it: a run whose every ray crosses the card's own face inside its edge
-    is measured only against faces above that face. The rim falls to the
-    felt, so a card beside it hides all of it below that card's face, and
-    what reaches it is only the top edge's throw, about 0.013 at rest; two
-    untapped cards in neighbouring rows of a ring are 0.0185 apart, so a
-    resting rim stands there. Where it does not fit (a fanned row, a flier
-    over a neighbour, a hover in a tight row), the rim lies down as a ring
-    on the felt, `RING_INNER`..`RING_OUTER` (0.10–0.16) out, just outside
-    the offer's light, at `RING_RUNG` under every card, held flat under
-    its card the way a flier's shadow is: a rod of darksteel, round
-    across. A ring stands up again only if the rim would fit `STAND_AGAIN`
-    (a flier's whole bob) higher, so a flier at the edge does not swap on
-    every bob.
-    A dome is tried at each of `DOME_STEPS` in turn
-    (`shellmat::dome_step`): full, 0.7 of its height, then 0.6 with its
-    foot drawn in to the card's edge, 0.45 and 0.3 with it drawn 0.1 and
-    0.2 onto the card; with no air at all it lies down as a band of plates
-    in its colour, six along each short side and eight along each long
-    one, crisp-edged with a bright line along both edges, which the
-    offer's soft light is never taken for. A taller step, or standing up
-    from lying, needs `STAND_AGAIN` of headroom. Where the steel and the
-    dome both lie, they share the band inside out, as they stand: steel
-    `RING_INNER`..`RING_SPLIT` (0.10–0.13), the dome
-    `RING_SPLIT`..`RING_OUTER` (0.13–0.16) (the PM, 25.09); alone, each
-    takes the whole band.
-    `a_standing_rim_never_lands_on_another_cards_print` and
-    `a_standing_dome_never_lands_on_another_cards_print` follow the real
-    camera's ray through every point of every standing rim or dome, down
-    to its own card's face where it crosses its print, and onto every card
-    below it, on duels at three windows, sparse, comfortable, full and
-    fanned, and rings of three, four and eight with all but the fanned
-    rows, with and without hovers, from the home
-    shot, every seat's framing and every other seat's side of the table:
-    none lands on a print, and both halves of each choice are taken
-    hundreds of times. Domes stand in 26269 of 29320 cases, 11444 of them
-    at full height, and at every step; they lie in a duel's fanned rows,
-    which since every seat at a ring has a duel's board (#264) are the
-    only rows that fan. Taking the first guard away turned
-    both red by the million.
-    The wave is the same guard over a flat profile, its crest standing at
-    full height everywhere at once (`WAVE_PROFILE`, `shellmat::wave_stands`):
-    where it would land on another card's print, under the next card of a
-    fanned row above all, it is not drawn, and it comes back only with
-    `STAND_AGAIN` of headroom. `a_wave_never_lands_on_another_cards_print`
-    sweeps the same tables and shots: 28312 drawn, 1008 taken away, and a
-    guard that always stood put 102196 of its points on a print. A face
-    level with the card's own is not under it: where two overlap, nothing
-    says whose print is on top (two hovered neighbours in the sweep).
-    The wall needs no guard: it is lower than every face (0.08 against a
-    resting card's 0.083, a const assert), so past any point of it the
-    camera's ray only goes lower, and every print the ray crosses is in
-    front of it and hides it by depth, a neighbour's under a hover
-    included. `a_wall_never_draws_over_a_print` stands one at every card
-    of the same tables, from the same shots, and follows the ray through
-    every corner of it to every card's face nearby, its own card's
-    included: none lies past the point on a print, and prints stand in
-    front of walls millions of times. The shadows a standing dome and the
-    wall cast lie on the felt at `SHADE_RUNG`, under every face, the same
-    way, and carry the mask; a dome's is lifted with its card by a hover
-    or a flier's bob, and the shader has faded it out `SHADE_GONE` (0.04)
-    over where it lies, below any card's face
-    (`a_shadow_lies_on_the_felt_outside_its_card`).
-  A card leaving the battlefield loses its shell at once; indestructible
-  means nothing anywhere else, and a rim flying off with its card would
-  no longer be fitted to anything on the way.
-  **The preview wears them too** (the PM, 25.09): the card held up larger
-  is the card on the felt, so its shells are the table's
-  (`shellmat::Shells::of`, the one door both read a card's badges
-  through). They are UI nodes hanging off the card's turning frame, as its
-  badge and plate are (`shellui.rs`, `shell_ui.wgsl`), sharing with the
-  table's shader what they draw with (`shell_common.wgsl`: the card's
-  outline, `rim_steel`, `dome_glass`, `brick`, and the wave's `crest_at`,
-  `wave_along` and `wave_glow`), so the steel, the glass, the brick and the
-  moonlight are one material in two places. The preview has air round
-  it, so its shells always stand as a duel's full step does: nothing lies
-  down as a ring or a band, and there is no felt for a shadow.
-  `Shells::standing` says which stand under the card's own objects (the
-  wall, the wave, then the rim, the table's order) and which over them
-  (the dome), and is where a new shell joins both the preview and its
-  order. `Shells::of` takes the card's group, so summoning sickness comes
-  through the same door as the keywords. There is no camera to follow a ray from, so
-  each shell is drawn as it stands seen from straight over the card, which
-  is what lines it up with the flat print, and lit as a duel's seat sees a
-  card of its own (`DUEL_LEAN`). From straight over the card a point's ray
-  meets the face right under it, so the mask is the card's own outline:
-  the rim and the wall are exactly transparent over the print, the dome is
-  glass over it and the wave runs over it at the preview's own moment, as
-  on the table
-  (`shellui::tests::every_colour_but_the_domes_and_the_waves_carries_the_mask`; taking
-  the mask off the rim's return turned it red). The node is the card
-  grown by a dome's foot on its sides and foot and by the wall's reach on
-  its top (`shellui::PREVIEW_QUAD`), and the panel is placed as one that
-  much bigger all round (`overlay::place_around`), so a preview opened at
-  any edge of the window keeps its shells on the screen, and the bubble's
-  clip lets them out as far (`a_preview_keeps_its_shells_on_the_screen`).
+    guard over a shell's profile, `border_stands` for the border's at its
+    layer count). A point of the shell above another card's face lands on
+    that face further along the camera's ray, by its height over it × the
+    ray's tangent; so each run of the profile lands inside a hull of its
+    own card grown and carried away from the camera, and the shell stands
+    if no hull meets another card's face. The border falls to the felt, so
+    what reaches a neighbour at its height is only its top edge's throw,
+    about 0.013 at rest; two untapped cards in neighbouring rows of a ring
+    are 0.0185 apart. Where it does not fit (a fanned row, a flier over a
+    neighbour, a hover in a tight row), the border lies down as a ring on
+    the felt, the same layers flat from `RING_INNER` (0.10, just outside
+    the offer's light) out `RING_LAYER` (0.025) a layer, at `RING_RUNG`
+    under every card, held flat under its card the way a flier's shadow
+    is; it stands up again only with `STAND_AGAIN` (a flier's whole bob)
+    of headroom. `a_standing_border_never_lands_on_another_cards_print`
+    follows the real camera's ray through every point of every standing
+    border, one layer deep and three, on duels at three windows, sparse,
+    comfortable, full and fanned, and rings of three, four and eight, with
+    and without hovers, from every shot: none lands on a print, and both
+    halves of the choice are taken hundreds of times. The wave is the same
+    guard over a flat profile (`WAVE_PROFILE`, `shellmat::wave_stands`):
+    where it would land on another card's print it is not drawn
+    (`a_wave_never_lands_on_another_cards_print`).
+  A card leaving the battlefield loses its shells at once.
+  **The preview wears them too** (the PM, 25.09): UI nodes hanging off the
+  card's turning frame, as its badge and plate are (`shellui.rs`,
+  `shell_ui.wgsl`), drawing with the table's `shell_common.wgsl`
+  (`ward_border`, and the wave's `crest_at`, `wave_along`, `wave_glow`), so
+  the layers and the moonlight are one material in two places. It always
+  stands, seen from straight over the card, so the mask is the card's own
+  outline (`shellui::tests::every_colour_but_the_waves_carries_the_mask`).
+  `Shells::standing` lists what the preview draws, the wave then the border,
+  under the card's own objects as on the table; `Shells::of` is the one
+  door both read a card's badges and summoning sickness through. The node
+  is the card grown by the widest border on every side
+  (`shellui::PREVIEW_QUAD`), and the panel is placed as one that much
+  bigger all round (`overlay::place_around`), so a preview at any edge of
+  the window keeps its border on the screen
+  (`a_preview_keeps_its_shells_on_the_screen`).
 
 - Drawn on the print: its own **finish** (`print_finish`), because a foil is
   what that printing *is* — the one exception the owner accepted — and
@@ -10300,11 +10194,58 @@ chosen").
   choice accepts and has not taken yet wears `glow::CHOOSABLE`, a pale
   breathing ring of light on the felt (`floor_light`), chosen over every
   other offer but the armed one (`table::placement::choosable`). The report
-  asked for the others darkened: darkening a print tints a Scryfall image,
-  which the image terms rule out (`docs/legal.md` §"Nothing we paint lies on
-  a card image"), so the legal ones are lit instead and the rest stay as
-  they are. A press on one the choice will not take answers nothing, as it
-  did (`activate_card` falls through to `Answer::Refused`).
+  asked for the others darkened, which was first refused as tinting a
+  Scryfall image; the owner has since ruled that the image rule is about
+  lasting alteration (13.10.2026, `docs/legal.md` §3), so the others are
+  now dimmed too, for as long as the question is open ("A passing state lies
+  on the print", below). A press on one the choice will not take answers
+  nothing, as it did (`activate_card` falls through to `Answer::Refused`).
+- **A passing state lies on the print (the owner, 13.10.2026).** A state
+  that comes and goes with the game is one term in each card shader after
+  the finish (`card_common.wgsl`'s `veiled`), weighed by the card's
+  `CardParams::veil` and zero on every other card, which then draws exactly
+  as before; the guard `cardmat::nothing_but_the_finish_is_drawn_on_the_print`
+  allows that term and nothing else. Its bits (`cardmat::veil`): **dimmed**
+  (`DIM`), a permanent this seat's own question leaves out
+  (`Interaction::leaves_out`: not a legal choice and not chosen; in combat
+  neither a creature the declaration may take nor what it is declared
+  against, and in a block every creature that may block some attacker, so
+  nothing darkens and lights again as the aim walks), keeping 0.38 of its
+  light and losing a third of its colour. Only the asking seat's table dims,
+  only permanents (the hand has its own halo), not for a choice whose
+  options are left implicit or an ordering. It comes on over
+  `veil::DIM_FADE` (0.18 s) and goes at once when the question is answered.
+  The state rides in the material key (`CardLook::veil`), on its way as a
+  transient look like a sweep (`VeilTrack`, per card in
+  `SceneIndex::veils`, the clock `globals.time` is written from), then
+  settled, the one look every card in that state shares; a still table
+  (`reduce_motion`) cuts. A card drawn before in no state fades in; one drawn
+  for the first time is already in its states.
+- **A phased-out permanent is drawn, grey (the owner, 13.10.2026).** Until
+  then the board model dropped it. CR 702.26b treats it as though it does
+  not exist, but it is still on the battlefield and comes back, so the rows
+  now draw it where it lies (`board::build_pod`), never piled with phased-in
+  ones (the summary key carries the status), with what phased out with it
+  (CR 702.26g) still tucked under it, and it counts in no summary (threat,
+  token chips). On the table it is `veil::PHASED`: its colour gone, faded
+  0.6 of the way to the blue hour's felt tone, a pale band drifting slowly
+  down it; it fades over `veil::SLOW_FADE` (0.6 s) out and back in, and
+  wears no shell, no sleep and no keyword marks (`table::placement`). The
+  view always carried the status (`ObjectStatus::PHASED_OUT`); no
+  `VIEW_VERSION` change.
+- **Summoning sickness reads at a glance (the owner, 13.10.2026: "deutlich
+  sichtbarer").** The wave alone was too quiet: a crest every six seconds,
+  at most 0.35 of moonlight, and not drawn at all where it would land on
+  another card's print (a fanned row). The card itself now wears
+  `veil::ASLEEP` while `CardGroup::summoning_sick` (CR 302.6; haste already
+  answers it): the print a shade cooler and moonlight breathing in from its
+  edge, `ASLEEP_REACH` (0.11 card widths) deep, between 0.22 and 0.52 once
+  every `ASLEEP_PERIOD` (3.6 s), held at its mean under `reduce_motion`. It
+  is the card's own surface, so it shows in a fanned row as far as the card
+  does and on every seat's board alike, and it fades out over
+  `veil::SLOW_FADE` as the creature wakes at its controller's turn. The wave
+  runs on top, quicker and brighter (`WAVE_TRAVEL` 2.8 s, `WAVE_PERIOD`
+  4.2 s, up to 0.6). The plate's moon-grey ink stays.
 - **The name and type choosers' box looks like a search box (report 16):**
   a magnifier, the words typed or "type to search…" in the quieter ink, a
   caret, at least 280 wide (`drawer::filter_field`).

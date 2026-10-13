@@ -98,11 +98,10 @@ pub mod glow {
     /// This card is one the question this seat is answering will take: a
     /// legal target, or a card it may choose (report 09).
     ///
-    /// Light on the felt and not a shade on the cards it will not take,
-    /// which is what the report asked for: darkening a print tints a
-    /// Scryfall image, which the image terms rule out (`docs/legal.md`
-    /// §"Nothing we paint lies on a card image"). The legal ones are lit
-    /// instead, and the rest stay as they are and take no press
+    /// Light on the felt round the ones it will take; the rest are dimmed
+    /// for as long as the question is open ([`super::veil::DIM`], the
+    /// owner's ruling of 13.10.2026 that a passing state may lie on the
+    /// print, `docs/legal.md` §3) and take no press
     /// (`input::table_click`'s choice gate).
     pub const CHOOSABLE: u32 = 1 << 24;
 
@@ -346,6 +345,149 @@ pub struct CardParams {
     pub face: u32,
     /// The colour a card with no artwork is drawn in.
     pub tint: Vec4,
+    /// Its passing states ([`veil`]): the ones it is going to in the low
+    /// byte, the ones it comes from in the next ([`Veil::code`]). Zero for
+    /// a card in none, which then draws exactly as it did before them.
+    pub veil: u32,
+    /// When they set out, on the clock [`Self::sweep_at`] is on.
+    pub veil_at: f32,
+    /// One over how long they take, or `0.0` once they have arrived.
+    pub veil_rate: f32,
+}
+
+/// A card's passing states, as `card_common.wgsl` numbers them: what comes
+/// and goes with the game and may lie on the print while it lasts (the
+/// owner, 13.10.2026; `docs/legal.md` §3). A keyword's border lasts as long
+/// as the keyword and stays off the print ([`crate::shellmat`]).
+pub mod veil {
+    /// The question this seat is answering leaves the card out
+    /// ([`baylee_client_core::interaction::Interaction::leaves_out`]): dimmed
+    /// until it is answered.
+    pub const DIM: u32 = 1;
+    /// Phased out (CR 702.26b): grey and faded until it phases in.
+    pub const PHASED: u32 = 2;
+    /// Summoning sick (CR 302.6): moonlight breathing in from its edge.
+    pub const ASLEEP: u32 = 4;
+    /// How long dimming takes to come on, in seconds. It goes at once: the
+    /// board is the player's again the moment the question is answered.
+    pub const DIM_FADE: f32 = 0.18;
+    /// How long phasing and sleep take to come or go.
+    pub const SLOW_FADE: f32 = 0.6;
+}
+
+/// Where a card's passing states stand: the ones it is going to, the ones it
+/// came from, and when and how fast it set out. A part of [`CardLook`], so
+/// it is plain bits; [`Veil::settled`] once it has arrived, which is the one
+/// look every card in those states shares.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub struct Veil {
+    /// The states it is going to.
+    pub to: u32,
+    /// The states it comes from.
+    pub from: u32,
+    /// When it set out, as `f32` bits; zero once it has arrived.
+    pub at: u32,
+    /// One over how long it takes, as `f32` bits; zero once it has arrived.
+    pub rate: u32,
+}
+
+impl Veil {
+    /// No state at all: every card almost all of the time.
+    pub const NONE: Self = Self {
+        to: 0,
+        from: 0,
+        at: 0,
+        rate: 0,
+    };
+
+    /// `to`, arrived.
+    #[must_use]
+    pub const fn settled(to: u32) -> Self {
+        Self {
+            to,
+            from: to,
+            at: 0,
+            rate: 0,
+        }
+    }
+
+    /// The shader's `veil` word.
+    #[must_use]
+    pub const fn code(self) -> u32 {
+        self.to | (self.from << 8)
+    }
+}
+
+/// One card's passing states over time: what [`crate::table`] keeps per
+/// permanent so a change fades rather than jumps.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct VeilTrack {
+    /// The states it is going to.
+    pub to: u32,
+    /// The states it comes from.
+    pub from: u32,
+    /// When it set out, on `Time::elapsed_secs_wrapped`.
+    pub at: f32,
+    /// One over how long it takes; zero for a change made at once.
+    pub rate: f32,
+}
+
+impl VeilTrack {
+    /// A card first drawn in `states`: already in them, since nothing on
+    /// screen changed.
+    #[must_use]
+    pub const fn new(states: u32) -> Self {
+        Self {
+            to: states,
+            from: states,
+            at: 0.0,
+            rate: 0.0,
+        }
+    }
+
+    /// Where the card stands once it is wanted in `states` at `now`. A
+    /// change sets out from what it was going to; dimming goes at once, and
+    /// nothing fades while motion is off.
+    #[must_use]
+    pub fn toward(self, states: u32, now: f32, moving: bool) -> Self {
+        if states == self.to {
+            return self;
+        }
+        // Dimming leaves at once: the question was answered.
+        let from = self.to & !(veil::DIM & !states);
+        let changed = from ^ states;
+        if !moving || changed == 0 {
+            return Self::new(states);
+        }
+        let fade = if changed & (veil::PHASED | veil::ASLEEP) == 0 {
+            veil::DIM_FADE
+        } else {
+            veil::SLOW_FADE
+        };
+        Self {
+            to: states,
+            from,
+            at: now,
+            rate: 1.0 / fade,
+        }
+    }
+
+    /// The look's part of it at `now`: on its way, or [`Veil::settled`] once
+    /// it has arrived, so a card in a state for a turn shares its look with
+    /// every other.
+    #[must_use]
+    pub fn veil(self, now: f32) -> Veil {
+        if self.rate <= 0.0 || (now - self.at) * self.rate >= 1.0 {
+            Veil::settled(self.to)
+        } else {
+            Veil {
+                to: self.to,
+                from: self.from,
+                at: self.at.to_bits(),
+                rate: self.rate.to_bits(),
+            }
+        }
+    }
 }
 
 /// The five doors a permanent goes through, as the shader numbers them.
@@ -666,6 +808,10 @@ impl UiCardMaterials {
                 // A printing in the picker is a print: it has art to show.
                 face: 0,
                 tint: Vec4::ONE,
+                // And it is in no game, so in no passing state.
+                veil: 0,
+                veil_at: 0.0,
+                veil_rate: 0.0,
             },
         });
         if self.previewed.len() >= 256 {
@@ -745,6 +891,11 @@ pub struct CardLook {
     /// sweeping on the same frame still share a material, which is the
     /// opening hand's whole seven.
     pub sweep: Option<crate::sheen::Sweep>,
+    /// Its passing states ([`veil`]), on their way or arrived. Only the
+    /// table's permanents are ever in one; on its way the look is
+    /// transient as a sweep is, and swept out of the cache once it has
+    /// arrived.
+    pub veil: Veil,
 }
 
 impl CardLook {
@@ -757,6 +908,7 @@ impl CardLook {
             tint: 0,
             face: 0,
             sweep: None,
+            veil: Veil::NONE,
         }
     }
 
@@ -769,6 +921,7 @@ impl CardLook {
             tint: quantise(color),
             face: 0,
             sweep: None,
+            veil: Veil::NONE,
         }
     }
 
@@ -806,6 +959,13 @@ impl CardLook {
         self
     }
 
+    /// The same look in its passing states.
+    #[must_use]
+    pub fn with_veil(mut self, veil: Veil) -> Self {
+        self.veil = veil;
+        self
+    }
+
     /// A card showing the back.
     ///
     /// No `ImageKey`, because the back belongs to no printing: it is one
@@ -823,6 +983,7 @@ impl CardLook {
             tint: 0,
             face: 0,
             sweep: None,
+            veil: Veil::NONE,
         }
     }
 
@@ -892,6 +1053,9 @@ pub fn material(
             sweep_door: door::NONE,
             face: look.face,
             tint: LinearRgba::from(tint).to_f32_array().into(),
+            veil: look.veil.code(),
+            veil_at: f32::from_bits(look.veil.at),
+            veil_rate: f32::from_bits(look.veil.rate),
         },
     };
     wear(&mut made.params, look.sweep, motion);
@@ -1527,6 +1691,9 @@ pub(crate) mod tests {
             "sweep_door",
             "face",
             "tint",
+            "veil",
+            "veil_at",
+            "veil_rate",
         ];
         for (which, src) in [
             ("card.wgsl", include_str!("shaders/card.wgsl")),
@@ -1782,17 +1949,20 @@ pub(crate) mod tests {
         }
     }
 
-    /// Nothing is drawn on the print but its own finish, and light that
-    /// passes over (#274, #298).
+    /// Nothing is drawn on the print for good but its own finish (#274,
+    /// #298); what passes may (the owner, 13.10.2026).
     ///
     /// The owner's rule, and Scryfall's: a card image is not covered, tinted,
-    /// dimmed or stamped. Each card shader samples the print edge to edge
-    /// into `color` and gives it its finish; after that the colour may be
-    /// touched only by the lamp and the arrival sweep (`METAL_TONE`), a door
-    /// (`door_layer`) and the card's own corner — all of them light that
-    /// leaves nothing behind, or ink outside the card. Everything else this
-    /// client says about a card stands on an object of its own: the strip,
-    /// the badge, the light on the felt.
+    /// dimmed or stamped, and the owner reads that as a lasting alteration
+    /// only. Each card shader samples the print edge to edge into `color`
+    /// and gives it its finish; after that the colour may be touched only by
+    /// the lamp and the arrival sweep (`METAL_TONE`), a door (`door_layer`),
+    /// a passing state (`veiled(`, [`veil`]: dimmed while a question leaves
+    /// the card out, phased out, asleep, each zero on every other card) and
+    /// the card's own corner — light that leaves nothing behind, a state
+    /// that ends, or ink outside the card. Everything lasting this client
+    /// says about a card stands on an object of its own: the strip, the
+    /// badge, the light on the felt, a keyword's border.
     ///
     /// Read as text, because what it holds is a composition and not a
     /// number: a rail or a night laid on the colour after the finish draws
@@ -1862,12 +2032,32 @@ pub(crate) mod tests {
             for line in after {
                 assert!(
                     ["color = vec4<f32>(", "color.a,"].contains(&line)
-                        || ["METAL_TONE", "door_layer(", "corner_sdf(uv)", "EDGE_INK"]
-                            .iter()
-                            .any(|allowed| line.contains(allowed)),
+                        || [
+                            "METAL_TONE",
+                            "door_layer(",
+                            "veiled(",
+                            "corner_sdf(uv)",
+                            "EDGE_INK",
+                        ]
+                        .iter()
+                        .any(|allowed| line.contains(allowed)),
                     "{which} draws on the print after its finish: {line}"
                 );
             }
+            // The passing states are weighed by the card's own veil and
+            // nothing else, which a card in none leaves at zero.
+            let veiled = lines
+                .iter()
+                .filter(|l| l.contains("veiled("))
+                .copied()
+                .collect::<Vec<_>>();
+            assert_eq!(
+                veiled,
+                [
+                    "color = veiled(color, uv, veil_amounts(params.veil, params.veil_at, params.veil_rate, globals.time), t);"
+                ],
+                "{which} lays a passing state on the print from something but its veil"
+            );
 
             // And the frame's inputs are gone from the card with the frame.
             for field in ["params.glow", "params.plate", "params.chips", "print_cover"] {

@@ -535,9 +535,9 @@ pub fn sync_overlay(
                 0.0
             };
             // And the shells it wears on the felt (the PM, 25.09), from the
-            // door the table asks: a dome's foot off its sides and its foot,
-            // a wall over its top. The panel is placed as one that much
-            // bigger all round, and the clip lets them out as far.
+            // door the table asks: a border's foot off every edge. The panel
+            // is placed as one that much bigger all round, and the clip lets
+            // them out as far.
             let shells = hovered
                 .and_then(|id| board.group(id))
                 .map(crate::shellmat::Shells::of)
@@ -545,7 +545,7 @@ pub fn sync_overlay(
             let shell = shell_reach(img_w, shells);
             let [shell_side, shell_top] = shell;
             let place = place_around(anchor, panel, window, keep_out, [reach, plate_over], shell);
-            let [under, over] = shells.standing();
+            let standing = shells.standing();
             let image = match key {
                 // Always ask for the full-size art, even when the stopgap is
                 // what gets drawn — asking is what starts the fetch, and a
@@ -747,11 +747,11 @@ pub fn sync_overlay(
                 }
                 commands.entity(frame).add_child(far);
             }
-            // The shells under the card's own objects, the wall and the rim,
-            // hang off the frame for the badge's reason below, and are laid
-            // before them: on the table they lie under the strip, the plate
-            // and the badge too.
-            for look in under {
+            // The shells, the wave and the border, hang off the frame for the
+            // badge's reason below, and are laid before the card's own
+            // objects: on the table they lie under the strip, the plate and
+            // the badge too.
+            for look in standing {
                 spawn_shell(&mut commands, &mut surfaces, frame, look, img_w, img_h);
             }
             // The badge hangs off the frame and not off the face, whose node
@@ -803,11 +803,6 @@ pub fn sync_overlay(
                     ))
                     .id();
                 commands.entity(frame).add_child(node);
-            }
-            // A dome last, over everything the card says: it is glass over
-            // the whole card, as on the table.
-            for look in over {
-                spawn_shell(&mut commands, &mut surfaces, frame, look, img_w, img_h);
             }
             // A card lying across stands in a landscape box, centred, and is
             // turned into it; any other in its own.
