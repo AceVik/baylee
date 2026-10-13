@@ -173,7 +173,6 @@ Cinder Barrens
 Cinder Glade
 Cinder Marsh
 Citadel Gate
-City of Ass
 City of Shadows
 City of Traitors
 Cliffgate
@@ -703,7 +702,6 @@ Public Thoroughfare
 Pym Technologies
 Quandrix Campus
 Quicksand
-R&D's Secret Lair
 Rabanastre, Royal City
 Racers' Ring
 Radiant Fountain
@@ -1087,7 +1085,6 @@ Urborg Volcano
 Urborg, Tomb of Yawgmoth
 Urza's Cave
 Urza's Factory
-Urza's Fun House
 Urza's Mine
 Urza's Power Plant
 Urza's Tower

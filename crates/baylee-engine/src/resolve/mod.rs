@@ -512,10 +512,14 @@ fn target_chars<'a>(
 
 impl Resolution {
     /// The exact text captured by this resolving spell or ability.
-    pub(crate) const fn rule_context(&self) -> crate::text_changes::RuleContext {
+    pub(crate) fn rule_context(&self) -> crate::text_changes::RuleContext {
         crate::text_changes::RuleContext {
             source: self.source,
             text: self.text,
+            // A relational filter's object: the first target, else the
+            // triggering event's object (Glyph of Doom's delayed trigger
+            // remembers its Wall as that).
+            reference: self.targets.first().copied().or(self.event_object),
         }
     }
 }

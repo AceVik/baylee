@@ -246,6 +246,7 @@ pub(crate) fn collect(
                 let context = RuleContext {
                     source: source.id,
                     text: list.base_text(index),
+                    reference: None,
                 };
                 if *zone != TriggerZone::Battlefield
                     || condition.is_some_and(|condition| {
@@ -279,6 +280,7 @@ pub(crate) fn collect(
                 let context = RuleContext {
                     source: source.id,
                     text: *text,
+                    reference: None,
                 };
                 if matches_death(trigger, state, death, source, context) {
                     let mut pending = pending(death, source);

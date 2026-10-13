@@ -10704,12 +10704,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // City of Ass
-    &["This land enters tapped.\n{T}: Add one and one-half mana of any one color."],
-    // R&D's Secret Lair
-    &[
-        "Play cards as written. Ignore all errata.\n{T}: Add {C}. (This mana is still added to your mana pool.)",
-    ],
+    &[],
+    &[],
     &[],
     &[],
     &[],
@@ -30406,10 +30402,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Urza's Fun House
-    &[
-        "{T}: Add {C}.\n{T}: Add {∞}. Activate only once and only if you control an Urza's Mine, an Urza's Power-Plant, and an Urza's Tower.\n{7}, {T}: Head to AskUrza.com and click Urza's Fun House.",
-    ],
+    &[],
     &[],
     &[],
     &[],

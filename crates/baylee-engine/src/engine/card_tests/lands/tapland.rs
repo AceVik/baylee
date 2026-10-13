@@ -18,7 +18,6 @@ mod boseiju_who_shelters_all;
 mod cathedral_of_war;
 mod choked_estuary;
 mod cinder_barrens;
-mod city_of_ass;
 mod coastal_tower;
 mod contaminated_aquifer;
 mod crumbling_necropolis;

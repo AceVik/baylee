@@ -63,7 +63,6 @@ mod phyrexian_tower;
 mod pillar_of_the_paruns;
 mod planar_nexus;
 mod planets;
-mod r_d_s_secret_lair;
 mod rainbow_vale;
 mod reflecting_pool;
 mod refuge;
@@ -2583,10 +2582,6 @@ fn underdark_rift() -> CardIndex {
 
 fn urban_retreat() -> CardIndex {
     card_index("18290c4b-cff6-4ee5-a487-fe0d5706d3de")
-}
-
-fn urza_s_fun_house() -> CardIndex {
-    card_index("6538fb05-7cc6-4bb9-9b57-11f4f07b5e59")
 }
 
 fn veldt() -> CardIndex {

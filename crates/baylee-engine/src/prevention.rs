@@ -122,6 +122,7 @@ impl ChosenSource {
                 RuleContext {
                     source: self.this,
                     text: self.text,
+                    reference: None,
                 },
             )
     }

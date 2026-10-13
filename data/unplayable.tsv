@@ -1,7 +1,7 @@
 # Cards that are never built: oracle_id<TAB>name<TAB>reason.
 #
 # The owner's plan (29.09.2026) implements the whole corpus set by set, in
-# release order by first printing, and "the whole corpus" leaves out three
+# release order by first printing, and "the whole corpus" leaves out four
 # kinds of card on purpose. Each is banned in every sanctioned format, and
 # none of them can be played by a rules engine as printed:
 #
@@ -13,10 +13,17 @@
 #                no game state describes.
 #   subgame    - starts a game within the game (CR 728, Shahrazad), which
 #                this engine, one game per process, does not host.
+#   un-set     - an Un-set card whose text needs something outside the
+#                rules (owner, 13.10.2026): fractional or infinite mana
+#                (City of Ass, Urza's Fun House; CR 107.1a allows neither),
+#                printed text in place of Oracle errata (R&D's Secret Lair),
+#                a website (Urza's Fun House). Only the Un-cards whose
+#                printed text cannot be played go here; an Un-card the
+#                rules can play is built like any other.
 #
 # A card is listed here after its oracle text was read, never from its name.
 # It is never added to data/card-pool.txt, and a set is counted complete
-# without it. Keep one row per card, the reason one of the three words above.
+# without it. Keep one row per card, the reason one of the four words above.
 edb455f4-8dc9-4b7c-b25c-cb51b7dfbb41	Chaos Orb	dexterity
 9e0ed4b0-28b5-44be-ab83-f1e8eb07138d	Contract from Below	ante
 74f10b9a-a286-49b2-bfa1-a427ff041bd4	Darkpact	ante
@@ -27,3 +34,6 @@ a1ab033f-9605-4ca2-a98b-c0b2e1599609	Bronze Tablet	ante
 d17576b2-4a47-4848-8908-3152c8b4afe2	Rebirth	ante
 272016e1-df1e-4376-9851-af8b1ecba2f4	Tempest Efreet	ante
 f5ca7b13-8003-4361-b827-7095c89f2750	Falling Star	dexterity
+b6be7abe-cee3-418f-bf52-8b5405e3462f	R&D's Secret Lair	un-set
+e043a795-6936-4d7e-9a77-e0175a27c8f5	City of Ass	un-set
+6538fb05-7cc6-4bb9-9b57-11f4f07b5e59	Urza's Fun House	un-set
