@@ -28,33 +28,85 @@ when a release carries them, the archives otherwise.
 
 ## The card status (`data/`)
 
-The "Sets and card status" list under the cards section reads
-`data/sets.json` (every set in release order, its counts) and, when a visitor
-opens a set, `data/sets/set-<code>.json` (the `set-` prefix keeps a code such as `con` from naming a reserved Windows file; that set's cards: name, oracle id,
-status, the reason for a partial or never-built card, and a Scryfall printing
-id). `scripts/site/card_status.py` writes both from one git revision of the
-repository, never from the working tree:
+The "Sets and card status" part of the cards section shows a summary
+first: the whole corpus with one bar, the finished sets (links), and the
+next three sets in release order (open rows). "Show all sets" opens the
+full list in eras of four years; an era's rows exist only while it is open
+and are dropped again when it closes, and a search lists its matches flat
+(at most 40, the count announced). `data/sets.json` (every set in release
+order, its counts) is fetched only when the cards section comes within
+about a screen of the viewport, or when the address names a set:
+`#set-<code>` opens that set's era and its row. A set's cards,
+`data/sets/set-<code>.json` (the `set-` prefix keeps a code such as `con`
+from naming a reserved Windows file; name, oracle id, status, the reason
+for a partial or never-built card, and for a pictured card a Scryfall
+printing id), are fetched when the set is opened and rendered in slices of
+about 8 ms. `scripts/site/card_status.py` writes both from one git revision
+of the repository, never from the working tree:
 
 ```sh
-python3 scripts/site/card_status.py --rev origin/main     # or any commit
-python3 scripts/site/card_status.py --rev origin/main --fetch-bulk   # pictures for every card
+python3 scripts/site/card_status.py --rev origin/main --card-cache <main checkout>/data/scryfall-cache
 ```
 
 It reads the CardIndex ledger (every card, the set it first appeared in, in
 release order), every card file's `coverage` and `scryfall_id`, and
 `data/unplayable.tsv`; it checks each set's count against the core index's
 per-set file and prints the totals. Set names come from one request to
-Scryfall's set list, cached under `target/site-cache/`. A card outside the
-pool has no printing id in the repository; `--fetch-bulk` downloads Scryfall's
-`default_cards` bulk file once into `target/site-cache/` (`--bulk` names one
-already on disk), which gives every card the picture of its printing
-in the set it is listed under (without it, the ids of the previous output are
-kept). Regenerate and redeploy the page when cards land.
+Scryfall's set list, cached under `target/site-cache/` (`--no-fetch` reuses
+the names of the previous output).
+
+**Which card has a picture** (legal review, 13.10.2026; `docs/legal.md` §3):
+only a card in the pool (implemented, partial, unimplemented) or on the
+never-built list, and never a Universes Beyond printing: Scryfall's
+`security_stamp` "triangle", or a set in `UB_SETS` (the newer Marvel and
+Avatar sets carry no triangle, so the stamp alone is not enough). Every other
+card is listed by name, and its entry carries no Scryfall printing id. The
+stamp comes from the printing's own payload: codegen's per-card cache
+(`--card-cache`, default `data/scryfall-cache`, gitignored, so name the main
+checkout's from a worktree) or a bulk file (`--bulk`, `--fetch-bulk`). Where
+that payload has them, a pictured card also gets `uri` (its page on
+scryfall.com) and `artist`. `scripts/site/test_card_status.py` holds the
+rule, the committed data included. Regenerate and redeploy the page when
+cards land.
+
+**How a card is shown:** each tile is a link to the card's page on Scryfall
+(its `uri`, else Scryfall's `oracleid:` search), where its artist and
+printing are. Resting the pointer on a card, or focusing it, shows it large
+beside it (Scryfall's `normal` image, fetched only then) with its status,
+its reason and a credit line; on a touch screen the first tap shows the same
+in a dialog, with the link. A grid is one stop for Tab: the arrow keys,
+Home and End move in it, Space shows a card large, Enter opens it on
+Scryfall. The credit line is `CARD_CREDIT` in `site.js`, and the notices
+under the set list are in `#sets-notes` in `index.html`: the two places to
+extend when the legal review asks for more.
 
 The pictures are loaded by the visitor's browser straight from
-`cards.scryfall.io`, only for a set that is opened, lazily, unaltered, with
-nothing drawn on them, and credited (`docs/legal.md` §3). The page never calls
-Scryfall's API and nothing is re-hosted.
+`cards.scryfall.io`, lazily, only for a set that is opened or a card shown
+large, whole (`object-fit: contain`), never filtered, faded or tinted (the
+status is only the badge under a picture; `scripts/site/test_site_page.py`
+holds the CSS to that), and credited. The page never calls Scryfall's API
+and nothing is re-hosted.
+
+## Loading fast
+
+- `boot.js` runs in `<head>` before the first paint (a few hundred bytes):
+  it sets `data-js`, the theme and the language, so the page never paints
+  both languages first and then reflows.
+- The logo, the painting and the screenshots are AVIF with WebP
+  fallbacks at the sizes they are shown (`srcset`/`sizes`, `image-set()` for
+  the painting); the hero logo is preloaded with `fetchpriority="high"`,
+  everything below the fold is `loading="lazy"`, every picture has its
+  `width` and `height`. The fonts the first screen uses are preloaded and
+  `font-display: swap`.
+- **Caching:** `scripts/site/stamp.py` names every file of the page by its
+  content (`?v=` and the first 10 hex digits of its SHA-256) in `index.html`
+  and in `site.css`, and Caddy keeps a stamped file a year, immutable
+  (`scripts/server/site.caddy`). Run it after changing any file of the page;
+  `scripts/site/test_site_page.py` fails while a stamp is stale. The data and
+  the Impressum are not stamped and keep their hour.
+- The parallax measures the hero once (and on a resize), writes only
+  transforms from one `requestAnimationFrame`, and listens passively; the
+  pointer light runs at most once a frame; long lists render in slices.
 
 ## Motion
 
@@ -63,7 +115,9 @@ The hero is the painting in layers (`.sky .layer`, each with a
 leans with a fine pointer); sections come up as they are read (only what
 starts below the fold, so nothing on screen blinks), numbers count up,
 the sets' bars grow, panels (`.glass`) carry a light that follows the
-pointer, buttons sweep and leave a ring where they were pressed, and the
+pointer, buttons warm and pass one soft sheen on hover and focus (never
+moving or growing; the contact form's button keeps one size through idle,
+sending, sent and error), and the
 screenshots open large in a `<dialog>`. Everything moves with transform
 and opacity from one `requestAnimationFrame` at most; under
 `prefers-reduced-motion` nothing moves and nothing waits to be revealed.
