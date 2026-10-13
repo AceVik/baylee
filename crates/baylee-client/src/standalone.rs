@@ -270,6 +270,8 @@ fn seated_host() -> Result<Option<Box<dyn DuelHost>>, String> {
                     .file_name()
                     .map_or_else(String::new, |n| n.to_string_lossy().into_owned()),
                 started: None,
+                viewer: baylee_core::ids::PlayerId::new(0),
+                unshared: Vec::new(),
             },
         );
         return Ok(Some(Box::new(host)));

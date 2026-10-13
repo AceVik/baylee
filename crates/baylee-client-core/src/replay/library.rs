@@ -96,6 +96,15 @@ pub struct HostedSeat {
     /// The commander's `CardIndex`, public at the table.
     #[serde(default)]
     pub commander: Option<u32>,
+    /// Whether its player lets others see its hand and deck in the replay
+    /// (REPLAY-DESIGN §18; the house and a seat bridge always do). Shared
+    /// unless the player unticked it (owner, 13.10.2026); absent reads as
+    /// that default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shared: Option<bool>,
+    /// Whether the asking account played this seat (as `who == "you"`).
+    #[serde(default)]
+    pub mine: bool,
 }
 
 /// Who sat in a seat.
@@ -148,6 +157,9 @@ pub struct Player {
     pub model: bool,
     /// A person whose account is gone.
     pub former: bool,
+    /// Whether others may see this seat's hand in the replay (the house's
+    /// and a model's always; a person's when they said yes).
+    pub shared: bool,
 }
 
 /// What an entry shows of one seat's deck: the viewer's colours, and every
@@ -249,6 +261,15 @@ pub struct Entry {
     pub seat: u8,
     /// The house's level, for a game against it.
     pub house: Option<String>,
+    /// Whether the viewer lets the other players see their hand and deck
+    /// in this game's replays (REPLAY-DESIGN §18.2): a hosted game's own
+    /// seat, shared unless unticked; `None` for a local record, which never
+    /// leaves this computer.
+    pub sharing: Option<bool>,
+    /// Whether the viewer archived it: out of the list, under "Archived"
+    /// (owner, 13.10.2026: nothing is deleted from the list, it is
+    /// archived and can be brought back).
+    pub archived: bool,
 }
 
 impl Entry {
@@ -265,6 +286,7 @@ impl Entry {
                 house: (s.who == Who::House).then(String::new),
                 model: s.who == Who::Model,
                 former: s.who == Who::Former,
+                shared: matches!(s.who, Who::House | Who::Model) || s.shared.unwrap_or(true),
             })
             .collect();
         players.sort_by_key(|p| (!p.you, p.seat));
@@ -288,24 +310,41 @@ impl Entry {
             result: game.result.into(),
             turns: game.turn,
             check: game.check.into(),
+            // Any seat, the table, and all hands (§18.3): the gateway masks
+            // what a seat's player did not share.
             can: Perspectives {
                 seat: true,
                 public: game.public,
-                all_hands: false,
+                all_hands: true,
             },
             seat: game.seat,
             house: None,
+            sharing: game
+                .seats
+                .iter()
+                .find(|s| s.mine || s.who == Who::You)
+                .map(|s| s.shared.unwrap_or(true)),
+            archived: false,
         }
     }
 
     /// Whether the entry can be deleted here: a local record that is not
-    /// the game being played (`live`, its file name).
+    /// the game being played (`live`, its file name). A hosted one is only
+    /// ever hidden from the list ([`Entry::hideable`]).
     #[must_use]
     pub fn deletable(&self, live: Option<&str>) -> bool {
         match &self.source {
             EntrySource::Local { file } => live != Some(file.as_str()),
             EntrySource::Hosted { .. } => false,
         }
+    }
+
+    /// Whether the entry can be hidden from the viewer's list
+    /// (`DELETE /replays/{game}`, §18.1): a hosted game; its record stays
+    /// on the server.
+    #[must_use]
+    pub const fn hideable(&self) -> bool {
+        matches!(self.source, EntrySource::Hosted { .. })
     }
 
     /// How long the game ran, in whole minutes, when it is known.
@@ -399,6 +438,9 @@ impl Entry {
                 house: s.house.clone(),
                 model: false,
                 former: false,
+                // A local record holds every hand whole, and the others are
+                // the house's.
+                shared: true,
             })
             .collect();
         players.sort_by_key(|p| (!p.you, p.seat));
@@ -442,6 +484,8 @@ impl Entry {
             },
             can: Perspectives::LOCAL,
             seat,
+            sharing: None,
+            archived: false,
         }
     }
 }
@@ -456,6 +500,8 @@ pub enum SourceFilter {
     House,
     /// Games on the gateway.
     Online,
+    /// What the viewer archived, from both.
+    Archived,
 }
 
 /// Which results the list shows.
@@ -484,6 +530,8 @@ impl Filters {
     #[must_use]
     pub fn pass(&self, entry: &Entry, commander_name: &dyn Fn(u32) -> Option<String>) -> bool {
         let source = match self.source {
+            SourceFilter::Archived => entry.archived,
+            _ if entry.archived => false,
             SourceFilter::All => true,
             SourceFilter::House => entry.is_local(),
             SourceFilter::Online => !entry.is_local(),
@@ -531,6 +579,32 @@ impl Library {
         self.sort();
     }
 
+    /// Puts a page of the viewer's archived online games in
+    /// (`GET /replays?archived=true`; offset 0 replaces the archived online
+    /// ones held).
+    pub fn add_archived_page(&mut self, gateway: &str, offset: u64, page: &ReplayPage) {
+        if offset == 0 {
+            self.entries.retain(|e| e.is_local() || !e.archived);
+        }
+        for game in &page.games {
+            let mut entry = Entry::hosted(gateway, game);
+            entry.archived = true;
+            if !self.entries.iter().any(|e| e.source == entry.source) {
+                self.entries.push(entry);
+            }
+        }
+        self.sort();
+    }
+
+    /// Archives an entry, or brings it back.
+    pub fn set_archived(&mut self, source: &EntrySource, archived: bool) {
+        for entry in &mut self.entries {
+            if &entry.source == source {
+                entry.archived = archived;
+            }
+        }
+    }
+
     /// Forgets the online games (signed out, another gateway).
     pub fn forget_online(&mut self) {
         self.entries.retain(Entry::is_local);
@@ -538,7 +612,16 @@ impl Library {
         self.online_total = 0;
     }
 
-    /// Drops one entry (a local record deleted).
+    /// Writes the viewer's sharing consent into a hosted entry.
+    pub fn set_sharing(&mut self, source: &EntrySource, shared: bool) {
+        for entry in &mut self.entries {
+            if &entry.source == source && entry.sharing.is_some() {
+                entry.sharing = Some(shared);
+            }
+        }
+    }
+
+    /// Drops one entry (a local record deleted, a hosted one hidden).
     pub fn remove(&mut self, source: &EntrySource) {
         self.entries.retain(|e| &e.source != source);
     }

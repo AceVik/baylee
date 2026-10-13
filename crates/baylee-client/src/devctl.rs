@@ -588,14 +588,17 @@ fn field<'a>(body: &'a str, key: &str) -> Option<&'a str> {
 /// `pause`, `step` (`by`), `turn` (`by`), `next_phase`, `prev_phase`,
 /// `seek` (`step`), `start`, `end`, `faster`, `slower`, `perspective`
 /// (`to`: `seat`, `public`, `all_hands`; none: the next), `play_on`,
-/// `cancel`.
-fn replay_ask(body: &str) -> Result<crate::replay::ReplayAsk, String> {
+/// `cancel`; and the bar's own `hand` (fold or unfold) and `picker`.
+fn replay_ask(body: &str) -> Result<crate::hud::replay_bar::BarAsk, String> {
+    use crate::hud::replay_bar::BarAsk;
     use crate::replay::ReplayAsk;
     use baylee_client_core::replay::{Command, Perspective};
     let number = |key: &str| field(body, key).and_then(|v| v.parse::<i64>().ok());
     let by = || number("by").map_or(1, |n| n.clamp(-100, 100) as i8);
     let command = field(body, "command").ok_or("no command")?;
-    Ok(match command {
+    let ask = match command {
+        "hand" => return Ok(BarAsk::ToggleHand),
+        "picker" => return Ok(BarAsk::TogglePicker),
         "toggle" => ReplayAsk::Transport(Command::Toggle),
         "play" => ReplayAsk::Transport(Command::Play),
         "pause" => ReplayAsk::Transport(Command::Pause),
@@ -622,7 +625,8 @@ fn replay_ask(body: &str) -> Result<crate::replay::ReplayAsk, String> {
         "play_on" => ReplayAsk::PlayOn,
         "cancel" => ReplayAsk::Cancel,
         other => return Err(format!("no replay command {other}")),
-    })
+    };
+    Ok(BarAsk::Host(ask))
 }
 
 /// Whether a boolean field is present and true.

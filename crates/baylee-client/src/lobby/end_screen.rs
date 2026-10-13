@@ -41,16 +41,26 @@ pub(crate) struct DuelExit;
 /// over the board, which is where they lived before the screen existed. A
 /// player with no way out of a finished table is the one outcome worth a
 /// fallback.
+#[allow(clippy::too_many_lines)] // one row of ways, and the consent over it
 pub(super) fn spawn_leave_button(
     mut commands: Commands,
-    state: Res<LobbyState>,
+    mut state: ResMut<LobbyState>,
     fonts: Option<Res<UiFonts>>,
     placed: Query<Entity, With<DuelExit>>,
     exits: Query<Entity, With<crate::hud::FinishExits>>,
+    parents: Query<&ChildOf>,
 ) {
     let Some(fonts) = fonts else {
         return;
     };
+    // The consent was flipped: the ways are drawn again with its new state.
+    if state.replays.end_redraw {
+        state.replays.end_redraw = false;
+        for way in &placed {
+            commands.entity(way).despawn();
+        }
+        return;
+    }
     if !placed.is_empty() {
         return;
     }
@@ -130,6 +140,75 @@ pub(super) fn spawn_leave_button(
         commands.entity(way).insert((press, DuelExit));
         commands.entity(holder).add_child(way);
     }
+    // A hosted game this player sat in: whether the others may see their
+    // hand and deck in its replays (§18.2), ticked unless they untick it
+    // (owner, 13.10.2026), over the ways out.
+    if let Screen::Seated(handover) = state.lobby.screen().clone()
+        && super::replays::SHOWN
+        && !handover.local
+        && !handover.watching()
+        && let Ok(parent) = parents.get(holder).map(ChildOf::parent)
+    {
+        let shared = state
+            .replays
+            .end_share
+            .as_ref()
+            .filter(|(game, _)| *game == handover.game_id)
+            .is_none_or(|(_, shared)| *shared);
+        let toggle = share_toggle(&mut commands, &fonts, lang, shared);
+        commands
+            .entity(toggle)
+            .insert((Press::End(EndPress::Share), DuelExit));
+        // Over the row of ways: the parent's children, the toggle placed
+        // just before the row.
+        commands.queue(move |world: &mut World| {
+            let at = world
+                .get::<Children>(parent)
+                .and_then(|c| c.iter().position(|e| e == holder));
+            if let Some(at) = at {
+                world.entity_mut(parent).insert_children(at, &[toggle]);
+            }
+        });
+    }
+}
+
+/// The end sheet's consent: a box and its words, on the parchment.
+fn share_toggle(commands: &mut Commands, fonts: &UiFonts, lang: Lang, shared: bool) -> Entity {
+    use baylee_client_core::replay::words::ReplayPhrase;
+    let ink = crate::hud::palette::PARCHMENT_INK;
+    commands
+        .spawn((
+            Button,
+            Node {
+                align_self: AlignSelf::Center,
+                align_items: AlignItems::Center,
+                column_gap: px(8),
+                padding: UiRect::axes(px(10), px(6)),
+                margin: UiRect::bottom(px(10)),
+                border_radius: BorderRadius::all(px(6)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            crate::ambience::Feel::tinting_to(
+                Color::NONE,
+                crate::hud::palette::PARCHMENT_EDGE.with_alpha(0.25),
+            ),
+        ))
+        .with_children(|row| {
+            row.spawn((
+                Text::new(if shared { "\u{f14a}" } else { "\u{f0c8}" }),
+                crate::hud::icon_tf(fonts, 14.0),
+                TextColor(ink),
+                Pickable::IGNORE,
+            ));
+            row.spawn((
+                Text::new(ReplayPhrase::ShareHand.text(lang)),
+                crate::hud::tf(fonts, 14.0),
+                TextColor(ink),
+                Pickable::IGNORE,
+            ));
+        })
+        .id()
 }
 
 /// Removes it again on the way out.
@@ -158,4 +237,8 @@ pub(crate) enum EndPress {
     WatchAgain,
     /// A replay's end: from the next perspective it offers.
     WatchFrom,
+    /// The consent over the ways: flip whether the others may see this
+    /// player's hand and deck in the game's replays (§18.2). Not a way out:
+    /// the table stays.
+    Share,
 }

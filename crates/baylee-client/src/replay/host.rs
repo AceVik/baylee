@@ -141,6 +141,7 @@ impl ReplayHost {
                 loading: None,
                 problem: None,
                 origin: Origin::default(),
+                seats: Vec::new(),
             },
             seq: 0,
             record,
@@ -389,6 +390,18 @@ impl ReplayHost {
                 status.timeline = Some(SharedTimeline(Arc::clone(&shown.timeline)));
             }
             status.stop = Some(shown.tape.stop);
+            if status.seats.is_empty()
+                && let Some(Ok(statics)) = shown.tape.statics_at(0)
+            {
+                status.seats = statics
+                    .seats
+                    .iter()
+                    .map(|s| super::SeatName {
+                        seat: s.player,
+                        name: s.display_name.clone(),
+                    })
+                    .collect();
+            }
             status.check = shown.timeline.step(shown.transport.at).map(|m| m.check);
         }
         status.loading = self.job.as_ref().map(|job| match &self.source {
@@ -466,13 +479,13 @@ impl DuelHost for ReplayHost {
                 }
             }
             ReplayAsk::Perspective(perspective) => {
-                if perspective != self.perspective && self.offers.offers(perspective) {
+                if perspective != self.perspective && self.status.choices().contains(&perspective) {
                     let keep = self.place_kept();
                     self.start(perspective, self.verify, keep);
                 }
             }
             ReplayAsk::NextPerspective => {
-                let next = self.offers.after(self.perspective, self.perspective.seat());
+                let next = self.status.next_choice();
                 if next != self.perspective {
                     let keep = self.place_kept();
                     self.start(next, self.verify, keep);
@@ -576,7 +589,18 @@ fn ask(
         access.gateway.trim_end_matches('/'),
         access.game
     );
-    let body = serde_json::json!({ "perspective": perspective.wire(), "verify": verify.wire() });
+    // Any seat's view (§18.3): the gateway draws it, masked where that
+    // seat's player did not share.
+    let body = match perspective {
+        Perspective::Public => {
+            serde_json::json!({ "perspective": perspective.wire(), "verify": verify.wire() })
+        }
+        Perspective::Seat(seat) | Perspective::AllHands(seat) => serde_json::json!({
+            "perspective": perspective.wire(),
+            "seat": seat.get(),
+            "verify": verify.wire(),
+        }),
+    };
     let mut request = ehttp::Request::post(url, serde_json::to_vec(&body).unwrap_or_default());
     request.headers = ehttp::Headers::new(&[
         ("Accept", "application/gzip"),

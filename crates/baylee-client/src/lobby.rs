@@ -819,6 +819,10 @@ enum Reply {
     Clocks(Vec<client_core::lobby::play::ClockPreset>),
     /// A page of `GET /replays`.
     Replays(client_core::replay::library::ReplayPage),
+    /// A page of the archived ones (`?archived=true`).
+    ReplaysArchived(client_core::replay::library::ReplayPage),
+    /// A replay change the gateway refused (archive, share), in its words.
+    ReplayRefused(String),
 }
 
 /// What the shell should make of a successful response body.

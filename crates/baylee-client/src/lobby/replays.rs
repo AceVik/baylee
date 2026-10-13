@@ -69,8 +69,14 @@ pub(crate) struct ReplaysUi {
     pub(crate) memory: Option<MemoryRecord>,
     /// A replay to open once the table now standing has closed.
     pub(crate) next: Option<ReplayHandover>,
-    /// The local entry whose deletion is being asked, by index.
-    pub(crate) delete: Option<usize>,
+    /// How far the archived online list is read (asked when the Archived
+    /// filter is first shown on a visit).
+    pub(crate) archived: Online,
+    /// The consent the end sheet shows for the game just played (§18.2):
+    /// the game's id and whether the player shares; ticked by default.
+    pub(crate) end_share: Option<(String, bool)>,
+    /// The end sheet's ways are drawn again (the consent was flipped).
+    pub(crate) end_redraw: bool,
 }
 
 impl ReplaysUi {
@@ -78,6 +84,7 @@ impl ReplaysUi {
     pub(crate) fn forget_visit(&mut self) {
         self.local_read = false;
         self.online = Online::Unasked;
+        self.archived = Online::Unasked;
     }
 }
 
@@ -92,12 +99,15 @@ pub(crate) enum ReplaysPress {
     Watch(usize),
     /// Watch entry `i` from this perspective.
     WatchFrom(usize, Perspective),
-    /// Ask whether to delete entry `i` (a local record).
-    Delete(usize),
-    /// Delete it.
-    ConfirmDelete,
-    /// Keep it.
-    CancelDelete,
+    /// Archive entry `i`: out of the list, under Archived (nothing is
+    /// deleted: a local record moves to its archive folder, a hosted one
+    /// is archived on the gateway, whose record stays).
+    Archive(usize),
+    /// Bring entry `i` back from the archive.
+    Unarchive(usize),
+    /// Flip whether the viewer shares their hand and deck in entry `i`'s
+    /// replays (§18.2; a hosted game).
+    Share(usize),
     /// The next page of online games.
     Older,
 }
@@ -110,22 +120,26 @@ impl ReplaysPress {
             state.menu = None;
         }
         match self {
-            Self::Source(source) => state.replays.filters.source = source,
+            Self::Source(source) => {
+                state.replays.filters.source = source;
+                if source == SourceFilter::Archived && state.replays.archived == Online::Unasked {
+                    ask_archived(state, cx.mailbox);
+                }
+            }
             Self::Result(result) => {
                 state.replays.filters.result = result.map_or(ResultFilter::Any, ResultFilter::Only);
             }
             Self::Watch(i) => watch(state, i, None),
             Self::WatchFrom(i, perspective) => watch(state, i, Some(perspective)),
-            Self::Delete(i) => state.replays.delete = Some(i),
-            Self::CancelDelete => state.replays.delete = None,
-            Self::ConfirmDelete => {
-                if let Some(i) = state.replays.delete.take()
-                    && let Some(entry) = state.replays.library.entries().get(i).cloned()
-                    && entry.deletable(None)
-                    && let EntrySource::Local { file } = &entry.source
+            Self::Archive(i) => archive(state, cx.mailbox, i, true),
+            Self::Unarchive(i) => archive(state, cx.mailbox, i, false),
+            Self::Share(i) => {
+                if let Some(entry) = state.replays.library.entries().get(i).cloned()
+                    && let (Some(shared), EntrySource::Hosted { game, .. }) =
+                        (entry.sharing, &entry.source)
                 {
-                    crate::replay::local::delete(file);
-                    state.replays.library.remove(&entry.source);
+                    state.replays.library.set_sharing(&entry.source, !shared);
+                    send_share(state, cx.mailbox, game, !shared);
                 }
             }
             Self::Older => {
@@ -158,6 +172,142 @@ fn watch(state: &mut LobbyState, i: usize, perspective: Option<Perspective>) {
         verify,
         from_end_screen: false,
     });
+}
+
+/// Archives entry `i`, or brings it back: a local record moves between
+/// its folder and the archive here, a hosted game is archived on the
+/// gateway (§18.1: its record stays, only this account's list changes).
+fn archive(state: &mut LobbyState, mailbox: &Mailbox, i: usize, archived: bool) {
+    let Some(entry) = state.replays.library.entries().get(i).cloned() else {
+        return;
+    };
+    let lang = state.lobby.lang();
+    match &entry.source {
+        EntrySource::Local { file } => {
+            if let Err(why) = archive_local(file, archived) {
+                state.lobby.say(ReplayPhrase::Failed.fill(lang, &[&why]));
+                return;
+            }
+        }
+        EntrySource::Hosted { game, .. } => send_archive(state, mailbox, game, archived),
+    }
+    state.replays.library.set_archived(&entry.source, archived);
+    let note = if archived {
+        ReplayPhrase::ArchivedNote
+    } else {
+        ReplayPhrase::UnarchivedNote
+    };
+    state.lobby.say(note.text(lang).to_string());
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn archive_local(file: &str, archived: bool) -> Result<(), String> {
+    crate::replay::local::archive(file, archived)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn archive_local(_file: &str, _archived: bool) -> Result<(), String> {
+    Err("no kept records in a browser".to_string())
+}
+
+/// The gateway's archive door for a hosted game (§18.1, owner 13.10.2026:
+/// archive, not delete): `PUT /replays/{game}/archived {"archived": …}`.
+fn send_archive(state: &LobbyState, mailbox: &Mailbox, game: &str, archived: bool) {
+    send(
+        state,
+        mailbox,
+        ehttp::Method::PUT,
+        &format!("/replays/{game}/archived"),
+        &serde_json::json!({ "archived": archived }),
+    );
+}
+
+/// The viewer's consent for a hosted game (§18.2): `PUT
+/// /replays/{game}/share {"shared": …}`.
+pub(super) fn send_share(state: &LobbyState, mailbox: &Mailbox, game: &str, shared: bool) {
+    send(
+        state,
+        mailbox,
+        ehttp::Method::PUT,
+        &format!("/replays/{game}/share"),
+        &serde_json::json!({ "shared": shared }),
+    );
+}
+
+/// Sends a change to the gateway with the session, off the lobby's chain;
+/// a refusal is said on the status line in the gateway's words.
+fn send(
+    state: &LobbyState,
+    mailbox: &Mailbox,
+    method: ehttp::Method,
+    path: &str,
+    body: &serde_json::Value,
+) {
+    let Some(token) = state.lobby.token() else {
+        return;
+    };
+    let url = format!("{}{path}", state.gateway.trim_end_matches('/'));
+    let mut request = ehttp::Request::post(url, serde_json::to_vec(body).unwrap_or_default());
+    request.method = method;
+    request.headers = ehttp::Headers::new(&[
+        ("Accept", "application/json"),
+        ("Content-Type", "application/json"),
+    ]);
+    request
+        .headers
+        .insert("Authorization", format!("Bearer {token}"));
+    let box_ = Arc::clone(&mailbox.0);
+    let epoch = state.gateway_epoch;
+    crate::transport::fetch(request, move |answer| {
+        let refused = match answer {
+            Ok(response) if response.ok => return,
+            Ok(response) => {
+                #[derive(serde::Deserialize)]
+                struct Refused {
+                    error: String,
+                }
+                serde_json::from_slice::<Refused>(&response.bytes).map_or_else(
+                    |_| format!("{} {}", response.status, response.status_text),
+                    |r| r.error,
+                )
+            }
+            Err(why) => why,
+        };
+        if let Ok(mut box_) = box_.lock() {
+            box_.push(Reply::Remote(
+                epoch,
+                Box::new(Reply::ReplayRefused(refused)),
+            ));
+        }
+    });
+}
+
+/// Asks the gateway for the account's archived games.
+fn ask_archived(state: &mut LobbyState, mailbox: &Mailbox) {
+    let Some(token) = state.lobby.token() else {
+        state.replays.archived = Online::Read;
+        return;
+    };
+    if state.lobby.offline() {
+        state.replays.archived = Online::Read;
+        return;
+    }
+    state.replays.archived = Online::Asking(0);
+    super::http::ask_aside::<ReplayPage>(
+        &state.gateway,
+        "/replays?archived=true&offset=0&limit=50",
+        token,
+        state.gateway_epoch,
+        mailbox,
+        Reply::ReplaysArchived,
+    );
+}
+
+/// A page of archived online games arrived.
+pub(super) fn archived_page(state: &mut LobbyState, page: &ReplayPage) {
+    let gateway = state.gateway.clone();
+    state.replays.library.add_archived_page(&gateway, 0, page);
+    state.replays.archived = Online::Read;
 }
 
 /// Asks the gateway for a page of the account's games.
@@ -296,6 +446,12 @@ pub(super) fn open_replay(
             let origin = crate::replay::Origin {
                 place,
                 started: entry.as_ref().map(|e| e.started).filter(|s| *s > 0),
+                // The viewer's seat: the entry's, else (from an end sheet)
+                // the seat the replay opens on.
+                viewer: entry.as_ref().map_or(handover.perspective.seat(), |e| {
+                    baylee_core::ids::PlayerId::new(e.seat)
+                }),
+                unshared: entry.as_ref().map(unshared_seats).unwrap_or_default(),
             };
             let host = crate::replay::ReplayHost::new(
                 source,
@@ -425,6 +581,7 @@ pub(super) fn draw(
         (SourceFilter::All, ReplayPhrase::FilterAll),
         (SourceFilter::House, ReplayPhrase::FilterHouse),
         (SourceFilter::Online, ReplayPhrase::FilterOnline),
+        (SourceFilter::Archived, ReplayPhrase::Archived),
     ];
     let words: Vec<&str> = sources.iter().map(|(_, p)| p.text(lang)).collect();
     let at = sources
@@ -460,39 +617,6 @@ pub(super) fn draw(
         commands.entity(bar).add_child(chip);
     }
     commands.entity(panel).add_child(bar);
-
-    // ---- a deletion asked
-    if let Some(i) = ui.delete {
-        let ask = parts::row(commands, kit, true);
-        let words = parts::line(
-            commands,
-            kit,
-            ReplayPhrase::DeleteAsk.text(lang),
-            kit.m.text,
-            tokens::INK,
-        );
-        let yes = controls::button(
-            commands,
-            kit,
-            ReplayPhrase::DeleteYes.text(lang),
-            Weight::Danger,
-            Live::Yes,
-            None,
-            Press::Replays(ReplaysPress::ConfirmDelete),
-        );
-        let no = controls::button(
-            commands,
-            kit,
-            Phrase::SheetCancel.text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            None,
-            Press::Replays(ReplaysPress::CancelDelete),
-        );
-        commands.entity(ask).add_children(&[words, yes, no]);
-        commands.entity(panel).add_child(ask);
-        let _ = i;
-    }
 
     // ---- the list
     let scroll = commands
@@ -731,14 +855,14 @@ fn entry_row(
             root,
             kit,
             more,
-            items.iter().map(
-                |(text, press, destructive)| crate::shellkit::surfaces::MenuItem {
+            items.iter().map(|(text, press, destructive, keys)| {
+                crate::shellkit::surfaces::MenuItem {
                     text,
-                    keys: None,
+                    keys: *keys,
                     destructive: *destructive,
                     action: *press,
-                },
-            ),
+                }
+            }),
         );
     }
     crate::shellkit::surfaces::list_row(
@@ -754,14 +878,21 @@ fn entry_row(
     )
 }
 
-/// A row's `⋯` menu: Watch, Watch from ▸ each perspective the entry
-/// offers, Delete… for a local record.
-fn row_menu(i: usize, entry: &Entry, lang: Lang) -> Vec<(String, Press, bool)> {
+/// A row's `⋯` menu: Watch, Watch from each perspective the entry
+/// offers, the viewer's consent (a hosted game), Archive or Unarchive.
+/// Each item: its words, its press, whether it is the destructive one, its
+/// cap.
+fn row_menu(
+    i: usize,
+    entry: &Entry,
+    lang: Lang,
+) -> Vec<(String, Press, bool, Option<&'static str>)> {
     let seat = baylee_core::ids::PlayerId::new(entry.seat);
     let mut items = vec![(
         ReplayPhrase::Watch.text(lang).to_string(),
         Press::Replays(ReplaysPress::Watch(i)),
         false,
+        None,
     )];
     let froms = [
         (Perspective::Seat(seat), ReplayPhrase::YourSeat),
@@ -778,14 +909,35 @@ fn row_menu(i: usize, entry: &Entry, lang: Lang) -> Vec<(String, Press, bool)> {
                 ),
                 Press::Replays(ReplaysPress::WatchFrom(i, perspective)),
                 false,
+                None,
             ));
         }
     }
-    if entry.deletable(None) {
+    if let Some(shared) = entry.sharing {
         items.push((
-            ReplayPhrase::Delete.text(lang).to_string(),
-            Press::Replays(ReplaysPress::Delete(i)),
-            true,
+            ReplayPhrase::ShareHand.text(lang).to_string(),
+            Press::Replays(ReplaysPress::Share(i)),
+            false,
+            Some(if shared {
+                ReplayPhrase::On.text(lang)
+            } else {
+                ReplayPhrase::Off.text(lang)
+            }),
+        ));
+    }
+    if entry.archived {
+        items.push((
+            ReplayPhrase::Unarchive.text(lang).to_string(),
+            Press::Replays(ReplaysPress::Unarchive(i)),
+            false,
+            None,
+        ));
+    } else {
+        items.push((
+            ReplayPhrase::Archive.text(lang).to_string(),
+            Press::Replays(ReplaysPress::Archive(i)),
+            false,
+            None,
         ));
     }
     items
@@ -850,4 +1002,19 @@ pub(super) fn from_the_end(end: EndPress, state: &mut LobbyState, host: Option<&
         _ => return,
     };
     state.replays.next = Some(next);
+}
+
+/// The seats of an entry whose players did not share their hands
+/// (REPLAY-DESIGN §18): a hosted game's people who did not say yes; a
+/// house seat is always shared, and a local record holds every hand.
+fn unshared_seats(entry: &Entry) -> Vec<baylee_core::ids::PlayerId> {
+    if entry.is_local() {
+        return Vec::new();
+    }
+    entry
+        .players
+        .iter()
+        .filter(|p| !p.you && p.house.is_none() && !p.shared)
+        .map(|p| baylee_core::ids::PlayerId::new(p.seat))
+        .collect()
 }

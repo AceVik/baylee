@@ -99,6 +99,8 @@ fn seat(seat: u8, who: Who, name: &str, colours: Option<&str>) -> HostedSeat {
         name: name.into(),
         colours: colours.map(Into::into),
         commander: None,
+        shared: None,
+        mine: who == Who::You,
     }
 }
 
@@ -198,14 +200,16 @@ fn a_hosted_entry_marks_models_and_former_players() {
 /// A hosted game never offers every hand; the table's is the record's
 /// `public`; the seat's is always there.
 #[test]
-fn a_hosted_entry_never_offers_every_hand() {
+fn a_hosted_entry_offers_every_hand_for_the_gateway_to_mask() {
     for public in [true, false] {
         let mut hosted = game("g1", "2026-10-13T18:31:02Z");
         hosted.public = public;
         let entry = Entry::hosted("gw", &hosted);
         assert!(entry.can.seat);
         assert_eq!(entry.can.public, public);
-        assert!(!entry.can.all_hands);
+        // Any seat and all hands since §18.3: the gateway masks what a
+        // seat's player did not share.
+        assert!(entry.can.all_hands);
     }
 }
 

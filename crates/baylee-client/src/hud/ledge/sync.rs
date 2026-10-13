@@ -98,6 +98,7 @@ pub fn sync_ledge(
         // on every frame of a table at rest.
         keys: None,
         window_w,
+        replay: duel.replay.is_some(),
     };
     // The second half of the gate is what covers a shelf that was spawned
     // afresh with the revision still describing the tree before it. Everything
@@ -145,7 +146,11 @@ pub fn sync_ledge(
         ))
         .id();
     commands.entity(shelf).add_child(tools);
-    let orders = if window_w >= WIDE_ENOUGH_FOR_FIVE {
+    // A replay's bar takes the shelf's whole width: the hand's tools are
+    // the live table's.
+    let orders = if duel.replay.is_some() {
+        Vec::new()
+    } else if window_w >= WIDE_ENOUGH_FOR_FIVE {
         crate::hand_order::HandOrder::ALL.to_vec()
     } else {
         vec![duel.hand_order]
