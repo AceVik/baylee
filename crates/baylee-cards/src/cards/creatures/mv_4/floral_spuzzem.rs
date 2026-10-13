@@ -32,17 +32,18 @@ card!(
         &[Effect::MayDo {
             effects: &[
                 Effect::destroy(TargetSpec::Object(&DEFENDERS_ARTIFACT)),
-                // "If you do": only an artifact that was destroyed counts.
+                // "If you do": only an artifact that was destroyed counts. The
+                // rider changes the source (`ModifySource`): `continuous(This, ..)`
+                // in a targeted ability binds to the first target, the artifact.
                 Effect::IfCondition {
                     condition: Condition::AmountAtLeast(
                         Amount::ThisWay(ThisWay::Died(&Filter::ARTIFACT)),
                         1
                     ),
-                    then: &[Effect::continuous(
-                        &Filter::This,
-                        Modifier::AssignsNoCombatDamage,
-                        Duration::UntilEndOfTurn
-                    )],
+                    then: &[Effect::ModifySource {
+                        modifier: Modifier::AssignsNoCombatDamage,
+                        duration: Duration::UntilEndOfTurn,
+                    }],
                     otherwise: &[],
                 },
             ],
