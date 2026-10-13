@@ -4506,3 +4506,20 @@ land type"; both are convention tests that fire on a first try.
   never saw it go red: run `cargo test -p baylee-ai` beside the engine suite when cards land.
 - A note for later: `PlayerMayPayManaEachThenElse` treats a price of nothing as paid, where
   CR 118.5 says a {0} cost is not paid automatically; unreachable in the pool today.
+
+### Partials lane wave 4: draw replacements (K12) and pair G (2026-10-13)
+
+- Dredge, Chains of Mephistopheles and Aladdin's Lamp share one draw queue with Island Sanctuary
+  and Ring of Ma'rûf (`state/draw_offer.rs`): optional replacements first, the drawing player
+  orders the rest when the order matters (CR 616.1), and the draw Chains or a Lamp leave is asked
+  about again (CR 616.2). Two new prompts (`ChoicePrompt::Dredge`, `::DrawReplacement`) moved
+  PROTOCOL_VERSION to 31; a Sonnet client agent added the client-core lines (de "Ausgraben",
+  checked against German printings in the local catalog), the AI's answers and baylee-seat's
+  narrator arms before the engine branch was merged.
+- Pair G (Golgari Thug, Dakmor Salvage, Chains, Lamp): every mutant killed. The review found a
+  test that could not tell "the first draw of a draw step" from "the first draw of the turn"
+  (both end on the same board; the draw count tells them apart) and an untested {T}; and in the
+  engine, two players' Chains treated as interchangeable although the discard is each
+  controller's effect (now ordered by the drawing player).
+- An old test that pinned a Partial limitation ("dredge is not written") goes red the day the
+  card is done: grep the card's name across card_tests before flipping it.

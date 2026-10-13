@@ -1158,7 +1158,7 @@
     {
       "batch": 58,
       "title": "Draw replacements and dredge",
-      "status": "pending",
+      "status": "completed",
       "cards": [
         {
           "name": "Golgari Thug",
@@ -1176,6 +1176,15 @@
           "name": "Aladdin's Lamp",
           "path": "crates/baylee-cards/src/cards/artifacts/mv_10/aladdin_s_lamp.rs"
         }
+      ],
+      "completed_cards": [
+        "Golgari Thug",
+        "Dakmor Salvage",
+        "Chains of Mephistopheles",
+        "Aladdin's Lamp"
+      ],
+      "partials_lane_notes": [
+        "wave 4 (partials lane): K12 engine + Sonnet pair G, Opus-reviewed with mutation (all killed), Chains ordering fix, 2026-10-13"
       ]
     },
     {
