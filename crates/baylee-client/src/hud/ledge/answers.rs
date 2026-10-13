@@ -269,16 +269,24 @@ pub(super) fn base_shelf_headline(
         return Some(Phrase::GrantedPaymentHint.text(lang).to_string());
     }
 
-    if duel.interaction.as_ref().is_some_and(|i| {
-        matches!(
-            i.pending(),
-            baylee_engine::choice::Pending::ChooseTargets {
-                reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
-                ..
-            }
-        )
-    }) {
-        Some(Phrase::ChooseNewTarget.text(lang).to_string())
+    // A copy's new targets are asked one target at a time (report 10): the
+    // question says which of how many, and whether it may be kept.
+    if let Some(baylee_engine::choice::Pending::ChooseTargets {
+        min,
+        reason: baylee_engine::choice::TargetPrompt::Retarget { index, of, .. },
+        ..
+    }) = duel
+        .interaction
+        .as_ref()
+        .map(baylee_client_core::Interaction::pending)
+    {
+        let (at, of) = ((u64::from(*index) + 1).to_string(), of.to_string());
+        let phrase = if *min == 0 {
+            Phrase::RetargetKeepOrChange
+        } else {
+            Phrase::RetargetMustChange
+        };
+        Some(phrase.fill(lang, &[&at, &of]))
     } else {
         duel.headline(lang, texts)
     }
@@ -309,6 +317,16 @@ pub(super) fn confirmation_row(duel: &Duel, lang: Lang) -> Vec<(Says, String)> {
         Phrase::ConfirmOk
     };
     let mut answers = vec![say(PromptAction::Confirm, confirm)];
+    // Keep this target and the rest of the copy's run (report 10): only where
+    // the engine's question may be kept and more of it follow.
+    if let Some(left) = duel.view.as_ref().and_then(|v| {
+        baylee_client_core::keep_targets::KeepTargets::offered(v, interaction.pending())
+    }) {
+        answers.push((
+            Says::Answer(PromptAction::KeepTargets),
+            Phrase::KeepRemainingTargets.fill(lang, &[&left.to_string()]),
+        ));
+    }
     if matches!(
         interaction.pending(),
         Pending::ChooseNumber {

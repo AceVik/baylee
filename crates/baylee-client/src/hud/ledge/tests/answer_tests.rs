@@ -278,7 +278,7 @@ fn retarget_confirmation_rebuilds_when_only_the_original_version_changes() {
     app.update();
     let duel = app.world().resource::<Duel>();
     let text = shelf_headline(duel, Lang::De, &crate::cardtext::CardTexts::default()).unwrap();
-    assert_eq!(text, Phrase::ChooseNewTarget.text(Lang::De));
+    assert_eq!(text, Phrase::RetargetKeepOrChange.fill(Lang::De, &["1", "1"]));
     let answers = answers_for(duel, Lang::De, false, false, false);
     let caps = keys_for(
         app.world().resource::<crate::prefs::Prefs>(),

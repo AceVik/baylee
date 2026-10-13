@@ -72,6 +72,7 @@ pub mod handdrawer;
 pub mod i18n;
 pub mod images;
 pub mod interaction;
+pub mod keep_targets;
 pub mod layout;
 pub mod ledge;
 pub mod lifeflash;

@@ -2444,6 +2444,15 @@ messages! {
     KeepCurrentTarget { en: "Keep current target", de: "Bisheriges Ziel behalten" },
     /// Confirm a selected replacement target.
     ChangeTarget { en: "Change target", de: "Ziel ändern" },
+    /// The shelf's question while a copy's targets are asked one by one and
+    /// this one may be kept. `{0}` of `{1}`.
+    RetargetKeepOrChange { en: "Target {0} of {1}: keep it, or choose a new one", de: "Ziel {0} von {1}: behalten oder ein neues wählen" },
+    /// The same, for a target that may not be kept (another target of the
+    /// copy already holds it, or the engine asks for a new one).
+    RetargetMustChange { en: "Target {0} of {1}: choose a new one", de: "Ziel {0} von {1}: wähle ein neues" },
+    /// Keep this target and every later one of the copy that may be kept;
+    /// `{0}` is how many that is at most, this one included.
+    KeepRemainingTargets { en: "Keep all remaining ({0})", de: "Alle übrigen behalten ({0})" },
     /// Optional payment permits only zero or the entire tap group.
     ChooseExactlyOrNoTaps { en: "Choose exactly {0} permanents to tap, or choose none", de: "Wähle genau {0} bleibende Karten zum Tappen oder keine" },
     /// Choose {0} {1}

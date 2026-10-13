@@ -200,6 +200,9 @@ pub enum PromptAction {
     TargetBatch,
     /// Automatically assign the remaining shares of this combat damage division.
     AutoDamage,
+    /// Keep this target of a copy and every later one that may be kept
+    /// (report 10, `keep_targets`).
+    KeepTargets,
     /// Declare no attackers, or no blockers.
     DeclareNothing,
     /// Aim the next declaration at the next defender (or attacker).
@@ -229,7 +232,7 @@ impl PromptAction {
     /// values anything builds are `+1` and `-1` — a stepper moves by one.
     /// Listing them is what lets [`shortcut_for`] be tested over the whole
     /// enum rather than over the variants somebody remembered.
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Yes,
         Self::YesBatch,
         Self::No,
@@ -238,6 +241,7 @@ impl PromptAction {
         Self::Confirm,
         Self::TargetBatch,
         Self::AutoDamage,
+        Self::KeepTargets,
         Self::DeclareNothing,
         Self::AimNext,
         Self::SkipTurn,
@@ -272,7 +276,10 @@ pub const fn shortcut_for(action: PromptAction) -> Option<Action> {
         PromptAction::SkipTurn => Action::NextTurn,
         PromptAction::Step(1) => Action::NumberUp,
         PromptAction::Step(-1) => Action::NumberDown,
-        PromptAction::YesBatch | PromptAction::AutoDamage | PromptAction::Step(_) => return None,
+        PromptAction::YesBatch
+        | PromptAction::AutoDamage
+        | PromptAction::KeepTargets
+        | PromptAction::Step(_) => return None,
     })
 }
 
@@ -574,7 +581,10 @@ mod tests {
     #[test]
     fn every_answer_a_button_carries_has_a_key_except_the_stepper_by_two() {
         for action in PromptAction::ALL {
-            if matches!(action, PromptAction::YesBatch | PromptAction::AutoDamage) {
+            if matches!(
+                action,
+                PromptAction::YesBatch | PromptAction::AutoDamage | PromptAction::KeepTargets
+            ) {
                 continue;
             }
             assert!(
