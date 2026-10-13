@@ -1135,6 +1135,17 @@ pub enum Effect {
         /// What the delayed trigger does.
         effects: &'static [Effect],
     },
+    /// "At this turn's next end of combat, [effects]" (Glyph of Doom):
+    /// [`Self::AtEndOfCombat`], except that the delayed trigger lapses with
+    /// the turn (CR 603.7b, a stated duration): resolved after this turn's
+    /// last combat, it never triggers, where `AtEndOfCombat` would wait for
+    /// the next turn's.
+    AtEndOfCombatThisTurn {
+        /// What the delayed trigger remembers.
+        about: TargetSpec,
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
     /// "Its owner puts it on their choice of the top or bottom of their
     /// library" (Subtlety). The target leaves the stack or the battlefield
     /// for its owner's library, and the **owner** picks the end, whoever
@@ -2869,7 +2880,9 @@ pub enum Effect {
     /// "Exchange life totals with target opponent" (Mirror Universe,
     /// CR 701.12c): you and the player `with` names each gain or lose the
     /// life needed to equal the other's previous total. With nobody named,
-    /// nothing happens.
+    /// or when either change can't happen (a player who can't lose life, a
+    /// life total that can't change), nothing happens: the whole exchange or
+    /// none of it (CR 701.12a).
     ExchangeLifeTotals {
         /// The other player.
         with: PlayerRel,

@@ -138,6 +138,12 @@ pub struct CombatState {
     /// The divisions players have chosen for the damage step about to be
     /// dealt, emptied once it is (`deal_combat_damage`).
     divisions: Vec<Division>,
+    /// What each creature that attacked this combat attacked, kept after it
+    /// is removed from combat: "the player that creature was attacking
+    /// before it was removed from combat" (CR 508.5,
+    /// [`Self::last_defender_of`]). The latest declaration for a creature
+    /// wins. Cleared with the combat.
+    defended: Vec<(ObjectId, Defender)>,
 }
 
 /// The declared lists and the chosen divisions: `attacking` is derived
@@ -153,6 +159,7 @@ impl std::hash::Hash for CombatState {
         self.participants.hash(state);
         self.first_strikers.hash(state);
         self.prepared_damage.hash(state);
+        self.defended.hash(state);
     }
 }
 
@@ -196,8 +203,25 @@ impl CombatState {
     /// given, sorting the index once rather than inserting into it once
     /// per attacker (a declaration can be tens of thousands of tokens).
     pub fn declare_attackers(&mut self, infos: impl IntoIterator<Item = AttackerInfo>) {
+        let from = self.attackers.len();
         self.attackers.extend(infos);
+        for info in &self.attackers[from..] {
+            self.defended.retain(|(c, _)| *c != info.creature);
+            self.defended.push((info.creature, info.defending));
+        }
         self.reindex();
+    }
+
+    /// What `id` attacks, or, once it has been removed from combat, what it
+    /// attacked before (CR 508.5).
+    #[must_use]
+    pub fn last_defender_of(&self, id: ObjectId) -> Option<Defender> {
+        self.defender_of(id).or_else(|| {
+            self.defended
+                .iter()
+                .find(|(c, _)| *c == id)
+                .map(|(_, d)| *d)
+        })
     }
 
     /// Keeps the attackers `keep` says to, in their order.
@@ -1435,7 +1459,10 @@ fn blocking_creatures(state: &GameState) -> Vec<ObjectId> {
 pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDivision> {
     let mut owed = Vec::new();
     for info in state.combat.attackers() {
-        if !info.blocked || !strikes_now(state, info.creature, first_strike_step) {
+        if !info.blocked
+            || !strikes_now(state, info.creature, first_strike_step)
+            || assigns_no_combat_damage(state, info.creature)
+        {
             continue;
         }
         let amount = power_of(state, info.creature);

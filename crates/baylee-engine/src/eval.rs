@@ -162,13 +162,8 @@ pub fn matches_projected_with_context(
         // three is the one it attacks); for anything else, any opponent of
         // the attacking player during combat, as before.
         Filter::ControlledByDefendingPlayer => {
-            if let Some(attack) = state
-                .combat
-                .attackers()
-                .iter()
-                .find(|attack| attack.creature == this)
-            {
-                crate::combat::blocking_player(state, attack.defending) == Some(obj.controller)
+            if let Some(defender) = state.combat.last_defender_of(this) {
+                crate::combat::blocking_player(state, defender) == Some(obj.controller)
             } else {
                 state.turn.phase == crate::turn::Phase::Combat
                     && state.is_opponent(obj.controller, state.turn.active)
@@ -506,20 +501,19 @@ pub fn most_life(state: &GameState) -> Option<PlayerId> {
 
 /// "Defending player" as an ability of `source` means it (CR 508.5): the
 /// player `source` is attacking, or the controller of the planeswalker or
-/// protector of the battle it is attacking. A source that is not attacking
-/// names the one opponent of a two-player game during combat (CR 506.2),
-/// and nobody at a larger table, where CR 508.5a makes it one specific
-/// player that the attack no longer names.
+/// protector of the battle it is attacking, and once it has been removed
+/// from combat, the one it was attacking before
+/// ([`crate::combat::CombatState::last_defender_of`]). A source that did
+/// not attack this combat names the one opponent of a two-player game
+/// during combat (CR 506.2), and nobody at a larger table, where CR 508.5a
+/// makes it one specific player that no attack names.
 #[must_use]
 pub fn defending_player_of(state: &GameState, source: ObjectId, you: PlayerId) -> Option<PlayerId> {
-    if let Some(attack) = state
-        .combat
-        .attackers()
-        .iter()
-        .find(|attack| attack.creature == source)
-    {
-        return crate::combat::blocking_player(state, attack.defending)
-            .filter(|p| !state.has_left(*p));
+    // Attacking, or attacking earlier this combat and removed since (CR
+    // 508.5: "the player that creature was attacking before it was removed
+    // from combat").
+    if let Some(defender) = state.combat.last_defender_of(source) {
+        return crate::combat::blocking_player(state, defender).filter(|p| !state.has_left(*p));
     }
     if state.turn.phase != crate::turn::Phase::Combat {
         return None;
@@ -747,6 +741,7 @@ pub fn amount(
 
 /// Evaluate an amount using the captured semantic text for its nested filters.
 #[must_use]
+#[allow(clippy::too_many_lines)] // One arm per `Amount` variant; splitting it hides the match.
 pub fn amount_with_context(
     amount: &Amount,
     state: &GameState,

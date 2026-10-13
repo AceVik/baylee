@@ -32,9 +32,7 @@ pub(super) fn start(
     res: &mut Resolution,
     filter: &'static Filter,
 ) -> Option<Pending> {
-    let Some(wall) = res.rule_context().reference else {
-        return None;
-    };
+    let wall = res.rule_context().reference?;
     let mut owed: Vec<(PlayerId, u32)> = Vec::new();
     for entry in super::this_way::entries(state, res) {
         let GameEvent::ZoneChanged {
@@ -55,7 +53,10 @@ pub(super) fn start(
         else {
             continue;
         };
-        match owed.iter_mut().find(|(p, _)| *p == record.attacker_controller) {
+        match owed
+            .iter_mut()
+            .find(|(p, _)| *p == record.attacker_controller)
+        {
             Some((_, n)) => *n += 1,
             None => owed.push((record.attacker_controller, 1)),
         }

@@ -522,7 +522,15 @@ fn repeated_and_source_watching_bodies_are_visited() {
     static WATCH: &[Effect] = &[Effect::WhenSourceDiesThisTurn {
         effects: &[Effect::destroy(TargetSpec::EventObject)],
     }];
-    for list in [REPEAT, WHILE, WATCH] {
+    static DAMAGE_WATCH: &[Effect] = &[Effect::WheneverTargetDealtDamageThisTurn {
+        by: &Filter::CREATURE,
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+    }];
+    static THIS_TURNS_COMBAT: &[Effect] = &[Effect::AtEndOfCombatThisTurn {
+        about: TargetSpec::EventObject,
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+    }];
+    for list in [REPEAT, WHILE, WATCH, DAMAGE_WATCH, THIS_TURNS_COMBAT] {
         let mut seen = 0;
         let mut body_seen = false;
         Effect::walk(list, &mut seen, &mut |effect| {

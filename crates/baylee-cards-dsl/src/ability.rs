@@ -209,9 +209,8 @@ pub enum Condition {
         /// What no blocker may be.
         none: &'static Filter,
     },
-    /// A combat phase of this turn has ended and none is under way ("Cast
-    /// this spell only after combat", Glyph of Reincarnation): the
-    /// postcombat main phase or the end phase of a turn that had combat.
+    /// "Cast this spell only after combat" (Glyph of Reincarnation): the
+    /// turn is in its postcombat main phase or its end phase.
     AfterCombat,
     /// You control **at most** N permanents matching the filter —
     /// Glimmervoid's "if you control no artifacts" and Thran Quarry's "if

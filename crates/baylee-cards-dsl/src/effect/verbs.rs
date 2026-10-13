@@ -671,7 +671,8 @@ impl Effect {
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::WhenSourceDiesThisTurn { effects }
             | Effect::WheneverTargetDealtDamageThisTurn { by: _, effects }
-            | Effect::AtEndOfCombat { about: _, effects } => (effects, NONE),
+            | Effect::AtEndOfCombat { about: _, effects }
+            | Effect::AtEndOfCombatThisTurn { about: _, effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::SacrificeOneThen {
                 filter: _,

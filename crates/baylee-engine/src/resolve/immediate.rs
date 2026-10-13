@@ -708,7 +708,13 @@ pub(super) fn exec_immediate(
         // The delayed trigger is about the object `about` names as this
         // resolves, as the object it is now (CR 603.7c); naming nothing, it
         // is about nothing.
-        Effect::AtEndOfCombat { about, effects } => {
+        Effect::AtEndOfCombat { about, effects }
+        | Effect::AtEndOfCombatThisTurn { about, effects } => {
+            let when = if matches!(op, Effect::AtEndOfCombatThisTurn { .. }) {
+                crate::state::DelayedWhen::EndOfCombatThisTurn
+            } else {
+                crate::state::DelayedWhen::EndOfCombat
+            };
             let action = match zones::spec_object(state, res, about)
                 .and_then(|t| state.object(t).map(|o| (t, o.version)))
             {
@@ -733,7 +739,7 @@ pub(super) fn exec_immediate(
             };
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: you,
-                when: crate::state::DelayedWhen::EndOfCombat,
+                when,
                 action,
             });
             None

@@ -243,6 +243,9 @@ pub enum DelayedWhen {
     /// turn it is (CR 511.2; Cockatrice's "destroy that creature at end of
     /// combat").
     EndOfCombat,
+    /// [`Self::EndOfCombat`] of this turn only (Glyph of Doom's "this
+    /// turn's next end of combat"): dropped as the next turn begins.
+    EndOfCombatThisTurn,
     /// At the beginning of the next cleanup step, whoever's turn it is.
     NextCleanup,
     /// During the controller's next actual untap, before untapping permanents.
@@ -312,6 +315,21 @@ pub enum DelayedWhen {
         /// The journal sequence number the watch was created at.
         after: u64,
     },
+}
+
+impl DelayedWhen {
+    /// A "this turn" watch (`DiesThisTurn`, `DealtDamageThisTurn`,
+    /// `EndOfCombatThisTurn`): it watches no other turn and is dropped as
+    /// the next one begins.
+    #[must_use]
+    pub const fn lapses_with_the_turn(self) -> bool {
+        matches!(
+            self,
+            Self::DiesThisTurn { .. }
+                | Self::DealtDamageThisTurn { .. }
+                | Self::EndOfCombatThisTurn
+        )
+    }
 }
 
 /// What a delayed trigger does.

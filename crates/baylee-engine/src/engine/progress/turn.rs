@@ -41,13 +41,9 @@ impl<L: CardLookup> Engine<L> {
             self.state.turn.active = next;
             self.state.turn.number += 1;
             // "When that creature dies this turn" watches no other turn.
-            self.state.delayed.retain(|d| {
-                !matches!(
-                    d.when,
-                    crate::state::DelayedWhen::DiesThisTurn { .. }
-                        | crate::state::DelayedWhen::DealtDamageThisTurn { .. }
-                )
-            });
+            self.state
+                .delayed
+                .retain(|d| !d.when.lapses_with_the_turn());
         }
         // Only the seat whose turn this is: summoning sickness is measured
         // against *their* most recent turn (CR 302.6), so an opponent's
@@ -648,6 +644,7 @@ impl<L: CardLookup> Engine<L> {
     /// controller.
     pub(crate) fn queue_end_of_combat_delayed(&mut self) {
         self.queue_delayed_at(crate::state::DelayedWhen::EndOfCombat);
+        self.queue_delayed_at(crate::state::DelayedWhen::EndOfCombatThisTurn);
     }
 
     /// End advance-payment windows before the turn-based draw or its replacement.
