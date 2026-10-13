@@ -9,9 +9,11 @@ use super::*;
 
 // ------------------------------------------------------------ hover preview
 
-/// The hover preview's band: over the lobby's sheets and menus, under a
-/// tour's bubble (`tour::draw`), which must never be hidden by it.
-pub const PREVIEW_Z: i32 = 600;
+/// The hover preview's band: over the lobby's sheets and menus and over
+/// the chat window and its pop-ups (`social::window::G_PANEL` to `+ 30`:
+/// a card linked in the chat previews beside it), under a tour's bubble
+/// (`tour::draw`), which must never be hidden by it.
+pub const PREVIEW_Z: i32 = 940;
 
 /// A row that has a card behind it, and what that card looks like.
 ///
@@ -70,7 +72,7 @@ enum Under {
 
 /// The preview node itself.
 #[derive(Component)]
-pub(super) struct CardPreview {
+pub(crate) struct CardPreview {
     canvas: Vec2,
     /// The epoch this node was drawn for.
     epoch: u64,
@@ -286,7 +288,13 @@ impl Reading<'_> {
         }
         let builder = self.state.as_deref()?.lobby.builder();
         let pool = builder.pool();
-        let mut face = crate::face::of_pool(pool.iter().find(|c| Some(c.index) == card.index)?);
+        // The builder's pool once it has come; until then (a card linked in
+        // the chat, say) the compiled one, which is the same rows.
+        let row = match pool.iter().find(|c| Some(c.index) == card.index) {
+            Some(row) => row.clone(),
+            None => compiled_row(card.index?)?,
+        };
+        let mut face = crate::face::of_pool(&row);
         // The foot's Set · Artist (WP6), where the builder has been told about
         // the printing the row shows: its art's id is the URL's last part.
         face.credit = card.index.and_then(|index| {
@@ -564,6 +572,28 @@ pub(super) fn despawn_preview(mut commands: Commands, previews: Query<Entity, Wi
     for entity in previews {
         commands.entity(entity).despawn();
     }
+}
+
+/// The compiled pool's row for `index`, as the builder's pool has it.
+fn compiled_row(index: u32) -> Option<baylee_client_core::deckbuilder::PoolCard> {
+    baylee_cards::pool::rows()
+        .iter()
+        .find(|row| row.index == index)
+        .map(super::offline::pool_row)
+}
+
+/// What a card linked by its registry index previews (a chat link): the
+/// compiled pool's printing, else its text face alone.
+pub(crate) fn hover_of_index(index: u32) -> HoverCard {
+    compiled_row(index).map_or(
+        HoverCard {
+            url: None,
+            back_url: None,
+            finish: FinishTreatment::Plain,
+            index: Some(index),
+        },
+        |row| hover_of_card(&row),
+    )
 }
 
 /// The art a pool row previews: the printing the registry names.

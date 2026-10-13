@@ -54,7 +54,12 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // reason `ability_menu` does: what is open is the client's business,
         // and the renderer reads it rather than owning it.
         MenuAction::ToggleGameMenu => duel.game_menu = !duel.game_menu,
-        MenuAction::ToggleLog => duel.log_open = !duel.log_open,
+        MenuAction::ToggleLog => {
+            duel.log_open = !duel.log_open;
+            duel.chat_door = Some(crate::ChatDoor::Log);
+        }
+        // The chat decides (`social::window::doors`): it knows the tabs.
+        MenuAction::ToggleChat => duel.chat_door = Some(crate::ChatDoor::Chat),
         MenuAction::DismissReveal => {
             duel.reveals.dismiss();
         }

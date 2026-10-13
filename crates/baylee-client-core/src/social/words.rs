@@ -19,7 +19,7 @@ messages! {
     /// A verified contact's devices changed.
     VerifyAgain { en: "{0}'s devices changed · Verify again", de: "Die Geräte von {0} haben sich geändert · Erneut bestätigen" },
     /// This account gained a device.
-    OwnDeviceAdded { en: "A new device was added to your account: {0} · {1}. Not you? Remove it and change your password.", de: "Deinem Konto wurde ein neues Gerät hinzugefügt: {0} · {1}. Warst du das nicht? Entferne es und ändere dein Passwort." },
+    OwnDeviceAdded { en: "A new device was added to your account: {0} · {1}. Not you? Remove it under Settings → Chat & privacy → Your devices; the gateway's admin can reset your password.", de: "Deinem Konto wurde ein neues Gerät hinzugefügt: {0} · {1}. Warst du das nicht? Entferne es unter Einstellungen → Chat & Privatsphäre → Deine Geräte; der Admin des Gateways kann dein Passwort zurücksetzen." },
     /// The gateway listed someone the table doesn't show.
     RosterMismatch { en: "The server listed someone who isn't at this table; your message wasn't sent to them", de: "Der Server hat jemanden genannt, der nicht an diesem Tisch sitzt; deine Nachricht ging nicht an diese Person" },
     /// A send that failed for good.
@@ -100,6 +100,14 @@ messages! {
     HiddenLine { en: "1 hidden message", de: "1 ausgeblendete Nachricht" },
     /// The encryption line under a conversation.
     EncryptedTo { en: "Encrypted to {0} players ({1} devices)", de: "Verschlüsselt an {0} Personen ({1} Geräte)" },
+    /// The encryption line's count of devices: one.
+    NoteOneDevice { en: "1 device", de: "1 Gerät" },
+    /// The encryption line's count of devices.
+    NoteDevices { en: "{0} devices", de: "{0} Geräte" },
+    /// The encryption line's count of people: one.
+    NoteOnePerson { en: "1 person", de: "1 Person" },
+    /// The encryption line's count of people.
+    NotePeople { en: "{0} people", de: "{0} Personen" },
     /// A whisper's lock hover.
     EncryptedWith { en: "End-to-end encrypted · {0} ({1} devices)", de: "Ende-zu-Ende-verschlüsselt · {0} ({1} Geräte)" },
     /// The notice's first part (§11.8).
@@ -239,9 +247,221 @@ messages! {
     /// The target chip.
     ToTarget { en: "To {0}", de: "An {0}" },
     /// The All tab's prefix for a whisper received.
-    WhisperFrom { en: "{0} → you", de: "{0} → dir" },
+    WhisperFrom { en: "From {0}:", de: "Von {0}:" },
     /// The All tab's prefix for a whisper sent.
-    WhisperTo { en: "you → {0}", de: "du → {0}" },
+    WhisperTo { en: "To {0}:", de: "An {0}:" },
+
+    // The chat window, the drawer and the sheets (lane C).
+    /// The Log tab.
+    TabLog { en: "Log", de: "Log" },
+    /// The Private tab.
+    TabPrivate { en: "Private", de: "Privat" },
+    /// The Group tab.
+    TabGroup { en: "Group", de: "Gruppe" },
+    /// The chat window and its door.
+    ChatTitle { en: "Chat", de: "Chat" },
+    /// The chat door's hint with its count.
+    ChatDoor { en: "Chat · {0} unread", de: "Chat · {0} ungelesen" },
+    /// The friends drawer.
+    FriendsTitle { en: "Friends", de: "Freunde" },
+    /// The drawer's search box.
+    FindOrAdd { en: "Name#tag — find or add", de: "Name#tag — suchen oder hinzufügen" },
+    /// Add a typed handle.
+    AddHandle { en: "Add {0}", de: "{0} hinzufügen" },
+    /// Accept a request.
+    Accept { en: "Accept", de: "Annehmen" },
+    /// Decline a request.
+    Decline { en: "Decline", de: "Ablehnen" },
+    /// Withdraw a request.
+    Withdraw { en: "Undo", de: "Zurückziehen" },
+    /// A request this player sent.
+    RequestSent { en: "sent", de: "gesendet" },
+    /// Whisper someone.
+    WhisperButton { en: "Whisper", de: "Flüstern" },
+    /// Invite a friend to this table.
+    InviteToTable { en: "Invite to my table", de: "An meinen Tisch einladen" },
+    /// Watch a friend's table.
+    WatchButton { en: "Watch", de: "Zuschauen" },
+    /// Join a friend's table.
+    JoinButton { en: "Join", de: "Beitreten" },
+    /// Put an invite off.
+    NotNow { en: "Not now", de: "Nicht jetzt" },
+    /// Block someone.
+    BlockButton { en: "Block", de: "Blockieren" },
+    /// Unblock someone.
+    UnblockButton { en: "Unblock", de: "Blockierung aufheben" },
+    /// Remove a friend.
+    RemoveFriend { en: "Remove friend", de: "Freund entfernen" },
+    /// Set a nickname.
+    NicknameButton { en: "Nickname…", de: "Spitzname…" },
+    /// Open the safety number.
+    SafetyButton { en: "Safety number…", de: "Sicherheitsnummer…" },
+    /// Make a group.
+    NewGroupButton { en: "New group…", de: "Neue Gruppe…" },
+    /// Rename a group.
+    RenameGroup { en: "Rename…", de: "Umbenennen…" },
+    /// Leave a group.
+    LeaveGroup { en: "Leave group", de: "Gruppe verlassen" },
+    /// Invite a friend to a group.
+    InviteToGroup { en: "Invite a friend…", de: "Freund einladen…" },
+    /// Delete a group.
+    DeleteGroup { en: "Delete group", de: "Gruppe löschen" },
+    /// A group's members and how many are online.
+    GroupCount { en: "{0} · {1} online", de: "{0} · {1} online" },
+    /// The Group tab with no group.
+    NoGroupYet { en: "No group yet", de: "Noch keine Gruppe" },
+    /// The new group's name box.
+    GroupNameLabel { en: "Group name", de: "Gruppenname" },
+    /// The nickname box.
+    NicknameLabel { en: "Nickname for {0}", de: "Spitzname für {0}" },
+    /// The group invite box.
+    InviteLabel { en: "Friend to invite (Name#tag)", de: "Freund zum Einladen (Name#tag)" },
+    /// Close a dialog.
+    Done { en: "Done", de: "Fertig" },
+    /// Reset a dialog.
+    Reset { en: "Reset", de: "Zurücksetzen" },
+    /// Cancel.
+    CancelButton { en: "Cancel", de: "Abbrechen" },
+    /// Confirm a small box.
+    OkButton { en: "OK", de: "OK" },
+    /// The filter dialog's title.
+    FilterTitle { en: "{0} · what this tab shows", de: "{0} · was dieser Tab zeigt" },
+    /// A filter kind.
+    KindLog { en: "Game log", de: "Spielprotokoll" },
+    /// A filter kind.
+    KindTable { en: "Table chat", de: "Tischchat" },
+    /// A filter kind.
+    KindTeam { en: "Team chat", de: "Teamchat" },
+    /// A filter kind.
+    KindWhispers { en: "Whispers", de: "Flüstern" },
+    /// A filter kind.
+    KindGroups { en: "Groups", de: "Gruppen" },
+    /// A filter kind.
+    KindNotices { en: "Notices", de: "Hinweise" },
+    /// A filter kind.
+    KindPresence { en: "Friends online/offline", de: "Freunde online/offline" },
+    /// A filter option.
+    KindTimestamps { en: "Timestamps", de: "Uhrzeiten" },
+    /// Under the filter dialog's boxes.
+    FilterNote { en: "A line is shown on every tab that ticks its kind. The tab's name and where you write stay.", de: "Eine Zeile erscheint in jedem Tab, der ihre Art ankreuzt. Name des Tabs und Ziel beim Schreiben bleiben." },
+    /// The Table tab, empty, in a game.
+    EmptyTable { en: "Nothing said yet. What you write here goes to the players at this table, encrypted.", de: "Noch nichts gesagt. Was du hier schreibst, geht verschlüsselt an die Personen an diesem Tisch." },
+    /// The Table tab, empty, in a waiting room.
+    EmptyRoom { en: "Say hello — the players who sit down here will read it.", de: "Sag hallo – wer sich hier hinsetzt, liest es." },
+    /// The Team tab, empty.
+    EmptyTeam { en: "No team talk yet. Only your team reads this tab.", de: "Noch kein Teamgespräch. Nur dein Team liest diesen Tab." },
+    /// The Private tab, empty.
+    EmptyPrivate { en: "No whispers yet. Type /w Name#tag, or click a name in the chat.", de: "Noch kein Flüstern. Tippe /w Name#tag oder klicke einen Namen im Chat an." },
+    /// The Group tab with no group.
+    EmptyGroupNone { en: "You're in no group yet.", de: "Du bist noch in keiner Gruppe." },
+    /// The Group tab, empty.
+    EmptyGroup { en: "Nobody has written in {0} yet.", de: "In {0} hat noch niemand geschrieben." },
+    /// The All tab, empty.
+    EmptyAll { en: "Quiet so far.", de: "Bisher ruhig." },
+    /// A tab whose filter admits nothing.
+    EmptyFiltered { en: "This tab shows nothing. ⚙ picks what it shows.", de: "Dieser Tab zeigt nichts. ⚙ wählt aus, was er zeigt." },
+    /// The placeholder for a whisper.
+    WriteWhisper { en: "Whisper {0}…", de: "{0} zuflüstern…" },
+    /// The placeholder with no whisper partner.
+    TypeWhisper { en: "Type /w Name#tag…", de: "Tippe /w Name#tag…" },
+    /// Copy a line.
+    CopyButton { en: "Copy", de: "Kopieren" },
+    /// Answer a whisper.
+    ReplyButton { en: "Reply", de: "Antworten" },
+    /// Add someone as a friend.
+    AddFriendButton { en: "Add friend", de: "Als Freund hinzufügen" },
+    /// Hide someone's lines.
+    IgnoreButton { en: "Ignore", de: "Ignorieren" },
+    /// Report a message.
+    ReportMessage { en: "Report message", de: "Nachricht melden" },
+    /// Send a failed line again.
+    RetryButton { en: "Retry", de: "Erneut senden" },
+    /// Remove a failed line or a device.
+    RemoveButton { en: "Remove", de: "Entfernen" },
+    /// Close the encryption notice.
+    GotIt { en: "Got it", de: "Verstanden" },
+    /// Mark a safety number verified.
+    MarkVerified { en: "Mark as verified", de: "Als bestätigt markieren" },
+    /// Drop the verified mark.
+    ClearVerified { en: "Clear verification", de: "Bestätigung entfernen" },
+    /// The encryption sheet's title.
+    EncryptionTitle { en: "End-to-end encrypted", de: "Ende-zu-Ende-verschlüsselt" },
+    /// The safety number's heading.
+    SafetyWith { en: "Safety number with {0}", de: "Sicherheitsnummer mit {0}" },
+    /// A contact's devices.
+    DevicesOf { en: "{0}'s devices: {1}", de: "Geräte von {0}: {1}" },
+    /// A safety number not known yet.
+    NoKeysYet { en: "Their keys aren't known yet: write to them once.", de: "Ihre Schlüssel sind noch nicht bekannt: Schreib ihnen einmal." },
+    /// Settings → Chat & privacy.
+    PrivacyTitle { en: "Chat & privacy", de: "Chat & Privatsphäre" },
+    /// A setting.
+    WhoMayWhisper { en: "Who may whisper me", de: "Wer mir flüstern darf" },
+    /// A setting's value.
+    WhispersFriends { en: "Friends only", de: "Nur Freunde" },
+    /// A setting's value.
+    WhispersTables { en: "Friends and players at my table", de: "Freunde und Personen an meinem Tisch" },
+    /// A setting.
+    AcceptRequests { en: "Accept friend requests", de: "Freundschaftsanfragen annehmen" },
+    /// A setting.
+    ShareTable { en: "Show friends which table I'm at", de: "Freunden zeigen, an welchem Tisch ich bin" },
+    /// A setting.
+    KeepHistory { en: "Keep chat history on this device", de: "Chatverlauf auf diesem Gerät behalten" },
+    /// History off.
+    HistoryOff { en: "Off", de: "Aus" },
+    /// History kept.
+    HistoryDays { en: "{0} days", de: "{0} Tage" },
+    /// A setting.
+    SoundsLabel { en: "Sounds", de: "Töne" },
+    /// A sound.
+    SoundMention { en: "Mentions", de: "Erwähnungen" },
+    /// A sound.
+    SoundFriendOnline { en: "A friend comes online", de: "Ein Freund kommt online" },
+    /// A setting.
+    ToastTextLabel { en: "Show message text in toasts", de: "Nachrichtentext in Hinweisen zeigen" },
+    /// A settings list.
+    YourDevices { en: "Your devices", de: "Deine Geräte" },
+    /// A settings list's mark.
+    ThisDevice { en: "This device", de: "Dieses Gerät" },
+    /// Remove this device from the chat.
+    ForgetDevice { en: "Forget this device", de: "Dieses Gerät vergessen" },
+    /// Confirm forgetting this device.
+    ForgetConfirm { en: "Removes this device's chat keys and history here and on the server. Press again to confirm.", de: "Entfernt die Chat-Schlüssel und den Verlauf dieses Geräts hier und auf dem Server. Zum Bestätigen noch einmal drücken." },
+    /// A settings list.
+    BlockedPlayers { en: "Blocked players", de: "Blockierte Personen" },
+    /// A switch that is on.
+    OnLabel { en: "On", de: "An" },
+    /// A switch that is off.
+    OffLabel { en: "Off", de: "Aus" },
+    /// A group's members.
+    Members { en: "Members", de: "Mitglieder" },
+    /// Marks this player in a list.
+    YouMark { en: "(you)", de: "(du)" },
+    /// Marks an invited player.
+    InvitedMark { en: "(invited)", de: "(eingeladen)" },
+    /// Marks the group's owner.
+    OwnerMark { en: "owner", de: "Besitzer" },
+    /// Invite a friend to watch this table.
+    InviteToWatch { en: "Invite to watch", de: "Zum Zuschauen einladen" },
+    /// Invites need a table.
+    NotAtTable { en: "Sit at a table to invite friends", de: "Setz dich an einen Tisch, um Freunde einzuladen" },
+    /// The chat's link is down.
+    ChatOffline { en: "Chat is reconnecting…", de: "Chat verbindet sich neu…" },
+    /// The drawer's recent players.
+    RecentPlayers { en: "Recent players", de: "Zuletzt mitgespielt" },
+    /// The drawer's status menu.
+    StatusLabel { en: "Status: {0}", de: "Status: {0}" },
+    /// A group invite in the drawer.
+    GroupInviteFrom { en: "{0} · from {1}", de: "{0} · von {1}" },
+    /// Online friends at a running table.
+    SectionPlaying { en: "Playing", de: "Spielen" },
+    /// Online friends seated at a waiting table.
+    SectionAtTable { en: "At a table", de: "An einem Tisch" },
+    /// Online friends in the lobby or elsewhere.
+    SectionInLobby { en: "In the lobby", de: "In der Lobby" },
+    /// The divider above the first line that was unread when a tab opened.
+    UnreadMarker { en: "New", de: "Neu" },
+    /// The drawer's door to the settings.
+    PrivacyButton { en: "Chat & privacy…", de: "Chat & Privatsphäre…" },
 }
 
 impl ChatPhrase {

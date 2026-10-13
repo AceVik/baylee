@@ -87,6 +87,8 @@ impl Plugin for LobbyPlugin {
         crate::music::install(app);
         // The report form stands over the lobby and every table (#309).
         crate::report::install(app);
+        // Friends and chat, over the lobby and every table (beta.8).
+        crate::social::install(app);
         crate::loading::install(app);
         crate::shellkit::install(app);
         crate::tour::install(app);
@@ -114,6 +116,7 @@ impl Plugin for LobbyPlugin {
             .init_resource::<dock::Surfaces>()
             .init_resource::<Mailbox>()
             .init_resource::<feed::Feed>()
+            .init_resource::<ChatJoins>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
             .init_resource::<focusing::Kept>()
@@ -130,7 +133,7 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 Update,
                 (
-                    feed::feed,
+                    (feed::feed, chat_joins),
                     (poll, entrance::advance).chain(),
                     localization::update,
                     watch,
@@ -467,6 +470,10 @@ pub struct LobbyState {
     /// Asks a header press made of systems it cannot reach (the overlay,
     /// the report form), carried out by `header::carry_out`.
     pub(crate) shell_asks: Vec<header::ShellAsk>,
+    /// The chat's buttons in the header (beta.8): `None` with no social
+    /// session; `Some(friends)` with one, `friends` for a registered
+    /// account. Written by `social` only when it changes.
+    pub(crate) chat_header: Option<bool>,
     /// The terms sheet (WG-1, `DESIGN-v5` §11): up after a sign-in the
     /// gateway marks stale, or a kept guest's return to newer terms.
     pub(crate) terms: client_core::terms::Terms,
@@ -751,6 +758,7 @@ impl LobbyState {
             retry_feed: false,
             bell: client_core::lobby::strips::Bell::default(),
             shell_asks: Vec::new(),
+            chat_header: None,
             terms: client_core::terms::Terms::default(),
             terms_stale: None,
             about_open: false,
@@ -784,6 +792,26 @@ impl Default for LobbyState {
 /// change to the lobby, or the UI would rebuild itself every frame.
 #[derive(Resource, Clone, Default)]
 struct Mailbox(Arc<Mutex<Vec<Reply>>>);
+
+/// Tables the chat asked to sit down at: a friend's invite's Join (the
+/// beta.8 social design §11.7), with the invite that stands in for the
+/// password.
+#[derive(Resource, Default)]
+pub(crate) struct ChatJoins(pub(crate) Vec<(String, Option<String>)>);
+
+/// Sits down where the chat asked, as the listing's Join does.
+fn chat_joins(mut asks: ResMut<ChatJoins>, mut state: ResMut<LobbyState>, mailbox: Res<Mailbox>) {
+    if asks.0.is_empty() {
+        return;
+    }
+    for (game, invite) in std::mem::take(&mut asks.0) {
+        let request = match invite.as_deref() {
+            Some(invite) => state.lobby.join_invited(&game, invite),
+            None => state.lobby.join(&game),
+        };
+        http::dispatch(&mut state, &mailbox, request);
+    }
+}
 
 /// What a finished HTTP call hands back.
 enum Reply {
@@ -977,11 +1005,11 @@ pub(crate) use build_press::BuildPress;
 pub(crate) use end_screen::EndPress;
 pub(crate) use field::{FieldLook, FieldStops, FieldTail, Masked, text_field, text_field_with};
 pub(crate) use front::FrontPress;
-pub(crate) use header::HeaderPress;
+pub(crate) use header::{HeaderPress, ShellAsk};
 pub(crate) use hub::HubPress;
 pub(crate) use library_ui::LibraryPress;
 pub(crate) use press::{Press, SharedPress};
-pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry};
+pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry, hover_of_index};
 pub(crate) use room::RoomPress;
 pub(crate) use scrolling::Scrollable;
 pub(crate) use scrolling::{List, Scrolled};

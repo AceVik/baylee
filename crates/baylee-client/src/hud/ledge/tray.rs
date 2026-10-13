@@ -103,6 +103,11 @@ const TRAY_BTN: f32 = menu::BURGER;
 /// it from the burger: what the right column reserves for it.
 pub(super) const WIDTH: f32 = 3.0 * TRAY_BTN + 3.0 * TRAY_GAP;
 
+/// What the chat's door adds to the row, with a social session: the right
+/// column reserves it only then, so a table without one keeps the room
+/// [`WIDTH`] was measured for.
+pub(super) const CHAT_DOOR: f32 = TRAY_BTN + TRAY_GAP;
+
 /// The icon in a tray button.
 const TRAY_ICON_PT: f32 = 12.0;
 
@@ -153,6 +158,10 @@ pub struct StripRevision {
     ai_heard: bool,
     /// Whether the AI log's panel is up.
     ai_log: bool,
+    /// The chat's door (the beta.8 chat window design §4.1), with a social
+    /// session: lit while the panel stands on a chat tab, its unread count,
+    /// and whether a whisper or a mention is among them.
+    chat: Option<(bool, u32, bool)>,
 }
 
 /// Where the row stands: in the shelf's button row, directly left of the
@@ -236,6 +245,8 @@ pub fn sync_tray_strip(
     fonts: Res<UiFonts>,
     mut revision: ResMut<StripRevision>,
     strip: Query<(Entity, Option<&Children>), With<TrayStrip>>,
+    social: Option<Res<crate::social::SocialHost>>,
+    chat_ui: Option<Res<crate::social::ChatUi>>,
 ) {
     let Ok((strip, kids)) = strip.single() else {
         // No strip yet — the overlay has not built its root. Nothing of ours
@@ -243,12 +254,26 @@ pub fn sync_tray_strip(
         // that has one builds on it.
         return;
     };
+    let chat_tab = chat_ui.as_ref().map(|ui| ui.tab);
+    let chat = social.as_ref().and_then(|s| s.machine()).map(|machine| {
+        let all = baylee_client_core::social::TabFilter::standard(
+            baylee_client_core::social::ChatTab::All,
+        );
+        let (count, urgent) = machine.unread_where(&all);
+        let lit =
+            duel.log_open && chat_tab.is_some_and(baylee_client_core::social::ChatTab::is_chat);
+        (lit, count, urgent)
+    });
     let next = StripRevision {
         open: duel.browser.is_open(),
         free: duel.browser.may_be_put_away(),
-        log: duel.log_open,
+        // With a social session the scroll is lit only while the panel shows
+        // the Log tab: the bubble is lit on the others.
+        log: duel.log_open
+            && (chat.is_none() || chat_tab == Some(baylee_client_core::social::ChatTab::Log)),
         ai_heard: duel.ai_log_heard,
         ai_log: duel.ai_log_open,
+        chat,
     };
     // The counter alone is not enough, and the reason is the same one
     // `sync_tray`'s `drawn` records: the overlay can take this node away and
@@ -273,6 +298,9 @@ pub fn sync_tray_strip(
     let mut doors = Vec::with_capacity(3);
     if next.ai_heard {
         doors.push(ai_log_button(&mut commands, &fonts, next.ai_log));
+    }
+    if let Some((lit, count, urgent)) = next.chat {
+        doors.push(chat_button(&mut commands, &fonts, lit, count, urgent));
     }
     doors.push(log_button(&mut commands, &fonts, next.log));
     doors.push(zone_button(&mut commands, &fonts, next.open, next.free));
@@ -312,6 +340,87 @@ fn ai_log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity
             )],
         ))
         .id()
+}
+
+/// The chat's door (the beta.8 chat window design §4.1): two speech bubbles,
+/// left of the log's scroll, with the unread count at its top-right corner,
+/// outside it, as the card's count badge stands; rose while a whisper or a
+/// mention is among them. Never held.
+fn chat_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    open: bool,
+    count: u32,
+    urgent: bool,
+) -> Entity {
+    let ground = if open {
+        palette::DIALOG_LIT
+    } else {
+        palette::DIALOG
+    };
+    let button = commands
+        .spawn((
+            Node {
+                width: px(TRAY_BTN),
+                height: px(TRAY_BTN),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(ground),
+            BorderColor::all(palette::DIALOG_LINE),
+            Button,
+            Feel::new(ground),
+            MenuButton {
+                action: MenuAction::ToggleChat,
+            },
+            children![(
+                Text::new(glyph::CHAT.to_string()),
+                icon_tf(fonts, TRAY_ICON_PT),
+                TextColor(FREE_INK),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id();
+    if count > 0 {
+        let text = if count > 99 {
+            "99+".to_string()
+        } else {
+            count.to_string()
+        };
+        let badge = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: px(-7),
+                    right: px(-7),
+                    min_width: px(14),
+                    height: px(14),
+                    padding: UiRect::horizontal(px(3)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border_radius: BorderRadius::all(px(7)),
+                    ..default()
+                },
+                BackgroundColor(if urgent {
+                    crate::social::rows::WHISPER_INK
+                } else {
+                    palette::CANDLE
+                }),
+                Pickable::IGNORE,
+                children![(
+                    Text::new(text),
+                    tf(fonts, 8.5),
+                    TextColor(palette::DIALOG),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id();
+        commands.entity(button).add_child(badge);
+    }
+    button
 }
 
 /// The game log's door (#262): a scroll, beside the zones.

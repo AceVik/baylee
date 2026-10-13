@@ -133,6 +133,9 @@ pub struct BarLook {
     lang: Lang,
     window_w: i32,
     viewer: PlayerId,
+    /// What the right column reserves: more by the chat's door with a
+    /// social session, which the bar keeps clear of as the shelf does.
+    right: f32,
 }
 
 /// The bar's revision.
@@ -143,7 +146,7 @@ pub struct ReplayBarRevision(Option<BarLook>);
 type BarParts = Or<(With<ReplayBar>, With<ReplaySheet>)>;
 
 impl BarLook {
-    fn of(status: &ReplayStatus, ui: &BarUi, lang: Lang, window_w: i32) -> Self {
+    fn of(status: &ReplayStatus, ui: &BarUi, lang: Lang, window_w: i32, chat_door: bool) -> Self {
         let (stopped, play_on) = stop_words(status, lang);
         let choices = status
             .choices()
@@ -170,6 +173,12 @@ impl BarLook {
             lang,
             window_w,
             viewer: status.origin.viewer,
+            right: RIGHT_RESERVED
+                + if chat_door {
+                    super::tray::CHAT_DOOR
+                } else {
+                    0.0
+                },
         }
     }
 }
@@ -248,15 +257,17 @@ pub fn sync_replay_bar(
     mut revision: ResMut<ReplayBarRevision>,
     bars: Query<Entity, BarParts>,
     phase: Option<Res<State<crate::DuelPhase>>>,
+    social: Option<Res<crate::social::SocialHost>>,
 ) {
     let lang = Lang::of(&settings.lang);
+    let chat_door = social.as_ref().is_some_and(|s| s.machine().is_some());
     let window_w =
         crate::hud::scale::window_space(&windows, ui_scale.as_deref()).map_or(1200, |w| w.x as i32);
     // The duel keeps its last replay status after the table closed, until
     // the next opens: a closed table draws no bar.
     let closed = phase.is_some_and(|p| *p.get() == crate::DuelPhase::Closed);
     let status = duel.replay.as_ref().filter(|_| !closed);
-    let look = status.map(|status| BarLook::of(status, &ui, lang, window_w));
+    let look = status.map(|status| BarLook::of(status, &ui, lang, window_w, chat_door));
     let standing = !bars.is_empty();
     if revision.0 == look && standing == look.is_some() {
         return;
@@ -291,7 +302,7 @@ fn spawn_bar(
                 position_type: PositionType::Absolute,
                 bottom: px(HAND_ZONE_H - LEDGE_H),
                 left: px(EDGE),
-                right: px(RIGHT_RESERVED),
+                right: px(look.right),
                 height: px(BAR_H),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::FlexEnd,
@@ -352,7 +363,7 @@ fn spawn_timeline(
     // How wide the track is, near enough, for which cells have room for
     // their number: the bar's width between its two ends.
     #[allow(clippy::cast_precision_loss)]
-    let track_w = look.window_w as f32 - EDGE - RIGHT_RESERVED - 26.0;
+    let track_w = look.window_w as f32 - EDGE - look.right - 26.0;
     let steps = timeline.len().max(1) as f32;
     let last = timeline.turns().len().saturating_sub(1);
     for (i, turn) in timeline.turns().iter().enumerate() {
@@ -898,7 +909,7 @@ fn spawn_picker(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) {
             Node {
                 position_type: PositionType::Absolute,
                 bottom: px(HAND_ZONE_H - LEDGE_H + BAR_H + 6.0),
-                right: px(RIGHT_RESERVED + 10.0),
+                right: px(look.right + 10.0),
                 min_width: px(220.0),
                 flex_direction: FlexDirection::Column,
                 padding: UiRect::all(px(6.0)),

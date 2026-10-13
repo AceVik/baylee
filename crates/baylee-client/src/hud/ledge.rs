@@ -20,7 +20,7 @@ use super::*;
 
 pub(super) mod ai_log;
 pub(super) mod drawer;
-pub(super) mod log;
+pub(crate) mod log;
 pub(super) mod menu;
 pub(super) mod players;
 pub(super) mod pool;
