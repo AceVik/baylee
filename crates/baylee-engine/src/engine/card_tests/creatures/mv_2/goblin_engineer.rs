@@ -219,3 +219,118 @@ fn engineer_may_decline_without_shuffling_or_search_an_artifact_into_its_graveya
         }
     }
 }
+
+/// "you may search your library for an **artifact card**": with a Forest
+/// library and one Mind Stone put into it, the Stone is the whole of what the
+/// search offers; the sixty Forests behind it are not.
+#[test]
+fn engineer_search_offers_only_artifact_cards() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .hand(0, &[goblin_engineer(), index::MIND_STONE])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let stone = in_hand(&e, p0, index::MIND_STONE).expect("the Stone starts in hand");
+    e.dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            stone,
+            ZoneLocation::Library(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    e.dev_state_mut(p0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Red, 2);
+    e.refresh_offer();
+    cast_with_floating(&mut e, p0, goblin_engineer());
+    pass_until(&mut e, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    e.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = e.pending().clone()
+    else {
+        panic!("the search asks which card: {:?}", e.pending())
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+    assert_eq!(
+        options,
+        vec![stone],
+        "\"an artifact card\": the Mind Stone alone, none of the Forests"
+    );
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![stone],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert!(
+        in_graveyard(&e, p0, index::MIND_STONE).is_some(),
+        "the Stone is put into the graveyard, not the hand"
+    );
+}
+
+/// "Return target artifact card with mana value **3 or less**": a Jayemdae
+/// Tome (mana value 4) in the graveyard is no target, so alone it leaves the
+/// ability unoffered; beside a Chromatic Lantern (mana value 3) the menu is the
+/// Lantern and not the Tome.
+#[test]
+fn engineer_reanimation_leaves_a_mana_value_four_artifact_in_the_graveyard() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, chromatic_lantern())
+        .battlefield(0, &[goblin_engineer(), mountain(), quiet_artifact()])
+        .hand(0, &[index::JAYEMDAE_TOME])
+        .start();
+    keep_mulligans(&mut e);
+    assert!(
+        walk_to_own_main(&mut e, p0),
+        "p0 reaches its own first main phase"
+    );
+    let engineer = on_battlefield(&e, p0, goblin_engineer()).expect("the Engineer is out");
+    let tome = in_hand(&e, p0, index::JAYEMDAE_TOME).expect("the Tome starts in hand");
+    e.dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            tome,
+            ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    e.refresh_offer();
+    tap_all_mana(&mut e, p0);
+    let Pending::Priority { legal, .. } = e.pending().clone() else {
+        panic!("priority, got {:?}", e.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(engineer, 0)),
+        "mana value 4 is not \"3 or less\": the Tome is the only artifact card in the graveyard \
+         and the {{R}} is floating, so the ability has no target and is not offered"
+    );
+
+    seed_graveyard(&mut e, p0, 1);
+    let lantern = in_graveyard(&e, p0, chromatic_lantern()).expect("a Lantern is in the graveyard");
+    activate(&mut e, p0, goblin_engineer(), 0);
+    let Pending::ChooseTargets { options, .. } = e.pending().clone() else {
+        panic!("the ability targets: {:?}", e.pending())
+    };
+    assert_eq!(
+        options,
+        vec![lantern],
+        "mana value 3 qualifies and mana value 4 does not"
+    );
+}

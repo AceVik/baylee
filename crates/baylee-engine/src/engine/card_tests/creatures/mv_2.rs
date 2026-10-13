@@ -94,6 +94,7 @@ mod kobold_overlord;
 mod kobold_taskmaster;
 mod ledger_shredder;
 mod leonin_skyhunter;
+mod liliana_the_repentant;
 mod llanowar_dead;
 mod longbow_archer;
 mod lord_of_atlantis;
