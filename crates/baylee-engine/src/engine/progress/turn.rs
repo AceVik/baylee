@@ -138,6 +138,23 @@ impl<L: CardLookup> Engine<L> {
 
     fn remember_completed_turn_attackers(&mut self) {
         let active = self.state.turn.active;
+        // Arboria's "cast a spell or put a nontoken permanent onto the
+        // battlefield during their last turn", for the turn ending now.
+        let seat = usize::from(active.get());
+        let acted = self
+            .state
+            .per_turn
+            .spells_cast
+            .get(seat)
+            .is_some_and(|n| *n > 0)
+            || self
+                .state
+                .per_turn
+                .put_nontoken_permanent
+                .get(seat)
+                .copied()
+                .unwrap_or(false);
+        self.state.players[seat].last_turn_acted = acted;
         let history = &mut self.state.players[usize::from(active.get())].last_turn_attackers;
         history.clear();
         history.extend(

@@ -194,6 +194,17 @@ pub enum Filter {
     /// Has the subtype the SOURCE object chose as it entered ("the chosen
     /// type" — Roaming Throne, Reflections of Littjara, Cavern of Souls).
     MatchesChosenTypeOfSource,
+    /// Is of the colour the SOURCE object chose as it entered (Jihad's "a
+    /// nontoken permanent of the chosen color", with
+    /// `EnterModifier::ChooseColor`). A source with no chosen colour matches
+    /// nothing.
+    OfSourceChosenColor,
+    /// Shares at least one colour with a permanent on the battlefield the
+    /// inner filter matches, read with the same "you" (Invoke Prejudice:
+    /// "a creature spell that doesn't share a color with a creature you
+    /// control" is `Not(SharesAColorWith(&YOUR_CREATURE))`). A colourless
+    /// object shares a colour with nothing (CR 105.2c).
+    SharesAColorWith(&'static Filter),
     /// Shares at least one creature subtype with your commander (Path of
     /// Ancestry's scry rider).
     SharesSubtypeWithCommander,

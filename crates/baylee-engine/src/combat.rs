@@ -138,12 +138,14 @@ pub struct CombatState {
     /// The divisions players have chosen for the damage step about to be
     /// dealt, emptied once it is (`deal_combat_damage`).
     divisions: Vec<Division>,
-    /// What each creature that attacked this combat attacked, kept after it
-    /// is removed from combat: "the player that creature was attacking
-    /// before it was removed from combat" (CR 508.5,
-    /// [`Self::last_defender_of`]). The latest declaration for a creature
+    /// What each creature that attacked this combat attacked, as the object
+    /// it was then, kept after it is removed from combat: "the player that
+    /// creature was attacking before it was removed from combat" (CR 508.5,
+    /// [`Self::remembered_defender`]). Written by
+    /// [`Self::remember_defender`] for declared attackers and creatures put
+    /// onto the battlefield attacking; the latest entry for a creature
     /// wins. Cleared with the combat.
-    defended: Vec<(ObjectId, Defender)>,
+    defended: Vec<(ObjectId, u32, Defender)>,
 }
 
 /// The declared lists and the chosen divisions: `attacking` is derived
@@ -203,25 +205,26 @@ impl CombatState {
     /// given, sorting the index once rather than inserting into it once
     /// per attacker (a declaration can be tens of thousands of tokens).
     pub fn declare_attackers(&mut self, infos: impl IntoIterator<Item = AttackerInfo>) {
-        let from = self.attackers.len();
         self.attackers.extend(infos);
-        for info in &self.attackers[from..] {
-            self.defended.retain(|(c, _)| *c != info.creature);
-            self.defended.push((info.creature, info.defending));
-        }
         self.reindex();
     }
 
-    /// What `id` attacks, or, once it has been removed from combat, what it
-    /// attacked before (CR 508.5).
+    /// Notes that `id`, as the object it is at `version`, attacks
+    /// `defender` this combat (CR 508.5).
+    pub fn remember_defender(&mut self, id: ObjectId, version: u32, defender: Defender) {
+        self.defended.retain(|(c, _, _)| *c != id);
+        self.defended.push((id, version, defender));
+    }
+
+    /// What `id` attacked this combat, and as which version of itself,
+    /// whether or not it is still attacking (`crate::eval::last_defender`
+    /// decides whether that is still the same creature).
     #[must_use]
-    pub fn last_defender_of(&self, id: ObjectId) -> Option<Defender> {
-        self.defender_of(id).or_else(|| {
-            self.defended
-                .iter()
-                .find(|(c, _)| *c == id)
-                .map(|(_, d)| *d)
-        })
+    pub fn remembered_defender(&self, id: ObjectId) -> Option<(u32, Defender)> {
+        self.defended
+            .iter()
+            .find(|(c, _, _)| *c == id)
+            .map(|(_, v, d)| (*v, *d))
     }
 
     /// Keeps the attackers `keep` says to, in their order.
@@ -574,6 +577,7 @@ pub struct AttackRules<'a> {
     unless_defender_controls: Vec<&'a crate::effects::ContinuousEffect>,
     except_by: Vec<&'a crate::effects::ContinuousEffect>,
     requirements: Vec<&'a crate::effects::ContinuousEffect>,
+    idle_defenders: Vec<&'a crate::effects::ContinuousEffect>,
 }
 
 impl<'a> AttackRules<'a> {
@@ -584,9 +588,11 @@ impl<'a> AttackRules<'a> {
         let mut unless_defender_controls = Vec::new();
         let mut except_by = Vec::new();
         let mut requirements = Vec::new();
+        let mut idle_defenders = Vec::new();
         for fx in state.effects.iter() {
             match fx.modifier {
                 Modifier::CantAttackUnlessDefenderControls(_) => unless_defender_controls.push(fx),
+                Modifier::CantAttackPlayerIdleLastTurn => idle_defenders.push(fx),
                 Modifier::CantBeAttackedExceptBy { .. } => except_by.push(fx),
                 Modifier::AttacksEachCombat => requirements.push(fx),
                 _ => {}
@@ -597,6 +603,7 @@ impl<'a> AttackRules<'a> {
             unless_defender_controls,
             except_by,
             requirements,
+            idle_defenders,
         }
     }
 
@@ -617,13 +624,28 @@ impl<'a> AttackRules<'a> {
     /// the pair. Asked of a creature [`can_attack`] already allows.
     #[must_use]
     pub fn allows(&self, creature: ObjectId, defender: Defender) -> bool {
-        if self.unless_defender_controls.is_empty() && self.except_by.is_empty() {
+        if self.unless_defender_controls.is_empty()
+            && self.except_by.is_empty()
+            && self.idle_defenders.is_empty()
+        {
             return true;
         }
         let state = self.state;
         let Some(obj) = state.object(creature) else {
             return false;
         };
+        // Arboria: a player who neither cast a spell nor put a nontoken
+        // permanent onto the battlefield during their last turn can't be
+        // attacked; their planeswalkers can (ruling 2022-12-08).
+        if let Defender::Player(attacked) = defender
+            && !state.players[usize::from(attacked.get())].last_turn_acted
+            && self
+                .idle_defenders
+                .iter()
+                .any(|fx| crate::effects::applies_to(state, fx, obj))
+        {
+            return false;
+        }
         // "You can't be attacked except by …" protects the player, and a
         // planeswalker they control is a defender of its own (CR 506.3).
         if let Defender::Player(attacked) = defender

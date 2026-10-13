@@ -444,6 +444,16 @@ impl<L: CardLookup> Engine<L> {
         {
             *v = v.saturating_add(1);
         }
+        // "The next spell you cast this turn has improvise" is spent by this
+        // cast, whatever it tapped (Archway of Innovation).
+        if let Some(flag) = self
+            .state
+            .per_turn
+            .improvise_next_spell
+            .get_mut(player.get() as usize)
+        {
+            *flag = false;
+        }
         // "If you do, you can't cast additional spells this turn": the
         // spell is cast, so the lock is on.
         if wizard.by_effect == Some(EffectCast::ThenNoMoreSpells)

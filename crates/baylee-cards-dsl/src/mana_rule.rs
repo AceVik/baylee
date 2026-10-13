@@ -45,7 +45,8 @@ fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect])
         | Effect::WhenSourceDiesThisTurn { .. }
         | Effect::WheneverTargetDealtDamageThisTurn { .. }
         | Effect::AtEndOfCombat { .. }
-        | Effect::AtEndOfCombatThisTurn { .. } => (&[], &[]),
+        | Effect::AtEndOfCombatThisTurn { .. }
+        | Effect::WheneverYouAttackThisTurn { .. } => (&[], &[]),
         _ => effect.branches(),
     }
 }

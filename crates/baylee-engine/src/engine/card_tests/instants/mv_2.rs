@@ -35,6 +35,7 @@ mod heroes_reunion;
 mod heroic_intervention;
 mod hisoka_s_defiance;
 mod hoodwink;
+mod hurkyl_s_recall;
 mod jwari_disruption;
 mod kabira_takedown;
 mod legion_leadership;

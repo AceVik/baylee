@@ -39,6 +39,7 @@ mod graveyard_choice;
 mod landwalk;
 mod untap_suppression;
 pub use landwalk::resume_with_subtype;
+mod attacking_tokens;
 mod blocked_returns;
 mod half_damage;
 mod life;
@@ -54,6 +55,7 @@ pub(crate) mod subjects;
 mod this_way;
 mod token_choices;
 mod top_card;
+mod would_destroy;
 pub use subjects::SubjectContext;
 mod amass;
 mod card_copies;
@@ -765,10 +767,22 @@ pub(super) fn bound_now_with_context(
     only: Option<&[PlayerId]>,
 ) -> SmallVec<[crate::effects::EffectFilter; 4]> {
     // A filter that names the resolution's reference object (Feint's "that
-    // creature and each creature blocking it") can only be read now: the
-    // reference is gone once the resolution is, so the set is bound here
-    // whatever the modifier.
-    if !crate::effects::locks_its_set(modifier) && !crate::state::filter_reads_reference(filter) {
+    // creature and each creature blocking it"): the reference is gone once
+    // the resolution is, so an effect that does not lock its set (CR 611.2c)
+    // keeps the object it is about, and one that does is bound now.
+    if !crate::effects::locks_its_set(modifier) && crate::state::filter_reads_reference(filter) {
+        debug_assert!(
+            only.is_none(),
+            "a dynamic effect cannot carry the seat its card named",
+        );
+        return context
+            .reference
+            .and_then(|id| state.object(id).map(|o| (id, o.version)))
+            .map(|(id, version)| crate::effects::EffectFilter::DslAbout(filter, id, version))
+            .into_iter()
+            .collect();
+    }
+    if !crate::effects::locks_its_set(modifier) {
         debug_assert!(
             only.is_none(),
             "a dynamic effect cannot carry the seat its card named",

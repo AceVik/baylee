@@ -172,6 +172,38 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             );
             None
         }
+        Effect::CreateTokenAttacking {
+            token,
+            amount,
+            sacrifice_at_next_end_step,
+        } => {
+            let count = amount2(&amount, state, you, res);
+            let made = create_tokens_entering(
+                state,
+                you,
+                token,
+                None,
+                count,
+                res.text,
+                TokenEntry {
+                    tapped: true,
+                    temporary_haste_source: None,
+                },
+            );
+            // One delayed trigger per token, naming that token as the
+            // object it is now (CR 400.7), as Kiki-Jiki's copies are.
+            if sacrifice_at_next_end_step {
+                for &id in &made {
+                    let version = state.object(id).map_or(0, |o| o.version);
+                    state.delayed.push(crate::state::DelayedTrigger {
+                        controller: you,
+                        when: crate::state::DelayedWhen::NextEndStep,
+                        action: crate::state::DelayedAction::Sacrifice { card: id, version },
+                    });
+                }
+            }
+            super::attacking_tokens::start(state, res, made)
+        }
         Effect::Fabricate { count, token } => {
             super::token_choices::fabricate(state, res, count, token)
         }

@@ -22,6 +22,7 @@ mod inkmoth_nexus;
 mod lair_of_the_hydra;
 mod lavaclaw_reaches;
 mod lumbering_falls;
+mod manland_colours;
 mod mech_hangar;
 mod mishra_s_factory;
 mod mishra_s_foundry;

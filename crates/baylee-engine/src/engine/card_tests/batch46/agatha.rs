@@ -458,8 +458,16 @@ fn batch46_agatha_grants_loyalty_to_a_creature_and_preserves_once_each_turn() {
         &[],
     );
     let grist = hand_to_graveyard(&mut e, P0, index::GRIST_THE_HUNGER_TIDE);
-    // The pool's partial Grist lacks its printed off-battlefield creature
-    // characteristic. Supply that characteristic, retaining its real loyalty definition.
+    // Grist is a 1/1 Insect creature card off the battlefield through its own
+    // static ability (CR 113.6), and in the graveyard it already is one. The
+    // Cauldron's "When a creature card is exiled this way" is checked at the
+    // moment of the exile, though, and there the exiled card still shows its
+    // printed types: the static is registered for the object in exile only on
+    // the engine's next pass (measured: the exiled Grist read as a planeswalker
+    // alone when the reflexive trigger was looked for, and as a creature one
+    // pass later). So the creature characteristic is also written onto the
+    // card's base here, which keeps the test about the Cauldron's grant of the
+    // -5 and not about that ordering.
     let base = e.state.object_mut(grist).unwrap().base_mut();
     base.types = base.types.union(TypeSet::CREATURE);
     base.power = Some(1);
@@ -473,7 +481,18 @@ fn batch46_agatha_grants_loyalty_to_a_creature_and_preserves_once_each_turn() {
         .counters
         .set(CounterKind::Loyalty, 10);
     e.refresh_offer();
-    let id = grants(&e, bear)[0];
+    // Grist prints a +1, a -2 and a -5, all three granted to the Bears; the
+    // one this test plays is the -5, picked by its loyalty cost and not by
+    // its place in the list.
+    let id = crate::effects::granted_activated(e.state(), bear)
+        .find(|grant| {
+            matches!(
+                grant.definition,
+                baylee_cards_dsl::AbilityDef::Loyalty { cost: -5, .. }
+            )
+        })
+        .map(|grant| grant.id)
+        .expect("Grist's -5 is among the abilities the Bears were granted");
     let life = e.state.players[1].life;
     use_grant(&mut e, bear, id);
     assert_eq!(counters_on(&e, bear, CounterKind::Loyalty), 5);

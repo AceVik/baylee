@@ -693,6 +693,8 @@ pub enum AwaitingOp {
     },
     /// Which spell `Effect::DealHalfOfSpellDamage` reads.
     HalfSpell(Box<super::half_damage::Spells>),
+    /// Where the tokens of `Effect::CreateTokenAttacking` attack.
+    AttackingTokens(Box<super::attacking_tokens::Tokens>),
     /// One graveyard's picks of `Effect::ReturnPerBlockedDeath`.
     BlockedReturns(Box<super::blocked_returns::Returns>),
     /// The card `Effect::ReturnFromGraveyardOf` returns.

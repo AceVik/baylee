@@ -726,6 +726,12 @@
           "name": "Infinite Authority",
           "path": "crates/baylee-cards/src/cards/enchantments/auras/mv_3/infinite_authority.rs"
         }
+      ],
+      "completed_cards": [
+        "Reincarnation"
+      ],
+      "partials_lane_notes": [
+        "Partials lane wave 1 pair B (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed; manland colours fixed (CR 105.3)."
       ]
     },
     {
@@ -795,10 +801,17 @@
         }
       ],
       "completed_cards": [
-        "Arid Archway"
+        "Arid Archway",
+        "Hurkyl's Recall",
+        "The Black Gate",
+        "Restless Fortress",
+        "Hive of the Eye Tyrant",
+        "Mount Doom",
+        "Typhoon"
       ],
       "partials_lane_notes": [
-        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed."
+        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed.",
+        "Partials lane wave 1 pair B (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed; manland colours fixed (CR 105.3)."
       ]
     },
     {
@@ -1256,10 +1269,15 @@
         }
       ],
       "completed_cards": [
-        "Argoth, Sanctum of Nature"
+        "Argoth, Sanctum of Nature",
+        "Ojer Kaslem, Deepest Growth // Temple of Cultivation",
+        "Golden Guardian // Gold-Forge Garrison",
+        "Grist, the Hunger Tide",
+        "Path of Mettle // Metzali, Tower of Triumph"
       ],
       "partials_lane_notes": [
-        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed."
+        "Partials lane wave 1 pair A (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed.",
+        "Partials lane wave 1 pair B (13.10.2026): Implemented, tested, Opus-reviewed, every mutant killed; manland colours fixed (CR 105.3)."
       ]
     },
     {

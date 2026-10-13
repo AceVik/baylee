@@ -4,6 +4,8 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
+mod mv_3;
+
 /// Karn, the Great Creator −2: "reveal an artifact card you own from outside
 /// the game ... put that card into your hand."
 ///
@@ -579,56 +581,6 @@ fn an_ally_returning_at_the_end_step_still_rallies_the_board() {
     );
 }
 
-/// `Grist, the Hunger Tide` (`Coverage::Partial`):
-/// "As long as Grist isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types.
-/// +1: Create a 1/1 black and green Insect creature token, then mill a card. If an Insect card was milled this way,
-/// put a loyalty counter on Grist and repeat this process.
-/// −2: You may sacrifice a creature. When you do, destroy target creature or planeswalker.
-/// −5: Each opponent loses life equal to the number of creature cards in your graveyard."
-///
-/// Under `Coverage::Partial`, the static zone animation, +1 loop, and −2 reflexive sacrifice are omitted,
-/// leaving the −5 loyalty ability. With `Doubling Season` on the battlefield, `Grist, the Hunger Tide` enters
-/// with 6 loyalty counters (doubling its starting loyalty of 3). Two creature cards are seeded into the graveyard
-/// via `seed_graveyard`, and activating Grist's −5 ability reduces its loyalty to 1 and causes the opponent to lose 2 life.
-#[test]
-fn grist_the_hunger_tide_activates_minus_five_to_drain_life_for_graveyard_creatures() {
-    let p0 = PlayerId::new(0);
-    let doubling_season = card_index("01546b7d-a233-4176-8843-d732074dc5b6");
-    let mut engine = Duel::new(103, quiet_creature())
-        .battlefield(0, &[doubling_season, swamp(), forest(), swamp()])
-        .hand(0, &[grist_the_hunger_tide()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    cast_from_hand(&mut engine, p0, grist_the_hunger_tide());
-    pass_until(&mut engine, stack_is_empty);
-
-    let grist = on_battlefield(&engine, p0, grist_the_hunger_tide()).expect("Grist on battlefield");
-    assert_eq!(
-        counters_on(&engine, grist, CounterKind::Loyalty),
-        6,
-        "Doubling Season doubled starting loyalty to 6"
-    );
-
-    seed_graveyard(&mut engine, p0, 2);
-
-    activate(&mut engine, p0, grist_the_hunger_tide(), 0);
-    assert_eq!(
-        counters_on(&engine, grist, CounterKind::Loyalty),
-        1,
-        "paid 5 loyalty, leaving 1"
-    );
-
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(
-        engine.state().players[1].life,
-        18,
-        "opponent lost 2 life from 2 creature cards in graveyard"
-    );
-}
-
 /// `Oko, Thief of Crowns` +2: "Create a Food token." The test casts Oko
 /// with 4 starting loyalty, activates the +2 to tick it up to 6, and
 /// confirms that a Food artifact token is created under the player's
@@ -910,62 +862,6 @@ fn wrenn_and_realmbreaker_plus_one_animates_land_with_vigilance_hexproof_haste()
     assert!(kw.contains(KeywordSet::VIGILANCE), "gained vigilance");
     assert!(kw.contains(KeywordSet::HEXPROOF), "gained hexproof");
     assert!(kw.contains(KeywordSet::HASTE), "gained haste");
-}
-
-/// What Grist does **not** offer, which is the other half of its
-/// `Coverage::Partial` and the half a card test cannot see by playing.
-///
-/// Three of its four printed sentences are refused by name — the static that
-/// animates it outside the battlefield, the `+1` mill loop, and the `-2`
-/// reflexive sacrifice — and the test above proves the fourth. A card that
-/// silently grew a half-written `+1` would pass that test unchanged, so the
-/// refusal is pinned here instead: **one** loyalty ability is offered, and it
-/// is the one that costs five.
-///
-/// This is a limitation written as a test rather than as a comment, so the
-/// day the `+1` is implemented the build says so. Going red is the success.
-#[test]
-fn grist_offers_only_the_ability_that_is_written() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(104, quiet_creature())
-        .battlefield(0, &[swamp(), forest(), swamp()])
-        .hand(0, &[grist_the_hunger_tide()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    cast_from_hand(&mut engine, p0, grist_the_hunger_tide());
-    pass_until(&mut engine, stack_is_empty);
-    let grist = on_battlefield(&engine, p0, grist_the_hunger_tide()).expect("Grist arrived");
-
-    // Five loyalty is more than the three it entered with, so the one ability
-    // it has is not activatable yet — which is what makes this a statement
-    // about the card and not about the board.
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    let mine: Vec<u32> = legal
-        .abilities
-        .iter()
-        .filter(|(src, _)| *src == grist)
-        .map(|(_, index)| *index)
-        .collect();
-    assert!(
-        mine.is_empty(),
-        "a -5 cannot be paid at three loyalty, so nothing of Grist's is \
-         offered here: {mine:?}"
-    );
-
-    // And the pool's own view of the card: exactly one ability is written on
-    // it, so the three refusals above are still refusals.
-    let def = baylee_cards::by_index(grist_the_hunger_tide()).expect("Grist is in the pool");
-    assert_eq!(
-        def.abilities.len(),
-        1,
-        "Grist prints four sentences and this pool writes one of them — if \
-         that number has moved, the `NOT SUPPORTED` notes on the card and \
-         this test both need rereading"
-    );
 }
 
 /// Wrenn and Realmbreaker's −2: "Mill three cards. You may put a permanent

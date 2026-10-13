@@ -1399,11 +1399,52 @@ still knows its Wall). While a second target is chosen (cast wizard,
 activation, the resolution-time legality check in `progress/stack.rs`) the
 reference is the first target, so `second_targets` may relate to it (Gauntlets
 of Chaos, Glyph of Delusion). A continuous effect whose filter reads the
-reference is bound to the objects it names as it resolves
-(`resolve::bound_now_with_context`, whatever the modifier): the reference is
-gone with the resolution (Feint's "that creature and each creature blocking
-it"). Nothing outside a resolution or a target choice has a reference, and
+reference keeps it: `EffectFilter::DslAbout(filter, id, version)` evaluates
+the filter with that object as the reference while it is still that object
+(Feint's "that creature and each creature blocking it" covers a later
+blocker, CR 611.2c); an effect that locks its set is bound to the objects as
+it resolves (`resolve::bound_now_with_context`). Castability and activation
+offers ask a relative second target per legal first target
+(`casting::second_is_reachable`, `Engine::ability_has_targets`). Nothing outside a resolution or a target choice has a reference, and
 there every such filter matches nothing.
+
+### Tokens put onto the battlefield attacking (CR 508.4)
+
+`Effect::CreateTokenAttacking` creates its tokens tapped, then
+(`resolve/attacking_tokens.rs`), during a combat of their controller's turn,
+asks per token which defending player or planeswalker it attacks: no question
+with one option; else `Pending::ChoosePlayer` (skipped with one player) and,
+when that player controls planeswalkers, `Pending::ChooseCards` over them (none
+chosen = the player). The tokens join combat through
+`CombatState::declare_attackers` and `remember_defender`, and nothing else: no
+`BecameAttacker` is journalled and `per_turn.attacked` does not name them
+(CR 508.3a, they never "attacked"), and the declaration's requirements and
+restrictions are never asked (CR 508.4c). Outside combat, or for a player who
+is not the active one (CR 506.3b), they only enter tapped. "Whenever you
+attack this turn" is `DelayedWhen::YouAttackThisTurn`, read off the journal's
+`BecameAttacker` entries once per scan and dropped with the turn.
+
+### What a player did during their last turn (Arboria)
+
+`Player::last_turn_acted` is written as each player's turn ends
+(`remember_completed_turn_attackers`): they cast a spell
+(`per_turn.spells_cast`, countered or not) or a nontoken permanent entered the
+battlefield under their control (`per_turn.put_nontoken_permanent`, set in
+`GameState::move_object`). Who *put* a permanent onto the battlefield and under
+whose control it entered differ only for an effect that puts a permanent onto
+the battlefield under another player's control; the record reads the second.
+`Modifier::CantAttackPlayerIdleLastTurn` is asked as a pair restriction in
+`AttackRules::allows`, for players only (ruling: planeswalkers may be
+attacked).
+
+### Improvise and its grant
+
+Improvise (CR 702.126a) shares convoke's tap question
+(`TargetPrompt::Convoke`): `casting::tap_to_pay_sources` is creatures for a
+convoke face, artifacts for a face with improvise or while
+`per_turn.improvise_next_spell` is set for the caster (Archway of
+Innovation), each permanent once. The grant is spent in
+`cast_wizard/commit.rs` by the player's next cast, whatever it tapped.
 
 ## Two instances of "target", and a board that moves mid-resolution
 

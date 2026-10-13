@@ -1300,7 +1300,8 @@ impl HeuristicAgent {
             }
             Effect::CreateToken { token } => token_worth(token),
             Effect::CreateTokenN { token, amount }
-            | Effect::CreateTokenModified { token, amount, .. } => {
+            | Effect::CreateTokenModified { token, amount, .. }
+            | Effect::CreateTokenAttacking { token, amount, .. } => {
                 count(*amount)? * token_worth(token)
             }
             Effect::Amass { amount, .. } => 150 + count(*amount)? * 110,
