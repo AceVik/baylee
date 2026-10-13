@@ -29,7 +29,9 @@ baylee-seal.workspace = true
 flate2.workspace = true
 glam.workspace = true
 serde.workspace = true
-serde_json.workspace = true
+# A replay keeps each moment's payload as the tape wrote it and decodes it
+# only when the moment is shown (`replay::tape`).
+serde_json = { workspace = true, features = ["raw_value"] }
 # The chat's history file names and chat folder (`social::disk`).
 sha2.workspace = true
 # The language-model seat's spend book counts a game in the player's

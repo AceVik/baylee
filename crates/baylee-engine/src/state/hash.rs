@@ -1406,6 +1406,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         rules_text_lost,
         abilities_lost,
         front_mana_value,
+        x_on_stack,
     } = characteristics;
     name.hash(h);
     hash_mana_cost(h, mana_cost);
@@ -1427,6 +1428,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     rules_text_lost.hash(h);
     abilities_lost.hash(h);
     front_mana_value.hash(h);
+    x_on_stack.hash(h);
 }
 
 /// What [`GameState::snapshot_hash`] last wrote for each arena chunk: the

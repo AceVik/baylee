@@ -166,9 +166,6 @@ fn what_lies_under_a_tapped_host_turns_with_it() {
 /// away the host wears the attachment mark with how many lie under it, and
 /// only there (#305: an attachment folded under legibility is not lost).
 ///
-/// And nothing under a card lies so low that Defender's wall beside it
-/// stands over its face.
-///
 /// Every seat of rings of two to eight at three screens, one to four cards
 /// under a host, tapped and untapped, staged and not. And both halves are
 /// taken: an unstaged creature row shows every card's whole peek under an
@@ -237,14 +234,6 @@ fn nothing_tucked_under_a_card_reaches_what_stands_ahead_of_it() {
                                     assert!(
                                         !tapped || front <= untapped + 1e-4,
                                         "{table}: card {k} reaches {front}, past {untapped}"
-                                    );
-                                    // Every host here is first in its row,
-                                    // at the row's lowest.
-                                    let face = CARD_LIFT + CARD_THICKNESS + card.lift;
-                                    assert!(
-                                        face > shellmat::WALL_HEIGHT,
-                                        "{table}: card {k}'s face is at {face}, under the \
-                                         top of a wall"
                                     );
                                     if (peek - ATTACH_PEEK).abs() < 1e-5 {
                                         whole += 1;

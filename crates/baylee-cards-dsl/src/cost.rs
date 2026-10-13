@@ -28,6 +28,11 @@ pub enum CostPart {
     DiscardRandom,
     /// Discard the entire hand; an empty hand can pay this cost.
     DiscardHand,
+    /// "Discard the last card you drew this turn" (Jandor's Ring): the card
+    /// the payer drew last this turn, while it is still in their hand as the
+    /// object it was drawn as; with none, the cost can't be paid (ruling:
+    /// of several drawn at once, the last of them).
+    DiscardLastDrawnThisTurn,
     /// Pay energy counters from the activating player.
     PayEnergy(u16),
     /// Announce X and pay that many energy counters.

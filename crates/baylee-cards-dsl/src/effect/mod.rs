@@ -2220,6 +2220,11 @@ pub enum Effect {
         /// What the delayed trigger does.
         effects: &'static [Effect],
     },
+    /// "Then exile this artifact and those creature cards" (Sword of the
+    /// Ages): the source and every card a `CostPart::SacrificeX` of this
+    /// ability sacrificed, each from the graveyard it went to and only while
+    /// it is still that card there (CR 400.7); a token sacrificed is gone.
+    ExileSourceAndSacrificed,
     /// "The next spell you cast this turn has improvise" (Archway of
     /// Innovation): the controller's next spell cast this turn is cast with
     /// improvise (CR 702.126a); it is spent by that cast whether or not an
@@ -2456,6 +2461,36 @@ pub enum Effect {
         cost: &'static CostPart,
         /// What happens when they don't pay.
         effect: &'static Effect,
+    },
+    /// "That player may choose any number of tapped blue creatures they
+    /// control and pay {4} for each creature chosen this way. If the player
+    /// does, untap those creatures." (Magnetic Mountain): the player `who`
+    /// names chooses any number of their tapped permanents the filter
+    /// matches, then is asked to pay `each` once per chosen permanent, all
+    /// at once; paid, they untap; declined or unpaid, nothing happens.
+    UntapChosenPayingEach {
+        /// Who chooses and pays.
+        who: PlayerRel,
+        /// What may be chosen (tapped, controlled by that player).
+        filter: &'static Filter,
+        /// The price per chosen permanent.
+        each: ManaCost,
+    },
+    /// "Sacrifice this enchantment unless you pay {G} for each wind counter
+    /// on it. If you pay, …" (Cyclone): [`Effect::PlayerMayPayThenElse`]
+    /// with a coloured price repeated `times` (evaluated as this resolves),
+    /// the whole of it paid at once. A price of nothing (`times` 0) is paid.
+    PlayerMayPayManaEachThenElse {
+        /// Player offered the payment.
+        player: PlayerRel,
+        /// The price of one.
+        each: ManaCost,
+        /// How many of it.
+        times: Amount,
+        /// Effects after successful payment.
+        paid: &'static [Effect],
+        /// Effects if payment is declined or cannot be completed.
+        unpaid: &'static [Effect],
     },
     /// Offer a generic mana payment and execute exactly one outcome.
     /// The paid branch requires successful payment; refusal or failure runs unpaid.

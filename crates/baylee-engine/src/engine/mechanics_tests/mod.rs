@@ -31,6 +31,7 @@ mod tokens;
 mod transforms;
 mod triggers;
 mod wave3_rules;
+mod wave3b_rules;
 mod zones;
 
 use super::synthetic::{SyntheticLookup, forest, land_face, walk_past};

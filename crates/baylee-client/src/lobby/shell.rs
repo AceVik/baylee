@@ -507,7 +507,7 @@ pub(super) fn ui(
             }
         }
         // The persistent preparation cover takes over in the same frame.
-        Screen::Seated(_) => {}
+        Screen::Seated(_) | Screen::Replay(_) => {}
     }
     if state.lobby.screen() == &Screen::Table
         && let Some(picker) = state.lobby.builder().picker()

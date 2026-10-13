@@ -221,6 +221,11 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
+                CostPart::DiscardLastDrawnThisTurn => {
+                    if self.state.last_drawn_in_hand(player).is_none() {
+                        return false;
+                    }
+                }
                 CostPart::PayCommanderColors => {
                     if !self.can_pay_commander_colors(player) {
                         return false;
@@ -531,6 +536,18 @@ impl<L: CardLookup> Engine<L> {
                     }
                     self.state.discard_card(card, player, Cause::Cost, None);
                 }
+                CostPart::DiscardLastDrawnThisTurn => {
+                    let card =
+                        self.state
+                            .last_drawn_in_hand(player)
+                            .ok_or(EngineError::IllegalAction(
+                                "no card drawn this turn to discard",
+                            ))?;
+                    if let Some(reference) = self.state.source_identity(card) {
+                        paid.discarded.push(reference);
+                    }
+                    self.state.discard_card(card, player, Cause::Cost, None);
+                }
                 CostPart::DiscardHand => {
                     let cards = self.state.zones.list(ZoneLocation::Hand(player)).clone();
                     for card in cards {
@@ -602,7 +619,17 @@ impl<L: CardLookup> Engine<L> {
                         ));
                     }
                     for &card in cards {
+                        let power = self
+                            .state
+                            .object(card)
+                            .map(|o| i32::from(o.characteristics().power.unwrap_or(0)));
                         cost_wizard::pay(&mut self.state, player, part, card)?;
+                        if matches!(part, CostPart::SacrificeX(_))
+                            && let (Some(power), Some(version)) =
+                                (power, self.state.object(card).map(|o| o.version))
+                        {
+                            paid.sacrificed_many.push((card, version, power));
+                        }
                     }
                 }
                 CostPart::PayLife(n) => {

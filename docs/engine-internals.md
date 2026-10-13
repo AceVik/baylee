@@ -1437,6 +1437,20 @@ the battlefield under another player's control; the record reads the second.
 `AttackRules::allows`, for players only (ruling: planeswalkers may be
 attacked).
 
+### A departed reference keeps its history (CR 608.2h)
+
+A delayed trigger about an object (`DelayedAction::TriggerAbout`) is queued
+with that object and the identity it had, whether or not it is still there:
+"that creature" affects nothing once the identity is no longer current (CR
+603.7c), but what the effect reads about it is its last information.
+`eval::last_battlefield_version` is a permanent's version, or, once it has
+left the battlefield, the version its departure recorded in the journal;
+`eval::blocked_this_turn` compares block records against it, so Glyph of
+Doom's Wall that died in combat still names the creatures it blocked, and
+`damaged_incarnation` (Brine Hag, Blazing Effigy) reads the incarnation that
+died. `CR 202.3e`: `Characteristics::x_on_stack`, written by the projection,
+makes a spell's mana value count X while it is on the stack.
+
 ### Improvise and its grant
 
 Improvise (CR 702.126a) shares convoke's tap question

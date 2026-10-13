@@ -43,6 +43,8 @@ const SWAP: u32 = 7310;
 const TRINKET: u32 = 7311;
 const CALTROPS: u32 = 7312;
 const WALL: u32 = 7313;
+const FRAIL_WALL: u32 = 7314;
+const DOOM: u32 = 7315;
 
 static PARTNERS: Filter = Filter::Or(&[Filter::BlockingSource, Filter::BlockedBySource]);
 
@@ -154,6 +156,19 @@ static CALTROPS_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::triggered!(
     })
 )];
 
+const BLOCKED_BY_IT: Filter = Filter::And(&[Filter::CREATURE, Filter::BlockedByReferenceThisTurn]);
+/// Glyph of Doom's shape: "Choose target Wall creature. At this turn's next
+/// end of combat, destroy all creatures that were blocked by that creature
+/// this turn."
+static DOOM_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::spell!(
+    &[Effect::AtEndOfCombatThisTurn {
+        about: TargetSpec::Object(&WALLS),
+        effects: &[Effect::destroy_all(&BLOCKED_BY_IT)],
+    }],
+    targets = Some(TargetReq::one(TargetSpec::Object(&WALLS)))
+)];
+
+#[allow(clippy::too_many_lines)] // One entry per card the rules here need.
 fn cards() -> Vec<&'static CardDef> {
     vec![
         card(
@@ -221,6 +236,21 @@ fn cards() -> Vec<&'static CardDef> {
             },
             KeywordSet::EMPTY,
             &[],
+        ),
+        card(
+            FRAIL_WALL,
+            FaceDef {
+                subtypes: &[baylee_core::generated::subtypes::creature::WALL],
+                ..creature_face("Frail Wall", "{1}", 0, 3)
+            },
+            KeywordSet::EMPTY,
+            &[],
+        ),
+        card(
+            DOOM,
+            face("Doom", "{0}", TypeSet::INSTANT),
+            KeywordSet::EMPTY,
+            DOOM_ABILITIES,
         ),
         card(
             FEINT,
@@ -682,4 +712,53 @@ fn the_co_blockers_of_the_blocked_creature_decide_the_trigger() {
         });
         assert_eq!(life(&engine, them()) == before + 1, fires, "{with:?}");
     }
+}
+
+/// Glyph of Doom on a Wall that then dies in combat damage: at end of combat
+/// the delayed trigger still reads the creatures that Wall blocked, as it
+/// last existed (CR 608.2h), and destroys the Ogre it blocked. Before, the
+/// Wall's leaving made the trigger name nothing.
+#[test]
+fn a_dead_walls_blocks_are_still_read_at_end_of_combat() {
+    let mut engine = bench(
+        7308,
+        cards(),
+        [
+            Seat::with(&[FRAIL_WALL]).holding(&[DOOM]),
+            Seat::with(&[OGRE]),
+        ],
+    );
+    let wall = the(&engine, ZoneLocation::Battlefield, FRAIL_WALL);
+    let ogre = the(&engine, ZoneLocation::Battlefield, OGRE);
+    attack(&mut engine, them(), &[ogre], me());
+    block(&mut engine, me(), &[(wall, ogre)]);
+    walk_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { player, .. } if *player == me())
+            && e.state().turn.step == crate::turn::Step::DeclareBlockers
+            && e.state().zones.stack_is_empty()
+    });
+    let doom = the(&engine, ZoneLocation::Hand(me()), DOOM);
+    engine
+        .apply(me(), PlayerAction::CastSpell { card: doom })
+        .expect("Doom is cast");
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: vec![wall],
+                players: vec![],
+            },
+        )
+        .expect("the Wall is the target");
+    walk_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(
+        zone_of(&engine, wall),
+        Some(crate::zone::Zone::Graveyard),
+        "the Wall died in combat damage"
+    );
+    assert_eq!(
+        zone_of(&engine, ogre),
+        Some(crate::zone::Zone::Graveyard),
+        "the creature it blocked is destroyed at end of combat"
+    );
 }

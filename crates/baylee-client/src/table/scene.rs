@@ -70,9 +70,19 @@ pub fn sync_scene(
     // times a second — and swept out here once the band is over. Without
     // this the map would gain an entry per permanent per arrival and evict
     // none of them.
+    //
+    // A look on its way into or out of a passing state ([`Veil`]) is the
+    // same kind of key: one per moment a state changed, wanted until it has
+    // arrived and the card wears the settled look every card in that state
+    // shares.
+    let now = time.elapsed_secs_wrapped();
+    let arriving = |veil: crate::cardmat::Veil| {
+        veil.rate == 0 || (now - f32::from_bits(veil.at)) * f32::from_bits(veil.rate) < 1.0
+    };
     index
         .materials
-        .retain(|look, _| look.sweep.is_none_or(|s| sheen.live(s)));
+        .retain(|look, _| look.sweep.is_none_or(|s| sheen.live(s)) && arriving(look.veil));
+    index.face_materials.retain(|look, _| arriving(look.veil));
 
     // One original sleeve for the library, its fan and every hidden card.
     // Dress the resident material in place: the library's slabs spawn once
@@ -205,11 +215,32 @@ pub fn sync_scene(
             FaceNow::Unbuilt
         };
 
+        // The card's passing states: dimmed while this seat's question leaves
+        // it out, phased out. Followed per card, so a change fades in rather
+        // than jumps; the clock is the one `globals.time` is written from.
+        // A card drawn before in no state has no entry; one drawn for the
+        // first time is already in its states, since nothing on screen
+        // changed.
+        let track = match index.veils.get(&placement.object) {
+            Some(track) => track.toward(placement.veil, now, !still),
+            None if index.cards.contains_key(&placement.object) => {
+                crate::cardmat::VeilTrack::new(0).toward(placement.veil, now, !still)
+            }
+            None => crate::cardmat::VeilTrack::new(placement.veil),
+        };
+        let veil = track.veil(now);
+        // A card in no state, fades over, needs no entry.
+        if veil == crate::cardmat::Veil::NONE {
+            index.veils.remove(&placement.object);
+        } else {
+            index.veils.insert(placement.object, track);
+        }
+
         let material = if show_face {
             // One material per colour identity and name depth, so a
             // mono-green board is one material however many creatures are on
             // it.
-            let look = face_look(object, face_now.lines(), finish);
+            let look = face_look(object, face_now.lines(), finish).with_veil(veil);
             if let Some(handle) = index.face_materials.get(&look) {
                 handle.clone()
             } else {
@@ -223,7 +254,8 @@ pub fn sync_scene(
             match placement.art {
                 Some(key) => {
                     let look = CardLook::art(key, finish)
-                        .with_sweep(sheen.of(placement.object, crate::sheen::Surface::Table));
+                        .with_sweep(sheen.of(placement.object, crate::sheen::Surface::Table))
+                        .with_veil(veil);
                     if let Some(handle) = index.materials.get(&look) {
                         handle.clone()
                     } else {
@@ -506,13 +538,14 @@ pub fn sync_scene(
             // into the graveyard rather than a blank one. The strip, the
             // badge and the light on the felt are children in the same way.
             index.faces.remove(&id);
+            index.veils.remove(&id);
             index.marks.remove(&id);
             index.badges.remove(&id);
             index.plates.remove(&id);
             index.floors.remove(&id);
             index.stacks.remove(&id);
-            // Not the shell: indestructible means nothing off the
-            // battlefield, and a rim flying off with its card would no
+            // Not the shell: a keyword's border means nothing off the
+            // battlefield, and one flying off with its card would no
             // longer be fitted to anything on the way.
             if let Some(shell) = index.shells.remove(&id) {
                 shell.despawn(&mut commands);

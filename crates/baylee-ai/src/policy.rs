@@ -1690,6 +1690,7 @@ pub(crate) fn pays_tax(
             Effect::PlayerMayPayThen { .. }
                 | Effect::PlayerMayPayManaThen { .. }
                 | Effect::PlayerMayPayThenElse { .. }
+                | Effect::PlayerMayPayManaEachThenElse { .. }
         )
     }) {
         return can_pay(view, &price);

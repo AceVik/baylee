@@ -1027,7 +1027,7 @@ impl LogLink {
     /// The picture its preview shows, at `size`.
     pub(in crate::hud) fn art(self, size: ArtSize) -> Option<ImageKey> {
         match (self.card, self.token) {
-            (Some(card), _) => Some(ImageKey::new(card.print, card.face, size)),
+            (Some(card), _) => Some(ImageKey::of(card, size)),
             (None, Some(token)) => Some(ImageKey::token(token, size)),
             (None, None) => None,
         }

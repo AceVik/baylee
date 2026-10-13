@@ -461,6 +461,8 @@ express at all yet.
   `SacrificeX(filter)` (X chosen permanents), `SacrificeAll(filter)` (every
   matching permanent you control, including the source when it matches),
   `DiscardHand` (the entire hand, payable even when empty),
+  `DiscardLastDrawnThisTurn` (Jandor's Ring: the last card the payer drew this
+  turn, while still in hand),
   `Discard(filter)`, `DiscardSelf` (cycling), `DiscardRandom` (one random
   hand card, activation costs only), `PayLife(n)`, `PayLifeX`,
   `PayCommanderColors` (one life per distinct color among all commanders;
@@ -3974,3 +3976,31 @@ Effects:
   of generic mana, through the same tap question as convoke.
   `Effect::NextSpellThisTurnHasImprovise` (Archway of Innovation) gives the
   controller's next spell this turn improvise; that cast spends it.
+
+### Paying per unit, the last card drawn, sacrificed totals (wave 3, push B)
+
+- `Effect::PlayerMayPayManaEachThenElse { player, each, times, paid, unpaid }`
+  — Cyclone's "sacrifice this enchantment unless you pay {G} for each wind
+  counter on it. If you pay, …": the price `each` repeated `times` (evaluated
+  as it resolves, e.g. `Amount::CountersOnSource(counters::WIND)`), asked and
+  paid at once; `paid` runs on a payment,
+  `unpaid` otherwise; a price of nothing is paid.
+- `Effect::UntapChosenPayingEach { who, filter, each }` — Magnetic Mountain's
+  "that player may choose any number of tapped blue creatures they control
+  and pay {4} for each creature chosen this way. If the player does, untap
+  those creatures": a choice (`ChoicePrompt::Untap`, any number), then one
+  payment of `each` per chosen permanent; unpaid, nothing untaps. For
+  "each player's upkeep … that player", `who: PlayerRel::ActivePlayer` on
+  `Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::EachPlayer }`
+  (as Howling Mine); the "don't untap" half is
+  `Modifier::DoesNotUntap` on the blue creatures.
+- `CostPart::DiscardLastDrawnThisTurn` — Jandor's Ring's "Discard the last
+  card you drew this turn": the payer's last card drawn this turn while it is
+  still in their hand; otherwise the ability is not offered.
+- `Amount::SacrificedTotalPower` and `Effect::ExileSourceAndSacrificed` —
+  Sword of the Ages: `cost!(TapSelf, SacrificeSelf, SacrificeX(&YOUR_CREATURE))`
+  ("any number of creatures you control" is X chosen at activation), deal
+  `SacrificedTotalPower` (their powers as they last existed), then exile the
+  source and those cards from the graveyards.
+- A spell's mana value on the stack counts X as chosen (CR 202.3e): Whir of
+  Invention cast for X=2 has mana value 5 there.

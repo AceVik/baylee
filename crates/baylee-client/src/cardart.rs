@@ -166,6 +166,9 @@ pub fn registry() -> Registry<'static> {
     static NAMED: fn(&str) -> Option<Wears> = named;
     static TOKEN_NAME: fn(u16) -> Option<&'static str> = crate::tokenart::name;
     static UTILITY_LAND: fn(RulesFace) -> bool = utility_land;
+    // Every picture a board names asks which side of its card it is, and
+    // the board is built only through here.
+    baylee_client_core::images::know_second_pictures(baylee_cards::sides::has_back_image);
     Registry {
         named: &NAMED,
         token_name: &TOKEN_NAME,
@@ -360,5 +363,80 @@ mod tests {
         );
         copy.types = baylee_core::types::TypeSet::CREATURE;
         assert_eq!(board::worn(&copy, registry()), None, "neither body");
+    }
+
+    /// The key the stack draws for `card` cast with rules face `face`, built
+    /// the way the table builds it: a spell object on the stack, a board
+    /// model made with the client's own registry, the entry's `art` read back.
+    fn stack_picture(name: &str, face: u8) -> baylee_client_core::images::ImageKey {
+        use baylee_client_core::board::{BoardModel, Openings};
+        use baylee_client_core::test_support::{ViewBuilder, token};
+        use baylee_core::ids::PrintRef;
+        use baylee_view::CardIdentity;
+
+        let index = baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("{name}: no card"));
+        let identity = CardIdentity {
+            index,
+            print: PrintRef::new(0),
+            face,
+        };
+        let mut spell = token(40, 0, name, 0, 0);
+        spell.card = Some(identity);
+        spell.rules = Some(RulesFace::from(identity));
+        let view = ViewBuilder::new(2).with_stack(vec![spell]).build();
+        let board = BoardModel::from_view(&view, Openings::none(), &[], registry());
+        board.stack[0].art.expect("a spell shows its own card")
+    }
+
+    /// The URL the key resolves to on a fixed CDN base and a well-formed id.
+    fn url_of(key: baylee_client_core::images::ImageKey) -> String {
+        baylee_client_core::images::art_url_at(
+            "https://cards.example",
+            "f333ea01-124f-4125-87ab-609be40e774c",
+            key.face,
+            key.size,
+        )
+        .expect("a well-formed id resolves")
+    }
+
+    /// An Adventure cast as its Adventure is rules face 1 and still one piece
+    /// of cardboard with one picture, so the stack draws the front. It failed
+    /// before the fix: `Face::from_index` sent every nonzero face to `/back/`,
+    /// which answers 404, and the spell showed no picture.
+    #[test]
+    fn an_adventure_cast_as_its_adventure_is_drawn_from_the_front() {
+        use baylee_client_core::images::Face;
+        for name in ["Murderous Rider", "Brazen Borrower"] {
+            let key = stack_picture(name, 1);
+            assert_eq!(key.face, Face::Front, "{name} has no back picture");
+            let url = url_of(key);
+            assert!(url.contains("/front/"), "{name}: {url}");
+            assert!(!url.contains("/back/"), "{name}: {url}");
+        }
+    }
+
+    /// A split card cast as its right half is rules face 1 of one picture
+    /// too. It failed before the fix, for the Adventure's reason.
+    #[test]
+    fn a_split_card_cast_as_its_right_half_is_drawn_from_the_front() {
+        use baylee_client_core::images::Face;
+        let key = stack_picture("Fire // Ice", 1);
+        assert_eq!(key.face, Face::Front, "Ice shares Fire's one picture");
+        let url = url_of(key);
+        assert!(url.contains("/front/") && !url.contains("/back/"), "{url}");
+    }
+
+    /// The counter-test, so the table is read both ways: a modal
+    /// double-faced card really has a second picture, and its back face is
+    /// the `back` shelf while its front stays on the front.
+    #[test]
+    fn a_modal_double_faced_card_cast_as_its_back_is_drawn_from_the_back() {
+        use baylee_client_core::images::Face;
+        let front = stack_picture("Agadeem's Awakening", 0);
+        let back = stack_picture("Agadeem's Awakening", 1);
+        assert_eq!(front.face, Face::Front);
+        assert_eq!(back.face, Face::Back);
+        assert!(url_of(back).contains("/back/"));
+        assert!(url_of(front).contains("/front/"));
     }
 }

@@ -208,27 +208,16 @@ pub fn spawn_stage(
     index.badge_quad = quad(crate::badgemat::quad_size());
     index.plate_quad = quad(crate::platemat::quad_size());
     index.floor_quad = quad(floormat::quad_size());
-    let [inner, outer] = shellmat::RIM_EDGES;
-    index.rim_mesh = Some(meshes.add(shellmat::band_mesh(inner, outer)));
-    for band in Band::ALL {
-        let [inner, outer] = band.edges();
+    for layers in 1..=shellmat::MAX_LAYERS {
+        let [inner, outer] = shellmat::border_edges(layers);
+        index
+            .border_meshes
+            .insert(layers, meshes.add(shellmat::band_mesh(inner, outer)));
+        let [inner, outer] = shellmat::ring_edges(layers);
         index
             .ring_meshes
-            .insert(band, meshes.add(shellmat::band_mesh(inner, outer)));
+            .insert(layers, meshes.add(shellmat::band_mesh(inner, outer)));
     }
-    for dome in shellmat::Dome::ALL {
-        for (step, shape) in shellmat::DOME_STEPS.into_iter().enumerate() {
-            index.dome_meshes.insert(
-                (dome, step),
-                meshes.add(shellmat::dome_mesh(dome.row(), shape)),
-            );
-            if let Some(shade) = shellmat::dome_shade_mesh(dome.row(), shape) {
-                index.dome_shades.insert((dome, step), meshes.add(shade));
-            }
-        }
-    }
-    index.wall_mesh = Some(meshes.add(shellmat::wall_mesh()));
-    index.wall_shade = Some(meshes.add(shellmat::wall_shade_mesh()));
     index.wave_mesh = Some(meshes.add(shellmat::wave_mesh()));
 
     // The contact shadow: a quad a little larger than a card, carrying a

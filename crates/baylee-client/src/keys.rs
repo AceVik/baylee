@@ -264,6 +264,87 @@ impl Fired {
     pub fn quiet(&self) -> bool {
         !self.0.iter().any(|f| *f)
     }
+
+    /// What the live table hears: everything, or in a replay everything
+    /// but what the replay borrows ([`REPLAY_BORROWS`]; `replay_keys` has
+    /// those).
+    #[must_use]
+    pub fn in_replay(self, replay: bool) -> Self {
+        if replay {
+            self.without(&REPLAY_BORROWS)
+        } else {
+            self
+        }
+    }
+
+    /// [`Fired::in_replay`] for this table: a replay's borrowed keys are
+    /// its own (`replay_keys`).
+    #[must_use]
+    pub fn for_table(self, duel: &crate::Duel) -> Self {
+        self.in_replay(duel.replay.is_some())
+    }
+
+    /// The same flags with `actions` taken out: what the live table hears
+    /// while a replay borrows them ([`REPLAY_BORROWS`]).
+    #[must_use]
+    pub fn without(mut self, actions: &[Action]) -> Self {
+        for action in actions {
+            if let Some(slot) = Action::ALL.iter().position(|a| a == action) {
+                self.0[slot] = false;
+            }
+        }
+        self
+    }
+}
+
+/// The live table's actions a replay borrows while it plays (§7.5): Space
+/// plays and pauses, Tab and ⇧Tab take the next phase and turn, the arrows
+/// a moment either way. The live handler is handed them stripped.
+pub const REPLAY_BORROWS: [Action; 5] = [
+    Action::Confirm,
+    Action::NextPhase,
+    Action::NextTurn,
+    Action::NumberUp,
+    Action::NumberDown,
+];
+
+/// What the keys pressed ask of a replay (§7.5). Over the end sheet
+/// (`finished`) `Space` is the sheet's lead answer and stays its; while a
+/// tape is being made (`loading`) `Esc` stops waiting.
+#[must_use]
+pub fn replay_asks(fired: &Fired, finished: bool, loading: bool) -> Vec<crate::replay::ReplayAsk> {
+    use crate::replay::ReplayAsk;
+    use baylee_client_core::replay::Command;
+    let mut asks = Vec::new();
+    let mut ask = |action: Action, what: ReplayAsk| {
+        if fired.has(action) {
+            asks.push(what);
+        }
+    };
+    if !finished {
+        ask(Action::Confirm, ReplayAsk::Transport(Command::Toggle));
+    }
+    if loading {
+        ask(Action::Cancel, ReplayAsk::Cancel);
+    }
+    ask(Action::NextPhase, ReplayAsk::Transport(Command::NextPhase));
+    ask(Action::NextTurn, ReplayAsk::Transport(Command::Turn(1)));
+    ask(Action::NumberDown, ReplayAsk::Transport(Command::Step(-1)));
+    ask(Action::NumberUp, ReplayAsk::Transport(Command::Step(1)));
+    ask(
+        Action::ReplayTurnBack,
+        ReplayAsk::Transport(Command::Turn(-1)),
+    );
+    ask(
+        Action::ReplayTurnForward,
+        ReplayAsk::Transport(Command::Turn(1)),
+    );
+    ask(Action::ReplayStart, ReplayAsk::Transport(Command::Start));
+    ask(Action::ReplayEnd, ReplayAsk::Transport(Command::End));
+    ask(Action::ReplaySlower, ReplayAsk::Transport(Command::Slower));
+    ask(Action::ReplayFaster, ReplayAsk::Transport(Command::Faster));
+    ask(Action::ReplayPerspective, ReplayAsk::NextPerspective);
+    asks
 }
 
 /// The chord a player just pressed, for a rebinding screen listening for one.
