@@ -6,14 +6,15 @@
 //   2. the provider's details. They are in no file of the repository and in
 //      nothing a crawler reads as text: this script fetches a blob from a
 //      directory only the server has (/private/impressum.bin, Caddy answers
-//      it same-origin only, scripts/server/site.caddy), decodes it and writes
-//      the text into the page as real text. The e-mail address and the
-//      telephone number become links only when a visitor asks for them.
+//      it same-origin only, scripts/server/site.caddy), decodes it and puts
+//      the characters into the page one by one, readable on screen and
+//      scrambled for anything that reads the DOM as text ("the page",
+//      below); copying and the mailto:/tel: links happen only on a click.
 //
 // The blob is written by scripts/site/impressum_blob.py, which says how it is
 // built; the key is split between SCRIPT_KEY here and a nonce in the blob.
-// That keeps harvesters that grep for addresses away and nobody else; it is
-// not meant to. Without JavaScript, or when the blob does not come, the page
+// That keeps harvesters that grep for addresses or read the DOM away, and
+// nobody who renders the page and reads the pixels; it is not meant to. Without JavaScript, or when the blob does not come, the page
 // says to turn JavaScript on or use the contact form.
 //
 // Nothing here identifies the visitor to anyone. The page's CSP allows no
@@ -23,7 +24,7 @@
 
   var BLOB = "/private/impressum.bin";
   var MAGIC = "BYIM";
-  var VERSION = 1;
+  var VERSION = 2;
   var NONCE_LEN = 16;
   // the script's half of the key; scripts/site/impressum_blob.py carries the
   // same 32 hex digits (a test holds the two equal)
@@ -146,43 +147,146 @@
   }
 
   // ------------------------------------------------------------ the page
-  // A button that, once pressed, gives way to the link it stood for; the
-  // link takes the focus so a keyboard or screen reader stays on it.
-  function reveal(slot, label, make) {
-    var button = el("button", { type: "button", class: "button button-ghost reveal-btn" }, [label]);
-    button.addEventListener("click", function () {
-      var link = make();
-      slot.replaceChild(link, button);
-      link.focus();
-    });
-    slot.appendChild(button);
+  // Nothing below ever holds a value as one string, and the page never does
+  // either: each character is a span of its own, carrying its position as an
+  // order class (.o0 … .o63, site.css), and the spans of a field go into the
+  // DOM shuffled, among decoys (.scr-x) that take no room on screen but are
+  // in textContent and innerText like the rest. The flexbox puts the real
+  // characters back in their order for the eye; a crawler that reads the DOM
+  // as text, the accessibility tree included (the block is aria-hidden),
+  // gets a jumble. The characters are put back together only in a click
+  // handler, for the clipboard or a mailto:/tel: navigation, and dropped
+  // with it: no href keeps an address.
+  var DECOYS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ@.-+";
+  for (var dg = 0; dg < 10; dg++) DECOYS += dg; // (no digit run in this file)
+  var MAX_LEN = 64;
+
+  function rand(n) {
+    var a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    return a[0] % n;
   }
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = rand(i + 1), x = a[i];
+      a[i] = a[j];
+      a[j] = x;
+    }
+    return a;
+  }
+  // one field, [[position, code point], …], as a scrambled run
+  function scramble(pairs) {
+    var run = el("span", { class: "scr" });
+    var nodes = [];
+    for (var i = 0; i < pairs.length; i++) {
+      var pos = pairs[i][0], cp = pairs[i][1];
+      if (typeof pos !== "number" || typeof cp !== "number" || pos < 0 || pos >= MAX_LEN) throw new Error("bad field");
+      nodes.push(el("span", { class: "o" + pos, text: String.fromCodePoint(cp) }));
+    }
+    var decoys = 2 + Math.ceil(pairs.length / 2) + rand(3);
+    for (var d = 0; d < decoys; d++) {
+      nodes.push(el("span", { class: "scr-x o" + rand(MAX_LEN), text: DECOYS.charAt(rand(DECOYS.length)) }));
+    }
+    shuffle(nodes);
+    for (var k = 0; k < nodes.length; k++) run.appendChild(nodes[k]);
+    return run;
+  }
+  // a run read back in its visual order, for a click handler only
+  function readRun(run) {
+    var chars = [];
+    for (var i = 0; i < run.children.length; i++) {
+      var c = run.children[i];
+      if (c.classList.contains("scr-x")) continue;
+      var m = /(?:^|\s)o(\d+)(?:\s|$)/.exec(c.className);
+      if (m) chars[+m[1]] = c.textContent;
+    }
+    return chars.join("");
+  }
+  // a block's lines as they show now: the runs of one line joined by a space,
+  // the other language's runs left out
+  function readLines(block) {
+    var out = [], lines = block.querySelectorAll(".imp-line");
+    for (var i = 0; i < lines.length; i++) {
+      var runs = lines[i].querySelectorAll(".scr"), words = [];
+      for (var j = 0; j < runs.length; j++) {
+        var other = runs[j].closest(lang === "de" ? ".en" : ".de");
+        if (!other || !lines[i].contains(other)) words.push(readRun(runs[j]));
+      }
+      out.push(words.join(" "));
+    }
+    return out.join("\n");
+  }
+  function line(runs) {
+    var div = el("div", { class: "imp-line" });
+    for (var i = 0; i < runs.length; i++) {
+      if (i) div.appendChild(document.createTextNode(" "));
+      div.appendChild(runs[i]);
+    }
+    return div;
+  }
+  function langRuns(en, de) {
+    var s = el("span", { class: "en" }, [en]);
+    var d = el("span", { class: "de", lang: "de" }, [de]);
+    return [s, d];
+  }
+  function button(label, onClick) {
+    var b = el("button", { type: "button", class: "button button-ghost imp-btn" }, [label]);
+    b.addEventListener("click", onClick);
+    return b;
+  }
+  function copier(status, read) {
+    return function () {
+      var say = function (en, de) { clear(status); status.appendChild(t(en, de)); };
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        say("Copying is not possible in this browser; please use the contact form.", "Kopieren geht in diesem Browser nicht; bitte nutze das Kontaktformular.");
+        return;
+      }
+      navigator.clipboard.writeText(read()).then(
+        function () { say("Copied.", "Kopiert."); },
+        function () { say("Copying did not work; please use the contact form.", "Kopieren hat nicht geklappt; bitte nutze das Kontaktformular."); }
+      );
+    };
+  }
+  function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
 
   function render(f) {
     var box = document.getElementById("imp-provider");
     var contact = document.getElementById("imp-contact");
     if (!box || !contact) return;
 
-    var address = el("address", { class: "imp-address" }, [
-      el("span", { text: f.name }), el("br"),
-      el("span", { text: f.street }), el("br"),
-      el("span", { text: f.postcode + " " + f.city }), el("br"),
-      el("span", {}, [t(f.country_en, f.country_de)])
+    var address = el("div", { class: "imp-address scr-block", "aria-hidden": "true" }, [
+      line([scramble(f.name)]),
+      line([scramble(f.street)]),
+      line([scramble(f.postcode), scramble(f.city)]),
+      el("div", { class: "imp-line" }, langRuns(scramble(f.country_en), scramble(f.country_de)))
     ]);
+    var boxStatus = el("p", { class: "imp-status", role: "status", "aria-live": "polite" });
+    box.appendChild(el("p", { class: "vh" }, [t(
+      "The address is drawn so that address harvesters cannot read it, and a screen reader cannot either. The button below copies it to the clipboard; or write to us with the contact form on the start page.",
+      "Die Anschrift ist so gezeichnet, dass Adresssammler sie nicht lesen können, und deshalb auch kein Screenreader. Der Knopf darunter kopiert sie in die Zwischenablage; oder schreib uns über das Kontaktformular auf der Startseite."
+    )]));
     box.appendChild(address);
-
-    var mailSlot = el("dd", { id: "imp-mail" });
-    var phoneSlot = el("dd", { id: "imp-phone" });
-    reveal(mailSlot, t("Show e-mail address", "E-Mail-Adresse anzeigen"), function () {
-      return el("a", { href: "mailto:" + f.email, text: f.email });
-    });
-    reveal(phoneSlot, t("Show telephone number", "Telefonnummer anzeigen"), function () {
-      return el("a", { href: "tel:" + f.phone.replace(/[^+\d]/g, ""), text: f.phone });
-    });
-    contact.appendChild(el("dl", { class: "imp-dl" }, [
-      el("dt", {}, [t("E-mail", "E-Mail")]), mailSlot,
-      el("dt", {}, [t("Telephone", "Telefon")]), phoneSlot
+    box.appendChild(el("div", { class: "imp-actions" }, [
+      button(t("Copy address", "Anschrift kopieren"), copier(boxStatus, function () { return readLines(address); }))
     ]));
+    box.appendChild(boxStatus);
+
+    var mail = el("span", { class: "scr-block", "aria-hidden": "true" }, [scramble(f.email)]);
+    var phone = el("span", { class: "scr-block", "aria-hidden": "true" }, [scramble(f.phone)]);
+    var contactStatus = el("p", { class: "imp-status", role: "status", "aria-live": "polite" });
+    contact.appendChild(el("dl", { class: "imp-dl" }, [
+      el("dt", {}, [t("E-mail", "E-Mail")]),
+      el("dd", {}, [mail, el("span", { class: "imp-actions" }, [
+        button(t("Write an e-mail", "E-Mail schreiben"), function () { location.href = "mailto:" + readRun(mail.firstChild); }),
+        button(t("Copy e-mail address", "E-Mail-Adresse kopieren"), copier(contactStatus, function () { return readRun(mail.firstChild); }))
+      ])]),
+      el("dt", {}, [t("Telephone", "Telefon")]),
+      el("dd", {}, [phone, el("span", { class: "imp-actions" }, [
+        button(t("Call", "Anrufen"), function () { location.href = "tel:" + readRun(phone.firstChild).replace(/[^+\d]/g, ""); }),
+        button(t("Copy number", "Nummer kopieren"), copier(contactStatus, function () { return readRun(phone.firstChild); }))
+      ])])
+    ]));
+    contact.appendChild(contactStatus);
     root.classList.add("imp-loaded");
   }
 

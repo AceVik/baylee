@@ -8,7 +8,9 @@ site, but the repository is public and the page is crawled, so no address,
 e-mail address or telephone number may appear in it, in its script or in any
 file a crawler reads as text. The page's script (web/site/impressum.js)
 fetches this blob from a directory only the server has, decodes it and
-writes the text into the page.
+places each character of each field into the page on its own, in a shuffled
+order among decoys, so that the values are never one string in the blob,
+in the decoded document or in the page's DOM (impressum.js says how).
 
 This is obfuscation, not security: anybody who runs the script, or reads it,
 can read the data, which is the point of an Impressum. What it keeps away is
@@ -26,8 +28,12 @@ Blob (ASCII, base64url without padding, so it contains no "@", no "." and no
     keystream  = SHA-256(SCRIPT_KEY | nonce | counter as 4 bytes big-endian)
                  for counter = 0, 1, 2, ...
 
-The JSON is {"v": 1, "fields": {<FIELDS>}}. The input may carry more keys
-(an "updated" stamp, for instance); only FIELDS go into the blob.
+The JSON is {"v": 2, "fields": {<FIELD>: [[position, code point], ...]}}:
+every field a list of its characters as numbers, each with its position,
+the list shuffled, so not even the decoded document holds a value as text.
+A field is at most MAX_LEN characters (the page's CSS orders that many).
+The input may carry more keys (an "updated" stamp, for instance); only
+FIELDS go into the blob.
 
 The output defaults to a file outside the repository and an output path
 inside it is refused: the repository must never hold a blob (a test walks
@@ -48,8 +54,10 @@ import sys
 from pathlib import Path
 
 MAGIC = b"BYIM"
-VERSION = 1
+VERSION = 2
 NONCE_LEN = 16
+# web/site/site.css has an order class for each position, .o0 to .o63
+MAX_LEN = 64
 # The script's half of the key. impressum.js carries the same 32 hex digits
 # (`SCRIPT_KEY`); change both together.
 SCRIPT_KEY = bytes.fromhex("6b1f0c9e52d84a37b0e1f6a2c9d35e48")
@@ -120,7 +128,16 @@ def encode(fields: dict, nonce: bytes | None = None) -> bytes:
     if nonce is not None and len(nonce) != NONCE_LEN:
         raise ValueError(f"nonce must be {NONCE_LEN} bytes")
     clean = {k: fields[k].strip() for k in FIELDS}
-    doc = {"v": VERSION, "fields": clean}
+    long = [k for k in FIELDS if len(clean[k]) > MAX_LEN]
+    if long:
+        raise ValueError(f"field(s) longer than {MAX_LEN} characters: " + ", ".join(long))
+    rng = secrets.SystemRandom()
+    scattered = {}
+    for k in FIELDS:
+        pairs = [[i, ord(c)] for i, c in enumerate(clean[k])]
+        rng.shuffle(pairs)
+        scattered[k] = pairs
+    doc = {"v": VERSION, "fields": scattered}
     plain = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     for _ in range(64):
         n = nonce if nonce is not None else secrets.token_bytes(NONCE_LEN)
@@ -144,7 +161,13 @@ def decode(blob: bytes) -> dict:
     doc = json.loads(_xor(raw[head:], nonce).decode("utf-8"))
     if doc.get("v") != VERSION or not isinstance(doc.get("fields"), dict):
         raise ValueError("unexpected document in the blob")
-    return doc["fields"]
+    out = {}
+    for k, pairs in doc["fields"].items():
+        chars = [""] * len(pairs)
+        for i, cp in pairs:
+            chars[i] = chr(cp)
+        out[k] = "".join(chars)
+    return out
 
 
 def _inside_repo(path: Path) -> bool:

@@ -837,13 +837,35 @@ html[data-js] .set:not(.shown) .pbar > span { width: 0 !important; }
 .legal h2 { font-size: clamp(1.3rem, 1.1rem + 0.8vw, 1.7rem); margin-top: 2.2rem; }
 .imp-box { padding: 1.2rem 1.4rem; margin: 0 0 1rem; }
 .imp-box p:last-child { margin-bottom: 0; }
-.imp-address { font-style: normal; font-size: 1.08rem; line-height: 1.7; }
+.imp-address { font-size: 1.08rem; line-height: 1.7; }
+/* A field's characters, each a span in a shuffled DOM order among decoys
+   (impressum.js): the flexbox puts them back by their order class, the
+   decoys take no room and stay invisible, yet both are in textContent and
+   innerText (opacity and absolute position keep an element rendered, which
+   display: none and visibility: hidden would not). Copying goes through the
+   page's buttons, so the jumble cannot be selected. */
+.scr-block { user-select: none; -webkit-user-select: none; }
+.scr { display: inline-flex; flex-wrap: nowrap; position: relative; white-space: pre; user-select: none; -webkit-user-select: none; }
+.scr > span { white-space: pre; }
+.scr > .scr-x { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.o0 { order: 0; } .o1 { order: 1; } .o2 { order: 2; } .o3 { order: 3; } .o4 { order: 4; } .o5 { order: 5; } .o6 { order: 6; } .o7 { order: 7; }
+.o8 { order: 8; } .o9 { order: 9; } .o10 { order: 10; } .o11 { order: 11; } .o12 { order: 12; } .o13 { order: 13; } .o14 { order: 14; } .o15 { order: 15; }
+.o16 { order: 16; } .o17 { order: 17; } .o18 { order: 18; } .o19 { order: 19; } .o20 { order: 20; } .o21 { order: 21; } .o22 { order: 22; } .o23 { order: 23; }
+.o24 { order: 24; } .o25 { order: 25; } .o26 { order: 26; } .o27 { order: 27; } .o28 { order: 28; } .o29 { order: 29; } .o30 { order: 30; } .o31 { order: 31; }
+.o32 { order: 32; } .o33 { order: 33; } .o34 { order: 34; } .o35 { order: 35; } .o36 { order: 36; } .o37 { order: 37; } .o38 { order: 38; } .o39 { order: 39; }
+.o40 { order: 40; } .o41 { order: 41; } .o42 { order: 42; } .o43 { order: 43; } .o44 { order: 44; } .o45 { order: 45; } .o46 { order: 46; } .o47 { order: 47; }
+.o48 { order: 48; } .o49 { order: 49; } .o50 { order: 50; } .o51 { order: 51; } .o52 { order: 52; } .o53 { order: 53; } .o54 { order: 54; } .o55 { order: 55; }
+.o56 { order: 56; } .o57 { order: 57; } .o58 { order: 58; } .o59 { order: 59; } .o60 { order: 60; } .o61 { order: 61; } .o62 { order: 62; } .o63 { order: 63; }
+.imp-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
+.imp-dl .imp-actions { margin-top: 0; }
+.imp-btn { min-height: 44px; padding: 0.4em 1.1em; font-size: 0.92rem; }
+.imp-status { font-family: var(--sans); font-size: 0.92rem; color: var(--ink-soft); min-height: 1.4em; margin: 0.6rem 0 0; }
 .imp-dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.6rem 1.2rem; align-items: center; margin: 0 0 1rem; font-family: var(--sans); }
 .imp-dl dt { font-weight: 700; color: var(--ink); }
-.imp-dl dd { margin: 0; min-height: 46px; display: flex; align-items: center; }
-.imp-dl dd a { overflow-wrap: anywhere; }
+.imp-dl dd { margin: 0; min-height: 46px; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.2rem; }
 @media (max-width: 700px) {
   .legal-page .back { font-size: 0.88rem; padding: 0 0.3em; white-space: nowrap; }
   .imp-dl { grid-template-columns: 1fr; gap: 0.2rem; }
   .imp-dl dd + dt { margin-top: 0.6rem; }
 }
+.imp-status:empty { min-height: 0; margin: 0; }
