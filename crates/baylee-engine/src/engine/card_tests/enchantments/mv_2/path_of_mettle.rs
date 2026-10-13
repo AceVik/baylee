@@ -290,6 +290,11 @@ fn path_of_mettle_does_not_transform_for_fewer_than_two_qualifying_attackers() {
         0,
         "two attackers and none of the four keywords"
     );
+    assert_eq!(
+        the_face_of_the_path_after_attacking_with(&[serra_angel(), raging_goblin()]),
+        1,
+        "the same attack with a second qualifying creature does turn it over"
+    );
 }
 
 /// The other side of the transformation: the permanent that stands there is

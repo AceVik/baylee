@@ -151,6 +151,15 @@ fn golden_guardian_cannot_fight_when_it_is_the_only_creature_you_control() {
         "no creature of mine but the Guardian itself, and an opponent's is no \
          target: nothing of the Guardian's is offered"
     );
+
+    // The same board with a second creature of mine: now there is something to
+    // fight, and the ability is offered for the same `{2}`.
+    let (mut engine, guardian) = the_guardian_with(&[gray_ogre()], &[gray_ogre()]);
+    tap_mana_except(&mut engine, kit::P0, guardian);
+    assert!(
+        !kit::offered(&engine, guardian).is_empty(),
+        "with another creature of mine the fight is offered"
+    );
 }
 
 /// "When this creature dies this turn, return it to the battlefield

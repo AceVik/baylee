@@ -207,42 +207,51 @@ fn mount_doom_sacrifices_itself_and_a_legendary_artifact_as_its_cost() {
 }
 
 /// "Sacrifice Mount Doom and a legendary artifact": an artifact that is not
-/// legendary does not pay for it. With seven mana floating, Mount Doom untapped
-/// and a Sol Ring (an artifact, not a legendary one) beside it, the wipe is not
-/// offered although the `{1}{B}{R}` ability is.
+/// legendary does not pay for it. With seven mana floating and Mount Doom
+/// untapped, the wipe is offered beside a Mox Opal (a legendary artifact) and is
+/// not offered beside a Sol Ring (an artifact, but not a legendary one), while
+/// the `{1}{B}{R}` ability is affordable in both.
 #[test]
 fn mount_doom_wipe_needs_a_legendary_artifact() {
     let p0 = kit::P0;
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(
-            0,
-            &[
-                mount_doom(),
-                forest(),
-                forest(),
-                forest(),
-                forest(),
-                forest(),
-                swamp(),
-                mountain(),
-                sol_ring(),
-            ],
-        )
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-    let doom = on_battlefield(&engine, p0, mount_doom()).expect("Mount Doom");
-    tap_mana_except(&mut engine, p0, doom);
+    let offered_beside = |artifact: CardIndex| {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(
+                0,
+                &[
+                    mount_doom(),
+                    forest(),
+                    forest(),
+                    forest(),
+                    forest(),
+                    forest(),
+                    swamp(),
+                    mountain(),
+                    artifact,
+                ],
+            )
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let doom = on_battlefield(&engine, p0, mount_doom()).expect("Mount Doom");
+        tap_mana_except(&mut engine, p0, doom);
+        kit::offered(&engine, doom)
+    };
 
-    let offered = kit::offered(&engine, doom);
-
+    let with_the_opal = offered_beside(mox_opal());
     assert!(
-        offered.contains(&PING),
-        "the `{{1}}{{B}}{{R}}` ability is affordable and offered: {offered:?}"
+        with_the_opal.contains(&WIPE),
+        "a legendary artifact to sacrifice, so the wipe is offered: {with_the_opal:?}"
+    );
+
+    let with_the_ring = offered_beside(sol_ring());
+    assert!(
+        with_the_ring.contains(&PING),
+        "the `{{1}}{{B}}{{R}}` ability is affordable and offered: {with_the_ring:?}"
     );
     assert!(
-        !offered.contains(&WIPE),
-        "no legendary artifact to sacrifice, so no wipe: {offered:?}"
+        !with_the_ring.contains(&WIPE),
+        "no legendary artifact to sacrifice, so no wipe: {with_the_ring:?}"
     );
 }
 
