@@ -54,12 +54,19 @@ impl std::fmt::Debug for SeatJob {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Exit {
     /// Its game is over, or it was stopped, the bridge saying this last:
-    /// its summary of the game (how many answers the mind gave and how many
-    /// the house), blanked of anything shaped like a key, as a failure's.
+    /// its closing lines ([`CLOSING_LINES`], oldest first, joined by ` | `),
+    /// among them its summary of the game (how many answers the mind gave
+    /// and how many the house), blanked of anything shaped like a key, as a
+    /// failure's.
     Ended(String),
     /// It failed, saying this last, read as a check's answer would be.
     Failed(Probe),
 }
+
+/// How many of a bridge's last lines a game that ended well leaves in the
+/// operator's log: its summary, the spend book settled, and room for one
+/// more.
+pub const CLOSING_LINES: usize = 4;
 
 /// Runs bridges and checks.
 pub trait Launcher: Send + Sync + 'static {
@@ -153,6 +160,10 @@ pub const PASSED_ON: &[&str] = &[
 /// How long a stopped bridge has to give its chair back before it is
 /// killed.
 const STOP_GRACE: Duration = Duration::from_secs(30);
+
+/// How long an ended bridge's last lines are waited for: a child of its
+/// own holding the pipe open does not hold the seat agent.
+const READ_GRACE: Duration = Duration::from_secs(2);
 
 /// How long a check may take, the canary's call included.
 const PROBE_WAIT: Duration = Duration::from_secs(90);
@@ -342,9 +353,13 @@ async fn play(
         }
     }
     // Its lines: the last one said is the detail; "sits in chair" is the
-    // moment it took the chair.
-    let last = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    // moment it took the chair. The summary of a game that ended well comes
+    // a line or two before the last (the spend book is settled after it).
+    let last = std::sync::Arc::new(std::sync::Mutex::new(
+        std::collections::VecDeque::<String>::with_capacity(CLOSING_LINES),
+    ));
     let mut started = Some(started);
+    let mut readers = Vec::new();
     let (sat_tx, mut sat_rx) = tokio::sync::mpsc::unbounded_channel::<()>();
     for stream in [
         child
@@ -361,20 +376,23 @@ async fn play(
     {
         let last = last.clone();
         let sat = sat_tx.clone();
-        tokio::spawn(async move {
+        readers.push(tokio::spawn(async move {
             let mut lines = BufReader::new(stream).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 if line.contains("sits in chair") {
                     let _ = sat.send(());
                 }
                 if !line.trim().is_empty() {
-                    *last
+                    let mut last = last
                         .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner) =
-                        blank_key_shapes(&line).chars().take(300).collect();
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    if last.len() == CLOSING_LINES {
+                        last.pop_front();
+                    }
+                    last.push_back(blank_key_shapes(&line).chars().take(300).collect());
                 }
             }
-        });
+        }));
     }
     drop(sat_tx);
     let status = loop {
@@ -397,12 +415,20 @@ async fn play(
         }
     };
     drop(stdin);
-    let said = last
+    // The pipes close with the bridge; what it said last is read before
+    // it is told.
+    for reader in readers {
+        let _ = tokio::time::timeout(READ_GRACE, reader).await;
+    }
+    let closing = last
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
+    let said = closing.back().cloned().unwrap_or_default();
     match status {
-        Ok(status) if status.success() => Exit::Ended(said),
+        Ok(status) if status.success() => {
+            Exit::Ended(closing.into_iter().collect::<Vec<_>>().join(" | "))
+        }
         Ok(_) => {
             let said = said
                 .strip_prefix("Error: ")
@@ -467,7 +493,8 @@ mod tests {
             "-c",
             "read ticket; echo \"sits in chair\"; \
              echo \"won after 3 turns: the mind answered 7, the house 1; \
-             key sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123\"",
+             key sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123\"; \
+             echo \"the game is settled in the spend book\"",
         ]);
         let (started, started_rx) = oneshot::channel();
         let (_stop, stop) = oneshot::channel();
@@ -476,6 +503,10 @@ mod tests {
         };
         assert!(started_rx.await.is_ok(), "it sat in its chair");
         assert!(said.contains("the mind answered 7, the house 1"), "{said}");
+        assert!(
+            said.ends_with("the game is settled in the spend book"),
+            "{said}"
+        );
         assert!(!said.contains("abcdefghijklmnop"), "{said}");
     }
 }
